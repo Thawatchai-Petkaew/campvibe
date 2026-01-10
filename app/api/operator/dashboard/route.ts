@@ -5,8 +5,11 @@ export async function GET(request: NextRequest) {
     // In a real app, get session from request
     // For demo, we use the seeded Operator ID
     // You can also pass ?operatorId=... query param to test others
-    const searchParams = request.nextUrl.searchParams;
-    const operatorId = searchParams.get('operatorId') || '4a8dfa9f-b2b3-40b4-baf2-7832ff94e62d';
+    const operator = await prisma.user.findUnique({
+        where: { email: 'operator@campvibe.com' }
+    });
+
+    const operatorId = operator?.id || 'default-id';
 
     try {
         const campgrounds = await prisma.campground.findMany({
@@ -43,7 +46,8 @@ export async function GET(request: NextRequest) {
                 totalRevenue,
                 totalBookings: bookings.length,
                 campgroundCount: campgrounds.length
-            }
+            },
+            operator
         });
 
     } catch (error) {

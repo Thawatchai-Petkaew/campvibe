@@ -29,6 +29,7 @@ export const campgroundSchema = z.object({
 
     partner: z.string().optional(),
     nationalPark: z.string().optional(),
+    images: z.array(z.string()).optional(),
 });
 
 export type CampgroundInput = z.infer<typeof campgroundSchema>;

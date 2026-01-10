@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
 
                 partner: data.partner,
                 nationalPark: data.nationalPark,
+                images: data.images?.join(','),
 
                 locationId: data.locationId,
                 operatorId: data.operatorId,

@@ -75,9 +75,18 @@ export default function OperatorDashboard() {
 
             {/* Main Content */}
             <main className="flex-1 p-8">
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
-                    <p className="text-gray-500">Welcome back, Operator.</p>
+                <div className="mb-8 flex justify-between items-end">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+                        <p className="text-gray-500">Welcome back, Operator.</p>
+                    </div>
+                    <Link
+                        href="/dashboard/campgrounds/new"
+                        className="px-6 py-3 bg-green-900 text-white rounded-xl font-semibold hover:bg-green-800 transition shadow-sm flex items-center gap-2"
+                    >
+                        <Tent className="w-4 h-4" />
+                        Add New Campground
+                    </Link>
                 </div>
 
                 {/* Stats Grid */}
