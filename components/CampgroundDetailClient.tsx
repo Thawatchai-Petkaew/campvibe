@@ -48,78 +48,100 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
         <>
             <div className="container mx-auto px-6 pt-6">
                 {/* Header - Title & Actions */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4 md:gap-0">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-bold font-display text-gray-900 mb-2">
                             {campground.nameTh}
                         </h1>
-                        <div className="flex items-center gap-2 text-sm text-gray-600 underline cursor-pointer">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 underline cursor-pointer">
                             <div className="flex items-center gap-1">
                                 <Star className="w-4 h-4 fill-black text-black" />
                                 <span className="font-semibold text-black">4.8</span>
                                 <span>(12 reviews)</span>
                             </div>
-                            <span>·</span>
+                            <span className="hidden sm:inline">·</span>
                             <span className="font-semibold">{campground.location.province}, Thailand</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
-                            <Share className="w-4 h-4" /> Share
+                            <Share className="w-4 h-4" /> <span>Share</span>
                         </button>
                         <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
-                            <Heart className="w-4 h-4" /> Save
+                            <Heart className="w-4 h-4" /> <span>Save</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Hero Grid - Now Clickable */}
-                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] md:h-[480px] rounded-2xl overflow-hidden mb-10">
-                    <div className="col-span-2 row-span-2 relative">
+                {/* Hero Grid - Responsive Layout */}
+                <div className="relative rounded-2xl overflow-hidden mb-10 group">
+                    {/* Mobile View: Single Hero Image */}
+                    <div className="md:hidden h-[300px] w-full relative">
                         <img
                             src={images[0]}
-                            alt="main"
-                            className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                            alt="hero-mobile"
+                            className="w-full h-full object-cover cursor-pointer"
                             onClick={() => openGallery(0)}
                         />
-                    </div>
-                    <div className="col-span-1 row-span-1 relative">
-                        <img
-                            src={images[1]}
-                            alt="sub 1"
-                            className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                            onClick={() => openGallery(1)}
-                        />
-                    </div>
-                    <div className="col-span-1 row-span-1 relative">
-                        <img
-                            src={images[2]}
-                            alt="sub 2"
-                            className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                            onClick={() => openGallery(2)}
-                        />
-                    </div>
-                    <div className="col-span-1 row-span-1 relative">
-                        <img
-                            src={images[3]}
-                            alt="sub 3"
-                            className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                            onClick={() => openGallery(3)}
-                        />
-                    </div>
-                    <div className="col-span-1 row-span-1 relative">
-                        <img
-                            src={images[4]}
-                            alt="sub 4"
-                            className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                            onClick={() => openGallery(4)}
-                        />
+                        <div className="absolute top-4 right-4 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+                            1 / {images.length}
+                        </div>
                         <button
                             onClick={() => openGallery(0)}
-                            className="absolute bottom-4 right-4 bg-white/90 hover:bg-white text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-900 shadow-sm transition"
+                            className="absolute bottom-4 right-4 bg-white/90 text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-900 shadow-sm"
                         >
-                            Show all photos
+                            All photos
                         </button>
+                    </div>
+
+                    {/* Desktop View: Airbnb Style Grid */}
+                    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                        <div className="col-span-2 row-span-2 relative">
+                            <img
+                                src={images[0]}
+                                alt="main"
+                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                                onClick={() => openGallery(0)}
+                            />
+                        </div>
+                        <div className="col-span-1 row-span-1 relative">
+                            <img
+                                src={images[1]}
+                                alt="sub 1"
+                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                                onClick={() => openGallery(1)}
+                            />
+                        </div>
+                        <div className="col-span-1 row-span-1 relative">
+                            <img
+                                src={images[2]}
+                                alt="sub 2"
+                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                                onClick={() => openGallery(2)}
+                            />
+                        </div>
+                        <div className="col-span-1 row-span-1 relative">
+                            <img
+                                src={images[3]}
+                                alt="sub 3"
+                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                                onClick={() => openGallery(3)}
+                            />
+                        </div>
+                        <div className="col-span-1 row-span-1 relative">
+                            <img
+                                src={images[4]}
+                                alt="sub 4"
+                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                                onClick={() => openGallery(4)}
+                            />
+                            <button
+                                onClick={() => openGallery(0)}
+                                className="absolute bottom-4 right-4 bg-white/90 hover:bg-white text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-900 shadow-sm transition"
+                            >
+                                Show all photos
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -275,7 +297,7 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
                         <MapPin className="w-5 h-5 text-gray-900" />
                         <span>{campground.location.province}, Thailand</span>
                     </div>
-                    <div className="w-full h-[480px]">
+                    <div className="w-full h-[320px] md:h-[480px]">
                         <DynamicMap
                             latitude={campground.latitude}
                             longitude={campground.longitude}
