@@ -111,12 +111,13 @@ export default function NewCampgroundPage() {
             <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
                 <div className="container mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/dashboard" className="p-2 hover:bg-gray-50 rounded-full transition">
-                            <ChevronLeft className="w-6 h-6 text-gray-600" />
+                        <Link href="/" className="px-2">
+                            <img src="/logo.png" alt="CampVibe Logo" className="h-8 w-auto" />
                         </Link>
+                        <div className="h-6 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900 leading-tight">Create New Campground</h1>
-                            <p className="text-sm text-gray-500">Add your campsite to the world</p>
+                            <h1 className="text-lg font-bold text-gray-900 leading-tight">Create Listing</h1>
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Host Dashboard</p>
                         </div>
                     </div>
                     <button

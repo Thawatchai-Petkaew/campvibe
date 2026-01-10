@@ -44,10 +44,9 @@ export default function OperatorDashboard() {
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-gray-100 hidden md:flex flex-col">
                 <div className="p-6">
-                    <h1 className="text-xl font-bold font-display text-green-900 flex items-center gap-2">
-                        <Tent className="w-6 h-6" />
-                        Host Panel
-                    </h1>
+                    <Link href="/">
+                        <img src="/logo.png" alt="CampVibe Logo" className="h-10 w-auto" />
+                    </Link>
                 </div>
 
                 <nav className="flex-1 px-4 space-y-1">

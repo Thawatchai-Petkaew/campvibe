@@ -13,10 +13,7 @@ export function Navbar() {
             <div className="container mx-auto px-6 h-20 flex items-center justify-between">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2">
-                    <Tent className="text-green-900 w-8 h-8" />
-                    <span className="text-xl font-bold font-display tracking-tight text-green-900">
-                        CampVibe
-                    </span>
+                    <img src="/logo.png" alt="CampVibe Logo" className="h-8 md:h-10 w-auto" />
                 </Link>
 
                 {/* Search Bar - Center (Airbnb style) */}
