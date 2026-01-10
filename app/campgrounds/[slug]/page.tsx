@@ -11,14 +11,20 @@ interface PageProps {
 export default async function CampgroundDetailPage({ params }: PageProps) {
     const { slug } = await params;
 
-    const campground = await prisma.campground.findUnique({
-        where: { nameThSlug: slug },
-        include: {
-            location: true,
-            operator: true,
-            sites: true,
-        }
-    });
+    let campground;
+    try {
+        campground = await prisma.campground.findUnique({
+            where: { nameThSlug: slug },
+            include: {
+                location: true,
+                operator: true,
+                sites: true,
+            }
+        });
+    } catch (error) {
+        console.error("Database connection error:", error);
+        notFound();
+    }
 
     if (!campground) {
         notFound();

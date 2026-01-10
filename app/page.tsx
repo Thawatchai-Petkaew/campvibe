@@ -19,13 +19,20 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   // Fetch campgrounds server-side
-  const campgrounds = await prisma.campground.findMany({
-    where,
-    include: {
-      location: true,
-    },
-    take: 20
-  });
+  let campgrounds: any[] = [];
+  try {
+    campgrounds = await prisma.campground.findMany({
+      where,
+      include: {
+        location: true,
+      },
+      take: 20
+    });
+  } catch (error) {
+    console.error("Database connection error:", error);
+    // Return empty array and let the UI handle it with the "No campgrounds found" state
+    campgrounds = [];
+  }
 
   return (
     <main className="min-h-screen pb-20">

@@ -7,19 +7,6 @@ import "leaflet/dist/leaflet.css";
 import { Star } from "lucide-react";
 
 // Custom Pin Icon using primary color
-const PrimaryIcon = L.divIcon({
-    html: `
-        <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#14532d"/>
-            <circle cx="16" cy="16" r="6" fill="white"/>
-        </svg>
-    `,
-    className: "",
-    iconSize: [32, 42],
-    iconAnchor: [16, 42],
-    popupAnchor: [0, -46], // 0.25rem (4px) gap above the pin
-});
-
 interface MapComponentProps {
     latitude: number;
     longitude: number;
@@ -28,6 +15,27 @@ interface MapComponentProps {
 
 export default function MapComponent({ latitude, longitude, campground }: MapComponentProps) {
     const [isHovered, setIsHovered] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted || typeof window === 'undefined') return null;
+
+    // Custom Pin Icon using primary color (Safe to create here because we checked for window)
+    const PrimaryIcon = L.divIcon({
+        html: `
+            <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#14532d"/>
+                <circle cx="16" cy="16" r="6" fill="white"/>
+            </svg>
+        `,
+        className: "",
+        iconSize: [32, 42],
+        iconAnchor: [16, 42],
+        popupAnchor: [0, -46], // 0.25rem (4px) gap above the pin
+    });
     const images = campground.images ? campground.images.split(',') : [];
     const coverImage = images[0] || "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=400";
 
