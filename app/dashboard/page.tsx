@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
     LayoutDashboard,
     Tent,
@@ -23,6 +24,7 @@ interface DashboardData {
 }
 
 export default function OperatorDashboard() {
+    const { t, formatCurrency, language } = useLanguage();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -35,7 +37,7 @@ export default function OperatorDashboard() {
             });
     }, []);
 
-    if (loading) return <div className="p-10">Loading Dashboard...</div>;
+    if (loading) return <div className="p-10">{t.common.showAll.replace('Show all', 'Loading')}...</div>;
     if (!data) return <div className="p-10">Error loading data.</div>;
 
     return (
@@ -52,22 +54,22 @@ export default function OperatorDashboard() {
                 <nav className="flex-1 px-4 space-y-1">
                     <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 bg-green-50 text-green-900 rounded-lg font-medium">
                         <LayoutDashboard className="w-5 h-5" />
-                        Overview
+                        {t.dashboard.overview}
                     </Link>
-                    <Link href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition">
+                    <Link href="/dashboard/campgrounds" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition">
                         <Tent className="w-5 h-5" />
-                        My Campgrounds
+                        {t.dashboard.myCampgrounds}
                     </Link>
                     <Link href="#" className="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition">
                         <CalendarDays className="w-5 h-5" />
-                        Bookings
+                        {t.dashboard.bookings}
                     </Link>
                 </nav>
 
                 <div className="p-4 border-t border-gray-50">
                     <Link href="/" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-black transition">
                         <LogOut className="w-5 h-5" />
-                        Back to Home
+                        {t.dashboard.backToHome}
                     </Link>
                 </div>
             </aside>
@@ -76,15 +78,15 @@ export default function OperatorDashboard() {
             <main className="flex-1 p-8">
                 <div className="mb-8 flex justify-between items-end">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
-                        <p className="text-gray-500">Welcome back, Operator.</p>
+                        <h2 className="text-2xl font-bold text-gray-900">{t.dashboard.dashboardOverview}</h2>
+                        <p className="text-gray-500">{t.dashboard.welcomeBack}</p>
                     </div>
                     <Link
                         href="/dashboard/campgrounds/new"
                         className="px-6 py-3 bg-green-900 text-white rounded-xl font-semibold hover:bg-green-800 transition shadow-sm flex items-center gap-2"
                     >
                         <Tent className="w-4 h-4" />
-                        Add New Campground
+                        {t.dashboard.addCampground}
                     </Link>
                 </div>
 
@@ -93,8 +95,8 @@ export default function OperatorDashboard() {
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-50">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                                <h3 className="text-2xl font-bold mt-1">${data.stats.totalRevenue.toLocaleString()}</h3>
+                                <p className="text-sm font-medium text-gray-500">{t.dashboard.totalRevenue}</p>
+                                <h3 className="text-2xl font-bold mt-1">{formatCurrency(data.stats.totalRevenue)}</h3>
                             </div>
                             <div className="p-2 bg-green-100 rounded-lg">
                                 <DollarSign className="w-5 h-5 text-green-800" />
@@ -128,23 +130,23 @@ export default function OperatorDashboard() {
                 {/* Recent Bookings Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-50 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900">Recent Bookings</h3>
-                        <button className="text-sm text-green-900 font-medium hover:underline">View All</button>
+                        <h3 className="font-semibold text-gray-900">{t.dashboard.recentBookings}</h3>
+                        <button className="text-sm text-green-900 font-medium hover:underline">{t.dashboard.viewAll}</button>
                     </div>
                     <table className="w-full text-left text-sm">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-6 py-3 font-medium text-gray-500">Guest</th>
-                                <th className="px-6 py-3 font-medium text-gray-500">Campground</th>
-                                <th className="px-6 py-3 font-medium text-gray-500">Check-in</th>
-                                <th className="px-6 py-3 font-medium text-gray-500">Total</th>
-                                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                                <th className="px-6 py-3 font-medium text-gray-500">{t.dashboard.guest}</th>
+                                <th className="px-6 py-3 font-medium text-gray-500">{t.dashboard.campground}</th>
+                                <th className="px-6 py-3 font-medium text-gray-500">{t.booking.checkIn}</th>
+                                <th className="px-6 py-3 font-medium text-gray-500">{t.dashboard.total}</th>
+                                <th className="px-6 py-3 font-medium text-gray-500">{t.dashboard.status}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {data.bookings.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No bookings found.</td>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">{t.dashboard.noBookings}</td>
                                 </tr>
                             ) : (
                                 data.bookings.map((booking) => (
@@ -158,8 +160,8 @@ export default function OperatorDashboard() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-gray-600">{booking.campground.nameTh}</td>
-                                        <td className="px-6 py-4 text-gray-600">{new Date(booking.checkInDate).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 text-gray-900 font-medium">${booking.totalPrice}</td>
+                                        <td className="px-6 py-4 text-gray-600">{new Date(booking.checkInDate).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US')}</td>
+                                        <td className="px-6 py-4 text-gray-900 font-medium">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                         ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-900' : 'bg-yellow-100 text-yellow-800'}

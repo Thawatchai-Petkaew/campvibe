@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+import { auth } from '@/lib/auth';
+
 export async function GET(request: NextRequest) {
-    // In a real app, get session from request
-    // For demo, we use the seeded Operator ID
-    // You can also pass ?operatorId=... query param to test others
+    const session = await auth();
+
+    if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const operator = await prisma.user.findUnique({
-        where: { email: 'operator@campvibe.com' }
+        where: { email: session.user.email }
     });
 
-    const operatorId = operator?.id || 'default-id';
+    const operatorId = operator?.id;
+
+    if (!operatorId) {
+        return NextResponse.json({ error: 'Operator not found' }, { status: 404 });
+    }
 
     try {
         const campgrounds = await prisma.campground.findMany({

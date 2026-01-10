@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 
@@ -19,18 +20,18 @@ import {
     Wifi,
     Car,
     ShowerHead,
-    Utensils
+    Utensils,
+    Edit // Import Edit icon
 } from "lucide-react";
+import Link from "next/link"; // Import Link
 
-interface CampgroundDetailClientProps {
-    campground: any;
-    t: any;
-}
-
-export default function CampgroundDetailClient({ campground, t }: CampgroundDetailClientProps) {
+export default function CampgroundDetailClient({ campground, isOwner = false }: { campground: any, isOwner?: boolean }) {
+    const { t, formatCurrency, language } = useLanguage();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
+
+    const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
     // Parse images from CSV
     const images = campground.images
@@ -51,24 +52,31 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
                 <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4 md:gap-0">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-bold font-display text-gray-900 mb-2">
-                            {campground.nameTh}
+                            {name}
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 underline cursor-pointer">
                             <div className="flex items-center gap-1">
                                 <Star className="w-4 h-4 fill-black text-black" />
                                 <span className="font-semibold text-black">4.8</span>
-                                <span>(12 reviews)</span>
+                                <span>(12 {t.common.reviews})</span>
                             </div>
                             <span className="hidden sm:inline">·</span>
                             <span className="font-semibold">{campground.location.province}, Thailand</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
+                        {isOwner && (
+                            <Link href={`/dashboard/campgrounds/${campground.id}/edit`}>
+                                <button className="flex items-center gap-2 text-sm font-medium bg-green-900 text-white hover:bg-green-800 px-4 py-2 rounded-lg transition shadow-sm">
+                                    <Edit className="w-4 h-4" /> <span>Edit Campground</span>
+                                </button>
+                            </Link>
+                        )}
                         <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
-                            <Share className="w-4 h-4" /> <span>Share</span>
+                            <Share className="w-4 h-4" /> <span>{t.common.share}</span>
                         </button>
                         <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
-                            <Heart className="w-4 h-4" /> <span>Save</span>
+                            <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
                         </button>
                     </div>
                 </div>
@@ -154,8 +162,8 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
                         {/* Host Info */}
                         <div className="flex justify-between items-center pb-6 border-b border-gray-200">
                             <div>
-                                <h2 className="text-xl font-semibold mb-1">Hosted by {campground.operator.name || 'Owner'}</h2>
-                                <p className="text-gray-500 text-sm">Joined Dec 2025 · Verified Host</p>
+                                <h2 className="text-xl font-semibold mb-1">{t.campground.hostedBy} {campground.operator.name || 'Owner'}</h2>
+                                <p className="text-gray-500 text-sm">{t.campground.joined} Dec 2025 · {t.campground.verifiedHost}</p>
                             </div>
                             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-bold text-lg">
                                 {campground.operator.name?.[0] || 'O'}
@@ -167,60 +175,60 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
                             <div className="flex gap-4 items-start">
                                 <Tent className="w-6 h-6 text-gray-600 mt-1" />
                                 <div>
-                                    <h3 className="font-semibold">Bring your own tent</h3>
-                                    <p className="text-gray-500 text-sm">This campsite is perfect for tent camping.</p>
+                                    <h3 className="font-semibold">{t.campground.bringTent}</h3>
+                                    <p className="text-gray-500 text-sm">{t.campground.bringTentDesc}</p>
                                 </div>
                             </div>
                             <div className="flex gap-4 items-start">
                                 <Car className="w-6 h-6 text-gray-600 mt-1" />
                                 <div>
-                                    <h3 className="font-semibold">Drive-in Access</h3>
-                                    <p className="text-gray-500 text-sm">Park your vehicle right at the campsite.</p>
+                                    <h3 className="font-semibold">{t.campground.driveInAccess}</h3>
+                                    <p className="text-gray-500 text-sm">{t.campground.driveInDesc}</p>
                                 </div>
                             </div>
                             <div className="flex gap-4 items-start">
                                 <ShieldCheck className="w-6 h-6 text-gray-600 mt-1" />
                                 <div>
-                                    <h3 className="font-semibold">Verified Listing</h3>
-                                    <p className="text-gray-500 text-sm">This campground has been verified by CampVibe.</p>
+                                    <h3 className="font-semibold">{t.campground.verifiedListing}</h3>
+                                    <p className="text-gray-500 text-sm">{t.campground.verifiedDesc}</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Description */}
                         <div className="pb-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold font-display mb-4">About the mountains</h2>
+                            <h2 className="text-xl font-bold font-display mb-4">{t.campground.aboutPlace}</h2>
                             <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                                {campground.description || `Experience the serenity of ${campground.nameTh}. Nestled in the heart of ${campground.location.province}, this campground offers breathtaking views and a direct connection to nature. Perfect for weekend getaways and star gazing.`}
+                                {campground.description || `${t.campground.aboutPlace} ${name}. ${t.campground.verifiedDesc}`}
                             </p>
                         </div>
 
                         {/* Facilities */}
                         <div className="pb-6 border-b border-gray-200">
-                            <h2 className="text-xl font-bold font-display mb-6">What this place offers</h2>
+                            <h2 className="text-xl font-bold font-display mb-6">{t.campground.whatOffers}</h2>
                             <div className="grid grid-cols-2 gap-y-4">
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <Wifi className="w-5 h-5" />
-                                    <span>Wifi</span>
+                                    <span>{t.facilities.wifi}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <Utensils className="w-5 h-5" />
-                                    <span>Kitchen</span>
+                                    <span>{t.facilities.kitchen}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <ShowerHead className="w-5 h-5" />
-                                    <span>Shower</span>
+                                    <span>{t.facilities.shower}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <Car className="w-5 h-5" />
-                                    <span>Free parking on premises</span>
+                                    <span>{t.facilities.parking}</span>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setIsAmenitiesOpen(true)}
                                 className="mt-6 border border-gray-900 rounded-lg px-6 py-3 font-semibold hover:bg-gray-50 transition"
                             >
-                                Show all 12 amenities
+                                {t.common.showAll} 12 {t.common.amenities}
                             </button>
                         </div>
 
@@ -231,58 +239,58 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
                         <div className="sticky top-28 border border-gray-200 rounded-xl p-6 shadow-xl shadow-gray-100 bg-white">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
-                                    <span className="text-2xl font-bold">${campground.priceLow || 50} </span>
-                                    <span className="text-gray-500">night</span>
+                                    <span className="text-2xl font-bold">{formatCurrency(campground.priceLow || 50)} </span>
+                                    <span className="text-gray-500">{t.common.night}</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm">
                                     <Star className="w-3.5 h-3.5 fill-black" />
                                     <span className="font-semibold">4.8</span>
                                     <span className="text-gray-400">·</span>
-                                    <span className="text-gray-500 underline">12 reviews</span>
+                                    <span className="text-gray-500 underline">12 {t.common.reviews}</span>
                                 </div>
                             </div>
 
                             <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
                                 <div className="flex border-b border-gray-200">
                                     <div className="w-1/2 p-3 border-r border-gray-200">
-                                        <label className="block text-[10px] font-bold uppercase text-gray-700">Check-in</label>
-                                        <div className="text-sm">Add date</div>
+                                        <label className="block text-[10px] font-bold uppercase text-gray-700">{t.booking.checkIn}</label>
+                                        <div className="text-sm">{t.booking.addDate}</div>
                                     </div>
                                     <div className="w-1/2 p-3">
-                                        <label className="block text-[10px] font-bold uppercase text-gray-700">Check-out</label>
-                                        <div className="text-sm">Add date</div>
+                                        <label className="block text-[10px] font-bold uppercase text-gray-700">{t.booking.checkOut}</label>
+                                        <div className="text-sm">{t.booking.addDate}</div>
                                     </div>
                                 </div>
                                 <div className="p-3">
-                                    <label className="block text-[10px] font-bold uppercase text-gray-700">Guests</label>
-                                    <div className="text-sm">1 guest</div>
+                                    <label className="block text-[10px] font-bold uppercase text-gray-700">{t.booking.guests}</label>
+                                    <div className="text-sm">1 {t.booking.guest}</div>
                                 </div>
                             </div>
 
                             <button className="w-full bg-green-800 hover:bg-green-900 text-white font-bold py-3.5 rounded-lg transition mb-4">
-                                Reserve
+                                {t.common.reserve}
                             </button>
 
-                            <p className="text-center text-xs text-gray-500 mb-4">You won't be charged yet</p>
+                            <p className="text-center text-xs text-gray-500 mb-4">{t.booking.notChargedYet}</p>
 
                             <div className="space-y-3 text-sm text-gray-600">
                                 <div className="flex justify-between">
-                                    <span className="underline">$50 x 5 nights</span>
-                                    <span>$250</span>
+                                    <span className="underline">{formatCurrency(campground.priceLow || 50)} x 5 {t.booking.nights}</span>
+                                    <span>{formatCurrency((campground.priceLow || 50) * 5)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="underline">Cleaning fee</span>
-                                    <span>$20</span>
+                                    <span className="underline">{t.booking.cleaningFee}</span>
+                                    <span>{formatCurrency(20)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="underline">Service fee</span>
-                                    <span>$35</span>
+                                    <span className="underline">{t.booking.serviceFee}</span>
+                                    <span>{formatCurrency(35)}</span>
                                 </div>
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between font-bold text-gray-900">
-                                <span>Total before taxes</span>
-                                <span>$305</span>
+                                <span>{t.booking.totalBeforeTaxes}</span>
+                                <span>{formatCurrency((campground.priceLow || 50) * 5 + 55)}</span>
                             </div>
 
                         </div>
@@ -292,7 +300,7 @@ export default function CampgroundDetailClient({ campground, t }: CampgroundDeta
 
                 {/* Map Section */}
                 <div className="py-12 border-t border-gray-200 mt-10">
-                    <h2 className="text-xl font-bold font-display mb-4">Where you'll be</h2>
+                    <h2 className="text-xl font-bold font-display mb-4">{t.campground.whereYouBe}</h2>
                     <div className="flex gap-2 mb-6 text-gray-600">
                         <MapPin className="w-5 h-5 text-gray-900" />
                         <span>{campground.location.province}, Thailand</span>

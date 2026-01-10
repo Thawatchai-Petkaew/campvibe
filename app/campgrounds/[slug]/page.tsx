@@ -2,13 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
 import CampgroundDetailClient from "@/components/CampgroundDetailClient";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
 }
 
-export default async function CampgroundDetailPage({ params }: PageProps) {
+export default async function CampgroundPage({ params }: { params: Promise<{ slug: string }> }) {
+    const session = await auth();
     const { slug } = await params;
 
     let campground;
@@ -32,10 +34,12 @@ export default async function CampgroundDetailPage({ params }: PageProps) {
 
     const t = getTranslations('th'); // Default to Thai for SSR or detect from cookies
 
+    const isOwner = session?.user?.email === campground.operator.email;
+
     return (
-        <main className="min-h-screen pb-20">
-            <Navbar />
-            <CampgroundDetailClient campground={campground} t={t} />
+        <main className="min-h-screen bg-white">
+            <Navbar currentUser={session?.user} />
+            <CampgroundDetailClient campground={campground} isOwner={isOwner} />
         </main>
     );
 }

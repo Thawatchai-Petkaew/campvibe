@@ -1,5 +1,8 @@
 {
     "en": {
+        "auth": {
+            "signOut": "Sign out"
+        },
         "nav": {
             "campYourHome": "Camp your home",
             "anywhere": "Anywhere",
@@ -15,7 +18,19 @@
             "close": "Close",
             "showAll": "Show all",
             "photos": "photos",
-            "amenities": "amenities"
+            "amenities": "amenities",
+            "free": "Free",
+            "newListing": "New Listing"
+        },
+        "categories": {
+            "all": "All",
+            "campgrounds": "Campgrounds",
+            "carCamping": "Car Camping",
+            "glamping": "Glamping",
+            "lakefront": "Lakefront",
+            "forest": "Forest",
+            "views": "Views",
+            "boatAccess": "Boat Access"
         },
         "campground": {
             "hostedBy": "Hosted by",
@@ -60,46 +75,56 @@
             "campground": "Campground",
             "total": "Total",
             "status": "Status",
-            "noBookings": "No bookings found."
+            "noBookings": "No bookings found.",
+            "addCampground": "Add New Campground",
+            "createListing": "Create Listing"
         },
-        "categories": {
-            "campgrounds": "Campgrounds",
+        "newCampground": {
+            "title": "Create New Campground",
+            "subtitle": "Add your campsite to the world",
+            "basicInfo": "Basic Information",
+            "nameTh": "Campground Name (Thai)",
+            "nameEn": "Campground Name (English)",
+            "placeholderNameTh": "e.g. Khob Chon Camp",
+            "placeholderNameEn": "e.g. Khob Chon Camp",
+            "description": "Description",
+            "descriptionPlaceholder": "Tell campers what's special about your place...",
+            "photos": "Photos",
+            "locationSettings": "Location Settings",
+            "province": "Province",
+            "type": "Campground Type",
+            "lat": "Latitude",
+            "lon": "Longitude",
+            "pricing": "Pricing",
+            "minPrice": "Min Price / Night",
+            "maxPrice": "Max Price / Night",
+            "operations": "Operations",
+            "checkIn": "Check-in",
+            "checkOut": "Check-out",
+            "hostTipTitle": "Host Tip",
+            "hostTipDesc": "Uploading high-quality photos can increase your booking rate by up to 40%.",
+            "saveListing": "Save Listing",
+            "saving": "Saving...",
+            "regularCamp": "Regular Campground",
             "carCamping": "Car Camping",
-            "glamping": "Glamping",
-            "lakefront": "Lakefront",
-            "forest": "Forest",
-            "views": "Views",
-            "boatAccess": "Boat Access"
+            "glamping": "Glamping"
+        },
+        "currency": {
+            "symbol": "$",
+            "name": "USD",
+            "rate": 1
         },
         "facilities": {
             "wifi": "Wifi",
             "kitchen": "Kitchen",
             "shower": "Shower",
-            "parking": "Free parking on premises",
-            "tentCamping": "Tent camping allowed",
-            "nature": "Surrounded by nature",
-            "freshAir": "Fresh mountain air",
-            "drinkingWater": "Drinking water",
-            "firePit": "Fire pit",
-            "commonArea": "Common area",
-            "security": "24/7 Security",
-            "evCharging": "EV charging"
-        },
-        "facilityCategories": {
-            "connectivity": "Connectivity",
-            "cooking": "Cooking",
-            "bathroom": "Bathroom",
-            "parking": "Parking",
-            "camping": "Camping",
-            "location": "Location",
-            "environment": "Environment",
-            "essentials": "Essentials",
-            "outdoor": "Outdoor",
-            "social": "Social",
-            "safety": "Safety"
+            "parking": "Free parking on premises"
         }
     },
     "th": {
+        "auth": {
+            "signOut": "ออกจากระบบ"
+        },
         "nav": {
             "campYourHome": "เปิดแคมป์ของคุณ",
             "anywhere": "ทุกที่",
@@ -115,7 +140,19 @@
             "close": "ปิด",
             "showAll": "แสดงทั้งหมด",
             "photos": "รูปภาพ",
-            "amenities": "สิ่งอำนวยความสะดวก"
+            "amenities": "สิ่งอำนวยความสะดวก",
+            "free": "ฟรี",
+            "newListing": "รายการใหม่"
+        },
+        "categories": {
+            "all": "ทั้งหมด",
+            "campgrounds": "แคมป์กราวด์",
+            "carCamping": "แคมป์ด้วยรถ",
+            "glamping": "แกลมปิ้ง",
+            "lakefront": "ริมทะเลสาบ",
+            "forest": "ป่าไม้",
+            "views": "วิวสวย",
+            "boatAccess": "เข้าถึงด้วยเรือ"
         },
         "campground": {
             "hostedBy": "โฮสต์โดย",
@@ -160,43 +197,50 @@
             "campground": "แคมป์กราวด์",
             "total": "ยอดรวม",
             "status": "สถานะ",
-            "noBookings": "ไม่พบการจอง"
+            "noBookings": "ไม่พบการจอง",
+            "addCampground": "เพิ่มแคมป์กราวด์ใหม่",
+            "createListing": "สร้างรายการ"
         },
-        "categories": {
-            "campgrounds": "แคมป์กราวด์",
+        "newCampground": {
+            "title": "สร้างแคมป์กราวด์ใหม่",
+            "subtitle": "เพิ่มแคมป์ไซต์ของคุณสู่โลกกว้าง",
+            "basicInfo": "ข้อมูลพื้นฐาน",
+            "nameTh": "ชื่อแคมป์กราวด์ (ภาษาไทย)",
+            "nameEn": "ชื่อแคมป์กราวด์ (ภาษาอังกฤษ)",
+            "placeholderNameTh": "เช่น ขอบชลแคมป์",
+            "placeholderNameEn": "เช่น Khob Chon Camp",
+            "description": "คำอธิบาย",
+            "descriptionPlaceholder": "บอกชาวแคมป์ว่าสถานที่ของคุณมีอะไรพิเศษ...",
+            "photos": "รูปภาพ",
+            "locationSettings": "การตั้งค่าสถานที่",
+            "province": "จังหวัด",
+            "type": "ประเภทแคมป์กราวด์",
+            "lat": "ละติจูด",
+            "lon": "ลองจิจูด",
+            "pricing": "ราคา",
+            "minPrice": "ราคาเริ่มต้น / คืน",
+            "maxPrice": "ราคาสูงสุด / คืน",
+            "operations": "การดำเนินงาน",
+            "checkIn": "เวลาเช็คอิน",
+            "checkOut": "เวลาเช็คเอาท์",
+            "hostTipTitle": "เคล็ดลับสำหรับโฮสต์",
+            "hostTipDesc": "การอัปโหลดรูปภาพคุณภาพสูงสามารถเพิ่มอัตราการจองได้ถึง 40%",
+            "saveListing": "บันทึกรายการ",
+            "saving": "กำลังบันทึก...",
+            "regularCamp": "แคมป์กราวด์ทั่วไป",
             "carCamping": "แคมป์ด้วยรถ",
-            "glamping": "แกลมปิ้ง",
-            "lakefront": "ริมทะเลสาบ",
-            "forest": "ป่า",
-            "views": "วิวสวย",
-            "boatAccess": "เข้าถึงด้วยเรือ"
+            "glamping": "แกลมปิ้ง"
+        },
+        "currency": {
+            "symbol": "฿",
+            "name": "THB",
+            "rate": 35
         },
         "facilities": {
             "wifi": "ไวไฟ",
             "kitchen": "ครัว",
             "shower": "ห้องอาบน้ำ",
-            "parking": "ที่จอดรถฟรี",
-            "tentCamping": "อนุญาตให้ตั้งเต็นท์",
-            "nature": "ล้อมรอบด้วยธรรมชาติ",
-            "freshAir": "อากาศบริสุทธิ์จากภูเขา",
-            "drinkingWater": "น้ำดื่ม",
-            "firePit": "หลุมไฟ",
-            "commonArea": "พื้นที่ส่วนกลาง",
-            "security": "รักษาความปลอดภัย 24/7",
-            "evCharging": "ชาร์จรถยนต์ไฟฟ้า"
-        },
-        "facilityCategories": {
-            "connectivity": "การเชื่อมต่อ",
-            "cooking": "การทำอาหาร",
-            "bathroom": "ห้องน้ำ",
-            "parking": "ที่จอดรถ",
-            "camping": "การแคมป์",
-            "location": "ที่ตั้ง",
-            "environment": "สิ่งแวดล้อม",
-            "essentials": "สิ่งจำเป็น",
-            "outdoor": "กลางแจ้ง",
-            "social": "สังคม",
-            "safety": "ความปลอดภัย"
+            "parking": "ที่จอดรถฟรี"
         }
     }
 }

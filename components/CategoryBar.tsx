@@ -11,19 +11,27 @@ import {
     Ghost
 } from "lucide-react";
 import clsx from "clsx";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const CATEGORIES = [
-    { label: "All", icon: Mountain, type: "ALL" },
-    { label: "Campgrounds", icon: Tent, type: "CAGD" },
-    { label: "Car Camping", icon: CarFront, type: "CACP" },
-    { label: "Glamping", icon: Ghost, type: "GLAMP" },
-    { label: "Lakefront", icon: Waves, type: "LAKE" },
-    { label: "Forest", icon: Trees, type: "FOREST" },
-    { label: "Views", icon: Mountain, type: "VIEW" },
-    { label: "Boat Access", icon: Sailboat, type: "BAOT" },
+interface Category {
+    labelKey: string;
+    icon: any;
+    type: string;
+}
+
+const CATEGORIES: Category[] = [
+    { labelKey: "all", icon: Mountain, type: "ALL" },
+    { labelKey: "campgrounds", icon: Tent, type: "CAGD" },
+    { labelKey: "carCamping", icon: CarFront, type: "CACP" },
+    { labelKey: "glamping", icon: Ghost, type: "GLAMP" },
+    { labelKey: "lakefront", icon: Waves, type: "LAKE" },
+    { labelKey: "forest", icon: Trees, type: "FOREST" },
+    { labelKey: "views", icon: Mountain, type: "VIEW" },
+    { labelKey: "boatAccess", icon: Sailboat, type: "BAOT" },
 ];
 
 export function CategoryBar() {
+    const { t } = useLanguage();
     const router = useRouter();
     const searchParams = useSearchParams();
     const activeType = searchParams.get("type") || "ALL";
@@ -42,7 +50,7 @@ export function CategoryBar() {
         <div className="pt-4 pb-2 flex items-center gap-8 overflow-x-auto no-scrollbar container mx-auto px-6">
             {CATEGORIES.map((cat) => (
                 <button
-                    key={cat.label}
+                    key={cat.labelKey}
                     onClick={() => handleCategoryClick(cat.type)}
                     className={clsx(
                         "flex flex-col items-center gap-2 min-w-[64px] pb-3 border-b-2 transition group",
@@ -57,7 +65,7 @@ export function CategoryBar() {
                             activeType === cat.type ? "stroke-2" : "stroke-1 group-hover:stroke-2"
                         )}
                     />
-                    <span className="text-xs font-medium whitespace-nowrap">{cat.label}</span>
+                    <span className="text-xs font-medium whitespace-nowrap">{(t.categories as any)[cat.labelKey]}</span>
                 </button>
             ))}
         </div>

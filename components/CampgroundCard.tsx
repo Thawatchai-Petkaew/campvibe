@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Star, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Campground } from "@prisma/client";
 
 interface CampgroundCardProps {
@@ -10,6 +11,7 @@ interface CampgroundCardProps {
 }
 
 export function CampgroundCard({ campground }: CampgroundCardProps) {
+    const { t, formatCurrency, language } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
     const imageUrls = campground.images ? campground.images.split(',') : [
         "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=800"
@@ -27,14 +29,17 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
         setCurrentIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
     };
 
+    const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
+    const slug = language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug;
+
     return (
-        <Link href={`/campgrounds/${campground.nameThSlug}`} className="group block space-y-3 cursor-pointer">
+        <Link href={`/campgrounds/${slug}`} className="group block space-y-3 cursor-pointer">
             <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-200">
                 {/* Image Slider */}
                 <div className="relative w-full h-full">
                     <img
                         src={imageUrls[currentIndex]}
-                        alt={campground.nameTh}
+                        alt={name}
                         className="object-cover w-full h-full group-hover:scale-105 transition duration-500 ease-out"
                     />
 
@@ -77,7 +82,7 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
 
             <div className="space-y-1">
                 <div className="flex justify-between items-start">
-                    <h3 className="font-semibold text-gray-900 truncate pr-4">{campground.nameTh}</h3>
+                    <h3 className="font-semibold text-gray-900 truncate pr-4">{name}</h3>
                     <div className="flex items-center gap-1">
                         <Star className="w-3.5 h-3.5 fill-black text-black" />
                         <span className="text-sm">4.8</span>
@@ -85,11 +90,11 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
                 </div>
                 <p className="text-gray-500 text-sm">{campground.location.province}, Thailand</p>
                 <p className="text-gray-500 text-sm">
-                    Added 2 weeks ago
+                    {t.common.newListing}
                 </p>
                 <div className="flex items-baseline gap-1 pt-1">
-                    <span className="font-semibold">{campground.priceLow ? `$${campground.priceLow}` : 'Free'}</span>
-                    <span className="text-gray-900">night</span>
+                    <span className="font-semibold">{campground.priceLow ? formatCurrency(campground.priceLow) : t.common.free}</span>
+                    <span className="text-gray-900">{t.common.night}</span>
                 </div>
             </div>
         </Link>
