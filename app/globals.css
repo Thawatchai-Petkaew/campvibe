@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+    --font-sans: var(--font-inter);
+    --font-display: var(--font-outfit);
+    --color-primary: #14532d;
+    /* green-900 */
+}
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #ffffff;
+        /* Keeping clean white look even in dark mode initially for that 'Airbnb' light feel */
+        --foreground: #171717;
+    }
+}
+
+body {
+    color: var(--foreground);
+    background: var(--background);
+    font-family: var(--font-sans), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-display), sans-serif;
+}

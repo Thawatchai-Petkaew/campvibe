@@ -1,0 +1,202 @@
+{
+    "en": {
+        "nav": {
+            "campYourHome": "Camp your home",
+            "anywhere": "Anywhere",
+            "anyWeek": "Any week",
+            "addGuests": "Add guests"
+        },
+        "common": {
+            "share": "Share",
+            "save": "Save",
+            "reviews": "reviews",
+            "night": "night",
+            "reserve": "Reserve",
+            "close": "Close",
+            "showAll": "Show all",
+            "photos": "photos",
+            "amenities": "amenities"
+        },
+        "campground": {
+            "hostedBy": "Hosted by",
+            "verifiedHost": "Verified Host",
+            "joined": "Joined",
+            "bringTent": "Bring your own tent",
+            "bringTentDesc": "This campsite is perfect for tent camping.",
+            "driveInAccess": "Drive-in Access",
+            "driveInDesc": "Park your vehicle right at the campsite.",
+            "verifiedListing": "Verified Listing",
+            "verifiedDesc": "This campground has been verified by CampVibe.",
+            "aboutPlace": "About the mountains",
+            "whatOffers": "What this place offers",
+            "whereYouBe": "Where you'll be"
+        },
+        "booking": {
+            "checkIn": "Check-in",
+            "checkOut": "Check-out",
+            "guests": "Guests",
+            "guest": "guest",
+            "addDate": "Add date",
+            "notChargedYet": "You won't be charged yet",
+            "cleaningFee": "Cleaning fee",
+            "serviceFee": "Service fee",
+            "totalBeforeTaxes": "Total before taxes",
+            "nights": "nights"
+        },
+        "dashboard": {
+            "hostPanel": "Host Panel",
+            "overview": "Overview",
+            "myCampgrounds": "My Campgrounds",
+            "bookings": "Bookings",
+            "backToHome": "Back to Home",
+            "dashboardOverview": "Dashboard Overview",
+            "welcomeBack": "Welcome back, Operator.",
+            "totalRevenue": "Total Revenue",
+            "totalBookings": "Total Bookings",
+            "activeListings": "Active Listings",
+            "recentBookings": "Recent Bookings",
+            "viewAll": "View All",
+            "guest": "Guest",
+            "campground": "Campground",
+            "total": "Total",
+            "status": "Status",
+            "noBookings": "No bookings found."
+        },
+        "categories": {
+            "campgrounds": "Campgrounds",
+            "carCamping": "Car Camping",
+            "glamping": "Glamping",
+            "lakefront": "Lakefront",
+            "forest": "Forest",
+            "views": "Views",
+            "boatAccess": "Boat Access"
+        },
+        "facilities": {
+            "wifi": "Wifi",
+            "kitchen": "Kitchen",
+            "shower": "Shower",
+            "parking": "Free parking on premises",
+            "tentCamping": "Tent camping allowed",
+            "nature": "Surrounded by nature",
+            "freshAir": "Fresh mountain air",
+            "drinkingWater": "Drinking water",
+            "firePit": "Fire pit",
+            "commonArea": "Common area",
+            "security": "24/7 Security",
+            "evCharging": "EV charging"
+        },
+        "facilityCategories": {
+            "connectivity": "Connectivity",
+            "cooking": "Cooking",
+            "bathroom": "Bathroom",
+            "parking": "Parking",
+            "camping": "Camping",
+            "location": "Location",
+            "environment": "Environment",
+            "essentials": "Essentials",
+            "outdoor": "Outdoor",
+            "social": "Social",
+            "safety": "Safety"
+        }
+    },
+    "th": {
+        "nav": {
+            "campYourHome": "เปิดแคมป์ของคุณ",
+            "anywhere": "ทุกที่",
+            "anyWeek": "ทุกสัปดาห์",
+            "addGuests": "เพิ่มผู้เข้าพัก"
+        },
+        "common": {
+            "share": "แชร์",
+            "save": "บันทึก",
+            "reviews": "รีวิว",
+            "night": "คืน",
+            "reserve": "จอง",
+            "close": "ปิด",
+            "showAll": "แสดงทั้งหมด",
+            "photos": "รูปภาพ",
+            "amenities": "สิ่งอำนวยความสะดวก"
+        },
+        "campground": {
+            "hostedBy": "โฮสต์โดย",
+            "verifiedHost": "โฮสต์ที่ได้รับการยืนยัน",
+            "joined": "เข้าร่วมเมื่อ",
+            "bringTent": "นำเต็นท์ของคุณเอง",
+            "bringTentDesc": "แคมป์ไซต์นี้เหมาะสำหรับการตั้งแคมป์ด้วยเต็นท์",
+            "driveInAccess": "เข้าถึงด้วยรถยนต์",
+            "driveInDesc": "จอดรถของคุณได้ที่แคมป์ไซต์",
+            "verifiedListing": "รายการที่ได้รับการยืนยัน",
+            "verifiedDesc": "แคมป์กราวด์นี้ได้รับการยืนยันโดย CampVibe",
+            "aboutPlace": "เกี่ยวกับภูเขา",
+            "whatOffers": "สิ่งที่สถานที่นี้มีให้",
+            "whereYouBe": "สถานที่ที่คุณจะอยู่"
+        },
+        "booking": {
+            "checkIn": "เช็คอิน",
+            "checkOut": "เช็คเอาท์",
+            "guests": "ผู้เข้าพัก",
+            "guest": "ผู้เข้าพัก",
+            "addDate": "เพิ่มวันที่",
+            "notChargedYet": "คุณจะยังไม่ถูกเรียกเก็บเงิน",
+            "cleaningFee": "ค่าทำความสะอาด",
+            "serviceFee": "ค่าบริการ",
+            "totalBeforeTaxes": "ยอดรวมก่อนภาษี",
+            "nights": "คืน"
+        },
+        "dashboard": {
+            "hostPanel": "แผงโฮสต์",
+            "overview": "ภาพรวม",
+            "myCampgrounds": "แคมป์กราวด์ของฉัน",
+            "bookings": "การจอง",
+            "backToHome": "กลับสู่หน้าแรก",
+            "dashboardOverview": "ภาพรวมแดชบอร์ด",
+            "welcomeBack": "ยินดีต้อนรับกลับมา, ผู้ดำเนินการ",
+            "totalRevenue": "รายได้ทั้งหมด",
+            "totalBookings": "การจองทั้งหมด",
+            "activeListings": "รายการที่ใช้งานอยู่",
+            "recentBookings": "การจองล่าสุด",
+            "viewAll": "ดูทั้งหมด",
+            "guest": "ผู้เข้าพัก",
+            "campground": "แคมป์กราวด์",
+            "total": "ยอดรวม",
+            "status": "สถานะ",
+            "noBookings": "ไม่พบการจอง"
+        },
+        "categories": {
+            "campgrounds": "แคมป์กราวด์",
+            "carCamping": "แคมป์ด้วยรถ",
+            "glamping": "แกลมปิ้ง",
+            "lakefront": "ริมทะเลสาบ",
+            "forest": "ป่า",
+            "views": "วิวสวย",
+            "boatAccess": "เข้าถึงด้วยเรือ"
+        },
+        "facilities": {
+            "wifi": "ไวไฟ",
+            "kitchen": "ครัว",
+            "shower": "ห้องอาบน้ำ",
+            "parking": "ที่จอดรถฟรี",
+            "tentCamping": "อนุญาตให้ตั้งเต็นท์",
+            "nature": "ล้อมรอบด้วยธรรมชาติ",
+            "freshAir": "อากาศบริสุทธิ์จากภูเขา",
+            "drinkingWater": "น้ำดื่ม",
+            "firePit": "หลุมไฟ",
+            "commonArea": "พื้นที่ส่วนกลาง",
+            "security": "รักษาความปลอดภัย 24/7",
+            "evCharging": "ชาร์จรถยนต์ไฟฟ้า"
+        },
+        "facilityCategories": {
+            "connectivity": "การเชื่อมต่อ",
+            "cooking": "การทำอาหาร",
+            "bathroom": "ห้องน้ำ",
+            "parking": "ที่จอดรถ",
+            "camping": "การแคมป์",
+            "location": "ที่ตั้ง",
+            "environment": "สิ่งแวดล้อม",
+            "essentials": "สิ่งจำเป็น",
+            "outdoor": "กลางแจ้ง",
+            "social": "สังคม",
+            "safety": "ความปลอดภัย"
+        }
+    }
+}

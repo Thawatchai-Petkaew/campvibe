@@ -1,0 +1,250 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "Campground": {
+            "type": "object",
+            "required": [
+                "id",
+                "nameTh",
+                "nameThSlug",
+                "campgroundType",
+                "latitude",
+                "longitude"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "nameTh": {
+                    "type": "string"
+                },
+                "nameEn": {
+                    "type": "string"
+                },
+                "nameThSlug": {
+                    "type": "string"
+                },
+                "nameEnSlug": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "campgroundType": {
+                    "type": "string",
+                    "enum": [
+                        "CAGD",
+                        "CACP",
+                        "GLAMP"
+                    ]
+                },
+                "accessTypes": {
+                    "type": "string"
+                },
+                "accommodationTypes": {
+                    "type": "string"
+                },
+                "facilities": {
+                    "type": "string"
+                },
+                "latitude": {
+                    "type": "number"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "checkInTime": {
+                    "type": "string"
+                },
+                "checkOutTime": {
+                    "type": "string"
+                },
+                "bookingMethod": {
+                    "type": "string",
+                    "enum": [
+                        "ONLI",
+                        "ONCA",
+                        "ONST"
+                    ]
+                },
+                "priceLow": {
+                    "type": "number"
+                },
+                "priceHigh": {
+                    "type": "number"
+                },
+                "isVerified": {
+                    "type": "boolean"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "isPublished": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "Booking": {
+            "type": "object",
+            "required": [
+                "campgroundId",
+                "userId",
+                "checkInDate",
+                "checkOutDate",
+                "guests"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "campgroundId": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "userId": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "siteId": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "checkInDate": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "checkOutDate": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "guests": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "totalPrice": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "PENDING",
+                        "CONFIRMED",
+                        "CANCELLED"
+                    ]
+                }
+            }
+        },
+        "Review": {
+            "type": "object",
+            "required": [
+                "campgroundId",
+                "authorId",
+                "rating",
+                "content"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "campgroundId": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "authorId": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                },
+                "title": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string",
+                    "minLength": 10
+                },
+                "visitDate": {
+                    "type": "string",
+                    "format": "date"
+                }
+            }
+        },
+        "User": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "email": {
+                    "type": "string",
+                    "format": "email"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "ADMIN",
+                        "OPERATOR",
+                        "CAMPER"
+                    ]
+                }
+            }
+        }
+    },
+    "enums": {
+        "CampgroundType": {
+            "CAGD": "Campground",
+            "CACP": "Car Camping",
+            "GLAMP": "Glamping"
+        },
+        "AccessType": {
+            "BAOT": "Boat Access",
+            "DRIV": "Drive-in",
+            "HIKE": "Hike-in",
+            "BIKE": "Bike-in"
+        },
+        "AccommodationType": {
+            "TENT": "Tent",
+            "CABI": "Cabin",
+            "TRAI": "Trailer",
+            "GLAM": "Glamping"
+        },
+        "FacilityCode": {
+            "TOIL": "Toilet",
+            "SHOW": "Shower",
+            "WIFI": "Wifi",
+            "KITC": "Kitchen",
+            "PARK": "Parking",
+            "FIRE": "Fire Pit",
+            "WATR": "Drinking Water",
+            "SECU": "Security"
+        },
+        "BookingMethod": {
+            "ONLI": "Online",
+            "ONCA": "On Call",
+            "ONST": "On Site"
+        },
+        "BookingStatus": {
+            "PENDING": "Pending",
+            "CONFIRMED": "Confirmed",
+            "CANCELLED": "Cancelled"
+        },
+        "UserRole": {
+            "ADMIN": "Administrator",
+            "OPERATOR": "Campground Operator",
+            "CAMPER": "Camper/Guest"
+        }
+    }
+}

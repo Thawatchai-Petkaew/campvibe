@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums based on 'Option v1'
+// Note: SQLite doesn't enforce Enums natively, Prisma handles them as Strings.
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campgrounds Campground[] // Operator's campgrounds
+  reviews     Review[]     // User's reviews
+  bookings    Booking[]    // User's bookings
+}
+
+model Location {
+  id          String  @id @default(uuid())
+  country     String  @default("Thailand")
+  region      String?
+  province    String?
+  district    String?
+  subDistrict String?
+  village     String?
+  lat         Float?
+  lon         Float?
+  
+  campgrounds Campground[]
+}
+
+model Campground {
+  id          String   @id @default(uuid())
+  // Core Identification
+  nameTh      String
+  nameEn      String?
+  nameThSlug  String   @unique
+  nameEnSlug  String   @unique
+  description String?
+  
+  // Classification
+  campgroundType   String // Code from Option v1 (CAGD, CACP)
+  
+  // Array fields stored as String (CSV) due to SQLite limitations
+  images           String? // CSV of image URLs
+  accessTypes      String // Codes: BAOT, DRIV, etc.
+  accommodationTypes String // Codes: CABI, TENT, etc.
+  facilities       String // Codes: SHOW, TOIL, etc.
+  
+  // Geolocation
+  latitude         Float
+  longitude        Float
+  
+  // Operations
+  checkInTime      String
+  checkOutTime     String
+  bookingMethod    String // ONLI, ONCA, ONST
+  
+  // Pricing
+  priceLow         Float?
+  priceHigh        Float?
+  
+  // Status
+  isVerified       Boolean @default(false)
+  isActive         Boolean @default(true)
+  isPublished      Boolean @default(false)
+  
+  // Additional Info
+  partner          String?
+  nationalPark     String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  locationId       String
+  location         Location @relation(fields: [locationId], references: [id])
+  
+  operatorId       String
+  operator         User     @relation(fields: [operatorId], references: [id])
+  
+  sites            Site[]
+  reviews          Review[]
+  bookings         Booking[]
+}
+
+model Site {
+  id             String   @id @default(uuid())
+  name           String   // "Site name"
+  maxCampers     Int?     // "Maximun campers"
+  maxTents       Int?     // "Maximun tents"
+  environment    String?
+  pricePerNight  Float    // "Price per night"
+  pricePerSite   Float?
+  
+  nearFacilities String?  // CSV of Facility codes
+  
+  campgroundId   String
+  campground     Campground @relation(fields: [campgroundId], references: [id])
+  bookings       Booking[]
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  title       String?
+  content     String?
+  rating      Int
+  
+  visitDate   DateTime?
+  
+  mediaUrls   String? // CSV of image URLs
+  
+  campgroundId String
+  campground   Campground @relation(fields: [campgroundId], references: [id])
+  
+  authorId     String
+  author       User       @relation(fields: [authorId], references: [id])
+  
+  createdAt    DateTime @default(now())
+}
+
+model Booking {
+  id            String   @id @default(uuid())
+  
+  checkInDate   DateTime
+  checkOutDate  DateTime
+  guests        Int      @default(1)
+  totalPrice    Float
+  
+  status        String   @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+  
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  campgroundId  String
+  campground    Campground @relation(fields: [campgroundId], references: [id])
+  
+  siteId        String?
+  site          Site?    @relation(fields: [siteId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
