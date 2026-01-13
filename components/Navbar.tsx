@@ -82,7 +82,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <LanguageSwitcher />
 
-                        {!currentUser ? (
+                        {!currentUser && (
                             <div className="hidden lg:flex items-center gap-1">
                                 <Button
                                     variant="ghost"
@@ -99,19 +99,15 @@ export function Navbar({ currentUser }: NavbarProps) {
                                     Sign up
                                 </Button>
                             </div>
-                        ) : (
-                            <Button variant="ghost" asChild className="hidden lg:flex rounded-full font-medium">
-                                <Link href="/dashboard">Switch to Hosting</Link>
-                            </Button>
                         )}
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <div className="flex items-center gap-2 border border-gray-200 rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative">
                                     <Menu className="w-5 h-5 text-gray-600" />
-                                    <div className="bg-gray-500 rounded-full p-1 overflow-hidden">
+                                    <div className={currentUser?.image ? "rounded-full overflow-hidden" : "bg-gray-500 rounded-full p-1 overflow-hidden"}>
                                         {currentUser?.image ? (
-                                            <img src={currentUser.image} alt="User" className="w-6 h-6 rounded-full object-cover" />
+                                            <img src={currentUser.image} alt="User" className="w-8 h-8 rounded-full object-cover" />
                                         ) : (
                                             <User className="w-6 h-6 text-white" />
                                         )}
@@ -125,7 +121,13 @@ export function Navbar({ currentUser }: NavbarProps) {
                                             {currentUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted">
+                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                            <Link href="/profile">My Profile</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                            <Link href="/bookings">My Bookings</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted text-gray-500">
                                             <Link href="/dashboard">Host Dashboard</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem

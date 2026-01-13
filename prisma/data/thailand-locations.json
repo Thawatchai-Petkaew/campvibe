@@ -1,0 +1,243 @@
+[
+    {
+        "id": 1,
+        "code": "10",
+        "nameTh": "กรุงเทพมหานคร",
+        "nameEn": "Bangkok",
+        "districts": [
+            {
+                "code": "1001",
+                "nameTh": "เขตพระนคร",
+                "nameEn": "Phra Nakhon"
+            },
+            {
+                "code": "1002",
+                "nameTh": "เขตดุสิต",
+                "nameEn": "Dusit"
+            },
+            {
+                "code": "1003",
+                "nameTh": "เขตหนองจอก",
+                "nameEn": "Nong Chok"
+            }
+        ]
+    },
+    {
+        "id": 2,
+        "code": "11",
+        "nameTh": "สมุทรปราการ",
+        "nameEn": "Samut Prakan",
+        "districts": [
+            {
+                "code": "1101",
+                "nameTh": "เมืองสมุทรปราการ",
+                "nameEn": "Mueang Samut Prakan"
+            },
+            {
+                "code": "1102",
+                "nameTh": "บางบ่อ",
+                "nameEn": "Bang Bo"
+            }
+        ]
+    },
+    {
+        "id": 3,
+        "code": "30",
+        "nameTh": "นครราชสีมา",
+        "nameEn": "Nakhon Ratchasima",
+        "districts": [
+            {
+                "code": "3001",
+                "nameTh": "เมืองนครราชสีมา",
+                "nameEn": "Mueang Nakhon Ratchasima"
+            },
+            {
+                "code": "3002",
+                "nameTh": "ปากช่อง",
+                "nameEn": "Pak Chong"
+            }
+        ]
+    },
+    {
+        "id": 4,
+        "code": "50",
+        "nameTh": "เชียงใหม่",
+        "nameEn": "Chiang Mai",
+        "districts": [
+            {
+                "code": "5001",
+                "nameTh": "เมืองเชียงใหม่",
+                "nameEn": "Mueang Chiang Mai"
+            },
+            {
+                "code": "5002",
+                "nameTh": "ดอยสะเก็ด",
+                "nameEn": "Doi Saket"
+            },
+            {
+                "code": "5003",
+                "nameTh": "ฝาง",
+                "nameEn": "Fang"
+            }
+        ]
+    },
+    {
+        "id": 5,
+        "code": "57",
+        "nameTh": "เชียงราย",
+        "nameEn": "Chiang Rai",
+        "districts": [
+            {
+                "code": "5701",
+                "nameTh": "เมืองเชียงราย",
+                "nameEn": "Mueang Chiang Rai"
+            },
+            {
+                "code": "5702",
+                "nameTh": "แม่จัน",
+                "nameEn": "Mae Chan"
+            }
+        ]
+    },
+    {
+        "id": 6,
+        "code": "58",
+        "nameTh": "แม่ฮ่องสอน",
+        "nameEn": "Mae Hong Son",
+        "districts": [
+            {
+                "code": "5801",
+                "nameTh": "เมืองแม่ฮ่องสอน",
+                "nameEn": "Mueang Mae Hong Son"
+            },
+            {
+                "code": "5802",
+                "nameTh": "ปาย",
+                "nameEn": "Pai"
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "code": "67",
+        "nameTh": "เพชรบูรณ์",
+        "nameEn": "Phetchabun",
+        "districts": [
+            {
+                "code": "6701",
+                "nameTh": "เมืองเพชรบูรณ์",
+                "nameEn": "Mueang Phetchabun"
+            },
+            {
+                "code": "6702",
+                "nameTh": "เขาค้อ",
+                "nameEn": "Khao Kho"
+            },
+            {
+                "code": "6703",
+                "nameTh": "หล่มสัก",
+                "nameEn": "Lom Sak"
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "code": "42",
+        "nameTh": "เลย",
+        "nameEn": "Loei",
+        "districts": [
+            {
+                "code": "4201",
+                "nameTh": "เมืองเลย",
+                "nameEn": "Mueang Loei"
+            },
+            {
+                "code": "4202",
+                "nameTh": "ภูกระดึง",
+                "nameEn": "Phu Kradueng"
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "code": "81",
+        "nameTh": "กระบี่",
+        "nameEn": "Krabi",
+        "districts": [
+            {
+                "code": "8101",
+                "nameTh": "เมืองกระบี่",
+                "nameEn": "Mueang Krabi"
+            },
+            {
+                "code": "8102",
+                "nameTh": "อ่าวลึก",
+                "nameEn": "Ao Luek"
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "code": "83",
+        "nameTh": "ภูเก็ต",
+        "nameEn": "Phuket",
+        "districts": [
+            {
+                "code": "8301",
+                "nameTh": "เมืองภูเก็ต",
+                "nameEn": "Mueang Phuket"
+            },
+            {
+                "code": "8302",
+                "nameTh": "กะทู้",
+                "nameEn": "Kathu"
+            },
+            {
+                "code": "8303",
+                "nameTh": "ถลาง",
+                "nameEn": "Thalang"
+            }
+        ]
+    },
+    {
+        "id": 11,
+        "code": "84",
+        "nameTh": "สุราษฎร์ธานี",
+        "nameEn": "Surat Thani",
+        "districts": [
+            {
+                "code": "8401",
+                "nameTh": "เมืองสุราษฎร์ธานี",
+                "nameEn": "Mueang Surat Thani"
+            },
+            {
+                "code": "8402",
+                "nameTh": "เกาะสมุย",
+                "nameEn": "Ko Samui"
+            },
+            {
+                "code": "8403",
+                "nameTh": "เกาะพะงัน",
+                "nameEn": "Ko Pha-ngan"
+            }
+        ]
+    },
+    {
+        "id": 12,
+        "code": "23",
+        "nameTh": "ตราด",
+        "nameEn": "Trat",
+        "districts": [
+            {
+                "code": "2301",
+                "nameTh": "เมืองตราด",
+                "nameEn": "Mueang Trat"
+            },
+            {
+                "code": "2302",
+                "nameTh": "เกาะช้าง",
+                "nameEn": "Ko Chang"
+            }
+        ]
+    }
+]

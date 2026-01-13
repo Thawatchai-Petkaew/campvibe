@@ -15,8 +15,13 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
 
     let campground;
     try {
-        campground = await prisma.campground.findUnique({
-            where: { nameThSlug: slug },
+        campground = await prisma.campground.findFirst({
+            where: {
+                OR: [
+                    { nameThSlug: slug },
+                    { nameEnSlug: slug }
+                ]
+            },
             include: {
                 location: true,
                 operator: true,

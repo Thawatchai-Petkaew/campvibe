@@ -11,10 +11,28 @@ import {
     DollarSign,
     Clock,
     CheckCircle2,
-    Trash2
+    Trash2,
+    Loader2,
+    Search
 } from "lucide-react";
 import Link from "next/link";
 import { ImageUpload } from "@/components/ImageUpload";
+import { LocationPicker } from "@/components/LocationPicker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { getFilterOptions } from "@/app/actions/getFilterOptions";
+import * as LucideIcons from "lucide-react";
 
 interface CampgroundFormProps {
     initialData?: any;
@@ -23,18 +41,33 @@ interface CampgroundFormProps {
 
 export function CampgroundForm({ initialData, isEditing = false }: CampgroundFormProps) {
     const router = useRouter();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [isLoading, setIsLoading] = useState(false);
     const [operator, setOperator] = useState<any>(null);
+    const [masterOptions, setMasterOptions] = useState<Record<string, any[]>>({});
+    const [optionsLoading, setOptionsLoading] = useState(true);
 
     const [formData, setFormData] = useState({
         nameTh: "",
         nameEn: "",
         description: "",
-        campgroundType: "CAGD",
-        accessTypes: ["DRIV"],
-        accommodationTypes: ["TENT"],
-        facilities: ["TOIL", "SHOW"],
+        campgroundType: "",
+        accessTypes: [] as string[],
+        accommodationTypes: [] as string[],
+        facilities: [] as string[],
+        externalFacilities: [] as string[],
+        equipment: [] as string[],
+        activities: [] as string[],
+        terrain: [] as string[],
+
+        address: "",
+        directions: "",
+        videoUrl: "",
+        contacts: "",
+        feeInfo: "",
+        toiletInfo: "",
+        minimumAge: 0 as number | string,
+
         latitude: 13.7563 as number | string,
         longitude: 100.5018 as number | string,
         province: "Bangkok",
@@ -44,33 +77,60 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         priceLow: 500 as number | string,
         priceHigh: 1200 as number | string,
         images: [] as string[],
-        locationId: "",     // Used for updates
+        locationId: "",
+        thaiLocationId: "",
     });
 
     useEffect(() => {
+        // Fetch Master Options
+        getFilterOptions().then(data => {
+            setMasterOptions(data || {});
+            setOptionsLoading(false);
+
+            // Only set default if NO initial data and NOT editing
+            if (!initialData && !isEditing && data['Campground type']?.[0]) {
+                setFormData(prev => ({
+                    ...prev,
+                    campgroundType: prev.campgroundType || data['Campground type'][0].code
+                }));
+            }
+        });
+
+        // Initialize Data
         if (initialData) {
             setFormData({
                 nameTh: initialData.nameTh || "",
                 nameEn: initialData.nameEn || "",
                 description: initialData.description || "",
-                campgroundType: initialData.campgroundType || "CAGD",
-                accessTypes: initialData.accessTypes ? initialData.accessTypes.split(',') : ["DRIV"],
-                accommodationTypes: initialData.accommodationTypes ? initialData.accommodationTypes.split(',') : ["TENT"],
-                facilities: initialData.facilities ? initialData.facilities.split(',') : ["TOIL"],
-                latitude: initialData.latitude || 13.7563,
-                longitude: initialData.longitude || 100.5018,
+                campgroundType: initialData.campgroundType || "",
+                accessTypes: initialData.accessTypes ? initialData.accessTypes.split(',') : [],
+                accommodationTypes: initialData.accommodationTypes ? initialData.accommodationTypes.split(',') : [],
+                facilities: initialData.facilities ? initialData.facilities.split(',') : [],
+                externalFacilities: initialData.externalFacilities ? initialData.externalFacilities.split(',') : [],
+                equipment: initialData.equipment ? initialData.equipment.split(',') : [],
+                activities: initialData.activities ? initialData.activities.split(',') : [],
+                terrain: initialData.terrain ? initialData.terrain.split(',') : [],
+                address: initialData.address || "",
+                directions: initialData.directions || "",
+                videoUrl: initialData.videoUrl || "",
+                contacts: initialData.contacts || "",
+                feeInfo: initialData.feeInfo || "",
+                toiletInfo: initialData.toiletInfo || "",
+                minimumAge: initialData.minimumAge ?? "",
+                latitude: initialData.latitude ?? 13.7563,
+                longitude: initialData.longitude ?? 100.5018,
                 province: initialData.location?.province || "Bangkok",
                 checkInTime: initialData.checkInTime || "14:00",
                 checkOutTime: initialData.checkOutTime || "12:00",
                 bookingMethod: initialData.bookingMethod || "ONLI",
-                priceLow: initialData.priceLow || 0,
-                priceHigh: initialData.priceHigh || 0,
+                priceLow: initialData.priceLow ?? 0,
+                priceHigh: initialData.priceHigh ?? 0,
                 images: initialData.images ? initialData.images.split(',') : [],
                 locationId: initialData.locationId || "",
+                thaiLocationId: initialData.location?.thaiLocationId || "",
             });
         }
 
-        // Fetch current operator if creating new or needing ID
         fetch('/api/operator/dashboard')
             .then(res => res.json())
             .then(data => {
@@ -78,7 +138,65 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     setOperator({ id: data.operator.id });
                 }
             });
-    }, [initialData]);
+    }, [initialData, isEditing]);
+
+    const toggleArrayItem = (field: keyof typeof formData, value: string) => {
+        setFormData((prev: any) => {
+            const current = prev[field] as string[];
+            const updated = current.includes(value)
+                ? current.filter(item => item !== value)
+                : [...current, value];
+            return { ...prev, [field]: updated };
+        });
+    };
+
+    // Helper to get Icon
+    const getIcon = (iconName: string) => {
+        // @ts-ignore
+        const Icon = LucideIcons[iconName] || LucideIcons.HelpCircle;
+        return <Icon className="w-5 h-5 mb-2 group-hover:text-primary transition-colors" />;
+    };
+
+    const renderOptionGroup = (title: string, groupKey: string, fieldName: keyof typeof formData) => {
+        const options = masterOptions[groupKey] || [];
+        if (options.length === 0) return null;
+
+        return (
+            <div className="space-y-4">
+                <Label className="text-base font-bold text-gray-800">{title}</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {options.map((opt) => {
+                        const isSelected = (formData[fieldName] as string[])?.includes(opt.code);
+                        return (
+                            <div
+                                key={opt.code}
+                                onClick={() => toggleArrayItem(fieldName, opt.code)}
+                                className={cn(
+                                    "cursor-pointer flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition-all h-28 group relative",
+                                    isSelected
+                                        ? "bg-primary/5 border-primary shadow-sm ring-1 ring-primary"
+                                        : "bg-white border-gray-200 hover:border-primary/50 hover:bg-gray-50 hover:shadow-sm"
+                                )}
+                            >
+                                {isSelected && <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />}
+                                <div className={cn("mb-2 p-2 rounded-full transition-colors", isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-500 group-hover:bg-white group-hover:text-primary")}>
+                                    {/* Re-using logic for icon specifically */}
+                                    {(() => {
+                                        // @ts-ignore
+                                        const IconComp = LucideIcons[opt.icon] || LucideIcons.HelpCircle;
+                                        return <IconComp className="w-5 h-5" />;
+                                    })()}
+                                </div>
+                                <span className={cn("text-xs font-semibold leading-tight text-balance px-1", isSelected ? "text-primary" : "text-gray-600 group-hover:text-gray-900")}>
+                                    {language === 'th' ? opt.nameTh : opt.nameEn}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,9 +204,6 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
         try {
             let locationId = formData.locationId;
-
-            // 1. Create/Update Location
-            // Ideally backend handles this transactionally, but keeping existing flow:
             if (!locationId) {
                 const locRes = await fetch('/api/location', {
                     method: 'POST',
@@ -97,22 +212,32 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         country: "Thailand",
                         province: formData.province,
                         lat: formData.latitude,
-                        lon: formData.longitude
+                        lon: formData.longitude,
+                        thaiLocationId: formData.thaiLocationId
                     })
                 });
                 const location = await locRes.json();
                 locationId = location.id;
             }
 
-            // 2. Prepare Payload
             const slug = formData.nameEn.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') ||
                 formData.nameTh.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
             const finalSlug = `${slug}-${Math.floor(Math.random() * 1000)}`;
 
             const campPayload: any = {
                 ...formData,
+                accessTypes: formData.accessTypes,
+                accommodationTypes: formData.accommodationTypes,
+                facilities: formData.facilities,
+                externalFacilities: formData.externalFacilities,
+                equipment: formData.equipment,
+                priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
+                priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
+                minimumAge: formData.minimumAge === "" ? undefined : formData.minimumAge,
+                latitude: formData.latitude === "" ? 0 : formData.latitude,
+                longitude: formData.longitude === "" ? 0 : formData.longitude,
                 locationId: locationId,
-                operatorId: operator?.id // Only needed for create, backend handles auth check
+                operatorId: operator?.id
             };
 
             if (!isEditing) {
@@ -138,37 +263,31 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             }
         } catch (error) {
             console.error("Save error:", error);
-            alert("Something went wrong. Please try again.");
+            alert("Something went wrong.");
         } finally {
             setIsLoading(false);
         }
     };
 
+    // Keep handleDelete same logic generally
     const handleDelete = async () => {
         if (!confirm("Are you sure you want to delete this campground? This action cannot be undone.")) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/campgrounds/${initialData.id}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                router.push("/dashboard/campgrounds");
-                router.refresh();
-            } else {
-                alert("Failed to delete");
-            }
-        } catch (e) {
-            alert("Error deleting");
-        } finally {
-            setIsLoading(false);
-        }
+            const res = await fetch(`/api/campgrounds/${initialData.id}`, { method: 'DELETE' });
+            if (res.ok) { router.push("/dashboard/campgrounds"); router.refresh(); }
+            else { alert("Failed to delete"); }
+        } catch (e) { alert("Error deleting"); }
+        finally { setIsLoading(false); }
     };
 
+    if (optionsLoading) {
+        return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>;
+    }
+
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="min-h-screen pb-20">
+            <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
                 <div className="container mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link href="/" className="px-2">
@@ -184,123 +303,200 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     </div>
                     <div className="flex gap-2">
                         {isEditing && (
-                            <button
-                                onClick={handleDelete}
-                                disabled={isLoading}
-                                className="flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl font-semibold transition disabled:opacity-50"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                            </button>
+                            <Button variant="destructive" onClick={handleDelete} disabled={isLoading} className="rounded-full shadow-none w-10 h-10 p-0 sm:w-auto sm:px-4 sm:h-10">
+                                <Trash2 className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Delete</span>
+                            </Button>
                         )}
-                        <button
+                        <Button
                             onClick={handleSubmit}
                             disabled={isLoading}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-green-900 text-white rounded-xl font-semibold hover:bg-green-800 transition disabled:opacity-50 shadow-sm"
+                            className="px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 h-10"
                         >
-                            {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4" /> {isEditing ? 'Update Listing' : t.newCampground.saveListing}</>}
-                        </button>
+                            {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4 mr-2" /> {isEditing ? 'Update' : t.newCampground.saveListing}</>}
+                        </Button>
                     </div>
                 </div>
             </header>
 
             <form onSubmit={handleSubmit} className="container mx-auto px-6 py-10 max-w-5xl">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
                     {/* Main Form Area */}
                     <div className="lg:col-span-2 space-y-8">
-
-                        {/* 1. Basic Info */}
-                        <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Info className="w-5 h-5 text-green-900" />
-                                <h2 className="text-lg font-bold text-gray-900">{t.newCampground.basicInfo}</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.nameTh}</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        placeholder={t.newCampground.placeholderNameTh}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 focus:border-transparent outline-none transition"
-                                        value={formData.nameTh}
-                                        onChange={e => setFormData({ ...formData, nameTh: e.target.value })}
+                        {/* Basic Info */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
+                                    <Info className="w-5 h-5 text-primary" />
+                                    {t.newCampground.basicInfo}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label>{t.newCampground.nameTh}</Label>
+                                        <Input
+                                            required
+                                            value={formData.nameTh}
+                                            onChange={e => setFormData({ ...formData, nameTh: e.target.value })}
+                                            className="rounded-full h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>{t.newCampground.nameEn}</Label>
+                                        <Input
+                                            required
+                                            value={formData.nameEn}
+                                            onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
+                                            className="rounded-full h-12"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.description}</Label>
+                                    <Textarea
+                                        rows={4}
+                                        value={formData.description}
+                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                        className="rounded-2xl"
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.nameEn}</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        placeholder={t.newCampground.placeholderNameEn}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 focus:border-transparent outline-none transition"
-                                        value={formData.nameEn}
-                                        onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
-                                    />
-                                </div>
-                            </div>
+                            </CardContent>
+                        </Card>
 
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-semibold text-gray-700">{t.newCampground.description}</label>
-                                <textarea
-                                    rows={4}
-                                    placeholder={t.newCampground.descriptionPlaceholder}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 focus:border-transparent outline-none transition resize-none"
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                        {/* Dynamic Options Sections */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
+                                    <Tent className="w-5 h-5 text-primary" />
+                                    Amenities & Features
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-8">
+                                {renderOptionGroup("Internal Facilities", "Internal facility", "facilities")}
+                                {renderOptionGroup("External Facilities", "External facility", "externalFacilities")}
+                                {renderOptionGroup("Equipment for Rent", "Equipment for rent", "equipment")}
+                                {renderOptionGroup("Access Types", "Access type", "accessTypes")}
+                                {renderOptionGroup("Activities", "Activity", "activities")}
+                            </CardContent>
+                        </Card>
+
+                        {/* Media Upload */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
+                                    Photos
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8">
+                                <ImageUpload
+                                    value={formData.images}
+                                    onChange={urls => setFormData({ ...formData, images: urls })}
+                                    onRemove={url => setFormData({ ...formData, images: formData.images.filter(u => u !== url) })}
                                 />
-                            </div>
-                        </section>
-
-                        {/* 2. Media Upload */}
-                        <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Tent className="w-5 h-5 text-green-900" />
-                                <h2 className="text-lg font-bold text-gray-900">{t.newCampground.photos}</h2>
-                            </div>
-                            <ImageUpload
-                                value={formData.images}
-                                onChange={urls => setFormData({ ...formData, images: urls })}
-                                onRemove={url => setFormData({ ...formData, images: formData.images.filter(u => u !== url) })}
-                            />
-                        </section>
-
-                        {/* 3. Location */}
-                        <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <MapPin className="w-5 h-5 text-green-900" />
-                                <h2 className="text-lg font-bold text-gray-900">{t.newCampground.locationSettings}</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.province}</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 outline-none"
-                                        value={formData.province}
-                                        onChange={e => setFormData({ ...formData, province: e.target.value })}
+                                <div className="mt-4 space-y-2">
+                                    <Label>Video URL</Label>
+                                    <Input
+                                        value={formData.videoUrl}
+                                        onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
+                                        className="rounded-full h-12"
+                                        placeholder="https://youtube.com/..."
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.type}</label>
-                                    <select
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 outline-none"
-                                        value={formData.campgroundType}
-                                        onChange={e => setFormData({ ...formData, campgroundType: e.target.value })}
-                                    >
-                                        <option value="CAGD">{t.newCampground.regularCamp}</option>
-                                        <option value="CACP">{t.newCampground.carCamping}</option>
-                                        <option value="GLAMP">{t.newCampground.glamping}</option>
-                                    </select>
+                            </CardContent>
+                        </Card>
+
+                        {/* Additional Info */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
+                                    <Info className="w-5 h-5 text-primary" />
+                                    Additional Details (Contacts & Policies)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8 space-y-6">
+                                <div className="space-y-2">
+                                    <Label>Address</Label>
+                                    <Input value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="rounded-full h-12" />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.lat}</label>
-                                    <input
+                                <div className="space-y-2">
+                                    <Label>Directions</Label>
+                                    <Textarea value={formData.directions} onChange={e => setFormData({ ...formData, directions: e.target.value })} className="rounded-2xl" rows={3} />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label>Contacts (Phone/Line/FB)</Label>
+                                        <Input value={formData.contacts} onChange={e => setFormData({ ...formData, contacts: e.target.value })} className="rounded-full h-12" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Minimum Age</Label>
+                                        <Input type="number" value={formData.minimumAge} onChange={e => setFormData({ ...formData, minimumAge: e.target.value === "" ? "" : parseInt(e.target.value) })} className="rounded-full h-12" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Fee Info / Pricing Details</Label>
+                                    <Textarea value={formData.feeInfo} onChange={e => setFormData({ ...formData, feeInfo: e.target.value })} className="rounded-2xl" rows={2} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Toilet / Shower Info</Label>
+                                    <Textarea value={formData.toiletInfo} onChange={e => setFormData({ ...formData, toiletInfo: e.target.value })} className="rounded-2xl" rows={2} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="space-y-8">
+                        {/* Location */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="text-lg font-bold text-gray-900">Settings</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-6">
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.type}</Label>
+                                    <Select
+                                        value={formData.campgroundType}
+                                        onValueChange={val => setFormData({ ...formData, campgroundType: val })}
+                                    >
+                                        <SelectTrigger className="rounded-full h-12">
+                                            <SelectValue placeholder="Select type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {masterOptions['Campground type']?.map(opt => (
+                                                <SelectItem key={opt.code} value={opt.code}>
+                                                    {language === 'th' ? opt.nameTh : opt.nameEn}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.province}</Label>
+                                    <LocationPicker
+                                        onSelect={(loc) => {
+                                            if (loc) {
+                                                setFormData({
+                                                    ...formData,
+                                                    thaiLocationId: loc.id,
+                                                    province: loc.provinceNameEn
+                                                });
+                                            } else {
+                                                setFormData({
+                                                    ...formData,
+                                                    thaiLocationId: "",
+                                                    province: ""
+                                                });
+                                            }
+                                        }}
+                                        initialLocationId={formData.thaiLocationId}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.lat}</Label>
+                                    <Input
                                         type="number" step="any"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 outline-none"
+                                        className="rounded-full h-12"
                                         value={formData.latitude}
                                         onChange={e => {
                                             const val = e.target.value;
@@ -308,11 +504,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         }}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-sm font-semibold text-gray-700">{t.newCampground.lon}</label>
-                                    <input
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.lon}</Label>
+                                    <Input
                                         type="number" step="any"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-900 outline-none"
+                                        className="rounded-full h-12"
                                         value={formData.longitude}
                                         onChange={e => {
                                             const val = e.target.value;
@@ -320,90 +516,71 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         }}
                                     />
                                 </div>
-                            </div>
-                        </section>
-                    </div>
+                            </CardContent>
+                        </Card>
 
-                    {/* Sidebar Area */}
-                    <div className="space-y-8">
-                        {/* 4. Pricing */}
-                        <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center gap-3">
-                                <DollarSign className="w-5 h-5 text-green-900" />
-                                <h2 className="text-lg font-bold text-gray-900">{t.newCampground.pricing}</h2>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">{t.newCampground.minPrice}</label>
+                        {/* Pricing */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="text-lg font-bold text-gray-900">{t.newCampground.pricing}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Min Price</Label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{t.currency.symbol}</span>
-                                        <input
-                                            type="number"
-                                            className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 outline-none"
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">฿</span>
+                                        <Input type="number"
                                             value={formData.priceLow}
                                             onChange={e => {
                                                 const val = e.target.value;
-                                                setFormData({ ...formData, priceLow: val === "" ? "" : parseInt(val) });
+                                                setFormData({ ...formData, priceLow: val === "" ? "" : parseFloat(val) });
                                             }}
+                                            className="pl-7 rounded-full h-12"
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">{t.newCampground.maxPrice}</label>
+                                <div className="space-y-2">
+                                    <Label>Max Price</Label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{t.currency.symbol}</span>
-                                        <input
-                                            type="number"
-                                            className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 outline-none"
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">฿</span>
+                                        <Input type="number"
                                             value={formData.priceHigh}
                                             onChange={e => {
                                                 const val = e.target.value;
-                                                setFormData({ ...formData, priceHigh: val === "" ? "" : parseInt(val) });
+                                                setFormData({ ...formData, priceHigh: val === "" ? "" : parseFloat(val) });
                                             }}
+                                            className="pl-7 rounded-full h-12"
                                         />
                                     </div>
                                 </div>
-                            </div>
-                        </section>
+                            </CardContent>
+                        </Card>
 
-                        {/* 5. Times */}
-                        <section className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-                            <div className="flex items-center gap-3">
-                                <Clock className="w-5 h-5 text-green-900" />
-                                <h2 className="text-lg font-bold text-gray-900">{t.newCampground.operations}</h2>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">{t.newCampground.checkIn}</label>
-                                    <input
-                                        type="time"
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none"
+                        {/* Times */}
+                        <Card className="rounded-3xl border-gray-100 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+                                <CardTitle className="text-lg font-bold text-gray-900">{t.newCampground.operations}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.checkIn}</Label>
+                                    <Input type="time"
                                         value={formData.checkInTime}
                                         onChange={e => setFormData({ ...formData, checkInTime: e.target.value })}
+                                        className="rounded-full h-12"
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">{t.newCampground.checkOut}</label>
-                                    <input
-                                        type="time"
-                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none"
+                                <div className="space-y-2">
+                                    <Label>{t.newCampground.checkOut}</Label>
+                                    <Input type="time"
                                         value={formData.checkOutTime}
                                         onChange={e => setFormData({ ...formData, checkOutTime: e.target.value })}
+                                        className="rounded-full h-12"
                                     />
                                 </div>
-                            </div>
-                        </section>
+                            </CardContent>
+                        </Card>
 
-                        {/* Tip Box */}
-                        <div className="bg-green-50 p-6 rounded-2xl border border-green-100">
-                            <div className="flex items-center gap-2 mb-3">
-                                <CheckCircle2 className="w-5 h-5 text-green-700" />
-                                <h3 className="font-bold text-green-900">{t.newCampground.hostTipTitle}</h3>
-                            </div>
-                            <p className="text-sm text-green-800 leading-relaxed">
-                                {t.newCampground.hostTipDesc}
-                            </p>
-                        </div>
                     </div>
                 </div>
             </form>

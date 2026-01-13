@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Star, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Campground } from "@prisma/client";
+import { Badge } from "@/components/ui/badge";
 
 interface CampgroundCardProps {
     campground: Campground & { location: { province: string } };
@@ -35,6 +36,15 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
     return (
         <Link href={`/campgrounds/${slug}`} className="group block space-y-3 cursor-pointer">
             <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-200">
+                {/* New Listing Badge */}
+                {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
+                    <div className="absolute top-3 left-3 z-10">
+                        <Badge variant="secondary" className="h-6 px-2 text-xs font-medium bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm border-white/20">
+                            New
+                        </Badge>
+                    </div>
+                )}
+
                 {/* Image Slider */}
                 <div className="relative w-full h-full">
                     <img
@@ -89,9 +99,6 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
                     </div>
                 </div>
                 <p className="text-gray-500 text-sm">{campground.location.province}, Thailand</p>
-                <p className="text-gray-500 text-sm">
-                    {t.common.newListing}
-                </p>
                 <div className="flex items-baseline gap-1 pt-1">
                     <span className="font-semibold">{campground.priceLow ? formatCurrency(campground.priceLow) : t.common.free}</span>
                     <span className="text-gray-900">{t.common.night}</span>

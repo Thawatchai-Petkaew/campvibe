@@ -17,7 +17,17 @@ export async function GET(request: NextRequest) {
     const operatorId = operator?.id;
 
     if (!operatorId) {
-        return NextResponse.json({ error: 'Operator not found' }, { status: 404 });
+        // Return empty dashboard state instead of 404 to avoid UI crashes
+        return NextResponse.json({
+            campgrounds: [],
+            bookings: [],
+            stats: {
+                totalRevenue: 0,
+                totalBookings: 0,
+                campgroundCount: 0
+            },
+            operator: null
+        });
     }
 
     try {

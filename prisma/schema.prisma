@@ -18,6 +18,8 @@ model User {
   email     String   @unique
   password  String?  // Hashed password for credentials auth
   name      String?
+  image     String?  // Profile image URL
+  phone     String?  // Contact phone number
   role      String   @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -25,6 +27,24 @@ model User {
   campgrounds Campground[] // Operator's campgrounds
   reviews     Review[]     // User's reviews
   bookings    Booking[]    // User's bookings
+}
+
+model ThailandLocation {
+  id            String   @id @default(uuid())
+  provinceCode  String   // e.g., "10" for Bangkok
+  provinceName  String   // "กรุงเทพมหานคร"
+  provinceNameEn String  // "Bangkok"
+  districtCode  String?  // e.g., "1001"
+  districtName  String?  // "เขตพระนคร"
+  districtNameEn String? // "Phra Nakhon"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  locations Location[]
+  
+  @@unique([provinceCode, districtCode])
+  @@index([provinceName, districtName])
 }
 
 model Location {
@@ -37,6 +57,10 @@ model Location {
   village     String?
   lat         Float?
   lon         Float?
+  
+  // Link to Thailand administrative division
+  thaiLocationId String?
+  thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
   
   campgrounds Campground[]
 }
@@ -51,31 +75,49 @@ model Campground {
   description String?
   
   // Classification
-  campgroundType   String // Code from Option v1 (CAGD, CACP)
+  campgroundType   String // Relation to MasterData code (e.g. CAGD)
   
-  // Array fields stored as String (CSV) due to SQLite limitations
+  // Media
   images           String? // CSV of image URLs
-  accessTypes      String // Codes: BAOT, DRIV, etc.
-  accommodationTypes String // Codes: CABI, TENT, etc.
-  facilities       String // Codes: SHOW, TOIL, etc.
+  videoUrl         String? // "VDO"
+  albumUrl         String? // "Photo set"
   
-  // Geolocation
+  // Legacy arrays (to be migrated to MasterData relations)
+  accessTypes      String 
+  accommodationTypes String 
+  facilities       String // Internal facilities
+  externalFacilities String? // CSV
+  equipment        String? // CSV (Equipment for rent)
+  activities       String? // CSV
+  terrain          String? // CSV 
+  
+  // Geolocation & Address
   latitude         Float
   longitude        Float
+  address          String?
+  directions       String?
   
-  // Operations
+  // Operations & Info
   checkInTime      String
   checkOutTime     String
-  bookingMethod    String // ONLI, ONCA, ONST
+  bookingMethod    String
+  feeInfo          String?
+  toiletInfo       String?
+  minimumAge       Int?
+  contacts         String?
   
   // Pricing
   priceLow         Float?
   priceHigh        Float?
   
-  // Status
+  // Status & Dates
   isVerified       Boolean @default(false)
+  verifiedDate     DateTime?
   isActive         Boolean @default(true)
   isPublished      Boolean @default(false)
+  publicDate       DateTime?
+  
+  tags             String? // CSV
   
   // Additional Info
   partner          String?
@@ -94,6 +136,19 @@ model Campground {
   sites            Site[]
   reviews          Review[]
   bookings         Booking[]
+
+  // Options & Features (New Data-Driven Approach)
+  options          MasterData[]
+}
+
+model MasterData {
+  code        String   @id // e.g. "SHOW", "WIFI"
+  group       String   // e.g. "Internal facility"
+  nameTh      String
+  nameEn      String
+  icon        String?  // Optional icon identifier
+  
+  campgrounds Campground[]
 }
 
 model Site {

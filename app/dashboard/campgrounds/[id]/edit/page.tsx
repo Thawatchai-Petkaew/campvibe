@@ -11,7 +11,7 @@ export default function EditCampgroundPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetch(`/api/campgrounds/${params.id}`)
+            fetch(`/api/campgrounds/${params.id}`, { cache: 'no-store' })
                 .then(res => res.json())
                 .then(data => {
                     if (!data.error) {

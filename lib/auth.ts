@@ -47,9 +47,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
             return true;
         },
+        async jwt({ token, user, trigger }) {
+            // On sign in, add user data to token
+            if (user) {
+                token.id = user.id;
+                token.image = user.image;
+            }
+            // On session update (e.g., after profile change), refresh user data
+            if (trigger === "update") {
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: token.id as string },
+                    select: { image: true, name: true }
+                });
+                if (dbUser) {
+                    token.image = dbUser.image;
+                    token.name = dbUser.name;
+                }
+            }
+            return token;
+        },
         async session({ session, token }) {
             if (session.user && token.sub) {
                 session.user.id = token.sub;
+                session.user.image = token.image as string | null;
             }
             return session;
         }

@@ -1,78 +1,93 @@
 "use client";
 
-import { X, Wifi, Car, ShowerHead, Utensils, Tent, Trees, Wind, Droplet, Flame, Users, Shield } from "lucide-react";
+import { X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import * as Icons from "lucide-react";
 
 interface AmenitiesModalProps {
     isOpen: boolean;
     onClose: () => void;
+    facilities: string[];
 }
 
-const AMENITIES = [
-    { icon: Wifi, label: "Wifi", category: "Connectivity" },
-    { icon: Utensils, label: "Kitchen", category: "Cooking" },
-    { icon: ShowerHead, label: "Shower", category: "Bathroom" },
-    { icon: Car, label: "Free parking on premises", category: "Parking" },
-    { icon: Tent, label: "Tent camping allowed", category: "Camping" },
-    { icon: Trees, label: "Surrounded by nature", category: "Location" },
-    { icon: Wind, label: "Fresh mountain air", category: "Environment" },
-    { icon: Droplet, label: "Drinking water", category: "Essentials" },
-    { icon: Flame, label: "Fire pit", category: "Outdoor" },
-    { icon: Users, label: "Common area", category: "Social" },
-    { icon: Shield, label: "24/7 Security", category: "Safety" },
-    { icon: Car, label: "EV charging", category: "Parking" },
-];
+export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalProps) {
+    const { t } = useLanguage();
 
-export function AmenitiesModal({ isOpen, onClose }: AmenitiesModalProps) {
-    if (!isOpen) return null;
-
-    const handleBackdropClick = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
+    const getIcon = (key: string) => {
+        // Map facility codes to Lucide icons
+        const iconMap: Record<string, any> = {
+            'WIFI': Icons.Wifi,
+            'KITC': Icons.Utensils,
+            'SHOW': Icons.ShowerHead,
+            'PARK': Icons.Car,
+            'POOL': Icons.Waves,
+            'GYM': Icons.Dumbbell,
+            'AC': Icons.Snowflake,
+            'HEAT': Icons.ThermometerSun,
+            'TV': Icons.Tv,
+            'WASH': Icons.Shirt,
+            'DRYE': Icons.Wind,
+            'ELEC': Icons.Zap,
+            'TOIL': Icons.HelpCircle,
+            'CAFE': Icons.Coffee,
+            'REST': Icons.Utensils,
+            'CART': Icons.ShoppingBasket,
+            'LOTS': Icons.Store,
+            'MIBC': Icons.Store,
+            'MAKT': Icons.Store,
+            '711': Icons.Store,
+            'FEDW': Icons.Droplets,
+            'FEIC': Icons.Snowflake,
+            'GRIL': Icons.Utensils,
+            'SANI': Icons.Trash2,
+            'POTA': Icons.Droplets,
+            'SINK': Icons.Droplets,
+            'TRAS': Icons.Trash2,
+            'WATE': Icons.Droplets,
+            'MIMT': Icons.Store,
+            'PICN': Icons.Table,
+            'SVEL': Icons.Store,
+        };
+        const IconComponent = iconMap[key] || Icons.CheckCircle2;
+        return <IconComponent className="w-6 h-6 text-gray-600" />;
     };
 
     return (
-        <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={handleBackdropClick}
-        >
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                    <h2 className="text-2xl font-bold font-display">What this place offers</h2>
-                    <button
-                        onClick={onClose}
-                        className="hover:bg-gray-100 p-2 rounded-full transition"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 rounded-xl overflow-hidden">
+                <DialogHeader className="p-6 pb-4 border-b">
+                    <div className="flex items-center justify-between">
+                        <DialogTitle className="text-xl font-bold">
+                            {t.campground.whatOffers}
+                        </DialogTitle>
+                    </div>
+                </DialogHeader>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {AMENITIES.map((amenity, index) => (
-                            <div key={index} className="flex items-center gap-4 py-3">
-                                <amenity.icon className="w-6 h-6 text-gray-700 flex-shrink-0" />
-                                <div>
-                                    <div className="font-medium text-gray-900">{amenity.label}</div>
-                                    <div className="text-xs text-gray-500">{amenity.category}</div>
-                                </div>
+                <ScrollArea className="flex-1 p-6">
+                    <div className="grid gap-6">
+                        {facilities.map((facility) => (
+                            <div key={facility} className="flex items-center gap-4 py-2 border-b last:border-0 border-gray-100">
+                                {getIcon(facility)}
+                                <span className="text-gray-700 text-base">
+                                    {(t.filter as any)[facility] || facility}
+                                </span>
                             </div>
                         ))}
                     </div>
-                </div>
+                </ScrollArea>
 
-                {/* Footer */}
-                <div className="p-6 border-t border-gray-200">
-                    <button
+                <div className="p-4 border-t bg-white">
+                    <Button
                         onClick={onClose}
-                        className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 rounded-lg transition"
+                        className="w-full bg-gray-900 hover:bg-black text-white rounded-lg h-12 text-base font-medium"
                     >
-                        Close
-                    </button>
+                        {t.common.close || "Close"}
+                    </Button>
                 </div>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

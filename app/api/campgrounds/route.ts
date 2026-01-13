@@ -6,28 +6,55 @@ import { z } from 'zod';
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type');
-    const access = searchParams.get('access'); // e.g., BAOT
-    const facility = searchParams.get('facility'); // e.g., WIFI
+    const minPrice = searchParams.get('min');
+    const maxPrice = searchParams.get('max');
+
+    // CSV params
+    // CSV params
+    const access = searchParams.get('access');
+    const facilities = searchParams.get('facilities');
+    const external = searchParams.get('external');
+    const equipment = searchParams.get('equipment');
+    const activities = searchParams.get('activities');
+    const terrain = searchParams.get('terrain');
 
     // Build filter object
-    const where: any = {};
+    const where: any = {
+        isActive: true,
+        isPublished: true
+    };
 
-    if (type) {
+    if (type && type !== 'ALL') {
         where.campgroundType = type;
     }
 
-    // SQLite textual search for Array simulation
-    if (access) {
-        where.accessTypes = {
-            contains: access,
-        };
+    // Price Filter
+    if (minPrice || maxPrice) {
+        where.priceLow = {};
+        if (minPrice) where.priceLow.gte = parseFloat(minPrice);
+        if (maxPrice) where.priceLow.lte = parseFloat(maxPrice);
     }
 
-    if (facility) {
-        where.facilities = {
-            contains: facility,
-        };
-    }
+    // Helper for multi-select AND logic
+    const addMultiSelectFilter = (field: string, param: string | null) => {
+        if (!param) return;
+        const codes = param.split(',').filter(Boolean);
+        if (codes.length > 0) {
+            where.AND = where.AND || [];
+            codes.forEach(code => {
+                where.AND.push({
+                    [field]: { contains: code }
+                });
+            });
+        }
+    };
+
+    addMultiSelectFilter('accessTypes', access);
+    addMultiSelectFilter('facilities', facilities);
+    addMultiSelectFilter('externalFacilities', external);
+    addMultiSelectFilter('equipment', equipment);
+    addMultiSelectFilter('activities', activities);
+    addMultiSelectFilter('terrain', terrain);
 
     try {
         const campgrounds = await prisma.campground.findMany({
@@ -35,10 +62,12 @@ export async function GET(request: NextRequest) {
             include: {
                 location: true,
                 sites: true,
+                reviews: { select: { rating: true } }
             },
         });
         return NextResponse.json(campgrounds);
     } catch (error) {
+        console.error("Fetch error:", error);
         return NextResponse.json({ error: 'Failed to fetch campgrounds' }, { status: 500 });
     }
 }
@@ -72,6 +101,18 @@ export async function POST(request: NextRequest) {
                 accessTypes: data.accessTypes.join(','),
                 accommodationTypes: data.accommodationTypes.join(','),
                 facilities: data.facilities.join(','),
+                externalFacilities: data.externalFacilities?.join(','),
+                equipment: data.equipment?.join(','),
+                activities: data.activities?.join(','),
+                terrain: data.terrain?.join(','),
+
+                address: data.address,
+                directions: data.directions,
+                videoUrl: data.videoUrl,
+                contacts: data.contacts,
+                feeInfo: data.feeInfo,
+                toiletInfo: data.toiletInfo,
+                minimumAge: data.minimumAge,
 
                 latitude: data.latitude,
                 longitude: data.longitude,

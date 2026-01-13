@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,12 +27,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${outfit.variable} antialiased`}>
-        <LanguageProvider>
-          {children}
-          <Toaster />
-        </LanguageProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={[inter.variable, outfit.variable, "antialiased"].join(" ")} suppressHydrationWarning>
+        <Providers>
+          <LanguageProvider>
+            {children}
+            <Toaster />
+          </LanguageProvider>
+        </Providers>
       </body>
     </html>
   );

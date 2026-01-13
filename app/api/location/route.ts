@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
                 province: body.province,
                 region: body.region || "North",
                 lat: body.lat,
-                lon: body.lon
+                lon: body.lon,
+                thaiLocationId: body.thaiLocationId
             }
         });
 
