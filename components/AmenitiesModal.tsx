@@ -31,7 +31,7 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
             'WASH': Icons.Shirt,
             'DRYE': Icons.Wind,
             'ELEC': Icons.Zap,
-            'TOIL': Icons.HelpCircle,
+            'TOIL': Icons.Bath,
             'CAFE': Icons.Coffee,
             'REST': Icons.Utensils,
             'CART': Icons.ShoppingBasket,

@@ -8,7 +8,7 @@ import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -105,7 +105,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
     const facilityIconMap: Record<string, any> = {
         'WIFI': Wifi,
         'ELEC': Zap,
-        'TOIL': HelpCircle, // Or customized icon
+        'TOIL': Bath, // Or customized icon
         'SHOW': ShowerHead,
         'CAFE': Coffee,
         'REST': Utensils,
@@ -302,12 +302,24 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <div className="pb-8 border-b border-gray-200">
                             {/* Host Info - Keeping distinct but subtle above description */}
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-bold text-xl border border-gray-200">
-                                    {campground.operator.name?.[0] || 'O'}
+                                <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
+                                    {campground.operator.image ? (
+                                        <img
+                                            src={campground.operator.image}
+                                            alt={campground.operator.name || 'Owner'}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xl">
+                                            {campground.operator.name?.[0] || 'O'}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900 leading-tight">{t.campground.hostedBy} {campground.operator.name || 'Owner'}</h2>
-                                    <p className="text-gray-500 text-sm font-medium">{t.campground.joined} Dec 2025</p>
+                                    <p className="text-gray-500 text-sm font-medium">
+                                        {t.campground.joined} {new Date(campground.operator.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                                    </p>
                                 </div>
                             </div>
 
