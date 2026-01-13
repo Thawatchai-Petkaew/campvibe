@@ -2,23 +2,82 @@ import { Navbar } from "@/components/Navbar";
 import { CategoryBar } from "@/components/CategoryBar";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { EmptyState } from "@/components/EmptyState";
+import { SortDropdown } from "@/components/SortDropdown";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic'
 
 interface HomeProps {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{
+    type?: string;
+    keyword?: string;
+    province?: string;
+    district?: string;
+    startDate?: string;
+    endDate?: string;
+    guests?: string;
+    sort?: string;
+  }>;
 }
 
 export default async function Home({ searchParams }: HomeProps) {
   const session = await auth();
-  const { type } = await searchParams;
+  const { type, keyword, province, district, startDate, endDate, guests, sort } = await searchParams;
 
   // Build filter object
-  const where: any = {};
+  const where: any = {
+    isActive: true,
+    isPublished: true
+  };
+
+  // 1. Type filter
   if (type && type !== 'ALL') {
     where.campgroundType = type;
+  }
+
+  // 2. Keyword filter (New requirement: name, description, host name)
+  if (keyword) {
+    where.OR = [
+      { nameTh: { contains: keyword } },
+      { nameEn: { contains: keyword } },
+      { description: { contains: keyword } },
+      { operator: { name: { contains: keyword } } }
+    ];
+  }
+
+  // 3. Location filter (New requirement: Province and District)
+  if (province || district) {
+    where.location = where.location || {};
+    if (province) where.location.province = province;
+    if (district) where.location.district = district;
+  }
+
+  // 4. Availability Filter (Date range)
+  if (startDate && endDate) {
+    where.sites = {
+      some: {
+        bookings: {
+          none: {
+            OR: [
+              {
+                checkInDate: { lte: new Date(endDate) },
+                checkOutDate: { gte: new Date(startDate) },
+              }
+            ],
+            status: { not: 'CANCELLED' }
+          }
+        }
+      }
+    };
+  }
+
+  // 5. Sorting
+  let orderBy: any = { createdAt: 'desc' }; // Balanced / Most Related (default)
+  if (sort === 'price_asc') orderBy = { priceLow: 'asc' };
+  else if (sort === 'price_desc') orderBy = { priceLow: 'desc' };
+  else if (sort === 'rating') {
+    orderBy = { createdAt: 'desc' };
   }
 
   // Fetch campgrounds server-side
@@ -28,27 +87,45 @@ export default async function Home({ searchParams }: HomeProps) {
       where,
       include: {
         location: true,
+        operator: {
+          select: { name: true }
+        },
+        _count: {
+          select: { reviews: true }
+        }
       },
-      take: 20
+      orderBy,
+      take: 40
     });
   } catch (error) {
     console.error("Database connection error:", error);
-    // Return empty array and let the UI handle it with the "No campgrounds found" state
     campgrounds = [];
   }
 
+  const isSearchActive = !!(keyword || province || district || startDate || endDate || guests || (type && type !== 'ALL'));
+
   return (
-    <main className="min-h-screen pb-20">
+    <main className="min-h-screen pb-20 bg-white">
       <Navbar currentUser={session?.user} />
-      <div className="sticky top-20 bg-white z-40 shadow-sm border-b border-gray-100">
-        <CategoryBar />
+
+      <div className="sticky top-20 bg-white z-40 shadow-sm border-b border-gray-100 mb-6">
+        <div className="container mx-auto px-6 py-2 flex items-center justify-between">
+          <div className="flex-grow overflow-hidden">
+            <CategoryBar />
+          </div>
+          <div className="flex-shrink-0 ml-4 hidden md:block">
+            <SortDropdown />
+          </div>
+        </div>
       </div>
 
-      <div className="container mx-auto px-6 pt-6">
+      <div className="container mx-auto px-6">
         {campgrounds.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            showReset={isSearchActive}
+          />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10 mt-4">
             {campgrounds.map((camp: any) => (
               <CampgroundCard key={camp.id} campground={camp} />
             ))}

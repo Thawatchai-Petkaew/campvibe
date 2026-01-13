@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,7 +16,7 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: "CampVibe | Professional Camping Ecosystem",
-  description: "Find your perfect campsite.",
+  description: "Find and book the best camping experiences",
 };
 
 export default function RootLayout({
@@ -24,13 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${outfit.variable} antialiased font-sans text-gray-900 bg-white`}
-        suppressHydrationWarning
-      >
+    <html lang="en">
+      <body className={`${inter.variable} ${outfit.variable} antialiased`}>
         <LanguageProvider>
           {children}
+          <Toaster />
         </LanguageProvider>
       </body>
     </html>

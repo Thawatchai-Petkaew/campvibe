@@ -69,7 +69,8 @@ export async function register(prevState: string | undefined, formData: FormData
         return 'Failed to create user.';
     }
 
-    redirect('/login');
+    // Return undefined on success (no redirect)
+    return undefined;
 }
 
 export async function handleSignOut() {

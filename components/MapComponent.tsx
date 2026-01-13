@@ -27,7 +27,7 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
     const PrimaryIcon = L.divIcon({
         html: `
             <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#14532d"/>
+                <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#0d9488"/>
                 <circle cx="16" cy="16" r="6" fill="white"/>
             </svg>
         `,

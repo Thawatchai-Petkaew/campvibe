@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
+import { Button } from "@/components/ui/button"; // Import shadcn Button
 
 const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     ssr: false,
@@ -21,9 +22,9 @@ import {
     Car,
     ShowerHead,
     Utensils,
-    Edit // Import Edit icon
+    Edit
 } from "lucide-react";
-import Link from "next/link"; // Import Link
+import Link from "next/link";
 
 export default function CampgroundDetailClient({ campground, isOwner = false }: { campground: any, isOwner?: boolean }) {
     const { t, formatCurrency, language } = useLanguage();
@@ -66,23 +67,23 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Link href={`/dashboard/campgrounds/${campground.id}/edit`}>
-                                <button className="flex items-center gap-2 text-sm font-medium bg-green-900 text-white hover:bg-green-800 px-4 py-2 rounded-lg transition shadow-sm">
+                            <Button asChild variant="default" className="gap-2 rounded-full h-12 px-6">
+                                <Link href={`/dashboard/campgrounds/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>Edit Campground</span>
-                                </button>
-                            </Link>
+                                </Link>
+                            </Button>
                         )}
-                        <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
+                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-gray-100 font-medium underline">
                             <Share className="w-4 h-4" /> <span>{t.common.share}</span>
-                        </button>
-                        <button className="flex items-center gap-2 text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-lg transition underline">
+                        </Button>
+                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-gray-100 font-medium underline">
                             <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
                 {/* Hero Grid - Responsive Layout */}
-                <div className="relative rounded-2xl overflow-hidden mb-10 group">
+                <div className="relative rounded-[24px] overflow-hidden mb-10 group">
                     {/* Mobile View: Single Hero Image */}
                     <div className="md:hidden h-[300px] w-full relative">
                         <img
@@ -94,12 +95,13 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <div className="absolute top-4 right-4 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
                             1 / {images.length}
                         </div>
-                        <button
+                        <Button
+                            variant="secondary"
                             onClick={() => openGallery(0)}
-                            className="absolute bottom-4 right-4 bg-white/90 text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-900 shadow-sm"
+                            className="absolute bottom-4 right-4 h-8 text-xs font-bold rounded-full border border-gray-900 shadow-sm"
                         >
                             All photos
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Desktop View: Airbnb Style Grid */}
@@ -143,12 +145,14 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
                                 onClick={() => openGallery(4)}
                             />
-                            <button
+                            <Button
+                                variant="secondary"
                                 onClick={() => openGallery(0)}
-                                className="absolute bottom-4 right-4 bg-white/90 hover:bg-white text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-900 shadow-sm transition"
+                                className="absolute bottom-4 right-4 gap-2 text-sm font-semibold rounded-full border border-gray-900 shadow-sm transition h-9 bg-white hover:bg-white/90"
                             >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true" role="presentation" focusable="false" style={{ display: 'block', height: '12px', width: '12px', fill: 'currentcolor' }}><path d="M3 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3zm0 2h10v3H3V3zm0 5h10v6H3V8z"></path></svg>
                                 Show all photos
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -224,19 +228,20 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                     <span>{t.facilities.parking}</span>
                                 </div>
                             </div>
-                            <button
+                            <Button
+                                variant="outline"
                                 onClick={() => setIsAmenitiesOpen(true)}
-                                className="mt-6 border border-gray-900 rounded-lg px-6 py-3 font-semibold hover:bg-gray-50 transition"
+                                className="mt-8 rounded-full px-6 h-12 font-semibold border-gray-900 bg-white hover:bg-gray-50 transition w-full sm:w-auto"
                             >
                                 {t.common.showAll} 12 {t.common.amenities}
-                            </button>
+                            </Button>
                         </div>
 
                     </div>
 
                     {/* Right Column: Booking Widget */}
                     <div className="md:col-span-1 relative">
-                        <div className="sticky top-28 border border-gray-200 rounded-xl p-6 shadow-xl shadow-gray-100 bg-white">
+                        <div className="sticky top-28 border border-gray-200 rounded-[24px] p-6 shadow-xl shadow-gray-100 bg-white">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
                                     <span className="text-2xl font-bold">{formatCurrency(campground.priceLow || 50)} </span>
@@ -250,7 +255,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 </div>
                             </div>
 
-                            <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                            <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
                                 <div className="flex border-b border-gray-200">
                                     <div className="w-1/2 p-3 border-r border-gray-200">
                                         <label className="block text-[10px] font-bold uppercase text-gray-700">{t.booking.checkIn}</label>
@@ -267,9 +272,9 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 </div>
                             </div>
 
-                            <button className="w-full bg-green-800 hover:bg-green-900 text-white font-bold py-3.5 rounded-lg transition mb-4">
+                            <Button className="w-full bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-full transition mb-4 text-lg">
                                 {t.common.reserve}
-                            </button>
+                            </Button>
 
                             <p className="text-center text-xs text-gray-500 mb-4">{t.booking.notChargedYet}</p>
 

@@ -1,7 +1,36 @@
 {
     "en": {
         "auth": {
-            "signOut": "Sign out"
+            "signOut": "Sign out",
+            "login": "Log in",
+            "signup": "Sign up",
+            "email": "Email",
+            "password": "Password",
+            "welcomeBack": "Welcome back",
+            "loginToContinue": "Log in to continue your adventure",
+            "dontHaveAccount": "Don't have an account?",
+            "register": "Register",
+            "signingIn": "Signing in...",
+            "registerModal": {
+                "title": "Start Your Adventure",
+                "subtitle": "Join the CampVibe community",
+                "fullName": "Full Name",
+                "fullNamePlaceholder": "Your name for the trail",
+                "emailPlaceholder": "Your email for basecamp updates",
+                "passwordPlaceholder": "Create a secure password",
+                "confirmPassword": "Confirm Password",
+                "confirmPasswordPlaceholder": "Re-enter your password",
+                "consentRequired": "I agree to the [Terms of Service] and [Privacy Policy]",
+                "consentMarketing": "Send me camping tips and gear updates",
+                "registerButton": "Start Exploring",
+                "registering": "Setting up camp...",
+                "alreadyHaveAccount": "Already have an account?",
+                "signIn": "Sign in",
+                "errorConsent": "You must agree to the Terms of Service and Privacy Policy",
+                "errorPasswordMismatch": "Passwords do not match",
+                "errorGeneral": "Registration failed. Please try again.",
+                "registrationSuccess": "Account created successfully! Please log in to continue."
+            }
         },
         "nav": {
             "campYourHome": "Camp your home",
@@ -119,11 +148,70 @@
             "kitchen": "Kitchen",
             "shower": "Shower",
             "parking": "Free parking on premises"
+        },
+        "search": {
+            "location": "Where to?",
+            "date": "When",
+            "guests": "Who",
+            "search": "Search",
+            "anywhere": "Search destinations",
+            "addGuests": "Add guests",
+            "anyWeek": "Add dates",
+            "noResults": "No matching campsites",
+            "keyword": "Keyword",
+            "keywordPlaceholder": "Campground name, host...",
+            "province": "Province",
+            "district": "District",
+            "anyProvince": "Any province",
+            "anyDistrict": "Any district",
+            "who": "Who"
+        },
+        "emptyState": {
+            "noResults": "No exact matches",
+            "adjustFilters": "Adjust your search or clear all filters to see more results.",
+            "clearFilters": "Clear all filters",
+            "seedDatabase": "Seed Database (Click me)"
+        },
+        "sort": {
+            "sortBy": "Sort by",
+            "mostRelated": "Most related",
+            "priceLow": "Price: Low to High",
+            "priceHigh": "Price: High to Low",
+            "rating": "Rating"
         }
     },
     "th": {
         "auth": {
-            "signOut": "ออกจากระบบ"
+            "signOut": "ออกจากระบบ",
+            "login": "เข้าสู่ระบบ",
+            "signup": "สมัครสมาชิก",
+            "email": "อีเมล",
+            "password": "รหัสผ่าน",
+            "welcomeBack": "ยินดีต้อนรับกลับมา",
+            "loginToContinue": "เข้าสู่ระบบเพื่อเริ่มต้นการผจญภัยของคุณ",
+            "dontHaveAccount": "ยังไม่มีบัญชีผู้ใช้?",
+            "register": "ลงทะเบียน",
+            "signingIn": "กำลังเข้าสู่ระบบ...",
+            "registerModal": {
+                "title": "เริ่มต้นการผจญภัยของคุณ",
+                "subtitle": "เข้าร่วมชุมชน CampVibe",
+                "fullName": "ชื่อ-นามสกุล",
+                "fullNamePlaceholder": "ชื่อของคุณสำหรับการเดินทาง",
+                "emailPlaceholder": "อีเมลของคุณสำหรับการอัปเดต",
+                "passwordPlaceholder": "สร้างรหัสผ่านที่ปลอดภัย",
+                "confirmPassword": "ยืนยันรหัสผ่าน",
+                "confirmPasswordPlaceholder": "ป้อนรหัสผ่านอีกครั้ง",
+                "consentRequired": "ฉันยอมรับ [ข้อกำหนดการให้บริการ] และ [นโยบายความเป็นส่วนตัว]",
+                "consentMarketing": "ส่งเคล็ดลับการแคมป์ปิ้งและข้อมูลอุปกรณ์ให้ฉัน",
+                "registerButton": "เริ่มสำรวจ",
+                "registering": "กำลังตั้งค่าบัญชี...",
+                "alreadyHaveAccount": "มีบัญชีอยู่แล้ว?",
+                "signIn": "เข้าสู่ระบบ",
+                "errorConsent": "คุณต้องยอมรับข้อกำหนดการให้บริการและนโยบายความเป็นส่วนตัว",
+                "errorPasswordMismatch": "รหัสผ่านไม่ตรงกัน",
+                "errorGeneral": "การลงทะเบียนล้มเหลว กรุณาลองอีกครั้ง",
+                "registrationSuccess": "สร้างบัญชีสำเร็จ! กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ"
+            }
         },
         "nav": {
             "campYourHome": "เปิดแคมป์ของคุณ",
@@ -241,6 +329,36 @@
             "kitchen": "ครัว",
             "shower": "ห้องอาบน้ำ",
             "parking": "ที่จอดรถฟรี"
+        },
+        "search": {
+            "location": "ไปที่ไหน?",
+            "date": "เมื่อไร",
+            "guests": "ใคร",
+            "search": "ค้นหา",
+            "anywhere": "ค้นหาจุดหมายปลายทาง",
+            "addGuests": "เพิ่มผู้เข้าพัก",
+            "anyWeek": "เพิ่มวันที่",
+            "noResults": "ไม่พบที่พักที่ตรงกัน",
+            "keyword": "คำค้นหา",
+            "keywordPlaceholder": "ชื่อแคมป์, ชื่อโฮสต์...",
+            "province": "จังหวัด",
+            "district": "อำเภอ",
+            "anyProvince": "ทุกจังหวัด",
+            "anyDistrict": "ทุกอำเภอ",
+            "who": "ใคร"
+        },
+        "emptyState": {
+            "noResults": "ไม่พบผลลัพธ์ที่ตรงกัน",
+            "adjustFilters": "ปรับการค้นหาหรือล้างตัวกรองทั้งหมดเพื่อดูผลลัพธ์เพิ่มเติม",
+            "clearFilters": "ล้างตัวกรองทั้งหมด",
+            "seedDatabase": "เพิ่มข้อมูลตัวอย่าง (คลิกที่นี่)"
+        },
+        "sort": {
+            "sortBy": "จัดเรียงตาม",
+            "mostRelated": "เกี่ยวข้องมากที่สุด",
+            "priceLow": "ราคา: ต่ำไปสูง",
+            "priceHigh": "ราคา: สูงไปต่ำ",
+            "rating": "คะแนนรีวิว"
         }
     }
 }
