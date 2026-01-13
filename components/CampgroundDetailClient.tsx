@@ -31,6 +31,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const [guests, setGuests] = useState(1);
     const [isReserving, setIsReserving] = useState(false);
+    const [imageError, setImageError] = useState(false);
 
     // Calculate nights using date-fns
     const nights = (checkIn && checkOut && checkOut > checkIn)
@@ -303,11 +304,12 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                             {/* Host Info - Keeping distinct but subtle above description */}
                             <div className="flex items-center gap-4 mb-6">
                                 <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 border border-gray-100">
-                                    {campground.operator.image ? (
+                                    {(campground.operator.image && !imageError) ? (
                                         <img
                                             src={campground.operator.image}
                                             alt={campground.operator.name || 'Owner'}
                                             className="w-full h-full object-cover"
+                                            onError={() => setImageError(true)}
                                         />
                                     ) : (
                                         <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xl">

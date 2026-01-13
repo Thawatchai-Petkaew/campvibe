@@ -34,6 +34,7 @@ export default function ProfilePage() {
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [image, setImage] = useState<string | null>(null);
+    const [imageError, setImageError] = useState(false);
 
     // Fetch profile on mount
     useEffect(() => {
@@ -177,11 +178,12 @@ export default function ProfilePage() {
                                     isUploading && "opacity-50"
                                 )}
                             >
-                                {image ? (
+                                {(image && !imageError) ? (
                                     <img
                                         src={image}
                                         alt="Profile"
                                         className="w-full h-full object-cover"
+                                        onError={() => setImageError(true)}
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/30">

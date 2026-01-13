@@ -33,6 +33,7 @@ export function Navbar({ currentUser }: NavbarProps) {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+    const [imageError, setImageError] = useState(false);
 
     const activeSearchLabel = useMemo(() => {
         const keyword = searchParams.get("keyword");
@@ -105,9 +106,14 @@ export function Navbar({ currentUser }: NavbarProps) {
                             <DropdownMenuTrigger asChild>
                                 <div className="flex items-center gap-2 border border-gray-200 rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative">
                                     <Menu className="w-5 h-5 text-gray-600" />
-                                    <div className={currentUser?.image ? "rounded-full overflow-hidden" : "bg-gray-500 rounded-full p-1 overflow-hidden"}>
-                                        {currentUser?.image ? (
-                                            <img src={currentUser.image} alt="User" className="w-8 h-8 rounded-full object-cover" />
+                                    <div className={(currentUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-gray-500 rounded-full p-1 overflow-hidden"}>
+                                        {(currentUser?.image && !imageError) ? (
+                                            <img
+                                                src={currentUser.image}
+                                                alt="User"
+                                                className="w-8 h-8 rounded-full object-cover"
+                                                onError={() => setImageError(true)}
+                                            />
                                         ) : (
                                             <User className="w-6 h-6 text-white" />
                                         )}
