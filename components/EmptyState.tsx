@@ -39,11 +39,9 @@ export function EmptyState({ title, subtitle, showReset }: EmptyStateProps) {
                 </Button>
             )}
 
-            {!showReset && (
-                <a href="/api/seed" target="_blank" className="font-medium text-primary hover:underline">
-                    {t.emptyState.seedDatabase}
-                </a>
-            )}
+            <a href="/api/seed" target="_blank" className="font-medium text-primary hover:underline mt-4 cursor-pointer">
+                {t.emptyState.seedDatabase || "Seed Database (Click me)"}
+            </a>
         </div>
     );
 }
