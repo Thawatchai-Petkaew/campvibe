@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Star, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Campground } from "@prisma/client";
+import { CampSite } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 
 interface CampgroundCardProps {
-    campground: Campground & { location: { province: string } };
+    campground: CampSite & { location: { province: string } };
 }
 
 export function CampgroundCard({ campground }: CampgroundCardProps) {
@@ -35,11 +35,11 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
 
     return (
         <Link href={`/campgrounds/${slug}`} className="group block space-y-3 cursor-pointer">
-            <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-200">
+            <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                 {/* New Listing Badge */}
                 {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
                     <div className="absolute top-3 left-3 z-10">
-                        <Badge variant="secondary" className="h-6 px-2 text-xs font-medium bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm border-white/20">
+                        <Badge variant="secondary" className="h-6 px-2 text-xs font-medium bg-background/90 backdrop-blur-sm text-foreground shadow-sm border-border/50">
                             New
                         </Badge>
                     </div>
@@ -58,13 +58,13 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
                         <>
                             <button
                                 onClick={prevImage}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
                             >
                                 <ChevronLeft className="w-4 h-4 text-gray-800" />
                             </button>
                             <button
                                 onClick={nextImage}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-white/80 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
                             >
                                 <ChevronRight className="w-4 h-4 text-gray-800" />
                             </button>
@@ -77,7 +77,7 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
                             {imageUrls.slice(0, 5).map((_, i) => (
                                 <div
                                     key={i}
-                                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIndex ? 'bg-white scale-110' : 'bg-white/60'
+                                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIndex ? 'bg-background scale-110' : 'bg-background/60'
                                         }`}
                                 />
                             ))}
@@ -85,23 +85,23 @@ export function CampgroundCard({ campground }: CampgroundCardProps) {
                     )}
                 </div>
 
-                <button className="absolute top-3 right-3 p-2 rounded-full hover:bg-black/10 transition z-10">
-                    <Heart className="w-6 h-6 text-white/80 stroke-[1.5px] fill-black/20" />
+                <button className="absolute top-3 right-3 p-2 rounded-full hover:bg-black/10 transition z-10 bg-black/30">
+                    <Heart className="w-6 h-6 text-white/90 stroke-[1.5px] fill-black/30" />
                 </button>
             </div>
 
             <div className="space-y-1">
                 <div className="flex justify-between items-start">
-                    <h3 className="font-semibold text-gray-900 truncate pr-4">{name}</h3>
+                    <h3 className="font-semibold text-foreground truncate pr-4">{name}</h3>
                     <div className="flex items-center gap-1">
                         <Star className="w-3.5 h-3.5 fill-black text-black" />
                         <span className="text-sm">4.8</span>
                     </div>
                 </div>
-                <p className="text-gray-500 text-sm">{campground.location.province}, Thailand</p>
+                <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
                 <div className="flex items-baseline gap-1 pt-1">
                     <span className="font-semibold">{campground.priceLow ? formatCurrency(campground.priceLow) : t.common.free}</span>
-                    <span className="text-gray-900">{t.common.night}</span>
+                    <span className="text-muted-foreground">{t.common.night}</span>
                 </div>
             </div>
         </Link>

@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaf
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Star } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Custom Pin Icon using primary color
 interface MapComponentProps {
@@ -14,6 +15,7 @@ interface MapComponentProps {
 }
 
 export default function MapComponent({ latitude, longitude, campground }: MapComponentProps) {
+    const { t } = useLanguage();
     const [isHovered, setIsHovered] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -40,7 +42,7 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
     const coverImage = images[0] || "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=400";
 
     return (
-        <div className="w-full h-full relative rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+        <div className="w-full h-full relative rounded-xl overflow-hidden border border-border shadow-sm">
             <MapContainer
                 center={[latitude, longitude]}
                 zoom={13}
@@ -74,17 +76,17 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                                 className="w-full h-32 object-cover"
                             />
                             <div className="p-3">
-                                <h3 className="font-bold text-gray-900 leading-tight mb-1 truncate">
+                                <h3 className="font-bold text-foreground leading-tight mb-1 truncate">
                                     {campground.nameTh}
                                 </h3>
                                 <div className="flex items-center gap-1 text-sm mb-2">
-                                    <Star className="w-3 h-3 fill-black text-black" />
+                                    <Star className="w-3 h-3 fill-foreground text-foreground" />
                                     <span className="font-semibold">4.8</span>
-                                    <span className="text-gray-500">· {campground.location.province}</span>
+                                    <span className="text-muted-foreground">· {campground.location.province}</span>
                                 </div>
                                 <div className="text-sm">
                                     <span className="font-bold">${campground.priceLow}</span>
-                                    <span className="text-gray-500"> / night</span>
+                                    <span className="text-muted-foreground"> / {t.common.night}</span>
                                 </div>
                             </div>
                         </div>

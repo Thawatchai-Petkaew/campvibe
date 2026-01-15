@@ -1,140 +1,146 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { campgroundSchema } from '@/lib/validations/campground';
-import { z } from 'zod';
+import { campSiteSchema } from '@/lib/validations/campsite';
+import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
+import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
+import { requireAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
+  try {
     const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type');
-    const minPrice = searchParams.get('min');
-    const maxPrice = searchParams.get('max');
-
-    // CSV params
-    // CSV params
-    const access = searchParams.get('access');
-    const facilities = searchParams.get('facilities');
-    const external = searchParams.get('external');
-    const equipment = searchParams.get('equipment');
-    const activities = searchParams.get('activities');
-    const terrain = searchParams.get('terrain');
-
-    // Build filter object
-    const where: any = {
-        isActive: true,
-        isPublished: true
+    
+    const filterParams: CampSiteFilterParams = {
+      type: searchParams.get('type') || undefined,
+      keyword: searchParams.get('keyword') || undefined,
+      province: searchParams.get('province') || undefined,
+      district: searchParams.get('district') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      guests: searchParams.get('guests') || undefined,
+      min: searchParams.get('min') || undefined,
+      max: searchParams.get('max') || undefined,
+      access: searchParams.get('access') || undefined,
+      facilities: searchParams.get('facilities') || undefined,
+      external: searchParams.get('external') || undefined,
+      equipment: searchParams.get('equipment') || undefined,
+      activities: searchParams.get('activities') || undefined,
+      terrain: searchParams.get('terrain') || undefined,
     };
 
-    if (type && type !== 'ALL') {
-        where.campgroundType = type;
-    }
+    const where = buildCampSiteWhere(filterParams);
 
-    // Price Filter
-    if (minPrice || maxPrice) {
-        where.priceLow = {};
-        if (minPrice) where.priceLow.gte = parseFloat(minPrice);
-        if (maxPrice) where.priceLow.lte = parseFloat(maxPrice);
-    }
-
-    // Helper for multi-select AND logic
-    const addMultiSelectFilter = (field: string, param: string | null) => {
-        if (!param) return;
-        const codes = param.split(',').filter(Boolean);
-        if (codes.length > 0) {
-            where.AND = where.AND || [];
-            codes.forEach(code => {
-                where.AND.push({
-                    [field]: { contains: code }
-                });
-            });
-        }
-    };
-
-    addMultiSelectFilter('accessTypes', access);
-    addMultiSelectFilter('facilities', facilities);
-    addMultiSelectFilter('externalFacilities', external);
-    addMultiSelectFilter('equipment', equipment);
-    addMultiSelectFilter('activities', activities);
-    addMultiSelectFilter('terrain', terrain);
-
-    try {
-        const campgrounds = await prisma.campground.findMany({
-            where,
-            include: {
-                location: true,
-                sites: true,
-                reviews: { select: { rating: true } }
-            },
-        });
-        return NextResponse.json(campgrounds);
-    } catch (error) {
-        console.error("Fetch error:", error);
-        return NextResponse.json({ error: 'Failed to fetch campgrounds' }, { status: 500 });
-    }
+    const campSites = await prisma.campSite.findMany({
+      where,
+      include: {
+        location: true,
+        spots: true,
+        reviews: { select: { rating: true } }
+      },
+    });
+    
+    return apiSuccess(campSites);
+  } catch (error) {
+    return apiError('Failed to fetch campgrounds', 500, error);
+  }
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
+  const { error: authError, session } = await requireAuth();
+  if (authError) return authError;
 
-        // Validate with Zod
-        const validation = campgroundSchema.safeParse(body);
+  const userId = session?.user?.id;
+  if (!userId) {
+    return apiError('User ID not found in session', 401);
+  }
 
-        if (!validation.success) {
-            return NextResponse.json(
-                { error: 'Validation Error', details: validation.error.format() },
-                { status: 400 }
-            );
-        }
+  try {
+    const body = await request.json();
 
-        const data = validation.data;
+    // Validate with Zod
+    const validation = campSiteSchema.safeParse(body);
 
-        const campground = await prisma.campground.create({
-            data: {
-                nameTh: data.nameTh,
-                nameEn: data.nameEn,
-                nameThSlug: data.nameThSlug,
-                nameEnSlug: data.nameEnSlug,
-                description: data.description,
-                campgroundType: data.campgroundType,
-
-                // Join arrays to string
-                accessTypes: data.accessTypes.join(','),
-                accommodationTypes: data.accommodationTypes.join(','),
-                facilities: data.facilities.join(','),
-                externalFacilities: data.externalFacilities?.join(','),
-                equipment: data.equipment?.join(','),
-                activities: data.activities?.join(','),
-                terrain: data.terrain?.join(','),
-
-                address: data.address,
-                directions: data.directions,
-                videoUrl: data.videoUrl,
-                contacts: data.contacts,
-                feeInfo: data.feeInfo,
-                toiletInfo: data.toiletInfo,
-                minimumAge: data.minimumAge,
-
-                latitude: data.latitude,
-                longitude: data.longitude,
-                checkInTime: data.checkInTime,
-                checkOutTime: data.checkOutTime,
-                bookingMethod: data.bookingMethod,
-                priceLow: data.priceLow,
-                priceHigh: data.priceHigh,
-
-                partner: data.partner,
-                nationalPark: data.nationalPark,
-                images: data.images?.join(','),
-
-                locationId: data.locationId,
-                operatorId: data.operatorId,
-            },
-        });
-
-        return NextResponse.json(campground, { status: 201 });
-
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({ error: 'Failed to create campground' }, { status: 500 });
+    if (!validation.success) {
+      return apiError('Validation Error', 400, validation.error.format());
     }
+
+    const data = validation.data;
+
+    // Ensure slugs are available
+    const nameThSlug = data.nameThSlug || data.nameTh.toLowerCase().replace(/\s+/g, '-');
+    const nameEnSlug = data.nameEnSlug || (data.nameEn || data.nameTh).toLowerCase().replace(/\s+/g, '-');
+
+    const campSite = await prisma.campSite.create({
+      data: {
+        nameTh: data.nameTh,
+        nameEn: data.nameEn,
+        nameThSlug: nameThSlug,
+        nameEnSlug: nameEnSlug,
+        description: data.description || "",
+        campSiteType: (data.campSiteType 
+          ? (Array.isArray(data.campSiteType) ? arrayToCsv(data.campSiteType) : data.campSiteType)
+          : "CAMPGROUND") as string,
+
+        // Convert arrays to CSV strings
+        accessTypes: (data.accessTypes ? arrayToCsv(data.accessTypes) : "") as string,
+        accommodationTypes: (data.accommodationTypes ? arrayToCsv(data.accommodationTypes) : "") as string,
+        facilities: (data.facilities ? arrayToCsv(data.facilities) : "") as string,
+        externalFacilities: (data.externalFacilities ? arrayToCsv(data.externalFacilities) : "") as string,
+        equipment: (data.equipment ? arrayToCsv(data.equipment) : "") as string,
+        activities: (data.activities ? arrayToCsv(data.activities) : "") as string,
+        terrain: (data.terrain ? arrayToCsv(data.terrain) : "") as string,
+
+        address: data.address,
+        directions: data.directions,
+        videoUrl: data.videoUrl || undefined,
+        logo: data.logo || undefined,
+        
+        // Contact Information
+        phone: data.phone || undefined,
+        lineId: data.lineId || undefined,
+        facebookUrl: data.facebookUrl || undefined,
+        facebookMessageUrl: data.facebookMessageUrl || undefined,
+        tiktokUrl: data.tiktokUrl || undefined,
+        feeInfo: data.feeInfo,
+        toiletInfo: data.toiletInfo,
+        minimumAge: data.minimumAge,
+        tags: arrayToCsv(data.tags || []),
+
+        latitude: data.latitude,
+        longitude: data.longitude,
+        checkInTime: data.checkInTime,
+        checkOutTime: data.checkOutTime,
+        bookingMethod: data.bookingMethod,
+        priceLow: data.priceLow,
+        priceHigh: data.priceHigh,
+
+        partner: data.partner,
+        nationalPark: data.nationalPark,
+        images: arrayToCsv(data.images || []),
+        
+        isVerified: data.isVerified ?? false,
+        isActive: data.isActive ?? true,
+        isPublished: data.isPublished ?? false,
+        
+        // Capacity & Ground Type
+        maxGuestsPerDay: data.maxGuestsPerDay,
+        maxTentsPerDay: data.maxTentsPerDay,
+        groundType: data.groundType ? (typeof data.groundType === 'string' ? data.groundType : JSON.stringify(data.groundType)) : undefined,
+
+        // Ownership & Pricing
+        ownershipType: data.ownershipType || undefined,
+        isFree: data.isFree ?? false,
+
+        // Pet & Display Settings
+        petFriendly: data.petFriendly ?? false,
+        useSpotView: data.useSpotView ?? false,
+
+        locationId: data.locationId,
+        operatorId: userId,
+      },
+    });
+
+    return apiSuccess(campSite, 201);
+  } catch (error) {
+    return apiError('Failed to create campground', 500, error);
+  }
 }

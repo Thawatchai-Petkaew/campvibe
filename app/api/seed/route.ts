@@ -67,21 +67,21 @@ export async function GET() {
 
         for (const camp of campgrounds) {
             // Check if exists to avoid duplicates
-            const existing = await prisma.campground.findFirst({
+            const existing = await prisma.campSite.findFirst({
                 where: { nameEn: camp.nameEn }
             });
 
             if (!existing) {
                 const slug = camp.nameEn.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Math.floor(Math.random() * 1000);
 
-                await prisma.campground.create({
+                await prisma.campSite.create({
                     data: {
                         nameTh: camp.nameTh,
                         nameEn: camp.nameEn,
                         nameThSlug: slug,
                         nameEnSlug: slug + '-en',
                         description: camp.description,
-                        campgroundType: camp.campgroundType,
+                        campSiteType: camp.campgroundType,
                         images: camp.images,
                         accessTypes: 'DRIV',
                         accommodationTypes: 'TENT',
@@ -110,7 +110,7 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
-            message: `Seeding completed. Created ${createdCount} campgrounds.`,
+            message: `Seeding completed. Created ${createdCount} camp sites.`,
             operator: operator.email
         });
 

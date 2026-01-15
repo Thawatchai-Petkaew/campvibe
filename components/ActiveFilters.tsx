@@ -70,12 +70,12 @@ export function ActiveFilters() {
                 <Badge
                     key={`${filter.key}-${filter.value}-${idx}`}
                     variant="secondary"
-                    className="pl-3 pr-1 py-1 h-7 rounded-full gap-1 flex items-center bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    className="pl-3 pr-1 py-1 h-7 rounded-full gap-1 flex items-center bg-muted text-foreground hover:bg-muted/80"
                 >
                     {filter.label}
                     <button
                         onClick={() => removeFilter(filter)}
-                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-300 ml-1"
+                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-muted-foreground/20 ml-1"
                     >
                         <X className="w-3 h-3" />
                     </button>
@@ -84,7 +84,7 @@ export function ActiveFilters() {
             {activeFilters.length > 0 && (
                 <button
                     onClick={clearAll}
-                    className="text-xs text-gray-500 hover:text-primary font-medium ml-2 underline decoration-gray-300 underline-offset-4"
+                    className="text-xs text-muted-foreground hover:text-primary font-medium ml-2 underline decoration-border underline-offset-4"
                 >
                     Clear all
                 </button>

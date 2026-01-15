@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import clsx from "clsx";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ImageUploadProps {
     value: string[];
@@ -18,6 +19,7 @@ export function ImageUpload({
     onRemove,
     disabled
 }: ImageUploadProps) {
+    const { t } = useLanguage();
     const [isUploading, setIsUploading] = useState(false);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -41,7 +43,7 @@ export function ImageUpload({
             onChange([...value, ...urls]);
         } catch (error) {
             console.error("Upload error:", error);
-            alert("Failed to upload images. Please check your connection.");
+            alert(t.newCampground.uploadFailed);
         } finally {
             setIsUploading(false);
         }
@@ -60,10 +62,10 @@ export function ImageUpload({
         <div className="space-y-4 w-full">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {value.map((url) => (
-                    <div key={url} className="relative aspect-square rounded-xl overflow-hidden group border border-gray-100">
+                    <div key={url} className="relative aspect-square rounded-xl overflow-hidden group border border-border">
                         <img
                             src={url}
-                            alt="Upload preview"
+                            alt={t.newCampground.imagePreview}
                             className="object-cover w-full h-full"
                         />
                         <button
@@ -81,24 +83,24 @@ export function ImageUpload({
                     {...getRootProps()}
                     className={clsx(
                         "relative aspect-square rounded-xl border-2 border-dashed transition flex flex-col items-center justify-center gap-2 cursor-pointer",
-                        isDragActive ? "border-green-800 bg-green-50" : "border-gray-200 hover:border-green-800 hover:bg-gray-50",
+                        isDragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary hover:bg-muted",
                         (disabled || isUploading) && "opacity-50 cursor-not-allowed"
                     )}
                 >
                     <input {...getInputProps()} />
                     {isUploading ? (
                         <>
-                            <Loader2 className="w-8 h-8 text-green-800 animate-spin" />
-                            <span className="text-xs font-medium text-gray-500">Uploading...</span>
+                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            <span className="text-xs font-medium text-muted-foreground">{t.newCampground.uploading}</span>
                         </>
                     ) : (
                         <>
-                            <div className="p-3 rounded-full bg-gray-100 text-gray-600">
+                            <div className="p-3 rounded-full bg-muted text-muted-foreground">
                                 <Upload className="w-6 h-6" />
                             </div>
                             <div className="text-center px-2">
-                                <p className="text-xs font-semibold text-gray-900">Add Photos</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">Up to 10 images</p>
+                                <p className="text-xs font-semibold text-foreground">{t.newCampground.addPhotos}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{t.newCampground.upTo10Images}</p>
                             </div>
                         </>
                     )}
@@ -106,10 +108,10 @@ export function ImageUpload({
             </div>
 
             {value.length === 0 && !isUploading && (
-                <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-2xl border border-gray-100 border-dashed">
-                    <ImageIcon className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm font-medium text-gray-600">No photos uploaded yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Upload at least 5 photos for best results</p>
+                <div className="flex flex-col items-center justify-center py-12 bg-muted rounded-2xl border border-border border-dashed">
+                    <ImageIcon className="w-12 h-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-sm font-medium text-foreground">{t.newCampground.noPhotosUploaded}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t.newCampground.uploadAtLeast5Photos}</p>
                 </div>
             )}
         </div>

@@ -13,36 +13,93 @@ datasource db {
 // Enums based on 'Option v1'
 // Note: SQLite doesn't enforce Enums natively, Prisma handles them as Strings.
 
+// Team & Permission System Enums
+enum TeamRole {
+  OWNER // ผู้สร้าง - Full access
+  ADMIN // ผู้ดูแลระบบ - Almost full access
+  MANAGER // ผู้จัดการ - Manage bookings, view analytics
+  STAFF // พนักงาน - View and update bookings only
+  VIEWER // ผู้ดู - Read-only access
+}
+
+enum Permission {
+  // Campsite Management
+  CAMPSITE_VIEW
+  CAMPSITE_UPDATE
+  CAMPSITE_DELETE
+
+  // Booking Management
+  BOOKING_VIEW
+  BOOKING_UPDATE
+  BOOKING_CREATE
+  BOOKING_DELETE
+
+  // Team Management
+  TEAM_VIEW
+  TEAM_INVITE
+  TEAM_UPDATE_ROLE
+  TEAM_REMOVE
+
+  // Analytics
+  ANALYTICS_VIEW
+
+  // Financial
+  FINANCIAL_VIEW
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?  // Hashed password for credentials auth
-  name      String?
-  image     String?  // Profile image URL
-  phone     String?  // Contact phone number
-  role      String   @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String? // Hashed password for credentials auth
+  name     String?
+  image    String? // Profile image URL
+  phone    String? // Contact phone number
+  role     String  @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
+
+  // Host Registration & KYC
+  isHostRegistered   Boolean   @default(false)
+  hostRegisteredAt   DateTime?
+  kycStatus          String? // "PENDING", "SUBMITTED", "APPROVED", "REJECTED", "RESUBMIT"
+  kycSubmittedAt     DateTime?
+  kycApprovedAt      DateTime?
+  kycRejectedAt      DateTime?
+  kycRejectionReason String?
+  kycReviewedBy      String?
+  kycDocuments       String? // JSON array
+
+  // Business Information
+  businessName    String?
+  businessType    String? // "INDIVIDUAL", "COMPANY", "PARTNERSHIP"
+  taxId           String?
+  businessAddress String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  campgrounds Campground[] // Operator's campgrounds
-  reviews     Review[]     // User's reviews
-  bookings    Booking[]    // User's bookings
+  campSites       CampSite[] // Operator's camp sites (legacy - as owner)
+  teamMemberships CampSiteTeamMember[] // Team memberships across camp sites
+  reviews         Review[] // User's reviews
+  bookings        Booking[] // User's bookings
+
+  @@index([email])
+  @@index([kycStatus])
+  @@index([isHostRegistered])
 }
 
 model ThailandLocation {
-  id            String   @id @default(uuid())
-  provinceCode  String   // e.g., "10" for Bangkok
-  provinceName  String   // "กรุงเทพมหานคร"
-  provinceNameEn String  // "Bangkok"
-  districtCode  String?  // e.g., "1001"
-  districtName  String?  // "เขตพระนคร"
+  id             String  @id @default(uuid())
+  provinceCode   String // e.g., "10" for Bangkok
+  provinceName   String // "กรุงเทพมหานคร"
+  provinceNameEn String // "Bangkok"
+  districtCode   String? // e.g., "1001"
+  districtName   String? // "เขตพระนคร"
   districtNameEn String? // "Phra Nakhon"
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   locations Location[]
-  
+
   @@unique([provinceCode, districtCode])
   @@index([provinceName, districtName])
 }
@@ -57,154 +114,212 @@ model Location {
   village     String?
   lat         Float?
   lon         Float?
-  
+
   // Link to Thailand administrative division
   thaiLocationId String?
   thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
-  
-  campgrounds Campground[]
+
+  campSites CampSite[]
 }
 
-model Campground {
-  id          String   @id @default(uuid())
+model CampSite {
+  id          String  @id @default(uuid())
   // Core Identification
   nameTh      String
   nameEn      String?
-  nameThSlug  String   @unique
-  nameEnSlug  String   @unique
+  nameThSlug  String  @unique
+  nameEnSlug  String  @unique
   description String?
-  
+
   // Classification
-  campgroundType   String // Relation to MasterData code (e.g. CAGD)
-  
+  campSiteType String // Relation to MasterData code (e.g. CAGD)
+
   // Media
-  images           String? // CSV of image URLs
-  videoUrl         String? // "VDO"
-  albumUrl         String? // "Photo set"
-  
+  logo     String? // Logo URL
+  images   String? // CSV of image URLs
+  videoUrl String? // "VDO"
+
   // Legacy arrays (to be migrated to MasterData relations)
-  accessTypes      String 
-  accommodationTypes String 
-  facilities       String // Internal facilities
+  accessTypes        String
+  accommodationTypes String
+  facilities         String // Internal facilities
   externalFacilities String? // CSV
-  equipment        String? // CSV (Equipment for rent)
-  activities       String? // CSV
-  terrain          String? // CSV 
-  
+  equipment          String? // CSV (Equipment for rent)
+  activities         String? // CSV
+  terrain            String? // CSV 
+
   // Geolocation & Address
-  latitude         Float
-  longitude        Float
-  address          String?
-  directions       String?
-  
+  latitude   Float
+  longitude  Float
+  address    String?
+  directions String?
+
   // Operations & Info
-  checkInTime      String
-  checkOutTime     String
-  bookingMethod    String
-  feeInfo          String?
-  toiletInfo       String?
-  minimumAge       Int?
-  contacts         String?
-  
+  checkInTime   String
+  checkOutTime  String
+  bookingMethod String
+  feeInfo       String?
+  toiletInfo    String?
+  minimumAge    Int?
+
+  // Capacity & Ground Type
+  maxGuestsPerDay Int? // จำนวนผู้เข้าพักสูงสุดต่อวัน
+  maxTentsPerDay  Int? // จำนวนเต็นท์สูงสุดต่อวัน โดยประมาณ
+  groundType      String? // JSON: {"STONE": 5, "GRASS": 10, "CONCRETE": 3, "WOOD": 2}
+
+  // Contact Information
+  phone              String?
+  lineId             String?
+  facebookUrl        String?
+  facebookMessageUrl String?
+  tiktokUrl          String?
+
   // Pricing
-  priceLow         Float?
-  priceHigh        Float?
-  
+  priceLow  Float?
+  priceHigh Float?
+
   // Status & Dates
-  isVerified       Boolean @default(false)
-  verifiedDate     DateTime?
-  isActive         Boolean @default(true)
-  isPublished      Boolean @default(false)
-  publicDate       DateTime?
-  
-  tags             String? // CSV
-  
+  isVerified   Boolean   @default(false)
+  verifiedDate DateTime?
+  isActive     Boolean   @default(true)
+  isPublished  Boolean   @default(false)
+  publicDate   DateTime?
+
+  tags String? // CSV
+
   // Additional Info
-  partner          String?
-  nationalPark     String?
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
+  partner      String?
+  nationalPark String?
+
+  // Ownership & Pricing
+  ownershipType String? // "PRIVATE" or "NATIONAL_PARK" - ระบุว่าเป็นลานประเภท เอกชน หรือ อุทยานแห่งชาติ
+  isFree        Boolean @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
+
+  // Pet & Display Settings
+  petFriendly Boolean @default(false) // ข้อมูล pet friendly
+  useSpotView Boolean @default(false) // Flag ระบุว่าจะใช้ข้อมูล Display แบบ camp spot หรือไม่
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  locationId       String
-  location         Location @relation(fields: [locationId], references: [id])
-  
-  operatorId       String
-  operator         User     @relation(fields: [operatorId], references: [id])
-  
-  sites            Site[]
-  reviews          Review[]
-  bookings         Booking[]
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+
+  operatorId String
+  operator   User   @relation(fields: [operatorId], references: [id])
+
+  spots       Spot[]
+  reviews     Review[]
+  bookings    Booking[]
+  teamMembers CampSiteTeamMember[] // Team members with roles & permissions
 
   // Options & Features (New Data-Driven Approach)
-  options          MasterData[]
+  options MasterData[]
+}
+
+model CampSiteTeamMember {
+  id String @id @default(uuid())
+
+  // User & CampSite Relation
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  campSiteId String
+  campSite   CampSite @relation(fields: [campSiteId], references: [id], onDelete: Cascade)
+
+  // Role & Permissions
+  role        TeamRole @default(VIEWER)
+  permissions String[] // Array of Permission enum values
+
+  // Invitation Info
+  invitedBy  String? // User ID who invited
+  invitedAt  DateTime  @default(now())
+  acceptedAt DateTime? // When user accepted invitation
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, campSiteId])
+  @@index([campSiteId])
+  @@index([userId])
+  @@index([role])
 }
 
 model MasterData {
-  code        String   @id // e.g. "SHOW", "WIFI"
-  group       String   // e.g. "Internal facility"
-  nameTh      String
-  nameEn      String
-  icon        String?  // Optional icon identifier
-  
-  campgrounds Campground[]
+  code   String  @id // e.g. "SHOW", "WIFI"
+  group  String // e.g. "Internal facility"
+  nameTh String
+  nameEn String
+  icon   String? // Optional icon identifier
+
+  campSites CampSite[]
 }
 
-model Site {
-  id             String   @id @default(uuid())
-  name           String   // "Site name"
-  maxCampers     Int?     // "Maximun campers"
-  maxTents       Int?     // "Maximun tents"
-  environment    String?
-  pricePerNight  Float    // "Price per night"
-  pricePerSite   Float?
-  
-  nearFacilities String?  // CSV of Facility codes
-  
-  campgroundId   String
-  campground     Campground @relation(fields: [campgroundId], references: [id])
-  bookings       Booking[]
+model Spot {
+  id            String  @id @default(uuid())
+  zone          String? // Zone name
+  name          String // Spot name
+  images        String? // CSV of image URLs
+  viewType      String? // ประเภทวิว เช่น ทั่วไป แม่น้ำ ภูเขา (e.g. "GENERAL", "RIVER", "MOUNTAIN")
+  maxCampers    Int? // Maximum campers
+  maxTents      Int? // Maximum tents
+  environment   String?
+  pricePerNight Float // Price per night
+  pricePerSite  Float?
+
+  nearFacilities String? // CSV of Internal Facility codes
+
+  campSiteId String
+  campSite   CampSite  @relation(fields: [campSiteId], references: [id])
+  bookings   Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Review {
-  id          String   @id @default(uuid())
-  title       String?
-  content     String?
-  rating      Int
-  
-  visitDate   DateTime?
-  
-  mediaUrls   String? // CSV of image URLs
-  
-  campgroundId String
-  campground   Campground @relation(fields: [campgroundId], references: [id])
-  
-  authorId     String
-  author       User       @relation(fields: [authorId], references: [id])
-  
-  createdAt    DateTime @default(now())
+  id      String  @id @default(uuid())
+  title   String?
+  content String?
+  rating  Int
+
+  visitDate DateTime?
+
+  mediaUrls String? // CSV of image URLs
+
+  campSiteId String
+  campSite   CampSite @relation(fields: [campSiteId], references: [id])
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model Booking {
-  id            String   @id @default(uuid())
-  
-  checkInDate   DateTime
-  checkOutDate  DateTime
-  guests        Int      @default(1)
-  totalPrice    Float
-  
-  status        String   @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
-  
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
-  campgroundId  String
-  campground    Campground @relation(fields: [campgroundId], references: [id])
-  
-  siteId        String?
-  site          Site?    @relation(fields: [siteId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id String @id @default(uuid())
+
+  checkInDate  DateTime
+  checkOutDate DateTime
+  guests       Int      @default(1)
+  totalPrice   Float
+
+  status String @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  campSiteId String
+  campSite   CampSite @relation(fields: [campSiteId], references: [id])
+
+  spotId String?
+  spot   Spot?   @relation(fields: [spotId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

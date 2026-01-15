@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
     providers: [
         Credentials({
             credentials: {
@@ -51,17 +52,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // On sign in, add user data to token
             if (user) {
                 token.id = user.id;
+                token.email = user.email;
                 token.image = user.image;
+                token.name = user.name;
             }
             // On session update (e.g., after profile change), refresh user data
             if (trigger === "update") {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id as string },
-                    select: { image: true, name: true }
+                    select: { image: true, name: true, email: true }
                 });
                 if (dbUser) {
                     token.image = dbUser.image;
                     token.name = dbUser.name;
+                    token.email = dbUser.email;
                 }
             }
             return token;
@@ -69,7 +73,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             if (session.user && token.sub) {
                 session.user.id = token.sub;
+                session.user.email = token.email as string;
                 session.user.image = token.image as string | null;
+                session.user.name = token.name as string | null;
             }
             return session;
         }

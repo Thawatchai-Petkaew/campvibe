@@ -1,125 +1,141 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 import { bookingSchema } from '@/lib/validations/booking';
+import { requireAuth } from '@/lib/auth-utils';
+import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
+import { checkDateAvailability } from '@/lib/campsite-availability';
 
 export async function POST(request: NextRequest) {
-    const session = await auth();
+  const { error: authError, session } = await requireAuth();
+  if (authError) return authError;
 
-    if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const body = await request.json();
+
+    // 1. Validation (Inject session user ID)
+    const validation = bookingSchema.safeParse({ ...body, userId: session!.user!.id });
+    if (!validation.success) {
+      return apiError('Validation Error', 400, validation.error.format());
     }
 
-    try {
-        const body = await request.json();
+    const data = validation.data;
+    const checkIn = new Date(data.checkInDate);
+    const checkOut = new Date(data.checkOutDate);
 
-        // 1. Validation (Inject session user ID)
-        const validation = bookingSchema.safeParse({ ...body, userId: session.user.id });
-        if (!validation.success) {
-            return NextResponse.json(
-                { error: 'Validation Error', details: validation.error.format() },
-                { status: 400 }
-            );
+    // 2. Check Overlaps (spot-specific if spotId provided)
+    if (data.spotId) {
+      const existingBooking = await prisma.booking.findFirst({
+        where: {
+          campSiteId: data.campSiteId,
+          spotId: data.spotId,
+          status: { not: 'CANCELLED' },
+          AND: [
+            { checkInDate: { lt: checkOut } },
+            { checkOutDate: { gt: checkIn } }
+          ]
         }
+      });
 
-        const data = validation.data;
-        const checkIn = new Date(data.checkInDate);
-        const checkOut = new Date(data.checkOutDate);
-
-        // 2. Check Overlaps
-        const existingBooking = await prisma.booking.findFirst({
-            where: {
-                campgroundId: data.campgroundId,
-                siteId: data.siteId,
-                status: { not: 'CANCELLED' },
-                AND: [
-                    { checkInDate: { lt: checkOut } },
-                    { checkOutDate: { gt: checkIn } }
-                ]
-            }
-        });
-
-        if (existingBooking) {
-            return NextResponse.json(
-                { error: 'Dates not available', details: 'Selected dates overlap with an existing booking.' },
-                { status: 409 }
-            );
-        }
-
-        // 3. Price Calculation
-        let pricePerNight = 50;
-
-        const campground = await prisma.campground.findUnique({
-            where: { id: data.campgroundId },
-            include: { sites: true }
-        });
-
-        if (!campground) {
-            return NextResponse.json({ error: 'Campground not found' }, { status: 404 });
-        }
-
-        if (data.siteId) {
-            const site = campground.sites.find(s => s.id === data.siteId);
-            if (site) {
-                pricePerNight = site.pricePerNight;
-            }
-        } else if (campground.priceLow) {
-            pricePerNight = campground.priceLow;
-        }
-
-        const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const totalPrice = pricePerNight * diffDays;
-
-        // 4. Create Booking
-        const booking = await prisma.booking.create({
-            data: {
-                userId: session.user.id,
-                campgroundId: data.campgroundId,
-                siteId: data.siteId,
-                checkInDate: checkIn,
-                checkOutDate: checkOut,
-                guests: data.guests,
-                totalPrice: totalPrice,
-                status: 'PENDING' // Start as pending
-            }
-        });
-
-        return NextResponse.json(booking, { status: 201 });
-
-    } catch (error) {
-        console.error('Booking creation error:', error);
-        return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
+      if (existingBooking) {
+        return apiError('Dates not available', 409, 'Selected dates overlap with an existing booking.');
+      }
     }
+
+    // 3. Check Daily Capacity (for each day in booking range)
+    const date = new Date(checkIn);
+    while (date < checkOut) {
+      const availability = await checkDateAvailability(
+        data.campSiteId,
+        new Date(date),
+        data.guests
+      );
+
+      if (!availability.available) {
+        return apiError(
+          'Capacity exceeded',
+          409,
+          `Date ${date.toISOString().split('T')[0]}: ${availability.reason}`
+        );
+      }
+
+      date.setDate(date.getDate() + 1);
+    }
+
+    // 4. Price Calculation
+    const campSite = await prisma.campSite.findUnique({
+      where: { id: data.campSiteId },
+      include: { spots: true }
+    });
+
+    if (!campSite) {
+      return apiError('Camp site not found', 404);
+    }
+
+    let pricePerNight = campSite.priceLow || 50;
+    if (data.spotId) {
+      const spot = campSite.spots.find(s => s.id === data.spotId);
+      if (spot?.pricePerNight) {
+        pricePerNight = spot.pricePerNight;
+      }
+    }
+
+    const nights = calculateNights(checkIn, checkOut);
+    const totalPrice = pricePerNight * nights;
+
+    // Ensure userId is available
+    const userId = session?.user?.id;
+    if (!userId) {
+      return apiError('User ID not found in session', 401);
+    }
+
+    // 5. Create Booking
+    const booking = await prisma.booking.create({
+      data: {
+        userId: userId,
+        campSiteId: data.campSiteId,
+        spotId: data.spotId,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        guests: data.guests,
+        totalPrice: totalPrice,
+        status: 'PENDING' // Start as pending
+      }
+    });
+
+    return apiSuccess(booking, 201);
+  } catch (error) {
+    return apiError('Failed to create booking', 500, error);
+  }
 }
 
 export async function GET(request: NextRequest) {
-    const session = await auth();
+  const { error: authError, session } = await requireAuth();
+  if (authError) return authError;
 
-    if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: { userId: session!.user!.id },
+      include: {
+        campSite: {
+          select: {
+            nameTh: true,
+            nameEn: true,
+            images: true,
+            location: true
+          }
+        },
+        spot: {
+          select: {
+            name: true,
+            zone: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
-    try {
-        const bookings = await prisma.booking.findMany({
-            where: { userId: session.user.id },
-            include: {
-                campground: {
-                    select: {
-                        nameTh: true,
-                        nameEn: true,
-                        images: true,
-                        location: true
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-
-        return NextResponse.json(bookings);
-
-    } catch (error) {
-        console.error('Fetch bookings error:', error);
-        return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
-    }
+    return apiSuccess(bookings);
+  } catch (error) {
+    return apiError('Failed to fetch bookings', 500, error);
+  }
 }

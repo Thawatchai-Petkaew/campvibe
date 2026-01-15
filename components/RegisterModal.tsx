@@ -6,7 +6,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { register } from "@/lib/actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputField } from "@/components/ui/input-field";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
@@ -30,12 +31,22 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
         undefined
     );
 
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [consentRequired, setConsentRequired] = useState(false);
     const [consentMarketing, setConsentMarketing] = useState(false);
     const [validationError, setValidationError] = useState("");
     const [formSubmitted, setFormSubmitted] = useState(false);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+    
+    // Client-side validation errors (inline)
+    const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
+        : undefined;
+    
+    // Server error (banner) - only show after submit
+    const serverError = hasSubmitted && errorMessage ? errorMessage : undefined;
 
     // Handle successful registration
     useEffect(() => {
@@ -62,16 +73,19 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         setValidationError("");
+        setHasSubmitted(true);
 
         if (!consentRequired) {
             e.preventDefault();
             setValidationError(t.auth.registerModal.errorConsent);
+            setHasSubmitted(false);
             return;
         }
 
         if (password !== confirmPassword) {
             e.preventDefault();
             setValidationError(t.auth.registerModal.errorPasswordMismatch);
+            setHasSubmitted(false);
             return;
         }
 
@@ -104,108 +118,93 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+            <DialogContent showCloseButton={false} className="sm:max-w-md rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col relative">
                     {/* Header */}
-                    <div className="flex items-center justify-center p-6 border-b border-gray-100">
+                    <div className="flex items-center justify-center p-6 border-b border-border/60">
                         <DialogClose asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-gray-100 transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
                                 onClick={onClose}
                             >
-                                <X className="w-5 h-5 text-gray-900" />
+                                <X className="w-5 h-5 text-foreground" />
                             </Button>
                         </DialogClose>
                         <div className="text-center">
-                            <DialogTitle className="text-lg font-bold">{t.auth.registerModal.title}</DialogTitle>
-                            <p className="text-sm text-gray-500 mt-1">{t.auth.registerModal.subtitle}</p>
+                            <DialogTitle className="text-lg font-bold text-foreground">{t.auth.registerModal.title}</DialogTitle>
+                            <p className="text-sm text-muted-foreground mt-1">{t.auth.registerModal.subtitle}</p>
                         </div>
                     </div>
 
                     {/* Content */}
                     <div className="p-8 space-y-4">
-                        <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
+                        <form noValidate action={formAction} onSubmit={handleSubmit} className="space-y-4">
                             <input type="hidden" name="marketingConsent" value={consentMarketing ? "true" : "false"} />
 
+                            {/* Server Error Banner (after submit) */}
+                            <ErrorBanner message={serverError || ""} />
+
                             {/* Full Name */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                    {t.auth.registerModal.fullName}
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="name"
-                                        name="name"
-                                        type="text"
-                                        placeholder={t.auth.registerModal.fullNamePlaceholder}
-                                        required
-                                        className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                    />
-                                </div>
-                            </div>
+                            <InputField
+                                label={t.auth.registerModal.fullName}
+                                id="name"
+                                name="name"
+                                type="text"
+                                placeholder={t.auth.registerModal.fullNamePlaceholder}
+                                required
+                                leftIcon={<User className="w-4 h-4" />}
+                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            />
 
                             {/* Email */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                    {t.auth.email}
-                                </label>
-                                <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        placeholder={t.auth.registerModal.emailPlaceholder}
-                                        required
-                                        className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                    />
-                                </div>
-                            </div>
+                            <InputField
+                                label={t.auth.email}
+                                id="email"
+                                name="email"
+                                type="text"
+                                placeholder={t.auth.registerModal.emailPlaceholder}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                error={emailValidationError}
+                                leftIcon={<Mail className="w-4 h-4" />}
+                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            />
 
                             {/* Password */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                    {t.auth.password}
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        placeholder={t.auth.registerModal.passwordPlaceholder}
-                                        required
-                                        minLength={6}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                    />
-                                </div>
-                            </div>
+                            <InputField
+                                label={t.auth.password}
+                                id="password"
+                                name="password"
+                                type="password"
+                                placeholder={t.auth.registerModal.passwordPlaceholder}
+                                required
+                                minLength={6}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                error={validationError && validationError.includes('password') ? validationError : undefined}
+                                hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
+                                leftIcon={<Lock className="w-4 h-4" />}
+                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            />
 
                             {/* Confirm Password */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                    {t.auth.registerModal.confirmPassword}
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="confirmPassword"
-                                        name="confirmPassword"
-                                        type="password"
-                                        placeholder={t.auth.registerModal.confirmPasswordPlaceholder}
-                                        required
-                                        minLength={6}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                    />
-                                </div>
-                            </div>
+                            <InputField
+                                label={t.auth.registerModal.confirmPassword}
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                type="password"
+                                placeholder={t.auth.registerModal.confirmPasswordPlaceholder}
+                                required
+                                minLength={6}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                error={validationError && validationError.includes('password') ? validationError : undefined}
+                                leftIcon={<Lock className="w-4 h-4" />}
+                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            />
 
                             {/* Consent Checkboxes */}
                             <div className="space-y-3 pt-2">
@@ -235,7 +234,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                     />
                                     <label
                                         htmlFor="consentMarketing"
-                                        className="text-sm text-gray-600 leading-relaxed cursor-pointer"
+                                        className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
                                     >
                                         {t.auth.registerModal.consentMarketing}
                                     </label>
@@ -243,9 +242,6 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             </div>
 
                             {/* Error Messages */}
-                            {(validationError || errorMessage) && (
-                                <p className="text-sm text-red-500 px-4">{validationError || errorMessage}</p>
-                            )}
 
                             {/* Submit Button */}
                             <Button
@@ -258,8 +254,8 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                         </form>
 
                         {/* Footer */}
-                        <div className="pt-4 border-t border-gray-100 text-center">
-                            <p className="text-sm text-gray-500">
+                        <div className="pt-4 border-t border-border/60 text-center">
+                            <p className="text-sm text-muted-foreground">
                                 {t.auth.registerModal.alreadyHaveAccount}{" "}
                                 <button
                                     onClick={onClose}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const reviewSchema = z.object({
-    campgroundId: z.string().uuid(),
+    campSiteId: z.string().uuid(),
     authorId: z.string().uuid(), // In real app, this comes from session
 
     rating: z.number().min(1).max(5),

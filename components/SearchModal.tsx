@@ -16,7 +16,7 @@ import {
     DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputField } from "@/components/ui/input-field";
 import {
     Select,
     SelectContent,
@@ -100,21 +100,21 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+            <DialogContent showCloseButton={false} className="sm:max-w-3xl rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col h-full max-h-[90vh] relative">
                     {/* Header */}
-                    <div className="flex items-center justify-center p-6 pb-2 border-b border-gray-50">
+                    <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60">
                         <DialogClose asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-gray-100 transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
                                 onClick={onClose}
                             >
-                                <X className="w-5 h-5 text-gray-900" />
+                                <X className="w-5 h-5 text-foreground" />
                             </Button>
                         </DialogClose>
-                        <DialogTitle className="text-lg font-bold">{t.search.search}</DialogTitle>
+                        <DialogTitle className="text-lg font-bold text-foreground">{t.search.search}</DialogTitle>
                     </div>
 
                     {/* Standard Rounded Search UI */}
@@ -122,7 +122,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
                         {/* Experience Type (Pills) */}
                         <div className="space-y-2">
-                            <h3 className="text-lg font-bold px-1">Experience type</h3>
+                            <h3 className="text-lg font-bold px-1 text-foreground">{t.searchModal.experienceType}</h3>
                             <div className="flex flex-wrap gap-2">
                                 {CAMPGROUND_TYPES.map((item) => (
                                     <button
@@ -133,10 +133,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                             inputHeight,
                                             type === item.id
                                                 ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-900"
+                                                : "bg-background text-muted-foreground border-border hover:border-foreground"
                                         )}
                                     >
-                                        <item.icon className={cn("w-3.5 h-3.5", type === item.id ? "text-white" : "text-gray-500")} />
+                                        <item.icon className={cn("w-3.5 h-3.5", type === item.id ? "text-primary-foreground" : "text-muted-foreground")} />
                                         <span>{(t.categories as any)[item.labelKey]}</span>
                                     </button>
                                 ))}
@@ -145,31 +145,27 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
                         {/* Location Section */}
                         <div className="space-y-1">
-                            <h3 className="text-lg font-bold px-1">{t.search.location}</h3>
+                            <h3 className="text-lg font-bold px-1 text-foreground">{t.search.location}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.keyword}</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                        <Input
-                                            value={keyword}
-                                            onChange={(e) => setKeyword(e.target.value)}
-                                            placeholder={t.search.keywordPlaceholder}
-                                            className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                        />
-                                    </div>
-                                </div>
+                                <InputField
+                                    label={t.search.keyword}
+                                    value={keyword}
+                                    onChange={(e) => setKeyword(e.target.value)}
+                                    placeholder={t.search.keywordPlaceholder}
+                                    leftIcon={<Search className="w-4 h-4" />}
+                                    className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
                                         <Select value={province} onValueChange={setProvince}>
-                                            <SelectTrigger className={cn("rounded-full bg-white border-gray-200 focus:ring-primary/30 focus:border-primary", inputHeight)}>
+                                            <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
                                                 <SelectValue placeholder={t.search.anyProvince} />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" ">{t.search.anyProvince}</SelectItem>
+                                                <SelectItem value=" " className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{t.search.anyProvince}</SelectItem>
                                                 {PROVINCES.map(p => (
-                                                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                                                    <SelectItem key={p} value={p} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{p}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -177,13 +173,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     <div className="space-y-2">
                                         <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.district}</label>
                                         <Select value={district} onValueChange={setDistrict} disabled={!province || province === " "}>
-                                            <SelectTrigger className={cn("rounded-full bg-white border-gray-200 focus:ring-primary/30 focus:border-primary", inputHeight)}>
+                                            <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
                                                 <SelectValue placeholder={t.search.anyDistrict} />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" ">{t.search.anyDistrict}</SelectItem>
+                                                <SelectItem value=" " className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{t.search.anyDistrict}</SelectItem>
                                                 {province && province !== " " && THAILAND_DATA[province]?.map(d => (
-                                                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                    <SelectItem key={d} value={d} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{d}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -195,7 +191,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         {/* Dates & Guests */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
-                                <h3 className="text-lg font-bold px-1">{t.search.date}</h3>
+                                <h3 className="text-lg font-bold px-1 text-foreground">{t.search.date}</h3>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.checkIn}</label>
@@ -204,7 +200,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                 <Button
                                                     variant="outline"
                                                     className={cn(
-                                                        "w-full rounded-full justify-start font-normal bg-white border-gray-200 hover:bg-gray-50 px-4 focus:ring-primary/30 focus:border-primary",
+                                                        "w-full rounded-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
                                                         !startDate && "text-muted-foreground",
                                                         inputHeight
                                                     )}
@@ -230,7 +226,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                 <Button
                                                     variant="outline"
                                                     className={cn(
-                                                        "w-full rounded-full justify-start font-normal bg-white border-gray-200 hover:bg-gray-50 px-4 focus:ring-primary/30 focus:border-primary",
+                                                        "w-full rounded-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
                                                         !endDate && "text-muted-foreground",
                                                         inputHeight
                                                     )}
@@ -254,19 +250,19 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             </div>
 
                             <div className="space-y-1">
-                                <h3 className="text-lg font-bold px-1">{t.search.who}</h3>
+                                <h3 className="text-lg font-bold px-1 text-foreground">{t.search.who}</h3>
                                 <div className="space-y-2">
                                     <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.guests}</label>
                                     <Select value={guests} onValueChange={setGuests}>
-                                        <SelectTrigger className={cn("rounded-full bg-white border-gray-200 focus:ring-primary/30 focus:border-primary", inputHeight)}>
+                                        <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-xl">
+                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((n) => (
-                                                <SelectItem key={n} value={n.toString()}>
+                                                <SelectItem key={n} value={n.toString()} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">
                                                     {n} {n === 1 ? t.booking.guest : t.booking.guests}
                                                 </SelectItem>
                                             ))}
@@ -278,13 +274,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 bg-white flex items-center justify-between border-t border-gray-100">
+                    <div className="p-4 bg-card flex items-center justify-between border-t border-border/60">
                         <Button
                             variant="ghost"
                             onClick={handleReset}
-                            className="text-sm font-bold underline hover:bg-gray-100 p-2 px-4 rounded-full"
+                            className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full"
                         >
-                            {t.nav.anywhere === "ทุกที่" ? "ล้างข้อมูล" : "Clear all"}
+                            {t.searchModal.clearAll}
                         </Button>
                         <Button
                             onClick={handleSearch}

@@ -24,6 +24,9 @@ export async function authenticate(
         }
         throw error;
     }
+
+    const redirectTo = (formData.get("redirectTo") as string | null) || "/";
+    redirect(redirectTo);
 }
 
 const RegisterSchema = z.object({
