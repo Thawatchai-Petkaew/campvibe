@@ -13,9 +13,9 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     const session = await auth();
     const { slug } = await params;
 
-    let campground;
+    let campSite;
     try {
-        campground = await prisma.campground.findFirst({
+        campSite = await prisma.campSite.findFirst({
             where: {
                 OR: [
                     { nameThSlug: slug },
@@ -25,7 +25,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
             include: {
                 location: true,
                 operator: true,
-                sites: true,
+                spots: true,
             }
         });
     } catch (error) {
@@ -33,18 +33,18 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
         notFound();
     }
 
-    if (!campground) {
+    if (!campSite) {
         notFound();
     }
 
     const t = getTranslations('th'); // Default to Thai for SSR or detect from cookies
 
-    const isOwner = session?.user?.email === campground.operator.email;
+    const isOwner = session?.user?.email === campSite.operator.email;
 
     return (
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen bg-background">
             <Navbar currentUser={session?.user} />
-            <CampgroundDetailClient campground={campground} isOwner={isOwner} />
+            <CampgroundDetailClient campground={campSite} isOwner={isOwner} />
         </main>
     );
 }

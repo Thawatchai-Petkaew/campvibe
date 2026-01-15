@@ -10,6 +10,7 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'CAMPER';
 
 // API Request/Response Types
+// Legacy CampgroundDTO (for backward compatibility)
 export interface CampgroundDTO {
     id: string;
     nameTh: string;
@@ -35,11 +36,56 @@ export interface CampgroundDTO {
     updatedAt?: string;
 }
 
+// Camp Site DTO (new)
+export interface CampSiteDTO {
+    id: string;
+    nameTh: string;
+    nameEn?: string;
+    nameThSlug: string;
+    nameEnSlug: string;
+    description?: string;
+    campSiteType: CampgroundType;
+    accessTypes: string; // CSV
+    accommodationTypes: string; // CSV
+    facilities: string; // CSV
+    latitude: number;
+    longitude: number;
+    checkInTime: string;
+    checkOutTime: string;
+    bookingMethod: BookingMethod;
+    priceLow?: number;
+    priceHigh?: number;
+    isVerified: boolean;
+    isActive: boolean;
+    isPublished: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+// Spot DTO (new)
+export interface SpotDTO {
+    id: string;
+    zone?: string;
+    name: string;
+    images?: string; // CSV
+    viewType?: string;
+    maxCampers?: number;
+    maxTents?: number;
+    pricePerNight: number;
+    pricePerSite?: number;
+    nearFacilities?: string; // CSV
+    campSiteId: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export interface BookingDTO {
     id?: string;
-    campgroundId: string;
+    campSiteId: string;
+    campgroundId?: string; // Legacy support
     userId: string;
-    siteId?: string;
+    spotId?: string;
+    siteId?: string; // Legacy support
     checkInDate: string; // ISO date string
     checkOutDate: string; // ISO date string
     guests: number;
@@ -51,7 +97,8 @@ export interface BookingDTO {
 
 export interface ReviewDTO {
     id?: string;
-    campgroundId: string;
+    campSiteId: string;
+    campgroundId?: string; // Legacy support
     authorId: string;
     rating: number; // 1-5
     title?: string;

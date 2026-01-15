@@ -1,11 +1,12 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { authenticate } from '@/lib/actions';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { InputField } from '@/components/ui/input-field';
 import { Mail, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -14,16 +15,29 @@ import Image from 'next/image';
 export default function LoginPage() {
     const { t } = useLanguage();
     const searchParams = useSearchParams();
-    const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+    // Default: stay in Camper view after login
+    const callbackUrl = searchParams.get('callbackUrl') || '/';
     const [errorMessage, formAction, isPending] = useActionState(
         authenticate,
         undefined
     );
+    const [email, setEmail] = useState("");
+    const [hasSubmitted, setHasSubmitted] = useState(false);
 
     const inputHeight = "!h-12";
+    
+    // Check if error is invalid credentials (server error after submit)
+    const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
+                                 errorMessage?.toLowerCase().includes('credentials') ||
+                                 errorMessage?.toLowerCase().includes('incorrect');
+    
+    // Client-side validation error (inline)
+    const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
+        : undefined;
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
@@ -39,61 +53,66 @@ export default function LoginPage() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-white rounded-[24px] shadow-2xl p-8 space-y-6">
+                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-6">
                     {/* Header */}
                     <div className="text-center">
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-2xl font-bold text-foreground">
                             {t.auth.welcomeBack}
                         </h2>
-                        <p className="text-gray-500 text-sm mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                             {t.auth.loginToContinue}
                         </p>
                     </div>
 
                     {/* Form */}
-                    <form action={formAction} className="space-y-4">
+                    <form 
+                        noValidate 
+                        action={async (formData: FormData) => {
+                            setHasSubmitted(true);
+                            formData.set('email', email);
+                            formData.set('redirectTo', callbackUrl);
+                            await formAction(formData);
+                            setHasSubmitted(false);
+                        }} 
+                        className="space-y-4"
+                    >
                         <input type="hidden" name="redirectTo" value={callbackUrl} />
 
-                        {/* Email */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.email}
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    required
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
+                        {/* Server Error Banner (after submit) */}
+                        {hasSubmitted && isInvalidCredentials && (
+                            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                <span>{errorMessage || t.auth.invalidCredentials || "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง"}</span>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Email */}
+                        <InputField
+                            label={t.auth.email}
+                            id="email"
+                            name="email"
+                            type="text"
+                            autoComplete="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            error={emailValidationError}
+                            leftIcon={<Mail className="w-4 h-4" />}
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Password */}
-                        <div className="space-y-2 mb-8">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.password}
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    required
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Error Message */}
-                        {errorMessage && (
-                            <p className="text-sm text-red-500 px-4">{errorMessage}</p>
-                        )}
+                        <InputField
+                            label={t.auth.password}
+                            id="password"
+                            name="password"
+                            type="password"
+                            autoComplete="current-password"
+                            required
+                            leftIcon={<Lock className="w-4 h-4" />}
+                            containerClassName="mb-8"
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Submit Button */}
                         <Button
@@ -106,8 +125,8 @@ export default function LoginPage() {
                     </form>
 
                     {/* Footer */}
-                    <div className="pt-4 border-t border-gray-100 text-center">
-                        <p className="text-sm text-gray-500">
+                    <div className="pt-4 border-t border-border/60 text-center">
+                        <p className="text-sm text-muted-foreground">
                             {t.auth.dontHaveAccount}{" "}
                             <Link href="/register" className="text-primary font-bold hover:underline">
                                 {t.auth.register}
@@ -118,7 +137,7 @@ export default function LoginPage() {
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">
-                    <Link href="/" className="text-sm text-gray-600 hover:text-primary transition-colors">
+                    <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                         ← Back to home
                     </Link>
                 </div>

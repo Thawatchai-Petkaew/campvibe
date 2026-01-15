@@ -190,17 +190,17 @@ async function main() {
 
     console.log('✅ Test users created')
 
-    // 4. Create 12 Mock Campgrounds
-    console.log('🏕️ Creating 12 mock campgrounds...')
+    // 4. Create 12 Mock Camp Sites
+    console.log('🏕️ Creating 12 mock camp sites...')
 
-    const campgroundsData = [
+    const campSitesData = [
         {
             nameTh: 'ลานกางเต็นท์ภูทับเบิก',
             nameEn: 'Phu Thap Boek Campground',
             nameThSlug: 'phu-thap-boek-campground-1',
             nameEnSlug: 'phu-thap-boek-campground-en-1',
             description: 'ลานกางเต็นท์บนยอดเขาที่สูงที่สุดในเพชรบูรณ์ วิวสวยงาม อากาศเย็นสบาย',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,WIFI,POTA', // Internal
@@ -233,7 +233,7 @@ async function main() {
             nameThSlug: 'khao-yai-camping-site-2',
             nameEnSlug: 'khao-yai-camping-site-en-2',
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติเขาใหญ่ ใกล้น้ำตก ธรรมชาติสวยงาม',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV,WALK',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,PICN,TRAS,POTA',
@@ -266,7 +266,7 @@ async function main() {
             nameThSlug: 'doi-ang-khang-campsite-3',
             nameEnSlug: 'doi-ang-khang-campsite-en-3',
             description: 'ลานกางเต็นท์บนดอยอ่างขาง อากาศหนาวเย็น วิวทะเลหมอกสวยงาม',
-            campgroundType: 'CACP',
+            campSiteType: 'CACP',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,MIMT',
@@ -299,7 +299,7 @@ async function main() {
             nameThSlug: 'pang-ung-lakeside-camp-4',
             nameEnSlug: 'pang-ung-lakeside-camp-en-4',
             description: 'ลานกางเต็นท์ริมทะเลสาบปางอุ๋ง บรรยากาศสไตล์สวิตเซอร์แลนด์',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,REST,POTA,PICN',
@@ -332,7 +332,7 @@ async function main() {
             nameThSlug: 'railay-beach-camping-5',
             nameEnSlug: 'railay-beach-camping-en-5',
             description: 'ลานกางเต็นท์ริมหาดไร่เลย์ กระบี่ วิวทะเลสวยงาม เหมาะกับนักปีนเขา',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'BAOT',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,REST,CAFE',
@@ -365,7 +365,7 @@ async function main() {
             nameThSlug: 'khao-kho-mountain-camp-6',
             nameEnSlug: 'khao-kho-mountain-camp-en-6',
             description: 'ลานกางเต็นท์บนเขาค้อ วิวทะเลหมอก อากาศเย็นสบาย',
-            campgroundType: 'CACP',
+            campSiteType: 'CACP',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,ELEC',
@@ -398,7 +398,7 @@ async function main() {
             nameThSlug: 'phu-kradueng-camp-7',
             nameEnSlug: 'phu-kradueng-camp-en-7',
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติภูกระดึง ธรรมชาติสวยงาม',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'HIKE',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,POTA,PICN',
@@ -431,7 +431,7 @@ async function main() {
             nameThSlug: 'koh-chang-island-camping-8',
             nameEnSlug: 'koh-chang-island-camping-en-8',
             description: 'ลานกางเต็นท์ริมหาดเกาะช้าง บรรยากาศเงียบสงบ',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'BAOT,DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,REST,CAFE',
@@ -464,7 +464,7 @@ async function main() {
             nameThSlug: 'doi-suthep-viewpoint-camp-9',
             nameEnSlug: 'doi-suthep-viewpoint-camp-en-9',
             description: 'ลานกางเต็นท์บนดอยสุเทพ วิวเมืองเชียงใหม่สวยงาม',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV,HIKE',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,WIFI,POTA',
@@ -497,7 +497,7 @@ async function main() {
             nameThSlug: 'khao-sok-jungle-camp-10',
             nameEnSlug: 'khao-sok-jungle-camp-en-10',
             description: 'ลานกางเต็นท์ในป่าเขาสก ธรรมชาติอุดมสมบูรณ์',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV,BOAT',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,REST,POTA',
@@ -530,7 +530,7 @@ async function main() {
             nameThSlug: 'phu-chi-fa-sunrise-camp-11',
             nameEnSlug: 'phu-chi-fa-sunrise-camp-en-11',
             description: 'ลานกางเต็นท์บนภูชี้ฟ้า ชมพระอาทิตย์ขึ้นสวยงาม',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,CAFE,POTA',
@@ -563,7 +563,7 @@ async function main() {
             nameThSlug: 'patong-beach-camping-zone-12',
             nameEnSlug: 'patong-beach-camping-zone-en-12',
             description: 'ลานกางเต็นท์ริมหาดป่าตอง ภูเก็ต ใกล้แหล่งบันเทิง',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             accessTypes: 'DRIV',
             accommodationTypes: 'TENT',
             facilities: 'TOIL,SHOW,WIFI,REST,CAFE',
@@ -592,8 +592,8 @@ async function main() {
         }
     ]
 
-    for (const campData of campgroundsData) {
-        // Find suitable ThailandLocation for this campground's province
+    for (const campData of campSitesData) {
+        // Find suitable ThailandLocation for this camp site's province
         // For mock data, we'll try to match provinceNameEn
         let provinceNameEn = "";
         if (campData.nameEn.includes("Phu Thap Boek") || campData.nameEn.includes("Khao Kho")) provinceNameEn = "Phetchabun";
@@ -625,8 +625,8 @@ async function main() {
             }
         });
 
-        // Create or update campground
-        await prisma.campground.upsert({
+        // Create or update camp site
+        await prisma.campSite.upsert({
             where: { nameThSlug: campData.nameThSlug },
             update: {
                 ...campData,
@@ -642,7 +642,7 @@ async function main() {
         });
     }
 
-    console.log('✅ 12 campgrounds created')
+    console.log('✅ 12 camp sites created')
     console.log('\n🎉 Seeding completed successfully!')
     console.log('\n📝 Test Credentials:')
     console.log('   Admin:  admin@campvibe.com / password123')

@@ -52,7 +52,7 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
             'SVEL': Icons.Store,
         };
         const IconComponent = iconMap[key] || Icons.CheckCircle2;
-        return <IconComponent className="w-6 h-6 text-gray-600" />;
+        return <IconComponent className="w-6 h-6 text-muted-foreground" />;
     };
 
     return (
@@ -69,9 +69,9 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                 <ScrollArea className="flex-1 p-6">
                     <div className="grid gap-6">
                         {facilities.map((facility) => (
-                            <div key={facility} className="flex items-center gap-4 py-2 border-b last:border-0 border-gray-100">
+                            <div key={facility} className="flex items-center gap-4 py-2 border-b last:border-0 border-border/60">
                                 {getIcon(facility)}
-                                <span className="text-gray-700 text-base">
+                                <span className="text-foreground text-base">
                                     {(t.filter as any)[facility] || facility}
                                 </span>
                             </div>
@@ -79,12 +79,12 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                     </div>
                 </ScrollArea>
 
-                <div className="p-4 border-t bg-white">
+                <div className="p-4 border-t border-border bg-card">
                     <Button
                         onClick={onClose}
-                        className="w-full bg-gray-900 hover:bg-black text-white rounded-lg h-12 text-base font-medium"
+                        className="w-full bg-foreground hover:bg-foreground/90 text-background rounded-lg h-12 text-base font-medium"
                     >
-                        {t.common.close || "Close"}
+                        {t.common.close}
                     </Button>
                 </div>
             </DialogContent>

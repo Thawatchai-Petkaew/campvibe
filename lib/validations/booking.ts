@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const bookingSchema = z.object({
-    campgroundId: z.string().uuid(),
-    siteId: z.string().uuid().optional(),
+    campSiteId: z.string().uuid(),
+    spotId: z.string().uuid().optional(),
 
     checkInDate: z.string().refine((date) => new Date(date).toString() !== 'Invalid Date', {
         message: "Invalid check-in date",

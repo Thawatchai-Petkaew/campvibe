@@ -1,76 +1,134 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-
-import { auth } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth-utils';
+import { apiError, apiSuccess } from '@/lib/api-utils';
+import type { PermissionCode, TeamRole } from '@/lib/team-permissions';
+import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
 
 export async function GET(request: NextRequest) {
-    const session = await auth();
+  const authResult = await requireAuth();
+  if (authResult.error) return authResult.error;
+  
+  const session = authResult.session;
 
-    if (!session?.user?.email) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const userId = session?.user?.id;
+    if (!userId) {
+      return apiError('User ID not found', 401);
     }
 
-    const operator = await prisma.user.findUnique({
-        where: { email: session.user.email }
+    const [user, ownedSites, memberships] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, image: true, role: true } }),
+      prisma.campSite.findMany({
+        where: { operatorId: userId },
+        include: {
+          location: { include: { thaiLocation: true } },
+          _count: { select: { bookings: true, reviews: true } },
+        },
+      }),
+      prisma.campSiteTeamMember.findMany({
+        where: { userId, isActive: true },
+        select: { campSiteId: true, role: true, permissions: true },
+      }),
+    ]);
+
+    const isPlatformAdmin = user?.role === 'ADMIN';
+
+    const memberPermByCampSiteId = new Map<string, PermissionCode[]>();
+    const memberViewBookingIds: string[] = [];
+    const memberUpdateBookingIds: string[] = [];
+    const memberFinancialIds: string[] = [];
+    memberships.forEach((m) => {
+      const eff = getEffectivePermissions({ role: m.role as TeamRole, permissions: m.permissions });
+      memberPermByCampSiteId.set(m.campSiteId, eff);
+      if (hasPermission(eff, "BOOKING_VIEW")) memberViewBookingIds.push(m.campSiteId);
+      if (hasPermission(eff, "BOOKING_UPDATE")) memberUpdateBookingIds.push(m.campSiteId);
+      if (hasPermission(eff, "FINANCIAL_VIEW")) memberFinancialIds.push(m.campSiteId);
     });
 
-    const operatorId = operator?.id;
+    const ownedIds = ownedSites.map((s) => s.id);
+    const campSiteIdsForBookings = Array.from(new Set([...ownedIds, ...memberViewBookingIds]));
 
-    if (!operatorId) {
-        // Return empty dashboard state instead of 404 to avoid UI crashes
-        return NextResponse.json({
-            campgrounds: [],
-            bookings: [],
-            stats: {
-                totalRevenue: 0,
-                totalBookings: 0,
-                campgroundCount: 0
-            },
-            operator: null
-        });
-    }
+    const teamCampSiteIds = memberships.map((m) => m.campSiteId);
+    const campSiteIdsForListing = Array.from(new Set([...ownedIds, ...teamCampSiteIds]));
 
-    try {
-        const campgrounds = await prisma.campground.findMany({
-            where: { operatorId },
+    const teamCampSites = campSiteIdsForListing.length
+      ? await prisma.campSite.findMany({
+          where: { id: { in: campSiteIdsForListing } },
+          include: {
+            location: { include: { thaiLocation: true } },
+            _count: { select: { bookings: true, reviews: true } },
+          },
+        })
+      : [];
+
+    const campSites = teamCampSites;
+
+    const limit = Math.min(Math.max(parseInt(new URL(request.url).searchParams.get('limit') || '5', 10) || 5, 1), 20);
+
+    const bookings =
+      campSiteIdsForBookings.length > 0
+        ? await prisma.booking.findMany({
+            where: { campSiteId: { in: campSiteIdsForBookings } },
             include: {
-                _count: {
-                    select: { bookings: true, reviews: true }
-                }
-            }
-        });
-
-        const bookings = await prisma.booking.findMany({
-            where: {
-                campground: {
-                    operatorId
-                }
+              user: { select: { name: true, email: true } },
+              campSite: { select: { id: true, nameTh: true, nameEn: true, operatorId: true } },
             },
-            include: {
-                user: { select: { name: true, email: true } },
-                campground: { select: { nameTh: true } }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+          })
+        : [];
 
-        // Calculate Stats
-        const totalRevenue = bookings
-            .filter(b => b.status !== 'CANCELLED')
-            .reduce((sum, b) => sum + b.totalPrice, 0);
+    // Calculate Stats
+    const canViewFinancial =
+      isPlatformAdmin || ownedIds.length > 0 || memberFinancialIds.length > 0;
+    const totalRevenue = canViewFinancial
+      ? bookings
+          .filter((b: any) => b.status !== 'CANCELLED')
+          .reduce((sum: number, b: any) => sum + b.totalPrice, 0)
+      : null;
 
-        return NextResponse.json({
-            campgrounds,
-            bookings,
-            stats: {
-                totalRevenue,
-                totalBookings: bookings.length,
-                campgroundCount: campgrounds.length
-            },
-            operator
-        });
+    const canCreateCampSite = isPlatformAdmin || ownedIds.length > 0;
+    const campSitesWithAccess = campSites.map((cs: any) => {
+      const isOwner = cs.operatorId === userId;
+      const eff = memberPermByCampSiteId.get(cs.id) || [];
+      const canUpdate = isPlatformAdmin || isOwner || hasPermission(eff, "CAMPSITE_UPDATE");
+      const canDelete = isPlatformAdmin || isOwner || hasPermission(eff, "CAMPSITE_DELETE");
+      return { ...cs, canUpdate, canDelete };
+    });
 
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 });
-    }
+    return apiSuccess({
+      campSites: campSitesWithAccess,
+      bookings: bookings.map((b: any) => {
+        const campSiteId = b?.campSite?.id || b.campSiteId;
+        const isOwner = b?.campSite?.operatorId === userId;
+        const eff = campSiteId ? (memberPermByCampSiteId.get(campSiteId) || []) : [];
+        const canUpdate = isPlatformAdmin || isOwner || hasPermission(eff, "BOOKING_UPDATE");
+        return { ...b, canUpdate };
+      }),
+      stats: {
+        totalRevenue,
+        totalBookings: campSiteIdsForBookings.length > 0 ? await prisma.booking.count({ where: { campSiteId: { in: campSiteIdsForBookings } } }) : 0,
+        campSiteCount: campSitesWithAccess.length
+      },
+      operator: user,
+      permissions: {
+        canCreateCampSite,
+        canViewFinancial,
+        // derived convenience flags
+        canViewBookings: isPlatformAdmin || ownedIds.length > 0 || memberViewBookingIds.length > 0,
+        canUpdateAnyBooking: isPlatformAdmin || ownedIds.length > 0 || memberUpdateBookingIds.length > 0,
+        canUpdateAnyCampSite: isPlatformAdmin || ownedIds.length > 0 || memberships.some((m) => {
+          const eff = memberPermByCampSiteId.get(m.campSiteId) || [];
+          return hasPermission(eff, "CAMPSITE_UPDATE");
+        }),
+        canDeleteAnyCampSite: isPlatformAdmin || ownedIds.length > 0 || memberships.some((m) => {
+          const eff = memberPermByCampSiteId.get(m.campSiteId) || [];
+          return hasPermission(eff, "CAMPSITE_DELETE");
+        }),
+      },
+    });
+  } catch (error) {
+    return apiError('Failed to fetch dashboard data', 500, error);
+  }
 }

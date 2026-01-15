@@ -23,7 +23,7 @@ async function main() {
             nameTh: 'ขอบชลแคมป์ Khob Chon camp',
             nameEn: 'Khob Chon Camp',
             description: 'แคมป์ปิ้งริมน้ำ บรรยากาศเงียบสงบ เหมาะแก่การพักผ่อน',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             province: 'Chiang Mai',
             priceLow: 500,
             priceHigh: 1200,
@@ -35,7 +35,7 @@ async function main() {
             nameTh: 'รัศมีฟาร์ม Ratsamee Farm',
             nameEn: 'Ratsamee Farm',
             description: 'ฟาร์มสเตย์และที่พักแคมป์ปิ้งท่ามกลางธรรมชาติ',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             province: 'Chiang Mai',
             priceLow: 400,
             priceHigh: 1500,
@@ -47,7 +47,7 @@ async function main() {
             nameTh: 'ดอยหมอก แคมป์ปิ้ง',
             nameEn: 'Doi Mok Camping',
             description: 'สัมผัสทะเลหมอกบนยอดดอย บรรยากาศเย็นสบายตลอดปี',
-            campgroundType: 'CAGD',
+            campSiteType: 'CAGD',
             province: 'Chiang Mai',
             priceLow: 600,
             priceHigh: 2000,
@@ -58,20 +58,20 @@ async function main() {
     ];
 
     console.log('🧹 Cleaning existing campgrounds...');
-    await prisma.campground.deleteMany({});
+    await prisma.campSite.deleteMany({});
     console.log('✅ Base cleaned');
 
     for (const camp of campgrounds) {
         const slug = camp.nameEn.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Math.floor(Math.random() * 1000);
 
-        await prisma.campground.create({
+        await prisma.campSite.create({
             data: {
                 nameTh: camp.nameTh,
                 nameEn: camp.nameEn,
                 nameThSlug: slug,
                 nameEnSlug: slug + '-en',
                 description: camp.description,
-                campgroundType: camp.campgroundType,
+                campSiteType: camp.campSiteType,
                 images: camp.images,
                 accessTypes: 'DRIV',
                 accommodationTypes: 'TENT',

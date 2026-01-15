@@ -1,6 +1,7 @@
 // Type-safe API client for frontend
 import type {
     CampgroundDTO,
+    CampSiteDTO,
     BookingDTO,
     ReviewDTO,
     ApiResponse,
@@ -39,7 +40,30 @@ async function fetchAPI<T>(
     }
 }
 
-// Campground API
+// Camp Site API (new)
+export const campSiteAPI = {
+    list: async (params?: {
+        type?: string;
+        accessTypes?: string;
+        facilities?: string;
+    }): Promise<ApiResponse<CampSiteDTO[]>> => {
+        const queryParams = new URLSearchParams(params as any);
+        return fetchAPI<CampSiteDTO[]>(`/campsites?${queryParams}`);
+    },
+
+    getBySlug: async (slug: string): Promise<ApiResponse<CampSiteDTO>> => {
+        return fetchAPI<CampSiteDTO>(`/campsites/${slug}`);
+    },
+
+    create: async (data: Partial<CampSiteDTO>): Promise<ApiResponse<CampSiteDTO>> => {
+        return fetchAPI<CampSiteDTO>('/campsites', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+};
+
+// Legacy Campground API (for backward compatibility)
 export const campgroundAPI = {
     list: async (params?: {
         type?: string;
@@ -47,15 +71,15 @@ export const campgroundAPI = {
         facilities?: string;
     }): Promise<ApiResponse<CampgroundDTO[]>> => {
         const queryParams = new URLSearchParams(params as any);
-        return fetchAPI<CampgroundDTO[]>(`/campgrounds?${queryParams}`);
+        return fetchAPI<CampgroundDTO[]>(`/campsites?${queryParams}`);
     },
 
     getBySlug: async (slug: string): Promise<ApiResponse<CampgroundDTO>> => {
-        return fetchAPI<CampgroundDTO>(`/campgrounds/${slug}`);
+        return fetchAPI<CampgroundDTO>(`/campsites/${slug}`);
     },
 
     create: async (data: Partial<CampgroundDTO>): Promise<ApiResponse<CampgroundDTO>> => {
-        return fetchAPI<CampgroundDTO>('/campgrounds', {
+        return fetchAPI<CampgroundDTO>('/campsites', {
             method: 'POST',
             body: JSON.stringify(data),
         });
@@ -85,8 +109,11 @@ export const reviewAPI = {
         });
     },
 
+    listByCampSite: async (campSiteId: string): Promise<ApiResponse<ReviewDTO[]>> => {
+        return fetchAPI<ReviewDTO[]>(`/reviews?campSiteId=${campSiteId}`);
+    },
     listByCampground: async (campgroundId: string): Promise<ApiResponse<ReviewDTO[]>> => {
-        return fetchAPI<ReviewDTO[]>(`/reviews?campgroundId=${campgroundId}`);
+        return fetchAPI<ReviewDTO[]>(`/reviews?campSiteId=${campgroundId}`);
     },
 };
 

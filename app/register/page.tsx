@@ -4,7 +4,8 @@ import { useActionState, useState, useEffect } from 'react';
 import { register } from '@/lib/actions';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { InputField } from '@/components/ui/input-field';
+import { ErrorBanner } from '@/components/ui/error-banner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Mail, Lock, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,12 +22,22 @@ export default function RegisterPage() {
         undefined
     );
 
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [consentRequired, setConsentRequired] = useState(false);
     const [consentMarketing, setConsentMarketing] = useState(false);
     const [validationError, setValidationError] = useState("");
     const [formSubmitted, setFormSubmitted] = useState(false);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+    
+    // Client-side validation errors (inline)
+    const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
+        : undefined;
+    
+    // Server error (banner) - only show after submit
+    const serverError = hasSubmitted && errorMessage ? errorMessage : undefined;
 
     const inputHeight = "!h-12";
 
@@ -42,16 +53,19 @@ export default function RegisterPage() {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         setValidationError("");
+        setHasSubmitted(true);
 
         if (!consentRequired) {
             e.preventDefault();
             setValidationError(t.auth.registerModal.errorConsent);
+            setHasSubmitted(false);
             return;
         }
 
         if (password !== confirmPassword) {
             e.preventDefault();
             setValidationError(t.auth.registerModal.errorPasswordMismatch);
+            setHasSubmitted(false);
             return;
         }
 
@@ -83,7 +97,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
@@ -99,98 +113,83 @@ export default function RegisterPage() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-white rounded-[24px] shadow-2xl p-8 space-y-6">
+                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-6">
                     {/* Header */}
                     <div className="text-center">
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-2xl font-bold text-foreground">
                             {t.auth.registerModal.title}
                         </h2>
-                        <p className="text-gray-500 text-sm mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                             {t.auth.registerModal.subtitle}
                         </p>
                     </div>
 
                     {/* Form */}
-                    <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
+                    <form noValidate action={formAction} onSubmit={handleSubmit} className="space-y-4">
                         <input type="hidden" name="marketingConsent" value={consentMarketing ? "true" : "false"} />
 
+                        {/* Server Error Banner (after submit) */}
+                        <ErrorBanner message={serverError || ""} />
+
                         {/* Full Name */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.registerModal.fullName}
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="name"
-                                    name="name"
-                                    type="text"
-                                    placeholder={t.auth.registerModal.fullNamePlaceholder}
-                                    required
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.auth.registerModal.fullName}
+                            id="name"
+                            name="name"
+                            type="text"
+                            placeholder={t.auth.registerModal.fullNamePlaceholder}
+                            required
+                            leftIcon={<User className="w-4 h-4" />}
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Email */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.email}
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    placeholder={t.auth.registerModal.emailPlaceholder}
-                                    required
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.auth.email}
+                            id="email"
+                            name="email"
+                            type="text"
+                            placeholder={t.auth.registerModal.emailPlaceholder}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            error={emailValidationError}
+                            leftIcon={<Mail className="w-4 h-4" />}
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Password */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.password}
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    placeholder={t.auth.registerModal.passwordPlaceholder}
-                                    required
-                                    minLength={6}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.auth.password}
+                            id="password"
+                            name="password"
+                            type="password"
+                            placeholder={t.auth.registerModal.passwordPlaceholder}
+                            required
+                            minLength={6}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            error={validationError && validationError.includes('password') ? validationError : undefined}
+                            hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
+                            leftIcon={<Lock className="w-4 h-4" />}
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Confirm Password */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">
-                                {t.auth.registerModal.confirmPassword}
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="confirmPassword"
-                                    name="confirmPassword"
-                                    type="password"
-                                    placeholder={t.auth.registerModal.confirmPasswordPlaceholder}
-                                    required
-                                    minLength={6}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className={cn("rounded-full bg-white border-gray-200 pl-12 focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.auth.registerModal.confirmPassword}
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                            placeholder={t.auth.registerModal.confirmPasswordPlaceholder}
+                            required
+                            minLength={6}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            error={validationError && validationError.includes('password') ? validationError : undefined}
+                            leftIcon={<Lock className="w-4 h-4" />}
+                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                        />
 
                         {/* Consent Checkboxes */}
                         <div className="space-y-3 pt-2">
@@ -220,17 +219,13 @@ export default function RegisterPage() {
                                 />
                                 <label
                                     htmlFor="consentMarketing"
-                                    className="text-sm text-gray-600 leading-relaxed cursor-pointer"
+                                    className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
                                 >
                                     {t.auth.registerModal.consentMarketing}
                                 </label>
                             </div>
                         </div>
 
-                        {/* Error Messages */}
-                        {(validationError || errorMessage) && (
-                            <p className="text-sm text-red-500 px-4">{validationError || errorMessage}</p>
-                        )}
 
                         {/* Submit Button */}
                         <Button
@@ -243,8 +238,8 @@ export default function RegisterPage() {
                     </form>
 
                     {/* Footer */}
-                    <div className="pt-4 border-t border-gray-100 text-center">
-                        <p className="text-sm text-gray-500">
+                    <div className="pt-4 border-t border-border/60 text-center">
+                        <p className="text-sm text-muted-foreground">
                             {t.auth.registerModal.alreadyHaveAccount}{" "}
                             <Link href="/login" className="text-primary font-bold hover:underline">
                                 {t.auth.registerModal.signIn}
@@ -255,7 +250,7 @@ export default function RegisterPage() {
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">
-                    <Link href="/" className="text-sm text-gray-600 hover:text-primary transition-colors">
+                    <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                         ← Back to home
                     </Link>
                 </div>

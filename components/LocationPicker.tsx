@@ -36,7 +36,7 @@ interface LocationPickerProps {
 }
 
 export function LocationPicker({ onSelect, initialLocationId, className }: LocationPickerProps) {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [locations, setLocations] = useState<ThailandLocation[]>([]);
@@ -114,10 +114,10 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
-                        className="w-full justify-between h-12 px-4 rounded-full border-gray-200 hover:border-primary/50 text-left font-normal"
+                        className="w-full justify-between h-12 px-4 rounded-full border-border hover:border-primary/50 text-left font-normal"
                     >
                         <div className="flex items-center gap-2 overflow-hidden">
-                            <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+                            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                             <span className="truncate">
                                 {selectedLocation
                                     ? getDisplayName(selectedLocation)
@@ -127,19 +127,19 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl overflow-hidden shadow-xl border-gray-100" align="start">
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl overflow-hidden shadow-xl border-border bg-card" align="start">
                     <Command shouldFilter={false}>
                         <div className="flex items-center border-b px-3">
                             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                             <CommandInput
-                                placeholder={language === 'th' ? "พิมพ์ชื่อจังหวัดหรืออำเภอ..." : "Type province or district..."}
+                                placeholder={language === 'th' ? t.locationPicker.searchPlaceholderTh : t.locationPicker.searchPlaceholder}
                                 className="h-12"
                                 value={query}
                                 onValueChange={setQuery}
                             />
                         </div>
                         <CommandList className="max-h-[300px]">
-                            <CommandEmpty className="py-6 text-center text-sm text-gray-500">
+                            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
                                 {loading ? '...' : language === 'th' ? 'ไม่พบข้อมูล' : 'No location found.'}
                             </CommandEmpty>
                             <CommandGroup>
@@ -148,21 +148,30 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                         key={loc.id}
                                         value={loc.id}
                                         onSelect={() => handleSelect(loc)}
-                                        className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                                        className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-muted transition-colors"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
                                             <MapPin className="h-4 w-4 text-primary" />
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-gray-900">
-                                                {language === 'th' ? loc.districtName : loc.districtNameEn}
-                                                {loc.districtCode && ', '}
-                                                {language === 'th' ? loc.provinceName : loc.provinceNameEn}
-                                            </span>
-                                            {loc.districtCode === "" && (
-                                                <span className="text-xs text-secondary italic">
-                                                    {language === 'th' ? 'ทั้งจังหวัด' : 'Whole Province'}
-                                                </span>
+                                        <div className="flex flex-col flex-1">
+                                            {loc.districtCode && loc.districtCode !== "" ? (
+                                                <>
+                                                    <span className="font-semibold text-foreground text-sm">
+                                                        {language === 'th' ? loc.districtName : loc.districtNameEn}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {language === 'th' ? loc.provinceName : loc.provinceNameEn}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="font-semibold text-foreground text-sm">
+                                                        {language === 'th' ? loc.provinceName : loc.provinceNameEn}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground italic">
+                                                        {language === 'th' ? 'ทั้งจังหวัด' : 'Whole Province'}
+                                                    </span>
+                                                </>
                                             )}
                                         </div>
                                         <Check

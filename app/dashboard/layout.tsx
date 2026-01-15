@@ -1,99 +1,61 @@
-"use client";
-
 import Link from "next/link";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { usePathname } from "next/navigation";
-import {
-    LayoutDashboard,
-    Tent,
-    CalendarDays,
-    LogOut,
-    Menu
-} from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { DashboardLayoutClient } from "./layout-client";
+import { redirect } from "next/navigation";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { t } = useLanguage();
-    const pathname = usePathname();
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+        // If user tries to access dashboard, require login.
+        redirect("/login?callbackUrl=/dashboard");
+    }
 
-    const navigation = [
-        { name: t.dashboard.overview, href: '/dashboard', icon: LayoutDashboard },
-        { name: t.dashboard.myCampgrounds, href: '/dashboard/campgrounds', icon: Tent },
-        { name: t.dashboard.bookings, href: '/dashboard/bookings', icon: CalendarDays },
-    ];
+    // Fetch user with role
+    const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            role: true,
+            isHostRegistered: true,
+        },
+    });
 
-    const SidebarContent = () => (
-        <div className="flex flex-col h-full bg-white border-r border-gray-100">
-            <div className="p-6">
-                <Link href="/">
-                    <img src="/logo.png" alt="CampVibe Logo" className="h-10 w-auto" />
-                </Link>
-            </div>
+    if (!user) {
+        redirect("/");
+    }
 
-            <nav className="flex-1 px-4 space-y-1">
-                {navigation.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link
-                            key={item.name}
-                            href={item.href}
-                            className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition",
-                                isActive
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-gray-600 hover:bg-gray-50 hover:text-black"
-                            )}
-                        >
-                            <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-gray-500")} />
-                            {item.name}
-                        </Link>
-                    );
-                })}
-            </nav>
+    // Access rule:
+    // - Admin always allowed
+    // - Allowed if user OWNS at least 1 camp site OR has a team role for any camp site (invited/accepted)
+    // - Otherwise keep user in Camper journey and show Host onboarding CTA
+    const isAdmin = user.role === "ADMIN";
+    const [ownedCount, hasTeamAccess] = await Promise.all([
+        prisma.campSite.count({ where: { operatorId: user.id } }),
+        prisma.campSiteTeamMember.findFirst({
+        where: { userId: user.id, isActive: true },
+        select: { id: true },
+        }),
+    ]);
 
-            <div className="p-4 border-t border-gray-50">
-                <Link href="/" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-black transition">
-                    <LogOut className="w-5 h-5" />
-                    {t.dashboard.backToHome}
-                </Link>
-            </div>
-        </div>
-    );
+    if (!isAdmin && ownedCount === 0 && !hasTeamAccess) {
+        redirect("/host");
+    }
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            {/* Desktop Sidebar */}
-            <aside className="w-64 hidden md:block">
-                <div className="fixed inset-y-0 w-64">
-                    <SidebarContent />
-                </div>
-            </aside>
-
-            {/* Mobile Sidebar */}
-            <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100 p-4 flex items-center justify-between">
-                <Link href="/">
-                    <img src="/logo.png" alt="CampVibe Logo" className="h-8 w-auto" />
-                </Link>
-                <Sheet>
-                    <SheetTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Menu className="w-6 h-6" />
-                        </Button>
-                    </SheetTrigger>
-                    <SheetContent side="left" className="p-0 w-64">
-                        <SidebarContent />
-                    </SheetContent>
-                </Sheet>
-            </div>
-
-            {/* Main Content */}
-            <main className="flex-1 md:bg-gray-50 pt-16 md:pt-0">
-                <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                    {children}
-                </div>
-            </main>
-        </div>
+        <DashboardLayoutClient 
+            user={{
+                name: user.name,
+                email: user.email,
+                image: user.image,
+                role: user.role,
+            }}
+        >
+            {children}
+        </DashboardLayoutClient>
     );
 }

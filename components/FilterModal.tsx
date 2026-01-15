@@ -14,12 +14,12 @@ import {
     DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
-import { getCampgroundCount } from "@/app/actions/getCampgroundCount";
+import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
 import * as LucideIcons from "lucide-react";
 
 export function FilterModal() {
@@ -59,7 +59,7 @@ export function FilterModal() {
             if (priceRange.min) filters.min = priceRange.min;
             if (priceRange.max) filters.max = priceRange.max;
 
-            const count = await getCampgroundCount(filters);
+            const count = await getCampSiteCount(filters);
             setMatchCount(count);
             setIsCountLoading(false);
         }, 500);
@@ -335,8 +335,8 @@ export function FilterModal() {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="rounded-full border-gray-200 h-10 px-4 font-medium hover:border-black transition-colors relative">
+        <DialogTrigger asChild>
+            <Button variant="outline" className="rounded-full border-border h-10 px-4 font-medium hover:border-foreground transition-colors relative">
                     <SlidersHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
                     {activeFilterCount > 0 && (
@@ -346,20 +346,20 @@ export function FilterModal() {
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 rounded-[24px] overflow-hidden flex flex-col max-h-[85vh]">
+            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 rounded-[24px] overflow-hidden flex flex-col max-h-[85vh] bg-card">
 
                 {/* Header - Aligned with Search Modal */}
-                <div className="flex items-center justify-center p-6 pb-2 border-b border-gray-50 relative shrink-0">
+                <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60 relative shrink-0">
                     <DialogClose asChild>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-4 top-4 rounded-full hover:bg-gray-100 transition-colors w-10 h-10"
+                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
                         >
-                            <X className="w-5 h-5 text-gray-900" />
+                            <X className="w-5 h-5 text-foreground" />
                         </Button>
                     </DialogClose>
-                    <DialogTitle className="text-lg font-bold">
+                    <DialogTitle className="text-lg font-bold text-foreground">
                         {t.filter?.title || "Filters"}
                     </DialogTitle>
                 </div>
@@ -369,43 +369,41 @@ export function FilterModal() {
 
                     {/* Price Range Section - Static */}
                     <div className="space-y-3">
-                        <h3 className="text-lg font-bold text-gray-900">{t.filter?.priceRange}</h3>
+                        <h3 className="text-lg font-bold text-foreground">{t.filter?.priceRange}</h3>
                         <div className="flex items-center gap-4">
-                            <div className="flex-1 space-y-1.5">
-                                <Label className="text-xs text-muted-foreground font-normal ml-1">Min Price</Label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">฿</span>
-                                    <Input
-                                        type="number"
-                                        placeholder="0"
-                                        value={priceRange.min}
-                                        onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-                                        className="pl-8 rounded-full h-12 text-base border-gray-200 bg-white"
-                                    />
-                                </div>
+                            <div className="flex-1">
+                                <InputField
+                                    label={t.filterModal.minPrice}
+                                    type="number"
+                                    placeholder={t.filterModal.minPricePlaceholder}
+                                    value={priceRange.min}
+                                    onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                                    leftIcon={<span className="text-muted-foreground">฿</span>}
+                                    labelClassName="text-xs text-muted-foreground font-normal ml-1"
+                                    className="rounded-full h-12 text-base border-border bg-background"
+                                />
                             </div>
-                            <div className="pt-6 text-gray-300">-</div>
-                            <div className="flex-1 space-y-1.5">
-                                <Label className="text-xs text-muted-foreground font-normal ml-1">Max Price</Label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">฿</span>
-                                    <Input
-                                        type="number"
-                                        placeholder="Any"
-                                        value={priceRange.max}
-                                        onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-                                        className="pl-8 rounded-full h-12 text-base border-gray-200 bg-white"
-                                    />
-                                </div>
+                            <div className="pt-6 text-muted-foreground/60">-</div>
+                            <div className="flex-1">
+                                <InputField
+                                    label={t.filterModal.maxPrice}
+                                    type="number"
+                                    placeholder={t.filterModal.maxPricePlaceholder}
+                                    value={priceRange.max}
+                                    onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                                    leftIcon={<span className="text-muted-foreground">฿</span>}
+                                    labelClassName="text-xs text-muted-foreground font-normal ml-1"
+                                    className="rounded-full h-12 text-base border-border bg-background"
+                                />
                             </div>
                         </div>
                     </div>
 
-                    <div className="h-px bg-gray-50" />
+                    <div className="h-px bg-border/60" />
 
                     {filterSections.map((section, idx) => (
-                        <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-6 border-b border-gray-50")}>
-                            <h3 className="text-lg font-bold text-gray-900">
+                        <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-6 border-b border-border/60")}>
+                            <h3 className="text-lg font-bold text-foreground">
                                 {t.filter?.[section.id as keyof typeof t.filter] || section.title}
                             </h3>
                             {renderSectionContent(section)}
@@ -414,11 +412,11 @@ export function FilterModal() {
                 </div>
 
                 {/* Footer - Aligned with Search Modal */}
-                <div className="p-4 bg-white flex items-center justify-between border-t border-gray-100 shrink-0">
+                <div className="p-4 bg-card flex items-center justify-between border-t border-border/60 shrink-0">
                     <Button
                         variant="ghost"
                         onClick={clearAll}
-                        className="text-sm font-bold underline hover:bg-gray-100 p-2 px-4 rounded-full"
+                        className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full"
                     >
                         {t.filter?.clearAll}
                     </Button>

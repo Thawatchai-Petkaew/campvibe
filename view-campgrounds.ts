@@ -1,14 +1,14 @@
 import { prisma } from './lib/prisma';
 
 async function main() {
-    const campgrounds = await prisma.campground.findMany({
+    const campSites = await prisma.campSite.findMany({
         include: {
             location: true,
             operator: true,
         }
     });
 
-    console.log(JSON.stringify(campgrounds, null, 2));
+    console.log(JSON.stringify(campSites, null, 2));
 }
 
 main()

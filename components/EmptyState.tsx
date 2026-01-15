@@ -23,10 +23,10 @@ export function EmptyState({ title, subtitle, showReset }: EmptyStateProps) {
                 />
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-900">
+            <h2 className="text-2xl md:text-3xl font-bold mb-2 text-foreground">
                 {title || t.emptyState.noResults}
             </h2>
-            <p className="text-gray-500 max-w-md text-center mb-6 px-6 text-lg">
+            <p className="text-muted-foreground max-w-md text-center mb-6 px-6 text-lg">
                 {subtitle || t.emptyState.adjustFilters}
             </p>
 

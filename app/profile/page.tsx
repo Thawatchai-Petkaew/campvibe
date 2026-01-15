@@ -4,8 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { InputField } from '@/components/ui/input-field';
+import { ErrorBanner } from '@/components/ui/error-banner';
 import { User, Mail, Phone, Camera, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -35,6 +37,13 @@ export default function ProfilePage() {
     const [phone, setPhone] = useState('');
     const [image, setImage] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
+    const [serverError, setServerError] = useState<string | null>(null);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+    
+    // Client-side validation errors (inline)
+    const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
+        : undefined;
 
     // Fetch profile on mount
     useEffect(() => {
@@ -107,6 +116,7 @@ export default function ProfilePage() {
 
     const saveProfile = async (updates?: Partial<{ name: string; email: string; phone: string; image: string | null }>) => {
         setIsSaving(true);
+        setServerError(null);
         try {
             const res = await fetch('/api/user/profile', {
                 method: 'PATCH',
@@ -123,9 +133,14 @@ export default function ProfilePage() {
             setProfile(data);
             if (!updates) {
                 toast.success(t.profile?.saved || 'Profile saved successfully');
+                setHasSubmitted(false);
             }
         } catch (error: any) {
-            toast.error(error.message || 'Failed to save profile');
+            setServerError(error.message || 'Failed to save profile');
+            setHasSubmitted(true);
+            if (!updates) {
+                toast.error(error.message || 'Failed to save profile');
+            }
         } finally {
             setIsSaving(false);
         }
@@ -133,37 +148,34 @@ export default function ProfilePage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setHasSubmitted(true);
         saveProfile();
     };
 
     if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        );
+        return <LoadingSpinner fullScreen />;
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
+        <div className="min-h-screen bg-background py-12 px-4">
             <div className="max-w-xl mx-auto">
                 {/* Back Button */}
                 <Link
                     href="/"
-                    className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 transition-colors"
+                    className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     <span>{t.dashboard?.backToHome || 'Back to home'}</span>
                 </Link>
 
                 {/* Profile Card */}
-                <div className="bg-white rounded-[24px] shadow-2xl p-8 space-y-8">
+                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-8">
                     {/* Header */}
                     <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900">
+                        <h1 className="text-2xl font-bold text-foreground">
                             {t.profile?.title || 'My Profile'}
                         </h1>
-                        <p className="text-gray-500 text-sm mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                             {t.profile?.subtitle || 'Manage your account information'}
                         </p>
                     </div>
@@ -173,7 +185,7 @@ export default function ProfilePage() {
                         <div className="relative group">
                             <div
                                 className={cn(
-                                    "w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg",
+                                    "w-32 h-32 rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg",
                                     "ring-4 ring-primary/10 transition-all",
                                     isUploading && "opacity-50"
                                 )}
@@ -220,56 +232,44 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Edit Form */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form noValidate onSubmit={handleSubmit} className="space-y-5">
+                        {/* Server Error Banner (after submit) */}
+                        {hasSubmitted && serverError && (
+                            <ErrorBanner message={serverError} />
+                        )}
+
                         {/* Name */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-widest text-gray-500 ml-4">
-                                {t.profile?.name || 'Full Name'}
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder={t.profile?.namePlaceholder || 'Enter your name'}
-                                    className="rounded-full bg-white border-gray-200 pl-12 h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.profile?.name || 'Full Name'}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder={t.profile?.namePlaceholder || 'Enter your name'}
+                            leftIcon={<User className="w-4 h-4" />}
+                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                        />
 
                         {/* Email */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-widest text-gray-500 ml-4">
-                                {t.auth?.email || 'Email'}
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder={t.profile?.emailPlaceholder || 'Enter your email'}
-                                    className="rounded-full bg-white border-gray-200 pl-12 h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.auth?.email || 'Email'}
+                            type="text"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder={t.profile?.emailPlaceholder || 'Enter your email'}
+                            error={emailValidationError}
+                            leftIcon={<Mail className="w-4 h-4" />}
+                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                        />
 
                         {/* Phone */}
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium uppercase tracking-widest text-gray-500 ml-4">
-                                {t.profile?.phone || 'Phone Number'}
-                            </label>
-                            <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input
-                                    type="tel"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    placeholder={t.profile?.phonePlaceholder || 'Enter your phone number'}
-                                    className="rounded-full bg-white border-gray-200 pl-12 h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
-                                />
-                            </div>
-                        </div>
+                        <InputField
+                            label={t.profile?.phone || 'Phone Number'}
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder={t.profile?.phonePlaceholder || 'Enter your phone number'}
+                            leftIcon={<Phone className="w-4 h-4" />}
+                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                        />
 
                         {/* Role Badge */}
                         <div className="flex justify-center pt-2">
@@ -303,7 +303,7 @@ export default function ProfilePage() {
 
                 {/* Member Since */}
                 {profile?.createdAt && (
-                    <p className="text-center text-sm text-gray-500 mt-6">
+                    <p className="text-center text-sm text-muted-foreground mt-6">
                         {t.profile?.memberSince || 'Member since'}{' '}
                         {new Date(profile.createdAt).toLocaleDateString()}
                     </p>

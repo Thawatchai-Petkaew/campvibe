@@ -33,8 +33,8 @@ export async function POST() {
         // 1. Clear existing data
         await prisma.booking.deleteMany();
         await prisma.review.deleteMany();
-        await prisma.site.deleteMany();
-        await prisma.campground.deleteMany();
+        await prisma.spot.deleteMany();
+        await prisma.campSite.deleteMany();
         await prisma.location.deleteMany();
 
         // 2. Ensure Operator exists
@@ -65,14 +65,14 @@ export async function POST() {
                 }
             });
 
-            const campground = await prisma.campground.create({
+            const campSite = await prisma.campSite.create({
                 data: {
                     nameEn,
                     nameTh,
                     nameEnSlug: slugify(nameEn),
                     nameThSlug: slugify(nameTh),
                     description: `Experience the beauty of ${nameEn} in the heart of ${province}.`,
-                    campgroundType: getRandom(CG_TYPES),
+                    campSiteType: getRandom(CG_TYPES),
                     accessTypes: getRandomCSV(ACCESS_TYPES, 2),
                     accommodationTypes: getRandomCSV(ACCOM_TYPES, 2),
                     facilities: getRandomCSV(FACILITIES, 4),
@@ -91,22 +91,23 @@ export async function POST() {
                 }
             });
 
-            // Add 2-5 sites per campground
-            const siteCount = 2 + Math.floor(Math.random() * 4);
-            for (let j = 1; j <= siteCount; j++) {
-                await prisma.site.create({
+            // Add 2-5 spots per camp site
+            const spotCount = 2 + Math.floor(Math.random() * 4);
+            for (let j = 1; j <= spotCount; j++) {
+                await prisma.spot.create({
                     data: {
-                        name: `Site ${j}`,
+                        zone: `Zone ${String.fromCharCode(64 + j)}`,
+                        name: `Spot ${j}`,
                         maxCampers: 2 + Math.floor(Math.random() * 6),
                         maxTents: 1 + Math.floor(Math.random() * 2),
-                        pricePerNight: (campground.priceLow || 300) + (j * 50),
-                        campgroundId: campground.id,
+                        pricePerNight: (campSite.priceLow || 300) + (j * 50),
+                        campSiteId: campSite.id,
                     }
                 });
             }
         }
 
-        return NextResponse.json({ success: true, message: '100 campgrounds and their sites seeded successfully.' });
+        return NextResponse.json({ success: true, message: '100 camp sites and their spots seeded successfully.' });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: 'Bulk seeding failed', details: String(error) }, { status: 500 });

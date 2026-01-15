@@ -32,7 +32,7 @@ export function SortDropdown() {
 
     return (
         <Select value={currentSort} onValueChange={handleSort}>
-            <SelectTrigger className="w-[200px] h-10 border border-gray-200 rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0">
+            <SelectTrigger className="w-[200px] h-10 border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0">
                 <div className="flex items-center gap-2">
                     <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
                     <SelectValue />

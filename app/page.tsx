@@ -7,107 +7,67 @@ import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { buildCampSiteWhere } from "@/lib/campsite-filters";
 
 export const dynamic = 'force-dynamic'
 
+interface HomeSearchParams {
+  type?: string;
+  keyword?: string;
+  province?: string;
+  district?: string;
+  startDate?: string;
+  endDate?: string;
+  guests?: string;
+  sort?: string;
+  min?: string;
+  max?: string;
+  access?: string;
+  facilities?: string;
+  activities?: string;
+  terrain?: string;
+}
+
 interface HomeProps {
-  searchParams: Promise<{
-    type?: string;
-    keyword?: string;
-    province?: string;
-    district?: string;
-    startDate?: string;
-    endDate?: string;
-    guests?: string;
-    sort?: string;
-    min?: string;
-    max?: string;
-    access?: string;
-    facilities?: string;
-    activities?: string;
-    terrain?: string;
-  }>;
+  // Next.js 16 may provide searchParams as a Promise in some runtimes (Turbopack).
+  // Support both shapes to avoid "searchParams is a Promise" runtime errors.
+  searchParams: HomeSearchParams | Promise<HomeSearchParams>;
 }
 
 export default async function Home({ searchParams }: HomeProps) {
   const session = await auth();
+  const sp = await Promise.resolve(searchParams);
   const {
-    type, keyword, province, district, startDate, endDate, guests, sort,
-    min, max, access, facilities, activities, terrain
-  } = await searchParams;
+    type,
+    keyword,
+    province,
+    district,
+    startDate,
+    endDate,
+    guests,
+    sort,
+    min,
+    max,
+    access,
+    facilities,
+    activities,
+    terrain,
+  } = sp;
 
-  // Build filter object
-  const where: any = {
-    isActive: true,
-    isPublished: true
-  };
-
-  // 1. Type filter
-  if (type && type !== 'ALL') {
-    where.campgroundType = type;
-  }
-
-  // 2. Keyword filter
-  if (keyword) {
-    where.OR = [
-      { nameTh: { contains: keyword } },
-      { nameEn: { contains: keyword } },
-      { description: { contains: keyword } },
-      { operator: { name: { contains: keyword } } }
-    ];
-  }
-
-  // 3. Location filter
-  if (province || district) {
-    where.location = where.location || {};
-    if (province) where.location.province = province;
-    if (district) where.location.district = district;
-  }
-
-  // 4. Price Filter
-  if (min || max) {
-    where.priceLow = {};
-    if (min) where.priceLow.gte = parseFloat(min);
-    if (max) where.priceLow.lte = parseFloat(max);
-  }
-
-  // 5. Multi-select Filters (AND logic)
-  const addMultiSelectFilter = (field: string, param: string | undefined) => {
-    if (!param) return;
-    const codes = param.split(',').filter(Boolean);
-    if (codes.length > 0) {
-      where.AND = where.AND || [];
-      codes.forEach(code => {
-        where.AND.push({
-          [field]: { contains: code }
-        });
-      });
-    }
-  };
-
-  addMultiSelectFilter('accessTypes', access);
-  addMultiSelectFilter('facilities', facilities);
-  addMultiSelectFilter('activities', activities);
-  addMultiSelectFilter('terrain', terrain);
-
-  // 6. Availability Filter
-  if (startDate && endDate) {
-    where.sites = {
-      some: {
-        bookings: {
-          none: {
-            OR: [
-              {
-                checkInDate: { lte: new Date(endDate) },
-                checkOutDate: { gte: new Date(startDate) },
-              }
-            ],
-            status: { not: 'CANCELLED' }
-          }
-        }
-      }
-    };
-  }
+  const where = buildCampSiteWhere({
+    type,
+    keyword,
+    province,
+    district,
+    startDate,
+    endDate,
+    min,
+    max,
+    access,
+    facilities,
+    activities,
+    terrain,
+  });
 
   // 7. Sorting
   let orderBy: any = { createdAt: 'desc' }; // Balanced / Most Related (default)
@@ -117,10 +77,10 @@ export default async function Home({ searchParams }: HomeProps) {
     orderBy = { createdAt: 'desc' };
   }
 
-  // Fetch campgrounds server-side
-  let campgrounds: any[] = [];
+  // Fetch camp sites server-side
+  let campSites: any[] = [];
   try {
-    campgrounds = await prisma.campground.findMany({
+    campSites = await prisma.campSite.findMany({
       where,
       include: {
         location: true,
@@ -136,16 +96,16 @@ export default async function Home({ searchParams }: HomeProps) {
     });
   } catch (error) {
     console.error("Database connection error:", error);
-    campgrounds = [];
+    campSites = [];
   }
 
   const isSearchActive = !!(keyword || province || district || startDate || endDate || guests || (type && type !== 'ALL') || min || max || access || facilities || activities || terrain);
 
   return (
-    <main className="min-h-screen pb-20 bg-white">
+    <main className="min-h-screen pb-20 bg-background text-foreground">
       <Navbar currentUser={session?.user} />
 
-      <div className="sticky top-20 bg-white z-40 shadow-sm border-b border-gray-100 mb-2">
+      <div className="sticky top-20 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
         <div className="container mx-auto px-6 py-2">
           <CategoryBar />
         </div>
@@ -159,13 +119,13 @@ export default async function Home({ searchParams }: HomeProps) {
       </FilterSortBar>
 
       <div className="container mx-auto px-6">
-        {campgrounds.length === 0 ? (
+        {campSites.length === 0 ? (
           <EmptyState
             showReset={isSearchActive}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10 mt-4">
-            {campgrounds.map((camp: any) => (
+            {campSites.map((camp: any) => (
               <CampgroundCard key={camp.id} campground={camp} />
             ))}
           </div>

@@ -17,13 +17,13 @@ export async function POST(request: NextRequest) {
 
         const data = validation.data;
 
-        // 2. Check if Campground exists
-        const campground = await prisma.campground.findUnique({
-            where: { id: data.campgroundId }
+        // 2. Check if Camp Site exists
+        const campSite = await prisma.campSite.findUnique({
+            where: { id: data.campSiteId }
         });
 
-        if (!campground) {
-            return NextResponse.json({ error: 'Campground not found' }, { status: 404 });
+        if (!campSite) {
+            return NextResponse.json({ error: 'Camp site not found' }, { status: 404 });
         }
 
         // 3. (Optional) Check for verified stay using Booking
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         const review = await prisma.review.create({
             data: {
                 authorId: data.authorId,
-                campgroundId: data.campgroundId,
+                campSiteId: data.campSiteId,
                 rating: data.rating,
                 title: data.title || '',
                 content: data.content,

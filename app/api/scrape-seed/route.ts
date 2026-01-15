@@ -65,8 +65,8 @@ export async function POST() {
         // 2. Clear existing data
         await prisma.booking.deleteMany();
         await prisma.review.deleteMany();
-        await prisma.site.deleteMany();
-        await prisma.campground.deleteMany();
+        await prisma.spot.deleteMany();
+        await prisma.campSite.deleteMany();
         await prisma.location.deleteMany();
 
         const operator = await prisma.user.upsert({
@@ -153,8 +153,8 @@ export async function POST() {
                 }
             });
 
-            // Create Campground
-            const campground = await prisma.campground.create({
+            // Create Camp Site
+            const campSite = await prisma.campSite.create({
                 data: {
                     nameTh,
                     nameEn: nameTh, // Backup
@@ -162,7 +162,7 @@ export async function POST() {
                     nameEnSlug: nameThSlug + '-en',
                     description,
                     images: localImages.join(','), // USE LOCAL PATHS
-                    campgroundType: 'CAGD', // Default to basic
+                    campSiteType: 'CAGD', // Default to basic
                     accessTypes: 'DRIV,HIKE',
                     accommodationTypes: 'TENT,CABI',
                     facilities: 'TOIL,SHOW,PARK',
@@ -180,13 +180,14 @@ export async function POST() {
                 }
             });
 
-            // Add generic sites
-            await prisma.site.create({
+            // Add generic spots
+            await prisma.spot.create({
                 data: {
-                    name: 'Zone A',
+                    zone: 'Zone A',
+                    name: 'Spot 1',
                     maxCampers: 4,
                     pricePerNight: priceLow,
-                    campgroundId: campground.id
+                    campSiteId: campSite.id
                 }
             });
 

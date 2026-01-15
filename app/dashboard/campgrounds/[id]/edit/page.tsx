@@ -1,40 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CampgroundForm } from "@/components/CampgroundForm";
-import { useParams } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 
-export default function EditCampgroundPage() {
+export default function EditCampgroundRedirectPage() {
+    const router = useRouter();
     const params = useParams();
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-
+    
     useEffect(() => {
         if (params.id) {
-            fetch(`/api/campgrounds/${params.id}`, { cache: 'no-store' })
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.error) {
-                        setData(data);
-                    } else {
-                        alert(data.error);
-                    }
-                    setLoading(false);
-                })
-                .catch(err => {
-                    console.error(err);
-                    setLoading(false);
-                });
+            router.replace(`/dashboard/campsites/${params.id}/edit`);
         }
-    }, [params.id]);
+    }, [router, params.id]);
 
-    if (loading) return (
-        <div className="flex h-screen items-center justify-center bg-gray-50">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-900"></div>
+    return (
+        <div className="flex h-64 items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
     );
-
-    if (!data) return <div>Campground not found</div>;
-
-    return <CampgroundForm initialData={data} isEditing={true} />;
 }
