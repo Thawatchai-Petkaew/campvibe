@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Search, Menu, User, Filter, Globe, Bell, Check, X } from "lucide-react";
+import { IconHeart } from "@tabler/icons-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { handleSignOut } from "@/lib/actions";
@@ -136,6 +137,18 @@ export function Navbar({ currentUser }: NavbarProps) {
                     {/* User Menu */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <LanguageSwitcher />
+
+                        {/* Wishlist heart link — shown only when logged in (CAM-18). */}
+                        {currentUser && (
+                            <Link
+                                href="/wishlist"
+                                data-testid="btn--wishlist-nav"
+                                aria-label={t.wishlist.navAriaLabel}
+                                className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                                <IconHeart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                            </Link>
+                        )}
 
                         {/* Notifications (Camper context): booking status updates (no required action) + team invites */}
                         {currentUser && (

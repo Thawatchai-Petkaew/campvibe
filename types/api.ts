@@ -116,6 +116,48 @@ export interface UserDTO {
     updatedAt?: string;
 }
 
+// Wishlist types (CAM-7 / CAM-18)
+
+/**
+ * Minimal CampSite projection returned inside wishlist entries.
+ * Fields are exactly what the card UI needs — no over-fetching.
+ */
+export interface CampSiteSummary {
+    id: string;
+    nameTh: string;
+    nameEn?: string | null;
+    nameThSlug: string;
+    nameEnSlug: string;
+    images?: string | null;      // CSV of image URLs (stored as CSV in DB)
+    priceLow?: number | null;
+    priceHigh?: number | null;
+    isVerified: boolean;
+    isPublished: boolean;
+    latitude: number;
+    longitude: number;
+}
+
+/** A wishlist record without the nested camp site. */
+export interface WishlistDTO {
+    id: string;
+    userId: string;
+    campSiteId: string;
+    createdAt: string; // ISO datetime
+}
+
+/** A wishlist record with the nested camp site summary (used in GET /api/wishlist). */
+export interface WishlistWithCampSiteDTO {
+    id: string;
+    campSiteId: string;
+    createdAt: string; // ISO datetime
+    campSite: CampSiteSummary;
+}
+
+/** Response shape for GET /api/wishlist/ids */
+export interface WishlistIdsResponse {
+    campSiteIds: string[];
+}
+
 // API Response Wrappers
 export interface ApiResponse<T> {
     data?: T;
