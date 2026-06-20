@@ -23,7 +23,11 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
+      # repository_dispatch runs the workflow from the DEFAULT branch (main), but the
+      # Camper context (docs/project, camper-agent, std) lives on staging — check that out.
       - uses: actions/checkout@v4
+        with:
+          ref: staging
       - uses: actions/setup-node@v4
         with:
           node-version: 20
