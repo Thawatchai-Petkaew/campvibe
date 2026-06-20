@@ -1,6 +1,7 @@
 // Server-only Linear client for the public /status dashboard.
 // Uses LINEAR_API_KEY (personal API key) — must stay server-side, never expose to client.
 import "server-only";
+import { unstable_cache } from "next/cache";
 
 const LINEAR_API = "https://api.linear.app/graphql";
 const PRIORITY = ["No priority", "Urgent", "High", "Medium", "Low"] as const;
@@ -22,7 +23,7 @@ export interface StatusIssue {
 
 const TEAM_KEY = process.env.LINEAR_TEAM_KEY || "CAM";
 
-export async function fetchStatusIssues(): Promise<StatusIssue[]> {
+async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
   const key = process.env.LINEAR_API_KEY;
   if (!key) throw new Error("LINEAR_API_KEY is not set");
 
@@ -87,3 +88,11 @@ export async function fetchStatusIssues(): Promise<StatusIssue[]> {
     })
   );
 }
+
+/* Cached for 60s so every viewer + the 60s auto-refresh share ONE Linear fetch per minute,
+ * regardless of how many people watch /status. Caps Linear API usage at ~60 requests/hour
+ * (well under Linear's ~1,500 req/hour limit) instead of scaling with viewers × tabs. */
+export const fetchStatusIssues = unstable_cache(fetchStatusIssuesRaw, ["linear-status-issues"], {
+  revalidate: 60,
+  tags: ["linear-status"],
+});

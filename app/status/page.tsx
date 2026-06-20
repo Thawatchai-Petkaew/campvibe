@@ -2,7 +2,8 @@
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
  * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
-import { CSS, SCENE, LOGO, SCRIPT } from "./dashboard-assets";
+import { CSS, SCENE, LOGO } from "./dashboard-assets";
+import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "CampVibe — Live Delivery" };
@@ -119,18 +120,17 @@ function buildModel(issues: StatusIssue[]): Model {
 }
 
 // ---------- top bar ----------
-function topBar(m: Model, tab: string, epic: string, tq: string): string {
-  const eParam = `&epic=${encodeURIComponent(epic)}`;
+function topBar(m: Model, tab: string): string {
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
-    + `<nav class="tabs"><a class="tab ${tab === "overview" ? "active" : ""}" href="?tab=overview${tq}">Overview</a>`
-    + `<a class="tab ${tab === "epic" ? "active" : ""}" href="?tab=epic${eParam}${tq}">Epic detail</a></nav>`
+    + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
+    + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
 
 // ---------- OVERVIEW ----------
 function renderOverview(m: Model, tq: string): string {
   const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicOf(m.gates[0].title))}${tq}` : "#";
-  let h = `<div class="view">`;
+  let h = "";
 
   // Gates need you
   h += `<section class="glass pane"><div class="pane-h"><span class="t">Gates need you</span><span class="x">${m.gates.length} across all epics</span></div>`;
@@ -189,7 +189,7 @@ function renderOverview(m: Model, tq: string): string {
   } else h += `<div class="none-row" style="color:var(--muted)">— ไม่มี story ใน backlog</div>`;
   h += `</section>`;
 
-  return h + `</div>`;
+  return h;
 }
 
 // ---------- EPIC DETAIL ----------
@@ -217,7 +217,7 @@ function renderEpic(m: Model, e: string, tq: string): string {
   const curIdx = Math.max(0, stages.findIndex((s) => s.cls === "run" || s.cls === "gate"));
   const curName = stages[curIdx]?.name || "Design";
 
-  let h = `<div class="view">`;
+  let h = "";
   // breadcrumb
   h += `<div class="glass crumb"><a href="?tab=overview${tq}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())}</span></div>`;
 
@@ -281,7 +281,7 @@ function renderEpic(m: Model, e: string, tq: string): string {
     + COLS.map(([n], idx) => `<span><span class="dot" style="width:8px;height:8px;background:${["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)", "var(--green)"][idx]}"></span>${esc(n)}</span>`).join("")
     + `<span><span class="dot" style="width:8px;height:8px;background:var(--amber)"></span>Needs you</span></div></section>`;
 
-  return h + `</div>`;
+  return h;
 }
 
 // ---------- page ----------
@@ -302,19 +302,23 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   const tab = sp.tab === "epic" ? "epic" : "overview";
   const epic = sp.epic && m.epics[sp.epic] ? sp.epic : m.activeEpic || m.epicNames[0] || "";
 
+  // Both views are rendered into the DOM and toggled client-side (showView) so switching
+  // tabs is instant — no server round-trip, no loading state. AutoRefresh quietly updates data.
+  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq)}</div>`;
+  const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq)}</div>` : "";
   const inner = err
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
-    : tab === "epic" && epic
-      ? renderEpic(m, epic, tq)
-      : renderOverview(m, tq);
+    : overviewView + epicView;
 
-  const body = SCENE + `<main class="wrap">` + topBar(m, tab, epic, tq) + inner + `</main><div class="toast" id="toast"></div>`;
+  const main = `<main class="wrap">${topBar(m, tab)}${inner}</main><div class="toast" id="toast"></div>`;
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div dangerouslySetInnerHTML={{ __html: body }} />
-      <script dangerouslySetInnerHTML={{ __html: SCRIPT }} />
+      {/* SCENE is a constant string → React never re-injects it on refresh, so the starfield persists */}
+      <div dangerouslySetInnerHTML={{ __html: SCENE }} />
+      <div dangerouslySetInnerHTML={{ __html: main }} />
+      <StatusClient refreshSeconds={60} />
     </>
   );
 }
