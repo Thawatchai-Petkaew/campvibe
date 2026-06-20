@@ -154,6 +154,8 @@ requirement
 
 > AC ใช้รูปแบบ `Given | When | ผลที่เห็น | ผลเชิงข้อมูล` — ฝั่งซ้ายคือ "ผู้ใช้เห็นอะไร" (พร้อม copy ไทย verbatim), ฝั่งขวาคือ "ระบบเก็บ/เปลี่ยนอะไร" (ภาษาคน ลงท้าย "…บันทึกใน audit") **ไม่ใส่** event-code/ชื่อตัวแปร/class/testid ใน AC — พวกนั้นอยู่ใน spec เทคนิค
 
+> **ก๊อปจากไฟล์จริง:** `ai-planning/templates/STORY-TICKET.md` (Linear-native, AC = ตาราง GFM) → เนื้อหานี้ลง **issue ระดับ story** ใน Linear (role-task = sub-issue) · ตรวจตรง template ด้วย `node scripts/linear-sync.mjs audit` (ต้องมี ## Story + ## AC)
+
 ### 7.2 ชุดเอกสารต่อ feature (เท่าที่จำเป็น)
 - **`brief`** — ทำไม + scope + objective (PO) → ใช้ที่ G1
 - **`spec`** — story + AC + rules + data + flow (Analyst/Architect) → ใช้ที่ G2
