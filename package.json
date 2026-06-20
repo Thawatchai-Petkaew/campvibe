@@ -12,7 +12,8 @@
     "test": "vitest run",
     "status:linear": "node scripts/linear-sync.mjs list",
     "status:gates": "node scripts/linear-sync.mjs gates",
-    "status:pull": "node scripts/linear-sync.mjs pull"
+    "status:pull": "node scripts/linear-sync.mjs pull",
+    "camper": "node scripts/camper.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -2,6 +2,7 @@
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
  * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
+import { getAutonomousMode } from "@/lib/delivery-config";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
 import StatusClient from "./dashboard-client";
 
@@ -127,13 +128,25 @@ function topBar(m: Model, tab: string): string {
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
 
+// Camper Agent toggle — lives in the "Gates need you" pane because the agent IS the approver.
+// ON = autopilot decides G1–G4 on your behalf; escalates G5/security/irreversible/any-cost.
+const BRAIN = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8"/><path d="M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8"/><path d="M17.5 16a3.5 3.5 0 0 0 0 -7h-.5"/><path d="M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0"/><path d="M6.5 16a3.5 3.5 0 0 1 0 -7h.5"/><path d="M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10"/></svg>`;
+function camperToggle(autonomous: boolean): string {
+  const on = autonomous;
+  return `<button id="camper-toggle" onclick="toggleCamper()" title="Camper Agent autopilot — ตัดสิน gate G1–G4 แทน, escalate G5/security/ของมีค่าใช้จ่าย"`
+    + ` style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;`
+    + `border:1px solid ${on ? "var(--emerald)" : "rgba(255,255,255,.16)"};background:${on ? "rgba(52,211,153,.16)" : "transparent"};color:${on ? "var(--emerald)" : "var(--muted)"}">`
+    + `${BRAIN}<span>Camper ${on ? "ON" : "OFF"}</span></button>`;
+}
+
 // ---------- OVERVIEW ----------
-function renderOverview(m: Model, tq: string): string {
+function renderOverview(m: Model, tq: string, autonomous: boolean): string {
   const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicOf(m.gates[0].title))}${tq}` : "#";
   let h = "";
 
   // Gates need you
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Gates need you</span><span class="x">${m.gates.length} across all epics</span></div>`;
+  h += `<section class="glass pane"><div class="pane-h"><span class="t">Gates need you</span>`
+    + `<span style="display:inline-flex;align-items:center;gap:12px"><span class="x">${m.gates.length} across all epics</span>${camperToggle(autonomous)}</span></div>`;
   if (m.gates.length) {
     m.gates.forEach((i) => {
       const g = gateOf(i.title);
@@ -297,6 +310,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   let issues: StatusIssue[] = [];
   let err = "";
   try { issues = await fetchStatusIssues(); } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  const autonomous = await getAutonomousMode();
   const m = buildModel(issues);
   const tq = required ? `&token=${encodeURIComponent(sp.token || "")}` : "";
   const tab = sp.tab === "epic" ? "epic" : "overview";
@@ -304,7 +318,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
 
   // Both views are rendered into the DOM and toggled client-side (showView) so switching
   // tabs is instant — no server round-trip, no loading state. AutoRefresh quietly updates data.
-  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq)}</div>`;
+  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, autonomous)}</div>`;
   const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq)}</div>` : "";
   const inner = err
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
@@ -318,7 +332,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
       {/* SCENE is a constant string → React never re-injects it on refresh, so the starfield persists */}
       <div dangerouslySetInnerHTML={{ __html: SCENE }} />
       <div dangerouslySetInnerHTML={{ __html: main }} />
-      <StatusClient refreshSeconds={60} />
+      <StatusClient refreshSeconds={60} token={sp.token || ""} />
     </>
   );
 }
