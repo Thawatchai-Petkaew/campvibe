@@ -21,9 +21,11 @@ import {
 interface LoginModalProps {
     isOpen: boolean;
     onClose: () => void;
+    /** Optional subtitle shown below the welcome heading — e.g. wishlist login prompt. */
+    subtitle?: string;
 }
 
-export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
     const { t } = useLanguage();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -102,7 +104,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     <div className="p-8 space-y-6">
                         <div className="space-y-2">
                             <h2 className="text-2xl font-bold text-foreground">{t.auth.welcomeBack}</h2>
-                            <p className="text-sm text-muted-foreground">{t.auth.loginToContinue}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {subtitle ?? t.auth.loginToContinue}
+                            </p>
                         </div>
 
                         <form 

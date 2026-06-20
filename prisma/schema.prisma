@@ -80,6 +80,7 @@ model User {
   teamMemberships CampSiteTeamMember[] // Team memberships across camp sites
   reviews         Review[] // User's reviews
   bookings        Booking[] // User's bookings
+  wishlists       Wishlist[] // User's wishlisted camp sites
 
   @@index([email])
   @@index([kycStatus])
@@ -213,6 +214,7 @@ model CampSite {
   reviews     Review[]
   bookings    Booking[]
   teamMembers CampSiteTeamMember[] // Team members with roles & permissions
+  wishlists   Wishlist[] // Users who wishlisted this camp site
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
@@ -322,4 +324,17 @@ model Booking {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  userId     String
+  campSiteId String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campSite   CampSite @relation(fields: [campSiteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campSiteId])
+  @@index([userId])
+  @@index([campSiteId])
 }
