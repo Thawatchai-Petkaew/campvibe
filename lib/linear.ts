@@ -14,6 +14,10 @@ export interface StatusIssue {
   labels: string[];
   url: string;
   description: string;
+  startedAt: string | null;    // when it entered a "started" state — drives time-in-progress
+  updatedAt: string;           // last activity (max across issues = freshness)
+  completedAt: string | null;  // when shipped/done
+  assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
 }
 
 const TEAM_KEY = process.env.LINEAR_TEAM_KEY || "CAM";
@@ -30,8 +34,12 @@ export async function fetchStatusIssues(): Promise<StatusIssue[]> {
         priority
         url
         description
+        startedAt
+        updatedAt
+        completedAt
         state { name type }
         labels { nodes { name } }
+        assignee { name displayName avatarUrl }
       }
     }
   }`;
@@ -55,8 +63,12 @@ export async function fetchStatusIssues(): Promise<StatusIssue[]> {
       priority: number;
       url: string;
       description: string | null;
+      startedAt: string | null;
+      updatedAt: string | null;
+      completedAt: string | null;
       state: { name: string; type: string } | null;
       labels: { nodes: { name: string }[] } | null;
+      assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
     }): StatusIssue => ({
       id: n.identifier,
       title: n.title,
@@ -66,6 +78,12 @@ export async function fetchStatusIssues(): Promise<StatusIssue[]> {
       labels: (n.labels?.nodes ?? []).map((l) => l.name),
       url: n.url,
       description: n.description ?? "",
+      startedAt: n.startedAt ?? null,
+      updatedAt: n.updatedAt ?? new Date(0).toISOString(),
+      completedAt: n.completedAt ?? null,
+      assignee: n.assignee
+        ? { name: n.assignee.name, displayName: n.assignee.displayName, avatarUrl: n.assignee.avatarUrl ?? null }
+        : null,
     })
   );
 }
