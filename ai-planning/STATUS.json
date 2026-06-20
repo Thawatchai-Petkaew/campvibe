@@ -1,0 +1,44 @@
+{
+  "project": "campvibe",
+  "updated_at": "2026-06-20T00:05:00Z",
+  "epics": [
+    {
+      "id": "EPIC-001",
+      "title": "User engagement features",
+      "status": "in_progress",
+      "tickets": [
+        {
+          "id": "TICKET-0001",
+          "title": "Wishlist (บันทึกแคมป์ที่ถูกใจ)",
+          "owner": "architect",
+          "status": "ready",
+          "gate": "G1 passed ✅ → next: G2 (design)",
+          "gates": {
+            "discovery": "pass",
+            "lint": "pending",
+            "typecheck": "pending",
+            "test": "pending",
+            "coverage": "pending",
+            "design": "pending",
+            "security": "pending"
+          },
+          "open_gaps": 0,
+          "decisions": {
+            "guest": "prompt-login (LoginModal)",
+            "type": "single-list",
+            "entry": "navbar-heart-icon"
+          },
+          "spec": "docs/specs/TICKET-0001-wishlist.md",
+          "pr": null,
+          "updated_at": "2026-06-20T00:05:00Z",
+          "history": [
+            { "ts": "2026-06-20T00:00:00Z", "actor": "orchestrator", "event": "intake requirement" },
+            { "ts": "2026-06-20T00:01:00Z", "actor": "product-owner+architect+ux", "event": "discovery research (codebase scan)" },
+            { "ts": "2026-06-20T00:02:00Z", "actor": "orchestrator", "event": "gap matrix built; 1 open + 2 assumptions; asking back at G1" },
+            { "ts": "2026-06-20T00:05:00Z", "actor": "human", "event": "G1 answers: guest=prompt-login, type=single-list, entry=navbar — all gaps closed, scope approved" }
+          ]
+        }
+      ]
+    }
+  ]
+}

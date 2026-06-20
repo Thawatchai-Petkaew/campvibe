@@ -625,16 +625,21 @@ async function main() {
             }
         });
 
+        // `contacts` is a legacy field no longer in the CampSite schema
+        // (replaced by structured phone/lineId/etc.); strip it before write.
+        const campSiteData: any = { ...campData };
+        delete campSiteData.contacts;
+
         // Create or update camp site
         await prisma.campSite.upsert({
             where: { nameThSlug: campData.nameThSlug },
             update: {
-                ...campData,
+                ...campSiteData,
                 locationId: location.id,
                 operatorId: hosterUser.id
             },
             create: {
-                ...campData,
+                ...campSiteData,
                 locationId: location.id,
                 operatorId: hosterUser.id
             },

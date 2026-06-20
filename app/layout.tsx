@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Inter, Outfit, Noto_Sans } from "next/font/google";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/Providers";
+
+const notoSans = Noto_Sans({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", notoSans.variable)}>
       <body className={[inter.variable, outfit.variable, "antialiased"].join(" ")} suppressHydrationWarning>
         <Providers>
           <LanguageProvider>
