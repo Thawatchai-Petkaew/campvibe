@@ -35,7 +35,8 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
     },
     ref
   ) => {
-    const inputId = id || React.useId();
+    const generatedId = React.useId();
+    const inputId = id || generatedId;
     const hasError = !!error;
     const displayText = error || hint || helperText;
     const isError = hasError;
