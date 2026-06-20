@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
  *  - starfield        → populated once (lives in the constant SCENE div, survives router.refresh)
  *  - clock            → re-queries #clock each tick so it keeps working after a refresh
  *  - live refresh     → router.refresh() every N seconds (no full-page reload / white flash) */
-export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?: number }) {
+export default function StatusClient({ refreshSeconds = 60, token = "" }: { refreshSeconds?: number; token?: string }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -19,6 +19,24 @@ export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?:
         if (b) b.classList.toggle("active", t === v);
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    // Camper Agent autopilot toggle — POST /api/status/config (Bearer STATUS_TOKEN), then refresh.
+    (window as Window & { toggleCamper?: () => void }).toggleCamper = async () => {
+      const btn = document.getElementById("camper-toggle");
+      const turningOn = !(btn?.textContent || "").includes("ON");
+      if (btn) btn.style.opacity = "0.5";
+      try {
+        const res = await fetch("/api/status/config", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: JSON.stringify({ autonomousMode: turningOn }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        router.refresh(); // re-renders the toggle in its new ON/OFF state
+      } catch {
+        if (btn) btn.style.opacity = "1";
+      }
     };
 
     const stars = document.querySelector(".stars");
