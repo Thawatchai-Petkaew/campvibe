@@ -8,6 +8,21 @@
 - **`STATUS.json` / `linear-snapshot.json`** = snapshot ที่ generate จาก Linear (`npm run status:pull`) — ไม่ใช่แหล่งคู่ขนาน, ห้ามแก้มือ
 - **`PRODUCT-PLAN.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
 
+## Definition of Done & env mapping (3-env: Local→Staging→Prod)
+Linear status เปลี่ยนตาม **git/gate event ไม่ผูก env**: เริ่ม→`In Progress` · เปิด PR→`In Review` · merge เข้า `staging`→`Done`
+- **Done** (story): merge เข้า `staging` + quality-gate เขียว + migration staging ผ่าน + **verify AC บน Staging URL จริง** → state `Done`
+- **Released** (deployment): promote `staging`→`main` + prod deploy + smoke + tag + changelog → label **`released`** (+ git tag) — *ไม่ใช่* state ใหม่ (story ยัง `Done`)
+- หลาย story `Done` (อยู่ Staging) ได้ก่อนรวมปล่อยขึ้น prod เป็นรอบ — dashboard โชว์ 2 มิติ: state `Done` + label `released`
+
+| Linear state/label | env | gate | ใครเปลี่ยน |
+|---|---|---|---|
+| In Progress | local | post-G1/G2 | agent เริ่มงาน (`linear-sync set`) |
+| In Review | PR Preview | G3 รอ | เปิด PR (Linear↔GitHub auto) |
+| Done | Staging | post-G3 + G4 รอ | merge→`staging` (auto/CLI) |
+| label `released` | Production | post-G5 | `linear-sync release <id>` ตอน promote prod |
+
+> "Status เปลี่ยนที่ env ไหน?" → **state เปลี่ยนที่ git event (global)** · `released` ติดตอน **promote ขึ้น prod** เท่านั้น
+
 ## ปัญหาเดิม (ก่อนแก้)
 ไม่มี **executable mechanism** ที่ push เข้า Linear ได้เอง → ต้องให้ orchestrator เรียก MCP มือในเซสชัน → ระหว่างนั้น "ไม่มีอะไรอัปเดต"
 

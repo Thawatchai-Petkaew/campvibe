@@ -13,6 +13,7 @@
  *   node scripts/linear-sync.mjs set CAM-7 --state "In Progress"
  *   node scripts/linear-sync.mjs set CAM-11 --add-label awaiting-you
  *   node scripts/linear-sync.mjs set CAM-7 --state Done --remove-label awaiting-you
+ *   node scripts/linear-sync.mjs release CAM-7                     # promoted to prod: state Done + label `released`
  *   node scripts/linear-sync.mjs label CAM-5 --add camper          (alias of set)
  *   node scripts/linear-sync.mjs pull [outfile]   # snapshot Linear -> JSON (default ai-planning/linear-snapshot.json)
  */
@@ -119,6 +120,14 @@ async function cmdSet(id, flags) {
   console.log(`✓ ${id} updated: ${bits.join(" ")}`);
 }
 
+// Released = promoted to production. The story stays in state `Done` (set at merge→staging) and
+// additionally carries the `released` label. "Done" (on Staging) and "Released" (on prod) are
+// separate dimensions — see ai-planning/SYNC-ARCHITECTURE.md §Definition of Done.
+async function cmdRelease(id) {
+  if (!id) throw new Error("usage: release <CAM-id>");
+  await cmdSet(id, { state: "Done", add: ["released"], remove: [] });
+}
+
 function epicOf(t) { const x = t.split("·"); return x.length > 1 ? x[0].trim() : "(ungrouped)"; }
 function roleOf(t) { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; }
 
@@ -190,7 +199,8 @@ const [cmd, ...rest] = process.argv.slice(2);
 try {
   if (cmd === "list") await cmdList();
   else if (cmd === "set" || cmd === "label") await cmdSet(rest[0], parseFlags(rest.slice(1)));
+  else if (cmd === "release") await cmdRelease(rest[0]);
   else if (cmd === "gates") await cmdGates();
   else if (cmd === "pull") await cmdPull(rest[0]);
-  else { console.log("usage: linear-sync <list | gates | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | pull [outfile]>"); process.exit(1); }
+  else { console.log("usage: linear-sync <list | gates | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | release <CAM-id> | pull [outfile]>"); process.exit(1); }
 } catch (e) { console.error("✗", e.message); process.exit(1); }

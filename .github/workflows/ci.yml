@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   push:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   quality-gate:
@@ -29,3 +29,30 @@ jobs:
         run: npm run build
       - name: Security audit
         run: npm audit --omit=dev --audit-level=high
+
+  # Post-deploy smoke against the env's live URL. Opt-in: set repo variables
+  # STAGING_URL / PROD_URL (Settings → Secrets and variables → Actions → Variables).
+  # If the matching var is unset it skips (so main pushes never fail before staging exists).
+  smoke:
+    needs: quality-gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smoke (curl deployed URL if configured)
+        run: |
+          URL=""
+          [ "${{ github.ref_name }}" = "main" ] && URL="${{ vars.PROD_URL }}"
+          [ "${{ github.ref_name }}" = "staging" ] && URL="${{ vars.STAGING_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::notice::No URL variable for '${{ github.ref_name }}' — skipping smoke."
+            exit 0
+          fi
+          echo "Smoking $URL (waits for Vercel deploy) ..."
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL" || true)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && echo "✓ smoke ok" && exit 0
+            sleep 15
+          done
+          echo "::error::Smoke failed for $URL (no HTTP 200 within ~3min)"
+          exit 1
