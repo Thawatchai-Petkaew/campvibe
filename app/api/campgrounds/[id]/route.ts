@@ -4,6 +4,7 @@ import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSiteOwnership } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
+import { applyAdminOnlyFields } from '@/lib/admin-fields';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,21 +24,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  
+
   // Check ownership
-  const { error: authError, campSite: existing } = await requireCampSiteOwnership(id);
+  const { error: authError, campSite: existing, session } = await requireCampSiteOwnership(id);
   if (authError) return authError;
 
   try {
     const body = await request.json();
-    
+
     // Validate with Zod (partial validation for updates)
     const validation = campSiteSchema.partial().safeParse(body);
     if (!validation.success) {
       return apiError('Validation Error', 400, validation.error.format());
     }
-    
-    const data = validation.data;
+
+    // Strip admin-only fields (isVerified, verifiedDate) for non-admin callers.
+    // Role is sourced from the server-side session — never the request body.
+    const data = applyAdminOnlyFields(
+      validation.data as Record<string, unknown>,
+      session.user?.role
+    ) as typeof validation.data;
 
     // Update Location if provided (but don't auto-update lat/lon from camp site)
     // Lat/Lon are independent - user enters manually

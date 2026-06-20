@@ -85,7 +85,7 @@ export async function requireCampSitePermission(
     return { error: apiError('Camp site not found', 404), campSite: null, session: null };
   }
 
-  const isPlatformAdmin = (session.user as any)?.role === 'ADMIN';
+  const isPlatformAdmin = session.user?.role === 'ADMIN';
   if (isPlatformAdmin) {
     return { error: null, campSite, session };
   }
