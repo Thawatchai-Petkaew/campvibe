@@ -233,7 +233,7 @@ function renderEpic(m: Model, e: string, tq: string): string {
   // The Trail
   h += `<section class="glass trail"><div class="trail-h"><span class="t">${svg(ICON.trail)} The trail</span><span class="h">start → ship</span></div><div class="rail">`;
   stages.forEach((s, idx) => {
-    if (idx > 0) { const prev = stages[idx - 1]; const live = prev.cls === "run" || prev.cls === "done"; h += `<div class="conn ${live ? "live" : ""}"></div>`; }
+    if (idx > 0) { const prev = stages[idx - 1]; const live = prev.cls === "run" || prev.cls === "done"; h += `<div class="conn ${live ? "flowing" : ""}"></div>`; }
     h += `<div class="stage ${s.cls}"><div class="node">${svg(ICON[s.name])}</div><div class="nminfo"><div class="nm">${s.name}</div><div class="sub">${esc(s.sub)}</div></div></div>`;
   });
   h += `</div></section>`;
