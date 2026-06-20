@@ -28,7 +28,8 @@
 
 ## Positioning
 CampVibe = **"aggregate ที่เชื่อถือได้ของแคมป์ไทย"** — ต่างจากเพจราย ๆ ตรงข้อมูลครบ+มาตรฐานเดียว, verified badge, review จาก stay จริง, จอง+wishlist ในที่เดียว
-> TODO(you): ยืนยันประโยค positioning + กลุ่มเป้าหมายหลัก (มือใหม่อยากลอง vs สายแคมป์ตัวจริง)
+ยืนยันประโยค positioning: **"aggregate ที่เชื่อถือได้ของแคมป์ไทย"** — ตรงกับ trust-first principle และ value prop ที่ระบุใน [business.md](business.md)
+กลุ่มเป้าหมายหลัก: **ทั้งสองกลุ่ม** (มือใหม่อยากลอง + สายแคมป์ตัวจริง) ตามที่ระบุใน [user-research.md](user-research.md) persona Camper — ไม่แยกตัดในระยะ MVP เพราะ core loop เดียวกัน; ความต่างอยู่ที่ filter criteria (มือใหม่: ง่าย/ใกล้/ราคาต่ำ; สายจริง: terrain/facilities/remote) ซึ่ง search/filter รองรับอยู่แล้ว
 
 ## เกี่ยวข้อง
 [business.md](business.md) · [user-research.md](user-research.md) · [master-plan.md](master-plan.md)

@@ -36,8 +36,12 @@
 > TODO(you): ช่องทางหา camper + host (SEO, social, community แคมป์ปิ้ง, partnership อุทยาน/ลานกาง), กลยุทธ์ตั้งต้น supply ก่อนหรือ demand ก่อน
 
 ## Moat / ความได้เปรียบ
-> TODO(you): อะไรทำให้ลอกยาก — network effect (แคมป์เยอะ→คนเยอะ), verified inventory + review จริง, data, brand
-- ที่ยืนยันได้: review ผูก verified-stay (กัน fake) + verified badge (admin) = trust ที่ aggregator ทั่วไปไม่มี
+- **ที่ยืนยันได้จาก codebase และการออกแบบจงใจ:**
+  - review ผูก verified-stay (ต้องมี booking จริงก่อนรีวิว — CAM-15 shipped v0.1.0) = กัน fake review; aggregator ทั่วไปไม่ได้ enforce นี้
+  - verified badge (admin-only `isVerified`) = quality signal สำหรับ camper + แรงจูงใจให้ host ดูแลแคมป์
+  - wishlist (CAM-18) = ผูก camper กับ platform (sign-up required, ไม่เก็บ local) → retention signal
+- **Network effect (เชิงโครงสร้าง — ยังต้องพิสูจน์ด้วย traction จริง):** แคมป์มากขึ้น → camper มาขึ้น → review มากขึ้น → แคมป์ใหม่อยากอยู่บน platform → ยากลอกเพราะ review corpus สะสม
+- > TODO(you): ยืนยัน moat ที่ 3 (data/brand) เมื่อมี traction จริง
 
 ## เกี่ยวข้อง
 [market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `std/ux.md` (PDPA) · `std/security.md`

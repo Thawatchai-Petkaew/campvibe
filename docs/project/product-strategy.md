@@ -13,16 +13,16 @@
 ## ลำดับความสำคัญ (Now / Next / Later)
 - **Now (กำลังทำ/เพิ่งเสร็จ):** wishlist (done staging) · ปิด **4 security gap** จาก gap-audit (spot IDOR, unauth upload, error leak, isVerified self-grant) — *trust = P0*
 - **Next:** search/filter ตามจังหวัด · notifications (Telegram) · SEO หน้า public (`std/seo.md`) · coverage threshold enforce
-- **Later:** > TODO(you): payment/escrow, ปฏิทินว่าง, แชร์ wishlist, remarketing, host analytics
-> TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `ai-planning/FEATURE-BACKLOG.md`)
+- **Later (ยังไม่ commit ลำดับ):** payment/escrow (BL-C1) · ปฏิทินว่าง/พร้อมจอง · แชร์ wishlist · remarketing/re-engagement · host analytics (BL-C5) · AI depth features (BL-AI2–AI9)
+> TODO(you): ยืนยัน/จัดลำดับ Later + เลือก Phase 2 hero ก่อนเริ่ม loop ถัดไป (อ้าง `ai-planning/FEATURE-BACKLOG.md` เส้นทางแนะนำ section สุดท้าย)
 
 ## จะทำ / ไม่ทำ (สำหรับ `/camper-agent` รู้ขอบเขต)
 **ทำ:** อะไรที่ดัน core loop (ค้นหา/จอง/รีวิว/wishlist) + trust + supply/demand
 **ยังไม่ทำตอนนี้ (escalate ถ้าถูกขอ):**
-> TODO(you): ระบุชัด เช่น — payment จริง/escrow, native app, ตลาดนอกไทย, social feed, ฟีเจอร์ที่ไม่แตะ core loop
+payment จริง/escrow (BL-C1, เลื่อน Later) · native mobile app · ตลาดนอกประเทศไทย · social feed / community forum · multi-language นอก TH/EN · ฟีเจอร์ใดก็ตามที่ไม่แตะ core loop (ค้นหา→ดู→จอง→wishlist) หรือ trust/supply-demand · > TODO(you): เพิ่มรายการที่ต้องการ lock ออกเพิ่มเติม
 
 ## Success metrics / KPI
-- **North-star:** > TODO(you): (แนะนำ booking สำเร็จ/เดือน หรือ GMV) — ค่าปัจจุบัน/เป้า: ___
+- **North-star:** จำนวน Booking ที่สำเร็จต่อเดือน — ค่าปัจจุบัน: > TODO(you): ดึงจาก DB จริง · เป้า: > TODO(you): ระบุ milestone
 - **Input:** conversion ค้นหา→จอง · % ใช้ wishlist · review/booking · แคมป์ published · MAU
 - **Guardrail (ห้ามแย่ลง):** อัตรา booking ล้มเหลว · เวลาโหลดหน้า public (Core Web Vitals, `std/seo.md`) · security incident = 0
 > TODO(you): ใส่ตัวเลขเป้าจริงต่อ metric
