@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
         nationalPark: data.nationalPark,
         images: arrayToCsv(data.images || []),
         
-        isVerified: data.isVerified ?? false,
+        // isVerified is the platform trust badge — only a platform ADMIN may set it on create
+        // (mirrors campsites route + applyAdminOnlyFields on PUT). A self-registering host cannot grant it.
+        isVerified: session?.user?.role === 'ADMIN' ? (data.isVerified ?? false) : false,
         isActive: data.isActive ?? true,
         isPublished: data.isPublished ?? false,
         

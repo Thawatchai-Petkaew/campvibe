@@ -203,6 +203,6 @@ export async function POST() {
         return NextResponse.json({ success: true, count: results.length, data: results });
     } catch (error) {
         console.error("Scraper Error:", error);
-        return NextResponse.json({ error: 'Scraping failed', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Scraping failed' }, { status: 500 });
     }
 }
