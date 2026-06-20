@@ -25,8 +25,9 @@
     {
       "id": "EPIC-002",
       "title": "P0 Hardening (Security + Migration)",
-      "status": "awaiting-you",
-      "gate": "G3 — all tickets built+verified, quality-gate green except 1 pre-existing HIGH (next.js) → awaiting human: (a) next bump decision (b) commit/PR strategy",
+      "status": "shipped",
+      "gate": "G5 ✅ shipped to prod — PR #3 merged, CI green, Vercel prod deployed, smoke verified (/api/seed=403), release v0.1.0. Prod DB reset SKIPPED (Prisma Postgres + not needed) → follow-up issue #4",
+      "release": "v0.1.0 (https://github.com/Thawatchai-Petkaew/campvibe/releases/tag/v0.1.0)",
       "scope_source": "PRODUCT-PLAN.md §F-4 — human chose 'P0 security + migration ก่อน' at G1 (2026-06-20)",
       "spec": "docs/specs/EPIC-002-p0-hardening.md",
       "quality_gate": {
@@ -103,6 +104,7 @@
         }
       ],
       "followups": [
+        "issue #4: reconcile prod DB migration baseline (Prisma Postgres + upgrade Prisma 6) — dormant tech-debt",
         "S-01: lib/api-utils.ts leaks raw error in 500 responses (gate prod env) — Medium",
         "S-02: /api/campgrounds/[id] PUT has no admin bypass (email-based ownership) — admins can't verify via that route — Medium",
         "S-05: /api/seed uses GET for a destructive op → change to POST — Low",
@@ -115,7 +117,12 @@
         { "ts": "2026-06-20T11:00:00Z", "actor": "human", "event": "G1 scope: 'P0 security + migration'; decisions: reset migration, verified-stay" },
         { "ts": "2026-06-20T11:20:00Z", "actor": "devops+frontend+backend", "event": "built TICKET-0002/0006/0007/0005/0003/0004 — each self-verified with tests" },
         { "ts": "2026-06-20T11:40:00Z", "actor": "security+designer", "event": "security gate PASS-WITH-NITS (S-06 fixed); design gate PASS-WITH-NITS (contrast fixed)" },
-        { "ts": "2026-06-20T11:45:00Z", "actor": "orchestrator", "event": "quality-gate green (type/lint/test/build); npm audit fix cleared 2 of 3 HIGH; G3 awaiting human (next bump + PR strategy)" }
+        { "ts": "2026-06-20T11:45:00Z", "actor": "orchestrator", "event": "quality-gate green (type/lint/test/build); npm audit fix cleared 2 of 3 HIGH; G3 awaiting human (next bump + PR strategy)" },
+        { "ts": "2026-06-20T12:00:00Z", "actor": "human", "event": "G3: bump next 16.2.9 (0 high/critical) + commit-on-branch+PR" },
+        { "ts": "2026-06-20T12:20:00Z", "actor": "devops", "event": "PR #3 opened; CI fixes (coverage-v8 dep, @emnapi override, ci.yml npm install) → quality-gate green" },
+        { "ts": "2026-06-20T12:21:00Z", "actor": "human+orchestrator", "event": "G5: PR #3 merged to main (e9d364d); Vercel prod auto-deployed" },
+        { "ts": "2026-06-20T12:30:00Z", "actor": "human", "event": "prod DB reset SKIPPED — prod is Prisma Postgres (Accelerate) + reset not needed (EPIC-002 adds no new table deps); tracked as issue #4" },
+        { "ts": "2026-06-20T12:35:00Z", "actor": "orchestrator", "event": "smoke prod PASS (homepage 200/15 sites, detail/login/api 200, /api/seed=403 ✅); released v0.1.0 + changelog. EPIC-002 SHIPPED." }
       ]
     }
   ]
