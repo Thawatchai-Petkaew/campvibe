@@ -4,9 +4,12 @@ import { NextResponse } from 'next/server';
  * Standardized API error response helper
  */
 export function apiError(message: string, status: number = 500, details?: unknown) {
+  // Log full details server-side always; only EXPOSE them to the client on 4xx
+  // (e.g. zod validation). Never serialize raw errors on 5xx — they can leak
+  // Prisma internals / stack / connection strings to the caller.
   console.error(`[API Error ${status}]:`, message, details);
   const response: { error: string; details?: unknown } = { error: message };
-  if (details) {
+  if (details && status < 500) {
     response.details = details;
   }
   return NextResponse.json(response, { status });
