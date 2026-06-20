@@ -14,6 +14,7 @@
 | `--accent` | `oklch(0.511 0.096 186.391)` | เน้น (โทนเดียวกับ primary) |
 | `--muted` / `--muted-foreground` | `oklch(0.963 …)` / `oklch(0.56 …)` | พื้น/ข้อความรอง, placeholder |
 | `--destructive` | `oklch(0.577 0.245 27.325)` (red) | error, ลบ |
+| `--success` / `--success-foreground` | `oklch(0.530 0.148 144.184)` / `oklch(0.984 0.014 158.52)` | สถานะสำเร็จ (accepted, confirmed) |
 | `--background` / `--foreground` | `oklch(1 0 0)` / `oklch(0.148 …)` | พื้น/ข้อความหลัก |
 | `--border` / `--ring` | `oklch(0.925 …)` / `oklch(0.723 …)` | เส้นขอบ / focus ring |
 | `--radius` | `0.625rem` (+ scale sm…4xl) | มุมโค้ง — ใช้ scale เท่านั้น |

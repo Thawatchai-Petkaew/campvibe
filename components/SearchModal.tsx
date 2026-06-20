@@ -214,7 +214,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                     mode="single"
                                                     selected={startDate}
                                                     onSelect={setStartDate}
-                                                    initialFocus
+                                                    autoFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -240,7 +240,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                     mode="single"
                                                     selected={endDate}
                                                     onSelect={setEndDate}
-                                                    initialFocus
+                                                    autoFocus
                                                     disabled={(date) => !!startDate && date < startDate}
                                                 />
                                             </PopoverContent>

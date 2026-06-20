@@ -550,12 +550,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                                     mode="single"
                                                     selected={checkIn}
                                                     onSelect={setCheckIn}
-                                                    fromDate={new Date()}
                                                     disabled={(date) => {
                                                         if (!!checkOut && date >= checkOut) return true;
                                                         return isDateDisabled(date);
                                                     }}
-                                                    initialFocus
+                                                    autoFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -579,12 +578,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                                     mode="single"
                                                     selected={checkOut}
                                                     onSelect={setCheckOut}
-                                                    fromDate={checkIn || new Date()}
                                                     disabled={(date) => {
                                                         if (!!checkIn && date <= checkIn) return true;
                                                         return isDateDisabled(date);
                                                     }}
-                                                    initialFocus
+                                                    autoFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>
