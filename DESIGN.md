@@ -3,6 +3,7 @@
 ทั้ง **Designer (UX+DS)** และ **Frontend** อ่านไฟล์นี้ก่อนทำ UI ทุกครั้ง (memory = `design`) ใช้ได้เฉพาะ token/component ในระบบ ห้าม hardcode สี/ระยะ/เงา ห้ามประดิษฐ์ component นอกระบบ — เปลี่ยน token ได้ที่เดียวคือ `app/globals.css` + ไฟล์นี้ ไฟล์นี้คือ source of truth ของ Design Gate และ **มีอำนาจ block PR งาน UI**
 
 > **Preset:** shadcn `radix-luma` · baseColor `mist` · icons **tabler** (`@tabler/icons-react`) · OKLCH + dark mode · ลง preset: `npx shadcn@latest apply --preset b1GyGd9r6`
+> **อ่านคู่กัน:** งานหน้า public (metadata/JSON-LD/sitemap/Core Web Vitals) → `std/seo.md` · field validation catalog + PDPA masking → `std/ux.md` (DESIGN.md ไม่ทำซ้ำ 2 เรื่องนี้)
 
 ## หลักการ — design ethos ของ CampVibe
 - โทน **CampVibe = teal/mist + ขาวสะอาดแบบ Airbnb-light**: เนื้อหานำ, chrome เบา, ลำดับชั้นชัดด้วย spacing/typography ไม่ใช่เส้น/เงาหนัก
