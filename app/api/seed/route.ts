@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { assertSeedAllowed } from '@/lib/seed-guard';
 import bcrypt from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    const session = await auth();
+    const blocked = assertSeedAllowed(session);
+    if (blocked) return blocked;
+
     try {
-        console.log('🌱 Starting production seed...');
+        console.log('Starting seed...');
 
         // 1. Create a Default Operator
         const hashedPassword = await bcrypt.hash('password123', 10);
