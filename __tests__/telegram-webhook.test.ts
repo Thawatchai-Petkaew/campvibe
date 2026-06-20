@@ -8,10 +8,14 @@ vi.mock("@/lib/linear-actions", () => ({
   removeAwaitingYou: vi.fn(async () => true),
   addComment: vi.fn(async () => true),
 }));
+vi.mock("@/lib/github-dispatch", () => ({
+  fireRepositoryDispatch: vi.fn(async () => ({ dispatched: true })),
+}));
 
 import { POST } from "@/app/api/telegram-webhook/route";
 import * as notify from "@/lib/notify";
 import * as linear from "@/lib/linear-actions";
+import * as dispatch from "@/lib/github-dispatch";
 
 const SECRET = "test-secret";
 
@@ -66,9 +70,10 @@ describe("telegram-webhook", () => {
     expect(linear.addComment).toHaveBeenCalledWith("CAM-11", expect.stringContaining("ทำต่อได้"));
   });
 
-  it("free-text not tied to a gate → ack only (phase 3 routing)", async () => {
-    const res = await POST(req({ message: { text: "hello" } }, SECRET));
-    expect(await res.json()).toMatchObject({ note: "free-text (phase 3)" });
+  it("free-text not tied to a gate → routed as an ad-hoc orchestrator request", async () => {
+    const res = await POST(req({ message: { text: "เพิ่มฟีเจอร์ค้นแคมป์" } }, SECRET));
+    expect(await res.json()).toMatchObject({ adhoc: true });
+    expect(dispatch.fireRepositoryDispatch).toHaveBeenCalledWith("camper-adhoc", { text: "เพิ่มฟีเจอร์ค้นแคมป์" });
     expect(linear.addComment).not.toHaveBeenCalled();
   });
 });
