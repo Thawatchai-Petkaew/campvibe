@@ -17,6 +17,7 @@
 
 ### Vercel mapping
 `feature/*` → Preview (ephemeral) · `staging` → Staging env · `main` → Production · `DATABASE_URL` แยก staging/prod · รัน `prisma migrate deploy` ต่อ env
+> วิธีตั้ง env 3 ที่ (Git/Vercel/Prisma) ให้ตรงกัน + var matrix + checklist กดเล่นได้: `docs/SETUP-ENVS.md`
 
 ### Definition of Done vs Released
 - **Done** (story → Linear state `Done`): merge เข้า `staging` + quality-gate เขียวครบ + migration บน staging สำเร็จ + **AC verify บน Staging URL จริง**
