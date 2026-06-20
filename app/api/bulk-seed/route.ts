@@ -116,6 +116,6 @@ export async function POST() {
         return NextResponse.json({ success: true, message: '100 camp sites and their spots seeded successfully.' });
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: 'Bulk seeding failed', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Bulk seeding failed' }, { status: 500 });
     }
 }

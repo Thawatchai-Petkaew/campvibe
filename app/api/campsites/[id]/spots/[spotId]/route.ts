@@ -8,11 +8,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; spotId: string }> }
 ) {
-  const { spotId } = await params;
-  
+  const { id, spotId } = await params;
+
   try {
-    const spot = await prisma.spot.findUnique({
-      where: { id: spotId },
+    // Scope by campSiteId so a spot can only be read under its own campsite (no cross-campsite IDOR).
+    const spot = await prisma.spot.findFirst({
+      where: { id: spotId, campSiteId: id },
       include: { campSite: true }
     });
 
@@ -47,6 +48,11 @@ export async function PUT(
     
     const data = validation.data;
 
+    // Ownership of the campsite is checked above; also verify the spot belongs to THIS
+    // campsite so an owner of campsite A cannot mutate spots of campsite B (IDOR).
+    const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id }, select: { id: true } });
+    if (!owned) return apiError('Spot not found', 404);
+
     const updated = await prisma.spot.update({
       where: { id: spotId },
       data: {
@@ -80,6 +86,10 @@ export async function DELETE(
   if (authError) return authError;
 
   try {
+    // Verify the spot belongs to THIS campsite before deleting (prevent cross-campsite IDOR).
+    const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id }, select: { id: true } });
+    if (!owned) return apiError('Spot not found', 404);
+
     await prisma.spot.delete({
       where: { id: spotId }
     });
