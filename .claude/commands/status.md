@@ -1,4 +1,4 @@
 ---
-description: สรุปสถานะงานทั้งหมด + งานที่รอมนุษย์
+description: Summarize the status of all work + items awaiting humans
 ---
-อ่าน Linear (team Campvibe): แสดง ticket ตามสถานะ (kanban), ใครทำอะไร, % คืบหน้า, และรายการ label `awaiting-you` (งานที่รอคุณอนุมัติ) พร้อม gate
+Read Linear (team Campvibe): show tickets by status (kanban), who is doing what, % progress, and the list of items with the `awaiting-you` label (work awaiting your approval) along with their gate

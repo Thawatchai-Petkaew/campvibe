@@ -1,5 +1,5 @@
 ---
-description: promote ข้าม env (staging/prod) ตาม promotion rules
+description: promote across env (staging/prod) per promotion rules
 ---
-ทำตาม devops agent + /promote-release: $ARGUMENTS
-ยืนยัน pre-condition (prod ต้องผ่าน Staging + G4 sign-off เสมอ ห้ามข้าม) ก่อน; ขออนุมัติ G5 ก่อนขึ้น prod (tag + changelog + rollback)
+Follow the devops agent + /promote-release: $ARGUMENTS
+Confirm pre-conditions first (prod must always pass Staging + G4 sign-off — never skip); request G5 approval before going to prod (tag + changelog + rollback)
