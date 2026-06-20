@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { assertSeedAllowed } from '@/lib/seed-guard';
 
 const PROVINCES = [
     'Chiang Mai', 'Kanchanaburi', 'Phetchaburi', 'Nakhon Ratchasima',
@@ -29,6 +31,10 @@ function slugify(text: string) {
 }
 
 export async function POST() {
+    const session = await auth();
+    const blocked = assertSeedAllowed(session);
+    if (blocked) return blocked;
+
     try {
         // 1. Clear existing data
         await prisma.booking.deleteMany();

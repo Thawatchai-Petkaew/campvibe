@@ -15,7 +15,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # npm install (not ci): vitest4/rolldown ships wasm32-wasi optional bindings
+      # whose nested @emnapi deps are pruned from the lockfile on macOS, so `npm ci`
+      # fails the cross-platform lock-sync check on linux. install honors the lock.
+      - run: npm install --no-audit --no-fund
       - name: Lint
         run: npm run lint
       - name: Type check

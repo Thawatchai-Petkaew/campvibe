@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { assertSeedAllowed } from '@/lib/seed-guard';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
@@ -43,6 +45,10 @@ function slugify(text: string) {
 }
 
 export async function POST() {
+    const session = await auth();
+    const blocked = assertSeedAllowed(session);
+    if (blocked) return blocked;
+
     try {
         console.log("Starting real-data scrape with local image download...");
 

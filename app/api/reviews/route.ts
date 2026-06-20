@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { reviewSchema } from '@/lib/validations/review';
+import { auth } from '@/lib/auth';
+import { reviewBodySchema, canReview, VERIFIED_STAY_STATUSES } from '@/lib/validations/review';
 
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
+    // 1. Authentication — session must exist; authorId comes from session only.
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    const authorId = session.user.id;
 
-        // 1. Validation
-        const validation = reviewSchema.safeParse(body);
+    try {
+        // 2. Input validation — authorId is never read from the request body.
+        const body = await request.json();
+        const validation = reviewBodySchema.safeParse(body);
         if (!validation.success) {
             return NextResponse.json(
                 { error: 'Validation Error', details: validation.error.format() },
@@ -17,35 +24,49 @@ export async function POST(request: NextRequest) {
 
         const data = validation.data;
 
-        // 2. Check if Camp Site exists
+        // 3. Check campsite exists.
         const campSite = await prisma.campSite.findUnique({
-            where: { id: data.campSiteId }
+            where: { id: data.campSiteId },
         });
-
         if (!campSite) {
             return NextResponse.json({ error: 'Camp site not found' }, { status: 404 });
         }
 
-        // 3. (Optional) Check for verified stay using Booking
-        // This is where "Verify Stay" logic would go:
-        // const hasBooking = await prisma.booking.findFirst({ ... })
+        // 4. Verified-stay check — user must have a CONFIRMED booking for this campsite.
+        const confirmedBooking = await prisma.booking.findFirst({
+            where: {
+                userId: authorId,
+                campSiteId: data.campSiteId,
+                status: { in: [...VERIFIED_STAY_STATUSES] },
+            },
+            select: { id: true },
+        });
 
-        // 4. Create Review
+        const allowed = canReview({ hasConfirmedBooking: confirmedBooking !== null });
+        if (!allowed) {
+            return NextResponse.json(
+                { error: 'You must have a confirmed booking at this campsite before leaving a review.' },
+                { status: 403 }
+            );
+        }
+
+        // 5. Create the review.
         const review = await prisma.review.create({
             data: {
-                authorId: data.authorId,
+                authorId,
                 campSiteId: data.campSiteId,
                 rating: data.rating,
-                title: data.title || '',
+                title: data.title ?? '',
                 content: data.content,
-                visitDate: data.visitDate ? new Date(data.visitDate) : new Date(),
-            }
+                visitDate: data.visitDate ? new Date(data.visitDate) : null,
+            },
         });
 
         return NextResponse.json(review, { status: 201 });
 
     } catch (error) {
-        console.error(error);
+        // Do not leak internal details in production.
+        console.error('[POST /api/reviews]', error);
         return NextResponse.json({ error: 'Failed to create review' }, { status: 500 });
     }
 }
