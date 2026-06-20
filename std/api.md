@@ -1,6 +1,6 @@
 # std/api.md — มาตรฐาน API/Backend (Backend)
 
-อ้างอิงของจริงก่อนเขียน: `schema/api-schema.json` + `types/api.ts` + `lib/api-client.ts` + `lib/validations/*` (zod) · อ่าน `std/security.md` คู่กันเสมอ (authz/secret/injection)
+อ้างอิงของจริงก่อนเขียน: `schema/api-schema.json` + `types/api.ts` + `lib/api-client.ts` + `lib/validations/*` (zod) · อ่าน `std/security.md` คู่กันเสมอ (authz/secret/injection) · field validation catalog + PDPA masking (zod schema แชร์ client/server) อยู่ที่ `std/ux.md`
 
 ## หลักการ
 Server เป็นเจ้าของความจริง (server-authoritative): client validation มีไว้เพื่อ UX เท่านั้น ห้ามเชื่อข้อมูลจาก client. ทุก endpoint เป็น contract ที่ตรวจสอบได้ — input ผ่าน boundary มี shape แน่นอน, output ตรง `types/api.ts`, side-effect ทุกอย่างผูกกับ session ที่ยืนยันแล้ว. ข้อมูลเป็น atomic (query อิสระได้, เชื่อมด้วย ID) ไม่ยัดหลายข้อเท็จจริงลง string เดียว.
