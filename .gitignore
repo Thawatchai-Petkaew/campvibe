@@ -53,5 +53,7 @@ next-env.d.ts
 # local uploads
 /public/uploads*
 
-# utility scripts
-/scripts
+# utility scripts (local) — but track the Linear sync CLI used by CI + hooks
+/scripts/*
+!/scripts/linear-sync.mjs
+ai-planning/linear-snapshot.json

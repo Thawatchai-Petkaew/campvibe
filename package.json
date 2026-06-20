@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "status:linear": "node scripts/linear-sync.mjs list",
+    "status:gates": "node scripts/linear-sync.mjs gates",
+    "status:pull": "node scripts/linear-sync.mjs pull"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
