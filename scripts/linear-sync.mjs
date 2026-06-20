@@ -52,6 +52,22 @@ async function gql(query, variables) {
   return json.data;
 }
 
+// Telegram escalation notify — no-throw. Fires when a gate gets `awaiting-you`.
+async function notifyTelegram(text, buttons) {
+  const tok = ENV.TELEGRAM_BOT_TOKEN, chat = ENV.TELEGRAM_CHAT_ID;
+  if (!tok || !chat) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true,
+        ...(buttons ? { reply_markup: { inline_keyboard: buttons } } : {}),
+      }),
+    });
+  } catch (e) { console.error("telegram notify failed:", e.message); }
+}
+
 async function ctx() {
   // Split into two queries — fetching team meta + 250 issues with nested labels in
   // one shot trips Linear's "Query too complex" limit.
@@ -119,6 +135,18 @@ async function cmdSet(id, flags) {
   await gql(`mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`, { id: issue.id, input });
   const bits = [flags.state ? `state→${flags.state}` : "", flags.add.length ? `+[${flags.add}]` : "", flags.remove.length ? `-[${flags.remove}]` : ""].filter(Boolean);
   console.log(`✓ ${id} updated: ${bits.join(" ")}`);
+
+  // Escalation: a gate just got `awaiting-you` → ping Telegram with Approve/Reject buttons.
+  if (flags.add.some((l) => l.toLowerCase() === "awaiting-you")) {
+    const gate = (issue.title.match(/Gate\s*G\d/i) || ["Gate"])[0];
+    await notifyTelegram(
+      `⏳ <b>${id}</b> รออนุมัติ — ${gate}\n${issue.title}`,
+      [
+        [{ text: "✅ Approve", callback_data: `approve:${id}` }, { text: "🚫 Reject", callback_data: `reject:${id}` }],
+        [{ text: "🔗 เปิดใน Linear", url: issue.url }],
+      ]
+    );
+  }
 }
 
 // Released = promoted to production. The story stays in state `Done` (set at merge→staging) and

@@ -5,7 +5,9 @@ import type {
     BookingDTO,
     ReviewDTO,
     ApiResponse,
-    PaginatedResponse
+    PaginatedResponse,
+    WishlistWithCampSiteDTO,
+    WishlistIdsResponse,
 } from '@/types/api';
 
 const API_BASE = '/api';
@@ -114,6 +116,34 @@ export const reviewAPI = {
     },
     listByCampground: async (campgroundId: string): Promise<ApiResponse<ReviewDTO[]>> => {
         return fetchAPI<ReviewDTO[]>(`/reviews?campSiteId=${campgroundId}`);
+    },
+};
+
+// Wishlist API (CAM-18)
+export const wishlistAPI = {
+    /** GET /api/wishlist — returns newest-first list with camp site details */
+    list: async (): Promise<ApiResponse<WishlistWithCampSiteDTO[]>> => {
+        return fetchAPI<WishlistWithCampSiteDTO[]>('/wishlist');
+    },
+
+    /** GET /api/wishlist/ids — returns { campSiteIds: string[] } (no N+1) */
+    getIds: async (): Promise<ApiResponse<WishlistIdsResponse>> => {
+        return fetchAPI<WishlistIdsResponse>('/wishlist/ids');
+    },
+
+    /** POST /api/wishlist body { campSiteId } → 201 */
+    save: async (campSiteId: string): Promise<ApiResponse<{ campSiteId: string }>> => {
+        return fetchAPI<{ campSiteId: string }>('/wishlist', {
+            method: 'POST',
+            body: JSON.stringify({ campSiteId }),
+        });
+    },
+
+    /** DELETE /api/wishlist/[campSiteId] → 200 { success: true } */
+    remove: async (campSiteId: string): Promise<ApiResponse<{ success: boolean }>> => {
+        return fetchAPI<{ success: boolean }>(`/wishlist/${campSiteId}`, {
+            method: 'DELETE',
+        });
     },
 };
 

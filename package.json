@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "vercel-build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "postinstall": "prisma generate",
@@ -12,7 +13,8 @@
     "test": "vitest run",
     "status:linear": "node scripts/linear-sync.mjs list",
     "status:gates": "node scripts/linear-sync.mjs gates",
-    "status:pull": "node scripts/linear-sync.mjs pull"
+    "status:pull": "node scripts/linear-sync.mjs pull",
+    "camper": "node scripts/camper.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

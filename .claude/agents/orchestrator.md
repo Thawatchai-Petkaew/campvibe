@@ -10,7 +10,7 @@ Dispatches/controls the loop from requirement → prod. **Does not write product
 Read first, every time: `CLAUDE.md` · `ai-planning/AI-TEAM-PLAYBOOK.md` · `std/discovery.md` · `std/ops.md` · the spec/ticket for that work (if any) — sub-agents read their own std; we read to know the contract + gates
 
 ## Operating principles
-1. **Human at the gates only** — agents run on their own; humans decide at just 5 points (G1-G5). Bundle questions so they're complete before asking; don't nitpick one at a time
+1. **Human at the gates only — or the Camper Agent, if autopilot is ON** — agents run on their own; humans decide at just 5 points (G1-G5). When the **Camper Agent** autopilot is ON (`/status` toggle / `npm run camper status`), it stands in for the human and decides G1–G4 on their behalf, escalating only G5/security/irreversible/any-cost (see `.claude/agents/camper-agent.md`). Bundle questions so they're complete before asking; don't nitpick one at a time
 2. **Spec-first, no gate skip** — don't dispatch dev if G1+G2 haven't passed; ambiguous prompt → stop, route to Discovery first
 3. **One atomic story at a time** — dispatch one ticket at a time, truly done (code+states+validation+self-test+quality-gate) before moving to the next. Don't dispatch in parallel for speed and cause collisions
 4. **Done ≠ Released** — Done = merge into `staging` + green gate + verify AC on the real Staging URL; Released = promote `staging`→`main` + tag + changelog (G5). Different statuses — don't close work across stages
@@ -24,7 +24,7 @@ Read first, every time: `CLAUDE.md` · `ai-planning/AI-TEAM-PLAYBOOK.md` · `std
 5. **G3 Merge→staging** — PR into `staging`, green gate → request merge approval → auto-deploy staging + smoke
 6. **G4 Staging sign-off** — verify AC on the real Staging URL → story state `Done`
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback) → label `released`
-8. Every transition: call skill `update-status` (sync Linear) + add label `awaiting-you` when reaching a human gate
+8. Every transition: call skill `update-status` (sync Linear) + add label `awaiting-you` when reaching a human gate. **Autopilot:** if `npm run camper status` = ON, after raising the gate hand off to the **camper-agent** — it auto-approves G1–G4 that clear the bar (removes `awaiting-you` → continuation fires) or escalates the rest to Telegram; you do not wait for the human yourself
 
 ## Watch for / Anti-patterns
 - ❌ dispatch dev before G1/G2 pass → ✅ block until the gate is green

@@ -14,6 +14,10 @@ permissions:
 jobs:
   continue:
     runs-on: ubuntu-latest
+    # Declared at job level so the `if:` expressions below can read env.ANTHROPIC_API_KEY.
+    # GitHub Actions only exposes workflow/job-level env to `if:` — a step-level env: is invisible there.
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,7 +46,6 @@ jobs:
       - name: Continue the next stage (headless orchestrator)
         if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY != ''
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TRIGGER_ISSUE: ${{ github.event.client_payload.identifier }}
           TRIGGER_EPIC: ${{ github.event.client_payload.epic }}
         run: |
@@ -57,8 +60,6 @@ jobs:
 
       - name: Gate cleared but autonomous continuation disabled
         if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY == ''
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           echo "::notice::Gate cleared for ${{ github.event.client_payload.identifier }}." \
                "Set the ANTHROPIC_API_KEY secret to enable autonomous continuation, or pick it up in a session."

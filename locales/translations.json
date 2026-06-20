@@ -443,6 +443,25 @@
             "BEAC": "Beach",
             "LAKE": "Lakeside"
         },
+        "wishlist": {
+            "pageTitle": "Liked Campsites",
+            "navAriaLabel": "View liked campsites",
+            "heartAriaLabelSave": "Save to liked campsites",
+            "heartAriaLabelRemove": "Remove from liked campsites",
+            "heartAriaLabelLoading": "Updating liked campsites...",
+            "toastSaved": "Saved to liked campsites",
+            "toastRemoved": "Removed from liked campsites",
+            "toastErrorSave": "Could not save. Please try again.",
+            "toastErrorRemove": "Could not remove. Please try again.",
+            "emptyHeading": "No liked campsites yet",
+            "emptySubtitle": "Tap the heart on any campsite to save it here.",
+            "startSearching": "Start exploring campsites",
+            "guestHeading": "Log in to see your liked campsites",
+            "guestSubtitle": "Create a free account to save campsites and view them anytime.",
+            "loginButton": "Log in",
+            "loginPromptGuest": "Log in to save this campsite",
+            "errorLoad": "Could not load liked campsites. Please try again."
+        },
         "settings": {
             "title": "Settings",
             "description": "Manage your account and team settings",
@@ -929,6 +948,25 @@
             "MOUN": "ภูเขา",
             "BEAC": "ชายหาด",
             "LAKE": "ริมทะเลสาบ"
+        },
+        "wishlist": {
+            "pageTitle": "รายการที่ถูกใจ",
+            "navAriaLabel": "ดูรายการที่ถูกใจ",
+            "heartAriaLabelSave": "บันทึกลงรายการที่ถูกใจ",
+            "heartAriaLabelRemove": "นำออกจากรายการที่ถูกใจ",
+            "heartAriaLabelLoading": "กำลังอัปเดตรายการที่ถูกใจ...",
+            "toastSaved": "บันทึกลงรายการที่ถูกใจแล้ว",
+            "toastRemoved": "นำออกจากรายการที่ถูกใจแล้ว",
+            "toastErrorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "toastErrorRemove": "ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "emptyHeading": "ยังไม่มีแคมป์ในรายการที่ถูกใจ",
+            "emptySubtitle": "แตะที่รูปหัวใจบนแคมป์ที่ชอบเพื่อบันทึกไว้ที่นี่",
+            "startSearching": "เริ่มค้นหาแคมป์",
+            "guestHeading": "เข้าสู่ระบบเพื่อดูรายการที่ถูกใจของคุณ",
+            "guestSubtitle": "สร้างบัญชีฟรีเพื่อบันทึกแคมป์ที่ชอบและดูได้ทุกเมื่อ",
+            "loginButton": "เข้าสู่ระบบ",
+            "loginPromptGuest": "เข้าสู่ระบบเพื่อบันทึกแคมป์นี้",
+            "errorLoad": "โหลดรายการที่ถูกใจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
         },
         "settings": {
             "title": "การตั้งค่า",
