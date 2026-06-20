@@ -58,4 +58,10 @@ describe("status/config", () => {
   it("POST 401 without bearer", async () => {
     expect((await POST(req("POST", { body: { autonomousMode: true } }))).status).toBe(401);
   });
+
+  it("POST 400 on malformed JSON", async () => {
+    const res = await POST(req("POST", { token: TOKEN, body: "{not json" }));
+    expect(res.status).toBe(400);
+    expect(cfg.setAutonomousMode).not.toHaveBeenCalled();
+  });
 });
