@@ -122,6 +122,6 @@ export async function GET() {
 
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: 'Seeding failed', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Seeding failed' }, { status: 500 });
     }
 }
