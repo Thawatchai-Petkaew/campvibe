@@ -1,43 +1,43 @@
 ---
 name: promote-release
-description: deploy/promote ข้าม env (staging->prod) + migrate + smoke test + tag + changelog + rollback ตาม promotion rules — ใช้เมื่อต้อง promote โค้ดข้าม env (merge→staging = Done, staging→main = Released). อย่าใช้สำหรับเปิด PR (ใช้ open-pr) หรือรัน quality gate (ใช้ quality-gate)
+description: deploy/promote across envs (staging->prod) + migrate + smoke test + tag + changelog + rollback per promotion rules — use when you need to promote code across envs (merge→staging = Done, staging→main = Released). Do NOT use for opening a PR (use open-pr) or running the quality gate (use quality-gate)
 ---
-# promote-release — deploy/promote โค้ดข้าม env (staging→prod) พร้อม migrate, smoke, tag, changelog, rollback
-อ่านก่อน: `std/ops.md` · `ai-planning/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local→Staging→Prod
+# promote-release — deploy/promote code across envs (staging→prod) with migrate, smoke, tag, changelog, rollback
+Read first: `std/ops.md` · `ai-planning/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local→Staging→Prod
 
 ## Input / preconditions
-- `promote-release --to <staging|prod>` · ระบุ CAM-id ของ story ที่อยู่ในรอบ promote
-- `--to staging`: merge เข้า `staging` แล้ว · quality-gate เขียวครบ
-- `--to prod`: Staging เขียว + **G4 sign-off แล้ว** (ห้ามข้าม) · มี rollback plan
-- env vars: `DATABASE_URL` แยก staging/prod · `LINEAR_API_KEY` (ให้ `linear-sync.mjs` ทำงาน)
+- `promote-release --to <staging|prod>` · specify the CAM-id of the story in the promote cycle
+- `--to staging`: merged into `staging` · quality-gate fully green
+- `--to prod`: Staging green + **G4 signed off** (do not skip) · rollback plan in place
+- env vars: `DATABASE_URL` separate for staging/prod · `LINEAR_API_KEY` (so `linear-sync.mjs` works)
 
-## วิธีทำ — `--to staging` (auto หลัง merge เข้า `staging`)
-1. `prisma migrate deploy` บน **staging DB** + `npm run build`
-2. Vercel deploy Staging env (branch `staging`) + smoke/health check
-3. **verify AC บน Staging URL จริง** → `node scripts/linear-sync.mjs set <CAM-id> --state "Done"` (state เปลี่ยนตาม git event, ไม่ผูก env)
-4. fail ที่ขั้นใด → หยุด promote + rollback + เปิด Linear bug ticket อัตโนมัติ
+## Workflow — `--to staging` (auto after merge into `staging`)
+1. `prisma migrate deploy` on **staging DB** + `npm run build`
+2. Vercel deploy to Staging env (branch `staging`) + smoke/health check
+3. **verify AC on the real Staging URL** → `node scripts/linear-sync.mjs set <CAM-id> --state "Done"` (state changes per git event, not tied to env)
+4. fail at any step → stop the promote + rollback + open a Linear bug ticket automatically
 
-## วิธีทำ — `--to prod` (promote `staging`→`main`, ต้องผ่าน G5)
-1. **pre-condition:** Staging เขียว + G4 sign-off (ตรวจ `npm run status:gates`; ห้ามข้าม)
-2. เปิด/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` บน **prod DB**
+## Workflow — `--to prod` (promote `staging`→`main`, must pass G5)
+1. **pre-condition:** Staging green + G4 sign-off (check `npm run status:gates`; do not skip)
+2. open/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` on **prod DB**
 3. smoke/health check + `git tag vX.Y.Z` + changelog + rollback plan
-4. `node scripts/linear-sync.mjs release <CAM-id>` ต่อ story ที่ปล่อย → ติด label `released` (state ยังคง `Done`, ไม่ใช่ state ใหม่)
-5. เฝ้า Sentry N นาที → error spike = auto-rollback + แจ้ง; fail = rollback + เปิด ticket
+4. `node scripts/linear-sync.mjs release <CAM-id>` for each released story → apply label `released` (state stays `Done`, not a new state)
+5. watch Sentry for N minutes → error spike = auto-rollback + notify; fail = rollback + open ticket
 
-## ต้องคำนึง
-- **Done ≠ Released:** Done = staging state `Done` · Released = label `released` + git tag บน prod เท่านั้น
-- prod ต้องผ่าน Staging (Done + G4) เสมอ — ห้าม promote `feature/*`→`main` ตรง
-- migration reversible + ทดสอบบน Staging ก่อน prod (อย่ารัน migrate prod ที่ยังไม่ผ่าน staging)
-- หลาย story `Done` รวมปล่อยเป็นรอบเดียว (release train) ได้ — `release <CAM-id>` ทีละตัวที่อยู่ในรอบ
-- ห้ามแก้ `STATUS.json`/`linear-snapshot.json` มือ (generate จาก Linear ผ่าน `npm run status:pull`)
+## Watch for / Anti-patterns
+- **Done ≠ Released:** Done = staging state `Done` · Released = label `released` + git tag on prod only
+- prod must always go through Staging (Done + G4) — never promote `feature/*`→`main` directly
+- migration reversible + tested on Staging before prod (do not run a migrate on prod that hasn't passed staging)
+- multiple `Done` stories can be released together as one cycle (release train) — `release <CAM-id>` one at a time for each story in the cycle
+- never edit `STATUS.json`/`linear-snapshot.json` by hand (generated from Linear via `npm run status:pull`)
 
 ## Output / postconditions
-- `--to staging`: Staging deploy เขียว + migration staging สำเร็จ + AC verify → story Linear state `Done`
-- `--to prod`: Production deploy เขียว + tag `vX.Y.Z` + changelog + rollback plan → story label `released`
-- fail ทุกกรณี: rollback แล้ว + Linear bug ticket เปิดเข้า loop
+- `--to staging`: Staging deploy green + staging migration succeeded + AC verified → story Linear state `Done`
+- `--to prod`: Production deploy green + tag `vX.Y.Z` + changelog + rollback plan → story label `released`
+- fail in any case: rolled back + Linear bug ticket opened into the loop
 
 ## Verify
-- build + `prisma migrate deploy` สำเร็จต่อ env ที่ promote
-- smoke/health check ผ่านบน URL จริง (staging หรือ prod)
-- Linear state/label ถูกต้อง (`Done` หรือ `released`) — เช็คด้วย `npm run status:linear`
-- prod: tag + changelog ครบ + เฝ้า Sentry ไม่มี error spike ก่อนปิดงาน
+- build + `prisma migrate deploy` succeed for the promoted env
+- smoke/health check passes on the real URL (staging or prod)
+- Linear state/label correct (`Done` or `released`) — check with `npm run status:linear`
+- prod: tag + changelog complete + Sentry watched with no error spike before closing the work
