@@ -14,6 +14,7 @@
  *   node scripts/linear-sync.mjs set CAM-11 --add-label awaiting-you
  *   node scripts/linear-sync.mjs set CAM-7 --state Done --remove-label awaiting-you
  *   node scripts/linear-sync.mjs release CAM-7                     # promoted to prod: state Done + label `released`
+ *   node scripts/linear-sync.mjs audit                            # flag story issues missing ## Story / ## AC (exit 11)
  *   node scripts/linear-sync.mjs label CAM-5 --add camper          (alias of set)
  *   node scripts/linear-sync.mjs pull [outfile]   # snapshot Linear -> JSON (default ai-planning/linear-snapshot.json)
  */
@@ -63,7 +64,7 @@ async function ctx() {
   if (!team) throw new Error(`team "${TEAM}" not found`);
   const iss = await gql(
     `query($k:String!){ issues(filter:{team:{key:{eq:$k}}}, first:100){ nodes{
-      id identifier title url priority startedAt
+      id identifier title url priority startedAt description parent{ id }
       state{ name type } labels{ nodes{ id name } } } } }`,
     { k: TEAM }
   );
@@ -195,12 +196,38 @@ async function cmdGates() {
   if (gates.some((g) => !g.labels.nodes.some((l) => l.name === "awaiting-you") && g.state.type !== "completed")) process.exitCode = 10;
 }
 
+async function cmdAudit() {
+  // Template conformance: an ACTIVE story-level issue (work item with "·", not a gate, no parent,
+  // not completed) must carry the §7.1 ticket template — at minimum ## Story + ## AC. Sub-tasks
+  // (have a parent) and shipped issues are exempt. Template: ai-planning/templates/STORY-TICKET.md.
+  // Exit 11 if any active story fails.
+  const team = await ctx();
+  const REQ = ["## Story", "## AC"];
+  const NICE = ["## ทำไม", "## Rules", "## Data", "## Out of scope", "## Self-verify"];
+  const stories = team.issues.nodes
+    .filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title) && !i.parent && i.state.type !== "completed")
+    .sort((a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true }));
+  if (!stories.length) { console.log("no story-level issues to audit (work issue with '·', no parent, not a gate)"); return; }
+  let bad = 0;
+  for (const s of stories) {
+    const d = s.description || "";
+    const miss = REQ.filter((h) => !d.includes(h));
+    const warn = NICE.filter((h) => !d.includes(h));
+    if (miss.length) bad++;
+    const head = miss.length ? "MISSING " + miss.join(",") : "template ok";
+    console.log(`${miss.length ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.replace(/^[^·]*·\s*/, "").slice(0, 40)}`);
+  }
+  console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see ai-planning/templates/STORY-TICKET.md`);
+  if (bad) process.exitCode = 11;
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 try {
   if (cmd === "list") await cmdList();
   else if (cmd === "set" || cmd === "label") await cmdSet(rest[0], parseFlags(rest.slice(1)));
   else if (cmd === "release") await cmdRelease(rest[0]);
   else if (cmd === "gates") await cmdGates();
+  else if (cmd === "audit") await cmdAudit();
   else if (cmd === "pull") await cmdPull(rest[0]);
-  else { console.log("usage: linear-sync <list | gates | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | release <CAM-id> | pull [outfile]>"); process.exit(1); }
+  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | release <CAM-id> | pull [outfile]>"); process.exit(1); }
 } catch (e) { console.error("✗", e.message); process.exit(1); }
