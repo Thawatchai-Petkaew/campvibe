@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { answerCallback, sendTelegram } from "@/lib/notify";
 import { addComment, removeAwaitingYou } from "@/lib/linear-actions";
+import { fireRepositoryDispatch } from "@/lib/github-dispatch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,9 +70,14 @@ export async function POST(req: Request) {
       await sendTelegram(`💬 บันทึกลง ${ref[1]} แล้ว`);
       return NextResponse.json({ ok: true, comment: ref[1] });
     }
-    // Not tied to a gate → ad-hoc orchestrator routing arrives in Phase 3 (/camper).
-    await sendTelegram("รับข้อความแล้ว — สั่งงานอิสระผ่านแชต (/camper) จะเปิดใน Phase 3");
-    return NextResponse.json({ ok: true, note: "free-text (phase 3)" });
+    // Not tied to a gate → route as an ad-hoc orchestrator request (/camper).
+    const r = await fireRepositoryDispatch("camper-adhoc", { text: msg.text });
+    await sendTelegram(
+      r.dispatched
+        ? `🧭 รับคำสั่งแล้ว — ส่งให้ orchestrator เริ่มงาน\n"${msg.text.slice(0, 140)}"`
+        : "รับข้อความแล้ว — แต่ยังตั้ง GitHub dispatch ไม่ครบ (GITHUB_REPO/GH_DISPATCH_TOKEN); ทำต่อในเซสชันได้"
+    );
+    return NextResponse.json({ ok: true, adhoc: r.dispatched });
   }
 
   return NextResponse.json({ ok: true, ignored: true });
