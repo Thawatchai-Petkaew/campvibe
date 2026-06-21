@@ -121,7 +121,9 @@ async function main() {
     checkOut.setDate(checkOut.getDate() + Math.floor(Math.random() * 5) + 1); // 1-5 nights
 
     const guests = Math.floor(Math.random() * 4) + 1;
-    const totalPrice = Number(randomCampSite.priceLow ?? 500) * guests * ((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+    const unitPrice = Number(randomCampSite.priceLow ?? 500);
+    const totalPrice = unitPrice * nights; // mirror API price math (no guests multiplier) so unit*nights === total
 
     await prisma.booking.create({
       data: {
@@ -131,7 +133,22 @@ async function main() {
         checkOutDate: checkOut,
         guests: guests,
         totalPrice: totalPrice,
+        currency: 'THB',
         status: randomStatus,
+        // ADR-005 crystallized snapshot (mock data mirrors the API create path)
+        snapshotCampName: randomCampSite.nameTh,
+        snapshotCampNameEn: randomCampSite.nameEn,
+        snapshotUnitAmount: unitPrice,
+        snapshotSubtotalAmount: totalPrice,
+        snapshotTaxRate: 0,
+        snapshotTaxAmount: 0,
+        snapshotVatInclusive: false,
+        snapshotTotalAmount: totalPrice,
+        snapshotCurrency: 'THB',
+        snapshotNights: nights,
+        snapshotCheckInTime: randomCampSite.checkInTime,
+        snapshotCheckOutTime: randomCampSite.checkOutTime,
+        snapshotTimezone: 'Asia/Bangkok',
         createdAt: new Date(new Date().getTime() - Math.floor(Math.random() * 1000000000)) // Random past created date
       }
     });

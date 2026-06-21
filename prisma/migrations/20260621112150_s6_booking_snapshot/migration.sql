@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "Booking" ADD COLUMN     "snapshotCampName" TEXT,
+ADD COLUMN     "snapshotCampNameEn" TEXT,
+ADD COLUMN     "snapshotCheckInTime" TEXT,
+ADD COLUMN     "snapshotCheckOutTime" TEXT,
+ADD COLUMN     "snapshotCurrency" TEXT,
+ADD COLUMN     "snapshotNights" INTEGER,
+ADD COLUMN     "snapshotSpotName" TEXT,
+ADD COLUMN     "snapshotSubtotalAmount" DECIMAL(12,2),
+ADD COLUMN     "snapshotTaxAmount" DECIMAL(12,2),
+ADD COLUMN     "snapshotTaxRate" DECIMAL(5,4),
+ADD COLUMN     "snapshotTimezone" TEXT,
+ADD COLUMN     "snapshotTotalAmount" DECIMAL(12,2),
+ADD COLUMN     "snapshotUnitAmount" DECIMAL(12,2),
+ADD COLUMN     "snapshotVatInclusive" BOOLEAN;
