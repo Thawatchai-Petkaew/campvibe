@@ -101,8 +101,8 @@ enum BookingStatus {
 // inline [PII] / [Financial] / [Geo] (PDPA-sensitive ⊂ PII); untagged = [Public].
 // Business Sets carry deletedAt (soft-delete) + version (optimistic concurrency).
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique // [PII]
+  id       String   @id @default(uuid())
+  email    String   @unique // [PII]
   password String? // Hashed password for credentials auth [PII]
   name     String? // [PII]
   image    String? // Profile image URL
@@ -110,7 +110,7 @@ model User {
   role     UserRole @default(CAMPER)
 
   // Host Registration & KYC
-  isHostRegistered   Boolean   @default(false)
+  isHostRegistered   Boolean    @default(false)
   hostRegisteredAt   DateTime?
   kycStatus          KycStatus?
   kycSubmittedAt     DateTime?
@@ -136,6 +136,9 @@ model User {
   reviews         Review[] // User's reviews
   bookings        Booking[] // User's bookings
   wishlists       Wishlist[] // User's wishlisted camp sites
+  payouts         Payout[] // Operator payouts (S7)
+  notifications   Notification[] // User notifications (S7)
+  auditLogs       AuditLog[] // Audit events where this user is the actor (S7)
 
   @@index([email])
   @@index([kycStatus])
@@ -252,7 +255,7 @@ model CampSite {
 
   // Ownership & Pricing
   ownershipType OwnershipType? // เอกชน / อุทยานแห่งชาติ
-  isFree        Boolean @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
+  isFree        Boolean        @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
 
   // Pet & Display Settings
   petFriendly Boolean @default(false) // ข้อมูล pet friendly
@@ -270,11 +273,12 @@ model CampSite {
   operatorId String
   operator   User   @relation(fields: [operatorId], references: [id])
 
-  spots       Spot[]
-  reviews     Review[]
-  bookings    Booking[]
-  teamMembers CampSiteTeamMember[] // Team members with roles & permissions
-  wishlists   Wishlist[] // Users who wishlisted this camp site
+  spots        Spot[]
+  reviews      Review[]
+  bookings     Booking[]
+  teamMembers  CampSiteTeamMember[] // Team members with roles & permissions
+  wishlists    Wishlist[] // Users who wishlisted this camp site
+  blockedDates BlockedDate[] // Operator-blocked availability (S7)
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
@@ -327,7 +331,7 @@ model MasterData {
 }
 
 model Spot {
-  id            String  @id @default(uuid())
+  id            String    @id @default(uuid())
   zone          String? // Zone name
   name          String // Spot name
   images        String? // CSV of image URLs
@@ -335,15 +339,16 @@ model Spot {
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
   environment   String?
-  pricePerNight Decimal  @db.Decimal(12, 2) // Price per night [Financial]
-  pricePerSite  Decimal? @db.Decimal(12, 2) // [Financial]
-  priceCurrency String   @default("THB") // [Financial] ISO 4217
+  pricePerNight Decimal   @db.Decimal(12, 2) // Price per night [Financial]
+  pricePerSite  Decimal?  @db.Decimal(12, 2) // [Financial]
+  priceCurrency String    @default("THB") // [Financial] ISO 4217
 
   nearFacilities String? // CSV of Internal Facility codes
 
-  campSiteId String
-  campSite   CampSite  @relation(fields: [campSiteId], references: [id])
-  bookings   Booking[]
+  campSiteId   String
+  campSite     CampSite      @relation(fields: [campSiteId], references: [id])
+  bookings     Booking[]
+  blockedDates BlockedDate[] // spot-level availability blocks (S7)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -416,6 +421,8 @@ model Booking {
   spotId String?
   spot   Spot?   @relation(fields: [spotId], references: [id])
 
+  payments Payment[] // Payment ledger for this booking (S7)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // soft-delete
@@ -449,4 +456,156 @@ model DeliveryConfig {
   autonomousMode Boolean  @default(false)
   updatedAt      DateTime @updatedAt
   updatedBy      String?
+}
+
+// ============================================================================
+// S7 — Roadmap seam entities (ADR-006 conventions). Additive foundation for
+// payments, payouts, audit trail, availability blocking, and notifications.
+// Ledgers (Payment/Payout/AuditLog) are append-only → NO soft-delete.
+// Business sets (BlockedDate/Notification) carry deletedAt. Future feature
+// stories consume these; no behavioral wiring is added here.
+// ============================================================================
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  PROMPTPAY
+  BANK_TRANSFER
+  CASH
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  REVIEW
+  SYSTEM
+  KYC
+}
+
+// Money received against a booking — immutable financial ledger.
+model Payment {
+  id          String        @id @default(uuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id])
+  amount      Decimal       @db.Decimal(12, 2) // [Financial]
+  currency    String        @default("THB") // [Financial] ISO 4217
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  provider    String? // payment gateway name
+  providerRef String? // gateway transaction id [Financial]
+  paidAt      DateTime?
+
+  // Refund linkage (append-only): a refund is a SEPARATE row pointing at its charge,
+  // supporting partial refunds; net = sum(charges) − sum(refunds).
+  refundOfId String?
+  refundOf   Payment?  @relation("PaymentRefunds", fields: [refundOfId], references: [id])
+  refunds    Payment[] @relation("PaymentRefunds")
+
+  // Settlement: which payout swept this payment (null = not yet settled).
+  payoutId String?
+  payout   Payout? @relation(fields: [payoutId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerRef]) // idempotent gateway-webhook ingestion (NULLs distinct → manual/cash rows unaffected)
+  @@index([bookingId])
+  @@index([status])
+  @@index([providerRef])
+  @@index([refundOfId])
+  @@index([payoutId])
+}
+
+// Payouts to an operator — immutable financial ledger.
+model Payout {
+  id          String       @id @default(uuid())
+  operatorId  String
+  operator    User         @relation(fields: [operatorId], references: [id])
+  amount      Decimal      @db.Decimal(12, 2) // [Financial]
+  currency    String       @default("THB") // [Financial] ISO 4217
+  status      PayoutStatus @default(PENDING)
+  periodStart DateTime?
+  periodEnd   DateTime?
+  paidAt      DateTime?
+  reference   String? // bank/transfer reference [Financial]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  payments Payment[] // payments swept into this payout (settlement traceability)
+
+  @@index([operatorId])
+  @@index([status])
+  @@index([reference])
+}
+
+// Append-only audit trail. No soft-delete, no updatedAt — records are never mutated.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String? // null = system action
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String // e.g. "booking.status.update"
+  entityType String // e.g. "Booking"
+  entityId   String
+  metadata   Json? // before/after diff or context
+  ipAddress  String? // [PII]
+  userAgent  String? // [PII] device/browser fingerprint
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Operator-blocked availability window — business set, soft-deletable.
+model BlockedDate {
+  id         String    @id @default(uuid())
+  campSiteId String
+  campSite   CampSite  @relation(fields: [campSiteId], references: [id])
+  spotId     String? // null = whole-camp block; set = single spot (mirrors Booking camp/spot duality)
+  spot       Spot?     @relation(fields: [spotId], references: [id])
+  startDate  DateTime  @db.Date
+  endDate    DateTime  @db.Date
+  reason     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? // soft-delete
+  version    Int       @default(1)
+
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([startDate, endDate])
+}
+
+// User-facing notification — business set, soft-deletable.
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String?
+  link      String? // deep link target
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  deletedAt DateTime? // soft-delete
+  version   Int              @default(1)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }
