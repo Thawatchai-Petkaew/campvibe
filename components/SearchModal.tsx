@@ -108,7 +108,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 onClick={onClose}
                             >
                                 <X className="w-5 h-5 text-foreground" />
@@ -284,7 +284,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         </Button>
                         <Button
                             onClick={handleSearch}
-                            className="bg-primary hover:bg-primary/90 text-white px-8 rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform h-10"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform h-10"
                         >
                             <Search className="w-4 h-4 mr-2" />
                             {t.search.search}

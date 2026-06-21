@@ -155,7 +155,7 @@ export function CampgroundCard({
                     <div className="flex justify-between items-start">
                         <h3 className="font-semibold text-foreground truncate pr-4">{name}</h3>
                         <div className="flex items-center gap-1">
-                            <Star className="w-3.5 h-3.5 fill-black text-black" />
+                            <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
                             <span className="text-sm">4.8</span>
                         </div>
                     </div>
