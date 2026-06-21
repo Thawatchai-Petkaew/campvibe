@@ -37,7 +37,20 @@
             "campYourHome": "Camp your home",
             "anywhere": "Anywhere",
             "anyWeek": "Any week",
-            "addGuests": "Add guests"
+            "addGuests": "Add guests",
+            "themeToggleGroup": "Display theme",
+            "themeLight": "Light",
+            "themeSystem": "System",
+            "themeDark": "Dark"
+        },
+        "preview": {
+            "title": "Design Preview",
+            "colorsSection": "Colors",
+            "typographySection": "Typography",
+            "buttonsSection": "Buttons",
+            "formsSection": "Forms",
+            "statesSection": "States",
+            "iconsSection": "Icons"
         },
         "common": {
             "share": "Share",
@@ -542,7 +555,20 @@
             "campYourHome": "เปิดแคมป์ของคุณ",
             "anywhere": "ทุกที่",
             "anyWeek": "ทุกสัปดาห์",
-            "addGuests": "เพิ่มผู้เข้าพัก"
+            "addGuests": "เพิ่มผู้เข้าพัก",
+            "themeToggleGroup": "รูปแบบการแสดงผล",
+            "themeLight": "สว่าง",
+            "themeSystem": "ตามอุปกรณ์",
+            "themeDark": "มืด"
+        },
+        "preview": {
+            "title": "ตัวอย่างการออกแบบ",
+            "colorsSection": "สี",
+            "typographySection": "ตัวอักษร",
+            "buttonsSection": "ปุ่ม",
+            "formsSection": "ฟอร์ม",
+            "statesSection": "สถานะ",
+            "iconsSection": "ไอคอน"
         },
         "common": {
             "share": "แชร์",

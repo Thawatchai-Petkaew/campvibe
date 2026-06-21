@@ -1,6 +1,8 @@
 /* CampVibe — Live Delivery dashboard. Server-rendered from Linear, refreshed every 60s.
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
- * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>. */
+ * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
+ * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
+ * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { getAutonomousMode } from "@/lib/delivery-config";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
