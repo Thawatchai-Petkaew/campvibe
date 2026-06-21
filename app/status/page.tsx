@@ -23,6 +23,16 @@ const hasAwait = (i: StatusIssue) => i.labels.includes("awaiting-you");
 const isActive = (i: StatusIssue) => i.status === "In Progress";
 const isDone = (i: StatusIssue) => i.statusType === "completed" || i.status === "Done";
 
+// ---------- persona + feature (new Linear hierarchy: project=feature, parent=epic, labels=persona) ----------
+const PERSONAS = ["host", "camper", "admin", "platform"];
+const PERSONA_LABEL: Record<string, string> = { host: "Host", camper: "Camper", admin: "Admin", platform: "Platform", none: "อื่นๆ" };
+const personaOf = (i: StatusIssue) => i.labels.find((l) => PERSONAS.includes(l)) || "";
+const featureOf = (i: StatusIssue) => i.project?.name || "—";
+const epicKeyOf = (i: StatusIssue) => i.parent?.title || epicOf(i.title);  // story → its epic
+const personaChip = (p: string) => `<span class="chip persona ${p || "none"}">${esc(PERSONA_LABEL[p || "none"] || p)}</span>`;
+const featChip = (f: string) => `<span class="chip feat">${esc(f)}</span>`;
+const PERSONA_ORDER = ["host", "camper", "admin", "platform", "none"];
+
 // ---------- role + stage meta ----------
 const ROLE_LABEL: Record<string, string> = {
   architect: "Architect", "ux-designer": "Designer", "frontend-engineer": "Frontend", "backend-engineer": "Backend",
@@ -86,38 +96,105 @@ function timeAgo(iso: string | null): string {
 }
 
 // ---------- derived model ----------
+interface EpicNode {
+  key: string;       // ?epic= value + m.epics lookup key (= epic title / legacy prefix)
+  label: string;     // display name
+  feature: string;   // Linear project / feature name
+  persona: string;   // persona label ("" = none)
+  stories: StatusIssue[];
+  legacy: boolean;   // old "·"-title epic (Wishlist / P0 Hardening), grouped by title prefix
+}
 interface Model {
-  work: StatusIssue[];
-  epics: Record<string, StatusIssue[]>;
-  epicNames: string[];
+  work: StatusIssue[];                       // leaf stories only (epic containers excluded)
+  epics: Record<string, StatusIssue[]>;      // epic key → its stories (renderEpic reads this)
+  epicNodes: EpicNode[];
+  epicNames: string[];                       // epic keys, sorted
   projectPct: number;
   gates: StatusIssue[];
   epicsActive: number;
   backlog: StatusIssue[];
   rmap: Record<string, { total: number; active: number; done: number }>;
   activeEpic: string;
+  byFeature: Record<string, EpicNode[]>;
+  byPersona: Record<string, EpicNode[]>;
+  backlogByFeature: Record<string, StatusIssue[]>;
+  backlogByPersona: Record<string, StatusIssue[]>;
+}
+function groupBy<T>(arr: T[], keyOf: (x: T) => string): Record<string, T[]> {
+  const o: Record<string, T[]> = {};
+  arr.forEach((x) => { const k = keyOf(x) || "none"; (o[k] = o[k] || []).push(x); });
+  return o;
 }
 function buildModel(issues: StatusIssue[]): Model {
-  const work = issues.filter((i) => epicOf(i.title));
+  // Classify three kinds of issue:
+  //  • hierarchy epic   → a project issue with no parent and no "·" (shows even with 0 stories yet)
+  //  • hierarchy story  → has a Linear parent (grouped under parent.title)
+  //  • legacy story     → old "·"-title active-loop issue, no parent → grouped by title prefix
+  //  (Linear-onboarding junk CAM-1..4: no "·", no parent, no project → dropped)
+  const epicIssues = issues.filter((i) => !i.parent && !epicOf(i.title) && !!i.project);
+  const epicTitles = new Set(epicIssues.map((i) => i.title));
+
+  const storiesByEpic: Record<string, StatusIssue[]> = {};
+  const legacyByPrefix: Record<string, StatusIssue[]> = {};
+  issues.forEach((i) => {
+    if (i.parent?.title) {
+      const pt = i.parent.title;
+      if (epicTitles.has(pt)) { (storiesByEpic[pt] = storiesByEpic[pt] || []).push(i); }    // child of a clean epic
+      else { const pre = epicOf(pt) || pt; (legacyByPrefix[pre] = legacyByPrefix[pre] || []).push(i); }  // child of a legacy "·" issue (e.g. Wishlist subtasks)
+      return;
+    }
+    if (epicTitles.has(i.title)) return;               // epic container — added below
+    const pre = epicOf(i.title);
+    if (pre) (legacyByPrefix[pre] = legacyByPrefix[pre] || []).push(i);
+  });
+
+  const epicNodes: EpicNode[] = [];
+  epicIssues.forEach((ep) => {
+    epicNodes.push({ key: ep.title, label: ep.title, feature: featureOf(ep), persona: personaOf(ep), stories: storiesByEpic[ep.title] || [], legacy: false });
+  });
+  Object.entries(legacyByPrefix).forEach(([pre, stories]) => {
+    const seed = stories.find((s) => personaOf(s)) || stories[0];
+    epicNodes.push({ key: pre, label: pre, feature: featureOf(stories[0]), persona: personaOf(seed), stories, legacy: true });
+  });
+  epicNodes.sort((a, b) => a.label.localeCompare(b.label));
+
   const epics: Record<string, StatusIssue[]> = {};
-  work.forEach((i) => { const e = epicOf(i.title); (epics[e] = epics[e] || []).push(i); });
-  const epicNames = Object.keys(epics).sort();
+  epicNodes.forEach((n) => { epics[n.key] = n.stories; });
+  const epicNames = epicNodes.map((n) => n.key);
+
+  const work = epicNodes.flatMap((n) => n.stories);
   const done = work.filter(isDone).length;
+
+  // Agent workload: only role-tagged (= in the delivery loop) work; unassigned backlog is excluded.
   const rmap: Record<string, { total: number; active: number; done: number }> = {};
   work.forEach((i) => {
-    const r = roleOf(i.title) || "team";
+    const r = roleOf(i.title); if (!r) return;
     const d = (rmap[r] = rmap[r] || { total: 0, active: 0, done: 0 });
     d.total++; if (isActive(i)) d.active++; if (isDone(i)) d.done++;
   });
+
+  const backlog = work.filter((i) => i.status === "Backlog");
   return {
-    work, epics, epicNames,
+    work, epics, epicNodes, epicNames,
     projectPct: work.length ? Math.round((done / work.length) * 100) : 0,
     gates: work.filter(hasAwait),
-    epicsActive: epicNames.filter((e) => epics[e].some(isActive)).length,
-    backlog: work.filter((i) => i.status === "Backlog"),
+    epicsActive: epicNodes.filter((n) => n.stories.some(isActive)).length,
+    backlog,
     rmap,
-    activeEpic: epicNames.find((e) => epics[e].some(isActive)) || epicNames[0] || "",
+    activeEpic: epicNodes.find((n) => n.stories.some(isActive))?.key || epicNames[0] || "",
+    byFeature: groupBy(epicNodes, (n) => n.feature),
+    byPersona: groupBy(epicNodes, (n) => n.persona),
+    backlogByFeature: groupBy(backlog, (i) => featureOf(i)),
+    backlogByPersona: groupBy(backlog, (i) => personaOf(i)),
   };
+}
+
+// feature groups ordered by story volume (desc) so the busiest feature leads
+function featureOrder(groups: Record<string, EpicNode[]>): string[] {
+  return Object.keys(groups).sort((a, b) => groups[b].flatMap((n) => n.stories).length - groups[a].flatMap((n) => n.stories).length || a.localeCompare(b));
+}
+function backlogFeatureOrder(groups: Record<string, StatusIssue[]>): string[] {
+  return Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b));
 }
 
 // ---------- top bar ----------
@@ -139,9 +216,55 @@ function camperToggle(autonomous: boolean): string {
     + `${BRAIN}<span>Camper ${on ? "ON" : "OFF"}</span></button>`;
 }
 
+// ---------- grouping (Feature | Persona) ----------
+const MIX_COLORS = ["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)", "var(--green)"];
+// segmented toggle — appears in both Epics + Project backlog headers; setGroup() keeps every copy in sync.
+const segmented = (group: string) =>
+  `<div class="segmented" role="tablist" aria-label="จัดกลุ่ม">`
+  + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" onclick="setGroup('feature')">Feature</button>`
+  + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" onclick="setGroup('persona')">Persona</button></div>`;
+
+function renderEpicCard(n: EpicNode, linkQ: string, chip: string): string {
+  const it = n.stories, total = it.length;
+  const doneN = it.filter(isDone).length, pct = total ? Math.round((doneN / total) * 100) : 0;
+  const active = it.some(isActive), gate = it.some(hasAwait);
+  const st = gate ? "waiting on you" : active ? "in progress" : !total ? "no stories yet" : pct === 100 ? "shipped · done" : "queued";
+  const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => i.status === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
+  return `<a class="epic ${gate ? "live" : ""}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
+}
+
+// chipMode = the OTHER dimension shown on each card (group by feature → show persona chip, & vice-versa)
+function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature", linkQ: string): string {
+  let h = "";
+  for (const k of order) {
+    const nodes = groups[k]; if (!nodes || !nodes.length) continue;
+    const stories = nodes.flatMap((n) => n.stories);
+    const pct = stories.length ? Math.round((stories.filter(isDone).length / stories.length) * 100) : 0;
+    h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
+    for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature));
+    h += `</div></div>`;
+  }
+  return h;
+}
+
+function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature"): string {
+  let h = "";
+  for (const k of order) {
+    const items = groups[k]; if (!items || !items.length) continue;
+    h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${items.length}</span></div>`;
+    items.forEach((i) => {
+      const chip = chipMode === "persona" ? personaChip(personaOf(i)) : featChip(featureOf(i));
+      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></a>`;
+    });
+    h += `</div>`;
+  }
+  return h;
+}
+
 // ---------- OVERVIEW ----------
-function renderOverview(m: Model, tq: string, autonomous: boolean): string {
-  const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicOf(m.gates[0].title))}${tq}` : "#";
+function renderOverview(m: Model, tq: string, autonomous: boolean, group: string): string {
+  const linkQ = `${tq}&group=${group}`;
+  const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicKeyOf(m.gates[0]))}${linkQ}` : "#";
   let h = "";
 
   // Gates need you
@@ -150,7 +273,7 @@ function renderOverview(m: Model, tq: string, autonomous: boolean): string {
   if (m.gates.length) {
     m.gates.forEach((i) => {
       const g = gateOf(i.title);
-      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicOf(i.title))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><a class="gr-btn" href="${esc(i.url)}" target="_blank" rel="noopener">Review →</a></div>`;
+      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><a class="gr-btn" href="${esc(i.url)}" target="_blank" rel="noopener">Review →</a></div>`;
     });
   } else h += `<div class="none-row">✓ ไม่มีงานรออนุมัติจากคุณตอนนี้</div>`;
   h += `</section>`;
@@ -165,10 +288,10 @@ function renderOverview(m: Model, tq: string, autonomous: boolean): string {
     + `<div class="orb q"><div class="n">${m.backlog.length}</div><div class="l">Backlog stories</div></div>`
     + `</div><div class="ovbar"><i style="width:${m.projectPct}%"></i></div></section>`;
 
-  // Agent workload
-  const roles = Object.keys(m.rmap).filter((r) => r !== "human" && r !== "team").sort((a, b) => m.rmap[b].total - m.rmap[a].total);
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Agent workload</span><span class="x">across all epics</span></div><div class="loads">`;
-  h += `<div class="load you"><div class="load-top"><span class="load-name">You</span><span class="load-n">${m.gates.length}</span></div><div class="seg"><span style="width:100%;background:var(--amber)"></span></div><div class="load-sub">${m.gates.length} gate${m.gates.length === 1 ? "" : "s"} to review</div></div>`;
+  // Agent workload — primary number = งานที่ "กำลังทำ" (active); done · queued is secondary.
+  const roles = Object.keys(m.rmap).filter((r) => r !== "human").sort((a, b) => m.rmap[b].active - m.rmap[a].active || m.rmap[b].total - m.rmap[a].total);
+  h += `<section class="glass pane"><div class="pane-h"><span class="t">Agent workload</span><span class="x">กำลังทำ · across all epics</span></div><div class="loads">`;
+  h += `<div class="load you"><div class="load-top"><span class="load-name">You</span><span class="load-n on">${m.gates.length}</span></div><div class="seg"><span style="width:100%;background:var(--amber)"></span></div><div class="load-sub">${m.gates.length} gate${m.gates.length === 1 ? "" : "s"} to review</div></div>`;
   roles.forEach((r) => {
     const d = m.rmap[r], queued = Math.max(0, d.total - d.active - d.done);
     const seg = [
@@ -176,37 +299,44 @@ function renderOverview(m: Model, tq: string, autonomous: boolean): string {
       d.active ? `<span style="width:${(d.active / d.total) * 100}%;background:var(--emerald)"></span>` : "",
       queued ? `<span style="width:${(queued / d.total) * 100}%;background:var(--blue)"></span>` : "",
     ].join("");
-    const sub = d.active ? `<span class="dot live"></span>${d.active} active · ${d.done} done` : `${d.done} done · ${queued} queued`;
-    h += `<div class="load"><div class="load-top"><span class="load-name">${esc(roleLabel(r))}</span><span class="load-n">${d.total}</span></div><div class="seg">${seg}</div><div class="load-sub">${sub}</div></div>`;
+    const sub = `${d.active ? '<span class="dot live"></span>' : ""}${d.done} done · ${queued} queued`;
+    h += `<div class="load"><div class="load-top"><span class="load-name">${esc(roleLabel(r))}</span><span class="load-n ${d.active ? "on" : ""}">${d.active}</span></div><div class="seg">${seg}</div><div class="load-sub">${sub}</div></div>`;
   });
   h += `</div></section>`;
 
-  // Epics
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Epics</span><span class="x">progress · tap to drill in</span></div><div class="epics">`;
-  m.epicNames.forEach((e) => {
-    const it = m.epics[e], doneN = it.filter(isDone).length, pct = Math.round((doneN / it.length) * 100);
-    const active = it.some(isActive), gate = it.find(hasAwait);
-    const st = gate ? "waiting on you" : active ? "in progress" : pct === 100 ? "shipped · done" : "queued";
-    const badge = gate ? `<span class="epic-act gate">${esc(gateOf(gate.title) || "Gate")}</span>` : pct === 100 ? `<span class="epic-act done">done</span>` : `<span class="epic-act ph">${active ? "build" : "queued"}</span>`;
-    const mix = COLS.map(([s], idx) => { const c = ["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)", "var(--green)"][idx]; const n = it.filter((i) => i.status === s).length; return n ? `<span style="width:${(n / it.length) * 100}%;background:${c}"></span>` : ""; }).join("");
-    h += `<a class="epic ${gate ? "live" : ""}" href="?tab=epic&epic=${encodeURIComponent(e)}${tq}"><div class="epic-head"><span class="epic-ic">${epicIcon(e)}</span><div class="epic-id"><div class="epic-name">${esc(e)}</div><div class="epic-st">${esc(st)}</div></div>${badge}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
-  });
-  h += `</div></section>`;
+  // Epics — grouped by Feature | Persona (toggle, default Feature). Both variants pre-rendered, toggled client-side.
+  h += `<section class="glass pane"><div class="pane-h"><span class="t">Epics</span>${segmented(group)}</div>`
+    + `<div id="epics-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderEpicGroups(m.byFeature, featureOrder(m.byFeature), (k) => k, "persona", linkQ)}</div>`
+    + `<div id="epics-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderEpicGroups(m.byPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature", linkQ)}</div>`
+    + `</section>`;
 
-  // Backlog
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Project backlog</span><span class="x">${m.backlog.length} stories</span></div>`;
+  // Project backlog — same toggle (shares ?group)
+  h += `<section class="glass pane"><div class="pane-h"><span class="t">Project backlog</span><span style="display:inline-flex;align-items:center;gap:12px"><span class="x">${m.backlog.length} stories</span>${segmented(group)}</span></div>`;
   if (m.backlog.length) {
-    m.backlog.forEach((i) => {
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(roleLabel(roleOf(i.title)))} · ${esc(epicOf(i.title))}</span></div><span class="qs bl">Backlog</span></a>`;
-    });
+    h += `<div id="backlog-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderBacklogGroups(m.backlogByFeature, backlogFeatureOrder(m.backlogByFeature), (k) => k, "persona")}</div>`
+      + `<div id="backlog-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderBacklogGroups(m.backlogByPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature")}</div>`;
   } else h += `<div class="none-row" style="color:var(--muted)">— ไม่มี story ใน backlog</div>`;
   h += `</section>`;
 
   return h;
 }
 
+// epic-switcher modal — lists every epic, filterable by persona; click navigates (persists + closes).
+function renderSwitcher(m: Model, current: string, tq: string, group: string): string {
+  const linkQ = `${tq}&group=${group}`;
+  let items = "";
+  m.epicNodes.forEach((n) => {
+    const total = n.stories.length, pct = total ? Math.round((n.stories.filter(isDone).length / total) * 100) : 0;
+    const stCls = n.stories.some(hasAwait) ? "gate" : n.stories.some(isActive) ? "run" : pct === 100 && total ? "done" : "q";
+    items += `<a class="sw-item ${n.key === current ? "current" : ""}" data-persona="${n.persona || "none"}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><span class="sw-ic">${epicIcon(n.label)}</span><span class="sw-m"><span class="sw-name">${esc(n.label)}</span><span class="sw-meta">${esc(n.feature)}</span></span>${personaChip(n.persona)}<span class="sw-st ${stCls}">${pct}%</span></a>`;
+  });
+  const fbtn = (p: string, label: string) => `<button class="sw-fbtn ${p === "all" ? "active" : ""}" data-p="${p}" onclick="filterSwitcher('${p}')">${esc(label)}</button>`;
+  return `<div id="switcher" class="switcher" role="dialog" aria-modal="true" aria-label="สลับ epic"><div class="sw-backdrop" onclick="closeSwitcher()"></div><div class="sw-panel"><div class="sw-head"><span class="sw-title">สลับ epic</span><button class="sw-x" onclick="closeSwitcher()" aria-label="ปิด">✕</button></div><div class="sw-filter">${fbtn("all", "All")}${fbtn("host", "Host")}${fbtn("camper", "Camper")}${fbtn("admin", "Admin")}${fbtn("platform", "Platform")}</div><div class="sw-list">${items}</div></div></div>`;
+}
+
 // ---------- EPIC DETAIL ----------
-function renderEpic(m: Model, e: string, tq: string): string {
+function renderEpic(m: Model, e: string, tq: string, group: string): string {
+  const linkQ = `${tq}&group=${group}`;
   const it = (m.epics[e] || []).slice();
   const running = it.filter(isActive);
   const needs = it.filter(hasAwait);
@@ -232,7 +362,7 @@ function renderEpic(m: Model, e: string, tq: string): string {
 
   let h = "";
   // breadcrumb
-  h += `<div class="glass crumb"><a href="?tab=overview${tq}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())}</span></div>`;
+  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())}</span><button class="swbtn" onclick="openSwitcher()" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
 
   // hero orbs + pips
   h += `<section class="glass hero"><div class="orbs">`
@@ -294,11 +424,12 @@ function renderEpic(m: Model, e: string, tq: string): string {
     + COLS.map(([n], idx) => `<span><span class="dot" style="width:8px;height:8px;background:${["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)", "var(--green)"][idx]}"></span>${esc(n)}</span>`).join("")
     + `<span><span class="dot" style="width:8px;height:8px;background:var(--amber)"></span>Needs you</span></div></section>`;
 
+  h += renderSwitcher(m, e, tq, group);
   return h;
 }
 
 // ---------- page ----------
-export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string }> }) {
+export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string; group?: string }> }) {
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
 
@@ -314,12 +445,14 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   const m = buildModel(issues);
   const tq = required ? `&token=${encodeURIComponent(sp.token || "")}` : "";
   const tab = sp.tab === "epic" ? "epic" : "overview";
+  const group = sp.group === "persona" ? "persona" : "feature";
   const epic = sp.epic && m.epics[sp.epic] ? sp.epic : m.activeEpic || m.epicNames[0] || "";
 
   // Both views are rendered into the DOM and toggled client-side (showView) so switching
   // tabs is instant — no server round-trip, no loading state. AutoRefresh quietly updates data.
-  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, autonomous)}</div>`;
-  const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq)}</div>` : "";
+  // tab + group + epic all live in the URL so router.refresh() re-renders the SAME view (no bounce).
+  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, autonomous, group)}</div>`;
+  const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq, group)}</div>` : "";
   const inner = err
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
     : overviewView + epicView;
