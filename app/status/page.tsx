@@ -1,9 +1,12 @@
 /* CampVibe — Live Delivery dashboard. Server-rendered from Linear, refreshed every 60s.
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
- * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>. */
+ * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
+ * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
+ * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { getAutonomousMode } from "@/lib/delivery-config";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
+import { buildTrail, buildWorkload } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -73,13 +76,6 @@ const epicIcon = (name: string) => {
   if (/secur|harden|auth/.test(n)) return svg(ICON.shield);
   if (/book|reserv|calendar/.test(n)) return svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>');
   return svg(ICON.story);
-};
-
-const STAGES = ["Design", "Gate", "Build", "Verify", "Ship"];
-const ROLE_STAGE: Record<string, string> = {
-  architect: "Design", "ux-designer": "Design", human: "Gate",
-  "backend-engineer": "Build", "frontend-engineer": "Build",
-  "qa-engineer": "Verify", "security-reviewer": "Verify", "devops-release": "Ship",
 };
 
 const COLS: [string, string][] = [["Backlog", "backlog"], ["Todo", "todo"], ["In Progress", "prog"], ["In Review", "review"], ["Done", "done"]];
@@ -165,13 +161,9 @@ function buildModel(issues: StatusIssue[]): Model {
   const work = epicNodes.flatMap((n) => n.stories);
   const done = work.filter(isDone).length;
 
-  // Agent workload: only role-tagged (= in the delivery loop) work; unassigned backlog is excluded.
-  const rmap: Record<string, { total: number; active: number; done: number }> = {};
-  work.forEach((i) => {
-    const r = roleOf(i.title); if (!r) return;
-    const d = (rmap[r] = rmap[r] || { total: 0, active: 0, done: 0 });
-    d.total++; if (isActive(i)) d.active++; if (isDone(i)) d.done++;
-  });
+  // Agent workload: counts all roles from role:* labels (accumulated history), falling back to
+  // [role] title tag for backward-compat. buildWorkload handles the multi-role attribution.
+  const rmap = buildWorkload(work);
 
   const backlog = work.filter((i) => i.status === "Backlog");
   return {
@@ -254,7 +246,7 @@ function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: strin
     h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${items.length}</span></div>`;
     items.forEach((i) => {
       const chip = chipMode === "persona" ? personaChip(personaOf(i)) : featChip(featureOf(i));
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></a>`;
+      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></a>`;
     });
     h += `</div>`;
   }
@@ -343,26 +335,15 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   const shipped = it.filter(isDone);
   const queued = it.filter((i) => !isActive(i) && !isDone(i) && !hasAwait(i)).sort((a, b) => colIdx(a.status) - colIdx(b.status));
 
-  // pipeline stages
-  const stageInfo = (stage: string) => {
-    const items = it.filter((i) => ROLE_STAGE[roleOf(i.title)] === stage);
-    if (!items.length) return { cls: "idle", sub: "—" };
-    if (stage === "Gate") {
-      if (items.some(hasAwait)) return { cls: "gate", sub: "needs you" };
-      return items.every(isDone) ? { cls: "done", sub: "done" } : { cls: "q", sub: "queued" };
-    }
-    const act = items.filter(isActive).length;
-    if (act) return { cls: "run", sub: `${act} agent${act > 1 ? "s" : ""}` };
-    if (items.every(isDone)) return { cls: "done", sub: "done" };
-    return { cls: "q", sub: "queued" };
-  };
-  const stages = STAGES.map((s) => ({ name: s, ...stageInfo(s) }));
-  const curIdx = Math.max(0, stages.findIndex((s) => s.cls === "run" || s.cls === "gate"));
-  const curName = stages[curIdx]?.name || "Design";
+  // pipeline stages — built from buildTrail (distribution counts per stage)
+  const trail = buildTrail(it);
+  const stages = trail.nodes;
+  const curIdx = trail.curIdx;
+  const curName = trail.curName;
 
   let h = "";
   // breadcrumb
-  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())}</span><button class="swbtn" onclick="openSwitcher()" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
+  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())} · ${esc(trail.header)}</span><button class="swbtn" onclick="openSwitcher()" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
 
   // hero orbs + pips
   h += `<section class="glass hero"><div class="orbs">`
@@ -377,7 +358,8 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   h += `<section class="glass trail"><div class="trail-h"><span class="t">${svg(ICON.trail)} The trail</span><span class="h">start → ship</span></div><div class="rail">`;
   stages.forEach((s, idx) => {
     if (idx > 0) { const prev = stages[idx - 1]; const live = prev.cls === "run" || prev.cls === "done"; h += `<div class="conn ${live ? "flowing" : ""}"></div>`; }
-    h += `<div class="stage ${s.cls}"><div class="node">${svg(ICON[s.name])}</div><div class="nminfo"><div class="nm">${s.name}</div><div class="sub">${esc(s.sub)}</div></div></div>`;
+    const badge = s.count ? `<span class="ncount">${s.count}</span>` : "";
+    h += `<div class="stage ${s.cls}"><div class="node">${svg(ICON[s.name])}${badge}</div><div class="nminfo"><div class="nm">${s.name}</div><div class="sub">${esc(s.sub)}</div></div></div>`;
   });
   h += `</div></section>`;
 
@@ -402,7 +384,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   if (queued.length) {
     queued.forEach((i) => {
       const cls = i.status === "Backlog" ? "bl" : "td";
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></a>`;
+      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></a>`;
     });
   } else h += `<div class="none-row" style="color:var(--muted)">— คิวว่าง</div>`;
   h += `</section></div>`;
@@ -416,7 +398,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
     items.forEach((i) => {
       const yb = hasAwait(i) ? '<span class="yb">YOU</span>' : "";
       const live = isActive(i) ? '<span class="dot live" style="margin-right:5px"></span>' : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
     });
     h += `</div>`;
   });

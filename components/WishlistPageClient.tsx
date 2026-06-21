@@ -40,7 +40,7 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
                         <p className="text-sm text-muted-foreground">{t.wishlist.guestSubtitle}</p>
                     </div>
                     <Button
-                        className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8"
+                        className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8"
                         onClick={() => setIsLoginOpen(true)}
                     >
                         {t.wishlist.loginButton}
@@ -76,7 +76,7 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
             <h1 className="font-display text-2xl font-bold text-foreground mb-8">{t.wishlist.pageTitle}</h1>
             <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
                 <div className="flex items-center justify-center w-20 h-20 rounded-full bg-muted">
-                    <IconHeartFilled className="w-10 h-10 text-muted" aria-hidden="true" />
+                    <IconHeartFilled className="w-10 h-10 text-muted-foreground/40" aria-hidden="true" />
                 </div>
                 <div className="space-y-2 max-w-xs">
                     <h2 className="text-xl font-bold text-foreground">{t.wishlist.emptyHeading}</h2>
@@ -84,7 +84,7 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
                 </div>
                 <Button
                     asChild
-                    className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8"
+                    className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8"
                 >
                     <Link href="/">{t.wishlist.startSearching}</Link>
                 </Button>

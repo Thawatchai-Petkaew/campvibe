@@ -88,7 +88,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             </Badge>
                         </div>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 font-semibold">
                             <Link href="/profile">My Profile</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem

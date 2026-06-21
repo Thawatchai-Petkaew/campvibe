@@ -46,7 +46,7 @@ export function SortDropdown() {
                     <SelectItem
                         key={opt.value}
                         value={opt.value}
-                        className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5"
+                        className="rounded-xl cursor-pointer py-2.5"
                     >
                         {opt.label}
                     </SelectItem>

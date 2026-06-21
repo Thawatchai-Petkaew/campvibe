@@ -24,6 +24,7 @@ import {
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { HostOnboardingFab } from "@/components/HostOnboardingFab";
 import { useSession } from "next-auth/react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavbarProps {
     currentUser?: {
@@ -203,10 +204,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                                             {currentUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 font-semibold">
                                             <Link href="/profile">My Profile</Link>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 font-semibold">
                                             <Link href="/bookings">My Bookings</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
@@ -227,6 +228,14 @@ export function Navbar({ currentUser }: NavbarProps) {
                                                 </Badge>
                                             </Link>
                                         </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(e) => e.preventDefault()}
+                                            className="p-0 focus:bg-transparent cursor-default"
+                                        >
+                                            <ThemeToggle />
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => handleSignOut()}
                                             className="rounded-lg cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
@@ -237,23 +246,30 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 ) : (
                                     <>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-bold"
+                                            className="rounded-lg cursor-pointer py-2.5 px-3 font-bold"
                                             onClick={() => setIsLoginOpen(true)}
                                         >
                                             Log in
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted"
+                                            className="rounded-lg cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsRegisterOpen(true)}
                                         >
                                             Sign up
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted">
+                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3">
                                             Host your home
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted">
+                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3">
                                             Help Center
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(e) => e.preventDefault()}
+                                            className="p-0 focus:bg-transparent cursor-default"
+                                        >
+                                            <ThemeToggle />
                                         </DropdownMenuItem>
                                     </>
                                 )}

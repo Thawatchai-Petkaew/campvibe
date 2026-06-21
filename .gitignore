@@ -58,4 +58,5 @@ next-env.d.ts
 !/scripts/linear-sync.mjs
 !/scripts/db-reset.mjs
 !/scripts/camper.mjs
+!/scripts/check-palette.mjs
 ai-planning/linear-snapshot.json

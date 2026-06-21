@@ -37,7 +37,20 @@
             "campYourHome": "Camp your home",
             "anywhere": "Anywhere",
             "anyWeek": "Any week",
-            "addGuests": "Add guests"
+            "addGuests": "Add guests",
+            "themeToggleGroup": "Display theme",
+            "themeLight": "Light",
+            "themeSystem": "System",
+            "themeDark": "Dark"
+        },
+        "preview": {
+            "title": "Design Preview",
+            "colorsSection": "Colors",
+            "typographySection": "Typography",
+            "buttonsSection": "Buttons",
+            "formsSection": "Forms",
+            "statesSection": "States",
+            "iconsSection": "Icons"
         },
         "common": {
             "share": "Share",
@@ -61,12 +74,18 @@
             "newBooking": "New Booking",
             "actionRequired": "Action required",
             "action": "Action",
+            "all": "All",
             "refresh": "Refresh",
             "review": "Review",
-            "checkBackLater": "Check back later."
-            ,"bookingStatusUpdated": "Booking status updated"
-            ,"status": "Status"
-            ,"view": "View"
+            "checkBackLater": "Check back later.",
+            "bookingStatusUpdated": "Booking status updated",
+            "status": "Status",
+            "view": "View",
+            "delete": "Delete",
+            "retry": "Try again"
+        },
+        "notifications": {
+            "unreadCountAria": "{count} unread notifications"
         },
         "categories": {
             "all": "All",
@@ -118,7 +137,8 @@
             "totalBeforeTaxes": "Total before taxes",
             "nights": "nights",
             "fees": "Fees",
-            "total": "Total"
+            "total": "Total",
+            "selectDatesFirst": "Please choose your check-in and check-out dates first."
         },
         "profile": {
             "title": "My Profile",
@@ -130,7 +150,17 @@
             "phonePlaceholder": "Enter your phone number",
             "save": "Save Changes",
             "saved": "Profile saved successfully",
-            "memberSince": "Member since"
+            "memberSince": "Member since",
+            "changeAvatarAria": "Change profile photo",
+            "emailFormatError": "Please enter a valid email address.",
+            "failedToLoad": "Could not load your profile. Please try again.",
+            "invalidImageType": "Please select an image file (JPG, PNG, or WebP).",
+            "imageTooLarge": "Image must be smaller than 5 MB.",
+            "imageUploadSuccess": "Profile photo updated",
+            "imageUploadFailed": "Could not upload photo. Please try again.",
+            "roleCamper": "Camper",
+            "roleOperator": "Operator",
+            "roleAdmin": "Admin"
         },
         "dashboard": {
             "hostPanel": "Host Panel",
@@ -175,7 +205,16 @@
             "createFirstListing": "Create your first listing",
             "areYouSureDelete": "Are you sure you want to delete this camp site?",
             "failedToDelete": "Failed to delete",
-            "unknown": "Unknown"
+            "unknown": "Unknown",
+            "revenueTrend": "+20.1% from last month",
+            "clearAllFilters": "Clear all filters",
+            "editCampSite": "Edit camp site",
+            "deleteCampSite": "Delete camp site",
+            "sortBy": "Sort by",
+            "sortNewest": "Newest First",
+            "sortOldest": "Oldest First",
+            "sortPriceLow": "Price: Low to High",
+            "sortPriceHigh": "Price: High to Low"
         },
         "newCampground": {
             "title": "Create New Campground",
@@ -281,7 +320,32 @@
             "editCampground": "Edit Campground",
             "allPhotos": "All photos",
             "showAllPhotos": "Show all photos",
-            "getDirections": "Get Directions"
+            "getDirections": "Get Directions",
+            "reserving": "Reserving...",
+            "videoUrl": "Video URL",
+            "videoUrlPlaceholder": "https://youtube.com/...",
+            "partner": "Partner",
+            "partnerPlaceholder": "Partner name",
+            "nationalParkPlaceholder": "National park name",
+            "tags": "Tags",
+            "tagsPlaceholder": "tag1, tag2, tag3",
+            "update": "Update",
+            "deleteAria": "Delete this campground",
+            "confirmDelete": "Delete this campground?",
+            "confirmDeleteDesc": "This action cannot be undone. The campground will be permanently removed.",
+            "saveBeforeSpots": "Please save the campground first before creating spots.",
+            "deleteError": "Could not delete. Please try again.",
+            "district": "District",
+            "districtLabel": "District",
+            "districtLabelPlaceholder": "District name (optional)"
+        },
+        "gallery": {
+            "viewerTitle": "Photo viewer",
+            "closeViewer": "Close photo viewer",
+            "previousImage": "Previous photo",
+            "nextImage": "Next photo",
+            "imageOf": "{n} of {total}",
+            "openGallery": "Open photo gallery"
         },
         "bookings": {
             "myBookings": "My Bookings",
@@ -292,11 +356,18 @@
             "areYouSureCancel": "Are you sure you want to cancel this booking?",
             "bookingCancelledSuccess": "Booking cancelled successfully",
             "failedToCancel": "Failed to cancel booking",
-            "errorOccurred": "An error occurred",
+            "errorOccurred": "Something went wrong. Please try again.",
             "upcoming": "Upcoming",
             "past": "Past",
             "viewDetails": "View details",
-            "cancelBooking": "Cancel booking"
+            "cancelBooking": "Cancel booking",
+            "exploreButton": "Explore Campgrounds",
+            "totalPaid": "Total Paid",
+            "cancelBookingAriaLabel": "Cancel this booking",
+            "confirmCancelTitle": "Cancel this booking?",
+            "confirmCancelDescription": "This action cannot be undone. Your booking will be cancelled and any refund will be processed according to the cancellation policy.",
+            "confirmCancelAction": "Yes, cancel booking",
+            "keepBooking": "Keep booking"
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -312,15 +383,26 @@
             "failedToLoad": "Failed to load bookings",
             "bookingUpdatedSuccess": "Booking updated successfully",
             "failedToUpdate": "Failed to update status",
-            "errorOccurred": "An error occurred"
+            "errorOccurred": "An error occurred",
+            "paginationOf": "of",
+            "paginationEntries": "entries",
+            "show": "Show",
+            "previousPage": "Previous page",
+            "nextPage": "Next page"
         },
         "searchModal": {
             "experienceType": "Experience type",
             "clearAll": "Clear all"
         },
+        "activeFilters": {
+            "removeFilter": "Remove {{label}} filter",
+            "clearAll": "Clear all filters"
+        },
         "locationPicker": {
             "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ..."
+            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
+            "noResults": "No location found.",
+            "wholeProvince": "Whole Province"
         },
         "filterModal": {
             "any": "Any",
@@ -372,6 +454,7 @@
         },
         "filter": {
             "title": "Filters",
+            "titleWithCount": "Filters ({{count}})",
             "clearAll": "Clear all",
             "showCampgrounds": "Show campgrounds",
             "facilities": "Facilities",
@@ -384,6 +467,7 @@
             "Terrain": "Terrain",
             "Activity": "Activity",
             "Access type": "Access Type",
+            "Accommodation type": "Accommodation Types",
             "Internal facility": "Internal Facility",
             "External facility": "External Facility",
             "Equipment for rent": "Equipment for Rent",
@@ -501,7 +585,18 @@
             "fromTeam": "from your team. They will lose access to this camp site.",
             "memberAdded": "Team member added successfully",
             "memberRemoved": "Member removed successfully",
-            "roleUpdated": "Role updated successfully"
+            "roleUpdated": "Role updated successfully",
+            "removeTitle": "Remove team member?",
+            "removeDesc": "This will remove",
+            "changeRole": "Change role",
+            "permOwnerFull": "Full access including ownership management",
+            "permAdminFull": "Full access except ownership transfer",
+            "permManagerFull": "Manage bookings and view reports",
+            "permStaffFull": "View and update bookings only",
+            "permViewerFull": "Read-only access to all data",
+            "ownerDesc": "Full access (owner).",
+            "permissionsTitle": "Permissions",
+            "permissionsNote": "Permissions can be refined per camp site (coming soon)."
         }
     },
     "th": {
@@ -542,7 +637,20 @@
             "campYourHome": "เปิดแคมป์ของคุณ",
             "anywhere": "ทุกที่",
             "anyWeek": "ทุกสัปดาห์",
-            "addGuests": "เพิ่มผู้เข้าพัก"
+            "addGuests": "เพิ่มผู้เข้าพัก",
+            "themeToggleGroup": "รูปแบบการแสดงผล",
+            "themeLight": "สว่าง",
+            "themeSystem": "ตามอุปกรณ์",
+            "themeDark": "มืด"
+        },
+        "preview": {
+            "title": "ตัวอย่างการออกแบบ",
+            "colorsSection": "สี",
+            "typographySection": "ตัวอักษร",
+            "buttonsSection": "ปุ่ม",
+            "formsSection": "ฟอร์ม",
+            "statesSection": "สถานะ",
+            "iconsSection": "ไอคอน"
         },
         "common": {
             "share": "แชร์",
@@ -566,12 +674,18 @@
             "newBooking": "การจองใหม่",
             "actionRequired": "ต้องดำเนินการ",
             "action": "ต้องทำ",
+            "all": "ทั้งหมด",
             "refresh": "รีเฟรช",
             "review": "ตรวจสอบ",
-            "checkBackLater": "กลับมาตรวจสอบอีกครั้งภายหลัง"
-            ,"bookingStatusUpdated": "อัปเดตสถานะการจอง"
-            ,"status": "สถานะ"
-            ,"view": "ดู"
+            "checkBackLater": "กลับมาตรวจสอบอีกครั้งภายหลัง",
+            "bookingStatusUpdated": "อัปเดตสถานะการจอง",
+            "status": "สถานะ",
+            "view": "ดู",
+            "delete": "ลบ",
+            "retry": "ลองอีกครั้ง"
+        },
+        "notifications": {
+            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
         },
         "categories": {
             "all": "ทั้งหมด",
@@ -623,7 +737,8 @@
             "totalBeforeTaxes": "ยอดรวมก่อนภาษี",
             "nights": "คืน",
             "fees": "ค่าธรรมเนียม",
-            "total": "ยอดรวม"
+            "total": "ยอดรวม",
+            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
@@ -635,7 +750,17 @@
             "phonePlaceholder": "กรอกหมายเลขโทรศัพท์",
             "save": "บันทึกการเปลี่ยนแปลง",
             "saved": "บันทึกโปรไฟล์สำเร็จ",
-            "memberSince": "เป็นสมาชิกตั้งแต่"
+            "memberSince": "เป็นสมาชิกตั้งแต่",
+            "changeAvatarAria": "เปลี่ยนรูปโปรไฟล์",
+            "emailFormatError": "กรุณากรอกอีเมลที่ถูกต้อง",
+            "failedToLoad": "โหลดโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "invalidImageType": "กรุณาเลือกไฟล์รูปภาพ (JPG, PNG หรือ WebP)",
+            "imageTooLarge": "รูปภาพต้องมีขนาดไม่เกิน 5 MB",
+            "imageUploadSuccess": "อัปเดตรูปโปรไฟล์แล้ว",
+            "imageUploadFailed": "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "roleCamper": "นักแคมป์",
+            "roleOperator": "ผู้ดำเนินการ",
+            "roleAdmin": "ผู้ดูแลระบบ"
         },
         "dashboard": {
             "hostPanel": "แผงโฮสต์",
@@ -680,7 +805,16 @@
             "createFirstListing": "สร้างรายการแรกของคุณ",
             "areYouSureDelete": "คุณแน่ใจหรือไม่ว่าต้องการลบแคมป์ไซต์นี้?",
             "failedToDelete": "ลบไม่สำเร็จ",
-            "unknown": "ไม่ทราบ"
+            "unknown": "ไม่ทราบ",
+            "revenueTrend": "+20.1% จากเดือนที่แล้ว",
+            "clearAllFilters": "ล้างตัวกรองทั้งหมด",
+            "editCampSite": "แก้ไขแคมป์ไซต์",
+            "deleteCampSite": "ลบแคมป์ไซต์",
+            "sortBy": "เรียงตาม",
+            "sortNewest": "ใหม่สุดก่อน",
+            "sortOldest": "เก่าสุดก่อน",
+            "sortPriceLow": "ราคา: น้อยไปมาก",
+            "sortPriceHigh": "ราคา: มากไปน้อย"
         },
         "newCampground": {
             "title": "สร้างแคมป์กราวด์ใหม่",
@@ -786,7 +920,32 @@
             "editCampground": "แก้ไขแคมป์กราวด์",
             "allPhotos": "รูปภาพทั้งหมด",
             "showAllPhotos": "แสดงรูปภาพทั้งหมด",
-            "getDirections": "ดูเส้นทาง"
+            "getDirections": "ดูเส้นทาง",
+            "reserving": "กำลังจอง...",
+            "videoUrl": "ลิงก์วิดีโอ",
+            "videoUrlPlaceholder": "https://youtube.com/...",
+            "partner": "พาร์ทเนอร์",
+            "partnerPlaceholder": "ชื่อพาร์ทเนอร์",
+            "nationalParkPlaceholder": "ชื่ออุทยานแห่งชาติ",
+            "tags": "แท็ก",
+            "tagsPlaceholder": "แท็ก1, แท็ก2, แท็ก3",
+            "update": "อัปเดต",
+            "deleteAria": "ลบแคมป์กราวด์นี้",
+            "confirmDelete": "ลบแคมป์กราวด์นี้?",
+            "confirmDeleteDesc": "การดำเนินการนี้ไม่สามารถยกเลิกได้ แคมป์กราวด์จะถูกลบออกอย่างถาวร",
+            "saveBeforeSpots": "กรุณาบันทึกแคมป์กราวด์ก่อนสร้างจุดกางเต็นท์",
+            "deleteError": "ลบไม่สำเร็จ กรุณาลองอีกครั้ง",
+            "district": "อำเภอ",
+            "districtLabel": "อำเภอ",
+            "districtLabelPlaceholder": "ชื่ออำเภอ (ไม่บังคับ)"
+        },
+        "gallery": {
+            "viewerTitle": "ดูรูปภาพ",
+            "closeViewer": "ปิดหน้าดูรูปภาพ",
+            "previousImage": "รูปก่อนหน้า",
+            "nextImage": "รูปถัดไป",
+            "imageOf": "{n} จาก {total}",
+            "openGallery": "เปิดแกลเลอรีรูปภาพ"
         },
         "bookings": {
             "myBookings": "การจองของฉัน",
@@ -797,19 +956,32 @@
             "areYouSureCancel": "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจองนี้?",
             "bookingCancelledSuccess": "ยกเลิกการจองสำเร็จ",
             "failedToCancel": "ยกเลิกการจองไม่สำเร็จ",
-            "errorOccurred": "เกิดข้อผิดพลาด",
+            "errorOccurred": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
             "upcoming": "กำลังจะมาถึง",
             "past": "ที่ผ่านมา",
             "viewDetails": "ดูรายละเอียด",
-            "cancelBooking": "ยกเลิกการจอง"
+            "cancelBooking": "ยกเลิกการจอง",
+            "exploreButton": "ไปค้นหาเลย",
+            "totalPaid": "ยอดชำระทั้งหมด",
+            "cancelBookingAriaLabel": "ยกเลิกการจองนี้",
+            "confirmCancelTitle": "ยกเลิกการจองนี้?",
+            "confirmCancelDescription": "การดำเนินการนี้ไม่สามารถยกเลิกได้ การจองของคุณจะถูกยกเลิกและการคืนเงินจะดำเนินการตามนโยบายการยกเลิก",
+            "confirmCancelAction": "ยืนยัน ยกเลิกการจอง",
+            "keepBooking": "เก็บการจองไว้"
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",
             "clearAll": "ล้างข้อมูล"
         },
+        "activeFilters": {
+            "removeFilter": "นำตัวกรอง {{label}} ออก",
+            "clearAll": "ล้างตัวกรองทั้งหมด"
+        },
         "locationPicker": {
             "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ..."
+            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
+            "noResults": "ไม่พบสถานที่",
+            "wholeProvince": "ทั้งจังหวัด"
         },
         "filterModal": {
             "any": "ทั้งหมด",
@@ -832,7 +1004,12 @@
             "failedToLoad": "โหลดการจองไม่สำเร็จ",
             "bookingUpdatedSuccess": "อัปเดตการจองสำเร็จ",
             "failedToUpdate": "อัปเดตสถานะไม่สำเร็จ",
-            "errorOccurred": "เกิดข้อผิดพลาด"
+            "errorOccurred": "เกิดข้อผิดพลาด",
+            "paginationOf": "จาก",
+            "paginationEntries": "รายการ",
+            "show": "แสดง",
+            "previousPage": "หน้าก่อนหน้า",
+            "nextPage": "หน้าถัดไป"
         },
         "currency": {
             "symbol": "฿",
@@ -877,6 +1054,7 @@
         },
         "filter": {
             "title": "ตัวกรอง",
+            "titleWithCount": "ตัวกรอง ({{count}})",
             "clearAll": "ล้างทั้งหมด",
             "showCampgrounds": "แสดงแคมป์กราวด์",
             "facilities": "สิ่งอำนวยความสะดวก",
@@ -890,6 +1068,7 @@
             "Activity": "กิจกรรม",
             "Access type": "การเข้าถึง",
             "Accommodation type": "ประเภทที่พัก",
+            "Accommodation Types": "ประเภทที่พัก",
             "Internal facility": "สิ่งอำนวยความสะดวกภายใน",
             "External facility": "สิ่งอำนวยความสะดวกภายนอก",
             "Equipment for rent": "อุปกรณ์ให้เช่า",
@@ -1007,7 +1186,18 @@
             "fromTeam": "ออกจากทีมของคุณ พวกเขาจะสูญเสียสิทธิ์การเข้าถึงลานกางเต็นท์นี้",
             "memberAdded": "เพิ่มสมาชิกในทีมสำเร็จ",
             "memberRemoved": "ลบสมาชิกออกจากทีมสำเร็จ",
-            "roleUpdated": "อัปเดตบทบาทสำเร็จ"
+            "roleUpdated": "อัปเดตบทบาทสำเร็จ",
+            "removeTitle": "ลบสมาชิกออกจากทีม?",
+            "removeDesc": "การดำเนินการนี้จะลบ",
+            "changeRole": "เปลี่ยนบทบาท",
+            "permOwnerFull": "สิทธิ์เต็มรวมถึงการจัดการความเป็นเจ้าของ",
+            "permAdminFull": "สิทธิ์เต็มยกเว้นการโอนความเป็นเจ้าของ",
+            "permManagerFull": "จัดการการจองและดูรายงาน",
+            "permStaffFull": "ดูและอัปเดตการจองเท่านั้น",
+            "permViewerFull": "ดูข้อมูลทั้งหมดแบบอ่านอย่างเดียว",
+            "ownerDesc": "สิทธิ์เต็ม (เจ้าของ)",
+            "permissionsTitle": "สิทธิ์การเข้าถึง",
+            "permissionsNote": "สิทธิ์สามารถปรับได้ตามแต่ละลาน (เร็วๆ นี้)"
         }
     }
 }
