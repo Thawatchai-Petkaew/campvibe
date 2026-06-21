@@ -159,7 +159,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                                     <span className="font-semibold text-foreground text-sm">
                                                         {language === 'th' ? loc.districtName : loc.districtNameEn}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground">
+                                                    <span className="text-xs text-foreground/70">
                                                         {language === 'th' ? loc.provinceName : loc.provinceNameEn}
                                                     </span>
                                                 </>
@@ -168,7 +168,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                                     <span className="font-semibold text-foreground text-sm">
                                                         {language === 'th' ? loc.provinceName : loc.provinceNameEn}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground italic">
+                                                    <span className="text-xs text-foreground/70 italic">
                                                         {t.locationPicker.wholeProvince}
                                                     </span>
                                                 </>

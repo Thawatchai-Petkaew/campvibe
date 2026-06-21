@@ -156,6 +156,39 @@ describe("AC-toggle: ThemeToggle selected/hover use the accent treatment", () =>
 });
 
 // ─────────────────────────────────────────────────────────────
+// AC-tabs: Tabs default-variant active segment (same bg-muted-family bug —
+// active tab was white-on-near-white in light mode). Found by post-merge audit.
+// ─────────────────────────────────────────────────────────────
+
+describe("AC-tabs: Tabs default-variant active segment uses the accent treatment", () => {
+  const tabsSrc = src("components/ui/tabs.tsx");
+  it("no longer paints the default active tab white (data-active:bg-background removed)", () => {
+    expect(tabsSrc).not.toMatch(/data-active:bg-background/);
+  });
+  it("default-variant active uses bg-accent + text-accent-foreground (scoped to the default variant)", () => {
+    expect(tabsSrc).toMatch(/group-data-\[variant=default\]\/tabs-list:data-active:bg-accent/);
+    expect(tabsSrc).toMatch(/group-data-\[variant=default\]\/tabs-list:data-active:text-accent-foreground/);
+  });
+  it("preserves the line variant: keeps base data-active:text-foreground + line-variant transparent bg", () => {
+    expect(tabsSrc).toMatch(/data-active:text-foreground/);
+    expect(tabsSrc).toMatch(/group-data-\[variant=line\]\/tabs-list:data-active:bg-transparent/);
+  });
+});
+
+describe("AC-tabs: NotificationCenter no longer needs a per-site shadow hack", () => {
+  it("AddMemberDialog dropped the compensating data-[state=active]:shadow-sm (primitive now visible)", () => {
+    expect(src("components/settings/AddMemberDialog.tsx")).not.toMatch(/data-\[state=active\]:shadow-sm/);
+  });
+});
+
+describe("AC-loc-subtitle: LocationPicker subtitle clears AA on the accent/15 hover tint", () => {
+  const lpSrc = src("components/LocationPicker.tsx");
+  it("subtitle text uses text-foreground/70 (not the lower-contrast muted-foreground) on the tinted row", () => {
+    expect(lpSrc).toMatch(/text-xs text-foreground\/70/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // AC-token: the fix stays token-only (no hex / numbered palette introduced)
 // ─────────────────────────────────────────────────────────────
 
