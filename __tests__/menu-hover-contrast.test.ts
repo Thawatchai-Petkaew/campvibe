@@ -138,6 +138,24 @@ describe("AC-cmd-2: LocationPicker row uses an accent tint on hover", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// AC-toggle: theme-mode toggle (sun/monitor/moon) selected + hover states
+// (same bg-muted bug — selected mode was nearly invisible in light mode)
+// ─────────────────────────────────────────────────────────────
+
+describe("AC-toggle: ThemeToggle selected/hover use the accent treatment", () => {
+  const tgSrc = src("components/ThemeToggle.tsx");
+  it("no longer uses bg-muted for selected or hover", () => {
+    expect(tgSrc).not.toMatch(/bg-muted/);
+  });
+  it("selected mode uses the solid accent fill (bg-accent + text-accent-foreground)", () => {
+    expect(tgSrc).toMatch(/bg-accent text-accent-foreground/);
+  });
+  it("hover on an unselected mode uses an accent tint", () => {
+    expect(tgSrc).toMatch(/hover:bg-accent\/15/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // AC-token: the fix stays token-only (no hex / numbered palette introduced)
 // ─────────────────────────────────────────────────────────────
 
