@@ -40,6 +40,7 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   const where: Prisma.CampSiteWhereInput = {
     isActive: true,
     isPublished: true,
+    deletedAt: null, // exclude soft-deleted (S2 — Atomic Data Framework)
   };
 
   // 1. Type filter

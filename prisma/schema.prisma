@@ -97,13 +97,16 @@ enum BookingStatus {
   COMPLETED
 }
 
+// Field classification convention (Atomic Data Framework — docs/adr): sensitive fields tagged
+// inline [PII] / [Financial] / [Geo] (PDPA-sensitive ⊂ PII); untagged = [Public].
+// Business Sets carry deletedAt (soft-delete) + version (optimistic concurrency).
 model User {
   id       String  @id @default(uuid())
-  email    String  @unique
-  password String? // Hashed password for credentials auth
-  name     String?
+  email    String  @unique // [PII]
+  password String? // Hashed password for credentials auth [PII]
+  name     String? // [PII]
   image    String? // Profile image URL
-  phone    String? // Contact phone number
+  phone    String? // Contact phone number [PII]
   role     UserRole @default(CAMPER)
 
   // Host Registration & KYC
@@ -115,16 +118,18 @@ model User {
   kycRejectedAt      DateTime?
   kycRejectionReason String?
   kycReviewedBy      String?
-  kycDocuments       String? // JSON array
+  kycDocuments       String? // JSON array [PII]
 
   // Business Information
   businessName    String?
   businessType    BusinessType?
-  taxId           String?
-  businessAddress String?
+  taxId           String? // [PII]
+  businessAddress String? // [PII]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
 
   campSites       CampSite[] // Operator's camp sites (legacy - as owner)
   teamMemberships CampSiteTeamMember[] // Team memberships across camp sites
@@ -171,6 +176,8 @@ model Location {
   thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
 
   campSites CampSite[]
+
+  @@index([thaiLocationId])
 }
 
 model CampSite {
@@ -200,9 +207,9 @@ model CampSite {
   terrain            String? // CSV 
 
   // Geolocation & Address
-  latitude   Float
-  longitude  Float
-  address    String?
+  latitude   Float // [Geo]
+  longitude  Float // [Geo]
+  address    String? // [Geo]
   directions String?
 
   // Operations & Info
@@ -219,15 +226,15 @@ model CampSite {
   groundType      String? // JSON: {"STONE": 5, "GRASS": 10, "CONCRETE": 3, "WOOD": 2}
 
   // Contact Information
-  phone              String?
+  phone              String? // [PII]
   lineId             String?
   facebookUrl        String?
   facebookMessageUrl String?
   tiktokUrl          String?
 
   // Pricing
-  priceLow  Float?
-  priceHigh Float?
+  priceLow  Float? // [Financial]
+  priceHigh Float? // [Financial]
 
   // Status & Dates
   isVerified   Boolean   @default(false)
@@ -250,8 +257,10 @@ model CampSite {
   petFriendly Boolean @default(false) // ข้อมูล pet friendly
   useSpotView Boolean @default(false) // Flag ระบุว่าจะใช้ข้อมูล Display แบบ camp spot หรือไม่
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
 
   // Relations
   locationId String
@@ -268,6 +277,10 @@ model CampSite {
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
+
+  @@index([operatorId])
+  @@index([locationId])
+  @@index([isPublished, deletedAt])
 }
 
 model CampSiteTeamMember {
@@ -321,8 +334,8 @@ model Spot {
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
   environment   String?
-  pricePerNight Float // Price per night
-  pricePerSite  Float?
+  pricePerNight Float // Price per night [Financial]
+  pricePerSite  Float? // [Financial]
 
   nearFacilities String? // CSV of Internal Facility codes
 
@@ -330,8 +343,12 @@ model Spot {
   campSite   CampSite  @relation(fields: [campSiteId], references: [id])
   bookings   Booking[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([campSiteId])
 }
 
 model Review {
@@ -350,7 +367,14 @@ model Review {
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([campSiteId])
+  @@index([authorId])
+  @@index([rating])
 }
 
 model Booking {
@@ -359,7 +383,7 @@ model Booking {
   checkInDate  DateTime
   checkOutDate DateTime
   guests       Int      @default(1)
-  totalPrice   Float
+  totalPrice   Float // [Financial]
 
   status BookingStatus @default(CONFIRMED)
 
@@ -372,8 +396,16 @@ model Booking {
   spotId String?
   spot   Spot?   @relation(fields: [spotId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([userId])
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
 }
 
 model Wishlist {
