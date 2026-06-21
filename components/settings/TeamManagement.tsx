@@ -147,23 +147,22 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
 
     const getRoleBadgeColor = (role: string) => {
         switch (role) {
-            // NOTE: add hover:bg-* to override Badge variant hover styles so colors don't shift on row hover
-            case 'OWNER': return 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100';
-            case 'ADMIN': return 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100';
-            case 'MANAGER': return 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100';
-            case 'STAFF': return 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100';
-            case 'VIEWER': return 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100';
-            default: return 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100';
+            case 'OWNER': return 'bg-primary/10 text-primary border-primary/30 hover:bg-primary/10';
+            case 'MANAGER': return 'bg-success/10 text-success border-success/30 hover:bg-success/10';
+            case 'ADMIN':
+            case 'STAFF':
+            case 'VIEWER':
+            default: return 'bg-muted text-muted-foreground border-border hover:bg-muted';
         }
     };
 
     const getRoleDescription = (role: string) => {
         switch (role) {
-            case "OWNER": return (t as any).settings?.ownerDesc || "Full access (owner).";
-            case "ADMIN": return (t as any).settings?.adminDesc || "Full access except owner privileges.";
-            case "MANAGER": return (t as any).settings?.managerDesc || "Manage bookings and view analytics.";
-            case "STAFF": return (t as any).settings?.staffDesc || "View and update bookings only.";
-            case "VIEWER": return (t as any).settings?.viewerDesc || "Read-only access.";
+            case "OWNER": return ts?.ownerDesc || "Full access (owner).";
+            case "ADMIN": return ts?.adminDesc || "Full access except owner privileges.";
+            case "MANAGER": return ts?.managerDesc || "Manage bookings and view analytics.";
+            case "STAFF": return ts?.staffDesc || "View and update bookings only.";
+            case "VIEWER": return ts?.viewerDesc || "Read-only access.";
             default: return "";
         }
     };
@@ -234,7 +233,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
             ) : (
                 <div className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full min-w-[700px] text-left text-sm">
                             <thead>
                                 <tr className="bg-muted/40 border-b border-border/60">
                                     <th className="px-6 py-4 font-semibold text-muted-foreground">
@@ -311,6 +310,8 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                         className="inline-flex items-center"
                                                         onMouseEnter={() => setHoveredRoleMemberId(member.id)}
                                                         onMouseLeave={() => setHoveredRoleMemberId((cur) => (cur === member.id ? null : cur))}
+                                                        onFocus={() => setHoveredRoleMemberId(member.id)}
+                                                        onBlur={() => setHoveredRoleMemberId((cur) => (cur === member.id ? null : cur))}
                                                     >
                                                         <PopoverAnchor asChild>
                                                             <div className="inline-flex items-center cursor-help">
@@ -327,7 +328,10 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         value={member.role}
                                                                         onValueChange={(value) => handleUpdateRole(member.id, value)}
                                                                     >
-                                                                        <SelectTrigger className="h-10 w-[160px] rounded-full border border-border bg-background shadow-sm px-4">
+                                                                        <SelectTrigger
+                                                                            className="h-10 w-[160px] rounded-full border border-border bg-background shadow-sm px-4"
+                                                                            aria-label={ts?.changeRole || "Change role"}
+                                                                        >
                                                                     <SelectValue placeholder={ts?.selectRole || "Select Role"} />
                                                                         </SelectTrigger>
                                                                         <SelectContent className="rounded-xl">
@@ -363,7 +367,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         </div>
                                                                         <div className="text-xs text-muted-foreground">
                                                                             <span className="font-medium">{member.role}</span>
-                                                                            {" — "}
+                                                                            {" · "}
                                                                             {getRoleDescription(member.role)}
                                                                         </div>
                                                                     </div>

@@ -79,7 +79,7 @@ export default function SettingsPage() {
                     </label>
                     <Select value={selectedCampSiteId || undefined} onValueChange={setSelectedCampSiteId}>
                         <SelectTrigger className="w-full md:w-[400px] rounded-full">
-                            <SelectValue placeholder={"Select a camp site"} />
+                            <SelectValue placeholder={t.settings?.selectCampSite || "Select a camp site"} />
                         </SelectTrigger>
                         <SelectContent>
                             {campSites.map((site) => (
@@ -101,14 +101,14 @@ export default function SettingsPage() {
 
             {/* Tabs */}
             <div className="border-b border-border">
-                <nav className="flex gap-6">
+                <nav className="flex gap-6 overflow-x-auto">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => !tab.disabled && setActiveTab(tab.id)}
                             disabled={tab.disabled}
                             className={cn(
-                                "flex items-center gap-2 px-1 py-4 border-b-2 transition-colors",
+                                "flex items-center gap-2 px-1 py-4 border-b-2 transition-colors whitespace-nowrap",
                                 activeTab === tab.id
                                     ? "border-primary text-primary font-medium"
                                     : "border-transparent text-muted-foreground hover:text-foreground",
