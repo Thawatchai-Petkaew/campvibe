@@ -47,6 +47,56 @@ enum Permission {
   FINANCIAL_VIEW
 }
 
+// Domain state enums — closed sets (see docs/adr/ADR-003). Open taxonomies
+// (facilities, activities, terrain, campSiteType) stay in MasterData (normalized in S4).
+enum UserRole {
+  ADMIN
+  OPERATOR
+  CAMPER
+}
+
+enum BusinessType {
+  INDIVIDUAL
+  COMPANY
+  PARTNERSHIP
+}
+
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  RESUBMIT
+}
+
+enum BookingMethod {
+  ONLI // Online
+  ONCA // On Call
+  ONST // On Site
+}
+
+enum OwnershipType {
+  PRIVATE
+  NATIONAL_PARK
+}
+
+enum ViewType {
+  GENERAL
+  RIVER
+  MOUNTAIN
+  LAKE
+  FOREST
+  BEACH
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+  COMPLETED
+}
+
 model User {
   id       String  @id @default(uuid())
   email    String  @unique
@@ -54,12 +104,12 @@ model User {
   name     String?
   image    String? // Profile image URL
   phone    String? // Contact phone number
-  role     String  @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
+  role     UserRole @default(CAMPER)
 
   // Host Registration & KYC
   isHostRegistered   Boolean   @default(false)
   hostRegisteredAt   DateTime?
-  kycStatus          String? // "PENDING", "SUBMITTED", "APPROVED", "REJECTED", "RESUBMIT"
+  kycStatus          KycStatus?
   kycSubmittedAt     DateTime?
   kycApprovedAt      DateTime?
   kycRejectedAt      DateTime?
@@ -69,7 +119,7 @@ model User {
 
   // Business Information
   businessName    String?
-  businessType    String? // "INDIVIDUAL", "COMPANY", "PARTNERSHIP"
+  businessType    BusinessType?
   taxId           String?
   businessAddress String?
 
@@ -158,7 +208,7 @@ model CampSite {
   // Operations & Info
   checkInTime   String
   checkOutTime  String
-  bookingMethod String
+  bookingMethod BookingMethod
   feeInfo       String?
   toiletInfo    String?
   minimumAge    Int?
@@ -193,7 +243,7 @@ model CampSite {
   nationalPark String?
 
   // Ownership & Pricing
-  ownershipType String? // "PRIVATE" or "NATIONAL_PARK" - ระบุว่าเป็นลานประเภท เอกชน หรือ อุทยานแห่งชาติ
+  ownershipType OwnershipType? // เอกชน / อุทยานแห่งชาติ
   isFree        Boolean @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
 
   // Pet & Display Settings
@@ -267,7 +317,7 @@ model Spot {
   zone          String? // Zone name
   name          String // Spot name
   images        String? // CSV of image URLs
-  viewType      String? // ประเภทวิว เช่น ทั่วไป แม่น้ำ ภูเขา (e.g. "GENERAL", "RIVER", "MOUNTAIN")
+  viewType      ViewType?
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
   environment   String?
@@ -311,7 +361,7 @@ model Booking {
   guests       Int      @default(1)
   totalPrice   Float
 
-  status String @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+  status BookingStatus @default(CONFIRMED)
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
