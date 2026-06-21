@@ -56,4 +56,5 @@ next-env.d.ts
 # utility scripts (local) — but track the Linear sync CLI used by CI + hooks
 /scripts/*
 !/scripts/linear-sync.mjs
+!/scripts/db-reset.mjs
 ai-planning/linear-snapshot.json
