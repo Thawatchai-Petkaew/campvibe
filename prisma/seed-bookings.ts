@@ -13,9 +13,9 @@ async function main() {
   const hostUser = await prisma.user.findFirst({
     where: { 
         OR: [
-            { role: 'HOST' },
+            { role: 'OPERATOR' },
             { role: 'ADMIN' },
-            { email: 'operator@campvibe.com' } // Fallback to specific email if known
+            { email: 'hoster@campvibe.com' } // Fallback to the seeded host account
         ]
     }
   });
@@ -63,7 +63,7 @@ async function main() {
                     facilities: 'WIFI',
                     checkInTime: '14:00',
                     checkOutTime: '12:00',
-                    bookingMethod: 'ONLINE',
+                    bookingMethod: 'ONLI',
                     isVerified: true,
                     isActive: true,
                     isPublished: true,
@@ -82,8 +82,8 @@ async function main() {
 
   // 3. Get all Users (assume 'USER' role are guests) - excluding the host
   const users = await prisma.user.findMany({
-    where: { 
-        role: 'USER',
+    where: {
+        role: 'CAMPER',
         NOT: { id: hostUser.id }
     }
   });
@@ -97,7 +97,7 @@ async function main() {
           data: {
             email: `mockuser_new_${i + 1}@example.com`,
             name: `Mock User ${i + 1}`,
-            role: 'USER',
+            role: 'CAMPER',
             password: 'password123' 
           }
         })
@@ -107,7 +107,7 @@ async function main() {
   }
 
   // 4. Create 20 Mock Bookings for this Host
-  const statuses = ['PENDING', 'CONFIRMED', 'CANCELLED'];
+  const statuses = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const;
   
   for (let i = 0; i < 20; i++) {
     const randomUser = users[Math.floor(Math.random() * users.length)];
