@@ -1,7 +1,8 @@
 name: Linear → continue (real-time)
 
 # Fired by app/api/linear-webhook/route.ts (repository_dispatch) when a delivery gate
-# is approved in Linear. Confirms the gate, then continues the next stage headlessly.
+# is approved in Linear (owner removes the `awaiting-you` label). Confirms the gate,
+# then continues the next stage headlessly.
 on:
   repository_dispatch:
     types: [linear-gate-approved]
@@ -21,12 +22,11 @@ concurrency:
 jobs:
   continue:
     runs-on: ubuntu-latest
-    # Declared at job level so the `if:` expressions below can read env.CLAUDE_CODE_OAUTH_TOKEN.
+    # Declared at job level so the `if:` expressions below can read env.ANTHROPIC_API_KEY.
     # GitHub Actions only exposes workflow/job-level env to `if:` — a step-level env: is invisible there.
+    # Bills pay-as-you-go API credits. Cost is bounded by --model + --max-turns + concurrency.
     env:
-      # Bills the owner's Claude subscription (the "package"), NOT pay-as-you-go API credits.
-      # Generate with `claude setup-token` and store as the CLAUDE_CODE_OAUTH_TOKEN repo secret.
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,8 +38,14 @@ jobs:
 
       - name: Provision .env for tools
         run: |
-          printf 'LINEAR_API_KEY=%s\nLINEAR_TEAM_KEY=%s\n' \
-            "${{ secrets.LINEAR_API_KEY }}" "${{ vars.LINEAR_TEAM_KEY || 'CAM' }}" > .env
+          {
+            printf 'LINEAR_API_KEY=%s\n' "${{ secrets.LINEAR_API_KEY }}"
+            printf 'LINEAR_TEAM_KEY=%s\n' "${{ vars.LINEAR_TEAM_KEY || 'CAM' }}"
+            printf 'TELEGRAM_BOT_TOKEN=%s\n' "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            printf 'TELEGRAM_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_CHAT_ID }}"
+            printf 'STATUS_TOKEN=%s\n' "${{ secrets.STATUS_TOKEN }}"
+            printf 'APP_BASE_URL=%s\n' "${{ vars.APP_BASE_URL || 'https://campvibe-staging.vercel.app' }}"
+          } > .env
 
       - name: Confirm a gate is actually cleared
         id: gates
@@ -53,22 +59,43 @@ jobs:
         run: echo "No cleared gate (status:gates exit ${{ steps.gates.outputs.code }}). Nothing to continue."
 
       - name: Continue the next stage (headless orchestrator)
-        if: steps.gates.outputs.code == '10' && env.CLAUDE_CODE_OAUTH_TOKEN != ''
+        id: run
+        if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY != ''
         env:
           TRIGGER_ISSUE: ${{ github.event.client_payload.identifier }}
           TRIGGER_EPIC: ${{ github.event.client_payload.epic }}
         run: |
+          set -o pipefail
           npm i -g @anthropic-ai/claude-code
           claude -p "บทบาท: orchestrator ของ CampVibe (อ่าน CLAUDE.md + ai-planning/SYNC-ARCHITECTURE.md ก่อน).
           มี gate ถูก approve ใน Linear แล้ว (issue $TRIGGER_ISSUE, epic '$TRIGGER_EPIC'; npm run status:gates คืน CLEARED).
           งานของคุณ: เดิน stage ถัดไปของ epic นั้นต่อ ตามลำดับ orchestrator.
           กฎเหล็ก: ทำงานบน branch ใหม่เท่านั้น ห้ามแตะ main · ถ้ามีโค้ดให้เปิด **draft PR** (ห้าม merge) ·
           อัปเดตสถานะทุก transition ด้วย 'node scripts/linear-sync.mjs set <id> --state <state>' ·
-          จบแล้วสรุปสั้น ๆ ว่าทำอะไร + ลิงก์ PR." \
-            --dangerously-skip-permissions
+          ปิดท้ายด้วยบรรทัดเดียวขึ้นต้น 'SUMMARY:' — สรุปสั้น ๆ + ลิงก์ PR." \
+            --model claude-sonnet-4-6 --max-turns 40 \
+            --dangerously-skip-permissions 2>&1 | tee "$RUNNER_TEMP/claude-out.txt"
+
+      - name: Report result to Telegram
+        if: always() && steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY != ''
+        env:
+          TRIGGER_ISSUE: ${{ github.event.client_payload.identifier }}
+          TRIGGER_EPIC: ${{ github.event.client_payload.epic }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "${{ steps.run.outcome }}" = "success" ]; then
+            SUMMARY=$(grep -m1 '^SUMMARY:' "$RUNNER_TEMP/claude-out.txt" 2>/dev/null | sed 's/^SUMMARY:[[:space:]]*//')
+            [ -z "$SUMMARY" ] && SUMMARY=$(tail -c 400 "$RUNNER_TEMP/claude-out.txt" 2>/dev/null)
+            node scripts/linear-sync.mjs notify "✅ <b>Camper</b> เดินงานต่อเสร็จ — ${TRIGGER_ISSUE} (${TRIGGER_EPIC})
+          ${SUMMARY}
+          🔗 ${RUN_URL}"
+          else
+            node scripts/linear-sync.mjs notify "❌ <b>Camper</b> เดินงานต่อล้มเหลว — ${TRIGGER_ISSUE} (${TRIGGER_EPIC}) (ดู log)
+          🔗 ${RUN_URL}"
+          fi
 
       - name: Gate cleared but autonomous continuation disabled
-        if: steps.gates.outputs.code == '10' && env.CLAUDE_CODE_OAUTH_TOKEN == ''
+        if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY == ''
         run: |
           echo "::notice::Gate cleared for ${{ github.event.client_payload.identifier }}." \
-               "Set the CLAUDE_CODE_OAUTH_TOKEN secret (run 'claude setup-token') to enable autonomous continuation, or pick it up in a session."
+               "Set the ANTHROPIC_API_KEY secret to enable autonomous continuation, or pick it up in a session."
