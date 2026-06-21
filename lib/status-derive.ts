@@ -17,8 +17,49 @@ export const ROLE_STAGE: Record<string, string> = {
   "devops-release": "Ship",
 };
 
+// ---------- role canonicalization ----------
+
+const KNOWN_ROLES = new Set([
+  "architect",
+  "ux-designer",
+  "frontend-engineer",
+  "backend-engineer",
+  "qa-engineer",
+  "security-reviewer",
+  "devops-release",
+  "product-owner",
+  "analyst",
+  "orchestrator",
+  "human",
+]);
+
+const ROLE_ALIASES: Record<string, string> = {
+  backend: "backend-engineer",
+  frontend: "frontend-engineer",
+  devops: "devops-release",
+  designer: "ux-designer",
+  design: "ux-designer",
+  ux: "ux-designer",
+  qa: "qa-engineer",
+  security: "security-reviewer",
+  pm: "product-owner",
+  po: "product-owner",
+};
+
+/**
+ * Normalise a raw role slug to its canonical long-form key.
+ * Known canonical slugs pass through unchanged.
+ * Short aliases (backend, devops, qa, …) are mapped to their full key.
+ * Completely unknown slugs (e.g. "id") return "".
+ */
+export function canonRole(slug: string): string {
+  if (!slug) return "";
+  if (KNOWN_ROLES.has(slug)) return slug;
+  return ROLE_ALIASES[slug] ?? "";
+}
+
 // ---------- issue helpers ----------
-/** Extract [role] tag from title, e.g. "[frontend-engineer]" → "frontend-engineer" */
+/** Extract [role] tag from title, e.g. "[backend]" → "backend" (raw, pass through canonRole before use) */
 function roleOf(title: string): string {
   const m = title.match(/\[([a-z-]+)\]/);
   return m ? m[1] : "";
@@ -41,12 +82,12 @@ function hasAwait(i: StatusIssue): boolean {
  * Classify a story into a pipeline stage:
  *   - isDone  → "Ship"  (critical fix: prevent done stories from bloating Build/Design)
  *   - hasAwait → "Gate"
- *   - else role → ROLE_STAGE lookup, unmapped → "Design"
+ *   - else role → ROLE_STAGE lookup via canonRole; unmapped → "Design"
  */
 export function stageOf(i: StatusIssue): string {
   if (isDone(i)) return "Ship";
   if (hasAwait(i)) return "Gate";
-  return ROLE_STAGE[roleOf(i.title)] ?? "Design";
+  return ROLE_STAGE[canonRole(roleOf(i.title))] ?? "Design";
 }
 
 // ---------- trail node shape ----------
@@ -82,22 +123,38 @@ export function buildTrail(stories: StatusIssue[]): Trail {
   const shipped = buckets["Ship"].length;
   const allDone = total > 0 && shipped === total;
 
-  const nodes: TrailNode[] = STAGES.map((name) => {
+  // For passed-state: compute each story's stage index.
+  // A count-0 node at index i is "done" (passed) if every story has stageIndex > i.
+  // A count-0 node at index i is "idle" if some story is still at index <= i (ahead or at it).
+  const stageIndexOf = (story: StatusIssue): number => {
+    const stageName = stageOf(story);
+    const idx = STAGES.indexOf(stageName as StageName);
+    return idx >= 0 ? idx : 0;
+  };
+
+  const nodes: TrailNode[] = STAGES.map((name, i) => {
     const items = buckets[name];
     const count = items.length;
     const active = items.filter(isActive).length;
 
     let cls: TrailNode["cls"];
-    if (active > 0) {
+    if (count === 0) {
+      if (total === 0) {
+        // No stories at all — all nodes idle
+        cls = "idle";
+      } else {
+        // All stories have moved past stage i → passed/done
+        const allPassed = stories.every((s) => stageIndexOf(s) > i);
+        cls = allPassed ? "done" : "idle";
+      }
+    } else if (active > 0) {
       cls = "run";
     } else if (name === "Gate" && items.some(hasAwait)) {
       cls = "gate";
-    } else if (name === "Ship" && count > 0) {
+    } else if (name === "Ship") {
       cls = "done";
-    } else if (count > 0) {
-      cls = "q";
     } else {
-      cls = "idle";
+      cls = "q";
     }
 
     let sub: string;
@@ -149,15 +206,27 @@ export function buildTrail(stories: StatusIssue[]): Trail {
 
 // ---------- rolesOf ----------
 /**
- * All roles that have ever touched this story.
- * Source: labels starting with "role:" (accumulated history).
- * Fallback: the [role] tag in the title (backward-compat for stories without labels yet).
+ * All roles that have ever touched this story, canonicalized.
+ * Source: labels starting with "role:" (accumulated history) → canonRole → drop empties → dedupe.
+ * Fallback: the [role] tag in the title (backward-compat) → canonRole → drop empty.
  */
 export function rolesOf(i: StatusIssue): string[] {
-  const fromLabels = i.labels.filter((l) => l.startsWith("role:")).map((l) => l.slice(5));
-  if (fromLabels.length > 0) return fromLabels;
+  const out = new Set<string>();
+  const roleLabels = i.labels.filter((l) => l.startsWith("role:"));
+
+  if (roleLabels.length > 0) {
+    for (const l of roleLabels) {
+      const canonical = canonRole(l.slice(5));
+      if (canonical) out.add(canonical);
+    }
+    return [...out];
+  }
+
+  // Fallback to title tag
   const tag = roleOf(i.title);
-  return tag ? [tag] : [];
+  const canonical = canonRole(tag);
+  if (canonical) out.add(canonical);
+  return [...out];
 }
 
 // ---------- buildWorkload ----------
@@ -169,9 +238,10 @@ export interface WorkloadEntry {
 
 /**
  * Build role → workload map from all stories.
- * Each story is counted once for every role in rolesOf(story).
- * active is only incremented for the role currently doing the work (roleOf(title)),
- * and only if the story is In Progress.
+ * Each story is counted once for every canonical role in rolesOf(story).
+ * active is only incremented for the canonical role currently doing the work
+ * (canonRole(roleOf(title))), and only if the story is In Progress.
+ * Unknown slugs (like "id") are dropped by canonRole returning "".
  */
 export function buildWorkload(
   stories: StatusIssue[]
@@ -179,7 +249,7 @@ export function buildWorkload(
   const rmap: Record<string, WorkloadEntry> = {};
 
   for (const i of stories) {
-    const cur = roleOf(i.title);
+    const cur = canonRole(roleOf(i.title));
     const roles = rolesOf(i);
     for (const r of roles) {
       if (!rmap[r]) rmap[r] = { total: 0, active: 0, done: 0 };

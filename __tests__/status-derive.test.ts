@@ -6,6 +6,7 @@ import {
   buildTrail,
   rolesOf,
   buildWorkload,
+  canonRole,
 } from "@/lib/status-derive";
 import type { StatusIssue } from "@/lib/linear";
 
@@ -407,5 +408,258 @@ describe("source inspection — dashboard-assets.ts", () => {
 
   it("idle ncount is hidden", () => {
     expect(cssSrc).toContain(".stage.idle .node .ncount{display:none}");
+  });
+});
+
+// ---------- CAM-117: canonRole ----------
+describe("canonRole", () => {
+  it("known long-form passthrough: backend-engineer → backend-engineer", () => {
+    expect(canonRole("backend-engineer")).toBe("backend-engineer");
+  });
+
+  it("known long-form passthrough: devops-release → devops-release", () => {
+    expect(canonRole("devops-release")).toBe("devops-release");
+  });
+
+  it("known long-form passthrough: qa-engineer → qa-engineer", () => {
+    expect(canonRole("qa-engineer")).toBe("qa-engineer");
+  });
+
+  it("known long-form passthrough: frontend-engineer → frontend-engineer", () => {
+    expect(canonRole("frontend-engineer")).toBe("frontend-engineer");
+  });
+
+  it("short alias: backend → backend-engineer", () => {
+    expect(canonRole("backend")).toBe("backend-engineer");
+  });
+
+  it("short alias: devops → devops-release", () => {
+    expect(canonRole("devops")).toBe("devops-release");
+  });
+
+  it("short alias: qa → qa-engineer", () => {
+    expect(canonRole("qa")).toBe("qa-engineer");
+  });
+
+  it("short alias: designer → ux-designer", () => {
+    expect(canonRole("designer")).toBe("ux-designer");
+  });
+
+  it("short alias: design → ux-designer", () => {
+    expect(canonRole("design")).toBe("ux-designer");
+  });
+
+  it("short alias: ux → ux-designer", () => {
+    expect(canonRole("ux")).toBe("ux-designer");
+  });
+
+  it("short alias: frontend → frontend-engineer", () => {
+    expect(canonRole("frontend")).toBe("frontend-engineer");
+  });
+
+  it("short alias: security → security-reviewer", () => {
+    expect(canonRole("security")).toBe("security-reviewer");
+  });
+
+  it("unknown slug 'id' → empty string (dropped)", () => {
+    expect(canonRole("id")).toBe("");
+  });
+
+  it("empty string → empty string", () => {
+    expect(canonRole("")).toBe("");
+  });
+
+  it("completely unknown slug → empty string", () => {
+    expect(canonRole("unknownrole")).toBe("");
+  });
+});
+
+// ---------- CAM-117: stageOf with short alias tags ----------
+describe("stageOf — short alias tags (canonicalized)", () => {
+  it("[backend] → Build (via canon backend-engineer)", () => {
+    expect(stageOf(mk({ title: "[backend] B1" }))).toBe("Build");
+  });
+
+  it("[devops] → Ship (via canon devops-release)", () => {
+    expect(stageOf(mk({ title: "[devops] D1" }))).toBe("Ship");
+  });
+
+  it("[qa] → Verify (via canon qa-engineer)", () => {
+    expect(stageOf(mk({ title: "[qa] Q1" }))).toBe("Verify");
+  });
+
+  it("[frontend] → Build (via canon frontend-engineer)", () => {
+    expect(stageOf(mk({ title: "[frontend] F1" }))).toBe("Build");
+  });
+
+  it("[designer] → Design (via canon ux-designer)", () => {
+    expect(stageOf(mk({ title: "[designer] U1" }))).toBe("Design");
+  });
+});
+
+// ---------- CAM-117: rolesOf with canonicalization ----------
+describe("rolesOf — canonicalization + dedupe + unknown drop", () => {
+  it("role:backend label → ['backend-engineer'] (canonical)", () => {
+    const i = mk({ labels: ["role:backend"] });
+    expect(rolesOf(i)).toEqual(["backend-engineer"]);
+  });
+
+  it("role:backend + role:frontend-engineer → ['backend-engineer','frontend-engineer']", () => {
+    const i = mk({ labels: ["role:backend", "role:frontend-engineer"] });
+    expect(rolesOf(i)).toEqual(["backend-engineer", "frontend-engineer"]);
+  });
+
+  it("role:id unknown label → [] (dropped, not included)", () => {
+    const i = mk({ labels: ["role:id"] });
+    expect(rolesOf(i)).toEqual([]);
+  });
+
+  it("role:backend + role:backend-engineer deduped → ['backend-engineer'] (1 entry)", () => {
+    const i = mk({ labels: ["role:backend", "role:backend-engineer"] });
+    expect(rolesOf(i)).toEqual(["backend-engineer"]);
+  });
+
+  it("role:id + role:backend → ['backend-engineer'] (unknown dropped, known kept)", () => {
+    const i = mk({ labels: ["role:id", "role:backend"] });
+    expect(rolesOf(i)).toEqual(["backend-engineer"]);
+  });
+
+  it("no role: labels + [backend] title → ['backend-engineer'] (canon fallback)", () => {
+    const i = mk({ title: "[backend] B1", labels: [] });
+    expect(rolesOf(i)).toEqual(["backend-engineer"]);
+  });
+
+  it("no role: labels + [devops] title → ['devops-release'] (canon fallback)", () => {
+    const i = mk({ title: "[devops] D1", labels: [] });
+    expect(rolesOf(i)).toEqual(["devops-release"]);
+  });
+});
+
+// ---------- CAM-117: buildWorkload — short-tag + canonical merge ----------
+describe("buildWorkload — role canonicalization", () => {
+  it("[backend] + [backend-engineer] stories merge into ONE 'backend-engineer' entry (total 2)", () => {
+    const stories = [
+      mk({ id: "CAM-1", title: "[backend] B1" }),
+      mk({ id: "CAM-2", title: "[backend-engineer] B2" }),
+    ];
+    const rmap = buildWorkload(stories);
+    expect(rmap["backend-engineer"]?.total).toBe(2);
+    expect(rmap["backend"]).toBeUndefined(); // no raw "backend" key
+  });
+
+  it("'id' slug never appears as a key in rmap", () => {
+    const stories = [
+      mk({ id: "CAM-1", title: "[id] junk-story", labels: ["role:id"] }),
+    ];
+    const rmap = buildWorkload(stories);
+    expect(rmap["id"]).toBeUndefined();
+    expect(Object.keys(rmap)).toHaveLength(0);
+  });
+
+  it("[devops] story counts as 'devops-release' active when In Progress", () => {
+    const i = mk({
+      id: "CAM-1",
+      title: "[devops] D1",
+      status: "In Progress",
+      statusType: "started",
+    });
+    const rmap = buildWorkload([i]);
+    expect(rmap["devops-release"]?.total).toBe(1);
+    expect(rmap["devops-release"]?.active).toBe(1);
+    expect(rmap["devops"]).toBeUndefined();
+  });
+
+  it("[backend] done + [backend-engineer] active → backend-engineer: total 2, done 1, active 1", () => {
+    const stories = [
+      mk({ id: "CAM-1", title: "[backend] B1", statusType: "completed" }),
+      mk({
+        id: "CAM-2",
+        title: "[backend-engineer] B2",
+        status: "In Progress",
+        statusType: "started",
+      }),
+    ];
+    const rmap = buildWorkload(stories);
+    expect(rmap["backend-engineer"]?.total).toBe(2);
+    expect(rmap["backend-engineer"]?.done).toBe(1);
+    expect(rmap["backend-engineer"]?.active).toBe(1);
+  });
+});
+
+// ---------- CAM-117: buildTrail — passed/done state for count-0 nodes ----------
+describe("buildTrail — all-done epic: count-0 non-Ship nodes show 'done'", () => {
+  const allDoneStories = [
+    mk({ id: "CAM-1", title: "[ux-designer] U1", statusType: "completed" }),
+    mk({ id: "CAM-2", title: "[backend-engineer] B1", statusType: "completed" }),
+    mk({ id: "CAM-3", title: "[frontend-engineer] F1", statusType: "completed" }),
+    mk({ id: "CAM-4", title: "[qa-engineer] Q1", statusType: "completed" }),
+  ];
+
+  it("Design node cls='done' when all stories are done (all passed Design)", () => {
+    const design = buildTrail(allDoneStories).nodes.find((n) => n.name === "Design")!;
+    expect(design.cls).toBe("done");
+  });
+
+  it("Gate node cls='done' when all stories are done (all passed Gate)", () => {
+    const gate = buildTrail(allDoneStories).nodes.find((n) => n.name === "Gate")!;
+    expect(gate.cls).toBe("done");
+  });
+
+  it("Build node cls='done' when all stories are done (all passed Build)", () => {
+    const build = buildTrail(allDoneStories).nodes.find((n) => n.name === "Build")!;
+    expect(build.cls).toBe("done");
+  });
+
+  it("Verify node cls='done' when all stories are done (all passed Verify)", () => {
+    const verify = buildTrail(allDoneStories).nodes.find((n) => n.name === "Verify")!;
+    expect(verify.cls).toBe("done");
+  });
+
+  it("Ship node cls='done' with count > 0 and sub '4 shipped'", () => {
+    const ship = buildTrail(allDoneStories).nodes.find((n) => n.name === "Ship")!;
+    expect(ship.cls).toBe("done");
+    expect(ship.sub).toBe("4 shipped");
+    expect(ship.count).toBe(4);
+  });
+
+  it("allDone=true, curIdx=4", () => {
+    const t = buildTrail(allDoneStories);
+    expect(t.allDone).toBe(true);
+    expect(t.curIdx).toBe(4);
+  });
+});
+
+describe("buildTrail — mid-flight: only passed stages are 'done', future stages 'idle'", () => {
+  // 5 stories in Design (ux-designer, todo), 1 active Build, 1 shipped
+  const midFlightStories = [
+    ...Array.from({ length: 5 }, (_, k) =>
+      mk({ id: `CAM-${k + 1}`, title: `[ux-designer] U${k + 1}` })
+    ),
+    mk({ id: "CAM-6", title: "[frontend-engineer] F1", status: "In Progress", statusType: "started" }),
+    mk({ id: "CAM-7", title: "[frontend-engineer] F2", statusType: "completed" }),
+  ];
+
+  it("Verify node cls='idle' (no story has reached Verify yet)", () => {
+    const verify = buildTrail(midFlightStories).nodes.find((n) => n.name === "Verify")!;
+    expect(verify.cls).toBe("idle");
+  });
+
+  it("Gate node cls='idle' (no story has passed Gate)", () => {
+    const gate = buildTrail(midFlightStories).nodes.find((n) => n.name === "Gate")!;
+    expect(gate.cls).toBe("idle");
+  });
+
+  it("Design node cls='q' (has 5 stories, no active)", () => {
+    const design = buildTrail(midFlightStories).nodes.find((n) => n.name === "Design")!;
+    expect(design.cls).toBe("q");
+  });
+
+  it("Build node cls='run' (1 active story)", () => {
+    const build = buildTrail(midFlightStories).nodes.find((n) => n.name === "Build")!;
+    expect(build.cls).toBe("run");
+  });
+
+  it("allDone=false", () => {
+    expect(buildTrail(midFlightStories).allDone).toBe(false);
   });
 });
