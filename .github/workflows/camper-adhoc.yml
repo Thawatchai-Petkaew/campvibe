@@ -16,12 +16,20 @@ permissions:
   contents: write
   pull-requests: write
 
+# Serialize ad-hoc runs so a burst of Telegram messages can't fan out into parallel
+# headless orchestrator runs all drawing on the subscription at once.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   adhoc:
     runs-on: ubuntu-latest
     # Job-level so the `if:` below can read it (workflow/job env only — not step env).
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Bills the owner's Claude subscription (the "package"), NOT pay-as-you-go API credits.
+      # Generate with `claude setup-token` and store as the CLAUDE_CODE_OAUTH_TOKEN repo secret.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
       # repository_dispatch runs the workflow from the DEFAULT branch (main), but the
       # Camper context (docs/project, camper-agent, std) lives on staging — check that out.
@@ -41,7 +49,7 @@ jobs:
             "${{ secrets.LINEAR_API_KEY }}" "${{ vars.LINEAR_TEAM_KEY || 'CAM' }}" > .env
 
       - name: Run the orchestrator on the request
-        if: env.ANTHROPIC_API_KEY != ''
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         env:
           REQUEST: ${{ github.event.client_payload.text || github.event.inputs.text }}
         run: |
@@ -51,8 +59,8 @@ jobs:
           Scope it with lightweight Discovery, then act via the normal gates. Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the Camper Agent autopilot flag ('npm run camper status') and the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. Finish with a short summary + PR link." \
             --dangerously-skip-permissions
 
-      - name: No API key → log only
-        if: env.ANTHROPIC_API_KEY == ''
+      - name: No token → log only
+        if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
         run: |
-          echo "::notice::Ad-hoc /camper request received but ANTHROPIC_API_KEY is not set." \
-               "Set the secret to enable headless runs, or pick it up in a session."
+          echo "::notice::Ad-hoc /camper request received but CLAUDE_CODE_OAUTH_TOKEN is not set." \
+               "Run 'claude setup-token' and add the secret to enable headless runs, or pick it up in a session."
