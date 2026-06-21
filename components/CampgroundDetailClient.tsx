@@ -611,7 +611,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                         </SelectTrigger>
                                         <SelectContent className="rounded-2xl border-none shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6].map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">
+                                                <SelectItem key={num} value={num.toString()} className="rounded-xl cursor-pointer py-2.5">
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}

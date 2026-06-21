@@ -148,7 +148,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                         key={loc.id}
                                         value={loc.id}
                                         onSelect={() => handleSelect(loc)}
-                                        className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-muted transition-colors"
+                                        className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-accent/15 transition-colors"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
                                             <MapPin className="h-4 w-4 text-primary" />
