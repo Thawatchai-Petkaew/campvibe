@@ -22,6 +22,28 @@ interface UserProfile {
     createdAt: string;
 }
 
+function getRoleBadgeClasses(role: string): string {
+    switch (role) {
+        case 'ADMIN':
+            return 'bg-destructive/10 text-destructive';
+        case 'OPERATOR':
+            return 'bg-primary/10 text-primary';
+        default:
+            return 'bg-success/10 text-success';
+    }
+}
+
+function getRoleLabel(role: string, profileT: { roleAdmin: string; roleOperator: string; roleCamper: string }): string {
+    switch (role) {
+        case 'ADMIN':
+            return profileT.roleAdmin;
+        case 'OPERATOR':
+            return profileT.roleOperator;
+        default:
+            return profileT.roleCamper;
+    }
+}
+
 export default function ProfilePage() {
     const { t } = useLanguage();
     const router = useRouter();
@@ -39,10 +61,10 @@ export default function ProfilePage() {
     const [imageError, setImageError] = useState(false);
     const [serverError, setServerError] = useState<string | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
-    
+
     // Client-side validation errors (inline)
     const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
+        ? t.profile.emailFormatError
         : undefined;
 
     // Fetch profile on mount
@@ -66,7 +88,7 @@ export default function ProfilePage() {
             setPhone(data.phone || '');
             setImage(data.image);
         } catch (error) {
-            toast.error('Failed to load profile');
+            toast.error(t.profile.failedToLoad);
         } finally {
             setIsLoading(false);
         }
@@ -78,13 +100,13 @@ export default function ProfilePage() {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file');
+            toast.error(t.profile.invalidImageType);
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            toast.error('Image must be less than 5MB');
+            toast.error(t.profile.imageTooLarge);
             return;
         }
 
@@ -106,9 +128,9 @@ export default function ProfilePage() {
 
             // Auto-save image
             await saveProfile({ image: imageUrl });
-            toast.success('Profile image updated');
+            toast.success(t.profile.imageUploadSuccess);
         } catch (error) {
-            toast.error('Failed to upload image');
+            toast.error(t.profile.imageUploadFailed);
         } finally {
             setIsUploading(false);
         }
@@ -169,7 +191,7 @@ export default function ProfilePage() {
                 </Link>
 
                 {/* Profile Card */}
-                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-8">
+                <div className="bg-card rounded-3xl shadow-2xl p-8 space-y-8">
                     {/* Header */}
                     <div className="text-center">
                         <h1 className="text-2xl font-bold text-foreground">
@@ -198,8 +220,8 @@ export default function ProfilePage() {
                                         onError={() => setImageError(true)}
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/30">
-                                        <User className="w-16 h-16 text-primary/60" />
+                                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                                        <User className="w-16 h-16 text-muted-foreground/50" />
                                     </div>
                                 )}
                             </div>
@@ -208,16 +230,18 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isUploading}
+                                aria-label={t.profile.changeAvatarAria}
                                 className={cn(
-                                    "absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100",
+                                    "absolute inset-0 rounded-full bg-foreground/50 opacity-0 group-hover:opacity-100",
                                     "flex items-center justify-center transition-opacity cursor-pointer",
+                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100",
                                     isUploading && "opacity-100"
                                 )}
                             >
                                 {isUploading ? (
-                                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                                    <Loader2 className="w-8 h-8 text-primary-foreground animate-spin" />
                                 ) : (
-                                    <Camera className="w-8 h-8 text-white" />
+                                    <Camera className="w-8 h-8 text-primary-foreground" />
                                 )}
                             </button>
 
@@ -275,11 +299,9 @@ export default function ProfilePage() {
                         <div className="flex justify-center pt-2">
                             <span className={cn(
                                 "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider",
-                                profile?.role === 'ADMIN' && "bg-red-100 text-red-700",
-                                profile?.role === 'OPERATOR' && "bg-blue-100 text-blue-700",
-                                profile?.role === 'CAMPER' && "bg-green-100 text-green-700"
+                                getRoleBadgeClasses(profile?.role || 'CAMPER')
                             )}>
-                                {profile?.role || 'CAMPER'}
+                                {getRoleLabel(profile?.role || 'CAMPER', t.profile)}
                             </span>
                         </div>
 
@@ -287,7 +309,7 @@ export default function ProfilePage() {
                         <Button
                             type="submit"
                             disabled={isSaving}
-                            className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-12 text-lg shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold h-12 text-lg shadow-lg shadow-primary/20 active:scale-95 transition-all"
                         >
                             {isSaving ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />

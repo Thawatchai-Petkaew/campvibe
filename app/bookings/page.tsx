@@ -11,18 +11,46 @@ import {
     User,
     ChevronRight,
     Search,
-    Tent
+    Tent,
+    Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+
+function getStatusClasses(status: string): string {
+    switch (status) {
+        case "CONFIRMED":
+            return "bg-success text-success-foreground";
+        case "PENDING":
+            return "bg-muted text-muted-foreground border border-border";
+        case "CANCELLED":
+            return "bg-destructive text-primary-foreground";
+        default:
+            return "bg-muted text-muted-foreground border border-border";
+    }
+}
 
 export default function MyBookingsPage() {
     const { t, formatCurrency, language } = useLanguage();
     const { data: session } = useSession();
     const [bookings, setBookings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
 
     useEffect(() => {
         fetch('/api/bookings')
@@ -30,18 +58,20 @@ export default function MyBookingsPage() {
             .then(data => {
                 if (Array.isArray(data)) {
                     setBookings(data);
+                } else {
+                    setHasError(true);
                 }
                 setLoading(false);
             })
             .catch(err => {
                 console.error("Failed to load bookings", err);
+                setHasError(true);
                 setLoading(false);
             });
     }, []);
 
     const handleCancel = async (bookingId: string) => {
-        if (!confirm(t.bookings.areYouSureCancel)) return;
-
+        setCancellingId(bookingId);
         try {
             const res = await fetch(`/api/bookings/${bookingId}`, {
                 method: 'PATCH',
@@ -58,6 +88,8 @@ export default function MyBookingsPage() {
         } catch (error) {
             console.error("Cancel error:", error);
             toast.error(t.bookings.errorOccurred);
+        } finally {
+            setCancellingId(null);
         }
     };
 
@@ -86,6 +118,8 @@ export default function MyBookingsPage() {
 
                     {loading ? (
                         <LoadingSpinner text={t.bookings.loadingTrips} />
+                    ) : bookings.length === 0 && hasError && !loading ? (
+                        <ErrorBanner message={t.bookings.errorOccurred} />
                     ) : bookings.length === 0 ? (
                         <div className="bg-card rounded-3xl p-16 text-center border border-dashed border-border shadow-sm">
                             <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
@@ -98,7 +132,7 @@ export default function MyBookingsPage() {
                                 {t.bookings.startSearching}
                             </p>
                             <Button asChild className="rounded-full h-12 px-8 font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-                                <Link href="/">{language === 'th' ? "ไปค้นหาเลย" : "Explore Campgrounds"}</Link>
+                                <Link href="/">{t.bookings.exploreButton}</Link>
                             </Button>
                         </div>
                     ) : (
@@ -114,10 +148,7 @@ export default function MyBookingsPage() {
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
                                             <div className="absolute top-4 left-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ring-2 ring-white shadow-sm ${booking.status === 'CONFIRMED' ? 'bg-green-500 text-white' :
-                                                        booking.status === 'PENDING' ? 'bg-yellow-500 text-white' :
-                                                            'bg-gray-500 text-white'
-                                                    }`}>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ring-2 ring-card shadow-sm ${getStatusClasses(booking.status)}`}>
                                                     {booking.status}
                                                 </span>
                                             </div>
@@ -126,7 +157,7 @@ export default function MyBookingsPage() {
                                         {/* Info Section */}
                                         <div className="flex-1 p-6 flex flex-col justify-between">
                                             <div>
-                                                <div className="flex justify-between items-start mb-2">
+                                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-2">
                                                     <div>
                                                         <h3 className="text-xl font-bold text-foreground">
                                                             {language === 'th' ? (booking.snapshotCampName || booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.snapshotCampNameEn || booking.campSite?.nameEn || booking.campground?.nameEn || booking.snapshotCampName)}
@@ -137,7 +168,7 @@ export default function MyBookingsPage() {
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Total Paid</div>
+                                                        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">{t.bookings.totalPaid}</div>
                                                         <div className="text-xl font-bold text-primary">{formatCurrency(booking.totalPrice)}</div>
                                                     </div>
                                                 </div>
@@ -148,7 +179,7 @@ export default function MyBookingsPage() {
                                                             <Calendar className="w-4 h-4 text-muted-foreground" />
                                                         </div>
                                                         <div>
-                                                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Check-in</div>
+                                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">{t.booking.checkIn}</div>
                                                             <div className="text-sm font-semibold text-foreground">
                                                                 {new Date(booking.checkInDate).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US', { day: 'numeric', month: 'short', year: '2-digit' })}
                                                             </div>
@@ -159,7 +190,7 @@ export default function MyBookingsPage() {
                                                             <Calendar className="w-4 h-4 text-muted-foreground" />
                                                         </div>
                                                         <div>
-                                                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Check-out</div>
+                                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">{t.booking.checkOut}</div>
                                                             <div className="text-sm font-semibold text-foreground">
                                                                 {new Date(booking.checkOutDate).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US', { day: 'numeric', month: 'short', year: '2-digit' })}
                                                             </div>
@@ -168,9 +199,9 @@ export default function MyBookingsPage() {
                                                 </div>
                                             </div>
 
-                                                <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/60">
-                                                    <div className="flex items-center gap-3 text-sm text-muted-foreground font-medium">
-                                                        <div className="flex items-center gap-1.5 border-r border-border pr-3">
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-8 pt-6 border-t border-border/60 gap-4">
+                                                <div className="flex items-center gap-3 text-sm text-muted-foreground font-medium">
+                                                    <div className="flex items-center gap-1.5 border-r border-border pr-3">
                                                         <User className="w-4 h-4" />
                                                         {booking.guests} {booking.guests === 1 ? t.booking.guest : t.search.guests}
                                                     </div>
@@ -181,15 +212,41 @@ export default function MyBookingsPage() {
                                                 </div>
                                                 <div className="flex gap-3">
                                                     {booking.status !== 'CANCELLED' && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            onClick={() => handleCancel(booking.id)}
-                                                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full font-bold px-4 h-10 transition-colors"
-                                                        >
-                                                            {t.bookings.cancelBooking}
-                                                        </Button>
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    disabled={cancellingId === booking.id}
+                                                                    aria-label={t.bookings.cancelBookingAriaLabel}
+                                                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors"
+                                                                >
+                                                                    {cancellingId === booking.id ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    ) : (
+                                                                        t.bookings.cancelBooking
+                                                                    )}
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>{t.bookings.confirmCancelTitle}</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        {t.bookings.confirmCancelDescription}
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>{t.bookings.keepBooking}</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        variant="destructive"
+                                                                        onClick={() => handleCancel(booking.id)}
+                                                                    >
+                                                                        {t.bookings.confirmCancelAction}
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
                                                     )}
-                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 h-10 transition-colors">
+                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors">
                                                         <Link href={`/campgrounds/${booking.campSite?.nameThSlug || booking.campground?.nameThSlug}`}>
                                                             {t.bookings.viewDetails} <ChevronRight className="w-4 h-4 ml-1" />
                                                         </Link>
