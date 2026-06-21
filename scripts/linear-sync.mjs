@@ -140,10 +140,11 @@ async function cmdSet(id, flags) {
   if (flags.add.some((l) => l.toLowerCase() === "awaiting-you")) {
     const gate = (issue.title.match(/Gate\s*G\d/i) || ["Gate"])[0];
     await notifyTelegram(
-      `⏳ <b>${id}</b> รออนุมัติ — ${gate}\n${issue.title}`,
+      `⏳ <b>${id}</b> รออนุมัติ — ${gate}\n${issue.title}\n\nReview ใน Linear แล้ว <b>ลบ label awaiting-you</b> เพื่ออนุมัติ (ระบบจะเดินงานต่อ) หรือกดปุ่มด้านล่าง`,
       [
         [{ text: "✅ Approve", callback_data: `approve:${id}` }, { text: "🚫 Reject", callback_data: `reject:${id}` }],
         [{ text: "🔗 เปิดใน Linear", url: issue.url }],
+        [{ text: "📊 /status", url: statusUrl(epicOf(issue.title)) }],
       ]
     );
   }
@@ -157,8 +158,27 @@ async function cmdRelease(id) {
   await cmdSet(id, { state: "Done", add: ["released"], remove: [] });
 }
 
+// Push a free-form message to Telegram (used by CI to report a headless run's result).
+// Appends a /status button so the owner can jump to the live board. No-op if Telegram unset.
+async function cmdNotify(text) {
+  if (!text) throw new Error("usage: notify <text>");
+  await notifyTelegram(text, [[{ text: "📊 /status", url: statusUrl() }]]);
+  console.log("✓ telegram notified");
+}
+
 function epicOf(t) { const x = t.split("·"); return x.length > 1 ? x[0].trim() : "(ungrouped)"; }
 function roleOf(t) { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; }
+
+// Build a link to the live /status dashboard (token-gated). Used in Telegram messages so the
+// owner can jump straight to the board. APP_BASE_URL falls back to the staging deploy.
+function statusUrl(epic) {
+  const base = ENV.APP_BASE_URL || "https://campvibe-staging.vercel.app";
+  const q = new URLSearchParams();
+  if (ENV.STATUS_TOKEN) q.set("token", ENV.STATUS_TOKEN);
+  if (epic && epic !== "(ungrouped)") { q.set("tab", "epic"); q.set("epic", epic); }
+  const s = q.toString();
+  return `${base}/status${s ? "?" + s : ""}`;
+}
 
 async function cmdList() {
   const team = await ctx();
@@ -253,9 +273,10 @@ const [cmd, ...rest] = process.argv.slice(2);
 try {
   if (cmd === "list") await cmdList();
   else if (cmd === "set" || cmd === "label") await cmdSet(rest[0], parseFlags(rest.slice(1)));
+  else if (cmd === "notify") await cmdNotify(rest.join(" "));
   else if (cmd === "release") await cmdRelease(rest[0]);
   else if (cmd === "gates") await cmdGates();
   else if (cmd === "audit") await cmdAudit();
   else if (cmd === "pull") await cmdPull(rest[0]);
-  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | release <CAM-id> | pull [outfile]>"); process.exit(1); }
+  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | notify <text> | release <CAM-id> | pull [outfile]>"); process.exit(1); }
 } catch (e) { console.error("✗", e.message); process.exit(1); }
