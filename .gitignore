@@ -57,4 +57,5 @@ next-env.d.ts
 /scripts/*
 !/scripts/linear-sync.mjs
 !/scripts/db-reset.mjs
+!/scripts/camper.mjs
 ai-planning/linear-snapshot.json
