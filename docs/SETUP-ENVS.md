@@ -58,7 +58,7 @@
 
 ### GitHub (Actions — เสริม)
 - **Variables:** `LINEAR_TEAM_KEY=CAM` · `STAGING_URL` · `PROD_URL` (ให้ smoke job ใน `ci.yml` เช็ค URL จริงหลัง deploy)
-- **Secrets:** `LINEAR_API_KEY` (มีแล้ว) · `ANTHROPIC_API_KEY` (optional — เปิด autonomous continuation)
+- **Secrets:** `LINEAR_API_KEY` (มีแล้ว) · `CLAUDE_CODE_OAUTH_TOKEN` (optional — เปิด headless autonomous continuation; สร้างด้วย `claude setup-token` → **หักโควต้า subscription/แพ็กเกจ ไม่ใช่ API credits ที่เติม**) · ไม่ใช้ `ANTHROPIC_API_KEY` แล้ว (เลิกใช้เพื่อกัน headless ไปหัก API credits)
 
 ## 5. Verify "กดเล่นได้" (ต่อ env)
 - [ ] เปิด URL ของ env แล้ว load ได้ (ไม่ 500)
