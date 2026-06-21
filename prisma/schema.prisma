@@ -232,9 +232,10 @@ model CampSite {
   facebookMessageUrl String?
   tiktokUrl          String?
 
-  // Pricing
-  priceLow  Float? // [Financial]
-  priceHigh Float? // [Financial]
+  // Pricing — Decimal + ISO 4217 currency (ADR-002)
+  priceLow      Decimal? @db.Decimal(12, 2) // [Financial]
+  priceHigh     Decimal? @db.Decimal(12, 2) // [Financial]
+  priceCurrency String   @default("THB") // [Financial] ISO 4217
 
   // Status & Dates
   isVerified   Boolean   @default(false)
@@ -334,8 +335,9 @@ model Spot {
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
   environment   String?
-  pricePerNight Float // Price per night [Financial]
-  pricePerSite  Float? // [Financial]
+  pricePerNight Decimal  @db.Decimal(12, 2) // Price per night [Financial]
+  pricePerSite  Decimal? @db.Decimal(12, 2) // [Financial]
+  priceCurrency String   @default("THB") // [Financial] ISO 4217
 
   nearFacilities String? // CSV of Internal Facility codes
 
@@ -383,7 +385,8 @@ model Booking {
   checkInDate  DateTime
   checkOutDate DateTime
   guests       Int      @default(1)
-  totalPrice   Float // [Financial]
+  totalPrice   Decimal  @db.Decimal(12, 2) // [Financial]
+  currency     String   @default("THB") // [Financial] ISO 4217
 
   status BookingStatus @default(CONFIRMED)
 

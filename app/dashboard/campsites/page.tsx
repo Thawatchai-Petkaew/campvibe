@@ -74,8 +74,8 @@ export default function MyCampSitesPage() {
         camp.nameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
         camp.nameEn.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a, b) => {
-        if (sortBy === 'price_asc') return a.priceLow - b.priceLow;
-        if (sortBy === 'price_desc') return b.priceLow - a.priceLow;
+        if (sortBy === 'price_asc') return Number(a.priceLow) - Number(b.priceLow);
+        if (sortBy === 'price_desc') return Number(b.priceLow) - Number(a.priceLow);
         if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         // Default: newest
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();

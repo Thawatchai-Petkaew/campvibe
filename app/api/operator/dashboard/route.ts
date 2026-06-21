@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     const totalRevenue = canViewFinancial
       ? bookings
           .filter((b: any) => b.status !== 'CANCELLED')
-          .reduce((sum: number, b: any) => sum + b.totalPrice, 0)
+          .reduce((sum: number, b: any) => sum + Number(b.totalPrice), 0)
       : null;
 
     const canCreateCampSite = isPlatformAdmin || ownedIds.length > 0;

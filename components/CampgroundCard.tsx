@@ -161,7 +161,7 @@ export function CampgroundCard({
                     </div>
                     <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
                     <div className="flex items-baseline gap-1 pt-1">
-                        <span className="font-semibold">{campground.priceLow ? formatCurrency(campground.priceLow) : t.common.free}</span>
+                        <span className="font-semibold">{campground.priceLow ? formatCurrency(Number(campground.priceLow)) : t.common.free}</span>
                         <span className="text-muted-foreground">{t.common.night}</span>
                     </div>
                 </div>
