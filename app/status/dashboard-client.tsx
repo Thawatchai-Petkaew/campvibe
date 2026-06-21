@@ -12,17 +12,60 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
   const router = useRouter();
 
   useEffect(() => {
-    (window as Window & { showView?: (v: string) => void }).showView = (v: string) => {
+    type StatusWindow = Window & {
+      showView?: (v: string) => void;
+      setGroup?: (g: string) => void;
+      openSwitcher?: () => void;
+      closeSwitcher?: () => void;
+      filterSwitcher?: (p: string) => void;
+      toggleCamper?: () => void;
+    };
+    const w = window as StatusWindow;
+    // Persist a view param into the URL (no navigation) so router.refresh() re-renders the SAME view.
+    const syncUrl = (k: string, v: string) => {
+      try { const u = new URL(location.href); u.searchParams.set(k, v); history.replaceState(null, "", u); } catch { /* no-op */ }
+    };
+
+    w.showView = (v: string) => {
       document.querySelectorAll(".view").forEach((el) => el.classList.toggle("active", el.id === "view-" + v));
       ["overview", "epic"].forEach((t) => {
         const b = document.getElementById("tab-" + t);
         if (b) b.classList.toggle("active", t === v);
       });
+      syncUrl("tab", v);                       // ← without this, a 60s refresh bounced back to the URL's stale tab
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    // Group toggle (Feature | Persona) — flips both Epics + Project backlog at once, keeps every segmented copy in sync.
+    w.setGroup = (g: string) => {
+      ["epics", "backlog"].forEach((sec) => {
+        const f = document.getElementById(sec + "-by-feature");
+        const p = document.getElementById(sec + "-by-persona");
+        if (f) f.classList.toggle("active", g !== "persona");
+        if (p) p.classList.toggle("active", g === "persona");
+      });
+      document.querySelectorAll(".segbtn").forEach((b) => {
+        const on = b.getAttribute("data-g") === g;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+      syncUrl("group", g);
+    };
+
+    // Epic switcher modal
+    w.openSwitcher = () => document.getElementById("switcher")?.classList.add("open");
+    w.closeSwitcher = () => document.getElementById("switcher")?.classList.remove("open");
+    w.filterSwitcher = (p: string) => {
+      document.querySelectorAll<HTMLElement>("#switcher .sw-item").forEach((el) => {
+        el.style.display = p === "all" || el.getAttribute("data-persona") === p ? "" : "none";
+      });
+      document.querySelectorAll("#switcher .sw-fbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-p") === p));
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") w.closeSwitcher?.(); };
+    document.addEventListener("keydown", onKey);
+
     // Camper Agent autopilot toggle — POST /api/status/config (Bearer STATUS_TOKEN), then refresh.
-    (window as Window & { toggleCamper?: () => void }).toggleCamper = async () => {
+    w.toggleCamper = async () => {
       const btn = document.getElementById("camper-toggle");
       const turningOn = !(btn?.textContent || "").includes("ON");
       if (btn) btn.style.opacity = "0.5";
@@ -62,12 +105,19 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
     };
     tick();
     const clockId = setInterval(tick, 1000);
-    const refreshId = setInterval(() => router.refresh(), refreshSeconds * 1000);
+    const refreshId = setInterval(() => {
+      const y = window.scrollY;        // router.refresh() re-injects the HTML — re-pin scroll a few frames so it doesn't jump
+      router.refresh();
+      let n = 0;
+      const restore = () => { window.scrollTo(0, y); if (++n < 8) requestAnimationFrame(restore); };
+      requestAnimationFrame(restore);
+    }, refreshSeconds * 1000);
     return () => {
       clearInterval(clockId);
       clearInterval(refreshId);
+      document.removeEventListener("keydown", onKey);
     };
-  }, [router, refreshSeconds]);
+  }, [router, refreshSeconds, token]);
 
   return null;
 }

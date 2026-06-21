@@ -19,6 +19,8 @@ export interface StatusIssue {
   updatedAt: string;           // last activity (max across issues = freshness)
   completedAt: string | null;  // when shipped/done
   assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
+  project: { id: string; name: string } | null;  // Linear Project = "feature"
+  parent: { id: string; title: string } | null;  // parent issue = "epic" (title is the stable link key)
 }
 
 const TEAM_KEY = process.env.LINEAR_TEAM_KEY || "CAM";
@@ -28,7 +30,7 @@ async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
   if (!key) throw new Error("LINEAR_API_KEY is not set");
 
   const query = `query Issues($key: String!) {
-    issues(filter: { team: { key: { eq: $key } } }, first: 100) {
+    issues(filter: { team: { key: { eq: $key } } }, first: 250) {
       nodes {
         identifier
         title
@@ -41,6 +43,8 @@ async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
         state { name type }
         labels { nodes { name } }
         assignee { name displayName avatarUrl }
+        project { id name }
+        parent { id title }
       }
     }
   }`;
@@ -70,6 +74,8 @@ async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
       state: { name: string; type: string } | null;
       labels: { nodes: { name: string }[] } | null;
       assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
+      project: { id: string; name: string } | null;
+      parent: { id: string; title: string } | null;
     }): StatusIssue => ({
       id: n.identifier,
       title: n.title,
@@ -85,6 +91,8 @@ async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
       assignee: n.assignee
         ? { name: n.assignee.name, displayName: n.assignee.displayName, avatarUrl: n.assignee.avatarUrl ?? null }
         : null,
+      project: n.project ? { id: n.project.id, name: n.project.name } : null,
+      parent: n.parent ? { id: n.parent.id, title: n.parent.title } : null,
     })
   );
 }
