@@ -331,6 +331,10 @@
             "experienceType": "Experience type",
             "clearAll": "Clear all"
         },
+        "activeFilters": {
+            "removeFilter": "Remove {{label}} filter",
+            "clearAll": "Clear all filters"
+        },
         "locationPicker": {
             "searchPlaceholder": "Type province or district...",
             "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ..."
@@ -385,6 +389,7 @@
         },
         "filter": {
             "title": "Filters",
+            "titleWithCount": "Filters ({{count}})",
             "clearAll": "Clear all",
             "showCampgrounds": "Show campgrounds",
             "facilities": "Facilities",
@@ -833,6 +838,10 @@
             "experienceType": "ประเภทประสบการณ์",
             "clearAll": "ล้างข้อมูล"
         },
+        "activeFilters": {
+            "removeFilter": "นำตัวกรอง {{label}} ออก",
+            "clearAll": "ล้างตัวกรองทั้งหมด"
+        },
         "locationPicker": {
             "searchPlaceholder": "Type province or district...",
             "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ..."
@@ -903,6 +912,7 @@
         },
         "filter": {
             "title": "ตัวกรอง",
+            "titleWithCount": "ตัวกรอง ({{count}})",
             "clearAll": "ล้างทั้งหมด",
             "showCampgrounds": "แสดงแคมป์กราวด์",
             "facilities": "สิ่งอำนวยความสะดวก",
