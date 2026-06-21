@@ -196,8 +196,7 @@ model CampSite {
   campSiteType String // Relation to MasterData code (e.g. CAGD)
 
   // Media
-  logo     String? // Logo URL
-  images   String? // CSV of image URLs
+  logo     String? // Logo URL (single, atomic)
   videoUrl String? // "VDO"
 
   // Accommodation kind — single code (no MasterData group); kept as string for now.
@@ -277,6 +276,7 @@ model CampSite {
   teamMembers  CampSiteTeamMember[] // Team members with roles & permissions
   wishlists    Wishlist[] // Users who wishlisted this camp site
   blockedDates BlockedDate[] // Operator-blocked availability (S7)
+  images       Image[] // S4b: media gallery (replaces images CSV)
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
@@ -332,7 +332,6 @@ model Spot {
   id            String    @id @default(uuid())
   zone          String? // Zone name
   name          String // Spot name
-  images        String? // CSV of image URLs
   viewType      ViewType?
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
@@ -347,6 +346,7 @@ model Spot {
   campSite     CampSite      @relation(fields: [campSiteId], references: [id])
   bookings     Booking[]
   blockedDates BlockedDate[] // spot-level availability blocks (S7)
+  images       Image[] // S4b: spot media gallery
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -364,13 +364,13 @@ model Review {
 
   visitDate DateTime?
 
-  mediaUrls String? // CSV of image URLs
-
   campSiteId String
   campSite   CampSite @relation(fields: [campSiteId], references: [id])
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
+
+  images Image[] // S4b: review photos (replaces mediaUrls CSV)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -606,4 +606,25 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([createdAt])
+}
+
+// S4b — media gallery (ADR-006). Polymorphic via nullable FKs: an Image belongs to a
+// CampSite, a Spot, or a Review. Replaces the *.images / mediaUrls CSV columns; logo
+// stays a single String. sortOrder controls gallery order.
+model Image {
+  id         String    @id @default(uuid())
+  url        String
+  alt        String?
+  sortOrder  Int       @default(0)
+  campSiteId String?
+  campSite   CampSite? @relation(fields: [campSiteId], references: [id], onDelete: Cascade)
+  spotId     String?
+  spot       Spot?     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  reviewId   String?
+  review     Review?   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([reviewId])
 }

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSiteOwnership } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
 
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.bookingMethod && { bookingMethod: data.bookingMethod }),
         ...(data.priceLow !== undefined && { priceLow: data.priceLow }),
         ...(data.priceHigh !== undefined && { priceHigh: data.priceHigh }),
-        ...(data.images !== undefined && { images: arrayToCsv(data.images) }),
+        ...('images' in body && { images: imageReplaceNested(data.images) }),
         ...(data.logo !== undefined && { logo: data.logo || undefined }),
         ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) }),
         ...(data.partner !== undefined && { partner: data.partner || undefined }),

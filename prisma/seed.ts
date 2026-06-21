@@ -643,6 +643,12 @@ async function main() {
         }
         const optionsConnect = optionCodes.map((code) => ({ code }));
 
+        // S4b: images CSV → Image relation rows (ordered by sortOrder)
+        const imageUrls: string[] = (campSiteData.images ? String(campSiteData.images).split(',') : [])
+            .map((u: string) => u.trim()).filter(Boolean);
+        delete campSiteData.images;
+        const imagesCreate = imageUrls.map((url, i) => ({ url, sortOrder: i }));
+
         // Create or update camp site
         await prisma.campSite.upsert({
             where: { nameThSlug: campData.nameThSlug },
@@ -650,13 +656,15 @@ async function main() {
                 ...campSiteData,
                 locationId: location.id,
                 operatorId: hosterUser.id,
-                options: { set: optionsConnect }
+                options: { set: optionsConnect },
+                images: { deleteMany: {}, create: imagesCreate }
             },
             create: {
                 ...campSiteData,
                 locationId: location.id,
                 operatorId: hosterUser.id,
-                options: { connect: optionsConnect }
+                options: { connect: optionsConnect },
+                images: { create: imagesCreate }
             },
 
         });

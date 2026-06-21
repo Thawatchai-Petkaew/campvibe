@@ -88,7 +88,7 @@ export async function GET() {
                         nameEnSlug: slug + '-en',
                         description: camp.description,
                         campSiteType: camp.campgroundType,
-                        images: camp.images,
+                        images: { create: String(camp.images || '').split(',').filter(Boolean).map((url: string, i: number) => ({ url, sortOrder: i })) },
                         accommodationTypes: 'TENT',
                         checkInTime: '14:00',
                         checkOutTime: '12:00',

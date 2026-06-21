@@ -48,13 +48,13 @@ interface Booking {
     campSite: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
         operatorId?: string;
     };
     campground?: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
     };
 }
 

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSiteOwnership } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, imageReplaceNested } from '@/lib/api-utils';
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +14,7 @@ export async function GET(
     // Scope by campSiteId so a spot can only be read under its own campsite (no cross-campsite IDOR).
     const spot = await prisma.spot.findFirst({
       where: { id: spotId, campSiteId: id },
-      include: { campSite: true }
+      include: { campSite: true, images: { orderBy: { sortOrder: 'asc' } } }
     });
 
     if (!spot) {
@@ -58,7 +58,7 @@ export async function PUT(
       data: {
         ...(data.zone !== undefined && { zone: data.zone }),
         ...(data.name && { name: data.name }),
-        ...(data.images !== undefined && { images: arrayToCsv(data.images) }),
+        ...('images' in body && { images: imageReplaceNested(data.images) }),
         ...(data.viewType !== undefined && { viewType: data.viewType }),
         ...(data.maxCampers !== undefined && { maxCampers: data.maxCampers }),
         ...(data.maxTents !== undefined && { maxTents: data.maxTents }),

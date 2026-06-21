@@ -88,6 +88,7 @@ export default async function Home({ searchParams }: HomeProps) {
         operator: {
           select: { name: true }
         },
+        images: { orderBy: { sortOrder: 'asc' } },
         _count: {
           select: { reviews: true }
         }

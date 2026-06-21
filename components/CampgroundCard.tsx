@@ -12,7 +12,7 @@ import { wishlistAPI } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface CampgroundCardProps {
-    campground: CampSite & { location: { province: string } };
+    campground: CampSite & { location: { province: string }; images?: { url: string }[] };
     /** Whether this camp site is already in the user's wishlist (hydrated server-side). */
     initialSaved?: boolean;
     /** True when the user has an active session. Controls heart behaviour. */
@@ -32,7 +32,7 @@ export function CampgroundCard({
     const [saved, setSaved] = useState(initialSaved);
     const [isLoading, setIsLoading] = useState(false);
 
-    const imageUrls = campground.images ? campground.images.split(',') : [
+    const imageUrls = campground.images?.length ? campground.images.map((img) => img.url) : [
         "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=800"
     ];
 

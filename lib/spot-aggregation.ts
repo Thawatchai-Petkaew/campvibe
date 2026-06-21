@@ -45,6 +45,7 @@ export async function getCampSiteWithCapacity(campSiteId: string) {
     include: {
       spots: true,
       options: true,
+      images: { orderBy: { sortOrder: 'asc' } },
       location: {
         include: {
           thaiLocation: true

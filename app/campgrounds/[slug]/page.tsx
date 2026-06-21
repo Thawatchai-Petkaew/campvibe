@@ -28,6 +28,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 operator: true,
                 spots: true,
                 options: true,
+                images: { orderBy: { sortOrder: 'asc' } },
             }
         });
     } catch (error) {
