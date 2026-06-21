@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serializeDecimals } from './serialize';
+import { prisma } from './prisma';
 
 /**
  * Standardized API error response helper
@@ -39,6 +40,30 @@ export function arrayToCsv(arr: string[] | undefined | null): string | undefined
 export function csvToArray(csv: string | null | undefined): string[] {
   if (!csv) return [];
   return csv.split(',').filter(Boolean);
+}
+
+/**
+ * S4a (ADR-003): flatten the multi-select taxonomy arrays (accessTypes/facilities/equipment/…)
+ * into a deduped, VALIDATED `{ code }[]` for a Prisma `options` connect/set on CampSite.
+ * Codes are MasterData PKs (globally unique). Unknown codes are dropped here rather than
+ * passed to Prisma `connect` — a single bad code would otherwise throw P2025 and 500 the
+ * entire save. Returns only codes that actually exist in MasterData.
+ */
+export async function resolveOptionConnect(
+  arrays: (string[] | undefined | null)[]
+): Promise<{ code: string }[]> {
+  const wanted = new Set<string>();
+  for (const arr of arrays) {
+    for (const code of arr ?? []) {
+      if (code) wanted.add(code);
+    }
+  }
+  if (wanted.size === 0) return [];
+  const valid = await prisma.masterData.findMany({
+    where: { code: { in: [...wanted] } },
+    select: { code: true },
+  });
+  return valid.map((v) => ({ code: v.code }));
 }
 
 /**

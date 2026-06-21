@@ -140,18 +140,22 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
         // Initialize Data
         if (initialData) {
+            // S4a: taxonomy comes back as the `options` MasterData relation; rebuild the
+            // per-group code arrays the form's multi-selects expect.
+            const _opts: { code: string; group: string }[] = initialData.options || [];
+            const _byGroup = (g: string) => _opts.filter((o) => o.group === g).map((o) => o.code);
             setFormData({
                 nameTh: initialData.nameTh || "",
                 nameEn: initialData.nameEn || "",
                 description: initialData.description || "",
                 campSiteType: initialData.campSiteType || initialData.campgroundType ? (Array.isArray(initialData.campSiteType || initialData.campgroundType) ? (initialData.campSiteType || initialData.campgroundType) : (initialData.campSiteType || initialData.campgroundType).split(',').filter(Boolean)) : [],
-                accessTypes: initialData.accessTypes ? initialData.accessTypes.split(',').filter(Boolean) : [],
+                accessTypes: _byGroup('Access type'),
                 accommodationTypes: initialData.accommodationTypes ? initialData.accommodationTypes.split(',').filter(Boolean) : [],
-                facilities: initialData.facilities ? initialData.facilities.split(',').filter(Boolean) : [],
-                externalFacilities: initialData.externalFacilities ? initialData.externalFacilities.split(',').filter(Boolean) : [],
-                equipment: initialData.equipment ? initialData.equipment.split(',').filter(Boolean) : [],
-                activities: initialData.activities ? initialData.activities.split(',').filter(Boolean) : [],
-                terrain: initialData.terrain ? initialData.terrain.split(',').filter(Boolean) : [],
+                facilities: _byGroup('Internal facility'),
+                externalFacilities: _byGroup('External facility'),
+                equipment: _byGroup('Equipment for rent'),
+                activities: _byGroup('Activity'),
+                terrain: _byGroup('Terrain'),
                 address: initialData.address || "",
                 directions: initialData.directions || "",
                 videoUrl: initialData.videoUrl || "",

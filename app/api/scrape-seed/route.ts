@@ -169,9 +169,7 @@ export async function POST() {
                     description,
                     images: localImages.join(','), // USE LOCAL PATHS
                     campSiteType: 'CAGD', // Default to basic
-                    accessTypes: 'DRIV,HIKE',
                     accommodationTypes: 'TENT,CABI',
-                    facilities: 'TOIL,SHOW,PARK',
                     latitude: location.lat!,
                     longitude: location.lon!,
                     checkInTime: '14:00',

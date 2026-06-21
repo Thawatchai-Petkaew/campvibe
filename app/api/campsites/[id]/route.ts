@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
 
@@ -64,14 +64,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.nameTh && { nameTh: data.nameTh }),
         ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.campSiteType && { campSiteType: Array.isArray(data.campSiteType) ? arrayToCsv(data.campSiteType) : data.campSiteType }),
-        ...(data.accessTypes && { accessTypes: arrayToCsv(data.accessTypes) }),
-        ...(data.accommodationTypes && { accommodationTypes: arrayToCsv(data.accommodationTypes) }),
-        ...(data.facilities && { facilities: arrayToCsv(data.facilities) }),
-        ...(data.externalFacilities !== undefined && { externalFacilities: arrayToCsv(data.externalFacilities) }),
-        ...(data.equipment !== undefined && { equipment: arrayToCsv(data.equipment) }),
-        ...(data.activities !== undefined && { activities: arrayToCsv(data.activities) }),
-        ...(data.terrain !== undefined && { terrain: arrayToCsv(data.terrain) }),
+        ...(data.campSiteType?.length && { campSiteType: (Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) as string }),
+        ...(data.accommodationTypes?.length && { accommodationTypes: arrayToCsv(data.accommodationTypes) as string }),
+        // S4a: only replace the options relation when the request actually carried a taxonomy
+        // field. zod .default([]) makes parsed values always-present, so gate on the RAW body —
+        // otherwise a partial PUT (e.g. price-only) would wipe every option.
+        ...((['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'].some((k) => k in body)) && {
+          options: {
+            set: await resolveOptionConnect([
+              data.accessTypes, data.facilities, data.externalFacilities,
+              data.equipment, data.activities, data.terrain,
+            ]),
+          },
+        }),
 
         ...(data.address !== undefined && { address: data.address }),
         ...(data.directions !== undefined && { directions: data.directions }),

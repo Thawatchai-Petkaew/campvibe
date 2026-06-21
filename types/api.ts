@@ -19,9 +19,8 @@ export interface CampgroundDTO {
     nameEnSlug: string;
     description?: string;
     campgroundType: CampgroundType;
-    accessTypes: string; // CSV
-    accommodationTypes: string; // CSV
-    facilities: string; // CSV
+    accommodationTypes: string; // CSV (kept column)
+    options?: { code: string; group: string; nameTh: string; nameEn: string; icon?: string }[]; // S4a taxonomy
     latitude: number;
     longitude: number;
     checkInTime: string;
@@ -45,9 +44,8 @@ export interface CampSiteDTO {
     nameEnSlug: string;
     description?: string;
     campSiteType: CampgroundType;
-    accessTypes: string; // CSV
-    accommodationTypes: string; // CSV
-    facilities: string; // CSV
+    accommodationTypes: string; // CSV (kept column)
+    options?: { code: string; group: string; nameTh: string; nameEn: string; icon?: string }[]; // S4a taxonomy
     latitude: number;
     longitude: number;
     checkInTime: string;
@@ -222,15 +220,5 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
     CAMPER: 'Camper/Guest',
 };
 
-// Helper Functions
-export function parseFacilities(facilitiesStr: string): FacilityCode[] {
-    return facilitiesStr.split(',').filter(Boolean) as FacilityCode[];
-}
-
-export function parseAccessTypes(accessTypesStr: string): AccessType[] {
-    return accessTypesStr.split(',').filter(Boolean) as AccessType[];
-}
-
-export function parseAccommodationTypes(accommodationTypesStr: string): AccommodationType[] {
-    return accommodationTypesStr.split(',').filter(Boolean) as AccommodationType[];
-}
+// S4a: parseFacilities/parseAccessTypes/parseAccommodationTypes removed — taxonomy now
+// comes from the `options` MasterData relation, not CSV strings (dead code, zero callers).
