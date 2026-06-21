@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSiteOwnership } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, imageCreateNested } from '@/lib/api-utils';
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +13,8 @@ export async function GET(
   try {
     const spots = await prisma.spot.findMany({
       where: { campSiteId: id },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: { images: { orderBy: { sortOrder: 'asc' } } }
     });
 
     return apiSuccess(spots);
@@ -47,7 +48,7 @@ export async function POST(
       data: {
         zone: data.zone,
         name: data.name,
-        images: data.images ? arrayToCsv(data.images) : undefined,
+        images: imageCreateNested(data.images),
         viewType: data.viewType,
         maxCampers: data.maxCampers,
         maxTents: data.maxTents,

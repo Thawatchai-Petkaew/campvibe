@@ -109,7 +109,7 @@ export default function MyBookingsPage() {
                                         {/* Image Section */}
                                         <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
                                             <img
-                                                src={booking.campSite?.images?.split(',')[0] || booking.campground?.images?.split(',')[0]}
+                                                src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
                                                 alt={booking.campSite?.nameEn || booking.campground?.nameEn}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             />

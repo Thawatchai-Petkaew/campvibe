@@ -167,8 +167,8 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
     const equipmentCodes = codesByGroup('Equipment for rent');
 
     // Parse images from CSV
-    const images = campground.images
-        ? campground.images.split(',')
+    const images: string[] = campground.images?.length
+        ? campground.images.map((img: { url: string }) => img.url)
         : ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200"];
 
     const displayImages = images.slice(0, 5);

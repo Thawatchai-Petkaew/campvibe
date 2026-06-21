@@ -199,8 +199,8 @@ export default function MyCampSitesPage() {
                                 <tr key={camp.id} className="hover:bg-muted/40 transition duration-200 group">
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
-                                                {camp.images ? (
-                                                    <img src={camp.images.split(',')[0]} className="w-full h-full object-cover" alt="" />
+                                                {camp.images?.length ? (
+                                                    <img src={camp.images[0].url} className="w-full h-full object-cover" alt="" />
                                                 ) : (
                                                     <Tent className="w-full h-full p-4 text-gray-300" />
                                                 )}

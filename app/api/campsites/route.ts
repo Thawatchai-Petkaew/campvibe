@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
-import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { requireAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
         location: true,
         spots: true,
         reviews: { select: { rating: true } },
-        options: true
+        options: true,
+        images: { orderBy: { sortOrder: 'asc' } }
       },
     });
     
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
 
         partner: data.partner,
         nationalPark: data.nationalPark,
-        images: arrayToCsv(data.images || []),
+        images: imageCreateNested(data.images),
         
         // isVerified is the platform trust badge — only a platform ADMIN may set it on create
         // (mirrors applyAdminOnlyFields on the PUT path). A self-registering host cannot grant it.

@@ -65,7 +65,7 @@ export interface SpotDTO {
     id: string;
     zone?: string;
     name: string;
-    images?: string; // CSV
+    images?: { url: string }[]; // S4b: Image relation
     viewType?: string;
     maxCampers?: number;
     maxTents?: number;
@@ -126,7 +126,7 @@ export interface CampSiteSummary {
     nameEn?: string | null;
     nameThSlug: string;
     nameEnSlug: string;
-    images?: string | null;      // CSV of image URLs (stored as CSV in DB)
+    images?: { url: string }[];  // S4b: Image relation (was CSV)
     priceLow?: number | null;
     priceHigh?: number | null;
     isVerified: boolean;

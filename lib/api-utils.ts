@@ -67,6 +67,20 @@ export async function resolveOptionConnect(
 }
 
 /**
+ * S4b: build a nested Prisma write for the polymorphic Image gallery from a list of URLs.
+ * Order is preserved via sortOrder. imageCreateNested for POST; imageReplaceNested for PUT
+ * (clears the existing gallery then recreates it from the submitted order).
+ */
+export function imageCreateNested(urls: string[] | undefined | null) {
+  const list = (urls ?? []).filter(Boolean);
+  return { create: list.map((url, i) => ({ url, sortOrder: i })) };
+}
+export function imageReplaceNested(urls: string[] | undefined | null) {
+  const list = (urls ?? []).filter(Boolean);
+  return { deleteMany: {}, create: list.map((url, i) => ({ url, sortOrder: i })) };
+}
+
+/**
  * Calculate number of nights between two dates
  */
 export function calculateNights(checkIn: Date, checkOut: Date): number {
