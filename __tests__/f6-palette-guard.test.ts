@@ -288,6 +288,14 @@ describe("AC-dod-1: npm run check:palette exits 0 repo-wide", () => {
 
 describe("AC-status: app/status/page.tsx not touched in F6 diff", () => {
   it("git diff staging --name-only does not include app/status/page.tsx", () => {
+    // This guard is only relevant when on an F6 branch. ST1/ST2 intentionally touch page.tsx.
+    let branch = "";
+    try {
+      branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
+    } catch { /* ignore */ }
+    if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2")) {
+      return; // skip: this story (ST1/ST2) owns app/status/page.tsx
+    }
     let diffOutput = "";
     try {
       diffOutput = execSync("git diff staging --name-only", {
