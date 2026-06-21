@@ -72,30 +72,28 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     if (max) where.priceLow.lte = parseFloat(max);
   }
 
-  // 5. Multi-select Filters (AND logic)
-  const addMultiSelectFilter = (field: keyof Prisma.CampSiteWhereInput, param?: string) => {
+  // 5. Multi-select taxonomy filters (AND logic) — S4a: taxonomy now lives in the `options`
+  // MasterData relation. Each selected code must be present, so AND one
+  // `options: { some: { code } }` per code. Codes are globally unique (MasterData.code is the
+  // PK) so the group is implied and need not be matched.
+  const addOptionFilter = (param?: string) => {
     if (!param) return;
     const codes = param.split(",").filter(Boolean);
-    if (codes.length > 0) {
-      // Initialise AND as array of conditions if not present
-      if (!where.AND) where.AND = [];
-      const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
-      codes.forEach((code) => {
-        andArray.push({
-          [field]: { contains: code },
-        } as Prisma.CampSiteWhereInput);
-      });
-      where.AND = andArray;
-    }
+    if (codes.length === 0) return;
+    if (!where.AND) where.AND = [];
+    const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+    codes.forEach((code) => {
+      andArray.push({ options: { some: { code } } } as Prisma.CampSiteWhereInput);
+    });
+    where.AND = andArray;
   };
 
-  // Match schema fields
-  addMultiSelectFilter("accessTypes" as any, access);
-  addMultiSelectFilter("facilities" as any, facilities);
-  addMultiSelectFilter("externalFacilities" as any, external);
-  addMultiSelectFilter("equipment" as any, equipment);
-  addMultiSelectFilter("activities" as any, activities);
-  addMultiSelectFilter("terrain" as any, terrain);
+  addOptionFilter(access);
+  addOptionFilter(facilities);
+  addOptionFilter(external);
+  addOptionFilter(equipment);
+  addOptionFilter(activities);
+  addOptionFilter(terrain);
 
   // 6. Availability Filter (used only when dates are provided)
   if (startDate && endDate) {

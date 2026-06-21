@@ -200,14 +200,12 @@ model CampSite {
   images   String? // CSV of image URLs
   videoUrl String? // "VDO"
 
-  // Legacy arrays (to be migrated to MasterData relations)
-  accessTypes        String
+  // Accommodation kind — single code (no MasterData group); kept as string for now.
   accommodationTypes String
-  facilities         String // Internal facilities
-  externalFacilities String? // CSV
-  equipment          String? // CSV (Equipment for rent)
-  activities         String? // CSV
-  terrain            String? // CSV 
+
+  // S4a (ADR-003): the multi-value CSV taxonomies — accessTypes, facilities,
+  // externalFacilities, equipment, activities, terrain — are now normalized into the
+  // `options MasterData[]` relation below, disambiguated by MasterData.group.
 
   // Geolocation & Address
   latitude   Float // [Geo]

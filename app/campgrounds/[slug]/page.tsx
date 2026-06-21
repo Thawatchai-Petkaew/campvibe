@@ -27,6 +27,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 location: true,
                 operator: true,
                 spots: true,
+                options: true,
             }
         });
     } catch (error) {

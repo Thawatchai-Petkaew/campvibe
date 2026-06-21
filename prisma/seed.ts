@@ -630,18 +630,33 @@ async function main() {
         const campSiteData: any = { ...campData };
         delete campSiteData.contacts;
 
+        // S4a: the 6 multi-value CSV taxonomies are now the `options` MasterData relation.
+        // Extract their codes, then strip the CSV keys before the spread write.
+        const optionCodes: string[] = [...new Set(
+            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'] as const)
+                .map((k) => campSiteData[k])
+                .filter(Boolean)
+                .flatMap((csv: string) => csv.split(',').map((c) => c.trim()).filter(Boolean))
+        )];
+        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain']) {
+            delete campSiteData[k];
+        }
+        const optionsConnect = optionCodes.map((code) => ({ code }));
+
         // Create or update camp site
         await prisma.campSite.upsert({
             where: { nameThSlug: campData.nameThSlug },
             update: {
                 ...campSiteData,
                 locationId: location.id,
-                operatorId: hosterUser.id
+                operatorId: hosterUser.id,
+                options: { set: optionsConnect }
             },
             create: {
                 ...campSiteData,
                 locationId: location.id,
-                operatorId: hosterUser.id
+                operatorId: hosterUser.id,
+                options: { connect: optionsConnect }
             },
 
         });
