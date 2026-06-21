@@ -1025,7 +1025,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 }}>
                                                     <Button
                                                         type="button"
-                                                        className="bg-primary hover:bg-primary/90 text-white rounded-full font-medium"
+                                                        className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-medium"
                                                     >
                                                         <Plus className="w-4 h-4 mr-2" />
                                                         {t.newCampground.createSpots}

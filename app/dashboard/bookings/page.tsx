@@ -312,7 +312,7 @@ export default function BookingsPage() {
                                 size="icon"
                                 onClick={clearAllFilters}
                                 className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all shadow-sm"
-                                title="Clear all filters"
+                                title={t.dashboard.clearAllFilters}
                             >
                                 <RotateCcw className="w-4 h-4 stroke-[2.5]" />
                             </Button>
@@ -328,7 +328,7 @@ export default function BookingsPage() {
                         className="md:hidden w-full h-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all shadow-sm font-medium"
                     >
                         <RotateCcw className="w-4 h-4 mr-2 stroke-[2.5]" />
-                        Clear all filters
+                        {t.dashboard.clearAllFilters}
                     </Button>
                 )}
             </div>
@@ -483,6 +483,7 @@ export default function BookingsPage() {
                             <Button
                                 variant="outline"
                                 size="icon"
+                                aria-label={t.dashboardBookings.previousPage}
                                 className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
@@ -521,6 +522,7 @@ export default function BookingsPage() {
                             <Button
                                 variant="outline"
                                 size="icon"
+                                aria-label={t.dashboardBookings.nextPage}
                                 className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}

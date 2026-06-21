@@ -192,7 +192,15 @@
             "areYouSureDelete": "Are you sure you want to delete this camp site?",
             "failedToDelete": "Failed to delete",
             "unknown": "Unknown",
-            "revenueTrend": "+20.1% from last month"
+            "revenueTrend": "+20.1% from last month",
+            "clearAllFilters": "Clear all filters",
+            "editCampSite": "Edit camp site",
+            "deleteCampSite": "Delete camp site",
+            "sortBy": "Sort by",
+            "sortNewest": "Newest First",
+            "sortOldest": "Oldest First",
+            "sortPriceLow": "Price: Low to High",
+            "sortPriceHigh": "Price: High to Low"
         },
         "newCampground": {
             "title": "Create New Campground",
@@ -357,7 +365,9 @@
             "errorOccurred": "An error occurred",
             "paginationOf": "of",
             "paginationEntries": "entries",
-            "show": "Show"
+            "show": "Show",
+            "previousPage": "Previous page",
+            "nextPage": "Next page"
         },
         "searchModal": {
             "experienceType": "Experience type",
@@ -761,7 +771,15 @@
             "areYouSureDelete": "คุณแน่ใจหรือไม่ว่าต้องการลบแคมป์ไซต์นี้?",
             "failedToDelete": "ลบไม่สำเร็จ",
             "unknown": "ไม่ทราบ",
-            "revenueTrend": "+20.1% จากเดือนที่แล้ว"
+            "revenueTrend": "+20.1% จากเดือนที่แล้ว",
+            "clearAllFilters": "ล้างตัวกรองทั้งหมด",
+            "editCampSite": "แก้ไขแคมป์ไซต์",
+            "deleteCampSite": "ลบแคมป์ไซต์",
+            "sortBy": "เรียงตาม",
+            "sortNewest": "ใหม่สุดก่อน",
+            "sortOldest": "เก่าสุดก่อน",
+            "sortPriceLow": "ราคา: น้อยไปมาก",
+            "sortPriceHigh": "ราคา: มากไปน้อย"
         },
         "newCampground": {
             "title": "สร้างแคมป์กราวด์ใหม่",
@@ -947,7 +965,9 @@
             "errorOccurred": "เกิดข้อผิดพลาด",
             "paginationOf": "จาก",
             "paginationEntries": "รายการ",
-            "show": "แสดง"
+            "show": "แสดง",
+            "previousPage": "หน้าก่อนหน้า",
+            "nextPage": "หน้าถัดไป"
         },
         "currency": {
             "symbol": "฿",

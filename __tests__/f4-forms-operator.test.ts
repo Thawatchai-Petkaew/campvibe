@@ -157,14 +157,14 @@ describe("token-compliance: text-white must be over bg-primary (AC-token-2)", ()
             return /className="bg-primary hover:bg-primary\/90 text-white/.test(line);
         });
 
-        // DEFECT-D6: the "Create Spots" button uses text-white instead of text-primary-foreground
-        expect(violations.length).toBeGreaterThan(0); // This documents the defect
+        // FIXED-D6: the "Create Spots" button now uses text-primary-foreground
+        expect(violations.length).toBe(0); // Fixed: no text-white on bg-primary buttons
     });
 
-    it("DEFECT-D6: Create Spots button uses text-white instead of text-primary-foreground", () => {
-        // This is a defect: bg-primary should pair with text-primary-foreground (CSS var, dark-safe)
-        // not text-white (hardcoded, fragile in dark mode if primary token is dark)
-        expect(campgroundFormSrc).toMatch(/bg-primary hover:bg-primary\/90 text-white/);
+    it("FIXED-D6: Create Spots button uses text-primary-foreground (not text-white)", () => {
+        // Fixed: bg-primary pairs with text-primary-foreground (CSS var, dark-safe)
+        expect(campgroundFormSrc).not.toMatch(/bg-primary hover:bg-primary\/90 text-white/);
+        expect(campgroundFormSrc).toMatch(/bg-primary hover:bg-primary\/90 text-primary-foreground/);
     });
 });
 
@@ -196,9 +196,12 @@ describe("no-confirm-alert: window.confirm and bare confirm() (AC-confirm-*)", (
         expect(settingsPageSrc).not.toMatch(CONFIRM_PATTERN);
     });
 
-    it("DEFECT-D1: campsites/page.tsx has bare confirm() — must be replaced with AlertDialog", () => {
-        // This test documents the defect. The bare confirm() is on line 90.
-        expect(campsitesPageSrc).toMatch(/\bconfirm\s*\(/);
+    it("FIXED-D1: campsites/page.tsx has NO bare confirm() — uses AlertDialog", () => {
+        // Fixed: bare confirm() replaced with AlertDialog + pendingDeleteId state.
+        expect(campsitesPageSrc).not.toMatch(/\bconfirm\s*\(/);
+        expect(campsitesPageSrc).toContain("AlertDialog");
+        expect(campsitesPageSrc).toContain("deleteDialogOpen");
+        expect(campsitesPageSrc).toContain("pendingDeleteId");
     });
 });
 
@@ -309,23 +312,22 @@ describe("a11y: permission popover keyboard support (AC-a11y-5)", () => {
 // ─────────────────────────────────────────────────────────────
 // AC-a11y-6  DEFECT: campsites/page icon-only buttons lack aria-label
 // ─────────────────────────────────────────────────────────────
-describe("a11y: icon-only buttons must have aria-label (AC-a11y-6 — DEFECT-D2)", () => {
-    it("DEFECT-D2: campsites/page edit button (h-11 w-11) has no aria-label", () => {
-        // The edit button contains only <Edit /> icon — no aria-label on the Button
-        // We verify the defect exists: h-11 w-11 buttons present but aria-label not on them
+describe("a11y: icon-only buttons must have aria-label (AC-a11y-6 — FIXED-D2)", () => {
+    it("FIXED-D2: campsites/page edit button (h-11 w-11) has aria-label", () => {
+        // Fixed: aria-label={t.dashboard.editCampSite} added to the edit Button
         const editButtonMatch = campsitesPageSrc.match(
             /className="h-11 w-11 rounded-full border-border hover:text-primary[^"]*"/
         );
         expect(editButtonMatch).not.toBeNull(); // button exists
-        // Defect: no aria-label on this Button element
         const surroundingContext = campsitesPageSrc.substring(
             campsitesPageSrc.indexOf("h-11 w-11 rounded-full border-border hover:text-primary") - 200,
             campsitesPageSrc.indexOf("h-11 w-11 rounded-full border-border hover:text-primary") + 50
         );
-        expect(surroundingContext).not.toContain("aria-label");
+        expect(surroundingContext).toContain("aria-label");
     });
 
-    it("DEFECT-D2: campsites/page delete button (h-11 w-11) has no aria-label", () => {
+    it("FIXED-D2: campsites/page delete button (h-11 w-11) has aria-label", () => {
+        // Fixed: aria-label={t.dashboard.deleteCampSite} added to the delete Button
         const deleteButtonMatch = campsitesPageSrc.match(
             /className="h-11 w-11 rounded-full border-border hover:text-destructive[^"]*"/
         );
@@ -334,28 +336,29 @@ describe("a11y: icon-only buttons must have aria-label (AC-a11y-6 — DEFECT-D2)
             campsitesPageSrc.indexOf("h-11 w-11 rounded-full border-border hover:text-destructive") - 200,
             campsitesPageSrc.indexOf("h-11 w-11 rounded-full border-border hover:text-destructive") + 50
         );
-        expect(surroundingContext).not.toContain("aria-label");
+        expect(surroundingContext).toContain("aria-label");
     });
 });
 
 // ─────────────────────────────────────────────────────────────
 // AC-a11y-7  DEFECT: pagination buttons lack aria-label
 // ─────────────────────────────────────────────────────────────
-describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 — DEFECT-D3)", () => {
-    it("DEFECT-D3: bookings/page prev pagination button (h-10 w-10) has no aria-label", () => {
+describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 — FIXED-D3)", () => {
+    it("FIXED-D3: bookings/page prev pagination button (h-10 w-10) has aria-label", () => {
+        // Fixed: aria-label={t.dashboardBookings.previousPage} added
         const prevButtonIdx = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
         expect(prevButtonIdx).toBeGreaterThan(0); // button exists
         const context = bookingsPageSrc.substring(prevButtonIdx - 300, prevButtonIdx + 100);
-        expect(context).not.toContain("aria-label");
+        expect(context).toContain("aria-label");
     });
 
-    it("DEFECT-D3: bookings/page next pagination button (h-10 w-10) has no aria-label", () => {
-        // Find the second occurrence (next button)
+    it("FIXED-D3: bookings/page next pagination button (h-10 w-10) has aria-label", () => {
+        // Fixed: aria-label={t.dashboardBookings.nextPage} added
         const first = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
         const second = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border", first + 1);
         expect(second).toBeGreaterThan(0);
         const context = bookingsPageSrc.substring(second - 300, second + 100);
-        expect(context).not.toContain("aria-label");
+        expect(context).toContain("aria-label");
     });
 });
 
@@ -642,35 +645,45 @@ describe("i18n: CampgroundForm labels are i18n (AC-i18n-6)", () => {
 // ─────────────────────────────────────────────────────────────
 // AC-i18n-7  DEFECT: bookings/page mobile "Clear all filters" is hardcoded
 // ─────────────────────────────────────────────────────────────
-describe("i18n: bookings/page Clear all filters button (AC-i18n-7 — DEFECT-D4)", () => {
-    it("DEFECT-D4: mobile Clear all filters button has hardcoded English string", () => {
-        expect(bookingsPageSrc).toContain("Clear all filters");
+describe("i18n: bookings/page Clear all filters button (AC-i18n-7 — FIXED-D4)", () => {
+    it("FIXED-D4: mobile Clear all filters button uses i18n key (no hardcoded English string)", () => {
+        // Fixed: replaced with {t.dashboard.clearAllFilters}
+        expect(bookingsPageSrc).not.toContain('"Clear all filters"');
+        expect(bookingsPageSrc).toContain("t.dashboard.clearAllFilters");
     });
 
-    it("DEFECT-D4: no i18n key for clearAllFilters in dashboard locale", () => {
-        expect(en.dashboard?.clearAllFilters).toBeUndefined();
-        expect(th.dashboard?.clearAllFilters).toBeUndefined();
+    it("FIXED-D4: i18n key clearAllFilters exists in dashboard locale (EN + TH)", () => {
+        expect(en.dashboard?.clearAllFilters).toBeDefined();
+        expect(th.dashboard?.clearAllFilters).toBeDefined();
     });
 });
 
 // ─────────────────────────────────────────────────────────────
 // AC-i18n-8  DEFECT: campsites/page sort options are hardcoded English
 // ─────────────────────────────────────────────────────────────
-describe("i18n: campsites/page sort options (AC-i18n-8 — DEFECT-D5)", () => {
-    it("DEFECT-D5: campsites/page has hardcoded sort label 'Newest First'", () => {
-        expect(campsitesPageSrc).toContain("Newest First");
+describe("i18n: campsites/page sort options (AC-i18n-8 — FIXED-D5)", () => {
+    it("FIXED-D5: campsites/page has NO hardcoded sort label 'Newest First'", () => {
+        // Fixed: replaced with {t.dashboard.sortNewest}
+        expect(campsitesPageSrc).not.toContain('"Newest First"');
+        expect(campsitesPageSrc).toContain("t.dashboard.sortNewest");
     });
 
-    it("DEFECT-D5: campsites/page has hardcoded sort label 'Oldest First'", () => {
-        expect(campsitesPageSrc).toContain("Oldest First");
+    it("FIXED-D5: campsites/page has NO hardcoded sort label 'Oldest First'", () => {
+        // Fixed: replaced with {t.dashboard.sortOldest}
+        expect(campsitesPageSrc).not.toContain('"Oldest First"');
+        expect(campsitesPageSrc).toContain("t.dashboard.sortOldest");
     });
 
-    it("DEFECT-D5: campsites/page has hardcoded sort label 'Price: Low to High'", () => {
-        expect(campsitesPageSrc).toContain("Price: Low to High");
+    it("FIXED-D5: campsites/page has NO hardcoded sort label 'Price: Low to High'", () => {
+        // Fixed: replaced with {t.dashboard.sortPriceLow}
+        expect(campsitesPageSrc).not.toContain('"Price: Low to High"');
+        expect(campsitesPageSrc).toContain("t.dashboard.sortPriceLow");
     });
 
-    it("DEFECT-D5: campsites/page has hardcoded placeholder 'Sort by'", () => {
-        expect(campsitesPageSrc).toContain('"Sort by"');
+    it("FIXED-D5: campsites/page has NO hardcoded placeholder 'Sort by'", () => {
+        // Fixed: replaced with {t.dashboard.sortBy}
+        expect(campsitesPageSrc).not.toContain('"Sort by"');
+        expect(campsitesPageSrc).toContain("t.dashboard.sortBy");
     });
 });
 
