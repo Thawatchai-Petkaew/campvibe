@@ -163,6 +163,49 @@ model ThailandLocation {
   @@index([provinceName, districtName])
 }
 
+// S5 — international region model (ADR-004). Country carries the ISO 3166 code plus the
+// regional defaults (currency, locale, timezone, VAT) that make multi-currency/multi-region real.
+model Country {
+  code            String   @id // ISO 3166-1 alpha-2 (e.g. "TH")
+  name            String
+  nameLocal       String?
+  defaultCurrency String // [Financial] ISO 4217
+  defaultLocale   String // BCP-47 (e.g. "th-TH")
+  timezone        String // IANA (e.g. "Asia/Bangkok")
+  vatRate         Decimal  @db.Decimal(5, 4) // [Financial] standard VAT rate
+  createdAt       DateTime @default(now())
+
+  adminAreas AdminArea[]
+  locations  Location[]
+}
+
+enum AdminLevel {
+  PROVINCE
+  DISTRICT
+  SUBDISTRICT
+}
+
+// S5 — self-referential administrative-division tree (the conformant replacement for the flat
+// ThailandLocation; ThailandLocation is retained until its consumers migrate). level + national code.
+model AdminArea {
+  id          String      @id @default(uuid())
+  countryCode String
+  country     Country     @relation(fields: [countryCode], references: [code])
+  level       AdminLevel
+  code        String // national admin code (province "10", district "1001")
+  nameTh      String
+  nameEn      String
+  parentId    String?
+  parent      AdminArea?  @relation("AdminAreaTree", fields: [parentId], references: [id])
+  children    AdminArea[] @relation("AdminAreaTree")
+  locations   Location[]
+  createdAt   DateTime    @default(now())
+
+  @@unique([countryCode, level, code])
+  @@index([countryCode, level])
+  @@index([parentId])
+}
+
 model Location {
   id          String  @id @default(uuid())
   country     String  @default("Thailand")
@@ -171,16 +214,24 @@ model Location {
   district    String?
   subDistrict String?
   village     String?
-  lat         Float?
-  lon         Float?
+  lat         Float? // [Geo]
+  lon         Float? // [Geo]
 
-  // Link to Thailand administrative division
+  // S5 — international region links (additive; legacy strings + thaiLocation stay until migrated)
+  countryCode String? // [Geo] ISO 3166 (set by seed/app; nullable for forward-safe migration)
+  countryRel  Country?   @relation(fields: [countryCode], references: [code])
+  adminAreaId String? // [Geo] province/district node in the AdminArea tree
+  adminArea   AdminArea? @relation(fields: [adminAreaId], references: [id])
+
+  // Link to Thailand administrative division (legacy — pending migration to adminArea)
   thaiLocationId String?
   thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
 
   campSites CampSite[]
 
   @@index([thaiLocationId])
+  @@index([countryCode])
+  @@index([adminAreaId])
 }
 
 model CampSite {

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     // 4. Price Calculation
     const campSite = await prisma.campSite.findUnique({
       where: { id: data.campSiteId },
-      include: { spots: true }
+      include: { spots: true, location: { include: { countryRel: true } } }
     });
 
     if (!campSite) {
@@ -90,6 +90,12 @@ export async function POST(request: NextRequest) {
 
     // 5. Create Booking
     const currency = campSite.priceCurrency ?? 'THB';
+    // S5→S6: pull real regional VAT + timezone from the camp's Country (fallback for legacy null-country camps)
+    const country = campSite.location?.countryRel;
+    const taxRate = country ? Number(country.vatRate) : 0;
+    const vatInclusive = taxRate > 0; // Thai displayed prices are VAT-inclusive
+    const taxAmount = vatInclusive ? Math.round((totalPrice - totalPrice / (1 + taxRate)) * 100) / 100 : 0;
+    const timezone = country?.timezone ?? 'Asia/Bangkok';
     const booking = await prisma.booking.create({
       data: {
         userId: userId,
@@ -108,15 +114,15 @@ export async function POST(request: NextRequest) {
         snapshotSpotName: bookedSpot?.name ?? null,
         snapshotUnitAmount: pricePerNight,
         snapshotSubtotalAmount: totalPrice,
-        snapshotTaxRate: 0, // region VAT wired in S5 (Country.vatRate); 0 until then
-        snapshotTaxAmount: 0,
-        snapshotVatInclusive: false, // no VAT applied yet (taxRate 0); flips true when S5 wires a real rate
+        snapshotTaxRate: taxRate, // S5: regional VAT from the camp's Country.vatRate
+        snapshotTaxAmount: taxAmount,
+        snapshotVatInclusive: vatInclusive,
         snapshotTotalAmount: totalPrice,
         snapshotCurrency: currency,
         snapshotNights: nights,
         snapshotCheckInTime: campSite.checkInTime,
         snapshotCheckOutTime: campSite.checkOutTime,
-        snapshotTimezone: 'Asia/Bangkok', // per-camp IANA tz wired in S5
+        snapshotTimezone: timezone, // S5: from the camp's Country.timezone
       }
     });
 
