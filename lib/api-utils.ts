@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serializeDecimals } from './serialize';
 
 /**
  * Standardized API error response helper
@@ -19,7 +20,9 @@ export function apiError(message: string, status: number = 500, details?: unknow
  * Standardized API success response helper
  */
 export function apiSuccess<T>(data: T, status: number = 200) {
-  return NextResponse.json(data, { status });
+  // Buffet boundary (ADR-002): convert any Prisma.Decimal (money) → number so every API
+  // response honors the numeric contract instead of leaking Decimal-as-string JSON.
+  return NextResponse.json(serializeDecimals(data), { status });
 }
 
 /**

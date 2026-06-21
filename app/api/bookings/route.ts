@@ -4,6 +4,7 @@ import { bookingSchema } from '@/lib/validations/booking';
 import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailability } from '@/lib/campsite-availability';
+import { serializeDecimals } from '@/lib/serialize';
 
 export async function POST(request: NextRequest) {
   const { error: authError, session } = await requireAuth();
@@ -71,11 +72,12 @@ export async function POST(request: NextRequest) {
       return apiError('Camp site not found', 404);
     }
 
-    let pricePerNight = campSite.priceLow || 50;
+    // Money is Decimal in the DB (ADR-002); compute in number for this simple THB total.
+    let pricePerNight = Number(campSite.priceLow ?? 50);
     if (data.spotId) {
       const spot = campSite.spots.find(s => s.id === data.spotId);
       if (spot?.pricePerNight) {
-        pricePerNight = spot.pricePerNight;
+        pricePerNight = Number(spot.pricePerNight);
       }
     }
 
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return apiSuccess(booking, 201);
+    return apiSuccess(serializeDecimals(booking), 201);
   } catch (error) {
     return apiError('Failed to create booking', 500, error);
   }

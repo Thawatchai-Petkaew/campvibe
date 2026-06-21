@@ -106,7 +106,7 @@ export async function POST() {
                         name: `Spot ${j}`,
                         maxCampers: 2 + Math.floor(Math.random() * 6),
                         maxTents: 1 + Math.floor(Math.random() * 2),
-                        pricePerNight: (campSite.priceLow || 300) + (j * 50),
+                        pricePerNight: Number(campSite.priceLow ?? 300) + (j * 50),
                         campSiteId: campSite.id,
                     }
                 });
