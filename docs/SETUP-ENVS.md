@@ -57,8 +57,8 @@
 `main` → Vercel Production: `DATABASE_URL`(prod) · `AUTH_SECRET` · Linear/status vars · webhook vars (`LINEAR_WEBHOOK_SECRET`/`GH_DISPATCH_TOKEN`/`GITHUB_REPO`)
 
 ### GitHub (Actions — เสริม)
-- **Variables:** `LINEAR_TEAM_KEY=CAM` · `STAGING_URL` · `PROD_URL` (ให้ smoke job ใน `ci.yml` เช็ค URL จริงหลัง deploy)
-- **Secrets:** `LINEAR_API_KEY` (มีแล้ว) · `CLAUDE_CODE_OAUTH_TOKEN` (optional — เปิด headless autonomous continuation; สร้างด้วย `claude setup-token` → **หักโควต้า subscription/แพ็กเกจ ไม่ใช่ API credits ที่เติม**) · ไม่ใช้ `ANTHROPIC_API_KEY` แล้ว (เลิกใช้เพื่อกัน headless ไปหัก API credits)
+- **Variables:** `LINEAR_TEAM_KEY=CAM` · `STAGING_URL` · `PROD_URL` (ให้ smoke job ใน `ci.yml` เช็ค URL จริงหลัง deploy) · `APP_BASE_URL` (optional — base ของลิงก์ /status ใน Telegram; default `https://campvibe-staging.vercel.app`)
+- **Secrets:** `LINEAR_API_KEY` · `ANTHROPIC_API_KEY` (เปิด headless run; **หัก API credits** — คุมต้นทุนด้วย `--model claude-sonnet-4-6 --max-turns 40` + `concurrency` ใน workflow) · `TELEGRAM_BOT_TOKEN` · `TELEGRAM_CHAT_ID` · `STATUS_TOKEN` (ให้ CI ส่ง Telegram escalation/report + สร้างลิงก์ /status). หมายเหตุ: เลิกใช้ `CLAUDE_CODE_OAUTH_TOKEN` (subscription auth ใช้ใน CI ไม่ได้ — claude-code-action [#676](https://github.com/anthropics/claude-code-action/issues/676)/[#727](https://github.com/anthropics/claude-code-action/issues/727))
 
 ## 5. Verify "กดเล่นได้" (ต่อ env)
 - [ ] เปิด URL ของ env แล้ว load ได้ (ไม่ 500)

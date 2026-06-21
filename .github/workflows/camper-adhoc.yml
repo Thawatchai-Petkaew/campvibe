@@ -17,7 +17,7 @@ permissions:
   pull-requests: write
 
 # Serialize ad-hoc runs so a burst of Telegram messages can't fan out into parallel
-# headless orchestrator runs all drawing on the subscription at once.
+# headless orchestrator runs all drawing on the API credits at once.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
@@ -26,10 +26,9 @@ jobs:
   adhoc:
     runs-on: ubuntu-latest
     # Job-level so the `if:` below can read it (workflow/job env only — not step env).
+    # Bills pay-as-you-go API credits. Cost is bounded by --model + --max-turns + concurrency.
     env:
-      # Bills the owner's Claude subscription (the "package"), NOT pay-as-you-go API credits.
-      # Generate with `claude setup-token` and store as the CLAUDE_CODE_OAUTH_TOKEN repo secret.
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       # repository_dispatch runs the workflow from the DEFAULT branch (main), but the
       # Camper context (docs/project, camper-agent, std) lives on staging — check that out.
@@ -45,22 +44,49 @@ jobs:
 
       - name: Provision .env for tools
         run: |
-          printf 'LINEAR_API_KEY=%s\nLINEAR_TEAM_KEY=%s\n' \
-            "${{ secrets.LINEAR_API_KEY }}" "${{ vars.LINEAR_TEAM_KEY || 'CAM' }}" > .env
+          {
+            printf 'LINEAR_API_KEY=%s\n' "${{ secrets.LINEAR_API_KEY }}"
+            printf 'LINEAR_TEAM_KEY=%s\n' "${{ vars.LINEAR_TEAM_KEY || 'CAM' }}"
+            printf 'TELEGRAM_BOT_TOKEN=%s\n' "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            printf 'TELEGRAM_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_CHAT_ID }}"
+            printf 'STATUS_TOKEN=%s\n' "${{ secrets.STATUS_TOKEN }}"
+            printf 'APP_BASE_URL=%s\n' "${{ vars.APP_BASE_URL || 'https://campvibe-staging.vercel.app' }}"
+          } > .env
 
       - name: Run the orchestrator on the request
-        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
+        id: run
+        if: env.ANTHROPIC_API_KEY != ''
         env:
           REQUEST: ${{ github.event.client_payload.text || github.event.inputs.text }}
         run: |
+          set -o pipefail
           npm i -g @anthropic-ai/claude-code
           claude -p "Role: CampVibe orchestrator (read CLAUDE.md + docs/project/* + ai-planning/SYNC-ARCHITECTURE.md first).
           Ad-hoc request from the owner via /camper: \"$REQUEST\".
-          Scope it with lightweight Discovery, then act via the normal gates. Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the Camper Agent autopilot flag ('npm run camper status') and the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. Finish with a short summary + PR link." \
-            --dangerously-skip-permissions
+          Scope it with lightweight Discovery, then act via the normal gates. Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the Camper Agent autopilot flag ('npm run camper status') and the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. End your reply with one line starting 'SUMMARY:' — a one-line recap + PR link." \
+            --model claude-sonnet-4-6 --max-turns 40 \
+            --dangerously-skip-permissions 2>&1 | tee "$RUNNER_TEMP/claude-out.txt"
 
-      - name: No token → log only
-        if: env.CLAUDE_CODE_OAUTH_TOKEN == ''
+      - name: Report result to Telegram
+        if: always() && env.ANTHROPIC_API_KEY != ''
+        env:
+          REQUEST: ${{ github.event.client_payload.text || github.event.inputs.text }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          echo "::notice::Ad-hoc /camper request received but CLAUDE_CODE_OAUTH_TOKEN is not set." \
-               "Run 'claude setup-token' and add the secret to enable headless runs, or pick it up in a session."
+          if [ "${{ steps.run.outcome }}" = "success" ]; then
+            SUMMARY=$(grep -m1 '^SUMMARY:' "$RUNNER_TEMP/claude-out.txt" 2>/dev/null | sed 's/^SUMMARY:[[:space:]]*//')
+            [ -z "$SUMMARY" ] && SUMMARY=$(tail -c 400 "$RUNNER_TEMP/claude-out.txt" 2>/dev/null)
+            node scripts/linear-sync.mjs notify "✅ <b>Camper /camper</b> เสร็จ
+          ${SUMMARY}
+          🔗 ${RUN_URL}"
+          else
+            node scripts/linear-sync.mjs notify "❌ <b>Camper /camper</b> ล้มเหลว (ดู log)
+          คำสั่ง: ${REQUEST}
+          🔗 ${RUN_URL}"
+          fi
+
+      - name: No API key → log only
+        if: env.ANTHROPIC_API_KEY == ''
+        run: |
+          echo "::notice::Ad-hoc /camper request received but ANTHROPIC_API_KEY is not set." \
+               "Add the secret to enable headless runs, or pick it up in a session."
