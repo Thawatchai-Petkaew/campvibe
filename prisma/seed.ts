@@ -151,6 +151,31 @@ async function main() {
     }
     console.log('✅ Thailand locations seeded')
 
+    // S5: Country + AdminArea tree (conformant multi-region model; coexists with legacy ThailandLocation)
+    console.log('🌏 Seeding Country + AdminArea...')
+    const thCountry = {
+        code: 'TH', name: 'Thailand', nameLocal: 'ประเทศไทย',
+        defaultCurrency: 'THB', defaultLocale: 'th-TH', timezone: 'Asia/Bangkok', vatRate: 0.07,
+    }
+    await prisma.country.upsert({ where: { code: 'TH' }, update: thCountry, create: thCountry })
+    const provinceAreaByCode: Record<string, string> = {}
+    for (const province of locationsData) {
+        const pa = await prisma.adminArea.upsert({
+            where: { countryCode_level_code: { countryCode: 'TH', level: 'PROVINCE', code: province.code } },
+            update: { nameTh: province.nameTh, nameEn: province.nameEn },
+            create: { countryCode: 'TH', level: 'PROVINCE', code: province.code, nameTh: province.nameTh, nameEn: province.nameEn },
+        })
+        provinceAreaByCode[province.code] = pa.id
+        for (const district of province.districts || []) {
+            await prisma.adminArea.upsert({
+                where: { countryCode_level_code: { countryCode: 'TH', level: 'DISTRICT', code: district.code } },
+                update: { nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
+                create: { countryCode: 'TH', level: 'DISTRICT', code: district.code, nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
+            })
+        }
+    }
+    console.log('✅ Country + AdminArea seeded')
+
     // 3. Create Test Users
     console.log('👥 Creating test users...')
     const hashedPassword = await bcrypt.hash('password123', 10)
@@ -621,7 +646,10 @@ async function main() {
                 province: provinceNameEn || 'Unknown',
                 lat: campData.latitude,
                 lon: campData.longitude,
-                thaiLocationId: thaiLoc?.id
+                thaiLocationId: thaiLoc?.id,
+                // S5: link to the conformant Country + AdminArea (province node)
+                countryCode: 'TH',
+                adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,
             }
         });
 
