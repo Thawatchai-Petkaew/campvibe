@@ -388,6 +388,23 @@ model Booking {
   totalPrice   Decimal  @db.Decimal(12, 2) // [Financial]
   currency     String   @default("THB") // [Financial] ISO 4217
 
+  // --- Crystallized snapshot (ADR-005): frozen at create/confirm; host edits to the
+  // live camp/spot never mutate these. A booking is an immutable financial document.
+  snapshotCampName       String? // camp name (TH) at booking time
+  snapshotCampNameEn     String? // camp name (EN) at booking time
+  snapshotSpotName       String? // booked spot/unit name at booking time (spot-level bookings)
+  snapshotUnitAmount     Decimal? @db.Decimal(12, 2) // [Financial] per-night price charged
+  snapshotSubtotalAmount Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotTaxRate        Decimal? @db.Decimal(5, 4) // [Financial] region VAT rate applied
+  snapshotTaxAmount      Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotVatInclusive   Boolean? // was the recorded total VAT-inclusive (false until S5 wires Country.vatRate)
+  snapshotTotalAmount    Decimal? @db.Decimal(12, 2) // [Financial] legal amount owed
+  snapshotCurrency       String? // [Financial] ISO 4217 charged
+  snapshotNights         Int?
+  snapshotCheckInTime    String? // local wall-clock at booking time
+  snapshotCheckOutTime   String?
+  snapshotTimezone       String? // IANA (defaults Asia/Bangkok until S5 per-camp tz)
+
   status BookingStatus @default(CONFIRMED)
 
   userId String
