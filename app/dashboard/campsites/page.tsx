@@ -202,7 +202,7 @@ export default function MyCampSitesPage() {
                                                 {camp.images?.length ? (
                                                     <img src={camp.images[0].url} className="w-full h-full object-cover" alt="" />
                                                 ) : (
-                                                    <Tent className="w-full h-full p-4 text-gray-300" />
+                                                    <Tent className="w-full h-full p-4 text-muted-foreground/40" />
                                                 )}
                                             </div>
                                         </td>
@@ -246,7 +246,7 @@ export default function MyCampSitesPage() {
                                                             variant="outline"
                                                             size="icon"
                                                             disabled={camp?.canUpdate === false}
-                                                            className="h-9 w-9 rounded-full border-gray-200 hover:text-primary hover:border-primary hover:bg-primary/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            className="h-11 w-11 rounded-full border-border hover:text-primary hover:border-primary hover:bg-primary/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </Button>
@@ -263,7 +263,7 @@ export default function MyCampSitesPage() {
                                                         size="icon"
                                                         onClick={() => handleDelete(camp.id)}
                                                         disabled={camp?.canDelete === false}
-                                                        className="h-9 w-9 rounded-full border-gray-200 hover:text-red-600 hover:border-red-600 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="h-11 w-11 rounded-full border-border hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>

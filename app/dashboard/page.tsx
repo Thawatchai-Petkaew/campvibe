@@ -116,7 +116,7 @@ export default function OperatorDashboard() {
             <h3 className="font-bold text-lg mb-2">Error</h3>
             <p>{error}</p>
             <Button onClick={() => window.location.reload()} className="mt-4 rounded-full">
-                Retry
+                {t.common.retry}
             </Button>
         </div>
     );
@@ -159,8 +159,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalRevenue}
                         </CardTitle>
-                        <div className="p-2 bg-green-50 rounded-lg">
-                            <DollarSign className="h-4 w-4 text-green-600" />
+                        <div className="p-2 bg-success/10 rounded-lg">
+                            <DollarSign className="h-4 w-4 text-success" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -168,7 +168,7 @@ export default function OperatorDashboard() {
                             {data?.stats?.totalRevenue == null ? "—" : formatCurrency(data.stats.totalRevenue)}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            +20.1% from last month
+                            {t.dashboard.revenueTrend}
                         </p>
                     </CardContent>
                 </Card>
@@ -177,8 +177,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalBookings}
                         </CardTitle>
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <TrendingUp className="h-4 w-4 text-blue-600" />
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <TrendingUp className="h-4 w-4 text-primary" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -193,8 +193,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.activeListings}
                         </CardTitle>
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                            <Tent className="h-4 w-4 text-purple-600" />
+                        <div className="p-2 bg-muted rounded-lg">
+                            <Tent className="h-4 w-4 text-muted-foreground" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -219,7 +219,7 @@ export default function OperatorDashboard() {
                     )}
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full min-w-[640px] text-left text-sm">
                         <thead>
                             <tr className="bg-muted/40 border-b border-border/60">
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.guest}</th>
@@ -227,7 +227,7 @@ export default function OperatorDashboard() {
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.booking.checkIn}</th>
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.total}</th>
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.status}</th>
-                                <th className="px-6 py-4 font-semibold text-muted-foreground text-right">Actions</th>
+                                <th className="px-6 py-4 font-semibold text-muted-foreground text-right">{t.dashboard.actions}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">
@@ -247,7 +247,7 @@ export default function OperatorDashboard() {
                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200 group">
                                     <td className="px-6 py-5 font-medium text-foreground">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                     {booking.user.name?.[0] || 'G'}
                                                 </div>
                                                 {booking.user.name || booking.user.email}
@@ -259,10 +259,10 @@ export default function OperatorDashboard() {
                                         <td className="px-6 py-5">
                                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider
                                         ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                                    ? 'bg-success/10 text-success border-success/30'
                                                     : booking.status === 'CANCELLED'
-                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'}
+                                                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                                        : 'bg-muted text-muted-foreground border-border'}
                                     `}>
                                                 {booking.status}
                                             </span>

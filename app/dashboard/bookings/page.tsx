@@ -336,7 +336,7 @@ export default function BookingsPage() {
             {/* Data Table */}
             <div className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full min-w-[640px] text-left text-sm">
                         <thead>
                             <tr className="bg-muted/40 border-b border-border/60">
                                 <th className="px-8 py-4 font-semibold text-muted-foreground">{t.dashboard.guest}</th>
@@ -375,7 +375,7 @@ export default function BookingsPage() {
                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200">
                                     <td className="px-8 py-5 font-medium text-foreground">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                     {booking.user.name?.[0] || booking.user.email[0].toUpperCase()}
                                                 </div>
                                                 <div>
@@ -398,10 +398,10 @@ export default function BookingsPage() {
                                         <td className="px-8 py-5">
                                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider
                                                 ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                                    ? 'bg-success/10 text-success border-success/30'
                                                     : booking.status === 'CANCELLED'
-                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'}
+                                                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                                        : 'bg-muted text-muted-foreground border-border'}
                                             `}>
                                                 {booking.status}
                                             </span>
@@ -424,7 +424,7 @@ export default function BookingsPage() {
                                                                 className="h-9 px-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
                                                                 <Check className="w-4 h-4 mr-1.5" />
-                                                                Confirm
+                                                                {t.dashboard.confirm}
                                                             </Button>
                                                         </PermissionTooltip>
                                                     )}
@@ -442,7 +442,7 @@ export default function BookingsPage() {
                                                             className="h-9 px-3 rounded-full border-border text-muted-foreground hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <X className="w-4 h-4 mr-1.5" />
-                                                            Cancel
+                                                            {t.dashboard.cancel}
                                                         </Button>
                                                     </PermissionTooltip>
                                                 </div>
@@ -459,9 +459,9 @@ export default function BookingsPage() {
                 {!loading && filteredBookings.length > 0 && (
                     <div className="px-6 py-4 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>Show</span>
-                            <Select 
-                                value={itemsPerPage.toString()} 
+                            <span>{t.dashboardBookings.show}</span>
+                            <Select
+                                value={itemsPerPage.toString()}
                                 onValueChange={(val) => {
                                     setItemsPerPage(Number(val));
                                     setCurrentPage(1);
@@ -476,14 +476,14 @@ export default function BookingsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <span>of {filteredBookings.length} entries</span>
+                            <span>{t.dashboardBookings.paginationOf} {filteredBookings.length} {t.dashboardBookings.paginationEntries}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg border-border"
+                                className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
                             >
@@ -493,9 +493,6 @@ export default function BookingsPage() {
                             {/* Page Numbers */}
                             <div className="flex items-center gap-1">
                                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    // Logic for showing pages: always show current window of pages
-                                    // Simple version: Show sliding window or just 1..5 if small
-                                    // Better version:
                                     let pageNum;
                                     if (totalPages <= 5) {
                                         pageNum = i + 1;
@@ -512,7 +509,7 @@ export default function BookingsPage() {
                                             key={pageNum}
                                             variant={currentPage === pageNum ? "default" : "outline"}
                                             size="sm"
-                                            className={`h-8 w-8 rounded-lg p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
+                                            className={`h-10 w-10 rounded-lg p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
                                             onClick={() => setCurrentPage(pageNum)}
                                         >
                                             {pageNum}
@@ -524,7 +521,7 @@ export default function BookingsPage() {
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg border-border"
+                                className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
                             >

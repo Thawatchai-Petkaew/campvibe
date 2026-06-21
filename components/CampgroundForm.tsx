@@ -23,6 +23,7 @@ import {
     Grid3x3
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { ImageUpload } from "@/components/ImageUpload";
 import { LogoUpload } from "@/components/LogoUpload";
 import { LocationPicker } from "@/components/LocationPicker";
@@ -40,6 +41,16 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import * as LucideIcons from "lucide-react";
@@ -59,6 +70,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     const [serverError, setServerError] = useState<string | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [logoError, setLogoError] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     const [formData, setFormData] = useState({
         nameTh: "",
@@ -253,11 +265,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         // @ts-ignore
                         const IconComp = LucideIcons[opt.icon] || LucideIcons.HelpCircle;
                         return (
-                            <div
+                            <button
                                 key={opt.code}
+                                type="button"
                                 onClick={() => toggleArrayItem(fieldName, opt.code)}
+                                aria-pressed={isSelected}
                                 className={cn(
-                                    "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
+                                    "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                     isSelected
                                         ? "bg-primary/10 border-primary"
                                         : "bg-card border-border hover:border-primary/50"
@@ -274,7 +288,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", isSelected ? "bg-primary" : "bg-muted")}>
                                     {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                 </div>
-                            </div>
+                            </button>
                         );
                     })}
                 </div>
@@ -284,6 +298,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setHasSubmitted(true);
         setIsLoading(true);
 
         try {
@@ -363,6 +378,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             });
 
             if (res.ok) {
+                setHasSubmitted(false);
+                setServerError(null);
                 router.push("/dashboard/campsites");
                 router.refresh();
             } else {
@@ -377,16 +394,22 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         }
     };
 
-    // Keep handleDelete same logic generally
     const handleDelete = async () => {
-        if (!confirm("Are you sure you want to delete this campground? This action cannot be undone.")) return;
         setIsLoading(true);
         try {
             const res = await fetch(`/api/campsites/${initialData.id}`, { method: 'DELETE' });
-            if (res.ok) { router.push("/dashboard/campgrounds"); router.refresh(); }
-            else { alert("Failed to delete"); }
-        } catch (e) { alert("Error deleting"); }
-        finally { setIsLoading(false); }
+            if (res.ok) {
+                router.push("/dashboard/campsites");
+                router.refresh();
+            } else {
+                toast.error(t.newCampground.deleteError);
+            }
+        } catch (e) {
+            toast.error(t.newCampground.deleteError);
+        } finally {
+            setIsLoading(false);
+            setDeleteDialogOpen(false);
+        }
     };
 
     if (optionsLoading) {
@@ -434,24 +457,31 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </div>
                         <div className="flex gap-2 shrink-0">
                             {isEditing && (
-                                <Button variant="destructive" onClick={handleDelete} disabled={isLoading} className="rounded-full shadow-none w-10 h-10 p-0 sm:w-auto sm:px-4 sm:h-10">
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => setDeleteDialogOpen(true)}
+                                    disabled={isLoading}
+                                    aria-label={t.newCampground.deleteAria}
+                                    className="rounded-full shadow-none w-10 h-10 p-0 sm:w-auto sm:px-4 sm:h-10"
+                                >
                                     <Trash2 className="w-4 h-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Delete</span>
+                                    <span className="hidden sm:inline">{t.common.delete}</span>
                                 </Button>
                             )}
                             <Button
                                 onClick={handleSubmit}
                                 disabled={isLoading}
+                                aria-busy={isLoading}
                                 className="px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 h-10"
                             >
-                                {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4 mr-2" /> {isEditing ? 'Update' : t.newCampground.saveListing}</>}
+                                {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4 mr-2" /> {isEditing ? t.newCampground.update : t.newCampground.saveListing}</>}
                             </Button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <form noValidate onSubmit={handleSubmit} className="w-full">
+            <form noValidate onSubmit={handleSubmit} className="w-full px-4 md:px-6 py-8">
                 {/* Server Error Banner (after submit) */}
                 {hasSubmitted && serverError && (
                     <div className="mb-6">
@@ -470,7 +500,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     {t.newCampground.basicInfo}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label={t.newCampground.nameTh}
@@ -506,16 +536,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     {t.newCampground.mediaBranding}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">Logo</Label>
+                                    <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.uploadLogo}</Label>
                                     <LogoUpload
                                         value={formData.logo}
                                         onChange={(url) => setFormData({ ...formData, logo: url })}
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">Photos</Label>
+                                    <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.common.photos}</Label>
                                     <ImageUpload
                                         value={formData.images}
                                         onChange={urls => setFormData({ ...formData, images: urls })}
@@ -523,11 +553,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     />
                                 </div>
                                 <InputField
-                                    label="Video URL"
+                                    label={t.newCampground.videoUrl}
                                     value={formData.videoUrl}
                                     onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
                                     className="rounded-full h-12"
-                                    placeholder="https://youtube.com/..."
+                                    placeholder={t.newCampground.videoUrlPlaceholder}
                                     error={formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl) ? "Invalid URL format" : undefined}
                                 />
                             </CardContent>
@@ -541,7 +571,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     {t.newCampground.location}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="space-y-2">
                                     <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.searchLocation}</Label>
                                     <LocationPicker
@@ -570,11 +600,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         placeholder={t.newCampground.provincePlaceholder}
                                     />
                                     <InputField
-                                        label="District"
+                                        label={t.newCampground.district}
                                         value={formData.district}
                                         onChange={e => setFormData({ ...formData, district: e.target.value })}
                                         className="rounded-full h-12"
-                                        placeholder="District name (optional)"
+                                        placeholder={t.newCampground.districtLabelPlaceholder}
                                     />
                                 </div>
 
@@ -636,7 +666,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     {t.newCampground.contactInfo}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label={t.newCampground.phoneNumber}
@@ -697,7 +727,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     {t.newCampground.additionalDetails}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="p-4 md:p-8 space-y-6">
                                 <InputField
                                     label={t.campground.minimumAge}
                                     type="number"
@@ -716,26 +746,26 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
-                                        label="Partner"
+                                        label={t.newCampground.partner}
                                         value={formData.partner}
                                         onChange={e => setFormData({ ...formData, partner: e.target.value })}
                                         className="rounded-full h-12"
-                                        placeholder="Partner name"
+                                        placeholder={t.newCampground.partnerPlaceholder}
                                     />
                                     <InputField
-                                        label="National Park"
+                                        label={t.newCampground.nationalPark}
                                         value={formData.nationalPark}
                                         onChange={e => setFormData({ ...formData, nationalPark: e.target.value })}
                                         className="rounded-full h-12"
-                                        placeholder="National park name"
+                                        placeholder={t.newCampground.nationalParkPlaceholder}
                                     />
                                 </div>
                                 <InputField
-                                    label="Tags (comma-separated)"
-                                    value={formData.tags.join(', ')} 
-                                    onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} 
-                                    className="rounded-full h-12" 
-                                    placeholder="tag1, tag2, tag3"
+                                    label={t.newCampground.tags}
+                                    value={formData.tags.join(', ')}
+                                    onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
+                                    className="rounded-full h-12"
+                                    placeholder={t.newCampground.tagsPlaceholder}
                                 />
                                 {formData.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-2">
@@ -762,7 +792,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {renderOptionGroup(t.filter["External facility"], "External facility", "externalFacilities")}
                                 {renderOptionGroup(t.filter["Equipment for rent"], "Equipment for rent", "equipment")}
                                 {renderOptionGroup(t.filter["Access type"], "Access type", "accessTypes")}
-                                {renderOptionGroup("Accommodation Types", "Accommodation type", "accommodationTypes")}
+                                {renderOptionGroup(t.filter["Accommodation type"], "Accommodation type", "accommodationTypes")}
                                 {renderOptionGroup(t.filter["Activity"], "Activity", "activities")}
                                 {renderOptionGroup(t.filter["Terrain"], "Terrain", "terrain")}
                             </CardContent>
@@ -785,11 +815,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         {masterOptions['Campground type']?.map(opt => {
                                             const isSelected = formData.campSiteType.includes(opt.code);
                                             return (
-                                                <div
+                                                <button
                                                     key={opt.code}
+                                                    type="button"
                                                     onClick={() => toggleArrayItem('campSiteType', opt.code)}
+                                                    aria-pressed={isSelected}
                                                     className={cn(
-                                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                                         isSelected
                                                             ? "bg-primary/10 border-primary"
                                                             : "bg-card border-border hover:border-primary/50"
@@ -803,7 +835,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", isSelected ? "bg-primary" : "bg-muted")}>
                                                         {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                                     </div>
-                                                </div>
+                                                </button>
                                             );
                                         })}
                                     </div>
@@ -818,10 +850,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
                                 {/* Ownership Type - Private */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, ownershipType: "PRIVATE" })}
+                                    aria-pressed={formData.ownershipType === "PRIVATE"}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.ownershipType === "PRIVATE"
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -835,22 +869,24 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             {t.newCampground.privateDesc}
                                         </TruncatedLabel>
                                     </div>
-                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3", 
-                                        formData.ownershipType === "PRIVATE" 
-                                            ? "bg-primary border-primary" 
+                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                        formData.ownershipType === "PRIVATE"
+                                            ? "bg-primary border-primary"
                                             : "bg-transparent border-border"
                                     )}>
                                         {formData.ownershipType === "PRIVATE" && (
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                </div>
-                                
+                                </button>
+
                                 {/* Ownership Type - National Park */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, ownershipType: "NATIONAL_PARK" })}
+                                    aria-pressed={formData.ownershipType === "NATIONAL_PARK"}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.ownershipType === "NATIONAL_PARK"
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -864,16 +900,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             {t.newCampground.nationalParkDesc}
                                         </TruncatedLabel>
                                     </div>
-                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3", 
-                                        formData.ownershipType === "NATIONAL_PARK" 
-                                            ? "bg-primary border-primary" 
+                                    <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                        formData.ownershipType === "NATIONAL_PARK"
+                                            ? "bg-primary border-primary"
                                             : "bg-transparent border-border"
                                     )}>
                                         {formData.ownershipType === "NATIONAL_PARK" && (
                                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                         )}
                                     </div>
-                                </div>
+                                </button>
                             </CardContent>
                         </Card>
 
@@ -884,10 +920,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
                                 {/* Free Toggle */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, isFree: !formData.isFree })}
+                                    aria-pressed={formData.isFree}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.isFree
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -904,7 +942,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0 ml-3", formData.isFree ? "bg-primary" : "bg-muted")}>
                                         {formData.isFree && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
+                                </button>
 
                                 {/* Pricing (only show when not free) */}
                                 {!formData.isFree && (
@@ -947,10 +985,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
                                 {/* Use Spot View Toggle */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, useSpotView: !formData.useSpotView })}
+                                    aria-pressed={formData.useSpotView}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.useSpotView
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -968,7 +1008,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.useSpotView ? "bg-primary" : "bg-muted")}>
                                         {formData.useSpotView && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
+                                </button>
 
                                 {/* CTA to Create Spots when useSpotView is enabled */}
                                 {formData.useSpotView && (
@@ -980,7 +1020,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 <Link href={isEditing ? `/dashboard/campsites/${initialData.id}/spots` : "#"} onClick={(e) => {
                                                     if (!isEditing) {
                                                         e.preventDefault();
-                                                        alert("Please save the camp site first before creating spots");
+                                                        toast.error(t.newCampground.saveBeforeSpots);
                                                     }
                                                 }}>
                                                     <Button
@@ -1094,10 +1134,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.statusVisibility}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, isVerified: !formData.isVerified })}
+                                    aria-pressed={formData.isVerified}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.isVerified
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -1114,11 +1156,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isVerified ? "bg-primary" : "bg-muted")}>
                                         {formData.isVerified && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
-                                <div
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                                    aria-pressed={formData.isActive}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.isActive
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -1135,11 +1179,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isActive ? "bg-primary" : "bg-muted")}>
                                         {formData.isActive && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
-                                <div
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, isPublished: !formData.isPublished })}
+                                    aria-pressed={formData.isPublished}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.isPublished
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -1156,13 +1202,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isPublished ? "bg-primary" : "bg-muted")}>
                                         {formData.isPublished && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
-                                
+                                </button>
+
                                 {/* Pet Friendly Toggle */}
-                                <div
+                                <button
+                                    type="button"
                                     onClick={() => setFormData({ ...formData, petFriendly: !formData.petFriendly })}
+                                    aria-pressed={formData.petFriendly}
                                     className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all",
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                                         formData.petFriendly
                                             ? "bg-primary/10 border-primary"
                                             : "bg-card border-border hover:border-primary/50"
@@ -1179,13 +1227,36 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.petFriendly ? "bg-primary" : "bg-muted")}>
                                         {formData.petFriendly && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
-                                </div>
+                                </button>
                             </CardContent>
                         </Card>
 
                     </div>
                 </div>
             </form>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t.newCampground.confirmDeleteDesc}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full">
+                            {t.dashboard.cancel}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="rounded-full bg-destructive hover:bg-destructive/90"
+                        >
+                            {t.common.delete}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

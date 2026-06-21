@@ -121,7 +121,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                             <span className="truncate">
                                 {selectedLocation
                                     ? getDisplayName(selectedLocation)
-                                    : language === 'th' ? 'ค้นหาสถานที่ (จังหวัด, อำเภอ)' : 'Search location (Province, District)'}
+                                    : language === 'th' ? t.locationPicker.searchPlaceholderTh : t.locationPicker.searchPlaceholder}
                             </span>
                         </div>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -140,7 +140,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                         </div>
                         <CommandList className="max-h-[300px]">
                             <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                                {loading ? '...' : language === 'th' ? 'ไม่พบข้อมูล' : 'No location found.'}
+                                {loading ? '...' : t.locationPicker.noResults}
                             </CommandEmpty>
                             <CommandGroup>
                                 {locations.map((loc) => (
@@ -169,7 +169,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                                         {language === 'th' ? loc.provinceName : loc.provinceNameEn}
                                                     </span>
                                                     <span className="text-xs text-muted-foreground italic">
-                                                        {language === 'th' ? 'ทั้งจังหวัด' : 'Whole Province'}
+                                                        {t.locationPicker.wholeProvince}
                                                     </span>
                                                 </>
                                             )}
