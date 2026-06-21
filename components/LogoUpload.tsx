@@ -72,7 +72,7 @@ export function LogoUpload({
                     <button
                         type="button"
                         onClick={handleRemove}
-                        className="absolute top-2 right-2 p-1.5 rounded-full bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition shadow-sm"
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
                     >
                         <X className="w-4 h-4" />
                     </button>
