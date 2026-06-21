@@ -264,12 +264,15 @@ export function NotificationCenter({
         <Button
           variant="ghost"
           size="icon"
-          className={cn("relative rounded-full", className)}
+          className={cn("relative rounded-full h-11 w-11", className)}
           aria-label={t.settings?.notifications || "Notifications"}
         >
           <Bell className="w-5 h-5" />
           {counts.total > 0 && (
-            <span className="absolute top-0 right-0 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center">
+            <span
+              className="absolute top-0 right-0 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center"
+              aria-label={(t as any).notifications?.unreadCountAria?.replace('{count}', String(counts.total)) || `${counts.total} unread`}
+            >
               {counts.total > 9 ? "9+" : counts.total}
             </span>
           )}
@@ -278,7 +281,8 @@ export function NotificationCenter({
 
       <DropdownMenuContent
         align="end"
-        className="w-[380px] rounded-2xl border border-border bg-card shadow-2xl mt-2 p-0 overflow-hidden"
+        sideOffset={8}
+        className="w-[calc(100vw-2rem)] sm:w-[380px] rounded-2xl border border-border bg-card shadow-2xl p-0 overflow-hidden"
       >
         <div className="p-4 pb-3 border-b border-border/60">
           <div className="flex items-start justify-between gap-3">
@@ -295,7 +299,7 @@ export function NotificationCenter({
                 <span className="truncate">{(t as any).common?.action || "Action"}</span>
               </TabsTrigger>
               <TabsTrigger value="all" className="rounded-full px-2 text-xs min-w-0">
-                <span className="truncate">{(t as any).common?.all || "All"}</span>
+                <span className="truncate">{t.common.all}</span>
               </TabsTrigger>
               <TabsTrigger value="bookings" className="rounded-full px-2 text-xs min-w-0">
                 <span className="truncate">{t.dashboard?.bookings || "Bookings"}</span>
@@ -324,7 +328,7 @@ export function NotificationCenter({
                   {filtered.map((item) => {
                     if (item.type === "INVITE") {
                       return (
-                        <div key={item.id} className="px-4 py-3 border-t border-border/50">
+                        <div key={item.id} className="px-4 py-2 border-t border-border/50">
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5 w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                               <Users className="w-4 h-4" />
@@ -347,7 +351,7 @@ export function NotificationCenter({
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  className="rounded-full w-full justify-center gap-2"
+                                  className="h-9 rounded-full w-full justify-center gap-2"
                                   onClick={() => handleInviteAction(item.id, "DECLINE")}
                                 >
                                   <X className="w-4 h-4" />
@@ -356,7 +360,7 @@ export function NotificationCenter({
                                 <Button
                                   type="button"
                                   size="sm"
-                                  className="rounded-full w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                  className="h-9 rounded-full w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                                   onClick={() => handleInviteAction(item.id, "ACCEPT")}
                                 >
                                   <Check className="w-4 h-4" />
@@ -375,12 +379,12 @@ export function NotificationCenter({
                       const isCancelled = status === "CANCELLED";
 
                       return (
-                        <div key={item.id} className="px-4 py-3 border-t border-border/50">
+                        <div key={item.id} className="px-4 py-2 border-t border-border/50">
                           <div className="flex items-start gap-3">
                             <div
                               className={cn(
                                 "mt-0.5 w-9 h-9 rounded-full flex items-center justify-center",
-                                isConfirmed && "bg-emerald-600/10 text-emerald-700",
+                                isConfirmed && "bg-success/10 text-success",
                                 isCancelled && "bg-destructive/10 text-destructive",
                                 !isConfirmed && !isCancelled && "bg-muted text-muted-foreground"
                               )}
@@ -402,13 +406,13 @@ export function NotificationCenter({
                               </div>
                               <div className="text-xs text-muted-foreground mt-1">
                                 {(t as any).common?.status || "Status"}:{" "}
-                                <span className={cn("font-semibold", isConfirmed && "text-emerald-700", isCancelled && "text-destructive")}>
+                                <span className={cn("font-semibold", isConfirmed && "text-success", isCancelled && "text-destructive")}>
                                   {status}
                                 </span>
                               </div>
                               <div className="mt-3 flex items-center justify-end">
                                 <Link href={item.href}>
-                                  <Button variant="outline" size="sm" className="rounded-full">
+                                  <Button variant="outline" size="sm" className="h-9 rounded-full">
                                     {(t as any).common?.view || "View"}
                                   </Button>
                                 </Link>
@@ -421,9 +425,9 @@ export function NotificationCenter({
 
                     const dateLabel = safeDateLabel(item.checkInDate, item.checkOutDate);
                     return (
-                      <div key={item.id} className="px-4 py-3 border-t border-border/50">
+                      <div key={item.id} className="px-4 py-2 border-t border-border/50">
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 w-9 h-9 rounded-full bg-secondary/15 text-secondary flex items-center justify-center">
+                          <div className="mt-0.5 w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
                             <ClipboardList className="w-4 h-4" />
                           </div>
                           <div className="flex-1 min-w-0 flex items-start justify-between gap-3">

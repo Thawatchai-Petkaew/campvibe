@@ -74,6 +74,7 @@
             "newBooking": "New Booking",
             "actionRequired": "Action required",
             "action": "Action",
+            "all": "All",
             "refresh": "Refresh",
             "review": "Review",
             "checkBackLater": "Check back later.",
@@ -82,6 +83,9 @@
             "view": "View",
             "delete": "Delete",
             "retry": "Try again"
+        },
+        "notifications": {
+            "unreadCountAria": "{count} unread notifications"
         },
         "categories": {
             "all": "All",
@@ -146,7 +150,17 @@
             "phonePlaceholder": "Enter your phone number",
             "save": "Save Changes",
             "saved": "Profile saved successfully",
-            "memberSince": "Member since"
+            "memberSince": "Member since",
+            "changeAvatarAria": "Change profile photo",
+            "emailFormatError": "Please enter a valid email address.",
+            "failedToLoad": "Could not load your profile. Please try again.",
+            "invalidImageType": "Please select an image file (JPG, PNG, or WebP).",
+            "imageTooLarge": "Image must be smaller than 5 MB.",
+            "imageUploadSuccess": "Profile photo updated",
+            "imageUploadFailed": "Could not upload photo. Please try again.",
+            "roleCamper": "Camper",
+            "roleOperator": "Operator",
+            "roleAdmin": "Admin"
         },
         "dashboard": {
             "hostPanel": "Host Panel",
@@ -342,11 +356,18 @@
             "areYouSureCancel": "Are you sure you want to cancel this booking?",
             "bookingCancelledSuccess": "Booking cancelled successfully",
             "failedToCancel": "Failed to cancel booking",
-            "errorOccurred": "An error occurred",
+            "errorOccurred": "Something went wrong. Please try again.",
             "upcoming": "Upcoming",
             "past": "Past",
             "viewDetails": "View details",
-            "cancelBooking": "Cancel booking"
+            "cancelBooking": "Cancel booking",
+            "exploreButton": "Explore Campgrounds",
+            "totalPaid": "Total Paid",
+            "cancelBookingAriaLabel": "Cancel this booking",
+            "confirmCancelTitle": "Cancel this booking?",
+            "confirmCancelDescription": "This action cannot be undone. Your booking will be cancelled and any refund will be processed according to the cancellation policy.",
+            "confirmCancelAction": "Yes, cancel booking",
+            "keepBooking": "Keep booking"
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -653,6 +674,7 @@
             "newBooking": "การจองใหม่",
             "actionRequired": "ต้องดำเนินการ",
             "action": "ต้องทำ",
+            "all": "ทั้งหมด",
             "refresh": "รีเฟรช",
             "review": "ตรวจสอบ",
             "checkBackLater": "กลับมาตรวจสอบอีกครั้งภายหลัง",
@@ -661,6 +683,9 @@
             "view": "ดู",
             "delete": "ลบ",
             "retry": "ลองอีกครั้ง"
+        },
+        "notifications": {
+            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
         },
         "categories": {
             "all": "ทั้งหมด",
@@ -725,7 +750,17 @@
             "phonePlaceholder": "กรอกหมายเลขโทรศัพท์",
             "save": "บันทึกการเปลี่ยนแปลง",
             "saved": "บันทึกโปรไฟล์สำเร็จ",
-            "memberSince": "เป็นสมาชิกตั้งแต่"
+            "memberSince": "เป็นสมาชิกตั้งแต่",
+            "changeAvatarAria": "เปลี่ยนรูปโปรไฟล์",
+            "emailFormatError": "กรุณากรอกอีเมลที่ถูกต้อง",
+            "failedToLoad": "โหลดโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "invalidImageType": "กรุณาเลือกไฟล์รูปภาพ (JPG, PNG หรือ WebP)",
+            "imageTooLarge": "รูปภาพต้องมีขนาดไม่เกิน 5 MB",
+            "imageUploadSuccess": "อัปเดตรูปโปรไฟล์แล้ว",
+            "imageUploadFailed": "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "roleCamper": "นักแคมป์",
+            "roleOperator": "ผู้ดำเนินการ",
+            "roleAdmin": "ผู้ดูแลระบบ"
         },
         "dashboard": {
             "hostPanel": "แผงโฮสต์",
@@ -921,11 +956,18 @@
             "areYouSureCancel": "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการจองนี้?",
             "bookingCancelledSuccess": "ยกเลิกการจองสำเร็จ",
             "failedToCancel": "ยกเลิกการจองไม่สำเร็จ",
-            "errorOccurred": "เกิดข้อผิดพลาด",
+            "errorOccurred": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
             "upcoming": "กำลังจะมาถึง",
             "past": "ที่ผ่านมา",
             "viewDetails": "ดูรายละเอียด",
-            "cancelBooking": "ยกเลิกการจอง"
+            "cancelBooking": "ยกเลิกการจอง",
+            "exploreButton": "ไปค้นหาเลย",
+            "totalPaid": "ยอดชำระทั้งหมด",
+            "cancelBookingAriaLabel": "ยกเลิกการจองนี้",
+            "confirmCancelTitle": "ยกเลิกการจองนี้?",
+            "confirmCancelDescription": "การดำเนินการนี้ไม่สามารถยกเลิกได้ การจองของคุณจะถูกยกเลิกและการคืนเงินจะดำเนินการตามนโยบายการยกเลิก",
+            "confirmCancelAction": "ยืนยัน ยกเลิกการจอง",
+            "keepBooking": "เก็บการจองไว้"
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",
