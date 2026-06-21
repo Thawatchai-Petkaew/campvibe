@@ -10,6 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath } from "lucide-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -32,6 +33,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const [guests, setGuests] = useState(1);
     const [isReserving, setIsReserving] = useState(false);
+    const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
     const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -119,6 +121,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const handleReserve = async () => {
         if (!checkIn || !checkOut) {
+            setHasAttemptedReserve(true);
             import("sonner").then(({ toast }) => toast.error(t.newCampground.pleaseSelectDates));
             return;
         }
@@ -275,7 +278,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground underline cursor-pointer">
                             <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 fill-black text-black" />
+                                <Star className="w-4 h-4 fill-foreground text-foreground" />
                                 <span className="font-semibold text-foreground">4.8</span>
                                 <span>(12 {t.common.reviews})</span>
                             </div>
@@ -310,7 +313,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                             className="w-full h-full object-cover cursor-pointer"
                             onClick={() => openGallery(0)}
                         />
-                        <div className="absolute top-4 right-4 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
                             1 / {images.length}
                         </div>
                             <Button
@@ -524,14 +527,14 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                     {/* Right Column: Booking Widget */}
                     <div className="md:col-span-1 relative">
-                        <div className="sticky top-28 border border-border rounded-[24px] p-6 shadow-xl shadow-muted bg-card">
+                        <div className="sticky top-28 border border-border rounded-[24px] p-6 shadow-lg shadow-foreground/5 bg-card">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
                                     <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
                                     <span className="text-muted-foreground">{t.common.night}</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm">
-                                    <Star className="w-3.5 h-3.5 fill-black" />
+                                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
                                     <span className="font-semibold">4.8</span>
                                     <span className="text-muted-foreground/60">·</span>
                                     <span className="text-muted-foreground underline">12 {t.common.reviews}</span>
@@ -620,10 +623,22 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                             <Button
                                 onClick={handleReserve}
                                 disabled={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-full transition mb-4 text-lg"
+                                aria-busy={isReserving}
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-full transition mb-2 text-lg"
                             >
-                                {isReserving ? "Reserving..." : t.common.reserve}
+                                {isReserving ? (
+                                    <>
+                                        <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
+                                        {t.newCampground.reserving}
+                                    </>
+                                ) : t.common.reserve}
                             </Button>
+
+                            {hasAttemptedReserve && (!checkIn || !checkOut) && (
+                                <p className="text-destructive text-xs text-center mb-2">
+                                    {t.booking.selectDatesFirst}
+                                </p>
+                            )}
 
                             <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
 

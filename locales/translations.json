@@ -131,7 +131,8 @@
             "totalBeforeTaxes": "Total before taxes",
             "nights": "nights",
             "fees": "Fees",
-            "total": "Total"
+            "total": "Total",
+            "selectDatesFirst": "Please choose your check-in and check-out dates first."
         },
         "profile": {
             "title": "My Profile",
@@ -294,7 +295,16 @@
             "editCampground": "Edit Campground",
             "allPhotos": "All photos",
             "showAllPhotos": "Show all photos",
-            "getDirections": "Get Directions"
+            "getDirections": "Get Directions",
+            "reserving": "Reserving..."
+        },
+        "gallery": {
+            "viewerTitle": "Photo viewer",
+            "closeViewer": "Close photo viewer",
+            "previousImage": "Previous photo",
+            "nextImage": "Next photo",
+            "imageOf": "{n} of {total}",
+            "openGallery": "Open photo gallery"
         },
         "bookings": {
             "myBookings": "My Bookings",
@@ -654,7 +664,8 @@
             "totalBeforeTaxes": "ยอดรวมก่อนภาษี",
             "nights": "คืน",
             "fees": "ค่าธรรมเนียม",
-            "total": "ยอดรวม"
+            "total": "ยอดรวม",
+            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
@@ -817,7 +828,16 @@
             "editCampground": "แก้ไขแคมป์กราวด์",
             "allPhotos": "รูปภาพทั้งหมด",
             "showAllPhotos": "แสดงรูปภาพทั้งหมด",
-            "getDirections": "ดูเส้นทาง"
+            "getDirections": "ดูเส้นทาง",
+            "reserving": "กำลังจอง..."
+        },
+        "gallery": {
+            "viewerTitle": "ดูรูปภาพ",
+            "closeViewer": "ปิดหน้าดูรูปภาพ",
+            "previousImage": "รูปก่อนหน้า",
+            "nextImage": "รูปถัดไป",
+            "imageOf": "{n} จาก {total}",
+            "openGallery": "เปิดแกลเลอรีรูปภาพ"
         },
         "bookings": {
             "myBookings": "การจองของฉัน",
