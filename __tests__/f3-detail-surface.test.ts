@@ -31,12 +31,10 @@
  *   AC-i18n-4      gallery.imageOf contains {n} and {total} in both locales
  *   AC-i18n-5      No em-dash in Thai gallery / newCampground / booking copy
  *   AC-i18n-6      No hardcoded English copy in ImageGallery (all text via t.gallery.*)
- *   AC-defect-D1   gallery.openGallery i18n key is UNUSED in components
- *                  (defect: "Show all photos" buttons use t.newCampground.showAllPhotos/allPhotos
- *                   instead of the purpose-built t.gallery.openGallery key)
- *   AC-defect-D2   Mobile counter is hardcoded "1 / {images.length}" — not using t.gallery.imageOf
- *   AC-defect-D3   Hero grid images use hardcoded alt text ("hero-mobile","main","sub 1-4")
- *                  instead of descriptive i18n strings
+ *   AC-defect-D1   gallery.openGallery i18n key is NOW used in components [FIXED CAM-108]
+ *                  Both show-all-photos buttons use t.gallery.openGallery.
+ *   AC-defect-D2   Mobile counter uses t.gallery.imageOf template [FIXED CAM-108]
+ *   AC-defect-D3   Hero images: main/mobile use alt={name}; sub-grid decorative alt="" [FIXED CAM-108]
  */
 
 import { describe, it, expect } from "vitest";
@@ -485,12 +483,10 @@ describe("i18n: ImageGallery viewer has no hardcoded English copy", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-defect-D1  gallery.openGallery i18n key is UNUSED in components
-// This test DOCUMENTS and PROVES the defect: the spec-required gallery.openGallery key
-// is defined in translations but never consumed. "Show all photos" buttons use
-// t.newCampground.showAllPhotos / t.newCampground.allPhotos instead.
+// AC-defect-D1  gallery.openGallery i18n key — FIXED (CAM-108)
+// Both "show all photos" buttons now use t.gallery.openGallery.
 // ─────────────────────────────────────────────────────────────
-describe("defect-D1: gallery.openGallery i18n key is unused [DEFECT]", () => {
+describe("defect-D1: gallery.openGallery i18n key is used [FIXED]", () => {
     it("AC-defect-D1: gallery.openGallery key exists in EN locale (it is defined)", () => {
         expect(translations.en.gallery.openGallery).toBeTruthy();
     });
@@ -499,49 +495,41 @@ describe("defect-D1: gallery.openGallery i18n key is unused [DEFECT]", () => {
         expect(translations.th.gallery.openGallery).toBeTruthy();
     });
 
-    it("AC-defect-D1 [DEFECT]: CampgroundDetailClient does NOT use t.gallery.openGallery for show-all-photos buttons", () => {
-        // The spec requires t.gallery.openGallery for the gallery-open action.
-        // Actual code uses t.newCampground.showAllPhotos and t.newCampground.allPhotos.
-        // This test asserts the current broken behaviour to document the defect.
-        expect(detailSrc).not.toMatch(/t\.gallery\.openGallery/);
+    it("AC-defect-D1 [FIXED]: CampgroundDetailClient uses t.gallery.openGallery for show-all-photos buttons", () => {
+        // Both buttons (mobile + desktop) must use the spec-required key.
+        expect(detailSrc).toMatch(/t\.gallery\.openGallery/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-defect-D2  Mobile counter is hardcoded, not using i18n imageOf template
+// AC-defect-D2  Mobile counter uses t.gallery.imageOf — FIXED (CAM-108)
 // ─────────────────────────────────────────────────────────────
-describe("defect-D2: mobile hero counter hardcoded [DEFECT]", () => {
-    it("AC-defect-D2 [DEFECT]: CampgroundDetailClient mobile counter uses hardcoded '1 / {images.length}' instead of t.gallery.imageOf", () => {
-        // Spec requires the mobile counter to use the same gallery.imageOf i18n template
-        // so it reads "1 of 5" in EN and "1 จาก 5" in TH.
-        // Current code has the raw string: 1 / {images.length}
-        expect(detailSrc).toMatch(/1 \/ \{images\.length\}/);
+describe("defect-D2: mobile hero counter uses i18n template [FIXED]", () => {
+    it("AC-defect-D2 [FIXED]: CampgroundDetailClient mobile counter does NOT use hardcoded '1 / {images.length}'", () => {
+        // Hardcoded slash-separator must be gone.
+        expect(detailSrc).not.toMatch(/1 \/ \{images\.length\}/);
     });
 
-    it("AC-defect-D2 [DEFECT]: mobile counter does NOT use t.gallery.imageOf", () => {
-        // If this ever passes (no hardcoded string found), the defect is fixed
-        // but the matching test above would also need to be updated.
-        // For now both tests document the defect state.
-        const mobileCounterBlock = detailSrc.match(/md:hidden[\s\S]{0,500}?<\/div>/);
-        if (mobileCounterBlock) {
-            expect(mobileCounterBlock[0]).not.toMatch(/t\.gallery\.imageOf/);
-        }
+    it("AC-defect-D2 [FIXED]: mobile counter uses t.gallery.imageOf template", () => {
+        // The counter must be rendered via the i18n template so it localises correctly.
+        expect(detailSrc).toMatch(/t\.gallery\.imageOf/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-defect-D3  Hero grid images have hardcoded alt text
+// AC-defect-D3  Hero grid images alt text — FIXED (CAM-108)
+// Main + mobile hero use alt={name}; sub-grid images are decorative (alt="").
 // ─────────────────────────────────────────────────────────────
-describe("defect-D3: hero grid image alt text hardcoded [DEFECT]", () => {
-    it("AC-defect-D3 [DEFECT]: main desktop hero image has hardcoded alt='main'", () => {
-        expect(detailSrc).toMatch(/alt="main"/);
+describe("defect-D3: hero grid image alt text descriptive [FIXED]", () => {
+    it("AC-defect-D3 [FIXED]: main desktop hero image does NOT have hardcoded alt='main'", () => {
+        expect(detailSrc).not.toMatch(/alt="main"/);
     });
 
-    it("AC-defect-D3 [DEFECT]: mobile hero image has hardcoded alt='hero-mobile'", () => {
-        expect(detailSrc).toMatch(/alt="hero-mobile"/);
+    it("AC-defect-D3 [FIXED]: mobile hero image does NOT have hardcoded alt='hero-mobile'", () => {
+        expect(detailSrc).not.toMatch(/alt="hero-mobile"/);
     });
 
-    it("AC-defect-D3 [DEFECT]: sub-grid images have hardcoded alt='sub 1', 'sub 2', etc.", () => {
-        expect(detailSrc).toMatch(/alt="sub \d"/);
+    it("AC-defect-D3 [FIXED]: sub-grid images do NOT have hardcoded alt='sub N'", () => {
+        expect(detailSrc).not.toMatch(/alt="sub \d"/);
     });
 });
