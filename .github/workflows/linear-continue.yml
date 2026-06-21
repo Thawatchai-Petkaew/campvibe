@@ -50,9 +50,10 @@ jobs:
       - name: Confirm a gate is actually cleared
         id: gates
         run: |
-          node scripts/linear-sync.mjs gates
-          echo "code=$?" >> "$GITHUB_OUTPUT"
-        continue-on-error: true
+          # `gates` exits 10 on purpose when a gate is cleared. Capture it WITHOUT letting
+          # bash -e abort before we read $? (the bug that used to skip continuation).
+          node scripts/linear-sync.mjs gates && code=0 || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
 
       - name: No cleared gate → stop
         if: steps.gates.outputs.code != '10'
