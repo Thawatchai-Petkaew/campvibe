@@ -109,7 +109,7 @@ export default function MyBookingsPage() {
                                         {/* Image Section */}
                                         <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
                                             <img
-                                                src={booking.campSite?.images?.split(',')[0] || booking.campground?.images?.split(',')[0]}
+                                                src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
                                                 alt={booking.campSite?.nameEn || booking.campground?.nameEn}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
@@ -129,7 +129,7 @@ export default function MyBookingsPage() {
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h3 className="text-xl font-bold text-foreground">
-                                                            {language === 'th' ? (booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.campSite?.nameEn || booking.campground?.nameEn)}
+                                                            {language === 'th' ? (booking.snapshotCampName || booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.snapshotCampNameEn || booking.campSite?.nameEn || booking.campground?.nameEn || booking.snapshotCampName)}
                                                         </h3>
                                                         <div className="flex items-center gap-1.5 text-muted-foreground text-sm mt-1">
                                                             <MapPin className="w-3.5 h-3.5" />

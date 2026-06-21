@@ -6,6 +6,7 @@ import { SortDropdown } from "@/components/SortDropdown";
 import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
 import { prisma } from "@/lib/prisma";
+import { serializeDecimals } from "@/lib/serialize";
 import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
 
@@ -87,6 +88,7 @@ export default async function Home({ searchParams }: HomeProps) {
         operator: {
           select: { name: true }
         },
+        images: { orderBy: { sortOrder: 'asc' } },
         _count: {
           select: { reviews: true }
         }
@@ -139,7 +141,7 @@ export default async function Home({ searchParams }: HomeProps) {
           />
         ) : (
           <CampgroundGrid
-            camps={campSites.map((c: any) => ({
+            camps={campSites.map((c: any) => serializeDecimals({
               ...c,
               createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
             }))}

@@ -79,9 +79,7 @@ export async function POST() {
                     nameThSlug: slugify(nameTh),
                     description: `Experience the beauty of ${nameEn} in the heart of ${province}.`,
                     campSiteType: getRandom(CG_TYPES),
-                    accessTypes: getRandomCSV(ACCESS_TYPES, 2),
                     accommodationTypes: getRandomCSV(ACCOM_TYPES, 2),
-                    facilities: getRandomCSV(FACILITIES, 4),
                     latitude: location.lat!,
                     longitude: location.lon!,
                     checkInTime: '14:00',
@@ -106,7 +104,7 @@ export async function POST() {
                         name: `Spot ${j}`,
                         maxCampers: 2 + Math.floor(Math.random() * 6),
                         maxTents: 1 + Math.floor(Math.random() * 2),
-                        pricePerNight: (campSite.priceLow || 300) + (j * 50),
+                        pricePerNight: Number(campSite.priceLow ?? 300) + (j * 50),
                         campSiteId: campSite.id,
                     }
                 });

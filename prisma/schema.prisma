@@ -47,40 +47,98 @@ enum Permission {
   FINANCIAL_VIEW
 }
 
+// Domain state enums — closed sets (see docs/adr/ADR-003). Open taxonomies
+// (facilities, activities, terrain, campSiteType) stay in MasterData (normalized in S4).
+enum UserRole {
+  ADMIN
+  OPERATOR
+  CAMPER
+}
+
+enum BusinessType {
+  INDIVIDUAL
+  COMPANY
+  PARTNERSHIP
+}
+
+enum KycStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+  RESUBMIT
+}
+
+enum BookingMethod {
+  ONLI // Online
+  ONCA // On Call
+  ONST // On Site
+}
+
+enum OwnershipType {
+  PRIVATE
+  NATIONAL_PARK
+}
+
+enum ViewType {
+  GENERAL
+  RIVER
+  MOUNTAIN
+  LAKE
+  FOREST
+  BEACH
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+  COMPLETED
+}
+
+// Field classification convention (Atomic Data Framework — docs/adr): sensitive fields tagged
+// inline [PII] / [Financial] / [Geo] (PDPA-sensitive ⊂ PII); untagged = [Public].
+// Business Sets carry deletedAt (soft-delete) + version (optimistic concurrency).
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
-  password String? // Hashed password for credentials auth
-  name     String?
+  id       String   @id @default(uuid())
+  email    String   @unique // [PII]
+  password String? // Hashed password for credentials auth [PII]
+  name     String? // [PII]
   image    String? // Profile image URL
-  phone    String? // Contact phone number
-  role     String  @default("CAMPER") // 'ADMIN', 'OPERATOR', 'CAMPER'
+  phone    String? // Contact phone number [PII]
+  role     UserRole @default(CAMPER)
 
   // Host Registration & KYC
-  isHostRegistered   Boolean   @default(false)
+  isHostRegistered   Boolean    @default(false)
   hostRegisteredAt   DateTime?
-  kycStatus          String? // "PENDING", "SUBMITTED", "APPROVED", "REJECTED", "RESUBMIT"
+  kycStatus          KycStatus?
   kycSubmittedAt     DateTime?
   kycApprovedAt      DateTime?
   kycRejectedAt      DateTime?
   kycRejectionReason String?
   kycReviewedBy      String?
-  kycDocuments       String? // JSON array
+  kycDocuments       String? // JSON array [PII]
 
   // Business Information
   businessName    String?
-  businessType    String? // "INDIVIDUAL", "COMPANY", "PARTNERSHIP"
-  taxId           String?
-  businessAddress String?
+  businessType    BusinessType?
+  taxId           String? // [PII]
+  businessAddress String? // [PII]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
 
   campSites       CampSite[] // Operator's camp sites (legacy - as owner)
   teamMemberships CampSiteTeamMember[] // Team memberships across camp sites
   reviews         Review[] // User's reviews
   bookings        Booking[] // User's bookings
   wishlists       Wishlist[] // User's wishlisted camp sites
+  payouts         Payout[] // Operator payouts (S7)
+  notifications   Notification[] // User notifications (S7)
+  auditLogs       AuditLog[] // Audit events where this user is the actor (S7)
 
   @@index([email])
   @@index([kycStatus])
@@ -105,6 +163,49 @@ model ThailandLocation {
   @@index([provinceName, districtName])
 }
 
+// S5 — international region model (ADR-004). Country carries the ISO 3166 code plus the
+// regional defaults (currency, locale, timezone, VAT) that make multi-currency/multi-region real.
+model Country {
+  code            String   @id // ISO 3166-1 alpha-2 (e.g. "TH")
+  name            String
+  nameLocal       String?
+  defaultCurrency String // [Financial] ISO 4217
+  defaultLocale   String // BCP-47 (e.g. "th-TH")
+  timezone        String // IANA (e.g. "Asia/Bangkok")
+  vatRate         Decimal  @db.Decimal(5, 4) // [Financial] standard VAT rate
+  createdAt       DateTime @default(now())
+
+  adminAreas AdminArea[]
+  locations  Location[]
+}
+
+enum AdminLevel {
+  PROVINCE
+  DISTRICT
+  SUBDISTRICT
+}
+
+// S5 — self-referential administrative-division tree (the conformant replacement for the flat
+// ThailandLocation; ThailandLocation is retained until its consumers migrate). level + national code.
+model AdminArea {
+  id          String      @id @default(uuid())
+  countryCode String
+  country     Country     @relation(fields: [countryCode], references: [code])
+  level       AdminLevel
+  code        String // national admin code (province "10", district "1001")
+  nameTh      String
+  nameEn      String
+  parentId    String?
+  parent      AdminArea?  @relation("AdminAreaTree", fields: [parentId], references: [id])
+  children    AdminArea[] @relation("AdminAreaTree")
+  locations   Location[]
+  createdAt   DateTime    @default(now())
+
+  @@unique([countryCode, level, code])
+  @@index([countryCode, level])
+  @@index([parentId])
+}
+
 model Location {
   id          String  @id @default(uuid())
   country     String  @default("Thailand")
@@ -113,14 +214,24 @@ model Location {
   district    String?
   subDistrict String?
   village     String?
-  lat         Float?
-  lon         Float?
+  lat         Float? // [Geo]
+  lon         Float? // [Geo]
 
-  // Link to Thailand administrative division
+  // S5 — international region links (additive; legacy strings + thaiLocation stay until migrated)
+  countryCode String? // [Geo] ISO 3166 (set by seed/app; nullable for forward-safe migration)
+  countryRel  Country?   @relation(fields: [countryCode], references: [code])
+  adminAreaId String? // [Geo] province/district node in the AdminArea tree
+  adminArea   AdminArea? @relation(fields: [adminAreaId], references: [id])
+
+  // Link to Thailand administrative division (legacy — pending migration to adminArea)
   thaiLocationId String?
   thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
 
   campSites CampSite[]
+
+  @@index([thaiLocationId])
+  @@index([countryCode])
+  @@index([adminAreaId])
 }
 
 model CampSite {
@@ -136,29 +247,26 @@ model CampSite {
   campSiteType String // Relation to MasterData code (e.g. CAGD)
 
   // Media
-  logo     String? // Logo URL
-  images   String? // CSV of image URLs
+  logo     String? // Logo URL (single, atomic)
   videoUrl String? // "VDO"
 
-  // Legacy arrays (to be migrated to MasterData relations)
-  accessTypes        String
+  // Accommodation kind — single code (no MasterData group); kept as string for now.
   accommodationTypes String
-  facilities         String // Internal facilities
-  externalFacilities String? // CSV
-  equipment          String? // CSV (Equipment for rent)
-  activities         String? // CSV
-  terrain            String? // CSV 
+
+  // S4a (ADR-003): the multi-value CSV taxonomies — accessTypes, facilities,
+  // externalFacilities, equipment, activities, terrain — are now normalized into the
+  // `options MasterData[]` relation below, disambiguated by MasterData.group.
 
   // Geolocation & Address
-  latitude   Float
-  longitude  Float
-  address    String?
+  latitude   Float // [Geo]
+  longitude  Float // [Geo]
+  address    String? // [Geo]
   directions String?
 
   // Operations & Info
   checkInTime   String
   checkOutTime  String
-  bookingMethod String
+  bookingMethod BookingMethod
   feeInfo       String?
   toiletInfo    String?
   minimumAge    Int?
@@ -169,15 +277,16 @@ model CampSite {
   groundType      String? // JSON: {"STONE": 5, "GRASS": 10, "CONCRETE": 3, "WOOD": 2}
 
   // Contact Information
-  phone              String?
+  phone              String? // [PII]
   lineId             String?
   facebookUrl        String?
   facebookMessageUrl String?
   tiktokUrl          String?
 
-  // Pricing
-  priceLow  Float?
-  priceHigh Float?
+  // Pricing — Decimal + ISO 4217 currency (ADR-002)
+  priceLow      Decimal? @db.Decimal(12, 2) // [Financial]
+  priceHigh     Decimal? @db.Decimal(12, 2) // [Financial]
+  priceCurrency String   @default("THB") // [Financial] ISO 4217
 
   // Status & Dates
   isVerified   Boolean   @default(false)
@@ -193,15 +302,17 @@ model CampSite {
   nationalPark String?
 
   // Ownership & Pricing
-  ownershipType String? // "PRIVATE" or "NATIONAL_PARK" - ระบุว่าเป็นลานประเภท เอกชน หรือ อุทยานแห่งชาติ
-  isFree        Boolean @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
+  ownershipType OwnershipType? // เอกชน / อุทยานแห่งชาติ
+  isFree        Boolean        @default(false) // รองรับกรณีที่เป็นลานประเภทฟรีค่าใช้จ่าย
 
   // Pet & Display Settings
   petFriendly Boolean @default(false) // ข้อมูล pet friendly
   useSpotView Boolean @default(false) // Flag ระบุว่าจะใช้ข้อมูล Display แบบ camp spot หรือไม่
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
 
   // Relations
   locationId String
@@ -210,14 +321,20 @@ model CampSite {
   operatorId String
   operator   User   @relation(fields: [operatorId], references: [id])
 
-  spots       Spot[]
-  reviews     Review[]
-  bookings    Booking[]
-  teamMembers CampSiteTeamMember[] // Team members with roles & permissions
-  wishlists   Wishlist[] // Users who wishlisted this camp site
+  spots        Spot[]
+  reviews      Review[]
+  bookings     Booking[]
+  teamMembers  CampSiteTeamMember[] // Team members with roles & permissions
+  wishlists    Wishlist[] // Users who wishlisted this camp site
+  blockedDates BlockedDate[] // Operator-blocked availability (S7)
+  images       Image[] // S4b: media gallery (replaces images CSV)
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
+
+  @@index([operatorId])
+  @@index([locationId])
+  @@index([isPublished, deletedAt])
 }
 
 model CampSiteTeamMember {
@@ -263,25 +380,31 @@ model MasterData {
 }
 
 model Spot {
-  id            String  @id @default(uuid())
+  id            String    @id @default(uuid())
   zone          String? // Zone name
   name          String // Spot name
-  images        String? // CSV of image URLs
-  viewType      String? // ประเภทวิว เช่น ทั่วไป แม่น้ำ ภูเขา (e.g. "GENERAL", "RIVER", "MOUNTAIN")
+  viewType      ViewType?
   maxCampers    Int? // Maximum campers
   maxTents      Int? // Maximum tents
   environment   String?
-  pricePerNight Float // Price per night
-  pricePerSite  Float?
+  pricePerNight Decimal   @db.Decimal(12, 2) // Price per night [Financial]
+  pricePerSite  Decimal?  @db.Decimal(12, 2) // [Financial]
+  priceCurrency String    @default("THB") // [Financial] ISO 4217
 
   nearFacilities String? // CSV of Internal Facility codes
 
-  campSiteId String
-  campSite   CampSite  @relation(fields: [campSiteId], references: [id])
-  bookings   Booking[]
+  campSiteId   String
+  campSite     CampSite      @relation(fields: [campSiteId], references: [id])
+  bookings     Booking[]
+  blockedDates BlockedDate[] // spot-level availability blocks (S7)
+  images       Image[] // S4b: spot media gallery
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([campSiteId])
 }
 
 model Review {
@@ -292,15 +415,22 @@ model Review {
 
   visitDate DateTime?
 
-  mediaUrls String? // CSV of image URLs
-
   campSiteId String
   campSite   CampSite @relation(fields: [campSiteId], references: [id])
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
 
-  createdAt DateTime @default(now())
+  images Image[] // S4b: review photos (replaces mediaUrls CSV)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([campSiteId])
+  @@index([authorId])
+  @@index([rating])
 }
 
 model Booking {
@@ -309,9 +439,27 @@ model Booking {
   checkInDate  DateTime
   checkOutDate DateTime
   guests       Int      @default(1)
-  totalPrice   Float
+  totalPrice   Decimal  @db.Decimal(12, 2) // [Financial]
+  currency     String   @default("THB") // [Financial] ISO 4217
 
-  status String @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+  // --- Crystallized snapshot (ADR-005): frozen at create/confirm; host edits to the
+  // live camp/spot never mutate these. A booking is an immutable financial document.
+  snapshotCampName       String? // camp name (TH) at booking time
+  snapshotCampNameEn     String? // camp name (EN) at booking time
+  snapshotSpotName       String? // booked spot/unit name at booking time (spot-level bookings)
+  snapshotUnitAmount     Decimal? @db.Decimal(12, 2) // [Financial] per-night price charged
+  snapshotSubtotalAmount Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotTaxRate        Decimal? @db.Decimal(5, 4) // [Financial] region VAT rate applied
+  snapshotTaxAmount      Decimal? @db.Decimal(12, 2) // [Financial]
+  snapshotVatInclusive   Boolean? // was the recorded total VAT-inclusive (false until S5 wires Country.vatRate)
+  snapshotTotalAmount    Decimal? @db.Decimal(12, 2) // [Financial] legal amount owed
+  snapshotCurrency       String? // [Financial] ISO 4217 charged
+  snapshotNights         Int?
+  snapshotCheckInTime    String? // local wall-clock at booking time
+  snapshotCheckOutTime   String?
+  snapshotTimezone       String? // IANA (defaults Asia/Bangkok until S5 per-camp tz)
+
+  status BookingStatus @default(CONFIRMED)
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -322,8 +470,18 @@ model Booking {
   spotId String?
   spot   Spot?   @relation(fields: [spotId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  payments Payment[] // Payment ledger for this booking (S7)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete
+  version   Int       @default(1)
+
+  @@index([userId])
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
 }
 
 model Wishlist {
@@ -347,4 +505,177 @@ model DeliveryConfig {
   autonomousMode Boolean  @default(false)
   updatedAt      DateTime @updatedAt
   updatedBy      String?
+}
+
+// ============================================================================
+// S7 — Roadmap seam entities (ADR-006 conventions). Additive foundation for
+// payments, payouts, audit trail, availability blocking, and notifications.
+// Ledgers (Payment/Payout/AuditLog) are append-only → NO soft-delete.
+// Business sets (BlockedDate/Notification) carry deletedAt. Future feature
+// stories consume these; no behavioral wiring is added here.
+// ============================================================================
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  PROMPTPAY
+  BANK_TRANSFER
+  CASH
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  REVIEW
+  SYSTEM
+  KYC
+}
+
+// Money received against a booking — immutable financial ledger.
+model Payment {
+  id          String        @id @default(uuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id])
+  amount      Decimal       @db.Decimal(12, 2) // [Financial]
+  currency    String        @default("THB") // [Financial] ISO 4217
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  provider    String? // payment gateway name
+  providerRef String? // gateway transaction id [Financial]
+  paidAt      DateTime?
+
+  // Refund linkage (append-only): a refund is a SEPARATE row pointing at its charge,
+  // supporting partial refunds; net = sum(charges) − sum(refunds).
+  refundOfId String?
+  refundOf   Payment?  @relation("PaymentRefunds", fields: [refundOfId], references: [id])
+  refunds    Payment[] @relation("PaymentRefunds")
+
+  // Settlement: which payout swept this payment (null = not yet settled).
+  payoutId String?
+  payout   Payout? @relation(fields: [payoutId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerRef]) // idempotent gateway-webhook ingestion (NULLs distinct → manual/cash rows unaffected)
+  @@index([bookingId])
+  @@index([status])
+  @@index([providerRef])
+  @@index([refundOfId])
+  @@index([payoutId])
+}
+
+// Payouts to an operator — immutable financial ledger.
+model Payout {
+  id          String       @id @default(uuid())
+  operatorId  String
+  operator    User         @relation(fields: [operatorId], references: [id])
+  amount      Decimal      @db.Decimal(12, 2) // [Financial]
+  currency    String       @default("THB") // [Financial] ISO 4217
+  status      PayoutStatus @default(PENDING)
+  periodStart DateTime?
+  periodEnd   DateTime?
+  paidAt      DateTime?
+  reference   String? // bank/transfer reference [Financial]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  payments Payment[] // payments swept into this payout (settlement traceability)
+
+  @@index([operatorId])
+  @@index([status])
+  @@index([reference])
+}
+
+// Append-only audit trail. No soft-delete, no updatedAt — records are never mutated.
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String? // null = system action
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String // e.g. "booking.status.update"
+  entityType String // e.g. "Booking"
+  entityId   String
+  metadata   Json? // before/after diff or context
+  ipAddress  String? // [PII]
+  userAgent  String? // [PII] device/browser fingerprint
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Operator-blocked availability window — business set, soft-deletable.
+model BlockedDate {
+  id         String    @id @default(uuid())
+  campSiteId String
+  campSite   CampSite  @relation(fields: [campSiteId], references: [id])
+  spotId     String? // null = whole-camp block; set = single spot (mirrors Booking camp/spot duality)
+  spot       Spot?     @relation(fields: [spotId], references: [id])
+  startDate  DateTime  @db.Date
+  endDate    DateTime  @db.Date
+  reason     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? // soft-delete
+  version    Int       @default(1)
+
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([startDate, endDate])
+}
+
+// User-facing notification — business set, soft-deletable.
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String?
+  link      String? // deep link target
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  deletedAt DateTime? // soft-delete
+  version   Int              @default(1)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// S4b — media gallery (ADR-006). Polymorphic via nullable FKs: an Image belongs to a
+// CampSite, a Spot, or a Review. Replaces the *.images / mediaUrls CSV columns; logo
+// stays a single String. sortOrder controls gallery order.
+model Image {
+  id         String    @id @default(uuid())
+  url        String
+  alt        String?
+  sortOrder  Int       @default(0)
+  campSiteId String?
+  campSite   CampSite? @relation(fields: [campSiteId], references: [id], onDelete: Cascade)
+  spotId     String?
+  spot       Spot?     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  reviewId   String?
+  review     Review?   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@index([campSiteId])
+  @@index([spotId])
+  @@index([reviewId])
 }

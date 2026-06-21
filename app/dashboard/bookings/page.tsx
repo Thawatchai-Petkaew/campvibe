@@ -36,6 +36,8 @@ interface Booking {
     checkOutDate: string;
     guests: number;
     totalPrice: number;
+    snapshotCampName?: string | null; // ADR-005: frozen camp name (TH) at booking time
+    snapshotCampNameEn?: string | null; // ADR-005: frozen camp name (EN) at booking time
     status: string;
     canUpdate?: boolean;
     user: {
@@ -46,13 +48,13 @@ interface Booking {
     campSite: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
         operatorId?: string;
     };
     campground?: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
     };
 }
 
@@ -385,7 +387,7 @@ export default function BookingsPage() {
                                         <td className="px-8 py-5 text-muted-foreground">
                                             <div className="flex items-center gap-2">
                                                 <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                                                {language === 'th' ? (booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.campSite?.nameEn || booking.campground?.nameEn)}
+                                                {language === 'th' ? (booking.snapshotCampName || booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.snapshotCampNameEn || booking.campSite?.nameEn || booking.campground?.nameEn || booking.snapshotCampName)}
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-muted-foreground">

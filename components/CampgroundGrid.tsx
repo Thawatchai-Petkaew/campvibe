@@ -18,7 +18,7 @@ export interface CampSiteCardData {
     nameEn: string | null;
     nameThSlug: string;
     nameEnSlug: string;
-    images: string | null;
+    images?: { url: string }[]; // S4b: Image relation (was CSV)
     priceLow: number | null;
     priceHigh: number | null;
     isVerified: boolean;

@@ -34,10 +34,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     const formatCurrency = (amount: number) => {
         const currentCurrency = translations[language].currency;
+        // Coerce: money may arrive as a Decimal serialized to string (ADR-002). Number() normalizes.
+        const numericAmount = Number(amount);
         // If English, convert from THB base (demo logic)
         const convertedAmount = language === 'en'
-            ? amount / translations.th.currency.rate
-            : amount;
+            ? numericAmount / translations.th.currency.rate
+            : numericAmount;
 
         return new Intl.NumberFormat(language === 'th' ? 'th-TH' : 'en-US', {
             style: 'currency',

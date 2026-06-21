@@ -4,6 +4,7 @@ import CampgroundDetailClient from "@/components/CampgroundDetailClient";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
+import { serializeDecimals } from "@/lib/serialize";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -26,6 +27,8 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 location: true,
                 operator: true,
                 spots: true,
+                options: true,
+                images: { orderBy: { sortOrder: 'asc' } },
             }
         });
     } catch (error) {
@@ -44,7 +47,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     return (
         <main className="min-h-screen bg-background">
             <Navbar currentUser={session?.user} />
-            <CampgroundDetailClient campground={campSite} isOwner={isOwner} />
+            <CampgroundDetailClient campground={serializeDecimals(campSite)} isOwner={isOwner} />
         </main>
     );
 }

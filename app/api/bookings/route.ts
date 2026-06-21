@@ -4,6 +4,7 @@ import { bookingSchema } from '@/lib/validations/booking';
 import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailability } from '@/lib/campsite-availability';
+import { serializeDecimals } from '@/lib/serialize';
 
 export async function POST(request: NextRequest) {
   const { error: authError, session } = await requireAuth();
@@ -64,19 +65,18 @@ export async function POST(request: NextRequest) {
     // 4. Price Calculation
     const campSite = await prisma.campSite.findUnique({
       where: { id: data.campSiteId },
-      include: { spots: true }
+      include: { spots: true, location: { include: { countryRel: true } } }
     });
 
     if (!campSite) {
       return apiError('Camp site not found', 404);
     }
 
-    let pricePerNight = campSite.priceLow || 50;
-    if (data.spotId) {
-      const spot = campSite.spots.find(s => s.id === data.spotId);
-      if (spot?.pricePerNight) {
-        pricePerNight = spot.pricePerNight;
-      }
+    // Money is Decimal in the DB (ADR-002); compute in number for this simple THB total.
+    let pricePerNight = Number(campSite.priceLow ?? 50);
+    const bookedSpot = data.spotId ? campSite.spots.find(s => s.id === data.spotId) : undefined;
+    if (bookedSpot?.pricePerNight) {
+      pricePerNight = Number(bookedSpot.pricePerNight);
     }
 
     const nights = calculateNights(checkIn, checkOut);
@@ -89,6 +89,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Create Booking
+    const currency = campSite.priceCurrency ?? 'THB';
+    // S5→S6: pull real regional VAT + timezone from the camp's Country (fallback for legacy null-country camps)
+    const country = campSite.location?.countryRel;
+    const taxRate = country ? Number(country.vatRate) : 0;
+    const vatInclusive = taxRate > 0; // Thai displayed prices are VAT-inclusive
+    const taxAmount = vatInclusive ? Math.round((totalPrice - totalPrice / (1 + taxRate)) * 100) / 100 : 0;
+    const timezone = country?.timezone ?? 'Asia/Bangkok';
     const booking = await prisma.booking.create({
       data: {
         userId: userId,
@@ -98,11 +105,28 @@ export async function POST(request: NextRequest) {
         checkOutDate: checkOut,
         guests: data.guests,
         totalPrice: totalPrice,
-        status: 'PENDING' // Start as pending
+        currency,
+        status: 'PENDING', // Start as pending
+        // Crystallize booking state (ADR-005): freeze name/price/tax/times at booking time so
+        // later host edits to the live camp never mutate this booking — it is a legal document.
+        snapshotCampName: campSite.nameTh,
+        snapshotCampNameEn: campSite.nameEn,
+        snapshotSpotName: bookedSpot?.name ?? null,
+        snapshotUnitAmount: pricePerNight,
+        snapshotSubtotalAmount: totalPrice,
+        snapshotTaxRate: taxRate, // S5: regional VAT from the camp's Country.vatRate
+        snapshotTaxAmount: taxAmount,
+        snapshotVatInclusive: vatInclusive,
+        snapshotTotalAmount: totalPrice,
+        snapshotCurrency: currency,
+        snapshotNights: nights,
+        snapshotCheckInTime: campSite.checkInTime,
+        snapshotCheckOutTime: campSite.checkOutTime,
+        snapshotTimezone: timezone, // S5: from the camp's Country.timezone
       }
     });
 
-    return apiSuccess(booking, 201);
+    return apiSuccess(serializeDecimals(booking), 201);
   } catch (error) {
     return apiError('Failed to create booking', 500, error);
   }

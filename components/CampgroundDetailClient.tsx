@@ -157,9 +157,18 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
+    // S4a: taxonomy now lives in the `options` MasterData relation; derive per-group code lists.
+    const _options: { code: string; group: string }[] = campground.options || [];
+    const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
+    const accessCodes = codesByGroup('Access type');
+    const terrainCodes = codesByGroup('Terrain');
+    const facilityCodes = codesByGroup('Internal facility');
+    const externalCodes = codesByGroup('External facility');
+    const equipmentCodes = codesByGroup('Equipment for rent');
+
     // Parse images from CSV
-    const images = campground.images
-        ? campground.images.split(',')
+    const images: string[] = campground.images?.length
+        ? campground.images.map((img: { url: string }) => img.url)
         : ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200"];
 
     const displayImages = images.slice(0, 5);
@@ -405,11 +414,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         </div>
 
                         {/* 2. Access */}
-                        {campground.accessTypes && (
+                        {accessCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.access}</h2>
                                 <div className="space-y-6">
-                                    {campground.accessTypes.split(',').map((access: string) => (
+                                    {accessCodes.map((access: string) => (
                                         <div key={access} className="flex items-start gap-5">
                                             <div className="mt-1">
                                                 {getIcon(access)}
@@ -429,11 +438,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         )}
 
                         {/* 3. Site Types */}
-                        {campground.terrain && (
+                        {terrainCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {campground.terrain.split(',').map((terrain: string) => (
+                                    {terrainCodes.map((terrain: string) => (
                                         <div key={terrain} className="flex flex-col items-start gap-3">
                                             {getIcon(terrain)}
                                             <span className="font-medium text-foreground capitalize text-base">
@@ -454,7 +463,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <div>
                                     <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h3>
                                     <div className="grid grid-cols-1 gap-y-5">
-                                        {(campground.facilities ? campground.facilities.split(',') : []).slice(0, 8).map((facility: string) => (
+                                        {facilityCodes.slice(0, 8).map((facility: string) => (
                                             <div key={facility} className="flex items-center gap-4">
                                                 {getIcon(facility)}
                                                 <span className="font-normal text-base capitalize text-foreground/80">
@@ -466,11 +475,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 </div>
 
                                 {/* External */}
-                                {campground.externalFacilities && (
+                                {externalCodes.length > 0 && (
                                     <div>
                                         <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h3>
                                         <div className="grid grid-cols-1 gap-y-5">
-                                            {campground.externalFacilities.split(',').slice(0, 6).map((facility: string) => (
+                                            {externalCodes.slice(0, 6).map((facility: string) => (
                                                 <div key={facility} className="flex items-center gap-4">
                                                     {getIcon(facility)}
                                                     <span className="font-normal text-base capitalize text-foreground/80">
@@ -483,23 +492,23 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 )}
                             </div>
 
-                            {(campground.facilities?.split(',').length || 0) > 8 && (
+                            {facilityCodes.length > 8 && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsAmenitiesOpen(true)}
                                     className="mt-8 rounded-lg px-8 h-12 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
                                 >
-                                    {t.common.showAll} {campground.facilities?.split(',').length} {t.common.amenities}
+                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
                                 </Button>
                             )}
                         </div>
 
                         {/* 5. Equipment for Rent */}
-                        {campground.equipment && (
+                        {equipmentCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.equipmentRent}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
-                                    {campground.equipment.split(',').map((item: string) => (
+                                    {equipmentCodes.map((item: string) => (
                                         <div key={item} className="flex items-center gap-4">
                                             {getIcon(item)}
                                             <span className="font-normal text-base capitalize text-foreground/80">
@@ -735,7 +744,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
             <AmenitiesModal
                 isOpen={isAmenitiesOpen}
                 onClose={() => setIsAmenitiesOpen(false)}
-                facilities={campground.facilities ? campground.facilities.split(',') : []}
+                facilities={facilityCodes}
             />
         </>
     );

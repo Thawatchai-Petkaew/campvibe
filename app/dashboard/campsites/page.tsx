@@ -74,8 +74,8 @@ export default function MyCampSitesPage() {
         camp.nameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
         camp.nameEn.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a, b) => {
-        if (sortBy === 'price_asc') return a.priceLow - b.priceLow;
-        if (sortBy === 'price_desc') return b.priceLow - a.priceLow;
+        if (sortBy === 'price_asc') return Number(a.priceLow) - Number(b.priceLow);
+        if (sortBy === 'price_desc') return Number(b.priceLow) - Number(a.priceLow);
         if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         // Default: newest
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -199,8 +199,8 @@ export default function MyCampSitesPage() {
                                 <tr key={camp.id} className="hover:bg-muted/40 transition duration-200 group">
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
-                                                {camp.images ? (
-                                                    <img src={camp.images.split(',')[0]} className="w-full h-full object-cover" alt="" />
+                                                {camp.images?.length ? (
+                                                    <img src={camp.images[0].url} className="w-full h-full object-cover" alt="" />
                                                 ) : (
                                                     <Tent className="w-full h-full p-4 text-gray-300" />
                                                 )}

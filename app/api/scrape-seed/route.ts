@@ -167,11 +167,9 @@ export async function POST() {
                     nameThSlug,
                     nameEnSlug: nameThSlug + '-en',
                     description,
-                    images: localImages.join(','), // USE LOCAL PATHS
+                    images: { create: localImages.map((url: string, i: number) => ({ url, sortOrder: i })) }, // USE LOCAL PATHS
                     campSiteType: 'CAGD', // Default to basic
-                    accessTypes: 'DRIV,HIKE',
                     accommodationTypes: 'TENT,CABI',
-                    facilities: 'TOIL,SHOW,PARK',
                     latitude: location.lat!,
                     longitude: location.lon!,
                     checkInTime: '14:00',

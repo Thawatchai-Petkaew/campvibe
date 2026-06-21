@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
-import { apiError, apiSuccess, arrayToCsv } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { requireAuth } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
@@ -34,7 +34,9 @@ export async function GET(request: NextRequest) {
       include: {
         location: true,
         spots: true,
-        reviews: { select: { rating: true } }
+        reviews: { select: { rating: true } },
+        options: true,
+        images: { orderBy: { sortOrder: 'asc' } }
       },
     });
     
@@ -76,18 +78,16 @@ export async function POST(request: NextRequest) {
         nameThSlug: nameThSlug,
         nameEnSlug: nameEnSlug,
         description: data.description || "",
-        campSiteType: (data.campSiteType 
-          ? (Array.isArray(data.campSiteType) ? arrayToCsv(data.campSiteType) : data.campSiteType)
-          : "CAMPGROUND") as string,
+        campSiteType: ((Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) || "CAMPGROUND") as string,
+        accommodationTypes: (arrayToCsv(data.accommodationTypes) ?? "") as string,
 
-        // Convert arrays to CSV strings
-        accessTypes: (data.accessTypes ? arrayToCsv(data.accessTypes) : "") as string,
-        accommodationTypes: (data.accommodationTypes ? arrayToCsv(data.accommodationTypes) : "") as string,
-        facilities: (data.facilities ? arrayToCsv(data.facilities) : "") as string,
-        externalFacilities: (data.externalFacilities ? arrayToCsv(data.externalFacilities) : "") as string,
-        equipment: (data.equipment ? arrayToCsv(data.equipment) : "") as string,
-        activities: (data.activities ? arrayToCsv(data.activities) : "") as string,
-        terrain: (data.terrain ? arrayToCsv(data.terrain) : "") as string,
+        // S4a: 6 multi-value taxonomies → validated options connect (unknown codes dropped, not 500)
+        options: {
+          connect: await resolveOptionConnect([
+            data.accessTypes, data.facilities, data.externalFacilities,
+            data.equipment, data.activities, data.terrain,
+          ]),
+        },
 
         address: data.address,
         directions: data.directions,
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
         partner: data.partner,
         nationalPark: data.nationalPark,
-        images: arrayToCsv(data.images || []),
+        images: imageCreateNested(data.images),
         
         // isVerified is the platform trust badge — only a platform ADMIN may set it on create
         // (mirrors applyAdminOnlyFields on the PUT path). A self-registering host cannot grant it.
