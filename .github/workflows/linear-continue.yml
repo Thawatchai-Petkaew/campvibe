@@ -11,13 +11,22 @@ permissions:
   contents: write
   pull-requests: write
 
+# One continuation at a time. The gate-approval webhook can re-fire — a stage that clears
+# `awaiting-you` triggers another repository_dispatch — so serialize to stop overlapping
+# headless runs stacking up. cancel-in-progress: false = let an in-flight build finish.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   continue:
     runs-on: ubuntu-latest
-    # Declared at job level so the `if:` expressions below can read env.ANTHROPIC_API_KEY.
+    # Declared at job level so the `if:` expressions below can read env.CLAUDE_CODE_OAUTH_TOKEN.
     # GitHub Actions only exposes workflow/job-level env to `if:` — a step-level env: is invisible there.
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Bills the owner's Claude subscription (the "package"), NOT pay-as-you-go API credits.
+      # Generate with `claude setup-token` and store as the CLAUDE_CODE_OAUTH_TOKEN repo secret.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,7 +53,7 @@ jobs:
         run: echo "No cleared gate (status:gates exit ${{ steps.gates.outputs.code }}). Nothing to continue."
 
       - name: Continue the next stage (headless orchestrator)
-        if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY != ''
+        if: steps.gates.outputs.code == '10' && env.CLAUDE_CODE_OAUTH_TOKEN != ''
         env:
           TRIGGER_ISSUE: ${{ github.event.client_payload.identifier }}
           TRIGGER_EPIC: ${{ github.event.client_payload.epic }}
@@ -59,7 +68,7 @@ jobs:
             --dangerously-skip-permissions
 
       - name: Gate cleared but autonomous continuation disabled
-        if: steps.gates.outputs.code == '10' && env.ANTHROPIC_API_KEY == ''
+        if: steps.gates.outputs.code == '10' && env.CLAUDE_CODE_OAUTH_TOKEN == ''
         run: |
           echo "::notice::Gate cleared for ${{ github.event.client_payload.identifier }}." \
-               "Set the ANTHROPIC_API_KEY secret to enable autonomous continuation, or pick it up in a session."
+               "Set the CLAUDE_CODE_OAUTH_TOKEN secret (run 'claude setup-token') to enable autonomous continuation, or pick it up in a session."
