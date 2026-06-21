@@ -148,6 +148,17 @@ async function cmdSet(id, flags) {
       ]
     );
   }
+
+  // Story done → notify owner.
+  if (flags.state) {
+    const st = team.states.nodes.find((s) => s.name.toLowerCase() === flags.state.toLowerCase());
+    if (st && (st.type === "completed" || st.name.toLowerCase() === "done")) {
+      await notifyTelegram(
+        `<b>${esc(id)}</b> ✓ done\n${esc(issue.title)}`,
+        [[{ text: "📊 /status", url: statusUrl(epicOf(issue.title)) }]]
+      );
+    }
+  }
 }
 
 // Released = promoted to production. The story stays in state `Done` (set at merge→staging) and
@@ -168,6 +179,21 @@ async function cmdNotify(text) {
 
 function epicOf(t) { const x = t.split("·"); return x.length > 1 ? x[0].trim() : "(ungrouped)"; }
 function roleOf(t) { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; }
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function cleanTitle(t) { return t.replace(/\[[a-z-]+\]\s*/g, "").trim(); }
+
+// Map role slug → human-readable label for Telegram messages (no leading emoji per owner preference).
+const ROLE_LABEL = {
+  architect: "Architect",
+  "ux-designer": "Designer",
+  "frontend-engineer": "Frontend",
+  "backend-engineer": "Backend",
+  "qa-engineer": "QA",
+  "security-reviewer": "Security",
+  "devops-release": "DevOps",
+  "product-owner": "Product Owner",
+  analyst: "Analyst",
+};
 
 // Build a link to the live /status dashboard (token-gated). Used in Telegram messages so the
 // owner can jump straight to the board. APP_BASE_URL falls back to the staging deploy.
@@ -269,6 +295,88 @@ async function cmdAudit() {
   if (bad) process.exitCode = 11;
 }
 
+// handoff <CAM-id> --role <role> [--state "In Progress"] [--note "..."]
+// Swaps the [role] tag in the title, accumulates a role:<role> label, optionally sets state,
+// and fires a Telegram notification.
+async function cmdHandoff(id, args) {
+  if (!id) {
+    console.log("usage: linear-sync handoff <CAM-id> --role <role> [--state <state>] [--note <note>]");
+    process.exit(1);
+  }
+
+  // Parse handoff-specific flags.
+  let role = "", state = "", note = "";
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--role") role = args[++i] || "";
+    else if (args[i] === "--state") state = args[++i] || "";
+    else if (args[i] === "--note") note = args[++i] || "";
+  }
+  if (!role) {
+    console.log("usage: linear-sync handoff <CAM-id> --role <role> [--state <state>] [--note <note>]");
+    process.exit(1);
+  }
+
+  const team = await ctx();
+  const issue = team.issues.nodes.find((i) => i.identifier.toUpperCase() === id.toUpperCase());
+  if (!issue) throw new Error(`issue ${id} not found in ${TEAM}`);
+
+  // Swap [role] tag in the title.
+  let newTitle = issue.title;
+  if (/\[[a-z-]+\]/.test(newTitle)) {
+    // Replace the first existing [role] tag.
+    newTitle = newTitle.replace(/\[[a-z-]+\]/, `[${role}]`);
+  } else {
+    // No existing tag: insert after the epic prefix (after ·) or at start.
+    const dotIdx = newTitle.indexOf("·");
+    if (dotIdx !== -1) {
+      newTitle = newTitle.slice(0, dotIdx + 1) + ` [${role}]` + newTitle.slice(dotIdx + 1);
+    } else {
+      newTitle = `[${role}] ${newTitle}`;
+    }
+  }
+
+  // Build update input.
+  const input = { title: newTitle };
+
+  // Set state if provided.
+  if (state) {
+    const st = team.states.nodes.find((s) => s.name.toLowerCase() === state.toLowerCase());
+    if (!st) throw new Error(`state "${state}" not found. Available: ${team.states.nodes.map((s) => s.name).join(", ")}`);
+    if (st.name !== issue.state.name) input.stateId = st.id;
+  }
+
+  // Accumulate role:<role> label WITHOUT removing existing labels.
+  const labelName = `role:${role}`;
+  const labelId = await ensureLabel(team, labelName);
+  const current = new Set(issue.labels.nodes.map((l) => l.id));
+  current.add(labelId);
+  input.labelIds = [...current];
+
+  await gql(
+    `mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`,
+    { id: issue.id, input }
+  );
+
+  const roleLabel = ROLE_LABEL[role] || role;
+  const bits = [`role→${roleLabel}`, `+[${labelName}]`, state ? `state→${state}` : ""].filter(Boolean);
+  console.log(`✓ ${id} handoff: ${bits.join(" ")} | title: ${newTitle}`);
+
+  // Fire Telegram handoff notification.
+  const epic = epicOf(issue.title);
+  const msgParts = [
+    `<b>${esc(id)}</b> → ${esc(roleLabel)}`,
+    esc(cleanTitle(newTitle)),
+  ];
+  if (note) msgParts.push(esc(note));
+  await notifyTelegram(
+    msgParts.join("\n"),
+    [
+      [{ text: "เปิด Linear", url: issue.url }],
+      [{ text: "📊 /status", url: statusUrl(epic) }],
+    ]
+  );
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 try {
   if (cmd === "list") await cmdList();
@@ -278,5 +386,6 @@ try {
   else if (cmd === "gates") await cmdGates();
   else if (cmd === "audit") await cmdAudit();
   else if (cmd === "pull") await cmdPull(rest[0]);
-  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | notify <text> | release <CAM-id> | pull [outfile]>"); process.exit(1); }
+  else if (cmd === "handoff") await cmdHandoff(rest[0], rest.slice(1));
+  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | notify <text> | release <CAM-id> | pull [outfile] | handoff <CAM-id> --role <role> [--state S] [--note N]>"); process.exit(1); }
 } catch (e) { console.error("✗", e.message); process.exit(1); }
