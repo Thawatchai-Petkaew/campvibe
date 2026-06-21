@@ -50,8 +50,8 @@ export function ThemeToggle() {
                             "min-h-[44px] min-w-[44px] rounded-md transition-colors",
                             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                             isSelected
-                                ? "bg-muted text-foreground"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                                ? "bg-accent text-accent-foreground"
+                                : "text-muted-foreground hover:bg-accent/15 hover:text-foreground",
                         ].join(" ")}
                     >
                         <Icon className="h-4 w-4" aria-hidden="true" />

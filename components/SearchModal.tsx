@@ -163,9 +163,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                 <SelectValue placeholder={t.search.anyProvince} />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" " className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{t.search.anyProvince}</SelectItem>
+                                                <SelectItem value=" " className="rounded-xl cursor-pointer py-2.5">{t.search.anyProvince}</SelectItem>
                                                 {PROVINCES.map(p => (
-                                                    <SelectItem key={p} value={p} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{p}</SelectItem>
+                                                    <SelectItem key={p} value={p} className="rounded-xl cursor-pointer py-2.5">{p}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -177,9 +177,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                                 <SelectValue placeholder={t.search.anyDistrict} />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" " className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{t.search.anyDistrict}</SelectItem>
+                                                <SelectItem value=" " className="rounded-xl cursor-pointer py-2.5">{t.search.anyDistrict}</SelectItem>
                                                 {province && province !== " " && THAILAND_DATA[province]?.map(d => (
-                                                    <SelectItem key={d} value={d} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">{d}</SelectItem>
+                                                    <SelectItem key={d} value={d} className="rounded-xl cursor-pointer py-2.5">{d}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -262,7 +262,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                         </SelectTrigger>
                                         <SelectContent className="rounded-2xl border-none shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((n) => (
-                                                <SelectItem key={n} value={n.toString()} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">
+                                                <SelectItem key={n} value={n.toString()} className="rounded-xl cursor-pointer py-2.5">
                                                     {n} {n === 1 ? t.booking.guest : t.booking.guests}
                                                 </SelectItem>
                                             ))}
