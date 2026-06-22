@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
-import { requireCampSiteOwnership } from '@/lib/auth-utils';
+import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, imageReplaceNested } from '@/lib/api-utils';
 
 export async function GET(
@@ -32,20 +32,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; spotId: string }> }
 ) {
   const { id, spotId } = await params;
-  
-  // Check ownership
-  const { error: authError } = await requireCampSiteOwnership(id);
+
+  // Check permission: updating a spot modifies the campsite composition.
+  // CAMPSITE_UPDATE is required — mirrors the campsite PUT handler.
+  const { error: authError } = await requireCampSitePermission(id, 'CAMPSITE_UPDATE');
   if (authError) return authError;
 
   try {
     const body = await request.json();
-    
+
     // Validate with Zod (partial validation for updates)
     const validation = spotSchema.partial().safeParse(body);
     if (!validation.success) {
       return apiError('Validation Error', 400, validation.error.format());
     }
-    
+
     const data = validation.data;
 
     // Ownership of the campsite is checked above; also verify the spot belongs to THIS
@@ -80,9 +81,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; spotId: string }> }
 ) {
   const { id, spotId } = await params;
-  
-  // Check ownership
-  const { error: authError } = await requireCampSiteOwnership(id);
+
+  // Check permission: deleting a spot is a destructive campsite operation.
+  // CAMPSITE_DELETE is required — mirrors the campsite DELETE handler.
+  const { error: authError } = await requireCampSitePermission(id, 'CAMPSITE_DELETE');
   if (authError) return authError;
 
   try {
