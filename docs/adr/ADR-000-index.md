@@ -14,5 +14,6 @@ These ADRs are the **G2 design artifact** for the epic *"Atomic Schema · data m
 | ADR-006 | Soft-delete + audit + classification convention | Planned |
 | ADR-007 | ID strategy uuid → cuid | Planned |
 | ADR-008 | pgvector / AI embeddings seam (defer) | Planned |
+| [ADR-009](ADR-009-supply-ingestion-claim-pipeline.md) | Seed intake + owner claim + promote-to-public workflow | Proposed |
 
 **Cross-cutting (decided in plan, recorded here):** pre-launch → clean breaking migration + DB reset + re-seed (no backfill/expand-contract); "reversible" = tested reset/reseed runbook + prior migration set. Each schema change ships as one atomic story (≤~400 LOC) updating schema + zod + seed + api/components together.
