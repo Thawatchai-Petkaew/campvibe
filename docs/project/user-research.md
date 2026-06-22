@@ -1,6 +1,6 @@
 # User Research — CampVibe
 
-> personas + JTBD + pain points · `/camper-agent` ใช้เช็ก "feature นี้แก้ pain ของ persona ไหนจริงไหม"
+> personas + JTBD + pain points · อ่านโดย orchestrator + เจ้าของ ก่อนตัดสิน gate เพื่อเช็ก "feature นี้แก้ pain ของ persona ไหนจริงไหม"
 > personas/JTBD ด้านล่าง derive จากโดเมนในระบบ (ยืนยันได้) · **ข้อมูล research จริง (สัมภาษณ์/ตัวเลขพฤติกรรม) เป็น `> TODO(you):` — ห้ามแต่ง insight ขึ้นเอง**
 
 ## Personas (จาก role จริงในระบบ)

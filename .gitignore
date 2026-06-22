@@ -60,7 +60,6 @@ next-env.d.ts
 /scripts/*
 !/scripts/linear-sync.mjs
 !/scripts/db-reset.mjs
-!/scripts/camper.mjs
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
 .claude/linear-snapshot.json

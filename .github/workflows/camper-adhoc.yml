@@ -31,7 +31,7 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       # repository_dispatch runs the workflow from the DEFAULT branch (main), but the
-      # Camper context (docs/project, camper-agent, std) lives on staging — check that out.
+      # Camper context (docs/project + .claude (rules/agents/skills)) lives on staging — check that out.
       - uses: actions/checkout@v4
         with:
           ref: staging
@@ -63,7 +63,7 @@ jobs:
           npm i -g @anthropic-ai/claude-code
           claude -p "Role: CampVibe orchestrator (read CLAUDE.md + docs/project/* + .claude/SYNC-ARCHITECTURE.md first).
           Ad-hoc request from the owner via /camper: \"$REQUEST\".
-          Scope it with lightweight Discovery, then act via the normal gates. Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the Camper Agent autopilot flag ('npm run camper status') and the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. End your reply with one line starting 'SUMMARY:' — a one-line recap + PR link." \
+          Scope it with lightweight Discovery, then act via the normal gates (always raised to the human). Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. End your reply with one line starting 'SUMMARY:' — a one-line recap + PR link." \
             --model claude-sonnet-4-6 --max-turns 40 \
             --dangerously-skip-permissions 2>&1 | tee "$RUNNER_TEMP/claude-out.txt"
 
