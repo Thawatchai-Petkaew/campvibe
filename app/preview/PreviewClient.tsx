@@ -501,6 +501,60 @@ export function PreviewClient() {
 
                 <SectionDivider />
 
+                <SectionDivider />
+
+                {/* ── DS-3 Input / Card / Modal shell ── */}
+                <SectionHeading>DS-3 Input / Card / Modal grammar</SectionHeading>
+
+                {/* Input size grid */}
+                <div className="space-y-4 mb-8">
+                    <p className="text-sm text-muted-foreground mb-3">Input size variants — inputSize prop (sm / md / lg) — all rounded-full</p>
+                    <div className="space-y-3 max-w-sm">
+                        <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground uppercase tracking-wide">sm (h-9)</label>
+                            <Input inputSize="sm" placeholder="inputSize=&quot;sm&quot; h-9 rounded-full" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground uppercase tracking-wide">md — default (h-11)</label>
+                            <Input placeholder="inputSize=&quot;md&quot; h-11 rounded-full (default)" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground uppercase tracking-wide">lg (h-12)</label>
+                            <Input inputSize="lg" placeholder="inputSize=&quot;lg&quot; h-12 rounded-full" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card sample */}
+                <div className="mb-8">
+                    <p className="text-sm text-muted-foreground mb-3">Card — primitive rounded-3xl (no override needed)</p>
+                    <Card className="max-w-sm shadow-sm border-border">
+                        <CardHeader>
+                            <CardTitle>Card rounded-3xl</CardTitle>
+                            <CardDescription>Primitive bakes rounded-3xl. Consumer adds only border/shadow if needed.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-foreground">No rounded override in consumer className — the primitive provides it.</p>
+                        </CardContent>
+                        <CardFooter className="gap-2">
+                            <Button variant="default" size="sm">Action</Button>
+                            <Button variant="ghost" size="sm">Cancel</Button>
+                        </CardFooter>
+                    </Card>
+                </div>
+
+                {/* Modal shell note */}
+                <div className="mb-8 p-4 rounded-2xl border border-border bg-muted/30">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Modal shell grammar (DS-3)</p>
+                    <ul className="text-sm text-foreground space-y-1">
+                        <li>DialogContent — primitive rounded-3xl (no consumer override)</li>
+                        <li>AlertDialogContent — primitive rounded-3xl</li>
+                        <li>Close button — size=&quot;icon&quot; (h-11 w-11) top-right + aria-label=&quot;Close&quot;</li>
+                    </ul>
+                </div>
+
+                <SectionDivider />
+
                 {/* ── DS-2 Button grammar + Thai type (font-verification kitchen-sink, not i18n keys) ── */}
                 <SectionHeading>DS-2 Button grammar + Sarabun Thai type</SectionHeading>
 

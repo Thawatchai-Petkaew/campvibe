@@ -4,7 +4,6 @@ import { useEffect, useState, useActionState } from "react";
 import { X, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { authenticate } from "@/lib/actions";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -47,8 +46,6 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
         onClose();
     };
 
-    const inputHeight = "!h-12";
-    
     // Check if error is invalid credentials (server error after submit)
     const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
                                  errorMessage?.toLowerCase().includes('credentials') ||
@@ -83,7 +80,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col relative">
                     {/* Header */}
                     <div className="flex items-center justify-center p-6 border-b border-border/60">
@@ -93,6 +90,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 size="icon"
                                 className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
                                 onClick={handleClose}
+                                aria-label={t.common?.close || "Close"}
                             >
                                 <X className="w-5 h-5 text-foreground" />
                             </Button>
@@ -145,7 +143,8 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 required
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             <InputField
@@ -174,7 +173,8 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                     </button>
                                 }
                                 containerClassName="mb-8"
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
 
