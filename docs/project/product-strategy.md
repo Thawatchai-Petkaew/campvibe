@@ -1,6 +1,6 @@
 # Product Strategy — CampVibe
 
-> **ไฟล์สำคัญสุดสำหรับ `/camper-agent`** — เกณฑ์เชิงธุรกิจที่ใช้ตัดสิน gate ที่ deterministic check ไม่ครอบ
+> **ไฟล์สำคัญสุดสำหรับการตัดสิน gate** — เกณฑ์เชิงธุรกิจที่ orchestrator + เจ้าของ ใช้ประกอบการตัดสิน gate ที่ deterministic check ไม่ครอบ
 > ส่วน `> TODO(you):` รอเจ้าของเติม · ถ้าจุดที่ต้องตัดสินยังเป็น TODO/ไม่ฟันธง → **escalate ถาม**
 
 ## หลักการผลิตภัณฑ์ (principles)
@@ -16,7 +16,7 @@
 - **Later:** > TODO(you): payment/escrow, ปฏิทินว่าง, แชร์ wishlist, remarketing, host analytics
 > TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `FEATURE-BACKLOG.md`)
 
-## จะทำ / ไม่ทำ (สำหรับ `/camper-agent` รู้ขอบเขต)
+## จะทำ / ไม่ทำ (ให้ orchestrator + เจ้าของ รู้ขอบเขต)
 **ทำ:** อะไรที่ดัน core loop (ค้นหา/จอง/รีวิว/wishlist) + trust + supply/demand
 **ยังไม่ทำตอนนี้ (escalate ถ้าถูกขอ):**
 > TODO(you): ระบุชัด เช่น — payment จริง/escrow, native app, ตลาดนอกไทย, social feed, ฟีเจอร์ที่ไม่แตะ core loop
@@ -29,20 +29,20 @@
 
 ---
 
-## เกณฑ์ตัดสินของ `/camper-agent` (business layer — ใช้คู่ deterministic gate checks)
-เมื่อ autonomous เปิด และ gate มีมิติธุรกิจ ให้ประเมินตามนี้ **ก่อน** auto-approve:
+## เกณฑ์ประกอบการตัดสิน gate (business layer — ใช้คู่ deterministic gate checks)
+เมื่อ gate มีมิติธุรกิจ orchestrator ประเมินตามนี้เพื่อ raise packet ให้เจ้าของ; เจ้าของเป็นผู้ตัดสินเสมอ (interactive):
 
-**Auto-approve ได้** เมื่อครบทุกข้อ:
-1. ผ่าน deterministic check ของ gate นั้น (G1 gap ปิด / G2 design conform / G3 quality-gate เขียว+coverage / G4 AC verify staging) — ดู `camper-agent.md`
+**สัญญาณว่าน่า Approve** เมื่อครบทุกข้อ:
+1. ผ่าน deterministic check ของ gate นั้น (G1 gap ปิด / G2 design conform / G3 quality-gate เขียว+coverage / G4 AC verify staging)
 2. อยู่ใน **Now/Next** ของ roadmap + ตรง principle ข้างบน + แก้ pain ของ persona ที่ระบุใน [user-research.md](user-research.md)
 3. **ไม่มีค่าใช้จ่ายเงิน** (ดู cost list ใน [business.md](business.md)) และ **ไม่ใช่ G5/security/irreversible**
 
-**Escalate (ถามมนุษย์) เสมอ** เมื่อเข้าข้อใดข้อหนึ่ง:
+**ต้องเน้นย้ำ/ขอเจ้าของพิจารณาเป็นพิเศษ** เมื่อเข้าข้อใดข้อหนึ่ง:
 - อยู่ใน **Later/ไม่ทำ/นอก scope** หรือ strategy ยังเป็น `> TODO(you):` ตรงจุดที่ต้องตัดสิน
 - ขัด principle (เช่น โตเร็วแต่ทอน trust/ความปลอดภัย)
 - **มีค่าใช้จ่ายเงินแม้นิดเดียว** · G5 prod go-live · แตะ authz/secret/PII · migration ที่ย้อนยาก/ลบข้อมูล
 - กระทบ guardrail metric หรือ trade-off เชิงธุรกิจที่เอกสารไม่ฟันธง
-> หลักคิด: **ไม่แน่ใจ = ถาม** — `/camper-agent` แทนการตัดสิน "เชิงกล" ไม่ใช่แทน "ความเสี่ยง/รสนิยม/เงิน" ของเจ้าของ
+> หลักคิด: **ไม่แน่ใจ = ถาม** — gate ทุก gate ตัดสินโดยเจ้าของเสมอ (interactive); orchestrator เป็นผู้ raise ให้, ไม่ตัดสินแทน "ความเสี่ยง/รสนิยม/เงิน" ของเจ้าของ
 
 ## เกี่ยวข้อง
-[master-plan.md](master-plan.md) · [business.md](business.md) · [user-research.md](user-research.md) · `.claude/agents/camper-agent.md` (Phase 2)
+[master-plan.md](master-plan.md) · [business.md](business.md) · [user-research.md](user-research.md) · `.claude/agents/orchestrator.md` (raises gates to the human)

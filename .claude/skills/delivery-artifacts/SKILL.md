@@ -1,6 +1,6 @@
 ---
 name: delivery-artifacts
-description: Persist every workflow output as versioned files under docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ and keep them in sync with Linear. Use when starting a feature/epic/story (scaffold the folder), when any role finishes its step (author its artifact), and when a requirement changes (cascade-update + bump version). Do NOT use it to change Linear state (that is update-status) or to decide a gate (orchestrator/camper-agent); files hold content, Linear holds live status.
+description: Persist every workflow output as versioned files under docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ and keep them in sync with Linear. Use when starting a feature/epic/story (scaffold the folder), when any role finishes its step (author its artifact), and when a requirement changes (cascade-update + bump version). Do NOT use it to change Linear state (that is update-status) or to decide a gate (always the human; the orchestrator raises it); files hold content, Linear holds live status.
 ---
 
 # delivery-artifacts
@@ -33,7 +33,7 @@ Layout: `docs/delivery/<feature-slug>/feature.md` · `<epic-slug>/epic.md` · `<
 **NOT for:**
 
 - Changing Linear state/labels — that is the `update-status` skill (Linear = status SoT).
-- Deciding a gate — that is the orchestrator / `camper-agent`.
+- Deciding a gate — always the human (the orchestrator raises it).
 - Writing the production code/tests themselves — that is the role agents; this skill captures their **output as a doc**.
 
 ## Prerequisites

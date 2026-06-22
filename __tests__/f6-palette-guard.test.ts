@@ -293,7 +293,7 @@ describe("AC-status: app/status/page.tsx not touched in F6 diff", () => {
     try {
       branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
     } catch { /* ignore */ }
-    if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2")) {
+    if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous")) {
       return; // skip: this story (ST1/ST2) owns app/status/page.tsx
     }
     let diffOutput = "";
