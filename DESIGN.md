@@ -163,6 +163,14 @@ audience: AI agents (primary) + humans
 `default · hover · focus (มี ring `ring-ring`) · active · loading · error · empty · disabled` — ขาดข้อใด = ไม่ผ่าน Design Gate
 **Form/error pattern** (`components/ui/form-patterns.md`): client validation → inline ใต้ field · server error → `ErrorBanner` บนสุดหลัง submit · `<form noValidate>` เสมอ
 
+### Accessibility (WCAG 2.1 AA — ขยายจาก §6 gate)
+- **Keyboard** — ทุก interactive โฟกัสด้วย Tab ได้ + ลำดับโฟกัสสมเหตุผล + **focus ring มองเห็น** (อย่าลบ outline); ใช้ semantic HTML (`<button>`/`<a>` ไม่ใช่ `<div onClick>`)
+- **Screen reader** — รูปมี `alt` (decorative = `alt=""`) · heading เป็นลำดับชั้น (ไม่ข้ามระดับ) · interactive ที่ไม่มี label มี `aria-label` · สถานะ async ผ่าน `aria-live`
+- **Contrast** — body ≥ 4.5:1 · heading/large ≥ 3:1 · **ห้ามสื่อความหมายด้วยสีอย่างเดียว** (มี icon/ข้อความกำกับ)
+- **Form/touch** — label มองเห็น + error ผูก field + บอก required ชัด · tap target ≥ 44px
+- **เครื่องมือ** — ตรวจด้วย axe / DevTools a11y tree + keyboard-only pass; เป้า 0 console error + 0 a11y violation บนหน้าที่แตะ
+- **Anti-patterns:** `<div>` เป็นปุ่ม · ลืม `alt` · state ด้วยสีล้วน · ลบ focus outline → ตีกลับ
+
 ---
 
 ## §4 Copy & content
