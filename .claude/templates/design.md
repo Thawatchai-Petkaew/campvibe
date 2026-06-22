@@ -11,8 +11,6 @@ updated: {{date}}
 ---
 # Design — {{title}} ({{linear}})
 
-> If this story has no UI: replace the body with `N/A — no UI`.
-
 ## Flow
 <the screen flow for this story>
 
