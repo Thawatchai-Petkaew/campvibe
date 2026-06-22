@@ -18,7 +18,7 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 ## Standards (รายละเอียดใน std/)
 - Code → `std/code.md` · API/Backend → `std/api.md` · Security → `std/security.md`
 - QA/Test → `std/qa.md` · Architecture → `std/architecture.md` · Discovery → `std/discovery.md` · Ops → `std/ops.md`
-- Design system → `DESIGN.md` (token-only, anti-slop) · SEO/AEO → `std/seo.md` · UX Validation+PDPA → `std/ux.md`
+- Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — อ่านก่อนงาน UI ทุกครั้ง: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (block PR) · SEO/AEO → `std/seo.md` · UX Validation+PDPA → `std/ux.md`
 
 ## Quality gates (บังคับก่อน merge — `/quality-gate`)
 `npm run lint` · `npm run typecheck` · `npm test` (coverage ≥80% โค้ดใหม่) · `npm run build` · `npm audit --omit=dev` (0 high/critical) · design gate (งาน UI)
