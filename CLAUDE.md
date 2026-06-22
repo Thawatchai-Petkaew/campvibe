@@ -1,36 +1,44 @@
 # CLAUDE.md — CampVibe (AI Delivery Team)
 
-Memory กลางของทีม AI agent โหลดอัตโนมัติทุก session **กฎทั้งหมดในไฟล์นี้ override ความสะดวก/ความเร็ว**
+Central memory for the AI agent team, auto-loaded every session. **Every rule in this file overrides convenience and speed.**
 
-> วิธีทำงานของทีม (ฉบับเต็ม): `ai-planning/AI-TEAM-PLAYBOOK.md` — ไฟล์นี้คือฉบับบังคับใช้แบบย่อ
+> Full team operating manual: `ai-planning/AI-TEAM-PLAYBOOK.md`. This file is the binding, condensed enforcement copy.
 
 ## Stack
+
 Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v4 + shadcn/ui (new-york) · NextAuth · Vercel · Linear (tracker)
 
-## กฎเหล็ก (ทุก agent)
-1. **Spec-first** — ไม่มีโค้ดถ้าไม่มี spec; โค้ดทุกชิ้นต้องโยงกลับ ticket/AC ได้ ถ้า prompt คลุมเครือ → หยุด เขียน spec ก่อน
-2. **ทีละ 1 atomic story** — ทำเสร็จจริง (code+states+validation+self-test) ก่อนขยับ ห้ามเขียนเผื่ออนาคต/dead code
-3. **Self-verify ก่อน handoff** — รันคำสั่งจริงของ domain ตน (lint/type/test/scan) ห้ามส่งงานที่ยังไม่ verify
-4. **อ่าน memory ก่อนทำงาน** — agent อ่าน `std/<ของตน>.md` + `DESIGN.md` (งาน UI) ก่อนเริ่มทุกครั้ง
-5. **ไม่ข้าม gate** — หยุดขออนุมัติมนุษย์ที่ G1 Scope · G2 Design · G3 Merge→staging · G4 Staging sign-off · G5 Go-live(prod)
-6. **Lean** — เพิ่มอะไรต้องตอบได้ว่าทำให้งานดีขึ้นยังไง ไม่งั้นตัดทิ้ง
+## Iron Rules (every agent)
 
-## Standards (รายละเอียดใน std/)
+1. **Spec-first** — no code without a spec; every piece of code must trace back to a ticket/AC. If the prompt is ambiguous → stop and write the spec first.
+2. **One atomic story at a time** — finish it for real (code + states + validation + self-test) before moving on. Never write for the future or leave dead code.
+3. **Self-verify before handoff** — run the real commands for your own domain (lint/type/test/scan). Never hand off work you have not verified.
+4. **Read memory before working** — every agent reads `std/<own>.md` + `DESIGN.md` (for UI work) before starting, every time.
+5. **Never skip a gate** — stop for human approval at G1 Scope · G2 Design · G3 Merge→staging · G4 Staging sign-off · G5 Go-live (prod).
+6. **Lean** — anything you add must answer how it makes the work better; otherwise cut it.
+
+## Standards (details in std/)
+
 - Code → `std/code.md` · API/Backend → `std/api.md` · Security → `std/security.md`
 - QA/Test → `std/qa.md` · Architecture → `std/architecture.md` · Discovery → `std/discovery.md` · Ops → `std/ops.md`
 - Observability → `std/observability.md` · Performance → `std/performance.md`
-- Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — อ่านก่อนงาน UI ทุกครั้ง: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (block PR) · SEO/AEO → `std/seo.md` · UX Validation+PDPA → `std/ux.md`
+- Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — read before every UI task: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (blocks PR) · SEO/AEO → `std/seo.md` · UX Validation + PDPA → `std/ux.md`
 
-## Quality gates (บังคับก่อน merge — `/quality-gate`)
-`npm run lint` · `npm run typecheck` · `npm test` (coverage ≥80% โค้ดใหม่) · `npm run build` · `npm audit --omit=dev` (0 high/critical) · design gate (งาน UI)
+## Quality gates (mandatory before merge — `/quality-gate`)
 
-## Env & Definition of Done (3-env — รายละเอียด `std/ops.md`)
-Local Dev → **Staging** (`staging` branch, auto deploy) → **Production** (`main`, promote+tag) · DB แยก staging/prod
-- **Done** = merge เข้า `staging` + quality-gate เขียว + **verify AC บน Staging URL จริง** → Linear state `Done`
-- **Released** = promote `staging`→`main` + prod deploy + smoke + tag + changelog → label `released` (ไม่ใช่ state) · story หลายตัว Done ได้ก่อนรวมปล่อยเป็นรอบ
+`npm run lint` · `npm run typecheck` · `npm test` (coverage ≥80% on new code) · `npm run build` · `npm audit --omit=dev` (0 high/critical) · design gate (UI work)
+
+## Env & Definition of Done (3-env — details in `std/ops.md`)
+
+Local Dev → **Staging** (`staging` branch, auto deploy) → **Production** (`main`, promote + tag) · separate staging/prod DBs
+
+- **Done** = merge into `staging` + quality-gate green + **verify AC on the real Staging URL** → Linear state `Done`
+- **Released** = promote `staging`→`main` + prod deploy + smoke + tag + changelog → label `released` (a label, not a state) · multiple stories may reach Done before being released together in one batch
 
 ## Git
-branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) · Conventional Commits · **feature → PR เข้า `staging` (=Done) → promote `staging`→`main` (=Released)** · `main`+`staging` protected · ผ่าน CI ก่อน merge
 
-## คำสั่ง
-`/new-feature "<requirement>"` เริ่ม loop · `/status` ดูสถานะ · `/promote-release --to <staging|prod>` promote ข้าม env
+Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) · Conventional Commits · **feature → PR into `staging` (= Done) → promote `staging`→`main` (= Released)** · `main` + `staging` protected · must pass CI before merge
+
+## Commands
+
+`/new-feature "<requirement>"` start the loop · `/status` view status · `/promote-release --to <staging|prod>` promote across envs
