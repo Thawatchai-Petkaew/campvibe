@@ -46,6 +46,7 @@ const filterChipSrc = src("components/ui/filter-chip.tsx");
 const campgroundCardSrc = src("components/CampgroundCard.tsx");
 const activeFiltersSrc = src("components/ActiveFilters.tsx");
 const searchModalSrc = src("components/SearchModal.tsx");
+const buttonSrc = src("components/ui/button.tsx");
 const pageSrc = src("app/page.tsx");
 const campgroundGridSrc = src("components/CampgroundGrid.tsx");
 
@@ -123,19 +124,19 @@ describe("palette: text-white scope", () => {
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: a11y focus rings on filter buttons", () => {
     it("AC-a11y-1: filter buttons have focus-visible:outline-none", () => {
-        expect(filterModalSrc).toMatch(/focus-visible:outline-none/);
+        expect(filterChipSrc).toMatch(/focus-visible:outline-none/);
     });
 
     it("AC-a11y-1: filter buttons have focus-visible:ring-2", () => {
-        expect(filterModalSrc).toMatch(/focus-visible:ring-2/);
+        expect(filterChipSrc).toMatch(/focus-visible:ring-2/);
     });
 
     it("AC-a11y-1: filter buttons have focus-visible:ring-ring (token, not hardcoded color)", () => {
-        expect(filterModalSrc).toMatch(/focus-visible:ring-ring/);
+        expect(filterChipSrc).toMatch(/focus-visible:ring-ring/);
     });
 
     it("AC-a11y-1: filter buttons have focus-visible:ring-offset-2", () => {
-        expect(filterModalSrc).toMatch(/focus-visible:ring-offset-2/);
+        expect(filterChipSrc).toMatch(/focus-visible:ring-offset-2/);
     });
 });
 
@@ -427,11 +428,12 @@ describe("modal--search: close button size and focus ring [DEFECT D2, D3]", () =
         expect(searchModalSrc).toMatch(/absolute right-4 top-4[^"]*w-11 h-11/);
     });
 
-    it("AC-searchmodal-1 [DEFECT D3]: SearchModal close button should have focus-visible:ring-2 focus-visible:ring-ring", () => {
-        // Current code omits focus-visible ring on the close button
+    it("AC-searchmodal-1 [DEFECT D3]: SearchModal close button has a focus ring (via Button primitive, DS-2)", () => {
+        // DS-2: the close button is a <Button size="icon"> — the focus ring now comes from the
+        // Button primitive (focus-visible:ring-3 ring-ring/30), not an inline override.
         const closeButtonBlock = searchModalSrc.match(/absolute right-4 top-4[^"]*"/);
         expect(closeButtonBlock).not.toBeNull();
-        expect(closeButtonBlock![0]).toMatch(/focus-visible:ring-2/);
+        expect(buttonSrc).toMatch(/focus-visible:ring-ring/);
     });
 });
 
