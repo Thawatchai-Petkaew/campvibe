@@ -16,7 +16,7 @@ docs/delivery/
     └── <epic-slug>/
         ├── epic.md                  # requirement/KPI/scope + story rollup
         └── <CAM-id>-<story-slug>/
-            ├── story.md             # STORY-TICKET + IDs (AC-n / BR-n) — PO/analyst (ไฟล์เดียวที่สร้างเสมอตอน scaffold)
+            ├── story.md             # story ticket + IDs (AC-n / BR-n) — PO/analyst (ไฟล์เดียวที่สร้างเสมอตอน scaffold)
             ├── design.md            # designer — สร้าง on-demand เฉพาะเมื่อมี UI
             ├── test.md              # qa — AC→test matrix (on-demand)
             ├── review.md            # security — 6-area + verdict (on-demand)

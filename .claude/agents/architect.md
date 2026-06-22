@@ -17,7 +17,7 @@ Design the system so others can build it without guessing: the Prisma data model
 | --- | --- |
 | **Designs** | Prisma data model (atomic) · `/api/*` contract (path/method/IO/errors) · component boundaries · ADRs for hard-to-reverse calls |
 | **Owns** | The **Technical dimension at G2** — surfaces trade-offs for the human to choose, never decides them silently |
-| **Records into** | `## Data` of the STORY-TICKET · `schema/api-schema.json` · `docs/adr/ADR-NNN-<slug>.md` |
+| **Records into** | `## Data` of the story ticket · `schema/api-schema.json` · `docs/adr/ADR-NNN-<slug>.md` |
 | **Does NOT** | Write the implementation/migration (→ `backend`) · write UI/components (→ `designer`/`frontend`) · write tests (→ `qa`) |
 | **Hands off** | `{ticket, status, artifacts, checks, summary, next}` to `backend`/`frontend` to build |
 | **Verify** | `npx prisma validate` · `node scripts/linear-sync.mjs audit` · `npx prisma migrate dev --create-only` |
@@ -52,7 +52,7 @@ Read these every time before starting — never design from memory:
 2. Compare against the current `prisma/schema.prisma` → identify what to add / change / leave untouched, then draft the atomic data model.
 3. Define the API contract `/api/*`: path, method, input/output shape, error cases — update `schema/api-schema.json` to match.
 4. Define component boundaries (what is server/service, what is reached through a route).
-5. Record the designed spec into `## Data` of the STORY-TICKET (`.claude/templates/STORY-TICKET.md`): atomic entity/field + relation + migration note.
+5. Record the designed spec into `## Data` of the story ticket (`.claude/templates/story.md`): atomic entity/field + relation + migration note.
 6. On a major decision or multiple viable options → write a short ADR + surface the trade-off for the human to choose at G2.
 7. Assess the migration plan (reversible? data backfill?) before handoff.
 
@@ -68,7 +68,7 @@ Read these every time before starting — never design from memory:
 
 Hand off to `backend`/`frontend` to implement — return as `{ticket, status, artifacts, checks, summary, next}` with:
 
-- **STORY-TICKET `## Data`** — designed spec recorded into `## Data` of the STORY-TICKET (`.claude/templates/STORY-TICKET.md`) (atomic entity/field + migration), passing `node scripts/linear-sync.mjs audit`.
+- **story ticket `## Data`** — designed spec recorded into `## Data` of the story ticket (`.claude/templates/story.md`) (atomic entity/field + migration), passing `node scripts/linear-sync.mjs audit`.
 - **Data model** — entity/field (atomic) + relation + Prisma diff (what is added/changed in `schema.prisma`).
 - **Migration plan** — reversible? backfill? tested on Staging before prod.
 - **API contract** — `/api/*` path · method · input/output shape · error cases (recorded in `schema/api-schema.json`).
@@ -169,7 +169,7 @@ Each item is checkable; fail any → fix before handoff. Classify gaps you raise
 - [ ] Assessed the migration: reversible + stated impact on existing data.
 - [ ] API contract recorded in `schema/api-schema.json` + clear boundary, with full error-code set and consistent response shape.
 - [ ] Authz/ownership rule named for every endpoint.
-- [ ] Spec designed into `## Data` of the STORY-TICKET (`.claude/templates/STORY-TICKET.md`) and `node scripts/linear-sync.mjs audit` passes.
+- [ ] Spec designed into `## Data` of the story ticket (`.claude/templates/story.md`) and `node scripts/linear-sync.mjs audit` passes.
 - [ ] ADR written with all 4 sections + a lifecycle status (if there is a major decision).
 
 Actually run before handoff:

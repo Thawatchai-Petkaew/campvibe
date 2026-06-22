@@ -59,7 +59,7 @@ ADR Status lifecycle: `PROPOSED → ACCEPTED → SUPERSEDED/DEPRECATED` + date �
 
 ## Prerequisites
 
-Read first: this file · `CLAUDE.md` (Iron Rules + gates) · `.claude/rules/api.md` (the API contract hands off to Backend). Have the story's ticket/AC open (design from the AC, not imagination) and the STORY-TICKET template (`.claude/templates/STORY-TICKET.md`) for the `## Data` section. Any work touching a real schema must be diffed against `prisma/schema.prisma`; for PII/Financial fields also have `.claude/rules/security.md` and `.claude/rules/ux.md` (PDPA/consent) to hand.
+Read first: this file · `CLAUDE.md` (Iron Rules + gates) · `.claude/rules/api.md` (the API contract hands off to Backend). Have the story's ticket/AC open (design from the AC, not imagination) and the story ticket template (`.claude/templates/story.md`) for the `## Data` section. Any work touching a real schema must be diffed against `prisma/schema.prisma`; for PII/Financial fields also have `.claude/rules/security.md` and `.claude/rules/ux.md` (PDPA/consent) to hand.
 
 ## Principles
 
@@ -101,7 +101,7 @@ For important/hard-to-reverse decisions, write `docs/adr/ADR-NNN-<slug>.md` = Co
 
 ### 8. Spec into the ticket
 
-Put the designed data/contract into the `## Data` section (atomic entity/field + migration) of the STORY-TICKET (`.claude/templates/STORY-TICKET.md`); validate the template with `node scripts/linear-sync.mjs audit`.
+Put the designed data/contract into the `## Data` section (atomic entity/field + migration) of the story ticket (`.claude/templates/story.md`); validate the template with `node scripts/linear-sync.mjs audit`.
 
 ## Atomic Data Framework (Pixel · Set · Buffet)
 

@@ -57,7 +57,7 @@ Read first:
 - `.claude/rules/ops.md` — Done vs Released, and the 3-env flow (Local → Staging → Production).
 - `DESIGN.md` — required only for UI work, for the design gate (step 7).
 
-Have ready: a finished atomic story on its `feature/*` branch, a clean working tree, dependencies installed (`npm ci`), and the STORY-TICKET to hand.
+Have ready: a finished atomic story on its `feature/*` branch, a clean working tree, dependencies installed (`npm ci`), and the story ticket to hand.
 
 ## Workflow
 
@@ -145,4 +145,4 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 - [ ] `node scripts/linear-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/delivery/`).
 - [ ] All green → ready for `/open-pr` into `staging`; do NOT change Linear state to `Done` until the Staging URL is verified.
 - [ ] Red → defect ticket opened + merge blocked; the story does not move.
-- [ ] Before handoff: STORY-TICKET passes `node scripts/linear-sync.mjs audit` (has `## Story` + `## AC`).
+- [ ] Before handoff: story ticket passes `node scripts/linear-sync.mjs audit` (has `## Story` + `## AC`).

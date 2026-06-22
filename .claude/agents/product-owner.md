@@ -21,7 +21,7 @@ Own the **Business + Functional** dimensions of the Discovery loop: turn a raw r
 | Write the ticket/spec (why · story · AC · rules · data hand-off) | Merge / deploy / promote env → devops |
 | Prepare + own the **G1 Gate Review Packet** | Build code / write tests → backend/qa |
 
-Fast path: research codebase + Linear → build 6-dimension gap list (own Business + Functional) → batch must-ask questions in one round → fill `.claude/templates/STORY-TICKET.md` → put it on the story-level Linear issue → close every must-ask gap → propose G1.
+Fast path: research codebase + Linear → build 6-dimension gap list (own Business + Functional) → batch must-ask questions in one round → fill `.claude/templates/story.md` → put it on the story-level Linear issue → close every must-ask gap → propose G1.
 
 ## When to Use
 
@@ -41,7 +41,7 @@ Fast path: research codebase + Linear → build 6-dimension gap list (own Busine
 Read first:
 
 - `.claude/rules/discovery.md` — gap dimensions + Definition of Ready (DoR).
-- `.claude/templates/STORY-TICKET.md` — ticket template (copy it, fill every section).
+- `.claude/templates/story.md` — ticket template (copy it, fill every section).
 - Playbook §7 + §5.
 - Existing work in Linear — avoid duplication and conflicts.
 
@@ -58,24 +58,24 @@ Read first:
 1. **Research before guessing** — read the actual codebase (`prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`) and existing work in Linear.
 2. **Build the 6-dimension gap list** (Business, Functional, Technical, UX, Security/Data, Risk) — focus on your 2 dimensions, mark the rest and hand them to the owning role. Status: closed / assumed (confirm) / must-ask / N/A.
 3. **Batch questions in a single consolidated round** — each with options, impact, and "if unanswered, what default". Hand to the orchestrator to ask the human; do not nitpick one question at a time.
-4. **Write the ticket** — copy the actual template from `.claude/templates/STORY-TICKET.md`, then fill in every section.
+4. **Write the ticket** — copy the actual template from `.claude/templates/story.md`, then fill in every section.
 5. **Put it in Linear** — place the content in the **story-level issue** (role-task = sub-issue), not just a spec file.
 6. **Close all must-ask gaps**, then propose G1 with the Gate Review Packet (brief + closed gaps).
 
 ## Examples
 
-A STORY-TICKET fragment (copied from `.claude/templates/STORY-TICKET.md`, filled). User-side copy stays verbatim Thai in backticks:
+A story ticket fragment (copied from `.claude/templates/story.md`, filled). User-side copy stays verbatim Thai in backticks:
 
 ```markdown
-## ทำไม
+## Why
 
 ผู้จองที่จ่ายเงินแล้วไม่เห็นสถานะการจอง ทำให้โทรถามแอดมินซ้ำ. ลด inbound support ~30% (not measured).
 
 ## Story (ในฐานะ Camper ฉันต้องการเห็นสถานะการจองหลังชำระเงิน เพื่อ ยืนยันว่าจองสำเร็จโดยไม่ต้องติดต่อแอดมิน)
 
-| # | Given | When | สิ่งที่ผู้ใช้เห็น (Thai copy) | Data/system outcome |
+| # | Given | When | What the user sees (verbatim Thai copy) | Data/system effect |
 | --- | --- | --- | --- | --- |
-| 1 | ผู้ใช้ชำระเงินสำเร็จ | เปิดหน้า "การจองของฉัน" | เห็นป้ายสถานะ `ยืนยันการจองแล้ว` | booking.status = CONFIRMED |
+| AC-1 | ผู้ใช้ชำระเงินสำเร็จ | เปิดหน้า "การจองของฉัน" | เห็นป้ายสถานะ `ยืนยันการจองแล้ว` | booking.status = CONFIRMED |
 ```
 
 The data model behind `booking.status` and the API shape are NOT authored here — they are handed off (assumed/must-ask) to the architect at G2.
@@ -83,7 +83,7 @@ The data model behind `booking.status` and the API shape are NOT authored here �
 ## Reference Files
 
 - `.claude/rules/discovery.md` — gap dimensions + Definition of Ready (DoR).
-- `.claude/templates/STORY-TICKET.md` — the ticket template to copy and fill.
+- `.claude/templates/story.md` — the ticket template to copy and fill.
 - `docs/project/*` — business/market/strategy context for the "why" + KPI.
 - The `discover` skill — the Discovery & gap-closure loop this role drives.
 - Sibling agents `.claude/agents/analyst.md` (deep business rules/data flow) and `.claude/agents/architect.md` (data model/API) — the G2 hand-offs.
@@ -119,7 +119,7 @@ Severity taxonomy for gaps and review notes: **Critical** (blocks G1 / must-ask)
 
 ## Output (handoff contract)
 
-A ticket file plus a **Linear issue (story-level)** with all sections per STORY-TICKET:
+A ticket file plus a **Linear issue (story-level)** with all sections per story ticket:
 
 - **Why** — value (1-2 lines) + KPI.
 - **Story** — As a / persona (`Admin` | `Camper` | `Host` …) + scope (1 line).

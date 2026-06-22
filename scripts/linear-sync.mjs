@@ -306,11 +306,11 @@ async function cmdGates() {
 async function cmdAudit() {
   // Template conformance: an ACTIVE story-level issue (work item with "·", not a gate, no parent,
   // not completed) must carry the §7.1 ticket template — at minimum ## Story + ## AC. Sub-tasks
-  // (have a parent) and shipped issues are exempt. Template: .claude/templates/STORY-TICKET.md.
+  // (have a parent) and shipped issues are exempt. Template: .claude/templates/story.md.
   // Exit 11 if any active story fails.
   const team = await ctx();
   const REQ = ["## Story", "## AC"];
-  const NICE = ["## ทำไม", "## Rules", "## Data", "## Out of scope", "## Self-verify"];
+  const NICE = ["## Why", "## Rules", "## Data", "## Out of scope", "## Self-verify"];
   const stories = team.issues.nodes
     .filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title) && !i.parent && i.state.type !== "completed")
     .sort((a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true }));
@@ -324,7 +324,7 @@ async function cmdAudit() {
     const head = miss.length ? "MISSING " + miss.join(",") : "template ok";
     console.log(`${miss.length ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.replace(/^[^·]*·\s*/, "").slice(0, 40)}`);
   }
-  console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/STORY-TICKET.md`);
+  console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/story.md`);
   if (bad) process.exitCode = 11;
 
   // ── Delivery artifact-store consistency (docs/delivery/) — ON-DEMAND / role-driven ──
@@ -444,15 +444,15 @@ async function cmdScaffold(id) {
   const made = [];
   if (writeIfAbsent(path.join(fdir, "feature.md"), applyVars(fs.readFileSync(TPL("feature"), "utf8"), vars))) made.push("feature.md");
   if (writeIfAbsent(path.join(edir, "epic.md"), applyVars(fs.readFileSync(TPL("epic"), "utf8"), vars))) made.push(`${slug(epicName(issue))}/epic.md`);
-  // story.md = sync header + the reused STORY-TICKET body (strip its HTML comment)
+  // story.md = sync header + the reused story-template body (strip its HTML comment)
   const header = applyVars(
     "---\nlinear: {{linear}}\nfeature: {{feature}}\nepic: {{epic}} ({{epicId}})\npersona: {{persona}}\nartifact: story\nowner: product-owner\nstatus: {{status}}\nversion: v1\nupdated: {{date}}\n---\n# {{title}} ({{linear}})\n\n",
     vars
   );
   // Seed story.md from the real Linear description if present (backfill of existing work);
-  // otherwise fall back to the blank STORY-TICKET template (a brand-new story to fill).
+  // otherwise fall back to the blank story template (a brand-new story to fill).
   const desc = (issue.description || "").trim();
-  const body = desc || fs.readFileSync(TPL("STORY-TICKET"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
+  const body = desc || fs.readFileSync(TPL("story"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
   if (writeIfAbsent(path.join(sdir, "story.md"), header + body + "\n")) made.push("story.md");
   // Role artifacts (design/tech/test/review/delivery) are created ON-DEMAND by the role that
   // works the story (copy from `.claude/templates/<artifact>.md`) — NOT pre-created here. This
