@@ -12,7 +12,8 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2 } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid } from "lucide-react";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -241,7 +242,9 @@ export default function CampgroundDetailClient({
     const displayImages = images.slice(0, 5);
 
     const openGallery = (index: number = 0) => {
-        setGalleryStartIndex(index);
+        if (images.length === 0) return;
+        const safe = Math.min(Math.max(index, 0), images.length - 1);
+        setGalleryStartIndex(safe);
         setIsGalleryOpen(true);
     };
 
@@ -384,75 +387,210 @@ export default function CampgroundDetailClient({
                 <div className="relative rounded-3xl overflow-hidden mb-10 group">
                     {/* Mobile View: Single Hero Image */}
                     <div className="md:hidden h-[300px] w-full relative">
-                        <img
+                        <ImageWithFallback
                             src={images[0]}
                             alt={name}
-                            className="w-full h-full object-cover cursor-pointer"
+                            className="w-full h-full cursor-pointer"
+                            imgClassName="object-cover"
                             onClick={() => openGallery(0)}
                         />
                         <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
                             {t.gallery.imageOf.replace("{n}", "1").replace("{total}", String(images.length))}
                         </div>
-                            <Button
-                                variant="secondary"
-                                onClick={() => openGallery(0)}
-                                className="absolute bottom-4 right-4 h-8 text-xs font-bold rounded-full border border-border shadow-sm bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
+                        <Button
+                            variant="secondary"
+                            onClick={() => openGallery(0)}
+                            className="absolute bottom-4 right-4 h-11 text-xs font-bold rounded-full border border-border shadow-sm bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
                         >
                             {t.gallery.openGallery}
                         </Button>
                     </div>
 
-                    {/* Desktop View: Airbnb Style Grid */}
-                    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
-                        <div className="col-span-2 row-span-2 relative">
-                            <img
-                                src={images[0]}
-                                alt={name}
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                    {/* Desktop View: Adaptive Grid (1/2/3/4/5+) */}
+                    {images.length === 1 && (
+                        <div className="hidden md:block h-[480px]">
+                            <button
+                                type="button"
+                                className="w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
                                 onClick={() => openGallery(0)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[1]}
-                                alt=""
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(1)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[2]}
-                                alt=""
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(2)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[3]}
-                                alt=""
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(3)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[4]}
-                                alt=""
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(4)}
-                            />
-                            <Button
-                                variant="secondary"
-                                onClick={() => openGallery(0)}
-                                className="absolute bottom-4 right-4 gap-2 text-sm font-semibold rounded-full border border-border shadow-sm transition h-9 bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true" role="presentation" focusable="false" style={{ display: 'block', height: '12px', width: '12px', fill: 'currentcolor' }}><path d="M3 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3zm0 2h10v3H3V3zm0 5h10v6H3V8z"></path></svg>
-                                {t.gallery.openGallery}
-                            </Button>
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
                         </div>
-                    </div>
+                    )}
+                    {images.length === 2 && (
+                        <div className="hidden md:grid grid-cols-2 gap-2 h-[480px]">
+                            {images.slice(0, 2).map((src, i) => (
+                                <button
+                                    key={i}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 1))}
+                                    onClick={() => openGallery(i)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt={i === 0 ? name : ""}
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {images.length === 3 && (
+                        <div className="hidden md:grid grid-cols-3 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            {images.slice(1, 3).map((src, i) => (
+                                <button
+                                    key={i + 1}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 2))}
+                                    onClick={() => openGallery(i + 1)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt=""
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {images.length === 4 && (
+                        <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 row-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "2")}
+                                onClick={() => openGallery(1)}
+                            >
+                                <ImageWithFallback
+                                    src={images[1]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "3")}
+                                onClick={() => openGallery(2)}
+                            >
+                                <ImageWithFallback
+                                    src={images[2]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="col-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "4")}
+                                onClick={() => openGallery(3)}
+                            >
+                                <ImageWithFallback
+                                    src={images[3]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                        </div>
+                    )}
+                    {images.length >= 5 && (
+                        <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 row-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            {images.slice(1, 4).map((src, i) => (
+                                <button
+                                    key={i + 1}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 2))}
+                                    onClick={() => openGallery(i + 1)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt=""
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "5")}
+                                onClick={() => openGallery(4)}
+                            >
+                                <ImageWithFallback
+                                    src={images[4]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                                {images.length > 5 && (
+                                    <div className="absolute bottom-4 right-4">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={(e) => { e.stopPropagation(); openGallery(0); }}
+                                            className="gap-2 text-sm font-semibold rounded-full border border-border shadow-sm transition h-11 bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
+                                        >
+                                            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+                                            {t.newCampground.showAllPhotos}
+                                        </Button>
+                                    </div>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Content Layout */}
