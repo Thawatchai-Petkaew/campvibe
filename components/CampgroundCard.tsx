@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
-import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
+import { Heart } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CampSite } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -193,9 +193,9 @@ export function CampgroundCard({
             >
                 {saved ? (
                     // Filled = teal (--primary), per G2 brand decision.
-                    <IconHeartFilled className="w-5 h-5 text-primary" aria-hidden="true" />
+                    <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
                 ) : (
-                    <IconHeart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
+                    <Heart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
                 )}
             </button>
         </div>
