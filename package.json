@@ -16,7 +16,8 @@
     "status:pull": "node scripts/linear-sync.mjs pull",
     "camper": "node scripts/camper.mjs",
     "db:reset:staging": "node scripts/db-reset.mjs",
-    "check:palette": "node scripts/check-palette.mjs"
+    "check:palette": "node scripts/check-palette.mjs",
+    "check:ds": "node scripts/check-ds.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

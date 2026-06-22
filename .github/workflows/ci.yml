@@ -23,6 +23,8 @@ jobs:
         run: npm run lint
       - name: Palette guard (no hardcoded colours)
         run: npm run check:palette
+      - name: DS consistency guard (no tabler / !h- / arbitrary px radius)
+        run: npm run check:ds
       - name: Type check
         run: npm run typecheck
       - name: Test + coverage
