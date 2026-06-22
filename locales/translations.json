@@ -547,6 +547,7 @@
             "guestSubtitle": "Create a free account to save campsites and view them anytime.",
             "loginButton": "Log in",
             "loginPromptGuest": "Log in to save this campsite",
+            "savedLabel": "Saved",
             "errorLoad": "Could not load liked campsites. Please try again."
         },
         "settings": {
@@ -1151,6 +1152,7 @@
             "guestSubtitle": "สร้างบัญชีฟรีเพื่อบันทึกแคมป์ที่ชอบและดูได้ทุกเมื่อ",
             "loginButton": "เข้าสู่ระบบ",
             "loginPromptGuest": "เข้าสู่ระบบเพื่อบันทึกแคมป์นี้",
+            "savedLabel": "บันทึกแล้ว",
             "errorLoad": "โหลดรายการที่ถูกใจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
         },
         "settings": {
