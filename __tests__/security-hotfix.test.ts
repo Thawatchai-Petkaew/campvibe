@@ -38,6 +38,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/auth-utils', () => ({
   requireAuth: vi.fn(),
   requireCampSiteOwnership: vi.fn(),
+  requireCampSitePermission: vi.fn(),
 }));
 
 // Mock next-auth/auth that lib/auth-utils imports internally
@@ -56,7 +57,7 @@ vi.mock('@/lib/campsite-filters', () => ({
 
 import { apiError, apiSuccess, arrayToCsv, csvToArray, calculateNights } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, requireCampSiteOwnership } from '@/lib/auth-utils';
+import { requireAuth, requireCampSiteOwnership, requireCampSitePermission } from '@/lib/auth-utils';
 
 // Route handlers are imported once; their mocked dependencies are already wired.
 import { GET as spotGET, PUT as spotPUT, DELETE as spotDELETE } from '@/app/api/campsites/[id]/spots/[spotId]/route';
@@ -245,8 +246,8 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: ownership check passes (no auth error)
-    (requireCampSiteOwnership as ReturnType<typeof vi.fn>).mockResolvedValue({ error: null });
+    // Default: permission check passes (no auth error) — CAM-83: handlers use requireCampSitePermission
+    (requireCampSitePermission as ReturnType<typeof vi.fn>).mockResolvedValue({ error: null });
   });
 
   // ---- GET ----------------------------------------------------------------
@@ -300,9 +301,9 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
   // ---- PUT ----------------------------------------------------------------
 
   describe('PUT', () => {
-    it('returns auth error when requireCampSiteOwnership returns error (ownership check branch)', async () => {
+    it('returns auth error when requireCampSitePermission returns error (RBAC check branch)', async () => {
       const forbiddenResponse = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      (requireCampSiteOwnership as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (requireCampSitePermission as ReturnType<typeof vi.fn>).mockResolvedValue({
         error: forbiddenResponse,
       });
 
@@ -413,9 +414,9 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
   // ---- DELETE -------------------------------------------------------------
 
   describe('DELETE', () => {
-    it('returns auth error when requireCampSiteOwnership returns error (ownership check branch)', async () => {
+    it('returns auth error when requireCampSitePermission returns error (RBAC check branch)', async () => {
       const forbiddenResponse = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      (requireCampSiteOwnership as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (requireCampSitePermission as ReturnType<typeof vi.fn>).mockResolvedValue({
         error: forbiddenResponse,
       });
 
