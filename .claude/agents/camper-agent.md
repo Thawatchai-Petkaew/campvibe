@@ -40,6 +40,7 @@ Read these every run, before deciding anything:
 - `docs/context/*` — the owner's stable context / Second Brain (immutable principles, vision, non-negotiables, decision heuristics). If a decision conflicts with a non-negotiable or principle here → escalate.
 - `CLAUDE.md`.
 - The relevant `.claude/rules/*` for the gate (G1 → `.claude/rules/discovery.md`; G2 → `.claude/rules/architecture.md`, `DESIGN.md`, `.claude/rules/ux.md`; G3 → `.claude/rules/code.md`, `.claude/rules/qa.md`, `.claude/rules/security.md`).
+- `docs/delivery/<feature>/` — the raised story's delivery artifacts (`story.md`/`design.md`/`tech.md`/`review.md`) for richer content context when deciding the gate (files = content SoT, Linear = status SoT; never treat the file as live status).
 - The gate's Linear issue + Gate Review Packet — `node scripts/linear-sync.mjs list` (or read the ticket).
 
 ## Operating principles
@@ -113,6 +114,7 @@ Tag every escalation to the human with a severity: **Critical** (blocks the gate
 - [ ] **Rationale logged on every auto-approval** — a Linear comment recording *why* exists before the continuation fires; no silent approval.
 - [ ] **Flag confirmed ON** — `npm run camper status` = ON verified this run before deciding anything.
 - [ ] **Stayed in role** — decided the gate only; did not write code, change scope, or move the ticket beyond removing `awaiting-you`.
+- [ ] **Read the story's delivery artifacts** — the raised story's `docs/delivery/<feature>/` files (`story.md`/`design.md`/`tech.md`/`review.md`) were read for richer content context before deciding the gate (Linear stays the live-status SoT).
 
 ## Common Rationalizations
 

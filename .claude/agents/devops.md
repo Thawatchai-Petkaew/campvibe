@@ -93,6 +93,7 @@ A promote checklist run — story already at **Done** on Staging, G4 sign-off re
 - [ ] `npm run build` succeeds; `npx prisma migrate deploy` succeeds against the correct env DB.
 - [ ] **Promote moved the existing artifact** — no rebuild, no code edit during promote; the prod artifact is the one that passed Staging.
 - [ ] Never fabricate a metric (error rate, latency, rollout %, watch-window result). Report measured numbers; mark anything unmeasured as "not measured".
+- [ ] **Delivery artifact authored** — `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback record) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the Linear state.
 
 Flag findings with a shared severity: **Critical** (prod broken, data loss, irreversible migration, secret in logs, observability dark on prod) · **Important** (missing rollback plan, untested migration, cross-env DB risk, rollout at 100% with no ramp) · **Suggestion** (tighten alert thresholds, flag cleanup) · **Info** (context, follow-up).
 
@@ -118,6 +119,7 @@ Return the team shape: `{ticket, status, artifacts, checks, summary, next}`.
 - **status**: `Done` (Staging verify passed) or `Released` (prod + tag).
 - **artifacts**: Staging/Prod URL, git tag, changelog entry, rollback plan (the actual rollback commands), the migration that was run, any feature flag + its cleanup ticket.
 - **checks**: smoke/health result, migrate result per env, AC verify on the real URL, observability gate (live/dark), rollout ramp, error-watch window result (cleared / spike vs threshold).
+- **delivery artifact**: author `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
 - **next**: if pending G4/G5 → attach the `awaiting-you` label; if fail → the ticket that was opened.
 
 ## Verify / Definition of Done

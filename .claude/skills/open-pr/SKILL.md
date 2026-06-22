@@ -49,7 +49,8 @@ Use when a story is finished and ready to send for review/merge toward Done:
 2. Commit in atomic units with Conventional Commits (`type(scope): subject`), each commit traceable back to the ticket/AC. Keep refactors in their own commits, separate from feature changes — never mix a behavior change and a rename/move in one commit.
 3. Open the PR based on `staging`: `gh pr create --base staging` (feature → `staging` = toward **Done**).
 4. Fill the PR body completely: ticket link · AC covered · quality-gate result · self-verify checklist · Vercel Preview URL. Include a short change summary (what changed and why) so a reviewer can read the PR before the diff.
-5. Wait for CI (`.github/workflows/ci.yml`) to go green before requesting merge (`staging`/`main` are protected).
+5. Record the PR # + Vercel preview URL into the story's `delivery.md` under `## PR & preview` (durable ship record — see the `delivery-artifacts` skill).
+6. Wait for CI (`.github/workflows/ci.yml`) to go green before requesting merge (`staging`/`main` are protected).
 
 ## Examples
 
@@ -60,6 +61,7 @@ Use when a story is finished and ready to send for review/merge toward Done:
 ## Reference Files
 
 - `.claude/rules/code.md` — PR size + atomic-commit guidance.
+- `delivery-artifacts` skill — the story's `delivery.md` where the PR # + preview URL are recorded (`## PR & preview`).
 - `quality-gate` skill — runs first; the gate must be green before this skill.
 - `promote-release` skill — runs after Done; `staging`→`main` to prod (do not use this skill for that).
 - `CLAUDE.md` (Git section) — branch naming, Conventional Commits, `feature → staging` (Done) → `staging`→`main` (Released).

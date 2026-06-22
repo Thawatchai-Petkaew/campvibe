@@ -22,7 +22,8 @@ Run in order, at the repo root, on the `feature/*` branch. Stop on the first fai
 5. `npm audit --omit=dev` → 0 high/critical.
 6. Five-Axis review (correctness · readability · architecture · security · perf) → clean.
 7. **(UI only)** design gate → token-only + a11y WCAG AA + anti-slop + screenshot vs Brief.
-8. Summarize as a pass/fail table.
+8. `node scripts/linear-sync.mjs audit` → artifact↔Linear consistency (exit non-zero on an incomplete or status-stale scaffolded story).
+9. Summarize as a pass/fail table.
 
 | Step | Command / check | Pass condition | Result |
 | --- | --- | --- | --- |
@@ -33,6 +34,7 @@ Run in order, at the repo root, on the `feature/*` branch. Stop on the first fai
 | 5 | `npm audit --omit=dev` | 0 high/critical | ☐ |
 | 6 | Five-Axis review | clean on all five axes | ☐ |
 | 7 | design gate (UI only) | pass, or `N/A — no UI work` | ☐ |
+| 8 | `node scripts/linear-sync.mjs audit` | artifact↔Linear consistent (exit 0) | ☐ |
 
 ## When to Use
 
@@ -75,7 +77,8 @@ Run in order. Stop immediately on the first fail.
    - **Perf** — no N+1 Prisma queries, no needless re-renders, payloads bounded (see `.claude/rules/api.md`).
 
 7. **(UI work only)** design gate: token-only (no hardcoded colors/spacing/shadows) + a11y WCAG AA (contrast, `aria-label`, focus, tap target ≥ 44px) + anti-slop audit + compare screenshots against the Design Brief.
-8. Summarize every step as a pass/fail table.
+8. `node scripts/linear-sync.mjs audit` → artifact↔Linear consistency (exit non-zero on an incomplete or status-stale scaffolded story; keeps the `docs/delivery/` files aligned with reality — see the `delivery-artifacts` skill).
+9. Summarize every step as a pass/fail table.
 
 ## Planned automated gates (candidates)
 
@@ -111,6 +114,7 @@ Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod ob
 - `.claude/rules/api.md` — the Perf axis: no N+1 Prisma queries, bounded payloads (step 6).
 - `.claude/rules/architecture.md` — the Architecture axis: layering, concern boundaries, reuse over duplication (step 6).
 - `.claude/rules/observability.md` — the planned pre-prod observability gate (logging/tracing/alerts).
+- `delivery-artifacts` skill — owns the `audit` step (artifact↔Linear consistency under `docs/delivery/`).
 - Sibling skills: `open-pr` (run after the gate is green) · `promote-release` (staging→prod, separate from this gate).
 
 The Five-Axis review content is kept inline in the Workflow above — no `references/` directory.
@@ -138,6 +142,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 - [ ] Every row reflects a real result from the command that was run — no guessing, no skipping.
 - [ ] No item left "skipped" without a reason; UI work that skips step 7 confirms there is no diff in `app/`/`components/`.
 - [ ] Five-Axis pass is clean across all five axes (correctness, readability, architecture, security, perf).
+- [ ] `node scripts/linear-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/delivery/`).
 - [ ] All green → ready for `/open-pr` into `staging`; do NOT change Linear state to `Done` until the Staging URL is verified.
 - [ ] Red → defect ticket opened + merge blocked; the story does not move.
 - [ ] Before handoff: STORY-TICKET passes `node scripts/linear-sync.mjs audit` (has `## Story` + `## AC`).

@@ -99,6 +99,7 @@ Hold every suite to this bar before declaring a story green.
 - **Bug-report rigor** — every defect sub-ticket carries a reproduction (exact steps + input), a severity (Critical / Important / Suggestion / Info), the failing AC reference, expected vs actual, and the relevant trace/log excerpt (secrets redacted).
 - **Metric honesty** — report the real coverage number from a real run. Never fabricate or estimate a metric; if something was not measured, write "not measured", do not guess.
 - **No flake** — wait on a real locator/condition, never on `sleep`/timing/order; keep each test independent of the others.
+- **Delivery artifact authored** — `test.md` (the `AC-n → test` matrix) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the Linear state.
 
 ## Common Rationalizations
 
@@ -114,7 +115,7 @@ Hold every suite to this bar before declaring a story green.
 
 ## Verify / Definition of Done
 
-Run for real before handoff — do not hand off work you have not run. Return the team format `{ticket, status, artifacts, checks, summary, next}`, where `artifacts` includes the test files added/changed plus any defect sub-ticket, and `checks` includes the AC->test map (`AC# | test-id | layer | pass/fail`) and the coverage %.
+Run for real before handoff — do not hand off work you have not run. Return the team format `{ticket, status, artifacts, checks, summary, next}`, where `artifacts` includes the test files added/changed plus any defect sub-ticket, and `checks` includes the AC->test map (`AC# | test-id | layer | pass/fail`) and the coverage %. Author `test.md` (the `AC-n → test` matrix) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
 
 - [ ] `npm test` is green on a real run — no flaky or dangling `skip` left behind.
 - [ ] Coverage >=80% on new code (`npx vitest run --coverage`), reported from the real run.

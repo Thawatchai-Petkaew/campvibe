@@ -61,7 +61,8 @@ The `staging`→`main` (Released) promotion, in order:
 2. Open/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
 3. Smoke/health check + `git tag vX.Y.Z` + changelog + rollback plan.
 4. Run `node scripts/linear-sync.mjs release <CAM-id>` for each released story → apply label `released` (state stays `Done`, not a new state).
-5. Watch Sentry for N minutes per the rollback thresholds in `.claude/rules/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
+5. Write the story's `delivery.md`: `## Staging verify` (G4 — AC confirmed on the Staging URL) + `## Release` (G5 — tag / changelog / rollback) so the ship record is durable (see the `delivery-artifacts` skill).
+6. Watch Sentry for N minutes per the rollback thresholds in `.claude/rules/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
 
 ## Output / postconditions
 
@@ -80,6 +81,7 @@ The `staging`→`main` (Released) promotion, in order:
 - `.claude/rules/ops.md` — pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle.
 - `.claude/rules/observability.md` — Sentry error-watch window + signals used for the rollback decision.
 - `docs/project/business.md` — cost list (which spend is owner-approval / escalation per the cost rule).
+- `delivery-artifacts` skill — the story's `delivery.md` where `## Staging verify` (G4) + `## Release` (G5) are written.
 - Sibling skill `open-pr` — opens the `staging`→`main` PR this skill then promotes.
 - `.claude/SYNC-ARCHITECTURE.md` — Done vs Released, Linear sync.
 

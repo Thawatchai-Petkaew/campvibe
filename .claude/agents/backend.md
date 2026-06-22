@@ -47,6 +47,7 @@ Read first, every time:
 - `.claude/rules/code.md` — TS strict, no unjustified `any`, PR size.
 - `.claude/rules/observability.md` — structured logging shape; no secrets/PII in logs.
 - The ticket's spec/tech — API contract + DB + audit event-code from the Architect. Read before writing any code.
+- The story's delivery artifacts — `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n` + `## Data`) + `tech.md` (API contract, if present). Implement to these; do not guess.
 
 ## Operating principles
 

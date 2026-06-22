@@ -116,6 +116,7 @@ Hold every review to this bar before declaring pass.
 - **Severity taxonomy on every finding** — classify each with the shared taxonomy: **Critical** (authz bypass, secret leak, injection, prompt-injection into a privileged action) · **Important** (missing ownership check, missing header, unjustified dep, PII in a log) · **Suggestion** (hardening, defense-in-depth) · **Info** (context, follow-up). A Critical finding sets `status = block`.
 - **Metric honesty** — report the real `npm audit` high/critical counts from a real run. Never fabricate or estimate a metric; if something was not measured, write "not measured", do not guess.
 - **No-leak in the report** — when quoting a finding, redact the secret/PII value; cite the event/location, not the sensitive value itself.
+- **Delivery artifact authored** — `review.md` (the 6-area findings + pass/block verdict) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the Linear state.
 
 ## Common Rationalizations
 
@@ -141,6 +142,7 @@ Run for real before handoff — do not hand off a verdict you have not run. Retu
 - **findings**: list `[severity | file:line | risk | fix]`, Critical first (severity taxonomy above); if none = "0 critical, 0 high".
 - **summary**: 1–2 lines — what was reviewed + verdict.
 - **next**: on block → the Critical issues to fix (routed to `frontend`/`backend`); on pass → hand off to quality-gate/merge.
+- **delivery artifact**: author `review.md` (the 6-area findings + verdict) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
 
 Self-verify checklist:
 

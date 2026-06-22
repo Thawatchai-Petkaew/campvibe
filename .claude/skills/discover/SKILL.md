@@ -57,6 +57,7 @@ Read first:
    - ⚪ N/A
 3. **Batch the questions.** Collect the 🔴/🟡 items and ask the human in a **single consolidated round** — never nitpick one question at a time. Each item carries: options + impact of each path + "if unanswered, default = …".
 4. **Produce the ticket once fully closed (no 🔴).** Write it from `.claude/templates/STORY-TICKET.md` (full story + AC, filed on the story-level issue; role-task = sub-issue), then propose G1 with a summary of gaps/assumptions used.
+5. **Persist the artifact.** Run `node scripts/linear-sync.mjs scaffold <CAM-id>` then fill `story.md` (number AC `AC-1…` + rules `BR-1…`) so the ticket is durable content under `docs/delivery/` (see the `delivery-artifacts` skill).
 
 ## Examples
 
@@ -77,6 +78,7 @@ Read first:
 
 - `.claude/rules/discovery.md` — full DoR, 6 spec components, vertical-slice rule, 4-layer audit.
 - `.claude/templates/STORY-TICKET.md` — the ticket template the story + AC are written from.
+- `delivery-artifacts` skill + `docs/delivery/` — persist the ticket as `story.md` (AC-n/BR-n) under the story folder; files = content SoT.
 - Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `staging`).
 
 ## Next Steps
@@ -114,4 +116,5 @@ Read first:
 - [ ] Story-level issue has full DoR: User Story + testable AC + NFR (perf/a11y/i18n/security) + clear out-of-scope.
 - [ ] Each AC is testable and already split into atomic stories (1 small PR).
 - [ ] Ticket matches the template and `node scripts/linear-sync.mjs audit` passes (issue must have at least `## Story` + `## AC`).
+- [ ] Story folder scaffolded (`scaffold <CAM-id>`) + `story.md` filled with numbered `AC-n`/`BR-n`.
 - [ ] Status: awaiting human approval for G1 Scope (tagged with label `awaiting-you`).

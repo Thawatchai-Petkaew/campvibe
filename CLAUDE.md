@@ -26,6 +26,7 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 
 - `docs/project/*` — business/product source-of-truth (why / for whom / worth it): master-plan · business (cost list) · market-size · user-research · product-strategy.
 - `docs/context/*` — the owner's stable context / **Second Brain** (principles, non-negotiables, decision heuristics); the orchestrator + camper-agent read it before any autonomous decision.
+- `docs/delivery/` — durable **content** per Feature→Epic→Story (spec/design/test/review/ship as files); **Linear = live status**; generated `docs/delivery/INDEX.md`.
 
 ## Quality gates (mandatory before merge — `/quality-gate`)
 
