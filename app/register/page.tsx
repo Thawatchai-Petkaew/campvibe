@@ -6,9 +6,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { InputField } from '@/components/ui/input-field';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Mail, Lock, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -38,8 +38,6 @@ export default function RegisterPage() {
     
     // Server error (banner) - only show after submit
     const serverError = hasSubmitted && errorMessage ? errorMessage : undefined;
-
-    const inputHeight = "!h-12";
 
     // Handle successful registration
     useEffect(() => {
@@ -113,7 +111,7 @@ export default function RegisterPage() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-6">
+                <Card className="p-8 shadow-2xl space-y-6">
                     {/* Header */}
                     <div className="text-center">
                         <h2 className="text-2xl font-bold text-foreground">
@@ -140,7 +138,8 @@ export default function RegisterPage() {
                             placeholder={t.auth.registerModal.fullNamePlaceholder}
                             required
                             leftIcon={<User className="w-4 h-4" />}
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Email */}
@@ -155,7 +154,8 @@ export default function RegisterPage() {
                             required
                             error={emailValidationError}
                             leftIcon={<Mail className="w-4 h-4" />}
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Password */}
@@ -172,7 +172,8 @@ export default function RegisterPage() {
                             error={validationError && validationError.includes('password') ? validationError : undefined}
                             hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
                             leftIcon={<Lock className="w-4 h-4" />}
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Confirm Password */}
@@ -188,7 +189,8 @@ export default function RegisterPage() {
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             error={validationError && validationError.includes('password') ? validationError : undefined}
                             leftIcon={<Lock className="w-4 h-4" />}
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Consent Checkboxes */}
@@ -230,8 +232,9 @@ export default function RegisterPage() {
                         {/* Submit Button */}
                         <Button
                             type="submit"
+                            size="lg"
                             disabled={isPending || !consentRequired}
-                            className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isPending ? t.auth.registerModal.registering : t.auth.registerModal.registerButton}
                         </Button>
@@ -246,7 +249,7 @@ export default function RegisterPage() {
                             </Link>
                         </p>
                     </div>
-                </div>
+                </Card>
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">

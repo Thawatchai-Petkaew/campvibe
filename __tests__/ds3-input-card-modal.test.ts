@@ -596,39 +596,36 @@ describe("preview--ds3: input size grid + card + modal grammar (AC-preview-1/2/3
 });
 
 // =============================================================
-// Defect investigation — app/login and app/register page !h-12
-// These are documented findings, not assertions that block merge.
-// The assertions below DOCUMENT the current state so a follow-up
-// ticket can track them. They assert what currently EXISTS (not what
-// should be removed), confirming the scope verdict below.
+// DS-4 (CAM-124) — auth-page grammar cleanup (DEF-DS3-001)
+// These tests assert the FIXED state: !h-12 removed, size="lg" / inputSize="lg" used.
 // =============================================================
 
 describe("defect-scope--login-register-pages: !h-12 is on Button AND InputField (follow-up)", () => {
   it("SCOPE-CHECK: app/login/page.tsx has !h-12 on Button (submit) — Button height should be size-driven)", () => {
-    // The submit Button in login page has !h-12 — this is a Button override, not InputField.
-    // DS-2 rule: 'no override height inline on Button' (DESIGN.md §3 Button grammar)
-    // This confirms there IS a deviation on Button, not just InputField.
-    // Button block length is ~408 chars; use 600-char window.
-    expect(loginPageSrc).toMatch(/!h-12/);
+    // DS-4 fix: !h-12 removed from Button; size="lg" is used instead.
+    expect(loginPageSrc).not.toMatch(/!h-12/);
     const buttonBlock = loginPageSrc.match(/<Button[\s\S]{0,600}?(?:<\/Button>|\/>)/g) ?? [];
     const hasH12OnButton = buttonBlock.some(b => b.includes("!h-12"));
-    expect(hasH12OnButton).toBe(true);
+    expect(hasH12OnButton).toBe(false);
   });
 
   it("SCOPE-CHECK: app/register/page.tsx has !h-12 on Button (submit) — Button height should be size-driven", () => {
-    expect(registerPageSrc).toMatch(/!h-12/);
+    // DS-4 fix: !h-12 removed; size="lg" is used instead.
+    expect(registerPageSrc).not.toMatch(/!h-12/);
     const buttonBlock = registerPageSrc.match(/<Button[\s\S]{0,600}?(?:<\/Button>|\/>)/g) ?? [];
     const hasH12OnButton = buttonBlock.some(b => b.includes("!h-12"));
-    expect(hasH12OnButton).toBe(true);
+    expect(hasH12OnButton).toBe(false);
   });
 
   it("SCOPE-CHECK: app/login/page.tsx !h-12 also applied to InputField via inputHeight variable", () => {
-    // const inputHeight = "!h-12" then used in className={cn(..., inputHeight)}
-    // This means InputField also receives !h-12 — different from LoginModal which uses inputSize="lg"
-    expect(loginPageSrc).toMatch(/const inputHeight = ["']!h-12["']/);
+    // DS-4 fix: inputHeight variable removed; InputField uses inputSize="lg" prop.
+    expect(loginPageSrc).not.toMatch(/const inputHeight = ["']!h-12["']/);
+    expect(loginPageSrc).toMatch(/inputSize="lg"/);
   });
 
   it("SCOPE-CHECK: app/register/page.tsx !h-12 also applied to InputField via inputHeight variable", () => {
-    expect(registerPageSrc).toMatch(/const inputHeight = ["']!h-12["']/);
+    // DS-4 fix: inputHeight variable removed; InputField uses inputSize="lg" prop.
+    expect(registerPageSrc).not.toMatch(/const inputHeight = ["']!h-12["']/);
+    expect(registerPageSrc).toMatch(/inputSize="lg"/);
   });
 });

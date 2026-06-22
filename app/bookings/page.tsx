@@ -30,18 +30,14 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Badge } from "@/components/ui/badge";
 
-function getStatusClasses(status: string): string {
-    switch (status) {
-        case "CONFIRMED":
-            return "bg-success text-success-foreground";
-        case "PENDING":
-            return "bg-muted text-muted-foreground border border-border";
-        case "CANCELLED":
-            return "bg-destructive text-primary-foreground";
-        default:
-            return "bg-muted text-muted-foreground border border-border";
-    }
+type BookingStatus = "CONFIRMED" | "PENDING" | "CANCELLED";
+
+function statusVariant(status: string): "success" | "destructive" | "muted" {
+    if (status === "CONFIRMED") return "success";
+    if (status === "CANCELLED") return "destructive";
+    return "muted";
 }
 
 export default function MyBookingsPage() {
@@ -148,9 +144,12 @@ export default function MyBookingsPage() {
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
                                             <div className="absolute top-4 left-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ring-2 ring-card shadow-sm ${getStatusClasses(booking.status)}`}>
+                                                <Badge
+                                                    variant={statusVariant(booking.status)}
+                                                    className="ring-2 ring-card shadow-sm font-bold uppercase tracking-wider"
+                                                >
                                                     {booking.status}
-                                                </span>
+                                                </Badge>
                                             </div>
                                         </div>
 

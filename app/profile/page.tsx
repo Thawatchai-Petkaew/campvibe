@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 interface UserProfile {
     id: string;
@@ -22,15 +23,10 @@ interface UserProfile {
     createdAt: string;
 }
 
-function getRoleBadgeClasses(role: string): string {
-    switch (role) {
-        case 'ADMIN':
-            return 'bg-destructive/10 text-destructive';
-        case 'OPERATOR':
-            return 'bg-primary/10 text-primary';
-        default:
-            return 'bg-success/10 text-success';
-    }
+function roleVariant(role: string): "destructive" | "default" | "success" {
+    if (role === 'ADMIN') return 'destructive';
+    if (role === 'OPERATOR') return 'default';
+    return 'success';
 }
 
 function getRoleLabel(role: string, profileT: { roleAdmin: string; roleOperator: string; roleCamper: string }): string {
@@ -297,12 +293,12 @@ export default function ProfilePage() {
 
                         {/* Role Badge */}
                         <div className="flex justify-center pt-2">
-                            <span className={cn(
-                                "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider",
-                                getRoleBadgeClasses(profile?.role || 'CAMPER')
-                            )}>
+                            <Badge
+                                variant={roleVariant(profile?.role || 'CAMPER')}
+                                className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider"
+                            >
                                 {getRoleLabel(profile?.role || 'CAMPER', t.profile)}
-                            </span>
+                            </Badge>
                         </div>
 
                         {/* Save Button */}

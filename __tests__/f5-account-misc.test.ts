@@ -155,19 +155,25 @@ describe("AC-token-1: forbidden raw palette tokens (all 5 files)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-token-2  getStatusClasses uses semantic tokens
+// AC-token-2  DS-4: bookings status uses <Badge variant=...> (not raw span+getStatusClasses)
 // ─────────────────────────────────────────────────────────────
 describe("AC-token-2: bookings status badge uses semantic tokens", () => {
-    it("getStatusClasses returns bg-success for CONFIRMED", () => {
-        expect(bookingsPageSrc).toMatch(/case "CONFIRMED":\s*\n\s*return "bg-success/);
+    it("statusVariant returns 'success' for CONFIRMED", () => {
+        // DS-4: raw getStatusClasses() replaced by statusVariant() returning Badge variant names
+        expect(bookingsPageSrc).toMatch(/function statusVariant/);
+        expect(bookingsPageSrc).toMatch(/return ['"]success['"]/);
     });
 
-    it("getStatusClasses returns bg-muted for PENDING", () => {
-        expect(bookingsPageSrc).toMatch(/case "PENDING":\s*\n\s*return "bg-muted/);
+    it("statusVariant returns 'destructive' for CANCELLED", () => {
+        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
     });
 
-    it("getStatusClasses returns bg-destructive for CANCELLED", () => {
-        expect(bookingsPageSrc).toMatch(/case "CANCELLED":\s*\n\s*return "bg-destructive/);
+    it("statusVariant returns 'muted' as default (PENDING)", () => {
+        expect(bookingsPageSrc).toMatch(/return ['"]muted['"]/);
+    });
+
+    it("bookings page uses <Badge variant={statusVariant(...)}>", () => {
+        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{statusVariant\(/);
     });
 
     it("bookings page does NOT use old bg-green-N tokens for status (was defect in staging)", () => {
@@ -184,19 +190,25 @@ describe("AC-token-2: bookings status badge uses semantic tokens", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-token-3  getRoleBadgeClasses uses semantic tokens
+// AC-token-3  DS-4: profile role uses <Badge variant=...> (not raw span+getRoleBadgeClasses)
 // ─────────────────────────────────────────────────────────────
 describe("AC-token-3: profile role badge uses semantic tokens", () => {
-    it("ADMIN role uses bg-destructive/10 text-destructive", () => {
-        expect(profilePageSrc).toMatch(/bg-destructive\/10 text-destructive/);
+    it("roleVariant function exists and maps ADMIN to destructive", () => {
+        // DS-4: raw span+getRoleBadgeClasses() replaced by Badge+roleVariant()
+        expect(profilePageSrc).toMatch(/function roleVariant/);
+        expect(profilePageSrc).toMatch(/ADMIN.*destructive|destructive.*ADMIN/);
     });
 
-    it("OPERATOR role uses bg-primary/10 text-primary", () => {
-        expect(profilePageSrc).toMatch(/bg-primary\/10 text-primary/);
+    it("roleVariant maps OPERATOR to default (primary)", () => {
+        expect(profilePageSrc).toMatch(/OPERATOR.*default|default.*OPERATOR/);
     });
 
-    it("default (CAMPER) role uses bg-success/10 text-success", () => {
-        expect(profilePageSrc).toMatch(/bg-success\/10 text-success/);
+    it("roleVariant maps CAMPER to success", () => {
+        expect(profilePageSrc).toMatch(/return ['"]success['"]/);
+    });
+
+    it("profile page uses <Badge variant={roleVariant(...)}>", () => {
+        expect(profilePageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{roleVariant\(/);
     });
 });
 
@@ -618,36 +630,39 @@ describe("AC-i18n-10: WishlistPageClient uses t.wishlist.* keys", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-dark-1  Status badges in bookings use semantic tokens (dark-safe)
+// AC-dark-1  DS-4: Status badges in bookings now use <Badge variant=...> (dark-safe via badge.tsx)
 // ─────────────────────────────────────────────────────────────
 describe("AC-dark-1: bookings status badges use semantic tokens (dark-mode safe)", () => {
-    it("CONFIRMED uses bg-success (semantic, dark-aware)", () => {
-        expect(bookingsPageSrc).toMatch(/bg-success/);
+    it("CONFIRMED uses Badge variant='success' (semantic, dark-aware via badge.tsx)", () => {
+        // DS-4: badge.tsx success variant applies bg-success/10 text-success; source uses variant name
+        expect(bookingsPageSrc).toMatch(/statusVariant/);
+        expect(bookingsPageSrc).toMatch(/return ['"]success['"]/);
     });
 
-    it("CANCELLED uses bg-destructive (semantic, dark-aware)", () => {
-        expect(bookingsPageSrc).toMatch(/bg-destructive/);
+    it("CANCELLED uses Badge variant='destructive' (semantic, dark-aware via badge.tsx)", () => {
+        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
     });
 
-    it("PENDING uses bg-muted (semantic, dark-aware)", () => {
-        expect(bookingsPageSrc).toMatch(/bg-muted/);
+    it("PENDING uses Badge variant='muted' (semantic, dark-aware via badge.tsx)", () => {
+        expect(bookingsPageSrc).toMatch(/return ['"]muted['"]/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-dark-2  Role badges in profile use semantic tokens
+// AC-dark-2  DS-4: Role badges in profile now use <Badge variant=...> (dark-safe via badge.tsx)
 // ─────────────────────────────────────────────────────────────
 describe("AC-dark-2: profile role badges use semantic bg/text tokens (dark-mode safe)", () => {
-    it("role badge containers use bg-*/10 semantic opacity", () => {
-        expect(profilePageSrc).toMatch(/bg-destructive\/10/);
-        expect(profilePageSrc).toMatch(/bg-primary\/10/);
-        expect(profilePageSrc).toMatch(/bg-success\/10/);
+    it("role badge uses <Badge> component (not raw span)", () => {
+        // DS-4: raw span+class removed; Badge component handles dark-mode via CSS vars
+        expect(profilePageSrc).toMatch(/<Badge/);
+        expect(profilePageSrc).toMatch(/variant=\{roleVariant\(/);
     });
 
-    it("role badge text uses semantic text-* tokens", () => {
-        expect(profilePageSrc).toMatch(/text-destructive/);
-        expect(profilePageSrc).toMatch(/text-primary/);
-        expect(profilePageSrc).toMatch(/text-success/);
+    it("roleVariant maps to semantic variant names (not raw classes)", () => {
+        // The role mapping uses string variant names — badge.tsx applies semantic token classes
+        expect(profilePageSrc).toMatch(/['"]destructive['"]/);
+        expect(profilePageSrc).toMatch(/['"]default['"]/);
+        expect(profilePageSrc).toMatch(/['"]success['"]/);
     });
 });
 
