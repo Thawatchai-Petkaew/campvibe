@@ -3,7 +3,7 @@
 **Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S3 (CAM-100), snapshot in S6
 
 ## Context
-Every monetary value is `Float` with no currency (`CampSite.priceLow/priceHigh`, `Spot.pricePerNight/pricePerSite`, `Booking.totalPrice`) — assumes THB. `std/architecture.md` names `amount`+`currency` (Decimal, not float) as **the** canonical atomic example. The owner wants real multi-currency. Float causes rounding errors and cannot represent currency or zero-decimal currencies (JPY) correctly.
+Every monetary value is `Float` with no currency (`CampSite.priceLow/priceHigh`, `Spot.pricePerNight/pricePerSite`, `Booking.totalPrice`) — assumes THB. `.claude/rules/architecture.md` names `amount`+`currency` (Decimal, not float) as **the** canonical atomic example. The owner wants real multi-currency. Float causes rounding errors and cannot represent currency or zero-decimal currencies (JPY) correctly.
 
 ## Decision
 Money is always a **Pixel pair**: `…Amount Decimal @db.Decimal(12,2)` + `…Currency String` (ISO-4217 alpha-3), classification **[Financial]**, on every money-bearing row.

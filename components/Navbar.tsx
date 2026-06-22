@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Menu, User, Filter, Globe, Bell, Check, X } from "lucide-react";
-import { IconHeart } from "@tabler/icons-react";
+import { Search, Menu, User, Filter, Globe, Bell, Check, X, Heart } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { handleSignOut } from "@/lib/actions";
@@ -147,7 +146,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 aria-label={t.wishlist.navAriaLabel}
                                 className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
-                                <IconHeart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                                <Heart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
                             </Link>
                         )}
 
@@ -180,7 +179,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                         )}
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                            <DropdownMenuTrigger asChild aria-label="User menu">
                                 <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="w-5 h-5 text-muted-foreground" />
                                     <div className={(currentUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
@@ -197,21 +196,21 @@ export function Navbar({ currentUser }: NavbarProps) {
                                     </div>
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-xl border-none shadow-2xl mt-2 p-2">
+                            <DropdownMenuContent align="end" className="w-56 mt-2">
                                 {currentUser ? (
                                     <>
-                                        <DropdownMenuLabel className="font-bold px-3 py-2">
+                                        <DropdownMenuLabel className="px-3 py-2">
                                             {currentUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 font-semibold">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                                             <Link href="/profile">My Profile</Link>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 font-semibold">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                                             <Link href="/bookings">My Bookings</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-primary/10 focus:text-foreground">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3 focus:bg-primary/10 focus:text-foreground">
                                             <Link href={hostEntryHref} className="flex items-center justify-between gap-3">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="min-w-0">
@@ -238,7 +237,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => handleSignOut()}
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                            className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                                         >
                                             Sign out
                                         </DropdownMenuItem>
@@ -246,22 +245,22 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 ) : (
                                     <>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 font-bold"
+                                            className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsLoginOpen(true)}
                                         >
                                             Log in
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3"
+                                            className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsRegisterOpen(true)}
                                         >
                                             Sign up
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3">
+                                        <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
                                             Host your home
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3">
+                                        <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
                                             Help Center
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />

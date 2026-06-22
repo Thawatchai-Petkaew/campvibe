@@ -500,6 +500,7 @@ model Wishlist {
 // Singleton config for the AI delivery team (toggled from /status or `/camper-agent on|off`).
 // autonomousMode ON = the Camper Agent decides gates G1–G4 on the owner's behalf and only
 // escalates G5 / security / irreversible / any monetary cost.
+// DEPRECATED — autonomous gate-decision feature removed (interactive-only). Unused; kept to avoid a destructive migration. Do NOT add new readers.
 model DeliveryConfig {
   id             String   @id @default("singleton")
   autonomousMode Boolean  @default(false)

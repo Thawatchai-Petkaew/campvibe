@@ -1,6 +1,6 @@
 # Market Size & Landscape — CampVibe
 
-> ขนาดตลาด + คู่แข่ง + positioning · `/camper-agent` ใช้ประเมิน "โอกาส/ความสำคัญเชิงตลาด"
+> ขนาดตลาด + คู่แข่ง + positioning · อ่านโดย orchestrator + เจ้าของ ก่อนตัดสิน gate เพื่อประเมิน "โอกาส/ความสำคัญเชิงตลาด"
 > **ตัวเลขทั้งหมดเป็น `> TODO(you):` — agent ห้ามแต่งตัวเลข TAM/SAM/SOM เอง** ถ้าต้องตัดสินด้วยตัวเลขที่ยังว่าง → escalate
 
 ## Market definition

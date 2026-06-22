@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Input } from "./input";
+import { Input, type InputProps } from "./input";
 import { Label } from "./label";
 import { AlertCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
-export interface InputFieldProps extends React.ComponentProps<"input"> {
+export interface InputFieldProps extends Omit<React.ComponentProps<"input">, "size"> {
   label?: string;
   error?: string;
   hint?: string;
@@ -16,6 +16,7 @@ export interface InputFieldProps extends React.ComponentProps<"input"> {
   labelClassName?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  inputSize?: InputProps["inputSize"];
 }
 
 const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
@@ -31,6 +32,7 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
       rightIcon,
       className,
       id,
+      inputSize,
       ...props
     },
     ref
@@ -97,6 +99,7 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
           <Input
             ref={ref}
             id={inputId}
+            inputSize={inputSize}
             aria-invalid={hasError}
             aria-describedby={displayText ? `${inputId}-hint` : undefined}
             className={cn(

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
-import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
+import { Heart } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CampSite } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -98,7 +98,7 @@ export function CampgroundCard({
         <div className="group relative space-y-3">
             {/* Clickable image+content area navigates to camp detail. */}
             <Link href={`/campgrounds/${slug}`} className="block cursor-pointer">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
+                <div className="relative aspect-square rounded-3xl overflow-hidden bg-muted">
                     {/* New Listing Badge */}
                     {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
                         <div className="absolute top-3 left-3 z-10">
@@ -193,9 +193,9 @@ export function CampgroundCard({
             >
                 {saved ? (
                     // Filled = teal (--primary), per G2 brand decision.
-                    <IconHeartFilled className="w-5 h-5 text-primary" aria-hidden="true" />
+                    <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
                 ) : (
-                    <IconHeart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
+                    <Heart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
                 )}
             </button>
         </div>

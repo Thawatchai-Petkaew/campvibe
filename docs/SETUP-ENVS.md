@@ -1,6 +1,6 @@
 # SETUP-ENVS — Runbook ตั้ง 3-env (Local → Staging → Production)
 
-> คู่กับ `std/ops.md` (Environments + Promotion) · เป้าหมาย: ทำให้แต่ละ env "กดเล่นได้" และ **ข้อมูลไม่ปนกัน**
+> คู่กับ `.claude/rules/ops.md` (Environments + Promotion) · เป้าหมาย: ทำให้แต่ละ env "กดเล่นได้" และ **ข้อมูลไม่ปนกัน**
 
 ## 1. มี env อยู่ 3 ที่ — ต้อง align เป็น "รางเดียว"
 | ที่ | คุมอะไร |

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
+import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
+import { wishlistAPI } from "@/lib/api-client";
+import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath } from "lucide-react";
-import { IconLoader2 } from "@tabler/icons-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2 } from "lucide-react";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -21,11 +23,28 @@ const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     loading: () => <div className="w-full h-full bg-muted animate-pulse rounded-xl" />
 });
 
-export default function CampgroundDetailClient({ campground, isOwner = false }: { campground: any, isOwner?: boolean }) {
+export default function CampgroundDetailClient({
+    campground,
+    isOwner = false,
+    initialSaved = false,
+    isLoggedIn = false,
+}: {
+    campground: any;
+    isOwner?: boolean;
+    /** Server-resolved initial wishlist state (AC-2, BR-3). */
+    initialSaved?: boolean;
+    /** True when there is an active user session (AC-4, BR-2). */
+    isLoggedIn?: boolean;
+}) {
     const { t, formatCurrency, language } = useLanguage();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
+
+    // Wishlist toggle state — AC-1, AC-2, AC-3, AC-4, AC-5, BR-1..5.
+    const [saved, setSaved] = useState(!!initialSaved);
+    const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+    const [loginOpen, setLoginOpen] = useState(false);
 
     // Changed to Date objects
     const [checkIn, setCheckIn] = useState<Date>();
@@ -158,6 +177,51 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
         }
     };
 
+    // AC-1/AC-3/AC-4/AC-5, BR-1/BR-2/BR-4/BR-5 — optimistic toggle with rollback.
+    // Decision logic lives in lib/wishlist-toggle.ts (runWishlistToggle); React
+    // state / sonner wiring stays here.
+    const handleWishlistToggle = useCallback(async () => {
+        setIsWishlistLoading(true);
+
+        const result = await runWishlistToggle({
+            isLoggedIn,
+            savedBefore: saved,
+            isLoading: isWishlistLoading,
+            campSiteId: campground.id,
+            api: wishlistAPI,
+            strings: {
+                toastSaved: t.wishlist.toastSaved,
+                toastRemoved: t.wishlist.toastRemoved,
+                toastErrorSave: t.wishlist.toastErrorSave,
+                toastErrorRemove: t.wishlist.toastErrorRemove,
+            },
+        });
+
+        // Apply the outcomes to React state.
+        setSaved(result.saved);
+        if (result.loginModalOpened) setLoginOpen(true);
+
+        if (result.toastKey) {
+            const { toast } = await import("sonner");
+            const isError = result.toastKey === t.wishlist.toastErrorSave
+                || result.toastKey === t.wishlist.toastErrorRemove;
+            if (isError) {
+                toast.error(result.toastKey);
+            } else {
+                toast.success(result.toastKey);
+            }
+        }
+
+        setIsWishlistLoading(false);
+    }, [isLoggedIn, isWishlistLoading, saved, campground.id, t]);
+
+    // BR-5: dynamic aria-label per state.
+    const wishlistAriaLabel = isWishlistLoading
+        ? t.wishlist.heartAriaLabelLoading
+        : saved
+            ? t.wishlist.heartAriaLabelRemove
+            : t.wishlist.heartAriaLabelSave;
+
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
     // S4a: taxonomy now lives in the `options` MasterData relation; derive per-group code lists.
@@ -288,23 +352,36 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Button asChild variant="default" className="gap-2 rounded-full h-12 px-6">
+                            <Button asChild variant="default" size="lg" className="gap-2 px-6">
                                 <Link href={`/dashboard/campsites/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>{t.newCampground.editCampground}</span>
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
+                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
                             <Share className="w-4 h-4" /> <span>{t.common.share}</span>
                         </Button>
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
-                            <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
+                        {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
+                        <Button
+                            data-testid="btn--wishlist-detail-toggle"
+                            variant="ghost"
+                            aria-pressed={saved}
+                            aria-label={wishlistAriaLabel}
+                            disabled={isWishlistLoading}
+                            onClick={handleWishlistToggle}
+                            className="gap-2 px-4 hover:bg-muted font-medium underline"
+                        >
+                            <Heart
+                                className={cn("w-4 h-4", saved && "fill-current text-primary")}
+                                aria-hidden="true"
+                            />
+                            <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
                         </Button>
                     </div>
                 </div>
 
                 {/* Hero Grid - Responsive Layout */}
-                <div className="relative rounded-[24px] overflow-hidden mb-10 group">
+                <div className="relative rounded-3xl overflow-hidden mb-10 group">
                     {/* Mobile View: Single Hero Image */}
                     <div className="md:hidden h-[300px] w-full relative">
                         <img
@@ -499,7 +576,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsAmenitiesOpen(true)}
-                                    className="mt-8 rounded-lg px-8 h-12 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
+                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
                                 >
                                     {t.common.showAll} {facilityCodes.length} {t.common.amenities}
                                 </Button>
@@ -527,7 +604,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                     {/* Right Column: Booking Widget */}
                     <div className="md:col-span-1 relative">
-                        <div className="sticky top-28 border border-border rounded-[24px] p-6 shadow-lg shadow-foreground/5 bg-card">
+                        <div className="sticky top-28 border border-border rounded-3xl p-6 shadow-lg shadow-foreground/5 bg-card">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
                                     <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
@@ -603,15 +680,15 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <div className="p-3">
                                     <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
                                     <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
-                                        <SelectTrigger className="h-10 border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 w-full">
+                                        <SelectTrigger className="w-full border border-border hover:border-foreground transition">
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                        <SelectContent className="shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6].map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="rounded-xl cursor-pointer py-2.5">
+                                                <SelectItem key={num} value={num.toString()} className="cursor-pointer">
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}
@@ -622,13 +699,14 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                             <Button
                                 onClick={handleReserve}
+                                size="lg"
                                 disabled={isReserving}
                                 aria-busy={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-full transition mb-2 text-lg"
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
                             >
                                 {isReserving ? (
                                     <>
-                                        <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
                                         {t.newCampground.reserving}
                                     </>
                                 ) : t.common.reserve}
@@ -718,7 +796,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <h2 className="text-xl font-bold font-display">{t.campground.whereYouBe}</h2>
                         <Button
                             variant="outline"
-                            className="gap-2 h-10 px-4 rounded-lg font-medium hover:bg-muted text-muted-foreground border-border"
+                            className="gap-2 px-4 font-medium hover:bg-muted text-muted-foreground border-border"
                             onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${campground.latitude},${campground.longitude}`, '_blank')}
                         >
                             <MapPin className="w-4 h-4" />
@@ -760,6 +838,13 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                 isOpen={isAmenitiesOpen}
                 onClose={() => setIsAmenitiesOpen(false)}
                 facilities={facilityCodes}
+            />
+
+            {/* AC-4, BR-2: LoginModal for guest wishlist tap. */}
+            <LoginModal
+                isOpen={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                subtitle={t.wishlist.loginPromptGuest}
             />
         </>
     );

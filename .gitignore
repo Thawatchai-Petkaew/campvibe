@@ -44,6 +44,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code — personal settings (not shared)
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -57,6 +60,6 @@ next-env.d.ts
 /scripts/*
 !/scripts/linear-sync.mjs
 !/scripts/db-reset.mjs
-!/scripts/camper.mjs
 !/scripts/check-palette.mjs
-ai-planning/linear-snapshot.json
+!/scripts/check-ds.mjs
+.claude/linear-snapshot.json

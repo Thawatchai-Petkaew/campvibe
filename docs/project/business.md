@@ -1,6 +1,6 @@
 # Business — CampVibe
 
-> model ธุรกิจ + คุณค่า · `/camper-agent` ใช้ประเมิน "feature นี้คุ้ม/ตรงโมเดลไหม" + ตรวจ **cost rule** (action ใดมีค่าใช้จ่าย = escalate)
+> model ธุรกิจ + คุณค่า · อ่านโดย orchestrator + เจ้าของ ก่อนตัดสิน gate เพื่อประเมิน "feature นี้คุ้ม/ตรงโมเดลไหม" + ตรวจ **cost rule** (action ใดมีค่าใช้จ่าย → orchestrator หยุดถามเจ้าของ)
 > ส่วน `> TODO(you):` รอเจ้าของเติม — **ห้ามเดาตัวเลข/โมเดลรายได้**
 
 ## Value proposition
@@ -24,8 +24,8 @@
 > TODO(you): ต่อ 1 booking/host — รายได้, ต้นทุนแปรผัน (payment fee, infra, support), contribution margin, CAC, LTV
 > ใช้เป็นเกณฑ์ตัดสินว่าฟีเจอร์/แคมเปญไหน "คุ้ม"
 
-## ต้นทุน/ค่าใช้จ่ายที่รู้แล้ว (สำหรับ cost rule ของ `/camper-agent`)
-ของที่ **มีค่าใช้จ่ายเงิน** → ตามกฎเหล็ก `/camper-agent` ต้อง **escalate เสมอ** ก่อนทำ:
+## ต้นทุน/ค่าใช้จ่ายที่รู้แล้ว (สำหรับ cost rule)
+ของที่ **มีค่าใช้จ่ายเงิน** → ตามกฎเหล็ก orchestrator ต้อง **หยุดถามเจ้าของเสมอ** ก่อนทำ:
 - **prod deploy** (Vercel) / การ provision infra ใหม่ (DB, blob storage)
 - **paid API** ภายนอก (เช่น map/geocoding, SMS, payment gateway, model API ที่คิดเงิน)
 - **ส่งข้อความจริง** ออกนอกระบบ (email/SMS/Telegram broadcast ไปผู้ใช้จริง)
@@ -40,4 +40,4 @@
 - ที่ยืนยันได้: review ผูก verified-stay (กัน fake) + verified badge (admin) = trust ที่ aggregator ทั่วไปไม่มี
 
 ## เกี่ยวข้อง
-[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `std/ux.md` (PDPA) · `std/security.md`
+[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `.claude/rules/ux.md` (PDPA) · `.claude/rules/security.md`

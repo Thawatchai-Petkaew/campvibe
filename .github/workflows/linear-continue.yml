@@ -68,7 +68,7 @@ jobs:
         run: |
           set -o pipefail
           npm i -g @anthropic-ai/claude-code
-          claude -p "บทบาท: orchestrator ของ CampVibe (อ่าน CLAUDE.md + ai-planning/SYNC-ARCHITECTURE.md ก่อน).
+          claude -p "บทบาท: orchestrator ของ CampVibe (อ่าน CLAUDE.md + .claude/SYNC-ARCHITECTURE.md ก่อน).
           มี gate ถูก approve ใน Linear แล้ว (issue $TRIGGER_ISSUE, epic '$TRIGGER_EPIC'; npm run status:gates คืน CLEARED).
           งานของคุณ: เดิน stage ถัดไปของ epic นั้นต่อ ตามลำดับ orchestrator.
           กฎเหล็ก: ทำงานบน branch ใหม่เท่านั้น ห้ามแตะ main · ถ้ามีโค้ดให้เปิด **draft PR** (ห้าม merge) ·

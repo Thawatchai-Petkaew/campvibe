@@ -57,7 +57,7 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 rounded-2xl overflow-hidden">
+            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b">
                     <div className="flex items-center justify-between">
                         <DialogTitle className="text-xl font-bold">
@@ -82,7 +82,8 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                 <div className="p-4 border-t border-border bg-card">
                     <Button
                         onClick={onClose}
-                        className="w-full bg-foreground hover:bg-foreground/90 text-background rounded-lg h-12 text-base font-medium"
+                        size="lg"
+                        className="w-full bg-foreground hover:bg-foreground/90 text-background text-base font-medium"
                     >
                         {t.common.close}
                     </Button>
