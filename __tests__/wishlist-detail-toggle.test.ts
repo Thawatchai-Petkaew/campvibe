@@ -12,14 +12,12 @@
  *  1. i18n key assertions  — every Thai string the AC specifies is present verbatim
  *     in locales/translations.json (the source of truth for the UI copy).
  *
- *  2. Toggle state-machine — the pure logic extracted from handleWishlistToggle
- *     (optimistic update, rollback on error, guest gate) is exercised via a
- *     faithful in-file re-implementation that mirrors the component's logic exactly.
- *     These tests go RED if a key branch is absent, and GREEN once the logic is
- *     present — proving the Prove-It contract.
+ *  2. Toggle state-machine — lib/wishlist-toggle.ts exports the pure logic that
+ *     CampgroundDetailClient delegates to.  These tests exercise the SHIPPED module
+ *     directly, proving the Prove-It contract for AC-1/3/5 + BR-1/2/5.
  *
- *  3. Server initialSaved logic — the boolean coercion `!!wishlistRow` used in
- *     app/campgrounds/[slug]/page.tsx is exercised directly.
+ *  3. Server initialSaved logic — resolveInitialSaved from lib/wishlist-toggle.ts
+ *     encodes the boolean coercion used in app/campgrounds/[slug]/page.tsx.
  *
  * What is NOT covered here (requires Playwright e2e on Staging at G4):
  *  - Rendered DOM: button testid, aria-pressed, Heart fill class
@@ -31,94 +29,31 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import translations from '../locales/translations.json';
+import {
+    runWishlistToggle,
+    resolveInitialSaved,
+    type WishlistAPI,
+} from '@/lib/wishlist-toggle';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers — mirroring the component's exact logic for unit coverage
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Re-implements the handleWishlistToggle state machine from
- * components/CampgroundDetailClient.tsx lines 180-213.
- *
- * Returns a plain object capturing:
- *   - the final `saved` state after the call
- *   - whether the API was called (and with which verb)
- *   - which toast key was emitted
- *   - whether LoginModal was triggered
- */
-interface ToggleResult {
-    saved: boolean;
-    apiCalled: 'save' | 'remove' | null;
-    toastKey: string | null;
-    loginModalOpened: boolean;
-}
+const thT = translations.th;
 
-interface WishlistAPI {
-    save: (id: string) => Promise<{ error?: string }>;
-    remove: (id: string) => Promise<{ error?: string }>;
-}
-
-async function runToggle(opts: {
-    isLoggedIn: boolean;
-    savedBefore: boolean;
-    isWishlistLoading?: boolean;
-    api: WishlistAPI;
-    t: typeof translations.th;
-}): Promise<ToggleResult> {
-    const { isLoggedIn, savedBefore, isWishlistLoading = false, api, t } = opts;
-
-    // --- AC-4, BR-2: guest tap → open LoginModal, no API call ---
-    if (!isLoggedIn) {
-        return { saved: savedBefore, apiCalled: null, toastKey: null, loginModalOpened: true };
-    }
-
-    // BR-5: debounce — ignore if already in flight
-    if (isWishlistLoading) {
-        return { saved: savedBefore, apiCalled: null, toastKey: null, loginModalOpened: false };
-    }
-
-    // AC-1 / AC-3: optimistic toggle
-    const next = !savedBefore;
-    let finalSaved = next;
-    const apiCalled: 'save' | 'remove' = next ? 'save' : 'remove';
-    let toastKey: string | null = null;
-
-    try {
-        if (next) {
-            const res = await api.save('camp-id');
-            if (res.error) throw new Error(res.error);
-            toastKey = t.wishlist.toastSaved;
-        } else {
-            const res = await api.remove('camp-id');
-            if (res.error) throw new Error(res.error);
-            toastKey = t.wishlist.toastRemoved;
-        }
-    } catch {
-        // AC-5, BR-1: rollback optimistic state on failure
-        finalSaved = !next;
-        toastKey = next ? t.wishlist.toastErrorSave : t.wishlist.toastErrorRemove;
-    }
-
-    return { saved: finalSaved, apiCalled, toastKey, loginModalOpened: false };
-}
-
-/**
- * Re-implements the server-side initialSaved boolean coercion from
- * app/campgrounds/[slug]/page.tsx — the !!w check (AC-2, BR-3).
- */
-function resolveInitialSaved(
-    userId: string | undefined,
-    wishlistRow: { id: string } | null,
-): boolean {
-    if (!userId) return false;
-    return !!wishlistRow;
+/** Build the strings object from the Thai translation keys (mirrors component usage). */
+function makeStrings() {
+    return {
+        toastSaved: thT.wishlist.toastSaved,
+        toastRemoved: thT.wishlist.toastRemoved,
+        toastErrorSave: thT.wishlist.toastErrorSave,
+        toastErrorRemove: thT.wishlist.toastErrorRemove,
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mocks
 // ─────────────────────────────────────────────────────────────────────────────
-
-const thT = translations.th;
 
 const apiOk: WishlistAPI = {
     save: vi.fn().mockResolvedValue({}),
@@ -159,7 +94,7 @@ describe('i18n — Thai copy verbatim (locales/translations.json)', () => {
     describe('AC-1: unsaved button label', () => {
         it('th.common.save is "บันทึก" (label when not saved)', () => {
             // The component renders: saved ? t.wishlist.savedLabel : t.common.save
-            expect((thT as any).common.save).toBe('บันทึก');
+            expect(thT.common.save).toBe('บันทึก');
         });
     });
 
@@ -209,11 +144,12 @@ describe('i18n — Thai copy verbatim (locales/translations.json)', () => {
 
 describe('AC-1: logged-in user saves an unsaved camp', () => {
     it('optimistic state flips to saved=true and API.save is called', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: true,
             savedBefore: false,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.saved).toBe(true);
@@ -222,11 +158,12 @@ describe('AC-1: logged-in user saves an unsaved camp', () => {
     });
 
     it('emits the save-success toast key "บันทึกลงรายการที่ถูกใจแล้ว"', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: true,
             savedBefore: false,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.toastKey).toBe('บันทึกลงรายการที่ถูกใจแล้ว');
@@ -271,11 +208,12 @@ describe('AC-2: server resolves initialSaved (BR-3)', () => {
 
 describe('AC-3: logged-in user removes a saved camp', () => {
     it('saved state flips back to false and API.remove is called', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: true,
             savedBefore: true,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.saved).toBe(false);
@@ -284,11 +222,12 @@ describe('AC-3: logged-in user removes a saved camp', () => {
     });
 
     it('emits the remove-success toast key "นำออกจากรายการที่ถูกใจแล้ว"', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: true,
             savedBefore: true,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.toastKey).toBe('นำออกจากรายการที่ถูกใจแล้ว');
@@ -306,11 +245,12 @@ describe('AC-4: guest (isLoggedIn=false) taps wishlist button', () => {
             remove: vi.fn(),
         };
 
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: false,
             savedBefore: false,
+            campSiteId: 'camp-id',
             api: mockApi,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.loginModalOpened).toBe(true);
@@ -319,11 +259,12 @@ describe('AC-4: guest (isLoggedIn=false) taps wishlist button', () => {
     });
 
     it('saved state does not change when guest taps (no optimistic flip)', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: false,
             savedBefore: false,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.saved).toBe(false);
@@ -335,11 +276,12 @@ describe('AC-4: guest (isLoggedIn=false) taps wishlist button', () => {
     });
 
     it('no toast is emitted on guest tap', async () => {
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: false,
             savedBefore: false,
+            campSiteId: 'camp-id',
             api: apiOk,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(result.toastKey).toBeNull();
@@ -353,22 +295,24 @@ describe('AC-4: guest (isLoggedIn=false) taps wishlist button', () => {
 describe('AC-5: API call fails — optimistic rollback (BR-1)', () => {
     describe('save attempt fails (thrown error)', () => {
         it('rolls back saved to false (was false before tap)', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: false,
+                campSiteId: 'camp-id',
                 api: apiError,
-                t: thT,
+                strings: makeStrings(),
             });
 
             expect(result.saved).toBe(false); // rolled back to original
         });
 
         it('emits save-error toast key "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: false,
+                campSiteId: 'camp-id',
                 api: apiError,
-                t: thT,
+                strings: makeStrings(),
             });
 
             expect(result.toastKey).toBe('บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
@@ -377,46 +321,50 @@ describe('AC-5: API call fails — optimistic rollback (BR-1)', () => {
 
     describe('save attempt fails (API returns { error })', () => {
         it('rolls back saved to false when response carries an error field', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: false,
+                campSiteId: 'camp-id',
                 api: apiErrorViaResponse,
-                t: thT,
+                strings: makeStrings(),
             });
 
             expect(result.saved).toBe(false);
         });
 
         it('emits save-error toast key when API returns { error }', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: false,
+                campSiteId: 'camp-id',
                 api: apiErrorViaResponse,
-                t: thT,
+                strings: makeStrings(),
             });
 
             expect(result.toastKey).toBe('บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
         });
     });
 
-    describe('remove attempt fails', () => {
+    describe('remove attempt fails (thrown error)', () => {
         it('rolls back saved to true (was true before tap)', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: true,
+                campSiteId: 'camp-id',
                 api: apiError,
-                t: thT,
+                strings: makeStrings(),
             });
 
             expect(result.saved).toBe(true); // rolled back to original
         });
 
         it('emits remove-error toast key on failed remove', async () => {
-            const result = await runToggle({
+            const result = await runWishlistToggle({
                 isLoggedIn: true,
                 savedBefore: true,
+                campSiteId: 'camp-id',
                 api: apiError,
-                t: thT,
+                strings: makeStrings(),
             });
 
             // The remove-error path — still visible/system result per BR-1 spec
@@ -424,15 +372,42 @@ describe('AC-5: API call fails — optimistic rollback (BR-1)', () => {
         });
     });
 
-    it('no API call is made when isWishlistLoading=true (BR-5 debounce)', async () => {
+    describe('remove attempt fails (API returns { error })', () => {
+        it('rolls back saved to true when response carries an error field', async () => {
+            const result = await runWishlistToggle({
+                isLoggedIn: true,
+                savedBefore: true,
+                campSiteId: 'camp-id',
+                api: apiErrorViaResponse,
+                strings: makeStrings(),
+            });
+
+            expect(result.saved).toBe(true); // rolled back to original
+        });
+
+        it('emits remove-error toast key when API returns { error }', async () => {
+            const result = await runWishlistToggle({
+                isLoggedIn: true,
+                savedBefore: true,
+                campSiteId: 'camp-id',
+                api: apiErrorViaResponse,
+                strings: makeStrings(),
+            });
+
+            expect(result.toastKey).toBe('ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        });
+    });
+
+    it('no API call is made when isLoading=true (BR-5 debounce)', async () => {
         const mockApi: WishlistAPI = { save: vi.fn(), remove: vi.fn() };
 
-        const result = await runToggle({
+        const result = await runWishlistToggle({
             isLoggedIn: true,
             savedBefore: false,
-            isWishlistLoading: true,
+            isLoading: true,
+            campSiteId: 'camp-id',
             api: mockApi,
-            t: thT,
+            strings: makeStrings(),
         });
 
         expect(mockApi.save).not.toHaveBeenCalled();
@@ -449,14 +424,14 @@ describe('BR-4: button label and aria-label derive from saved state', () => {
     it('label when not saved is t.common.save = "บันทึก"', () => {
         const label = false
             ? thT.wishlist.savedLabel
-            : (thT as any).common.save;
+            : thT.common.save;
         expect(label).toBe('บันทึก');
     });
 
     it('label when saved is t.wishlist.savedLabel = "บันทึกแล้ว"', () => {
         const label = true
             ? thT.wishlist.savedLabel
-            : (thT as any).common.save;
+            : thT.common.save;
         expect(label).toBe('บันทึกแล้ว');
     });
 

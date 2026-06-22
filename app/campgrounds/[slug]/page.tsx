@@ -25,7 +25,14 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
             },
             include: {
                 location: true,
-                operator: true,
+                operator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        image: true,
+                        createdAt: true,
+                    },
+                },
                 spots: true,
                 options: true,
                 images: { orderBy: { sortOrder: 'asc' } },
@@ -42,7 +49,8 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
 
     const t = getTranslations('th'); // Default to Thai for SSR or detect from cookies
 
-    const isOwner = session?.user?.email === campSite.operator.email;
+    // Compare by ID (from session) against the FK on the campsite — operator email is never fetched.
+    const isOwner = !!session?.user?.id && session.user.id === campSite.operatorId;
 
     // AC-2, BR-3: resolve initial saved state server-side (no flash on load).
     let initialSaved = false;

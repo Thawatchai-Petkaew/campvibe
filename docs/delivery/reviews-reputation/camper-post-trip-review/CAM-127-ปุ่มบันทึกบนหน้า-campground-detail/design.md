@@ -5,7 +5,7 @@ epic: camper-post-trip-review (CAM-35)
 persona: camper
 artifact: design
 owner: ux-designer
-status: In Progress
+status: Done
 version: v1
 updated: 2026-06-22
 ---
@@ -106,7 +106,7 @@ All other keys reused from the existing wishlist namespace already in `locales/t
 
 ### Test ID
 
-`data-testid="btn--wishlist-toggle"` — reuse the same ID as `CampgroundCard` (QA tests across both surfaces).
+`data-testid="btn--wishlist-detail-toggle"` — reuse the same ID as `CampgroundCard` (QA tests across both surfaces).
 
 ## a11y
 
@@ -137,7 +137,7 @@ Gate checklist:
 - [x] **i18n** — one new key `wishlist.savedLabel` (TH + EN) in `locales/translations.json`; all other keys already exist. No hardcoded strings. No em-dash separator. No technical jargon.
 - [x] **Motion** — `active:scale-95` transform-only, 120–150ms (within 120–250ms range). No `transition:all`. Respects `motion-safe:` (built into Button).
 - [x] **Anti-slop** — ghost variant matches the adjacent Share button grammar exactly. No decorator elements added. Teal fill is purposeful (brand signal: saved = primary action color). Layout stays in the existing action bar — no new chrome invented.
-- [x] **Test ID** — `btn--wishlist-toggle` (reuse from CampgroundCard, consistent across surfaces).
+- [x] **Test ID** — `btn--wishlist-detail-toggle` (reuse from CampgroundCard, consistent across surfaces).
 
 No new tokens proposed. No new components invented. No design decisions that require a token change in `DESIGN.md` or `app/globals.css`.
 

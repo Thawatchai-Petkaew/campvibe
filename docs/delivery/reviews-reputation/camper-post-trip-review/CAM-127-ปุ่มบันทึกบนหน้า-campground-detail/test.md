@@ -5,7 +5,7 @@ epic: camper-post-trip-review (CAM-35)
 persona: camper
 artifact: test
 owner: qa-engineer
-status: In Progress
+status: Done
 version: v1
 updated: 2026-06-22
 ---

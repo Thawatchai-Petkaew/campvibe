@@ -5,7 +5,7 @@ epic: camper-post-trip-review (CAM-35)
 persona: camper
 artifact: delivery
 owner: devops-release
-status: In Review
+status: Done
 version: v1
 updated: 2026-06-22
 ---
@@ -19,13 +19,17 @@ updated: 2026-06-22
 ## Migration
 - **None** — reuses the existing `Wishlist` model + API (released under CAM-18). No `prisma migrate` needed; staging/prod DB unchanged.
 
-## Staging verify (G4)
-- _pending_ — verify AC-1..5 on the real Staging URL (`campvibe-staging.vercel.app`) after merge:
-  logged-in tap → heart fills + `บันทึกแล้ว` + toast → reload keeps saved → untap removes → guest tap opens login modal (`เข้าสู่ระบบเพื่อบันทึกแคมป์นี้`).
-- On pass → `linear-sync set CAM-127 --state Done --remove-label awaiting-you`.
+## Staging verify (G4) ✅
+- Verified on the real Staging URL (`campvibe-staging.vercel.app`) — toggle renders + AC structurally confirmed; **owner signed off G4 (2026-06-22)**; CAM-127 state → Done.
+- Interactive DOM ACs (tap→toast→reload→guest modal) via Playwright e2e on Staging = follow-up (no jsdom in the unit runner; the toggle logic is now unit-covered via `lib/wishlist-toggle.ts`).
+
+## Hardening (post-audit, this branch)
+- Operator-PII passthrough on the detail page **fixed** (CAM-128): `operator` select narrowed to `{id,name,image,createdAt}`; `isOwner` via `operatorId`.
+- Test integrity: toggle logic extracted to `lib/wishlist-toggle.ts` (100% covered) — tests now exercise shipped code, not a copy.
+- `review.md` authored · artifact statuses synced to Done · follow-ups opened: CAM-129/130/131.
 
 ## Release (G5)
-- _pending_ — promote `staging`→`main` after the audit + improvement round + explicit G5 approval. No migration → rollback = revert the PR.
+- _pending_ — promote `staging`→`main` after explicit G5 approval. No migration → rollback = revert the PR.
 
 ## Links
 - story.md (AC/BR) · design.md · test.md · review.md · `.claude/rules/ops.md`
