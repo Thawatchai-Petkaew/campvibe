@@ -148,6 +148,14 @@ audience: AI agents (primary) + humans
 - **1 primary action ต่อ view** (ห้าม CTA primary ซ้ำเจตนา) · ❌ **ห้าม override height inline** (`!h-12`) — ใช้ size prop
 - icon-button = `h-11 w-11` + `aria-label`
 
+### Component อื่นๆ (coverage ครบ — ใช้ตัวนี้กับงานนี้)
+| งาน | ใช้ | หมายเหตุ |
+|---|---|---|
+| สลับ section ภายในหน้าเดียว | `Tabs` | ไม่ใช่ navigation ข้ามหน้า (ใช้ link) · active segment โทน accent ไม่ใช่เส้นหนา |
+| เลือกวันที่ / ช่วงวัน | `Calendar` (เดี่ยว) / `DateRangePicker` (ช่วง) ใน `Popover` | trigger `rounded-full h-11` |
+| ป้ายสถานะ (ไม่กดได้) | `Badge` `rounded-xl` | status (confirmed/paid) ใช้ `Badge` + token success/destructive/muted — **ไม่ใช้ raw `<span>`** · filter ที่กดได้ → FilterChip (§ ตาราง) |
+| ข้อความ truncate + tooltip | `TruncatedLabel` | — |
+
 ### Composition (custom wrapper ที่มีอยู่ — ใช้ซ้ำ ไม่สร้างใหม่)
 `InputField` (input+label+inline error) · `InputGroup` · `DateRangePicker` · `ErrorBanner` (server error บนฟอร์ม) · `LoadingSpinner`/`Skeleton`/`LoadingSkeleton` (loading) · `PermissionTooltip` · `TruncatedLabel`
 
@@ -186,7 +194,7 @@ audience: AI agents (primary) + humans
 
 ## §6 Quality gate — pre-delivery checklist (block PR ได้, รันก่อน merge→staging = "Done")
 - [ ] **Token-only** — ไม่มี hex/px/สีลอย, อ้าง token+scale (light+dark) · `npm run check:palette` เขียว
-- [ ] **Component-in-system** — `components/ui/*` เท่านั้น, **lucide** icons (§7), ไม่ประดิษฐ์นอกระบบ
+- [ ] **Component-in-system** — `components/ui/*` เท่านั้น, ไม่ประดิษฐ์นอกระบบ · icon import **ใหม่** ใช้ **lucide** (§7) — tabler ใน primitive = legacy รอ migrate (ไม่ fail gate)
 - [ ] **Scale ถูกบทบาท** — radius/size/spacing ตาม §2 (ไม่ override height inline)
 - [ ] **States ครบ 8** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **a11y AA** — contrast **4.5:1 body / 3:1 heading**, focus ring มองเห็น, `aria-label` ครบ, tap ≥44px
