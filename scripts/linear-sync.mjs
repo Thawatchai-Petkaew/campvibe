@@ -80,7 +80,8 @@ async function ctx() {
   if (!team) throw new Error(`team "${TEAM}" not found`);
   const iss = await gql(
     `query($k:String!){ issues(filter:{team:{key:{eq:$k}}}, first:100){ nodes{
-      id identifier title url priority startedAt description parent{ id }
+      id identifier title url priority startedAt updatedAt description
+      parent{ id identifier title } project{ id name }
       state{ name type } labels{ nodes{ id name } } } } }`,
     { k: TEAM }
   );
@@ -181,6 +182,37 @@ function epicOf(t) { const x = t.split("·"); return x.length > 1 ? x[0].trim() 
 function roleOf(t) { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function cleanTitle(t) { return t.replace(/\[[a-z-]+\]\s*/g, "").trim(); }
+
+// ── Delivery artifact store: docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ ──
+// feature = Linear project · epic = parent issue (fallback: the "·" title prefix) · persona = label.
+const PERSONAS = ["host", "camper", "admin", "platform"];
+const STORY_ARTIFACTS = ["design", "tech", "test", "review", "delivery"]; // + story.md (from STORY-TICKET)
+function slug(s) {
+  return String(s || "").toLowerCase().trim()
+    .replace(/[^\w฀-๿]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "untitled";
+}
+function personaOf(issue) {
+  const ls = issue.labels.nodes.map((l) => l.name.toLowerCase());
+  return PERSONAS.find((p) => ls.includes(p)) || "";
+}
+function featureName(issue) { return issue.project?.name || epicOf(issue.title); }
+function epicName(issue) { return issue.parent?.title || epicOf(issue.title); }
+function storyName(issue) { return cleanTitle(issue.title.replace(/^[^·]*·\s*/, "")); }
+function deliveryDirs(issue) {
+  const fdir = path.join("docs", "delivery", slug(featureName(issue)));
+  const edir = path.join(fdir, slug(epicName(issue)));
+  const sdir = path.join(edir, `${issue.identifier}-${slug(storyName(issue))}`);
+  return { fdir, edir, sdir };
+}
+function today() { return new Date().toISOString().slice(0, 10); }
+function applyVars(tpl, vars) { return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in vars ? vars[k] : `{{${k}}}`)); }
+function writeIfAbsent(file, content) {
+  if (fs.existsSync(file)) return false;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content);
+  return true;
+}
+const TPL = (name) => path.join(".claude", "templates", `${name}.md`);
 
 // Map role slug → human-readable label for Telegram messages (no leading emoji per owner preference).
 const ROLE_LABEL = {
@@ -293,6 +325,22 @@ async function cmdAudit() {
   }
   console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/STORY-TICKET.md`);
   if (bad) process.exitCode = 11;
+
+  // ── Delivery artifact-store consistency (docs/delivery/) ──
+  // Not-yet-scaffolded stories = info only (no fail) so old work isn't forced to backfill.
+  // Once a story HAS a folder it must stay complete + its status header must match Linear → fatal.
+  let notYet = 0, broken = 0, stale = 0;
+  for (const s of stories) {
+    const { sdir } = deliveryDirs(s);
+    const storyFile = path.join(sdir, "story.md");
+    if (!fs.existsSync(storyFile)) { notYet++; console.log(`  · ${s.identifier} no artifact folder yet  (run: node scripts/linear-sync.mjs scaffold ${s.identifier})`); continue; }
+    const need = ["story", ...STORY_ARTIFACTS].filter((a) => !fs.existsSync(path.join(sdir, `${a}.md`)));
+    if (need.length) { broken++; console.log(`  ✗ ${s.identifier} incomplete: missing ${need.map((n) => n + ".md").join(",")}`); }
+    const m = fs.readFileSync(storyFile, "utf8").match(/^status:\s*(.+)$/m);
+    if (m && !m[1].toLowerCase().includes(s.state.name.toLowerCase())) { stale++; console.log(`  ⚠ ${s.identifier} status header "${m[1].trim()}" ≠ Linear "${s.state.name}"`); }
+  }
+  console.log(`artifacts: ${notYet} not-yet-scaffolded · ${broken} incomplete · ${stale} status-stale`);
+  if (broken || stale) process.exitCode = 11;
 }
 
 // handoff <CAM-id> --role <role> [--state "In Progress"] [--note "..."]
@@ -377,6 +425,70 @@ async function cmdHandoff(id, args) {
   );
 }
 
+// scaffold <CAM-id> — create the delivery-artifact folder + files for a story (idempotent).
+async function cmdScaffold(id) {
+  if (!id) { console.log("usage: linear-sync scaffold <CAM-id>"); process.exit(1); }
+  const team = await ctx();
+  const issue = team.issues.nodes.find((i) => i.identifier.toUpperCase() === id.toUpperCase());
+  if (!issue) throw new Error(`issue ${id} not found in ${TEAM}`);
+  const { fdir, edir, sdir } = deliveryDirs(issue);
+  const vars = {
+    linear: issue.identifier, feature: slug(featureName(issue)), featureName: featureName(issue),
+    epic: slug(epicName(issue)), epicId: issue.parent?.identifier || "—", epicTitle: epicName(issue),
+    persona: personaOf(issue) || "—", status: issue.state.name, date: today(), title: storyName(issue),
+  };
+  const made = [];
+  if (writeIfAbsent(path.join(fdir, "feature.md"), applyVars(fs.readFileSync(TPL("feature"), "utf8"), vars))) made.push("feature.md");
+  if (writeIfAbsent(path.join(edir, "epic.md"), applyVars(fs.readFileSync(TPL("epic"), "utf8"), vars))) made.push(`${slug(epicName(issue))}/epic.md`);
+  // story.md = sync header + the reused STORY-TICKET body (strip its HTML comment)
+  const header = applyVars(
+    "---\nlinear: {{linear}}\nfeature: {{feature}}\nepic: {{epic}} ({{epicId}})\npersona: {{persona}}\nartifact: story\nowner: product-owner\nstatus: {{status}}\nversion: v1\nupdated: {{date}}\n---\n# {{title}} ({{linear}})\n\n",
+    vars
+  );
+  const ticket = fs.readFileSync(TPL("STORY-TICKET"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
+  if (writeIfAbsent(path.join(sdir, "story.md"), header + ticket)) made.push("story.md");
+  for (const a of STORY_ARTIFACTS) {
+    if (writeIfAbsent(path.join(sdir, `${a}.md`), applyVars(fs.readFileSync(TPL(a), "utf8"), vars))) made.push(`${a}.md`);
+  }
+  console.log(`✓ scaffold ${issue.identifier} → ${sdir}`);
+  console.log(made.length ? `  created: ${made.join(", ")}` : "  (all artifacts already exist — nothing overwritten)");
+}
+
+// index — regenerate docs/delivery/INDEX.md from Linear (feature→epic→story tree + by-persona view).
+async function cmdIndex() {
+  const team = await ctx();
+  const work = team.issues.nodes.filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title));
+  const feats = {};
+  for (const i of work) { const f = featureName(i), e = epicName(i); ((feats[f] = feats[f] || {})[e] = feats[f][e] || []).push(i); }
+  const sortId = (a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true });
+  const artLink = (i) => `[${i.identifier}](${i.url}) · [artifact](${deliveryDirs(i).sdir.split(path.sep).join("/")}/story.md)`;
+  const L = ["<!-- GENERATED by `node scripts/linear-sync.mjs index` from Linear — do not hand-edit. Linear is the live-status SoT. -->",
+    "# Delivery Index", "", `_${work.length} stories · generated ${today()}._`, "", "## By feature → epic → story", ""];
+  for (const [f, epics] of Object.entries(feats).sort()) {
+    L.push(`### ${esc(f)}`, "");
+    for (const [e, items] of Object.entries(epics).sort()) {
+      L.push(`- **${esc(e)}**`);
+      for (const i of items.sort(sortId)) {
+        const labels = i.labels.nodes.map((l) => l.name).filter((n) => !n.startsWith("role:")).join(",");
+        L.push(`  - ${i.state.name} · [${roleOf(i.title) || "—"}]${labels ? " {" + labels + "}" : ""} · ${artLink(i)} — ${esc(storyName(i)).slice(0, 60)}`);
+      }
+    }
+    L.push("");
+  }
+  L.push("## By persona", "");
+  for (const p of PERSONAS) {
+    const items = work.filter((i) => personaOf(i) === p).sort(sortId);
+    if (!items.length) continue;
+    L.push(`### ${p} (${items.length})`);
+    for (const i of items) L.push(`- ${i.state.name} · ${esc(featureName(i))} · ${artLink(i)} — ${esc(storyName(i)).slice(0, 50)}`);
+    L.push("");
+  }
+  const out = path.join("docs", "delivery", "INDEX.md");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, L.join("\n") + "\n");
+  console.log(`✓ index → ${out} (${work.length} stories · ${Object.keys(feats).length} features)`);
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 try {
   if (cmd === "list") await cmdList();
@@ -387,5 +499,7 @@ try {
   else if (cmd === "audit") await cmdAudit();
   else if (cmd === "pull") await cmdPull(rest[0]);
   else if (cmd === "handoff") await cmdHandoff(rest[0], rest.slice(1));
-  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | notify <text> | release <CAM-id> | pull [outfile] | handoff <CAM-id> --role <role> [--state S] [--note N]>"); process.exit(1); }
+  else if (cmd === "scaffold") await cmdScaffold(rest[0]);
+  else if (cmd === "index") await cmdIndex();
+  else { console.log("usage: linear-sync <list | gates | audit | set <CAM-id> [--state S] [--add-label L] [--remove-label L] | notify <text> | release <CAM-id> | pull [outfile] | handoff <CAM-id> --role <role> [--state S] [--note N] | scaffold <CAM-id> | index>"); process.exit(1); }
 } catch (e) { console.error("✗", e.message); process.exit(1); }
