@@ -9,6 +9,24 @@ description: Standard for CampVibe's release and operations flow — 3-env promo
 
 A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through three environments — Local → Staging → Production — where every change is proven on a real env before it moves up, "Done" and "Released" are deliberately separate, and every prod release carries a tag, a changelog, and a rollback plan. The goal: reversible, observable, gated releases with no shortcut to prod.
 
+## Quick Reference
+
+**Done ≠ Released.** Done = merged to `staging` + AC verified on the real Staging URL. Released = promoted to prod with a tag, changelog, and rollback plan.
+
+Promote `staging`→`main` (= Released, G5):
+
+1. Confirm Done: quality-gate green + AC verified on the **real Staging URL** + G4 sign-off.
+2. `/promote-release --to prod` — the only path to prod; never promote straight from local/Preview.
+3. `prisma migrate deploy` on prod (migration already reversible + tested on Staging).
+4. **Tag + changelog + rollback plan** — all three, every prod release.
+5. **Smoke test** on the real Production URL.
+6. **Watch errors** (Sentry) for N minutes → spike = auto-rollback + alert; real error = open a bug ticket.
+7. Label the story `released` (a label, not a state); sync Linear (`linear-sync.mjs audit`).
+
+Rollout (if flagged): internal → 5% → 25% → 50% → 100% · errors **+10% over baseline = investigate · ≥2× = rollback**.
+
+Any failure at any env → **stop the promotion + auto-open a Linear ticket**.
+
 ## When to Use
 
 - Promoting code across envs: merge→`staging` (= Done) or `staging`→`main` (= Released)
@@ -23,6 +41,10 @@ A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through
 - Profiling or fixing measured slowness — use `.claude/rules/performance.md`
 - The pre-merge quality gate (lint/typecheck/test/build/audit) — that runs via `/quality-gate` per `CLAUDE.md`
 - Security headers / authz / secret handling specifics — use `.claude/rules/security.md`
+
+## Prerequisites
+
+Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) · `.claude/rules/observability.md` (the after-deploy error watch) · the `promote-release` skill (the actual cross-env mechanics). Have: the G4 Staging sign-off recorded, the migration tested on Staging, and the rollback plan + tag/changelog drafted before you touch prod.
 
 ## Principles
 
@@ -79,6 +101,27 @@ A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through
 - **8 domains before shipping** — Code (test/build/lint green) · Security (no secrets, npm audit, authz, headers, rate-limit) · Performance (CWV pass, no N+1, image/bundle within budget — `.claude/rules/performance.md`) · Accessibility (keyboard/screen-reader/contrast AA — `DESIGN.md`) · Data/Migration (reversible, tested on Staging) · Observability (log/metric/alert ready — `.claude/rules/observability.md`) · Infra (prod env vars, DNS/SSL, health check) · Rollback (rollback plan + tag).
 - **Graduated rollout** (if using flag/canary) — internal → 5% → 25% → 50% → 100%; **errors above baseline +10% = investigate · ≥2× = rollback**.
 - **Feature flag lifecycle** — deploy off → enable one step at a time → **remove the flag within ~2 weeks** (no stale/leftover flags, no nested flags).
+
+## Examples
+
+✅ **Promote to prod the right way.** Story is merged to `staging`, quality-gate green, migration reversible + already run on staging DB, and AC verified on the real Staging URL → G4 signed off. Run `/promote-release --to prod`; `prisma migrate deploy` succeeds on prod; cut a git tag + changelog entry + note the rollback plan; smoke-test the Production URL; watch Sentry for N minutes (no spike); label the story `released`. Three earlier Done stories ship together in this one release train.
+
+❌ **Promoting straight from local.** A feature works on the local dev server, so it's pushed `feature/*`→`main` to ship faster — skipping Staging, G4, the tag/changelog, and the rollback plan. Prod always goes through Staging + G4 sign-off; this is blocked.
+
+❌ **Calling Done "Released."** The story passed quality-gate and merged to `staging`, so it gets labeled `released`. Wrong: merged-to-staging + AC verified on the Staging URL = **Done** (state); `released` is a separate label earned only after the prod promote + tag + changelog + smoke.
+
+## Reference Files
+
+- `.claude/rules/observability.md` — the after-deploy error watch + alerts that gate this flow
+- `.claude/rules/security.md` — secrets, authz, headers, rate-limit for the pre-launch Security domain
+- `.claude/rules/performance.md` — CWV / N+1 / bundle budgets for the pre-launch Performance domain
+- `docs/project/business.md` — product/business context the release serves
+- the `promote-release` skill — the runnable cross-env promote/migrate/smoke/tag/changelog/rollback procedure
+- `docs/RUNBOOK-db-migrations.md` — the reversible-migration runbook for steps 3 and the Data/Migration domain
+
+## Next Steps
+
+After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `staging`→`main`; on a green prod smoke, label the story `released` and **monitor** errors (Sentry) for the watch window — spike = auto-rollback, real error = open a bug ticket into the loop.
 
 ## Common Rationalizations
 

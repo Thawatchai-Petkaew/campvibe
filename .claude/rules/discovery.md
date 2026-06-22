@@ -9,6 +9,16 @@ description: Standard for turning a raw requirement into a buildable spec before
 
 Discovery turns a raw requirement into a spec you can build without guessing. G1 (Scope) is the one moment where scope changes for free — after it, change is expensive. Close every blocking gap, write the AC, and only then propose G1.
 
+## Quick Reference
+
+Fast path from raw requirement to G1:
+
+1. **Research first** — read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*` + check Linear (team Campvibe) for existing/duplicate work.
+2. **Build the 6-dimension gap list** — Business · Functional · Technical · UX · Security/Data · Risk — tag each gap 🟢 closed / 🟡 assumed (state the default) / 🔴 must-ask / ⚪ N/A.
+3. **Batch the questions in one round** — collect every 🔴/🟡 into a single ask; each item carries options + impact + "if no answer, default = …".
+4. **Write the ticket** — from `ai-planning/templates/STORY-TICKET.md`, 1 atomic story (PR ≤ ~400 lines), AC with Thai copy verbatim, DoR met.
+5. **Propose G1** — gate passes when **no 🔴 remains** and `node scripts/linear-sync.mjs audit` confirms the ticket (`## Story` + `## AC`).
+
 ## When to Use
 
 - Starting any feature from a new or ambiguous requirement, before touching code
@@ -23,6 +33,10 @@ Discovery turns a raw requirement into a spec you can build without guessing. G1
 - Turning a vague NFR into a measured target like LCP — see `.claude/rules/performance.md`
 - UX validation and PDPA constraints inside the AC — see `.claude/rules/ux.md`
 - Building once the spec/ticket has closed all gaps — skip to build
+
+## Prerequisites
+
+Read before starting: this file · `DESIGN.md` (for any UI-facing requirement) · `CLAUDE.md` (iron rules + gates). Have on hand: the raw requirement, access to the codebase (`prisma/schema.prisma`, `app/`, `lib/`, `components/`), Linear (team Campvibe), and the template `ai-planning/templates/STORY-TICKET.md`. Know which dimensions hand off to siblings — `.claude/rules/architecture.md`, `.claude/rules/qa.md`, `.claude/rules/ux.md`, `.claude/rules/performance.md`.
 
 ## Principles
 
@@ -79,6 +93,35 @@ Use the template exactly — `## ทำไม` (+KPI) · `## Story` (ในฐ�
 - **Measurable AC** — convert vague words ("faster") into a real target (e.g. LCP ≤ 2.5s) per `.claude/rules/performance.md`.
 - **Vertical slice + work size** — break into slices that ship end-to-end (not all-DB → all-API → all-UI); work larger than ~5–8 files = split further.
 - **AC verification rigor** (embedded in STORY-TICKET): cover states on responsive/mobile (as words the user sees, not class names) · Thai copy verbatim, exact glyphs including the `{N}` placeholder · every editable input has full rules (required/format/bounds/when-to-warn/real message) = QA's negative test cases.
+
+## Examples
+
+**Gap tagging — surface the assumption (🟡 + default) vs guess silently:**
+
+- ✅ `🟡 Technical — max photos per camp listing. Options: 5 / 10 / 20. Impact: storage + upload UX. If no answer, default = 10.` — visible, defaulted, confirmable at G1.
+- ❌ Picking "10" in the schema and writing AC around it without ever raising it. A silent guess hides scope; it surfaces as rework after G1.
+
+**AC granularity — what the user sees + data result vs a vague pass:**
+
+- ✅
+
+  | Given | When | ผลที่ผู้ใช้เห็น | ผลเชิงข้อมูล |
+  |---|---|---|---|
+  | แคมป์ปิดรับจอง | กดปุ่มจอง | ปุ่มเป็นสีเทากดไม่ได้ + ข้อความ `แคมป์นี้เต็มแล้ว` | ไม่สร้าง Booking; ไม่เปลี่ยน availability |
+
+- ❌ `Given a camp · When booking · Then the system works correctly` — untestable, no Thai copy, no data result, gives QA nothing to write a negative case against.
+
+## Reference Files
+
+- `ai-planning/templates/STORY-TICKET.md` — the ticket structure to fill (the 6 spec components land here).
+- `.claude/rules/architecture.md` — data-model / API-contract / migration decisions once scope is set (G2 Technical).
+- `.claude/rules/qa.md` — turning each AC into negative/edge test cases.
+- `.claude/rules/ux.md` — UX validation + PDPA constraints inside the AC.
+- The `discover` skill — runs this loop step-by-step (research → gap list → batched rounds → ticket → G1).
+
+## Next Steps
+
+Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `node scripts/linear-sync.mjs audit` → **propose G1 (Scope)** with a summary of gaps and assumptions used. On G1 approval, hand off to the architect (data model / API contract) and the designer (flow / states / Design Brief) for G2 (Design) before any build.
 
 ## Common Rationalizations
 

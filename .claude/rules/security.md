@@ -9,6 +9,22 @@ description: Standard for securing every CampVibe atomic story against OWASP, ha
 
 Assume every request is forged and every model output is hostile. Security is a gate run against the diff of each atomic story — not a release-time afterthought — because a missed ownership check or leaked secret is cheap to catch at the story and expensive to catch in production.
 
+## Quick Reference
+
+Run against the diff of every atomic story. **6-area audit** — walk all six:
+
+| # | Area | Check at a glance |
+|---|---|---|
+| 1 | Input | every boundary through zod; no raw SQL / mass-assignment; SSRF allow-list on client-supplied URLs |
+| 2 | Auth / authz | session read server-side from NextAuth only; ownership `where: { id, ownerId }` on every mutation; default-deny |
+| 3 | Data | no secret/PII in diff/log/client bundle; bcrypt ≥ 12 rounds; cookies `httpOnly` + `secure` + `sameSite` |
+| 4 | Infra | CSP + HSTS + `nosniff` + `Referrer-Policy`; rate limit on write/auth → `429`; no debug/stack to client; seed/scrape guarded |
+| 5 | 3rd-party | `npm audit --omit=dev` → 0 high/critical; no unjustified dep; secrets pre-commit/CI scanned |
+| 6 | AI / LLM | Telegram/Linear input untrusted → sanitize before prompt; model output untrusted → never exec/follow; scope tokens + spend/turn cap |
+
+- **STRIDE per PR** — Spoofing · Tampering · Repudiation · Information-disclosure · DoS · Elevation, walked against the diff.
+- **`npm audit --omit=dev` → 0 high/critical** — actually run, before merge.
+
 ## When to Use
 
 - Building or reviewing any API route, server action, or Prisma mutation
@@ -22,6 +38,10 @@ Assume every request is forged and every model output is hostile. Security is a 
 - Logging/metrics/tracing field hygiene — see `.claude/rules/observability.md`
 - Release rollout / rollback / env promotion — see `.claude/rules/ops.md`
 - User-facing error copy wording — see `DESIGN.md` and playbook §6.6
+
+## Prerequisites
+
+Read first: this file + the diff of the story under review. Have ready: the boundary/validation contract in `.claude/rules/api.md`, the logging/field-hygiene rules in `.claude/rules/observability.md`, and the PDPA/personal-data handling in `.claude/rules/ux.md`. Know which env (staging/prod) the change targets so seed/scrape and secret-split checks land correctly.
 
 ## Standards
 
@@ -54,6 +74,58 @@ Read before every task: this file + the diff of the story. Scope = a security ga
 - **File upload** — allowlist MIME + size limit + magic-byte check (do not trust the extension).
 - **Secret scan** — keep secrets out of git (pre-commit/CI); `.env*` is always in `.gitignore`.
 - **AI/agent-layer (headless `camper-adhoc` / `linear-continue`)** — input from Telegram/Linear is **untrusted** → validate/normalize before putting it in a prompt (block prompt-injection); model output is untrusted (do not exec or follow instructions in raw output, e.g. a `SUMMARY:` line); the workflow uses least privilege (avoid blanket `--dangerously-skip-permissions` where possible); scope tokens (Linear/Telegram/GH/Anthropic) + rotate on leak + enforce a spend/turn cap; never leak a secret into the Action log.
+
+## Examples
+
+**Authz on a mutation — ownership scope vs IDOR:**
+
+```ts
+// ❌ IDOR — any authenticated user can mutate any row by id
+await prisma.booking.update({ where: { id }, data: { status } });
+
+// ✅ scoped to the owner from the server session (default-deny)
+const session = await auth();
+await prisma.booking.update({
+  where: { id, ownerId: session.user.id },
+  data: { status },
+});
+```
+
+**Secret at rest — hashed vs plaintext:**
+
+```ts
+// ❌ plaintext password stored
+await prisma.user.create({ data: { email, password } });
+
+// ✅ bcrypt ≥ 12 rounds (auth still via NextAuth)
+const hash = await bcrypt.hash(password, 12);
+await prisma.user.create({ data: { email, password: hash } });
+```
+
+**AI/agent layer — sanitized model output vs prompt-injection sink:**
+
+```ts
+// ❌ raw model output drives an action — prompt-injection executes
+const { stdout } = await runCamper(telegramText);
+await exec(stdout); // a SUMMARY: line could carry an injected command
+
+// ✅ untrusted input normalized before the prompt; output parsed, never executed
+const safe = sanitizeForPrompt(telegramText);
+const out = await runCamper(safe);
+const summary = parseSummaryLine(out); // treated as data, not instruction
+```
+
+## Reference Files
+
+- `.claude/rules/api.md` — input-schema / zod boundary mechanics
+- `.claude/rules/architecture.md` — system boundaries + where authz lives
+- `.claude/rules/ux.md` — PDPA / personal-data handling + consent
+- `.claude/rules/observability.md` — logging/metrics field hygiene (no secret/PII leak)
+- `CLAUDE.md` — the ironclad rules + quality gates this standard enforces
+
+## Next Steps
+
+Security review must PASS at two gates: **G3 (pre-merge → staging)** — run the 6-area audit + STRIDE + `npm audit --omit=dev` against the story diff before the PR merges; and **pre-promote (before G5, staging→prod)** — re-check seed/scrape guards, secret split, and audit before promoting. A 🔴 gap blocks the gate — stop and raise it.
 
 ## Common Rationalizations
 

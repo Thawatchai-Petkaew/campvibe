@@ -1,6 +1,9 @@
 ---
 name: seo-and-aeo
 description: Standard for making CampVibe's public surfaces crawlable and machine-readable from the start. Use when building a public page (camp list/detail, host profile, article). Use when adding metadata, JSON-LD, sitemap/robots, or hreflang. Use when deciding index vs noindex on a route. Memory for the Frontend role (Designer owns semantic/a11y, Backend supplies publishable data); pairs with DESIGN.md, .claude/rules/performance.md, .claude/rules/architecture.md, .claude/rules/api.md.
+paths:
+  - app/**/page.tsx
+  - app/**/layout.tsx
 ---
 
 # SEO & AEO
@@ -8,6 +11,21 @@ description: Standard for making CampVibe's public surfaces crawlable and machin
 ## Overview
 
 Public surfaces have to be crawlable and machine-readable from the first commit, not bolted on later — a crawler or AI answer engine that runs no JS still has to see the name, price, location, and rating. Index vs noindex is a deliberate decision per route: public pages are indexed, auth pages never are.
+
+## Quick Reference
+
+Per-page checklist (run top→bottom for every public route):
+
+| # | Step | Do |
+|---|---|---|
+| 1 | Metadata export | `export async function generateMetadata()` — specific `title` + non-duplicate `description` (Server Component, fetch server-side) |
+| 2 | OG / Twitter | Open Graph + Twitter tags via the Metadata API; image from `app/opengraph-image` |
+| 3 | JSON-LD | `<script type="application/ld+json">` — `Campground`/`Product` + `BreadcrumbList` (`Organization` site-wide, `FAQPage` for Q&A); values must match what renders |
+| 4 | Canonical + hreflang | `alternates.canonical` + `alternates.languages` `th`/`en` |
+| 5 | sitemap / robots | listed in `app/sitemap.ts` if `published`; not blocked by `app/robots.ts`; auth paths blocked |
+| 6 | index vs noindex | `robots` set on purpose — public = index, auth (dashboard/booking/wishlist) = `noindex` |
+| 7 | Core Web Vitals | `next/image` + `priority` above-the-fold + `width/height`; LCP/CLS/INP pass |
+| — | Done | verify the signal on the real **Staging URL** (view-source / Rich Results), not just local |
 
 ## When to Use
 
@@ -23,6 +41,10 @@ Public surfaces have to be crawlable and machine-readable from the first commit,
 - Profiling/budgeting Core Web Vitals beyond the rules below — see `.claude/rules/performance.md`
 
 > Read before working: this file + `CLAUDE.md` + `DESIGN.md`. For a public page, compare against the real route in `app/` and the data source in `prisma/schema.prisma`.
+
+## Prerequisites
+
+Read first: this file · `CLAUDE.md` · `DESIGN.md` (semantic/a11y baseline) · `.claude/rules/performance.md` (Core Web Vitals budgets). For the page in hand: the real route under `app/` and the publishable data source in `prisma/schema.prisma` (Backend supplies it; this std only consumes data that is already publishable). Know which routes are public (index) vs auth (noindex) before you write a single `robots` value.
 
 ## Standards
 
@@ -76,6 +98,82 @@ Every dashboard/booking/wishlist page sets `robots: { index: false }` on purpose
 ### 9. AEO
 
 Question→answer structure in articles/FAQ, terms from the glossary used consistently, ship structured FAQ + `llms.txt` so answer engines can cite accurately.
+
+## Examples
+
+✅ A camp detail page (`app/camps/[slug]/page.tsx`) — Server Component with `generateMetadata` + JSON-LD reflecting only rendered values:
+
+```tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const camp = await getCampBySlug(params.slug);
+  return {
+    title: `${camp.name} — จองแคมป์ | CampVibe`,
+    description: camp.summary, // non-duplicate, from real data
+    alternates: {
+      canonical: `https://campvibe.app/camps/${camp.slug}`,
+      languages: { th: `/th/camps/${camp.slug}`, en: `/en/camps/${camp.slug}` },
+    },
+    openGraph: { title: camp.name, images: [`/camps/${camp.slug}/opengraph-image`] },
+    twitter: { card: "summary_large_image", title: camp.name },
+    robots: { index: true, follow: true },
+  };
+}
+
+export default async function Page({ params }) {
+  const camp = await getCampBySlug(params.slug); // server-side fetch
+  return (
+    <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Campground",
+          name: camp.name,
+          address: camp.address,
+          geo: { "@type": "GeoCoordinates", latitude: camp.lat, longitude: camp.lng },
+          aggregateRating: { "@type": "AggregateRating", ratingValue: camp.rating, reviewCount: camp.reviewCount },
+        }) }}
+      />
+      {/* name / price / location / rating render in HTML, no client-only fetch */}
+    </main>
+  );
+}
+```
+
+❌ A public page with no metadata and client-only data — the crawler sees a blank shell:
+
+```tsx
+"use client";
+export default function Page({ params }) {
+  const { data } = useSWR(`/api/camps/${params.slug}`); // crawler runs no JS → empty
+  return <div>{data?.name}</div>; // no generateMetadata, no canonical, no JSON-LD
+}
+```
+
+✅ A valid `app/sitemap.ts` entry (published camps only):
+
+```ts
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const camps = await getPublishedCamps(); // only status === "published"
+  return camps.map((c) => ({
+    url: `https://campvibe.app/camps/${c.slug}`,
+    lastModified: c.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.8,
+  }));
+}
+```
+
+## Reference Files
+
+- `.claude/rules/performance.md` — Core Web Vitals (LCP/CLS/INP) budgeting and profiling detail referenced from Standards §6
+- `.claude/rules/code.md` — code/component conventions for the pages this std governs
+- `DESIGN.md` — semantic HTML / a11y baseline (heading hierarchy, landmarks, `alt`); not duplicated here
+- `CLAUDE.md` — the ironclad rules + 3-env Definition of Done (verify on Staging)
+
+## Next Steps
+
+Public-facing pages must pass this SEO check before promote — it is part of the pre-prod gate. Pairs with the `.claude/rules/performance.md` (CWV) and observability pre-prod checks: confirm metadata/JSON-LD/canonical/sitemap on the real Staging URL (view-source / Rich Results / Lighthouse), then proceed to promote `staging`→`main` per the promotion rules.
 
 ## Common Rationalizations
 
