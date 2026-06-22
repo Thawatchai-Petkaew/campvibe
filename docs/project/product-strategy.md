@@ -4,11 +4,7 @@
 > ส่วน `> TODO(you):` รอเจ้าของเติม · ถ้าจุดที่ต้องตัดสินยังเป็น TODO/ไม่ฟันธง → **escalate ถาม**
 
 ## หลักการผลิตภัณฑ์ (principles)
-1. **Trust ก่อน growth** — review จริง (verified-stay), verified badge, ownership/authz แน่น, PDPA; อย่าโตด้วยของปลอม/ข้อมูลรั่ว
-2. **ลด friction ของ core loop** — ค้นหา → ดู → จอง → กลับมา (wishlist); ทุกฟีเจอร์ต้องช่วย loop นี้
-3. **Lean (กฎเหล็ก §6 CLAUDE.md)** — เพิ่มอะไรต้องตอบได้ว่าช่วย north-star/persona ยังไง ไม่งั้นตัด
-4. **Supply–demand สมดุล** — อย่าดัน demand จนไม่มีแคมป์รองรับ หรือมีแคมป์แต่ไม่มีคน
-5. **ไทยเป็นหลัก** — copy/ux/PII ออกแบบเพื่อผู้ใช้ไทย (ดู `.claude/rules/ux.md`, `DESIGN.md`)
+> ย้ายไป [`docs/context/principles.md`](../context/principles.md) (Second Brain — หลักการที่นิ่ง): Trust>growth · ลด friction core loop · Lean · supply–demand สมดุล · ไทยเป็นหลัก
 
 ## ลำดับความสำคัญ (Now / Next / Later)
 - **Now (กำลังทำ/เพิ่งเสร็จ):** wishlist (done staging) · ปิด **4 security gap** จาก gap-audit (spot IDOR, unauth upload, error leak, isVerified self-grant) — *trust = P0*
@@ -34,7 +30,7 @@
 
 **สัญญาณว่าน่า Approve** เมื่อครบทุกข้อ:
 1. ผ่าน deterministic check ของ gate นั้น (G1 gap ปิด / G2 design conform / G3 quality-gate เขียว+coverage / G4 AC verify staging)
-2. อยู่ใน **Now/Next** ของ roadmap + ตรง principle ข้างบน + แก้ pain ของ persona ที่ระบุใน [user-research.md](user-research.md)
+2. อยู่ใน **Now/Next** ของ roadmap + ตรงหลักการใน [`docs/context/principles.md`](../context/principles.md) + แก้ pain ของ persona ที่ระบุใน [user-research.md](user-research.md)
 3. **ไม่มีค่าใช้จ่ายเงิน** (ดู cost list ใน [business.md](business.md)) และ **ไม่ใช่ G5/security/irreversible**
 
 **ต้องเน้นย้ำ/ขอเจ้าของพิจารณาเป็นพิเศษ** เมื่อเข้าข้อใดข้อหนึ่ง:
