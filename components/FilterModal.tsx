@@ -18,6 +18,7 @@ import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
 // DB-driven icon resolver — keeps lucide for campground attribute icons fetched from DB.
@@ -194,28 +195,17 @@ export function FilterModal() {
         if (['Campground type', 'Terrain'].includes(section.id)) {
             return (
                 <div className="grid grid-cols-2 gap-4">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex flex-col items-start p-5 rounded-2xl border-2 transition-all text-left h-32 justify-between group relative overflow-hidden",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                    isSelected
-                                        ? "border-foreground bg-foreground/5 ring-0"
-                                        : "border-border hover:border-foreground/40 bg-card"
-                                )}
-                            >
-                                {Icon && <Icon className={cn("w-8 h-8", isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")} />}
-                                <span className={cn("text-base font-bold relative z-10", isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/70")}>
-                                    {opt.label}
-                                </span>
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="card"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            data-testid={`filter-chip--card-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -224,26 +214,17 @@ export function FilterModal() {
         if (section.id === 'Activity') {
             return (
                 <div className="flex flex-wrap gap-3">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all text-sm font-medium min-h-[44px]",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                    isSelected
-                                        ? "border-foreground bg-foreground text-background hover:bg-foreground/85"
-                                        : "border-border bg-card text-foreground hover:border-foreground"
-                                )}
-                            >
-                                {Icon && <Icon className="w-4 h-4" />}
-                                {opt.label}
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="pill"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            data-testid={`filter-chip--pill-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -252,26 +233,18 @@ export function FilterModal() {
         if (section.id === 'Access type') {
             return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all h-24 gap-2",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                    isSelected
-                                        ? "border-foreground bg-foreground/5 font-semibold text-foreground"
-                                        : "border-border hover:border-foreground/40 text-muted-foreground"
-                                )}
-                            >
-                                {Icon && <Icon className={cn("w-6 h-6", isSelected ? "text-foreground" : "text-muted-foreground")} />}
-                                <span className="text-xs text-center">{opt.label}</span>
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="icon-card"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            aria-label={opt.label}
+                            data-testid={`filter-chip--icon-card-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }

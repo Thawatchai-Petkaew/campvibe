@@ -603,15 +603,15 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <div className="p-3">
                                     <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
                                     <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
-                                        <SelectTrigger className="h-10 border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 w-full">
+                                        <SelectTrigger className="w-full border border-border hover:border-foreground transition">
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                        <SelectContent className="shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6].map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="rounded-xl cursor-pointer py-2.5">
+                                                <SelectItem key={num} value={num.toString()} className="cursor-pointer">
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}

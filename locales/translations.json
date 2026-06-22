@@ -50,7 +50,9 @@
             "buttonsSection": "Buttons",
             "formsSection": "Forms",
             "statesSection": "States",
-            "iconsSection": "Icons"
+            "iconsSection": "Icons",
+            "optionPickersSection": "Option pickers",
+            "filterChipSection": "Filter chips"
         },
         "common": {
             "share": "Share",
@@ -650,7 +652,9 @@
             "buttonsSection": "ปุ่ม",
             "formsSection": "ฟอร์ม",
             "statesSection": "สถานะ",
-            "iconsSection": "ไอคอน"
+            "iconsSection": "ไอคอน",
+            "optionPickersSection": "ตัวเลือกในฟอร์ม",
+            "filterChipSection": "ตัวกรอง"
         },
         "common": {
             "share": "แชร์",
