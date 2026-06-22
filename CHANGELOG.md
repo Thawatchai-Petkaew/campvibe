@@ -6,6 +6,54 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v0.8.2 — 2026-06-22
+
+### Image Resilience IR-1 (CAM-132, CAM-133)
+
+- **ImageWithFallback (CAM-132):** New component — renders a branded placeholder (bg-muted + ImageOff icon) when a src is missing or fails to load; replaces black cells and browser broken-image icons across all gallery/card surfaces.
+- **Adaptive hero gallery grid (CAM-133):** 1/2/3/4/5+ image count branches — eliminates undefined-src cells that caused layout holes and broken tiles in the campground detail gallery.
+- **Lightbox index clamp (CAM-133):** Index clamped on open and navigation; "N of M" counter is always correct (fixes off-by-one "2 of 1" regression).
+- **Adoption:** ImageWithFallback adopted across 9 render sites — gallery main + thumbnail, campground card, map popup, bookings list, dashboard thumbnail, upload previews.
+
+### No schema change
+
+No Prisma schema or database migration in this release. Frontend-only change.
+
+### Rollback plan
+
+Revert the merge commit on `main` (`git revert 3e4bbdca`) via a PR. No database rollback required.
+
+---
+
+## v0.8.1 — 2026-06-22
+
+### Security + Tooling (CAM-129, CAM-130, CAM-131)
+
+- **CAM-131:** Rate-limit on `/api/wishlist` writes → 429 (brute-force guard).
+- **CAM-129/130:** `linear-sync.mjs` audit flags stub feature/epic.md + covers parented child stories; QA self-verify runs lint.
+
+### No schema change
+
+No Prisma schema or database migration in this release.
+
+### Rollback plan
+
+Revert the merge commit on `main` (`git revert d4a6adb6`) via a PR. No database rollback required.
+
+---
+
+## v0.8.0 — 2026-06-22
+
+### Design System Overhaul + Wishlist (CAM-127, CAM-128)
+
+See git tag v0.8.0 and PR history for full detail. 31 PRs, 0 migrations.
+
+### Rollback plan
+
+Revert the merge commit on `main` (`git revert cfd10548`) via a PR. No database rollback required.
+
+---
+
 ## v0.7.0 — 2026-06-22
 
 ### FE Quality Epic (F0–F6, CAM-105–CAM-111)
