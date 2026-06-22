@@ -1,30 +1,30 @@
 # docs/context — Stable Context & Second Brain
 
-ที่เก็บ **context ที่นิ่ง/แทบไม่เปลี่ยน (≈100%)** และ **"Second Brain" ของเจ้าของโปรเจ็ค** — หลักการ, วิสัยทัศน์, ข้อห้าม/ข้อบังคับเด็ดขาด, และ heuristic ในการตัดสินใจ ที่ **orchestrator (และคุณ) อ่านก่อนตัดสินใจ/ก่อน raise gate** เพื่อให้เสนอเรื่อง "ให้ตรงกับเจ้าของ" เมื่อเอกสารอื่นไม่ฟันธง
+The home for **near-unchanging context (≈100%)** and the **project owner's "Second Brain"** — principles, vision, absolute non-negotiables, and decision heuristics that **the orchestrator (and you) read before planning / before raising a gate**, so proposals stay "aligned with the owner" when other docs don't decide.
 
-> แยกบ้านของ context ให้ชัด:
-> - "ทำอย่างไร" (วิธีสร้าง, เปลี่ยนตามเทคนิค) → `.claude/rules/`, `CLAUDE.md`, `DESIGN.md`
-> - "ทำไม/เพื่อใคร/คุ้มไหม" (ธุรกิจ/ผลิตภัณฑ์ ที่เปลี่ยนได้) → `docs/project/`
-> - "หลักคิดที่ไม่เปลี่ยน / Second Brain" (อันนี้) → `docs/context/`
+> Keep the context homes distinct:
+> - **"How"** (how to build; changes with tech) → `.claude/rules/`, `CLAUDE.md`, `DESIGN.md`
+> - **"Why / for whom / worth it"** (business/product; mutable) → `docs/project/`
+> - **"Stable worldview / Second Brain"** (this one) → `docs/context/`
 
-## ไฟล์ในโฟลเดอร์นี้ (เจ้าของขยายต่อได้)
+## Files in this folder (owner extends over time)
 
-- [`principles.md`](principles.md) — **จุดเริ่ม + reference index**: หลักการผลิตภัณฑ์ที่ยึดเสมอ + แผนที่ชี้ว่าหลักการวิศวกรรม/ดีไซน์/ธุรกิจ "บ้าน" อยู่ไฟล์ไหน (ไม่ทำซ้ำ)
-- [`non-negotiables.md`](non-negotiables.md) — ข้อห้าม/ข้อบังคับเด็ดขาด (สิ่งที่ห้ามทำไม่ว่ากรณีใด)
-- [`decision-heuristics.md`](decision-heuristics.md) — เกณฑ์/วิธีคิดเวลาเจอ trade-off (ให้ orchestrator เลียนแบบการตัดสินของเจ้าของ)
-- `vision.md` — ภาพระยะยาวที่ไม่เปลี่ยนบ่อย (ยังว่าง — เจ้าของเขียนเมื่อพร้อม)
-- เอกสารอ้างอิงอื่น ๆ ที่อยากให้ AI หยิบมาดูเป็นครั้งคราว (research/ข้อสรุปที่ตกผลึกแล้ว)
+- [`principles.md`](principles.md) — **entry point + reference index**: the product principles always held + a map of where the engineering / design / business principles live (referenced, not duplicated).
+- [`non-negotiables.md`](non-negotiables.md) — absolute don'ts (things never to do, under any circumstance).
+- [`decision-heuristics.md`](decision-heuristics.md) — how to weigh a trade-off (so the orchestrator mirrors the owner's judgment).
+- `vision.md` — the long-term picture that rarely changes (empty for now — the owner writes it when ready).
+- other reference docs the owner wants the AI to consult occasionally (research / crystallized conclusions).
 
-> หลักการที่ย้ายเข้ามา (Trust>growth ฯลฯ) มาจาก `docs/project/product-strategy.md` เดิม; หลักการวิศวกรรม/ดีไซน์ยัง "บ้าน" อยู่ที่ `CLAUDE.md` / `.claude/rules/*` / `DESIGN.md` — `principles.md` แค่ชี้ทาง
+> The relocated principles (Trust>growth, etc.) came from the old `docs/project/product-strategy.md`; the engineering/design principles still "live" in `CLAUDE.md` / `.claude/rules/*` / `DESIGN.md` — `principles.md` only points to them.
 
-## ใครอ่าน + อ่านเมื่อไหร่
+## Who reads it + when
 
-- **orchestrator** — อ่านก่อนวางแผน/ก่อน raise gate ให้เจ้าของ (คู่กับ `docs/project/*`)
-- **เจ้าของ (มนุษย์)** — ผู้ตัดสิน gate เสมอ (interactive); ถ้าเรื่องที่ raise มา **ขัดกับ non-negotiable / หลักการ** orchestrator ต้องชี้ให้เห็นใน packet (ไม่ฝืน)
+- **orchestrator** — reads before planning / before raising a gate to the owner (paired with `docs/project/*`).
+- **owner (human)** — always the gate decision-maker (interactive); if a raised proposal **conflicts with a non-negotiable / principle**, the orchestrator must flag it in the packet (no overriding).
 
-## convention
+## Convention
 
-- เป็น context "นิ่ง" — แก้ไม่บ่อย; เปลี่ยนเมื่อเจ้าของเปลี่ยนหลักคิดจริง ๆ
-- `> TODO(you):` = จุดที่รอเจ้าของเติม — **agent ห้ามเดา/แต่งแทน**; ถ้าจุดตัดสินยังเป็น TODO → escalate
-- แก้ผ่าน PR ปกติ (มี history)
-- ว่างได้ — โฟลเดอร์นี้ set up ไว้ให้เจ้าของทยอยเอาของมาวาง
+- This is "stable" context — edited rarely; change it only when the owner's thinking actually changes.
+- `> TODO(you):` = a spot awaiting the owner — **agents must not guess / fill it in**; if a decision point is still a TODO → escalate.
+- Edit via a normal PR (keeps history).
+- May be empty — the folder is set up for the owner to populate gradually.
