@@ -145,15 +145,10 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
         }
     };
 
-    const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            case 'OWNER': return 'bg-primary/10 text-primary border-primary/30 hover:bg-primary/10';
-            case 'MANAGER': return 'bg-success/10 text-success border-success/30 hover:bg-success/10';
-            case 'ADMIN':
-            case 'STAFF':
-            case 'VIEWER':
-            default: return 'bg-muted text-muted-foreground border-border hover:bg-muted';
-        }
+    const getRoleVariant = (role: string): "default" | "success" | "muted" => {
+        if (role === 'OWNER') return 'default';
+        if (role === 'MANAGER') return 'success';
+        return 'muted';
     };
 
     const getRoleDescription = (role: string) => {
@@ -317,8 +312,8 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                             <div className="inline-flex items-center cursor-help">
                                                                 {member.role === 'OWNER' ? (
                                                                     <Badge
-                                                                        variant="outline"
-                                                                        className={cn("rounded-full text-xs font-bold border", getRoleBadgeColor(member.role))}
+                                                                        variant={getRoleVariant(member.role)}
+                                                                        className="rounded-full text-xs font-bold"
                                                                     >
                                                                         <Shield className="w-3 h-3 mr-1" />
                                                                         {member.role}
@@ -372,8 +367,8 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         </div>
                                                                     </div>
                                                                     <Badge
-                                                                        variant="outline"
-                                                                        className={cn("rounded-full text-[11px] font-bold border", getRoleBadgeColor(member.role))}
+                                                                        variant={getRoleVariant(member.role)}
+                                                                        className="rounded-full text-[11px] font-bold"
                                                                     >
                                                                         {member.role}
                                                                     </Badge>

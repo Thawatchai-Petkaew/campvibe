@@ -705,40 +705,45 @@ describe("dark-mode: stat icon backgrounds are semantic (AC-dark-1)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-dark-2  Status badges use semantic tokens
+// AC-dark-2  DS-4: Status badges now use <Badge variant=...> (semantic via badge.tsx)
 // ─────────────────────────────────────────────────────────────
 describe("dark-mode: status badge tokens are semantic (AC-dark-2)", () => {
-    it("dashboard/page CONFIRMED badge uses bg-success/10 text-success", () => {
-        expect(dashboardPageSrc).toContain("bg-success/10 text-success border-success/30");
+    it("dashboard/page CONFIRMED uses Badge variant='success'", () => {
+        // DS-4: raw span+conditional classes replaced by Badge+bookingStatusVariant()
+        expect(dashboardPageSrc).toMatch(/function bookingStatusVariant/);
+        expect(dashboardPageSrc).toMatch(/return ['"]success['"]/);
     });
 
-    it("dashboard/page CANCELLED badge uses bg-destructive/10 text-destructive", () => {
-        expect(dashboardPageSrc).toContain("bg-destructive/10 text-destructive border-destructive/30");
+    it("dashboard/page CANCELLED uses Badge variant='destructive'", () => {
+        expect(dashboardPageSrc).toMatch(/return ['"]destructive['"]/);
     });
 
-    it("bookings/page CONFIRMED badge uses bg-success/10 text-success", () => {
-        expect(bookingsPageSrc).toContain("bg-success/10 text-success border-success/30");
+    it("bookings/page uses <Badge variant={bookingStatusVariant(...)}>", () => {
+        expect(bookingsPageSrc).toMatch(/function bookingStatusVariant/);
+        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{bookingStatusVariant\(/);
     });
 
-    it("bookings/page CANCELLED badge uses bg-destructive/10 text-destructive", () => {
-        expect(bookingsPageSrc).toContain("bg-destructive/10 text-destructive border-destructive/30");
+    it("bookings/page CANCELLED uses Badge variant='destructive'", () => {
+        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-dark-3  Role badges in TeamManagement use semantic tokens
+// AC-dark-3  DS-4: Role badges in TeamManagement now use <Badge variant=...> (semantic via badge.tsx)
 // ─────────────────────────────────────────────────────────────
 describe("dark-mode: role badge tokens in TeamManagement (AC-dark-3)", () => {
-    it("OWNER role uses bg-primary/10 text-primary", () => {
-        expect(teamManagementSrc).toContain("bg-primary/10 text-primary border-primary/30");
+    it("getRoleVariant maps OWNER to 'default' variant", () => {
+        // DS-4: getRoleBadgeColor() removed; getRoleVariant() returns Badge variant names
+        expect(teamManagementSrc).toMatch(/function getRoleVariant|const getRoleVariant/);
+        expect(teamManagementSrc).toMatch(/OWNER.*['"]default['"]|['"]default['"].*OWNER/);
     });
 
-    it("MANAGER role uses bg-success/10 text-success", () => {
-        expect(teamManagementSrc).toContain("bg-success/10 text-success border-success/30");
+    it("getRoleVariant maps MANAGER to 'success' variant", () => {
+        expect(teamManagementSrc).toMatch(/MANAGER.*['"]success['"]|['"]success['"].*MANAGER/);
     });
 
-    it("default/STAFF/VIEWER uses bg-muted text-muted-foreground", () => {
-        expect(teamManagementSrc).toContain("bg-muted text-muted-foreground border-border");
+    it("TeamManagement uses <Badge variant={getRoleVariant(...)}> (not raw className tokens)", () => {
+        expect(teamManagementSrc).toMatch(/variant=\{getRoleVariant\(/);
     });
 });
 

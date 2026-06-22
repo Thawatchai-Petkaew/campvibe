@@ -14,7 +14,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DashboardOverviewSkeleton } from "@/components/ui/loading-skeleton";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+function bookingStatusVariant(status: string): "success" | "destructive" | "muted" {
+    if (status === "CONFIRMED") return "success";
+    if (status === "CANCELLED") return "destructive";
+    return "muted";
+}
 
 interface DashboardData {
     stats: {
@@ -258,15 +265,12 @@ export default function OperatorDashboard() {
                                         <td className="px-6 py-5 text-muted-foreground">{new Date(booking.checkInDate).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US')}</td>
                                         <td className="px-6 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-6 py-5">
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider
-                                        ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-success/10 text-success border-success/30'
-                                                    : booking.status === 'CANCELLED'
-                                                        ? 'bg-destructive/10 text-destructive border-destructive/30'
-                                                        : 'bg-muted text-muted-foreground border-border'}
-                                    `}>
+                                            <Badge
+                                                variant={bookingStatusVariant(booking.status)}
+                                                className="font-bold uppercase tracking-wider"
+                                            >
                                                 {booking.status}
-                                            </span>
+                                            </Badge>
                                         </td>
                                         <td className="px-6 py-5 text-right">
                                             {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (

@@ -228,12 +228,14 @@ export function PreviewClient() {
                 <SectionDivider />
 
                 {/* ── Badges ── */}
+                <SectionHeading>{t.preview.badgesSection}</SectionHeading>
                 <div className="flex flex-wrap gap-2 mb-8">
                     <Badge variant="default">Default</Badge>
                     <Badge variant="secondary">Secondary</Badge>
                     <Badge variant="outline">Outline</Badge>
                     <Badge variant="destructive">Destructive</Badge>
                     <Badge variant="success">Success</Badge>
+                    <Badge variant="muted">Muted</Badge>
                 </div>
 
                 {/* ── Card ── */}
