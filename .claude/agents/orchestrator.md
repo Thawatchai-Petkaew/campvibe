@@ -43,6 +43,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 - `.claude/rules/discovery.md`
 - `.claude/rules/ops.md`
 - `docs/project/*` + `docs/context/*` — project context (why / for-whom / worth-it) + the owner's stable Second Brain, read before planning or any autonomous decision.
+- `docs/delivery/<feature>/` — the artifact store for the work (durable content per Feature→Epic→Story; files = content SoT, Linear = live-status SoT).
 - The spec/ticket for that work (if any).
 
 ## Operating principles
@@ -57,14 +58,15 @@ Read these every run before planning or dispatching — sub-agents read their ow
 
 Do not alter this loop. Each step rolls into the next; gates block progression.
 
-1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`.
+1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`. Run `node scripts/linear-sync.mjs scaffold <CAM-id>` to create the story's artifact folder under `docs/delivery/`.
 2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a STORY-TICKET (`.claude/templates/STORY-TICKET.md`) as a story-level Linear issue.
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
 5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
 6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
-8. **Every transition** — call skill `update-status` (sync Linear) and add label `awaiting-you` when reaching a human gate. **Autopilot:** if `npm run camper status` = ON, after raising the gate hand off to the **camper-agent** — it auto-approves G1–G4 that clear the bar (removes `awaiting-you`, which fires the continuation) or escalates the rest to Telegram; you do not wait for the human yourself.
+8. **Every transition** — call skill `update-status` (sync Linear) and add label `awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/linear-sync.mjs index`) so `docs/delivery/INDEX.md` tracks live status. **Autopilot:** if `npm run camper status` = ON, after raising the gate hand off to the **camper-agent** — it auto-approves G1–G4 that clear the bar (removes `awaiting-you`, which fires the continuation) or escalates the rest to Telegram; you do not wait for the human yourself.
+9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/FEATURE-BACKLOG.md`/`master-plan.md` if scope shifts → sync Linear → regenerate the index.
 
 ## Examples
 
@@ -110,6 +112,7 @@ Run these light judgment aids when rolling up a story to a gate. Tag every findi
 - [ ] **Bundled gate questions** — Critical/Important open questions are gathered into a single round (options + impact + default), not asked piecemeal.
 - [ ] **Severity tagged** — every blocker raised to the human carries a severity so the human can triage; no unlabelled "FYI".
 - [ ] **Right role dispatched** — code work went to frontend/backend, design to designer, etc.; you did not write production code yourself.
+- [ ] **Artifacts current** — the story's artifact folder is scaffolded + `INDEX.md` regenerated; each role's artifact exists/updated (audit clean).
 
 ## Common Rationalizations
 
@@ -138,6 +141,8 @@ At a human gate, specify the Gate Review Packet:
 - **G3** — PR diff + gate result + preview.
 - **G4** — Staging URL + AC.
 - **G5** — changelog + rollback.
+
+The story's artifact folder is scaffolded + `INDEX.md` regenerated; each role's artifact exists/updated (audit clean).
 
 End each packet with the decision ask: Approve / Request changes.
 

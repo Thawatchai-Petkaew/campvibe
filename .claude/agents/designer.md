@@ -98,6 +98,7 @@ Read these every time before doing UI work:
 - [ ] **Token sync** — any changed token is in sync across `DESIGN.md` + `app/globals.css` (OKLCH + dark mode complete).
 - [ ] **Screenshot vs Brief** — the rendered screen matches what the Design Brief specified.
 - [ ] **Code green** — `npm run lint` and `npm run typecheck` pass for UI work that touched code/tokens.
+- [ ] **Delivery artifact authored** — `design.md` written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`; `N/A — no UI` if the story has no UI), with its `status:` header kept = the Linear state.
 
 ## Common Rationalizations
 
@@ -123,6 +124,7 @@ Hand off to **Frontend** a Design Brief per screen:
 - **Copy** — keys + TH/EN text in `locales/`, per the Thai copy rules.
 - **Error pattern** — inline below the field, or ErrorBanner at the top (per `form-patterns.md`).
 - **1 reference** + the anti-slop criteria that must pass.
+- **Delivery artifact** — author `design.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`; write `N/A — no UI` if the story has no UI), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
 
 Return per the shared handoff: `{ticket, status, artifacts, checks, summary, next}`.
 

@@ -5,6 +5,7 @@
 > โฟลเดอร์นี้ = **drop-zone ของเจ้าของ** สำหรับเอกสารธุรกิจ/ผลิตภัณฑ์ (เปลี่ยนได้) — ตอบ "ทำไม/เพื่อใคร/คุ้มไหม"
 > - "ทำอย่างไร" (วิธีสร้าง) → `.claude/rules/`, `CLAUDE.md`, `DESIGN.md`
 > - "หลักคิดที่ไม่เปลี่ยน / Second Brain" → `docs/context/`
+> - **`docs/delivery/`** = per-story delivery artifacts (output ของ workflow ต่อ Feature→Epic→Story) — คนละชั้นกับ `docs/project/` (ทิศทาง/ธุรกิจ)
 
 ## ไฟล์
 

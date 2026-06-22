@@ -57,7 +57,8 @@ Pick the transition, then run the real command.
 6. **Hand off to the next role** → `node scripts/linear-sync.mjs handoff <CAM-id> --role <role>` — swaps the `[role]` tag in the title, accumulates a `role:<role>` label, and fires a Telegram notice; never rename the title by hand.
 7. **Check whether the human has approved yet** → `npm run status:gates` (still has `awaiting-you` = exit 0, waiting; removed = `CLEARED → CONTINUE` **exit 10**).
 8. **Human approves** (removes `awaiting-you` in Linear) → `node scripts/linear-sync.mjs set <gate-id> --state Done`, then spawn the next stage.
-9. **Gate fail / post-deploy bug** → open a new Linear issue + link back to the original ticket (re-enter the loop).
+9. **Sync the artifact header.** Besides moving the Linear state, update the artifact's `status:` header in the story's `docs/delivery/` files to match (Linear = status SoT, but the files stay in sync — see the `delivery-artifacts` skill).
+10. **Gate fail / post-deploy bug** → open a new Linear issue + link back to the original ticket (re-enter the loop).
 
 ## Examples
 
@@ -72,6 +73,7 @@ A role handoff at a stage boundary:
 - `.claude/SYNC-ARCHITECTURE.md` + `.claude/templates/` — the Epic → Story → `[role]` convention + templates the transitions assume.
 - `.claude/rules/ops.md` — Done(staging) vs Released(prod) + the 3-env flow.
 - `.claude/commands/camper.md` — the `/camper` command + the full Linear issue convention this skill obeys.
+- `delivery-artifacts` skill — keep the artifact's `status:` header in `docs/delivery/` aligned with the Linear state moved here.
 - Sibling skills: `open-pr` (G3, opens the PR that moves the issue to `In Review`) · `promote-release` (the `staging`→`main` step behind the `release` transition).
 
 ## Next Steps
@@ -102,6 +104,7 @@ Postconditions:
 | "The human said yes in chat, so spawn the next stage." | Approval = the `awaiting-you` label removed in Linear, confirmed by `status:gates` exit 10. Never proceed on chat alone. |
 | "I'll just fix `linear-snapshot.json` directly to reflect the new state." | That file is a snapshot from `status:pull`. Hand-editing breaks the closed loop — push the change through Linear. |
 | "It's merged into `staging`, so it's Done." | Done also requires quality-gate green + staging migration passed + AC verified on the real Staging URL. |
+| "I moved the Linear state, the file header can lag." | After moving the state, update the artifact's `status:` header in `docs/delivery/` to match — the audit flags a stale scaffolded story. |
 
 ## Verify (exit criteria)
 

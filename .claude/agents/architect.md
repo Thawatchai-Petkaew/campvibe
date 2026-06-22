@@ -74,6 +74,7 @@ Hand off to `backend`/`frontend` to implement — return as `{ticket, status, ar
 - **API contract** — `/api/*` path · method · input/output shape · error cases (recorded in `schema/api-schema.json`).
 - **Boundary** — what is server/service, where it goes through a route.
 - **ADR** — `docs/adr/ADR-NNN-<slug>.md`: Context · Decision · Alternatives · Consequences (only for major decisions).
+- **Delivery artifacts** — author `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL — rich API contract only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) + the ADRs in `docs/adr/*`, keeping each `status:` header = the Linear state (files = content SoT, Linear = status SoT).
 - **Open trade-offs** — options + impact for the human to choose at G2 (do not guess silently).
 
 ## Examples
@@ -146,6 +147,7 @@ Each item is checkable; fail any → fix before handoff. Classify gaps you raise
 - [ ] **Schema reality check** — design compared against the real `prisma/schema.prisma`; no conflict with the current schema.
 - [ ] **Migration assessed** — reversible, with stated impact on existing data (backfill plan if needed), testable on Staging before prod.
 - [ ] **Atomic + classification** — every field passes the Resolution Boundary test (see `.claude/rules/architecture.md`) and carries a classification tag (PII / Financial / Geo / Public); aggregates are compute-on-the-fly from source Pixels; client binds to a Buffet view, not a raw table.
+- [ ] **Delivery artifact authored** — `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL, rich API only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` + the ADRs in `docs/adr/*` are written (from `.claude/templates/*`), with each `status:` header kept = the Linear state.
 
 ## Common Rationalizations
 

@@ -38,6 +38,7 @@ Read first:
 - `DESIGN.md` — tokens + components + states + anti-slop rules.
 - `.claude/rules/code.md` — TS/Next.js/i18n/size standards for the UI layer.
 - The story's spec/ticket — `## Story` + `## AC` + Thai copy verbatim.
+- The story's delivery artifacts — `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n`) + `design.md` (states, validation UX). Implement to these; do not guess.
 
 No spec/design = stop and hand back to the Orchestrator.
 
