@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
+import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
+import { wishlistAPI } from "@/lib/api-client";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,11 +22,28 @@ const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     loading: () => <div className="w-full h-full bg-muted animate-pulse rounded-xl" />
 });
 
-export default function CampgroundDetailClient({ campground, isOwner = false }: { campground: any, isOwner?: boolean }) {
+export default function CampgroundDetailClient({
+    campground,
+    isOwner = false,
+    initialSaved = false,
+    isLoggedIn = false,
+}: {
+    campground: any;
+    isOwner?: boolean;
+    /** Server-resolved initial wishlist state (AC-2, BR-3). */
+    initialSaved?: boolean;
+    /** True when there is an active user session (AC-4, BR-2). */
+    isLoggedIn?: boolean;
+}) {
     const { t, formatCurrency, language } = useLanguage();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
+
+    // Wishlist toggle state — AC-1, AC-2, AC-3, AC-4, AC-5, BR-1..5.
+    const [saved, setSaved] = useState(!!initialSaved);
+    const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+    const [loginOpen, setLoginOpen] = useState(false);
 
     // Changed to Date objects
     const [checkIn, setCheckIn] = useState<Date>();
@@ -156,6 +175,49 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
             setIsReserving(false);
         }
     };
+
+    // AC-1/AC-3/AC-4/AC-5, BR-1/BR-2/BR-4/BR-5 — optimistic toggle with rollback.
+    const handleWishlistToggle = useCallback(async () => {
+        // AC-4, BR-2: guest tap → open LoginModal, no API call.
+        if (!isLoggedIn) {
+            setLoginOpen(true);
+            return;
+        }
+
+        if (isWishlistLoading) return;
+
+        const next = !saved;
+        setSaved(next);
+        setIsWishlistLoading(true);
+
+        try {
+            if (next) {
+                const res = await wishlistAPI.save(campground.id);
+                if (res.error) throw new Error(res.error);
+                const { toast } = await import("sonner");
+                toast.success(t.wishlist.toastSaved);
+            } else {
+                const res = await wishlistAPI.remove(campground.id);
+                if (res.error) throw new Error(res.error);
+                const { toast } = await import("sonner");
+                toast.success(t.wishlist.toastRemoved);
+            }
+        } catch {
+            // AC-5, BR-1: rollback optimistic state on failure.
+            setSaved(!next);
+            const { toast } = await import("sonner");
+            toast.error(next ? t.wishlist.toastErrorSave : t.wishlist.toastErrorRemove);
+        } finally {
+            setIsWishlistLoading(false);
+        }
+    }, [isLoggedIn, isWishlistLoading, saved, campground.id, t]);
+
+    // BR-5: dynamic aria-label per state.
+    const wishlistAriaLabel = isWishlistLoading
+        ? t.wishlist.heartAriaLabelLoading
+        : saved
+            ? t.wishlist.heartAriaLabelRemove
+            : t.wishlist.heartAriaLabelSave;
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
@@ -296,8 +358,21 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
                             <Share className="w-4 h-4" /> <span>{t.common.share}</span>
                         </Button>
-                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
-                            <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
+                        {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
+                        <Button
+                            data-testid="btn--wishlist-detail-toggle"
+                            variant="ghost"
+                            aria-pressed={saved}
+                            aria-label={wishlistAriaLabel}
+                            disabled={isWishlistLoading}
+                            onClick={handleWishlistToggle}
+                            className="gap-2 px-4 hover:bg-muted font-medium underline"
+                        >
+                            <Heart
+                                className={cn("w-4 h-4", saved && "fill-current text-primary")}
+                                aria-hidden="true"
+                            />
+                            <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
                         </Button>
                     </div>
                 </div>
@@ -760,6 +835,13 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                 isOpen={isAmenitiesOpen}
                 onClose={() => setIsAmenitiesOpen(false)}
                 facilities={facilityCodes}
+            />
+
+            {/* AC-4, BR-2: LoginModal for guest wishlist tap. */}
+            <LoginModal
+                isOpen={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                subtitle={t.wishlist.loginPromptGuest}
             />
         </>
     );
