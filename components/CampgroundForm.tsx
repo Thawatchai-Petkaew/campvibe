@@ -494,7 +494,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     {/* Main Form Area */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Basic Info */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Info className="w-5 h-5 text-primary" />
@@ -508,14 +508,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         required
                                         value={formData.nameTh}
                                         onChange={e => setFormData({ ...formData, nameTh: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                     />
                                     <InputField
                                         label={t.newCampground.nameEn}
                                         required
                                         value={formData.nameEn}
                                         onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -531,7 +531,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Media Upload */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     {t.newCampground.mediaBranding}
@@ -557,7 +557,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     label={t.newCampground.videoUrl}
                                     value={formData.videoUrl}
                                     onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
-                                    className="rounded-full h-12"
+                                    inputSize="lg"
                                     placeholder={t.newCampground.videoUrlPlaceholder}
                                     error={formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl) ? "Invalid URL format" : undefined}
                                 />
@@ -565,7 +565,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Location */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <MapPin className="w-5 h-5 text-primary" />
@@ -597,14 +597,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         label={t.newCampground.province}
                                         value={formData.province}
                                         onChange={e => setFormData({ ...formData, province: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         placeholder={t.newCampground.provincePlaceholder}
                                     />
                                     <InputField
                                         label={t.newCampground.district}
                                         value={formData.district}
                                         onChange={e => setFormData({ ...formData, district: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         placeholder={t.newCampground.districtLabelPlaceholder}
                                     />
                                 </div>
@@ -613,7 +613,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     label={t.newCampground.address}
                                     value={formData.address} 
                                     onChange={e => setFormData({ ...formData, address: e.target.value })} 
-                                    className="rounded-full h-12" 
+                                    inputSize="lg" 
                                     placeholder={t.newCampground.addressPlaceholder}
                                 />
 
@@ -633,7 +633,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         label={t.newCampground.latitude}
                                         type="number" 
                                         step="any"
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         value={formData.latitude}
                                         onChange={e => {
                                             const val = e.target.value;
@@ -646,7 +646,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         label={t.newCampground.longitude}
                                         type="number" 
                                         step="any"
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         value={formData.longitude}
                                         onChange={e => {
                                             const val = e.target.value;
@@ -660,7 +660,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Contact Information */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Phone className="w-5 h-5 text-primary" />
@@ -674,7 +674,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         type="tel"
                                         value={formData.phone} 
                                         onChange={e => setFormData({ ...formData, phone: e.target.value })} 
-                                        className="rounded-full h-12" 
+                                        inputSize="lg" 
                                         placeholder="081-234-5678"
                                         leftIcon={<Phone className="w-4 h-4" />}
                                     />
@@ -682,7 +682,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         label={t.newCampground.lineId}
                                         value={formData.lineId} 
                                         onChange={e => setFormData({ ...formData, lineId: e.target.value })} 
-                                        className="rounded-full h-12" 
+                                        inputSize="lg" 
                                         placeholder="@lineid or lineid123"
                                         leftIcon={<MessageCircle className="w-4 h-4" />}
                                     />
@@ -692,7 +692,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     type="url"
                                     value={formData.facebookUrl} 
                                     onChange={e => setFormData({ ...formData, facebookUrl: e.target.value })} 
-                                    className="rounded-full h-12" 
+                                    inputSize="lg" 
                                     placeholder="https://facebook.com/yourpage"
                                     leftIcon={<Facebook className="w-4 h-4" />}
                                     error={formData.facebookUrl && !/^https?:\/\/.+/.test(formData.facebookUrl) ? "Invalid URL format" : undefined}
@@ -702,7 +702,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     type="url"
                                     value={formData.facebookMessageUrl} 
                                     onChange={e => setFormData({ ...formData, facebookMessageUrl: e.target.value })} 
-                                    className="rounded-full h-12" 
+                                    inputSize="lg" 
                                     placeholder="https://m.me/yourpage"
                                     leftIcon={<MessageCircle className="w-4 h-4" />}
                                     error={formData.facebookMessageUrl && !/^https?:\/\/.+/.test(formData.facebookMessageUrl) ? "Invalid URL format" : undefined}
@@ -712,7 +712,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     type="url"
                                     value={formData.tiktokUrl} 
                                     onChange={e => setFormData({ ...formData, tiktokUrl: e.target.value })} 
-                                    className="rounded-full h-12" 
+                                    inputSize="lg" 
                                     placeholder="https://tiktok.com/@username"
                                     leftIcon={<Video className="w-4 h-4" />}
                                     error={formData.tiktokUrl && !/^https?:\/\/.+/.test(formData.tiktokUrl) ? "Invalid URL format" : undefined}
@@ -721,7 +721,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Additional Info */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Info className="w-5 h-5 text-primary" />
@@ -734,7 +734,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     type="number"
                                     value={formData.minimumAge}
                                     onChange={e => setFormData({ ...formData, minimumAge: e.target.value === "" ? "" : parseInt(e.target.value) })}
-                                    className="rounded-full h-12"
+                                    inputSize="lg"
                                     error={formData.minimumAge && (isNaN(Number(formData.minimumAge)) || Number(formData.minimumAge) < 0) ? "Minimum age must be a positive number" : undefined}
                                 />
                                 <div className="space-y-2">
@@ -750,14 +750,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         label={t.newCampground.partner}
                                         value={formData.partner}
                                         onChange={e => setFormData({ ...formData, partner: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         placeholder={t.newCampground.partnerPlaceholder}
                                     />
                                     <InputField
                                         label={t.newCampground.nationalPark}
                                         value={formData.nationalPark}
                                         onChange={e => setFormData({ ...formData, nationalPark: e.target.value })}
-                                        className="rounded-full h-12"
+                                        inputSize="lg"
                                         placeholder={t.newCampground.nationalParkPlaceholder}
                                     />
                                 </div>
@@ -765,7 +765,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     label={t.newCampground.tags}
                                     value={formData.tags.join(', ')}
                                     onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
-                                    className="rounded-full h-12"
+                                    inputSize="lg"
                                     placeholder={t.newCampground.tagsPlaceholder}
                                 />
                                 {formData.tags.length > 0 && (
@@ -781,7 +781,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Amenities & Features */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Tent className="w-5 h-5 text-primary" />
@@ -803,7 +803,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     {/* Sidebar */}
                     <div className="space-y-8">
                         {/* Location */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.settings}</CardTitle>
                             </CardHeader>
@@ -845,7 +845,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Ownership */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.ownershipType}</CardTitle>
                             </CardHeader>
@@ -915,7 +915,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Pricing */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.pricing}</CardTitle>
                             </CardHeader>
@@ -957,7 +957,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 setFormData({ ...formData, priceLow: val === "" ? "" : parseFloat(val) });
                                             }}
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
-                                            className="rounded-full h-12"
+                                            inputSize="lg"
                                             placeholder="e.g. 500"
                                             error={formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.minPriceError : undefined}
                                         />
@@ -970,7 +970,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 setFormData({ ...formData, priceHigh: val === "" ? "" : parseFloat(val) });
                                             }}
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
-                                            className="rounded-full h-12"
+                                            inputSize="lg"
                                             placeholder="e.g. 1200"
                                             error={formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.maxPriceError : undefined}
                                         />
@@ -980,7 +980,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Capacity & Ground Type */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.capacity}</CardTitle>
                             </CardHeader>
@@ -1047,7 +1047,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 min="1"
                                                 value={formData.maxGuestsPerDay}
                                                 onChange={e => setFormData({ ...formData, maxGuestsPerDay: e.target.value === "" ? "" : parseInt(e.target.value) })}
-                                                className="rounded-full h-12"
+                                                inputSize="lg"
                                                 placeholder="e.g. 50"
                                                 error={formData.maxGuestsPerDay && (isNaN(Number(formData.maxGuestsPerDay)) || Number(formData.maxGuestsPerDay) < 1) ? "Must be at least 1" : undefined}
                                             />
@@ -1057,7 +1057,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 min="1"
                                                 value={formData.maxTentsPerDay}
                                                 onChange={e => setFormData({ ...formData, maxTentsPerDay: e.target.value === "" ? "" : parseInt(e.target.value) })}
-                                                className="rounded-full h-12"
+                                                inputSize="lg"
                                                 placeholder="e.g. 20"
                                                 error={formData.maxTentsPerDay && (isNaN(Number(formData.maxTentsPerDay)) || Number(formData.maxTentsPerDay) < 1) ? "Must be at least 1" : undefined}
                                             />
@@ -1090,7 +1090,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                                     }
                                                                 });
                                                             }}
-                                                            className="rounded-full h-10 flex-1 max-w-32"
+                                                            className="flex-1 max-w-32"
                                                             placeholder="0"
                                                             containerClassName="flex-1 max-w-32"
                                                             labelClassName="hidden"
@@ -1107,7 +1107,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Times */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.operations}</CardTitle>
                             </CardHeader>
@@ -1117,20 +1117,20 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     type="time"
                                     value={formData.checkInTime}
                                     onChange={e => setFormData({ ...formData, checkInTime: e.target.value })}
-                                    className="rounded-full h-12"
+                                    inputSize="lg"
                                 />
                                 <InputField
                                     label={t.newCampground.checkOut}
                                     type="time"
                                     value={formData.checkOutTime}
                                     onChange={e => setFormData({ ...formData, checkOutTime: e.target.value })}
-                                    className="rounded-full h-12"
+                                    inputSize="lg"
                                 />
                             </CardContent>
                         </Card>
 
                         {/* Status & Visibility */}
-                        <Card className="rounded-3xl border-border shadow-sm overflow-hidden bg-card">
+                        <Card className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.statusVisibility}</CardTitle>
                             </CardHeader>
@@ -1238,7 +1238,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent className="rounded-2xl">
+                <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
                         <AlertDialogDescription>

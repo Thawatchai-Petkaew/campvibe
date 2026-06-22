@@ -14,7 +14,7 @@ export function DashboardOverviewSkeleton() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                    <Card key={i} className="rounded-2xl shadow-sm border-border">
+                    <Card key={i} className="shadow-sm border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <Skeleton className="h-4 w-24" />
                             <Skeleton className="h-8 w-8 rounded-lg" />
@@ -27,7 +27,7 @@ export function DashboardOverviewSkeleton() {
                 ))}
             </div>
 
-            <div className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden">
+            <Card className="shadow-sm border border-border">
                 <div className="px-6 py-6 border-b border-border/60 flex justify-between items-center">
                     <Skeleton className="h-6 w-32" />
                     <Skeleton className="h-4 w-16" />
@@ -43,7 +43,7 @@ export function DashboardOverviewSkeleton() {
                         </div>
                     ))}
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }
@@ -69,7 +69,7 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
             {[...Array(count)].map((_, i) => (
-                <Card key={i} className="rounded-2xl shadow-sm border-border overflow-hidden">
+                <Card key={i} className="shadow-sm border-border">
                     <Skeleton className="h-48 w-full" />
                     <CardContent className="p-4 space-y-2">
                         <Skeleton className="h-6 w-3/4" />

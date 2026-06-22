@@ -98,7 +98,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-3xl p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col h-full max-h-[90vh] relative">
                     {/* Header */}
                     <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60">
@@ -108,6 +108,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                 size="icon"
                                 className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
                                 onClick={onClose}
+                                aria-label="Close"
                             >
                                 <X className="w-5 h-5 text-foreground" />
                             </Button>

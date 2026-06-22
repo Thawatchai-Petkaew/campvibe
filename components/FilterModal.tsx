@@ -322,7 +322,7 @@ export function FilterModal() {
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 rounded-[24px] overflow-hidden flex flex-col max-h-[85vh] bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[85vh] bg-card">
 
                 {/* Header - Aligned with Search Modal */}
                 <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60 relative shrink-0">
@@ -331,6 +331,7 @@ export function FilterModal() {
                             variant="ghost"
                             size="icon"
                             className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
+                            aria-label={t.common?.close || "Close"}
                         >
                             <IconX className="w-5 h-5 text-foreground" />
                         </Button>
@@ -356,7 +357,8 @@ export function FilterModal() {
                                     onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
                                     leftIcon={<span className="text-muted-foreground">฿</span>}
                                     labelClassName="text-xs text-muted-foreground font-normal ml-1"
-                                    className="rounded-full h-12 text-base border-border bg-background"
+                                    inputSize="lg"
+                                    className="rounded-full text-base border-border bg-background"
                                 />
                             </div>
                             <div className="pt-6 text-muted-foreground/60">-</div>
@@ -369,7 +371,8 @@ export function FilterModal() {
                                     onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
                                     leftIcon={<span className="text-muted-foreground">฿</span>}
                                     labelClassName="text-xs text-muted-foreground font-normal ml-1"
-                                    className="rounded-full h-12 text-base border-border bg-background"
+                                    inputSize="lg"
+                                    className="rounded-full text-base border-border bg-background"
                                 />
                             </div>
                         </div>

@@ -98,7 +98,7 @@ export function CampgroundCard({
         <div className="group relative space-y-3">
             {/* Clickable image+content area navigates to camp detail. */}
             <Link href={`/campgrounds/${slug}`} className="block cursor-pointer">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
+                <div className="relative aspect-square rounded-3xl overflow-hidden bg-muted">
                     {/* New Listing Badge */}
                     {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
                         <div className="absolute top-3 left-3 z-10">
