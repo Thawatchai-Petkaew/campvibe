@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { wishlistBodySchema } from '@/lib/validations/wishlist';
+import { checkRateLimit } from '@/lib/rate-limit';
 import type { WishlistWithCampSiteDTO } from '@/types/api';
 
 // ─────────────────────────────────────────────────────────
@@ -17,8 +18,20 @@ export async function POST(request: NextRequest) {
     }
     const userId = session.user.id;
 
+    // 2. Rate-limit — 100 write requests per 15 min per user (in-memory, per-instance baseline).
+    const rl = checkRateLimit(`wishlist:write:${userId}`);
+    if (!rl.allowed) {
+        return NextResponse.json(
+            { error: 'Too many requests', retryAfterSec: rl.retryAfterSec },
+            {
+                status: 429,
+                headers: { 'Retry-After': String(rl.retryAfterSec) },
+            },
+        );
+    }
+
     try {
-        // 2. Input validation.
+        // 3. Input validation.
         const body = await request.json();
         const validation = wishlistBodySchema.safeParse(body);
         if (!validation.success) {
@@ -29,7 +42,7 @@ export async function POST(request: NextRequest) {
         }
         const { campSiteId } = validation.data;
 
-        // 3. Verify camp site exists (404 if not).
+        // 4. Verify camp site exists (404 if not).
         const campSite = await prisma.campSite.findUnique({
             where: { id: campSiteId },
             select: { id: true },
@@ -38,7 +51,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Camp site not found' }, { status: 404 });
         }
 
-        // 4. Create wishlist entry.
+        // 5. Create wishlist entry.
         //    On unique-constraint violation (P2002 — already wishlisted) treat as success per decision 4.
         try {
             await prisma.wishlist.create({

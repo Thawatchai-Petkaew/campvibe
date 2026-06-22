@@ -329,12 +329,16 @@ async function cmdAudit() {
 
   // ── Delivery artifact-store consistency (docs/delivery/) — ON-DEMAND / role-driven ──
   // story.md always; a role artifact is expected ONLY when the matching role:* label proves
-  // that role acted on the story. No forced N/A, no fixed set. Not-yet-scaffolded = info;
-  // completed stories are already exempt (filtered above).
+  // that role acted. Checks ACTIVE stories INCL. parented children (CAM-129 — was parentless-only,
+  // so child stories like CAM-127 went unchecked); completed stories are exempt. Also flags
+  // feature.md/epic.md left as scaffold <placeholder> stubs — the PO must fill them (CAM-127 gap).
   const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "delivery.md"]];
-  let notYet = 0, broken = 0, stale = 0;
-  for (const s of stories) {
-    const { sdir } = deliveryDirs(s);
+  const STUB_RE = /<[a-zA-Z][^>\n]{2,}>/; // an unfilled angle-bracket placeholder from the scaffold
+  const artStories = team.issues.nodes.filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title) && i.state.type !== "completed");
+  let notYet = 0, broken = 0, stale = 0, stub = 0;
+  const stubSeen = new Set();
+  for (const s of artStories) {
+    const { fdir, edir, sdir } = deliveryDirs(s);
     const storyFile = path.join(sdir, "story.md");
     if (!fs.existsSync(storyFile)) { notYet++; console.log(`  · ${s.identifier} no artifact folder yet  (scaffold ${s.identifier})`); continue; }
     const roleLabels = s.labels.nodes.map((l) => l.name.toLowerCase()).filter((n) => n.startsWith("role:"));
@@ -342,9 +346,15 @@ async function cmdAudit() {
     if (missing.length) { broken++; console.log(`  ✗ ${s.identifier} a role acted but its artifact is missing: ${missing.join(",")}`); }
     const m = fs.readFileSync(storyFile, "utf8").match(/^status:\s*(.+)$/m);
     if (m && !m[1].toLowerCase().includes(s.state.name.toLowerCase())) { stale++; console.log(`  ⚠ ${s.identifier} status "${m[1].trim()}" ≠ Linear "${s.state.name}"`); }
+    // PO-authored feature.md/epic.md must be FILLED, not scaffold stubs (CAM-129; dedup across stories).
+    for (const f of [path.join(fdir, "feature.md"), path.join(edir, "epic.md")]) {
+      if (stubSeen.has(f) || !fs.existsSync(f)) continue;
+      stubSeen.add(f);
+      if (STUB_RE.test(fs.readFileSync(f, "utf8"))) { stub++; console.log(`  ✗ stub not filled (PO owns): ${path.relative(process.cwd(), f)} still has <placeholder> markers`); }
+    }
   }
-  console.log(`artifacts: ${notYet} not-yet-scaffolded · ${broken} role-artifact-missing · ${stale} status-stale`);
-  if (broken || stale) process.exitCode = 11;
+  console.log(`artifacts: ${notYet} not-yet-scaffolded · ${broken} role-artifact-missing · ${stale} status-stale · ${stub} feature/epic stub`);
+  if (broken || stale || stub) process.exitCode = 11;
 }
 
 // handoff <CAM-id> --role <role> [--state "In Progress"] [--note "..."]
