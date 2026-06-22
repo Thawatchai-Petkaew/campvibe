@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -9,14 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { FilterChip } from "@/components/ui/filter-chip";
 import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-    CardFooter,
-} from "@/components/ui/card";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,6 +26,27 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+    CardDescription,
+    CardContent,
+    CardFooter,
+} from "@/components/ui/card";
 import {
     IconHeart,
     IconStar,
@@ -38,6 +60,9 @@ import {
     IconMenu2,
     IconCheck,
     IconX,
+    IconTent,
+    IconMountain,
+    IconSwimming,
 } from "@tabler/icons-react";
 
 // Token color swatches to display in the Colors section
@@ -67,6 +92,25 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export function PreviewClient() {
     const { t } = useLanguage();
+
+    // FilterChip state for preview
+    const [pillSelected, setPillSelected] = useState<string[]>([]);
+    const [cardSelected, setCardSelected] = useState<string[]>([]);
+    const [iconCardSelected, setIconCardSelected] = useState<string[]>([]);
+    const [commandOpen, setCommandOpen] = useState(false);
+
+    const togglePill = (id: string) =>
+        setPillSelected((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    const toggleCard = (id: string) =>
+        setCardSelected((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    const toggleIconCard = (id: string) =>
+        setIconCardSelected((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -295,6 +339,164 @@ export function PreviewClient() {
                             <span className="text-xs text-muted-foreground">{label}</span>
                         </div>
                     ))}
+                </div>
+
+                <SectionDivider />
+
+                {/* ── Option Pickers ── */}
+                <SectionHeading>{t.preview.optionPickersSection}</SectionHeading>
+                <div className="space-y-6">
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">Select — default / sm / disabled</p>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <Select defaultValue="option1">
+                                <SelectTrigger className="w-[180px]" data-testid="select--preview-default">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="option1">Option 1</SelectItem>
+                                    <SelectItem value="option2">Option 2</SelectItem>
+                                    <SelectItem value="option3">Option 3</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select defaultValue="option1">
+                                <SelectTrigger size="sm" className="w-[160px]" data-testid="select--preview-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="option1">Option 1</SelectItem>
+                                    <SelectItem value="option2">Option 2</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select disabled defaultValue="option1">
+                                <SelectTrigger className="w-[180px]" data-testid="select--preview-disabled">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="option1">Option 1</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">DropdownMenu — profile style</p>
+                        <DropdownMenu defaultOpen={false}>
+                            <DropdownMenuTrigger asChild aria-label="Profile menu">
+                                <Button variant="outline" className="gap-2">
+                                    <IconUser className="h-4 w-4" />
+                                    Profile
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56">
+                                <DropdownMenuLabel className="px-3 py-2">Tawatchai P.</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="cursor-pointer py-2.5 px-3">My Profile</DropdownMenuItem>
+                                <DropdownMenuItem className="cursor-pointer py-2.5 px-3">My Bookings</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                    Sign out
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">Popover + Command</p>
+                        <Popover open={commandOpen} onOpenChange={setCommandOpen}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="gap-2" aria-label="Search location" data-testid="btn--preview-command">
+                                    <IconMapPin className="h-4 w-4" />
+                                    Search location
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-0" align="start">
+                                <Command>
+                                    <CommandInput placeholder="Search..." />
+                                    <CommandList>
+                                        <CommandEmpty>No results.</CommandEmpty>
+                                        <CommandGroup>
+                                            <CommandItem>Chiang Mai</CommandItem>
+                                            <CommandItem>Kanchanaburi</CommandItem>
+                                            <CommandItem>Khao Yai</CommandItem>
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+
+                <SectionDivider />
+
+                {/* ── FilterChip ── */}
+                <SectionHeading>{t.preview.filterChipSection}</SectionHeading>
+                <div className="space-y-8">
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">pill</p>
+                        <div className="flex flex-wrap gap-3">
+                            {[
+                                { id: "hiking", label: "Hiking", icon: IconMountain },
+                                { id: "swimming", label: "Swimming", icon: IconSwimming },
+                                { id: "camping", label: "Camping", icon: IconTent },
+                                { id: "disabled-item", label: "Unavailable", disabled: true },
+                            ].map((item) => (
+                                <FilterChip
+                                    key={item.id}
+                                    variant="pill"
+                                    selected={pillSelected.includes(item.id)}
+                                    onToggle={() => togglePill(item.id)}
+                                    label={item.label}
+                                    icon={item.icon}
+                                    disabled={item.disabled}
+                                    data-testid={`filter-chip--pill-preview-${item.id}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">card</p>
+                        <div className="grid grid-cols-2 gap-4 max-w-sm">
+                            {[
+                                { id: "campground", label: "Campground", icon: IconTent },
+                                { id: "mountain", label: "Mountain", icon: IconMountain },
+                                { id: "lake", label: "Lakefront", icon: IconSwimming },
+                            ].map((item) => (
+                                <FilterChip
+                                    key={item.id}
+                                    variant="card"
+                                    selected={cardSelected.includes(item.id)}
+                                    onToggle={() => toggleCard(item.id)}
+                                    label={item.label}
+                                    icon={item.icon}
+                                    data-testid={`filter-chip--card-preview-${item.id}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">icon-card</p>
+                        <div className="grid grid-cols-3 gap-3 max-w-sm">
+                            {[
+                                { id: "drive", label: "Drive-in", icon: IconTent },
+                                { id: "walk", label: "Walk-in", icon: IconMountain },
+                                { id: "boat", label: "Boat", icon: IconSwimming },
+                            ].map((item) => (
+                                <FilterChip
+                                    key={item.id}
+                                    variant="icon-card"
+                                    selected={iconCardSelected.includes(item.id)}
+                                    onToggle={() => toggleIconCard(item.id)}
+                                    label={item.label}
+                                    icon={item.icon}
+                                    aria-label={item.label}
+                                    data-testid={`filter-chip--icon-card-preview-${item.id}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>

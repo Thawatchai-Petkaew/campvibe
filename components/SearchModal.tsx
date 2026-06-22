@@ -96,8 +96,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         setGuests("1");
     };
 
-    const inputHeight = "!h-12";
-
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent showCloseButton={false} className="sm:max-w-3xl rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
@@ -129,8 +127,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                         key={item.id}
                                         onClick={() => setType(item.id)}
                                         className={cn(
-                                            "flex items-center gap-2 px-5 rounded-full border transition-all text-sm font-medium",
-                                            inputHeight,
+                                            "flex items-center gap-2 px-5 h-11 rounded-full border transition-all text-sm font-medium",
                                             type === item.id
                                                 ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
                                                 : "bg-background text-muted-foreground border-border hover:border-foreground"
@@ -153,19 +150,19 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     onChange={(e) => setKeyword(e.target.value)}
                                     placeholder={t.search.keywordPlaceholder}
                                     leftIcon={<Search className="w-4 h-4" />}
-                                    className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                    className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                                 />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
                                         <Select value={province} onValueChange={setProvince}>
-                                            <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
+                                            <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
                                                 <SelectValue placeholder={t.search.anyProvince} />
                                             </SelectTrigger>
-                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" " className="rounded-xl cursor-pointer py-2.5">{t.search.anyProvince}</SelectItem>
+                                            <SelectContent className="shadow-2xl">
+                                                <SelectItem value=" " className="cursor-pointer">{t.search.anyProvince}</SelectItem>
                                                 {PROVINCES.map(p => (
-                                                    <SelectItem key={p} value={p} className="rounded-xl cursor-pointer py-2.5">{p}</SelectItem>
+                                                    <SelectItem key={p} value={p} className="cursor-pointer">{p}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -173,13 +170,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     <div className="space-y-2">
                                         <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.district}</label>
                                         <Select value={district} onValueChange={setDistrict} disabled={!province || province === " "}>
-                                            <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
+                                            <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
                                                 <SelectValue placeholder={t.search.anyDistrict} />
                                             </SelectTrigger>
-                                            <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                                <SelectItem value=" " className="rounded-xl cursor-pointer py-2.5">{t.search.anyDistrict}</SelectItem>
+                                            <SelectContent className="shadow-2xl">
+                                                <SelectItem value=" " className="cursor-pointer">{t.search.anyDistrict}</SelectItem>
                                                 {province && province !== " " && THAILAND_DATA[province]?.map(d => (
-                                                    <SelectItem key={d} value={d} className="rounded-xl cursor-pointer py-2.5">{d}</SelectItem>
+                                                    <SelectItem key={d} value={d} className="cursor-pointer">{d}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -199,17 +196,17 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                             <PopoverTrigger asChild>
                                                 <Button
                                                     variant="outline"
+                                                    size="lg"
                                                     className={cn(
-                                                        "w-full rounded-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
-                                                        !startDate && "text-muted-foreground",
-                                                        inputHeight
+                                                        "w-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
+                                                        !startDate && "text-muted-foreground"
                                                     )}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                                     {startDate ? format(startDate, "MMM d, yyyy") : t.booking.addDate}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
                                                 <Calendar
                                                     mode="single"
                                                     selected={startDate}
@@ -225,17 +222,17 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                             <PopoverTrigger asChild>
                                                 <Button
                                                     variant="outline"
+                                                    size="lg"
                                                     className={cn(
-                                                        "w-full rounded-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
-                                                        !endDate && "text-muted-foreground",
-                                                        inputHeight
+                                                        "w-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
+                                                        !endDate && "text-muted-foreground"
                                                     )}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                                     {endDate ? format(endDate, "MMM d, yyyy") : t.booking.addDate}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
                                                 <Calendar
                                                     mode="single"
                                                     selected={endDate}
@@ -254,15 +251,15 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                 <div className="space-y-2">
                                     <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.guests}</label>
                                     <Select value={guests} onValueChange={setGuests}>
-                                        <SelectTrigger className={cn("border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 bg-background", inputHeight)}>
+                                        <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                        <SelectContent className="shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((n) => (
-                                                <SelectItem key={n} value={n.toString()} className="rounded-xl cursor-pointer py-2.5">
+                                                <SelectItem key={n} value={n.toString()} className="cursor-pointer">
                                                     {n} {n === 1 ? t.booking.guest : t.booking.guests}
                                                 </SelectItem>
                                             ))}

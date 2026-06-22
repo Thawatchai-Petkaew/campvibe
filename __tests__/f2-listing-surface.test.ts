@@ -41,6 +41,8 @@ const root = path.resolve(__dirname, "..");
 const src = (rel: string) => fs.readFileSync(path.join(root, rel), "utf-8");
 
 const filterModalSrc = src("components/FilterModal.tsx");
+// DS-1: FilterChip primitive extracted from FilterModal — chip token assertions check both files.
+const filterChipSrc = src("components/ui/filter-chip.tsx");
 const campgroundCardSrc = src("components/CampgroundCard.tsx");
 const activeFiltersSrc = src("components/ActiveFilters.tsx");
 const searchModalSrc = src("components/SearchModal.tsx");
@@ -141,8 +143,11 @@ describe("modal--filter: a11y focus rings on filter buttons", () => {
 // AC-a11y-2  Activity pill tap target ≥ 44px
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: Activity pill tap target", () => {
-    it("AC-a11y-2: Activity pill has min-h-[44px] class", () => {
-        expect(filterModalSrc).toMatch(/min-h-\[44px\]/);
+    it("AC-a11y-2: Activity pill has min-h-[44px] class (or h-11 = 44px in FilterChip primitive)", () => {
+        // DS-1: pill tap-target baked into FilterChip primitive (h-11 = 44px); FilterModal delegates to it.
+        const hasInModal = /min-h-\[44px\]/.test(filterModalSrc);
+        const hasInChip = /h-11\b/.test(filterChipSrc);
+        expect(hasInModal || hasInChip).toBe(true);
     });
 });
 
@@ -398,15 +403,17 @@ describe("modal--filter: mobile scroll", () => {
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: selected chip dark-mode safety", () => {
     it("AC-chip-1: selected Activity pill uses bg-foreground (not bg-black or hardcoded dark)", () => {
-        expect(filterModalSrc).toMatch(/bg-foreground\b/);
+        // DS-1: token baked into FilterChip primitive; FilterModal delegates to it.
+        expect(filterModalSrc + filterChipSrc).toMatch(/bg-foreground\b/);
     });
 
     it("AC-chip-1: selected Activity pill uses text-background (not text-white or hardcoded light)", () => {
-        expect(filterModalSrc).toMatch(/text-background\b/);
+        // DS-1: token baked into FilterChip primitive; FilterModal delegates to it.
+        expect(filterModalSrc + filterChipSrc).toMatch(/text-background\b/);
     });
 
     it("AC-chip-1: unselected Activity pill uses text-foreground (visible on both themes)", () => {
-        expect(filterModalSrc).toMatch(/text-foreground\b/);
+        expect(filterModalSrc + filterChipSrc).toMatch(/text-foreground\b/);
     });
 });
 

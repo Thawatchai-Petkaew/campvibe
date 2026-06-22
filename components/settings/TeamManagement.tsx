@@ -329,22 +329,22 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         onValueChange={(value) => handleUpdateRole(member.id, value)}
                                                                     >
                                                                         <SelectTrigger
-                                                                            className="h-10 w-[160px] rounded-full border border-border bg-background shadow-sm px-4"
+                                                                            className="w-[160px] border border-border bg-background shadow-sm px-4"
                                                                             aria-label={ts?.changeRole || "Change role"}
                                                                         >
-                                                                    <SelectValue placeholder={ts?.selectRole || "Select Role"} />
+                                                                            <SelectValue placeholder={ts?.selectRole || "Select Role"} />
                                                                         </SelectTrigger>
-                                                                        <SelectContent className="rounded-xl">
-                                                                            <SelectItem value="ADMIN" className="rounded-lg cursor-pointer">
+                                                                        <SelectContent>
+                                                                            <SelectItem value="ADMIN" className="cursor-pointer">
                                                                                 Admin
                                                                             </SelectItem>
-                                                                            <SelectItem value="MANAGER" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="MANAGER" className="cursor-pointer">
                                                                                 Manager
                                                                             </SelectItem>
-                                                                            <SelectItem value="STAFF" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="STAFF" className="cursor-pointer">
                                                                                 Staff
                                                                             </SelectItem>
-                                                                            <SelectItem value="VIEWER" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="VIEWER" className="cursor-pointer">
                                                                                 Viewer
                                                                             </SelectItem>
                                                                         </SelectContent>
