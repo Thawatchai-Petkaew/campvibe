@@ -1,43 +1,100 @@
-# std/seo.md — มาตรฐาน SEO/AEO (Frontend เป็นเจ้าของ · Designer คุม semantic/a11y · Backend จัดหา data ที่ publishable)
+---
+name: seo-and-aeo
+description: Standard for making CampVibe's public surfaces crawlable and machine-readable from the start. Use when building a public page (camp list/detail, host profile, article). Use when adding metadata, JSON-LD, sitemap/robots, or hreflang. Use when deciding index vs noindex on a route. Memory for the Frontend role (Designer owns semantic/a11y, Backend supplies publishable data); pairs with DESIGN.md, std/performance.md, std/architecture.md, std/api.md.
+---
 
-> อ่านก่อนทำงาน: ไฟล์นี้ + `CLAUDE.md` + `DESIGN.md` (semantic HTML/a11y — ไม่เขียนซ้ำที่นี่) · งานหน้า public ให้เทียบ route จริงใน `app/` + แหล่งข้อมูลใน `prisma/schema.prisma`
-> หน้าที่: ทำให้ทุก surface สาธารณะ crawlable + machine-readable ตั้งแต่ต้น (ไม่ bolt-on ทีหลัง), แยกชัดหน้า index vs noindex
-> **When NOT:** ไม่ออกแบบ heading/content hierarchy เอง (ส่ง Designer), ไม่ทำ data model/API contract (ส่ง Architect/Backend) — แค่บริโภค data ที่ publishable มาแล้ว
+# SEO & AEO
 
-## หลักการ
+## Overview
 
-- **Public = server-rendered + crawlable:** หน้า list แคมป์ / detail แคมป์ / host profile / บทความ ต้อง render เนื้อหาหลัก+ข้อเท็จจริงสำคัญ (ชื่อ/ราคา/ที่ตั้ง/rating) ใน HTML จาก server เสมอ — crawler/AI ต้องเห็นโดยไม่รัน JS
-- **AEO = ตอบคำถามได้ตรง + machine-readable:** เนื้อหาวางแบบ question→answer, ใช้ entity term สม่ำเสมอ (glossary), เปิด structured FAQ/llms.txt ให้ answer engine quote ได้ถูก
-- **แยก index/noindex โดยตั้งใจ:** public = index; auth (dashboard/booking/wishlist) = `noindex` เสมอ — ห้ามสลับหลุด
-- **Lean & Done-on-Staging:** เพิ่ม metadata/JSON-LD เท่าที่หน้าจริงมีเนื้อหารองรับ (ไม่ markup ของที่ไม่ render); Done = verify signal บน **Staging URL จริง** (view-source/Rich Results) ไม่ใช่แค่ local
+Public surfaces have to be crawlable and machine-readable from the first commit, not bolted on later — a crawler or AI answer engine that runs no JS still has to see the name, price, location, and rating. Index vs noindex is a deliberate decision per route: public pages are indexed, auth pages never are.
 
-## มาตรฐาน/กฎ
+## When to Use
 
-- **Rendering:** หน้า public = Server Component (default) SSG/ISR; หน้าแคมป์ใช้ ISR (`revalidate`) ดึงผ่าน service/Prisma — **ห้าม client-only fetch บนหน้า public** (crawler เห็นหน้าเปล่า); ส่วน interactive แยกเป็น Client Component เล็กๆ ใต้ shell ที่ server render แล้ว
-- **Metadata (Metadata API):** ทุกหน้า public มี `generateMetadata` ของตัวเอง — `title` เฉพาะต่อแคมป์/หน้า + `description` ไม่ซ้ำ + `alternates.canonical` + Open Graph/Twitter (ใช้ `app/opengraph-image`) + `alternates.languages` hreflang `th`/`en` (i18n) + `robots` ถูกต้อง
-- **Structured data (JSON-LD):** ใส่ผ่าน `<script type="application/ld+json">` ใน Server Component — หน้าแคมป์ = `Campground`/`Product`/`LocalBusiness` (`name`,`price`,`aggregateRating`,`geo`,`image`,`address`) + `BreadcrumbList`; site = `Organization`; หน้าที่มี Q&A = `FAQPage`
-- **Semantic HTML:** `h1` เดียวต่อหน้า, `h2/h3` มีลำดับ, landmark (`header/nav/main/footer`), `alt` ครบ, descriptive link — รายละเอียด a11y baseline อยู่ที่ `DESIGN.md` (ไม่เขียนซ้ำ)
-- **Performance (Core Web Vitals):** budget LCP/CLS/INP ผ่าน; ใช้ `next/image` ทุกรูป + `priority` รูป above-the-fold + กำหนด `width/height` กัน CLS; `preconnect` ฟอนต์
-- **sitemap & robots:** `app/sitemap.ts` + `app/robots.ts` generate จาก Prisma (เฉพาะแคมป์/บทความที่ `published`) — รวม URL public ทั้งหมด, robots block path auth
-- **noindex บน auth:** ทุกหน้า dashboard/booking/wishlist ตั้ง `robots: { index: false }` โดยตั้งใจ — ห้าม `noindex` หลุดไปบนหน้า public และห้ามลืม `noindex` หน้า auth
-- **AEO:** โครงคำถาม→คำตอบในบทความ/FAQ, term จาก glossary สม่ำเสมอ, จัดทำ structured FAQ + `llms.txt` ให้ answer engine อ้างอิงได้แม่น
+- Building any public page: camp list, camp detail, host profile, article
+- Adding or reviewing `generateMetadata`, JSON-LD, `app/sitemap.ts`, `app/robots.ts`, or hreflang
+- Deciding whether a route is `index` or `noindex`
+- Structuring question→answer content (AEO) or `llms.txt` so answer engines quote it correctly
 
-## ต้องคำนึง / anti-patterns
+**NOT for:**
 
-- ❌ client-only render หน้าแคมป์ (crawler เห็นหน้าเปล่า) → ✅ Server Component + `generateMetadata`, fetch ฝั่ง server
-- ❌ `title`/`description` ซ้ำทุกหน้า → ✅ เฉพาะต่อแคมป์/หน้า จากข้อมูลจริง
-- ❌ ลืม `canonical` → duplicate content (param/หน้าซ้ำ) → ✅ ตั้ง `alternates.canonical` ทุกหน้า
-- ❌ `noindex` หลุดบนหน้า public / ลืม `noindex` หน้า dashboard → ✅ ตรวจ robots ต่อ route ก่อน merge
-- ❌ รูปไม่มี `alt` / ไม่ใช้ `next/image` → ✅ `next/image` + `alt` สื่อความ + `priority` above-the-fold
-- ❌ JSON-LD ไม่ตรงกับเนื้อหาที่ render (Google โทษ/penalty) → ✅ markup สะท้อนค่าที่ render จริงเท่านั้น
+- Designing heading/content hierarchy or the a11y baseline — that's the Designer's job; see `DESIGN.md` (semantic HTML / a11y is not duplicated here)
+- Defining the data model or API contract — hand to Architect/Backend; see `std/architecture.md` and `std/api.md`. This std only consumes data that is already publishable
+- Profiling/budgeting Core Web Vitals beyond the rules below — see `std/performance.md`
 
-## Checklist (DoD ของ domain — ต่อหน้า public)
+> Read before working: this file + `CLAUDE.md` + `DESIGN.md`. For a public page, compare against the real route in `app/` and the data source in `prisma/schema.prisma`.
 
-- [ ] server-rendered (SSG/ISR) เนื้อหาหลักอยู่ใน HTML — ไม่มี client-only fetch บนเนื้อหาที่ต้อง crawl
-- [ ] `generateMetadata` ครบ: `title` เฉพาะ + `description` + `canonical` + OG/Twitter + hreflang `th`/`en` + `robots`
-- [ ] JSON-LD ตรงเนื้อหาที่ render (`Campground`/`Product` + `BreadcrumbList`; `Organization`; `FAQPage` ถ้ามี Q&A)
-- [ ] `h1` เดียว + heading มีลำดับ + landmark + `alt` ครบ (อ้าง `DESIGN.md`)
-- [ ] `next/image` ทุกรูป + `priority` above-the-fold + Core Web Vitals (LCP/CLS/INP) ผ่าน
-- [ ] อยู่ใน `app/sitemap.ts` (ถ้า `published`) + `app/robots.ts` ไม่ block
-- [ ] หน้า auth (dashboard/booking/wishlist) ตั้ง `noindex` โดยตั้งใจ — ตรวจไม่ให้หลุดบนหน้า public
-- [ ] **verify signal บน Staging URL จริง** (view-source / Rich Results / Lighthouse) ก่อน story เข้า state `Done`
+## Standards
+
+### 1. Principles
+
+- **Public = server-rendered + crawlable:** camp list / camp detail / host profile / article must render the main content plus the key facts (name / price / location / rating) in HTML from the server, always — the crawler/AI must see it without running JS.
+- **AEO = answer the question directly + machine-readable:** lay content out as question→answer, use entity terms consistently (glossary), expose structured FAQ / `llms.txt` so answer engines can quote it correctly.
+- **Separate index/noindex on purpose:** public = index; auth (dashboard/booking/wishlist) = `noindex`, always — never let it slip the wrong way.
+- **Lean & Done-on-Staging:** add metadata/JSON-LD only as far as the real page has content to back it (never mark up things that don't render); Done = verify the signal on the **real Staging URL** (view-source / Rich Results), not just local.
+
+### 2. Rendering
+
+Public pages = Server Component (default), SSG/ISR. Camp pages use ISR (`revalidate`) and fetch via service/Prisma. **No client-only fetch on a public page** (the crawler sees a blank page). Interactive parts split into small Client Components under a shell that the server already rendered.
+
+### 3. Metadata (Metadata API)
+
+Every public page has its own `generateMetadata`:
+
+- `title` specific per camp/page + non-duplicate `description`
+- `alternates.canonical`
+- Open Graph / Twitter (use `app/opengraph-image`)
+- `alternates.languages` hreflang `th`/`en` (i18n)
+- correct `robots`
+
+### 4. Structured data (JSON-LD)
+
+Inject via `<script type="application/ld+json">` inside a Server Component:
+
+- Camp page = `Campground` / `Product` / `LocalBusiness` (`name`, `price`, `aggregateRating`, `geo`, `image`, `address`) + `BreadcrumbList`
+- Site = `Organization`
+- Page with Q&A = `FAQPage`
+
+Markup must reflect only the values actually rendered.
+
+### 5. Semantic HTML
+
+One `h1` per page, ordered `h2/h3`, landmarks (`header/nav/main/footer`), complete `alt`, descriptive links — the a11y baseline detail lives in `DESIGN.md` (not duplicated here).
+
+### 6. Performance (Core Web Vitals)
+
+Budget LCP/CLS/INP must pass; use `next/image` for every image + `priority` on above-the-fold images + set `width/height` to prevent CLS; `preconnect` fonts. CWV budgeting/profiling detail lives in `std/performance.md`.
+
+### 7. sitemap & robots
+
+`app/sitemap.ts` + `app/robots.ts` generate from Prisma (only camps/articles that are `published`) — include all public URLs; robots blocks auth paths.
+
+### 8. noindex on auth
+
+Every dashboard/booking/wishlist page sets `robots: { index: false }` on purpose — never let `noindex` slip onto a public page, and never forget `noindex` on an auth page.
+
+### 9. AEO
+
+Question→answer structure in articles/FAQ, terms from the glossary used consistently, ship structured FAQ + `llms.txt` so answer engines can cite accurately.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "Client-only render the camp page is fine." | The crawler sees a blank page. Use a Server Component + `generateMetadata`, fetch server-side. |
+| "Reuse the same `title`/`description` everywhere." | Duplicate metadata sinks ranking. Make it specific per camp/page from real data. |
+| "Skip `canonical`, it's optional." | Missing canonical creates duplicate content (params/dupe pages). Set `alternates.canonical` on every page. |
+| "noindex/index doesn't need checking per route." | `noindex` slips onto public pages and dashboards stay indexed. Check robots per route before merge. |
+| "Plain `<img>` without `alt` is good enough." | It tanks a11y and SEO. Use `next/image` + meaningful `alt` + `priority` above-the-fold. |
+| "Mark up extra JSON-LD to look richer." | JSON-LD that doesn't match rendered content earns a Google penalty. Mark up only values actually rendered. |
+
+## Verify (exit criteria — per public page)
+
+- [ ] Server-rendered (SSG/ISR) with main content in the HTML — no client-only fetch on content that must be crawled
+- [ ] `generateMetadata` complete: specific `title` + `description` + `canonical` + OG/Twitter + hreflang `th`/`en` + `robots`
+- [ ] JSON-LD matches rendered content (`Campground`/`Product` + `BreadcrumbList`; `Organization`; `FAQPage` if there's Q&A)
+- [ ] One `h1` + ordered headings + landmarks + complete `alt` (per `DESIGN.md`)
+- [ ] `next/image` on every image + `priority` above-the-fold + Core Web Vitals (LCP/CLS/INP) pass
+- [ ] In `app/sitemap.ts` (if `published`) + not blocked by `app/robots.ts`
+- [ ] Auth pages (dashboard/booking/wishlist) set `noindex` on purpose — confirm it doesn't slip onto public pages
+- [ ] **Verify the signal on the real Staging URL** (view-source / Rich Results / Lighthouse) before the story enters state `Done`
