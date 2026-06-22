@@ -194,7 +194,7 @@ audience: AI agents (primary) + humans
 
 ## §6 Quality gate — pre-delivery checklist (block PR ได้, รันก่อน merge→staging = "Done")
 - [ ] **Token-only** — ไม่มี hex/px/สีลอย, อ้าง token+scale (light+dark) · `npm run check:palette` เขียว
-- [ ] **Component-in-system** — `components/ui/*` เท่านั้น, ไม่ประดิษฐ์นอกระบบ · icon import **ใหม่** ใช้ **lucide** (§7) — tabler ใน primitive = legacy รอ migrate (ไม่ fail gate)
+- [ ] **Component-in-system** — `components/ui/*` เท่านั้น, ไม่ประดิษฐ์นอกระบบ · icon import ใช้ **lucide-react เท่านั้น** (§7) — `@tabler/icons-react` ถูกลบออกแล้ว (DS-5)
 - [ ] **Scale ถูกบทบาท** — radius/size/spacing ตาม §2 (ไม่ override height inline)
 - [ ] **States ครบ 8** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **a11y AA** — contrast **4.5:1 body / 3:1 heading**, focus ring มองเห็น, `aria-label` ครบ, tap ≥44px
@@ -208,8 +208,8 @@ audience: AI agents (primary) + humans
 ---
 
 ## §7 Icon policy
-- **lucide-only** (`lucide-react`) สำหรับ static UI + facility/DB-driven icons — **library เดียว**
-- *(ปัจจุบัน `components/ui/*` ใช้ tabler อยู่ → migration tabler→lucide = backlog §8 ข้อ 7; งานใหม่ใช้ lucide)*
+- **lucide-only** (`lucide-react`) สำหรับ static UI + facility/DB-driven icons — **library เดียว** (DS-5 / CAM-125 สมบูรณ์แล้ว — `@tabler/icons-react` ถูกลบออกจาก codebase)
+- filled-icon variant → ใช้ `fill-current` บน lucide icon เดิม (ไม่มี separate filled component)
 
 ---
 
@@ -223,7 +223,7 @@ audience: AI agents (primary) + humans
 4. **Modal shell เดียว** (`rounded-3xl`, close `h-11 w-11`) — AmenitiesModal (`rounded-2xl`) align
 5. **Input `size="lg"`** (h-12 rounded-full) — เลิก `!h-12` ใน LoginModal/SearchModal
 6. **Badge taxonomy** — status=`Badge`, filter=`FilterChip`; เลิก raw `<span>` (เช่น booking status)
-7. **Icon migration tabler→lucide** (รวม `components/ui/*`)
+7. ~~**Icon migration tabler→lucide**~~ ✓ **Done (DS-5 / CAM-125)** — `@tabler/icons-react` removed; lucide-only throughout
 8. **Consistency CI guard** — ขยาย `check-palette.mjs` จับ inline height/radius นอก scale (กัน drift เหมือน palette)
 9. **Wire Sarabun** — `next/font/google` subset thai+latin + Thai font stack (`:lang(th)`) → heading Sarabun semibold
 10. **Cleanup** — ลบ stale hex `--color-primary:#0d9488` ใน `@theme` (globals.css), comment "orange-600" ที่ไม่ตรงค่า

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IconX, IconAdjustmentsHorizontal } from "@tabler/icons-react";
+import { X, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
     Dialog,
@@ -313,7 +313,7 @@ export function FilterModal() {
                 aria-label={triggerAriaLabel}
                 className="rounded-full border-border h-11 px-4 font-medium hover:border-foreground transition-colors relative"
             >
-                    <IconAdjustmentsHorizontal className="w-4 h-4 mr-2" />
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
                     {activeFilterCount > 0 && (
                         <span aria-hidden="true" className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-primary-foreground bg-primary rounded-full animate-in zoom-in duration-200 border-2 border-background">
@@ -333,7 +333,7 @@ export function FilterModal() {
                             className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
                             aria-label={t.common?.close || "Close"}
                         >
-                            <IconX className="w-5 h-5 text-foreground" />
+                            <X className="w-5 h-5 text-foreground" />
                         </Button>
                     </DialogClose>
                     <DialogTitle className="text-lg font-bold text-foreground">

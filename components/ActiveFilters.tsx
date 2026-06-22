@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { IconX } from "@tabler/icons-react";
+import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -78,7 +78,7 @@ export function ActiveFilters() {
                         aria-label={(t.activeFilters?.removeFilter || "Remove {{label}} filter").replace('{{label}}', filter.label)}
                         className="w-7 h-7 min-w-[28px] flex items-center justify-center rounded-full hover:bg-muted-foreground/20 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                        <IconX className="w-3 h-3" />
+                        <X className="w-3 h-3" />
                     </button>
                 </Badge>
             ))}

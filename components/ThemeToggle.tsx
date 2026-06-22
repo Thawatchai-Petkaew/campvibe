@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { IconSun, IconDeviceLaptop, IconMoon } from "@tabler/icons-react";
+import { Sun, Laptop, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -16,9 +16,9 @@ interface ThemeButtonDef {
 }
 
 const THEME_OPTIONS: ThemeButtonDef[] = [
-    { value: "light", icon: IconSun, labelKey: "themeLight", testId: "btn--theme-light" },
-    { value: "system", icon: IconDeviceLaptop, labelKey: "themeSystem", testId: "btn--theme-system" },
-    { value: "dark", icon: IconMoon, labelKey: "themeDark", testId: "btn--theme-dark" },
+    { value: "light", icon: Sun, labelKey: "themeLight", testId: "btn--theme-light" },
+    { value: "system", icon: Laptop, labelKey: "themeSystem", testId: "btn--theme-system" },
+    { value: "dark", icon: Moon, labelKey: "themeDark", testId: "btn--theme-dark" },
 ];
 
 export function ThemeToggle() {

@@ -48,22 +48,22 @@ import {
     CardFooter,
 } from "@/components/ui/card";
 import {
-    IconHeart,
-    IconStar,
-    IconSearch,
-    IconBell,
-    IconUser,
-    IconSettings,
-    IconMapPin,
-    IconCalendar,
-    IconPhoto,
-    IconMenu2,
-    IconCheck,
-    IconX,
-    IconTent,
-    IconMountain,
-    IconSwimming,
-} from "@tabler/icons-react";
+    Heart,
+    Star,
+    Search,
+    Bell,
+    User,
+    Settings,
+    MapPin,
+    Calendar,
+    Image,
+    Menu,
+    Check,
+    X,
+    Tent,
+    Mountain,
+    Waves,
+} from "lucide-react";
 
 // Token color swatches to display in the Colors section
 const COLOR_SWATCHES: { label: string; bg: string; text: string }[] = [
@@ -305,7 +305,7 @@ export function PreviewClient() {
                     <div>
                         <p className="text-sm text-muted-foreground mb-3">Empty</p>
                         <div className="flex flex-col items-center justify-center h-32 rounded-xl border border-dashed border-border text-muted-foreground gap-2">
-                            <IconPhoto className="h-8 w-8 opacity-40" aria-hidden="true" />
+                            <Image className="h-8 w-8 opacity-40" aria-hidden="true" />
                             <span className="text-sm">No items yet</span>
                         </div>
                     </div>
@@ -321,18 +321,18 @@ export function PreviewClient() {
                 <SectionHeading>{t.preview.iconsSection}</SectionHeading>
                 <div className="flex flex-wrap gap-4">
                     {[
-                        { icon: IconHeart, label: "Heart" },
-                        { icon: IconStar, label: "Star" },
-                        { icon: IconSearch, label: "Search" },
-                        { icon: IconBell, label: "Bell" },
-                        { icon: IconUser, label: "User" },
-                        { icon: IconSettings, label: "Settings" },
-                        { icon: IconMapPin, label: "Location" },
-                        { icon: IconCalendar, label: "Calendar" },
-                        { icon: IconPhoto, label: "Photo" },
-                        { icon: IconMenu2, label: "Menu" },
-                        { icon: IconCheck, label: "Check" },
-                        { icon: IconX, label: "Close" },
+                        { icon: Heart, label: "Heart" },
+                        { icon: Star, label: "Star" },
+                        { icon: Search, label: "Search" },
+                        { icon: Bell, label: "Bell" },
+                        { icon: User, label: "User" },
+                        { icon: Settings, label: "Settings" },
+                        { icon: MapPin, label: "Location" },
+                        { icon: Calendar, label: "Calendar" },
+                        { icon: Image, label: "Photo" },
+                        { icon: Menu, label: "Menu" },
+                        { icon: Check, label: "Check" },
+                        { icon: X, label: "Close" },
                     ].map(({ icon: Icon, label }) => (
                         <div key={label} className="flex flex-col items-center gap-1.5">
                             <div className="p-2 rounded-lg bg-muted">
@@ -386,7 +386,7 @@ export function PreviewClient() {
                         <DropdownMenu defaultOpen={false}>
                             <DropdownMenuTrigger asChild aria-label="Profile menu">
                                 <Button variant="outline" className="gap-2">
-                                    <IconUser className="h-4 w-4" />
+                                    <User className="h-4 w-4" />
                                     Profile
                                 </Button>
                             </DropdownMenuTrigger>
@@ -408,7 +408,7 @@ export function PreviewClient() {
                         <Popover open={commandOpen} onOpenChange={setCommandOpen}>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className="gap-2" aria-label="Search location" data-testid="btn--preview-command">
-                                    <IconMapPin className="h-4 w-4" />
+                                    <MapPin className="h-4 w-4" />
                                     Search location
                                 </Button>
                             </PopoverTrigger>
@@ -438,9 +438,9 @@ export function PreviewClient() {
                         <p className="text-sm text-muted-foreground mb-3">pill</p>
                         <div className="flex flex-wrap gap-3">
                             {[
-                                { id: "hiking", label: "Hiking", icon: IconMountain },
-                                { id: "swimming", label: "Swimming", icon: IconSwimming },
-                                { id: "camping", label: "Camping", icon: IconTent },
+                                { id: "hiking", label: "Hiking", icon: Mountain },
+                                { id: "swimming", label: "Swimming", icon: Waves },
+                                { id: "camping", label: "Camping", icon: Tent },
                                 { id: "disabled-item", label: "Unavailable", disabled: true },
                             ].map((item) => (
                                 <FilterChip
@@ -461,9 +461,9 @@ export function PreviewClient() {
                         <p className="text-sm text-muted-foreground mb-3">card</p>
                         <div className="grid grid-cols-2 gap-4 max-w-sm">
                             {[
-                                { id: "campground", label: "Campground", icon: IconTent },
-                                { id: "mountain", label: "Mountain", icon: IconMountain },
-                                { id: "lake", label: "Lakefront", icon: IconSwimming },
+                                { id: "campground", label: "Campground", icon: Tent },
+                                { id: "mountain", label: "Mountain", icon: Mountain },
+                                { id: "lake", label: "Lakefront", icon: Waves },
                             ].map((item) => (
                                 <FilterChip
                                     key={item.id}
@@ -482,9 +482,9 @@ export function PreviewClient() {
                         <p className="text-sm text-muted-foreground mb-3">icon-card</p>
                         <div className="grid grid-cols-3 gap-3 max-w-sm">
                             {[
-                                { id: "drive", label: "Drive-in", icon: IconTent },
-                                { id: "walk", label: "Walk-in", icon: IconMountain },
-                                { id: "boat", label: "Boat", icon: IconSwimming },
+                                { id: "drive", label: "Drive-in", icon: Tent },
+                                { id: "walk", label: "Walk-in", icon: Mountain },
+                                { id: "boat", label: "Boat", icon: Waves },
                             ].map((item) => (
                                 <FilterChip
                                     key={item.id}
@@ -599,22 +599,22 @@ export function PreviewClient() {
                         <p className="text-sm text-muted-foreground mb-3">icon row (size-11 / size-9 / size-11)</p>
                         <div className="flex flex-wrap gap-3 items-center">
                             <Button size="icon-sm" variant="outline" aria-label="Icon sm">
-                                <IconSearch className="h-4 w-4" />
+                                <Search className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="outline" aria-label="Icon md (default)">
-                                <IconSearch className="h-4 w-4" />
+                                <Search className="h-4 w-4" />
                             </Button>
                             <Button size="icon-lg" variant="outline" aria-label="Icon lg">
-                                <IconSearch className="h-5 w-5" />
+                                <Search className="h-5 w-5" />
                             </Button>
                             <Button size="icon" variant="default" aria-label="Icon primary">
-                                <IconHeart className="h-4 w-4" />
+                                <Heart className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="ghost" aria-label="Icon ghost">
-                                <IconBell className="h-4 w-4" />
+                                <Bell className="h-4 w-4" />
                             </Button>
                             <Button size="icon" disabled aria-label="Icon disabled">
-                                <IconSettings className="h-4 w-4" />
+                                <Settings className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>

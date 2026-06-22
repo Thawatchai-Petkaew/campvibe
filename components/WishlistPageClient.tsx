@@ -7,8 +7,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconHeart, IconHeartFilled } from "@tabler/icons-react";
-import { AlertCircle } from "lucide-react";
+import { Heart, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { LoginModal } from "@/components/LoginModal";
@@ -33,7 +32,7 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
                 <h1 className="font-display text-2xl font-bold text-foreground mb-8">{t.wishlist.pageTitle}</h1>
                 <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
                     <div className="flex items-center justify-center w-20 h-20 rounded-full bg-muted">
-                        <IconHeart className="w-10 h-10 text-muted-foreground" aria-hidden="true" />
+                        <Heart className="w-10 h-10 text-muted-foreground" aria-hidden="true" />
                     </div>
                     <div className="space-y-2 max-w-xs">
                         <h2 className="text-xl font-bold text-foreground">{t.wishlist.guestHeading}</h2>
@@ -76,7 +75,7 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
             <h1 className="font-display text-2xl font-bold text-foreground mb-8">{t.wishlist.pageTitle}</h1>
             <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
                 <div className="flex items-center justify-center w-20 h-20 rounded-full bg-muted">
-                    <IconHeartFilled className="w-10 h-10 text-muted-foreground/40" aria-hidden="true" />
+                    <Heart className="w-10 h-10 text-muted-foreground/40 fill-current" aria-hidden="true" />
                 </div>
                 <div className="space-y-2 max-w-xs">
                     <h2 className="text-xl font-bold text-foreground">{t.wishlist.emptyHeading}</h2>

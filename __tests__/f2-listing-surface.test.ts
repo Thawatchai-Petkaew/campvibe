@@ -14,9 +14,9 @@
  *   AC-a11y-5       Badge count has aria-hidden="true"
  *   AC-a11y-6       ActiveFilters remove button has aria-label from i18n + focus ring
  *   AC-a11y-7       ActiveFilters clearAll button has aria-label from i18n
- *   AC-icons-1      FilterModal uses tabler icons for static UI (X, AdjustmentsHorizontal)
- *   AC-icons-2      ActiveFilters uses tabler IconX
- *   AC-icons-3      CampgroundCard uses tabler IconHeart / IconHeartFilled
+ *   AC-icons-1      FilterModal uses lucide icons for static UI (X, SlidersHorizontal)
+ *   AC-icons-2      ActiveFilters uses lucide X
+ *   AC-icons-3      CampgroundCard uses lucide Heart (filled via fill-current)
  *   AC-i18n-1       filter.titleWithCount exists in both en + th locales
  *   AC-i18n-2       activeFilters.removeFilter exists in both en + th locales
  *   AC-i18n-3       activeFilters.clearAll exists in both en + th locales
@@ -99,9 +99,9 @@ describe("palette: text-white scope", () => {
         expect(matches!.length).toBe(1);
     });
 
-    it("AC-palette-2: the text-white in CampgroundCard is on IconHeart (not on a container or text element)", () => {
-        // The allowed text-white must appear on the IconHeart line
-        expect(campgroundCardSrc).toMatch(/IconHeart[^>]*text-white/);
+    it("AC-palette-2: the text-white in CampgroundCard is on Heart (lucide, not on a container or text element)", () => {
+        // The allowed text-white must appear on the Heart lucide icon line
+        expect(campgroundCardSrc).toMatch(/<Heart[^>]*text-white/);
     });
 
     it("AC-palette-2: FilterModal has no text-white", () => {
@@ -223,53 +223,53 @@ describe("section--active-filters: clearAll button a11y", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-icons-1  FilterModal uses tabler icons for static UI controls
+// AC-icons-1  FilterModal uses lucide icons for static UI controls
 // ─────────────────────────────────────────────────────────────
-describe("modal--filter: tabler icons for static UI", () => {
-    it("AC-icons-1: imports IconX from @tabler/icons-react", () => {
-        expect(filterModalSrc).toMatch(/import.*IconX.*from ["']@tabler\/icons-react["']/);
+describe("modal--filter: lucide icons for static UI", () => {
+    it("AC-icons-1: imports X from lucide-react", () => {
+        expect(filterModalSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
     });
 
-    it("AC-icons-1: imports IconAdjustmentsHorizontal from @tabler/icons-react", () => {
-        expect(filterModalSrc).toMatch(/import.*IconAdjustmentsHorizontal.*from ["']@tabler\/icons-react["']/);
+    it("AC-icons-1: imports SlidersHorizontal from lucide-react", () => {
+        expect(filterModalSrc).toMatch(/import.*SlidersHorizontal.*from ["']lucide-react["']/);
     });
 
-    it("AC-icons-1: uses IconX in JSX (close button)", () => {
-        expect(filterModalSrc).toMatch(/<IconX\b/);
+    it("AC-icons-1: uses X in JSX (close button)", () => {
+        expect(filterModalSrc).toMatch(/<X\b/);
     });
 
-    it("AC-icons-1: uses IconAdjustmentsHorizontal in JSX (trigger button)", () => {
-        expect(filterModalSrc).toMatch(/<IconAdjustmentsHorizontal\b/);
+    it("AC-icons-1: uses SlidersHorizontal in JSX (trigger button)", () => {
+        expect(filterModalSrc).toMatch(/<SlidersHorizontal\b/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-icons-2  ActiveFilters uses tabler IconX
+// AC-icons-2  ActiveFilters uses lucide X
 // ─────────────────────────────────────────────────────────────
-describe("section--active-filters: tabler icon", () => {
-    it("AC-icons-2: imports IconX from @tabler/icons-react", () => {
-        expect(activeFiltersSrc).toMatch(/import.*IconX.*from ["']@tabler\/icons-react["']/);
+describe("section--active-filters: lucide icon", () => {
+    it("AC-icons-2: imports X from lucide-react", () => {
+        expect(activeFiltersSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
     });
 
-    it("AC-icons-2: uses <IconX in JSX", () => {
-        expect(activeFiltersSrc).toMatch(/<IconX\b/);
+    it("AC-icons-2: uses <X in JSX", () => {
+        expect(activeFiltersSrc).toMatch(/<X\b/);
     });
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-icons-3  CampgroundCard uses tabler heart icons
+// AC-icons-3  CampgroundCard uses lucide Heart (filled via fill-current)
 // ─────────────────────────────────────────────────────────────
-describe("card--campground: tabler heart icons", () => {
-    it("AC-icons-3: imports IconHeart from @tabler/icons-react", () => {
-        expect(campgroundCardSrc).toMatch(/import.*IconHeart.*from ["']@tabler\/icons-react["']/);
+describe("card--campground: lucide heart icons", () => {
+    it("AC-icons-3: imports Heart from lucide-react", () => {
+        expect(campgroundCardSrc).toMatch(/import.*\bHeart\b.*from ["']lucide-react["']/);
     });
 
-    it("AC-icons-3: imports IconHeartFilled from @tabler/icons-react", () => {
-        expect(campgroundCardSrc).toMatch(/import.*IconHeartFilled.*from ["']@tabler\/icons-react["']/);
+    it("AC-icons-3: filled heart uses fill-current class", () => {
+        expect(campgroundCardSrc).toMatch(/fill-current/);
     });
 
     it("AC-icons-3: heart icons are aria-hidden (decorative, label is on button)", () => {
-        // Both IconHeart and IconHeartFilled must have aria-hidden="true"
+        // Both Heart instances must have aria-hidden="true"
         const hiddenMatches = campgroundCardSrc.match(/aria-hidden=["']true["']/g);
         expect(hiddenMatches).not.toBeNull();
         expect(hiddenMatches!.length).toBeGreaterThanOrEqual(2);

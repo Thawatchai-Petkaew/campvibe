@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Menu, User, Filter, Globe, Bell, Check, X } from "lucide-react";
-import { IconHeart } from "@tabler/icons-react";
+import { Search, Menu, User, Filter, Globe, Bell, Check, X, Heart } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { handleSignOut } from "@/lib/actions";
@@ -147,7 +146,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 aria-label={t.wishlist.navAriaLabel}
                                 className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
-                                <IconHeart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                                <Heart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
                             </Link>
                         )}
 
