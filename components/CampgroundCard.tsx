@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { wishlistAPI } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 interface CampgroundCardProps {
     campground: CampSite & { location: { province: string }; images?: { url: string }[] };
@@ -110,10 +111,11 @@ export function CampgroundCard({
 
                     {/* Image Slider */}
                     <div className="relative w-full h-full">
-                        <img
+                        <ImageWithFallback
                             src={imageUrls[currentIndex]}
                             alt={name}
-                            className="object-cover w-full h-full group-hover:scale-105 transition duration-500 ease-out"
+                            className="w-full h-full"
+                            imgClassName="object-cover group-hover:scale-105 transition duration-500 ease-out"
                         />
 
                         {/* Navigation Arrows (visible on hover) */}

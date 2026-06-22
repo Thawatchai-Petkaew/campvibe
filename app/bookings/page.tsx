@@ -14,6 +14,7 @@ import {
     Tent,
     Loader2,
 } from "lucide-react";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog,
@@ -138,10 +139,11 @@ export default function MyBookingsPage() {
                                     <div className="flex flex-col md:flex-row">
                                         {/* Image Section */}
                                         <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
-                                            <img
+                                            <ImageWithFallback
                                                 src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
-                                                alt={booking.campSite?.nameEn || booking.campground?.nameEn}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                alt={booking.campSite?.nameEn || booking.campground?.nameEn || ""}
+                                                className="w-full h-full"
+                                                imgClassName="object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
                                             <div className="absolute top-4 left-4">
                                                 <Badge

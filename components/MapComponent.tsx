@@ -74,6 +74,11 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                                 src={coverImage}
                                 alt={campground.nameTh}
                                 className="w-full h-32 object-cover"
+                                onError={(e) => {
+                                    const el = e.currentTarget;
+                                    el.style.display = 'none';
+                                    if (el.parentElement) el.parentElement.style.background = 'var(--muted)';
+                                }}
                             />
                             <div className="p-3">
                                 <h3 className="font-bold text-foreground leading-tight mb-1 truncate">

@@ -12,6 +12,7 @@ import {
     Search,
     ArrowUpDown,
 } from "lucide-react";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
@@ -218,7 +219,7 @@ export default function MyCampSitesPage() {
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
                                                 {camp.images?.length ? (
-                                                    <img src={camp.images[0].url} className="w-full h-full object-cover" alt="" />
+                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" />
                                                 ) : (
                                                     <Tent className="w-full h-full p-4 text-muted-foreground/40" />
                                                 )}

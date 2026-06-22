@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 interface ImageUploadProps {
     value: string[];
@@ -63,10 +64,11 @@ export function ImageUpload({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {value.map((url) => (
                     <div key={url} className="relative aspect-square rounded-xl overflow-hidden group border border-border">
-                        <img
+                        <ImageWithFallback
                             src={url}
                             alt={t.newCampground.imagePreview}
-                            className="object-cover w-full h-full"
+                            className="w-full h-full"
+                            imgClassName="object-cover"
                         />
                         <button
                             type="button"
