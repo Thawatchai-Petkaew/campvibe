@@ -132,8 +132,10 @@ describe("Adaptive gallery grid — CampgroundDetailClient", () => {
         expect(detailSrc).toMatch(/ImageWithFallback/);
     });
 
-    it("AC-grid-6: no raw <img src={images[ fixed-index ]} in hero grid", () => {
-        expect(detailSrc).not.toMatch(/<img src=\{images\[/);
+    it("AC-grid-6: no raw <img with src={images[N]} in hero grid (multiline-safe)", () => {
+        // Use DOTALL so the regex catches `<img\n  src={images[` (multiline formatting)
+        // The old staging bug had <img and src= on separate lines, which the single-line regex missed.
+        expect(detailSrc).not.toMatch(/<img[\s\S]{0,80}src=\{images\[/);
     });
 
     it("AC-grid-7: mobile open-gallery button has h-11 (tap ≥44px)", () => {
