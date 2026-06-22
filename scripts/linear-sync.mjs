@@ -186,7 +186,6 @@ function cleanTitle(t) { return t.replace(/\[[a-z-]+\]\s*/g, "").trim(); }
 // ── Delivery artifact store: docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ ──
 // feature = Linear project · epic = parent issue (fallback: the "·" title prefix) · persona = label.
 const PERSONAS = ["host", "camper", "admin", "platform"];
-const STORY_ARTIFACTS = ["design", "tech", "test", "review", "delivery"]; // + story.md (from STORY-TICKET)
 function slug(s) {
   return String(s || "").toLowerCase().trim()
     .replace(/[^\w฀-๿]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "untitled";
@@ -328,20 +327,23 @@ async function cmdAudit() {
   console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/STORY-TICKET.md`);
   if (bad) process.exitCode = 11;
 
-  // ── Delivery artifact-store consistency (docs/delivery/) ──
-  // Not-yet-scaffolded stories = info only (no fail) so old work isn't forced to backfill.
-  // Once a story HAS a folder it must stay complete + its status header must match Linear → fatal.
+  // ── Delivery artifact-store consistency (docs/delivery/) — ON-DEMAND / role-driven ──
+  // story.md always; a role artifact is expected ONLY when the matching role:* label proves
+  // that role acted on the story. No forced N/A, no fixed set. Not-yet-scaffolded = info;
+  // completed stories are already exempt (filtered above).
+  const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "delivery.md"]];
   let notYet = 0, broken = 0, stale = 0;
   for (const s of stories) {
     const { sdir } = deliveryDirs(s);
     const storyFile = path.join(sdir, "story.md");
-    if (!fs.existsSync(storyFile)) { notYet++; console.log(`  · ${s.identifier} no artifact folder yet  (run: node scripts/linear-sync.mjs scaffold ${s.identifier})`); continue; }
-    const need = ["story", ...STORY_ARTIFACTS].filter((a) => !fs.existsSync(path.join(sdir, `${a}.md`)));
-    if (need.length) { broken++; console.log(`  ✗ ${s.identifier} incomplete: missing ${need.map((n) => n + ".md").join(",")}`); }
+    if (!fs.existsSync(storyFile)) { notYet++; console.log(`  · ${s.identifier} no artifact folder yet  (scaffold ${s.identifier})`); continue; }
+    const roleLabels = s.labels.nodes.map((l) => l.name.toLowerCase()).filter((n) => n.startsWith("role:"));
+    const missing = ROLE_ART.filter(([k, f]) => roleLabels.some((n) => n.includes(k)) && !fs.existsSync(path.join(sdir, f))).map(([, f]) => f);
+    if (missing.length) { broken++; console.log(`  ✗ ${s.identifier} a role acted but its artifact is missing: ${missing.join(",")}`); }
     const m = fs.readFileSync(storyFile, "utf8").match(/^status:\s*(.+)$/m);
-    if (m && !m[1].toLowerCase().includes(s.state.name.toLowerCase())) { stale++; console.log(`  ⚠ ${s.identifier} status header "${m[1].trim()}" ≠ Linear "${s.state.name}"`); }
+    if (m && !m[1].toLowerCase().includes(s.state.name.toLowerCase())) { stale++; console.log(`  ⚠ ${s.identifier} status "${m[1].trim()}" ≠ Linear "${s.state.name}"`); }
   }
-  console.log(`artifacts: ${notYet} not-yet-scaffolded · ${broken} incomplete · ${stale} status-stale`);
+  console.log(`artifacts: ${notYet} not-yet-scaffolded · ${broken} role-artifact-missing · ${stale} status-stale`);
   if (broken || stale) process.exitCode = 11;
 }
 
@@ -452,11 +454,12 @@ async function cmdScaffold(id) {
   const desc = (issue.description || "").trim();
   const body = desc || fs.readFileSync(TPL("STORY-TICKET"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
   if (writeIfAbsent(path.join(sdir, "story.md"), header + body + "\n")) made.push("story.md");
-  for (const a of STORY_ARTIFACTS) {
-    if (writeIfAbsent(path.join(sdir, `${a}.md`), applyVars(fs.readFileSync(TPL(a), "utf8"), vars))) made.push(`${a}.md`);
-  }
+  // Role artifacts (design/tech/test/review/delivery) are created ON-DEMAND by the role that
+  // works the story (copy from `.claude/templates/<artifact>.md`) — NOT pre-created here. This
+  // keeps the folder to what the work actually has (no forced N/A files).
   console.log(`✓ scaffold ${issue.identifier} → ${sdir}`);
-  console.log(made.length ? `  created: ${made.join(", ")}` : "  (all artifacts already exist — nothing overwritten)");
+  console.log(`  created: ${made.join(", ") || "(story.md + containers already existed)"}`);
+  console.log("  role artifacts on-demand: design (UI) · tech (rich API) · test (qa) · review (security) · delivery (devops)");
 }
 
 // index — regenerate docs/delivery/INDEX.md from Linear (feature→epic→story tree + by-persona view).

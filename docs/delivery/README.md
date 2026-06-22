@@ -16,15 +16,17 @@ docs/delivery/
     └── <epic-slug>/
         ├── epic.md                  # requirement/KPI/scope + story rollup
         └── <CAM-id>-<story-slug>/
-            ├── story.md             # STORY-TICKET + IDs (AC-n / BR-n) — PO/analyst
-            ├── design.md            # designer (N/A ถ้าไม่มี UI)
-            ├── test.md              # qa — AC→test matrix
-            ├── review.md            # security — 6-area + verdict
-            ├── delivery.md          # devops — ship record
-            └── tech.md              # architect (OPTIONAL — rich API only)
+            ├── story.md             # STORY-TICKET + IDs (AC-n / BR-n) — PO/analyst (ไฟล์เดียวที่สร้างเสมอตอน scaffold)
+            ├── design.md            # designer — สร้าง on-demand เฉพาะเมื่อมี UI
+            ├── test.md              # qa — AC→test matrix (on-demand)
+            ├── review.md            # security — 6-area + verdict (on-demand)
+            ├── delivery.md          # devops — ship record (on-demand)
+            └── tech.md              # architect (OPTIONAL — rich API only, on-demand)
 ```
 
 ## กติกา
+- **On-demand / role-driven:** `story.md` คือ artifact เดียวที่ scaffold สร้างเสมอ (พร้อม container `feature.md`/`epic.md`) · role artifact (`design/test/review/delivery.md`, `tech.md`) สร้าง **เมื่อ role นั้นลงมือทำจริง** (copy จาก `.claude/templates/*`) — ไม่ pre-create และ **ไม่** pad ด้วย `N/A` · story ที่ไม่มี UI ก็ไม่มี `design.md` (ถูกต้อง ไม่ใช่ "ไม่ครบ")
+- **audit ผูกกับ `role:*` labels:** คาดหวัง artifact ของ role เฉพาะเมื่อ story สะสม label ของ role นั้น (`role:*designer*`→`design.md` · `role:*qa*`→`test.md` · `role:*security*`→`review.md` · `role:*devops*`→`delivery.md`)
 - ทุกไฟล์มี YAML header (`linear`/`feature`/`epic`/`persona`/`artifact`/`owner`/`status`/`version`/`updated`) + `## Changelog`
 - **DRY + traceability:** อ้าง canonical source (`.claude/rules/ux.md` validation catalog · `DESIGN.md` tokens · `docs/adr/*` · `prisma/schema.prisma`) ไม่ copy ซ้ำ; โยงข้ามไฟล์ด้วย ID `AC-n`/`BR-n`
 - **requirement เปลี่ยน → กลับมาอัปเดต:** story.md (bump version + Changelog) → cascade design/tech/test → epic.md rollup → (ถ้า scope ขยับ) `docs/project/FEATURE-BACKLOG.md`/`master-plan.md` → sync Linear → regenerate INDEX

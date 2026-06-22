@@ -14,10 +14,10 @@ Read first: `docs/delivery/README.md` (the SoT split + structure) · `.claude/SK
 ## Quick Reference
 
 ```text
-intake (new story)   → node scripts/linear-sync.mjs scaffold <CAM-id>     # create folder + files from templates
-each role acts        → fill YOUR artifact + keep its `status:` header = Linear state
+intake (new story)   → node scripts/linear-sync.mjs scaffold <CAM-id>     # create folder + story.md only (role artifacts on-demand)
+each role acts        → author YOUR artifact from `.claude/templates/*` when you act + keep its `status:` header = Linear state
 every gate            → node scripts/linear-sync.mjs index                # regen docs/delivery/INDEX.md
-gate G3 / quality-gate→ node scripts/linear-sync.mjs audit                # artifact↔Linear consistency (exit 11 on drift)
+gate G3 / quality-gate→ node scripts/linear-sync.mjs audit                # expected artifact ↔ `role:*` labels (exit 11 on drift)
 requirement changed   → update story.md (bump version + Changelog) → cascade design/tech/test → epic rollup → (scope) Master-Plan/backlog → Linear → index
 ```
 
@@ -42,11 +42,11 @@ Layout: `docs/delivery/<feature-slug>/feature.md` · `<epic-slug>/epic.md` · `<
 
 ## Workflow
 
-1. **Scaffold at intake.** `node scripts/linear-sync.mjs scaffold <CAM-id>` → creates the feature/epic folders (idempotent) + the story folder with `story.md` + `design/tech/test/review/delivery.md`, headers prefilled from Linear (feature/epic/persona/status). Re-running never clobbers existing content.
+1. **Scaffold at intake.** `node scripts/linear-sync.mjs scaffold <CAM-id>` → creates the feature/epic containers (idempotent) + the story folder with **`story.md` only** (seeded from the Linear description), headers prefilled from Linear (feature/epic/persona/status). Role artifacts (`design/tech/test/review/delivery.md`) are **NOT** pre-created — each role authors its own from `.claude/templates/*` when it acts. Re-running never clobbers existing content.
 2. **Each role authors its artifact** when it acts (see the ownership map). Use **stable IDs**: number AC `AC-1…` and rules `BR-1…` in `story.md`; downstream artifacts **reference the IDs** (not re-describe). Reference canonical sources — `.claude/rules/ux.md` (validation catalog), `DESIGN.md` (tokens), `docs/adr/*`, `prisma/schema.prisma` — never re-copy.
 3. **Keep the header current.** On every state move, the owning agent updates the file's `status:` header to match Linear (the `update-status` skill moves Linear; this keeps the file aligned) and appends a `## Changelog` line on a material change (`vN (date) — what changed · CAM-id`).
 4. **On requirement change (cascade).** Update `story.md` (bump `version` + Changelog) → update/flag-stale `design.md`/`tech.md`/`test.md` → refresh `epic.md` rollup → if scope shifts, update `docs/project/FEATURE-BACKLOG.md` + `master-plan.md` → sync Linear → `index`.
-5. **Verify.** `node scripts/linear-sync.mjs index` (regen) + `… audit` (a scaffolded story that is incomplete or status-stale fails; not-yet-scaffolded is info).
+5. **Verify.** `node scripts/linear-sync.mjs index` (regen) + `… audit` (audit ties expected artifacts to the story's accumulated `role:*` labels: a role acted but its artifact is missing = fatal; not-yet-scaffolded = info; a completed story = exempt).
 
 ## Examples
 
@@ -67,10 +67,10 @@ After scaffolding, the loop proceeds normally (G1→G5); each role fills its art
 
 ## Standards
 
-- **Ownership (who writes what):** PO/analyst → `feature.md`/`epic.md`/`story.md`; architect → `feature.md ## Architecture` + `story.md ## Data` + `tech.md`(optional) + ADRs; designer → `design.md` (N/A if no UI); qa → `test.md`; security → `review.md`; devops → `delivery.md`; orchestrator → scaffold + `INDEX.md` + audit.
+- **Ownership (who writes what):** PO/analyst → `feature.md`/`epic.md`/`story.md`; architect → `feature.md ## Architecture` + `story.md ## Data` + `tech.md`(optional) + ADRs; designer → `design.md` (only when the story has UI); qa → `test.md`; security → `review.md`; devops → `delivery.md`; orchestrator → scaffold + `INDEX.md` + audit.
 - **Header contract:** every file carries `linear`/`feature`/`epic`/`persona`/`artifact`/`owner`/`status`/`version`/`updated` + a `## Changelog`. `status` mirrors the Linear state.
 - **DRY + traceability:** reference canonical sources by `AC-n`/`BR-n`, never duplicate. A new validated field goes into the `ux.md` catalog **first**, then referenced.
-- **Full set, mark N/A:** `story/design/test/review/delivery` always present (inapplicable → `N/A — <reason>`); `tech.md` only for a rich API contract.
+- **On-demand / role-driven:** `story.md` is the only always-created artifact (scaffold makes it). Each role artifact (`design/test/review/delivery.md`, `tech.md` for a rich API contract) is authored from `.claude/templates/*` **only when that role acts** — never pre-created and never padded with `N/A`. `audit` expects a role's artifact only when the story carries that role's `role:*` label (`role:*designer*`→`design.md`, `role:*qa*`→`test.md`, `role:*security*`→`review.md`, `role:*devops*`→`delivery.md`); a no-UI story simply has no `design.md` and that is correct.
 - **Files first, then Linear:** on a change, edit the file (+ version) before syncing Linear; `INDEX.md` is generated — never hand-edit.
 
 ## Common Rationalizations
@@ -81,13 +81,13 @@ After scaffolding, the loop proceeds normally (G1→G5); each role fills its art
 | "I'll copy the regex/error into design + test so each is self-contained." | That drifts. Reference the `.claude/rules/ux.md` catalog by field + `BR-n`; one source. |
 | "Requirement changed — I'll just update Linear." | Update `story.md` first (bump version + Changelog) and cascade design/tech/test, then Linear. The audit catches a skipped file. |
 | "I'll hand-edit INDEX.md to add my story." | INDEX is generated from Linear — run `node scripts/linear-sync.mjs index`. |
-| "This story has no UI, so I'll delete design.md." | Keep it; write `N/A — no UI`. The full set stays present (audit checks it). |
+| "This story has no UI — should I add a `N/A` design.md?" | No — there is simply no `design.md` (the designer never acted). The `role:*` labels tell audit what to expect; don't pad with `N/A` files. |
 | "I'll scaffold later when it's done." | Scaffold at intake so each role fills its artifact as it acts — not a big write-up at the end. |
 
 ## Verify (exit criteria)
 
-- [ ] `node scripts/linear-sync.mjs scaffold <CAM-id>` created the feature/epic/story folders + files with correct headers (idempotent on re-run).
-- [ ] Each artifact references canonical sources by `AC-n`/`BR-n` (no duplicated regex/tokens); `tech.md` present only for a rich API contract (else `story.md ## Data`).
-- [ ] Every file's `status:` header matches the Linear state; a material change bumped `version` + added a `## Changelog` line.
-- [ ] `node scripts/linear-sync.mjs index` regenerated `docs/delivery/INDEX.md`; `… audit` is clean (no incomplete/stale scaffolded story).
+- [ ] `node scripts/linear-sync.mjs scaffold <CAM-id>` created the feature/epic containers + the story folder with **`story.md`** (correct headers, idempotent on re-run); role artifacts were NOT pre-created.
+- [ ] Each role authored its own artifact from `.claude/templates/*` only when it acted (no `N/A` padding); each references canonical sources by `AC-n`/`BR-n` (no duplicated regex/tokens); `tech.md` present only for a rich API contract (else `story.md ## Data`).
+- [ ] Every authored file's `status:` header matches the Linear state; a material change bumped `version` + added a `## Changelog` line.
+- [ ] `node scripts/linear-sync.mjs index` regenerated `docs/delivery/INDEX.md`; `… audit` is clean (every `role:*` label has its artifact present; a no-UI story has no `design.md` and that is fine).
 - [ ] On a requirement change, the cascade ran (story → design/tech/test → epic rollup → Master-Plan/backlog if scope → Linear → index).
