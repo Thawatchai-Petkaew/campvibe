@@ -27,6 +27,7 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     district,
     startDate,
     endDate,
+    guests,
     min,
     max,
     access,
@@ -72,7 +73,25 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     if (max) where.priceLow.lte = parseFloat(max);
   }
 
-  // 5. Multi-select taxonomy filters (AND logic) — S4a: taxonomy now lives in the `options`
+  // 5. Guest-capacity filter — only include camps that can host at least N guests.
+  // Uses CampSite.maxGuestsPerDay (the authoritative camp-level capacity field, set by
+  // the operator). Camps where maxGuestsPerDay is NULL have no explicit capacity set and
+  // MUST remain visible for all guest counts (we cannot exclude capacity-unknown camps).
+  // Guard: only apply when guests is a positive integer; ignore 0 / NaN / missing.
+  //
+  // SQL emitted: WHERE (maxGuestsPerDay >= N OR maxGuestsPerDay IS NULL)
+  // We push into where.AND so we never clobber where.OR (used by keyword search, step 2).
+  const guestsNum = guests !== undefined ? parseInt(guests, 10) : NaN;
+  if (!isNaN(guestsNum) && guestsNum > 0) {
+    if (!where.AND) where.AND = [];
+    const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+    andArray.push({
+      OR: [{ maxGuestsPerDay: { gte: guestsNum } }, { maxGuestsPerDay: null }],
+    } as Prisma.CampSiteWhereInput);
+    where.AND = andArray;
+  }
+
+  // 6. Multi-select taxonomy filters (AND logic) — S4a: taxonomy now lives in the `options`
   // MasterData relation. Each selected code must be present, so AND one
   // `options: { some: { code } }` per code. Codes are globally unique (MasterData.code is the
   // PK) so the group is implied and need not be matched.
@@ -95,7 +114,7 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   addOptionFilter(activities);
   addOptionFilter(terrain);
 
-  // 6. Availability Filter (used only when dates are provided)
+  // 7. Availability Filter (used only when dates are provided)
   if (startDate && endDate) {
     where.spots = {
       some: {

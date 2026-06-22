@@ -62,6 +62,7 @@ export default async function Home({ searchParams }: HomeProps) {
     district,
     startDate,
     endDate,
+    guests,
     min,
     max,
     access,
