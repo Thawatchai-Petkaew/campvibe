@@ -13,22 +13,22 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 1. **Spec-first** — no code without a spec; every piece of code must trace back to a ticket/AC. If the prompt is ambiguous → stop and write the spec first.
 2. **One atomic story at a time** — finish it for real (code + states + validation + self-test) before moving on. Never write for the future or leave dead code.
 3. **Self-verify before handoff** — run the real commands for your own domain (lint/type/test/scan). Never hand off work you have not verified.
-4. **Read memory before working** — every agent reads `std/<own>.md` + `DESIGN.md` (for UI work) before starting, every time.
+4. **Read memory before working** — every agent reads `.claude/rules/<own>.md` + `DESIGN.md` (for UI work) before starting, every time.
 5. **Never skip a gate** — stop for human approval at G1 Scope · G2 Design · G3 Merge→staging · G4 Staging sign-off · G5 Go-live (prod).
 6. **Lean** — anything you add must answer how it makes the work better; otherwise cut it.
 
-## Standards (details in std/)
+## Standards (details in .claude/rules/)
 
-- Code → `std/code.md` · API/Backend → `std/api.md` · Security → `std/security.md`
-- QA/Test → `std/qa.md` · Architecture → `std/architecture.md` · Discovery → `std/discovery.md` · Ops → `std/ops.md`
-- Observability → `std/observability.md` · Performance → `std/performance.md`
-- Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — read before every UI task: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (blocks PR) · SEO/AEO → `std/seo.md` · UX Validation + PDPA → `std/ux.md`
+- Code → `.claude/rules/code.md` · API/Backend → `.claude/rules/api.md` · Security → `.claude/rules/security.md`
+- QA/Test → `.claude/rules/qa.md` · Architecture → `.claude/rules/architecture.md` · Discovery → `.claude/rules/discovery.md` · Ops → `.claude/rules/ops.md`
+- Observability → `.claude/rules/observability.md` · Performance → `.claude/rules/performance.md`
+- Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — read before every UI task: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (blocks PR) · SEO/AEO → `.claude/rules/seo.md` · UX Validation + PDPA → `.claude/rules/ux.md`
 
 ## Quality gates (mandatory before merge — `/quality-gate`)
 
 `npm run lint` · `npm run typecheck` · `npm test` (coverage ≥80% on new code) · `npm run build` · `npm audit --omit=dev` (0 high/critical) · design gate (UI work)
 
-## Env & Definition of Done (3-env — details in `std/ops.md`)
+## Env & Definition of Done (3-env — details in `.claude/rules/ops.md`)
 
 Local Dev → **Staging** (`staging` branch, auto deploy) → **Production** (`main`, promote + tag) · separate staging/prod DBs
 

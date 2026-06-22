@@ -1,6 +1,6 @@
 ---
 name: seo-and-aeo
-description: Standard for making CampVibe's public surfaces crawlable and machine-readable from the start. Use when building a public page (camp list/detail, host profile, article). Use when adding metadata, JSON-LD, sitemap/robots, or hreflang. Use when deciding index vs noindex on a route. Memory for the Frontend role (Designer owns semantic/a11y, Backend supplies publishable data); pairs with DESIGN.md, std/performance.md, std/architecture.md, std/api.md.
+description: Standard for making CampVibe's public surfaces crawlable and machine-readable from the start. Use when building a public page (camp list/detail, host profile, article). Use when adding metadata, JSON-LD, sitemap/robots, or hreflang. Use when deciding index vs noindex on a route. Memory for the Frontend role (Designer owns semantic/a11y, Backend supplies publishable data); pairs with DESIGN.md, .claude/rules/performance.md, .claude/rules/architecture.md, .claude/rules/api.md.
 ---
 
 # SEO & AEO
@@ -19,8 +19,8 @@ Public surfaces have to be crawlable and machine-readable from the first commit,
 **NOT for:**
 
 - Designing heading/content hierarchy or the a11y baseline — that's the Designer's job; see `DESIGN.md` (semantic HTML / a11y is not duplicated here)
-- Defining the data model or API contract — hand to Architect/Backend; see `std/architecture.md` and `std/api.md`. This std only consumes data that is already publishable
-- Profiling/budgeting Core Web Vitals beyond the rules below — see `std/performance.md`
+- Defining the data model or API contract — hand to Architect/Backend; see `.claude/rules/architecture.md` and `.claude/rules/api.md`. This std only consumes data that is already publishable
+- Profiling/budgeting Core Web Vitals beyond the rules below — see `.claude/rules/performance.md`
 
 > Read before working: this file + `CLAUDE.md` + `DESIGN.md`. For a public page, compare against the real route in `app/` and the data source in `prisma/schema.prisma`.
 
@@ -63,7 +63,7 @@ One `h1` per page, ordered `h2/h3`, landmarks (`header/nav/main/footer`), comple
 
 ### 6. Performance (Core Web Vitals)
 
-Budget LCP/CLS/INP must pass; use `next/image` for every image + `priority` on above-the-fold images + set `width/height` to prevent CLS; `preconnect` fonts. CWV budgeting/profiling detail lives in `std/performance.md`.
+Budget LCP/CLS/INP must pass; use `next/image` for every image + `priority` on above-the-fold images + set `width/height` to prevent CLS; `preconnect` fonts. CWV budgeting/profiling detail lives in `.claude/rules/performance.md`.
 
 ### 7. sitemap & robots
 

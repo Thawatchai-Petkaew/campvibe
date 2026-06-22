@@ -1,6 +1,6 @@
 ---
 name: architecture-and-data
-description: Standard for designing CampVibe's data model (Prisma), API contracts, component boundaries, and ADRs. Use when shaping an entity/field/schema for a story; when designing or reviewing an API contract before it hands to Backend; when a decision is hard to reverse or crosses modules; or when a field name looks UI-shaped. Memory for the Architect role; pairs with CLAUDE.md, std/api.md, std/security.md, std/ux.md, prisma/schema.prisma.
+description: Standard for designing CampVibe's data model (Prisma), API contracts, component boundaries, and ADRs. Use when shaping an entity/field/schema for a story; when designing or reviewing an API contract before it hands to Backend; when a decision is hard to reverse or crosses modules; or when a field name looks UI-shaped. Memory for the Architect role; pairs with CLAUDE.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/ux.md, prisma/schema.prisma.
 ---
 
 # Architecture & Data Modeling
@@ -12,18 +12,18 @@ Data is atomic and AI-ready or it is rework waiting to happen: store the smalles
 ## When to Use
 
 - Designing a data model, entity, or field for the current story (Prisma + Postgres)
-- Designing an API contract before it hands off to Backend (`std/api.md`)
+- Designing an API contract before it hands off to Backend (`.claude/rules/api.md`)
 - Deciding whether to split a field (Resolution Boundary test)
 - Snapshotting/crystallizing values on a transactional document (Order/Booking/Invoice)
 - Recording a hard-to-reverse or cross-module decision as an ADR; flagging a trade-off for a human at G2
 
 **NOT for:**
 
-- Writing the implementation or migration yourself — hand to Backend (`std/api.md`, `std/code.md`)
-- Building UI flow / design — hand to Designer (`DESIGN.md`, `std/ux.md`)
+- Writing the implementation or migration yourself — hand to Backend (`.claude/rules/api.md`, `.claude/rules/code.md`)
+- Building UI flow / design — hand to Designer (`DESIGN.md`, `.claude/rules/ux.md`)
 - Deciding a trade-off on the human's behalf — escalate at **G2** (`CLAUDE.md` gates)
 
-> Read before working: this file + `CLAUDE.md` + `std/api.md` (the API contract hands off to Backend). Work that touches a real schema must be diffed against `prisma/schema.prisma`.
+> Read before working: this file + `CLAUDE.md` + `.claude/rules/api.md` (the API contract hands off to Backend). Work that touches a real schema must be diffed against `prisma/schema.prisma`.
 
 ## Principles
 
@@ -51,7 +51,7 @@ Link relations by ID (`@relation`); add an index on columns that are queried/fil
 
 client → `/api/*` route → service/Prisma only. Never hit the DB directly from the client; business logic does not live in a component.
 
-### 5. API contract (hands off to `std/api.md`)
+### 5. API contract (hands off to `.claude/rules/api.md`)
 
 Specify method/path, input + output shape (atomic fields per `types/api.ts`), zod schema at the boundary, authz rule (ownership/role), and error shape — specify all of it so Backend can implement without guessing.
 
@@ -90,7 +90,7 @@ Before deciding whether to split a field further — atomicity is correct becaus
 
 ### 11. Typing + classification
 
-Every Pixel must know its **type** + carry a **data-class** tag (PII / Financial / Geo / Public) + sensitivity. No raw, untagged `string`. Link PII → `std/security.md` (masking/access) and `std/ux.md` (PDPA/consent). CampVibe examples: `nationalId` = PII · `payoutAccountNo` = Financial + PII · `latitude` / `longitude` = Geo · `campName` / `amenityList` = Public.
+Every Pixel must know its **type** + carry a **data-class** tag (PII / Financial / Geo / Public) + sensitivity. No raw, untagged `string`. Link PII → `.claude/rules/security.md` (masking/access) and `.claude/rules/ux.md` (PDPA/consent). CampVibe examples: `nationalId` = PII · `payoutAccountNo` = Financial + PII · `latitude` / `longitude` = Geo · `campName` / `amenityList` = Public.
 
 ### 12. Compute-on-the-fly, never cache as the single source of truth
 

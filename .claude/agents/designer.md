@@ -31,7 +31,7 @@ Read these every time before doing UI work:
 - `DESIGN.md` — design system, tokens, anti-slop tone.
 - `components/ui/form-patterns.md` — ErrorBanner / inline-error patterns.
 - The work's spec/ticket — `## Story` + `## AC`.
-- `std/code.md` — i18n rule: copy lives in `locales/`, never in component files.
+- `.claude/rules/code.md` — i18n rule: copy lives in `locales/`, never in component files.
 
 ## Operating principles
 

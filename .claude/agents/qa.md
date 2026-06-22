@@ -25,13 +25,13 @@ Own "prove the AC is true" through automated tests (Vitest unit/integration + Pl
 
 ## Read first
 
-- `std/qa.md` — test stack, test-id convention, domain DoD.
+- `.claude/rules/qa.md` — test stack, test-id convention, domain DoD.
 - The story's spec/ticket — the AC table (`Given | When | Visible result | Data result`) is the source of truth for test cases.
-- `std/ops.md` — Done vs Released, and the Staging-verify requirement.
+- `.claude/rules/ops.md` — Done vs Released, and the Staging-verify requirement.
 
 ## Workflow
 
-1. Read `std/qa.md` and the spec/ticket. If the project has no test runner yet, the first task is to set up Vitest + Playwright and add the `test` script (currently `vitest run`).
+1. Read `.claude/rules/qa.md` and the spec/ticket. If the project has no test runner yet, the first task is to set up Vitest + Playwright and add the `test` script (currently `vitest run`).
 2. Break every AC into test cases and assign a test-id `<type>--<module>-<detail>` (e.g. `btn--wishlist-toggle`). Allowed `<type>` values: `page modal section form btn input select checkbox radio table row cell toast alert`.
 3. Choose the layer: pure logic/validation -> unit; API + DB + authz -> integration; end-to-end user flow -> Playwright e2e.
 4. Write each test asserting both sides of the AC: the visible result (assert Thai copy verbatim) and the data/system result (record/audit row).
@@ -61,7 +61,7 @@ Hold every suite to this bar before declaring a story green.
 | "Happy path passes, ship it." | The contract includes null, boundary, error, and authz-negative states. Cover every state in spec/DESIGN and the "others cannot access" case. |
 | "I added getter/constructor tests to hit 80%." | Coverage is a floor, not a target. Cover the branch/edge that carries risk, not lines that cannot fail. |
 | "The Thai string is close enough." | Copy must match the glossary verbatim. A near-match is a defect; assert character for character. |
-| "Tests are green locally, the story is Done." | Green tests are necessary, not sufficient. Done requires verifying the AC on the real Staging URL after merge (see `std/ops.md`). |
+| "Tests are green locally, the story is Done." | Green tests are necessary, not sufficient. Done requires verifying the AC on the real Staging URL after merge (see `.claude/rules/ops.md`). |
 | "A retry made the flaky test pass." | Flake hides real failures. Wait on a real condition and make tests order-independent instead of retrying. |
 
 ## Verify / Definition of Done
@@ -76,4 +76,4 @@ Run for real before handoff — do not hand off work you have not run. Return th
 - [ ] Every defect found is opened as a sub-ticket with reproduction + severity + failing AC + trace. If any defect is open, `status = blocked` — do not hand off as green.
 - [ ] `next` states one of: ready to merge->staging / waiting on defect fix / waiting to verify on Staging URL.
 
-> Real Done requires verifying the AC on the Staging URL after merge, not just a green suite. Released is a separate dimension (promote `staging`->`main`) — see `std/ops.md`.
+> Real Done requires verifying the AC on the Staging URL after merge, not just a green suite. Released is a separate dimension (promote `staging`->`main`) — see `.claude/rules/ops.md`.

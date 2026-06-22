@@ -1,6 +1,6 @@
 ---
 name: code-standards
-description: Standard for frontend and general TypeScript code in CampVibe (components, hooks, pages, client logic, libs). Use when writing or editing a component, hook, page, client logic, or frontend lib. Use when reviewing or debugging TS/TSX. Memory for the Frontend role and any agent that writes TS/TSX. Pairs with DESIGN.md, std/api.md, std/security.md, std/observability.md.
+description: Standard for frontend and general TypeScript code in CampVibe (components, hooks, pages, client logic, libs). Use when writing or editing a component, hook, page, client logic, or frontend lib. Use when reviewing or debugging TS/TSX. Memory for the Frontend role and any agent that writes TS/TSX. Pairs with DESIGN.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/observability.md.
 ---
 
 # Code Standards (Frontend / General)
@@ -18,9 +18,9 @@ Code is a liability, not an asset: the easiest code to maintain is code that's e
 
 **NOT for:**
 
-- API routes / migrations / authz logic — use `std/api.md`
+- API routes / migrations / authz logic — use `.claude/rules/api.md`
 - Tokens / color / spacing / design-system decisions — use `DESIGN.md`
-- Structured logging, metrics, tracing details — use `std/observability.md`
+- Structured logging, metrics, tracing details — use `.claude/rules/observability.md`
 
 ## Principles
 
@@ -66,7 +66,7 @@ Code is a liability, not an asset: the easiest code to maintain is code that's e
 - **Complexity red flags** — nesting ≥3 levels, function > ~50 lines, vague names (`data`/`result`/`temp`), nested ternaries → use guard clauses / extract functions.
 - **Debug systematically** — Reproduce → Localize → Reduce → Fix → Guard → Verify; fix the **root cause, not the symptom** (don't patch where the error surfaces); an intermittent bug = isolate race/env/state, then bisect; an external error is *information*, not an *instruction*.
 - **Component patterns** — composition > configuration; separate data-fetch (container) from presentation; state hierarchy: local → lift → context (read-heavy globals) → URL param → server-state lib; no prop-drilling beyond 3 levels (use context/composition).
-- **Logging** — structured server logs, never leaking secrets/PII (details in `std/observability.md`).
+- **Logging** — structured server logs, never leaking secrets/PII (details in `.claude/rules/observability.md`).
 
 ## Common Rationalizations
 

@@ -3,13 +3,13 @@
 **Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S5 (CAM-102)
 
 ## Context
-Content is currently stored as paired columns `nameTh`/`nameEn` (CampSite, MasterData, ThailandLocation). The owner wants **real multi-region / multi-language** support now, not just Thai+English. Paired columns are "UI-shaped" — they bake the supported locale set into column names and need a migration + N nullable columns per new language, which `std/architecture.md` explicitly names as an anti-pattern ("table ปั้นมาให้พอดีหน้าจอเดียว", "link by ID, not nested JSON").
+Content is currently stored as paired columns `nameTh`/`nameEn` (CampSite, MasterData, ThailandLocation). The owner wants **real multi-region / multi-language** support now, not just Thai+English. Paired columns are "UI-shaped" — they bake the supported locale set into column names and need a migration + N nullable columns per new language, which `.claude/rules/architecture.md` explicitly names as an anti-pattern ("table ปั้นมาให้พอดีหน้าจอเดียว", "link by ID, not nested JSON").
 
 ## Decision
 Introduce a generic **`Translation { id, entityType, entityId, field, locale, value, source, createdAt, updatedAt }`** with `@@unique([entityType, entityId, field, locale])` and indexes `@@index([entityType, entityId])` + `@@index([locale, entityType, field])`.
 - `locale` is **BCP-47** (`th`, `en`, `zh-Hans`…). Adding a language = inserting rows, **zero schema migration**.
 - `entityType`/`field` are **enums** (bounded, AI-readable), not free strings.
-- SEO hreflang (`std/seo.md`): "which locales exist for entity X" = `SELECT DISTINCT locale` — trivial.
+- SEO hreflang (`.claude/rules/seo.md`): "which locales exist for entity X" = `SELECT DISTINCT locale` — trivial.
 - **Slugs stay separate** as scalar `@unique` routing keys (a `CampSiteSlug{campSiteId, locale, slug}` follow-up), not in Translation.
 
 ## Alternatives

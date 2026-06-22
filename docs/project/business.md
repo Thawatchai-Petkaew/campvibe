@@ -40,4 +40,4 @@
 - ที่ยืนยันได้: review ผูก verified-stay (กัน fake) + verified badge (admin) = trust ที่ aggregator ทั่วไปไม่มี
 
 ## เกี่ยวข้อง
-[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `std/ux.md` (PDPA) · `std/security.md`
+[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `.claude/rules/ux.md` (PDPA) · `.claude/rules/security.md`

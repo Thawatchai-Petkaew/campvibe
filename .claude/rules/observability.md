@@ -1,6 +1,6 @@
 ---
 name: observability-and-instrumentation
-description: Standard for making CampVibe's production behavior visible and diagnosable. Use when adding logging, metrics, tracing, or alerting; when shipping any feature that runs in production and you need evidence it works; or when an incident was hard to diagnose from the data on hand. Memory for the Backend and DevOps roles; pairs with std/ops.md, std/api.md, std/security.md.
+description: Standard for making CampVibe's production behavior visible and diagnosable. Use when adding logging, metrics, tracing, or alerting; when shipping any feature that runs in production and you need evidence it works; or when an incident was hard to diagnose from the data on hand. Memory for the Backend and DevOps roles; pairs with .claude/rules/ops.md, .claude/rules/api.md, .claude/rules/security.md.
 ---
 
 # Observability & Instrumentation
@@ -14,13 +14,13 @@ Code you can't observe is code you can't operate. Telemetry is written alongside
 - Building any feature with a side-effect: API route, server action, background job, cron, external integration
 - Adding or reviewing alerting rules
 - Reviewing a PR that adds I/O, retries, queues, or cross-service calls
-- Before any deploy (the pre-prod observability gate in `std/ops.md`)
+- Before any deploy (the pre-prod observability gate in `.claude/rules/ops.md`)
 
 **NOT for:**
 
-- Diagnosing a failure happening right now — use the debugging methodology in `std/code.md` (observability is what makes that fast next time)
-- Profiling measured slowness — use `std/performance.md`
-- Release rollout / rollback triggers — see `std/ops.md`
+- Diagnosing a failure happening right now — use the debugging methodology in `.claude/rules/code.md` (observability is what makes that fast next time)
+- Profiling measured slowness — use `.claude/rules/performance.md`
+- Release rollout / rollback triggers — see `.claude/rules/ops.md`
 
 ## Process
 
@@ -42,7 +42,7 @@ Metrics tell you **that** something is wrong, traces tell you **where**, logs te
 
 - Emit JSON with stable, queryable field names — never string interpolation. Consistent levels (error/warn/info/debug).
 - Attach a **correlation ID** to every line and propagate it on every outbound call.
-- Never log secrets, tokens, or PII (see `std/security.md`). Allowlist fields; never dump whole request/response bodies.
+- Never log secrets, tokens, or PII (see `.claude/rules/security.md`). Allowlist fields; never dump whole request/response bodies.
 
 ### 4. Metrics
 

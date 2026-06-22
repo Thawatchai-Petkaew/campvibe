@@ -4,7 +4,7 @@ description: Hand a free-form request to the Camper delivery team (ad-hoc, beyon
 `/camper "<anything>"` — give the orchestrator a free-form request that the three fixed commands (`/new-feature`, `/status`, `/release`) don't cover: investigate, fix, refactor, analyze, plan, or a small change.
 
 The orchestrator (`.claude/agents/orchestrator.md`):
-1. reads the request + project context (`docs/project/*`, `CLAUDE.md`, relevant `std/*`)
+1. reads the request + project context (`docs/project/*`, `CLAUDE.md`, relevant `.claude/rules/*`)
 2. runs lightweight Discovery to scope it → proposes/acts via the normal gates G1–G5
 3. respects the **Camper Agent** autopilot flag (`npm run camper status` — auto-decide G1–G4 if ON) and the **cost rule** (any monetary cost → stop and ask)
 

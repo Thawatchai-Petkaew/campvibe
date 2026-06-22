@@ -1,14 +1,14 @@
 # SKILL-AUTHORING.md — how to write a CampVibe skill / std-agent doc
 
-House style for `.claude/skills/*/SKILL.md` and the `std/*.md` role-memory docs. A skill is a **workflow the agent runs**, not a reference dump. If removing a section would not change agent behavior, cut it.
+House style for `.claude/skills/*/SKILL.md` and the `.claude/rules/*.md` role-memory docs. A skill is a **workflow the agent runs**, not a reference dump. If removing a section would not change agent behavior, cut it.
 
 ## Overview
 
-Every skill ships as `.claude/skills/<lowercase-hyphen-name>/SKILL.md`. The harness reads the YAML `description` to decide when to fire it, then loads the body as the procedure. `std/*.md` docs are role memory (one per role) read before work — same anatomy, no firing trigger. Examples to copy: `.claude/skills/discover/SKILL.md` and `std/discovery.md`.
+Every skill ships as `.claude/skills/<lowercase-hyphen-name>/SKILL.md`. The harness reads the YAML `description` to decide when to fire it, then loads the body as the procedure. `.claude/rules/*.md` docs are role memory (one per role) read before work — same anatomy, no firing trigger. Examples to copy: `.claude/skills/discover/SKILL.md` and `.claude/rules/discovery.md`.
 
 ## When to Use
 
-- Authoring a new skill, or restyling an existing `SKILL.md` / `std/*.md`.
+- Authoring a new skill, or restyling an existing `SKILL.md` / `.claude/rules/*.md`.
 - The procedure repeats across stories and you want one canonical version instead of re-explaining it each session.
 
 **NOT for:** one-off task instructions (just say them) · the ironclad rules in `CLAUDE.md` (those override everything; do not fork them here) · slash-command wiring in `.claude/commands/*` (that names the skill, it does not define it).
@@ -29,7 +29,7 @@ description: Run the Discovery loop — research the codebase, build a 6-dimensi
 
 ## Workflow (writing the body)
 
-Use these headings in order. `std/*.md` docs may localise heading names (e.g. `## หลักการ` / `## มาตรฐาน/กฎ` / `## ต้องคำนึง / anti-patterns` / `## Checklist`) but keep the same shape.
+Use these headings in order. `.claude/rules/*.md` docs may localise heading names (e.g. `## หลักการ` / `## มาตรฐาน/กฎ` / `## ต้องคำนึง / anti-patterns` / `## Checklist`) but keep the same shape.
 
 1. `## Overview` — one or two sentences: what this does and why it matters.
 2. `## When to Use` — positive triggers, then `**NOT for:**` with cross-links to the correct skill (e.g. promote vs `open-pr` vs `quality-gate`).
@@ -44,7 +44,7 @@ Use these headings in order. `std/*.md` docs may localise heading names (e.g. `#
 - **Anti-rationalization is the load-bearing section.** Every skippable step needs a row; "I'll add tests later", "this is simple enough to skip the spec", "Done = lint passed" all get a Reality.
 - **Verification is measurable.** "Verify AC on the Staging URL", "`linear-sync audit` passes", "`npm audit --omit=dev` → 0 high/critical" — not "make sure it works".
 - **Token-conscious.** Keep the main file ~1 screen. Split a supporting `lowercase-hyphen.md` only when reference material exceeds ~100 lines; do not create an empty `scripts/` dir to mirror others.
-- **Cross-reference, don't duplicate.** Point at the other skill or std doc by name (`std/qa.md`, the `open-pr` skill); never copy its content.
+- **Cross-reference, don't duplicate.** Point at the other skill or std doc by name (`.claude/rules/qa.md`, the `open-pr` skill); never copy its content.
 
 ## Common Rationalizations
 
@@ -59,7 +59,7 @@ Use these headings in order. `std/*.md` docs may localise heading names (e.g. `#
 
 ## Verify (exit criteria)
 
-- [ ] File at `.claude/skills/<name>/SKILL.md` (or `std/<role>.md`); `name` = lowercase-hyphen = dir name.
+- [ ] File at `.claude/skills/<name>/SKILL.md` (or `.claude/rules/<role>.md`); `name` = lowercase-hyphen = dir name.
 - [ ] `description` has third-person *what* + `Use when …` + `Do NOT use when …` (cross-linked), ≤1024 chars, no inlined steps.
 - [ ] Sections present in order: Overview → When to Use (+ **NOT for:**) → Workflow/Standards (numbered) → Common Rationalizations (table) → Verify (checklist).
 - [ ] Steps name real commands/paths/values; stack + 3-env + gates G1–G5 intact; Thai copy verbatim in backticks.

@@ -27,8 +27,8 @@ Own the business rules (BR), validation, and user flows that connect each requir
 
 Read every time before starting:
 
-- `std/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
-- `std/architecture.md` — data atomicity principles (what "independently queryable" means).
+- `.claude/rules/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
+- `.claude/rules/architecture.md` — data atomicity principles (what "independently queryable" means).
 - The spec/ticket for the work in scope.
 - `ai-planning/templates/STORY-TICKET.md` — Story / AC / Rules format.
 

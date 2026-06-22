@@ -1,6 +1,6 @@
 ---
 name: api-and-backend-standards
-description: Standard for designing and building CampVibe's API/backend contracts. Use when adding or changing an endpoint, server action, or mutation. Use when writing zod validation, authz/ownership checks, or Prisma queries. Use when designing response shapes or writing a Prisma migration. Memory for the Backend role; pairs with std/security.md, std/ux.md, std/architecture.md, std/performance.md, types/api.ts.
+description: Standard for designing and building CampVibe's API/backend contracts. Use when adding or changing an endpoint, server action, or mutation. Use when writing zod validation, authz/ownership checks, or Prisma queries. Use when designing response shapes or writing a Prisma migration. Memory for the Backend role; pairs with .claude/rules/security.md, .claude/rules/ux.md, .claude/rules/architecture.md, .claude/rules/performance.md, types/api.ts.
 ---
 
 # API & Backend Standards
@@ -20,10 +20,10 @@ The server owns the truth (server-authoritative): client validation exists only 
 
 **NOT for:**
 
-- AuthN/secret handling, injection, and threat-model details — read `std/security.md` alongside this file, always
-- Field-validation catalog + PDPA masking (shared client/server zod schema) — see `std/ux.md`
-- Latency budgets and profiling — see `std/performance.md`
-- Deprecation plans and architectural decisions — see `std/architecture.md` (ADR)
+- AuthN/secret handling, injection, and threat-model details — read `.claude/rules/security.md` alongside this file, always
+- Field-validation catalog + PDPA masking (shared client/server zod schema) — see `.claude/rules/ux.md`
+- Latency budgets and profiling — see `.claude/rules/performance.md`
+- Deprecation plans and architectural decisions — see `.claude/rules/architecture.md` (ADR)
 
 ## Standards
 
@@ -86,11 +86,11 @@ The server owns the truth (server-authoritative): client validation exists only 
 ### 12. Backward-compatible by addition
 
 - Change a contract by adding an optional field — never remove/change the type of an existing one.
-- Retiring a field needs a deprecation plan (link `std/architecture.md` ADR).
+- Retiring a field needs a deprecation plan (link `.claude/rules/architecture.md` ADR).
 
 ### 13. Latency target
 
-- Hot endpoints p95 < 200ms (link `std/performance.md`).
+- Hot endpoints p95 < 200ms (link `.claude/rules/performance.md`).
 
 ## Common Rationalizations
 

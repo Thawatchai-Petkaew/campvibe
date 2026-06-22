@@ -1,6 +1,6 @@
 ---
 name: security-standards
-description: Standard for securing every CampVibe atomic story against OWASP, hardening, and AI/agent-layer threats. Use when adding or reviewing an API route, server action, mutation, auth flow, file upload, external fetch, or headless camper workflow. Use when running the security gate before G3 (merge→staging) or re-checking before G5 (release→prod). Use when handling secrets, dependencies, or seed/scrape routes. Memory for the Security role; pairs with std/api.md, std/observability.md, std/ops.md, DESIGN.md.
+description: Standard for securing every CampVibe atomic story against OWASP, hardening, and AI/agent-layer threats. Use when adding or reviewing an API route, server action, mutation, auth flow, file upload, external fetch, or headless camper workflow. Use when running the security gate before G3 (merge→staging) or re-checking before G5 (release→prod). Use when handling secrets, dependencies, or seed/scrape routes. Memory for the Security role; pairs with .claude/rules/api.md, .claude/rules/observability.md, .claude/rules/ops.md, DESIGN.md.
 ---
 
 # Security Standards
@@ -18,9 +18,9 @@ Assume every request is forged and every model output is hostile. Security is a 
 
 **NOT for:**
 
-- Input-schema / zod boundary mechanics — see `std/api.md`
-- Logging/metrics/tracing field hygiene — see `std/observability.md`
-- Release rollout / rollback / env promotion — see `std/ops.md`
+- Input-schema / zod boundary mechanics — see `.claude/rules/api.md`
+- Logging/metrics/tracing field hygiene — see `.claude/rules/observability.md`
+- Release rollout / rollback / env promotion — see `.claude/rules/ops.md`
 - User-facing error copy wording — see `DESIGN.md` and playbook §6.6
 
 ## Standards
@@ -36,7 +36,7 @@ Read before every task: this file + the diff of the story. Scope = a security ga
 ### OWASP rules (mandatory per story)
 
 1. **Access control** — verify permission for every action server-side; read `userId`/`role` from the NextAuth session only, never from body/query/header; ownership check on every mutation (`where: { id, ownerId: session.user.id }`); default-deny.
-2. **Injection** — DB access via Prisma parameterized only; no `$queryRawUnsafe` / string-concat SQL; every input through zod at the boundary (see `std/api.md`).
+2. **Injection** — DB access via Prisma parameterized only; no `$queryRawUnsafe` / string-concat SQL; every input through zod at the boundary (see `.claude/rules/api.md`).
 3. **Secrets** — in env only (Vercel env split staging/prod); never in the client bundle (`NEXT_PUBLIC_*` = public only) / log / fixture / commit; rotate on leak.
 4. **Insecure design** — threat-model the abuse case, not just the happy path (replay, IDOR, mass-assignment, rate abuse); whitelist writable fields, never spread `req.body` straight into Prisma.
 5. **Misconfig** — prod ships no debug / verbose error / stack trace to the client; CORS/headers tight; cookies `httpOnly` + `secure` + `sameSite`.

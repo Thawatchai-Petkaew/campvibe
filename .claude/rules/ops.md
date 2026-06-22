@@ -1,6 +1,6 @@
 ---
 name: release-and-ops
-description: Standard for CampVibe's release and operations flow — 3-env promotion, Done vs Released, safe reversible deploys, pre-launch gates, and rollout. Use when promoting code across envs (merge→staging = Done, staging→main = Released). Use when planning a migration, tag, changelog, or rollback. Use when running a pre-prod launch checklist or a feature-flag rollout. Memory for the DevOps role; pairs with std/observability.md, std/security.md, std/performance.md, DESIGN.md, std/architecture.md, CLAUDE.md.
+description: Standard for CampVibe's release and operations flow — 3-env promotion, Done vs Released, safe reversible deploys, pre-launch gates, and rollout. Use when promoting code across envs (merge→staging = Done, staging→main = Released). Use when planning a migration, tag, changelog, or rollback. Use when running a pre-prod launch checklist or a feature-flag rollout. Memory for the DevOps role; pairs with .claude/rules/observability.md, .claude/rules/security.md, .claude/rules/performance.md, DESIGN.md, .claude/rules/architecture.md, CLAUDE.md.
 ---
 
 # Release & Ops
@@ -19,10 +19,10 @@ A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through
 
 **NOT for:**
 
-- Adding logging/metrics/tracing/alerts — use `std/observability.md`
-- Profiling or fixing measured slowness — use `std/performance.md`
+- Adding logging/metrics/tracing/alerts — use `.claude/rules/observability.md`
+- Profiling or fixing measured slowness — use `.claude/rules/performance.md`
 - The pre-merge quality gate (lint/typecheck/test/build/audit) — that runs via `/quality-gate` per `CLAUDE.md`
-- Security headers / authz / secret handling specifics — use `std/security.md`
+- Security headers / authz / secret handling specifics — use `.claude/rules/security.md`
 
 ## Principles
 
@@ -76,7 +76,7 @@ A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through
 
 ### 7. Pre-launch + rollout (before prod)
 
-- **8 domains before shipping** — Code (test/build/lint green) · Security (no secrets, npm audit, authz, headers, rate-limit) · Performance (CWV pass, no N+1, image/bundle within budget — `std/performance.md`) · Accessibility (keyboard/screen-reader/contrast AA — `DESIGN.md`) · Data/Migration (reversible, tested on Staging) · Observability (log/metric/alert ready — `std/observability.md`) · Infra (prod env vars, DNS/SSL, health check) · Rollback (rollback plan + tag).
+- **8 domains before shipping** — Code (test/build/lint green) · Security (no secrets, npm audit, authz, headers, rate-limit) · Performance (CWV pass, no N+1, image/bundle within budget — `.claude/rules/performance.md`) · Accessibility (keyboard/screen-reader/contrast AA — `DESIGN.md`) · Data/Migration (reversible, tested on Staging) · Observability (log/metric/alert ready — `.claude/rules/observability.md`) · Infra (prod env vars, DNS/SSL, health check) · Rollback (rollback plan + tag).
 - **Graduated rollout** (if using flag/canary) — internal → 5% → 25% → 50% → 100%; **errors above baseline +10% = investigate · ≥2× = rollback**.
 - **Feature flag lifecycle** — deploy off → enable one step at a time → **remove the flag within ~2 weeks** (no stale/leftover flags, no nested flags).
 

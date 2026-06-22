@@ -25,8 +25,8 @@ Owns CI, the 3-env line (Local Dev → Staging → Production), cross-env promot
 
 ## Read first
 
-- `std/ops.md` — env matrix, Vercel mapping, promotion rules, Done vs Released, post-deploy observability.
-- `std/observability.md` — logs/metrics/alerts shape that must be live before prod; no secrets/PII in logs.
+- `.claude/rules/ops.md` — env matrix, Vercel mapping, promotion rules, Done vs Released, post-deploy observability.
+- `.claude/rules/observability.md` — logs/metrics/alerts shape that must be live before prod; no secrets/PII in logs.
 - The spec/ticket of the work to promote — the AC to re-verify on the real Staging/Prod URL.
 - `.github/workflows/ci.yml` — the server-side gate CI runs on every PR (base `staging`/`main`).
 - The existing changelog — the format and last entry to append to on release.
@@ -50,7 +50,7 @@ Owns CI, the 3-env line (Local Dev → Staging → Production), cross-env promot
 
 ## Quality bar (self-verify before handoff)
 
-- [ ] **Pre-prod observability gate** — logs, metrics, and alerts are live and confirmed before prod per `std/observability.md`: structured logs flowing (no secrets/PII), key metrics emitting, and at least one alert wired to a real channel. Do not promote to prod with observability dark.
+- [ ] **Pre-prod observability gate** — logs, metrics, and alerts are live and confirmed before prod per `.claude/rules/observability.md`: structured logs flowing (no secrets/PII), key metrics emitting, and at least one alert wired to a real channel. Do not promote to prod with observability dark.
 - [ ] **8-domain pre-launch checklist** passes, each marked pass/fail with the real result: (1) build + migration on the target env, (2) env vars / secrets present per env (no cross-env `DATABASE_URL`), (3) smoke/health green on the real URL, (4) AC verified on the real Staging/Prod URL, (5) rollback plan with the actual commands, (6) observability gate live, (7) tag + changelog (prod), (8) Linear state synced.
 - [ ] **Graduated rollout** — prod ships at a controlled percentage (e.g. start at 10%) before full traffic, not 100% at once where the platform supports it; the ramp steps are stated.
 - [ ] **Rollback thresholds defined and watched** — auto-rollback triggers are explicit and measured during the watch window (e.g. error rate ≥ 2x the pre-deploy baseline, or > 10% of requests erroring); a breach = rollback + notify, not "wait and see".
@@ -93,7 +93,7 @@ Before handoff, run the real commands — they must pass:
 - [ ] `npm run build` succeeds.
 - [ ] `npx prisma migrate deploy` per env (correct DB) succeeds + reversible (up/down tested on Staging).
 - [ ] Smoke/health green + AC verified on the real Staging/Prod URL.
-- [ ] Pre-prod observability gate live (logs/metrics/alerts) per `std/observability.md`.
+- [ ] Pre-prod observability gate live (logs/metrics/alerts) per `.claude/rules/observability.md`.
 - [ ] (prod) `git tag` + changelog + rollback plan all complete; graduated rollout + rollback thresholds stated.
 - [ ] Error-watch (Sentry) window passed against the thresholds, no spike before closing the work.
 - [ ] Linear state sync: `Done` (Staging) or label `released` (prod); any fail → ticket opened (verify with `node scripts/linear-sync.mjs audit`).

@@ -7,7 +7,7 @@ description: Create branch + commit (Conventional Commits) + open a PR based on 
 
 Close one atomic story by opening a branch + Conventional Commits commit + a PR based on `staging` (= toward Done) via the `gh` CLI.
 
-Read first: `CLAUDE.md` (Git) · `std/ops.md` (3-env, Done vs Released) · `std/code.md` (PR size).
+Read first: `CLAUDE.md` (Git) · `.claude/rules/ops.md` (3-env, Done vs Released) · `.claude/rules/code.md` (PR size).
 
 ## Overview
 
