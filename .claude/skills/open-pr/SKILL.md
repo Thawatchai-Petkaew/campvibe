@@ -13,6 +13,16 @@ Read first: `CLAUDE.md` (Git) · `.claude/rules/ops.md` (3-env, Done vs Released
 
 One PR carries exactly one atomic story toward Done. The PR always targets `staging` (never `main`); merging into `staging` triggers an auto deploy + smoke, and the story only becomes Done after the AC is verified on the real Staging URL. Releasing to prod is a separate `staging`→`main` promotion — not this skill.
 
+## Quick Reference
+
+Run in order (real commands; replace the placeholders with your `<type>`/`<kebab>`/scope/subject):
+
+1. Branch off `staging` — `git switch staging && git pull && git switch -c feature/<kebab>` (type ∈ `feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`).
+2. Commit in atomic units with Conventional Commits — `git add -p && git commit -m "type(scope): subject"` (one logical change per commit; refactor separate from feature).
+3. Push the branch — `git push -u origin feature/<kebab>`.
+4. Open the PR based on `staging` — `gh pr create --base staging --fill` then complete the body (ticket · AC · gate result · checklist · Preview URL).
+5. Wait for CI — `gh pr checks --watch` until `.github/workflows/ci.yml` is green before requesting merge (`staging`/`main` are protected).
+
 ## When to Use
 
 Use when a story is finished and ready to send for review/merge toward Done:
@@ -27,6 +37,12 @@ Use when a story is finished and ready to send for review/merge toward Done:
 - Promoting `staging`→`main` to prod — use `/promote-release --to prod`.
 - Running the pre-merge gate — use `/quality-gate`.
 
+## Prerequisites
+
+- The quality gate is green first — run the `quality-gate` skill (lint · typecheck · test + coverage ≥80% · build · audit · design gate if UI). A red gate is not ready for a PR.
+- You know the branch type (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) and have the ticket/story (Linear issue with `## Story` + `## AC`) to reference.
+- `gh` is authenticated and you are off `staging`/`main` on a `<type>/<kebab>` branch.
+
 ## Workflow
 
 1. Branch `<type>/<kebab>` using the Conventional type palette: `feature/`, `fix/`, `chore/`, `refactor/`, `docs/`, `test/`, `release/`, `hotfix/`.
@@ -34,6 +50,24 @@ Use when a story is finished and ready to send for review/merge toward Done:
 3. Open the PR based on `staging`: `gh pr create --base staging` (feature → `staging` = toward **Done**).
 4. Fill the PR body completely: ticket link · AC covered · quality-gate result · self-verify checklist · Vercel Preview URL. Include a short change summary (what changed and why) so a reviewer can read the PR before the diff.
 5. Wait for CI (`.github/workflows/ci.yml`) to go green before requesting merge (`staging`/`main` are protected).
+
+## Examples
+
+- ✅ Branch `feature/booking-cancel`, commit `feat(booking): add ยกเลิกการจอง flow`, then `gh pr create --base staging` for one atomic story → reviewable, traceable, targets `staging`.
+- ❌ `git commit` straight onto `staging` (or `main`) — bypasses review; feature work never commits to a protected branch.
+- ❌ One PR bundling two stories / >~400 lines — non-atomic, hides regressions; split into one PR per story.
+
+## Reference Files
+
+- `.claude/rules/code.md` — PR size + atomic-commit guidance.
+- `quality-gate` skill — runs first; the gate must be green before this skill.
+- `promote-release` skill — runs after Done; `staging`→`main` to prod (do not use this skill for that).
+- `CLAUDE.md` (Git section) — branch naming, Conventional Commits, `feature → staging` (Done) → `staging`→`main` (Released).
+
+## Next Steps
+
+- After merge: auto deploy → Staging + smoke → verify the AC on the real Staging URL → Linear state `Done`. A merge into `staging` alone is not Done.
+- Later, batch the Done stories and promote `staging`→`main` to prod via `promote-release --to prod` (G5 go-live) = Released.
 
 ## Standards
 

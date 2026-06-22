@@ -11,6 +11,29 @@ Run the mandatory gate before merging into `staging`, summarize pass/fail, and b
 
 Read first: `CLAUDE.md` (Quality gates) · `.claude/rules/qa.md` · `.claude/rules/ops.md` (Done vs Released) · `DESIGN.md` (UI work).
 
+## Quick Reference
+
+Run in order, at the repo root, on the `feature/*` branch. Stop on the first fail — do not continue a red gate.
+
+1. `npm run lint` → 0 errors.
+2. `npm run typecheck` → 0 errors.
+3. `npm test -- --coverage` → all green + coverage ≥ 80% on new code.
+4. `npm run build` → succeeds (incl. `prisma generate`).
+5. `npm audit --omit=dev` → 0 high/critical.
+6. Five-Axis review (correctness · readability · architecture · security · perf) → clean.
+7. **(UI only)** design gate → token-only + a11y WCAG AA + anti-slop + screenshot vs Brief.
+8. Summarize as a pass/fail table.
+
+| Step | Command / check | Pass condition | Result |
+| --- | --- | --- | --- |
+| 1 | `npm run lint` | 0 errors | ☐ |
+| 2 | `npm run typecheck` | 0 errors | ☐ |
+| 3 | `npm test -- --coverage` | green + coverage ≥ 80% new code | ☐ |
+| 4 | `npm run build` | succeeds (incl. `prisma generate`) | ☐ |
+| 5 | `npm audit --omit=dev` | 0 high/critical | ☐ |
+| 6 | Five-Axis review | clean on all five axes | ☐ |
+| 7 | design gate (UI only) | pass, or `N/A — no UI work` | ☐ |
+
 ## When to Use
 
 - An atomic story is finished (code + states + validation) and you are about to open or merge a PR into `staging` (the "Done" criterion).
@@ -21,7 +44,18 @@ Read first: `CLAUDE.md` (Quality gates) · `.claude/rules/qa.md` · `.claude/rul
 
 - Deciding "Released" — prod goes through `/promote-release --to prod` (smoke/tag/changelog handled separately).
 - Doing the work itself — the gate verifies finished work, it is not where you write code.
-- Opening the PR — that is `/open-pr` after the gate is green.
+- Opening the PR — that is the `open-pr` skill, run after the gate is green.
+
+## Prerequisites
+
+Read first:
+
+- `CLAUDE.md` — the Quality gates section (the mandatory pre-merge checklist).
+- `.claude/rules/qa.md` — test rigor + the coverage ≥ 80% on new code rule.
+- `.claude/rules/ops.md` — Done vs Released, and the 3-env flow (Local → Staging → Production).
+- `DESIGN.md` — required only for UI work, for the design gate (step 7).
+
+Have ready: a finished atomic story on its `feature/*` branch, a clean working tree, dependencies installed (`npm ci`), and the STORY-TICKET to hand.
 
 ## Workflow
 
@@ -51,6 +85,41 @@ These are not yet enforced. List them in the summary as "planned" so reviewers k
 - **a11y axe** — automated axe run against rendered UI (complements the manual design gate).
 - **perf scorecard** — Lighthouse/bundle-size budget check.
 - **pre-prod observability** — verify logging/tracing/alerts wired before promote (see `.claude/rules/observability.md`).
+
+## Examples
+
+✅ **Correct — a red step stops the gate and opens a defect.** A UI story runs the gate and reports the full table:
+
+| Step | Command / check | Pass condition | Result |
+| --- | --- | --- | --- |
+| 1 | `npm run lint` | 0 errors | ✅ 0 errors |
+| 2 | `npm run typecheck` | 0 errors | ✅ 0 errors |
+| 3 | `npm test -- --coverage` | green + coverage ≥ 80% new code | ❌ 2 failing, coverage 71% |
+| 4 | `npm run build` | succeeds | ⏸ not run (stopped at step 3) |
+| 5 | `npm audit --omit=dev` | 0 high/critical | ⏸ not run |
+| 6 | Five-Axis review | clean | ⏸ not run |
+| 7 | design gate (UI) | pass | ⏸ not run |
+
+Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod observability. Step 3 is red → **stop**, open a Linear defect (repro + the failed criterion: coverage 71% < 80%, 2 tests failing), block the merge. The story does not move.
+
+❌ **Wrong — "lint passed so merge."** Treating one green step as a pass, skipping typecheck/test/build/audit/Five-Axis, and merging into `staging`. Lint is not review; a green gate requires every step above, and "Done" still needs the Staging URL verified.
+
+## Reference Files
+
+- `.claude/rules/qa.md` — test rigor, coverage ≥ 80% on new code, real assertions (steps 3, 6).
+- `.claude/rules/security.md` — the Security axis of the Five-Axis review + `npm audit` expectations (steps 5, 6).
+- `.claude/rules/api.md` — the Perf axis: no N+1 Prisma queries, bounded payloads (step 6).
+- `.claude/rules/architecture.md` — the Architecture axis: layering, concern boundaries, reuse over duplication (step 6).
+- `.claude/rules/observability.md` — the planned pre-prod observability gate (logging/tracing/alerts).
+- Sibling skills: `open-pr` (run after the gate is green) · `promote-release` (staging→prod, separate from this gate).
+
+The Five-Axis review content is kept inline in the Workflow above — no `references/` directory.
+
+## Next Steps
+
+- All green → run the `open-pr` skill to open the PR into `staging`.
+- Do NOT set the Linear state to `Done` until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`).
+- Released is separate — promote `staging`→`main` via the `promote-release` skill (`/promote-release --to prod`), which handles smoke/tag/changelog.
 
 ## Common Rationalizations
 

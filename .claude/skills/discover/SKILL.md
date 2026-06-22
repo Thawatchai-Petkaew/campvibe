@@ -9,7 +9,21 @@ description: Run the Discovery & gap-closure loop — research the codebase + ga
 
 Turn a raw, possibly-ambiguous requirement into a buildable spec without guessing. Research the real codebase + Linear first, build a gap list across all 6 dimensions, batch the open questions to the human in a single consolidated round, and only produce the ticket once no blocking gap remains. G1 (Scope) is the one point where scope changes for free — every gap left open here gets expensive later.
 
-Read first: `.claude/rules/discovery.md` (the full DoR, the 6 spec components, vertical-slice rule, and the 4-layer audit framing all live there) and `CLAUDE.md` (ironclad rules + 3-env flow).
+## Quick Reference
+
+The discovery loop, as a numbered TL;DR:
+
+1. **Research** the real thing — `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, plus existing/duplicate/conflicting issues in Linear (team Campvibe). Reduce gaps from evidence, not assumption.
+2. **Build the 6-dimension gap list** — Business · Functional · Technical · UX · Security/Data · Risk — tagging each gap:
+   - 🟢 closed — has an answer/evidence
+   - 🟡 assumed — needs confirmation; **must carry the default** you will use if unanswered
+   - 🔴 must ask — blocker
+   - ⚪ N/A
+3. **Batch the questions in ONE round** — collect every 🔴/🟡 and ask the human once; each item carries options + impact of each path + `if unanswered, default = …`. Never nitpick one question at a time.
+4. **Write the STORY-TICKET** from `ai-planning/templates/STORY-TICKET.md` once no 🔴 remains (full story + AC on the story-level issue; role-task = sub-issue).
+5. **Propose G1** with a summary of gaps closed + assumptions used.
+
+**Gate to pass:** no 🔴 open · every 🟡 carries a default the human accepts · `node scripts/linear-sync.mjs audit` passes (issue has at least `## Story` + `## AC`) → then tag `awaiting-you` for G1 Scope.
 
 ## When to Use
 
@@ -26,6 +40,13 @@ Use this skill when:
 - Promoting `staging`→`main` to prod — use `/promote-release --to prod`.
 - Summarizing overall team status — use `/status`.
 
+## Prerequisites
+
+Read first:
+
+- `.claude/rules/discovery.md` — the full DoR, the 6 spec components, vertical-slice rule, and the 4-layer audit framing all live there.
+- `CLAUDE.md` — ironclad rules + 3-env flow.
+
 ## Workflow
 
 1. **Research the real thing before guessing.** Read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and review existing work/duplicate/conflicting issues in Linear (team Campvibe). Reduce 🔴 gaps from evidence, not assumption.
@@ -36,6 +57,33 @@ Use this skill when:
    - ⚪ N/A
 3. **Batch the questions.** Collect the 🔴/🟡 items and ask the human in a **single consolidated round** — never nitpick one question at a time. Each item carries: options + impact of each path + "if unanswered, default = …".
 4. **Produce the ticket once fully closed (no 🔴).** Write it from `ai-planning/templates/STORY-TICKET.md` (full story + AC, filed on the story-level issue; role-task = sub-issue), then propose G1 with a summary of gaps/assumptions used.
+
+## Examples
+
+**A 🟡 gap with its default (✅) vs a silent guess (❌):**
+
+- ✅ 🟡 *Functional — when a camper cancels < 24h before check-in, do they get a refund?* Options: full refund / 50% / none. Impact: affects payout + the confirmation copy. `if unanswered, default = 50% refund` → carried into the batched round for the human to confirm.
+- ❌ Quietly writing the AC as "full refund" because it seems fair, without raising it. Guessing silently breaks Spec-first.
+
+**One AC row (Thai copy verbatim on the left, system result on the right):**
+
+| Given | When | What the user sees | Data/system result |
+| --- | --- | --- | --- |
+| ผู้ใช้ล็อกอินแล้วอยู่หน้าจองแคมป์ | กดปุ่ม `ยืนยันการจอง` โดยยังไม่ได้เลือกวันเข้าพัก | ข้อความ `กรุณาเลือกวันเข้าพักก่อนทำการจอง` | ไม่สร้างรายการจอง · ระบบไม่บันทึกข้อมูล |
+
+(Left column = the real Thai copy the user sees, verbatim in backticks; right column = what the system stores/changes, plain language. No event-codes/testids in AC.)
+
+## Reference Files
+
+- `.claude/rules/discovery.md` — full DoR, 6 spec components, vertical-slice rule, 4-layer audit.
+- `ai-planning/templates/STORY-TICKET.md` — the ticket template the story + AC are written from.
+- Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `staging`).
+
+## Next Steps
+
+1. **Gaps closed** (no 🔴, every 🟡 has an accepted default) → **propose G1** (Scope), tagged `awaiting-you`.
+2. **On G1 approval** → hand to architect/designer for the spec/design at **G2** (Design).
+3. **Build** the atomic story → verify via the `quality-gate` skill, then ship with the `open-pr` skill (PR into `staging` = Done).
 
 ## Standards
 
