@@ -498,6 +498,82 @@ export function PreviewClient() {
                         </div>
                     </div>
                 </div>
+
+                <SectionDivider />
+
+                {/* ── DS-2 Button grammar + Thai type (font-verification kitchen-sink, not i18n keys) ── */}
+                <SectionHeading>DS-2 Button grammar + Sarabun Thai type</SectionHeading>
+
+                {/* Button size grid: sm / md / lg × variants */}
+                <div className="space-y-6">
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">size=sm (h-9)</p>
+                        <div className="flex flex-wrap gap-3">
+                            <Button size="sm" variant="default">Default sm</Button>
+                            <Button size="sm" variant="secondary">Secondary sm</Button>
+                            <Button size="sm" variant="outline">Outline sm</Button>
+                            <Button size="sm" variant="ghost">Ghost sm</Button>
+                            <Button size="sm" variant="destructive">Destructive sm</Button>
+                            <Button size="sm" disabled>Disabled sm</Button>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">size=default / md (h-11)</p>
+                        <div className="flex flex-wrap gap-3">
+                            <Button variant="default">Default md</Button>
+                            <Button variant="secondary">Secondary md</Button>
+                            <Button variant="outline">Outline md</Button>
+                            <Button variant="ghost">Ghost md</Button>
+                            <Button variant="destructive">Destructive md</Button>
+                            <Button disabled>Disabled md</Button>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">size=lg (h-12) — primary CTA</p>
+                        <div className="flex flex-wrap gap-3">
+                            <Button size="lg" variant="default">Default lg</Button>
+                            <Button size="lg" variant="secondary">Secondary lg</Button>
+                            <Button size="lg" variant="outline">Outline lg</Button>
+                            <Button size="lg" variant="ghost">Ghost lg</Button>
+                            <Button size="lg" variant="destructive">Destructive lg</Button>
+                            <Button size="lg" disabled>Disabled lg</Button>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-3">icon row (size-11 / size-9 / size-11)</p>
+                        <div className="flex flex-wrap gap-3 items-center">
+                            <Button size="icon-sm" variant="outline" aria-label="Icon sm">
+                                <IconSearch className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="outline" aria-label="Icon md (default)">
+                                <IconSearch className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon-lg" variant="outline" aria-label="Icon lg">
+                                <IconSearch className="h-5 w-5" />
+                            </Button>
+                            <Button size="icon" variant="default" aria-label="Icon primary">
+                                <IconHeart className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" aria-label="Icon ghost">
+                                <IconBell className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" disabled aria-label="Icon disabled">
+                                <IconSettings className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Thai type verification — Sarabun font */}
+                <div className="mt-8 space-y-3 p-6 rounded-3xl border border-border bg-card">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Sarabun Thai font verification</p>
+                    <h2 className="font-display text-2xl font-semibold text-foreground">
+                        ค้นหาแคมป์ที่ใช่สำหรับคุณ
+                    </h2>
+                    <p className="text-base text-foreground leading-relaxed">
+                        เลือกสถานที่กางเต็นท์ที่ดีที่สุดจากทั่วประเทศ พร้อมรีวิวจริงจากนักผจญภัย
+                    </p>
+                </div>
             </main>
         </div>
     );

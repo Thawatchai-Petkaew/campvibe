@@ -288,16 +288,16 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Button asChild variant="default" className="gap-2 rounded-full h-12 px-6">
+                            <Button asChild variant="default" size="lg" className="gap-2 px-6">
                                 <Link href={`/dashboard/campsites/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>{t.newCampground.editCampground}</span>
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
+                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
                             <Share className="w-4 h-4" /> <span>{t.common.share}</span>
                         </Button>
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
+                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
                             <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
                         </Button>
                     </div>
@@ -499,7 +499,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsAmenitiesOpen(true)}
-                                    className="mt-8 rounded-lg px-8 h-12 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
+                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
                                 >
                                     {t.common.showAll} {facilityCodes.length} {t.common.amenities}
                                 </Button>
@@ -622,9 +622,10 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                             <Button
                                 onClick={handleReserve}
+                                size="lg"
                                 disabled={isReserving}
                                 aria-busy={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-full transition mb-2 text-lg"
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
                             >
                                 {isReserving ? (
                                     <>
@@ -718,7 +719,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <h2 className="text-xl font-bold font-display">{t.campground.whereYouBe}</h2>
                         <Button
                             variant="outline"
-                            className="gap-2 h-10 px-4 rounded-lg font-medium hover:bg-muted text-muted-foreground border-border"
+                            className="gap-2 px-4 font-medium hover:bg-muted text-muted-foreground border-border"
                             onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${campground.latitude},${campground.longitude}`, '_blank')}
                         >
                             <MapPin className="w-4 h-4" />
