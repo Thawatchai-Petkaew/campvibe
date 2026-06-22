@@ -7,10 +7,7 @@
 > ย้ายไป [`docs/context/principles.md`](../context/principles.md) (Second Brain — หลักการที่นิ่ง): Trust>growth · ลด friction core loop · Lean · supply–demand สมดุล · ไทยเป็นหลัก
 
 ## ลำดับความสำคัญ (Now / Next / Later)
-- **Now (กำลังทำ/เพิ่งเสร็จ):** wishlist (done staging) · ปิด **4 security gap** จาก gap-audit (spot IDOR, unauth upload, error leak, isVerified self-grant) — *trust = P0*
-- **Next:** search/filter ตามจังหวัด · notifications (Telegram) · SEO หน้า public (`.claude/rules/seo.md`) · coverage threshold enforce
-- **Later:** > TODO(you): payment/escrow, ปฏิทินว่าง, แชร์ wishlist, remarketing, host analytics
-> TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `FEATURE-BACKLOG.md`)
+> ลำดับ + sequencing ฉบับเต็ม (P0 / Phase 1–2 + AI rollup) → [product-plan.md](product-plan.md) — authoritative roadmap อยู่ที่ไฟล์เดียว; ใช้ประกอบเกณฑ์ตัดสิน gate ด้านล่าง
 
 ## จะทำ / ไม่ทำ (ให้ orchestrator + เจ้าของ รู้ขอบเขต)
 **ทำ:** อะไรที่ดัน core loop (ค้นหา/จอง/รีวิว/wishlist) + trust + supply/demand

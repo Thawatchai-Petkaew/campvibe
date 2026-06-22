@@ -29,5 +29,5 @@ docs/delivery/
 - **audit ผูกกับ `role:*` labels:** คาดหวัง artifact ของ role เฉพาะเมื่อ story สะสม label ของ role นั้น (`role:*designer*`→`design.md` · `role:*qa*`→`test.md` · `role:*security*`→`review.md` · `role:*devops*`→`delivery.md`)
 - ทุกไฟล์มี YAML header (`linear`/`feature`/`epic`/`persona`/`artifact`/`owner`/`status`/`version`/`updated`) + `## Changelog`
 - **DRY + traceability:** อ้าง canonical source (`.claude/rules/ux.md` validation catalog · `DESIGN.md` tokens · `docs/adr/*` · `prisma/schema.prisma`) ไม่ copy ซ้ำ; โยงข้ามไฟล์ด้วย ID `AC-n`/`BR-n`
-- **requirement เปลี่ยน → กลับมาอัปเดต:** story.md (bump version + Changelog) → cascade design/tech/test → epic.md rollup → (ถ้า scope ขยับ) `docs/project/FEATURE-BACKLOG.md`/`master-plan.md` → sync Linear → regenerate INDEX
+- **requirement เปลี่ยน → กลับมาอัปเดต:** story.md (bump version + Changelog) → cascade design/tech/test → epic.md rollup → (ถ้า scope ขยับ) `docs/project/product-plan.md`/`master-plan.md` → sync Linear → regenerate INDEX
 - สร้าง/ตรวจด้วย: `node scripts/linear-sync.mjs scaffold <CAM-id>` · `… index` · `… audit`

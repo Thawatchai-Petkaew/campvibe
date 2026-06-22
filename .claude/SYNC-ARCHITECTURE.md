@@ -6,7 +6,7 @@
 - **Linear** = แหล่งความจริงของสถานะงานทั้งหมด (team CAM)
 - **Dashboard `/status`** = อ่าน Linear สด ทุก 60s (read-only) — ถูกต้องอยู่แล้ว ✅
 - **`linear-snapshot.json`** = snapshot ที่ generate จาก Linear (`npm run status:pull`) — ไม่ใช่แหล่งคู่ขนาน, ห้ามแก้มือ
-- **`docs/project/PRODUCT-PLAN.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
+- **`docs/project/product-plan.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
 - **`docs/delivery/`** = durable **content** (spec/design/test/review/ship) ต่อ Feature→Epic→Story (ไฟล์) ส่วน Linear ถือ **live status**; `INDEX.md` generate ด้วย `node scripts/linear-sync.mjs index`
 
 ## Definition of Done & env mapping (3-env: Local→Staging→Prod)
