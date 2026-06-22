@@ -8,6 +8,7 @@ import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
 import { wishlistAPI } from "@/lib/api-client";
+import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -177,39 +178,41 @@ export default function CampgroundDetailClient({
     };
 
     // AC-1/AC-3/AC-4/AC-5, BR-1/BR-2/BR-4/BR-5 — optimistic toggle with rollback.
+    // Decision logic lives in lib/wishlist-toggle.ts (runWishlistToggle); React
+    // state / sonner wiring stays here.
     const handleWishlistToggle = useCallback(async () => {
-        // AC-4, BR-2: guest tap → open LoginModal, no API call.
-        if (!isLoggedIn) {
-            setLoginOpen(true);
-            return;
-        }
-
-        if (isWishlistLoading) return;
-
-        const next = !saved;
-        setSaved(next);
         setIsWishlistLoading(true);
 
-        try {
-            if (next) {
-                const res = await wishlistAPI.save(campground.id);
-                if (res.error) throw new Error(res.error);
-                const { toast } = await import("sonner");
-                toast.success(t.wishlist.toastSaved);
-            } else {
-                const res = await wishlistAPI.remove(campground.id);
-                if (res.error) throw new Error(res.error);
-                const { toast } = await import("sonner");
-                toast.success(t.wishlist.toastRemoved);
-            }
-        } catch {
-            // AC-5, BR-1: rollback optimistic state on failure.
-            setSaved(!next);
+        const result = await runWishlistToggle({
+            isLoggedIn,
+            savedBefore: saved,
+            isLoading: isWishlistLoading,
+            campSiteId: campground.id,
+            api: wishlistAPI,
+            strings: {
+                toastSaved: t.wishlist.toastSaved,
+                toastRemoved: t.wishlist.toastRemoved,
+                toastErrorSave: t.wishlist.toastErrorSave,
+                toastErrorRemove: t.wishlist.toastErrorRemove,
+            },
+        });
+
+        // Apply the outcomes to React state.
+        setSaved(result.saved);
+        if (result.loginModalOpened) setLoginOpen(true);
+
+        if (result.toastKey) {
             const { toast } = await import("sonner");
-            toast.error(next ? t.wishlist.toastErrorSave : t.wishlist.toastErrorRemove);
-        } finally {
-            setIsWishlistLoading(false);
+            const isError = result.toastKey === t.wishlist.toastErrorSave
+                || result.toastKey === t.wishlist.toastErrorRemove;
+            if (isError) {
+                toast.error(result.toastKey);
+            } else {
+                toast.success(result.toastKey);
+            }
         }
+
+        setIsWishlistLoading(false);
     }, [isLoggedIn, isWishlistLoading, saved, campground.id, t]);
 
     // BR-5: dynamic aria-label per state.
