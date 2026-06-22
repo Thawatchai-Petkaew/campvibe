@@ -303,7 +303,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                 </div>
 
                 {/* Hero Grid - Responsive Layout */}
-                <div className="relative rounded-[24px] overflow-hidden mb-10 group">
+                <div className="relative rounded-3xl overflow-hidden mb-10 group">
                     {/* Mobile View: Single Hero Image */}
                     <div className="md:hidden h-[300px] w-full relative">
                         <img
@@ -526,7 +526,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                     {/* Right Column: Booking Widget */}
                     <div className="md:col-span-1 relative">
-                        <div className="sticky top-28 border border-border rounded-[24px] p-6 shadow-lg shadow-foreground/5 bg-card">
+                        <div className="sticky top-28 border border-border rounded-3xl p-6 shadow-lg shadow-foreground/5 bg-card">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
                                     <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
