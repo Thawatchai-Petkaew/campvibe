@@ -1,33 +1,114 @@
-# std/api.md — มาตรฐาน API/Backend (Backend)
+---
+name: api-and-backend-standards
+description: Standard for designing and building CampVibe's API/backend contracts. Use when adding or changing an endpoint, server action, or mutation. Use when writing zod validation, authz/ownership checks, or Prisma queries. Use when designing response shapes or writing a Prisma migration. Memory for the Backend role; pairs with std/security.md, std/ux.md, std/architecture.md, std/performance.md, types/api.ts.
+---
 
-อ้างอิงของจริงก่อนเขียน: `schema/api-schema.json` + `types/api.ts` + `lib/api-client.ts` + `lib/validations/*` (zod) · อ่าน `std/security.md` คู่กันเสมอ (authz/secret/injection) · field validation catalog + PDPA masking (zod schema แชร์ client/server) อยู่ที่ `std/ux.md`
+# API & Backend Standards
 
-## หลักการ
-Server เป็นเจ้าของความจริง (server-authoritative): client validation มีไว้เพื่อ UX เท่านั้น ห้ามเชื่อข้อมูลจาก client. ทุก endpoint เป็น contract ที่ตรวจสอบได้ — input ผ่าน boundary มี shape แน่นอน, output ตรง `types/api.ts`, side-effect ทุกอย่างผูกกับ session ที่ยืนยันแล้ว. ข้อมูลเป็น atomic (query อิสระได้, เชื่อมด้วย ID) ไม่ยัดหลายข้อเท็จจริงลง string เดียว.
+## Overview
 
-## มาตรฐาน/กฎ
-- **Validate ที่ boundary ด้วย zod ทุก endpoint** — schema อยู่ใน `lib/validations/*`; parse input (body/query/params) ก่อนแตะ logic; parse ล้มเหลว → `400` + field error (ไม่เผย stack/internal)
-- **Authz ทุก mutation** — ดึง user จาก session (NextAuth) ฝั่ง server; ห้ามรับ `userId`/`role` จาก client payload; **ownership check** ก่อน update/delete (ของผู้อื่นแก้ไม่ได้ → `403`/`404`); guard ที่ server เสมอ ไม่พึ่ง UI ซ่อนปุ่ม
-- **DB ผ่าน Prisma เท่านั้น (parameterized)** — ห้าม raw string concat ใน query; ถ้าจำเป็นต้อง raw ใช้ `$queryRaw` แบบ tagged template (parameterized) เท่านั้น
-- **Response shape ตาม `types/api.ts`** — atomic fields (`firstName`/`lastName`, `amount`+`currency`, `provinceId`) ไม่รวมเป็น string เดียว; success/error shape สม่ำเสมอทั้ง API
-- **ไม่รั่ว secret/internal** — secret ไม่อยู่ใน response/log/fixture; error message ที่ส่งกลับ client เป็นภาษาคน ไม่เผย SQL/path/env/stack; log internal แยกจาก client error
-- **Migration reversible** — ทุก migration มี up/down คู่กัน; **ทดสอบ migrate บน Staging DB ก่อน prod** เสมอ (รัน `prisma migrate deploy` ต่อ env, `DATABASE_URL` แยก staging/prod); ห้าม drop/rename ทำลายข้อมูลโดยไม่มี backfill
-- **Idempotent & atomic write** — operation ที่ต้อง all-or-nothing ใช้ `prisma.$transaction`; กัน partial write
-- **Audit event สำคัญ** — mutation ที่กระทบสิทธิ์/การเงิน/ข้อมูลผู้ใช้ บันทึก audit (ไม่รั่ว secret); event-code อยู่ใน spec `tech` ไม่อยู่ใน AC
+The server owns the truth (server-authoritative): client validation exists only for UX — never trust data from the client. Every endpoint is a verifiable contract — input crossing the boundary has a fixed shape, output matches `types/api.ts`, and every side-effect is tied to a verified session. Data is atomic (independently queryable, joined by ID), never several facts crammed into one string.
 
-## ต้องคำนึง / anti-patterns
-- ❌ เชื่อ `role`/`userId` จาก request body → ✅ อ่านจาก session ฝั่ง server เท่านั้น
-- ❌ trust client validation อย่างเดียว → ✅ zod parse ซ้ำที่ server boundary
-- ❌ `update where:{id}` โดยไม่เช็คเจ้าของ → ✅ `where:{id, ownerId: session.user.id}`
-- ❌ คืน Prisma error/stack ตรงๆ ให้ client → ✅ map เป็น error shape ที่ปลอดภัย
-- ❌ migration ไม่มี down / ไม่ลอง rollback → ✅ ทดสอบ up→down→up บน Staging ก่อน
-- ❌ ยัด `fullName: "นายสมชาย"`, `price: "฿1,250"` → ✅ atomic fields ตาม `types/api.ts`
+## When to Use
 
-## Checklist (DoD ของ Backend)
-- [ ] zod validate ครบทุก input boundary + error shape ปลอดภัย
-- [ ] authz + ownership check ทุก mutation (ผูก session)
-- [ ] query ผ่าน Prisma parameterized ทั้งหมด (ไม่มี raw concat)
-- [ ] response ตรง `types/api.ts` (atomic) + contract test ผ่าน
-- [ ] **รัน endpoint จริง** ตรวจ happy + error path; ไม่มี secret รั่วใน response/log
-- [ ] migration up/down ทดสอบบน Staging สำเร็จ (reversible)
-- [ ] ผ่าน quality gate (lint/typecheck/test ≥80% โค้ดใหม่/build/`npm audit`) ก่อน PR เข้า `staging`
+- Adding or changing any endpoint, server action, route handler, or mutation
+- Writing zod schemas at an input boundary (`lib/validations/*`)
+- Adding authz / ownership checks tied to a NextAuth session
+- Writing or reviewing a Prisma query or a Prisma migration (up/down)
+- Designing a success/error response shape or an error-code set
+- Reference the real artifacts before writing: `schema/api-schema.json` + `types/api.ts` + `lib/api-client.ts` + `lib/validations/*` (zod)
+
+**NOT for:**
+
+- AuthN/secret handling, injection, and threat-model details — read `std/security.md` alongside this file, always
+- Field-validation catalog + PDPA masking (shared client/server zod schema) — see `std/ux.md`
+- Latency budgets and profiling — see `std/performance.md`
+- Deprecation plans and architectural decisions — see `std/architecture.md` (ADR)
+
+## Standards
+
+### 1. Validate at the boundary with zod (every endpoint)
+
+- Schemas live in `lib/validations/*`; parse input (body/query/params) before touching logic.
+- Parse failure → `400` + field error (do not leak stack/internal).
+
+### 2. Authz on every mutation
+
+- Read the user from the session (NextAuth) on the server; never accept `userId`/`role` from the client payload.
+- **Ownership check** before update/delete (cannot edit someone else's record → `403`/`404`).
+- Guard on the server always — never rely on the UI hiding a button.
+
+### 3. DB through Prisma only (parameterized)
+
+- No raw string concatenation in a query.
+- If raw is unavoidable, use `$queryRaw` as a tagged template (parameterized) only.
+
+### 4. Response shape per `types/api.ts`
+
+- Atomic fields (`firstName`/`lastName`, `amount`+`currency`, `provinceId`) — never merged into one string.
+- Consistent success/error shape across the whole API.
+
+### 5. Never leak secrets/internal
+
+- Secrets never appear in a response/log/fixture.
+- Error messages returned to the client are human-readable — no SQL/path/env/stack.
+- Log internal detail separately from the client error.
+
+### 6. Reversible migrations
+
+- Every migration has a paired up/down.
+- **Test migrate on the Staging DB before prod** always (run `prisma migrate deploy` per env; `DATABASE_URL` separated staging/prod).
+- No data-destroying drop/rename without a backfill.
+
+### 7. Idempotent & atomic write
+
+- Operations that must be all-or-nothing use `prisma.$transaction`; prevent partial writes.
+
+### 8. Audit important events
+
+- Mutations affecting permissions/money/user data record an audit (no secret leakage).
+- Event-code lives in the spec `tech`, not in the AC.
+
+### 9. Error-code set (complete)
+
+- Every endpoint covers: 400 (validation failed) · 401 (not logged in) · 403 (no permission / not owner) · 404 (not found) · 409 (duplicate / state conflict) · 500 (internal, generic message).
+- Error shape consistent across the whole API.
+
+### 10. Contract-first
+
+- Define input/output (zod + `types/api.ts`) before writing the implementation; the contract is the spec.
+
+### 11. Discriminated union + branded id
+
+- **Discriminated union** for multi-outcome results (e.g. `{status:'ok',data} | {status:'error',code}`) so the type can be narrowed.
+- **Branded type** for ids (`CampId`/`UserId`) to prevent passing the wrong id kind (caught at compile time).
+
+### 12. Backward-compatible by addition
+
+- Change a contract by adding an optional field — never remove/change the type of an existing one.
+- Retiring a field needs a deprecation plan (link `std/architecture.md` ADR).
+
+### 13. Latency target
+
+- Hot endpoints p95 < 200ms (link `std/performance.md`).
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "Trust `role`/`userId` from the request body." | Read from the server-side session only. |
+| "Client validation is enough." | Re-parse with zod at the server boundary. |
+| "`update where:{id}` is fine without an owner check." | Use `where:{id, ownerId: session.user.id}`. |
+| "Return the Prisma error/stack straight to the client." | Map it to a safe error shape. |
+| "Migration without a down / never tried rollback is OK." | Test up→down→up on Staging first. |
+| "Cram `fullName: \"นายสมชาย\"`, `price: \"฿1,250\"`." | Atomic fields per `types/api.ts`. |
+
+## Verify (exit criteria)
+
+- [ ] zod validates every input boundary + safe error shape
+- [ ] authz + ownership check on every mutation (tied to session)
+- [ ] all queries through Prisma parameterized (no raw concat)
+- [ ] response matches `types/api.ts` (atomic) + contract test passes
+- [ ] **run the real endpoint** — check happy + error path; no secret leaked in response/log
+- [ ] migration up/down tested on Staging successfully (reversible)
+- [ ] passes the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before PR into `staging`
