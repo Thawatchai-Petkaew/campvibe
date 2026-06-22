@@ -63,4 +63,4 @@ next-env.d.ts
 !/scripts/camper.mjs
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
-ai-planning/linear-snapshot.json
+.claude/linear-snapshot.json

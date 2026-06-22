@@ -16,7 +16,7 @@ Fast path from raw requirement to G1:
 1. **Research first** — read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*` + check Linear (team Campvibe) for existing/duplicate work.
 2. **Build the 6-dimension gap list** — Business · Functional · Technical · UX · Security/Data · Risk — tag each gap 🟢 closed / 🟡 assumed (state the default) / 🔴 must-ask / ⚪ N/A.
 3. **Batch the questions in one round** — collect every 🔴/🟡 into a single ask; each item carries options + impact + "if no answer, default = …".
-4. **Write the ticket** — from `ai-planning/templates/STORY-TICKET.md`, 1 atomic story (PR ≤ ~400 lines), AC with Thai copy verbatim, DoR met.
+4. **Write the ticket** — from `.claude/templates/STORY-TICKET.md`, 1 atomic story (PR ≤ ~400 lines), AC with Thai copy verbatim, DoR met.
 5. **Propose G1** — gate passes when **no 🔴 remains** and `node scripts/linear-sync.mjs audit` confirms the ticket (`## Story` + `## AC`).
 
 ## When to Use
@@ -36,7 +36,7 @@ Fast path from raw requirement to G1:
 
 ## Prerequisites
 
-Read before starting: this file · `DESIGN.md` (for any UI-facing requirement) · `CLAUDE.md` (iron rules + gates). Have on hand: the raw requirement, access to the codebase (`prisma/schema.prisma`, `app/`, `lib/`, `components/`), Linear (team Campvibe), and the template `ai-planning/templates/STORY-TICKET.md`. Know which dimensions hand off to siblings — `.claude/rules/architecture.md`, `.claude/rules/qa.md`, `.claude/rules/ux.md`, `.claude/rules/performance.md`.
+Read before starting: this file · `DESIGN.md` (for any UI-facing requirement) · `CLAUDE.md` (iron rules + gates). Have on hand: the raw requirement, access to the codebase (`prisma/schema.prisma`, `app/`, `lib/`, `components/`), Linear (team Campvibe), and the template `.claude/templates/STORY-TICKET.md`. Know which dimensions hand off to siblings — `.claude/rules/architecture.md`, `.claude/rules/qa.md`, `.claude/rules/ux.md`, `.claude/rules/performance.md`.
 
 ## Principles
 
@@ -69,7 +69,7 @@ Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be
 1. Real research: read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and check Linear (team Campvibe) for existing/duplicate work.
 2. Build the gap list per dimension → tag each 🟢/🟡/🔴/⚪.
 3. Batch the 🔴/🟡 questions → ask the human in a **single round**; each item has: options + impact of each path + "if no answer, default = …".
-4. All closed (no 🔴) → write the ticket from `ai-planning/templates/STORY-TICKET.md` → propose G1.
+4. All closed (no 🔴) → write the ticket from `.claude/templates/STORY-TICKET.md` → propose G1.
 
 ### 4. Ticket = 1 atomic story
 
@@ -113,7 +113,7 @@ Use the template exactly — `## ทำไม` (+KPI) · `## Story` (ในฐ�
 
 ## Reference Files
 
-- `ai-planning/templates/STORY-TICKET.md` — the ticket structure to fill (the 6 spec components land here).
+- `.claude/templates/STORY-TICKET.md` — the ticket structure to fill (the 6 spec components land here).
 - `.claude/rules/architecture.md` — data-model / API-contract / migration decisions once scope is set (G2 Technical).
 - `.claude/rules/qa.md` — turning each AC into negative/edge test cases.
 - `.claude/rules/ux.md` — UX validation + PDPA constraints inside the AC.

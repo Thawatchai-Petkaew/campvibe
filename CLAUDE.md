@@ -2,8 +2,6 @@
 
 Central memory for the AI agent team, auto-loaded every session. **Every rule in this file overrides convenience and speed.**
 
-> Full team operating manual: `ai-planning/AI-TEAM-PLAYBOOK.md`. This file is the binding, condensed enforcement copy.
-
 ## Stack
 
 Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v4 + shadcn/ui (new-york) · NextAuth · Vercel · Linear (tracker)

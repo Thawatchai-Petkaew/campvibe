@@ -32,7 +32,7 @@ Linear status เปลี่ยนตาม **git/gate event ไม่ผูก
 |---|---|
 | `npm run status:linear` | list งานทั้งหมดใน Linear (จัดกลุ่มตาม epic) |
 | `npm run status:gates` | **สัญญาณ gate** — gate ไหนรอคุณ vs อนุมัติแล้ว→ไปต่อ (exit 10 ถ้ามี cleared) |
-| `npm run status:pull` | ดึง Linear → `ai-planning/linear-snapshot.json` |
+| `npm run status:pull` | ดึง Linear → `.claude/linear-snapshot.json` |
 | `node scripts/linear-sync.mjs set CAM-7 --state "In Progress"` | เปลี่ยน state |
 | `... set CAM-11 --add-label awaiting-you` / `--remove-label` | ติด/ถอด gate flag |
 
