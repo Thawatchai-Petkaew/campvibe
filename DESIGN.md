@@ -21,6 +21,16 @@ Change a token in one place only: `app/globals.css` + this file. Public-facing w
 
 This doc keeps its §-numbered structure: §0 how to use → §1 brand → §2 tokens → §3 components → §4 copy → §5 anti-slop → §6 gate → §7 icons → §8 living reference.
 
+## Quick Reference
+
+The fast path for any UI work (full rules below):
+
+1. **Read this file first** (§0) — it is a contract; output must be deterministic session-to-session.
+2. **Precedence:** semantic token (`bg-card`, `text-muted-foreground`) → scale utility (`rounded-3xl`, `h-11`, `gap-6`) → **never an inline value** (`bg-[#…]`, `h-[52px]`). Value not in the token layer? **Stop — propose a token, don't invent one.**
+3. **Pick the primitive** from `components/ui/*` only (§3 decision matrix); icons **lucide-react only** (§7).
+4. **Cover all 8 states** (default/hover/focus/active/loading/error/empty/disabled) + the form/error pattern.
+5. **Pass the gate before merge** (§6): `npm run check:palette` green · WCAG 2.1 AA (contrast 4.5:1 / 3:1, focus, tap ≥44px, axe) · i18n TH/EN no em-dash/jargon · motion transform/opacity 120–250ms · anti-slop (§5).
+
 ## §0 How to use this doc (for AI agents + humans)
 
 1. **Read this file before starting any UI work, every session** — it is a contract, not a suggestion. Every design decision comes from here → the output of session 10 must match the output of session 1.
@@ -247,6 +257,23 @@ This doc keeps its §-numbered structure: §0 how to use → §1 brand → §2 t
 8. **Consistency CI guard** — extend `check-palette.mjs` to catch inline height/radius off-scale (prevent drift like the palette).
 9. **Wire Sarabun** — `next/font/google` subset thai+latin + Thai font stack (`:lang(th)`) → heading Sarabun semibold.
 10. **Cleanup** — remove the stale hex `--color-primary:#0d9488` in `@theme` (globals.css), and the `"orange-600"` comment that does not match the value.
+
+## Examples
+
+Representative ✅/❌ (the full sets live in §2/§3/§5):
+
+- ✅ `className="bg-card text-card-foreground rounded-3xl p-6"` (tokens + role radius) · ❌ `className="bg-[#0d9488] rounded-[22px] p-[24px]"` (inline palette/px — fails `check:palette`).
+- ✅ Profile menu = `DropdownMenu`, Filter = `FilterChip` — different roles, **shared grammar** (radius/size/spacing from §2). · ❌ a bespoke dropdown with its own radius/weight.
+- ✅ status as `<Badge variant="success">` + text/icon · ❌ a raw `<span>` colored only by hue (color-only signal fails a11y).
+- ✅ CampVibe layout: one dominant cell, teal POV, no gradient · ❌ centered hero + purple-blue gradient + 3 identical cards (the §5 slop tell).
+
+## Reference Files
+
+- `app/globals.css` — authoritative OKLCH token values (light + `.dark`).
+- `components/ui/*` — the only component vocabulary; `components/ui/form-patterns.md` — the form/error pattern.
+- `app/preview` — living kitchen-sink reference.
+- `.claude/rules/ux.md` — field validation + PDPA (not duplicated here); `.claude/rules/seo.md` — public-facing metadata / JSON-LD / CWV.
+- `scripts/check-palette.mjs` — the CI enforcement guard (`npm run check:palette`).
 
 ## Common Rationalizations
 

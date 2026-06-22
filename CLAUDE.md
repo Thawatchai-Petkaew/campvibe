@@ -24,6 +24,11 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 - Observability → `.claude/rules/observability.md` · Performance → `.claude/rules/performance.md`
 - Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — read before every UI task: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (blocks PR) · SEO/AEO → `.claude/rules/seo.md` · UX Validation + PDPA → `.claude/rules/ux.md`
 
+## Project context (read for decisions)
+
+- `docs/project/*` — business/product source-of-truth (why / for whom / worth it): master-plan · business (cost list) · market-size · user-research · product-strategy.
+- `docs/context/*` — the owner's stable context / **Second Brain** (principles, non-negotiables, decision heuristics); the orchestrator + camper-agent read it before any autonomous decision.
+
 ## Quality gates (mandatory before merge — `/quality-gate`)
 
 `npm run lint` · `npm run typecheck` · `npm test` (coverage ≥80% on new code) · `npm run build` · `npm audit --omit=dev` (0 high/critical) · design gate (UI work)
