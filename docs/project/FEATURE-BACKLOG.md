@@ -15,7 +15,7 @@
 ## 0. งานค้างกลางทาง (in-flight) — จัดการก่อน
 | ID | Feature | Status | Gate | หมายเหตุ |
 |---|---|---|---|---|
-| TICKET-0001 | Wishlist (บันทึกแคมป์ที่ถูกใจ) | IN-FLIGHT | G1 ✅ → รอ **G2 (design)** | decisions: guest=prompt-login, single-list, navbar heart. spec: `ai-planning/docs/specs/TICKET-0001-wishlist.md` |
+| TICKET-0001 | Wishlist (บันทึกแคมป์ที่ถูกใจ) | IN-FLIGHT | G1 ✅ → รอ **G2 (design)** | decisions: guest=prompt-login, single-list, navbar heart. spec: Linear (CAM) |
 
 ---
 

@@ -31,4 +31,4 @@ STORY-TICKET template — ก๊อปทั้งบล็อกด้านล
 - [ ] lint  - [ ] typecheck  - [ ] test + coverage ≥80%  - [ ] a11y  - [ ] design (token-only)  - [ ] security
 
 ## Links
-spec: <ai-planning/docs/specs/...> · PR: <#> · preview: <url> · design: DESIGN.md
+spec: <Linear CAM-NNN> · PR: <#> · preview: <url> · design: DESIGN.md

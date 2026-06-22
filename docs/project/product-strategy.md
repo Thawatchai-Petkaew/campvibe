@@ -14,7 +14,7 @@
 - **Now (กำลังทำ/เพิ่งเสร็จ):** wishlist (done staging) · ปิด **4 security gap** จาก gap-audit (spot IDOR, unauth upload, error leak, isVerified self-grant) — *trust = P0*
 - **Next:** search/filter ตามจังหวัด · notifications (Telegram) · SEO หน้า public (`.claude/rules/seo.md`) · coverage threshold enforce
 - **Later:** > TODO(you): payment/escrow, ปฏิทินว่าง, แชร์ wishlist, remarketing, host analytics
-> TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `ai-planning/FEATURE-BACKLOG.md`)
+> TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `FEATURE-BACKLOG.md`)
 
 ## จะทำ / ไม่ทำ (สำหรับ `/camper-agent` รู้ขอบเขต)
 **ทำ:** อะไรที่ดัน core loop (ค้นหา/จอง/รีวิว/wishlist) + trust + supply/demand

@@ -15,6 +15,8 @@
 | [market-size.md](market-size.md) | ตลาดใหญ่แค่ไหน + แข่งกับใคร — TAM/SAM/SOM, เทรนด์, คู่แข่ง, positioning |
 | [user-research.md](user-research.md) | ผู้ใช้คือใคร เจ็บตรงไหน — personas, JTBD, pain points, insights |
 | [product-strategy.md](product-strategy.md) | จะทำ/ไม่ทำอะไร + วัดผลยังไง — priorities, principles, success metrics, **เกณฑ์เชิงธุรกิจที่ `/camper-agent` ใช้** |
+| [PRODUCT-PLAN.md](PRODUCT-PLAN.md) | แผนฟีเจอร์ราย persona + สถานะจริงในโค้ด (audit 06-20) — inventory ละเอียด ประกอบ master-plan |
+| [FEATURE-BACKLOG.md](FEATURE-BACKLOG.md) | backlog รวมระดับ epic (REAL/STUB/MISSING) — ภาพรวมก่อนเลือก scope; commit จริงไปที่ Linear |
 
 ## `/camper-agent` ใช้ไฟล์นี้อย่างไร
 เมื่อ autonomous เปิด และต้องตัดสิน gate ที่มีมิติธุรกิจ (เช่น "feature นี้คุ้มไหม", "scope นี้ตรง strategy ไหม", G5 go-live):
