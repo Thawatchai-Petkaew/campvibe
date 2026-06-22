@@ -1,13 +1,13 @@
-# Decision heuristics — วิธีคิดเวลาเจอ trade-off
+# Decision heuristics — how to weigh a trade-off
 
-> ให้ orchestrator เลียนแบบการตัดสินของเจ้าของเมื่อเอกสารอื่นไม่ฟันธง — แต่ **ยัง raise gate ให้คนตัดสินเสมอ** (interactive)
-> ด้านล่างมาจากที่เจ้าของเขียนไว้แล้ว (มีลิงก์ที่มา); ตัวเลข/เพดานที่ยังไม่กำหนด = `> TODO(you):`
+> Lets the orchestrator mirror the owner's judgment when other docs don't decide — but it **still raises every gate to a human** (interactive).
+> Below are heuristics the owner has already written (with source links); numbers / ceilings not yet set = `> TODO(you):`.
 
-- **ไม่แน่ใจ = ถาม** — เจ้าของตัดสิน "ความเสี่ยง / รสนิยม / เงิน" เสมอ; orchestrator เป็นผู้ raise ไม่ตัดสินแทน (← `product-strategy.md` §เกณฑ์ตัดสิน gate)
-- **มีค่าใช้จ่ายเงินแม้นิดเดียว → หยุดถาม** ก่อนดำเนินการ (← `.claude/rules/ops.md` · `docs/project/business.md`)
-- **Lean test** — เพิ่มอะไรต้องตอบได้ว่าช่วย north-star / persona ยังไง ไม่งั้นตัด (← `CLAUDE.md` §6 · [`principles.md`](principles.md) #3)
-- **Trust > growth เมื่อชนกัน** — ถ้าโตเร็วแต่ทอน trust/ความปลอดภัย → เลือก trust (← [`principles.md`](principles.md) #1)
-- **Reversible-or-don't-ship** — deploy ที่ย้อนไม่ได้ = ไม่ปล่อย (← `.claude/rules/ops.md`)
-- **ตรง roadmap (Now/Next) + แก้ pain ของ persona ที่ระบุไว้** = สัญญาณว่าน่าทำ (← `product-strategy.md` · `user-research.md`)
+- **Unsure = ask** — the owner always decides "risk / taste / money"; the orchestrator raises, it does not decide on their behalf (← `product-strategy.md` §gate criteria)
+- **Any monetary cost, however small → stop and ask** before proceeding (← `.claude/rules/ops.md` · `docs/project/business.md`)
+- **Lean test** — anything you add must answer how it serves the north-star / persona, or it's cut (← `CLAUDE.md` §6 · [`principles.md`](principles.md) #3)
+- **Trust > growth when they collide** — if growing fast erodes trust/safety → choose trust (← [`principles.md`](principles.md) #1)
+- **Reversible-or-don't-ship** — a deploy you can't reverse = don't ship (← `.claude/rules/ops.md`)
+- **On the roadmap (Now/Next) + solves a stated persona pain** = a signal it's worth doing (← `product-strategy.md` · `user-research.md`)
 
-> TODO(you): ระดับ "ความเสี่ยงที่รับได้" + เพดานค่าใช้จ่ายที่ "ทำเองได้โดยไม่ต้องถาม" (ตัวเลขจริง) — ยังไม่กำหนด
+> TODO(you): the acceptable "risk tolerance" level + the spending ceiling that's "OK to do without asking" (real numbers) — not yet set.

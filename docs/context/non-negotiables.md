@@ -1,12 +1,12 @@
-# Non-negotiables — ข้อห้าม/ข้อบังคับเด็ดขาด
+# Non-negotiables — absolute don'ts
 
-> สิ่งที่ห้ามทำไม่ว่ากรณีใด — ถ้าเรื่องที่ raise มาขัดข้อใด **orchestrator ต้องชี้ให้เห็นใน gate packet** (ไม่ฝืน, ไม่ตัดสินแทน)
-> ด้านล่างคือข้อที่เจ้าของ "พูดไว้แล้ว" ในเอกสารอื่น (มีลิงก์ที่มา); ส่วนที่ยังไม่เขียน = `> TODO(you):` (agent ห้ามเดา/แต่งแทน)
+> Things never to do, under any circumstance — if a raised proposal conflicts with any of these, **the orchestrator must flag it in the gate packet** (no overriding, no deciding on the owner's behalf).
+> Below are items the owner has **already stated** in other docs (with source links); anything not yet written = `> TODO(you):` (agents must not guess / invent).
 
-- **ความเป็นส่วนตัว / PDPA + authz แน่น** — ไม่รั่ว PII, ownership check ทุก mutation (← `product-strategy.md` #1 Trust · `.claude/rules/security.md` · `.claude/rules/ux.md`)
-- **ไม่โตด้วยของปลอม** — ห้าม fake review / ปั้นข้อมูล / ปล่อยข้อมูลรั่ว (← `product-strategy.md` #1)
-- **ไม่ทำ dark pattern** — ไม่หลอก/บีบผู้ใช้ (← `README.md` ตัวอย่าง · `DESIGN.md` anti-slop §5)
-- **ทุก gate ตัดสินโดยมนุษย์เสมอ** — ไม่มี autonomous approval; orchestrator เป็นผู้ raise ไม่ตัดสินแทน (← `CLAUDE.md` §gates · interactive-only ตั้งแต่ PR #82)
-- **ไม่มีค่าใช้จ่ายเงินโดยไม่ถาม** — ค่าใช้จ่ายใดๆ (paid API / infra / prod deploy / ข้อความจริงถึงผู้ใช้) → หยุดถามเจ้าของ (← `.claude/rules/ops.md` · `docs/project/business.md`)
+- **Privacy / PDPA + tight authz** — never leak PII; ownership check on every mutation (← `product-strategy.md` #1 Trust · `.claude/rules/security.md` · `.claude/rules/ux.md`)
+- **Never grow on fakes** — no fake reviews / fabricated data / leaked data (← `product-strategy.md` #1)
+- **No dark patterns** — never deceive or pressure the user (← `README.md` example · `DESIGN.md` anti-slop §5)
+- **Every gate is decided by a human, always** — no autonomous approval; the orchestrator raises, it does not decide on the owner's behalf (← `CLAUDE.md` §gates · interactive-only since PR #82)
+- **No monetary cost without asking** — any cost (paid API / infra / prod deploy / real messages to users) → stop and ask the owner (← `.claude/rules/ops.md` · `docs/project/business.md`)
 
-> TODO(you): ข้อห้ามเฉพาะของเจ้าของที่ยังไม่ได้เขียน (เช่น คู่แข่ง/พาร์ตเนอร์ที่ไม่ร่วมงานด้วย, แนวทางที่ไม่เอาเด็ดขาด)
+> TODO(you): owner-specific don'ts not yet written (e.g. competitors/partners you won't work with, directions you absolutely reject).
