@@ -9,7 +9,7 @@ updated: {{date}}
 # {{featureName}}
 
 ## Overview
-<what this feature is + who it serves> · ↑ Master-Plan: `docs/project/master-plan.md` · PRODUCT-PLAN item: <…>
+<what this feature is + who it serves> · ↑ Master-Plan: `docs/project/master-plan.md` · product-plan item: <…>
 
 ## Architecture overview
 - Entities: <atomic entities + how they link by ID>

@@ -1,7 +1,7 @@
 # CampVibe — Product Plan (RESET, by Persona)
 
 > **แผนฟีเจอร์ราย persona** (audit 2026-06-20 โดย product-owner ×3 + Explore) — inventory ละเอียดของ 3 ฝั่งผู้ใช้ + status ตามความจริงในโค้ด · ทิศทาง/กลยุทธ์ที่เป็น source-of-truth = [master-plan.md](master-plan.md) + [product-strategy.md](product-strategy.md)
-> แทนที่มุมมอง category ใน [FEATURE-BACKLOG.md](FEATURE-BACKLOG.md) (เก็บไว้เป็น cross-reference) · ทุก item ที่เลือกทำ → แปลงเป็น TICKET ที่ intake/G1
+> ไฟล์เดียวที่รวม inventory ราย persona + epic-backlog + AI rollup (เดิมแยกที่ FEATURE-BACKLOG.md — ยุบรวมเข้าที่นี่แล้ว 2026-06-22) · ทุก item ที่เลือกทำ → แปลงเป็น TICKET ที่ intake/G1
 > Status: ✅ DONE (ใช้ได้จริง) · 🟡 PARTIAL (มีแต่ไม่ครบ/มีช่องโหว่) · ⬜ TODO (ยังไม่มี) · 🔵 IN-FLIGHT (อยู่ในลูป) · Effort S/M/L · Phase 1 core-real / 2 AI+depth / 3 scale
 
 ## ⚠️ นิยาม "Admin" (กันสับสน)
@@ -272,6 +272,23 @@
 |---|---|---|---|---|
 | F-5.1 | PostHog (funnel + session replay) | ⬜ | S | 2 |
 | F-5.2 | Chart lib สำหรับ dashboard | ⬜ | S | 2 |
+
+---
+
+## 🤖 AI features (มุมรวม cross-persona)
+> dep ร่วม: `ANTHROPIC_API_KEY` (F-3.1) + `pgvector` (F-3.2) · **Wedge:** A = operator-first (แนะนำ) · B = camper AI discovery · ตารางนี้ rollup จากรายการ AI ที่กระจายในแต่ละ persona ข้างบน (คอลัมน์ map → item)
+
+| ID | AI feature | map → item | data | Impact | Effort | Wedge | Phase |
+|---|---|---|---|---|---|---|---|
+| AI-1 | สรุปรีวิว (ดี/เสีย) ⭐ quick win | C-2.7 / F-3.3 | `Review.content/rating` | สูง | S | — | 1 |
+| AI-2 | สร้าง Listing จาก FB/รูป | H-2.6 | scraper + Blob + `CampSite.*` | สูงมาก | L | A ⭐ | 2 |
+| AI-3 | NL Search (semantic) | C-1.7 | attributes + embeddings | สูงมาก | L | B | 2 |
+| AI-4 | ผู้ช่วยจัดทริป/เส้นทาง | C-5.9 | `Booking` + `CampSite` | กลาง | M–L | B | 2–3 |
+| AI-5 | Dynamic pricing | H-9.3 | `CampSite` + `Booking` | สูง | M–L | A | 3 |
+| AI-6 | AI auto-reply (LINE/in-app) | H-6.5 | `CampSite.*` | สูง | M | A | 2–3 |
+| AI-7 | Auto-tag รูป/ประเภทวิว | H-2.7 | `Spot.images` | กลาง | S–M | A | 2–3 |
+| AI-8 | Occupancy forecast | H-9.3 | `Booking` | กลาง | M | A | 3 |
+| AI-9 | ช่วยตรวจ KYC / รีวิวปลอม | A-1.4 / A-5.4 | `kycDocuments`, `Review` | กลาง | M | — | 3 |
 
 ---
 

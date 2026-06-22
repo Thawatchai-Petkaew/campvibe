@@ -65,7 +65,7 @@ Do not alter this loop. Each step rolls into the next; gates block progression.
 6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
 8. **Every transition** — call skill `update-status` (sync Linear) and add label `awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/linear-sync.mjs index`) so `docs/delivery/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve (the `awaiting-you` label + Linear/Telegram continuation infra surfaces it to them); there is no autonomous gate approval.
-9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/FEATURE-BACKLOG.md`/`master-plan.md` if scope shifts → sync Linear → regenerate the index.
+9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/product-plan.md`/`master-plan.md` if scope shifts → sync Linear → regenerate the index.
 
 ## Examples
 
