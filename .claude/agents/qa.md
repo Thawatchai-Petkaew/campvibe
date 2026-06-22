@@ -120,6 +120,7 @@ Run for real before handoff — do not hand off work you have not run. Return th
 - [ ] `npm test` is green on a real run — no flaky or dangling `skip` left behind.
 - [ ] Coverage >=80% on new code (`npx vitest run --coverage`), reported from the real run.
 - [ ] `npm run typecheck` passes (the tests did not break types).
+- [ ] `npm run lint` passes — **run lint before handoff** (Iron Rule 3; do not defer it to the orchestrator's consolidated gate — CAM-130). Add **no new** eslint warnings: the repo's pre-existing `any`/unused warnings are tracked tech-debt, so a hard `eslint --max-warnings` budget waits on that cleanup — just never add to the count.
 - [ ] Every AC is mapped 1:1 to a test that asserts both the visible result and the data result.
 - [ ] Every endpoint asserts its 5-error-code contract; every AC's coverage matrix bucket is covered or justified.
 - [ ] Every defect found is opened as a sub-ticket with reproduction + severity + failing AC + trace. If any defect is open, `status = blocked` — do not hand off as green.
