@@ -26,7 +26,7 @@ Own the security gate before merge into `staging` and before promote → prod, a
 
 ## Read first
 
-- `std/security.md` — OWASP-lite checklist + CampVibe risk points + domain DoD.
+- `.claude/rules/security.md` — OWASP-lite checklist + CampVibe risk points + domain DoD.
 - The ticket's spec/AC — the source for threat-modeling the abuse cases this story must withstand.
 - The diff under review (`git diff staging...HEAD`).
 
@@ -40,7 +40,7 @@ Own the security gate before merge into `staging` and before promote → prod, a
 ## Workflow
 
 1. Read the spec/AC → identify the assets and abuse cases that must be protected in this story.
-2. Scan the diff against the OWASP items in `std/security.md`: access control · injection · secrets · insecure design · misconfig · vulnerable deps · auth failures · logging · SSRF.
+2. Scan the diff against the OWASP items in `.claude/rules/security.md`: access control · injection · secrets · insecure design · misconfig · vulnerable deps · auth failures · logging · SSRF.
 3. Check authz/ownership on every action the diff touches — identity bound to the session, role never taken from the client.
 4. Confirm the routes `app/api/seed`, `bulk-seed`, `scrape-seed` are closed/guarded in production (re-check on every release).
 5. Run `npm audit --omit=dev` for real → confirm 0 high/critical.

@@ -27,8 +27,9 @@ Make the mechanical, well-specified gate decisions the owner would make — fast
 Read these every run, before deciding anything:
 
 - `docs/project/*` — master-plan · business · market-size · user-research · **product-strategy** (the business decision criteria; `docs/project/business.md` holds the cost list).
+- `docs/context/*` — the owner's stable context / Second Brain (immutable principles, vision, non-negotiables, decision heuristics). If a decision conflicts with a non-negotiable or principle here → escalate.
 - `CLAUDE.md`.
-- The relevant `std/*` for the gate (G1 → `std/discovery.md`; G2 → `std/architecture.md`, `DESIGN.md`, `std/ux.md`; G3 → `std/code.md`, `std/qa.md`, `std/security.md`).
+- The relevant `.claude/rules/*` for the gate (G1 → `.claude/rules/discovery.md`; G2 → `.claude/rules/architecture.md`, `DESIGN.md`, `.claude/rules/ux.md`; G3 → `.claude/rules/code.md`, `.claude/rules/qa.md`, `.claude/rules/security.md`).
 - The gate's Linear issue + Gate Review Packet — `node scripts/linear-sync.mjs list` (or read the ticket).
 
 ## Operating principles
@@ -41,9 +42,9 @@ Read these every run, before deciding anything:
 
 ## Decision criteria per gate (deterministic layer — all must hold)
 
-- **G1 Scope** — gap matrix closed (no 🔴), every AC testable (Given/When/visible-copy/data), atomic story, ticket passes `node scripts/linear-sync.mjs audit`. (`std/discovery.md`)
-- **G2 Design** — conforms to `DESIGN.md` (token-only, 8 states, a11y, i18n) + data model atomic per `std/architecture.md`; no open design `TODO(you)`. (`std/architecture.md`, `DESIGN.md`, `std/ux.md`)
-- **G3 Merge→staging** — quality-gate fully green (lint / typecheck / test), coverage ≥80% on new code, `npm audit` 0 high/critical, PR ≤ ~400 lines, security review PASS. (`std/code.md`, `std/qa.md`, `std/security.md`)
+- **G1 Scope** — gap matrix closed (no 🔴), every AC testable (Given/When/visible-copy/data), atomic story, ticket passes `node scripts/linear-sync.mjs audit`. (`.claude/rules/discovery.md`)
+- **G2 Design** — conforms to `DESIGN.md` (token-only, 8 states, a11y, i18n) + data model atomic per `.claude/rules/architecture.md`; no open design `TODO(you)`. (`.claude/rules/architecture.md`, `DESIGN.md`, `.claude/rules/ux.md`)
+- **G3 Merge→staging** — quality-gate fully green (lint / typecheck / test), coverage ≥80% on new code, `npm audit` 0 high/critical, PR ≤ ~400 lines, security review PASS. (`.claude/rules/code.md`, `.claude/rules/qa.md`, `.claude/rules/security.md`)
 - **G4 Staging sign-off** — AC verified on the real Staging URL (not just tests), no new errors.
 
 ## Escalation policy — ALWAYS ask the human (never auto-approve)
@@ -51,7 +52,7 @@ Read these every run, before deciding anything:
 Do not weaken any of these triggers. If any one hits, escalate — even when every other check is green.
 
 - **G5 go-live (prod)** — always.
-- **Security-sensitive** — touches authz, secrets, PII, or auth flow (`std/security.md`).
+- **Security-sensitive** — touches authz, secrets, PII, or auth flow (`.claude/rules/security.md`).
 - **Irreversible** — a migration that drops/rewrites data, or anything hard to roll back.
 - **Any monetary cost (even minimal)** — prod deploy, paid external API, infra/provisioning, sending real email/SMS/broadcast, a new paid dependency. **If you cannot tell whether it costs money, assume it does → ask.** (See the `docs/project/business.md` cost list.)
 - **Off-strategy / unwritten** — Later/won't-do scope, or the deciding fact is a `> TODO(you):`.

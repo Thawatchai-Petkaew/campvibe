@@ -29,10 +29,10 @@ Design the system so others can build it without guessing: the Prisma data model
 
 Read these every time before starting — never design from memory:
 
-- `std/architecture.md` — architecture standard (incl. the Atomic Data Framework: Pixel · Set · Buffet).
+- `.claude/rules/architecture.md` — architecture standard (incl. the Atomic Data Framework: Pixel · Set · Buffet).
 - `prisma/schema.prisma` — the actual current schema (compare against it, do not assume).
 - `schema/api-schema.json` — the live API schema you update.
-- `std/api.md` — API contract standard (the contract is handed to `backend`).
+- `.claude/rules/api.md` — API contract standard (the contract is handed to `backend`).
 - The spec/ticket for that work — its `## Story` + `## AC` + `## Data` sections.
 
 ## Workflow
@@ -76,7 +76,7 @@ Each item is checkable; fail any → fix before handoff. Classify gaps you raise
 - [ ] **Doubt-driven review** — for any hard-to-reverse or cross-module decision, write down what you are unsure about and what would change the call; if doubt remains, raise it as an Open trade-off at G2 instead of resolving it silently.
 - [ ] **Schema reality check** — design compared against the real `prisma/schema.prisma`; no conflict with the current schema.
 - [ ] **Migration assessed** — reversible, with stated impact on existing data (backfill plan if needed), testable on Staging before prod.
-- [ ] **Atomic + classification** — every field passes the Resolution Boundary test (see `std/architecture.md`) and carries a classification tag (PII / Financial / Geo / Public); aggregates are compute-on-the-fly from source Pixels; client binds to a Buffet view, not a raw table.
+- [ ] **Atomic + classification** — every field passes the Resolution Boundary test (see `.claude/rules/architecture.md`) and carries a classification tag (PII / Financial / Geo / Public); aggregates are compute-on-the-fly from source Pixels; client binds to a Buffet view, not a raw table.
 
 ## Common Rationalizations
 

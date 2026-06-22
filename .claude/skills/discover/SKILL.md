@@ -9,7 +9,7 @@ description: Run the Discovery & gap-closure loop — research the codebase + ga
 
 Turn a raw, possibly-ambiguous requirement into a buildable spec without guessing. Research the real codebase + Linear first, build a gap list across all 6 dimensions, batch the open questions to the human in a single consolidated round, and only produce the ticket once no blocking gap remains. G1 (Scope) is the one point where scope changes for free — every gap left open here gets expensive later.
 
-Read first: `std/discovery.md` (the full DoR, the 6 spec components, vertical-slice rule, and the 4-layer audit framing all live there) and `CLAUDE.md` (ironclad rules + 3-env flow).
+Read first: `.claude/rules/discovery.md` (the full DoR, the 6 spec components, vertical-slice rule, and the 4-layer audit framing all live there) and `CLAUDE.md` (ironclad rules + 3-env flow).
 
 ## When to Use
 

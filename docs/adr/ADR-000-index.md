@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-ADRs record decisions that are hard to reverse or carry significant trade-offs (per `std/architecture.md`). Format: **Context · Decision · Alternatives · Consequences**.
+ADRs record decisions that are hard to reverse or carry significant trade-offs (per `.claude/rules/architecture.md`). Format: **Context · Decision · Alternatives · Consequences**.
 
 These ADRs are the **G2 design artifact** for the epic *"Atomic Schema · data model → Atomic-Data Framework + international standards"* (Linear CAM-96; plan `option-2-virtual-cosmos.md`, G1 approved). They are **Proposed — pending G2 human sign-off**; no migration is written until they are approved.
 

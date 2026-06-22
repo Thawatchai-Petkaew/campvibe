@@ -9,7 +9,7 @@ description: deploy/promote across envs (staging->prod) + migrate + smoke test +
 
 Promote a story across the 3-env pipeline (Local → Staging → Production) with database migration, smoke check, tag, changelog, and rollback. `merge→staging = Done`; `staging→main = Released`. State changes track the git event, not the env.
 
-Read first: `std/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `ai-planning/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local → Staging → Prod.
+Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `ai-planning/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local → Staging → Prod.
 
 ## When to Use
 
@@ -41,7 +41,7 @@ Read first: `std/ops.md` (pre-launch checklist, graduated rollout %, rollback th
 2. Open/merge PR `staging`→`main` → Vercel Production deploy + `prisma migrate deploy` on **prod DB**.
 3. Smoke/health check + `git tag vX.Y.Z` + changelog + rollback plan.
 4. Run `node scripts/linear-sync.mjs release <CAM-id>` for each released story → apply label `released` (state stays `Done`, not a new state).
-5. Watch Sentry for N minutes per the rollback thresholds in `std/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
+5. Watch Sentry for N minutes per the rollback thresholds in `.claude/rules/ops.md` → error spike = auto-rollback + notify; failure = rollback + open ticket.
 
 ## Common Rationalizations
 
@@ -64,4 +64,4 @@ Read first: `std/ops.md` (pre-launch checklist, graduated rollout %, rollback th
 - [ ] Build + `prisma migrate deploy` succeed for the promoted env.
 - [ ] Smoke/health check passes on the real URL (staging or prod).
 - [ ] Linear state/label correct (`Done` or `released`) — check with `npm run status:linear`.
-- [ ] Prod: tag + changelog complete + Sentry watched with no error spike (per `std/ops.md` thresholds) before closing the work.
+- [ ] Prod: tag + changelog complete + Sentry watched with no error spike (per `.claude/rules/ops.md` thresholds) before closing the work.

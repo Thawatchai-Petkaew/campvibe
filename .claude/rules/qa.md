@@ -1,6 +1,6 @@
 ---
 name: testing-and-quality
-description: Standard for proving every AC is true with tests, not chasing coverage theatre. Use when writing or reviewing unit/integration/e2e tests for a story. Use when fixing a bug (write the failing repro first). Use when deciding whether a story is Done. Memory for the QA role; pairs with std/code.md, std/api.md, std/security.md, std/ops.md, DESIGN.md.
+description: Standard for proving every AC is true with tests, not chasing coverage theatre. Use when writing or reviewing unit/integration/e2e tests for a story. Use when fixing a bug (write the failing repro first). Use when deciding whether a story is Done. Memory for the QA role; pairs with .claude/rules/code.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/ops.md, DESIGN.md.
 ---
 
 # Testing & Quality
@@ -18,15 +18,15 @@ A test is **evidence that an AC is true**, not a coverage ritual. Every test ass
 
 **NOT for:**
 
-- Production behavior visibility (logging/metrics/tracing) — use `std/observability.md`
-- API contract / route design itself — use `std/api.md`
-- Authz/PDPA threat modeling — use `std/security.md` (you still test server-side authz here)
+- Production behavior visibility (logging/metrics/tracing) — use `.claude/rules/observability.md`
+- API contract / route design itself — use `.claude/rules/api.md`
+- Authz/PDPA threat modeling — use `.claude/rules/security.md` (you still test server-side authz here)
 - The UI design gate — use `DESIGN.md`
-- Promote/release decisions and Staging deploy mechanics — use `std/ops.md`
+- Promote/release decisions and Staging deploy mechanics — use `.claude/rules/ops.md`
 
 ## Standards
 
-**Read before writing:** `std/qa.md` (this file) + the ticket you will test (the AC table = source of truth for cases).
+**Read before writing:** `.claude/rules/qa.md` (this file) + the ticket you will test (the AC table = source of truth for cases).
 
 ### 1. Stack & runner
 
@@ -76,7 +76,7 @@ A test is **evidence that an AC is true**, not a coverage ritual. Every test ass
 | "Mock everything so the test passes." | Over-mocking makes the test pass while the real thing breaks. Mock only the outer boundary (network/clock); keep the real logic. |
 | "A short `sleep` fixes the flakiness." | Timing/order/`sleep` make it flaky. Wait on a real condition (`findBy*`/`waitFor`); keep tests independent of order. |
 | "More tests = better coverage." | Worthless tests just pump the number. Write tests that fail when behavior breaks. |
-| "Tests are green locally, ship it." | Not Done until the AC is verified on the real Staging URL (see `std/ops.md`). |
+| "Tests are green locally, ship it." | Not Done until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`). |
 
 ## Verify (exit criteria)
 
@@ -85,4 +85,4 @@ A test is **evidence that an AC is true**, not a coverage ritual. Every test ass
 - [ ] Coverage ≥ 80% on new code (measured on the diff)
 - [ ] Tests pass CI (`.github/workflows/ci.yml`) server-side on a PR with base `staging`
 - [ ] Each defect found → opened as a sub-ticket with repro + the failing AC
-- [ ] **AC verified on the real Staging URL after merge** → story ready for Linear state `Done` (≠ Released; Released = promote `staging`→`main`, see `std/ops.md`)
+- [ ] **AC verified on the real Staging URL after merge** → story ready for Linear state `Done` (≠ Released; Released = promote `staging`→`main`, see `.claude/rules/ops.md`)

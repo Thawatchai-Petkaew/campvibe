@@ -26,7 +26,7 @@ Own the **Business + Functional** dimensions of the Discovery loop: turn a raw r
 
 ## Read first
 
-- `std/discovery.md` — gap dimensions + Definition of Ready (DoR).
+- `.claude/rules/discovery.md` — gap dimensions + Definition of Ready (DoR).
 - `ai-planning/templates/STORY-TICKET.md` — ticket template (copy it, fill every section).
 - Playbook §7 + §5.
 - Existing work in Linear — avoid duplication and conflicts.

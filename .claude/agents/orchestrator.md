@@ -29,8 +29,9 @@ Read these every run before planning or dispatching — sub-agents read their ow
 
 - `CLAUDE.md`
 - `ai-planning/AI-TEAM-PLAYBOOK.md`
-- `std/discovery.md`
-- `std/ops.md`
+- `.claude/rules/discovery.md`
+- `.claude/rules/ops.md`
+- `docs/project/*` + `docs/context/*` — project context (why / for-whom / worth-it) + the owner's stable Second Brain, read before planning or any autonomous decision.
 - The spec/ticket for that work (if any).
 
 ## Operating principles
@@ -45,7 +46,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 
 Do not alter this loop. Each step rolls into the next; gates block progression.
 
-1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `std/discovery.md`.
+1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`.
 2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a STORY-TICKET (`ai-planning/templates/STORY-TICKET.md`) as a story-level Linear issue.
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
@@ -74,7 +75,7 @@ Run these light judgment aids when rolling up a story to a gate. Tag every findi
 | "Dev can start while G1/G2 are still open." | No code before G1 + G2 pass. Block until the gate is green. |
 | "I'll ask the human these one at a time as they come up." | Bundle Critical/Important questions into a single round at G1 (options + impact + default). |
 | "Run the stories in parallel to go faster." | One atomic story at a time — parallel dispatch causes collisions. |
-| "SIT/UAT signed off, so we're good." | SIT/UAT are deprecated. Use the 3-env flow: Local → Staging → Prod (`std/ops.md`). |
+| "SIT/UAT signed off, so we're good." | SIT/UAT are deprecated. Use the 3-env flow: Local → Staging → Prod (`.claude/rules/ops.md`). |
 | "The change is small, so the existing ADR is fine to edit." | A decision change needs a new/superseding ADR; do not silently rewrite a decided one. |
 
 ## Output (handoff contract)

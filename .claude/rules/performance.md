@@ -1,6 +1,6 @@
 ---
 name: performance-optimization
-description: Standard for frontend + backend performance — measure before you fix, never guess the bottleneck. Use when touching render paths, public pages, or hot endpoints. Use when Core Web Vitals or a performance budget are at stake. Use when fixing measured slowness (N+1, unbounded fetch, re-renders). Memory for the Frontend, Backend, and QA roles; pairs with std/seo.md (public page/CWV), std/code.md, std/architecture.md (N+1), and DESIGN.md.
+description: Standard for frontend + backend performance — measure before you fix, never guess the bottleneck. Use when touching render paths, public pages, or hot endpoints. Use when Core Web Vitals or a performance budget are at stake. Use when fixing measured slowness (N+1, unbounded fetch, re-renders). Memory for the Frontend, Backend, and QA roles; pairs with .claude/rules/seo.md (public page/CWV), .claude/rules/code.md, .claude/rules/architecture.md (N+1), and DESIGN.md.
 ---
 
 # Performance Optimization (Frontend + Backend)
@@ -12,15 +12,15 @@ Code that feels slow loses users before they ever reach the value. Performance i
 ## When to Use
 
 - Touching anything that affects render, a public-facing page, or a hot endpoint
-- Working on a page where Core Web Vitals matter (pairs with `std/seo.md`)
+- Working on a page where Core Web Vitals matter (pairs with `.claude/rules/seo.md`)
 - Fixing measured slowness — N+1 queries, unbounded fetches, excess re-renders
 - A route or image risks exceeding the performance budget
 
 **NOT for:**
 
-- Diagnosing a failure happening right now — use the debugging methodology in `std/code.md`
-- Making production behavior visible (logging/metrics/tracing) — use `std/observability.md`
-- Query shape and data-access architecture in general — use `std/architecture.md`
+- Diagnosing a failure happening right now — use the debugging methodology in `.claude/rules/code.md`
+- Making production behavior visible (logging/metrics/tracing) — use `.claude/rules/observability.md`
+- Query shape and data-access architecture in general — use `.claude/rules/architecture.md`
 
 ## Principles
 
@@ -36,11 +36,11 @@ Code that feels slow loses users before they ever reach the value. Performance i
 
 ### 2. Performance budget (defaults — tune to reality)
 
-- JS bundle per route < 200KB gzipped · CSS < 50KB · image < 200KB/image · API p95 < 200ms (see `std/api.md`).
+- JS bundle per route < 200KB gzipped · CSS < 50KB · image < 200KB/image · API p95 < 200ms (see `.claude/rules/api.md`).
 
 ### 3. Anti-patterns to profile and hunt down
 
-- **N+1 query** → `include`/`select`/batch (see `std/architecture.md`).
+- **N+1 query** → `include`/`select`/batch (see `.claude/rules/architecture.md`).
 - **unbounded fetch** → always paginate + limit.
 - **unoptimized image** → `next/image` + explicit width/height (prevents CLS) + responsive sizes + lazy.
 - **excess re-render** → stabilize ref/props; use `React.memo`/`useMemo` **only where a profile proves it pays off** (don't memo blindly).

@@ -8,11 +8,11 @@
 2. **ลด friction ของ core loop** — ค้นหา → ดู → จอง → กลับมา (wishlist); ทุกฟีเจอร์ต้องช่วย loop นี้
 3. **Lean (กฎเหล็ก §6 CLAUDE.md)** — เพิ่มอะไรต้องตอบได้ว่าช่วย north-star/persona ยังไง ไม่งั้นตัด
 4. **Supply–demand สมดุล** — อย่าดัน demand จนไม่มีแคมป์รองรับ หรือมีแคมป์แต่ไม่มีคน
-5. **ไทยเป็นหลัก** — copy/ux/PII ออกแบบเพื่อผู้ใช้ไทย (ดู `std/ux.md`, `DESIGN.md`)
+5. **ไทยเป็นหลัก** — copy/ux/PII ออกแบบเพื่อผู้ใช้ไทย (ดู `.claude/rules/ux.md`, `DESIGN.md`)
 
 ## ลำดับความสำคัญ (Now / Next / Later)
 - **Now (กำลังทำ/เพิ่งเสร็จ):** wishlist (done staging) · ปิด **4 security gap** จาก gap-audit (spot IDOR, unauth upload, error leak, isVerified self-grant) — *trust = P0*
-- **Next:** search/filter ตามจังหวัด · notifications (Telegram) · SEO หน้า public (`std/seo.md`) · coverage threshold enforce
+- **Next:** search/filter ตามจังหวัด · notifications (Telegram) · SEO หน้า public (`.claude/rules/seo.md`) · coverage threshold enforce
 - **Later:** > TODO(you): payment/escrow, ปฏิทินว่าง, แชร์ wishlist, remarketing, host analytics
 > TODO(you): ยืนยัน/จัดลำดับใหม่ตามกลยุทธ์จริง (อ้าง `ai-planning/FEATURE-BACKLOG.md`)
 
@@ -24,7 +24,7 @@
 ## Success metrics / KPI
 - **North-star:** > TODO(you): (แนะนำ booking สำเร็จ/เดือน หรือ GMV) — ค่าปัจจุบัน/เป้า: ___
 - **Input:** conversion ค้นหา→จอง · % ใช้ wishlist · review/booking · แคมป์ published · MAU
-- **Guardrail (ห้ามแย่ลง):** อัตรา booking ล้มเหลว · เวลาโหลดหน้า public (Core Web Vitals, `std/seo.md`) · security incident = 0
+- **Guardrail (ห้ามแย่ลง):** อัตรา booking ล้มเหลว · เวลาโหลดหน้า public (Core Web Vitals, `.claude/rules/seo.md`) · security incident = 0
 > TODO(you): ใส่ตัวเลขเป้าจริงต่อ metric
 
 ---

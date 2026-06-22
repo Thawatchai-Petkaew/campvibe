@@ -27,7 +27,7 @@ Implement and edit UI for a single atomic story whose spec and design already cl
 ## Read first
 
 - `DESIGN.md` — tokens + components + states + anti-slop rules.
-- `std/code.md` — TS/Next.js/i18n/size standards for the UI layer.
+- `.claude/rules/code.md` — TS/Next.js/i18n/size standards for the UI layer.
 - The story's spec/ticket — `## Story` + `## AC` + Thai copy verbatim.
 
 No spec/design = stop and hand back to the Orchestrator.
@@ -42,7 +42,7 @@ No spec/design = stop and hand back to the Orchestrator.
 
 ## Workflow
 
-1. Read the ticket + `DESIGN.md` + `std/code.md` → list the AC rows, the states, and the copy keys to implement.
+1. Read the ticket + `DESIGN.md` + `.claude/rules/code.md` → list the AC rows, the states, and the copy keys to implement.
 2. Split server vs client components; define data flow through `lib/api-client.ts`.
 3. Compose from `components/ui/*` (radix-luma) + tabler icons; token-only, never hardcode color/px/shadow.
 4. Add every state + form/error per `components/ui/form-patterns.md` (inline error under the field + `ErrorBanner`).

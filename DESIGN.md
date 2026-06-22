@@ -17,7 +17,7 @@ audience: AI agents (primary) + humans
 
 This file is the **single source of truth** for all design. **Every agent reads it before doing any UI work** (humans read it too). It has the authority to **block a PR** for UI work via the Design Gate (§6).
 
-Change a token in one place only: `app/globals.css` + this file. Public-facing work (metadata / JSON-LD / CWV) → `std/seo.md`. Field validation + PDPA → `std/ux.md` (not duplicated here).
+Change a token in one place only: `app/globals.css` + this file. Public-facing work (metadata / JSON-LD / CWV) → `.claude/rules/seo.md`. Field validation + PDPA → `.claude/rules/ux.md` (not duplicated here).
 
 This doc keeps its §-numbered structure: §0 how to use → §1 brand → §2 tokens → §3 components → §4 copy → §5 anti-slop → §6 gate → §7 icons → §8 living reference.
 

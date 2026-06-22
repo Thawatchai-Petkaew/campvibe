@@ -36,4 +36,4 @@
 - [ ] ขนาด/ความถี่การไปแคมป์ของกลุ่มเป้าหมาย
 
 ## เกี่ยวข้อง
-[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `std/discovery.md` (เขียน AC อ้าง persona เหล่านี้)
+[market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `.claude/rules/discovery.md` (เขียน AC อ้าง persona เหล่านี้)

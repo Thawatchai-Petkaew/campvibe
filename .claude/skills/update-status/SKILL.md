@@ -9,7 +9,7 @@ description: Atomically update ticket status in Linear (team Campvibe/CAM) — c
 
 Record a ticket's state transition into Linear with real, executable commands — not remembered intent. Linear is the single source of truth and a closed loop: every git/gate event maps to one concrete `linear-sync.mjs` command so status never drifts from reality.
 
-Read first: `ai-planning/SYNC-ARCHITECTURE.md` (Linear = SoT + closed loop), `std/ops.md` (Done vs Released, 3-env), `scripts/linear-sync.mjs` (usage header).
+Read first: `ai-planning/SYNC-ARCHITECTURE.md` (Linear = SoT + closed loop), `.claude/rules/ops.md` (Done vs Released, 3-env), `scripts/linear-sync.mjs` (usage header).
 
 ## When to Use
 

@@ -1,6 +1,6 @@
 ---
 name: discovery-and-spec
-description: Standard for turning a raw requirement into a buildable spec before G1 (Scope), with no guessing. Use when starting work from a new or ambiguous requirement. Use when you must close gaps before writing any code. Use when authoring a STORY-TICKET, AC, or DoR. Memory for the PO/Analyst role; pairs with std/architecture.md, std/qa.md, std/ux.md, std/performance.md, DESIGN.md, CLAUDE.md.
+description: Standard for turning a raw requirement into a buildable spec before G1 (Scope), with no guessing. Use when starting work from a new or ambiguous requirement. Use when you must close gaps before writing any code. Use when authoring a STORY-TICKET, AC, or DoR. Memory for the PO/Analyst role; pairs with .claude/rules/architecture.md, .claude/rules/qa.md, .claude/rules/ux.md, .claude/rules/performance.md, DESIGN.md, CLAUDE.md.
 ---
 
 # Discovery & Spec
@@ -18,10 +18,10 @@ Discovery turns a raw requirement into a spec you can build without guessing. G1
 
 **NOT for:**
 
-- Architecture / data-model decisions once scope is set — see `std/architecture.md`
-- Writing negative/edge test cases from the AC — that is QA's job, see `std/qa.md`
-- Turning a vague NFR into a measured target like LCP — see `std/performance.md`
-- UX validation and PDPA constraints inside the AC — see `std/ux.md`
+- Architecture / data-model decisions once scope is set — see `.claude/rules/architecture.md`
+- Writing negative/edge test cases from the AC — that is QA's job, see `.claude/rules/qa.md`
+- Turning a vague NFR into a measured target like LCP — see `.claude/rules/performance.md`
+- UX validation and PDPA constraints inside the AC — see `.claude/rules/ux.md`
 - Building once the spec/ticket has closed all gaps — skip to build
 
 ## Principles
@@ -76,7 +76,7 @@ Use the template exactly — `## ทำไม` (+KPI) · `## Story` (ในฐ�
 
 - **Six spec components** that must be clear before closing: (1) goal + a measurable definition of "success"; (2) the real run commands (not just tool names); (3) file layout / code location; (4) code style with an example; (5) tests + coverage target; (6) explicit scope (always / ask-first / never).
 - **Surface assumptions early** — list the assumed tech/architecture/constraints where the human can see them (as a 🟡 with a default); don't keep them in your head.
-- **Measurable AC** — convert vague words ("faster") into a real target (e.g. LCP ≤ 2.5s) per `std/performance.md`.
+- **Measurable AC** — convert vague words ("faster") into a real target (e.g. LCP ≤ 2.5s) per `.claude/rules/performance.md`.
 - **Vertical slice + work size** — break into slices that ship end-to-end (not all-DB → all-API → all-UI); work larger than ~5–8 files = split further.
 - **AC verification rigor** (embedded in STORY-TICKET): cover states on responsive/mobile (as words the user sees, not class names) · Thai copy verbatim, exact glyphs including the `{N}` placeholder · every editable input has full rules (required/format/bounds/when-to-warn/real message) = QA's negative test cases.
 

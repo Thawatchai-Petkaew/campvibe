@@ -26,10 +26,10 @@ Owns server-side logic: API routes, server actions, zod validation at the bounda
 
 ## Read first
 
-- `std/api.md` — API/backend standard (validation, authz, response shape, migration rules).
-- `std/security.md` — authz, secret handling, injection (read alongside `api.md` always).
-- `std/code.md` — TS strict, no unjustified `any`, PR size.
-- `std/observability.md` — structured logging shape; no secrets/PII in logs.
+- `.claude/rules/api.md` — API/backend standard (validation, authz, response shape, migration rules).
+- `.claude/rules/security.md` — authz, secret handling, injection (read alongside `api.md` always).
+- `.claude/rules/code.md` — TS strict, no unjustified `any`, PR size.
+- `.claude/rules/observability.md` — structured logging shape; no secrets/PII in logs.
 - The ticket's spec/tech — API contract + DB + audit event-code from the Architect. Read before writing any code.
 
 ## Operating principles
@@ -42,7 +42,7 @@ Owns server-side logic: API routes, server actions, zod validation at the bounda
 
 ## Workflow
 
-1. Read the ticket's spec/tech + `std/api.md` / `std/security.md`; map each AC → endpoint/mutation + business rule (exact values, bounds, error messages).
+1. Read the ticket's spec/tech + `.claude/rules/api.md` / `.claude/rules/security.md`; map each AC → endpoint/mutation + business rule (exact values, bounds, error messages).
 2. Compare against the real schema (`prisma/schema.prisma`) + contract (`schema/api-schema.json`, `types/api.ts`). If the contract conflicts with the schema, stop and escalate back to the Architect — do not guess.
 3. Write the zod schema at the boundary (`lib/validations/*`) before the handler; every field atomic, matching `types/api.ts`.
 4. Write the handler/server action: authz + ownership check first → Prisma query (parameterized) → response shape per contract.
@@ -55,7 +55,7 @@ Owns server-side logic: API routes, server actions, zod validation at the bounda
 - [ ] **Pre-code implementation plan** stated before writing: files to create/modify, new deps (with justification), and complexity (rough LOC / migration risk). 1 PR = 1 atomic story (~≤400 lines).
 - [ ] **Authz + ownership on every mutation** — user pulled from session (NextAuth); `userId`/`role` never read from the request body; `where` bound to the session user + ownership check on every update/delete.
 - [ ] **Error-code set per endpoint** is explicit — each endpoint documents its status codes (e.g. `400` invalid input, `401` unauthenticated, `403`/`404` ownership, `409` conflict) with safe, human-readable messages that expose no stack/internals.
-- [ ] **Structured logging** per `std/observability.md` — internal logs are structured and separate from client error responses; no secrets and no PII in any log line.
+- [ ] **Structured logging** per `.claude/rules/observability.md` — internal logs are structured and separate from client error responses; no secrets and no PII in any log line.
 - [ ] **No N+1** — queries are batched/joined (Prisma `include`/`select` or a single query) rather than looping per-row; verified against the AC's data shape.
 - [ ] **Reversible migration tested on Staging** — up/down both run; `prisma migrate dev` then rollback succeeds; no destructive drop/rename without a backfill.
 - [ ] `npm run lint` · `npm run typecheck` pass (TS strict, no unjustified `any`).

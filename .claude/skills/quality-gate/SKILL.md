@@ -9,7 +9,7 @@ description: Run the mandatory pre-merge quality gate — lint, typecheck, test+
 
 Run the mandatory gate before merging into `staging`, summarize pass/fail, and block the merge if any step is red. A green gate is the floor for "Done" — never merge while red.
 
-Read first: `CLAUDE.md` (Quality gates) · `std/qa.md` · `std/ops.md` (Done vs Released) · `DESIGN.md` (UI work).
+Read first: `CLAUDE.md` (Quality gates) · `.claude/rules/qa.md` · `.claude/rules/ops.md` (Done vs Released) · `DESIGN.md` (UI work).
 
 ## When to Use
 
@@ -36,9 +36,9 @@ Run in order. Stop immediately on the first fail.
 
    - **Correctness** — logic matches the AC; edge cases, error paths, and async/await handled; no off-by-one or unhandled null.
    - **Readability** — clear names, no dead code, no commented-out blocks, no unjustified complexity.
-   - **Architecture** — change fits the layering in `std/architecture.md`; no leaking of concerns; reuse over duplication.
-   - **Security** — input validated, authz enforced, no secrets in code, no injection surface (see `std/security.md`).
-   - **Perf** — no N+1 Prisma queries, no needless re-renders, payloads bounded (see `std/api.md`).
+   - **Architecture** — change fits the layering in `.claude/rules/architecture.md`; no leaking of concerns; reuse over duplication.
+   - **Security** — input validated, authz enforced, no secrets in code, no injection surface (see `.claude/rules/security.md`).
+   - **Perf** — no N+1 Prisma queries, no needless re-renders, payloads bounded (see `.claude/rules/api.md`).
 
 7. **(UI work only)** design gate: token-only (no hardcoded colors/spacing/shadows) + a11y WCAG AA (contrast, `aria-label`, focus, tap target ≥ 44px) + anti-slop audit + compare screenshots against the Design Brief.
 8. Summarize every step as a pass/fail table.
@@ -50,13 +50,13 @@ These are not yet enforced. List them in the summary as "planned" so reviewers k
 - **secret-scan** — repo-wide secret detection on every PR.
 - **a11y axe** — automated axe run against rendered UI (complements the manual design gate).
 - **perf scorecard** — Lighthouse/bundle-size budget check.
-- **pre-prod observability** — verify logging/tracing/alerts wired before promote (see `std/observability.md`).
+- **pre-prod observability** — verify logging/tracing/alerts wired before promote (see `.claude/rules/observability.md`).
 
 ## Common Rationalizations
 
 | Rationalization | Reality |
 | --- | --- |
-| "Lint/type pass, that's enough to merge." | A green gate is not yet "Done" — Done also requires merging into `staging` + a successful migration on staging + verifying the AC on the real Staging URL (see `std/ops.md`). |
+| "Lint/type pass, that's enough to merge." | A green gate is not yet "Done" — Done also requires merging into `staging` + a successful migration on staging + verifying the AC on the real Staging URL (see `.claude/rules/ops.md`). |
 | "Coverage is over 80% on the whole repo." | Coverage measures new code, not the whole repo. Tests must assert for real — not flaky, not over-mocked. |
 | "No UI changed, skip the design gate silently." | Step 7 may be skipped for non-UI work, but mark it in the table as "N/A — no UI work" and confirm there is no diff in `app/`/`components/`. |
 | "One step failed but the rest are green, I'll patch later." | Any fail → stop immediately, open a Linear ticket (defect, repro + the failed criterion), block the merge. Never merge while red. |
