@@ -61,7 +61,7 @@ jobs:
         run: |
           set -o pipefail
           npm i -g @anthropic-ai/claude-code
-          claude -p "Role: CampVibe orchestrator (read CLAUDE.md + docs/project/* + ai-planning/SYNC-ARCHITECTURE.md first).
+          claude -p "Role: CampVibe orchestrator (read CLAUDE.md + docs/project/* + .claude/SYNC-ARCHITECTURE.md first).
           Ad-hoc request from the owner via /camper: \"$REQUEST\".
           Scope it with lightweight Discovery, then act via the normal gates. Hard rules: work on a NEW branch only, never touch main; if there is code, open a **draft PR** (never merge); respect the Camper Agent autopilot flag ('npm run camper status') and the COST RULE — any monetary cost (paid API, infra, prod deploy, real messages) means STOP and ask, do not proceed. Update Linear per transition with 'node scripts/linear-sync.mjs set <id> --state <state>'. End your reply with one line starting 'SUMMARY:' — a one-line recap + PR link." \
             --model claude-sonnet-4-6 --max-turns 40 \

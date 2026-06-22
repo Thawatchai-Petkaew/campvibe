@@ -44,7 +44,7 @@ Read every time before starting:
 - `.claude/rules/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
 - `.claude/rules/architecture.md` — data atomicity principles (what "independently queryable" means).
 - The spec/ticket for the work in scope.
-- `ai-planning/templates/STORY-TICKET.md` — Story / AC / Rules format.
+- `.claude/templates/STORY-TICKET.md` — Story / AC / Rules format.
 
 ## Operating principles
 

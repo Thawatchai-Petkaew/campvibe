@@ -20,7 +20,7 @@ The discovery loop, as a numbered TL;DR:
    - 🔴 must ask — blocker
    - ⚪ N/A
 3. **Batch the questions in ONE round** — collect every 🔴/🟡 and ask the human once; each item carries options + impact of each path + `if unanswered, default = …`. Never nitpick one question at a time.
-4. **Write the STORY-TICKET** from `ai-planning/templates/STORY-TICKET.md` once no 🔴 remains (full story + AC on the story-level issue; role-task = sub-issue).
+4. **Write the STORY-TICKET** from `.claude/templates/STORY-TICKET.md` once no 🔴 remains (full story + AC on the story-level issue; role-task = sub-issue).
 5. **Propose G1** with a summary of gaps closed + assumptions used.
 
 **Gate to pass:** no 🔴 open · every 🟡 carries a default the human accepts · `node scripts/linear-sync.mjs audit` passes (issue has at least `## Story` + `## AC`) → then tag `awaiting-you` for G1 Scope.
@@ -56,7 +56,7 @@ Read first:
    - 🔴 must ask — blocker
    - ⚪ N/A
 3. **Batch the questions.** Collect the 🔴/🟡 items and ask the human in a **single consolidated round** — never nitpick one question at a time. Each item carries: options + impact of each path + "if unanswered, default = …".
-4. **Produce the ticket once fully closed (no 🔴).** Write it from `ai-planning/templates/STORY-TICKET.md` (full story + AC, filed on the story-level issue; role-task = sub-issue), then propose G1 with a summary of gaps/assumptions used.
+4. **Produce the ticket once fully closed (no 🔴).** Write it from `.claude/templates/STORY-TICKET.md` (full story + AC, filed on the story-level issue; role-task = sub-issue), then propose G1 with a summary of gaps/assumptions used.
 
 ## Examples
 
@@ -76,7 +76,7 @@ Read first:
 ## Reference Files
 
 - `.claude/rules/discovery.md` — full DoR, 6 spec components, vertical-slice rule, 4-layer audit.
-- `ai-planning/templates/STORY-TICKET.md` — the ticket template the story + AC are written from.
+- `.claude/templates/STORY-TICKET.md` — the ticket template the story + AC are written from.
 - Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `staging`).
 
 ## Next Steps
@@ -87,7 +87,7 @@ Read first:
 
 ## Standards
 
-1. **Ticket = 1 atomic story.** Follow `ai-planning/templates/STORY-TICKET.md` exactly. Persona = Admin | Camper | Host.
+1. **Ticket = 1 atomic story.** Follow `.claude/templates/STORY-TICKET.md` exactly. Persona = Admin | Camper | Host.
 2. **AC format:** `Given | When | what the user sees (Thai copy verbatim) | data/system result`. Left side = what the user sees (real Thai copy); right side = what the system stores/changes (plain language).
 3. **Keep AC user-facing.** Do NOT put event-codes, class/variable names, or testids in AC — those belong in the technical spec.
 4. **Thai copy hygiene.** In AC, no em-dash (`—`) as a separator and no technical jargon (`API`, `webhook`, `endpoint`) in user-facing text.

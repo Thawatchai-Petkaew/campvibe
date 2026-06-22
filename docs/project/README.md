@@ -3,7 +3,7 @@
 ที่เก็บ **source-of-truth เชิงธุรกิจ/ผลิตภัณฑ์** ของ CampVibe เป็น `.md` ใช้เป็น **context กลาง** ให้ AI delivery team — โดยเฉพาะ **`/camper-agent`** (ตัวแทนตัดสินใจ) อ่านก่อนตัดสินเรื่องที่ deterministic check ไม่ครอบ (คุณค่าธุรกิจ, ลำดับความสำคัญ, trade-off)
 
 > โฟลเดอร์นี้ = **drop-zone ของเจ้าของ** สำหรับเอกสารธุรกิจ/ผลิตภัณฑ์ (เปลี่ยนได้) — ตอบ "ทำไม/เพื่อใคร/คุ้มไหม"
-> - "ทำอย่างไร" (วิธีสร้าง) → `.claude/rules/`, `CLAUDE.md`, `DESIGN.md`, `ai-planning/`
+> - "ทำอย่างไร" (วิธีสร้าง) → `.claude/rules/`, `CLAUDE.md`, `DESIGN.md`
 > - "หลักคิดที่ไม่เปลี่ยน / Second Brain" → `docs/context/`
 
 ## ไฟล์

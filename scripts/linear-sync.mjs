@@ -16,7 +16,7 @@
  *   node scripts/linear-sync.mjs release CAM-7                     # promoted to prod: state Done + label `released`
  *   node scripts/linear-sync.mjs audit                            # flag story issues missing ## Story / ## AC (exit 11)
  *   node scripts/linear-sync.mjs label CAM-5 --add camper          (alias of set)
- *   node scripts/linear-sync.mjs pull [outfile]   # snapshot Linear -> JSON (default ai-planning/linear-snapshot.json)
+ *   node scripts/linear-sync.mjs pull [outfile]   # snapshot Linear -> JSON (default .claude/linear-snapshot.json)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -163,7 +163,7 @@ async function cmdSet(id, flags) {
 
 // Released = promoted to production. The story stays in state `Done` (set at merge→staging) and
 // additionally carries the `released` label. "Done" (on Staging) and "Released" (on prod) are
-// separate dimensions — see ai-planning/SYNC-ARCHITECTURE.md §Definition of Done.
+// separate dimensions — see .claude/SYNC-ARCHITECTURE.md §Definition of Done.
 async function cmdRelease(id) {
   if (!id) throw new Error("usage: release <CAM-id>");
   await cmdSet(id, { state: "Done", add: ["released"], remove: [] });
@@ -241,7 +241,7 @@ async function cmdPull(outfile) {
       return [e, { total: items.length, done, pct: Math.round((done / items.length) * 100), stories: items }];
     })),
   };
-  const out = outfile || path.join("ai-planning", "linear-snapshot.json");
+  const out = outfile || path.join(".claude", "linear-snapshot.json");
   fs.writeFileSync(out, JSON.stringify(snapshot, null, 2) + "\n");
   console.log(`✓ pulled ${work.length} issues across ${Object.keys(epics).length} epics → ${out}`);
 }
@@ -273,7 +273,7 @@ async function cmdGates() {
 async function cmdAudit() {
   // Template conformance: an ACTIVE story-level issue (work item with "·", not a gate, no parent,
   // not completed) must carry the §7.1 ticket template — at minimum ## Story + ## AC. Sub-tasks
-  // (have a parent) and shipped issues are exempt. Template: ai-planning/templates/STORY-TICKET.md.
+  // (have a parent) and shipped issues are exempt. Template: .claude/templates/STORY-TICKET.md.
   // Exit 11 if any active story fails.
   const team = await ctx();
   const REQ = ["## Story", "## AC"];
@@ -291,7 +291,7 @@ async function cmdAudit() {
     const head = miss.length ? "MISSING " + miss.join(",") : "template ok";
     console.log(`${miss.length ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.replace(/^[^·]*·\s*/, "").slice(0, 40)}`);
   }
-  console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see ai-planning/templates/STORY-TICKET.md`);
+  console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/STORY-TICKET.md`);
   if (bad) process.exitCode = 11;
 }
 

@@ -9,7 +9,7 @@ description: deploy/promote across envs (staging->prod) + migrate + smoke test +
 
 Promote a story across the 3-env pipeline (Local → Staging → Production) with database migration, smoke check, tag, changelog, and rollback. `merge→staging = Done`; `staging→main = Released`. State changes track the git event, not the env.
 
-Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `ai-planning/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local → Staging → Prod.
+Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `.claude/SYNC-ARCHITECTURE.md` (Done vs Released, Linear sync) · 3-env: Local → Staging → Prod.
 
 ## Quick Reference
 
@@ -81,7 +81,7 @@ The `staging`→`main` (Released) promotion, in order:
 - `.claude/rules/observability.md` — Sentry error-watch window + signals used for the rollback decision.
 - `docs/project/business.md` — cost list (which spend is owner-approval / escalation per the cost rule).
 - Sibling skill `open-pr` — opens the `staging`→`main` PR this skill then promotes.
-- `ai-planning/SYNC-ARCHITECTURE.md` — Done vs Released, Linear sync.
+- `.claude/SYNC-ARCHITECTURE.md` — Done vs Released, Linear sync.
 
 ## Next Steps
 

@@ -9,7 +9,7 @@ description: Atomically update ticket status in Linear (team Campvibe/CAM) — c
 
 Record a ticket's state transition into Linear with real, executable commands — not remembered intent. Linear is the single source of truth and a closed loop: every git/gate event maps to one concrete `linear-sync.mjs` command so status never drifts from reality.
 
-Read first: `ai-planning/SYNC-ARCHITECTURE.md` (Linear = SoT + closed loop), `.claude/rules/ops.md` (Done vs Released, 3-env), `scripts/linear-sync.mjs` (usage header).
+Read first: `.claude/SYNC-ARCHITECTURE.md` (Linear = SoT + closed loop), `.claude/rules/ops.md` (Done vs Released, 3-env), `scripts/linear-sync.mjs` (usage header).
 
 ## Quick Reference
 
@@ -42,7 +42,7 @@ Use on every work transition: start work, open a PR, merge→`staging`, reach a 
 
 - `LINEAR_API_KEY` present in env (no MCP binding); team = `CAM` (override with `LINEAR_TEAM_KEY`).
 - Know the `<CAM-id>` of the issue to change (a story = an issue whose title contains `·`) and the transition that just happened (git/gate event).
-- Know the Linear convention before touching titles/labels: **Epic (parent issue + project) → Story (`parentId` = epic) → `[role]` tag in the title (rotated per stage)** — the full convention lives in the `/camper` command doc (`.claude/commands/camper.md`) + `ai-planning/`.
+- Know the Linear convention before touching titles/labels: **Epic (parent issue + project) → Story (`parentId` = epic) → `[role]` tag in the title (rotated per stage)** — the full convention lives in the `/camper` command doc (`.claude/commands/camper.md`) + `.claude/SYNC-ARCHITECTURE.md`.
 - Linear = single source of truth — never hand-edit `linear-snapshot.json` (they are snapshots from `status:pull`).
 
 ## Workflow
@@ -68,8 +68,8 @@ A role handoff at a stage boundary:
 
 ## Reference Files
 
-- `ai-planning/SYNC-ARCHITECTURE.md` — Linear = SoT + closed loop (the model this skill enforces).
-- `ai-planning/` — the Epic → Story → `[role]` convention + templates the transitions assume.
+- `.claude/SYNC-ARCHITECTURE.md` — Linear = SoT + closed loop (the model this skill enforces).
+- `.claude/SYNC-ARCHITECTURE.md` + `.claude/templates/` — the Epic → Story → `[role]` convention + templates the transitions assume.
 - `.claude/rules/ops.md` — Done(staging) vs Released(prod) + the 3-env flow.
 - `.claude/commands/camper.md` — the `/camper` command + the full Linear issue convention this skill obeys.
 - Sibling skills: `open-pr` (G3, opens the PR that moves the issue to `In Review`) · `promote-release` (the `staging`→`main` step behind the `release` transition).

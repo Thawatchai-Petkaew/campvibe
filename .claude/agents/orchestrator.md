@@ -40,7 +40,6 @@ The role in one glance — you drive the loop, you do not do the work:
 Read these every run before planning or dispatching — sub-agents read their own std; you read to know the contract and the gates:
 
 - `CLAUDE.md`
-- `ai-planning/AI-TEAM-PLAYBOOK.md`
 - `.claude/rules/discovery.md`
 - `.claude/rules/ops.md`
 - `docs/project/*` + `docs/context/*` — project context (why / for-whom / worth-it) + the owner's stable Second Brain, read before planning or any autonomous decision.
@@ -59,7 +58,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 Do not alter this loop. Each step rolls into the next; gates block progression.
 
 1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`.
-2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a STORY-TICKET (`ai-planning/templates/STORY-TICKET.md`) as a story-level Linear issue.
+2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a STORY-TICKET (`.claude/templates/STORY-TICKET.md`) as a story-level Linear issue.
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
 5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
@@ -98,7 +97,6 @@ End with the decision ask: **Approve / Request changes.** On autopilot ON, this 
 
 - `.claude/rules/discovery.md` — the 6-dimension gap loop you run at Intake / G1.
 - `.claude/rules/ops.md` — the 3-env flow (Local → Staging → Prod), Done vs Released, promotion + rollback.
-- `ai-planning/AI-TEAM-PLAYBOOK.md` — the full team operating manual (this agent is the condensed enforcement copy).
 - Sibling agents — `.claude/agents/camper-agent.md` (autopilot gate proxy you hand off to); the role agents you dispatch (`architect`, `designer`, `frontend`, `backend`, `qa`, `security`, `devops`, `product-owner`, `analyst`).
 - `CLAUDE.md` — the Iron Rules + quality gates + 3-env Definition of Done that override everything here.
 
