@@ -1,64 +1,152 @@
-# std/architecture.md — มาตรฐาน Architecture (Architect)
+---
+name: architecture-and-data
+description: Standard for designing CampVibe's data model (Prisma), API contracts, component boundaries, and ADRs. Use when shaping an entity/field/schema for a story; when designing or reviewing an API contract before it hands to Backend; when a decision is hard to reverse or crosses modules; or when a field name looks UI-shaped. Memory for the Architect role; pairs with CLAUDE.md, std/api.md, std/security.md, std/ux.md, prisma/schema.prisma.
+---
 
-> อ่านก่อนทำงาน: ไฟล์นี้ + `CLAUDE.md` + `std/api.md` (เพราะ API contract ส่งต่อ Backend) · งานแตะ schema จริงให้เทียบ `prisma/schema.prisma`
-> หน้าที่: ออกแบบ data model (Prisma), API contract, component boundary, เขียน ADR สั้นต่อการตัดสินใจสำคัญ, ชี้ trade-off ที่ต้องให้มนุษย์เลือก
-> **When NOT:** ไม่เขียน implementation/migration เอง (ส่ง Backend), ไม่ทำ UI flow/design (ส่ง Designer), ไม่ตัดสิน trade-off แทนมนุษย์ — ยกขึ้น G2
+# Architecture & Data Modeling
 
-## หลักการ
+## Overview
 
-- **Data atomic & AI-ready:** เก็บเป็นหน่วยเล็กที่ query อิสระได้ อย่ายัดหลายข้อเท็จจริงลง string เดียว เชื่อมด้วย ID ไม่ฝังซ้อน — ลด rework เมื่อ requirement โต · กรอบบังคับใช้เต็มรูปดู **Atomic Data Framework (Pixel · Set · Buffet)** ด้านล่าง
-- **Boundary ชัด:** client ไม่รู้จัก DB; ความรู้ business อยู่ที่ service layer เดียว เปลี่ยนที่เดียว
-- **Lean > complete:** ออกแบบเท่าที่ story ปัจจุบันต้องใช้ ไม่ทำ abstraction เผื่ออนาคต (premature = หนี้)
-- **Spec-first:** ทุก data model/contract โยงกลับ ticket/AC ได้ ออกแบบจาก AC ไม่ใช่จากจินตนาการ
+Data is atomic and AI-ready or it is rework waiting to happen: store the smallest independently-queryable units, link with IDs, and never stuff several facts into one string. Boundaries stay sharp (the client never knows the DB; business knowledge lives in one service layer), and every model traces back to a ticket/AC — design from the AC, not from imagination.
 
-## มาตรฐาน/กฎ
+## When to Use
 
-- **Atomic fields (✅→❌):** `firstName`,`lastName`,`provinceId`,`postcode`,`amount`+`currency` (Decimal ไม่ใช่ float) ❌ `fullName`,`price:"฿1,250 incl VAT"`
-- **Snapshot เอกสารธุรกรรม:** Order/Booking/Invoice เก็บ snapshot ของค่าที่กระทบความหมายทางกฎหมาย (ราคา/ภาษี/ชื่อ ณ เวลานั้น) **+ เก็บ ID ต้นทาง** เพื่อ trace
-- **Relation ด้วย FK + index:** ความสัมพันธ์เชื่อมด้วย ID (`@relation`) ใส่ index บนคอลัมน์ที่ query/filter บ่อย; soft-delete ใช้ `deletedAt` เมื่อต้อง audit
-- **Boundary บังคับ:** client → `/api/*` route → service/Prisma เท่านั้น ห้ามยิง DB ตรงจาก client; business logic ไม่อยู่ใน component
-- **API contract (ส่งต่อ `std/api.md`):** ระบุ method/path, input+output shape (atomic fields ตาม `types/api.ts`), zod schema ที่ boundary, authz rule (ownership/role), error shape — ระบุครบให้ Backend ทำตามได้โดยไม่เดา
-- **Migration:** ทุกการเปลี่ยน schema ต้อง **reversible**; ประเมิน data backfill + downtime; ทดสอบ migrate บน **Staging** ก่อน promote เข้า prod (3-env: Local→Staging→Prod)
-- **ADR สั้น:** การตัดสินใจสำคัญ/ย้อนยาก เขียน `docs/adr/ADR-NNN-<slug>.md` = Context · Decision · Alternatives · Consequences; trade-off ที่ต้องเลือก → ยกขึ้น G2
-- **Spec ลง ticket:** data/contract ที่ออกแบบลง `## Data` (entity/field atomic + migration) ของ STORY-TICKET (`ai-planning/templates/STORY-TICKET.md`); ตรวจ template ด้วย `node scripts/linear-sync.mjs audit`
+- Designing a data model, entity, or field for the current story (Prisma + Postgres)
+- Designing an API contract before it hands off to Backend (`std/api.md`)
+- Deciding whether to split a field (Resolution Boundary test)
+- Snapshotting/crystallizing values on a transactional document (Order/Booking/Invoice)
+- Recording a hard-to-reverse or cross-module decision as an ADR; flagging a trade-off for a human at G2
+
+**NOT for:**
+
+- Writing the implementation or migration yourself — hand to Backend (`std/api.md`, `std/code.md`)
+- Building UI flow / design — hand to Designer (`DESIGN.md`, `std/ux.md`)
+- Deciding a trade-off on the human's behalf — escalate at **G2** (`CLAUDE.md` gates)
+
+> Read before working: this file + `CLAUDE.md` + `std/api.md` (the API contract hands off to Backend). Work that touches a real schema must be diffed against `prisma/schema.prisma`.
+
+## Principles
+
+1. **Data atomic & AI-ready** — store small units that can be queried independently; never pack several facts into one string; link with IDs, do not embed nested. This cuts rework as requirements grow. The full enforced framework is **Atomic Data Framework (Pixel · Set · Buffet)** below.
+2. **Sharp boundary** — the client never knows the DB; business knowledge lives in one service layer, so you change it in one place.
+3. **Lean > complete** — design only what the current story needs; build no abstraction for an imagined future (premature = debt).
+4. **Spec-first** — every data model/contract traces back to a ticket/AC. Design from the AC, not from imagination.
+
+## Standards
+
+### 1. Atomic fields
+
+- ✅ `firstName`, `lastName`, `provinceId`, `postcode`, `amount` + `currency` (Decimal, not float)
+- ❌ `fullName`, `price:"฿1,250 incl VAT"`
+
+### 2. Snapshot transactional documents
+
+Order/Booking/Invoice store a snapshot of values that affect legal meaning (price/tax/name as of that moment) **plus the source ID** for trace.
+
+### 3. Relations with FK + index
+
+Link relations by ID (`@relation`); add an index on columns that are queried/filtered often. Use soft-delete `deletedAt` when audit is required.
+
+### 4. Enforced boundary
+
+client → `/api/*` route → service/Prisma only. Never hit the DB directly from the client; business logic does not live in a component.
+
+### 5. API contract (hands off to `std/api.md`)
+
+Specify method/path, input + output shape (atomic fields per `types/api.ts`), zod schema at the boundary, authz rule (ownership/role), and error shape — specify all of it so Backend can implement without guessing.
+
+### 6. Migration
+
+Every schema change must be **reversible**; assess data backfill + downtime; test the migration on **Staging** before promoting to prod (3-env: Local → Staging → Prod).
+
+### 7. Short ADR
+
+For important/hard-to-reverse decisions, write `docs/adr/ADR-NNN-<slug>.md` = Context · Decision · Alternatives · Consequences. A trade-off that needs choosing → escalate at **G2**.
+
+### 8. Spec into the ticket
+
+Put the designed data/contract into the `## Data` section (atomic entity/field + migration) of the STORY-TICKET (`ai-planning/templates/STORY-TICKET.md`); validate the template with `node scripts/linear-sync.mjs audit`.
 
 ## Atomic Data Framework (Pixel · Set · Buffet)
 
-> แรงบันดาลใจ: ตารางธาตุ — ข้อมูลประกอบจาก "อะตอม → โมเลกุล → สภาพแวดล้อม" ไม่ใช่จากตารางก้อนใหญ่ที่ปั้นมาให้พอดีหน้าจอเดียว เป้าหมาย: ทุก field ที่ออกแบบ AI agent/ระบบอื่นอ่านและใช้ต่อได้โดยไม่ต้อง pre-process
+> Inspiration: the periodic table — data is composed from "atom → molecule → environment", not from one big table shaped to fit a single screen. Goal: every field is designed so an AI agent / other system can read and reuse it without pre-processing.
 
-- **3 ชั้น:**
-  - **Pixel** = field อะตอมมิก typed ที่ query/filter/sort อิสระได้ — หน่วยเล็กที่สุดที่แตกต่อไม่ได้แล้ว เก็บที่ความละเอียดสูงสุดเสมอ เช่น `priceAmount:Decimal` + `currency`, `latitude`, `longitude`, `provinceId`, `checkInDate`, `checkOutDate`
-  - **Set** = entity ที่อธิบายตัวเองได้ (self-describing) ประกอบจาก Pixel + carry metadata เช่น Camp, Booking, Host, Review — แต่ละตัวมี `id`/`version`/`source`/`classification`/`updatedAt` พอให้ agent ที่ไม่เคยเห็นเข้าใจได้โดยไม่ต้องเปิด doc นอก; Set เชื่อมกันด้วย **ID** ไม่ฝัง JSON ซ้อน
-  - **Buffet** = ชั้น read/access ที่ **"UI-neutral"** — service function / API view ที่ประกอบ Pixel เป็นรูปที่ client ใช้ โดยไม่ผูก schema กับหน้าจอ/รายงานใดหน้าจอหนึ่ง · **client เรียก Buffet ไม่เรียก raw table array** (UI เป็นแค่ผู้บริโภครายหนึ่งเท่ากับ AI agent)
-- **Resolution Boundary test** (ก่อนตัดสินว่าจะแตก field ต่อไหม — atomicity ถูกต้องเพราะ "query อิสระได้" ไม่ใช่เพราะ "มีโครงสร้างย่อย") ถาม 4 ข้อ:
-  1. มี use-case ที่ **query/filter/sort** ด้วยส่วนนี้เดี่ยว ๆ ไหม
-  2. มัน **unit/ความหมาย** ต่างจากเพื่อนใน field เดียวกันไหม
-  3. มันจะถูก **แก้แยกกัน** (คนละ ownership/ความถี่) ไหม
-  4. ระบบอื่น/AI ต้อง **อ่านมันแยก** (คนละ classification/access control) ไหม
-  → ถ้า "ใช่" ข้อใดข้อหนึ่ง = แตกเป็น Pixel แยก; ถ้า "ไม่" ทั้ง 4 = ยุบเป็น free-text Pixel เดียว (เช่น `addressDetail` ที่ไม่มีใคร filter "ชั้น 12") — แต่ส่วน geo-coded (`provinceId`,`districtId`,`postcode`) แตกแยกเสมอ
-- **Typing + classification:** ทุก Pixel ต้องรู้ **type** + ป้าย **ชั้นข้อมูล** (PII / Financial / Geo / Public) + sensitivity ห้าม `string` ดิบไม่มีป้าย · โยง PII → `std/security.md` (masking/access) และ `std/ux.md` (PDPA/consent) · ตัวอย่าง CampVibe: `nationalId`=PII · `payoutAccountNo`=Financial+PII · `latitude`/`longitude`=Geo · `campName`/`amenityList`=Public
-- **Compute-on-the-fly ไม่ cache เป็นต้นฉบับเดียว:** ค่า aggregate เช่น `camp.ratingAverage`, `camp.isAvailable(dateRange)`, `host.responseRate` ต้อง **คำนวณจาก Pixel ได้เสมอ** (จาก Review/Booking ต้นทาง) — เก็บ cache เพื่อ performance ได้ แต่ต้อง (ก) มี derivation ที่บอกได้ว่ามาจาก Pixel ตัวไหน (ข) reproduce จาก Buffet ได้ทุกเมื่อ (ค) ไม่ใช่ที่เดียวที่ข้อเท็จจริงนั้นอยู่ — ถ้าชี้ Pixel ต้นทางไม่ได้ = ออกแบบผิด
-- **Crystallization/snapshot สำหรับธุรกรรม** (ต่อยอดกฎ "Snapshot เอกสารธุรกรรม" ด้านบน): ตอน Booking transition เข้าสถานะผูกพัน (`CONFIRMED`/`PAID`) → snapshot **ทุก Pixel ที่ถ้าเปลี่ยนแล้วความหมายทาง legal/financial เปลี่ยน** ลง Booking ณ เวลานั้น = `priceAmount`+`currency`, `taxRate`/`vatIncluded`, `campName`, `cancellationPolicy`, ช่วงวันที่จอง **+ เก็บ `campId` ต้นทาง** เพื่อ trace · ราคา/นโยบายที่ host แก้ทีหลังต้อง **ไม่กระทบ Booking เก่า** · snapshot Pixel ยัง atomic อยู่ (ไม่ใช่ string ต่อกัน) — แนะนำ prefix `snapshot…` หรือ sub-object ชัด ๆ · ค่าที่ไม่อยู่บนเอกสาร (เช่น สถานะ host ปัจจุบัน) = **link อย่างเดียว** query สด
-- **No UI-shaped columns:** ออกแบบเสมือนไม่มี UI · ❌ `profileCardLine2`, `displayPriceText:"฿1,250/คืน"`, ตารางที่ปั้นมาเพื่อรายงานเดียว → ✅ เก็บเป็น Pixel (`priceAmount`+`currency`) แล้วให้ Buffet / `Intl.NumberFormat('th-TH',{style:'currency',currency})` ประกอบข้อความตอน render
-- **Before-add-field checklist (กดผ่านทุกข้อก่อนเขียน migration/contract/form):** แตกต่อได้อีกไหม → แตก · มี classification (PII/Financial/Geo/Public) ไหม · มี type/unit/enum ระบุไหม · อยู่ใน Set ที่ระบุได้ไหม · เชื่อมด้วย ID ไม่ใช่ nesting ใช่ไหม · ชื่อ UI-neutral ใช่ไหม · พรุ่งนี้ AI agent อื่นใช้ field นี้ได้โดยไม่ต้องถามคนใช่ไหม — มีข้อ "ไม่" แม้ข้อเดียว = redesign ก่อน
+### 9. The three layers
 
-## ต้องคำนึง / anti-patterns
+- **Pixel** = an atomic, typed field that can be queried/filtered/sorted independently — the smallest unit that can no longer be split. Always store at the highest resolution. e.g. `priceAmount:Decimal` + `currency`, `latitude`, `longitude`, `provinceId`, `checkInDate`, `checkOutDate`.
+- **Set** = a self-describing entity composed of Pixels + carried metadata, e.g. Camp, Booking, Host, Review — each carries `id` / `version` / `source` / `classification` / `updatedAt`, enough for an agent that has never seen it to understand it without opening external docs. Sets link to each other by **ID**, never by embedded nested JSON.
+- **Buffet** = the read/access layer that is **"UI-neutral"** — a service function / API view that composes Pixels into the shape the client uses, without binding the schema to any one screen/report. The **client calls the Buffet, not a raw table array** (the UI is just one consumer, equal to an AI agent).
 
-- ❌ N+1 query (loop ยิง DB ทีละแถว) → ✅ `include`/`select`/batch ครั้งเดียว
-- ❌ ยัดหลายค่าใน string เดียว → ✅ แตก field atomic + unit แยก (`amount`+`currency`)
-- ❌ over-engineering / abstraction เผื่ออนาคต → ✅ ออกแบบพอดี story ปัจจุบัน
-- ❌ migration ที่ย้อนไม่ได้ / ไม่ได้ทดสอบบน Staging → ✅ reversible + ทดสอบก่อน prod
-- ❌ business logic รั่วเข้า component/route → ✅ รวมที่ service layer เดียว
-- ❌ ตัดสิน trade-off สำคัญเงียบ ๆ → ✅ เขียน ADR + ยกขึ้นให้มนุษย์เลือกที่ G2
-- ❌ UI-shaped column ตั้งชื่อ/ปั้นรูปตามหน้าจอ (`profileCardLine2`, `displayPriceText`) → ✅ เก็บ Pixel แล้วให้ Buffet/`Intl.NumberFormat` ประกอบตอน render
-- ❌ ค่า aggregate ที่ cache ไว้เป็น source of truth เดียว (`ratingAverage` ที่ derive จาก Pixel ต้นทางไม่ได้) → ✅ compute-on-the-fly จาก Pixel; cache เป็นแค่ cache มี derivation trail
+### 10. Resolution Boundary test
 
-## Checklist (DoD ของ Architect — ก่อน handoff)
+Before deciding whether to split a field further — atomicity is correct because it is "independently queryable", not because it "has sub-structure" — ask 4 questions:
 
-- [ ] data model atomic, relation ด้วย FK + index, snapshot ครบสำหรับเอกสารธุรกรรม
-- [ ] เทียบ design กับ `prisma/schema.prisma` จริง + ประเมินผลกระทบ migration (reversible + ทดสอบ Staging ได้)
-- [ ] API contract ระบุครบ (path/input/output/zod/authz/error) ให้ Backend ทำตามได้โดยไม่เดา
-- [ ] ทุก field ผ่าน Resolution Boundary test + มี classification tag (PII/Financial/Geo/Public); aggregate compute-on-the-fly ได้; client ผูกกับ Buffet ไม่ใช่ raw table
-- [ ] ไม่มี anti-pattern (N+1, over-engineering, premature abstraction, boundary รั่ว, UI-shaped column, cached-aggregate-as-source)
-- [ ] ADR เขียนแล้วสำหรับการตัดสินใจย้อนยาก; trade-off ยกขึ้น G2
-- [ ] spec ลง `## Data` ของ ticket + ผ่าน `linear-sync.mjs audit`
+1. Is there a use-case that **queries/filters/sorts** by this part on its own?
+2. Does it differ in **unit/meaning** from its neighbors in the same field?
+3. Will it be **edited separately** (different ownership/frequency)?
+4. Must another system / AI **read it separately** (different classification/access control)?
+
+→ If "yes" to any one = split into a separate Pixel; if "no" to all 4 = collapse into a single free-text Pixel (e.g. `addressDetail`, where nobody filters "floor 12"). But the geo-coded part (`provinceId`, `districtId`, `postcode`) is always split out.
+
+### 11. Typing + classification
+
+Every Pixel must know its **type** + carry a **data-class** tag (PII / Financial / Geo / Public) + sensitivity. No raw, untagged `string`. Link PII → `std/security.md` (masking/access) and `std/ux.md` (PDPA/consent). CampVibe examples: `nationalId` = PII · `payoutAccountNo` = Financial + PII · `latitude` / `longitude` = Geo · `campName` / `amenityList` = Public.
+
+### 12. Compute-on-the-fly, never cache as the single source of truth
+
+Aggregate values such as `camp.ratingAverage`, `camp.isAvailable(dateRange)`, `host.responseRate` must **always be computable from Pixels** (from the source Review/Booking). You may keep a cache for performance, but it must (a) have a derivation that names which source Pixels it came from, (b) be reproducible from the Buffet at any time, (c) not be the only place that fact lives. If you cannot point to the source Pixel = the design is wrong.
+
+### 13. Crystallization / snapshot for transactions
+
+Extends the "Snapshot transactional documents" rule above. When a Booking transitions into a binding state (`CONFIRMED` / `PAID`) → snapshot **every Pixel whose change would alter legal/financial meaning** onto the Booking as of that moment = `priceAmount` + `currency`, `taxRate` / `vatIncluded`, `campName`, `cancellationPolicy`, the booked date range, **plus the source `campId`** for trace. A price/policy the host edits later must **not affect old Bookings**. Snapshot Pixels stay atomic (not a concatenated string) — prefer a `snapshot…` prefix or a clearly-scoped sub-object. Values not on the document (e.g. the host's current status) = **link only**, query live.
+
+### 14. No UI-shaped columns
+
+Design as if there is no UI. ❌ `profileCardLine2`, `displayPriceText:"฿1,250/คืน"`, a table shaped for one report → ✅ store as Pixels (`priceAmount` + `currency`) and let the Buffet / `Intl.NumberFormat('th-TH',{style:'currency',currency})` compose the text at render time.
+
+### 15. Before-add-field checklist
+
+Pass every item before writing a migration/contract/form:
+
+- Can it be split further → split it
+- Does it have a classification (PII/Financial/Geo/Public)?
+- Does it have a stated type/unit/enum?
+- Does it live in a nameable Set?
+- Is it linked by ID, not nesting?
+- Is the name UI-neutral?
+- Can another AI agent use this field tomorrow without asking a human?
+
+Any single "no" = redesign first.
+
+## ADR Lifecycle + Decision Rigor
+
+### 16. ADR Status lifecycle
+
+ADRs carry a Status lifecycle — `PROPOSED → ACCEPTED → SUPERSEDED/DEPRECATED` + date. A new ADR **references + supersedes** the old one; **never delete** it (keep the history of reasoning). Numbered under `docs/adr/` (Context · Decision · Alternatives · **Consequences**).
+
+### 17. Doubt-driven before high-blast-radius decisions
+
+For a decision that is hard to reverse / crosses modules / cannot be type-checked: do a short adversarial review (summarize the claim → separate artifact → find a counter-reason → reconcile) before acting. No more than ~2–3 rounds, then stop.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll just loop and query each row." | That's an N+1; use `include` / `select` / batch in one go. |
+| "One string can hold the whole value." | It can't be queried; split into atomic fields + separate unit (`amount` + `currency`). |
+| "Let me add the abstraction now so it's future-proof." | Premature abstraction is debt; design exactly to the current story. |
+| "The migration works, I'll skip the Staging test." | An irreversible/untested migration burns prod; make it reversible + test before prod. |
+| "It's easier to put this logic in the component/route." | Business logic leaks everywhere; keep it in one service layer. |
+| "I'll just pick the trade-off myself." | Silent important trade-offs aren't yours to make; write an ADR + escalate to the human at G2. |
+| "Name the column after what the screen shows." | UI-shaped columns (`profileCardLine2`, `displayPriceText`) rot; store a Pixel + compose with Buffet / `Intl.NumberFormat` at render. |
+| "The cached `ratingAverage` is good enough as the value." | A cached aggregate that can't derive from source Pixels becomes a lie; compute-on-the-fly, cache is only a cache with a derivation trail. |
+
+## Verify (exit criteria)
+
+- [ ] Data model is atomic, relations use FK + index, snapshots complete for transactional documents
+- [ ] Design diffed against the real `prisma/schema.prisma` + migration impact assessed (reversible + testable on Staging)
+- [ ] API contract fully specified (path/input/output/zod/authz/error) so Backend can implement without guessing
+- [ ] Every field passes the Resolution Boundary test + carries a classification tag (PII/Financial/Geo/Public); aggregates are compute-on-the-fly; client binds to the Buffet, not a raw table
+- [ ] No anti-pattern present (N+1, over-engineering, premature abstraction, boundary leak, UI-shaped column, cached-aggregate-as-source)
+- [ ] ADR written for hard-to-reverse decisions; trade-off escalated to G2
+- [ ] Spec into the ticket's `## Data` + passes `linear-sync.mjs audit`

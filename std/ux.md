@@ -1,53 +1,87 @@
-# std/ux.md — มาตรฐาน UX Validation + PDPA Masking (Designer + Frontend + Backend)
+---
+name: ux-validation-and-pdpa
+description: Standard for the central catalog of field validation and PDPA masking. Use when adding or validating any form field; when displaying sensitive PII; when wiring user-facing error copy; or when deciding what to mask and how to reveal it. Memory for the Designer, Frontend, and Backend roles. Pairs with DESIGN.md, std/api.md, std/qa.md, std/security.md.
+---
 
-> อ่านก่อนทำงาน: ไฟล์นี้ + `DESIGN.md` (states/a11y/i18n/form-error pattern/test-id/no-em-dash/no-tech-jargon) + `std/api.md` (server enforce validation) + `std/qa.md` (test ครอบ validation) + `std/security.md` (audit logging)
-> ขอบเขตไฟล์นี้: **catalog กลาง** ของ field validation + PDPA masking เท่านั้น สิ่งที่ `DESIGN.md` เป็นเจ้าของอยู่แล้ว (interaction states, a11y, i18n, em-dash, ศัพท์เทคนิค, test-id, form/error pattern) **ไม่ทำซ้ำ** ให้อ้างถึงแทน
+# UX Validation & PDPA Masking
 
-## หลักการ
-- **Schema เดียว แชร์ client+server** — validation ทุก field นิยามด้วย `zod` ครั้งเดียว, type = `z.infer<typeof schema>`; ฟอร์มใช้ shadcn form + `<form noValidate>` (custom validation ตาม `DESIGN.md`), server enforce ด้วย schema ตัวเดียวกันนี้ (ดู `std/api.md`) ห้ามมี logic validate ซ้อนต่างกันสองที่
-- **Catalog เดียว** — ทุก field ที่ validate ต้องดึง rule + error copy จากตารางนี้ ห้าม inline regex/ข้อความเองในแต่ละฟอร์ม ฟิลด์ใหม่ → เพิ่มในตารางนี้ก่อน แล้วค่อยอ้าง
-- **Error copy = UI จริง** — ข้อความไทยในตารางคือ copy ที่ผู้ใช้เห็นจริง (verbatim) เก็บใน `locales/` เป็น source-of-truth (TH/EN) ห้าม hardcode; QA assert ตรงตัวอักษร
-- **Masked-by-default** — PII อ่อนไหวแสดง mask โดย default, เผยเฉพาะเมื่อผู้ใช้กดเอง (PDPA: การ "แสดง" = การใช้ข้อมูลที่ผู้ใช้ควบคุม)
+## Overview
 
-## Validation catalog
-trigger/timing ตาม form pattern ใน `DESIGN.md`; ข้อความ = verbatim
-| Field | rule / regex | error copy (ไทย verbatim) |
+One zod schema validates a field on both client and server; one catalog owns every rule and every Thai error string a user reads. Sensitive PII is masked by default and revealed only when the user asks — because under PDPA, "showing" the data is a use the user controls.
+
+## When to Use
+
+- Adding or validating any form field (phone, email, name, password, OTP, camp data, dates, coordinates)
+- Displaying sensitive PII anywhere in the UI (national ID, phone, name, birth date, payout account)
+- Wiring user-facing error copy or deciding what to mask and how reveal works
+- Reviewing a PR that touches form validation, error messages, or PII display
+
+**NOT for:**
+
+- Interaction states, a11y, i18n, em-dash rule, technical-jargon rule, test-id, form/error pattern — owned by `DESIGN.md`, do not duplicate; reference it instead
+- Server-side enforcement plumbing of the shared schema — see `std/api.md`
+- Test design around validation (happy/boundary/error coverage) — see `std/qa.md`
+- Audit log definition and storage for reveal events — see `std/security.md`
+
+> Read before working: this file + `DESIGN.md` (states/a11y/i18n/form-error pattern/test-id/no-em-dash/no-tech-jargon) + `std/api.md` (server enforces validation) + `std/qa.md` (tests cover validation) + `std/security.md` (audit logging).
+> Scope of this file: the **central catalog** of field validation + PDPA masking only. What `DESIGN.md` already owns (interaction states, a11y, i18n, em-dash, technical jargon, test-id, form/error pattern) is **not duplicated** — reference it instead.
+
+## Standards
+
+### 1. Principles
+
+- **One schema, shared client + server** — every field's validation is defined once with `zod`; the type is `z.infer<typeof schema>`. Forms use shadcn form + `<form noValidate>` (custom validation per `DESIGN.md`); the server enforces with the same schema (see `std/api.md`). Never have two divergent validation paths.
+- **One catalog** — every validated field pulls its rule + error copy from the table below. Never inline regex or messages in individual forms. A new field → add it to this table first, then reference it.
+- **Error copy = the real UI** — the Thai strings in the table are the copy the user actually sees (verbatim), stored in `locales/` as the source of truth (TH/EN); never hardcode. QA asserts the exact characters.
+- **Masked by default** — sensitive PII renders masked by default and is revealed only when the user presses to reveal (PDPA: "showing" = a use of the data the user controls).
+
+### 2. Validation catalog
+
+Trigger/timing follows the form pattern in `DESIGN.md`; copy is verbatim.
+
+| Field | rule / regex | error copy (Thai verbatim) |
 |---|---|---|
-| เบอร์มือถือ `phone` | `^0[689]\d{8}$` (10 หลัก, ตัวเลขล้วน strip non-digit) | "กรุณากรอกเบอร์มือถือที่ถูกต้อง" |
-| อีเมล `email` | max 100, ไม่มีอักขระไทย `[฀-๿]`, รูปแบบ `^[^\s@]+@[^\s@]+\.[^\s@]+$` | "รูปแบบอีเมลไม่ถูกต้อง" |
-| ชื่อ-สกุล (ไทย) `firstName`/`lastName` | `^[ก-๙\s]+$` max 50 | "กรุณากรอกเฉพาะภาษาไทย" |
-| รหัสผ่าน `password` | ≥8 ตัว, มีตัวอักษร+ตัวเลข, แสดง strength meter | "รหัสผ่านต้องมีอย่างน้อย 8 ตัว ผสมตัวอักษรและตัวเลข" |
-| OTP `otp` | 6 หลักตัวเลข, ≤5 ครั้ง/session, บล็อก 300 วินาที | "รหัส OTP ไม่ถูกต้อง" |
-| ชื่อแคมป์ `campName` | `^[a-zA-Z0-9ก-๙\s]+$` max 100 (ไม่มีอักขระพิเศษ) | "ชื่อแคมป์ไม่รองรับอักขระพิเศษ" |
-| ราคา/คืน `pricePerNight` | จำนวนเต็มบวก 0–100,000 บาท | "ราคาต้องอยู่ระหว่าง 0–100,000 บาท" |
-| จำนวนผู้เข้าพัก/ความจุ `capacity` | จำนวนเต็ม ≥1 | "จำนวนผู้เข้าพักต้องมากกว่า 0" |
-| ช่วงวันที่จอง `checkIn`/`checkOut` | check-out > check-in, ห้ามย้อนหลัง (≥ วันนี้) | "วันเช็คเอาท์ต้องหลังวันเช็คอิน" |
-| จังหวัด `provinceId` | เลือกจาก master list (required) | "กรุณาเลือกจังหวัด" |
-| พิกัดแคมป์ `lat`/`lng` | lat -90…90, lng -180…180 (จุดทศนิยม) | "พิกัดไม่ถูกต้อง" |
+| Mobile number `phone` | `^0[689]\d{8}$` (10 digits, digits only, strip non-digit) | `กรุณากรอกเบอร์มือถือที่ถูกต้อง` |
+| Email `email` | max 100, no Thai characters `[฀-๿]`, format `^[^\s@]+@[^\s@]+\.[^\s@]+$` | `รูปแบบอีเมลไม่ถูกต้อง` |
+| Full name (Thai) `firstName`/`lastName` | `^[ก-๙\s]+$` max 50 | `กรุณากรอกเฉพาะภาษาไทย` |
+| Password `password` | ≥8 chars, letters + digits, show strength meter | `รหัสผ่านต้องมีอย่างน้อย 8 ตัว ผสมตัวอักษรและตัวเลข` |
+| OTP `otp` | 6 numeric digits, ≤5 attempts/session, block 300 seconds | `รหัส OTP ไม่ถูกต้อง` |
+| Camp name `campName` | `^[a-zA-Z0-9ก-๙\s]+$` max 100 (no special characters) | `ชื่อแคมป์ไม่รองรับอักขระพิเศษ` |
+| Price/night `pricePerNight` | positive integer 0–100,000 THB | `ราคาต้องอยู่ระหว่าง 0–100,000 บาท` |
+| Guests/capacity `capacity` | integer ≥1 | `จำนวนผู้เข้าพักต้องมากกว่า 0` |
+| Booking date range `checkIn`/`checkOut` | check-out > check-in, no past dates (≥ today) | `วันเช็คเอาท์ต้องหลังวันเช็คอิน` |
+| Province `provinceId` | select from master list (required) | `กรุณาเลือกจังหวัด` |
+| Camp coordinates `lat`/`lng` | lat -90…90, lng -180…180 (decimal) | `พิกัดไม่ถูกต้อง` |
 
-## PDPA masking defaults
-mask glyph = `•` (U+2022) เท่านั้น · เผยผ่าน eye-toggle component, auto-revert 30 วินาที · ทุกครั้งที่เผย → backend emit audit event `pdpa.sensitive_field_revealed` `{userId, field, ts, ip}` (นิยาม/เก็บ log ตาม `std/security.md` ไม่ redefine ที่นี่)
-| Field | mask อย่างไร (glyph `•`) | เผยอย่างไร |
+### 3. PDPA masking defaults
+
+Mask glyph = `•` (U+2022) only · reveal via the eye-toggle component, auto-revert after 30 seconds · on every reveal → backend emits audit event `pdpa.sensitive_field_revealed` `{userId, field, ts, ip}` (defined/stored per `std/security.md`, not redefined here).
+
+| Field | how to mask (glyph `•`) | how to reveal |
 |---|---|---|
-| เลขบัตรประชาชน `nationalId` | เก็บตัวแรก 1 + ท้าย 1 → `1-••••-••••XXX-Y` | eye-toggle 30s + audit |
-| เบอร์มือถือ `phone` | เก็บตัวแรก 3 + ท้าย 2 → `081-•••-••XX` | eye-toggle 30s + audit |
-| ชื่อ-สกุล (ไทย+อังกฤษ) `fullName` | ตัวแรกของแต่ละคำ → `เ•••••์ พ•••••••` | eye-toggle 30s + audit |
-| วันเกิด `birthDate` | mask เต็ม → `••/••/••••` | eye-toggle 30s + audit |
-| เลขบัญชี/พร้อมเพย์ (payout เจ้าของแคมป์) `payoutAccount` | เก็บตัวแรก 3 + ท้าย 1 → `XXX-•-•••••XX-X` | eye-toggle 30s + audit |
-| **ไม่ mask:** อีเมล (ต้องแก้ไขเองได้) · ที่ตั้ง/ที่อยู่จัดส่งแคมป์ (จำเป็นต่อ flow จอง/เดินทาง) · จังหวัด | แสดงเต็ม | — |
+| National ID `nationalId` | keep first 1 + last 1 → `1-••••-••••XXX-Y` | eye-toggle 30s + audit |
+| Mobile number `phone` | keep first 3 + last 2 → `081-•••-••XX` | eye-toggle 30s + audit |
+| Full name (Thai + English) `fullName` | first character of each word → `เ•••••์ พ•••••••` | eye-toggle 30s + audit |
+| Birth date `birthDate` | mask fully → `••/••/••••` | eye-toggle 30s + audit |
+| Bank/PromptPay account (camp owner payout) `payoutAccount` | keep first 3 + last 1 → `XXX-•-•••••XX-X` | eye-toggle 30s + audit |
+| **Do not mask:** email (must be user-editable) · camp location/shipping address (required for booking/travel flow) · province | show in full | — |
 
-**Rule of thumb:** mask ถ้า field ใช้ (เดี่ยวหรือรวมกัน) เพื่อ (ก) สวมรอยผู้ใช้ (ข) ทำธุรกรรมการเงิน (ค) link ข้ามแอป — ไม่ mask ข้อมูล demographic/categorical/ที่ผู้ใช้ต้องแก้เอง
+**Rule of thumb:** mask if the field is used (alone or combined) to (a) impersonate the user, (b) conduct a financial transaction, or (c) link across apps — do not mask demographic/categorical data or data the user must edit themselves.
 
-## ต้องคำนึง / anti-patterns
-- ❌ mask ด้วย `X` / `*` / `_` → ✅ `•` เท่านั้น (รวมกับ `-` `/` `()` เพื่อคงรูปแบบได้)
-- ❌ validation ต่างกันระหว่าง client/server → ✅ zod schema เดียว แชร์สองฝั่ง (server = authoritative, ดู `std/api.md`)
-- ❌ error เป็นศัพท์เทคนิค (`regex invalid`, `400`) → ✅ copy ไทยตามตาราง (โยง `DESIGN.md` no-tech-jargon)
-- ❌ เผย PII แล้วไม่ log → ✅ emit audit event ต่อการเผยทุกครั้ง (`std/security.md`)
-- ❌ เขียน validation rule / error string ซ้ำในหลายฟอร์ม → ✅ catalog เดียว ดึงไปใช้ร่วม
+## Common Rationalizations
 
-## Checklist (DoD ของ domain)
-- [ ] ทุก field ที่ validate ใช้ rule + copy จาก catalog (ไม่ inline เอง)
-- [ ] zod schema ตัวเดียวแชร์ client + server (`z.infer` เป็น type)
-- [ ] PII ทุกตัวตาม masking table: glyph `•` + reveal 30s + audit event
-- [ ] error copy ไทย verbatim ตรง catalog + อยู่ใน `locales/` (TH/EN)
-- [ ] มี test ครอบ validation (happy + boundary + error) ฝั่ง server ด้วย ตาม `std/qa.md` (coverage ≥80% โค้ดใหม่)
+| Rationalization | Reality |
+|---|---|
+| "I'll mask with `X` / `*` / `_`." | Use `•` only (combinable with `-` `/` `()` to preserve the format). |
+| "Client and server can validate slightly differently." | One zod schema, shared on both sides (server = authoritative, see `std/api.md`). |
+| "A technical error message (`regex invalid`, `400`) is fine." | Use the Thai copy from the catalog (per `DESIGN.md` no-tech-jargon). |
+| "Revealing PII doesn't need a log." | Emit an audit event on every reveal (`std/security.md`). |
+| "I'll just repeat the validation rule / error string in this form." | One catalog, pulled in and shared. |
+
+## Verify (exit criteria)
+
+- [ ] Every validated field uses the rule + copy from the catalog (no inlining)
+- [ ] One zod schema shared across client + server (`z.infer` is the type)
+- [ ] Every PII field follows the masking table: glyph `•` + reveal 30s + audit event
+- [ ] Thai error copy verbatim per catalog + lives in `locales/` (TH/EN)
+- [ ] Tests cover validation (happy + boundary + error), including server-side, per `std/qa.md` (coverage ≥80% on new code)

@@ -1,43 +1,102 @@
-# std/discovery.md — มาตรฐาน Discovery (PO/Analyst)
+---
+name: discovery-and-spec
+description: Standard for turning a raw requirement into a buildable spec before G1 (Scope), with no guessing. Use when starting work from a new or ambiguous requirement. Use when you must close gaps before writing any code. Use when authoring a STORY-TICKET, AC, or DoR. Memory for the PO/Analyst role; pairs with std/architecture.md, std/qa.md, std/ux.md, std/performance.md, DESIGN.md, CLAUDE.md.
+---
 
-memory ที่ PO/Analyst อ่านก่อนเริ่มทุก feature ก่อนผ่าน **G1 (Scope)** เป้าหมาย: เปลี่ยน requirement ดิบ → spec ที่ build ได้โดยไม่เดา
+# Discovery & Spec
 
-## หลักการ
-- **Spec-first** — ไม่ปิด Discovery ถ้ายังมี gap 🔴 ค้าง; ทุก AC ต้องโยงกลับ requirement ได้ ที่ G1 คือจุดเดียวที่ scope เปลี่ยนได้ฟรี หลังจากนั้นแพง
-- **research ก่อนเดา** — ดูของจริงในโค้ด/Linear ก่อนตั้งสมมติฐาน ลด gap 🔴 ตั้งแต่ต้น
-- **ถามรวบยอด ไม่จุกจิก** — มนุษย์คือคอขวด รวมคำถามเป็นรอบเดียว แต่ละข้อมีตัวเลือก + ผลกระทบ + default
-- **ห้ามเดาเงียบ** — ไม่รู้ = ยก 🔴 แล้วถาม ไม่ใช่เติมค่าเองเงียบๆ
+## Overview
 
-## มาตรฐาน/กฎ
-**6 มิติ gap (ครบทุกมิติก่อนปิด):** Business · Functional · Technical · UX · Security/Data · Risk
+Discovery turns a raw requirement into a spec you can build without guessing. G1 (Scope) is the one moment where scope changes for free — after it, change is expensive. Close every blocking gap, write the AC, and only then propose G1.
 
-**สถานะ gap:** 🟢 ปิด(มีคำตอบ/หลักฐาน) · 🟡 สมมติ(ต้อง confirm) · 🔴 ต้องถาม(blocker) · ⚪ N/A — ผ่าน G1 ได้เมื่อ **ไม่มี 🔴 ค้าง** (🟡 ต้องระบุ default ที่จะใช้ถ้าไม่ได้คำตอบ)
+## When to Use
 
-**วิธีทำ (loop):**
-1. research จริง: อ่าน `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*` + ดู Linear (team Campvibe) งานเดิม/ของซ้ำ
-2. ทำ gap list ต่อมิติ → ติดสถานะ 🟢/🟡/🔴/⚪
-3. รวมคำถาม 🔴/🟡 → ถามมนุษย์ **รอบรวบยอด** แต่ละข้อมี: ตัวเลือก + ผลกระทบแต่ละทาง + "ถ้าไม่ตอบ default = …"
-4. ปิดครบ (ไม่มี 🔴) → เขียน ticket จาก `ai-planning/templates/STORY-TICKET.md` → เสนอ G1
+- Starting any feature from a new or ambiguous requirement, before touching code
+- Building the 6-dimension gap list and batching questions to the human in rounds
+- Authoring a STORY-TICKET (User Story + AC + Rules + Data) and checking Definition of Ready
+- Verifying a ticket matches the template via `node scripts/linear-sync.mjs audit`
 
-**Ticket = 1 atomic story:** ใช้ template เป๊ะ — `## ทำไม`(+KPI) · `## Story`(ในฐานะ…ฉันต้องการ…เพื่อ…+ขอบเขต) · `## AC`(ตาราง GFM: Given|When|ผลที่ผู้ใช้เห็น+copy ไทย verbatim|ผลเชิงข้อมูล) · `## Rules`(ค่า/ขอบเขต+error จริง) · `## Data`(field atomic+migration) · `## Out of scope`(+ชี้ ticket รับช่วง) · `## Self-verify` · `## Links`
-- เนื้อ story+AC ลง **issue ระดับ story** ใน Linear (role-task = sub-issue) · ตรวจตรง template ด้วย `node scripts/linear-sync.mjs audit` (ต้องมี `## Story` + `## AC`)
-- **persona** = Admin | Camper | Host · AC ฝั่งซ้าย "ผู้ใช้เห็นอะไร"(copy ไทยจริง) ฝั่งขวา "ระบบเก็บ/เปลี่ยนอะไร"(ภาษาคน)
+**NOT for:**
 
-**DoR (เกณฑ์ "พร้อม build"):** User Story + AC testable · NFR ระบุชัด (perf/a11y/i18n/security) · out-of-scope ชัด · แตกเป็น atomic story (1 PR เล็ก ≤~400 บรรทัด) · AC verify ได้บน **Staging URL** จริง (Done = merge→`staging` ไม่ใช่แค่ผ่าน lint)
+- Architecture / data-model decisions once scope is set — see `std/architecture.md`
+- Writing negative/edge test cases from the AC — that is QA's job, see `std/qa.md`
+- Turning a vague NFR into a measured target like LCP — see `std/performance.md`
+- UX validation and PDPA constraints inside the AC — see `std/ux.md`
+- Building once the spec/ticket has closed all gaps — skip to build
 
-## ต้องคำนึง / anti-patterns
-- ❌ เดาค่า/ขอบเขตเองแล้วเขียน AC ต่อ → ✅ ยก 🔴 ถามก่อน
-- ❌ ถามทีละคำหลายรอบ → ✅ รวบยอดรอบเดียว + ตัวเลือก + default
-- ❌ AC คลุม ("ระบบทำงานถูกต้อง") → ✅ granular + copy ไทย verbatim + ผลเชิงข้อมูล
-- ❌ ใส่ event-code/ชื่อ class/ตัวแปร/testid ใน AC → ✅ อยู่ใน spec เทคนิค (tech) เท่านั้น
-- ❌ em-dash (—) คั่นข้อความไทย / ศัพท์เทคนิค (API, webhook, endpoint) ใน copy ผู้ใช้ → ✅ ภาษาคน
-- ❌ ก้อนใหญ่หลาย concern → ✅ แตก atomic; งานเล็กใช้ ticket ใบเดียว เพิ่ม spec/tech/test เมื่อซับซ้อนจริง
-- ❌ ข้ามดู Linear แล้วทำซ้ำ/ขัดงานเดิม → ✅ research ก่อน
+## Principles
 
-## Checklist (DoD ของ Discovery)
-- [ ] research codebase + Linear แล้ว (ไม่ใช่เดา)
-- [ ] gap list 6 มิติครบ · ไม่มี 🔴 ค้าง · 🟡 ทุกตัวมี default
-- [ ] User Story + AC testable + NFR + out-of-scope ครบ (DoR)
-- [ ] แตก atomic story (1 PR เล็ก)
-- [ ] ticket ตรง template + `node scripts/linear-sync.mjs audit` ผ่าน
-- [ ] เสนอ G1 พร้อมสรุป gap/สมมติที่ใช้
+- **Spec-first** — do not close Discovery while any 🔴 gap is open; every AC must trace back to the requirement. G1 is the only place scope changes for free; after it, change is expensive.
+- **Research before guessing** — look at the real code/Linear before forming an assumption; cut 🔴 gaps from the start.
+- **Batch questions, don't nitpick** — the human is the bottleneck. Collect questions into a single round; each item carries options + impact + default.
+- **No silent guessing** — don't know = raise 🔴 and ask, not fill in a value silently.
+
+## Standards
+
+### 1. Six gap dimensions
+
+Cover every dimension before closing:
+
+**Business · Functional · Technical · UX · Security/Data · Risk**
+
+### 2. Gap states
+
+| State | Meaning |
+|---|---|
+| 🟢 | Closed (answer/evidence in hand) |
+| 🟡 | Assumed (needs confirmation) |
+| 🔴 | Must ask (blocker) |
+| ⚪ | N/A |
+
+Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be used if no answer comes back.
+
+### 3. The loop
+
+1. Real research: read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and check Linear (team Campvibe) for existing/duplicate work.
+2. Build the gap list per dimension → tag each 🟢/🟡/🔴/⚪.
+3. Batch the 🔴/🟡 questions → ask the human in a **single round**; each item has: options + impact of each path + "if no answer, default = …".
+4. All closed (no 🔴) → write the ticket from `ai-planning/templates/STORY-TICKET.md` → propose G1.
+
+### 4. Ticket = 1 atomic story
+
+Use the template exactly — `## ทำไม` (+KPI) · `## Story` (ในฐานะ…ฉันต้องการ…เพื่อ…+ขอบเขต) · `## AC` (GFM table: Given | When | ผลที่ผู้ใช้เห็น + Thai copy verbatim | ผลเชิงข้อมูล) · `## Rules` (values/bounds + real error) · `## Data` (atomic fields + migration) · `## Out of scope` (+ point to the follow-up ticket) · `## Self-verify` · `## Links`.
+
+- The story body + AC go into the **story-level issue** in Linear (role-task = sub-issue). Check template conformance with `node scripts/linear-sync.mjs audit` (must contain `## Story` + `## AC`).
+- **persona** = Admin | Camper | Host. AC left side = "what the user sees" (real Thai copy); AC right side = "what the system stores/changes" (plain language).
+
+### 5. Definition of Ready (DoR — "ready to build")
+
+- User Story + testable AC
+- NFR stated clearly (perf/a11y/i18n/security)
+- Out-of-scope is explicit
+- Broken into an atomic story (1 small PR ≤ ~400 lines)
+- AC verifiable on the real **Staging URL** (Done = merge → `staging`, not just passing lint)
+
+### 6. Spec quality
+
+- **Six spec components** that must be clear before closing: (1) goal + a measurable definition of "success"; (2) the real run commands (not just tool names); (3) file layout / code location; (4) code style with an example; (5) tests + coverage target; (6) explicit scope (always / ask-first / never).
+- **Surface assumptions early** — list the assumed tech/architecture/constraints where the human can see them (as a 🟡 with a default); don't keep them in your head.
+- **Measurable AC** — convert vague words ("faster") into a real target (e.g. LCP ≤ 2.5s) per `std/performance.md`.
+- **Vertical slice + work size** — break into slices that ship end-to-end (not all-DB → all-API → all-UI); work larger than ~5–8 files = split further.
+- **AC verification rigor** (embedded in STORY-TICKET): cover states on responsive/mobile (as words the user sees, not class names) · Thai copy verbatim, exact glyphs including the `{N}` placeholder · every editable input has full rules (required/format/bounds/when-to-warn/real message) = QA's negative test cases.
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I'll guess the value/bounds and keep writing AC." | Raise 🔴 and ask first. |
+| "I'll ask one question at a time across rounds." | Batch one round + options + default. |
+| "AC like 'the system works correctly' is enough." | Make it granular + Thai copy verbatim + data-level result. |
+| "Put the event-code/class name/variable/testid in the AC." | Those live only in the technical spec. |
+| "An em-dash (—) is fine to separate Thai copy; jargon (API, webhook, endpoint) is fine in user copy." | Use plain language. |
+| "One big chunk across many concerns ships faster." | Split atomic; small work uses one ticket, add spec/tech/test only when genuinely complex. |
+| "Skip Linear and just build." | Research first, or you duplicate/conflict with existing work. |
+
+## Verify (exit criteria)
+
+- [ ] Researched the codebase + Linear (not guessing)
+- [ ] Gap list covers all 6 dimensions · no 🔴 open · every 🟡 has a default
+- [ ] User Story + testable AC + NFR + out-of-scope complete (DoR)
+- [ ] Broken into an atomic story (1 small PR)
+- [ ] Ticket matches the template + `node scripts/linear-sync.mjs audit` passes
+- [ ] Propose G1 with a summary of gaps/assumptions used
