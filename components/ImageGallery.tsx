@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 interface ImageGalleryProps {
     images: string[];
@@ -15,12 +16,13 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
     const { t, language } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-    // Sync initialIndex when gallery opens
+    // Sync initialIndex when gallery opens; clamp to valid range
     useEffect(() => {
-        if (isOpen) {
-            setCurrentIndex(initialIndex);
+        if (isOpen && images.length > 0) {
+            const clamped = Math.min(Math.max(initialIndex, 0), images.length - 1);
+            setCurrentIndex(clamped);
         }
-    }, [isOpen, initialIndex]);
+    }, [isOpen, initialIndex, images.length]);
 
     // Keyboard navigation
     useEffect(() => {
@@ -37,6 +39,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
     }, [isOpen, images.length, onClose]);
 
     if (!isOpen) return null;
+    if (images.length === 0) return null;
 
     const goToPrevious = () => {
         setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
@@ -91,10 +94,11 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
 
             {/* Main Image */}
             <div className="relative w-full h-full flex items-center justify-center p-20">
-                <img
+                <ImageWithFallback
                     src={images[currentIndex]}
                     alt={imageOfLabel}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-full"
+                    imgClassName="object-contain max-w-full max-h-full"
                 />
             </div>
 
@@ -119,11 +123,11 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                             index === currentIndex ? "border-white" : "border-transparent opacity-60 hover:opacity-100"
                         }`}
                     >
-                        <img
+                        <ImageWithFallback
                             src={image}
                             alt=""
-                            aria-hidden="true"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full"
+                            imgClassName="object-cover"
                         />
                     </button>
                 ))}

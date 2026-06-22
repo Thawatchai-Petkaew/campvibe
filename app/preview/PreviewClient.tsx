@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -629,6 +630,41 @@ export function PreviewClient() {
                     <p className="text-base text-foreground leading-relaxed">
                         เลือกสถานที่กางเต็นท์ที่ดีที่สุดจากทั่วประเทศ พร้อมรีวิวจริงจากนักผจญภัย
                     </p>
+                </div>
+
+                <SectionDivider />
+
+                {/* ── Image Resilience ── */}
+                <SectionHeading>{t.preview.imageWithFallbackSection}</SectionHeading>
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-2">
+                        <ImageWithFallback
+                            src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400"
+                            alt="Campfire at sunset"
+                            className="aspect-square rounded-xl"
+                            imgClassName="object-cover"
+                            data-testid="img--preview-good"
+                        />
+                        <span className="text-xs text-muted-foreground text-center">{t.preview.imageGood}</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <ImageWithFallback
+                            src="https://broken.invalid/404.jpg"
+                            alt="Broken image example"
+                            className="aspect-square rounded-xl"
+                            data-testid="img--preview-broken"
+                        />
+                        <span className="text-xs text-muted-foreground text-center">{t.preview.imageBroken}</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <ImageWithFallback
+                            src={undefined}
+                            alt="No source example"
+                            className="aspect-square rounded-xl"
+                            data-testid="img--preview-nosrc"
+                        />
+                        <span className="text-xs text-muted-foreground text-center">{t.preview.imageNone}</span>
+                    </div>
                 </div>
             </main>
         </div>

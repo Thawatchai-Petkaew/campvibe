@@ -53,7 +53,11 @@
             "statesSection": "States",
             "iconsSection": "Icons",
             "optionPickersSection": "Option pickers",
-            "filterChipSection": "Filter chips"
+            "filterChipSection": "Filter chips",
+            "imageWithFallbackSection": "Image with Fallback",
+            "imageGood": "Good image",
+            "imageBroken": "Broken URL",
+            "imageNone": "No source"
         },
         "common": {
             "share": "Share",
@@ -348,7 +352,9 @@
             "previousImage": "Previous photo",
             "nextImage": "Next photo",
             "imageOf": "{n} of {total}",
-            "openGallery": "Open photo gallery"
+            "openGallery": "Open photo gallery",
+            "viewImage": "View photo {n}",
+            "imageUnavailable": "Image unavailable"
         },
         "bookings": {
             "myBookings": "My Bookings",
@@ -657,7 +663,11 @@
             "statesSection": "สถานะ",
             "iconsSection": "ไอคอน",
             "optionPickersSection": "ตัวเลือกในฟอร์ม",
-            "filterChipSection": "ตัวกรอง"
+            "filterChipSection": "ตัวกรอง",
+            "imageWithFallbackSection": "รูปภาพพร้อมรองรับข้อผิดพลาด",
+            "imageGood": "รูปภาพปกติ",
+            "imageBroken": "ลิงก์เสีย",
+            "imageNone": "ไม่มีรูปภาพ"
         },
         "common": {
             "share": "แชร์",
@@ -952,7 +962,9 @@
             "previousImage": "รูปก่อนหน้า",
             "nextImage": "รูปถัดไป",
             "imageOf": "{n} จาก {total}",
-            "openGallery": "เปิดแกลเลอรีรูปภาพ"
+            "openGallery": "เปิดแกลเลอรีรูปภาพ",
+            "viewImage": "ดูรูปภาพที่ {n}",
+            "imageUnavailable": "ไม่มีรูปภาพ"
         },
         "bookings": {
             "myBookings": "การจองของฉัน",
