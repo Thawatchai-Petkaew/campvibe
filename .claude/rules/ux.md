@@ -1,6 +1,9 @@
 ---
 name: ux-validation-and-pdpa
 description: Standard for the central catalog of field validation and PDPA masking. Use when adding or validating any form field; when displaying sensitive PII; when wiring user-facing error copy; or when deciding what to mask and how to reveal it. Memory for the Designer, Frontend, and Backend roles. Pairs with DESIGN.md, .claude/rules/api.md, .claude/rules/qa.md, .claude/rules/security.md.
+paths:
+  - components/**
+  - app/**/*.tsx
 ---
 
 # UX Validation & PDPA Masking
@@ -8,6 +11,19 @@ description: Standard for the central catalog of field validation and PDPA maski
 ## Overview
 
 One zod schema validates a field on both client and server; one catalog owns every rule and every Thai error string a user reads. Sensitive PII is masked by default and revealed only when the user asks — because under PDPA, "showing" the data is a use the user controls.
+
+## Quick Reference
+
+Two rules + two catalogs:
+
+1. **Validate** — one `zod` schema per field, shared client + server (`z.infer` is the type); pull the rule + Thai error copy from the **Validation catalog** (§2); never inline a regex or message.
+2. **Mask** — sensitive PII renders masked by default with glyph `•` (U+2022); reveal via eye-toggle (auto-revert 30s) + emit audit `pdpa.sensitive_field_revealed`; follow the **PDPA masking table** (§3).
+
+| Need | Go to |
+|---|---|
+| A field's regex + Thai error copy | §2 Validation catalog |
+| How to mask / reveal a PII field | §3 PDPA masking defaults |
+| Whether to mask a field | §3 rule of thumb (impersonate / transact / link → mask) |
 
 ## When to Use
 
@@ -23,8 +39,11 @@ One zod schema validates a field on both client and server; one catalog owns eve
 - Test design around validation (happy/boundary/error coverage) — see `.claude/rules/qa.md`
 - Audit log definition and storage for reveal events — see `.claude/rules/security.md`
 
-> Read before working: this file + `DESIGN.md` (states/a11y/i18n/form-error pattern/test-id/no-em-dash/no-tech-jargon) + `.claude/rules/api.md` (server enforces validation) + `.claude/rules/qa.md` (tests cover validation) + `.claude/rules/security.md` (audit logging).
 > Scope of this file: the **central catalog** of field validation + PDPA masking only. What `DESIGN.md` already owns (interaction states, a11y, i18n, em-dash, technical jargon, test-id, form/error pattern) is **not duplicated** — reference it instead.
+
+## Prerequisites
+
+Read before working: this file + `DESIGN.md` (states / a11y / i18n / form-error pattern / test-id / no-em-dash / no-tech-jargon) + `.claude/rules/api.md` (server enforces validation) + `.claude/rules/qa.md` (tests cover validation) + `.claude/rules/security.md` (audit logging).
 
 ## Standards
 
@@ -67,6 +86,25 @@ Mask glyph = `•` (U+2022) only · reveal via the eye-toggle component, auto-re
 | **Do not mask:** email (must be user-editable) · camp location/shipping address (required for booking/travel flow) · province | show in full | — |
 
 **Rule of thumb:** mask if the field is used (alone or combined) to (a) impersonate the user, (b) conduct a financial transaction, or (c) link across apps — do not mask demographic/categorical data or data the user must edit themselves.
+
+## Examples
+
+- ✅ **Shared schema + catalog copy:** `phone` validates with `^0[689]\d{8}$` on client AND server (the same `zod` schema, `z.infer` is the type); on failure the user sees the verbatim `กรุณากรอกเบอร์มือถือที่ถูกต้อง` from the catalog.
+- ❌ **Divergent / inlined:** a form re-implementing the phone regex inline, or surfacing a technical message like `regex invalid` / `400` instead of the Thai copy.
+- ✅ **Masked by default + audited reveal:** `nationalId` renders `1-••••-••••XXX-Y`; the eye-toggle reveals for 30s, then the backend emits `pdpa.sensitive_field_revealed` `{userId, field, ts, ip}`.
+- ❌ **Wrong glyph / no audit:** masking with `X` or `*`, or revealing PII with no audit event.
+
+## Reference Files
+
+- `DESIGN.md` — interaction states, a11y, i18n, form/error pattern, test-id, no-em-dash, no-tech-jargon (owned there; not duplicated here).
+- `.claude/rules/api.md` — the server enforces the same shared schema at the boundary.
+- `.claude/rules/qa.md` — tests cover validation (happy + boundary + error), including server-side.
+- `.claude/rules/security.md` — audit event definition + storage for reveal events.
+- `locales/` — TH/EN source of truth for the error strings (never hardcode).
+
+## Next Steps
+
+A new field → add its rule + Thai copy to the Validation catalog (§2) first, then reference it from the shared schema; a new PII field → add it to the PDPA masking table (§3). QA asserts the exact characters; security reviews the reveal audit before G3.
 
 ## Common Rationalizations
 

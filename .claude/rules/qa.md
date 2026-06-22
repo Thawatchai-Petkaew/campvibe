@@ -1,6 +1,11 @@
 ---
 name: testing-and-quality
 description: Standard for proving every AC is true with tests, not chasing coverage theatre. Use when writing or reviewing unit/integration/e2e tests for a story. Use when fixing a bug (write the failing repro first). Use when deciding whether a story is Done. Memory for the QA role; pairs with .claude/rules/code.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/ops.md, DESIGN.md.
+paths:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "__tests__/**"
+  - "e2e/**"
 ---
 
 # Testing & Quality
@@ -8,6 +13,26 @@ description: Standard for proving every AC is true with tests, not chasing cover
 ## Overview
 
 A test is **evidence that an AC is true**, not a coverage ritual. Every test asserts a behavior the ticket promised to the user or the system — "the suite passes" is necessary but never sufficient, because **Done = verify the AC on the real Staging URL**. Lean means no test that doesn't guard a real regression.
+
+## Quick Reference
+
+Run + gate:
+
+- `npm test -- --coverage` — run the suite with coverage; gate is **≥ 80% on new code** (measured on the diff, not the repo).
+
+Per-unit coverage matrix — every unit/AC fires this row set:
+
+| Case | What it proves |
+|---|---|
+| normal | happy path returns/renders the expected result |
+| null/empty | missing/empty input handled, no crash |
+| boundary | min/max/0/negative edges |
+| error/validation | bad input rejected with the right error |
+| concurrent/ordering | parallel/out-of-order calls stay correct |
+
+Per-endpoint error codes (fire all per the contract): `400` bad payload · `401` no token · `403` wrong role/owner · `404` not found · `409` duplicate/state conflict · `500` server error.
+
+Bug fix = **Prove-It**: failing repro test first → fix → green + run suite to guard regression.
 
 ## When to Use
 
@@ -23,6 +48,10 @@ A test is **evidence that an AC is true**, not a coverage ritual. Every test ass
 - Authz/PDPA threat modeling — use `.claude/rules/security.md` (you still test server-side authz here)
 - The UI design gate — use `DESIGN.md`
 - Promote/release decisions and Staging deploy mechanics — use `.claude/rules/ops.md`
+
+## Prerequisites
+
+Read first: `.claude/rules/qa.md` (this file) · the ticket you will test (its AC table is the source of truth for cases) · `.claude/rules/api.md` for any endpoint contract you assert against · `DESIGN.md` for accessible-selector and a11y expectations on UI work. Have the test runner in place (Vitest + Playwright); if absent, setting it up is the first task (see Stack & runner).
 
 ## Standards
 
@@ -67,6 +96,54 @@ A test is **evidence that an AC is true**, not a coverage ritual. Every test ass
 - **Prove-It (when fixing a bug)** — write a test that reproduces the bug and **fails first** → fix → confirm it passes + run the suite to guard regression (every bug leaves behind a regression test).
 - **API error-code completeness** — per endpoint, fire the full set per the contract: 400 (bad payload) · 401 (no token) · 403 (wrong role/owner) · 404 (not found) · 409 (duplicate / state conflict).
 - **Selector** — in component tests, prefer accessible role/label (`getByRole`); use `data-testid` (the existing convention) only when role/label is ambiguous or you must assert a specific element.
+
+## Examples
+
+✅ **AAA test that asserts real behavior** — name reads as the spec, mocks only the boundary, asserts the result:
+
+```ts
+// [unit] toggles wishlist on and persists when the user clicks
+it("adds the camp to the wishlist on toggle", async () => {
+  // Arrange
+  render(<WishlistButton campId="c1" />);
+  // Act
+  await userEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+  // Assert — real outcome, role-based selector, Thai copy verbatim
+  expect(screen.getByRole("button", { name: "บันทึกแล้ว" })).toBeInTheDocument();
+});
+```
+
+❌ **Over-mocked / flaky** — proves nothing and races the clock:
+
+```ts
+it("works", async () => {
+  const toggle = vi.fn().mockReturnValue(true); // mocked the very logic under test
+  render(<WishlistButton onToggle={toggle} />);
+  await new Promise((r) => setTimeout(r, 200)); // sleep = flake; wait on a condition instead
+  expect(true).toBe(true); // no real assertion
+});
+```
+
+✅ **Prove-It regression** (bug fix) — failing repro first, then fix, then the test guards forever:
+
+```ts
+// Bug: 0 nights priced as a full night. This FAILS before the fix, passes after.
+it("[unit] returns 0 for a zero-night booking", () => {
+  expect(priceBooking({ nights: 0, rate: 500 })).toBe(0); // was 500
+});
+```
+
+## Reference Files
+
+- `.claude/rules/code.md` — code standards for the implementation under test
+- `.claude/rules/api.md` — API/route contract you assert endpoint behavior against
+- `.claude/rules/security.md` — server-side authz/PDPA expectations (you still test authz here)
+- `DESIGN.md` — accessible-selector and a11y expectations for component tests
+- the `quality-gate` skill — runs lint/typecheck/test+coverage/build/audit before merge
+
+## Next Steps
+
+Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage ≥ 80% · build · `npm audit --omit=dev`) → merge into `staging` → **verify the AC on the real Staging URL** → mark the story Linear state `Done`.
 
 ## Common Rationalizations
 

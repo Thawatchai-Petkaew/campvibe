@@ -1,6 +1,9 @@
 ---
 name: observability-and-instrumentation
 description: Standard for making CampVibe's production behavior visible and diagnosable. Use when adding logging, metrics, tracing, or alerting; when shipping any feature that runs in production and you need evidence it works; or when an incident was hard to diagnose from the data on hand. Memory for the Backend and DevOps roles; pairs with .claude/rules/ops.md, .claude/rules/api.md, .claude/rules/security.md.
+paths:
+  - app/api/**
+  - lib/**
 ---
 
 # Observability & Instrumentation
@@ -8,6 +11,19 @@ description: Standard for making CampVibe's production behavior visible and diag
 ## Overview
 
 Code you can't observe is code you can't operate. Telemetry is written alongside the feature, the same way tests are — ship a feature without it and the first user-reported bug becomes archaeology instead of a query.
+
+## Quick Reference
+
+Instrument in this order — each step answers the previous one's gap:
+
+| Step | Do | Rule |
+|---|---|---|
+| 1 | Write the 2–4 questions on-call asks when this breaks | No question → no signal |
+| 2 | Structured JSON logs + correlation ID, propagated across boundaries | Never log secrets/tokens/PII; allowlist fields |
+| 3 | RED (rate/errors/duration) + USE metrics, latency as p95/p99 | Never averages; keep labels bounded (no `userId`/`email`/`id`) |
+| 4 | OpenTelemetry traces, context propagated across async + outbound | Keep secrets/PII out of span attributes |
+| 5 | 2-tier alerts — **page** (act now) / **ticket** (act this week) | Alert on symptoms + link a runbook; never on CPU/disk |
+| 6 | Pre-prod observability gate (`.claude/rules/ops.md`) before promote | Logs flow · metrics appear · alerts tested · tracing end-to-end |
 
 ## When to Use
 
@@ -21,6 +37,10 @@ Code you can't observe is code you can't operate. Telemetry is written alongside
 - Diagnosing a failure happening right now — use the debugging methodology in `.claude/rules/code.md` (observability is what makes that fast next time)
 - Profiling measured slowness — use `.claude/rules/performance.md`
 - Release rollout / rollback triggers — see `.claude/rules/ops.md`
+
+## Prerequisites
+
+Read first: this file · `.claude/rules/security.md` (what must never be logged — secrets/tokens/PII) · `.claude/rules/ops.md` (the pre-prod observability gate this feeds). Know the side-effect surface you're instrumenting (`app/api/**`, `lib/**`) and the 2–4 on-call questions it must answer before writing a single signal.
 
 ## Process
 
@@ -53,6 +73,36 @@ Metrics tell you **that** something is wrong, traces tell you **where**, logs te
 
 - Use OpenTelemetry. Propagate context across async boundaries and outbound calls; keep secrets/PII out of span attributes.
 - Two alert severities only: **page** (user-facing, act now) and **ticket** (degradation, act this week). Every alert is actionable and links a runbook. Alert on symptoms, never on CPU/disk.
+
+## Examples
+
+Structured log — correlation ID, allowlisted fields, no PII:
+
+```jsonc
+// ✅ queryable, correlated, safe
+{ "level": "error", "event": "booking_failed", "correlationId": "req_8f3c", "campsiteId": "cs_42", "reason": "slot_taken" }
+
+// ❌ string interpolation + leaked token + raw PII
+log.error(`booking failed for user ${email} token=${authToken}`)
+```
+
+Alerting — page on the user-facing tail, not the average:
+
+```text
+✅ page: p95 latency of POST /api/bookings > 800ms for 5m   → links runbook
+❌ alert: avg latency > 500ms                               → average hides the p99 tail; not a symptom users feel
+```
+
+## Reference Files
+
+- `.claude/rules/performance.md` — profiling measured slowness (this rule makes it visible; that one fixes it)
+- `.claude/rules/ops.md` — the pre-prod observability gate + release rollout / rollback triggers
+- `.claude/rules/security.md` — what must never be logged or traced (secrets/tokens/PII)
+- `.claude/rules/api.md` — where side-effect routes/actions get instrumented
+
+## Next Steps
+
+Observability is part of the **pre-prod observability gate** in `.claude/rules/ops.md`: before promoting `staging`→`main`, confirm logs flow · metrics appear · alerts are configured and tested · tracing works end-to-end. The gate blocks the promote until those pass.
 
 ## Common Rationalizations
 

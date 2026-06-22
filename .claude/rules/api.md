@@ -1,6 +1,9 @@
 ---
 name: api-and-backend-standards
 description: Standard for designing and building CampVibe's API/backend contracts. Use when adding or changing an endpoint, server action, or mutation. Use when writing zod validation, authz/ownership checks, or Prisma queries. Use when designing response shapes or writing a Prisma migration. Memory for the Backend role; pairs with .claude/rules/security.md, .claude/rules/ux.md, .claude/rules/architecture.md, .claude/rules/performance.md, types/api.ts.
+paths:
+  - app/api/**
+  - lib/**
 ---
 
 # API & Backend Standards
@@ -8,6 +11,18 @@ description: Standard for designing and building CampVibe's API/backend contract
 ## Overview
 
 The server owns the truth (server-authoritative): client validation exists only for UX — never trust data from the client. Every endpoint is a verifiable contract — input crossing the boundary has a fixed shape, output matches `types/api.ts`, and every side-effect is tied to a verified session. Data is atomic (independently queryable, joined by ID), never several facts crammed into one string.
+
+## Quick Reference
+
+Per-endpoint checklist — run top to bottom for every route handler / server action / mutation:
+
+| # | Step | Do | On failure |
+|---|---|---|---|
+| 1 | **validate** | zod-parse body/query/params via `lib/validations/*` before any logic | `400` + field error |
+| 2 | **authz** | read user from the NextAuth session (server); ownership/role check before mutate | `401` not logged in · `403` not owner |
+| 3 | **query** | Prisma only, parameterized — `where:{id, ownerId: session.user.id}`; `$transaction` for all-or-nothing | `404` not found · `409` conflict |
+| 4 | **shape** | return the `types/api.ts` success/error shape; atomic fields (never merged strings) | — |
+| 5 | **errors** | cover the full set: `400 · 401 · 403 · 404 · 409 · 500`; generic message on 500, log detail separately | `500` internal (no stack/secret) |
 
 ## When to Use
 
@@ -24,6 +39,10 @@ The server owns the truth (server-authoritative): client validation exists only 
 - Field-validation catalog + PDPA masking (shared client/server zod schema) — see `.claude/rules/ux.md`
 - Latency budgets and profiling — see `.claude/rules/performance.md`
 - Deprecation plans and architectural decisions — see `.claude/rules/architecture.md` (ADR)
+
+## Prerequisites
+
+Read before working: `.claude/rules/security.md` (always, alongside this file). Reference the real artifacts before writing: `schema/api-schema.json` · `types/api.ts` · `lib/api-client.ts` · `lib/validations/*` (zod) · `prisma/schema.prisma`. Know the endpoint's session/ownership model and the existing error-code set before defining the contract.
 
 ## Standards
 
@@ -91,6 +110,47 @@ The server owns the truth (server-authoritative): client validation exists only 
 ### 13. Latency target
 
 - Hot endpoints p95 < 200ms (link `.claude/rules/performance.md`).
+
+## Examples
+
+✅ **Validated + authz'd mutation** — parse at the boundary, read the session, ownership-scoped query, `types/api.ts` shape:
+
+```ts
+// app/api/camps/[id]/route.ts (PATCH)
+const session = await auth();
+if (!session?.user) return json({ status: 'error', code: 401 }, 401);
+
+const parsed = updateCampSchema.safeParse(await req.json()); // lib/validations/camp.ts
+if (!parsed.success) return json({ status: 'error', code: 400 }, 400);
+
+const camp = await prisma.camp.update({
+  where: { id: params.id, ownerId: session.user.id }, // ownership in the where
+  data: parsed.data,
+}); // P2025 → map to 404
+return json({ status: 'ok', data: camp } satisfies CampResponse); // types/api.ts
+```
+
+❌ **Unguarded** — trusts the client, no validation, no ownership, raw concat, leaks the error:
+
+```ts
+// trusts body.userId, no zod, edits anyone's record, string-built query, stack to client
+const { userId, id, name } = await req.json();
+await prisma.$queryRawUnsafe(`UPDATE "Camp" SET name='${name}' WHERE id='${id}'`);
+return json({ ok: true, fullName: `นายสมชาย ${name}` }); // merged string, off-contract
+```
+
+## Reference Files
+
+- `.claude/rules/architecture.md` — data model, contracts, ADRs, deprecation plans
+- `.claude/rules/security.md` — authN/secrets, injection, threat model (read alongside, always)
+- `.claude/rules/qa.md` — contract/endpoint tests + coverage
+- `.claude/rules/observability.md` — audit events, structured logging, latency signals
+- `prisma/schema.prisma` — the data model + migration source
+- `types/api.ts` — the canonical success/error response shape
+
+## Next Steps
+
+Backend implements the endpoint to this standard → qa writes contract + happy/error-path tests → security reviews the diff (authz/secrets/injection) → run the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before the PR into `staging`.
 
 ## Common Rationalizations
 

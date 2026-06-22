@@ -1,6 +1,9 @@
 ---
 name: architecture-and-data
 description: Standard for designing CampVibe's data model (Prisma), API contracts, component boundaries, and ADRs. Use when shaping an entity/field/schema for a story; when designing or reviewing an API contract before it hands to Backend; when a decision is hard to reverse or crosses modules; or when a field name looks UI-shaped. Memory for the Architect role; pairs with CLAUDE.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/ux.md, prisma/schema.prisma.
+paths:
+  - prisma/**
+  - app/api/**
 ---
 
 # Architecture & Data Modeling
@@ -8,6 +11,35 @@ description: Standard for designing CampVibe's data model (Prisma), API contract
 ## Overview
 
 Data is atomic and AI-ready or it is rework waiting to happen: store the smallest independently-queryable units, link with IDs, and never stuff several facts into one string. Boundaries stay sharp (the client never knows the DB; business knowledge lives in one service layer), and every model traces back to a ticket/AC — design from the AC, not from imagination.
+
+## Quick Reference
+
+**Before you add any field** (the fast path — full version in the before-add-field checklist below): run the Resolution Boundary 4-question test, then walk the checklist. One "no" = redesign first.
+
+Resolution Boundary test — split the field if **any** answer is yes:
+
+1. Does a use-case **query/filter/sort** by this part on its own?
+2. Does it differ in **unit/meaning** from its neighbors in the same field?
+3. Will it be **edited separately** (different ownership/frequency)?
+4. Must another system / AI **read it separately** (different classification/access control)?
+
+Before-add-field checklist (pass every item):
+
+- Can it be split further → split it
+- Does it have a classification (PII/Financial/Geo/Public)?
+- Does it have a stated type/unit/enum?
+- Does it live in a nameable Set?
+- Is it linked by ID, not nesting?
+- Is the name UI-neutral?
+- Can another AI agent use this field tomorrow without asking a human?
+
+| Layer | Is | Example |
+|---|---|---|
+| **Pixel** | smallest typed, independently-queryable field | `priceAmount:Decimal` + `currency`, `latitude`, `provinceId` |
+| **Set** | self-describing entity (Pixels + `id`/`version`/`source`/`classification`/`updatedAt`), linked by ID | Camp, Booking, Host, Review |
+| **Buffet** | UI-neutral read/access layer the client calls (not a raw table) | service fn / API view composing Pixels |
+
+ADR Status lifecycle: `PROPOSED → ACCEPTED → SUPERSEDED/DEPRECATED` + date — never delete, supersede.
 
 ## When to Use
 
@@ -24,6 +56,10 @@ Data is atomic and AI-ready or it is rework waiting to happen: store the smalles
 - Deciding a trade-off on the human's behalf — escalate at **G2** (`CLAUDE.md` gates)
 
 > Read before working: this file + `CLAUDE.md` + `.claude/rules/api.md` (the API contract hands off to Backend). Work that touches a real schema must be diffed against `prisma/schema.prisma`.
+
+## Prerequisites
+
+Read first: this file · `CLAUDE.md` (Iron Rules + gates) · `.claude/rules/api.md` (the API contract hands off to Backend). Have the story's ticket/AC open (design from the AC, not imagination) and the STORY-TICKET template (`ai-planning/templates/STORY-TICKET.md`) for the `## Data` section. Any work touching a real schema must be diffed against `prisma/schema.prisma`; for PII/Financial fields also have `.claude/rules/security.md` and `.claude/rules/ux.md` (PDPA/consent) to hand.
 
 ## Principles
 
@@ -127,6 +163,37 @@ ADRs carry a Status lifecycle — `PROPOSED → ACCEPTED → SUPERSEDED/DEPRECAT
 ### 17. Doubt-driven before high-blast-radius decisions
 
 For a decision that is hard to reverse / crosses modules / cannot be type-checked: do a short adversarial review (summarize the claim → separate artifact → find a counter-reason → reconcile) before acting. No more than ~2–3 rounds, then stop.
+
+## Examples
+
+Atomic fields:
+
+- ✅ `firstName`, `lastName`, `provinceId`, `postcode`, `amount` + `currency` (Decimal, not float)
+- ❌ `fullName`, `price:"฿1,250 incl VAT"`
+
+No UI-shaped columns — design as if there is no UI:
+
+- ❌ `profileCardLine2`, `displayPriceText:"฿1,250/คืน"`, a table shaped for one report
+- ✅ store as Pixels (`priceAmount` + `currency`) and let the Buffet / `Intl.NumberFormat('th-TH',{style:'currency',currency})` compose the text at render time
+
+Resolution Boundary applied: split out the geo-coded part (`provinceId`, `districtId`, `postcode`) always; collapse into a single free-text Pixel (e.g. `addressDetail`) when "no" to all 4 questions — nobody filters "floor 12".
+
+Classification tags: `nationalId` = PII · `payoutAccountNo` = Financial + PII · `latitude` / `longitude` = Geo · `campName` / `amenityList` = Public.
+
+Crystallization snapshot on a `CONFIRMED`/`PAID` Booking: `priceAmount` + `currency`, `taxRate` / `vatIncluded`, `campName`, `cancellationPolicy`, the booked date range, **plus the source `campId`** — a later host price/policy edit must not affect old Bookings.
+
+## Reference Files
+
+- `.claude/rules/api.md` — the API contract hands off here to Backend
+- `.claude/rules/security.md` — PII masking/access control for tagged Pixels
+- `.claude/rules/ux.md` — PDPA/consent for PII fields
+- `prisma/schema.prisma` — the real schema to diff every change against
+- `docs/adr/` — ADR records (Context · Decision · Alternatives · Consequences)
+- `CLAUDE.md` — Iron Rules, gates G1–G5, 3-env flow
+
+## Next Steps
+
+Architect designs the data model + API contract → Backend implements the migration, endpoint, validation, and authz (`.claude/rules/api.md`) → trade-offs and the design are reviewed at **G2** before build proceeds.
 
 ## Common Rationalizations
 

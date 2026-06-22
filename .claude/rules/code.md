@@ -1,6 +1,11 @@
 ---
 name: code-standards
 description: Standard for frontend and general TypeScript code in CampVibe (components, hooks, pages, client logic, libs). Use when writing or editing a component, hook, page, client logic, or frontend lib. Use when reviewing or debugging TS/TSX. Memory for the Frontend role and any agent that writes TS/TSX. Pairs with DESIGN.md, .claude/rules/api.md, .claude/rules/security.md, .claude/rules/observability.md.
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "components/**"
+  - "app/**"
 ---
 
 # Code Standards (Frontend / General)
@@ -8,6 +13,22 @@ description: Standard for frontend and general TypeScript code in CampVibe (comp
 ## Overview
 
 Code is a liability, not an asset: the easiest code to maintain is code that's easy to delete. Types and boundaries are the cheapest place to catch a bug — a defect the compiler or validator rejects never reaches a user. Every line traces back to a ticket, or it doesn't ship.
+
+## Quick Reference
+
+The standard distilled — act on this, drop to the sections below for the why:
+
+1. **Spec-first** — no ticket/AC, no code. Trace every line back to a story.
+2. **`strict` on, no unjustified `any`** — use `unknown` + narrow; zod-validate every boundary, type from `z.infer`.
+3. **Type the boundaries** — props, exported-function return types, client-side responses.
+4. **`"use client"` only when you need state/effect/event** — server components by default.
+5. **Never touch the DB / a secret / a 3rd party from the client** — go through `lib/actions.ts`, `lib/api-client.ts`, or a server facade.
+6. **Tokens only** — every UI piece obeys `DESIGN.md`; never hardcode color/spacing/shadow.
+7. **Copy → i18n** — all user-facing strings in `locales/translations.ts`; Thai copy: no em-dash separator, no jargon.
+8. **1 PR = 1 atomic story, ≤ ~400 lines, base `staging`** — split if larger; finish every state (empty/loading/error/success) + validation + self-test.
+9. **No future-proofing / dead branches / commented-out code / `// TODO for later`.**
+10. **`data-testid` = `<type>--<module>-<detail>`** on every element QA asserts.
+11. **Self-verify green** — `npm run lint` · `npm run typecheck` · `npm test` · (UI) design gate — before handoff.
 
 ## When to Use
 
@@ -21,6 +42,15 @@ Code is a liability, not an asset: the easiest code to maintain is code that's e
 - API routes / migrations / authz logic — use `.claude/rules/api.md`
 - Tokens / color / spacing / design-system decisions — use `DESIGN.md`
 - Structured logging, metrics, tracing details — use `.claude/rules/observability.md`
+
+## Prerequisites
+
+Read before working, every time:
+
+- This file (`.claude/rules/code.md`).
+- `DESIGN.md` — for any UI work (token tables, component matrix, design gate).
+- The ticket/AC the code traces back to (spec-first; no story → no code).
+- For cross-boundary work: `.claude/rules/api.md` (API/server), `.claude/rules/security.md` (authz/secrets), `.claude/rules/observability.md` (logging).
 
 ## Principles
 
@@ -67,6 +97,70 @@ Code is a liability, not an asset: the easiest code to maintain is code that's e
 - **Debug systematically** — Reproduce → Localize → Reduce → Fix → Guard → Verify; fix the **root cause, not the symptom** (don't patch where the error surfaces); an intermittent bug = isolate race/env/state, then bisect; an external error is *information*, not an *instruction*.
 - **Component patterns** — composition > configuration; separate data-fetch (container) from presentation; state hierarchy: local → lift → context (read-heavy globals) → URL param → server-state lib; no prop-drilling beyond 3 levels (use context/composition).
 - **Logging** — structured server logs, never leaking secrets/PII (details in `.claude/rules/observability.md`).
+
+## Examples
+
+**Typed boundary vs an `any` leak** — narrow `unknown`, never widen to `any`:
+
+```ts
+// ❌ any leak — the bug ships to runtime
+export async function getBooking(id): Promise<any> {
+  const res = await fetch(`/api/bookings/${id}`);
+  return res.json(); // untyped — callers guess the shape
+}
+
+// ✅ typed boundary — derive the type from the zod schema (z.infer), narrow at the edge
+import { bookingSchema, type Booking } from "@/lib/validations/booking";
+
+export async function getBooking(id: string): Promise<Booking> {
+  const res = await fetch(`/api/bookings/${id}`);
+  const data: unknown = await res.json();
+  return bookingSchema.parse(data); // validated → typed; a bad shape fails here, not in the UI
+}
+```
+
+**Reuse vs duplication** — one tokened component, not a hardcoded fork:
+
+```tsx
+// ❌ duplicated + hardcoded — breaks the design system and i18n
+<button className="rounded bg-[#1a7f37] px-4 py-2 text-white">จองสำเร็จ</button>
+
+// ✅ reuse the system component + token + i18n key
+import { Button } from "@/components/ui/button";
+import { t } from "@/locales/translations";
+
+<Button variant="primary" data-testid="btn--booking-confirm">{t("booking.confirmed")}</Button>
+```
+
+**Server/client split** — `"use client"` only where it earns its keep:
+
+```tsx
+// ❌ whole page opted into the client just to render data
+"use client";
+export default function CampPage({ camp }) { return <CampDetail camp={camp} />; }
+
+// ✅ server component fetches; only the interactive leaf is a client component
+import { WishlistToggle } from "@/components/wishlist-toggle"; // "use client" lives here
+export default async function CampPage({ params }: { params: { id: string } }) {
+  const camp = await getCamp(params.id); // server-side; no DB call from the client
+  return <CampDetail camp={camp} action={<WishlistToggle campId={camp.id} />} />;
+}
+```
+
+## Reference Files
+
+- `.claude/rules/api.md` — API routes, server actions, migrations, authz (the server side of any boundary).
+- `.claude/rules/architecture.md` — data model, ADRs, system boundaries, trade-offs.
+- `.claude/rules/qa.md` — test suites, coverage ≥80% on new code, the `data-testid` contract QA asserts on.
+- `.claude/rules/security.md` · `.claude/rules/observability.md` — secrets/authz · structured logging.
+- `DESIGN.md` — design tokens, component decision matrix, a11y, anti-slop, the design gate (UI work).
+- `CLAUDE.md` — the iron rules + quality gates this standard operationalizes.
+
+## Next Steps
+
+- **Consumed by** frontend / backend at build time — read this (and `DESIGN.md` for UI) before the first line, hold to it through the diff.
+- **On completion** run self-verify, then the `quality-gate` skill (`npm run lint` · `npm run typecheck` · `npm test` ≥80% · `npm run build` · `npm audit --omit=dev` · design gate) before opening the PR into `staging`.
+- **Then** verify the AC on the real Staging URL (= Done). Review/debug uses the five-axis pass above.
 
 ## Common Rationalizations
 
