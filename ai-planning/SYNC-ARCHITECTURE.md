@@ -5,8 +5,8 @@
 ## หลักการ: Linear คือ Single Source of Truth (SoT)
 - **Linear** = แหล่งความจริงของสถานะงานทั้งหมด (team CAM)
 - **Dashboard `/status`** = อ่าน Linear สด ทุก 60s (read-only) — ถูกต้องอยู่แล้ว ✅
-- **`STATUS.json` / `linear-snapshot.json`** = snapshot ที่ generate จาก Linear (`npm run status:pull`) — ไม่ใช่แหล่งคู่ขนาน, ห้ามแก้มือ
-- **`PRODUCT-PLAN.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
+- **`linear-snapshot.json`** = snapshot ที่ generate จาก Linear (`npm run status:pull`) — ไม่ใช่แหล่งคู่ขนาน, ห้ามแก้มือ
+- **`docs/project/PRODUCT-PLAN.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
 
 ## Definition of Done & env mapping (3-env: Local→Staging→Prod)
 Linear status เปลี่ยนตาม **git/gate event ไม่ผูก env**: เริ่ม→`In Progress` · เปิด PR→`In Review` · merge เข้า `staging`→`Done`

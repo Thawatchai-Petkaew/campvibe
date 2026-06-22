@@ -95,7 +95,7 @@ After the `released` label is applied → monitor the error window (Sentry) per 
 | "Just promote this `feature/*` straight to `main` to save a hop." | Prod must always go through Staging (Done + G4). Never promote `feature/*`→`main` directly. |
 | "The migration is fine, run it on prod." | Migration must be reversible + tested on Staging before prod. Never run a prod migrate that hasn't passed staging. |
 | "Bundle these stories into one `release` call." | Multiple `Done` stories can ship as one release train, but call `release <CAM-id>` once per story in the cycle. |
-| "Just hand-edit `STATUS.json` to reflect the release." | Never edit `STATUS.json`/`linear-snapshot.json` by hand — they are generated from Linear via `npm run status:pull`. |
+| "Just hand-edit `linear-snapshot.json` to reflect the release." | Never edit `linear-snapshot.json` by hand — they are generated from Linear via `npm run status:pull`. |
 
 ## Verify (exit criteria)
 

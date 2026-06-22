@@ -43,7 +43,7 @@ Use on every work transition: start work, open a PR, merge→`staging`, reach a 
 - `LINEAR_API_KEY` present in env (no MCP binding); team = `CAM` (override with `LINEAR_TEAM_KEY`).
 - Know the `<CAM-id>` of the issue to change (a story = an issue whose title contains `·`) and the transition that just happened (git/gate event).
 - Know the Linear convention before touching titles/labels: **Epic (parent issue + project) → Story (`parentId` = epic) → `[role]` tag in the title (rotated per stage)** — the full convention lives in the `/camper` command doc (`.claude/commands/camper.md`) + `ai-planning/`.
-- Linear = single source of truth — never hand-edit `STATUS.json` / `linear-snapshot.json` (they are snapshots from `status:pull`).
+- Linear = single source of truth — never hand-edit `linear-snapshot.json` (they are snapshots from `status:pull`).
 
 ## Workflow
 
@@ -100,7 +100,7 @@ Postconditions:
 | "I'll remember to sync the state later." | Drift starts the moment you skip the command. Record every transition with a real `linear-sync.mjs` call now. |
 | "The story is on Staging, so mark it Released." | Done(staging) ≠ Released(prod). `released` is a label attached only when promoting `staging`→`main` via `/promote-release`. |
 | "The human said yes in chat, so spawn the next stage." | Approval = the `awaiting-you` label removed in Linear, confirmed by `status:gates` exit 10. Never proceed on chat alone. |
-| "I'll just fix `STATUS.json` directly to reflect the new state." | Those files are snapshots from `status:pull`. Hand-editing breaks the closed loop — push the change through Linear. |
+| "I'll just fix `linear-snapshot.json` directly to reflect the new state." | That file is a snapshot from `status:pull`. Hand-editing breaks the closed loop — push the change through Linear. |
 | "It's merged into `staging`, so it's Done." | Done also requires quality-gate green + staging migration passed + AC verified on the real Staging URL. |
 
 ## Verify (exit criteria)

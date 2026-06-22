@@ -1,6 +1,6 @@
 # CampVibe — Product Plan (RESET, by Persona)
 
-> **แผนหลัก (authoritative)** — reset ใหม่ทั้งหมด จัดตาม 3 ฝั่งผู้ใช้ + ติด status ตามความจริงในโค้ด (audit 2026-06-20 โดย product-owner ×3 + Explore)
+> **แผนฟีเจอร์ราย persona** (audit 2026-06-20 โดย product-owner ×3 + Explore) — inventory ละเอียดของ 3 ฝั่งผู้ใช้ + status ตามความจริงในโค้ด · ทิศทาง/กลยุทธ์ที่เป็น source-of-truth = [master-plan.md](master-plan.md) + [product-strategy.md](product-strategy.md)
 > แทนที่มุมมอง category ใน [FEATURE-BACKLOG.md](FEATURE-BACKLOG.md) (เก็บไว้เป็น cross-reference) · ทุก item ที่เลือกทำ → แปลงเป็น TICKET ที่ intake/G1
 > Status: ✅ DONE (ใช้ได้จริง) · 🟡 PARTIAL (มีแต่ไม่ครบ/มีช่องโหว่) · ⬜ TODO (ยังไม่มี) · 🔵 IN-FLIGHT (อยู่ในลูป) · Effort S/M/L · Phase 1 core-real / 2 AI+depth / 3 scale
 
