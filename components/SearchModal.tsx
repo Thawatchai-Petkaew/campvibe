@@ -281,7 +281,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         </Button>
                         <Button
                             onClick={handleSearch}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform h-10"
+                            size="lg"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20"
                         >
                             <Search className="w-4 h-4 mr-2" />
                             {t.search.search}

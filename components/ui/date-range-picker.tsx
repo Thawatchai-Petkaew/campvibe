@@ -35,7 +35,7 @@ export function DatePickerWithRange({
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[260px] justify-start text-left font-normal h-10 rounded-full border border-border bg-background hover:bg-muted/50 focus:ring-0 px-3",
+              "w-[260px] justify-start text-left font-normal rounded-full border border-border bg-background hover:bg-muted/50 px-3",
               !date && "text-muted-foreground"
             )}
           >

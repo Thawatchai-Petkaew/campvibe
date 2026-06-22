@@ -462,7 +462,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     onClick={() => setDeleteDialogOpen(true)}
                                     disabled={isLoading}
                                     aria-label={t.newCampground.deleteAria}
-                                    className="rounded-full shadow-none w-10 h-10 p-0 sm:w-auto sm:px-4 sm:h-10"
+                                    className="rounded-full shadow-none w-11 h-11 p-0 sm:w-auto sm:px-4 sm:h-11"
                                 >
                                     <Trash2 className="w-4 h-4 sm:mr-2" />
                                     <span className="hidden sm:inline">{t.common.delete}</span>
@@ -470,9 +470,10 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             )}
                             <Button
                                 onClick={handleSubmit}
+                                size="lg"
                                 disabled={isLoading}
                                 aria-busy={isLoading}
-                                className="px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 h-10"
+                                className="px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
                             >
                                 {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4 mr-2" /> {isEditing ? t.newCampground.update : t.newCampground.saveListing}</>}
                             </Button>

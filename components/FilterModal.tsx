@@ -392,14 +392,15 @@ export function FilterModal() {
                     <Button
                         variant="ghost"
                         onClick={clearAll}
-                        className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full"
                     >
                         {t.filter?.clearAll}
                     </Button>
                     <Button
                         onClick={handleShowCampgrounds}
+                        size="lg"
                         disabled={isCountLoading || matchCount === 0}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform h-10 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isCountLoading
                             ? "Calculating..."

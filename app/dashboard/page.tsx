@@ -142,8 +142,9 @@ export default function OperatorDashboard() {
                 >
                     <Link href={canCreateCampSite ? "/dashboard/campsites/new" : "#"} aria-disabled={!canCreateCampSite} tabIndex={canCreateCampSite ? 0 : -1}>
                         <Button
+                            size="lg"
                             disabled={!canCreateCampSite}
-                            className="h-12 px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Tent className="w-4 h-4 mr-2" />
                             {t.dashboard.addCampSite}

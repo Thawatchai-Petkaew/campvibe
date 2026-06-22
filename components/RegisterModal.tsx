@@ -126,7 +126,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
                                 onClick={onClose}
                             >
                                 <X className="w-5 h-5 text-foreground" />
@@ -246,8 +246,9 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             {/* Submit Button */}
                             <Button
                                 type="submit"
+                                size="lg"
                                 disabled={isPending || !consentRequired}
-                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isPending ? t.auth.registerModal.registering : t.auth.registerModal.registerButton}
                             </Button>

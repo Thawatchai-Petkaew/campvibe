@@ -91,7 +91,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
                                 onClick={handleClose}
                             >
                                 <X className="w-5 h-5 text-foreground" />
@@ -180,8 +180,9 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
 
                             <Button
                                 type="submit"
+                                size="lg"
                                 disabled={isPending}
-                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg"
+                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 text-lg"
                             >
                                 {isPending ? t.auth.signingIn : t.auth.login}
                             </Button>

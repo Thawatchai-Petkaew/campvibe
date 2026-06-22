@@ -108,7 +108,7 @@ export default function MyBookingsPage() {
                                 {t.bookings.manageBookings}
                             </p>
                         </div>
-                        <Button asChild variant="outline" className="rounded-full h-12 px-6 font-semibold border-border bg-card hover:bg-muted transition">
+                        <Button asChild size="lg" variant="outline" className="px-6 font-semibold border-border bg-card hover:bg-muted transition">
                             <Link href="/">
                                 <Search className="w-4 h-4 mr-2" />
                                 {t.search.anywhere}
@@ -131,7 +131,7 @@ export default function MyBookingsPage() {
                             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
                                 {t.bookings.startSearching}
                             </p>
-                            <Button asChild className="rounded-full h-12 px-8 font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                            <Button asChild size="lg" className="px-8 font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
                                 <Link href="/">{t.bookings.exploreButton}</Link>
                             </Button>
                         </div>
