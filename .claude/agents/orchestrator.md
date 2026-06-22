@@ -57,7 +57,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 
 Do not alter this loop. Each step rolls into the next; gates block progression.
 
-1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`. Run `node scripts/linear-sync.mjs scaffold <CAM-id>` to create the story's artifact folder under `docs/delivery/`.
+1. **Intake** — receive requirement, spawn Discovery (**dispatch the product-owner** — do not run Discovery solo; + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`. Run `node scripts/linear-sync.mjs scaffold <CAM-id>` to create the artifact folder; the **product-owner then fills `feature.md` + `epic.md` + `story.md`** (scaffold only stubs feature/epic — never leave them as `<placeholder>`).
 2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a story ticket (`.claude/templates/story.md`) as a story-level Linear issue.
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
