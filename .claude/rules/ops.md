@@ -94,7 +94,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 ### 6. After deploy (observability)
 
 - Watch errors (Sentry) for N minutes after deploy → error spike = **auto-rollback + alert**; a real error → open a bug ticket into the loop.
-- Linear-side tickets are checked against the STORY-TICKET template via `node scripts/linear-sync.mjs audit`.
+- Linear-side tickets are checked against the story ticket template via `node scripts/linear-sync.mjs audit`.
 
 ### 7. Pre-launch + rollout (before prod)
 

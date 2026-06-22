@@ -49,7 +49,7 @@ Write the sections in the Quick Reference order. For each:
 3. **Quick Reference** — the fast path: the exact commands in order, a decision table, or a numbered TL;DR. A reader in a hurry acts from this; the Workflow is the full version.
 4. **When to Use** — positive triggers, then `**NOT for:**` with cross-links to the correct doc (e.g. promote vs `open-pr` vs `quality-gate`).
 5. **Prerequisites** — what to read/have/know before step 1 (the rules/specs/tools). `none` if truly standalone.
-6. **Workflow / Process** — numbered steps. Be specific: `Run \`npm run lint\` · \`npm run typecheck\` · \`npm test\``, not "verify the build". Reference real artifacts (`prisma/schema.prisma`, `.claude/templates/STORY-TICKET.md`, `node scripts/linear-sync.mjs audit`). Keep the stack, 3-env flow, and gates G1–G5 intact.
+6. **Workflow / Process** — numbered steps. Be specific: `Run \`npm run lint\` · \`npm run typecheck\` · \`npm test\``, not "verify the build". Reference real artifacts (`prisma/schema.prisma`, `.claude/templates/story.md`, `node scripts/linear-sync.mjs audit`). Keep the stack, 3-env flow, and gates G1–G5 intact.
 7. **Examples** — at least one concrete example: input → the exact output/artifact, or a ✅ correct vs ❌ wrong pair. Use real CampVibe values (Thai copy verbatim where it is user-facing).
 8. **Reference Files** — list bundled `references/*` (only if the skill has them), plus the `.claude/rules/*` and sibling skills this one leans on. `none — single-file skill` is valid; do not invent a `references/` dir for content under ~100 lines.
 9. **Next Steps** — what runs after this (the next skill / the gate). Optional but preferred for workflow skills.

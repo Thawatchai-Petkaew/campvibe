@@ -58,7 +58,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 Do not alter this loop. Each step rolls into the next; gates block progression.
 
 1. **Intake** — receive requirement, spawn Discovery (product-owner + architect + designer if UI), and close gaps across 6 dimensions (Business / Functional / Technical / UX / Security-Data / Risk) per `.claude/rules/discovery.md`. Run `node scripts/linear-sync.mjs scaffold <CAM-id>` to create the story's artifact folder under `docs/delivery/`.
-2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a STORY-TICKET (`.claude/templates/STORY-TICKET.md`) as a story-level Linear issue.
+2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a story ticket (`.claude/templates/story.md`) as a story-level Linear issue.
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
 5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.

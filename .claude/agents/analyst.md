@@ -44,7 +44,7 @@ Read every time before starting:
 - `.claude/rules/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
 - `.claude/rules/architecture.md` — data atomicity principles (what "independently queryable" means).
 - The spec/ticket for the work in scope.
-- `.claude/templates/STORY-TICKET.md` — Story / AC / Rules format.
+- `.claude/templates/story.md` — Story / AC / Rules format.
 
 ## Operating principles
 
@@ -134,7 +134,7 @@ Read every time before starting:
 
 ## Output (handoff contract)
 
-Post to the story-level issue (Linear) per `STORY-TICKET.md`:
+Post to the story-level issue (Linear) per `story.md`:
 
 - **## Story** — persona + what they can do + value + scope, in one line.
 - **## AC** — GFM table `# | Given | When | What the user sees (Thai copy verbatim) | Data/system effect` (granular, one action per row).
