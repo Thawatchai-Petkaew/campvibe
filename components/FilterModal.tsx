@@ -311,7 +311,7 @@ export function FilterModal() {
             <Button
                 variant="outline"
                 aria-label={triggerAriaLabel}
-                className="rounded-full border-border h-11 px-4 font-medium hover:border-foreground transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="rounded-full border-border h-11 px-4 font-medium hover:border-foreground transition-colors relative"
             >
                     <IconAdjustmentsHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
@@ -330,7 +330,7 @@ export function FilterModal() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
                         >
                             <IconX className="w-5 h-5 text-foreground" />
                         </Button>

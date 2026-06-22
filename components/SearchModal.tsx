@@ -106,7 +106,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
                                 onClick={onClose}
                             >
                                 <X className="w-5 h-5 text-foreground" />
