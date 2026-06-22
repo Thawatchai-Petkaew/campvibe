@@ -533,3 +533,90 @@ describe("defect-D3: hero grid image alt text descriptive [FIXED]", () => {
         expect(detailSrc).not.toMatch(/alt="sub \d"/);
     });
 });
+
+// ─────────────────────────────────────────────────────────────
+// CAM-58  Fee transparency: no placeholder fees in the booking breakdown
+//
+// AC: the breakdown shows only room × nights + Total.
+//     No cleaning-fee row, no service-fee row.
+//     Total displayed = computeBookingPrice(...).totalAmount (no added fees).
+// ─────────────────────────────────────────────────────────────
+describe("CAM-58: booking breakdown — no placeholder fees, total via shared module", () => {
+    it("[source] does NOT render a cleaning-fee row (t.booking.cleaningFee removed from breakdown)", () => {
+        // The fee row JSX was: {t.booking.cleaningFee} — must be gone from the render.
+        expect(detailSrc).not.toMatch(/t\.booking\.cleaningFee/);
+    });
+
+    it("[source] does NOT render a service-fee row (t.booking.serviceFee removed from breakdown)", () => {
+        expect(detailSrc).not.toMatch(/t\.booking\.serviceFee/);
+    });
+
+    it("[source] does NOT declare a hardcoded cleaningFee variable (= 20)", () => {
+        expect(detailSrc).not.toMatch(/const cleaningFee\s*=/);
+    });
+
+    it("[source] does NOT declare a hardcoded serviceFee variable (= 35)", () => {
+        expect(detailSrc).not.toMatch(/const serviceFee\s*=/);
+    });
+
+    it("[source] does NOT declare the old totalPrice variable that summed fees", () => {
+        expect(detailSrc).not.toMatch(/const totalPrice\s*=/);
+    });
+
+    it("[source] imports resolveUnitPrice from booking-pricing (shared module)", () => {
+        expect(detailSrc).toMatch(/resolveUnitPrice/);
+        expect(detailSrc).toMatch(/booking-pricing/);
+    });
+
+    it("[source] imports computeBookingPrice from booking-pricing (shared module)", () => {
+        expect(detailSrc).toMatch(/computeBookingPrice/);
+    });
+
+    it("[source] uses totalAmount from computeBookingPrice for the total display", () => {
+        expect(detailSrc).toMatch(/totalAmount/);
+    });
+
+    it("[source] total label uses t.booking.total (not totalBeforeTaxes)", () => {
+        expect(detailSrc).toMatch(/t\.booking\.total\b/);
+        expect(detailSrc).not.toMatch(/t\.booking\.totalBeforeTaxes/);
+    });
+
+    it("[source] breakdown row has data-testid='row--booking-room-subtotal'", () => {
+        expect(detailSrc).toMatch(/data-testid="row--booking-room-subtotal"/);
+    });
+
+    it("[source] total row has data-testid='row--booking-total'", () => {
+        expect(detailSrc).toMatch(/data-testid="row--booking-total"/);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────
+// CAM-58  booking-pricing module: no-fee invariant (unit, re-asserted here for
+//         the UI layer — totalAmount === subtotalAmount when vatRate = 0)
+// ─────────────────────────────────────────────────────────────
+import { resolveUnitPrice, computeBookingPrice } from "../lib/booking-pricing";
+
+describe("CAM-58: booking-pricing module no-fee invariant (UI vatRate=0)", () => {
+    it("[unit] totalAmount === subtotalAmount when vatRate is 0 (no fees added)", () => {
+        const unitPrice = resolveUnitPrice({ campSitePriceLow: 800, spotPricePerNight: null });
+        const { totalAmount, subtotalAmount } = computeBookingPrice({ unitPrice, nights: 3, vatRate: 0 });
+        expect(totalAmount).toBe(subtotalAmount);
+        expect(totalAmount).toBe(800 * 3);
+    });
+
+    it("[unit] displayed total equals unitPrice × nights (no cleaning or service fee added)", () => {
+        const unitPrice = resolveUnitPrice({ campSitePriceLow: 500, spotPricePerNight: null });
+        const { totalAmount } = computeBookingPrice({ unitPrice, nights: 2, vatRate: 0 });
+        // Must NOT be 500*2 + 20 + 35 (old incorrect total = 1055)
+        expect(totalAmount).toBe(1000);
+        expect(totalAmount).not.toBe(1055);
+    });
+
+    it("[unit] priceLow null falls back to 50 — total is 50 × nights, no fees", () => {
+        const unitPrice = resolveUnitPrice({ campSitePriceLow: null, spotPricePerNight: null });
+        const { totalAmount, subtotalAmount } = computeBookingPrice({ unitPrice, nights: 1, vatRate: 0 });
+        expect(unitPrice).toBe(50);
+        expect(totalAmount).toBe(50);
+        expect(totalAmount).toBe(subtotalAmount);
+    });
+});
