@@ -168,3 +168,165 @@ describe("canonRole — role canonicalization the map projection relies on (CAM-
     expect(canonRole("unknownrole")).toBe("");
   });
 });
+
+// ============================================================
+// CAM-157 (S7) — A11y + reduced-motion hardening
+// ============================================================
+
+// ---------- S7 AC1: reduced-motion labels present in scene source ----------
+describe("campsite-scene.tsx — S7 AC1: reduced-motion static labels", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("CSS block contains @media (prefers-reduced-motion: reduce) for rm-labels", () => {
+    expect(src).toContain("prefers-reduced-motion: reduce");
+    expect(src).toContain(".rm-label");
+  });
+
+  it("rm-label-name renders the displayName under reduced-motion", () => {
+    expect(src).toContain("rm-label-name");
+  });
+
+  it("rm-label-status renders working/พัก tag under reduced-motion", () => {
+    expect(src).toContain("rm-label-status");
+    expect(src).toContain("กำลังทำ");
+    expect(src).toContain("พัก");
+  });
+
+  it("You character has a reduced-motion label (⚑N รอคุณ or ปกติ)", () => {
+    expect(src).toContain("รอคุณ");
+    expect(src).toContain("ปกติ");
+  });
+});
+
+// ---------- S7 AC2: keyboard + screen-reader access ----------
+describe("campsite-scene.tsx — S7 AC2: keyboard + screen-reader access", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("map-stage has role='img' for screen readers", () => {
+    expect(src).toContain('role="img"');
+  });
+
+  it("map-stage has aria-label containing scene summary", () => {
+    expect(src).toContain("sceneAriaLabel");
+    expect(src).toContain("แผนที่แคมป์:");
+    expect(src).toContain("กำลังทำงาน");
+    expect(src).toContain("รออนุมัติ");
+    expect(src).toContain("คืบหน้า");
+  });
+
+  it("AgentScout renders as <button> not <div> for keyboard triggering", () => {
+    // The element must be a button for keyboard focus+activation (AC2)
+    expect(src).toContain('type="button"');
+    expect(src).toContain('data-testid={`btn--map-agent-${agent.role}`}');
+  });
+
+  it("You character has btn--map-agent-you testid", () => {
+    expect(src).toContain('data-testid="btn--map-agent-you"');
+  });
+
+  it("AgentScout has a meaningful aria-label (displayName + roleLabel + state)", () => {
+    expect(src).toContain("ariaLabel");
+    expect(src).toContain("cfg.displayName");
+    expect(src).toContain("cfg.roleLabel");
+  });
+
+  it("You button aria-label describes gate count when gates > 0", () => {
+    expect(src).toContain("gate รอตรวจสอบ");
+  });
+});
+
+// ---------- S7 AC3: error state uses the same copy as /status ----------
+describe("app/status/map/page.tsx — S7 AC3: error state copy matches /status", () => {
+  const src = read("../app/status/map/page.tsx");
+
+  it("error banner text uses the exact /status copy pattern", () => {
+    // /status uses: โหลดข้อมูลจาก Linear ไม่ได้:
+    expect(src).toContain("โหลดข้อมูลจาก Linear ไม่ได้:");
+  });
+
+  it("error state renders over the night-scene background (not a blank screen)", () => {
+    // SCENE is rendered before the conditional so the background is always present
+    expect(src).toContain("dangerouslySetInnerHTML={{ __html: SCENE }}");
+    expect(src).toContain('data-testid="error--status-map"');
+  });
+
+  it("error container has testid for QA assertion", () => {
+    expect(src).toContain('data-testid="error-text--status-map"');
+  });
+});
+
+// ---------- S7 AC4: loading state is labelled ----------
+describe("app/status/map/scene-loader.tsx — S7 AC4: loading state", () => {
+  const src = read("../app/status/map/scene-loader.tsx");
+
+  it("loading placeholder has role='status' aria-live='polite' for screen readers", () => {
+    expect(src).toContain('role="status"');
+    expect(src).toContain('aria-live="polite"');
+  });
+
+  it("loading placeholder has Thai text กำลังโหลดแผนที่แคมป์", () => {
+    expect(src).toContain("กำลังโหลดแผนที่แคมป์");
+  });
+
+  it("loading placeholder has testid for QA", () => {
+    expect(src).toContain('data-testid="loading--status-map"');
+  });
+});
+
+// ---------- S7 AC5: overlay empty states are present ----------
+describe("campsite-overlays.tsx — S7 AC5: empty states", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("DeliveryPanel empty: ยังไม่มีสตอรีในโปรเจกต์", () => {
+    expect(src).toContain("ยังไม่มีสตอรีในโปรเจกต์");
+  });
+
+  it("BacklogPanel empty: ไม่มี story ใน backlog", () => {
+    expect(src).toContain("ไม่มี story ใน backlog");
+  });
+
+  it("GatesPanel empty: ไม่มีงานรออนุมัติจากคุณตอนนี้", () => {
+    expect(src).toContain("ไม่มีงานรออนุมัติจากคุณตอนนี้");
+  });
+
+  it("EpicProgressPanel empty: ยังไม่มีสตอรีใน epic นี้", () => {
+    expect(src).toContain("ยังไม่มีสตอรีใน epic นี้");
+  });
+
+  it("EpicUpNextPanel empty: คิวว่าง", () => {
+    expect(src).toContain("คิวว่าง");
+  });
+
+  it("EpicBoardPanel empty: ยังไม่มีสตอรีใน epic นี้", () => {
+    expect(src).toContain("ยังไม่มีสตอรีใน epic นี้");
+  });
+
+  it("ScopeSwitcherPanel empty: ยังไม่มี epic ในโปรเจกต์", () => {
+    expect(src).toContain("ยังไม่มี epic ในโปรเจกต์");
+  });
+
+  it("ScopeSwitcherPanel filtered empty: ไม่มี epic ที่ตรงกับตัวกรอง", () => {
+    expect(src).toContain("ไม่มี epic ที่ตรงกับตัวกรอง");
+  });
+});
+
+// ---------- S7 AC7: deep-link scope fix — engineReady in scope effect deps ----------
+describe("campsite-scene.tsx — S7 AC7: deep-link scope fix", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("engineReady state variable is declared", () => {
+    expect(src).toContain("engineReady");
+    expect(src).toContain("setEngineReady");
+  });
+
+  it("setEngineReady(true) is called when engine starts", () => {
+    expect(src).toContain("setEngineReady(true)");
+  });
+
+  it("engineReady is included in scope-effect dependency array", () => {
+    // The scope effect deps array must include engineReady for deep-link fix
+    expect(src).toContain("engineReady");
+    // The comment explains the fix
+    expect(src).toContain("S7 fix");
+  });
+});

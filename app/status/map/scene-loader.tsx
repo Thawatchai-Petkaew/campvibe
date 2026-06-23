@@ -2,12 +2,14 @@
 import dynamic from "next/dynamic";
 import type { MapModel } from "./campsite-scene";
 
+// S7: Loading placeholder — shows the night background (already rendered by SCENE in page.tsx)
+// plus a labelled placeholder that is accessible and never blank.
 const CampsiteScene = dynamic(() => import("./campsite-scene"), {
   ssr: false,
   loading: () => (
-    <div className="map-wrap">
-      <div className="map-placeholder">
-        <p className="map-placeholder-text">กำลังโหลดแผนที่แคมป์</p>
+    <div className="map-wrap" role="status" aria-live="polite" aria-label="กำลังโหลดแผนที่แคมป์">
+      <div className="map-placeholder" data-testid="loading--status-map">
+        <p className="map-placeholder-text">กำลังโหลดแผนที่แคมป์…</p>
       </div>
     </div>
   ),
