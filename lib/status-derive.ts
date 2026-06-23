@@ -261,3 +261,39 @@ export function buildWorkload(
 
   return rmap;
 }
+
+// ---------- envOf (3-env derivation: state + released label) ----------
+export type EnvLane = "dev" | "staging" | "prod";
+
+/**
+ * Which environment a story currently sits in, derived ONLY from its workflow
+ * state + the `released` label — no separate env field, so there is one source
+ * of truth (per the 3-env model: Local → Staging → Prod).
+ *   - `released` label present → "prod"    (promoted to production)
+ *   - else Done                → "staging" (merged + verified; in the release train)
+ *   - else                     → "dev"     (in progress / not yet on staging)
+ */
+export function envOf(i: StatusIssue): EnvLane {
+  if (i.labels.includes("released")) return "prod";
+  if (isDone(i)) return "staging";
+  return "dev";
+}
+
+// ---------- epicBucket (Epics lifecycle filter on /status) ----------
+export type EpicBucket = "done" | "prog" | "todo";
+
+/**
+ * Lifecycle bucket for an epic, judged by its stories' PROGRESS (not the current snapshot
+ * status — a started-then-paused story still counts as in progress):
+ *   - done: has stories and every one is done
+ *   - prog: started but not finished — at least one story is `started` or `completed`
+ *   - todo: not started — no stories, or every story is still backlog / unstarted
+ */
+export function epicBucket(stories: StatusIssue[]): EpicBucket {
+  const total = stories.length;
+  if (total === 0) return "todo";
+  const done = stories.filter(isDone).length;
+  if (done === total) return "done";
+  const started = stories.some((i) => i.statusType === "started" || i.statusType === "completed");
+  return started ? "prog" : "todo";
+}

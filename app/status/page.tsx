@@ -4,8 +4,9 @@
  * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
+import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, buildWorkload } from "@/lib/status-derive";
+import { buildTrail, buildWorkload, envOf, epicBucket, type EnvLane } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +115,7 @@ interface Model {
   byPersona: Record<string, EpicNode[]>;
   backlogByFeature: Record<string, StatusIssue[]>;
   backlogByPersona: Record<string, StatusIssue[]>;
+  byEnv: Record<EnvLane, StatusIssue[]>;
 }
 function groupBy<T>(arr: T[], keyOf: (x: T) => string): Record<string, T[]> {
   const o: Record<string, T[]> = {};
@@ -165,6 +167,9 @@ function buildModel(issues: StatusIssue[]): Model {
   const rmap = buildWorkload(work);
 
   const backlog = work.filter((i) => i.status === "Backlog");
+  // Env lanes — derived from state + released label (single source of truth, no env field).
+  const byEnv: Record<EnvLane, StatusIssue[]> = { dev: [], staging: [], prod: [] };
+  work.forEach((i) => { byEnv[envOf(i)].push(i); });
   return {
     work, epics, epicNodes, epicNames,
     projectPct: work.length ? Math.round((done / work.length) * 100) : 0,
@@ -177,7 +182,42 @@ function buildModel(issues: StatusIssue[]): Model {
     byPersona: groupBy(epicNodes, (n) => n.persona),
     backlogByFeature: groupBy(backlog, (i) => featureOf(i)),
     backlogByPersona: groupBy(backlog, (i) => personaOf(i)),
+    byEnv,
   };
+}
+
+// ---------- Environments board (derived 3-env lanes: Dev → Staging → Prod) ----------
+// Mirrors the per-status Board idiom (.board/.col/.kc) but keyed by env. env is DERIVED from
+// state + the `released` label (envOf) — no env field. Staging column = the release train.
+const ENV_ORDER: EnvLane[] = ["dev", "staging", "prod"];
+const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
+  dev: { label: "Dev", sub: "กำลังทำ · ยังไม่ขึ้น staging" },
+  staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
+  prod: { label: "Prod", sub: "released" },
+};
+const ENV_COLOR: Record<EnvLane, string> = { dev: "#8a9aa8", staging: "var(--blue)", prod: "var(--green)" };
+function renderEnvPane(m: Model, open: boolean): string {
+  const pills = ENV_ORDER.map((e) => {
+    const n = m.byEnv[e].length;
+    const rel = e === "staging" && n ? `<span class="yb" style="margin-left:6px">↑</span>` : "";
+    return `<span class="envchip"><span class="dot" style="background:${ENV_COLOR[e]}"></span>${esc(ENV_META[e].label)} <b>${n}</b>${rel}</span>`;
+  }).join("");
+  let h = `<section class="glass board-wrap"><div class="pane-h envhead"><span class="t">Environments</span>`
+    + `<span class="envsum">${pills}`
+    + `<button class="env-toggle-btn" id="env-toggle" onclick="toggleEnv()" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
+    + `<div id="env-board" class="envwrap ${open ? "" : "collapsed"}"><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
+  for (const env of ENV_ORDER) {
+    const items = m.byEnv[env], meta = ENV_META[env];
+    const tag = env === "staging" && items.length ? ` <span class="yb">RELEASE</span>` : "";
+    h += `<div class="col" data-k="env-${env}"><div class="col-h"><span class="dot cd"></span>${esc(meta.label)}${tag}<span class="c">${items.length}</span></div>`;
+    h += `<div style="font-size:11px;color:var(--muted);margin:-2px 0 8px">${esc(meta.sub)}</div>`;
+    if (!items.length) h += `<div class="empty">—</div>`;
+    items.forEach((i) => {
+      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+    });
+    h += `</div>`;
+  }
+  return h + `</div></div></section>`;
 }
 
 // feature groups ordered by story volume (desc) so the busiest feature leads
@@ -207,24 +247,34 @@ const segmented = (group: string) =>
   + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" onclick="setGroup('feature')">Feature</button>`
   + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" onclick="setGroup('persona')">Persona</button></div>`;
 
-function renderEpicCard(n: EpicNode, linkQ: string, chip: string): string {
+// Epics lifecycle filter — All | กำลังทำ | เสร็จแล้ว | ยังไม่เริ่ม. filterEpics() shows/hides cards client-side.
+const EPIC_FILTERS: [string, string][] = [["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จแล้ว"], ["todo", "ยังไม่เริ่ม"]];
+const epicFilter = (f: string) =>
+  `<div class="segmented" role="tablist" aria-label="กรองสถานะ Epic">`
+  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" onclick="filterEpics('${k}')">${lbl}</button>`).join("")
+  + `</div>`;
+
+function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: string): string {
   const it = n.stories, total = it.length;
   const doneN = it.filter(isDone).length, pct = total ? Math.round((doneN / total) * 100) : 0;
   const active = it.some(isActive), gate = it.some(hasAwait);
   const st = gate ? "waiting on you" : active ? "in progress" : !total ? "no stories yet" : pct === 100 ? "shipped · done" : "queued";
   const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => i.status === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
-  return `<a class="epic ${gate ? "live" : ""}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
+  const estatus = epicBucket(n.stories);
+  const hide = efilter !== "all" && estatus !== efilter ? ' style="display:none"' : "";
+  return `<a class="epic ${gate ? "live" : ""}" data-estatus="${estatus}"${hide} href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
 }
 
 // chipMode = the OTHER dimension shown on each card (group by feature → show persona chip, & vice-versa)
-function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature", linkQ: string): string {
+function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature", linkQ: string, efilter: string): string {
   let h = "";
   for (const k of order) {
     const nodes = groups[k]; if (!nodes || !nodes.length) continue;
     const stories = nodes.flatMap((n) => n.stories);
     const pct = stories.length ? Math.round((stories.filter(isDone).length / stories.length) * 100) : 0;
-    h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
-    for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature));
+    const groupHidden = efilter !== "all" && !nodes.some((n) => epicBucket(n.stories) === efilter) ? ' style="display:none"' : "";
+    h += `<div class="grp"${groupHidden}><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
+    for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature), efilter);
     h += `</div></div>`;
   }
   return h;
@@ -245,7 +295,7 @@ function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: strin
 }
 
 // ---------- OVERVIEW ----------
-function renderOverview(m: Model, tq: string, group: string): string {
+function renderOverview(m: Model, tq: string, group: string, envOpen: boolean, efilter: string): string {
   const linkQ = `${tq}&group=${group}`;
   const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicKeyOf(m.gates[0]))}${linkQ}` : "#";
   let h = "";
@@ -271,6 +321,9 @@ function renderOverview(m: Model, tq: string, group: string): string {
     + `<div class="orb q"><div class="n">${m.backlog.length}</div><div class="l">Backlog stories</div></div>`
     + `</div><div class="ovbar"><i style="width:${m.projectPct}%"></i></div></section>`;
 
+  // Environments — which work sits in which env (Dev/Staging/Prod), derived from state+released.
+  h += renderEnvPane(m, envOpen);
+
   // Agent workload — primary number = งานที่ "กำลังทำ" (active); done · queued is secondary.
   const roles = Object.keys(m.rmap).filter((r) => r !== "human").sort((a, b) => m.rmap[b].active - m.rmap[a].active || m.rmap[b].total - m.rmap[a].total);
   h += `<section class="glass pane"><div class="pane-h"><span class="t">Agent workload</span><span class="x">กำลังทำ · across all epics</span></div><div class="loads">`;
@@ -288,9 +341,9 @@ function renderOverview(m: Model, tq: string, group: string): string {
   h += `</div></section>`;
 
   // Epics — grouped by Feature | Persona (toggle, default Feature). Both variants pre-rendered, toggled client-side.
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Epics</span>${segmented(group)}</div>`
-    + `<div id="epics-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderEpicGroups(m.byFeature, featureOrder(m.byFeature), (k) => k, "persona", linkQ)}</div>`
-    + `<div id="epics-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderEpicGroups(m.byPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature", linkQ)}</div>`
+  h += `<section class="glass pane" id="epics-pane"><div class="pane-h"><span class="t">Epics</span><span style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap">${epicFilter(efilter)}${segmented(group)}</span></div>`
+    + `<div id="epics-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderEpicGroups(m.byFeature, featureOrder(m.byFeature), (k) => k, "persona", linkQ, efilter)}</div>`
+    + `<div id="epics-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderEpicGroups(m.byPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature", linkQ, efilter)}</div>`
     + `</section>`;
 
   // Project backlog — same toggle (shares ?group)
@@ -402,7 +455,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
 }
 
 // ---------- page ----------
-export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string; group?: string }> }) {
+export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string; group?: string; env?: string; efilter?: string }> }) {
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
 
@@ -413,17 +466,23 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
 
   let issues: StatusIssue[] = [];
   let err = "";
-  try { issues = await fetchStatusIssues(); } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  try {
+    let pulse = 0;
+    try { pulse = await readPulse(); } catch { /* pulse unavailable → fall back to the 60s time cache */ }
+    issues = await fetchStatusIssues(pulse);
+  } catch (e) { err = e instanceof Error ? e.message : String(e); }
   const m = buildModel(issues);
   const tq = required ? `&token=${encodeURIComponent(sp.token || "")}` : "";
   const tab = sp.tab === "epic" ? "epic" : "overview";
   const group = sp.group === "persona" ? "persona" : "feature";
+  const envOpen = sp.env !== "closed";
+  const efilter = ["prog", "done", "todo"].includes(sp.efilter || "") ? (sp.efilter as string) : "all";
   const epic = sp.epic && m.epics[sp.epic] ? sp.epic : m.activeEpic || m.epicNames[0] || "";
 
   // Both views are rendered into the DOM and toggled client-side (showView) so switching
   // tabs is instant — no server round-trip, no loading state. AutoRefresh quietly updates data.
   // tab + group + epic all live in the URL so router.refresh() re-renders the SAME view (no bounce).
-  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, group)}</div>`;
+  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, group, envOpen, efilter)}</div>`;
   const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq, group)}</div>` : "";
   const inner = err
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
@@ -437,7 +496,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
       {/* SCENE is a constant string → React never re-injects it on refresh, so the starfield persists */}
       <div dangerouslySetInnerHTML={{ __html: SCENE }} />
       <div dangerouslySetInnerHTML={{ __html: main }} />
-      <StatusClient refreshSeconds={60} />
+      <StatusClient refreshSeconds={60} token={sp.token || ""} />
     </>
   );
 }
