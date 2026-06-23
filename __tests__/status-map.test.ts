@@ -79,10 +79,11 @@ describe("app/status/map/page.tsx — token gate + data projection (CAM-151/152)
     expect(src).toContain("fetchStatusIssues");
   });
 
-  it("builds the agents projection from rmap + work", () => {
-    expect(src).toContain("agents:");
-    expect(src).toContain("buildAgents");
-    expect(src).toContain("rmap");
+  it("builds the agents projection via shared toMapModel (S6: projection extracted to lib)", () => {
+    // S6 extracted the inline projection into lib/status-map-model.ts (toMapModel).
+    // page.tsx now calls toMapModel(buildModel(issues)) — no more local buildAgents or rmap.
+    expect(src).toContain("toMapModel");
+    expect(src).toContain("buildModel");
   });
 
   it("is force-dynamic (no static caching of live status)", () => {
