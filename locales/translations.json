@@ -564,6 +564,7 @@
             "viewAll": "View all reviews",
             "authorFallback": "User",
             "ratingAriaLabel": "Rating {avg} out of 5 stars from {count} reviews",
+            "ratingAriaLabelShort": "Rating {avg} out of 5 stars",
             "itemRatingAriaLabel": "Rating {rating} out of 5 stars",
             "viewAllAriaLabel": "View all reviews (not available yet)"
         },
@@ -1186,6 +1187,7 @@
             "viewAll": "ดูรีวิวทั้งหมด",
             "authorFallback": "ผู้ใช้งาน",
             "ratingAriaLabel": "คะแนน {avg} จาก 5 ดาว จาก {count} รีวิว",
+            "ratingAriaLabelShort": "คะแนน {avg} จาก 5 ดาว",
             "itemRatingAriaLabel": "คะแนน {rating} จาก 5 ดาว",
             "viewAllAriaLabel": "ดูรีวิวทั้งหมด (ยังไม่พร้อมใช้งาน)"
         },
