@@ -20,6 +20,7 @@ import {
   ROLE_LABEL,
   esc,
   cleanTitle,
+  roleFromTitle,
 } from "@/lib/notify-messages";
 
 // Emoji detection regex: covers main Unicode emoji ranges
@@ -102,6 +103,21 @@ describe("esc helper", () => {
   });
   it("leaves normal strings unchanged", () => {
     expect(esc("hello world")).toBe("hello world");
+  });
+});
+
+describe("roleFromTitle helper", () => {
+  it("extracts the role slug from a leading [role] tag", () => {
+    expect(roleFromTitle("[backend-engineer] My story")).toBe("backend-engineer");
+  });
+  it("trims and handles extra spaces", () => {
+    expect(roleFromTitle("  [ qa-engineer ]  Some title")).toBe("qa-engineer");
+  });
+  it("returns null when there is no [role] tag", () => {
+    expect(roleFromTitle("Plain title")).toBeNull();
+  });
+  it("returns null for a bracket that is not at the start", () => {
+    expect(roleFromTitle("Story [backend-engineer]")).toBeNull();
   });
 });
 

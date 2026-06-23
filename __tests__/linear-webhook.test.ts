@@ -127,10 +127,40 @@ describe("linear-webhook", () => {
       { labelIds: [] }
     );
     const res = await POST(req(body));
-    expect((await res.json()).notified).toContain("role:backend-engineer");
+    expect((await res.json()).notified).toContain("handoff:backend-engineer");
     const [text] = tg.mock.calls[0];
     expect(text).toContain("Backend");
     expect(text).toContain("Handed over to");
+  });
+
+  it("notifies handoff via the title [role] change (forward to a new role)", async () => {
+    const body = issueUpdate(
+      { identifier: "CAM-9", title: "[ux-designer] story", labels: [] },
+      { title: "[product-owner] story" }
+    );
+    const res = await POST(req(body));
+    expect((await res.json()).notified).toContain("handoff:ux-designer");
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Handed over to Designer");
+  });
+
+  it("notifies handoff on a RETURN even when the role:* label already exists (regression)", async () => {
+    // QA hands the work back to Frontend; role:frontend-engineer was added earlier and never removed.
+    const body = issueUpdate(
+      {
+        identifier: "CAM-9",
+        title: "[frontend-engineer] story",
+        labels: [
+          { id: "rf", name: "role:frontend-engineer" },
+          { id: "rq", name: "role:qa-engineer" },
+        ],
+      },
+      { title: "[qa-engineer] story", labelIds: ["rf", "rq"] } // no label added; only the title changed
+    );
+    const res = await POST(req(body));
+    expect((await res.json()).notified).toContain("handoff:frontend-engineer");
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Handed over to Frontend");
   });
 
   it("does not re-notify for a label that was already present", async () => {
@@ -153,18 +183,14 @@ describe("linear-webhook", () => {
     expect(tg).not.toHaveBeenCalled();
   });
 
-  it("approved notification fires (English 'Approved') + gate-approval dispatch when awaiting-you is removed", async () => {
+  it("gate-approval dispatch fires when awaiting-you is removed, but the webhook does NOT send 'Approved' (the Telegram tap does)", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "Gate G3 · ship", labels: [] },
       { labelIds: ["aw"] }
     );
     const res = await POST(req(body));
-    const json = await res.json();
-    expect(json).toMatchObject({ approved: true, dispatched: false });
-    // Approved notification should have fired
-    expect(tg).toHaveBeenCalledTimes(1);
-    const [text] = tg.mock.calls[0];
-    expect(text).toContain("Approved");
+    expect(await res.json()).toMatchObject({ approved: true, dispatched: false });
+    expect(tg).not.toHaveBeenCalled();
   });
 
   it("created (default off) does NOT send Telegram even on Issue/create", async () => {

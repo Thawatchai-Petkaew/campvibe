@@ -27,7 +27,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { sendTelegram } from "@/lib/notify";
 import { bumpPulse } from "@/lib/status-pulse";
-import { buildEventMessage } from "@/lib/notify-messages";
+import { buildEventMessage, roleFromTitle } from "@/lib/notify-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -146,12 +146,25 @@ export async function POST(req: Request) {
     notified.push("released");
   }
 
-  const addedRole = addedNames.find((n) => n.startsWith("role:"));
-  if (addedRole) {
-    const slug = addedRole.slice("role:".length);
-    const msg = buildEventMessage("handoff", { ...ctx, role: slug });
+  // Handoff = the current actor changed. The [role] tag in the title is the live actor and
+  // changes on every handoff (forward AND back); the role:* labels accumulate (never removed)
+  // so they only catch the FIRST time each role appears. Prefer the title change; fall back to
+  // a newly-added role:* label when the title itself didn't change.
+  const titleChanged = Object.prototype.hasOwnProperty.call(updatedFrom, "title");
+  const prevTitle = typeof updatedFrom.title === "string" ? updatedFrom.title : "";
+  let handoffRole: string | null = null;
+  if (titleChanged) {
+    const newRole = roleFromTitle(title);
+    if (newRole && newRole !== roleFromTitle(prevTitle)) handoffRole = newRole;
+  }
+  if (!handoffRole) {
+    const addedRole = addedNames.find((n) => n.startsWith("role:"));
+    if (addedRole) handoffRole = addedRole.slice("role:".length);
+  }
+  if (handoffRole) {
+    const msg = buildEventMessage("handoff", { ...ctx, role: handoffRole });
     if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
-    notified.push(addedRole);
+    notified.push(`handoff:${handoffRole}`);
   }
 
   if (addedNames.includes("blocked")) {
@@ -180,10 +193,8 @@ export async function POST(req: Request) {
 
   let dispatch: Awaited<ReturnType<typeof fireDispatch>> | null = null;
   if (looksApproved) {
-    // Send the approved notification before dispatching.
-    const msg = buildEventMessage("approved", ctx);
-    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
-
+    // The "Approved" notification is sent from the Telegram Approve tap (telegram-webhook),
+    // where the awaiting-you removal is known reliably; here we only continue the orchestrator.
     dispatch = await fireDispatch({
       identifier: id,
       title,

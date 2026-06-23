@@ -65,6 +65,11 @@ export function cleanTitle(title: string): string {
   return title.replace(/^\s*\[[^\]]+\]\s*/, "").trim();
 }
 
+/** Extract the role slug from a leading [role] tag, e.g. "[backend-engineer] My story" → "backend-engineer". */
+export function roleFromTitle(title: string): string | null {
+  return title.match(/^\s*\[([^\]]+)\]/)?.[1]?.trim() ?? null;
+}
+
 /** Link to the live /status dashboard (token-gated). */
 export function statusUrl(): string {
   const base = process.env.APP_BASE_URL || "https://campvibe-staging.vercel.app";

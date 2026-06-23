@@ -49,13 +49,15 @@ describe("telegram-webhook", () => {
     expect((await POST(req("{not json", SECRET))).status).toBe(400);
   });
 
-  it("approve callback removes awaiting-you + acks toast only (no duplicate full message)", async () => {
+  it("approve callback removes awaiting-you + sends the 'Approved' message (single source)", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "approve:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "approve", id: "CAM-11", changed: true });
     expect(linear.removeAwaitingYou).toHaveBeenCalledWith("CAM-11");
     expect(notify.answerCallback).toHaveBeenCalled();
-    // No sendTelegram call: the webhook handles the Approved notification
-    expect(notify.sendTelegram).not.toHaveBeenCalled();
+    // The Approve tap is the reliable signal → it sends "Approved" (the webhook does not, so no duplicate).
+    expect(notify.sendTelegram).toHaveBeenCalledTimes(1);
+    const [text] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
+    expect(text).toContain("Approved");
   });
 
   it("approve callback toast is English and emoji-free", async () => {
