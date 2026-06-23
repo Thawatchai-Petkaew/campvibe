@@ -13,7 +13,7 @@ updated: 2026-06-23
 
 ## PR & preview
 
-- PR: pending (opening in this G3 run) → base `staging`
+- PR: [#127](https://github.com/Thawatchai-Petkaew/campvibe/pull/127) → base `staging` (merged; merge commit `58feb97`)
 - Preview: Vercel ephemeral preview (auto-comment on PR)
 - Quality-gate (pre-PR): lint 0 error · typecheck (strict) 0 errors · test **37/37 pass** (`lib/sort-utils.ts` 100% coverage on new code; full suite green) · build success · `npm audit --omit=dev` 0 high/0 critical · check:palette + check:ds PASS · security PASS (sort param allowlisted; reviews stripped before grid; `deletedAt:null` guard)
 
