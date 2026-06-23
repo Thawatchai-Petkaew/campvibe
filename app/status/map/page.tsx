@@ -4,11 +4,11 @@
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
-import { buildModel, isActive } from "@/lib/status-model";
+import { buildModel, epicOf, isActive } from "@/lib/status-model";
 import { canonRole } from "@/lib/status-derive";
 import { CSS, SCENE } from "./campsite-assets";
 import SceneLoader from "./scene-loader";
-import type { MapAgent } from "./campsite-scene";
+import type { MapAgent, MapBacklogItem, MapEnvItem, MapGate } from "./campsite-scene";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "CampVibe — Delivery Map" };
@@ -118,13 +118,44 @@ export default async function StatusMapPage({
 
   const m = buildModel(issues);
 
-  // Determine "done" gate stories — those are work items the human (You) must review.
-  // gates in the model are work items with "awaiting-you" label.
+  // S4: build overlay data from Model fields — all derived, no hardcoded values.
+
+  const gates: MapGate[] = m.gates.map((i) => ({
+    id: i.id,
+    title: cleanTitle(i.title),
+    url: i.url,
+    epicKey: epicOf(i.title),
+    priority: i.priority,
+  }));
+
+  const backlogItems: MapBacklogItem[] = m.backlog.map((i) => ({
+    id: i.id,
+    title: cleanTitle(i.title),
+    role: canonRole(titleRoleOf(i.title)),
+    epicKey: epicOf(i.title) || i.parent?.title || "",
+  }));
+
+  const buildEnvItems = (items: StatusIssue[]): MapEnvItem[] =>
+    items.map((i) => ({
+      id: i.id,
+      title: cleanTitle(i.title),
+      role: canonRole(titleRoleOf(i.title)),
+    }));
+
   const mapModel = {
     projectPct: m.projectPct,
-    gates: m.gates.map((i) => ({ id: i.id, title: i.title, url: i.url })),
+    gates,
     agents: buildAgents(m.work, m.rmap),
     epicNames: m.epicNames,
+    // S4 overlay additions
+    epicsActive: m.epicsActive,
+    totalEpics: m.epicNodes.length,
+    backlogItems,
+    envLanes: {
+      dev:     buildEnvItems(m.byEnv.dev),
+      staging: buildEnvItems(m.byEnv.staging),
+      prod:    buildEnvItems(m.byEnv.prod),
+    },
   };
 
   return (
