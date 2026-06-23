@@ -376,7 +376,11 @@
             "confirmCancelTitle": "Cancel this booking?",
             "confirmCancelDescription": "This action cannot be undone. Your booking will be cancelled and any refund will be processed according to the cancellation policy.",
             "confirmCancelAction": "Yes, cancel booking",
-            "keepBooking": "Keep booking"
+            "keepBooking": "Keep booking",
+            "statusPending": "Pending",
+            "statusConfirmed": "Confirmed",
+            "statusCancelled": "Cancelled",
+            "statusCompleted": "Completed"
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -998,7 +1002,11 @@
             "confirmCancelTitle": "ยกเลิกการจองนี้?",
             "confirmCancelDescription": "การดำเนินการนี้ไม่สามารถยกเลิกได้ การจองของคุณจะถูกยกเลิกและการคืนเงินจะดำเนินการตามนโยบายการยกเลิก",
             "confirmCancelAction": "ยืนยัน ยกเลิกการจอง",
-            "keepBooking": "เก็บการจองไว้"
+            "keepBooking": "เก็บการจองไว้",
+            "statusPending": "รอยืนยัน",
+            "statusConfirmed": "ยืนยันแล้ว",
+            "statusCancelled": "ยกเลิกแล้ว",
+            "statusCompleted": "เข้าพักแล้ว"
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",

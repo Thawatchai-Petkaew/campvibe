@@ -69,6 +69,8 @@ The fast path for any UI work (full rules below):
 | `muted` / `muted-foreground` | `0.963 0.002 197.1` / `0.56 0.021 213.5` | `0.275 0.011 216.9` / `0.723 0.014 214.4` | secondary surfaces, secondary text, placeholder, skeleton | primary text (insufficient contrast) |
 | `destructive` | `0.577 0.245 27.325` | `0.704 0.191 22.216` | error, delete, cancel (pair with `text-primary-foreground`/white on fill) | success/info |
 | `success` / `success-foreground` | `0.530 0.148 144.184` / `0.984 0.014 158.52` | `0.645 0.168 150.323` / `0.148 0.004 228.8` | confirmed, accepted, paid | error/warning |
+| `warning` / `warning-foreground` | `0.769 0.188 70.08` / `0.148 0.004 228.8` | `0.879 0.169 91.605` / `0.148 0.004 228.8` | pending/awaiting states, caution signals | error (use destructive) |
+| `info` / `info-foreground` | `0.511 0.130 237.0` / `0.984 0.014 180.72` | `0.637 0.143 237.0` / `0.148 0.004 228.8` | completed/informational states, neutral signals | primary actions (use primary) |
 | `background` / `foreground` | `1 0 0` / `0.148 0.004 228.8` | `0.148 0.004 228.8` / `0.987 0.002 197.1` | page surface / primary text | — |
 | `card` / `card-foreground` | `1 0 0` / `0.148…` | `0.218 0.008 223.9` / `0.987…` | card/surface raised surface | full-page background (use background) |
 | `popover` / `popover-foreground` | = card | = card | dropdown/select/popover/tooltip panel | — |
