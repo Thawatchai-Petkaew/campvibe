@@ -556,6 +556,17 @@
             "savedLabel": "Saved",
             "errorLoad": "Could not load liked campsites. Please try again."
         },
+        "reviews": {
+            "noReviews": "No reviews yet",
+            "noReviewsSection": "No reviews for this camp yet",
+            "loadError": "Reviews could not be loaded right now",
+            "sectionHeading": "Reviews",
+            "viewAll": "View all reviews",
+            "authorFallback": "User",
+            "ratingAriaLabel": "Rating {avg} out of 5 stars from {count} reviews",
+            "itemRatingAriaLabel": "Rating {rating} out of 5 stars",
+            "viewAllAriaLabel": "View all reviews (not available yet)"
+        },
         "settings": {
             "title": "Settings",
             "description": "Manage your account and team settings",
@@ -1166,6 +1177,17 @@
             "loginPromptGuest": "เข้าสู่ระบบเพื่อบันทึกแคมป์นี้",
             "savedLabel": "บันทึกแล้ว",
             "errorLoad": "โหลดรายการที่ถูกใจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+        },
+        "reviews": {
+            "noReviews": "ยังไม่มีรีวิว",
+            "noReviewsSection": "ยังไม่มีรีวิวสำหรับแคมป์นี้",
+            "loadError": "ไม่สามารถโหลดรีวิวได้ในขณะนี้",
+            "sectionHeading": "รีวิว",
+            "viewAll": "ดูรีวิวทั้งหมด",
+            "authorFallback": "ผู้ใช้งาน",
+            "ratingAriaLabel": "คะแนน {avg} จาก 5 ดาว จาก {count} รีวิว",
+            "itemRatingAriaLabel": "คะแนน {rating} จาก 5 ดาว",
+            "viewAllAriaLabel": "ดูรีวิวทั้งหมด (ยังไม่พร้อมใช้งาน)"
         },
         "settings": {
             "title": "การตั้งค่า",
