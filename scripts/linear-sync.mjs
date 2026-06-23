@@ -136,30 +136,10 @@ async function cmdSet(id, flags) {
   await gql(`mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`, { id: issue.id, input });
   const bits = [flags.state ? `state→${flags.state}` : "", flags.add.length ? `+[${flags.add}]` : "", flags.remove.length ? `-[${flags.remove}]` : ""].filter(Boolean);
   console.log(`✓ ${id} updated: ${bits.join(" ")}`);
-
-  // Escalation: a gate just got `awaiting-you` → ping Telegram with Approve/Reject buttons.
-  if (flags.add.some((l) => l.toLowerCase() === "awaiting-you")) {
-    const gate = (issue.title.match(/Gate\s*G\d/i) || ["Gate"])[0];
-    await notifyTelegram(
-      `⏳ <b>${id}</b> รออนุมัติ — ${gate}\n${issue.title}\n\nReview ใน Linear แล้ว <b>ลบ label awaiting-you</b> เพื่ออนุมัติ (ระบบจะเดินงานต่อ) หรือกดปุ่มด้านล่าง`,
-      [
-        [{ text: "✅ Approve", callback_data: `approve:${id}` }, { text: "🚫 Reject", callback_data: `reject:${id}` }],
-        [{ text: "🔗 เปิดใน Linear", url: issue.url }],
-        [{ text: "📊 /status", url: statusUrl(epicOf(issue.title)) }],
-      ]
-    );
-  }
-
-  // Story done → notify owner.
-  if (flags.state) {
-    const st = team.states.nodes.find((s) => s.name.toLowerCase() === flags.state.toLowerCase());
-    if (st && (st.type === "completed" || st.name.toLowerCase() === "done")) {
-      await notifyTelegram(
-        `<b>${esc(id)}</b> ✓ done\n${esc(issue.title)}`,
-        [[{ text: "📊 /status", url: statusUrl(epicOf(issue.title)) }]]
-      );
-    }
-  }
+  // NOTE: Telegram event notifications (gate / done / handoff / released / etc.) are sent
+  // exclusively by the Linear webhook (app/api/linear-webhook/route.ts), which fires for any
+  // actor. This script only sets state/labels/title; those changes trigger the webhook which
+  // notifies the owner. Do NOT add event sends here — that causes double-sends.
 }
 
 // Released = promoted to production. The story stays in state `Done` (set at merge→staging) and
@@ -422,21 +402,9 @@ async function cmdHandoff(id, args) {
   const roleLabel = ROLE_LABEL[role] || role;
   const bits = [`role→${roleLabel}`, `+[${labelName}]`, state ? `state→${state}` : ""].filter(Boolean);
   console.log(`✓ ${id} handoff: ${bits.join(" ")} | title: ${newTitle}`);
-
-  // Fire Telegram handoff notification.
-  const epic = epicOf(issue.title);
-  const msgParts = [
-    `<b>${esc(id)}</b> → ${esc(roleLabel)}`,
-    esc(cleanTitle(newTitle)),
-  ];
-  if (note) msgParts.push(esc(note));
-  await notifyTelegram(
-    msgParts.join("\n"),
-    [
-      [{ text: "เปิด Linear", url: issue.url }],
-      [{ text: "📊 /status", url: statusUrl(epic) }],
-    ]
-  );
+  // NOTE: The Telegram handoff notification is sent by the Linear webhook (app/api/linear-webhook/route.ts)
+  // which detects the `role:*` label addition and calls buildEventMessage("handoff", ...).
+  // Do NOT send it here — that causes double-sends.
 }
 
 // scaffold <CAM-id> — create the delivery-artifact folder + files for a story (idempotent).
