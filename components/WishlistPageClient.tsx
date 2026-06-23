@@ -104,6 +104,8 @@ export function WishlistPageClient({ isLoggedIn, items, hasError }: WishlistPage
                         initialSaved={true}
                         isLoggedIn={true}
                         onGuestHeartClick={() => setIsLoginOpen(true)}
+                        avgRating={camp.avgRating}
+                        reviewCount={camp.reviewCount}
                     />
                 ))}
             </div>

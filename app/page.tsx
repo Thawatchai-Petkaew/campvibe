@@ -9,7 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
 import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
-import { sortByRating } from "@/lib/sort-utils";
+import { sortByRating, computeAvgRating } from "@/lib/sort-utils";
+import { roundAvgRating } from "@/lib/review-summary";
 
 export const dynamic = 'force-dynamic'
 
@@ -112,21 +113,36 @@ export default async function Home({ searchParams }: HomeProps) {
       // Sort descending by avg rating, nulls last, capped at 40
       const sorted = sortByRating(rows);
 
-      // Strip the reviews array before forwarding to the grid — the card
-      // component does not consume it; never pass extra data to the client.
-      campSites = sorted.map(({ reviews: _reviews, ...rest }) => rest);
+      // Compute avgRating/reviewCount server-side, then strip the reviews array.
+      // Cards receive only the scalar props — no PII, no author data.
+      campSites = sorted.map(({ reviews: _reviews, ...rest }) => ({
+        ...rest,
+        avgRating: roundAvgRating(computeAvgRating(_reviews)),
+        reviewCount: _reviews.length,
+      }));
     } else {
-      campSites = await prisma.campSite.findMany({
+      const rows = await prisma.campSite.findMany({
         where,
         include: {
           location: true,
           operator: { select: { name: true } },
           images: { orderBy: { sortOrder: 'asc' } },
           _count: { select: { reviews: true } },
+          reviews: {
+            where:  { deletedAt: null },
+            select: { rating: true },
+          },
         },
         orderBy,
         take: 40,
       });
+
+      // Compute avgRating/reviewCount server-side, then strip the reviews array.
+      campSites = rows.map(({ reviews: _reviews, ...rest }) => ({
+        ...rest,
+        avgRating: roundAvgRating(computeAvgRating(_reviews)),
+        reviewCount: _reviews.length,
+      }));
     }
   } catch (error) {
     console.error("Database connection error:", error);

@@ -1103,6 +1103,8 @@ export default function CampgroundDetailClient({
                             latitude={campground.latitude}
                             longitude={campground.longitude}
                             campground={campground}
+                            avgRating={avgRating}
+                            reviewCount={reviewCount}
                         />
                     </div>
                 </div>
