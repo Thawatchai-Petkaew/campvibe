@@ -22,6 +22,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { sendTelegram, type TgButton } from "@/lib/notify";
+import { bumpPulse } from "@/lib/status-pulse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,9 +110,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
 
-  // Only react to Issue updates.
+  // Real-time /status: any Issue change (create/update/remove) bumps the pulse, so open
+  // dashboards refresh near-instantly via SSE and the next render re-fetches Linear (the page
+  // keys its cache on the pulse). Broad on purpose — just a refresh signal; the Telegram
+  // notifications below stay narrow (no spam).
+  if (body.type === "Issue") {
+    await bumpPulse();
+  }
+
+  // Only the Telegram + gate-dispatch logic below cares specifically about issue *updates*.
   if (body.type !== "Issue" || body.action !== "update") {
-    return NextResponse.json({ ok: true, ignored: `${body.type}/${body.action}` });
+    return NextResponse.json({ ok: true, ignored: `${body.type}/${body.action}`, pulsed: body.type === "Issue" });
   }
 
   const data = body.data ?? {};

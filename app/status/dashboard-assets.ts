@@ -33,6 +33,8 @@ body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-w
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
 @keyframes pr{0%{box-shadow:0 0 0 0 var(--c,var(--emerald-glow))}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 .dot.live{background:var(--emerald);animation:pr 2s infinite}
+@keyframes bump{0%{box-shadow:0 0 0 0 var(--emerald-glow);transform:scale(1)}30%{box-shadow:0 0 0 9px transparent;transform:scale(1.6)}100%{box-shadow:0 0 0 0 transparent;transform:scale(1)}}
+.dot.live.bump{animation:bump 1s ease-out}
 @keyframes flow{to{background-position:20px 0}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 20px;flex-wrap:wrap}
@@ -129,6 +131,7 @@ body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-w
 .qd::before{left:0}.qd::after{right:0}
 .board-wrap{padding:18px 20px}
 .board{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}.board .col{min-width:0}
+.envwrap.collapsed{display:none}
 .col-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;font-family:var(--disp);font-weight:500;font-size:12px}
 .col-h .c{font-family:var(--mono);color:var(--faint);margin-left:auto;font-size:10.5px}
 .col[data-k=backlog] .col-h{color:#aebcc9}.col[data-k=backlog] .cd{background:#8a9aa8}

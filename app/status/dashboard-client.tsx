@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
  *  - starfield        → populated once (lives in the constant SCENE div, survives router.refresh)
  *  - clock            → re-queries #clock each tick so it keeps working after a refresh
  *  - live refresh     → router.refresh() every N seconds (no full-page reload / white flash) */
-export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?: number }) {
+export default function StatusClient({ refreshSeconds = 60, token = "" }: { refreshSeconds?: number; token?: string }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -18,6 +18,8 @@ export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?:
       openSwitcher?: () => void;
       closeSwitcher?: () => void;
       filterSwitcher?: (p: string) => void;
+      toggleEnv?: () => void;
+      filterEpics?: (f: string) => void;
     };
     const w = window as StatusWindow;
     // Persist a view param into the URL (no navigation) so router.refresh() re-renders the SAME view.
@@ -60,6 +62,28 @@ export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?:
       });
       document.querySelectorAll("#switcher .sw-fbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-p") === p));
     };
+    // Environments pane collapse — the count summary stays visible in the header.
+    w.toggleEnv = () => {
+      const b = document.getElementById("env-board");
+      if (!b) return;
+      const collapsed = b.classList.toggle("collapsed");
+      const btn = document.getElementById("env-toggle");
+      if (btn) btn.textContent = collapsed ? "แสดง" : "ซ่อน";
+      syncUrl("env", collapsed ? "closed" : "open");
+    };
+    // Epics filter — show/hide cards (and any group left empty) by lifecycle status, persisted in the URL.
+    w.filterEpics = (f: string) => {
+      document.querySelectorAll<HTMLElement>("#epics-pane .epic").forEach((el) => {
+        el.style.display = f === "all" || el.getAttribute("data-estatus") === f ? "" : "none";
+      });
+      document.querySelectorAll<HTMLElement>("#epics-pane .grp").forEach((g) => {
+        const anyVisible = Array.from(g.querySelectorAll<HTMLElement>(".epic")).some((e) => e.style.display !== "none");
+        g.style.display = anyVisible ? "" : "none";
+      });
+      document.querySelectorAll(".efbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-f") === f));
+      syncUrl("efilter", f);
+    };
+
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") w.closeSwitcher?.(); };
     document.addEventListener("keydown", onKey);
 
@@ -86,19 +110,45 @@ export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?:
     };
     tick();
     const clockId = setInterval(tick, 1000);
-    const refreshId = setInterval(() => {
-      const y = window.scrollY;        // router.refresh() re-injects the HTML — re-pin scroll a few frames so it doesn't jump
+    // Refresh (re-fetch + re-inject HTML) while pinning scroll so it doesn't jump, and flash the
+    // live dot so a real-time update is visible. Shared by the 60s fallback + the SSE push.
+    const refreshKeepScroll = () => {
+      const y = window.scrollY;
       router.refresh();
       let n = 0;
       const restore = () => { window.scrollTo(0, y); if (++n < 8) requestAnimationFrame(restore); };
       requestAnimationFrame(restore);
-    }, refreshSeconds * 1000);
+      const dot = document.querySelector(".live .dot");
+      if (dot) { dot.classList.add("bump"); setTimeout(() => dot.classList.remove("bump"), 1100); }
+    };
+    const refreshId = setInterval(refreshKeepScroll, refreshSeconds * 1000);
+
+    // Real-time push: subscribe to the pulse stream; on an event, refresh immediately. The 60s
+    // interval above stays as a fallback if EventSource is unavailable or the stream fails hard.
+    let es: EventSource | null = null;
+    let guard = 0;
+    const openStream = () => {
+      try {
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        es = new EventSource(`/api/status/stream${qs}`);
+        es.onmessage = () => { guard = 0; refreshKeepScroll(); };
+        es.onerror = () => {
+          if (es && es.readyState === EventSource.CLOSED) { // hard fail (e.g. 401), not the routine self-close
+            es.close(); es = null;
+            if (guard++ < 5) setTimeout(openStream, 5000 * guard);
+          }
+        };
+      } catch { /* SSE unsupported → the 60s interval still refreshes */ }
+    };
+    openStream();
+
     return () => {
       clearInterval(clockId);
       clearInterval(refreshId);
+      es?.close();
       document.removeEventListener("keydown", onKey);
     };
-  }, [router, refreshSeconds]);
+  }, [router, refreshSeconds, token]);
 
   return null;
 }

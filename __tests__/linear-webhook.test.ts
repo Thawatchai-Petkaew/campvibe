@@ -4,12 +4,15 @@ import crypto from "node:crypto";
 vi.mock("@/lib/notify", () => ({
   sendTelegram: vi.fn(async () => ({ ok: true })),
 }));
+vi.mock("@/lib/status-pulse", () => ({ bumpPulse: vi.fn(async () => {}) }));
 
 import { POST } from "@/app/api/linear-webhook/route";
 import { sendTelegram } from "@/lib/notify";
+import { bumpPulse } from "@/lib/status-pulse";
 
 const SECRET = "test-linear-secret";
 const tg = vi.mocked(sendTelegram);
+const bump = vi.mocked(bumpPulse);
 
 function sign(raw: string): string {
   return crypto.createHmac("sha256", SECRET).update(raw).digest("hex");
@@ -40,10 +43,18 @@ describe("linear-webhook", () => {
     expect(tg).not.toHaveBeenCalled();
   });
 
-  it("ignores non-Issue events without notifying", async () => {
+  it("ignores non-Issue events without notifying or pulsing", async () => {
     const res = await POST(req({ type: "Comment", action: "create", data: {} }));
     expect(await res.json()).toMatchObject({ ignored: "Comment/create" });
     expect(tg).not.toHaveBeenCalled();
+    expect(bump).not.toHaveBeenCalled();
+  });
+
+  it("[AC2] bumps the pulse + revalidates the status cache on any Issue event (even a non-update create)", async () => {
+    const res = await POST(req({ type: "Issue", action: "create", data: { identifier: "CAM-9" } }));
+    expect(await res.json()).toMatchObject({ ignored: "Issue/create", pulsed: true });
+    expect(bump).toHaveBeenCalledTimes(1);
+    expect(tg).not.toHaveBeenCalled(); // create is not a Telegram-worthy update
   });
 
   it("[AC1] notifies with Approve/Reject when awaiting-you is added", async () => {
