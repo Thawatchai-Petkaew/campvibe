@@ -415,7 +415,11 @@ async function cmdHandoff(id, args) {
   const extraBits = [];
   if (oldRole && stageRankMjs(role) < stageRankMjs(oldRole)) {
     // Backward move — find existing regression:<role>:k, remove it, add k+1.
-    const existingLabel = issue.labels.nodes.find((l) => l.name.match(new RegExp(`^regression:${role.replace(/-/g, "\\-")}:(\\d+)$`)));
+    // String-split match (not new RegExp(role)) so a role with regex metacharacters can't misbehave.
+    const existingLabel = issue.labels.nodes.find((l) => {
+      const parts = l.name.split(":");
+      return parts.length === 3 && parts[0] === "regression" && parts[1] === role && /^\d+$/.test(parts[2]);
+    });
     if (existingLabel) {
       const k = parseInt(existingLabel.name.split(":")[2], 10);
       current.delete(existingLabel.id);
