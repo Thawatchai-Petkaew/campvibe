@@ -57,9 +57,14 @@ export async function POST(req: Request) {
     }
     if (action === "approve" && id) {
       const changed = await removeAwaitingYou(id);
-      // The Linear webhook detects `awaiting-you` removal and sends the "Approved" message,
-      // so we only acknowledge the tap here — no duplicate full message.
       await answerCallback(cb.id, changed ? `Approved ${id}` : `${id}: no gate pending`);
+      // The Approve tap is the reliable signal that a gate was approved → send "Approved".
+      // The webhook no longer sends this message (it only continues the orchestrator on
+      // awaiting-you removal), so there is no duplicate.
+      if (changed) {
+        const msg = buildEventMessage("approved", { id });
+        if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+      }
       return NextResponse.json({ ok: true, action: "approve", id, changed });
     }
     if (action === "reject" && id) {
