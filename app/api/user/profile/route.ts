@@ -2,14 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
 import { apiError, apiSuccess } from "@/lib/api-utils";
-import { z } from "zod";
-
-const UpdateProfileSchema = z.object({
-  name: z.string().min(1).optional(),
-  email: z.string().email().optional().or(z.literal('')),
-  phone: z.string().optional().nullable(),
-  image: z.string().url().optional().nullable().or(z.literal('')),
-});
+import { updateProfileSchema } from "@/lib/validations/profile";
 
 // GET: Fetch current user profile
 export async function GET() {
@@ -59,7 +52,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedFields = UpdateProfileSchema.safeParse(body);
+    const validatedFields = updateProfileSchema.safeParse(body);
 
     if (!validatedFields.success) {
       return apiError("Invalid fields", 400, validatedFields.error.flatten());
