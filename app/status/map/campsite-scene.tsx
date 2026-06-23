@@ -12,7 +12,8 @@
 // DOM writes: only style.transform / style.backgroundImage / style.left / style.top /
 // style.zIndex on refs. No per-frame React setState. Effect cleanup cancels rAF.
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MapOverlays } from "./campsite-overlays";
 import {
   NODES,
   buildScoutState,
@@ -31,11 +32,44 @@ export interface MapAgent {
   task: { id: string; title: string; startedAt: string | null } | null;
 }
 
+// Gate item for the You → Gates panel.
+export interface MapGate {
+  id: string;
+  title: string;       // raw title (caller uses cleanTitle on it)
+  url: string;
+  epicKey: string;     // first "·" segment of the title, or ""
+  priority: string;    // e.g. "High", "Urgent"
+}
+
+// Backlog story item for the Backlog overlay.
+export interface MapBacklogItem {
+  id: string;
+  title: string;       // cleaned (no epic prefix, no [role] tag)
+  role: string;        // canonical role for grouping
+  epicKey: string;
+}
+
+// Environment lane item for the Environments overlay.
+export interface MapEnvItem {
+  id: string;
+  title: string;       // cleaned display title
+  role: string;        // display role label
+}
+
 export interface MapModel {
   projectPct: number;
-  gates: { id: string; title: string; url: string }[];
-  agents: MapAgent[];  // the 7 build-roles, always present
+  gates: MapGate[];
+  agents: MapAgent[];     // the 7 build-roles, always present
   epicNames: string[];
+  // S4 overlay data — all derived server-side from Model
+  epicsActive: number;
+  totalEpics: number;
+  backlogItems: MapBacklogItem[];
+  envLanes: {
+    dev: MapEnvItem[];
+    staging: MapEnvItem[];
+    prod: MapEnvItem[];
+  };
 }
 
 // Canonical role display config — mirrors the mockup AGENTS array.
@@ -151,8 +185,10 @@ const SCENE_CSS = `
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:9;cursor:pointer;
   font-size:11px;font-weight:700;color:#241402;
   background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1px solid rgba(255,207,134,.7);
-  border-radius:11px;padding:5px 11px;box-shadow:0 8px 22px -3px var(--amber-glow)
+  border-radius:11px;padding:5px 11px;box-shadow:0 8px 22px -3px var(--amber-glow);
+  font-family:inherit;min-height:44px;min-width:44px;
 }
+.you-alert:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px;}
 .you-alert .adot{width:7px;height:7px;border-radius:50%;background:#7a3b00;flex:none}
 .you-alert::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#ff9d3c}
 .popover{
@@ -174,16 +210,7 @@ const SCENE_CSS = `
 .pop-gate .gid{font-family:var(--mono);color:var(--amber);flex:none}
 .pop-hint{font-size:10px;color:var(--faint);margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
 .popover::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:rgba(14,24,40,.9)}
-.map-stat-bar{
-  position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:40;
-  display:flex;align-items:center;gap:12px;white-space:nowrap;
-  background:rgba(18,30,48,.56);backdrop-filter:saturate(150%) blur(18px);-webkit-backdrop-filter:saturate(150%) blur(18px);
-  border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:7px 18px;
-  box-shadow:0 8px 24px rgba(0,0,0,.36)
-}
-.stat-pct{font-family:var(--mono);font-size:13px;font-weight:700;color:#5BE9B0}
-.stat-sep{width:1px;height:14px;background:rgba(255,255,255,.16)}
-.stat-label{font-size:11px;color:var(--muted)}
+/* S4: map-stat-bar replaced by Delivery chip overlay */
 `;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -279,10 +306,11 @@ function AgentScout({
 }
 
 interface YouScoutProps {
-  gates: { id: string; title: string; url: string }[];
+  gates: MapGate[];
+  onOpenGates: () => void;
 }
 
-function YouScout({ gates }: YouScoutProps) {
+function YouScout({ gates, onOpenGates }: YouScoutProps) {
   const zIndex = Math.round(YOU_POS.y * 12) + 5;
   const hasGates = gates.length > 0;
 
@@ -315,31 +343,21 @@ function YouScout({ gates }: YouScoutProps) {
       </div>
 
       {hasGates && (
-        <div
+        <button
           className="you-alert"
-          role="alert"
-          aria-label={`${gates.length} gate รอการอนุมัติ`}
+          aria-label={`${gates.length} gate รอการอนุมัติ กดเพื่อดูรายละเอียด`}
+          onClick={(e) => { e.stopPropagation(); onOpenGates(); }}
+          type="button"
         >
           <span className="adot" aria-hidden="true" />
           <span>&#9873;{gates.length} รอตรวจสอบ</span>
-        </div>
+        </button>
       )}
 
       <div className="popover" role="tooltip">
-        <div className="pop-name">คุณ · gate ที่รออนุมัติ</div>
-        {gates.map((g) => (
-          <div key={g.id} className="pop-gate">
-            <span className="gid">{g.id}</span>
-            <span>{g.title.replace(/^[^·]*·\s*/, "").replace(/\[[a-z-]+\]\s*/g, "").trim() || g.title}</span>
-          </div>
-        ))}
-        {!hasGates && (
-          <div style={{ fontSize: "11.5px", color: "var(--muted)", marginTop: "7px" }}>
-            ไม่มี gate รอ
-          </div>
-        )}
-        <div className="pop-hint">
-          campfire amber = ต้องการคุณตัดสินใจ
+        <div className="pop-name">คุณ</div>
+        <div className="pop-hint" style={{ marginTop: 0 }}>
+          {hasGates ? `${gates.length} gate รอการอนุมัติ — กดปุ่ม ⚑` : "ไม่มี gate รอ"}
         </div>
       </div>
     </div>
@@ -359,7 +377,13 @@ export interface SceneHandle {
 }
 
 export default function CampsiteScene({ model }: Props) {
-  const { projectPct, gates, agents } = model;
+  const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes } = model;
+
+  // S4: single-open overlay state — null = all closed
+  const [openOverlay, setOpenOverlay] = useState<string | null>(null);
+
+  const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
+  const closePanel = useCallback(() => setOpenOverlay(null), []);
 
   // DOM refs — body and root element per agent, indexed by role.
   const bodyRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -469,25 +493,26 @@ export default function CampsiteScene({ model }: Props) {
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
 
-      <div className="map-stat-bar" aria-label={`ความคืบหน้าโปรเจกต์ ${projectPct}%`}>
-        <span className="stat-pct">{projectPct}%</span>
-        <div className="stat-sep" aria-hidden="true" />
-        <span className="stat-label">ความคืบหน้าโปรเจกต์</span>
-        {gates.length > 0 && (
-          <>
-            <div className="stat-sep" aria-hidden="true" />
-            <span
-              className="stat-label"
-              style={{ color: "#FFB454" }}
-              aria-label={`${gates.length} gate รอการอนุมัติ`}
-            >
-              {gates.length} gate รอ
-            </span>
-          </>
-        )}
-      </div>
+      {/* S4 replaces the map-stat-bar with the Delivery chip overlay */}
+      {/* Canvas dim overlay when a panel is open */}
+      {openOverlay !== null && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 19,
+            background: "rgba(6,11,26,.38)",
+            pointerEvents: "none",
+            transition: "opacity 200ms",
+          }}
+        />
+      )}
 
-      <div className="map-stage">
+      <div
+        className="map-stage"
+        style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
+      >
         <div
           className="scout-layer"
           role="list"
@@ -507,9 +532,28 @@ export default function CampsiteScene({ model }: Props) {
               />
             );
           })}
-          <YouScout gates={gates} />
+          <YouScout
+            gates={gates}
+            onOpenGates={() => openPanel("gates")}
+          />
         </div>
       </div>
+
+      {/* S4 Overview overlays — all four edge chips + You/Gates panel */}
+      <MapOverlays
+        model={{
+          projectPct,
+          gates,
+          agents,
+          epicsActive,
+          totalEpics,
+          backlogItems,
+          envLanes,
+        }}
+        openOverlay={openOverlay}
+        onOpen={openPanel}
+        onClose={closePanel}
+      />
     </div>
   );
 }
