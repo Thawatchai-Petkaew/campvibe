@@ -11,6 +11,7 @@ vi.mock("@/lib/linear-actions", () => ({
 vi.mock("@/lib/github-dispatch", () => ({
   fireRepositoryDispatch: vi.fn(async () => ({ dispatched: true })),
 }));
+vi.mock("server-only", () => ({}));
 
 import { POST } from "@/app/api/telegram-webhook/route";
 import * as notify from "@/lib/notify";
@@ -48,41 +49,80 @@ describe("telegram-webhook", () => {
     expect((await POST(req("{not json", SECRET))).status).toBe(400);
   });
 
-  it("approve callback removes awaiting-you + acks", async () => {
+  it("approve callback removes awaiting-you + acks toast only (no duplicate full message)", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "approve:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "approve", id: "CAM-11", changed: true });
     expect(linear.removeAwaitingYou).toHaveBeenCalledWith("CAM-11");
     expect(notify.answerCallback).toHaveBeenCalled();
+    // No sendTelegram call: the webhook handles the Approved notification
+    expect(notify.sendTelegram).not.toHaveBeenCalled();
   });
 
-  it("reject callback comments + does NOT remove the label", async () => {
+  it("approve callback toast is English and emoji-free", async () => {
+    await POST(req({ callback_query: { id: "1", data: "approve:CAM-11" } }, SECRET));
+    const [, toastText] = vi.mocked(notify.answerCallback).mock.calls[0] as [string, string?];
+    if (toastText) {
+      const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+      expect(EMOJI_RE.test(toastText)).toBe(false);
+    }
+  });
+
+  it("reject callback comments + does NOT remove the label + sends rejected message (English, no emoji)", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "reject:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "reject", id: "CAM-11" });
     expect(linear.addComment).toHaveBeenCalledWith("CAM-11", expect.stringContaining("Rejected"));
     expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
+    // Should send the rejected message
+    expect(notify.sendTelegram).toHaveBeenCalledTimes(1);
+    const [text] = vi.mocked(notify.sendTelegram).mock.calls[0];
+    expect(text as string).toContain("Sent back for changes");
+    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+    expect(EMOJI_RE.test(text as string)).toBe(false);
   });
 
-  it("free-text reply to a gate message → posts a comment on that issue", async () => {
+  it("reject callback toast is English and emoji-free", async () => {
+    await POST(req({ callback_query: { id: "1", data: "reject:CAM-11" } }, SECRET));
+    const [, toastText] = vi.mocked(notify.answerCallback).mock.calls[0] as [string, string?];
+    if (toastText) {
+      const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+      expect(EMOJI_RE.test(toastText)).toBe(false);
+    }
+  });
+
+  it("free-text reply to a gate message → posts a comment on that issue (no emoji in ack)", async () => {
     const res = await POST(
-      req({ message: { text: "ทำต่อได้", reply_to_message: { text: "⏳ CAM-11 รออนุมัติ" } } }, SECRET)
+      req({ message: { text: "ทำต่อได้", reply_to_message: { text: "CAM-11 Waiting for your approval" } } }, SECRET)
     );
     expect(await res.json()).toMatchObject({ comment: "CAM-11" });
     expect(linear.addComment).toHaveBeenCalledWith("CAM-11", expect.stringContaining("ทำต่อได้"));
+    const [ackText] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
+    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+    expect(EMOJI_RE.test(ackText)).toBe(false);
   });
 
-  it("free-text not tied to a gate → routed as an ad-hoc orchestrator request", async () => {
+  it("free-text not tied to a gate → routed as an ad-hoc orchestrator request (no emoji in ack)", async () => {
     const res = await POST(req({ message: { text: "เพิ่มฟีเจอร์ค้นแคมป์" } }, SECRET));
     expect(await res.json()).toMatchObject({ adhoc: true });
     expect(dispatch.fireRepositoryDispatch).toHaveBeenCalledWith("camper-adhoc", { text: "เพิ่มฟีเจอร์ค้นแคมป์" });
     expect(linear.addComment).not.toHaveBeenCalled();
+    const [ackText] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
+    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+    expect(EMOJI_RE.test(ackText)).toBe(false);
   });
 
-  it("unknown callback_data → acked + ignored, no side effects", async () => {
-    const res = await POST(req({ callback_query: { id: "1", data: "weird:x" } }, SECRET));
-    expect(await res.json()).toMatchObject({ ignored: "weird:x" });
+  it("unknown action with a valid id → acked + ignored, no side effects", async () => {
+    const res = await POST(req({ callback_query: { id: "1", data: "weird:CAM-9" } }, SECRET));
+    expect(await res.json()).toMatchObject({ ignored: "weird:CAM-9" });
     expect(notify.answerCallback).toHaveBeenCalled();
     expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
     expect(dispatch.fireRepositoryDispatch).not.toHaveBeenCalled();
+  });
+
+  it("malformed callback id → acked + rejected as bad id, no Linear call", async () => {
+    const res = await POST(req({ callback_query: { id: "1", data: "approve:x" } }, SECRET));
+    expect(await res.json()).toMatchObject({ ignored: "bad id" });
+    expect(notify.answerCallback).toHaveBeenCalled();
+    expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
   });
 
   it("update with neither callback nor text → ignored", async () => {

@@ -5,6 +5,7 @@ vi.mock("@/lib/notify", () => ({
   sendTelegram: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/status-pulse", () => ({ bumpPulse: vi.fn(async () => {}) }));
+vi.mock("server-only", () => ({}));
 
 import { POST } from "@/app/api/linear-webhook/route";
 import { sendTelegram } from "@/lib/notify";
@@ -54,10 +55,10 @@ describe("linear-webhook", () => {
     const res = await POST(req({ type: "Issue", action: "create", data: { identifier: "CAM-9" } }));
     expect(await res.json()).toMatchObject({ ignored: "Issue/create", pulsed: true });
     expect(bump).toHaveBeenCalledTimes(1);
-    expect(tg).not.toHaveBeenCalled(); // create is not a Telegram-worthy update
+    expect(tg).not.toHaveBeenCalled(); // created is gated off by default
   });
 
-  it("[AC1] notifies with Approve/Reject when awaiting-you is added", async () => {
+  it("[AC1] notifies gate (English 'Waiting for your approval') when awaiting-you is added", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "Gate G3 · ship", url: "https://linear.app/x", labels: [{ id: "l1", name: "awaiting-you" }] },
       { labelIds: [] }
@@ -67,10 +68,12 @@ describe("linear-webhook", () => {
     expect(tg).toHaveBeenCalledTimes(1);
     const [text, opts] = tg.mock.calls[0];
     expect(text).toContain("CAM-9");
+    expect(text).toContain("Waiting for your approval");
     expect(JSON.stringify(opts?.buttons)).toContain("approve:CAM-9");
+    expect(JSON.stringify(opts?.buttons)).toContain("reject:CAM-9");
   });
 
-  it("[AC2] notifies done when the state changes to a completed type", async () => {
+  it("[AC2] notifies done (English 'Completed') when the state changes to a completed type", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "story", state: { type: "completed", name: "Done" }, labels: [] },
       { stateId: "old" }
@@ -78,9 +81,35 @@ describe("linear-webhook", () => {
     const res = await POST(req(body));
     expect(await res.json()).toMatchObject({ notified: expect.arrayContaining(["done"]) });
     expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Completed");
   });
 
-  it("[AC3] notifies released when the released label is added", async () => {
+  it("notifies started (English 'Work started') when state changes to a started type", async () => {
+    const body = issueUpdate(
+      { identifier: "CAM-9", title: "story", state: { type: "started", name: "In Progress" }, labels: [] },
+      { stateId: "old" }
+    );
+    const res = await POST(req(body));
+    expect(await res.json()).toMatchObject({ notified: expect.arrayContaining(["started"]) });
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Work started");
+  });
+
+  it("notifies blocked (English 'Blocked') when blocked label is added", async () => {
+    const body = issueUpdate(
+      { identifier: "CAM-9", title: "story", labels: [{ id: "b1", name: "blocked" }] },
+      { labelIds: [] }
+    );
+    const res = await POST(req(body));
+    expect(await res.json()).toMatchObject({ notified: expect.arrayContaining(["blocked"]) });
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Blocked");
+  });
+
+  it("[AC3] notifies released (English 'Now live') when the released label is added", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "story", labels: [{ id: "r", name: "released" }, { id: "p", name: "platform" }] },
       { labelIds: ["p"] }
@@ -88,16 +117,20 @@ describe("linear-webhook", () => {
     const res = await POST(req(body));
     expect(await res.json()).toMatchObject({ notified: expect.arrayContaining(["released"]) });
     expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Now live");
   });
 
-  it("[AC4] notifies handoff with the human role label when a role:* label is added", async () => {
+  it("[AC4] notifies handoff (English 'Handed over to Backend') when a role:* label is added", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "story", labels: [{ id: "rb", name: "role:backend-engineer" }] },
       { labelIds: [] }
     );
     const res = await POST(req(body));
     expect((await res.json()).notified).toContain("role:backend-engineer");
-    expect(tg.mock.calls[0][0]).toContain("Backend");
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Backend");
+    expect(text).toContain("Handed over to");
   });
 
   it("does not re-notify for a label that was already present", async () => {
@@ -120,13 +153,40 @@ describe("linear-webhook", () => {
     expect(tg).not.toHaveBeenCalled();
   });
 
-  it("keeps the gate-approval dispatch path (awaiting-you removed) without notifying", async () => {
+  it("approved notification fires (English 'Approved') + gate-approval dispatch when awaiting-you is removed", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "Gate G3 · ship", labels: [] },
       { labelIds: ["aw"] }
     );
     const res = await POST(req(body));
-    expect(await res.json()).toMatchObject({ approved: true, dispatched: false });
+    const json = await res.json();
+    expect(json).toMatchObject({ approved: true, dispatched: false });
+    // Approved notification should have fired
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Approved");
+  });
+
+  it("created (default off) does NOT send Telegram even on Issue/create", async () => {
+    const res = await POST(req({ type: "Issue", action: "create", data: { identifier: "CAM-9" } }));
+    expect(await res.json()).toMatchObject({ ignored: "Issue/create" });
     expect(tg).not.toHaveBeenCalled();
+  });
+
+  it("no emoji in any Telegram message text", async () => {
+    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
+    const events = [
+      issueUpdate(
+        { identifier: "CAM-9", title: "Gate G3 · ship", url: "https://linear.app/x", labels: [{ id: "l1", name: "awaiting-you" }] },
+        { labelIds: [] }
+      ),
+    ];
+    for (const body of events) {
+      vi.clearAllMocks();
+      await POST(req(body));
+      for (const [text] of tg.mock.calls) {
+        expect(EMOJI_RE.test(text as string), `emoji found in message: ${text}`).toBe(false);
+      }
+    }
   });
 });
