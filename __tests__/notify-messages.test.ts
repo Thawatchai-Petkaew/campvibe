@@ -390,3 +390,116 @@ describe("[role] tag stripping in description", () => {
     expect(msg!.text).toContain("Gate G3");
   });
 });
+
+// ── CAM-145: regression + reverify ──────────────────────────────────────────────────────────────
+
+describe("NOTIFY_EVENTS — regression and reverify defaults", () => {
+  it("regression is true (default on)", () => {
+    expect(NOTIFY_EVENTS.regression).toBe(true);
+  });
+  it("reverify is true (default on)", () => {
+    expect(NOTIFY_EVENTS.reverify).toBe(true);
+  });
+});
+
+describe("buildEventMessage — regression", () => {
+  const rCtx = { ...BASE_CTX, role: "frontend-engineer", fromRole: "qa-engineer", round: 2 };
+
+  it("returns correct English header with from/to role labels and round number", () => {
+    const msg = buildEventMessage("regression", rCtx);
+    expect(msg).not.toBeNull();
+    expect(msg!.text).toContain("Sent back from QA to Frontend (round 2)");
+  });
+
+  it("includes the issue ID", () => {
+    const msg = buildEventMessage("regression", rCtx);
+    expect(msg!.text).toContain("CAM-9");
+  });
+
+  it("includes the description (stripped title)", () => {
+    const msg = buildEventMessage("regression", rCtx);
+    expect(msg!.text).toContain("Some story title");
+  });
+
+  it("has More Detail and Live Status buttons", () => {
+    const msg = buildEventMessage("regression", rCtx);
+    const labels = allButtonLabels(msg!.buttons);
+    expect(labels).toContain("More Detail");
+    expect(labels).toContain("Live Status");
+  });
+
+  it("omits More Detail when url is absent", () => {
+    const msg = buildEventMessage("regression", { id: "CAM-9", role: "frontend-engineer", fromRole: "qa-engineer", round: 1 });
+    const labels = allButtonLabels(msg!.buttons);
+    expect(labels).not.toContain("More Detail");
+    expect(labels).toContain("Live Status");
+  });
+
+  it("no emoji in text or button labels", () => {
+    const msg = buildEventMessage("regression", rCtx);
+    assertNoEmoji(msg!.text, "text");
+    allButtonLabels(msg!.buttons).forEach((l) => assertNoEmoji(l, "button label"));
+  });
+
+  it("uses round 0 when round is omitted", () => {
+    const msg = buildEventMessage("regression", { ...BASE_CTX, role: "frontend-engineer", fromRole: "qa-engineer" });
+    expect(msg!.text).toContain("(round 0)");
+  });
+
+  it("falls back to raw slug for unknown fromRole", () => {
+    const msg = buildEventMessage("regression", { ...BASE_CTX, role: "frontend-engineer", fromRole: "mystery-role", round: 1 });
+    expect(msg!.text).toContain("mystery-role");
+  });
+
+  it("returns null when regression is toggled off", () => {
+    const saved = NOTIFY_EVENTS.regression;
+    (NOTIFY_EVENTS as Record<string, boolean>).regression = false;
+    expect(buildEventMessage("regression", rCtx)).toBeNull();
+    (NOTIFY_EVENTS as Record<string, boolean>).regression = saved;
+  });
+});
+
+describe("buildEventMessage — reverify", () => {
+  const rvCtx = { ...BASE_CTX, role: "qa-engineer", round: 1 };
+
+  it("returns correct English header with role label and round number", () => {
+    const msg = buildEventMessage("reverify", rvCtx);
+    expect(msg).not.toBeNull();
+    expect(msg!.text).toContain("Back to QA for re-review (round 1)");
+  });
+
+  it("includes the issue ID", () => {
+    const msg = buildEventMessage("reverify", rvCtx);
+    expect(msg!.text).toContain("CAM-9");
+  });
+
+  it("includes the description (stripped title)", () => {
+    const msg = buildEventMessage("reverify", rvCtx);
+    expect(msg!.text).toContain("Some story title");
+  });
+
+  it("has More Detail and Live Status buttons", () => {
+    const msg = buildEventMessage("reverify", rvCtx);
+    const labels = allButtonLabels(msg!.buttons);
+    expect(labels).toContain("More Detail");
+    expect(labels).toContain("Live Status");
+  });
+
+  it("no emoji in text or button labels", () => {
+    const msg = buildEventMessage("reverify", rvCtx);
+    assertNoEmoji(msg!.text, "text");
+    allButtonLabels(msg!.buttons).forEach((l) => assertNoEmoji(l, "button label"));
+  });
+
+  it("uses round 0 when round is omitted", () => {
+    const msg = buildEventMessage("reverify", { ...BASE_CTX, role: "qa-engineer" });
+    expect(msg!.text).toContain("(round 0)");
+  });
+
+  it("returns null when reverify is toggled off", () => {
+    const saved = NOTIFY_EVENTS.reverify;
+    (NOTIFY_EVENTS as Record<string, boolean>).reverify = false;
+    expect(buildEventMessage("reverify", rvCtx)).toBeNull();
+    (NOTIFY_EVENTS as Record<string, boolean>).reverify = saved;
+  });
+});

@@ -392,6 +392,43 @@ async function cmdHandoff(id, args) {
   const labelId = await ensureLabel(team, labelName);
   const current = new Set(issue.labels.nodes.map((l) => l.id));
   current.add(labelId);
+
+  // -- Regression label bump (keep in sync with lib/status-derive.ts ROLE_STAGE) --
+  // Inline stage rank for this .mjs script (mirrors ROLE_STAGE in status-derive.ts).
+  const STAGES_MJS = ["Design", "Gate", "Build", "Verify", "Ship"];
+  const ROLE_STAGE_MJS = {
+    architect: "Design",
+    "ux-designer": "Design",
+    human: "Gate",
+    "frontend-engineer": "Build",
+    "backend-engineer": "Build",
+    "qa-engineer": "Verify",
+    "security-reviewer": "Verify",
+    "devops-release": "Ship",
+  };
+  const stageRankMjs = (r) => {
+    const s = ROLE_STAGE_MJS[r] ?? "Design";
+    const i = STAGES_MJS.indexOf(s);
+    return i >= 0 ? i : 0;
+  };
+  const oldRole = roleOf(issue.title);
+  const extraBits = [];
+  if (oldRole && stageRankMjs(role) < stageRankMjs(oldRole)) {
+    // Backward move — find existing regression:<role>:k, remove it, add k+1.
+    const existingLabel = issue.labels.nodes.find((l) => l.name.match(new RegExp(`^regression:${role.replace(/-/g, "\\-")}:(\\d+)$`)));
+    if (existingLabel) {
+      const k = parseInt(existingLabel.name.split(":")[2], 10);
+      current.delete(existingLabel.id);
+      const nextLabelId = await ensureLabel(team, `regression:${role}:${k + 1}`);
+      current.add(nextLabelId);
+      extraBits.push(`regression:${role}:${k + 1}`);
+    } else {
+      const nextLabelId = await ensureLabel(team, `regression:${role}:1`);
+      current.add(nextLabelId);
+      extraBits.push(`regression:${role}:1`);
+    }
+  }
+
   input.labelIds = [...current];
 
   await gql(
@@ -400,7 +437,7 @@ async function cmdHandoff(id, args) {
   );
 
   const roleLabel = ROLE_LABEL[role] || role;
-  const bits = [`role→${roleLabel}`, `+[${labelName}]`, state ? `state→${state}` : ""].filter(Boolean);
+  const bits = [`role→${roleLabel}`, `+[${labelName}]`, ...extraBits.map((l) => `+[${l}]`), state ? `state→${state}` : ""].filter(Boolean);
   console.log(`✓ ${id} handoff: ${bits.join(" ")} | title: ${newTitle}`);
   // NOTE: The Telegram handoff notification is sent by the Linear webhook (app/api/linear-webhook/route.ts)
   // which detects the `role:*` label addition and calls buildEventMessage("handoff", ...).

@@ -28,6 +28,7 @@ import crypto from "node:crypto";
 import { sendTelegram } from "@/lib/notify";
 import { bumpPulse } from "@/lib/status-pulse";
 import { buildEventMessage, roleFromTitle } from "@/lib/notify-messages";
+import { stageRank, regressionRound, ROLE_STAGE } from "@/lib/status-derive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,9 +163,38 @@ export async function POST(req: Request) {
     if (addedRole) handoffRole = addedRole.slice("role:".length);
   }
   if (handoffRole) {
-    const msg = buildEventMessage("handoff", { ...ctx, role: handoffRole });
-    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
-    notified.push(`handoff:${handoffRole}`);
+    const round = regressionRound(labelNames);
+    // Classify the handoff direction using stage rank (backward = regression, forward into Verify with
+    // prior regression labels = reverify, else = normal forward handoff).
+    if (titleChanged) {
+      const oldRole = roleFromTitle(prevTitle) ?? "";
+      const newRole = handoffRole;
+      if (stageRank(newRole) < stageRank(oldRole)) {
+        // Backward move (send-back / regression)
+        const msg = buildEventMessage("regression", { ...ctx, role: newRole, fromRole: oldRole, round });
+        if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+        notified.push(`regression:${newRole}`);
+      } else if (
+        stageRank(newRole) > stageRank(oldRole) &&
+        ROLE_STAGE[newRole] === "Verify" &&
+        labelNames.some((n) => n.startsWith("regression:"))
+      ) {
+        // Forward into a Verify role after a prior regression — re-review
+        const msg = buildEventMessage("reverify", { ...ctx, role: newRole, round });
+        if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+        notified.push(`reverify:${newRole}`);
+      } else {
+        // Normal forward handoff
+        const msg = buildEventMessage("handoff", { ...ctx, role: handoffRole });
+        if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+        notified.push(`handoff:${handoffRole}`);
+      }
+    } else {
+      // Label-added fallback (title unchanged) — always treat as normal handoff
+      const msg = buildEventMessage("handoff", { ...ctx, role: handoffRole });
+      if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+      notified.push(`handoff:${handoffRole}`);
+    }
   }
 
   if (addedNames.includes("blocked")) {
