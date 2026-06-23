@@ -28,6 +28,13 @@ import { toast } from "sonner";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
+import { Badge } from "@/components/ui/badge";
+
+function bookingStatusVariant(status: string): "success" | "destructive" | "muted" {
+    if (status === "CONFIRMED") return "success";
+    if (status === "CANCELLED") return "destructive";
+    return "muted";
+}
 
 interface Booking {
     id: string;
@@ -36,6 +43,8 @@ interface Booking {
     checkOutDate: string;
     guests: number;
     totalPrice: number;
+    snapshotCampName?: string | null; // ADR-005: frozen camp name (TH) at booking time
+    snapshotCampNameEn?: string | null; // ADR-005: frozen camp name (EN) at booking time
     status: string;
     canUpdate?: boolean;
     user: {
@@ -46,13 +55,13 @@ interface Booking {
     campSite: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
         operatorId?: string;
     };
     campground?: {
         nameTh: string;
         nameEn: string;
-        images: string;
+        images: { url: string }[];
     };
 }
 
@@ -310,7 +319,7 @@ export default function BookingsPage() {
                                 size="icon"
                                 onClick={clearAllFilters}
                                 className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all shadow-sm"
-                                title="Clear all filters"
+                                title={t.dashboard.clearAllFilters}
                             >
                                 <RotateCcw className="w-4 h-4 stroke-[2.5]" />
                             </Button>
@@ -326,7 +335,7 @@ export default function BookingsPage() {
                         className="md:hidden w-full h-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground transition-all shadow-sm font-medium"
                     >
                         <RotateCcw className="w-4 h-4 mr-2 stroke-[2.5]" />
-                        Clear all filters
+                        {t.dashboard.clearAllFilters}
                     </Button>
                 )}
             </div>
@@ -334,7 +343,7 @@ export default function BookingsPage() {
             {/* Data Table */}
             <div className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full min-w-[640px] text-left text-sm">
                         <thead>
                             <tr className="bg-muted/40 border-b border-border/60">
                                 <th className="px-8 py-4 font-semibold text-muted-foreground">{t.dashboard.guest}</th>
@@ -373,7 +382,7 @@ export default function BookingsPage() {
                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200">
                                     <td className="px-8 py-5 font-medium text-foreground">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                     {booking.user.name?.[0] || booking.user.email[0].toUpperCase()}
                                                 </div>
                                                 <div>
@@ -385,7 +394,7 @@ export default function BookingsPage() {
                                         <td className="px-8 py-5 text-muted-foreground">
                                             <div className="flex items-center gap-2">
                                                 <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                                                {language === 'th' ? (booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.campSite?.nameEn || booking.campground?.nameEn)}
+                                                {language === 'th' ? (booking.snapshotCampName || booking.campSite?.nameTh || booking.campground?.nameTh) : (booking.snapshotCampNameEn || booking.campSite?.nameEn || booking.campground?.nameEn || booking.snapshotCampName)}
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-muted-foreground">
@@ -394,15 +403,12 @@ export default function BookingsPage() {
                                         </td>
                                         <td className="px-8 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-8 py-5">
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider
-                                                ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                                    : booking.status === 'CANCELLED'
-                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'}
-                                            `}>
+                                            <Badge
+                                                variant={bookingStatusVariant(booking.status)}
+                                                className="font-bold uppercase tracking-wider"
+                                            >
                                                 {booking.status}
-                                            </span>
+                                            </Badge>
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
@@ -422,7 +428,7 @@ export default function BookingsPage() {
                                                                 className="h-9 px-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
                                                                 <Check className="w-4 h-4 mr-1.5" />
-                                                                Confirm
+                                                                {t.dashboard.confirm}
                                                             </Button>
                                                         </PermissionTooltip>
                                                     )}
@@ -440,7 +446,7 @@ export default function BookingsPage() {
                                                             className="h-9 px-3 rounded-full border-border text-muted-foreground hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <X className="w-4 h-4 mr-1.5" />
-                                                            Cancel
+                                                            {t.dashboard.cancel}
                                                         </Button>
                                                     </PermissionTooltip>
                                                 </div>
@@ -457,9 +463,9 @@ export default function BookingsPage() {
                 {!loading && filteredBookings.length > 0 && (
                     <div className="px-6 py-4 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>Show</span>
-                            <Select 
-                                value={itemsPerPage.toString()} 
+                            <span>{t.dashboardBookings.show}</span>
+                            <Select
+                                value={itemsPerPage.toString()}
                                 onValueChange={(val) => {
                                     setItemsPerPage(Number(val));
                                     setCurrentPage(1);
@@ -474,14 +480,15 @@ export default function BookingsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <span>of {filteredBookings.length} entries</span>
+                            <span>{t.dashboardBookings.paginationOf} {filteredBookings.length} {t.dashboardBookings.paginationEntries}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg border-border"
+                                aria-label={t.dashboardBookings.previousPage}
+                                className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
                             >
@@ -491,9 +498,6 @@ export default function BookingsPage() {
                             {/* Page Numbers */}
                             <div className="flex items-center gap-1">
                                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    // Logic for showing pages: always show current window of pages
-                                    // Simple version: Show sliding window or just 1..5 if small
-                                    // Better version:
                                     let pageNum;
                                     if (totalPages <= 5) {
                                         pageNum = i + 1;
@@ -510,7 +514,7 @@ export default function BookingsPage() {
                                             key={pageNum}
                                             variant={currentPage === pageNum ? "default" : "outline"}
                                             size="sm"
-                                            className={`h-8 w-8 rounded-lg p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
+                                            className={`h-10 w-10 rounded-lg p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
                                             onClick={() => setCurrentPage(pageNum)}
                                         >
                                             {pageNum}
@@ -522,7 +526,8 @@ export default function BookingsPage() {
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="h-8 w-8 rounded-lg border-border"
+                                aria-label={t.dashboardBookings.nextPage}
+                                className="h-10 w-10 rounded-lg border-border"
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
                             >

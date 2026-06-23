@@ -167,11 +167,9 @@ export async function POST() {
                     nameThSlug,
                     nameEnSlug: nameThSlug + '-en',
                     description,
-                    images: localImages.join(','), // USE LOCAL PATHS
+                    images: { create: localImages.map((url: string, i: number) => ({ url, sortOrder: i })) }, // USE LOCAL PATHS
                     campSiteType: 'CAGD', // Default to basic
-                    accessTypes: 'DRIV,HIKE',
                     accommodationTypes: 'TENT,CABI',
-                    facilities: 'TOIL,SHOW,PARK',
                     latitude: location.lat!,
                     longitude: location.lon!,
                     checkInTime: '14:00',
@@ -203,6 +201,6 @@ export async function POST() {
         return NextResponse.json({ success: true, count: results.length, data: results });
     } catch (error) {
         console.error("Scraper Error:", error);
-        return NextResponse.json({ error: 'Scraping failed', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Scraping failed' }, { status: 500 });
     }
 }

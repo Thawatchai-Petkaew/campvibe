@@ -44,6 +44,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code — personal settings (not shared)
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -53,5 +56,10 @@ next-env.d.ts
 # local uploads
 /public/uploads*
 
-# utility scripts
-/scripts
+# utility scripts (local) — but track the Linear sync CLI used by CI + hooks
+/scripts/*
+!/scripts/linear-sync.mjs
+!/scripts/db-reset.mjs
+!/scripts/check-palette.mjs
+!/scripts/check-ds.mjs
+.claude/linear-snapshot.json

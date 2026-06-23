@@ -11,8 +11,8 @@ import {
     MapPin,
     Search,
     ArrowUpDown,
-    Filter
 } from "lucide-react";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
@@ -25,6 +25,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function MyCampSitesPage() {
     const { t, formatCurrency, language } = useLanguage();
@@ -33,6 +43,8 @@ export default function MyCampSitesPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("newest");
     const [permissions, setPermissions] = useState<any | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         fetch('/api/operator/dashboard')
@@ -74,26 +86,33 @@ export default function MyCampSitesPage() {
         camp.nameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
         camp.nameEn.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a, b) => {
-        if (sortBy === 'price_asc') return a.priceLow - b.priceLow;
-        if (sortBy === 'price_desc') return b.priceLow - a.priceLow;
+        if (sortBy === 'price_asc') return Number(a.priceLow) - Number(b.priceLow);
+        if (sortBy === 'price_desc') return Number(b.priceLow) - Number(a.priceLow);
         if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         // Default: newest
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    const handleDelete = async (id: string) => {
+    const openDeleteDialog = (id: string) => {
         const target = campSites.find((c) => c.id === id);
         if (target && target.canDelete === false) {
-            toast.error("You don't have permission to delete this camp site.");
+            toast.error(t.dashboard.failedToDelete);
             return;
         }
-        if (!confirm(t.dashboard.areYouSureDelete)) return;
+        setPendingDeleteId(id);
+        setDeleteDialogOpen(true);
+    };
 
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        const id = pendingDeleteId;
+        setDeleteDialogOpen(false);
+        setPendingDeleteId(null);
         try {
             const res = await fetch(`/api/campsites/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 setCampSites(prev => prev.filter(c => c.id !== id));
-                toast.success("Deleted successfully");
+                toast.success(language === 'th' ? 'ลบสำเร็จ' : 'Deleted successfully');
             } else {
                 const payload = await res.json().catch(() => null);
                 toast.error(payload?.error || t.dashboard.failedToDelete);
@@ -153,14 +172,14 @@ export default function MyCampSitesPage() {
                         <SelectTrigger className="w-full md:w-[200px] h-10 border border-border bg-background rounded-full hover:bg-muted/50 transition-colors font-medium focus:ring-0">
                             <div className="flex items-center gap-2 text-foreground/80">
                                 <ArrowUpDown className="w-4 h-4" />
-                                <SelectValue placeholder="Sort by" />
+                                <SelectValue placeholder={t.dashboard.sortBy} />
                             </div>
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl border-border shadow-xl min-w-[180px]">
-                            <SelectItem value="newest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">Newest First</SelectItem>
-                            <SelectItem value="oldest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">Oldest First</SelectItem>
-                            <SelectItem value="price_asc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">Price: Low to High</SelectItem>
-                            <SelectItem value="price_desc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">Price: High to Low</SelectItem>
+                            <SelectItem value="newest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortNewest}</SelectItem>
+                            <SelectItem value="oldest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortOldest}</SelectItem>
+                            <SelectItem value="price_asc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceLow}</SelectItem>
+                            <SelectItem value="price_desc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceHigh}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -199,10 +218,10 @@ export default function MyCampSitesPage() {
                                 <tr key={camp.id} className="hover:bg-muted/40 transition duration-200 group">
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
-                                                {camp.images ? (
-                                                    <img src={camp.images.split(',')[0]} className="w-full h-full object-cover" alt="" />
+                                                {camp.images?.length ? (
+                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" />
                                                 ) : (
-                                                    <Tent className="w-full h-full p-4 text-gray-300" />
+                                                    <Tent className="w-full h-full p-4 text-muted-foreground/40" />
                                                 )}
                                             </div>
                                         </td>
@@ -246,7 +265,8 @@ export default function MyCampSitesPage() {
                                                             variant="outline"
                                                             size="icon"
                                                             disabled={camp?.canUpdate === false}
-                                                            className="h-9 w-9 rounded-full border-gray-200 hover:text-primary hover:border-primary hover:bg-primary/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            aria-label={t.dashboard.editCampSite}
+                                                            className="h-11 w-11 rounded-full border-border hover:text-primary hover:border-primary hover:bg-primary/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </Button>
@@ -261,9 +281,10 @@ export default function MyCampSitesPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="icon"
-                                                        onClick={() => handleDelete(camp.id)}
+                                                        onClick={() => openDeleteDialog(camp.id)}
                                                         disabled={camp?.canDelete === false}
-                                                        className="h-9 w-9 rounded-full border-gray-200 hover:text-red-600 hover:border-red-600 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        aria-label={t.dashboard.deleteCampSite}
+                                                        className="h-11 w-11 rounded-full border-border hover:text-destructive hover:border-destructive hover:bg-destructive/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
@@ -277,6 +298,21 @@ export default function MyCampSitesPage() {
                     </table>
                 </div>
             </div>
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
+                        <AlertDialogDescription>{t.newCampground.confirmDeleteDesc}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t.dashboard.cancel}</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            {t.dashboard.confirm}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

@@ -88,10 +88,8 @@ export async function GET() {
                         nameEnSlug: slug + '-en',
                         description: camp.description,
                         campSiteType: camp.campgroundType,
-                        images: camp.images,
-                        accessTypes: 'DRIV',
+                        images: { create: String(camp.images || '').split(',').filter(Boolean).map((url: string, i: number) => ({ url, sortOrder: i })) },
                         accommodationTypes: 'TENT',
-                        facilities: 'TOIL,SHOW',
                         checkInTime: '14:00',
                         checkOutTime: '12:00',
                         bookingMethod: 'ONLI',
@@ -122,6 +120,6 @@ export async function GET() {
 
     } catch (error) {
         console.error(error);
-        return NextResponse.json({ error: 'Seeding failed', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Seeding failed' }, { status: 500 });
     }
 }

@@ -13,9 +13,9 @@ async function main() {
   const hostUser = await prisma.user.findFirst({
     where: { 
         OR: [
-            { role: 'HOST' },
+            { role: 'OPERATOR' },
             { role: 'ADMIN' },
-            { email: 'operator@campvibe.com' } // Fallback to specific email if known
+            { email: 'hoster@campvibe.com' } // Fallback to the seeded host account
         ]
     }
   });
@@ -58,16 +58,14 @@ async function main() {
                     priceLow: 500 + (i * 100),
                     description: 'Mock description for testing',
                     campSiteType: 'CAMPGROUND',
-                    accessTypes: 'CAR',
                     accommodationTypes: 'TENT',
-                    facilities: 'WIFI',
                     checkInTime: '14:00',
                     checkOutTime: '12:00',
-                    bookingMethod: 'ONLINE',
+                    bookingMethod: 'ONLI',
                     isVerified: true,
                     isActive: true,
                     isPublished: true,
-                    images: '/mockup/campgrounds/1.jpg', // Default mock image
+                    images: { create: [{ url: '/mockup/campgrounds/1.jpg', sortOrder: 0 }] }, // Default mock image
                     latitude: 18.7883,
                     longitude: 98.9853
                 }
@@ -82,8 +80,8 @@ async function main() {
 
   // 3. Get all Users (assume 'USER' role are guests) - excluding the host
   const users = await prisma.user.findMany({
-    where: { 
-        role: 'USER',
+    where: {
+        role: 'CAMPER',
         NOT: { id: hostUser.id }
     }
   });
@@ -97,7 +95,7 @@ async function main() {
           data: {
             email: `mockuser_new_${i + 1}@example.com`,
             name: `Mock User ${i + 1}`,
-            role: 'USER',
+            role: 'CAMPER',
             password: 'password123' 
           }
         })
@@ -107,7 +105,7 @@ async function main() {
   }
 
   // 4. Create 20 Mock Bookings for this Host
-  const statuses = ['PENDING', 'CONFIRMED', 'CANCELLED'];
+  const statuses = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const;
   
   for (let i = 0; i < 20; i++) {
     const randomUser = users[Math.floor(Math.random() * users.length)];
@@ -121,7 +119,9 @@ async function main() {
     checkOut.setDate(checkOut.getDate() + Math.floor(Math.random() * 5) + 1); // 1-5 nights
 
     const guests = Math.floor(Math.random() * 4) + 1;
-    const totalPrice = (randomCampSite.priceLow || 500) * guests * ((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+    const unitPrice = Number(randomCampSite.priceLow ?? 500);
+    const totalPrice = unitPrice * nights; // mirror API price math (no guests multiplier) so unit*nights === total
 
     await prisma.booking.create({
       data: {
@@ -131,7 +131,22 @@ async function main() {
         checkOutDate: checkOut,
         guests: guests,
         totalPrice: totalPrice,
+        currency: 'THB',
         status: randomStatus,
+        // ADR-005 crystallized snapshot (mock data mirrors the API create path)
+        snapshotCampName: randomCampSite.nameTh,
+        snapshotCampNameEn: randomCampSite.nameEn,
+        snapshotUnitAmount: unitPrice,
+        snapshotSubtotalAmount: totalPrice,
+        snapshotTaxRate: 0,
+        snapshotTaxAmount: 0,
+        snapshotVatInclusive: false,
+        snapshotTotalAmount: totalPrice,
+        snapshotCurrency: 'THB',
+        snapshotNights: nights,
+        snapshotCheckInTime: randomCampSite.checkInTime,
+        snapshotCheckOutTime: randomCampSite.checkOutTime,
+        snapshotTimezone: 'Asia/Bangkok',
         createdAt: new Date(new Date().getTime() - Math.floor(Math.random() * 1000000000)) // Random past created date
       }
     });

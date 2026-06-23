@@ -7,8 +7,8 @@ import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { InputField } from '@/components/ui/input-field';
+import { Card } from '@/components/ui/card';
 import { Mail, Lock } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -24,8 +24,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [hasSubmitted, setHasSubmitted] = useState(false);
 
-    const inputHeight = "!h-12";
-    
     // Check if error is invalid credentials (server error after submit)
     const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
                                  errorMessage?.toLowerCase().includes('credentials') ||
@@ -53,7 +51,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-card rounded-[24px] shadow-2xl p-8 space-y-6">
+                <Card className="p-8 shadow-2xl space-y-6">
                     {/* Header */}
                     <div className="text-center">
                         <h2 className="text-2xl font-bold text-foreground">
@@ -98,7 +96,8 @@ export default function LoginPage() {
                             required
                             error={emailValidationError}
                             leftIcon={<Mail className="w-4 h-4" />}
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Password */}
@@ -111,14 +110,16 @@ export default function LoginPage() {
                             required
                             leftIcon={<Lock className="w-4 h-4" />}
                             containerClassName="mb-8"
-                            className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                            inputSize="lg"
+                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                         />
 
                         {/* Submit Button */}
                         <Button
                             type="submit"
+                            size="lg"
                             disabled={isPending}
-                            className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all text-lg"
                         >
                             {isPending ? t.auth.signingIn : t.auth.login}
                         </Button>
@@ -133,7 +134,7 @@ export default function LoginPage() {
                             </Link>
                         </p>
                     </div>
-                </div>
+                </Card>
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">

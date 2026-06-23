@@ -1,17 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
+import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
+import { wishlistAPI } from "@/lib/api-client";
+import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid } from "lucide-react";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
 
@@ -20,11 +25,28 @@ const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     loading: () => <div className="w-full h-full bg-muted animate-pulse rounded-xl" />
 });
 
-export default function CampgroundDetailClient({ campground, isOwner = false }: { campground: any, isOwner?: boolean }) {
+export default function CampgroundDetailClient({
+    campground,
+    isOwner = false,
+    initialSaved = false,
+    isLoggedIn = false,
+}: {
+    campground: any;
+    isOwner?: boolean;
+    /** Server-resolved initial wishlist state (AC-2, BR-3). */
+    initialSaved?: boolean;
+    /** True when there is an active user session (AC-4, BR-2). */
+    isLoggedIn?: boolean;
+}) {
     const { t, formatCurrency, language } = useLanguage();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
+
+    // Wishlist toggle state — AC-1, AC-2, AC-3, AC-4, AC-5, BR-1..5.
+    const [saved, setSaved] = useState(!!initialSaved);
+    const [isWishlistLoading, setIsWishlistLoading] = useState(false);
+    const [loginOpen, setLoginOpen] = useState(false);
 
     // Changed to Date objects
     const [checkIn, setCheckIn] = useState<Date>();
@@ -32,6 +54,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const [guests, setGuests] = useState(1);
     const [isReserving, setIsReserving] = useState(false);
+    const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
     const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -42,10 +65,17 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
         : 0;
 
     const displayNights = nights > 0 ? nights : 0;
-    const basePrice = (campground.priceLow || 50) * (displayNights || 1);
-    const cleaningFee = 20;
-    const serviceFee = 35;
-    const totalPrice = basePrice + cleaningFee + serviceFee;
+    // CAM-58: use the shared pricing module so displayed total matches what the API records.
+    // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
+    const unitPrice = resolveUnitPrice({
+        campSitePriceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
+        spotPricePerNight: null,
+    });
+    const { totalAmount, subtotalAmount } = computeBookingPrice({
+        unitPrice,
+        nights: displayNights || 1,
+        vatRate: 0,
+    });
 
     // Fetch availability data
     useEffect(() => {
@@ -119,6 +149,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
     const handleReserve = async () => {
         if (!checkIn || !checkOut) {
+            setHasAttemptedReserve(true);
             import("sonner").then(({ toast }) => toast.error(t.newCampground.pleaseSelectDates));
             return;
         }
@@ -155,17 +186,73 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
         }
     };
 
+    // AC-1/AC-3/AC-4/AC-5, BR-1/BR-2/BR-4/BR-5 — optimistic toggle with rollback.
+    // Decision logic lives in lib/wishlist-toggle.ts (runWishlistToggle); React
+    // state / sonner wiring stays here.
+    const handleWishlistToggle = useCallback(async () => {
+        setIsWishlistLoading(true);
+
+        const result = await runWishlistToggle({
+            isLoggedIn,
+            savedBefore: saved,
+            isLoading: isWishlistLoading,
+            campSiteId: campground.id,
+            api: wishlistAPI,
+            strings: {
+                toastSaved: t.wishlist.toastSaved,
+                toastRemoved: t.wishlist.toastRemoved,
+                toastErrorSave: t.wishlist.toastErrorSave,
+                toastErrorRemove: t.wishlist.toastErrorRemove,
+            },
+        });
+
+        // Apply the outcomes to React state.
+        setSaved(result.saved);
+        if (result.loginModalOpened) setLoginOpen(true);
+
+        if (result.toastKey) {
+            const { toast } = await import("sonner");
+            const isError = result.toastKey === t.wishlist.toastErrorSave
+                || result.toastKey === t.wishlist.toastErrorRemove;
+            if (isError) {
+                toast.error(result.toastKey);
+            } else {
+                toast.success(result.toastKey);
+            }
+        }
+
+        setIsWishlistLoading(false);
+    }, [isLoggedIn, isWishlistLoading, saved, campground.id, t]);
+
+    // BR-5: dynamic aria-label per state.
+    const wishlistAriaLabel = isWishlistLoading
+        ? t.wishlist.heartAriaLabelLoading
+        : saved
+            ? t.wishlist.heartAriaLabelRemove
+            : t.wishlist.heartAriaLabelSave;
+
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
+    // S4a: taxonomy now lives in the `options` MasterData relation; derive per-group code lists.
+    const _options: { code: string; group: string }[] = campground.options || [];
+    const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
+    const accessCodes = codesByGroup('Access type');
+    const terrainCodes = codesByGroup('Terrain');
+    const facilityCodes = codesByGroup('Internal facility');
+    const externalCodes = codesByGroup('External facility');
+    const equipmentCodes = codesByGroup('Equipment for rent');
+
     // Parse images from CSV
-    const images = campground.images
-        ? campground.images.split(',')
+    const images: string[] = campground.images?.length
+        ? campground.images.map((img: { url: string }) => img.url)
         : ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200"];
 
     const displayImages = images.slice(0, 5);
 
     const openGallery = (index: number = 0) => {
-        setGalleryStartIndex(index);
+        if (images.length === 0) return;
+        const safe = Math.min(Math.max(index, 0), images.length - 1);
+        setGalleryStartIndex(safe);
         setIsGalleryOpen(true);
     };
 
@@ -266,7 +353,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground underline cursor-pointer">
                             <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 fill-black text-black" />
+                                <Star className="w-4 h-4 fill-foreground text-foreground" />
                                 <span className="font-semibold text-foreground">4.8</span>
                                 <span>(12 {t.common.reviews})</span>
                             </div>
@@ -276,94 +363,242 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
                         {isOwner && (
-                            <Button asChild variant="default" className="gap-2 rounded-full h-12 px-6">
+                            <Button asChild variant="default" size="lg" className="gap-2 px-6">
                                 <Link href={`/dashboard/campsites/${campground.id}/edit`}>
                                     <Edit className="w-4 h-4" /> <span>{t.newCampground.editCampground}</span>
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
+                        <Button variant="ghost" className="gap-2 px-4 hover:bg-muted font-medium underline">
                             <Share className="w-4 h-4" /> <span>{t.common.share}</span>
                         </Button>
-                        <Button variant="ghost" className="gap-2 rounded-full h-12 px-4 hover:bg-muted font-medium underline">
-                            <Heart className="w-4 h-4" /> <span>{t.common.save}</span>
+                        {/* AC-1..5, BR-1..5: wishlist toggle — mirrors CampgroundCard pattern. */}
+                        <Button
+                            data-testid="btn--wishlist-detail-toggle"
+                            variant="ghost"
+                            aria-pressed={saved}
+                            aria-label={wishlistAriaLabel}
+                            disabled={isWishlistLoading}
+                            onClick={handleWishlistToggle}
+                            className="gap-2 px-4 hover:bg-muted font-medium underline"
+                        >
+                            <Heart
+                                className={cn("w-4 h-4", saved && "fill-current text-primary")}
+                                aria-hidden="true"
+                            />
+                            <span>{saved ? t.wishlist.savedLabel : t.common.save}</span>
                         </Button>
                     </div>
                 </div>
 
                 {/* Hero Grid - Responsive Layout */}
-                <div className="relative rounded-[24px] overflow-hidden mb-10 group">
+                <div className="relative rounded-3xl overflow-hidden mb-10 group">
                     {/* Mobile View: Single Hero Image */}
                     <div className="md:hidden h-[300px] w-full relative">
-                        <img
+                        <ImageWithFallback
                             src={images[0]}
-                            alt="hero-mobile"
-                            className="w-full h-full object-cover cursor-pointer"
+                            alt={name}
+                            className="w-full h-full cursor-pointer"
+                            imgClassName="object-cover"
                             onClick={() => openGallery(0)}
                         />
-                        <div className="absolute top-4 right-4 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
-                            1 / {images.length}
+                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+                            {t.gallery.imageOf.replace("{n}", "1").replace("{total}", String(images.length))}
                         </div>
-                            <Button
-                                variant="secondary"
-                                onClick={() => openGallery(0)}
-                                className="absolute bottom-4 right-4 h-8 text-xs font-bold rounded-full border border-border shadow-sm bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
+                        <Button
+                            variant="secondary"
+                            onClick={() => openGallery(0)}
+                            className="absolute bottom-4 right-4 h-11 text-xs font-bold rounded-full border border-border shadow-sm bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
                         >
-                            {t.newCampground.allPhotos}
+                            {t.gallery.openGallery}
                         </Button>
                     </div>
 
-                    {/* Desktop View: Airbnb Style Grid */}
-                    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
-                        <div className="col-span-2 row-span-2 relative">
-                            <img
-                                src={images[0]}
-                                alt="main"
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
+                    {/* Desktop View: Adaptive Grid (1/2/3/4/5+) */}
+                    {images.length === 1 && (
+                        <div className="hidden md:block h-[480px]">
+                            <button
+                                type="button"
+                                className="w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
                                 onClick={() => openGallery(0)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[1]}
-                                alt="sub 1"
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(1)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[2]}
-                                alt="sub 2"
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(2)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[3]}
-                                alt="sub 3"
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(3)}
-                            />
-                        </div>
-                        <div className="col-span-1 row-span-1 relative">
-                            <img
-                                src={images[4]}
-                                alt="sub 4"
-                                className="w-full h-full object-cover hover:brightness-95 transition cursor-pointer"
-                                onClick={() => openGallery(4)}
-                            />
-                            <Button
-                                variant="secondary"
-                                onClick={() => openGallery(0)}
-                                className="absolute bottom-4 right-4 gap-2 text-sm font-semibold rounded-full border border-border shadow-sm transition h-9 bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" aria-hidden="true" role="presentation" focusable="false" style={{ display: 'block', height: '12px', width: '12px', fill: 'currentcolor' }}><path d="M3 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3zm0 2h10v3H3V3zm0 5h10v6H3V8z"></path></svg>
-                                {t.newCampground.showAllPhotos}
-                            </Button>
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
                         </div>
-                    </div>
+                    )}
+                    {images.length === 2 && (
+                        <div className="hidden md:grid grid-cols-2 gap-2 h-[480px]">
+                            {images.slice(0, 2).map((src, i) => (
+                                <button
+                                    key={i}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 1))}
+                                    onClick={() => openGallery(i)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt={i === 0 ? name : ""}
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {images.length === 3 && (
+                        <div className="hidden md:grid grid-cols-3 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            {images.slice(1, 3).map((src, i) => (
+                                <button
+                                    key={i + 1}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 2))}
+                                    onClick={() => openGallery(i + 1)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt=""
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {images.length === 4 && (
+                        <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 row-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "2")}
+                                onClick={() => openGallery(1)}
+                            >
+                                <ImageWithFallback
+                                    src={images[1]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "3")}
+                                onClick={() => openGallery(2)}
+                            >
+                                <ImageWithFallback
+                                    src={images[2]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            <button
+                                type="button"
+                                className="col-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "4")}
+                                onClick={() => openGallery(3)}
+                            >
+                                <ImageWithFallback
+                                    src={images[3]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                        </div>
+                    )}
+                    {images.length >= 5 && (
+                        <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                            <button
+                                type="button"
+                                className="col-span-2 row-span-2 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "1")}
+                                onClick={() => openGallery(0)}
+                            >
+                                <ImageWithFallback
+                                    src={images[0]}
+                                    alt={name}
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                            </button>
+                            {images.slice(1, 4).map((src, i) => (
+                                <button
+                                    key={i + 1}
+                                    type="button"
+                                    className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t.gallery.viewImage.replace("{n}", String(i + 2))}
+                                    onClick={() => openGallery(i + 1)}
+                                >
+                                    <ImageWithFallback
+                                        src={src}
+                                        alt=""
+                                        className="w-full h-full"
+                                        imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    />
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={t.gallery.viewImage.replace("{n}", "5")}
+                                onClick={() => openGallery(4)}
+                            >
+                                <ImageWithFallback
+                                    src={images[4]}
+                                    alt=""
+                                    className="w-full h-full"
+                                    imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                />
+                                {images.length > 5 && (
+                                    <div className="absolute bottom-4 right-4">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={(e) => { e.stopPropagation(); openGallery(0); }}
+                                            className="gap-2 text-sm font-semibold rounded-full border border-border shadow-sm transition h-11 bg-background/90 text-foreground hover:bg-background backdrop-blur-md"
+                                        >
+                                            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+                                            {t.newCampground.showAllPhotos}
+                                        </Button>
+                                    </div>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Content Layout */}
@@ -405,11 +640,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         </div>
 
                         {/* 2. Access */}
-                        {campground.accessTypes && (
+                        {accessCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.access}</h2>
                                 <div className="space-y-6">
-                                    {campground.accessTypes.split(',').map((access: string) => (
+                                    {accessCodes.map((access: string) => (
                                         <div key={access} className="flex items-start gap-5">
                                             <div className="mt-1">
                                                 {getIcon(access)}
@@ -429,11 +664,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         )}
 
                         {/* 3. Site Types */}
-                        {campground.terrain && (
+                        {terrainCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {campground.terrain.split(',').map((terrain: string) => (
+                                    {terrainCodes.map((terrain: string) => (
                                         <div key={terrain} className="flex flex-col items-start gap-3">
                                             {getIcon(terrain)}
                                             <span className="font-medium text-foreground capitalize text-base">
@@ -454,7 +689,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <div>
                                     <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.internalFacilities}</h3>
                                     <div className="grid grid-cols-1 gap-y-5">
-                                        {(campground.facilities ? campground.facilities.split(',') : []).slice(0, 8).map((facility: string) => (
+                                        {facilityCodes.slice(0, 8).map((facility: string) => (
                                             <div key={facility} className="flex items-center gap-4">
                                                 {getIcon(facility)}
                                                 <span className="font-normal text-base capitalize text-foreground/80">
@@ -466,11 +701,11 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 </div>
 
                                 {/* External */}
-                                {campground.externalFacilities && (
+                                {externalCodes.length > 0 && (
                                     <div>
                                         <h3 className="text-xs font-bold text-muted-foreground mb-5 uppercase tracking-widest">{t.campground.externalFacilities}</h3>
                                         <div className="grid grid-cols-1 gap-y-5">
-                                            {campground.externalFacilities.split(',').slice(0, 6).map((facility: string) => (
+                                            {externalCodes.slice(0, 6).map((facility: string) => (
                                                 <div key={facility} className="flex items-center gap-4">
                                                     {getIcon(facility)}
                                                     <span className="font-normal text-base capitalize text-foreground/80">
@@ -483,23 +718,23 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 )}
                             </div>
 
-                            {(campground.facilities?.split(',').length || 0) > 8 && (
+                            {facilityCodes.length > 8 && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setIsAmenitiesOpen(true)}
-                                    className="mt-8 rounded-lg px-8 h-12 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
+                                    className="mt-8 px-8 font-bold border-2 border-border hover:border-foreground hover:bg-muted transition text-foreground"
                                 >
-                                    {t.common.showAll} {campground.facilities?.split(',').length} {t.common.amenities}
+                                    {t.common.showAll} {facilityCodes.length} {t.common.amenities}
                                 </Button>
                             )}
                         </div>
 
                         {/* 5. Equipment for Rent */}
-                        {campground.equipment && (
+                        {equipmentCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.equipmentRent}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
-                                    {campground.equipment.split(',').map((item: string) => (
+                                    {equipmentCodes.map((item: string) => (
                                         <div key={item} className="flex items-center gap-4">
                                             {getIcon(item)}
                                             <span className="font-normal text-base capitalize text-foreground/80">
@@ -515,14 +750,14 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                     {/* Right Column: Booking Widget */}
                     <div className="md:col-span-1 relative">
-                        <div className="sticky top-28 border border-border rounded-[24px] p-6 shadow-xl shadow-muted bg-card">
+                        <div className="sticky top-28 border border-border rounded-3xl p-6 shadow-lg shadow-foreground/5 bg-card">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
                                     <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
                                     <span className="text-muted-foreground">{t.common.night}</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-sm">
-                                    <Star className="w-3.5 h-3.5 fill-black" />
+                                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
                                     <span className="font-semibold">4.8</span>
                                     <span className="text-muted-foreground/60">·</span>
                                     <span className="text-muted-foreground underline">12 {t.common.reviews}</span>
@@ -591,15 +826,15 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                                 <div className="p-3">
                                     <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
                                     <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
-                                        <SelectTrigger className="h-10 border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0 w-full">
+                                        <SelectTrigger className="w-full border border-border hover:border-foreground transition">
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl border-none shadow-2xl">
+                                        <SelectContent className="shadow-2xl">
                                             {[1, 2, 3, 4, 5, 6].map(num => (
-                                                <SelectItem key={num} value={num.toString()} className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5">
+                                                <SelectItem key={num} value={num.toString()} className="cursor-pointer">
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
                                             ))}
@@ -610,32 +845,37 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
 
                             <Button
                                 onClick={handleReserve}
+                                size="lg"
                                 disabled={isReserving}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-12 rounded-full transition mb-4 text-lg"
+                                aria-busy={isReserving}
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
                             >
-                                {isReserving ? "Reserving..." : t.common.reserve}
+                                {isReserving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        {t.newCampground.reserving}
+                                    </>
+                                ) : t.common.reserve}
                             </Button>
+
+                            {hasAttemptedReserve && (!checkIn || !checkOut) && (
+                                <p className="text-destructive text-xs text-center mb-2">
+                                    {t.booking.selectDatesFirst}
+                                </p>
+                            )}
 
                             <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
 
                             <div className="space-y-3 text-sm text-muted-foreground">
-                                <div className="flex justify-between">
-                                    <span className="underline">{formatCurrency(campground.priceLow || 50)} x {displayNights} {t.booking.nights}</span>
-                                    <span>{formatCurrency(basePrice)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="underline">{t.booking.cleaningFee}</span>
-                                    <span>{formatCurrency(cleaningFee)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="underline">{t.booking.serviceFee}</span>
-                                    <span>{formatCurrency(serviceFee)}</span>
+                                <div className="flex justify-between" data-testid="row--booking-room-subtotal">
+                                    <span className="underline">{formatCurrency(unitPrice)} x {displayNights} {t.booking.nights}</span>
+                                    <span>{formatCurrency(subtotalAmount)}</span>
                                 </div>
                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground">
-                                <span>{t.booking.totalBeforeTaxes}</span>
-                                <span>{formatCurrency(totalPrice)}</span>
+                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
+                                <span>{t.booking.total}</span>
+                                <span>{formatCurrency(totalAmount)}</span>
                             </div>
 
 
@@ -694,7 +934,7 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
                         <h2 className="text-xl font-bold font-display">{t.campground.whereYouBe}</h2>
                         <Button
                             variant="outline"
-                            className="gap-2 h-10 px-4 rounded-lg font-medium hover:bg-muted text-muted-foreground border-border"
+                            className="gap-2 px-4 font-medium hover:bg-muted text-muted-foreground border-border"
                             onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${campground.latitude},${campground.longitude}`, '_blank')}
                         >
                             <MapPin className="w-4 h-4" />
@@ -735,7 +975,14 @@ export default function CampgroundDetailClient({ campground, isOwner = false }: 
             <AmenitiesModal
                 isOpen={isAmenitiesOpen}
                 onClose={() => setIsAmenitiesOpen(false)}
-                facilities={campground.facilities ? campground.facilities.split(',') : []}
+                facilities={facilityCodes}
+            />
+
+            {/* AC-4, BR-2: LoginModal for guest wishlist tap. */}
+            <LoginModal
+                isOpen={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                subtitle={t.wishlist.loginPromptGuest}
             />
         </>
     );

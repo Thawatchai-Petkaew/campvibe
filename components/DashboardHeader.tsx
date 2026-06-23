@@ -75,8 +75,8 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56 rounded-xl border-none shadow-2xl mt-2 p-2">
-                        <DropdownMenuLabel className="font-bold px-3 py-2">
+                    <DropdownMenuContent align="start" className="w-56 mt-2">
+                        <DropdownMenuLabel className="px-3 py-2">
                             {user.name || "User"}
                         </DropdownMenuLabel>
                         <div className="px-3 py-1 text-xs text-muted-foreground">
@@ -88,12 +88,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             </Badge>
                         </div>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                             <Link href="/profile">My Profile</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => handleSignOut()}
-                            className="rounded-lg cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
                             Sign out
                         </DropdownMenuItem>

@@ -112,22 +112,23 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                 <PopoverTrigger asChild>
                     <Button
                         variant="outline"
+                        size="lg"
                         role="combobox"
                         aria-expanded={open}
-                        className="w-full justify-between h-12 px-4 rounded-full border-border hover:border-primary/50 text-left font-normal"
+                        className="w-full justify-between px-4 rounded-full border-border hover:border-primary/50 text-left font-normal"
                     >
                         <div className="flex items-center gap-2 overflow-hidden">
                             <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                             <span className="truncate">
                                 {selectedLocation
                                     ? getDisplayName(selectedLocation)
-                                    : language === 'th' ? 'ค้นหาสถานที่ (จังหวัด, อำเภอ)' : 'Search location (Province, District)'}
+                                    : language === 'th' ? t.locationPicker.searchPlaceholderTh : t.locationPicker.searchPlaceholder}
                             </span>
                         </div>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 rounded-2xl overflow-hidden shadow-xl border-border bg-card" align="start">
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 overflow-hidden shadow-xl border-border bg-card" align="start">
                     <Command shouldFilter={false}>
                         <div className="flex items-center border-b px-3">
                             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -140,7 +141,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                         </div>
                         <CommandList className="max-h-[300px]">
                             <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-                                {loading ? '...' : language === 'th' ? 'ไม่พบข้อมูล' : 'No location found.'}
+                                {loading ? '...' : t.locationPicker.noResults}
                             </CommandEmpty>
                             <CommandGroup>
                                 {locations.map((loc) => (
@@ -148,7 +149,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                         key={loc.id}
                                         value={loc.id}
                                         onSelect={() => handleSelect(loc)}
-                                        className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-muted transition-colors"
+                                        className="px-4 flex items-center gap-3 cursor-pointer hover:bg-accent/15 transition-colors"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0">
                                             <MapPin className="h-4 w-4 text-primary" />
@@ -159,7 +160,7 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                                     <span className="font-semibold text-foreground text-sm">
                                                         {language === 'th' ? loc.districtName : loc.districtNameEn}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground">
+                                                    <span className="text-xs text-foreground/70">
                                                         {language === 'th' ? loc.provinceName : loc.provinceNameEn}
                                                     </span>
                                                 </>
@@ -168,8 +169,8 @@ export function LocationPicker({ onSelect, initialLocationId, className }: Locat
                                                     <span className="font-semibold text-foreground text-sm">
                                                         {language === 'th' ? loc.provinceName : loc.provinceNameEn}
                                                     </span>
-                                                    <span className="text-xs text-muted-foreground italic">
-                                                        {language === 'th' ? 'ทั้งจังหวัด' : 'Whole Province'}
+                                                    <span className="text-xs text-foreground/70 italic">
+                                                        {t.locationPicker.wholeProvince}
                                                     </span>
                                                 </>
                                             )}

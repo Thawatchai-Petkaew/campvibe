@@ -15,7 +15,7 @@ interface MapComponentProps {
 }
 
 export default function MapComponent({ latitude, longitude, campground }: MapComponentProps) {
-    const { t } = useLanguage();
+    const { t, formatCurrency, language } = useLanguage();
     const [isHovered, setIsHovered] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -25,12 +25,12 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
 
     if (!mounted || typeof window === 'undefined') return null;
 
-    // Custom Pin Icon using primary color (Safe to create here because we checked for window)
+    // Custom Pin Icon using CSS custom properties (Safe to create here because we checked for window)
     const PrimaryIcon = L.divIcon({
         html: `
             <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#0d9488"/>
-                <circle cx="16" cy="16" r="6" fill="white"/>
+                <path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="var(--primary)"/>
+                <circle cx="16" cy="16" r="6" fill="var(--primary-foreground)"/>
             </svg>
         `,
         className: "",
@@ -38,7 +38,7 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
         iconAnchor: [16, 42],
         popupAnchor: [0, -46], // 0.25rem (4px) gap above the pin
     });
-    const images = campground.images ? campground.images.split(',') : [];
+    const images = (campground.images ?? []).map((img: { url: string }) => img.url);
     const coverImage = images[0] || "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=400";
 
     return (
@@ -74,6 +74,11 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                                 src={coverImage}
                                 alt={campground.nameTh}
                                 className="w-full h-32 object-cover"
+                                onError={(e) => {
+                                    const el = e.currentTarget;
+                                    el.style.display = 'none';
+                                    if (el.parentElement) el.parentElement.style.background = 'var(--muted)';
+                                }}
                             />
                             <div className="p-3">
                                 <h3 className="font-bold text-foreground leading-tight mb-1 truncate">
@@ -85,7 +90,7 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                                     <span className="text-muted-foreground">· {campground.location.province}</span>
                                 </div>
                                 <div className="text-sm">
-                                    <span className="font-bold">${campground.priceLow}</span>
+                                    <span className="font-bold">{formatCurrency(campground.priceLow)}</span>
                                     <span className="text-muted-foreground"> / {t.common.night}</span>
                                 </div>
                             </div>
@@ -99,7 +104,9 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                     padding: 0;
                     overflow: hidden;
                     border-radius: 12px;
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                    background: var(--popover);
+                    color: var(--popover-foreground);
+                    box-shadow: 0 10px 15px -3px color-mix(in oklch, var(--foreground) 10%, transparent);
                 }
                 .leaflet-popup-content {
                     margin: 0;

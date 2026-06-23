@@ -4,7 +4,6 @@ import { useEffect, useState, useActionState } from "react";
 import { X, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { authenticate } from "@/lib/actions";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -21,9 +20,11 @@ import {
 interface LoginModalProps {
     isOpen: boolean;
     onClose: () => void;
+    /** Optional subtitle shown below the welcome heading — e.g. wishlist login prompt. */
+    subtitle?: string;
 }
 
-export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
     const { t } = useLanguage();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -45,8 +46,6 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         onClose();
     };
 
-    const inputHeight = "!h-12";
-    
     // Check if error is invalid credentials (server error after submit)
     const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
                                  errorMessage?.toLowerCase().includes('credentials') ||
@@ -81,7 +80,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col relative">
                     {/* Header */}
                     <div className="flex items-center justify-center p-6 border-b border-border/60">
@@ -89,8 +88,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
                                 onClick={handleClose}
+                                aria-label={t.common?.close || "Close"}
                             >
                                 <X className="w-5 h-5 text-foreground" />
                             </Button>
@@ -102,7 +102,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     <div className="p-8 space-y-6">
                         <div className="space-y-2">
                             <h2 className="text-2xl font-bold text-foreground">{t.auth.welcomeBack}</h2>
-                            <p className="text-sm text-muted-foreground">{t.auth.loginToContinue}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {subtitle ?? t.auth.loginToContinue}
+                            </p>
                         </div>
 
                         <form 
@@ -141,7 +143,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                                 required
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             <InputField
@@ -170,14 +173,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                                     </button>
                                 }
                                 containerClassName="mb-8"
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
 
                             <Button
                                 type="submit"
+                                size="lg"
                                 disabled={isPending}
-                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg"
+                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 text-lg"
                             >
                                 {isPending ? t.auth.signingIn : t.auth.login}
                             </Button>

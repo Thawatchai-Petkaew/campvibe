@@ -19,9 +19,8 @@ export interface CampgroundDTO {
     nameEnSlug: string;
     description?: string;
     campgroundType: CampgroundType;
-    accessTypes: string; // CSV
-    accommodationTypes: string; // CSV
-    facilities: string; // CSV
+    accommodationTypes: string; // CSV (kept column)
+    options?: { code: string; group: string; nameTh: string; nameEn: string; icon?: string }[]; // S4a taxonomy
     latitude: number;
     longitude: number;
     checkInTime: string;
@@ -45,9 +44,8 @@ export interface CampSiteDTO {
     nameEnSlug: string;
     description?: string;
     campSiteType: CampgroundType;
-    accessTypes: string; // CSV
-    accommodationTypes: string; // CSV
-    facilities: string; // CSV
+    accommodationTypes: string; // CSV (kept column)
+    options?: { code: string; group: string; nameTh: string; nameEn: string; icon?: string }[]; // S4a taxonomy
     latitude: number;
     longitude: number;
     checkInTime: string;
@@ -67,7 +65,7 @@ export interface SpotDTO {
     id: string;
     zone?: string;
     name: string;
-    images?: string; // CSV
+    images?: { url: string }[]; // S4b: Image relation
     viewType?: string;
     maxCampers?: number;
     maxTents?: number;
@@ -114,6 +112,48 @@ export interface UserDTO {
     role: UserRole;
     createdAt?: string;
     updatedAt?: string;
+}
+
+// Wishlist types (CAM-7 / CAM-18)
+
+/**
+ * Minimal CampSite projection returned inside wishlist entries.
+ * Fields are exactly what the card UI needs — no over-fetching.
+ */
+export interface CampSiteSummary {
+    id: string;
+    nameTh: string;
+    nameEn?: string | null;
+    nameThSlug: string;
+    nameEnSlug: string;
+    images?: { url: string }[];  // S4b: Image relation (was CSV)
+    priceLow?: number | null;
+    priceHigh?: number | null;
+    isVerified: boolean;
+    isPublished: boolean;
+    latitude: number;
+    longitude: number;
+}
+
+/** A wishlist record without the nested camp site. */
+export interface WishlistDTO {
+    id: string;
+    userId: string;
+    campSiteId: string;
+    createdAt: string; // ISO datetime
+}
+
+/** A wishlist record with the nested camp site summary (used in GET /api/wishlist). */
+export interface WishlistWithCampSiteDTO {
+    id: string;
+    campSiteId: string;
+    createdAt: string; // ISO datetime
+    campSite: CampSiteSummary;
+}
+
+/** Response shape for GET /api/wishlist/ids */
+export interface WishlistIdsResponse {
+    campSiteIds: string[];
 }
 
 // API Response Wrappers
@@ -180,15 +220,5 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
     CAMPER: 'Camper/Guest',
 };
 
-// Helper Functions
-export function parseFacilities(facilitiesStr: string): FacilityCode[] {
-    return facilitiesStr.split(',').filter(Boolean) as FacilityCode[];
-}
-
-export function parseAccessTypes(accessTypesStr: string): AccessType[] {
-    return accessTypesStr.split(',').filter(Boolean) as AccessType[];
-}
-
-export function parseAccommodationTypes(accommodationTypesStr: string): AccommodationType[] {
-    return accommodationTypesStr.split(',').filter(Boolean) as AccommodationType[];
-}
+// S4a: parseFacilities/parseAccessTypes/parseAccommodationTypes removed — taxonomy now
+// comes from the `options` MasterData relation, not CSV strings (dead code, zero callers).

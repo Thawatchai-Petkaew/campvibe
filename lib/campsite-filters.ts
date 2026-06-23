@@ -27,6 +27,7 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     district,
     startDate,
     endDate,
+    guests,
     min,
     max,
     access,
@@ -40,6 +41,7 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   const where: Prisma.CampSiteWhereInput = {
     isActive: true,
     isPublished: true,
+    deletedAt: null, // exclude soft-deleted (S2 — Atomic Data Framework)
   };
 
   // 1. Type filter
@@ -71,32 +73,48 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     if (max) where.priceLow.lte = parseFloat(max);
   }
 
-  // 5. Multi-select Filters (AND logic)
-  const addMultiSelectFilter = (field: keyof Prisma.CampSiteWhereInput, param?: string) => {
+  // 5. Guest-capacity filter — only include camps that can host at least N guests.
+  // Uses CampSite.maxGuestsPerDay (the authoritative camp-level capacity field, set by
+  // the operator). Camps where maxGuestsPerDay is NULL have no explicit capacity set and
+  // MUST remain visible for all guest counts (we cannot exclude capacity-unknown camps).
+  // Guard: only apply when guests is a positive integer; ignore 0 / NaN / missing.
+  //
+  // SQL emitted: WHERE (maxGuestsPerDay >= N OR maxGuestsPerDay IS NULL)
+  // We push into where.AND so we never clobber where.OR (used by keyword search, step 2).
+  const guestsNum = guests !== undefined ? parseInt(guests, 10) : NaN;
+  if (!isNaN(guestsNum) && guestsNum > 0) {
+    if (!where.AND) where.AND = [];
+    const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+    andArray.push({
+      OR: [{ maxGuestsPerDay: { gte: guestsNum } }, { maxGuestsPerDay: null }],
+    } as Prisma.CampSiteWhereInput);
+    where.AND = andArray;
+  }
+
+  // 6. Multi-select taxonomy filters (AND logic) — S4a: taxonomy now lives in the `options`
+  // MasterData relation. Each selected code must be present, so AND one
+  // `options: { some: { code } }` per code. Codes are globally unique (MasterData.code is the
+  // PK) so the group is implied and need not be matched.
+  const addOptionFilter = (param?: string) => {
     if (!param) return;
     const codes = param.split(",").filter(Boolean);
-    if (codes.length > 0) {
-      // Initialise AND as array of conditions if not present
-      if (!where.AND) where.AND = [];
-      const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
-      codes.forEach((code) => {
-        andArray.push({
-          [field]: { contains: code },
-        } as Prisma.CampSiteWhereInput);
-      });
-      where.AND = andArray;
-    }
+    if (codes.length === 0) return;
+    if (!where.AND) where.AND = [];
+    const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+    codes.forEach((code) => {
+      andArray.push({ options: { some: { code } } } as Prisma.CampSiteWhereInput);
+    });
+    where.AND = andArray;
   };
 
-  // Match schema fields
-  addMultiSelectFilter("accessTypes" as any, access);
-  addMultiSelectFilter("facilities" as any, facilities);
-  addMultiSelectFilter("externalFacilities" as any, external);
-  addMultiSelectFilter("equipment" as any, equipment);
-  addMultiSelectFilter("activities" as any, activities);
-  addMultiSelectFilter("terrain" as any, terrain);
+  addOptionFilter(access);
+  addOptionFilter(facilities);
+  addOptionFilter(external);
+  addOptionFilter(equipment);
+  addOptionFilter(activities);
+  addOptionFilter(terrain);
 
-  // 6. Availability Filter (used only when dates are provided)
+  // 7. Availability Filter (used only when dates are provided)
   if (startDate && endDate) {
     where.spots = {
       some: {

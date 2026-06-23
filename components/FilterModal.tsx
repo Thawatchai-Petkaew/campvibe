@@ -18,8 +18,13 @@ import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
+// DB-driven icon resolver — keeps lucide for campground attribute icons fetched from DB.
+// This is intentional: the iconName string (e.g. "Tent", "Mountain") comes from the DB
+// and maps to lucide icons. We keep this resolver as-is and only swap the two static UI
+// icons (X and SlidersHorizontal) to tabler equivalents above.
 import * as LucideIcons from "lucide-react";
 
 export function FilterModal() {
@@ -136,7 +141,7 @@ export function FilterModal() {
             // Actually, better to just map generic params back to sections
         }
 
-        // Simpler approach: Just reset state if closed? Or keep sync? 
+        // Simpler approach: Just reset state if closed? Or keep sync?
         // For now, let's just ensure we start clean or preserve if strictly needed.
         // But user might expect filters to persist.
         // Let's implement reading from URL for "Edit" mode later if requested.
@@ -156,20 +161,8 @@ export function FilterModal() {
             }
         };
 
-        // 1. Map Sections to Params
-        // 'Campground type' -> 'type' (Single select usually, but our UI allows multi? 
-        // Wait, Home logic takes single 'type'. If UI allows multi, we might need to adjust Home or UI.
-        // Current UI: toggleFilter allows multi. 
-        // Let's assume for now we pass comma separated and update Home to support 'in' if needed? 
-        // Home uses `where.campgroundType = type`. If we pass "A,B", exact match fails.
-        // Let's change Home logic later if we want multi-type. For now, let's just join.
-        // Actually, seed data has single type. SO Multi-select filtering implies OR logic usually for Types.
-        // But let's stick to simple "type" param which standardly is one. 
-        // However, if user selects multiple, we'll send multiple.
-
-        // Let's use specific mapping:
         const type = selectedFilters['Campground type'];
-        if (type && type.length > 0) params.set('type', type[0]); // Take first for now or join? sticking to single for type as per existing logic
+        if (type && type.length > 0) params.set('type', type[0]);
 
         setArrayParam('terrain', 'Terrain');
         setArrayParam('activities', 'Activity');
@@ -202,27 +195,17 @@ export function FilterModal() {
         if (['Campground type', 'Terrain'].includes(section.id)) {
             return (
                 <div className="grid grid-cols-2 gap-4">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex flex-col items-start p-5 rounded-2xl border-2 transition-all text-left h-32 justify-between group relative overflow-hidden",
-                                    isSelected
-                                        ? "border-black bg-black/5 ring-0"
-                                        : "border-gray-100 hover:border-gray-200 bg-white"
-                                )}
-                            >
-                                {Icon && <Icon className={cn("w-8 h-8", isSelected ? "text-black" : "text-gray-400 group-hover:text-gray-600")} />}
-                                <span className={cn("text-base font-bold relative z-10", isSelected ? "text-black" : "text-gray-600 group-hover:text-gray-900")}>
-                                    {opt.label}
-                                </span>
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="card"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            data-testid={`filter-chip--card-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -231,25 +214,17 @@ export function FilterModal() {
         if (section.id === 'Activity') {
             return (
                 <div className="flex flex-wrap gap-3">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all text-sm font-medium",
-                                    isSelected
-                                        ? "border-black bg-black text-white hover:bg-gray-800"
-                                        : "border-gray-200 bg-white text-gray-700 hover:border-black"
-                                )}
-                            >
-                                {Icon && <Icon className="w-4 h-4" />}
-                                {opt.label}
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="pill"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            data-testid={`filter-chip--pill-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -258,25 +233,18 @@ export function FilterModal() {
         if (section.id === 'Access type') {
             return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {section.options.map((opt: any) => {
-                        const isSelected = selectedFilters[section.id]?.includes(opt.id);
-                        const Icon = opt.icon;
-                        return (
-                            <button
-                                key={opt.id}
-                                onClick={() => toggleFilter(section.id, opt.id)}
-                                className={cn(
-                                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all h-24 gap-2",
-                                    isSelected
-                                        ? "border-black bg-black/5 font-semibold text-black"
-                                        : "border-gray-200 hover:border-gray-300 text-gray-600"
-                                )}
-                            >
-                                {Icon && <Icon className={cn("w-6 h-6", isSelected ? "text-black" : "text-gray-400")} />}
-                                <span className="text-xs text-center">{opt.label}</span>
-                            </button>
-                        );
-                    })}
+                    {section.options.map((opt: any) => (
+                        <FilterChip
+                            key={opt.id}
+                            variant="icon-card"
+                            selected={!!selectedFilters[section.id]?.includes(opt.id)}
+                            onToggle={() => toggleFilter(section.id, opt.id)}
+                            label={opt.label}
+                            icon={opt.icon}
+                            aria-label={opt.label}
+                            data-testid={`filter-chip--icon-card-${opt.id}`}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -297,7 +265,7 @@ export function FilterModal() {
                                 htmlFor={opt.id}
                                 className={cn(
                                     "text-sm font-normal cursor-pointer",
-                                    isSelected ? "text-gray-900 font-medium" : "text-gray-600 group-hover:text-gray-900"
+                                    isSelected ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"
                                 )}
                             >
                                 {opt.label}
@@ -333,20 +301,28 @@ export function FilterModal() {
         return count;
     }, [searchParams]);
 
+    const triggerAriaLabel = activeFilterCount > 0
+        ? (t.filter?.titleWithCount || "Filters ({{count}})").replace('{{count}}', activeFilterCount.toString())
+        : (t.filter?.title || "Filters");
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-            <Button variant="outline" className="rounded-full border-border h-10 px-4 font-medium hover:border-foreground transition-colors relative">
+            <Button
+                variant="outline"
+                aria-label={triggerAriaLabel}
+                className="rounded-full border-border h-11 px-4 font-medium hover:border-foreground transition-colors relative"
+            >
                     <SlidersHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
                     {activeFilterCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-primary rounded-full animate-in zoom-in duration-200 border-2 border-white">
+                        <span aria-hidden="true" className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-primary-foreground bg-primary rounded-full animate-in zoom-in duration-200 border-2 border-background">
                             {activeFilterCount}
                         </span>
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 rounded-[24px] overflow-hidden flex flex-col max-h-[85vh] bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[85vh] bg-card">
 
                 {/* Header - Aligned with Search Modal */}
                 <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60 relative shrink-0">
@@ -354,7 +330,8 @@ export function FilterModal() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
+                            aria-label={t.common?.close || "Close"}
                         >
                             <X className="w-5 h-5 text-foreground" />
                         </Button>
@@ -380,7 +357,8 @@ export function FilterModal() {
                                     onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
                                     leftIcon={<span className="text-muted-foreground">฿</span>}
                                     labelClassName="text-xs text-muted-foreground font-normal ml-1"
-                                    className="rounded-full h-12 text-base border-border bg-background"
+                                    inputSize="lg"
+                                    className="rounded-full text-base border-border bg-background"
                                 />
                             </div>
                             <div className="pt-6 text-muted-foreground/60">-</div>
@@ -393,7 +371,8 @@ export function FilterModal() {
                                     onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
                                     leftIcon={<span className="text-muted-foreground">฿</span>}
                                     labelClassName="text-xs text-muted-foreground font-normal ml-1"
-                                    className="rounded-full h-12 text-base border-border bg-background"
+                                    inputSize="lg"
+                                    className="rounded-full text-base border-border bg-background"
                                 />
                             </div>
                         </div>
@@ -422,8 +401,9 @@ export function FilterModal() {
                     </Button>
                     <Button
                         onClick={handleShowCampgrounds}
+                        size="lg"
                         disabled={isCountLoading || matchCount === 0}
-                        className="bg-primary hover:bg-primary/90 text-white px-8 rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-transform h-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isCountLoading
                             ? "Calculating..."

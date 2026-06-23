@@ -14,7 +14,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DashboardOverviewSkeleton } from "@/components/ui/loading-skeleton";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+function bookingStatusVariant(status: string): "success" | "destructive" | "muted" {
+    if (status === "CONFIRMED") return "success";
+    if (status === "CANCELLED") return "destructive";
+    return "muted";
+}
 
 interface DashboardData {
     stats: {
@@ -116,7 +123,7 @@ export default function OperatorDashboard() {
             <h3 className="font-bold text-lg mb-2">Error</h3>
             <p>{error}</p>
             <Button onClick={() => window.location.reload()} className="mt-4 rounded-full">
-                Retry
+                {t.common.retry}
             </Button>
         </div>
     );
@@ -142,8 +149,9 @@ export default function OperatorDashboard() {
                 >
                     <Link href={canCreateCampSite ? "/dashboard/campsites/new" : "#"} aria-disabled={!canCreateCampSite} tabIndex={canCreateCampSite ? 0 : -1}>
                         <Button
+                            size="lg"
                             disabled={!canCreateCampSite}
-                            className="h-12 px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Tent className="w-4 h-4 mr-2" />
                             {t.dashboard.addCampSite}
@@ -159,8 +167,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalRevenue}
                         </CardTitle>
-                        <div className="p-2 bg-green-50 rounded-lg">
-                            <DollarSign className="h-4 w-4 text-green-600" />
+                        <div className="p-2 bg-success/10 rounded-lg">
+                            <DollarSign className="h-4 w-4 text-success" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -168,7 +176,7 @@ export default function OperatorDashboard() {
                             {data?.stats?.totalRevenue == null ? "—" : formatCurrency(data.stats.totalRevenue)}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            +20.1% from last month
+                            {t.dashboard.revenueTrend}
                         </p>
                     </CardContent>
                 </Card>
@@ -177,8 +185,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalBookings}
                         </CardTitle>
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <TrendingUp className="h-4 w-4 text-blue-600" />
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <TrendingUp className="h-4 w-4 text-primary" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -193,8 +201,8 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.activeListings}
                         </CardTitle>
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                            <Tent className="h-4 w-4 text-purple-600" />
+                        <div className="p-2 bg-muted rounded-lg">
+                            <Tent className="h-4 w-4 text-muted-foreground" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -219,7 +227,7 @@ export default function OperatorDashboard() {
                     )}
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full min-w-[640px] text-left text-sm">
                         <thead>
                             <tr className="bg-muted/40 border-b border-border/60">
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.guest}</th>
@@ -227,7 +235,7 @@ export default function OperatorDashboard() {
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.booking.checkIn}</th>
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.total}</th>
                                 <th className="px-6 py-4 font-semibold text-muted-foreground">{t.dashboard.status}</th>
-                                <th className="px-6 py-4 font-semibold text-muted-foreground text-right">Actions</th>
+                                <th className="px-6 py-4 font-semibold text-muted-foreground text-right">{t.dashboard.actions}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">
@@ -247,7 +255,7 @@ export default function OperatorDashboard() {
                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200 group">
                                     <td className="px-6 py-5 font-medium text-foreground">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                     {booking.user.name?.[0] || 'G'}
                                                 </div>
                                                 {booking.user.name || booking.user.email}
@@ -257,15 +265,12 @@ export default function OperatorDashboard() {
                                         <td className="px-6 py-5 text-muted-foreground">{new Date(booking.checkInDate).toLocaleDateString(language === 'th' ? 'th-TH' : 'en-US')}</td>
                                         <td className="px-6 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-6 py-5">
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider
-                                        ${booking.status === 'CONFIRMED'
-                                                    ? 'bg-green-50 text-green-700 border-green-200'
-                                                    : booking.status === 'CANCELLED'
-                                                        ? 'bg-red-50 text-red-700 border-red-200'
-                                                        : 'bg-yellow-50 text-yellow-700 border-yellow-200'}
-                                    `}>
+                                            <Badge
+                                                variant={bookingStatusVariant(booking.status)}
+                                                className="font-bold uppercase tracking-wider"
+                                            >
                                                 {booking.status}
-                                            </span>
+                                            </Badge>
                                         </td>
                                         <td className="px-6 py-5 text-right">
                                             {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (

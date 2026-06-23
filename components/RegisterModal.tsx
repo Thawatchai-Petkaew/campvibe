@@ -4,7 +4,6 @@ import { useState, useActionState, useEffect } from "react";
 import { X, Mail, Lock, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { register } from "@/lib/actions";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -69,8 +68,6 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
         }
     }, [errorMessage, isPending, formSubmitted, onSuccess, t]);
 
-    const inputHeight = "!h-12";
-
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         setValidationError("");
         setHasSubmitted(true);
@@ -118,7 +115,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md rounded-[24px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
                 <div className="flex flex-col relative">
                     {/* Header */}
                     <div className="flex items-center justify-center p-6 border-b border-border/60">
@@ -126,8 +123,9 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-10 h-10"
+                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
                                 onClick={onClose}
+                                aria-label={t.common?.close || "Close"}
                             >
                                 <X className="w-5 h-5 text-foreground" />
                             </Button>
@@ -155,7 +153,8 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 placeholder={t.auth.registerModal.fullNamePlaceholder}
                                 required
                                 leftIcon={<User className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             {/* Email */}
@@ -170,7 +169,8 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 required
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             {/* Password */}
@@ -187,7 +187,8 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 error={validationError && validationError.includes('password') ? validationError : undefined}
                                 hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
                                 leftIcon={<Lock className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             {/* Confirm Password */}
@@ -203,7 +204,8 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 error={validationError && validationError.includes('password') ? validationError : undefined}
                                 leftIcon={<Lock className="w-4 h-4" />}
-                                className={cn("rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary", inputHeight)}
+                                inputSize="lg"
+                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                             />
 
                             {/* Consent Checkboxes */}
@@ -246,8 +248,9 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             {/* Submit Button */}
                             <Button
                                 type="submit"
+                                size="lg"
                                 disabled={isPending || !consentRequired}
-                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all !h-12 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-primary hover:bg-primary/90 text-white rounded-full font-bold shadow-lg shadow-primary/20 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isPending ? t.auth.registerModal.registering : t.auth.registerModal.registerButton}
                             </Button>

@@ -32,13 +32,13 @@ export function SortDropdown() {
 
     return (
         <Select value={currentSort} onValueChange={handleSort}>
-            <SelectTrigger className="w-[200px] h-10 border border-border rounded-full hover:border-foreground transition text-sm font-medium focus:ring-0">
+            <SelectTrigger className="w-[200px] border border-border hover:border-foreground transition">
                 <div className="flex items-center gap-2">
                     <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
                     <SelectValue />
                 </div>
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-none shadow-2xl">
+            <SelectContent className="shadow-2xl">
                 <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                     {t.sort.sortBy}
                 </div>
@@ -46,7 +46,7 @@ export function SortDropdown() {
                     <SelectItem
                         key={opt.value}
                         value={opt.value}
-                        className="rounded-xl focus:bg-muted focus:text-foreground cursor-pointer py-2.5"
+                        className="cursor-pointer"
                     >
                         {opt.label}
                     </SelectItem>

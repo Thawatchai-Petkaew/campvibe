@@ -97,11 +97,11 @@ export function AddMemberDialog({ isOpen, onClose, campSiteId, onMemberAdded }: 
                     {/* Contact Method Tabs */}
                     <Tabs value={method} onValueChange={(v) => setMethod(v as 'email' | 'phone')}>
                         <TabsList className="grid w-full grid-cols-2 rounded-full p-1">
-                            <TabsTrigger value="email" className="rounded-full data-[state=active]:shadow-sm">
+                            <TabsTrigger value="email" className="rounded-full">
                                 <Mail className="w-4 h-4 mr-2" />
                                 {t.settings?.email || "Email"}
                             </TabsTrigger>
-                            <TabsTrigger value="phone" className="rounded-full data-[state=active]:shadow-sm">
+                            <TabsTrigger value="phone" className="rounded-full">
                                 <Phone className="w-4 h-4 mr-2" />
                                 {t.settings?.phone || "Phone"}
                             </TabsTrigger>

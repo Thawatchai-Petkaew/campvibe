@@ -3,10 +3,12 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function ActiveFilters() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { t } = useLanguage();
     const activeFilters: { key: string, label: string, value: string }[] = [];
 
     // Helper to add filters
@@ -15,8 +17,6 @@ export function ActiveFilters() {
         if (val) {
             if (isArray) {
                 val.split(',').forEach(v => {
-                    // Try to make label readable if possible, e.g. capitalize
-                    // For now, raw value
                     activeFilters.push({ key: key, label: `${labelPrefix}: ${v}`, value: v });
                 });
             } else {
@@ -75,7 +75,8 @@ export function ActiveFilters() {
                     {filter.label}
                     <button
                         onClick={() => removeFilter(filter)}
-                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-muted-foreground/20 ml-1"
+                        aria-label={(t.activeFilters?.removeFilter || "Remove {{label}} filter").replace('{{label}}', filter.label)}
+                        className="w-7 h-7 min-w-[28px] flex items-center justify-center rounded-full hover:bg-muted-foreground/20 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                         <X className="w-3 h-3" />
                     </button>
@@ -84,9 +85,10 @@ export function ActiveFilters() {
             {activeFilters.length > 0 && (
                 <button
                     onClick={clearAll}
-                    className="text-xs text-muted-foreground hover:text-primary font-medium ml-2 underline decoration-border underline-offset-4"
+                    aria-label={t.activeFilters?.clearAll || "Clear all filters"}
+                    className="text-xs text-muted-foreground hover:text-primary font-medium ml-2 underline decoration-border underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
                 >
-                    Clear all
+                    {t.activeFilters?.clearAll || "Clear all filters"}
                 </button>
             )}
         </div>

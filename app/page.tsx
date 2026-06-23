@@ -1,11 +1,12 @@
 import { Navbar } from "@/components/Navbar";
 import { CategoryBar } from "@/components/CategoryBar";
-import { CampgroundCard } from "@/components/CampgroundCard";
+import { CampgroundGrid } from "@/components/CampgroundGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { SortDropdown } from "@/components/SortDropdown";
 import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
 import { prisma } from "@/lib/prisma";
+import { serializeDecimals } from "@/lib/serialize";
 import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
 
@@ -61,6 +62,7 @@ export default async function Home({ searchParams }: HomeProps) {
     district,
     startDate,
     endDate,
+    guests,
     min,
     max,
     access,
@@ -87,6 +89,7 @@ export default async function Home({ searchParams }: HomeProps) {
         operator: {
           select: { name: true }
         },
+        images: { orderBy: { sortOrder: 'asc' } },
         _count: {
           select: { reviews: true }
         }
@@ -100,6 +103,20 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   const isSearchActive = !!(keyword || province || district || startDate || endDate || guests || (type && type !== 'ALL') || min || max || access || facilities || activities || terrain);
+
+  // Fetch wishlist ids once per page-load (only when logged in). No N+1.
+  let savedCampSiteIds: string[] = [];
+  if (session?.user?.id) {
+    try {
+      const wishlistRows = await prisma.wishlist.findMany({
+        where: { userId: session.user.id },
+        select: { campSiteId: true },
+      });
+      savedCampSiteIds = wishlistRows.map((r) => r.campSiteId);
+    } catch {
+      // Non-fatal — cards render with saved=false on error.
+    }
+  }
 
   return (
     <main className="min-h-screen pb-20 bg-background text-foreground">
@@ -124,11 +141,14 @@ export default async function Home({ searchParams }: HomeProps) {
             showReset={isSearchActive}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10 mt-4">
-            {campSites.map((camp: any) => (
-              <CampgroundCard key={camp.id} campground={camp} />
-            ))}
-          </div>
+          <CampgroundGrid
+            camps={campSites.map((c: any) => serializeDecimals({
+              ...c,
+              createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+            }))}
+            savedIds={savedCampSiteIds}
+            isLoggedIn={!!session?.user?.id}
+          />
         )}
       </div>
     </main>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Menu, User, Filter, Globe, Bell, Check, X } from "lucide-react";
+import { Search, Menu, User, Filter, Globe, Bell, Check, X, Heart } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { handleSignOut } from "@/lib/actions";
@@ -23,6 +23,7 @@ import {
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { HostOnboardingFab } from "@/components/HostOnboardingFab";
 import { useSession } from "next-auth/react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavbarProps {
     currentUser?: {
@@ -137,6 +138,18 @@ export function Navbar({ currentUser }: NavbarProps) {
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <LanguageSwitcher />
 
+                        {/* Wishlist heart link — shown only when logged in (CAM-18). */}
+                        {currentUser && (
+                            <Link
+                                href="/wishlist"
+                                data-testid="btn--wishlist-nav"
+                                aria-label={t.wishlist.navAriaLabel}
+                                className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                                <Heart className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                            </Link>
+                        )}
+
                         {/* Notifications (Camper context): booking status updates (no required action) + team invites */}
                         {currentUser && (
                             <NotificationCenter
@@ -166,7 +179,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                         )}
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                            <DropdownMenuTrigger asChild aria-label="User menu">
                                 <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="w-5 h-5 text-muted-foreground" />
                                     <div className={(currentUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
@@ -183,21 +196,21 @@ export function Navbar({ currentUser }: NavbarProps) {
                                     </div>
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-xl border-none shadow-2xl mt-2 p-2">
+                            <DropdownMenuContent align="end" className="w-56 mt-2">
                                 {currentUser ? (
                                     <>
-                                        <DropdownMenuLabel className="font-bold px-3 py-2">
+                                        <DropdownMenuLabel className="px-3 py-2">
                                             {currentUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                                             <Link href="/profile">My Profile</Link>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-semibold">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                                             <Link href="/bookings">My Bookings</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-primary/10 focus:text-foreground">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3 focus:bg-primary/10 focus:text-foreground">
                                             <Link href={hostEntryHref} className="flex items-center justify-between gap-3">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="min-w-0">
@@ -214,9 +227,17 @@ export function Navbar({ currentUser }: NavbarProps) {
                                                 </Badge>
                                             </Link>
                                         </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(e) => e.preventDefault()}
+                                            className="p-0 focus:bg-transparent cursor-default"
+                                        >
+                                            <ThemeToggle />
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => handleSignOut()}
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                            className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                                         >
                                             Sign out
                                         </DropdownMenuItem>
@@ -224,23 +245,30 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 ) : (
                                     <>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted font-bold"
+                                            className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsLoginOpen(true)}
                                         >
                                             Log in
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted"
+                                            className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsRegisterOpen(true)}
                                         >
                                             Sign up
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted">
+                                        <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
                                             Host your home
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem className="rounded-lg cursor-pointer py-2.5 px-3 focus:bg-muted">
+                                        <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
                                             Help Center
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(e) => e.preventDefault()}
+                                            className="p-0 focus:bg-transparent cursor-default"
+                                        >
+                                            <ThemeToggle />
                                         </DropdownMenuItem>
                                     </>
                                 )}

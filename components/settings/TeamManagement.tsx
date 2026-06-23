@@ -145,25 +145,19 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
         }
     };
 
-    const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            // NOTE: add hover:bg-* to override Badge variant hover styles so colors don't shift on row hover
-            case 'OWNER': return 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100';
-            case 'ADMIN': return 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100';
-            case 'MANAGER': return 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100';
-            case 'STAFF': return 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100';
-            case 'VIEWER': return 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100';
-            default: return 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100';
-        }
+    const getRoleVariant = (role: string): "default" | "success" | "muted" => {
+        if (role === 'OWNER') return 'default';
+        if (role === 'MANAGER') return 'success';
+        return 'muted';
     };
 
     const getRoleDescription = (role: string) => {
         switch (role) {
-            case "OWNER": return (t as any).settings?.ownerDesc || "Full access (owner).";
-            case "ADMIN": return (t as any).settings?.adminDesc || "Full access except owner privileges.";
-            case "MANAGER": return (t as any).settings?.managerDesc || "Manage bookings and view analytics.";
-            case "STAFF": return (t as any).settings?.staffDesc || "View and update bookings only.";
-            case "VIEWER": return (t as any).settings?.viewerDesc || "Read-only access.";
+            case "OWNER": return ts?.ownerDesc || "Full access (owner).";
+            case "ADMIN": return ts?.adminDesc || "Full access except owner privileges.";
+            case "MANAGER": return ts?.managerDesc || "Manage bookings and view analytics.";
+            case "STAFF": return ts?.staffDesc || "View and update bookings only.";
+            case "VIEWER": return ts?.viewerDesc || "Read-only access.";
             default: return "";
         }
     };
@@ -234,7 +228,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
             ) : (
                 <div className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full min-w-[700px] text-left text-sm">
                             <thead>
                                 <tr className="bg-muted/40 border-b border-border/60">
                                     <th className="px-6 py-4 font-semibold text-muted-foreground">
@@ -311,13 +305,15 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                         className="inline-flex items-center"
                                                         onMouseEnter={() => setHoveredRoleMemberId(member.id)}
                                                         onMouseLeave={() => setHoveredRoleMemberId((cur) => (cur === member.id ? null : cur))}
+                                                        onFocus={() => setHoveredRoleMemberId(member.id)}
+                                                        onBlur={() => setHoveredRoleMemberId((cur) => (cur === member.id ? null : cur))}
                                                     >
                                                         <PopoverAnchor asChild>
                                                             <div className="inline-flex items-center cursor-help">
                                                                 {member.role === 'OWNER' ? (
                                                                     <Badge
-                                                                        variant="outline"
-                                                                        className={cn("rounded-full text-xs font-bold border", getRoleBadgeColor(member.role))}
+                                                                        variant={getRoleVariant(member.role)}
+                                                                        className="rounded-full text-xs font-bold"
                                                                     >
                                                                         <Shield className="w-3 h-3 mr-1" />
                                                                         {member.role}
@@ -327,20 +323,23 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         value={member.role}
                                                                         onValueChange={(value) => handleUpdateRole(member.id, value)}
                                                                     >
-                                                                        <SelectTrigger className="h-10 w-[160px] rounded-full border border-border bg-background shadow-sm px-4">
-                                                                    <SelectValue placeholder={ts?.selectRole || "Select Role"} />
+                                                                        <SelectTrigger
+                                                                            className="w-[160px] border border-border bg-background shadow-sm px-4"
+                                                                            aria-label={ts?.changeRole || "Change role"}
+                                                                        >
+                                                                            <SelectValue placeholder={ts?.selectRole || "Select Role"} />
                                                                         </SelectTrigger>
-                                                                        <SelectContent className="rounded-xl">
-                                                                            <SelectItem value="ADMIN" className="rounded-lg cursor-pointer">
+                                                                        <SelectContent>
+                                                                            <SelectItem value="ADMIN" className="cursor-pointer">
                                                                                 Admin
                                                                             </SelectItem>
-                                                                            <SelectItem value="MANAGER" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="MANAGER" className="cursor-pointer">
                                                                                 Manager
                                                                             </SelectItem>
-                                                                            <SelectItem value="STAFF" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="STAFF" className="cursor-pointer">
                                                                                 Staff
                                                                             </SelectItem>
-                                                                            <SelectItem value="VIEWER" className="rounded-lg cursor-pointer">
+                                                                            <SelectItem value="VIEWER" className="cursor-pointer">
                                                                                 Viewer
                                                                             </SelectItem>
                                                                         </SelectContent>
@@ -363,13 +362,13 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                         </div>
                                                                         <div className="text-xs text-muted-foreground">
                                                                             <span className="font-medium">{member.role}</span>
-                                                                            {" — "}
+                                                                            {" · "}
                                                                             {getRoleDescription(member.role)}
                                                                         </div>
                                                                     </div>
                                                                     <Badge
-                                                                        variant="outline"
-                                                                        className={cn("rounded-full text-[11px] font-bold border", getRoleBadgeColor(member.role))}
+                                                                        variant={getRoleVariant(member.role)}
+                                                                        className="rounded-full text-[11px] font-bold"
                                                                     >
                                                                         {member.role}
                                                                     </Badge>

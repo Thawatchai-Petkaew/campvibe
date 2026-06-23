@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 
 interface LogoUploadProps {
     value: string;
@@ -64,15 +65,16 @@ export function LogoUpload({
         <div className="space-y-4 w-full">
             {value ? (
                 <div className="relative w-32 h-32 rounded-xl overflow-hidden group">
-                    <img
+                    <ImageWithFallback
                         src={value}
                         alt={t.newCampground.logoPreview}
-                        className="object-contain w-full h-full"
+                        className="w-full h-full"
+                        imgClassName="object-contain"
                     />
                     <button
                         type="button"
                         onClick={handleRemove}
-                        className="absolute top-2 right-2 p-1.5 rounded-full bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition shadow-sm"
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
                     >
                         <X className="w-4 h-4" />
                     </button>
