@@ -110,12 +110,19 @@ describe("telegram-webhook", () => {
     expect(EMOJI_RE.test(ackText)).toBe(false);
   });
 
-  it("unknown callback_data → acked + ignored, no side effects", async () => {
-    const res = await POST(req({ callback_query: { id: "1", data: "weird:x" } }, SECRET));
-    expect(await res.json()).toMatchObject({ ignored: "weird:x" });
+  it("unknown action with a valid id → acked + ignored, no side effects", async () => {
+    const res = await POST(req({ callback_query: { id: "1", data: "weird:CAM-9" } }, SECRET));
+    expect(await res.json()).toMatchObject({ ignored: "weird:CAM-9" });
     expect(notify.answerCallback).toHaveBeenCalled();
     expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
     expect(dispatch.fireRepositoryDispatch).not.toHaveBeenCalled();
+  });
+
+  it("malformed callback id → acked + rejected as bad id, no Linear call", async () => {
+    const res = await POST(req({ callback_query: { id: "1", data: "approve:x" } }, SECRET));
+    expect(await res.json()).toMatchObject({ ignored: "bad id" });
+    expect(notify.answerCallback).toHaveBeenCalled();
+    expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
   });
 
   it("update with neither callback nor text → ignored", async () => {

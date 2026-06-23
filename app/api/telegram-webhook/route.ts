@@ -50,6 +50,11 @@ export async function POST(req: Request) {
   const cb = update.callback_query;
   if (cb?.data) {
     const [action, id] = cb.data.split(":");
+    // Defence-in-depth: the id must look like a Linear identifier before it reaches any Linear call.
+    if (id && !/^[A-Z]+-\d+$/.test(id)) {
+      await answerCallback(cb.id);
+      return NextResponse.json({ ok: true, ignored: "bad id" });
+    }
     if (action === "approve" && id) {
       const changed = await removeAwaitingYou(id);
       // The Linear webhook detects `awaiting-you` removal and sends the "Approved" message,
