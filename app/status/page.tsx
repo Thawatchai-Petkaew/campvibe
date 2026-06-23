@@ -195,8 +195,12 @@ const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
   staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
   prod: { label: "Prod", sub: "released" },
 };
-function renderEnvPane(m: Model): string {
-  let h = `<section class="glass board-wrap"><div class="pane-h"><span class="t">Environments</span><span class="x">Dev → Staging → Prod · derive จาก state+released</span></div><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
+function renderEnvPane(m: Model, open: boolean): string {
+  const summary = ENV_ORDER.map((e) => `${ENV_META[e].label} ${m.byEnv[e].length}`).join(" · ");
+  let h = `<section class="glass board-wrap"><div class="pane-h"><span class="t">Environments</span>`
+    + `<span style="display:inline-flex;align-items:center;gap:12px"><span class="x">${esc(summary)}</span>`
+    + `<button class="segbtn" id="env-toggle" onclick="toggleEnv()">${open ? "ซ่อน" : "แสดง"}</button></span></div>`
+    + `<div id="env-board" class="envwrap ${open ? "" : "collapsed"}"><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
   for (const env of ENV_ORDER) {
     const items = m.byEnv[env], meta = ENV_META[env];
     const tag = env === "staging" && items.length ? ` <span class="yb">RELEASE</span>` : "";
@@ -208,7 +212,7 @@ function renderEnvPane(m: Model): string {
     });
     h += `</div>`;
   }
-  return h + `</div></section>`;
+  return h + `</div></div></section>`;
 }
 
 // feature groups ordered by story volume (desc) so the busiest feature leads
@@ -238,24 +242,41 @@ const segmented = (group: string) =>
   + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" onclick="setGroup('feature')">Feature</button>`
   + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" onclick="setGroup('persona')">Persona</button></div>`;
 
-function renderEpicCard(n: EpicNode, linkQ: string, chip: string): string {
+// Epics lifecycle filter — All | กำลังทำ | เสร็จแล้ว | ยังไม่เริ่ม. filterEpics() shows/hides cards client-side.
+const EPIC_FILTERS: [string, string][] = [["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จแล้ว"], ["todo", "ยังไม่เริ่ม"]];
+const epicFilter = (f: string) =>
+  `<div class="segmented" role="tablist" aria-label="กรองสถานะ Epic">`
+  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" onclick="filterEpics('${k}')">${lbl}</button>`).join("")
+  + `</div>`;
+
+// epic lifecycle bucket for the Epics filter: done (all stories shipped) · prog (some active) · todo (not started/queued)
+function epicStatusOf(n: EpicNode): "done" | "prog" | "todo" {
+  const total = n.stories.length, doneN = n.stories.filter(isDone).length;
+  if (total > 0 && doneN === total) return "done";
+  if (n.stories.some(isActive)) return "prog";
+  return "todo";
+}
+function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: string): string {
   const it = n.stories, total = it.length;
   const doneN = it.filter(isDone).length, pct = total ? Math.round((doneN / total) * 100) : 0;
   const active = it.some(isActive), gate = it.some(hasAwait);
   const st = gate ? "waiting on you" : active ? "in progress" : !total ? "no stories yet" : pct === 100 ? "shipped · done" : "queued";
   const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => i.status === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
-  return `<a class="epic ${gate ? "live" : ""}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
+  const estatus = epicStatusOf(n);
+  const hide = efilter !== "all" && estatus !== efilter ? ' style="display:none"' : "";
+  return `<a class="epic ${gate ? "live" : ""}" data-estatus="${estatus}"${hide} href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
 }
 
 // chipMode = the OTHER dimension shown on each card (group by feature → show persona chip, & vice-versa)
-function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature", linkQ: string): string {
+function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], labelOf: (k: string) => string, chipMode: "persona" | "feature", linkQ: string, efilter: string): string {
   let h = "";
   for (const k of order) {
     const nodes = groups[k]; if (!nodes || !nodes.length) continue;
     const stories = nodes.flatMap((n) => n.stories);
     const pct = stories.length ? Math.round((stories.filter(isDone).length / stories.length) * 100) : 0;
-    h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
-    for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature));
+    const groupHidden = efilter !== "all" && !nodes.some((n) => epicStatusOf(n) === efilter) ? ' style="display:none"' : "";
+    h += `<div class="grp"${groupHidden}><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
+    for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature), efilter);
     h += `</div></div>`;
   }
   return h;
@@ -276,7 +297,7 @@ function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: strin
 }
 
 // ---------- OVERVIEW ----------
-function renderOverview(m: Model, tq: string, group: string): string {
+function renderOverview(m: Model, tq: string, group: string, envOpen: boolean, efilter: string): string {
   const linkQ = `${tq}&group=${group}`;
   const firstGateEpic = m.gates[0] ? `?tab=epic&epic=${encodeURIComponent(epicKeyOf(m.gates[0]))}${linkQ}` : "#";
   let h = "";
@@ -303,7 +324,7 @@ function renderOverview(m: Model, tq: string, group: string): string {
     + `</div><div class="ovbar"><i style="width:${m.projectPct}%"></i></div></section>`;
 
   // Environments — which work sits in which env (Dev/Staging/Prod), derived from state+released.
-  h += renderEnvPane(m);
+  h += renderEnvPane(m, envOpen);
 
   // Agent workload — primary number = งานที่ "กำลังทำ" (active); done · queued is secondary.
   const roles = Object.keys(m.rmap).filter((r) => r !== "human").sort((a, b) => m.rmap[b].active - m.rmap[a].active || m.rmap[b].total - m.rmap[a].total);
@@ -322,9 +343,9 @@ function renderOverview(m: Model, tq: string, group: string): string {
   h += `</div></section>`;
 
   // Epics — grouped by Feature | Persona (toggle, default Feature). Both variants pre-rendered, toggled client-side.
-  h += `<section class="glass pane"><div class="pane-h"><span class="t">Epics</span>${segmented(group)}</div>`
-    + `<div id="epics-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderEpicGroups(m.byFeature, featureOrder(m.byFeature), (k) => k, "persona", linkQ)}</div>`
-    + `<div id="epics-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderEpicGroups(m.byPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature", linkQ)}</div>`
+  h += `<section class="glass pane" id="epics-pane"><div class="pane-h"><span class="t">Epics</span><span style="display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap">${epicFilter(efilter)}${segmented(group)}</span></div>`
+    + `<div id="epics-by-feature" class="gsub ${group !== "persona" ? "active" : ""}">${renderEpicGroups(m.byFeature, featureOrder(m.byFeature), (k) => k, "persona", linkQ, efilter)}</div>`
+    + `<div id="epics-by-persona" class="gsub ${group === "persona" ? "active" : ""}">${renderEpicGroups(m.byPersona, PERSONA_ORDER, (k) => PERSONA_LABEL[k] || k, "feature", linkQ, efilter)}</div>`
     + `</section>`;
 
   // Project backlog — same toggle (shares ?group)
@@ -436,7 +457,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
 }
 
 // ---------- page ----------
-export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string; group?: string }> }) {
+export default async function StatusPage({ searchParams }: { searchParams: Promise<{ token?: string; tab?: string; epic?: string; group?: string; env?: string; efilter?: string }> }) {
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
 
@@ -456,12 +477,14 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   const tq = required ? `&token=${encodeURIComponent(sp.token || "")}` : "";
   const tab = sp.tab === "epic" ? "epic" : "overview";
   const group = sp.group === "persona" ? "persona" : "feature";
+  const envOpen = sp.env !== "closed";
+  const efilter = ["prog", "done", "todo"].includes(sp.efilter || "") ? (sp.efilter as string) : "all";
   const epic = sp.epic && m.epics[sp.epic] ? sp.epic : m.activeEpic || m.epicNames[0] || "";
 
   // Both views are rendered into the DOM and toggled client-side (showView) so switching
   // tabs is instant — no server round-trip, no loading state. AutoRefresh quietly updates data.
   // tab + group + epic all live in the URL so router.refresh() re-renders the SAME view (no bounce).
-  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, group)}</div>`;
+  const overviewView = `<div id="view-overview" class="view ${tab !== "epic" ? "active" : ""}">${renderOverview(m, tq, group, envOpen, efilter)}</div>`;
   const epicView = epic ? `<div id="view-epic" class="view ${tab === "epic" ? "active" : ""}">${renderEpic(m, epic, tq, group)}</div>` : "";
   const inner = err
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`

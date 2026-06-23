@@ -18,6 +18,8 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       openSwitcher?: () => void;
       closeSwitcher?: () => void;
       filterSwitcher?: (p: string) => void;
+      toggleEnv?: () => void;
+      filterEpics?: (f: string) => void;
     };
     const w = window as StatusWindow;
     // Persist a view param into the URL (no navigation) so router.refresh() re-renders the SAME view.
@@ -60,6 +62,28 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       });
       document.querySelectorAll("#switcher .sw-fbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-p") === p));
     };
+    // Environments pane collapse — the count summary stays visible in the header.
+    w.toggleEnv = () => {
+      const b = document.getElementById("env-board");
+      if (!b) return;
+      const collapsed = b.classList.toggle("collapsed");
+      const btn = document.getElementById("env-toggle");
+      if (btn) btn.textContent = collapsed ? "แสดง" : "ซ่อน";
+      syncUrl("env", collapsed ? "closed" : "open");
+    };
+    // Epics filter — show/hide cards (and any group left empty) by lifecycle status, persisted in the URL.
+    w.filterEpics = (f: string) => {
+      document.querySelectorAll<HTMLElement>("#epics-pane .epic").forEach((el) => {
+        el.style.display = f === "all" || el.getAttribute("data-estatus") === f ? "" : "none";
+      });
+      document.querySelectorAll<HTMLElement>("#epics-pane .grp").forEach((g) => {
+        const anyVisible = Array.from(g.querySelectorAll<HTMLElement>(".epic")).some((e) => e.style.display !== "none");
+        g.style.display = anyVisible ? "" : "none";
+      });
+      document.querySelectorAll(".efbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-f") === f));
+      syncUrl("efilter", f);
+    };
+
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") w.closeSwitcher?.(); };
     document.addEventListener("keydown", onKey);
 
