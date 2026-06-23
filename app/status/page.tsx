@@ -5,7 +5,7 @@
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, buildWorkload } from "@/lib/status-derive";
+import { buildTrail, buildWorkload, envOf, type EnvLane } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +114,7 @@ interface Model {
   byPersona: Record<string, EpicNode[]>;
   backlogByFeature: Record<string, StatusIssue[]>;
   backlogByPersona: Record<string, StatusIssue[]>;
+  byEnv: Record<EnvLane, StatusIssue[]>;
 }
 function groupBy<T>(arr: T[], keyOf: (x: T) => string): Record<string, T[]> {
   const o: Record<string, T[]> = {};
@@ -165,6 +166,9 @@ function buildModel(issues: StatusIssue[]): Model {
   const rmap = buildWorkload(work);
 
   const backlog = work.filter((i) => i.status === "Backlog");
+  // Env lanes — derived from state + released label (single source of truth, no env field).
+  const byEnv: Record<EnvLane, StatusIssue[]> = { dev: [], staging: [], prod: [] };
+  work.forEach((i) => { byEnv[envOf(i)].push(i); });
   return {
     work, epics, epicNodes, epicNames,
     projectPct: work.length ? Math.round((done / work.length) * 100) : 0,
@@ -177,7 +181,33 @@ function buildModel(issues: StatusIssue[]): Model {
     byPersona: groupBy(epicNodes, (n) => n.persona),
     backlogByFeature: groupBy(backlog, (i) => featureOf(i)),
     backlogByPersona: groupBy(backlog, (i) => personaOf(i)),
+    byEnv,
   };
+}
+
+// ---------- Environments board (derived 3-env lanes: Dev → Staging → Prod) ----------
+// Mirrors the per-status Board idiom (.board/.col/.kc) but keyed by env. env is DERIVED from
+// state + the `released` label (envOf) — no env field. Staging column = the release train.
+const ENV_ORDER: EnvLane[] = ["dev", "staging", "prod"];
+const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
+  dev: { label: "Dev", sub: "กำลังทำ · ยังไม่ขึ้น staging" },
+  staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
+  prod: { label: "Prod", sub: "released" },
+};
+function renderEnvPane(m: Model): string {
+  let h = `<section class="glass board-wrap"><div class="pane-h"><span class="t">Environments</span><span class="x">Dev → Staging → Prod · derive จาก state+released</span></div><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
+  for (const env of ENV_ORDER) {
+    const items = m.byEnv[env], meta = ENV_META[env];
+    const tag = env === "staging" && items.length ? ` <span class="yb">RELEASE</span>` : "";
+    h += `<div class="col" data-k="env-${env}"><div class="col-h"><span class="dot cd"></span>${esc(meta.label)}${tag}<span class="c">${items.length}</span></div>`;
+    h += `<div style="font-size:11px;color:var(--muted);margin:-2px 0 8px">${esc(meta.sub)}</div>`;
+    if (!items.length) h += `<div class="empty">—</div>`;
+    items.forEach((i) => {
+      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+    });
+    h += `</div>`;
+  }
+  return h + `</div></section>`;
 }
 
 // feature groups ordered by story volume (desc) so the busiest feature leads
@@ -270,6 +300,9 @@ function renderOverview(m: Model, tq: string, group: string): string {
     + `<div class="orb"><div class="n">${m.epicsActive}<span style="font-size:16px;color:var(--faint)"> / ${m.epicNames.length}</span></div><div class="l">Epics active</div></div>`
     + `<div class="orb q"><div class="n">${m.backlog.length}</div><div class="l">Backlog stories</div></div>`
     + `</div><div class="ovbar"><i style="width:${m.projectPct}%"></i></div></section>`;
+
+  // Environments — which work sits in which env (Dev/Staging/Prod), derived from state+released.
+  h += renderEnvPane(m);
 
   // Agent workload — primary number = งานที่ "กำลังทำ" (active); done · queued is secondary.
   const roles = Object.keys(m.rmap).filter((r) => r !== "human").sort((a, b) => m.rmap[b].active - m.rmap[a].active || m.rmap[b].total - m.rmap[a].total);

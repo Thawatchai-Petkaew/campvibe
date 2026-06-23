@@ -261,3 +261,20 @@ export function buildWorkload(
 
   return rmap;
 }
+
+// ---------- envOf (3-env derivation: state + released label) ----------
+export type EnvLane = "dev" | "staging" | "prod";
+
+/**
+ * Which environment a story currently sits in, derived ONLY from its workflow
+ * state + the `released` label — no separate env field, so there is one source
+ * of truth (per the 3-env model: Local → Staging → Prod).
+ *   - `released` label present → "prod"    (promoted to production)
+ *   - else Done                → "staging" (merged + verified; in the release train)
+ *   - else                     → "dev"     (in progress / not yet on staging)
+ */
+export function envOf(i: StatusIssue): EnvLane {
+  if (i.labels.includes("released")) return "prod";
+  if (isDone(i)) return "staging";
+  return "dev";
+}
