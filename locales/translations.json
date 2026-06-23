@@ -380,7 +380,14 @@
             "statusPending": "Pending",
             "statusConfirmed": "Confirmed",
             "statusCancelled": "Cancelled",
-            "statusCompleted": "Completed"
+            "statusCompleted": "Completed",
+            "confirmationTitle": "Booking confirmed",
+            "bookingRefLabel": "Booking reference",
+            "viewAllBookings": "View all bookings",
+            "backToCampsite": "Back to campsite",
+            "notFound": "Booking not found",
+            "notFoundDescription": "Please check the link, or view all your bookings.",
+            "statusBadgeAriaLabel": "Booking status: pending"
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -1006,7 +1013,14 @@
             "statusPending": "รอยืนยัน",
             "statusConfirmed": "ยืนยันแล้ว",
             "statusCancelled": "ยกเลิกแล้ว",
-            "statusCompleted": "เข้าพักแล้ว"
+            "statusCompleted": "เข้าพักแล้ว",
+            "confirmationTitle": "การจองสำเร็จแล้ว",
+            "bookingRefLabel": "รหัสการจอง",
+            "viewAllBookings": "ดูการจองทั้งหมด",
+            "backToCampsite": "กลับไปดูลานแคมป์",
+            "notFound": "ไม่พบข้อมูลการจอง",
+            "notFoundDescription": "กรุณาตรวจสอบอีกครั้ง หรือดูรายการจองทั้งหมดของคุณ",
+            "statusBadgeAriaLabel": "สถานะการจอง: รอยืนยัน"
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",

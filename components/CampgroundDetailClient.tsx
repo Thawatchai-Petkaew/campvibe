@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageGallery } from "@/components/ImageGallery";
@@ -53,6 +54,7 @@ export default function CampgroundDetailClient({
     reviewsError?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
+    const router = useRouter();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
@@ -185,9 +187,8 @@ export default function CampgroundDetailClient({
             const { toast } = await import("sonner");
 
             if (res.ok) {
-                toast.success(t.newCampground.bookingReservedSuccess);
-                // Optionally redirect to /bookings
-                setTimeout(() => window.location.href = "/bookings", 1500);
+                // CAM-59: redirect immediately to the confirmation page (no toast delay).
+                router.push(`/bookings/${data.id}/confirmation`);
             } else {
                 toast.error(data.error || t.newCampground.failedToReserve);
             }
