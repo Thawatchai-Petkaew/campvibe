@@ -16,6 +16,7 @@ import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
 
@@ -64,10 +65,17 @@ export default function CampgroundDetailClient({
         : 0;
 
     const displayNights = nights > 0 ? nights : 0;
-    const basePrice = (campground.priceLow || 50) * (displayNights || 1);
-    const cleaningFee = 20;
-    const serviceFee = 35;
-    const totalPrice = basePrice + cleaningFee + serviceFee;
+    // CAM-58: use the shared pricing module so displayed total matches what the API records.
+    // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
+    const unitPrice = resolveUnitPrice({
+        campSitePriceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
+        spotPricePerNight: null,
+    });
+    const { totalAmount, subtotalAmount } = computeBookingPrice({
+        unitPrice,
+        nights: displayNights || 1,
+        vatRate: 0,
+    });
 
     // Fetch availability data
     useEffect(() => {
@@ -859,23 +867,15 @@ export default function CampgroundDetailClient({
                             <p className="text-center text-xs text-muted-foreground mb-4">{t.booking.notChargedYet}</p>
 
                             <div className="space-y-3 text-sm text-muted-foreground">
-                                <div className="flex justify-between">
-                                    <span className="underline">{formatCurrency(campground.priceLow || 50)} x {displayNights} {t.booking.nights}</span>
-                                    <span>{formatCurrency(basePrice)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="underline">{t.booking.cleaningFee}</span>
-                                    <span>{formatCurrency(cleaningFee)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="underline">{t.booking.serviceFee}</span>
-                                    <span>{formatCurrency(serviceFee)}</span>
+                                <div className="flex justify-between" data-testid="row--booking-room-subtotal">
+                                    <span className="underline">{formatCurrency(unitPrice)} x {displayNights} {t.booking.nights}</span>
+                                    <span>{formatCurrency(subtotalAmount)}</span>
                                 </div>
                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground">
-                                <span>{t.booking.totalBeforeTaxes}</span>
-                                <span>{formatCurrency(totalPrice)}</span>
+                            <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
+                                <span>{t.booking.total}</span>
+                                <span>{formatCurrency(totalAmount)}</span>
                             </div>
 
 

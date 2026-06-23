@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailability } from '@/lib/campsite-availability';
 import { serializeDecimals } from '@/lib/serialize';
+import { resolveUnitPrice, computeBookingPrice } from '@/lib/booking-pricing';
 
 export async function POST(request: NextRequest) {
   const { error: authError, session } = await requireAuth();
@@ -73,14 +74,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Money is Decimal in the DB (ADR-002); compute in number for this simple THB total.
-    let pricePerNight = Number(campSite.priceLow ?? 50);
+    // CAM-58: price computation centralised in lib/booking-pricing.ts — shared with the UI
+    // so displayed total always equals recorded total.
     const bookedSpot = data.spotId ? campSite.spots.find(s => s.id === data.spotId) : undefined;
-    if (bookedSpot?.pricePerNight) {
-      pricePerNight = Number(bookedSpot.pricePerNight);
-    }
+    const unitPrice = resolveUnitPrice({
+      campSitePriceLow: campSite.priceLow !== null ? Number(campSite.priceLow) : null,
+      spotPricePerNight: bookedSpot?.pricePerNight ? Number(bookedSpot.pricePerNight) : null,
+    });
 
     const nights = calculateNights(checkIn, checkOut);
-    const totalPrice = pricePerNight * nights;
 
     // Ensure userId is available
     const userId = session?.user?.id;
@@ -92,10 +94,13 @@ export async function POST(request: NextRequest) {
     const currency = campSite.priceCurrency ?? 'THB';
     // S5→S6: pull real regional VAT + timezone from the camp's Country (fallback for legacy null-country camps)
     const country = campSite.location?.countryRel;
-    const taxRate = country ? Number(country.vatRate) : 0;
-    const vatInclusive = taxRate > 0; // Thai displayed prices are VAT-inclusive
-    const taxAmount = vatInclusive ? Math.round((totalPrice - totalPrice / (1 + taxRate)) * 100) / 100 : 0;
+    const vatRate = country ? Number(country.vatRate) : 0;
     const timezone = country?.timezone ?? 'Asia/Bangkok';
+
+    const pricing = computeBookingPrice({ unitPrice, nights, vatRate });
+    const { subtotalAmount, taxAmount, vatInclusive, totalAmount } = pricing;
+    // totalPrice on the Booking row = totalAmount (no fees; equals subtotal per CAM-58 invariant)
+    const totalPrice = totalAmount;
     const booking = await prisma.booking.create({
       data: {
         userId: userId,
@@ -112,12 +117,12 @@ export async function POST(request: NextRequest) {
         snapshotCampName: campSite.nameTh,
         snapshotCampNameEn: campSite.nameEn,
         snapshotSpotName: bookedSpot?.name ?? null,
-        snapshotUnitAmount: pricePerNight,
-        snapshotSubtotalAmount: totalPrice,
-        snapshotTaxRate: taxRate, // S5: regional VAT from the camp's Country.vatRate
+        snapshotUnitAmount: unitPrice,
+        snapshotSubtotalAmount: subtotalAmount,
+        snapshotTaxRate: vatRate, // S5: regional VAT from the camp's Country.vatRate
         snapshotTaxAmount: taxAmount,
         snapshotVatInclusive: vatInclusive,
-        snapshotTotalAmount: totalPrice,
+        snapshotTotalAmount: totalAmount,
         snapshotCurrency: currency,
         snapshotNights: nights,
         snapshotCheckInTime: campSite.checkInTime,
