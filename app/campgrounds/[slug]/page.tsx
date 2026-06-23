@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
 import { serializeDecimals } from "@/lib/serialize";
+import { buildReviewSummary, roundAvgRating, toReviewListItem, type ReviewListItem } from "@/lib/review-summary";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -66,6 +67,42 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
         }
     }
 
+    // CAM-79 AC-1..6: fetch review aggregate + latest 10 reviews isolated from rest of page.
+    // AC-6: a review DB error MUST NOT break images/facilities/calendar — isolated try/catch.
+    let avgRating: number | null = null;
+    let reviewCount = 0;
+    let reviews: ReviewListItem[] = [];
+    let reviewsError = false;
+
+    try {
+        const campSiteId = campSite.id;
+        const [agg, latest] = await Promise.all([
+            prisma.review.aggregate({
+                where: { campSiteId, deletedAt: null },
+                _avg: { rating: true },
+                _count: { rating: true },
+            }),
+            prisma.review.findMany({
+                where: { campSiteId, deletedAt: null },
+                include: { author: { select: { name: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+            }),
+        ]);
+
+        const summary = buildReviewSummary({
+            avg: agg._avg.rating,
+            count: agg._count.rating,
+        });
+
+        avgRating = summary.avgRating;
+        reviewCount = summary.count;
+        reviews = latest.map(toReviewListItem);
+    } catch {
+        // AC-6: isolated — rest of page remains usable.
+        reviewsError = true;
+    }
+
     return (
         <main className="min-h-screen bg-background">
             <Navbar currentUser={session?.user} />
@@ -74,6 +111,10 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 isOwner={isOwner}
                 initialSaved={initialSaved}
                 isLoggedIn={!!session?.user}
+                avgRating={avgRating}
+                reviewCount={reviewCount}
+                reviews={reviews}
+                reviewsError={reviewsError}
             />
         </main>
     );

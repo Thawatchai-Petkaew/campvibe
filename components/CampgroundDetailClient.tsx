@@ -13,6 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,10 @@ export default function CampgroundDetailClient({
     isOwner = false,
     initialSaved = false,
     isLoggedIn = false,
+    avgRating = null,
+    reviewCount = 0,
+    reviews = [],
+    reviewsError = false,
 }: {
     campground: any;
     isOwner?: boolean;
@@ -37,6 +43,14 @@ export default function CampgroundDetailClient({
     initialSaved?: boolean;
     /** True when there is an active user session (AC-4, BR-2). */
     isLoggedIn?: boolean;
+    /** CAM-79 AC-1/AC-2: average rating rounded to 1dp, or null when no reviews. */
+    avgRating?: number | null;
+    /** CAM-79 AC-1/AC-2: total review count for this campsite. */
+    reviewCount?: number;
+    /** CAM-79 AC-3/AC-5: up to 10 newest reviews (client-safe DTOs, no authorId). */
+    reviews?: ReviewListItem[];
+    /** CAM-79 AC-6: true when the review query threw; rest of page stays usable. */
+    reviewsError?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -352,10 +366,27 @@ export default function CampgroundDetailClient({
                             {name}
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground underline cursor-pointer">
-                            <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 fill-foreground text-foreground" />
-                                <span className="font-semibold text-foreground">4.8</span>
-                                <span>(12 {t.common.reviews})</span>
+                            {/* CAM-79 AC-1/AC-2: real rating or empty state */}
+                            <div
+                                data-testid="rating--detail-title"
+                                className="flex items-center gap-1"
+                                aria-label={
+                                    reviewCount > 0 && avgRating !== null
+                                        ? t.reviews.ratingAriaLabel
+                                            .replace('{avg}', String(avgRating))
+                                            .replace('{count}', String(reviewCount))
+                                        : t.reviews.noReviews
+                                }
+                            >
+                                {reviewCount > 0 && avgRating !== null ? (
+                                    <>
+                                        <Star className="w-4 h-4 fill-foreground text-foreground" aria-hidden="true" />
+                                        <span className="font-semibold text-foreground tabular-nums">{avgRating}</span>
+                                        <span className="text-muted-foreground">({reviewCount} {t.common.reviews})</span>
+                                    </>
+                                ) : (
+                                    <span className="text-muted-foreground">{t.reviews.noReviews}</span>
+                                )}
                             </div>
                             <span className="hidden sm:inline">·</span>
                             <span className="font-semibold text-foreground">{campground.address || `${campground.location.province}, Thailand`}</span>
@@ -746,6 +777,104 @@ export default function CampgroundDetailClient({
                             </div>
                         )}
 
+                        {/* CAM-79 AC-3/AC-4/AC-5/AC-6: Review section */}
+                        <div
+                            className="pb-8 border-b border-border/60"
+                            data-testid="section--reviews"
+                        >
+                            <h2 className="text-2xl font-bold font-display text-foreground mb-6">
+                                {t.reviews.sectionHeading}
+                            </h2>
+
+                            {reviewsError ? (
+                                // AC-6: isolated error — rest of page stays usable
+                                <p
+                                    className="text-muted-foreground text-sm"
+                                    data-testid="error--reviews"
+                                >
+                                    {t.reviews.loadError}
+                                </p>
+                            ) : reviewCount === 0 ? (
+                                // AC-4: empty state
+                                <p
+                                    className="text-muted-foreground text-sm"
+                                    data-testid="empty--reviews"
+                                >
+                                    {t.reviews.noReviewsSection}
+                                </p>
+                            ) : (
+                                // AC-3/AC-5: has reviews
+                                <>
+                                    <ul className="space-y-6" data-testid="list--reviews">
+                                        {reviews.map((review, index) => {
+                                            const reviewDate = typeof review.createdAt === 'string'
+                                                ? new Date(review.createdAt)
+                                                : review.createdAt;
+                                            const formattedDate = format(
+                                                reviewDate,
+                                                'd MMM yyyy',
+                                                { locale: language === 'th' ? th : enUS }
+                                            );
+                                            return (
+                                                <li
+                                                    key={index}
+                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-sm -mx-1 px-1"
+                                                    data-testid={`item--review-${index}`}
+                                                >
+                                                    <p className="font-semibold text-foreground text-sm mb-1">
+                                                        {review.name}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div
+                                                            role="img"
+                                                            aria-label={t.reviews.itemRatingAriaLabel.replace('{rating}', String(review.rating))}
+                                                            className="flex items-center gap-0.5"
+                                                        >
+                                                            {Array.from({ length: 5 }, (_, i) => (
+                                                                <Star
+                                                                    key={i}
+                                                                    className={cn(
+                                                                        "w-3.5 h-3.5",
+                                                                        i < review.rating
+                                                                            ? "fill-foreground text-foreground"
+                                                                            : "text-muted-foreground"
+                                                                    )}
+                                                                    aria-hidden="true"
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-sm text-muted-foreground tabular-nums">
+                                                            {formattedDate}
+                                                        </span>
+                                                    </div>
+                                                    {review.content && review.content.trim().length > 0 && (
+                                                        <p className="text-sm text-foreground leading-relaxed mt-1">
+                                                            {review.content}
+                                                        </p>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                    {/* AC-5: "ดูรีวิวทั้งหมด" placeholder — shown when reviewCount > 10 */}
+                                    {reviewCount > 10 && (
+                                        <div className="flex justify-center mt-4">
+                                            <Button
+                                                variant="outline"
+                                                size="default"
+                                                disabled
+                                                aria-disabled="true"
+                                                aria-label={t.reviews.viewAllAriaLabel}
+                                                data-testid="btn--reviews-view-all"
+                                            >
+                                                {t.reviews.viewAll}
+                                            </Button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
                     </div>
 
                     {/* Right Column: Booking Widget */}
@@ -756,11 +885,28 @@ export default function CampgroundDetailClient({
                                     <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
                                     <span className="text-muted-foreground">{t.common.night}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-sm">
-                                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
-                                    <span className="font-semibold">4.8</span>
-                                    <span className="text-muted-foreground/60">·</span>
-                                    <span className="text-muted-foreground underline">12 {t.common.reviews}</span>
+                                {/* CAM-79 AC-1/AC-2: real rating in booking widget */}
+                                <div
+                                    data-testid="rating--detail-widget"
+                                    className="flex items-center gap-1 text-sm"
+                                    aria-label={
+                                        reviewCount > 0 && avgRating !== null
+                                            ? t.reviews.ratingAriaLabel
+                                                .replace('{avg}', String(avgRating))
+                                                .replace('{count}', String(reviewCount))
+                                            : t.reviews.noReviews
+                                    }
+                                >
+                                    {reviewCount > 0 && avgRating !== null ? (
+                                        <>
+                                            <Star className="w-3.5 h-3.5 fill-foreground text-foreground" aria-hidden="true" />
+                                            <span className="font-semibold tabular-nums">{avgRating}</span>
+                                            <span className="text-muted-foreground/60">·</span>
+                                            <span className="text-muted-foreground underline tabular-nums">{reviewCount} {t.common.reviews}</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-muted-foreground">{t.reviews.noReviews}</span>
+                                    )}
                                 </div>
                             </div>
 
