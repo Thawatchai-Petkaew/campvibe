@@ -32,6 +32,8 @@ export type EventKind =
   | "created"
   | "started"
   | "handoff"
+  | "regression"
+  | "reverify"
   | "gate"
   | "approved"
   | "rejected"
@@ -44,6 +46,8 @@ export const NOTIFY_EVENTS: Record<EventKind, boolean> = {
   created: false,
   started: true,
   handoff: true,
+  regression: true,
+  reverify: true,
   gate: true,
   approved: true,
   rejected: true,
@@ -95,8 +99,12 @@ export interface EventCtx {
   title?: string;
   /** Direct URL to the Linear issue. */
   url?: string;
-  /** Role slug for handoff events, e.g. "backend-engineer". */
+  /** Role slug for handoff/regression/reverify events, e.g. "backend-engineer". */
   role?: string;
+  /** For regression: the role that sent the work back (the sender). */
+  fromRole?: string;
+  /** For regression/reverify: the bounce round number. */
+  round?: number;
 }
 
 interface NotifyMessage {
@@ -111,7 +119,7 @@ interface NotifyMessage {
 export function buildEventMessage(kind: EventKind, ctx: EventCtx): NotifyMessage | null {
   if (!NOTIFY_EVENTS[kind]) return null;
 
-  const { id, title, url, role } = ctx;
+  const { id, title, url, role, fromRole, round } = ctx;
   const idCode = `<code>${esc(id)}</code>`;
   const description = title ? esc(cleanTitle(title)) : null;
 
@@ -140,6 +148,29 @@ export function buildEventMessage(kind: EventKind, ctx: EventCtx): NotifyMessage
     case "handoff": {
       const roleLabel = role ? (ROLE_LABEL[role] ?? role) : "Unknown";
       header = `Handed over to ${roleLabel}`;
+      buttons = [
+        ...(url ? [[moreDetailBtn(url)]] : []),
+        [liveStatusBtn()],
+      ];
+      break;
+    }
+
+    case "regression": {
+      const fromLabel = fromRole ? (ROLE_LABEL[fromRole] ?? fromRole) : "Unknown";
+      const toLabel = role ? (ROLE_LABEL[role] ?? role) : "Unknown";
+      const r = round ?? 0;
+      header = `Sent back from ${fromLabel} to ${toLabel} (round ${r})`;
+      buttons = [
+        ...(url ? [[moreDetailBtn(url)]] : []),
+        [liveStatusBtn()],
+      ];
+      break;
+    }
+
+    case "reverify": {
+      const toLabel = role ? (ROLE_LABEL[role] ?? role) : "Unknown";
+      const r = round ?? 0;
+      header = `Back to ${toLabel} for re-review (round ${r})`;
       buttons = [
         ...(url ? [[moreDetailBtn(url)]] : []),
         [liveStatusBtn()],

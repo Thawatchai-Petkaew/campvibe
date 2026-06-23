@@ -204,6 +204,33 @@ export function buildTrail(stories: StatusIssue[]): Trail {
   return { nodes, total, shipped, allDone, curIdx, curName, header };
 }
 
+// ---------- regression helpers ----------
+
+/**
+ * Return the numeric rank of a role's pipeline stage.
+ * Design=0, Gate=1, Build=2, Verify=3, Ship=4. Unknown roles → 0.
+ * Used by both the webhook (classification) and scripts/linear-sync.mjs (keep in sync).
+ */
+export function stageRank(role: string): number {
+  const stage = ROLE_STAGE[role] ?? "Design";
+  const idx = STAGES.indexOf(stage as StageName);
+  return idx >= 0 ? idx : 0;
+}
+
+/**
+ * Sum the regression round numbers from all matching `regression:<role>:<n>` labels.
+ * e.g. ["regression:frontend-engineer:2", "regression:qa-engineer:1"] → 3.
+ * Returns 0 when no regression labels are present or the labels array is empty.
+ */
+export function regressionRound(labels: string[]): number {
+  let total = 0;
+  for (const l of labels) {
+    const m = l.match(/^regression:[^:]+:(\d+)$/);
+    if (m) total += parseInt(m[1], 10);
+  }
+  return total;
+}
+
 // ---------- rolesOf ----------
 /**
  * All roles that have ever touched this story, canonicalized.

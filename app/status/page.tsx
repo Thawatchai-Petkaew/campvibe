@@ -6,7 +6,7 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, buildWorkload, envOf, epicBucket, type EnvLane } from "@/lib/status-derive";
+import { buildTrail, buildWorkload, envOf, epicBucket, regressionRound, type EnvLane } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -213,7 +213,9 @@ function renderEnvPane(m: Model, open: boolean): string {
     h += `<div style="font-size:11px;color:var(--muted);margin:-2px 0 8px">${esc(meta.sub)}</div>`;
     if (!items.length) h += `<div class="empty">—</div>`;
     items.forEach((i) => {
-      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      const r = regressionRound(i.labels);
+      const rChip = r > 0 ? `<span class="chip regression">↩${r}</span>` : "";
+      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
     });
     h += `</div>`;
   }
@@ -442,7 +444,9 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
     items.forEach((i) => {
       const yb = hasAwait(i) ? '<span class="yb">YOU</span>' : "";
       const live = isActive(i) ? '<span class="dot live" style="margin-right:5px"></span>' : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      const rb = regressionRound(i.labels);
+      const rChip = rb > 0 ? `<span class="chip regression">↩${rb}</span>` : "";
+      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
     });
     h += `</div>`;
   });
