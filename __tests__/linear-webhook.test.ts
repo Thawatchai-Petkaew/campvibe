@@ -144,8 +144,9 @@ describe("linear-webhook", () => {
     expect(text).toContain("Handed over to Designer");
   });
 
-  it("notifies handoff on a RETURN even when the role:* label already exists (regression)", async () => {
-    // QA hands the work back to Frontend; role:frontend-engineer was added earlier and never removed.
+  it("classifies a RETURN (QA→Frontend) as regression when the title changes backward (CAM-145)", async () => {
+    // QA hands the work back to Frontend (Verify→Build = backward); role:frontend-engineer was added
+    // earlier and never removed. Since CAM-145 this is a regression, not a normal handoff.
     const body = issueUpdate(
       {
         identifier: "CAM-9",
@@ -158,9 +159,9 @@ describe("linear-webhook", () => {
       { title: "[qa-engineer] story", labelIds: ["rf", "rq"] } // no label added; only the title changed
     );
     const res = await POST(req(body));
-    expect((await res.json()).notified).toContain("handoff:frontend-engineer");
+    expect((await res.json()).notified).toContain("regression:frontend-engineer");
     const [text] = tg.mock.calls[0];
-    expect(text).toContain("Handed over to Frontend");
+    expect(text).toContain("Sent back from QA to Frontend");
   });
 
   it("does not re-notify for a label that was already present", async () => {
@@ -214,5 +215,76 @@ describe("linear-webhook", () => {
         expect(EMOJI_RE.test(text as string), `emoji found in message: ${text}`).toBe(false);
       }
     }
+  });
+
+  // ── CAM-145: regression / send-back classification ────────────────────────────────────
+
+  it("[CAM-145] backward title move → regression message with correct round from labels", async () => {
+    // qa-engineer → frontend-engineer is backward (Verify→Build).
+    // Label regression:frontend-engineer:2 is already present → round = 2.
+    const body = issueUpdate(
+      {
+        identifier: "CAM-9",
+        title: "[frontend-engineer] My story",
+        url: "https://linear.app/x",
+        labels: [
+          { id: "rf", name: "role:frontend-engineer" },
+          { id: "rq", name: "role:qa-engineer" },
+          { id: "reg", name: "regression:frontend-engineer:2" },
+        ],
+      },
+      { title: "[qa-engineer] My story", labelIds: ["rf", "rq", "reg"] }
+    );
+    const res = await POST(req(body));
+    const json = await res.json();
+    expect(json.notified).toContain("regression:frontend-engineer");
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Sent back from QA to Frontend (round 2)");
+  });
+
+  it("[CAM-145] forward title move into Verify WITH a regression label → reverify message", async () => {
+    // frontend-engineer → qa-engineer is forward into Verify; regression label present → reverify.
+    const body = issueUpdate(
+      {
+        identifier: "CAM-9",
+        title: "[qa-engineer] My story",
+        url: "https://linear.app/x",
+        labels: [
+          { id: "rf", name: "role:frontend-engineer" },
+          { id: "rq", name: "role:qa-engineer" },
+          { id: "reg", name: "regression:frontend-engineer:1" },
+        ],
+      },
+      { title: "[frontend-engineer] My story", labelIds: ["rf", "rq", "reg"] }
+    );
+    const res = await POST(req(body));
+    const json = await res.json();
+    expect(json.notified).toContain("reverify:qa-engineer");
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Back to QA for re-review (round 1)");
+  });
+
+  it("[CAM-145] forward title move into Verify WITHOUT a regression label → normal handoff", async () => {
+    // frontend-engineer → qa-engineer is forward into Verify; no regression labels → normal handoff.
+    const body = issueUpdate(
+      {
+        identifier: "CAM-9",
+        title: "[qa-engineer] My story",
+        url: "https://linear.app/x",
+        labels: [
+          { id: "rf", name: "role:frontend-engineer" },
+          { id: "rq", name: "role:qa-engineer" },
+        ],
+      },
+      { title: "[frontend-engineer] My story", labelIds: ["rf", "rq"] }
+    );
+    const res = await POST(req(body));
+    const json = await res.json();
+    expect(json.notified).toContain("handoff:qa-engineer");
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0];
+    expect(text).toContain("Handed over to QA");
   });
 });

@@ -98,8 +98,8 @@ describe("AC-status-1/2: app/status/page.tsx must not be in the F5 diff", () => 
         try {
             branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
         } catch { /* ignore */ }
-        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous")) {
-            return; // skip: this story (ST1/ST2) owns app/status/page.tsx
+        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145")) {
+            return; // skip: this story (ST1/ST2/CAM-145) owns app/status/page.tsx
         }
         let diffOutput = "";
         try {

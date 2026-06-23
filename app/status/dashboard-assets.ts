@@ -245,6 +245,7 @@ body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-w
 .chip.persona.camper{color:var(--blue);background:rgba(143,184,240,.12);border-color:rgba(143,184,240,.34)}
 .chip.persona.admin{color:var(--amber);background:rgba(255,150,52,.12);border-color:rgba(255,150,52,.36)}
 .chip.persona.platform{color:var(--violet);background:rgba(183,166,255,.13);border-color:rgba(183,166,255,.34)}
+.chip.regression{color:var(--amber);background:rgba(255,150,52,.12);border-color:rgba(255,150,52,.36)}
 .load-n.on{color:var(--emerald)}.load.you .load-n.on{color:var(--amber)}
 .qrow .chip{margin-left:auto;margin-right:2px}
 /* ---- epic switcher modal ---- */
