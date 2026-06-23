@@ -69,6 +69,9 @@ export default async function StatusMapPage({
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div dangerouslySetInnerHTML={{ __html: SCENE }} />
       {err ? (
+        // S7: Error state — matches /status error copy pattern exactly.
+        // Night-scene background (SCENE) is already rendered above so the
+        // map never shows a blank/white screen even on fetch failure.
         <div
           style={{
             position: "relative",
@@ -78,9 +81,12 @@ export default async function StatusMapPage({
             alignItems: "center",
             justifyContent: "center",
           }}
+          data-testid="error--status-map"
         >
           <div className="map-placeholder">
-            <p className="map-placeholder-text">โหลดข้อมูลไม่ได้: {err}</p>
+            <p className="map-placeholder-text" data-testid="error-text--status-map">
+              โหลดข้อมูลจาก Linear ไม่ได้: {err}
+            </p>
           </div>
         </div>
       ) : (

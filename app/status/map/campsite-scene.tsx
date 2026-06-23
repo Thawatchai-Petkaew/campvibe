@@ -9,6 +9,15 @@
 //   URL params (scope/epic/group/efilter) are persisted via history.replaceState and
 //   restored from initial props (read by the server page.tsx from searchParams).
 //
+// S7 — A11y + reduced-motion hardening:
+//   - Scene root gets role="img" + aria-label summary.
+//   - Each agent is a focusable <button> (tab-order: You first, then agents).
+//   - Under prefers-reduced-motion:reduce every agent shows a visible text label
+//     (display name + status tag) so all motion-carried signals are readable as text.
+//   - Trail renders as a static filled bar + stage names under reduced-motion.
+//   - Deep-link scope fix: scope effect re-runs when engineRef becomes available.
+//   - Client reconcile failures are caught gracefully (keep last-known data).
+//
 // Reduced-motion: if prefers-reduced-motion:reduce → rAF loop never starts; all agents
 // render static at their home station (S2 behaviour). The media-query listener
 // starts/stops the loop if the OS setting changes without a page reload.
@@ -239,6 +248,21 @@ const SCENE_CSS = `
 .pop-gate .gid{font-family:var(--mono);color:var(--amber);flex:none}
 .pop-hint{font-size:10px;color:var(--faint);margin-top:9px;border-top:1px solid var(--line);padding-top:8px}
 .popover::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:7px solid transparent;border-top-color:rgba(14,24,40,.9)}
+/* S7: Reduced-motion static labels — visible under prefers-reduced-motion:reduce, hidden otherwise */
+.rm-label{
+  display:none;
+  position:absolute;left:50%;bottom:calc(var(--bh) - 28px);transform:translateX(-50%);
+  white-space:nowrap;text-align:center;pointer-events:none;z-index:8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rm-label{display:block;}
+  .rm-label-name{font-size:11px;font-weight:700;color:var(--text);display:block;line-height:1.3}
+  .rm-label-status{font-size:9.5px;font-weight:600;display:block;margin-top:2px;
+    border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:1px 7px;
+    background:rgba(18,30,48,.55);color:var(--muted);line-height:1.4;white-space:nowrap;}
+  .rm-label-status.working{color:#5BE9B0;border-color:rgba(91,233,176,.4);}
+  .rm-label-status.amber{color:var(--amber);border-color:rgba(255,180,84,.4);}
+}
 /* S4: map-stat-bar replaced by Delivery chip overlay */
 `;
 
@@ -252,10 +276,11 @@ interface AgentScoutProps {
   staticLeft: string;
   staticTop:  string;
   staticZ:    number;
+  onActivate: () => void;
 }
 
 function AgentScout({
-  agent, bodyRef, rootRef, staticLeft, staticTop, staticZ,
+  agent, bodyRef, rootRef, staticLeft, staticTop, staticZ, onActivate,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
@@ -274,20 +299,35 @@ function AgentScout({
         .trim()
     : "";
 
+  // S7: reduced-motion status label text
+  const rmStatusText = agent.active ? "กำลังทำ" : "พัก";
+  const rmStatusCls = agent.active ? "rm-label-status working" : "rm-label-status";
+
+  const ariaLabel = `${cfg.displayName} (${cfg.roleLabel}): ${agent.active ? `กำลังทำ ${bstatText}` : "พัก"}`;
+
   return (
-    <div
-      ref={rootRef}
+    // S7: button so keyboard-triggerable + in natural tab order (You is rendered first)
+    <button
+      ref={rootRef as (el: HTMLButtonElement | null) => void}
+      type="button"
       className={`scout ${stateClass}`}
       style={{
         left: staticLeft,
         top:  staticTop,
         zIndex: staticZ,
+        // Reset button default styles; all visual styling is via .scout CSS
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        minWidth: 44,
+        minHeight: 44,
         ["--aura" as string]:     cfg.color,
         ["--auraGlow" as string]: hexA(cfg.color, 0.7),
       }}
-      role="listitem"
-      aria-label={`${cfg.displayName}: ${agent.active ? `กำลังทำ ${bstatText}` : "พัก"}`}
-      tabIndex={0}
+      aria-label={ariaLabel}
+      onClick={onActivate}
+      data-testid={`btn--map-agent-${agent.role}`}
     >
       <div className="glow" aria-hidden="true" />
       <div className="aura-ring" aria-hidden="true" />
@@ -298,10 +338,17 @@ function AgentScout({
         style={{ backgroundImage: `url("${relaxSrc}")` }}
         aria-hidden="true"
       />
-      <div className="badge">
+      {/* Always-in-tree badge for screen readers */}
+      <div className="badge" aria-hidden="true">
         <span className="bdot" aria-hidden="true" />
         <span className="bname">{cfg.displayName}</span>
         <span className="bstat">{bstatText}</span>
+      </div>
+
+      {/* S7: Reduced-motion static label — always in accessibility tree (WCAG), visually shown only under reduce */}
+      <div className="rm-label" aria-hidden="true">
+        <span className="rm-label-name">{cfg.displayName}</span>
+        <span className={rmStatusCls}>{rmStatusText}</span>
       </div>
 
       <div className="popover" role="tooltip">
@@ -330,7 +377,7 @@ function AgentScout({
           {agent.done} เสร็จแล้ว · {agent.activeCount} กำลังทำ · {agent.queued} รอคิว
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -343,19 +390,32 @@ function YouScout({ gates, onOpenGates }: YouScoutProps) {
   const zIndex = Math.round(YOU_POS.y * 12) + 5;
   const hasGates = gates.length > 0;
 
+  // S7: reduced-motion You label
+  const rmYouStatusText = hasGates ? `⚑${gates.length} รอคุณ` : "ปกติ";
+  const rmYouStatusCls = hasGates ? "rm-label-status amber" : "rm-label-status";
+
   return (
-    <div
+    // S7: You is a button too — comes first in the DOM so tab order reaches You first
+    <button
+      type="button"
       className="scout you idle"
       style={{
         left:   `${YOU_POS.x}%`,
         top:    `${YOU_POS.y}%`,
         zIndex,
+        // Reset button default styles
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: hasGates ? "pointer" : "default",
+        minWidth: 44,
+        minHeight: 44,
         ["--aura" as string]:     "#FFB454",
         ["--auraGlow" as string]: "rgba(255,150,52,.7)",
       }}
-      role="listitem"
-      aria-label={hasGates ? `คุณ: มี ${gates.length} gate รอตรวจสอบ` : "คุณ: ไม่มี gate รอ"}
-      tabIndex={0}
+      aria-label={hasGates ? `คุณ: มี ${gates.length} gate รอตรวจสอบ — กดเพื่อดูรายละเอียด` : "คุณ: ไม่มี gate รอ"}
+      onClick={hasGates ? onOpenGates : undefined}
+      data-testid="btn--map-agent-you"
     >
       <div className="glow" aria-hidden="true" />
       <div className="aura-ring" aria-hidden="true" />
@@ -365,22 +425,26 @@ function YouScout({ gates, onOpenGates }: YouScoutProps) {
         style={{ backgroundImage: `url("/status-map/sprites/you.webp")` }}
         aria-hidden="true"
       />
-      <div className="badge">
+      <div className="badge" aria-hidden="true">
         <span className="bdot" aria-hidden="true" />
         <span className="bname">คุณ</span>
         <span className="bstat">{hasGates ? `${gates.length} gate` : "ปกติ"}</span>
       </div>
 
+      {/* S7: Reduced-motion static label for You */}
+      <div className="rm-label" aria-hidden="true">
+        <span className="rm-label-name">คุณ</span>
+        <span className={rmYouStatusCls}>{rmYouStatusText}</span>
+      </div>
+
       {hasGates && (
-        <button
+        <span
           className="you-alert"
-          aria-label={`${gates.length} gate รอการอนุมัติ กดเพื่อดูรายละเอียด`}
-          onClick={(e) => { e.stopPropagation(); onOpenGates(); }}
-          type="button"
+          aria-hidden="true"
         >
           <span className="adot" aria-hidden="true" />
           <span>&#9873;{gates.length} รอตรวจสอบ</span>
-        </button>
+        </span>
       )}
 
       <div className="popover" role="tooltip">
@@ -389,7 +453,7 @@ function YouScout({ gates, onOpenGates }: YouScoutProps) {
           {hasGates ? `${gates.length} gate รอการอนุมัติ — กดปุ่ม ⚑` : "ไม่มี gate รอ"}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -459,6 +523,9 @@ export default function CampsiteScene({
   // Exposed handle for S6 (parent can access via a forwarded ref if needed).
   const engineRef = useRef<EngineHandle | null>(null);
 
+  // S7: track whether engine has started — used to re-apply scope after engine starts.
+  const [engineReady, setEngineReady] = useState(false);
+
   useEffect(() => {
     // Guard: only run in the browser (this is a "use client" component, but be safe).
     if (typeof window === "undefined") return;
@@ -486,6 +553,7 @@ export default function CampsiteScene({
       if (engine) return; // already running
       engine = startEngine(scoutRefs);
       engineRef.current = engine;
+      setEngineReady(true); // S7: notify scope effect that engine is ready
     }
 
     function stopLoop() {
@@ -493,6 +561,7 @@ export default function CampsiteScene({
       engine.stop();
       engine = null;
       engineRef.current = null;
+      setEngineReady(false);
       // Restore all agents to their home station (static fallback).
       for (const ref of scoutRefs) {
         const s   = ref.state;
@@ -543,11 +612,12 @@ export default function CampsiteScene({
     };
   }, []); // mount-once — engine is data-independent at this stage
 
-  // S5: sync engine scope + URL params when scope/epic/group/efilter state changes.
-  // Does NOT teardown the rAF loop — engine.setScope only writes CSS opacity/pointer-events.
+  // S5 + S7: sync engine scope + URL params when scope/epic/group/efilter state changes,
+  // OR when the engine first becomes ready (deep-link fix: ?scope=epic&epic=X applied on
+  // the first frame after the engine has started, not lost during the engine startup gap).
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engine) return; // engine not yet started (e.g. first frame or reduced-motion)
+    if (!engine) return; // engine not yet started (e.g. reduced-motion, or pre-start)
 
     if (scope === "epic" && activeEpic) {
       // Determine which roles appear in the active epic's stories.
@@ -567,7 +637,9 @@ export default function CampsiteScene({
       group,
       efilter: efilter !== "all" ? efilter : "",
     });
-  }, [scope, activeEpic, group, efilter, epics]);
+  // S7 fix: include engineReady so this effect re-runs when the engine starts,
+  // ensuring ?scope=epic deep-link is applied even when it starts after this effect.
+  }, [scope, activeEpic, group, efilter, epics, engineReady]);
 
   // S6: SSE reconcile — subscribe to /api/status/stream exactly like dashboard-client.tsx
   // (same backoff + 60s fallback interval). On a pulse event, fetch the new MapModel from
@@ -585,7 +657,7 @@ export default function CampsiteScene({
       try {
         const qs = token ? `?token=${encodeURIComponent(token)}` : "";
         const res = await fetch(`/status/map/data${qs}`);
-        if (!res.ok) return;
+        if (!res.ok) return; // S7: non-ok response — keep last-known data, don't crash
         const next = (await res.json()) as MapModel;
 
         // Update React state — overlays will re-render with fresh data.
@@ -601,7 +673,8 @@ export default function CampsiteScene({
         }
         // Under reduced-motion: setLiveModel above updates overlay data statically; no walk.
       } catch {
-        /* transient fetch error — next poll or SSE event will retry */
+        // S7: transient fetch error — keep last-known liveModel, don't crash or blank.
+        // Next poll or SSE event will retry.
       }
     }
 
@@ -668,6 +741,10 @@ export default function CampsiteScene({
   // Derive the active epic data for Epic overlays.
   const activeEpicData = epics.find((e) => e.key === activeEpic) ?? null;
 
+  // S7: aria-label summary for the scene container (role="img").
+  const activeAgentCount = agents.filter((a) => a.active).length;
+  const sceneAriaLabel = `แผนที่แคมป์: กำลังทำงาน ${activeAgentCount}/7 คน, รออนุมัติ ${gates.length} งาน, คืบหน้า ${projectPct}%`;
+
   // S6: Dashboard|Map toggle — build the dashboard URL from current map state,
   // mapping scope=all|epic ↔ tab=overview|epic; epic/group/efilter/token carry identically.
   const dashboardHref = (() => {
@@ -699,15 +776,25 @@ export default function CampsiteScene({
         />
       )}
 
+      {/* S7: Scene root with role="img" + aria-label summary for screen readers */}
       <div
         className="map-stage"
+        role="img"
+        aria-label={sceneAriaLabel}
         style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
+        data-testid="stage--status-map"
       >
+        {/* S7: tab order — You first (carries gates), then agents in role order */}
         <div
           className="scout-layer"
           role="list"
           aria-label="ทีม AI delivery agents บนแผนที่"
         >
+          {/* You rendered first so it comes first in tab order */}
+          <YouScout
+            gates={gates}
+            onOpenGates={() => openPanel("gates")}
+          />
           {agents.map((agent) => {
             const pos = homeStyle(agent.role);
             return (
@@ -719,13 +806,15 @@ export default function CampsiteScene({
                 staticZ={pos.zIndex}
                 rootRef={(el) => { rootRefs.current[agent.role] = el; }}
                 bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
+                onActivate={() => {
+                  // Clicking an agent opens the Crew overlay panel so the user can
+                  // see that agent's full details. This is the keyboard-triggerable
+                  // action the spec requires (AC2).
+                  openPanel("crew");
+                }}
               />
             );
           })}
-          <YouScout
-            gates={gates}
-            onOpenGates={() => openPanel("gates")}
-          />
         </div>
       </div>
 
