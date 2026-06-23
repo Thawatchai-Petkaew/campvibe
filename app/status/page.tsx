@@ -470,7 +470,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
       {/* SCENE is a constant string → React never re-injects it on refresh, so the starfield persists */}
       <div dangerouslySetInnerHTML={{ __html: SCENE }} />
       <div dangerouslySetInnerHTML={{ __html: main }} />
-      <StatusClient refreshSeconds={60} />
+      <StatusClient refreshSeconds={60} token={sp.token || ""} />
     </>
   );
 }

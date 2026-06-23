@@ -508,6 +508,15 @@ model DeliveryConfig {
   updatedBy      String?
 }
 
+// Real-time signal for the /status dashboard (CAM-140). Single row id="singleton";
+// `version` is bumped by the Linear webhook on every issue change and polled by the
+// SSE stream (app/api/status/stream). No business data — a refresh trigger only.
+model StatusPulse {
+  id        String   @id @default("singleton")
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
 // ============================================================================
 // S7 — Roadmap seam entities (ADR-006 conventions). Additive foundation for
 // payments, payouts, audit trail, availability blocking, and notifications.

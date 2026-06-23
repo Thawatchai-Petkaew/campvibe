@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
  *  - starfield        → populated once (lives in the constant SCENE div, survives router.refresh)
  *  - clock            → re-queries #clock each tick so it keeps working after a refresh
  *  - live refresh     → router.refresh() every N seconds (no full-page reload / white flash) */
-export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?: number }) {
+export default function StatusClient({ refreshSeconds = 60, token = "" }: { refreshSeconds?: number; token?: string }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -86,19 +86,45 @@ export default function StatusClient({ refreshSeconds = 60 }: { refreshSeconds?:
     };
     tick();
     const clockId = setInterval(tick, 1000);
-    const refreshId = setInterval(() => {
-      const y = window.scrollY;        // router.refresh() re-injects the HTML — re-pin scroll a few frames so it doesn't jump
+    // Refresh (re-fetch + re-inject HTML) while pinning scroll so it doesn't jump, and flash the
+    // live dot so a real-time update is visible. Shared by the 60s fallback + the SSE push.
+    const refreshKeepScroll = () => {
+      const y = window.scrollY;
       router.refresh();
       let n = 0;
       const restore = () => { window.scrollTo(0, y); if (++n < 8) requestAnimationFrame(restore); };
       requestAnimationFrame(restore);
-    }, refreshSeconds * 1000);
+      const dot = document.querySelector(".live .dot");
+      if (dot) { dot.classList.add("bump"); setTimeout(() => dot.classList.remove("bump"), 1100); }
+    };
+    const refreshId = setInterval(refreshKeepScroll, refreshSeconds * 1000);
+
+    // Real-time push: subscribe to the pulse stream; on an event, refresh immediately. The 60s
+    // interval above stays as a fallback if EventSource is unavailable or the stream fails hard.
+    let es: EventSource | null = null;
+    let guard = 0;
+    const openStream = () => {
+      try {
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        es = new EventSource(`/api/status/stream${qs}`);
+        es.onmessage = () => { guard = 0; refreshKeepScroll(); };
+        es.onerror = () => {
+          if (es && es.readyState === EventSource.CLOSED) { // hard fail (e.g. 401), not the routine self-close
+            es.close(); es = null;
+            if (guard++ < 5) setTimeout(openStream, 5000 * guard);
+          }
+        };
+      } catch { /* SSE unsupported → the 60s interval still refreshes */ }
+    };
+    openStream();
+
     return () => {
       clearInterval(clockId);
       clearInterval(refreshId);
+      es?.close();
       document.removeEventListener("keydown", onKey);
     };
-  }, [router, refreshSeconds]);
+  }, [router, refreshSeconds, token]);
 
   return null;
 }
