@@ -5,12 +5,17 @@
 //   idle     → in-place breathe/sway via CSS (transform/opacity only, no rAF state)
 //   walking  → path traversal on triggerWalk() — hook ready for S6, not called from data yet
 //
+// S5 — Epic scope: engine.setScope() dims/shows agents without remounting the rAF loop.
+//   URL params (scope/epic/group/efilter) are persisted via history.replaceState and
+//   restored from initial props (read by the server page.tsx from searchParams).
+//
 // Reduced-motion: if prefers-reduced-motion:reduce → rAF loop never starts; all agents
 // render static at their home station (S2 behaviour). The media-query listener
 // starts/stops the loop if the OS setting changes without a page reload.
 //
 // DOM writes: only style.transform / style.backgroundImage / style.left / style.top /
-// style.zIndex on refs. No per-frame React setState. Effect cleanup cancels rAF.
+// style.zIndex / style.opacity / style.pointerEvents on refs. No per-frame React setState.
+// Effect cleanup cancels rAF.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapOverlays } from "./campsite-overlays";
@@ -56,6 +61,28 @@ export interface MapEnvItem {
   role: string;        // display role label
 }
 
+/** Minimal serialisable story shape for per-epic Trail/Board/Up-next (client-side derive). */
+export interface MapEpicStory {
+  id: string;
+  title: string;        // cleaned (no epic prefix, no [role] tag)
+  status: string;       // e.g. "In Progress", "Done", "Backlog"
+  statusType: string;   // backlog | unstarted | started | completed | canceled
+  labels: string[];     // needed for hasAwait / epicBucket / rolesOf
+  role: string;         // canonical role from [role] tag (may be "")
+  url: string;
+  startedAt: string | null;
+}
+
+/** One epic as projected for the map client. */
+export interface MapEpicItem {
+  key: string;          // epic key used as ?epic= value
+  label: string;        // display name
+  feature: string;      // Linear project / feature name
+  persona: string;      // persona label ("" = none)
+  bucket: "prog" | "done" | "todo";  // from epicBucket()
+  stories: MapEpicStory[];
+}
+
 export interface MapModel {
   projectPct: number;
   gates: MapGate[];
@@ -70,6 +97,8 @@ export interface MapModel {
     staging: MapEnvItem[];
     prod: MapEnvItem[];
   };
+  // S5 addition — per-epic story data for Trail/Board/Up-next client-side derive
+  epics: MapEpicItem[];
 }
 
 // Canonical role display config — mirrors the mockup AGENTS array.
@@ -364,11 +393,32 @@ function YouScout({ gates, onOpenGates }: YouScoutProps) {
   );
 }
 
+// ── URL param helpers ─────────────────────────────────────────────────────────
+// Mirror syncUrl idiom from dashboard-client.tsx — history.replaceState, no navigation.
+
+function syncUrl(params: Record<string, string>): void {
+  try {
+    const u = new URL(location.href);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v) u.searchParams.set(k, v);
+      else u.searchParams.delete(k);
+    });
+    history.replaceState(null, "", u);
+  } catch {
+    /* no-op in environments where location is unavailable */
+  }
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
   model: MapModel;
   token: string;
+  /** Initial URL param values restored from searchParams by the server page. */
+  initialScope: "all" | "epic";
+  initialEpic: string;
+  initialGroup: "feature" | "persona";
+  initialEfilter: "all" | "prog" | "done" | "todo";
 }
 
 export interface SceneHandle {
@@ -376,11 +426,23 @@ export interface SceneHandle {
   triggerWalk: (role: string, toNode?: string) => void;
 }
 
-export default function CampsiteScene({ model }: Props) {
-  const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes } = model;
+export default function CampsiteScene({
+  model,
+  initialScope,
+  initialEpic,
+  initialGroup,
+  initialEfilter,
+}: Props) {
+  const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = model;
 
   // S4: single-open overlay state — null = all closed
   const [openOverlay, setOpenOverlay] = useState<string | null>(null);
+
+  // S5: scope state — restored from URL params on mount via initial props
+  const [scope, setScope]         = useState<"all" | "epic">(initialScope);
+  const [activeEpic, setActiveEpic] = useState<string>(initialEpic);
+  const [group, setGroup]         = useState<"feature" | "persona">(initialGroup);
+  const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(initialEfilter);
 
   const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
   const closePanel = useCallback(() => setOpenOverlay(null), []);
@@ -476,6 +538,45 @@ export default function CampsiteScene({ model }: Props) {
     };
   }, []); // mount-once — engine is data-independent at this stage
 
+  // S5: sync engine scope + URL params when scope/epic/group/efilter state changes.
+  // Does NOT teardown the rAF loop — engine.setScope only writes CSS opacity/pointer-events.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return; // engine not yet started (e.g. first frame or reduced-motion)
+
+    if (scope === "epic" && activeEpic) {
+      // Determine which roles appear in the active epic's stories.
+      const epicData = epics.find((e) => e.key === activeEpic);
+      const roles = epicData
+        ? [...new Set(epicData.stories.map((s) => s.role).filter(Boolean))]
+        : [];
+      engine.setScope("epic", roles);
+    } else {
+      engine.setScope("all", []);
+    }
+
+    // Persist URL state — compatible with /status param semantics for S6 deep-link.
+    syncUrl({
+      scope,
+      epic:    scope === "epic" ? activeEpic : "",
+      group,
+      efilter: efilter !== "all" ? efilter : "",
+    });
+  }, [scope, activeEpic, group, efilter, epics]);
+
+  // Scope change helpers passed to MapOverlays.
+  const handleSelectEpic = useCallback((epicKey: string) => {
+    setActiveEpic(epicKey);
+    setScope("epic");
+    setOpenOverlay(null); // close switcher after selecting
+  }, []);
+
+  const handleBackToOverview = useCallback(() => {
+    setScope("all");
+    setActiveEpic("");
+    setOpenOverlay(null);
+  }, []);
+
   // Static home position for each agent (used as initial style + reduced-motion fallback).
   function homeStyle(role: string): { left: string; top: string; zIndex: number } {
     const cfg  = ROLE_CONFIG[role];
@@ -489,11 +590,13 @@ export default function CampsiteScene({ model }: Props) {
     };
   }
 
+  // Derive the active epic data for Epic overlays.
+  const activeEpicData = epics.find((e) => e.key === activeEpic) ?? null;
+
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
 
-      {/* S4 replaces the map-stat-bar with the Delivery chip overlay */}
       {/* Canvas dim overlay when a panel is open */}
       {openOverlay !== null && (
         <div
@@ -539,7 +642,7 @@ export default function CampsiteScene({ model }: Props) {
         </div>
       </div>
 
-      {/* S4 Overview overlays — all four edge chips + You/Gates panel */}
+      {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode */}
       <MapOverlays
         model={{
           projectPct,
@@ -549,10 +652,20 @@ export default function CampsiteScene({ model }: Props) {
           totalEpics,
           backlogItems,
           envLanes,
+          epics,
         }}
+        scope={scope}
+        activeEpic={activeEpic}
+        activeEpicData={activeEpicData}
+        group={group}
+        efilter={efilter}
         openOverlay={openOverlay}
         onOpen={openPanel}
         onClose={closePanel}
+        onSelectEpic={handleSelectEpic}
+        onBackToOverview={handleBackToOverview}
+        onGroupChange={setGroup}
+        onEfilterChange={setEfilter}
       />
     </div>
   );

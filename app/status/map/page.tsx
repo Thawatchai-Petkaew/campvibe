@@ -5,10 +5,10 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { buildModel, epicOf, isActive } from "@/lib/status-model";
-import { canonRole } from "@/lib/status-derive";
+import { canonRole, epicBucket } from "@/lib/status-derive";
 import { CSS, SCENE } from "./campsite-assets";
 import SceneLoader from "./scene-loader";
-import type { MapAgent, MapBacklogItem, MapEnvItem, MapGate } from "./campsite-scene";
+import type { MapAgent, MapBacklogItem, MapEnvItem, MapEpicItem, MapEpicStory, MapGate } from "./campsite-scene";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "CampVibe — Delivery Map" };
@@ -85,10 +85,24 @@ function buildAgents(
 export default async function StatusMapPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{
+    token?: string;
+    scope?: string;
+    epic?: string;
+    group?: string;
+    efilter?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
+
+  // S5: Read and sanitize URL params — these are passed to the client as initial state.
+  const initialScope    = sp.scope === "epic" ? "epic" : "all" as "all" | "epic";
+  const initialEpic     = typeof sp.epic === "string" ? sp.epic : "";
+  const initialGroup    = sp.group === "persona" ? "persona" : "feature" as "feature" | "persona";
+  const initialEfilter  = (["all", "prog", "done", "todo"] as const).includes(
+    sp.efilter as "all" | "prog" | "done" | "todo"
+  ) ? (sp.efilter as "all" | "prog" | "done" | "todo") : "all";
 
   if (required && sp.token !== required) {
     const body =
@@ -142,6 +156,29 @@ export default async function StatusMapPage({
       role: canonRole(titleRoleOf(i.title)),
     }));
 
+  // S5: Project per-epic story data for client-side Trail/Board/Up-next derivation.
+  // We use the same cleanTitle/canonRole/epicBucket helpers for consistency with /status.
+  const buildEpicStories = (issues: StatusIssue[]): MapEpicStory[] =>
+    issues.map((i) => ({
+      id: i.id,
+      title: cleanTitle(i.title),
+      status: i.status,
+      statusType: i.statusType,
+      labels: i.labels,
+      role: canonRole(titleRoleOf(i.title)),
+      url: i.url,
+      startedAt: i.startedAt,
+    }));
+
+  const epics: MapEpicItem[] = m.epicNodes.map((node) => ({
+    key:     node.key,
+    label:   node.label,
+    feature: node.feature,
+    persona: node.persona,
+    bucket:  epicBucket(node.stories),
+    stories: buildEpicStories(node.stories),
+  }));
+
   const mapModel = {
     projectPct: m.projectPct,
     gates,
@@ -156,6 +193,8 @@ export default async function StatusMapPage({
       staging: buildEnvItems(m.byEnv.staging),
       prod:    buildEnvItems(m.byEnv.prod),
     },
+    // S5: per-epic story data for client-side derive
+    epics,
   };
 
   return (
@@ -178,7 +217,14 @@ export default async function StatusMapPage({
           </div>
         </div>
       ) : (
-        <SceneLoader model={mapModel} token={sp.token || ""} />
+        <SceneLoader
+          model={mapModel}
+          token={sp.token || ""}
+          initialScope={initialScope}
+          initialEpic={initialEpic}
+          initialGroup={initialGroup}
+          initialEfilter={initialEfilter}
+        />
       )}
     </>
   );
