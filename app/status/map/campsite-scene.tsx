@@ -428,12 +428,17 @@ export interface SceneHandle {
 
 export default function CampsiteScene({
   model,
+  token,
   initialScope,
   initialEpic,
   initialGroup,
   initialEfilter,
 }: Props) {
-  const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = model;
+  // S6: liveModel is the authoritative data — starts from SSR initial value, updated
+  // by the SSE reconcile. All overlay data reads from liveModel, never from the stale
+  // `model` prop directly (which is frozen after first render in the dynamic component).
+  const [liveModel, setLiveModel] = useState<MapModel>(model);
+  const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = liveModel;
 
   // S4: single-open overlay state — null = all closed
   const [openOverlay, setOpenOverlay] = useState<string | null>(null);
@@ -564,6 +569,76 @@ export default function CampsiteScene({
     });
   }, [scope, activeEpic, group, efilter, epics]);
 
+  // S6: SSE reconcile — subscribe to /api/status/stream exactly like dashboard-client.tsx
+  // (same backoff + 60s fallback interval). On a pulse event, fetch the new MapModel from
+  // /status/map/data and merge it into the running engine without remounting.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // 60s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
+    const FALLBACK_MS = 60_000;
+    let fallbackId: ReturnType<typeof setInterval> | null = null;
+
+    async function reconcile() {
+      try {
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        const res = await fetch(`/status/map/data${qs}`);
+        if (!res.ok) return;
+        const next = (await res.json()) as MapModel;
+
+        // Update React state — overlays will re-render with fresh data.
+        setLiveModel(next);
+
+        // Mutate the running engine for each agent: if active status or task changed,
+        // trigger a walk so the character visually responds to the data change.
+        const engine = engineRef.current;
+        if (engine && !mq.matches) {
+          for (const nextAgent of next.agents) {
+            engine.triggerWalk(nextAgent.role);
+          }
+        }
+        // Under reduced-motion: setLiveModel above updates overlay data statically; no walk.
+      } catch {
+        /* transient fetch error — next poll or SSE event will retry */
+      }
+    }
+
+    fallbackId = setInterval(reconcile, FALLBACK_MS);
+
+    // Real-time push via SSE — same pattern as dashboard-client.tsx.
+    let es: EventSource | null = null;
+    let guard = 0;
+
+    function openStream() {
+      try {
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        es = new EventSource(`/api/status/stream${qs}`);
+        es.onmessage = () => {
+          guard = 0;
+          void reconcile();
+        };
+        es.onerror = () => {
+          if (es && es.readyState === EventSource.CLOSED) {
+            es.close();
+            es = null;
+            if (guard++ < 5) setTimeout(openStream, 5000 * guard);
+          }
+        };
+      } catch {
+        /* SSE unsupported → the 60s fallback interval still reconciles */
+      }
+    }
+
+    openStream();
+
+    return () => {
+      if (fallbackId !== null) clearInterval(fallbackId);
+      es?.close();
+    };
+  }, [token]); // token is stable after mount; reconnect only if it changes
+
   // Scope change helpers passed to MapOverlays.
   const handleSelectEpic = useCallback((epicKey: string) => {
     setActiveEpic(epicKey);
@@ -592,6 +667,18 @@ export default function CampsiteScene({
 
   // Derive the active epic data for Epic overlays.
   const activeEpicData = epics.find((e) => e.key === activeEpic) ?? null;
+
+  // S6: Dashboard|Map toggle — build the dashboard URL from current map state,
+  // mapping scope=all|epic ↔ tab=overview|epic; epic/group/efilter/token carry identically.
+  const dashboardHref = (() => {
+    const u = new URLSearchParams();
+    u.set("tab", scope === "epic" ? "epic" : "overview");
+    if (activeEpic) u.set("epic", activeEpic);
+    if (group !== "feature") u.set("group", group);
+    if (efilter !== "all") u.set("efilter", efilter);
+    if (token) u.set("token", token);
+    return `/status?${u.toString()}`;
+  })();
 
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
@@ -641,6 +728,68 @@ export default function CampsiteScene({
           />
         </div>
       </div>
+
+      {/* S6: Dashboard|Map segmented toggle — fixed below the scope chip (top-left).
+           Real anchor links: works without JS; copies current map params to dashboard URL. */}
+      <nav
+        role="tablist"
+        aria-label="สลับระหว่างแดชบอร์ดและแผนที่"
+        style={{
+          position: "fixed",
+          top: 70,
+          left: 16,
+          zIndex: 22,
+          display: "inline-flex",
+          border: "1px solid rgba(255,255,255,.16)",
+          borderRadius: 8,
+          overflow: "hidden",
+          background: "rgba(16,26,42,.52)",
+          backdropFilter: "saturate(150%) blur(18px)",
+          WebkitBackdropFilter: "saturate(150%) blur(18px)",
+        }}
+        data-testid="nav--map-view-toggle"
+      >
+        <a
+          href={dashboardHref}
+          role="tab"
+          aria-selected={false}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "8px 14px",
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "rgba(223,234,245,.6)",
+            textDecoration: "none",
+            borderRight: "1px solid rgba(255,255,255,.12)",
+            transition: "background 120ms, color 120ms",
+          }}
+          data-testid="link--map-toggle-dashboard"
+        >
+          แดชบอร์ด
+        </a>
+        <span
+          role="tab"
+          aria-selected={true}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "8px 14px",
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#5BE9B0",
+            background: "rgba(91,233,176,.15)",
+            cursor: "default",
+          }}
+          data-testid="tab--map-toggle-map"
+        >
+          แผนที่
+        </span>
+      </nav>
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode */}
       <MapOverlays

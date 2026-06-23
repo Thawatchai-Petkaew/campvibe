@@ -98,8 +98,8 @@ describe("AC-status-1/2: app/status/page.tsx must not be in the F5 diff", () => 
         try {
             branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
         } catch { /* ignore */ }
-        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145") || branch.startsWith("feature/cam-151")) {
-            return; // skip: this story (ST1/ST2/CAM-145/CAM-151) owns app/status/page.tsx
+        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145") || branch.startsWith("feature/cam-151") || branch.startsWith("feature/cam-156")) {
+            return; // skip: this story (ST1/ST2/CAM-145/CAM-151/CAM-156-S6) owns app/status/page.tsx (S6 legitimately adds the Map link to topBar)
         }
         let diffOutput = "";
         try {

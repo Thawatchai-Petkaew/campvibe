@@ -130,10 +130,30 @@ function backlogFeatureOrder(groups: Record<string, StatusIssue[]>): string[] {
 }
 
 // ---------- top bar ----------
-function topBar(m: Model, tab: string): string {
+// S6: mapHref maps the current dashboard URL params to the /status/map equivalent.
+//   tab=overview|epic  →  scope=all|epic
+//   epic, group, efilter, token carry identically.
+function mapHref(tab: string, epic: string, group: string, efilter: string, tq: string): string {
+  const u = new URLSearchParams();
+  u.set("scope", tab === "epic" ? "epic" : "all");
+  if (epic) u.set("epic", epic);
+  if (group !== "feature") u.set("group", group);
+  if (efilter !== "all") u.set("efilter", efilter);
+  // tq is "&token=…" — extract the raw token value for the map URL
+  const tokenMatch = tq.match(/[&?]?token=([^&]*)/);
+  if (tokenMatch) u.set("token", decodeURIComponent(tokenMatch[1]));
+  return `/status/map?${u.toString()}`;
+}
+
+function topBar(m: Model, tab: string, epic: string, group: string, efilter: string, tq: string): string {
+  const mapUrl = mapHref(tab, epic, group, efilter, tq);
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
     + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
     + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
+    + `<nav role="tablist" aria-label="สลับระหว่างแดชบอร์ดและแผนที่" style="display:inline-flex;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden;margin-left:10px;">`
+    + `<span role="tab" aria-selected="true" style="display:inline-flex;align-items:center;padding:8px 14px;min-height:44px;min-width:44px;font-size:12px;font-weight:600;color:var(--emerald,#5BE9B0);background:rgba(91,233,176,.12);cursor:default;">แดชบอร์ด</span>`
+    + `<a href="${esc(mapUrl)}" role="tab" aria-selected="false" style="display:inline-flex;align-items:center;padding:8px 14px;min-height:44px;min-width:44px;font-size:12px;font-weight:600;color:rgba(223,234,245,.6);text-decoration:none;border-left:1px solid rgba(255,255,255,.12);" data-testid="link--status-toggle-map">แผนที่</a>`
+    + `</nav>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
 
@@ -391,7 +411,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
     : overviewView + epicView;
 
-  const main = `<main class="wrap">${topBar(m, tab)}${inner}</main><div class="toast" id="toast"></div>`;
+  const main = `<main class="wrap">${topBar(m, tab, epic, group, efilter, tq)}${inner}</main><div class="toast" id="toast"></div>`;
 
   return (
     <>
