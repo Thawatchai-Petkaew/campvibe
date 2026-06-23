@@ -100,7 +100,16 @@ async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
 /* Cached for 60s so every viewer + the 60s auto-refresh share ONE Linear fetch per minute,
  * regardless of how many people watch /status. Caps Linear API usage at ~60 requests/hour
  * (well under Linear's ~1,500 req/hour limit) instead of scaling with viewers × tabs. */
-export const fetchStatusIssues = unstable_cache(fetchStatusIssuesRaw, ["linear-status-issues"], {
-  revalidate: 60,
-  tags: ["linear-status"],
-});
+// Cache key includes the pulse version: when the Linear webhook bumps the pulse, the next
+// render passes a new pulse → cache miss → fresh fetch (real-time). Within one pulse the result
+// stays cached for up to 60s so concurrent viewers + the fallback poll share a single Linear call.
+const cachedStatusIssues = unstable_cache(
+  async (_pulse: number) => fetchStatusIssuesRaw(),
+  ["linear-status-issues"],
+  { revalidate: 60 }
+);
+
+/** Dashboard issues, freshness keyed on the pulse version (0 = time-based 60s cache only). */
+export function fetchStatusIssues(pulse = 0): Promise<StatusIssue[]> {
+  return cachedStatusIssues(pulse);
+}

@@ -4,6 +4,7 @@
  * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
+import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
 import { buildTrail, buildWorkload, envOf, type EnvLane } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
@@ -446,7 +447,11 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
 
   let issues: StatusIssue[] = [];
   let err = "";
-  try { issues = await fetchStatusIssues(); } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  try {
+    let pulse = 0;
+    try { pulse = await readPulse(); } catch { /* pulse unavailable → fall back to the 60s time cache */ }
+    issues = await fetchStatusIssues(pulse);
+  } catch (e) { err = e instanceof Error ? e.message : String(e); }
   const m = buildModel(issues);
   const tq = required ? `&token=${encodeURIComponent(sp.token || "")}` : "";
   const tab = sp.tab === "epic" ? "epic" : "overview";

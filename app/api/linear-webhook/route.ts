@@ -21,7 +21,6 @@
  */
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { revalidateTag } from "next/cache";
 import { sendTelegram, type TgButton } from "@/lib/notify";
 import { bumpPulse } from "@/lib/status-pulse";
 
@@ -111,11 +110,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
 
-  // Real-time /status: any Issue change (create/update/remove) bumps the pulse + busts the
-  // status cache, so open dashboards refresh near-instantly via SSE. Broad on purpose — this
-  // is just a refresh signal; the Telegram notifications below stay narrow (no spam).
+  // Real-time /status: any Issue change (create/update/remove) bumps the pulse, so open
+  // dashboards refresh near-instantly via SSE and the next render re-fetches Linear (the page
+  // keys its cache on the pulse). Broad on purpose — just a refresh signal; the Telegram
+  // notifications below stay narrow (no spam).
   if (body.type === "Issue") {
-    revalidateTag("linear-status");
     await bumpPulse();
   }
 
