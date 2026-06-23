@@ -6,7 +6,7 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, buildWorkload, envOf, type EnvLane } from "@/lib/status-derive";
+import { buildTrail, buildWorkload, envOf, epicBucket, type EnvLane } from "@/lib/status-derive";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -195,11 +195,16 @@ const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
   staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
   prod: { label: "Prod", sub: "released" },
 };
+const ENV_COLOR: Record<EnvLane, string> = { dev: "#8a9aa8", staging: "var(--blue)", prod: "var(--green)" };
 function renderEnvPane(m: Model, open: boolean): string {
-  const summary = ENV_ORDER.map((e) => `${ENV_META[e].label} ${m.byEnv[e].length}`).join(" · ");
-  let h = `<section class="glass board-wrap"><div class="pane-h"><span class="t">Environments</span>`
-    + `<span style="display:inline-flex;align-items:center;gap:12px"><span class="x">${esc(summary)}</span>`
-    + `<button class="segbtn" id="env-toggle" onclick="toggleEnv()">${open ? "ซ่อน" : "แสดง"}</button></span></div>`
+  const pills = ENV_ORDER.map((e) => {
+    const n = m.byEnv[e].length;
+    const rel = e === "staging" && n ? `<span class="yb" style="margin-left:6px">↑</span>` : "";
+    return `<span class="envchip"><span class="dot" style="background:${ENV_COLOR[e]}"></span>${esc(ENV_META[e].label)} <b>${n}</b>${rel}</span>`;
+  }).join("");
+  let h = `<section class="glass board-wrap"><div class="pane-h envhead"><span class="t">Environments</span>`
+    + `<span class="envsum">${pills}`
+    + `<button class="env-toggle-btn" id="env-toggle" onclick="toggleEnv()" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
     + `<div id="env-board" class="envwrap ${open ? "" : "collapsed"}"><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
   for (const env of ENV_ORDER) {
     const items = m.byEnv[env], meta = ENV_META[env];
@@ -249,20 +254,13 @@ const epicFilter = (f: string) =>
   + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" onclick="filterEpics('${k}')">${lbl}</button>`).join("")
   + `</div>`;
 
-// epic lifecycle bucket for the Epics filter: done (all stories shipped) · prog (some active) · todo (not started/queued)
-function epicStatusOf(n: EpicNode): "done" | "prog" | "todo" {
-  const total = n.stories.length, doneN = n.stories.filter(isDone).length;
-  if (total > 0 && doneN === total) return "done";
-  if (n.stories.some(isActive)) return "prog";
-  return "todo";
-}
 function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: string): string {
   const it = n.stories, total = it.length;
   const doneN = it.filter(isDone).length, pct = total ? Math.round((doneN / total) * 100) : 0;
   const active = it.some(isActive), gate = it.some(hasAwait);
   const st = gate ? "waiting on you" : active ? "in progress" : !total ? "no stories yet" : pct === 100 ? "shipped · done" : "queued";
   const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => i.status === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
-  const estatus = epicStatusOf(n);
+  const estatus = epicBucket(n.stories);
   const hide = efilter !== "all" && estatus !== efilter ? ' style="display:none"' : "";
   return `<a class="epic ${gate ? "live" : ""}" data-estatus="${estatus}"${hide} href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
 }
@@ -274,7 +272,7 @@ function renderEpicGroups(groups: Record<string, EpicNode[]>, order: string[], l
     const nodes = groups[k]; if (!nodes || !nodes.length) continue;
     const stories = nodes.flatMap((n) => n.stories);
     const pct = stories.length ? Math.round((stories.filter(isDone).length / stories.length) * 100) : 0;
-    const groupHidden = efilter !== "all" && !nodes.some((n) => epicStatusOf(n) === efilter) ? ' style="display:none"' : "";
+    const groupHidden = efilter !== "all" && !nodes.some((n) => epicBucket(n.stories) === efilter) ? ' style="display:none"' : "";
     h += `<div class="grp"${groupHidden}><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${nodes.length} epic${nodes.length === 1 ? "" : "s"} · ${stories.length} stor${stories.length === 1 ? "y" : "ies"} · ${pct}%</span></div><div class="epics">`;
     for (const n of nodes) h += renderEpicCard(n, linkQ, chipMode === "persona" ? personaChip(n.persona) : featChip(n.feature), efilter);
     h += `</div></div>`;

@@ -68,7 +68,7 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       if (!b) return;
       const collapsed = b.classList.toggle("collapsed");
       const btn = document.getElementById("env-toggle");
-      if (btn) btn.textContent = collapsed ? "แสดง" : "ซ่อน";
+      if (btn) { btn.textContent = collapsed ? "รายละเอียด ▾" : "ย่อ ▴"; btn.setAttribute("aria-expanded", String(!collapsed)); }
       syncUrl("env", collapsed ? "closed" : "open");
     };
     // Epics filter — show/hide cards (and any group left empty) by lifecycle status, persisted in the URL.
