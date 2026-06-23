@@ -355,16 +355,27 @@ describe("source inspection — page.tsx", () => {
     "utf8"
   );
 
-  it("imports buildTrail and buildWorkload from status-derive", () => {
-    expect(pageSrc).toMatch(/import\s*\{[^}]*buildTrail[^}]*buildWorkload[^}]*\}/);
+  it("imports buildTrail from status-derive (buildWorkload now via status-model)", () => {
+    // CAM-151: buildWorkload moved into status-model.ts (called inside buildModel).
+    // page.tsx imports buildTrail from status-derive and buildModel from status-model.
+    expect(pageSrc).toContain("buildTrail");
+    expect(pageSrc).toContain("status-derive");
+    expect(pageSrc).toContain("status-model");
   });
 
   it("does NOT contain 'const stageInfo ='", () => {
     expect(pageSrc).not.toContain("const stageInfo =");
   });
 
-  it("uses buildWorkload(work)", () => {
-    expect(pageSrc).toContain("buildWorkload(work)");
+  it("buildWorkload is called inside status-model.ts (not page.tsx)", () => {
+    // CAM-151: buildWorkload moved out of page.tsx into lib/status-model.ts.
+    // Verify it lives in the shared model module instead.
+    const modelSrc = readFileSync(
+      resolve(__dirname, "../lib/status-model.ts"),
+      "utf8"
+    );
+    expect(modelSrc).toContain("buildWorkload(work)");
+    expect(pageSrc).not.toContain("buildWorkload(work)");
   });
 
   it("uses buildTrail(it)", () => {
