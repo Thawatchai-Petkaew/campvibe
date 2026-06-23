@@ -1,9 +1,25 @@
 "use client";
 
-// Sprite assignment: each role is given a relax pose index (0-5)
-// and a per-role color from the design mockup AGENTS config.
-// Role → node position comes from the mockup NODES + AGENTS config.
-// YOU is placed at x:33, y:28 (near bridge, per mockup).
+// S3 — Hybrid motion model:
+//   entering → agents walk from arm-tip entry point to home station on first mount
+//   idle     → in-place breathe/sway via CSS (transform/opacity only, no rAF state)
+//   walking  → path traversal on triggerWalk() — hook ready for S6, not called from data yet
+//
+// Reduced-motion: if prefers-reduced-motion:reduce → rAF loop never starts; all agents
+// render static at their home station (S2 behaviour). The media-query listener
+// starts/stops the loop if the OS setting changes without a page reload.
+//
+// DOM writes: only style.transform / style.backgroundImage / style.left / style.top /
+// style.zIndex on refs. No per-frame React setState. Effect cleanup cancels rAF.
+
+import { useEffect, useRef } from "react";
+import {
+  NODES,
+  buildScoutState,
+  startEngine,
+  type EngineHandle,
+  type ScoutRef,
+} from "./campsite-engine";
 
 export interface MapAgent {
   role: string;         // canonical role key, e.g. "frontend-engineer"
@@ -23,9 +39,6 @@ export interface MapModel {
 }
 
 // Canonical role display config — mirrors the mockup AGENTS array.
-// node: octagon station key (percent coords defined in NODES).
-// color: per-role aura/badge accent color (from mockup AGENTS config).
-// poseIdx: which relax-N.webp to use at rest (0-5, round-robined so roles differ).
 const ROLE_CONFIG: Record<
   string,
   { node: string; color: string; poseIdx: number; displayName: string; roleLabel: string }
@@ -39,24 +52,8 @@ const ROLE_CONFIG: Record<
   "security-reviewer":  { node: "NW", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
 };
 
-// Node positions in % from the mockup NODES config.
-const NODES: Record<string, { x: number; y: number }> = {
-  N:  { x: 49, y: 44 },
-  NE: { x: 58, y: 48 },
-  E:  { x: 62, y: 55 },
-  SE: { x: 58, y: 62 },
-  S:  { x: 49, y: 66 },
-  SW: { x: 40, y: 62 },
-  W:  { x: 37, y: 55 },
-  NW: { x: 42, y: 50 },
-  // arm tips (not used for agents but kept for visual context)
-  aN:  { x: 49, y: 35 },
-  aE:  { x: 70, y: 54 },
-  aSE: { x: 66, y: 66 },
-  aS:  { x: 49, y: 75 },
-  aSW: { x: 33, y: 67 },
-  aW:  { x: 29, y: 54 },
-};
+// Speed variation per role index — slight spread so agents don't arrive in a clump.
+const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 
 // YOU is stationary — near bridge, per mockup.
 const YOU_POS = { x: 33, y: 28 };
@@ -67,9 +64,10 @@ function hexA(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-// Inline CSS for the scene. Keyframe animations are wrapped in
-// @media (prefers-reduced-motion: no-preference) so S3 can add motion
-// while respecting the user's system setting.
+// ── Scene CSS ────────────────────────────────────────────────────────────────
+// Idle-sway is always-on ambient; walking-mode overrides it during traversal.
+// All animations are wrapped in @media (prefers-reduced-motion: no-preference)
+// so the OS setting kills everything at once. The rAF loop is separately gated.
 const SCENE_CSS = `
 :root {
   --scout-size: clamp(88px, 7.2vw, 116px);
@@ -119,6 +117,8 @@ const SCENE_CSS = `
 @media (prefers-reduced-motion: no-preference) {
   .scout.working .aura-ring{animation:auraPulse 2.4s ease-in-out infinite}
   .scout.idle .body{animation:breathe 3.5s ease-in-out infinite}
+  .scout.walking-mode .body{animation:none}
+  .scout.entering .body{animation:none}
   @keyframes auraPulse{0%,100%{opacity:.38;transform:translate(-50%,30%) scale(1)}50%{opacity:.6;transform:translate(-50%,30%) scale(1.09)}}
   @keyframes breathe{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-1px) scale(1.014)}}
   @keyframes pdot2{0%,100%{box-shadow:0 0 4px 0 var(--aura);opacity:1}50%{box-shadow:0 0 9px 2px var(--aura);opacity:.7}}
@@ -186,29 +186,31 @@ const SCENE_CSS = `
 .stat-label{font-size:11px;color:var(--muted)}
 `;
 
-interface ScoutProps {
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+interface AgentScoutProps {
   agent: MapAgent;
+  bodyRef: (el: HTMLElement | null) => void;
+  rootRef: (el: HTMLElement | null) => void;
+  /** Inline position used as static fallback (reduced-motion / pre-engine) */
+  staticLeft: string;
+  staticTop:  string;
+  staticZ:    number;
 }
 
-function AgentScout({ agent }: ScoutProps) {
+function AgentScout({
+  agent, bodyRef, rootRef, staticLeft, staticTop, staticZ,
+}: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
 
-  const node = NODES[cfg.node];
-  if (!node) return null;
-
-  const zIndex = Math.round(node.y * 12) + 5;
   const stateClass = agent.active ? "working" : "idle";
+  const relaxSrc   = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
 
-  // Resting pose: use role's assigned poseIdx
-  const relaxSrc = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
-
-  // Badge status line: task ID when working, "พัก" when idle
   const bstatText = agent.active && agent.task
     ? agent.task.id
     : "พัก";
 
-  // Task display in popover: strip leading epic prefix (X · ) and [role] tag
   const cleanTitle = agent.task
     ? agent.task.title
         .replace(/^[^·]*·\s*/, "")
@@ -218,13 +220,13 @@ function AgentScout({ agent }: ScoutProps) {
 
   return (
     <div
+      ref={rootRef}
       className={`scout ${stateClass}`}
       style={{
-        left: `${node.x}%`,
-        top: `${node.y}%`,
-        zIndex,
-        // CSS custom props for aura color
-        ["--aura" as string]: cfg.color,
+        left: staticLeft,
+        top:  staticTop,
+        zIndex: staticZ,
+        ["--aura" as string]:     cfg.color,
         ["--auraGlow" as string]: hexA(cfg.color, 0.7),
       }}
       role="listitem"
@@ -235,6 +237,7 @@ function AgentScout({ agent }: ScoutProps) {
       <div className="aura-ring" aria-hidden="true" />
       <div className="shadow" aria-hidden="true" />
       <div
+        ref={bodyRef}
         className="body"
         style={{ backgroundImage: `url("${relaxSrc}")` }}
         aria-hidden="true"
@@ -245,15 +248,14 @@ function AgentScout({ agent }: ScoutProps) {
         <span className="bstat">{bstatText}</span>
       </div>
 
-      {/* Popover — shown on hover/focus */}
       <div className="popover" role="tooltip">
         <div className="pop-name">{cfg.displayName}</div>
         <div
           className="pop-role"
           style={{
-            color: cfg.color,
+            color:       cfg.color,
             borderColor: hexA(cfg.color, 0.4),
-            background: hexA(cfg.color, 0.12),
+            background:  hexA(cfg.color, 0.12),
           }}
         >
           {cfg.roleLabel}
@@ -282,17 +284,16 @@ interface YouScoutProps {
 
 function YouScout({ gates }: YouScoutProps) {
   const zIndex = Math.round(YOU_POS.y * 12) + 5;
-  const youSrc = "/status-map/sprites/you.webp";
   const hasGates = gates.length > 0;
 
   return (
     <div
       className="scout you idle"
       style={{
-        left: `${YOU_POS.x}%`,
-        top: `${YOU_POS.y}%`,
+        left:   `${YOU_POS.x}%`,
+        top:    `${YOU_POS.y}%`,
         zIndex,
-        ["--aura" as string]: "#FFB454",
+        ["--aura" as string]:     "#FFB454",
         ["--auraGlow" as string]: "rgba(255,150,52,.7)",
       }}
       role="listitem"
@@ -304,7 +305,7 @@ function YouScout({ gates }: YouScoutProps) {
       <div className="shadow" aria-hidden="true" />
       <div
         className="body"
-        style={{ backgroundImage: `url("${youSrc}")` }}
+        style={{ backgroundImage: `url("/status-map/sprites/you.webp")` }}
         aria-hidden="true"
       />
       <div className="badge">
@@ -313,7 +314,6 @@ function YouScout({ gates }: YouScoutProps) {
         <span className="bstat">{hasGates ? `${gates.length} gate` : "ปกติ"}</span>
       </div>
 
-      {/* Gate alert badge — only when gates exist */}
       {hasGates && (
         <div
           className="you-alert"
@@ -325,7 +325,6 @@ function YouScout({ gates }: YouScoutProps) {
         </div>
       )}
 
-      {/* Popover */}
       <div className="popover" role="tooltip">
         <div className="pop-name">คุณ · gate ที่รออนุมัติ</div>
         {gates.map((g) => (
@@ -347,19 +346,129 @@ function YouScout({ gates }: YouScoutProps) {
   );
 }
 
+// ── Main component ───────────────────────────────────────────────────────────
+
 interface Props {
   model: MapModel;
   token: string;
 }
 
+export interface SceneHandle {
+  /** S6 hook: walk the agent at `role` to `toNode` (defaults to home station). */
+  triggerWalk: (role: string, toNode?: string) => void;
+}
+
 export default function CampsiteScene({ model }: Props) {
   const { projectPct, gates, agents } = model;
+
+  // DOM refs — body and root element per agent, indexed by role.
+  const bodyRefs = useRef<Record<string, HTMLElement | null>>({});
+  const rootRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  // Exposed handle for S6 (parent can access via a forwarded ref if needed).
+  const engineRef = useRef<EngineHandle | null>(null);
+
+  useEffect(() => {
+    // Guard: only run in the browser (this is a "use client" component, but be safe).
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    // Build scout state for each agent.
+    const roleKeys = Object.keys(ROLE_CONFIG);
+    const scoutRefs: ScoutRef[] = roleKeys.map((role, idx) => {
+      const cfg   = ROLE_CONFIG[role];
+      const state = buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0);
+      state.bodyEl = bodyRefs.current[role] ?? null;
+      state.rootEl = rootRefs.current[role] ?? null;
+      return { state, path: [] };
+    });
+
+    // Ensure initial path is set: entering agents walk entry→home.
+    // buildScoutState already sets cur=entryNode, tgt=homeNode with t=0.
+    // We pass the remaining path (empty, since only one hop: cur→tgt is all we need).
+    // The engine's step loop will detect arrival at homeNode and call enterIdle.
+
+    let engine: EngineHandle | null = null;
+
+    function startLoop() {
+      if (engine) return; // already running
+      engine = startEngine(scoutRefs);
+      engineRef.current = engine;
+    }
+
+    function stopLoop() {
+      if (!engine) return;
+      engine.stop();
+      engine = null;
+      engineRef.current = null;
+      // Restore all agents to their home station (static fallback).
+      for (const ref of scoutRefs) {
+        const s   = ref.state;
+        const home = NODES[s.homeNode];
+        if (!home || !s.rootEl) continue;
+        s.rootEl.style.left   = `${home.x}%`;
+        s.rootEl.style.top    = `${home.y}%`;
+        s.rootEl.style.zIndex = String(Math.round(home.y * 12) + 5);
+        // Restore class to idle (idle CSS sway is also off under reduced-motion)
+        s.rootEl.classList.remove("entering", "walking-mode");
+        s.rootEl.classList.add("idle");
+      }
+    }
+
+    if (!mq.matches) {
+      // Reduced-motion is NOT set → start the entrance walk loop.
+      startLoop();
+    }
+    // If reduced-motion IS set, skip the loop entirely; agents sit at their
+    // home-station positions (set via inline style on render) — S2 behavior.
+
+    // Listen for OS setting changes (no page reload needed).
+    function onMqChange(e: MediaQueryListEvent) {
+      if (e.matches) {
+        stopLoop();
+      } else {
+        // Reduced-motion was turned off → restart entrance walk.
+        for (const ref of scoutRefs) {
+          const s   = ref.state;
+          const cfg = ROLE_CONFIG[s.role];
+          if (!cfg) continue;
+          // Reset scout state to entering from arm-tip.
+          const fresh = buildScoutState(s.role, cfg.node, cfg.poseIdx, s.speedVar);
+          fresh.bodyEl = s.bodyEl;
+          fresh.rootEl = s.rootEl;
+          // Overwrite mutable fields in place so the array ref stays stable.
+          Object.assign(s, fresh);
+          ref.path = [];
+        }
+        startLoop();
+      }
+    }
+    mq.addEventListener("change", onMqChange);
+
+    return () => {
+      mq.removeEventListener("change", onMqChange);
+      stopLoop();
+    };
+  }, []); // mount-once — engine is data-independent at this stage
+
+  // Static home position for each agent (used as initial style + reduced-motion fallback).
+  function homeStyle(role: string): { left: string; top: string; zIndex: number } {
+    const cfg  = ROLE_CONFIG[role];
+    if (!cfg) return { left: "50%", top: "50%", zIndex: 10 };
+    const node = NODES[cfg.node];
+    if (!node) return { left: "50%", top: "50%", zIndex: 10 };
+    return {
+      left:   `${node.x}%`,
+      top:    `${node.y}%`,
+      zIndex: Math.round(node.y * 12) + 5,
+    };
+  }
 
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
 
-      {/* Top stat bar */}
       <div className="map-stat-bar" aria-label={`ความคืบหน้าโปรเจกต์ ${projectPct}%`}>
         <span className="stat-pct">{projectPct}%</span>
         <div className="stat-sep" aria-hidden="true" />
@@ -384,9 +493,20 @@ export default function CampsiteScene({ model }: Props) {
           role="list"
           aria-label="ทีม AI delivery agents บนแผนที่"
         >
-          {agents.map((agent) => (
-            <AgentScout key={agent.role} agent={agent} />
-          ))}
+          {agents.map((agent) => {
+            const pos = homeStyle(agent.role);
+            return (
+              <AgentScout
+                key={agent.role}
+                agent={agent}
+                staticLeft={pos.left}
+                staticTop={pos.top}
+                staticZ={pos.zIndex}
+                rootRef={(el) => { rootRefs.current[agent.role] = el; }}
+                bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
+              />
+            );
+          })}
           <YouScout gates={gates} />
         </div>
       </div>
