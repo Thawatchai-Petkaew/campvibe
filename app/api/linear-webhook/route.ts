@@ -3,13 +3,17 @@
  *
  * Flow:  Linear (issue/label/state change)  ──POST──▶  this route
  *        → verify HMAC signature (LINEAR_WEBHOOK_SECRET)
- *        → send Telegram on notify-worthy transitions (gate / done / released / handoff),
+ *        → send Telegram on notify-worthy transitions via buildEventMessage(),
  *          detected from the payload so it fires for ANY actor — the linear-sync.mjs CLI,
  *          the Linear MCP, or a manual edit in the Linear UI. (The CLI side-effect can't run
  *          in a web session where egress to Telegram/Linear is blocked, so the notification
  *          lives on the server where it always reaches the owner.)
  *        → if a delivery gate was approved (its `awaiting-you` was removed), fire GitHub
  *          repository_dispatch → .github/workflows/linear-continue.yml runs the orchestrator.
+ *
+ * This webhook is the SINGLE source of Telegram event notifications.
+ * scripts/linear-sync.mjs no longer sends event messages — it only sets state/labels/title,
+ * and those changes trigger this webhook.
  *
  * Required env (Vercel):
  *   LINEAR_WEBHOOK_SECRET            — signing secret from Linear → Settings → API → Webhooks
@@ -21,8 +25,9 @@
  */
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { sendTelegram, type TgButton } from "@/lib/notify";
+import { sendTelegram } from "@/lib/notify";
 import { bumpPulse } from "@/lib/status-pulse";
+import { buildEventMessage } from "@/lib/notify-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,31 +77,6 @@ interface LinearWebhook {
   updatedFrom?: Record<string, unknown>;
 }
 
-// role slug → human label for Telegram (mirrors scripts/linear-sync.mjs).
-const ROLE_LABEL: Record<string, string> = {
-  architect: "Architect",
-  "ux-designer": "Designer",
-  "frontend-engineer": "Frontend",
-  "backend-engineer": "Backend",
-  "qa-engineer": "QA",
-  "security-reviewer": "Security",
-  "devops-release": "DevOps",
-  "product-owner": "Product Owner",
-  analyst: "Analyst",
-};
-
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Link to the live /status dashboard (token-gated), mirroring scripts/linear-sync.mjs.
-function statusUrl(): string {
-  const base = process.env.APP_BASE_URL || "https://campvibe-staging.vercel.app";
-  const token = process.env.STATUS_TOKEN;
-  return `${base}/status${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-}
-const statusBtn: TgButton[][] = [[{ text: "📊 /status", url: statusUrl() }]];
-
 export async function POST(req: Request) {
   const raw = await req.text();
   if (!verify(raw, req.headers.get("linear-signature"))) {
@@ -118,16 +98,25 @@ export async function POST(req: Request) {
     await bumpPulse();
   }
 
+  const data = body.data ?? {};
+  const id = data.identifier ?? "";
+  const title = data.title ?? "";
+  const url = data.url;
+  const ctx = { id, title, url };
+
+  // ── `create` event: notify "created" (gated — default off, no spam). ──
+  if (body.type === "Issue" && body.action === "create") {
+    const msg = buildEventMessage("created", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+    return NextResponse.json({ ok: true, ignored: "Issue/create", pulsed: true });
+  }
+
   // Only the Telegram + gate-dispatch logic below cares specifically about issue *updates*.
   if (body.type !== "Issue" || body.action !== "update") {
     return NextResponse.json({ ok: true, ignored: `${body.type}/${body.action}`, pulsed: body.type === "Issue" });
   }
 
-  const data = body.data ?? {};
   const updatedFrom = body.updatedFrom ?? {};
-  const id = data.identifier ?? "";
-  const title = data.title ?? "";
-  const url = data.url;
   const currentLabels = (data.labels ?? []).filter((l) => l.id || l.name);
   const labelNames = currentLabels.map((l) => l.name).filter(Boolean) as string[];
 
@@ -144,38 +133,42 @@ export async function POST(req: Request) {
 
   // ── Owner notifications — event-driven, fire for any actor. sendTelegram is no-throw. ──
   const notified: string[] = [];
-  const head = id ? `<b>${esc(id)}</b>` : "<b>(issue)</b>";
-  const titleLine = title ? `\n${esc(title)}` : "";
 
   if (addedNames.includes("awaiting-you")) {
-    const gate = (title.match(/Gate\s*G\d/i) || ["Gate"])[0];
-    await sendTelegram(
-      `⏳ ${head} รออนุมัติ — ${esc(gate)}${titleLine}\n\nReview ใน Linear แล้วลบ label awaiting-you เพื่ออนุมัติ หรือกดปุ่มด้านล่าง`,
-      {
-        buttons: [
-          ...(id ? [[{ text: "✅ Approve", callback_data: `approve:${id}` }, { text: "🚫 Reject", callback_data: `reject:${id}` }]] : []),
-          ...(url ? [[{ text: "🔗 เปิดใน Linear", url }]] : []),
-          [{ text: "📊 /status", url: statusUrl() }],
-        ],
-      }
-    );
+    const msg = buildEventMessage("gate", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
     notified.push("awaiting-you");
   }
 
   if (addedNames.includes("released")) {
-    await sendTelegram(`🚀 ${head} released (prod)${titleLine}`, { buttons: statusBtn });
+    const msg = buildEventMessage("released", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
     notified.push("released");
   }
 
   const addedRole = addedNames.find((n) => n.startsWith("role:"));
   if (addedRole) {
     const slug = addedRole.slice("role:".length);
-    await sendTelegram(`→ ${head} ส่งต่อให้ ${esc(ROLE_LABEL[slug] || slug)}${titleLine}`, { buttons: statusBtn });
+    const msg = buildEventMessage("handoff", { ...ctx, role: slug });
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
     notified.push(addedRole);
   }
 
+  if (addedNames.includes("blocked")) {
+    const msg = buildEventMessage("blocked", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+    notified.push("blocked");
+  }
+
+  if (stateChanged && stateType === "started") {
+    const msg = buildEventMessage("started", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+    notified.push("started");
+  }
+
   if (stateChanged && stateType === "completed") {
-    await sendTelegram(`✓ ${head} done${titleLine}`, { buttons: statusBtn });
+    const msg = buildEventMessage("done", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
     notified.push("done");
   }
 
@@ -187,6 +180,10 @@ export async function POST(req: Request) {
 
   let dispatch: Awaited<ReturnType<typeof fireDispatch>> | null = null;
   if (looksApproved) {
+    // Send the approved notification before dispatching.
+    const msg = buildEventMessage("approved", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+
     dispatch = await fireDispatch({
       identifier: id,
       title,

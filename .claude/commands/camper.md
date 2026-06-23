@@ -26,5 +26,16 @@ The `/status` dashboard reads team **CAM** issues **live** (`lib/linear.ts` `fet
 - **Create issues via the Linear MCP** (`save_project` for the epic's project, `save_issue` for epic + stories). `scripts/linear-sync.mjs` has **no create** — only `set/list/gates/audit/notify/release/pull`; use it for state/label transitions + status feed.
 - **Tracking / gate movement**: set `In Progress` when a story starts, `Done` after merge+staging-verify, add label `released` after G5. Move state at **every** gate so the /status Epic tab shows live movement. Each gate is raised to the human via the `awaiting-you` label (Overview pane); ongoing progress shows on the **Epic tab**.
 - **Role handoff (MUST use `linear-sync handoff`)**: when a story moves between roles, the orchestrator MUST run `node scripts/linear-sync.mjs handoff <id> --role <role> [--state "In Progress"] [--note "..."]`. This command: (1) swaps the `[role]` tag in the title so /status always reflects the current actor, (2) adds a persistent `role:<role>` label that **accumulates — never removed** so workload attribution (`role:*` labels) builds a complete history, (3) fires a Telegram notification to the owner. Do NOT use bare MCP `save_issue` title changes for handoffs — that skips the label and Telegram.
-- **Telegram notify policy** (fired from `scripts/linear-sync.mjs`, both local + headless): every role **handoff** (`handoff` command) · every **gate** (`awaiting-you` label added via `set --add-label awaiting-you`) · every **story done** (`set --state Done` on a completed-type state). `notifyTelegram` is no-throw; requires `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` in `.env`.
+- **Telegram notify policy** — single source: the **Linear webhook** (`app/api/linear-webhook/route.ts`) fires for any actor (linear-sync.mjs CLI, Linear MCP, manual edit). `scripts/linear-sync.mjs` no longer sends event messages; it only sets state/labels/title, whose changes trigger the webhook. Copy is English, no emoji. Event matrix (from `lib/notify-messages.ts` `NOTIFY_EVENTS`):
+  - `started` on — state changes to type `started`
+  - `handoff` on — a `role:*` label is added
+  - `gate` on — `awaiting-you` label added
+  - `approved` on — `awaiting-you` removed from a gate issue
+  - `rejected` on — Approve/Reject button tapped in Telegram (only this route can detect rejection)
+  - `blocked` on — `blocked` label added
+  - `done` on — state changes to type `completed`
+  - `released` on — `released` label added
+  - `created` off — Issue/create event (default off, no spam)
+  - `defect` off — default off
+  Use `notify <text>` in `scripts/linear-sync.mjs` to push free-form messages to Telegram (e.g. CI results). Requires `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` in `.env`.
 - **Comms**: prefix every message to the owner with the active role + `(The Camper)` — e.g. `Orchestrator (The Camper)`, `Designer (The Camper)`. No emoji. Actually dispatch to role agents (`subagent_type` designer/frontend/qa/security/devops) — never run the whole epic solo.
