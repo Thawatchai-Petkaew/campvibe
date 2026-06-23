@@ -12,7 +12,7 @@ export const CSS = `
 }
 *{box-sizing:border-box}html,body{margin:0;padding:0}
 body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;background:#070d1c;overflow-x:hidden}
-.map-scene{position:fixed;inset:0;z-index:0;overflow:hidden;background:linear-gradient(180deg,#060b1a 0%,#0a142b 26%,#0e2742 56%,#123a40 84%,#163f3a 100%)}
+.map-scene{position:fixed;inset:0;z-index:0;overflow:hidden;background:linear-gradient(180deg,rgba(6,11,26,.52) 0%,rgba(8,16,32,.34) 44%,rgba(14,40,46,.42) 100%),url("/status-map/campsite-forest.webp") center/cover no-repeat,#070d1c}
 .map-aurora{position:absolute;inset:-10% -10% auto;height:70%;filter:blur(60px);opacity:.4;mix-blend-mode:screen;background:radial-gradient(40% 60% at 25% 30%,rgba(91,233,176,.6),transparent 70%),radial-gradient(46% 64% at 60% 18%,rgba(80,180,255,.45),transparent 72%),radial-gradient(38% 56% at 82% 36%,rgba(120,230,180,.5),transparent 70%)}
 @media (prefers-reduced-motion:reduce){.map-aurora{animation:none}}
 .map-stars span{position:absolute;border-radius:50%;background:#fff}
