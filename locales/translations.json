@@ -387,7 +387,15 @@
             "backToCampsite": "Back to campsite",
             "notFound": "Booking not found",
             "notFoundDescription": "Please check the link, or view all your bookings.",
-            "statusBadgeAriaLabel": "Booking status: pending"
+            "statusBadgeAriaLabel": "Booking status: pending",
+            "detail": {
+                "pageTitle": "Booking details",
+                "backToBookings": "Back to my bookings",
+                "guests": "guests",
+                "spot": "Spot",
+                "contact": "Contact",
+                "forbidden": "Booking not found or you do not have access"
+            }
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -1020,7 +1028,15 @@
             "backToCampsite": "กลับไปดูลานแคมป์",
             "notFound": "ไม่พบข้อมูลการจอง",
             "notFoundDescription": "กรุณาตรวจสอบอีกครั้ง หรือดูรายการจองทั้งหมดของคุณ",
-            "statusBadgeAriaLabel": "สถานะการจอง: รอยืนยัน"
+            "statusBadgeAriaLabel": "สถานะการจอง: รอยืนยัน",
+            "detail": {
+                "pageTitle": "รายละเอียดการจอง",
+                "backToBookings": "กลับไปยังการจองของฉัน",
+                "guests": "คน",
+                "spot": "ลาน",
+                "contact": "ข้อมูลติดต่อ",
+                "forbidden": "ไม่พบข้อมูลการจอง หรือคุณไม่มีสิทธิ์เข้าถึง"
+            }
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",

@@ -3,7 +3,7 @@ artifact: epic
 feature: bookings-trips
 epic: camper-pre-trip-my-bookings (CAM-24)
 status: In Progress
-version: v2
+version: v3
 updated: 2026-06-23
 ---
 
@@ -30,7 +30,7 @@ A Camper needs to understand and track their bookings after they reserve — the
 | CAM-id | Title | Role | Status |
 | --- | --- | --- | --- |
 | CAM-60 | Status label การจองแปลเป็นภาษาไทย | Frontend (Camper) | Done |
-| CAM-61 | Booking detail page `/bookings/[id]` | Frontend (Camper) | Backlog |
+| CAM-61 | Booking detail page `/bookings/[id]` | ux-designer → backend → frontend → qa → security → devops | In Progress |
 
 ## Links
 
@@ -38,5 +38,6 @@ A Camper needs to understand and track their bookings after they reserve — the
 
 ## Changelog
 
+- v3 (2026-06-23) — CAM-61 row updated: role pipeline (ux-designer → backend → frontend → qa → security → devops), status In Progress (G3 merge in flight).
 - v2 (2026-06-23) — filled stub; CAM-60 Done; CAM-61 added to scope table; Why/KPI/Scope authored.
 - v1 (2026-06-23) — epic scoped (stub)
