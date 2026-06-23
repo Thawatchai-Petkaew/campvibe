@@ -185,26 +185,29 @@ function buildModel(issues: StatusIssue[]): Model {
   };
 }
 
-// ---------- Environments (derived 3-env lanes: Dev | Staging | Prod) ----------
+// ---------- Environments board (derived 3-env lanes: Dev → Staging → Prod) ----------
+// Mirrors the per-status Board idiom (.board/.col/.kc) but keyed by env. env is DERIVED from
+// state + the `released` label (envOf) — no env field. Staging column = the release train.
 const ENV_ORDER: EnvLane[] = ["dev", "staging", "prod"];
 const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
   dev: { label: "Dev", sub: "กำลังทำ · ยังไม่ขึ้น staging" },
-  staging: { label: "Staging", sub: "Done · รอ release (พร้อมขึ้น prod)" },
-  prod: { label: "Prod", sub: "released แล้ว" },
+  staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
+  prod: { label: "Prod", sub: "released" },
 };
 function renderEnvPane(m: Model): string {
-  let h = `<section class="glass pane"><div class="pane-h"><span class="t">Environments</span><span class="x">Dev · Staging · Prod · derive จาก state+released</span></div>`;
+  let h = `<section class="glass board-wrap"><div class="pane-h"><span class="t">Environments</span><span class="x">Dev → Staging → Prod · derive จาก state+released</span></div><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
   for (const env of ENV_ORDER) {
     const items = m.byEnv[env], meta = ENV_META[env];
-    h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(meta.label)}</span><span class="grp-meta">${items.length} · ${esc(meta.sub)}</span></div>`;
-    if (items.length) {
-      items.forEach((i) => {
-        h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${featChip(featureOf(i))}</a>`;
-      });
-    } else h += `<div class="none-row" style="color:var(--muted)">— ว่าง</div>`;
+    const tag = env === "staging" && items.length ? ` <span class="yb">RELEASE</span>` : "";
+    h += `<div class="col" data-k="env-${env}"><div class="col-h"><span class="dot cd"></span>${esc(meta.label)}${tag}<span class="c">${items.length}</span></div>`;
+    h += `<div style="font-size:11px;color:var(--muted);margin:-2px 0 8px">${esc(meta.sub)}</div>`;
+    if (!items.length) h += `<div class="empty">—</div>`;
+    items.forEach((i) => {
+      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+    });
     h += `</div>`;
   }
-  return h + `</section>`;
+  return h + `</div></section>`;
 }
 
 // feature groups ordered by story volume (desc) so the busiest feature leads
