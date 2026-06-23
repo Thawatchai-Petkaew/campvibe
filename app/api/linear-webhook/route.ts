@@ -1,21 +1,27 @@
 /**
- * Linear webhook → real-time orchestration trigger.
+ * Linear webhook → owner notifications + real-time orchestration trigger.
  *
  * Flow:  Linear (issue/label/state change)  ──POST──▶  this route
  *        → verify HMAC signature (LINEAR_WEBHOOK_SECRET)
- *        → if a delivery gate changed, fire GitHub repository_dispatch
- *        → GitHub Action (.github/workflows/linear-continue.yml) runs the orchestrator
+ *        → send Telegram on notify-worthy transitions (gate / done / released / handoff),
+ *          detected from the payload so it fires for ANY actor — the linear-sync.mjs CLI,
+ *          the Linear MCP, or a manual edit in the Linear UI. (The CLI side-effect can't run
+ *          in a web session where egress to Telegram/Linear is blocked, so the notification
+ *          lives on the server where it always reaches the owner.)
+ *        → if a delivery gate was approved (its `awaiting-you` was removed), fire GitHub
+ *          repository_dispatch → .github/workflows/linear-continue.yml runs the orchestrator.
  *
  * Required env (Vercel):
- *   LINEAR_WEBHOOK_SECRET  — signing secret from Linear → Settings → API → Webhooks
- *   GITHUB_REPO            — "owner/name" e.g. Thawatchai-Petkaew/campvibe
- *   GH_DISPATCH_TOKEN      — fine-grained GitHub PAT with "Contents: read & write" / dispatch on the repo
+ *   LINEAR_WEBHOOK_SECRET            — signing secret from Linear → Settings → API → Webhooks
+ *   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — owner notifications (see lib/notify)
+ *   GITHUB_REPO / GH_DISPATCH_TOKEN  — repository_dispatch for gate continuation (optional)
  *
- * The route only TRIGGERS; the GitHub Action confirms the gate via `npm run status:gates`
- * (exit 10 = a cleared gate) before doing any work — so we never act on a stale/partial payload.
+ * The route only TRIGGERS orchestration; the GitHub Action re-confirms the gate via
+ * `npm run status:gates` before acting — so we never act on a stale/partial payload.
  */
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { sendTelegram, type TgButton } from "@/lib/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,13 +54,47 @@ async function fireDispatch(payload: Record<string, unknown>) {
   return { dispatched: res.ok, status: res.status };
 }
 
-interface LinearLabel { name?: string }
+interface LinearLabel {
+  id?: string;
+  name?: string;
+}
 interface LinearWebhook {
   action?: string;
   type?: string;
-  data?: { identifier?: string; title?: string; labels?: LinearLabel[]; state?: { name?: string; type?: string } };
+  data?: {
+    identifier?: string;
+    title?: string;
+    url?: string;
+    labels?: LinearLabel[];
+    state?: { id?: string; name?: string; type?: string };
+  };
   updatedFrom?: Record<string, unknown>;
 }
+
+// role slug → human label for Telegram (mirrors scripts/linear-sync.mjs).
+const ROLE_LABEL: Record<string, string> = {
+  architect: "Architect",
+  "ux-designer": "Designer",
+  "frontend-engineer": "Frontend",
+  "backend-engineer": "Backend",
+  "qa-engineer": "QA",
+  "security-reviewer": "Security",
+  "devops-release": "DevOps",
+  "product-owner": "Product Owner",
+  analyst: "Analyst",
+};
+
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Link to the live /status dashboard (token-gated), mirroring scripts/linear-sync.mjs.
+function statusUrl(): string {
+  const base = process.env.APP_BASE_URL || "https://campvibe-staging.vercel.app";
+  const token = process.env.STATUS_TOKEN;
+  return `${base}/status${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+const statusBtn: TgButton[][] = [[{ text: "📊 /status", url: statusUrl() }]];
 
 export async function POST(req: Request) {
   const raw = await req.text();
@@ -75,24 +115,75 @@ export async function POST(req: Request) {
   }
 
   const data = body.data ?? {};
+  const updatedFrom = body.updatedFrom ?? {};
+  const id = data.identifier ?? "";
   const title = data.title ?? "";
-  const labels = (data.labels ?? []).map((l) => l.name).filter(Boolean) as string[];
-  const isGate = /Gate\s*G\d/i.test(title) || labels.includes("awaiting-you");
-  const labelChanged = !!body.updatedFrom && Object.prototype.hasOwnProperty.call(body.updatedFrom, "labelIds");
-  const stillAwaiting = labels.includes("awaiting-you");
+  const url = data.url;
+  const currentLabels = (data.labels ?? []).filter((l) => l.id || l.name);
+  const labelNames = currentLabels.map((l) => l.name).filter(Boolean) as string[];
 
-  // Approval signal: a gate issue whose labels changed and no longer carries "awaiting-you".
-  // (Coarse on purpose — the GitHub Action re-confirms with `status:gates` before acting.)
-  const looksApproved = isGate && labelChanged && !stillAwaiting;
+  // Labels *added* in this update (diff current vs the prior label-id set) — avoids
+  // re-notifying for labels that were already present before the change.
+  const prevLabelIds = Array.isArray(updatedFrom.labelIds) ? (updatedFrom.labelIds as string[]) : null;
+  const labelChanged = prevLabelIds !== null;
+  const addedNames: string[] = prevLabelIds
+    ? (currentLabels.filter((l) => l.id && !prevLabelIds.includes(l.id)).map((l) => l.name).filter(Boolean) as string[])
+    : [];
 
-  if (!looksApproved) {
-    return NextResponse.json({ ok: true, gate: isGate, approved: false });
+  const stateChanged = Object.prototype.hasOwnProperty.call(updatedFrom, "stateId");
+  const stateType = data.state?.type ?? "";
+
+  // ── Owner notifications — event-driven, fire for any actor. sendTelegram is no-throw. ──
+  const notified: string[] = [];
+  const head = id ? `<b>${esc(id)}</b>` : "<b>(issue)</b>";
+  const titleLine = title ? `\n${esc(title)}` : "";
+
+  if (addedNames.includes("awaiting-you")) {
+    const gate = (title.match(/Gate\s*G\d/i) || ["Gate"])[0];
+    await sendTelegram(
+      `⏳ ${head} รออนุมัติ — ${esc(gate)}${titleLine}\n\nReview ใน Linear แล้วลบ label awaiting-you เพื่ออนุมัติ หรือกดปุ่มด้านล่าง`,
+      {
+        buttons: [
+          ...(id ? [[{ text: "✅ Approve", callback_data: `approve:${id}` }, { text: "🚫 Reject", callback_data: `reject:${id}` }]] : []),
+          ...(url ? [[{ text: "🔗 เปิดใน Linear", url }]] : []),
+          [{ text: "📊 /status", url: statusUrl() }],
+        ],
+      }
+    );
+    notified.push("awaiting-you");
   }
 
-  const result = await fireDispatch({
-    identifier: data.identifier ?? "",
-    title,
-    epic: title.split("·")[0]?.trim() ?? "",
-  });
-  return NextResponse.json({ ok: true, approved: true, issue: data.identifier, ...result });
+  if (addedNames.includes("released")) {
+    await sendTelegram(`🚀 ${head} released (prod)${titleLine}`, { buttons: statusBtn });
+    notified.push("released");
+  }
+
+  const addedRole = addedNames.find((n) => n.startsWith("role:"));
+  if (addedRole) {
+    const slug = addedRole.slice("role:".length);
+    await sendTelegram(`→ ${head} ส่งต่อให้ ${esc(ROLE_LABEL[slug] || slug)}${titleLine}`, { buttons: statusBtn });
+    notified.push(addedRole);
+  }
+
+  if (stateChanged && stateType === "completed") {
+    await sendTelegram(`✓ ${head} done${titleLine}`, { buttons: statusBtn });
+    notified.push("done");
+  }
+
+  // ── Existing behaviour: a gate whose `awaiting-you` was just removed → orchestrator continues.
+  //    (Coarse on purpose — the GitHub Action re-confirms with `status:gates` before acting.) ──
+  const isGate = /Gate\s*G\d/i.test(title) || labelNames.includes("awaiting-you");
+  const stillAwaiting = labelNames.includes("awaiting-you");
+  const looksApproved = isGate && labelChanged && !stillAwaiting;
+
+  let dispatch: Awaited<ReturnType<typeof fireDispatch>> | null = null;
+  if (looksApproved) {
+    dispatch = await fireDispatch({
+      identifier: id,
+      title,
+      epic: title.split("·")[0]?.trim() ?? "",
+    });
+  }
+
+  return NextResponse.json({ ok: true, notified, approved: looksApproved, ...(dispatch ?? {}) });
 }
