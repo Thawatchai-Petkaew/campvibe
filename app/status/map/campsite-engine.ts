@@ -184,6 +184,13 @@ export interface EngineHandle {
    * Call this when live data changes and you want the agent to visually move.
    */
   triggerWalk: (role: string, toNode?: string) => void;
+  /**
+   * S5 hook — narrow / restore the scene without remounting the rAF loop.
+   * In Epic scope: dim/hide agents whose role is NOT in epicRoles; all others stay.
+   * In Overview scope (scope="all", epicRoles empty): restore all agents to full opacity.
+   * The rAF loop keeps running; only CSS opacity/pointer-events on rootEl are touched.
+   */
+  setScope: (scope: "all" | "epic", epicRoles: string[]) => void;
   /** Cancel the rAF loop. Must be called in useEffect cleanup to prevent leaks. */
   stop: () => void;
 }
@@ -362,6 +369,24 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
       if (!ref) return;
       const target = toNode ?? ref.state.homeNode;
       enterWalking(ref, target);
+    },
+    setScope(scope: "all" | "epic", epicRoles: string[]) {
+      // DOM-only: adjust opacity/pointer-events without touching the rAF loop.
+      for (const ref of scouts) {
+        const el = ref.state.rootEl;
+        if (!el) continue;
+        if (scope === "all") {
+          // Restore all agents to full presence.
+          el.style.opacity        = "";
+          el.style.pointerEvents  = "";
+          el.style.transition     = "opacity 300ms ease-out";
+        } else {
+          const inEpic = epicRoles.includes(ref.state.role);
+          el.style.opacity        = inEpic ? "1" : "0.18";
+          el.style.pointerEvents  = inEpic ? "" : "none";
+          el.style.transition     = "opacity 300ms ease-out";
+        }
+      }
     },
     stop() {
       active = false;

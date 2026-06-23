@@ -16,8 +16,28 @@ const CampsiteScene = dynamic(() => import("./campsite-scene"), {
 interface Props {
   model: MapModel;
   token: string;
+  initialScope: "all" | "epic";
+  initialEpic: string;
+  initialGroup: "feature" | "persona";
+  initialEfilter: "all" | "prog" | "done" | "todo";
 }
 
-export default function SceneLoader({ model, token }: Props) {
-  return <CampsiteScene model={model} token={token} />;
+export default function SceneLoader({
+  model,
+  token,
+  initialScope,
+  initialEpic,
+  initialGroup,
+  initialEfilter,
+}: Props) {
+  return (
+    <CampsiteScene
+      model={model}
+      token={token}
+      initialScope={initialScope}
+      initialEpic={initialEpic}
+      initialGroup={initialGroup}
+      initialEfilter={initialEfilter}
+    />
+  );
 }
