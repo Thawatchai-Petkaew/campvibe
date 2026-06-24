@@ -9,6 +9,9 @@ export type StageName = (typeof STAGES)[number];
 export const ROLE_STAGE: Record<string, string> = {
   architect: "Design",
   "ux-designer": "Design",
+  "product-owner": "Design", // spec/scope authoring sits at the Design stage of the pipeline
+  analyst: "Design",
+  orchestrator: "Gate",      // the orchestrator drives gates, not a build stage
   human: "Gate",
   "frontend-engineer": "Build",
   "backend-engineer": "Build",

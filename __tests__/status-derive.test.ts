@@ -83,6 +83,18 @@ describe("stageOf", () => {
     expect(stageOf(mk({ title: "[architect] A1" }))).toBe("Design");
   });
 
+  it("product-owner tag → Design (spec/scope authoring), not the unmapped default", () => {
+    expect(stageOf(mk({ title: "[product-owner] P1" }))).toBe("Design");
+  });
+
+  it("analyst tag → Design", () => {
+    expect(stageOf(mk({ title: "[analyst] A1" }))).toBe("Design");
+  });
+
+  it("orchestrator tag → Gate", () => {
+    expect(stageOf(mk({ title: "[orchestrator] O1" }))).toBe("Gate");
+  });
+
   it("human tag → Gate", () => {
     expect(stageOf(mk({ title: "[human] G1" }))).toBe("Gate");
   });
