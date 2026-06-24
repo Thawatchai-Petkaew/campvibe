@@ -144,21 +144,12 @@ export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
 };
 export const YOU_POS_WIDE = { x: 38, y: 23 };
 
-// LAYOUT_NARROW: tight centered cluster for < 7:5 aspect ratio (portrait phone/tablet).
-// All 8 characters packed into canvas x∈[40,60] so they stay within the visible
-// center band under cover scaling on a 9:16 screen.
-// You sits top-center; agents form a symmetric 2-column grid below.
-// Screenshot-tuned via ?grid=1; next round of tuning refines further.
-export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 42, y: 34 },
-  "ux-designer":        { x: 58, y: 34 },
-  "backend-engineer":   { x: 58, y: 50 },
-  "frontend-engineer":  { x: 58, y: 64 },
-  "devops-release":     { x: 42, y: 64 },
-  "qa-engineer":        { x: 42, y: 50 },
-  "security-reviewer":  { x: 50, y: 42 },
-};
-export const YOU_POS_NARROW = { x: 50, y: 22 };
+// Single-layout model: the decoupled fixed play area uses ONE ring on every
+// screen (narrow simply crops at the edges — no reflow). Narrow aliases the one
+// layout so the existing matchMedia wiring is a no-op; that dual-layout machinery
+// is fully retired (and tests reconciled) at the final quality gate.
+export const LAYOUT_NARROW = LAYOUT_WIDE;
+export const YOU_POS_NARROW = YOU_POS_WIDE;
 
 // Active layout (mutable at runtime; starts with wide, switched by matchMedia).
 // currentLayout is read by homeStyle() which is called each render, so React state
@@ -196,7 +187,7 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: 88px;
+  --scout-size: 80px;
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -208,11 +199,6 @@ const SCENE_CSS = `
   --glass: rgba(16,26,42,.42);
   --blur: saturate(150%) blur(20px);
   --mono: 'JetBrains Mono','Fira Mono','Consolas',monospace;
-}
-/* Narrow layout: portrait screens where the narrow scale factor is large.
-   Reduce scout-size so the compact cluster doesn't produce giant overlapping characters. */
-@media (max-aspect-ratio: 7/5) {
-  :root { --scout-size: 74px; }
 }
 .map-wrap{
   position:fixed;inset:0;overflow:hidden;
@@ -243,16 +229,15 @@ const SCENE_CSS = `
    width/height are the design-canvas dimensions; the transform makes them fill
    the viewport. Characters write left/top as % of this canvas (engine unchanged). */
 .map-stage{
-  /* Always centred on the viewport via negative margins (half the FIXED design
-     size — no % ambiguity), then scaled around its own centre. The centre never
-     moves; only the scale changes with the screen. */
+  /* Fixed play area: a 1920×1080 box centred on the viewport via negative
+     margins, NOT scaled. Characters are a fixed px size (--scout-size) and live
+     only inside this box; on a screen smaller than the box the edges are clipped
+     by .map-viewport's overflow:hidden. Fully decoupled from the cover background
+     and the HUD — only the background scales/crops with the viewport. */
   position:absolute;
   top:50%;left:50%;
   width:1920px;height:1080px;
   margin-left:-960px;margin-top:-540px;
-  --s:max(calc(100vw / 1920), calc(100vh / 1080));
-  transform:scale(var(--s));
-  transform-origin:center center;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
