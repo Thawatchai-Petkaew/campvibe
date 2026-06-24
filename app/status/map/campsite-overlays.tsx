@@ -25,7 +25,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
 } from "react";
 import type {
@@ -498,39 +497,27 @@ const HUD_CSS = `
 }
 .hud-queue-title{font-size:11px;color:rgba(223,234,245,.8);line-height:1.4;flex:1}
 
-/* View toggle (top center) */
+/* View switch → single "Dashboard" button, top-LEFT (top-centre is freed for content) */
 .hud-view-toggle {
   position:fixed;
   top:18px;
-  left:50%;
-  transform:translateX(-50%);
+  left:18px;
   z-index:22;
-  display:inline-flex;
+  display:inline-flex;align-items:center;gap:8px;
+  padding:0 16px;min-height:44px;
   border:1px solid rgba(150,240,195,.13);
   border-radius:999px;
-  overflow:hidden;
   background:rgba(11,30,24,.52);
   backdrop-filter:saturate(195%) blur(26px);
   -webkit-backdrop-filter:saturate(195%) blur(26px);
-  box-shadow:0 8px 24px rgba(0,0,0,.32);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
+  color:rgba(223,234,245,.82);
+  font-size:12.5px;font-weight:600;text-decoration:none;
+  transition:background 120ms,color 120ms,border-color 120ms;
 }
-.hud-toggle-item {
-  display:inline-flex;align-items:center;
-  padding:10px 20px;min-height:44px;
-  font-size:12.5px;font-weight:600;
-  color:rgba(223,234,245,.6);
-  text-decoration:none;
-  border-right:1px solid rgba(255,255,255,.12);
-  transition:background 120ms,color 120ms;
-}
-.hud-toggle-item:last-child{border-right:none}
-.hud-toggle-item:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.9)}
-.hud-toggle-item:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:-2px}
-.hud-toggle-item.active{
-  background:rgba(91,233,176,.15);
-  color:#5BE9B0;
-  cursor:default;
-}
+.hud-view-toggle:hover{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.3)}
+.hud-view-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
+.hud-view-toggle svg{display:block;flex:none}
 
 /* Epic open board button inside dock */
 .hud-board-btn {
@@ -1273,31 +1260,20 @@ interface ViewToggleProps {
 
 export function ViewToggle({ dashboardHref }: ViewToggleProps) {
   return (
-    <nav
-      role="tablist"
-      aria-label="สลับระหว่างแดชบอร์ดและแผนที่"
+    <a
+      href={dashboardHref}
       className="hud-view-toggle"
-      data-testid="nav--map-view-toggle"
+      data-testid="link--map-to-dashboard"
+      aria-label="กลับไปดูแดชบอร์ด"
     >
-      <a
-        href={dashboardHref}
-        role="tab"
-        aria-selected={false}
-        className="hud-toggle-item"
-        data-testid="link--map-toggle-dashboard"
-      >
-        แดชบอร์ด
-      </a>
-      <span
-        role="tab"
-        aria-selected={true}
-        aria-current="page"
-        className="hud-toggle-item active"
-        data-testid="tab--map-toggle-map"
-      >
-        แผนที่
-      </span>
-    </nav>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+      <span>แดชบอร์ด</span>
+    </a>
   );
 }
 
