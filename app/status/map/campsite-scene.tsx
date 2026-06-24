@@ -1120,8 +1120,6 @@ export default function CampsiteScene({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-
     // 60s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
     const FALLBACK_MS = 60_000;
     let fallbackId: ReturnType<typeof setInterval> | null = null;
