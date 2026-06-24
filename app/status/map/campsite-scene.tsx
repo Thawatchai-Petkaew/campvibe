@@ -26,8 +26,8 @@
 // style.zIndex / style.opacity / style.pointerEvents on refs. No per-frame React setState.
 // Effect cleanup cancels rAF.
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { MapOverlays, ViewToggle } from "./campsite-overlays";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EfilterChips, FilterSignposts, MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -625,6 +625,27 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 // ── URL param helpers ─────────────────────────────────────────────────────────
 // Mirror syncUrl idiom from dashboard-client.tsx — history.replaceState, no navigation.
 
+// Filter persistence (cookie) — restored on the next visit so the view is remembered.
+const FILTER_COOKIE = "campvibe.map.filter";
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string };
+function readFilterCookie(): FilterCookie {
+  if (typeof document === "undefined") return {};
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)campvibe\.map\.filter=([^;]+)/);
+    return m ? (JSON.parse(decodeURIComponent(m[1])) as FilterCookie) : {};
+  } catch {
+    return {};
+  }
+}
+function writeFilterCookie(v: FilterCookie): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${FILTER_COOKIE}=${encodeURIComponent(JSON.stringify(v))};path=/;max-age=${60 * 60 * 24 * 30};samesite=lax`;
+  } catch {
+    /* ignore */
+  }
+}
+
 function syncUrl(params: Record<string, string>): void {
   try {
     const u = new URL(location.href);
@@ -984,10 +1005,39 @@ export default function CampsiteScene({
   const [openOverlay, setOpenOverlay] = useState<string | null>(null);
 
   // S5: scope state — restored from URL params on mount via initial props
-  const [scope, setScope]         = useState<"all" | "epic">(initialScope);
-  const [activeEpic, setActiveEpic] = useState<string>(initialEpic);
+  const [scope, setScope]         = useState<"all" | "epic">(() => (initialEpic || readFilterCookie().epic) ? "epic" : initialScope);
+  const [activeEpic, setActiveEpic] = useState<string>(() => initialEpic || readFilterCookie().epic || "");
   const [group, setGroup]         = useState<"feature" | "persona">(initialGroup);
-  const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(initialEfilter);
+  const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(() => {
+    if (initialEfilter !== "all") return initialEfilter;
+    const c = readFilterCookie().efilter;
+    return c === "prog" || c === "done" || c === "todo" ? c : "all";
+  });
+  const [persona, setPersona]     = useState<string>(() => readFilterCookie().persona ?? "");
+  const [feature, setFeature]     = useState<string>(() => readFilterCookie().feature ?? "");
+
+  // Cascading filter options (Persona → Feature → Epic), narrowed by the current selection.
+  const filterOpts = useMemo(() => {
+    const personas = [...new Set(epics.map((e) => e.persona).filter(Boolean))].sort();
+    const featPool = persona ? epics.filter((e) => e.persona === persona) : epics;
+    const features = [...new Set(featPool.map((e) => e.feature).filter(Boolean))].sort();
+    const epicList = featPool
+      .filter((e) => !feature || e.feature === feature)
+      .map((e) => ({ key: e.key, label: e.label }));
+    return { personas, features, epics: epicList };
+  }, [epics, persona, feature]);
+
+  // One handler for the 3-level filter; choosing a higher level resets the lower ones.
+  const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
+    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
+    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); }
+    else { setActiveEpic(value); setScope(value ? "epic" : "all"); }
+  }, []);
+
+  // Persist the filter to a cookie so it is restored on the next visit.
+  useEffect(() => {
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter });
+  }, [persona, feature, scope, activeEpic, efilter]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1447,12 +1497,22 @@ export default function CampsiteScene({
       {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
       <div className="hud-topbar">
         <div className="hud-topbar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO }} />
+        <FilterSignposts
+          personas={filterOpts.personas}
+          features={filterOpts.features}
+          epics={filterOpts.epics}
+          persona={persona}
+          feature={feature}
+          epic={scope === "epic" ? activeEpic : ""}
+          onChange={onFilterChange}
+        />
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
           <ViewToggle dashboardHref={dashboardHref} />
           <SoundToggle />
         </div>
       </div>
+      <EfilterChips efilter={efilter} onChange={setEfilter} />
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}

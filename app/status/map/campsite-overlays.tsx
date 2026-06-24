@@ -26,6 +26,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import type {
   MapAgent,
@@ -514,6 +515,57 @@ const HUD_CSS = `
 .hud-view-toggle:hover{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.3)}
 .hud-view-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
 .hud-view-toggle svg{display:block;flex:none}
+/* ── Top filter: cascading signposts (Persona→Feature→Epic) ── */
+.hud-signposts{display:inline-flex;align-items:center;flex:none}
+.hud-signpost-wrap{position:relative;display:inline-flex}
+.hud-signpost{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:0 13px;min-height:40px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+  color:rgba(223,234,245,.78);font-size:12px;font-weight:600;cursor:pointer;
+  transition:background 120ms,color 120ms,border-color 120ms;
+}
+.hud-signpost-wrap:first-child .hud-signpost{border-radius:999px 0 0 999px;padding-left:15px}
+.hud-signpost-wrap:last-child .hud-signpost{border-radius:0 999px 999px 0;padding-right:15px}
+.hud-signpost-wrap:not(:first-child) .hud-signpost{border-left:none}
+.hud-signpost:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
+.hud-signpost.active{color:#5BE9B0}
+.hud-sp-icon{display:inline-flex;opacity:.85}
+.hud-sp-label{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-sp-caret{opacity:.5;font-size:9px;margin-left:1px}
+.hud-signpost-menu{
+  position:absolute;top:calc(100% + 7px);left:0;z-index:30;min-width:172px;max-height:62vh;overflow-y:auto;
+  display:flex;flex-direction:column;gap:1px;padding:6px;
+  border:1px solid rgba(150,240,195,.16);border-radius:14px;
+  background:rgba(11,30,24,.72);
+  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
+  box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-sp-opt{
+  text-align:left;padding:9px 12px;border-radius:9px;
+  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;white-space:nowrap;
+  transition:background 100ms,color 100ms;
+}
+.hud-sp-opt:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
+.hud-sp-opt.sel{background:rgba(91,233,176,.15);color:#5BE9B0}
+/* status chips — second floating row under the filter */
+.hud-efilter{
+  position:fixed;top:64px;left:18px;z-index:22;
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 8px;border-radius:999px;
+  border:1px solid rgba(150,240,195,.12);background:rgba(11,30,24,.45);
+  backdrop-filter:saturate(195%) blur(24px);-webkit-backdrop-filter:saturate(195%) blur(24px);
+  box-shadow:inset 0 1px 0 rgba(200,255,232,.08);
+}
+.hud-ef-chip{
+  padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;
+  color:rgba(223,234,245,.6);transition:background 100ms,color 100ms;
+}
+.hud-ef-chip:hover{color:rgba(223,234,245,.9)}
+.hud-ef-chip.on{background:rgba(91,233,176,.16);color:#5BE9B0}
 
 /* Epic open board button inside dock */
 .hud-board-btn {
@@ -1252,6 +1304,110 @@ function EpicUpNextPanel({ stories }: { stories: MapEpicStory[] }) {
 
 interface ViewToggleProps {
   dashboardHref: string;
+}
+
+// ── Top filter: cascading signposts + status chips ───────────────────────────
+const PERSONA_LABEL: Record<string, string> = {
+  host: "Host", camper: "Camper", admin: "Admin", platform: "Platform",
+};
+const EF_OPTS: Array<[("all" | "prog" | "done" | "todo"), string]> = [
+  ["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จ"], ["todo", "ยังไม่เริ่ม"],
+];
+
+const SpIcon = {
+  persona: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M5.5 19c.7-3.2 3.3-5 6.5-5s5.8 1.8 6.5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  ),
+  feature: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  epic: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+      <path d="m12 4 8 16H4l8-16Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M12 9v11" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+};
+
+interface FilterSignpostsProps {
+  personas: string[];
+  features: string[];
+  epics: Array<{ key: string; label: string }>;
+  persona: string;
+  feature: string;
+  epic: string;
+  onChange: (level: "persona" | "feature" | "epic", value: string) => void;
+}
+
+export function FilterSignposts({ personas, features, epics, persona, feature, epic, onChange }: FilterSignpostsProps) {
+  const [open, setOpen] = useState<null | "persona" | "feature" | "epic">(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(null);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  const epicLabel = epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "ทั้งหมด";
+  const signs = [
+    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : "ทั้งหมด",
+      opts: [{ v: "", l: "ทั้งหมด" }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
+    { key: "feature" as const, value: feature, valueLabel: feature || "ทั้งหมด",
+      opts: [{ v: "", l: "ทั้งหมด" }, ...features.map((f) => ({ v: f, l: f }))] },
+    { key: "epic" as const, value: epic, valueLabel: epicLabel,
+      opts: [{ v: "", l: "ทั้งหมด" }, ...epics.map((e) => ({ v: e.key, l: e.label }))] },
+  ];
+
+  return (
+    <div className="hud-signposts" onPointerDown={(e) => e.stopPropagation()} data-testid="nav--map-filter">
+      {signs.map((s) => (
+        <div className="hud-signpost-wrap" key={s.key}>
+          <button
+            type="button"
+            className={s.value ? "hud-signpost active" : "hud-signpost"}
+            aria-expanded={open === s.key}
+            onClick={() => setOpen(open === s.key ? null : s.key)}
+            data-testid={`btn--map-filter-${s.key}`}
+          >
+            <span className="hud-sp-icon" aria-hidden="true">{SpIcon[s.key]}</span>
+            <span className="hud-sp-label">{s.valueLabel}</span>
+            <span className="hud-sp-caret" aria-hidden="true">▾</span>
+          </button>
+          {open === s.key && (
+            <div className="hud-signpost-menu">
+              {s.opts.map((o) => (
+                <button
+                  type="button"
+                  key={o.v || "all"}
+                  className={o.v === s.value ? "hud-sp-opt sel" : "hud-sp-opt"}
+                  onClick={() => { onChange(s.key, o.v); setOpen(null); }}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EfilterChips({ efilter, onChange }: { efilter: "all" | "prog" | "done" | "todo"; onChange: (f: "all" | "prog" | "done" | "todo") => void }) {
+  return (
+    <div className="hud-efilter" role="group" aria-label="กรองตามสถานะงาน" data-testid="nav--map-efilter">
+      {EF_OPTS.map(([v, l]) => (
+        <button type="button" key={v} className={efilter === v ? "hud-ef-chip on" : "hud-ef-chip"} onClick={() => onChange(v)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function ViewToggle({ dashboardHref }: ViewToggleProps) {
