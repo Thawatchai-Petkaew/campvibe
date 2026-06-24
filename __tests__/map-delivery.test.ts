@@ -644,12 +644,13 @@ describe("Source-inspection: delivery-gift.tsx — testids, aria, a11y, portal, 
     expect(src).toContain("if (unseenCount === 0) return null;");
   });
 
-  // a11y: close button uses 44×44px class (Critical design fix)
-  it("[a11y] close button uses .delivery-modal-close class (which is 44×44px per CSS)", () => {
-    expect(src).toContain('className="delivery-modal-close"');
+  // a11y: close button uses 44×44px (CAM-173 — now Button size="icon" = size-11 = 44px)
+  it("[a11y] close button uses Button size=\"icon\" (44×44px via size-11 Tailwind class)", () => {
+    expect(src).toContain('size="icon"');
   });
 
-  it("[a11y] DELIVERY_GIFT_CSS declares width:44px; height:44px for .delivery-modal-close", () => {
+  it("[a11y] DELIVERY_GIFT_CSS retains gift-indicator CSS with 44px tap target", () => {
+    expect(src).toContain(".gift-indicator");
     expect(src).toContain("width: 44px");
     expect(src).toContain("height: 44px");
   });
