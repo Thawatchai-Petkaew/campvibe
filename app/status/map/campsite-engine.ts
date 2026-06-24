@@ -127,6 +127,7 @@ const POSE_LOCK = 800;                                   // after a pose change,
 const SPEECH_MIN = 6500, SPEECH_MAX = 13000;             // gap between bubbles (ms)
 const SPEECH_SHOW = 3600;                                // bubble visible duration (ms)
 const OVERLAP_DIST = 7.5;                                // % — closer than this counts as overlapping
+const MAX_RELOCS = 6;                                    // safety cap on relocation hops when seeking a free rest spot
 
 // Idle "waiting for work" chatter. Plain, friendly Thai (no jargon).
 export const SPEECH_LINES = [
@@ -177,7 +178,7 @@ export interface ScoutState {
   speechT:   number;   // ms until the next bubble
   speechHide: number;  // ms until the current bubble hides
   speechOn:  boolean;
-  strolling: boolean;  // current walk is a rest-stroll / nudge (settle again on arrival)
+  relocs:    number;   // consecutive relocation hops while seeking a free rest spot
   // DOM refs (wired by the component after render)
   bodyEl:   HTMLElement | null;
   rootEl:   HTMLElement | null;
@@ -249,7 +250,7 @@ export function buildScoutState(
     speechT: rand(SPEECH_MIN, SPEECH_MAX),
     speechHide: 0,
     speechOn: false,
-    strolling: false,
+    relocs: 0,
     bodyEl: null,
     rootEl: null,
     speechEl: null,
@@ -369,17 +370,20 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
       return;
     }
 
-    // Idle: rest where we arrived — the home on the first settle, the stroll/nudge
-    // spot afterwards. Never snap back to home (that would warp + undo separation).
+    // Idle arrival: never rest on top of another resting agent. If this spot is taken,
+    // walk on to a free node and re-check on arrival — keep going until a gap is found.
+    // (We rest where we arrived; never snap back to home — that would warp.)
+    if (s.relocs < MAX_RELOCS && relocateIfOccupied(ref)) {
+      s.relocs += 1;
+      return;
+    }
+    s.relocs = 0;
     place(s);
     setRestBody(s);
     s.rest      = 0;
     s.poseT     = rand(POSE_MIN, POSE_MAX);
     s.poseLock  = 0;
     s.speechT   = rand(SPEECH_MIN, SPEECH_MAX);
-    const wasStroll = s.strolling;
-    s.strolling = false;
-    if (!wasStroll) separateIfOverlapping(ref); // only when first arriving, not after a stroll
   }
 
   // ── Per-frame walk step (interpolates from fx/fy → tgt node) ──────────────────
@@ -450,7 +454,6 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
       if (hop1 !== s.lastNode) break;
     }
     s.lastNode = from;
-    s.strolling = false;
     enterWalking(ref, target);
   }
 
@@ -460,40 +463,41 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
     const nbrs = (ADJ[s.cur] ?? ALL_NODES).filter((n) => n !== s.lastNode);
     const target = pick(nbrs.length ? nbrs : (ADJ[s.cur] ?? ALL_NODES));
     s.lastNode  = s.cur;
-    s.strolling = true;
     enterWalking(ref, target);
   }
 
-  /** If another RESTING scout is too close, hop one node away to separate. */
-  function separateIfOverlapping(ref: ScoutRef) {
-    const s = ref.state;
-    const tooClose = scouts.some((o) => {
-      if (o === ref) return false;
-      const os = o.state;
-      if (os.active || os.mode !== "resting") return false;
-      return Math.hypot(os.x - s.x, os.y - s.y) < OVERLAP_DIST;
-    });
-    if (!tooClose) return;
+  /** Is (x,y) already occupied by another RESTING agent? */
+  function isSpotTaken(x: number, y: number, self: ScoutRef): boolean {
+    return scouts.some((o) =>
+      o !== self && !o.state.active && o.state.mode === "resting" &&
+      Math.hypot(o.state.x - x, o.state.y - y) < OVERLAP_DIST,
+    );
+  }
 
-    // choose the neighbouring node that maximises the min distance to others
-    const nbrs = ADJ[s.cur] ?? [];
+  /** If the agent's current rest spot is taken, walk on to a FREE neighbouring node
+   *  (occupancy is checked BEFORE choosing where to go — prefer an empty node, else
+   *  the most open one). Returns true if a relocation walk was started; settle() then
+   *  re-checks on arrival, so the agent keeps moving until it finds an empty spot. */
+  function relocateIfOccupied(ref: ScoutRef): boolean {
+    const s = ref.state;
+    if (!isSpotTaken(s.x, s.y, ref)) return false; // spot is free → rest here
+
+    const nbrs = (ADJ[s.cur] ?? []).filter((n) => NODES[n]);
     let best: string | null = null;
-    let bestMin = -Infinity;
+    let bestScore = -Infinity;
     for (const n of nbrs) {
-      const c = NODES[n];
-      if (!c) continue;
-      let minD = Infinity;
-      for (const o of scouts) {
-        if (o === ref) continue;
-        minD = Math.min(minD, Math.hypot(o.state.x - c.x, o.state.y - c.y));
-      }
-      if (minD > bestMin) { bestMin = minD; best = n; }
+      if (n === s.lastNode) continue; // don't bounce straight back
+      const c = NODES[n]!;
+      // prefer a FREE node (checked before walking), then the nearest one — a small step
+      const score = (isSpotTaken(c.x, c.y, ref) ? -1000 : 0) - Math.hypot(c.x - s.x, c.y - s.y);
+      if (score > bestScore) { bestScore = score; best = n; }
     }
-    if (best) {
-      s.lastNode  = s.cur;
-      s.strolling = true; // settle (no recursive separation) on arrival
-      enterWalking(ref, best);
-    }
+    if (!best) best = pick(nbrs) ?? null; // every neighbour was lastNode → just move on
+    if (!best) return false;
+
+    s.lastNode = s.cur;
+    enterWalking(ref, best);
+    return true;
   }
 
   function tickRest(ref: ScoutRef, dt: number) {
@@ -615,8 +619,8 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
             s.waitTimer = rand(WANDER_START_MIN, WANDER_START_MAX);
           }
         } else {
-          // Became idle → walk home and rest (separation happens on arrival).
-          s.strolling = false;
+          // Became idle → walk home; on arrival, relocate to a free spot if taken.
+          s.relocs = 0;
           if (s.mode === "resting") enterWalking(ref, s.homeNode);
         }
       }
