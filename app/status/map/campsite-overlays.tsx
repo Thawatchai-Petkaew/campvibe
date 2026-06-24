@@ -591,12 +591,15 @@ const HUD_CSS = `
 .hud-sum-chip-caret{opacity:.5;display:block;flex:none}
 .hud-sum-chip-item{display:inline-flex;align-items:center;gap:4px}
 .hud-sum-today-item{display:inline-flex;align-items:center;gap:4px}
-.hud-sum-mini{
-  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
-  padding:6px 14px 12px;
-  font-size:12px;font-weight:600;color:rgba(223,234,245,.7);
+.hud-sum-mini{padding:8px 12px 12px}
+.hud-sum-mini-cells{display:flex;gap:5px}
+.hud-sum-mini-cell{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:9px 4px;border-radius:12px;
+  background:rgba(91,233,176,.07);border:1px solid rgba(91,233,176,.12);
 }
-.hud-sum-mini-pct{color:#5BE9B0;font-size:13px;font-weight:700}
+.hud-sum-mini-big{font-size:16px;font-weight:800;color:#5BE9B0;line-height:1}
+.hud-sum-mini-sub{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;font-weight:600;color:rgba(223,234,245,.42);letter-spacing:.04em;margin-top:1px}
 .hud-sum-card{
   width:220px;border-radius:18px;overflow:hidden;
   border:1px solid rgba(150,240,195,.13);
@@ -1758,11 +1761,20 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
             </button>
           </div>
           <div className="hud-sum-mini">
-            <span className="hud-sum-mini-pct">{pct}%</span>
-            <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
-            <span className="hud-sum-chip-item"><Layers size={11} strokeWidth={1.8} />{epicDone}/{epicTotal}</span>
-            <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
-            <span className="hud-sum-chip-item"><FileText size={11} strokeWidth={1.8} />{storyDone}/{storyTotal}</span>
+            <div className="hud-sum-mini-cells">
+              <div className="hud-sum-mini-cell">
+                <span className="hud-sum-mini-big">{pct}%</span>
+                <span className="hud-sum-mini-sub">เสร็จ</span>
+              </div>
+              <div className="hud-sum-mini-cell">
+                <span className="hud-sum-mini-big">{epicDone}/{epicTotal}</span>
+                <span className="hud-sum-mini-sub"><Layers size={9} strokeWidth={1.7} />Epic</span>
+              </div>
+              <div className="hud-sum-mini-cell">
+                <span className="hud-sum-mini-big">{storyDone}/{storyTotal}</span>
+                <span className="hud-sum-mini-sub"><FileText size={9} strokeWidth={1.7} />Story</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
