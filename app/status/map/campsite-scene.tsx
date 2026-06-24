@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, StatusBoard, StatusBoardHint, SummaryCard, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -281,7 +281,7 @@ const SCENE_CSS = `
   pointer-events:none;
 }
 .hud-left-panels > *{pointer-events:auto}
-.hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
 .hud-right-panels > *{pointer-events:auto}
 .hud-topbar-spacer{flex:1 1 auto}
 .hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
@@ -637,7 +637,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 
 // Filter persistence (cookie) — restored on the next visit so the view is remembered.
 const FILTER_COOKIE = "campvibe.map.filter";
-type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean; boardCollapsed?: boolean };
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean; boardCollapsed?: boolean; teamCollapsed?: boolean };
 function readFilterCookie(): FilterCookie {
   if (typeof document === "undefined") return {};
   try {
@@ -1041,6 +1041,7 @@ export default function CampsiteScene({
   const [deliveryCollapsed, setDeliveryCollapsed] = useState<boolean>(() => readFilterCookie().deliveryCollapsed ?? false);
   const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
   const [boardCollapsed, setBoardCollapsed] = useState<boolean>(() => readFilterCookie().boardCollapsed ?? false);
+  const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1105,8 +1106,8 @@ export default function CampsiteScene({
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
   useEffect(() => {
-    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed });
-  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed]);
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed, teamCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed, teamCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1618,7 +1619,7 @@ export default function CampsiteScene({
         )}
       </div>
 
-      {/* Right panel stack — status board */}
+      {/* Right panel stack — status board · team roster */}
       <div className="hud-right-panels">
         {showBoard ? (
           <StatusBoard
@@ -1631,6 +1632,11 @@ export default function CampsiteScene({
         ) : (
           <StatusBoardHint />
         )}
+        <TeamRoster
+          agents={agents}
+          collapsed={teamCollapsed}
+          onToggle={() => setTeamCollapsed((v) => !v)}
+        />
       </div>
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.

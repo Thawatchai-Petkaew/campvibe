@@ -767,9 +767,8 @@ const HUD_CSS = `
   background:rgba(11,30,24,.60);
   backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
   box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
-  /* viewport-safe: card never taller than available space below topbar */
-  max-height:calc(100svh - 100px - 20px);
-  display:flex;flex-direction:column;overflow:hidden;
+  /* flex:1 so it fills remaining space in the right-panels container */
+  display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;
 }
 .hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
 .hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
@@ -865,6 +864,53 @@ const HUD_CSS = `
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   font-size:11px;font-weight:600;color:rgba(91,233,176,.4);pointer-events:none;
 }
+/* ── Team Roster panel ── */
+.hud-team-card{
+  width:220px;border-radius:18px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+  display:flex;flex-direction:column;overflow:hidden;flex:none;
+}
+.hud-team-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
+.hud-team-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-team-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-team-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-team-body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:rgba(91,233,176,.18) transparent}
+.hud-team-body::-webkit-scrollbar{width:4px}
+.hud-team-body::-webkit-scrollbar-thumb{background:rgba(91,233,176,.2);border-radius:4px}
+/* role row */
+.hud-role-row{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 9px;border-radius:10px;
+}
+.hud-role-row.active{background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.16)}
+.hud-role-row.sleep{background:rgba(91,233,176,.02);border:1px solid rgba(150,240,195,.07)}
+.hud-role-dot{width:7px;height:7px;border-radius:99px;flex:none}
+@keyframes role-dot-pulse{0%,100%{box-shadow:0 0 0 0 rgba(91,233,176,.5)}50%{box-shadow:0 0 0 4px rgba(91,233,176,.1)}}
+.hud-role-dot.active{background:#5BE9B0;animation:role-dot-pulse 2.2s ease-in-out infinite}
+.hud-role-dot.sleep{background:rgba(223,234,245,.18)}
+.hud-role-icon{flex:none;color:rgba(91,233,176,.5)}
+.hud-role-row.sleep .hud-role-icon{color:rgba(223,234,245,.2)}
+.hud-role-label{font-size:11.5px;font-weight:600;color:rgba(223,234,245,.82);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-role-row.sleep .hud-role-label{color:rgba(223,234,245,.32)}
+.hud-role-badge{font-size:9px;font-weight:700;letter-spacing:.04em;flex:none;padding:2px 6px;border-radius:6px}
+.hud-role-badge.active{color:#5BE9B0;background:rgba(91,233,176,.12)}
+.hud-role-badge.sleep{color:rgba(223,234,245,.25);background:rgba(223,234,245,.05)}
+/* mini (collapsed) — dot cluster row */
+.hud-team-mini{padding:7px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.hud-team-mini-dots{display:flex;gap:5px;align-items:center}
+.hud-team-mini-dot{width:9px;height:9px;border-radius:99px;flex:none}
+.hud-team-mini-dot.active{background:#5BE9B0;animation:role-dot-pulse 2.2s ease-in-out infinite}
+.hud-team-mini-dot.sleep{background:rgba(223,234,245,.18)}
+.hud-team-mini-txt{font-size:10.5px;color:rgba(223,234,245,.45);font-weight:600}
+.hud-team-mini-txt strong{color:#5BE9B0;font-size:12px}
 `;
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
@@ -2180,6 +2226,87 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
 
 export function StatusBoardHint() {
   return <div className="hud-board-hint">เลือก Feature เพื่อดูบอร์ด</div>;
+}
+
+// ── Team Roster panel ─────────────────────────────────────────────────────────
+
+const ROLE_SHORT: Record<string, string> = {
+  architect:          "Architect",
+  "ux-designer":      "Designer",
+  "frontend-engineer":"Frontend",
+  "backend-engineer": "Backend",
+  "devops-release":   "DevOps",
+  "qa-engineer":      "QA",
+  "security-reviewer":"Security",
+};
+
+export interface TeamRosterProps {
+  agents: MapAgent[];
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function TeamRoster({ agents, collapsed, onToggle }: TeamRosterProps) {
+  const activeCount = agents.filter(a => a.active).length;
+
+  function ChevBtn() {
+    return (
+      <button type="button" className="hud-team-collapse" onClick={onToggle}
+        aria-label={collapsed ? "ขยายทีม" : "ย่อทีม"} aria-expanded={!collapsed}>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+          <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"}
+            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    );
+  }
+
+  if (collapsed) {
+    return (
+      <div className="hud-team-card" role="complementary" aria-label="ทีม">
+        <div className="hud-team-head">
+          <span className="hud-team-heading">ทีม</span>
+          <ChevBtn />
+        </div>
+        <div className="hud-team-mini">
+          <div className="hud-team-mini-dots">
+            {agents.map(a => (
+              <span key={a.role} className={`hud-team-mini-dot ${a.active ? "active" : "sleep"}`}
+                title={ROLE_SHORT[a.role] ?? a.role} />
+            ))}
+          </div>
+          <span className="hud-team-mini-txt">
+            <strong>{activeCount}</strong> / {agents.length} active
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-team-card" role="complementary" aria-label="ทีม">
+      <div className="hud-team-head">
+        <span className="hud-team-heading">ทีม · {agents.length} คน</span>
+        <ChevBtn />
+      </div>
+      <div className="hud-team-body">
+        {agents.map(agent => {
+          const label = ROLE_SHORT[agent.role] ?? agent.role;
+          const isActive = agent.active;
+          return (
+            <div key={agent.role} className={`hud-role-row ${isActive ? "active" : "sleep"}`}>
+              <span className={`hud-role-dot ${isActive ? "active" : "sleep"}`} />
+              <span className="hud-role-icon"><RoleIconSB role={agent.role} /></span>
+              <span className="hud-role-label">{label}</span>
+              <span className={`hud-role-badge ${isActive ? "active" : "sleep"}`}>
+                {isActive ? "Active" : "Sleep"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── MapOverlays (main export) ─────────────────────────────────────────────────
