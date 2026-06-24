@@ -187,9 +187,10 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  /* Container-relative: resolves against .map-stage (container-type:size), so the
-     characters scale together with the contain-fit play area. Tune on local. */
-  --scout-size: 5cqw;
+  /* Container-relative (resolves against .map-stage, container-type:size) + clamped:
+     characters scale with the box but never get unreadably small or huge. cqmin =
+     % of the box's shorter side. Tune on local. */
+  --scout-size: clamp(44px, 9cqmin, 96px);
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -243,8 +244,12 @@ const SCENE_CSS = `
   transform:translate(-50%,-50%);
   --pad-x: 32px;
   --pad-y: 140px;
-  width: min(calc(100vw - var(--pad-x)), calc((100vh - var(--pad-y)) * 16 / 9));
-  aspect-ratio: 16 / 9;
+  /* Square FIT safe-zone (Phaser FIT + safeArea / reference .stage): the largest
+     square that still fits the viewport (min of width- and height-bound), CLAMPED
+     so it is never too small (phone) or too large (4K). The ring scales DOWN to
+     stay fully visible on any screen, never cropped. */
+  width: clamp(320px, min(calc(100vw - var(--pad-x)), calc(100vh - var(--pad-y))), 1100px);
+  aspect-ratio: 1 / 1;
   container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
