@@ -969,12 +969,20 @@ describe("CAM-167: ENV picker — shimmer button + side-by-side modal in top bar
     expect(overlaySrc).toContain(".hud-env-toggle");
   });
 
-  it('HUD_CSS contains .hud-env-panel-grid (side-by-side layout)', () => {
-    expect(overlaySrc).toContain(".hud-env-panel-grid");
+  it('HUD_CSS contains .hud-env-modal-box (centered modal)', () => {
+    expect(overlaySrc).toContain(".hud-env-modal-box");
   });
 
   it('HUD_CSS contains .hud-env-card', () => {
     expect(overlaySrc).toContain(".hud-env-card");
+  });
+
+  it('EnvPickerPanel uses Lucide Server icon', () => {
+    expect(overlaySrc).toContain("Server");
+  });
+
+  it('EnvPickerPanel uses Lucide Globe icon', () => {
+    expect(overlaySrc).toContain("Globe");
   });
 
   it('EnvPickerPanel references campvibe-staging.vercel.app', () => {
