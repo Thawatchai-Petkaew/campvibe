@@ -29,7 +29,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
+  ADJ,
   buildScoutState,
+  NODES,
   startEngine,
   type EngineHandle,
   type ScoutRef,
@@ -610,6 +612,46 @@ function syncUrl(params: Record<string, string>): void {
 // and left edges. Coordinates match character % positions exactly (1920×1080 canvas).
 // pointer-events:none + z-index below HUD + absent in production (prop=false).
 
+// Dev overlay (?routes=1): draws the walk graph — waypoints + edges + the central
+// campfire keep-out — in the same % space as the characters, so the route network is
+// visible for verification/tuning. Pairs with ?wander=1 to watch agents traverse it.
+function DebugRoutes() {
+  const edges: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const [a, nbrs] of Object.entries(ADJ)) {
+    for (const b of nbrs) {
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push([a, b]);
+    }
+  }
+  return (
+    <svg
+      data-testid="debug--map-routes"
+      aria-hidden="true"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 21, pointerEvents: "none", overflow: "visible" }}
+    >
+      {/* campfire keep-out (no route should cross it) */}
+      <circle cx={50} cy={59} r={8.5} fill="rgba(255,140,40,0.10)" stroke="rgba(255,150,60,0.75)" strokeWidth={0.3} strokeDasharray="1.4 1" />
+      {edges.map(([a, b]) => {
+        const p = NODES[a];
+        const q = NODES[b];
+        if (!p || !q) return null;
+        return <line key={`${a}-${b}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="rgba(91,233,176,0.55)" strokeWidth={0.3} />;
+      })}
+      {Object.entries(NODES).map(([k, c]) => (
+        <g key={k}>
+          <circle cx={c.x} cy={c.y} r={1.2} fill="#5BE9B0" />
+          <text x={c.x} y={c.y - 2} textAnchor="middle" fontSize={2.4} fontFamily="monospace" fontWeight={700} fill="#aeffdd">{k}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function DebugGrid() {
   const ticks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
   return (
@@ -849,6 +891,11 @@ export default function CampsiteScene({
 
   // S7: track whether engine has started — used to re-apply scope after engine starts.
   const [engineReady, setEngineReady] = useState(false);
+
+  // Dev: ?routes=1 overlays the walk graph (waypoints + edges + campfire keep-out).
+  const debugRoutes =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("routes") === "1";
 
   // Drive wander/rest from live data: active roles wander, idle roles rest.
   // Runs once the engine is ready and again whenever an agent's status changes.
@@ -1241,6 +1288,7 @@ export default function CampsiteScene({
                 Renders inside .scout-layer so its % coords match character positions exactly.
                 pointer-events:none; below HUD; absent in normal view. */}
             {debugGrid && <DebugGrid />}
+            {debugRoutes && <DebugRoutes />}
 
             {/* You rendered first so it comes first in tab order.
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
