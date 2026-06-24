@@ -853,10 +853,11 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coord
     expect(src).toContain("YOU_POS_NARROW = { x: 50, y: 22 }");
   });
 
-  it("LAYOUT_NARROW x-values are within [40,60] for centered portrait cluster", () => {
-    // All narrow x-values should be in the 40–60 band (tighter than old 38–62)
-    expect(src).toContain('{ x: 40, y: 34 }'); // architect
-    expect(src).toContain('{ x: 60, y: 34 }'); // ux-designer
+  // CAM-165: LAYOUT_NARROW tightened from x40/x60 to x42/x58 so all 8 stay
+  // fully inside the visible band on 9:16 portrait (visible x ≈ 34–66%).
+  it("LAYOUT_NARROW x-values are within [42,58] for centered portrait cluster (CAM-165)", () => {
+    expect(src).toContain('{ x: 42, y: 34 }'); // architect
+    expect(src).toContain('{ x: 58, y: 34 }'); // ux-designer
     expect(src).toContain('{ x: 50, y: 42 }'); // security-reviewer (center)
   });
 
@@ -867,5 +868,76 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coord
 
   it("CAM-164 layout comment references ?grid=1 tuning", () => {
     expect(src).toContain("?grid=1");
+  });
+});
+
+// ============================================================
+// CAM-165 — Portrait centering fix + coord tune
+// ============================================================
+
+// ---------- CAM-165 Fix 1: no duplicate .map-wrap rule in campsite-assets.ts ---
+describe("app/status/map/campsite-assets.ts — CAM-165: no conflicting .map-wrap", () => {
+  const src = read("../app/status/map/campsite-assets.ts");
+
+  it("does NOT contain a .map-wrap flex/padding rule (removed to avoid scene CSS conflict)", () => {
+    // The OLD leftover rule: .map-wrap{position:relative;...display:flex;...padding:24px}
+    // conflicts with the scene's .map-wrap{position:fixed;inset:0}. CAM-165 removes it.
+    expect(src).not.toContain(".map-wrap{position:relative");
+    expect(src).not.toContain("display:flex;align-items:center;justify-content:center;padding:24px");
+  });
+
+  it("gate box still has its own .gatebox rule (not removed)", () => {
+    expect(src).toContain(".gatebox");
+  });
+
+  it("error placeholder still has its own .map-placeholder rule (not removed)", () => {
+    expect(src).toContain(".map-placeholder");
+  });
+});
+
+// ---------- CAM-165 Fix 1: scene .map-wrap is position:fixed (only rule now) ---
+describe("app/status/map/campsite-scene.tsx — CAM-165: .map-wrap is position:fixed", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it(".map-wrap CSS is position:fixed;inset:0 (the single authoritative rule)", () => {
+    expect(src).toContain(".map-wrap{");
+    expect(src).toContain("position:fixed;inset:0");
+  });
+});
+
+// ---------- CAM-165 Fix 2: updated LAYOUT_WIDE grid-read coords ---------------
+describe("app/status/map/campsite-scene.tsx — CAM-165: LAYOUT_WIDE grid-tuned coords", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("Architect moved to {x:49, y:33} (dock/clearing)", () => {
+    expect(src).toContain('{ x: 49, y: 33 }');
+  });
+
+  it("Designer moved to {x:65, y:35} (tent area)", () => {
+    expect(src).toContain('{ x: 65, y: 35 }');
+  });
+
+  it("Backend moved to {x:76, y:52} (pulled in from right tree-edge)", () => {
+    expect(src).toContain('{ x: 76, y: 52 }');
+  });
+
+  it("Security moved to {x:33, y:42} (pulled in from left margin)", () => {
+    expect(src).toContain('{ x: 33, y: 42 }');
+  });
+
+  it("QA moved to {x:34, y:54}", () => {
+    expect(src).toContain('{ x: 34, y: 54 }');
+  });
+
+  it("DevOps moved to {x:39, y:68}", () => {
+    expect(src).toContain('{ x: 39, y: 68 }');
+  });
+
+  it("Frontend moved to {x:61, y:68}", () => {
+    expect(src).toContain('{ x: 61, y: 68 }');
+  });
+
+  it("YOU_POS_WIDE unchanged at {x:38, y:24}", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 24 }");
   });
 });
