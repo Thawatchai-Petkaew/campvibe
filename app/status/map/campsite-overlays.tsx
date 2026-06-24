@@ -28,6 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Inbox, Layers, Monitor, ShieldCheck, Trophy } from "lucide-react";
 import type {
   MapAgent,
@@ -246,8 +247,8 @@ const HUD_CSS = `
 .hud-metric-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .hud-metric{
   display:inline-flex;flex-direction:column;align-items:center;
-  background:linear-gradient(180deg,rgba(11,42,43,.3),rgba(8,19,22,.18));
-  border:1px solid rgba(255,255,255,.06);border-radius:10px;
+  background:rgba(91,233,176,.07);
+  border:1px solid rgba(150,240,195,.15);border-radius:10px;
   padding:8px 14px;min-width:62px;text-align:center;
 }
 .hud-metric-val{
@@ -285,41 +286,42 @@ const HUD_CSS = `
 .hud-col[data-col="Done"] .hud-col-head{color:#76E0AE}
 
 .hud-card{
-  background:linear-gradient(180deg,rgba(11,42,43,.32),rgba(8,19,22,.2));
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:11px;padding:10px 11px;margin-bottom:8px;
+  background:rgba(91,233,176,.05);
+  border:1px solid rgba(150,240,195,.13);
+  border-radius:12px;padding:10px 11px;margin-bottom:8px;
 }
 .hud-card:last-child{margin-bottom:0}
-.hud-card.active{border-color:rgba(91,233,176,.34)}
-.hud-card.awaiting{border-color:rgba(255,150,52,.4);background:linear-gradient(160deg,rgba(255,150,52,.1),transparent)}
+@keyframes hud-card-glow{
+  0%,100%{box-shadow:none;border-color:rgba(91,233,176,.22)}
+  50%{box-shadow:0 0 12px rgba(91,233,176,.2),0 0 4px rgba(91,233,176,.1);border-color:rgba(91,233,176,.6)}
+}
+.hud-card.active{border-color:rgba(91,233,176,.35);background:rgba(91,233,176,.09);animation:hud-card-glow 2.4s ease-in-out infinite}
+.hud-card.awaiting{border-color:rgba(255,150,52,.45);background:linear-gradient(160deg,rgba(255,150,52,.09),rgba(91,233,176,.04))}
 .hud-card-lane{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
   font-size:9px;letter-spacing:.08em;text-transform:uppercase;
-  color:rgba(223,234,245,.45);margin-bottom:5px;
+  color:rgba(223,234,245,.42);margin-bottom:5px;
 }
 .hud-card.active .hud-card-lane{color:#5BE9B0}
 .hud-card.awaiting .hud-card-lane{color:#FFB454}
-.hud-card-id{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
-  font-size:9.5px;color:rgba(223,234,245,.4);
-}
-.hud-card-title{font-size:12px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px}
+.hud-card-id{font-size:9.5px;color:rgba(223,234,245,.35)}
+.hud-card-title{font-size:12.5px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px}
 .hud-card-footer{
   display:flex;align-items:center;justify-content:space-between;margin-top:7px;
 }
 .hud-card-role{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
-  font-size:9px;padding:2px 6px;border-radius:999px;
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-  color:rgba(223,234,245,.5);
+  font-size:9.5px;padding:2px 7px;border-radius:999px;
+  background:rgba(91,233,176,.08);border:1px solid rgba(150,240,195,.15);
+  color:rgba(223,234,245,.55);
 }
+.hud-card.active .hud-card-role{color:#5BE9B0;border-color:rgba(91,233,176,.3);background:rgba(91,233,176,.12)}
+.hud-card.awaiting .hud-card-role{color:rgba(255,180,80,.85);border-color:rgba(255,150,52,.3)}
 .hud-you-badge{
   font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;
   background:#FFB454;color:#241402;
 }
 .hud-col-empty{
-  border:1px dashed rgba(255,255,255,.1);border-radius:10px;
-  padding:18px 6px;text-align:center;color:rgba(223,234,245,.28);font-size:10.5px;
+  border:1px dashed rgba(150,240,195,.13);border-radius:10px;
+  padding:18px 6px;text-align:center;color:rgba(223,234,245,.25);font-size:10.5px;font-style:italic;
 }
 .hud-legend{
   display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:14px;
@@ -988,7 +990,7 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
     byCol[col].push(s);
   }
 
-  return (
+  return createPortal(
     <>
       <div
         className="hud-modal-backdrop"
@@ -1118,7 +1120,8 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
