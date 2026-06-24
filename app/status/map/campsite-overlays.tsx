@@ -286,6 +286,7 @@ export const HUD_CSS = `
 .hud-col[data-col="Done"] .hud-col-head{color:#76E0AE}
 
 .hud-card{
+  display:block;text-decoration:none;color:inherit;
   background:rgba(91,233,176,.05);
   border:1px solid rgba(150,240,195,.13);
   border-radius:12px;padding:10px 11px;margin-bottom:8px;
@@ -1150,10 +1151,14 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
                         const cardCls = isActive ? "active" : hasAwait ? "awaiting" : "";
                         const laneText = isActive ? "กำลังทำ" : hasAwait ? "รอคุณ" : colLabel;
                         return (
-                          <div
+                          <a
                             key={s.id}
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={`hud-card ${cardCls}`}
                             data-testid={`card--hud-board-${s.id}`}
+                            aria-label={`เปิด ${s.id} ใน Linear`}
                           >
                             <div className="hud-card-lane">{laneText}</div>
                             <div className="hud-card-id">{s.id}</div>
@@ -1166,7 +1171,7 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
                                 <span className="hud-you-badge">รอคุณ</span>
                               )}
                             </div>
-                          </div>
+                          </a>
                         );
                       })
                     )}
@@ -2195,7 +2200,7 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
                 const roleKey = s.role ?? "";
                 const roleStr = ROLE_LABEL_SB[roleKey] ?? roleKey ?? "team";
                 return (
-                  <div key={s.id} className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}`}>
+                  <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}`} aria-label={`เปิด ${s.id} ใน Linear`}>
                     <div className="hud-kt">
                       <RoleIconSB role={roleKey} />
                       <span title={s.title}>{s.title}</span>
@@ -2204,7 +2209,7 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
                       <span className="hud-kr">{isActive && <span style={{ marginRight: 4 }}>●</span>}{isAwaiting ? "รอคุณ" : roleStr}</span>
                       <span className="hud-tk">{s.id}</span>
                     </div>
-                  </div>
+                  </a>
                 );
               })}
               {extra > 0 && <div className="hud-sb-more">+{extra} อื่นๆ</div>}
