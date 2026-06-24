@@ -11,7 +11,8 @@ These ADRs are the **G2 design artifact** for the epic *"Atomic Schema · data m
 | [ADR-003](ADR-003-enum-vs-masterdata.md) | Closed Prisma enum vs open MasterData boundary | Proposed (G2) |
 | [ADR-004](ADR-004-multi-region-location.md) | Multi-country location: Country + AdminArea tree | Proposed (G2) |
 | [ADR-005](ADR-005-booking-snapshot.md) | Booking snapshot (crystallization) scope | Proposed (G2) |
-| ADR-006 | Soft-delete + audit + classification convention | Planned |
+| [ADR-006](ADR-006-booking-atomic-inventory-lock.md) | Booking atomic inventory lock: serializable isolation with bounded retry (CAM-57) | Proposed (G2) |
+| ADR-007 | Soft-delete + audit + classification convention | Planned |
 | ADR-007 | ID strategy uuid → cuid | Planned |
 | ADR-008 | pgvector / AI embeddings seam (defer) | Planned |
 

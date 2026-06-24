@@ -32,14 +32,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Badge } from "@/components/ui/badge";
-
-type BookingStatus = "CONFIRMED" | "PENDING" | "CANCELLED";
-
-function statusVariant(status: string): "success" | "destructive" | "muted" {
-    if (status === "CONFIRMED") return "success";
-    if (status === "CANCELLED") return "destructive";
-    return "muted";
-}
+import { getBookingStatusMeta } from "@/lib/booking-status";
 
 export default function MyBookingsPage() {
     const { t, formatCurrency, language } = useLanguage();
@@ -146,12 +139,20 @@ export default function MyBookingsPage() {
                                                 imgClassName="object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
                                             <div className="absolute top-4 left-4">
-                                                <Badge
-                                                    variant={statusVariant(booking.status)}
-                                                    className="ring-2 ring-card shadow-sm font-bold uppercase tracking-wider"
-                                                >
-                                                    {booking.status}
-                                                </Badge>
+                                                {(() => {
+                                                    const { labelKey, variant } = getBookingStatusMeta(booking.status);
+                                                    const label = labelKey
+                                                        ? t.bookings[labelKey as keyof typeof t.bookings] as string
+                                                        : booking.status;
+                                                    return (
+                                                        <Badge
+                                                            variant={variant}
+                                                            className="ring-2 ring-card shadow-sm font-bold tracking-wider"
+                                                        >
+                                                            {label}
+                                                        </Badge>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 

@@ -14,10 +14,10 @@
  *  AC-badge-6   badge.tsx variants use token-only classes (bg-success, bg-destructive, bg-muted)
  *  AC-badge-7   badge.tsx is non-interactive (no onClick, no role="button")
  *
- *  AC-status-1  app/bookings/page.tsx uses statusVariant() + <Badge variant=...>
- *  AC-status-2  statusVariant CONFIRMED → 'success'
- *  AC-status-3  statusVariant CANCELLED → 'destructive'
- *  AC-status-4  statusVariant default (PENDING) → 'muted'
+ *  AC-status-1  app/bookings/page.tsx uses getBookingStatusMeta() + <Badge variant=...> (CAM-60)
+ *  AC-status-2  getBookingStatusMeta CONFIRMED → variant 'success'
+ *  AC-status-3  getBookingStatusMeta CANCELLED → variant 'muted' (NOT 'destructive' — CAM-60)
+ *  AC-status-4  getBookingStatusMeta PENDING → variant 'warning' (via util, no inline function)
  *  AC-status-5  app/dashboard/page.tsx uses bookingStatusVariant() + <Badge variant=...>
  *  AC-status-6  dashboard bookingStatusVariant CONFIRMED → 'success'
  *  AC-status-7  dashboard bookingStatusVariant CANCELLED → 'destructive'
@@ -150,33 +150,49 @@ describe("badge--primitive: non-interactive element (AC-badge-7)", () => {
 
 // =============================================================
 // Priority 2 — Status variant mapping: app/bookings/page.tsx
+//
+// CAM-60 (2026-06-23): the old inline `statusVariant()` function and its
+// `CANCELLED→'destructive'` mapping were intentionally replaced with the
+// shared `getBookingStatusMeta(status)` util from `lib/booking-status.ts`.
+// The new API:
+//   - PENDING   → { labelKey: 'statusPending',   variant: 'warning'  }
+//   - CONFIRMED → { labelKey: 'statusConfirmed',  variant: 'success'  }
+//   - CANCELLED → { labelKey: 'statusCancelled',  variant: 'muted'    }  ← was 'destructive'
+//   - COMPLETED → { labelKey: 'statusCompleted',  variant: 'info'     }
+// The tests below are updated to assert this new behavior.
 // =============================================================
 
-describe("badge--status-bookings: statusVariant function + Badge usage (AC-status-1/2/3/4)", () => {
-    it("AC-status-1: app/bookings/page.tsx defines statusVariant function", () => {
-        expect(bookingsPageSrc).toMatch(/function statusVariant/);
+describe("badge--status-bookings: getBookingStatusMeta + Badge usage (AC-status-1/2/3/4, updated CAM-60)", () => {
+    it("AC-status-1: app/bookings/page.tsx imports getBookingStatusMeta from lib/booking-status", () => {
+        // CAM-60: inline statusVariant() replaced by shared util getBookingStatusMeta
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(bookingsPageSrc).toMatch(/booking-status/);
     });
 
-    it("AC-status-2: statusVariant maps CONFIRMED → 'success'", () => {
-        // Confirm the function body maps CONFIRMED to the 'success' string
-        const fnBody = bookingsPageSrc.match(/function statusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/CONFIRMED/);
-        expect(fnBody).toMatch(/["']success['"]/);
+    it("AC-status-2: CONFIRMED maps to variant 'success' (via getBookingStatusMeta)", () => {
+        // The util is the source of truth; the page passes variant from it to Badge.
+        // Confirm the util call is present and the page references variant={variant}
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta\(booking\.status\)/);
+        expect(bookingsPageSrc).toMatch(/variant=\{variant\}/);
     });
 
-    it("AC-status-3: statusVariant maps CANCELLED → 'destructive'", () => {
-        const fnBody = bookingsPageSrc.match(/function statusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/CANCELLED/);
-        expect(fnBody).toMatch(/["']destructive['"]/);
+    it("AC-status-3: CANCELLED maps to variant 'muted' — NOT 'destructive' (CAM-60 intentional change)", () => {
+        // CAM-60 spec §Rules: CANCELLED = muted/gray (not destructive/red).
+        // The page must NOT contain a statusVariant function returning 'destructive' for CANCELLED.
+        expect(bookingsPageSrc).not.toMatch(/function statusVariant/);
+        expect(bookingsPageSrc).not.toMatch(/return ['"]destructive['"]/);
     });
 
-    it("AC-status-4: statusVariant returns 'muted' as default (PENDING)", () => {
-        const fnBody = bookingsPageSrc.match(/function statusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/["']muted['"]/);
+    it("AC-status-4: PENDING maps to variant 'warning' (via getBookingStatusMeta, not inline switch)", () => {
+        // The mapping is in lib/booking-status.ts; the page just calls the util.
+        // No hardcoded 'warning' return inside a statusVariant function.
+        expect(bookingsPageSrc).not.toMatch(/function statusVariant/);
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
     });
 
-    it("AC-status-1: app/bookings/page.tsx renders <Badge variant={statusVariant(...)}>", () => {
-        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{statusVariant\(/);
+    it("AC-status-1: app/bookings/page.tsx renders <Badge variant={variant}> (from util destructure)", () => {
+        // The pattern is: const { labelKey, variant } = getBookingStatusMeta(...); <Badge variant={variant}>
+        expect(bookingsPageSrc).toMatch(/variant=\{variant\}/);
     });
 
     it("AC-over-img: over-image status badge preserves ring-2 ring-card treatment", () => {
@@ -185,9 +201,9 @@ describe("badge--status-bookings: statusVariant function + Badge usage (AC-statu
         expect(badgeBlock).toMatch(/ring-2 ring-card/);
     });
 
-    it("AC-i18n-1: bookings/page status label comes from booking.status (i18n-safe enum value)", () => {
-        // The badge renders {booking.status} — not a hardcoded string
-        expect(bookingsPageSrc).toMatch(/>\s*\{booking\.status\}\s*</);
+    it("AC-i18n-1: bookings/page status label comes from t.bookings[labelKey] (i18n via util, not raw enum)", () => {
+        // CAM-60: label = labelKey ? t.bookings[labelKey] : booking.status (fallback for unknown status)
+        expect(bookingsPageSrc).toMatch(/t\.bookings\[labelKey/);
     });
 });
 

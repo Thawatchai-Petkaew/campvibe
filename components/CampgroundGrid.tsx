@@ -27,6 +27,10 @@ export interface CampSiteCardData {
     longitude: number;
     createdAt: string; // ISO string (Date serialised)
     location: { province: string };
+    /** CAM-147: server-computed average rating (1dp) or null when no reviews. */
+    avgRating?: number | null;
+    /** CAM-147: total non-deleted review count. */
+    reviewCount?: number;
 }
 
 interface CampgroundGridProps {
@@ -50,6 +54,8 @@ export function CampgroundGrid({ camps, savedIds, isLoggedIn }: CampgroundGridPr
                         initialSaved={savedSet.has(camp.id)}
                         isLoggedIn={isLoggedIn}
                         onGuestHeartClick={() => setIsLoginOpen(true)}
+                        avgRating={camp.avgRating}
+                        reviewCount={camp.reviewCount}
                     />
                 ))}
             </div>

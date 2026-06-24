@@ -98,8 +98,8 @@ describe("AC-status-1/2: app/status/page.tsx must not be in the F5 diff", () => 
         try {
             branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
         } catch { /* ignore */ }
-        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145")) {
-            return; // skip: this story (ST1/ST2/CAM-145) owns app/status/page.tsx
+        if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145") || branch.startsWith("feature/cam-151") || branch.startsWith("feature/cam-156") || branch.startsWith("local/map-polish")) {
+            return; // skip: this story (ST1/ST2/CAM-145/CAM-151/CAM-156-S6/map-polish) owns app/status/page.tsx
         }
         let diffOutput = "";
         try {
@@ -155,25 +155,32 @@ describe("AC-token-1: forbidden raw palette tokens (all 5 files)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-token-2  DS-4: bookings status uses <Badge variant=...> (not raw span+getStatusClasses)
+// AC-token-2  DS-4 → CAM-60: bookings status uses getBookingStatusMeta() + <Badge variant=...>
+//
+// CAM-60 (2026-06-23): the inline statusVariant() function was replaced by
+// the shared util getBookingStatusMeta() from lib/booking-status.ts.
+// CANCELLED variant changed from 'destructive' to 'muted' per CAM-60 spec.
+// The intent of this group is unchanged: status badges use semantic Badge
+// variants (not raw palette classes / raw span+getStatusClasses).
 // ─────────────────────────────────────────────────────────────
-describe("AC-token-2: bookings status badge uses semantic tokens", () => {
-    it("statusVariant returns 'success' for CONFIRMED", () => {
-        // DS-4: raw getStatusClasses() replaced by statusVariant() returning Badge variant names
-        expect(bookingsPageSrc).toMatch(/function statusVariant/);
-        expect(bookingsPageSrc).toMatch(/return ['"]success['"]/);
+describe("AC-token-2: bookings status badge uses semantic tokens (CAM-60 API)", () => {
+    it("bookings page uses getBookingStatusMeta from lib/booking-status (DS-4→CAM-60 refactor)", () => {
+        // CAM-60: raw getStatusClasses() → statusVariant() (DS-4) → getBookingStatusMeta() (CAM-60)
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(bookingsPageSrc).toMatch(/booking-status/);
     });
 
-    it("statusVariant returns 'destructive' for CANCELLED", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("bookings page does NOT use old inline statusVariant function (removed by CAM-60)", () => {
+        expect(bookingsPageSrc).not.toMatch(/function statusVariant/);
     });
 
-    it("statusVariant returns 'muted' as default (PENDING)", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]muted['"]/);
+    it("bookings page does NOT return 'destructive' for CANCELLED (CAM-60: CANCELLED → 'muted')", () => {
+        // CAM-60 spec §Rules: CANCELLED badge = muted/gray. 'destructive' was the pre-CAM-60 value.
+        expect(bookingsPageSrc).not.toMatch(/return ['"]destructive['"]/);
     });
 
-    it("bookings page uses <Badge variant={statusVariant(...)}>", () => {
-        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{statusVariant\(/);
+    it("bookings page passes variant={variant} to Badge (variant from getBookingStatusMeta result)", () => {
+        expect(bookingsPageSrc).toMatch(/variant=\{variant\}/);
     });
 
     it("bookings page does NOT use old bg-green-N tokens for status (was defect in staging)", () => {
@@ -630,21 +637,33 @@ describe("AC-i18n-10: WishlistPageClient uses t.wishlist.* keys", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-dark-1  DS-4: Status badges in bookings now use <Badge variant=...> (dark-safe via badge.tsx)
+// AC-dark-1  DS-4 → CAM-60: Status badges in bookings use <Badge variant=...> (dark-safe via badge.tsx)
+//
+// CAM-60 (2026-06-23): variant values updated per spec. The dark-mode
+// safety intent is unchanged — badge.tsx CSS-var tokens handle all themes.
+// Variant mapping after CAM-60:
+//   CONFIRMED → 'success'  (unchanged)
+//   CANCELLED → 'muted'    (was 'destructive' — intentional CAM-60 change)
+//   PENDING   → 'warning'  (was default/muted — intentional CAM-60 change)
+//   COMPLETED → 'info'     (new status)
 // ─────────────────────────────────────────────────────────────
-describe("AC-dark-1: bookings status badges use semantic tokens (dark-mode safe)", () => {
+describe("AC-dark-1: bookings status badges use semantic tokens (dark-mode safe, CAM-60 variants)", () => {
     it("CONFIRMED uses Badge variant='success' (semantic, dark-aware via badge.tsx)", () => {
-        // DS-4: badge.tsx success variant applies bg-success/10 text-success; source uses variant name
-        expect(bookingsPageSrc).toMatch(/statusVariant/);
-        expect(bookingsPageSrc).toMatch(/return ['"]success['"]/);
+        // The page passes variant from getBookingStatusMeta; lib/booking-status maps CONFIRMED→success
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(bookingsPageSrc).toMatch(/variant=\{variant\}/);
     });
 
-    it("CANCELLED uses Badge variant='destructive' (semantic, dark-aware via badge.tsx)", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("CANCELLED uses Badge variant='muted' NOT 'destructive' (CAM-60: muted/gray per spec)", () => {
+        // CAM-60 intentional change: CANCELLED → 'muted' (not destructive/red).
+        // The page must not contain return 'destructive' inline.
+        expect(bookingsPageSrc).not.toMatch(/return ['"]destructive['"]/);
+        expect(bookingsPageSrc).not.toMatch(/function statusVariant/);
     });
 
-    it("PENDING uses Badge variant='muted' (semantic, dark-aware via badge.tsx)", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]muted['"]/);
+    it("PENDING uses Badge variant='warning' via getBookingStatusMeta (dark-aware via badge.tsx)", () => {
+        // After CAM-60, variant is resolved by the util, not an inline statusVariant function.
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta\(booking\.status\)/);
     });
 });
 

@@ -20,6 +20,10 @@ interface CampgroundCardProps {
     isLoggedIn?: boolean;
     /** Called when a guest (no session) taps the heart — parent opens LoginModal. */
     onGuestHeartClick?: () => void;
+    /** CAM-147: server-computed average rating (1dp) or null when no reviews. */
+    avgRating?: number | null;
+    /** CAM-147: total non-deleted review count. */
+    reviewCount?: number;
 }
 
 export function CampgroundCard({
@@ -27,6 +31,8 @@ export function CampgroundCard({
     initialSaved = false,
     isLoggedIn = false,
     onGuestHeartClick,
+    avgRating,
+    reviewCount = 0,
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -156,10 +162,24 @@ export function CampgroundCard({
                 <div className="space-y-1 mt-3">
                     <div className="flex justify-between items-start">
                         <h3 className="font-semibold text-foreground truncate pr-4">{name}</h3>
-                        <div className="flex items-center gap-1">
-                            <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
-                            <span className="text-sm">4.8</span>
-                        </div>
+                        {reviewCount > 0 && avgRating != null ? (
+                            <div
+                                className="flex items-center gap-1 shrink-0"
+                                aria-label={t.reviews.ratingAriaLabelShort.replace('{avg}', String(avgRating))}
+                                data-testid="rating--card-avg"
+                            >
+                                <Star className="w-3.5 h-3.5 fill-foreground text-foreground" aria-hidden="true" />
+                                <span className="text-sm tabular-nums">{avgRating}</span>
+                            </div>
+                        ) : (
+                            <span
+                                className="text-sm text-muted-foreground shrink-0"
+                                aria-label={t.reviews.noReviews}
+                                data-testid="empty--card-rating"
+                            >
+                                {t.reviews.noReviews}
+                            </span>
+                        )}
                     </div>
                     <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
                     <div className="flex items-baseline gap-1 pt-1">

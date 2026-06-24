@@ -6,14 +6,14 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, buildWorkload, envOf, epicBucket, regressionRound, type EnvLane } from "@/lib/status-derive";
+import { buildTrail, epicBucket, regressionRound, type EnvLane } from "@/lib/status-derive";
+import { buildModel, type Model, type EpicNode, epicOf, isActive, isDone, hasAwait, personaOf, featureOf } from "@/lib/status-model";
 import StatusClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "CampVibe — Live Delivery" };
 
-// ---------- title-convention parsing ----------
-const epicOf = (t: string) => { const x = t.split("·"); return x.length > 1 ? x[0].trim() : ""; };
+// ---------- title-convention parsing (page-specific helpers) ----------
 const roleOf = (t: string) => { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; };
 const gateOf = (t: string) => (t.match(/Gate\s*G\d/i) || [""])[0];
 const clean = (t: string) => {
@@ -22,16 +22,10 @@ const clean = (t: string) => {
   return afterEpic.replace(/\[[a-z-]+\]\s*/i, "").trim() || t; // drop "[role] "
 };
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m] as string));
-const hasAwait = (i: StatusIssue) => i.labels.includes("awaiting-you");
-const isActive = (i: StatusIssue) => i.status === "In Progress";
-const isDone = (i: StatusIssue) => i.statusType === "completed" || i.status === "Done";
-
-// ---------- persona + feature (new Linear hierarchy: project=feature, parent=epic, labels=persona) ----------
-const PERSONAS = ["host", "camper", "admin", "platform"];
-const PERSONA_LABEL: Record<string, string> = { host: "Host", camper: "Camper", admin: "Admin", platform: "Platform", none: "อื่นๆ" };
-const personaOf = (i: StatusIssue) => i.labels.find((l) => PERSONAS.includes(l)) || "";
-const featureOf = (i: StatusIssue) => i.project?.name || "—";
 const epicKeyOf = (i: StatusIssue) => i.parent?.title || epicOf(i.title);  // story → its epic
+
+// ---------- persona + feature (page-specific display helpers) ----------
+const PERSONA_LABEL: Record<string, string> = { host: "Host", camper: "Camper", admin: "Admin", platform: "Platform", none: "อื่นๆ" };
 const personaChip = (p: string) => `<span class="chip persona ${p || "none"}">${esc(PERSONA_LABEL[p || "none"] || p)}</span>`;
 const featChip = (f: string) => `<span class="chip feat">${esc(f)}</span>`;
 const PERSONA_ORDER = ["host", "camper", "admin", "platform", "none"];
@@ -91,101 +85,6 @@ function timeAgo(iso: string | null): string {
   return `${Math.max(1, Math.floor(ms / 6e4))}m`;
 }
 
-// ---------- derived model ----------
-interface EpicNode {
-  key: string;       // ?epic= value + m.epics lookup key (= epic title / legacy prefix)
-  label: string;     // display name
-  feature: string;   // Linear project / feature name
-  persona: string;   // persona label ("" = none)
-  stories: StatusIssue[];
-  legacy: boolean;   // old "·"-title epic (Wishlist / P0 Hardening), grouped by title prefix
-}
-interface Model {
-  work: StatusIssue[];                       // leaf stories only (epic containers excluded)
-  epics: Record<string, StatusIssue[]>;      // epic key → its stories (renderEpic reads this)
-  epicNodes: EpicNode[];
-  epicNames: string[];                       // epic keys, sorted
-  projectPct: number;
-  gates: StatusIssue[];
-  epicsActive: number;
-  backlog: StatusIssue[];
-  rmap: Record<string, { total: number; active: number; done: number }>;
-  activeEpic: string;
-  byFeature: Record<string, EpicNode[]>;
-  byPersona: Record<string, EpicNode[]>;
-  backlogByFeature: Record<string, StatusIssue[]>;
-  backlogByPersona: Record<string, StatusIssue[]>;
-  byEnv: Record<EnvLane, StatusIssue[]>;
-}
-function groupBy<T>(arr: T[], keyOf: (x: T) => string): Record<string, T[]> {
-  const o: Record<string, T[]> = {};
-  arr.forEach((x) => { const k = keyOf(x) || "none"; (o[k] = o[k] || []).push(x); });
-  return o;
-}
-function buildModel(issues: StatusIssue[]): Model {
-  // Classify three kinds of issue:
-  //  • hierarchy epic   → a project issue with no parent and no "·" (shows even with 0 stories yet)
-  //  • hierarchy story  → has a Linear parent (grouped under parent.title)
-  //  • legacy story     → old "·"-title active-loop issue, no parent → grouped by title prefix
-  //  (Linear-onboarding junk CAM-1..4: no "·", no parent, no project → dropped)
-  const epicIssues = issues.filter((i) => !i.parent && !epicOf(i.title) && !!i.project);
-  const epicTitles = new Set(epicIssues.map((i) => i.title));
-
-  const storiesByEpic: Record<string, StatusIssue[]> = {};
-  const legacyByPrefix: Record<string, StatusIssue[]> = {};
-  issues.forEach((i) => {
-    if (i.parent?.title) {
-      const pt = i.parent.title;
-      if (epicTitles.has(pt)) { (storiesByEpic[pt] = storiesByEpic[pt] || []).push(i); }    // child of a clean epic
-      else { const pre = epicOf(pt) || pt; (legacyByPrefix[pre] = legacyByPrefix[pre] || []).push(i); }  // child of a legacy "·" issue (e.g. Wishlist subtasks)
-      return;
-    }
-    if (epicTitles.has(i.title)) return;               // epic container — added below
-    const pre = epicOf(i.title);
-    if (pre) (legacyByPrefix[pre] = legacyByPrefix[pre] || []).push(i);
-  });
-
-  const epicNodes: EpicNode[] = [];
-  epicIssues.forEach((ep) => {
-    epicNodes.push({ key: ep.title, label: ep.title, feature: featureOf(ep), persona: personaOf(ep), stories: storiesByEpic[ep.title] || [], legacy: false });
-  });
-  Object.entries(legacyByPrefix).forEach(([pre, stories]) => {
-    const seed = stories.find((s) => personaOf(s)) || stories[0];
-    epicNodes.push({ key: pre, label: pre, feature: featureOf(stories[0]), persona: personaOf(seed), stories, legacy: true });
-  });
-  epicNodes.sort((a, b) => a.label.localeCompare(b.label));
-
-  const epics: Record<string, StatusIssue[]> = {};
-  epicNodes.forEach((n) => { epics[n.key] = n.stories; });
-  const epicNames = epicNodes.map((n) => n.key);
-
-  const work = epicNodes.flatMap((n) => n.stories);
-  const done = work.filter(isDone).length;
-
-  // Agent workload: counts all roles from role:* labels (accumulated history), falling back to
-  // [role] title tag for backward-compat. buildWorkload handles the multi-role attribution.
-  const rmap = buildWorkload(work);
-
-  const backlog = work.filter((i) => i.status === "Backlog");
-  // Env lanes — derived from state + released label (single source of truth, no env field).
-  const byEnv: Record<EnvLane, StatusIssue[]> = { dev: [], staging: [], prod: [] };
-  work.forEach((i) => { byEnv[envOf(i)].push(i); });
-  return {
-    work, epics, epicNodes, epicNames,
-    projectPct: work.length ? Math.round((done / work.length) * 100) : 0,
-    gates: work.filter(hasAwait),
-    epicsActive: epicNodes.filter((n) => n.stories.some(isActive)).length,
-    backlog,
-    rmap,
-    activeEpic: epicNodes.find((n) => n.stories.some(isActive))?.key || epicNames[0] || "",
-    byFeature: groupBy(epicNodes, (n) => n.feature),
-    byPersona: groupBy(epicNodes, (n) => n.persona),
-    backlogByFeature: groupBy(backlog, (i) => featureOf(i)),
-    backlogByPersona: groupBy(backlog, (i) => personaOf(i)),
-    byEnv,
-  };
-}
-
 // ---------- Environments board (derived 3-env lanes: Dev → Staging → Prod) ----------
 // Mirrors the per-status Board idiom (.board/.col/.kc) but keyed by env. env is DERIVED from
 // state + the `released` label (envOf) — no env field. Staging column = the release train.
@@ -231,10 +130,27 @@ function backlogFeatureOrder(groups: Record<string, StatusIssue[]>): string[] {
 }
 
 // ---------- top bar ----------
-function topBar(m: Model, tab: string): string {
+// S6: mapHref maps the current dashboard URL params to the /status/map equivalent.
+//   tab=overview|epic  →  scope=all|epic
+//   epic, group, efilter, token carry identically.
+function mapHref(tab: string, epic: string, group: string, efilter: string, tq: string): string {
+  const u = new URLSearchParams();
+  u.set("scope", tab === "epic" ? "epic" : "all");
+  if (epic) u.set("epic", epic);
+  if (group !== "feature") u.set("group", group);
+  if (efilter !== "all") u.set("efilter", efilter);
+  // tq is "&token=…" — extract the raw token value for the map URL
+  const tokenMatch = tq.match(/[&?]?token=([^&]*)/);
+  if (tokenMatch) u.set("token", decodeURIComponent(tokenMatch[1]));
+  return `/status/map?${u.toString()}`;
+}
+
+function topBar(m: Model, tab: string, epic: string, group: string, efilter: string, tq: string): string {
+  const mapUrl = mapHref(tab, epic, group, efilter, tq);
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
     + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
     + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
+    + `<a href="${esc(mapUrl)}" data-testid="link--status-to-map" aria-label="ดูแผนที่" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:0 15px;min-height:40px;border:1px solid rgba(150,240,195,.2);border-radius:999px;background:rgba(11,30,24,.5);font-size:12.5px;font-weight:600;color:rgba(223,234,245,.85);text-decoration:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:block;flex:none"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.6"/></svg>ดูแผนที่</a>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
 
@@ -492,7 +408,7 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
     ? `<div class="err">❌ โหลดข้อมูลจาก Linear ไม่ได้: ${esc(err)}</div>`
     : overviewView + epicView;
 
-  const main = `<main class="wrap">${topBar(m, tab)}${inner}</main><div class="toast" id="toast"></div>`;
+  const main = `<main class="wrap">${topBar(m, tab, epic, group, efilter, tq)}${inner}</main><div class="toast" id="toast"></div>`;
 
   return (
     <>

@@ -9,6 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
 import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
+import { sortByRating, computeAvgRating } from "@/lib/sort-utils";
+import { roundAvgRating } from "@/lib/review-summary";
 
 export const dynamic = 'force-dynamic'
 
@@ -71,32 +73,77 @@ export default async function Home({ searchParams }: HomeProps) {
     terrain,
   });
 
-  // 7. Sorting
-  let orderBy: any = { createdAt: 'desc' }; // Balanced / Most Related (default)
-  if (sort === 'price_asc') orderBy = { priceLow: 'asc' };
-  else if (sort === 'price_desc') orderBy = { priceLow: 'desc' };
-  else if (sort === 'rating') {
-    orderBy = { createdAt: 'desc' };
-  }
+  // 7. Sorting — sanitize the sort param against an allowlist before any branch.
+  // Anything outside the allowlist (incl. undefined / injected values) falls back to 'related'.
+  const VALID_SORT = ['related', 'price_asc', 'price_desc', 'rating'] as const;
+  type SortParam = typeof VALID_SORT[number];
+  const sanitizedSort: SortParam =
+    typeof sort === 'string' && (VALID_SORT as readonly string[]).includes(sort)
+      ? (sort as SortParam)
+      : 'related';
+
+  // For all sorts except 'rating', build the Prisma orderBy as before.
+  const orderBy =
+    sanitizedSort === 'price_asc'  ? { priceLow: 'asc' as const }  :
+    sanitizedSort === 'price_desc' ? { priceLow: 'desc' as const } :
+    { createdAt: 'desc' as const }; // 'related' default
 
   // Fetch camp sites server-side
   let campSites: any[] = [];
   try {
-    campSites = await prisma.campSite.findMany({
-      where,
-      include: {
-        location: true,
-        operator: {
-          select: { name: true }
+    if (sanitizedSort === 'rating') {
+      // SCALE GUARD: in-memory sort is valid up to ~200 published campsites.
+      // When the catalog exceeds that threshold, replace with a stored
+      // CampSite.avgRating column updated by a background job (C-2.5).
+      const rows = await prisma.campSite.findMany({
+        where, // buildCampSiteWhere result — filter first, then sort
+        include: {
+          location: true,
+          operator: { select: { name: true } },
+          images: { orderBy: { sortOrder: 'asc' } },
+          _count: { select: { reviews: true } },
+          reviews: {
+            where:  { deletedAt: null }, // exclude soft-deleted reviews
+            select: { rating: true },    // only the field needed; no N+1
+          },
         },
-        images: { orderBy: { sortOrder: 'asc' } },
-        _count: {
-          select: { reviews: true }
-        }
-      },
-      orderBy,
-      take: 40
-    });
+        // No orderBy or take here — JS sort + slice(0,40) in sortByRating takes over
+      });
+
+      // Sort descending by avg rating, nulls last, capped at 40
+      const sorted = sortByRating(rows);
+
+      // Compute avgRating/reviewCount server-side, then strip the reviews array.
+      // Cards receive only the scalar props — no PII, no author data.
+      campSites = sorted.map(({ reviews: _reviews, ...rest }) => ({
+        ...rest,
+        avgRating: roundAvgRating(computeAvgRating(_reviews)),
+        reviewCount: _reviews.length,
+      }));
+    } else {
+      const rows = await prisma.campSite.findMany({
+        where,
+        include: {
+          location: true,
+          operator: { select: { name: true } },
+          images: { orderBy: { sortOrder: 'asc' } },
+          _count: { select: { reviews: true } },
+          reviews: {
+            where:  { deletedAt: null },
+            select: { rating: true },
+          },
+        },
+        orderBy,
+        take: 40,
+      });
+
+      // Compute avgRating/reviewCount server-side, then strip the reviews array.
+      campSites = rows.map(({ reviews: _reviews, ...rest }) => ({
+        ...rest,
+        avgRating: roundAvgRating(computeAvgRating(_reviews)),
+        reviewCount: _reviews.length,
+      }));
+    }
   } catch (error) {
     console.error("Database connection error:", error);
     campSites = [];

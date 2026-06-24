@@ -17,6 +17,8 @@ import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
 import { WishlistPageClient } from "@/components/WishlistPageClient";
 import type { CampSiteCardData } from "@/components/CampgroundGrid";
+import { computeAvgRating } from "@/lib/sort-utils";
+import { roundAvgRating } from "@/lib/review-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -48,28 +50,37 @@ export default async function WishlistPage() {
                             longitude: true,
                             createdAt: true,
                             location: { select: { province: true } },
+                            reviews: {
+                                where: { deletedAt: null },
+                                select: { rating: true },
+                            },
                         },
                     },
                 },
                 orderBy: { createdAt: "desc" },
             });
 
-            items = rows.map((row) => ({
-                id: row.campSite.id,
-                nameTh: row.campSite.nameTh,
-                nameEn: row.campSite.nameEn,
-                nameThSlug: row.campSite.nameThSlug,
-                nameEnSlug: row.campSite.nameEnSlug,
-                images: row.campSite.images,
-                priceLow: row.campSite.priceLow === null ? null : Number(row.campSite.priceLow),
-                priceHigh: row.campSite.priceHigh === null ? null : Number(row.campSite.priceHigh),
-                isVerified: row.campSite.isVerified,
-                isPublished: row.campSite.isPublished,
-                latitude: row.campSite.latitude,
-                longitude: row.campSite.longitude,
-                createdAt: row.campSite.createdAt.toISOString(),
-                location: { province: row.campSite.location.province ?? "" },
-            }));
+            items = rows.map((row) => {
+                const { reviews, ...campSite } = row.campSite;
+                return {
+                    id: campSite.id,
+                    nameTh: campSite.nameTh,
+                    nameEn: campSite.nameEn,
+                    nameThSlug: campSite.nameThSlug,
+                    nameEnSlug: campSite.nameEnSlug,
+                    images: campSite.images,
+                    priceLow: campSite.priceLow === null ? null : Number(campSite.priceLow),
+                    priceHigh: campSite.priceHigh === null ? null : Number(campSite.priceHigh),
+                    isVerified: campSite.isVerified,
+                    isPublished: campSite.isPublished,
+                    latitude: campSite.latitude,
+                    longitude: campSite.longitude,
+                    createdAt: campSite.createdAt.toISOString(),
+                    location: { province: campSite.location.province ?? "" },
+                    avgRating: roundAvgRating(computeAvgRating(reviews)),
+                    reviewCount: reviews.length,
+                };
+            });
         } catch (err) {
             console.error("[WishlistPage] Failed to fetch wishlist:", err);
             hasError = true;

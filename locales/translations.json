@@ -376,7 +376,26 @@
             "confirmCancelTitle": "Cancel this booking?",
             "confirmCancelDescription": "This action cannot be undone. Your booking will be cancelled and any refund will be processed according to the cancellation policy.",
             "confirmCancelAction": "Yes, cancel booking",
-            "keepBooking": "Keep booking"
+            "keepBooking": "Keep booking",
+            "statusPending": "Pending",
+            "statusConfirmed": "Confirmed",
+            "statusCancelled": "Cancelled",
+            "statusCompleted": "Completed",
+            "confirmationTitle": "Booking confirmed",
+            "bookingRefLabel": "Booking reference",
+            "viewAllBookings": "View all bookings",
+            "backToCampsite": "Back to campsite",
+            "notFound": "Booking not found",
+            "notFoundDescription": "Please check the link, or view all your bookings.",
+            "statusBadgeAriaLabel": "Booking status: pending",
+            "detail": {
+                "pageTitle": "Booking details",
+                "backToBookings": "Back to my bookings",
+                "guests": "guests",
+                "spot": "Spot",
+                "contact": "Contact",
+                "forbidden": "Booking not found or you do not have access"
+            }
         },
         "dashboardBookings": {
             "manageReservations": "Manage all your campground reservations",
@@ -555,6 +574,18 @@
             "loginPromptGuest": "Log in to save this campsite",
             "savedLabel": "Saved",
             "errorLoad": "Could not load liked campsites. Please try again."
+        },
+        "reviews": {
+            "noReviews": "No reviews yet",
+            "noReviewsSection": "No reviews for this camp yet",
+            "loadError": "Reviews could not be loaded right now",
+            "sectionHeading": "Reviews",
+            "viewAll": "View all reviews",
+            "authorFallback": "User",
+            "ratingAriaLabel": "Rating {avg} out of 5 stars from {count} reviews",
+            "ratingAriaLabelShort": "Rating {avg} out of 5 stars",
+            "itemRatingAriaLabel": "Rating {rating} out of 5 stars",
+            "viewAllAriaLabel": "View all reviews (not available yet)"
         },
         "settings": {
             "title": "Settings",
@@ -986,7 +1017,26 @@
             "confirmCancelTitle": "ยกเลิกการจองนี้?",
             "confirmCancelDescription": "การดำเนินการนี้ไม่สามารถยกเลิกได้ การจองของคุณจะถูกยกเลิกและการคืนเงินจะดำเนินการตามนโยบายการยกเลิก",
             "confirmCancelAction": "ยืนยัน ยกเลิกการจอง",
-            "keepBooking": "เก็บการจองไว้"
+            "keepBooking": "เก็บการจองไว้",
+            "statusPending": "รอยืนยัน",
+            "statusConfirmed": "ยืนยันแล้ว",
+            "statusCancelled": "ยกเลิกแล้ว",
+            "statusCompleted": "เข้าพักแล้ว",
+            "confirmationTitle": "การจองสำเร็จแล้ว",
+            "bookingRefLabel": "รหัสการจอง",
+            "viewAllBookings": "ดูการจองทั้งหมด",
+            "backToCampsite": "กลับไปดูลานแคมป์",
+            "notFound": "ไม่พบข้อมูลการจอง",
+            "notFoundDescription": "กรุณาตรวจสอบอีกครั้ง หรือดูรายการจองทั้งหมดของคุณ",
+            "statusBadgeAriaLabel": "สถานะการจอง: รอยืนยัน",
+            "detail": {
+                "pageTitle": "รายละเอียดการจอง",
+                "backToBookings": "กลับไปยังการจองของฉัน",
+                "guests": "คน",
+                "spot": "ลาน",
+                "contact": "ข้อมูลติดต่อ",
+                "forbidden": "ไม่พบข้อมูลการจอง หรือคุณไม่มีสิทธิ์เข้าถึง"
+            }
         },
         "searchModal": {
             "experienceType": "ประเภทประสบการณ์",
@@ -1166,6 +1216,18 @@
             "loginPromptGuest": "เข้าสู่ระบบเพื่อบันทึกแคมป์นี้",
             "savedLabel": "บันทึกแล้ว",
             "errorLoad": "โหลดรายการที่ถูกใจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+        },
+        "reviews": {
+            "noReviews": "ยังไม่มีรีวิว",
+            "noReviewsSection": "ยังไม่มีรีวิวสำหรับแคมป์นี้",
+            "loadError": "ไม่สามารถโหลดรีวิวได้ในขณะนี้",
+            "sectionHeading": "รีวิว",
+            "viewAll": "ดูรีวิวทั้งหมด",
+            "authorFallback": "ผู้ใช้งาน",
+            "ratingAriaLabel": "คะแนน {avg} จาก 5 ดาว จาก {count} รีวิว",
+            "ratingAriaLabelShort": "คะแนน {avg} จาก 5 ดาว",
+            "itemRatingAriaLabel": "คะแนน {rating} จาก 5 ดาว",
+            "viewAllAriaLabel": "ดูรีวิวทั้งหมด (ยังไม่พร้อมใช้งาน)"
         },
         "settings": {
             "title": "การตั้งค่า",

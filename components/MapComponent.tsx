@@ -12,9 +12,13 @@ interface MapComponentProps {
     latitude: number;
     longitude: number;
     campground: any;
+    /** CAM-147: server-computed average rating (1dp) or null when no reviews. */
+    avgRating?: number | null;
+    /** CAM-147: total non-deleted review count. */
+    reviewCount?: number;
 }
 
-export default function MapComponent({ latitude, longitude, campground }: MapComponentProps) {
+export default function MapComponent({ latitude, longitude, campground, avgRating, reviewCount = 0 }: MapComponentProps) {
     const { t, formatCurrency, language } = useLanguage();
     const [isHovered, setIsHovered] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -85,8 +89,24 @@ export default function MapComponent({ latitude, longitude, campground }: MapCom
                                     {campground.nameTh}
                                 </h3>
                                 <div className="flex items-center gap-1 text-sm mb-2">
-                                    <Star className="w-3 h-3 fill-foreground text-foreground" />
-                                    <span className="font-semibold">4.8</span>
+                                    {reviewCount > 0 && avgRating != null ? (
+                                        <div
+                                            className="flex items-center gap-1"
+                                            aria-label={t.reviews.ratingAriaLabelShort.replace('{avg}', String(avgRating))}
+                                            data-testid="rating--map-popup-avg"
+                                        >
+                                            <Star className="w-3 h-3 fill-foreground text-foreground" aria-hidden="true" />
+                                            <span className="font-semibold tabular-nums">{avgRating}</span>
+                                        </div>
+                                    ) : (
+                                        <span
+                                            className="text-sm text-muted-foreground"
+                                            aria-label={t.reviews.noReviews}
+                                            data-testid="empty--map-popup-rating"
+                                        >
+                                            {t.reviews.noReviews}
+                                        </span>
+                                    )}
                                     <span className="text-muted-foreground">· {campground.location.province}</span>
                                 </div>
                                 <div className="text-sm">

@@ -5,6 +5,7 @@ import { apiError, apiSuccess } from '@/lib/api-utils';
 import { z } from 'zod';
 import type { TeamRole } from '@/lib/team-permissions';
 import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
+import { getOwnedBooking } from '@/lib/bookings';
 
 const BookingStatusEnum = z.enum(['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED']);
 
@@ -82,5 +83,41 @@ export async function PATCH(
     return apiSuccess(updatedBooking);
   } catch (error) {
     return apiError('Failed to update booking', 500, error);
+  }
+}
+
+// GET /api/bookings/[id]
+// Returns full booking detail for the authenticated Camper who owns the booking.
+//
+// Auth:   requireAuth() → 401 if no session.
+// Authz:  owner-scoped via getOwnedBooking(id, session.user.id).
+//         If booking doesn't exist OR belongs to another user → 404 (no 403/404 split
+//         that would reveal existence — CAM-61 AC#7 / Rules "no existence leak").
+// Scope:  Camper's own bookings only; operator/admin access is out of scope for this story.
+//
+// Error-code set: 401 (unauthenticated) · 404 (not found or not owner) · 500 (internal)
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  // 1. Authenticate
+  const { error: authError, session } = await requireAuth();
+  if (authError) return authError;
+
+  const { id } = await context.params;
+
+  try {
+    // 2. Authz + ownership: fetch only if booking.userId === session.user.id
+    const booking = await getOwnedBooking(id, session!.user!.id);
+
+    // 3. Same 404 for "not found" and "belongs to another user" — no existence leak
+    if (!booking) {
+      return apiError('Booking not found', 404);
+    }
+
+    // 4. Typed response with Decimal serialization (totalPrice is Decimal in DB)
+    return apiSuccess(booking);
+  } catch (error) {
+    return apiError('Failed to fetch booking', 500, error);
   }
 }
