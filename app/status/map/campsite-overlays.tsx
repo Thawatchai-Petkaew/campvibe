@@ -546,6 +546,7 @@ const HUD_CSS = `
   box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
 }
 .hud-sp-opt{
+  display:block;width:100%;
   text-align:left;padding:9px 12px;border-radius:9px;
   font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -1594,7 +1595,7 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
     { key: "feature" as const, value: feature, valueLabel: feature || "All Feature",
       opts: [{ v: "", l: "All Feature" }, ...features.map((f) => ({ v: f, l: f }))] },
     { key: "epic" as const, value: epic, valueLabel: epicLabel,
-      opts: [{ v: "", l: "All Epic" }, ...epics.map((e) => ({ v: e.key, l: e.label }))] },
+      opts: [{ v: "", l: "All Epic" }, ...epics.map((e) => ({ v: e.key, l: e.label.replace(/\[[a-z-]+\]\s*/gi, "").trim() }))] },
   ];
 
   return (
