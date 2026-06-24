@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Inbox, Layers, Trophy } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Inbox, Layers, Monitor, ShieldCheck, Trophy } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -751,7 +751,7 @@ const HUD_CSS = `
 .hud-board-btn:hover{background:rgba(91,233,176,.16)}
 .hud-board-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:-2px}
 
-/* ── Status Board right panel — matches sum/dlv card system exactly ── */
+/* ── Status Board right panel ── */
 .hud-sb-card{
   width:220px;border-radius:18px;overflow:hidden;
   border:1px solid rgba(150,240,195,.13);
@@ -768,47 +768,63 @@ const HUD_CSS = `
   transition:background 110ms,color 110ms;
 }
 .hud-sb-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
-.hud-sb-body{padding:6px 14px 14px;display:flex;flex-direction:column;gap:0}
-.hud-sb-sep{height:1px;background:rgba(150,240,195,.08);margin:5px 0}
+.hud-sb-body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:0}
+/* lane header */
 .hud-sb-lane-head{
-  display:flex;align-items:center;gap:6px;padding:5px 0 3px;
-  font-size:11.5px;font-weight:700;color:rgba(223,234,245,.6);
-}
-.hud-sb-lane-cnt{margin-left:auto;font-size:11px;font-weight:700;color:rgba(91,233,176,.65)}
-.hud-sb-dot{display:inline-block;width:6px;height:6px;border-radius:99px;flex:none}
-.hud-sb-dot.dot-backlog{background:rgba(223,234,245,.22)}
-.hud-sb-dot.dot-todo{background:rgba(91,233,176,.45)}
-@keyframes sb-dot-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.45)}}
-.hud-sb-dot.dot-inprog{background:#5BE9B0;animation:sb-dot-pulse 1.8s ease-in-out infinite}
-.hud-sb-dot.dot-review{background:#F0C050}
-.hud-sb-dot.dot-done{background:rgba(91,233,176,.6)}
-.hud-sb-item{
   display:flex;align-items:center;gap:6px;
-  padding:2px 0 2px 14px;min-height:22px;
-  font-size:11px;color:rgba(223,234,245,.55);
+  padding:6px 2px 5px;
+  font-size:11px;font-weight:700;letter-spacing:.03em;
 }
-.hud-sb-item.active{color:rgba(223,234,245,.85)}
-.hud-sb-item.awaiting .hud-sb-item-title{color:rgba(255,165,60,.85)}
-.hud-sb-item-dot{width:4px;height:4px;border-radius:99px;background:rgba(150,240,195,.3);flex:none}
-.hud-sb-item-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hud-sb-await-tag{
-  flex:none;font-size:8.5px;font-weight:700;letter-spacing:.03em;
-  color:rgba(255,165,60,.85);padding:1px 5px;border-radius:5px;
-  background:rgba(255,150,60,.12);border:1px solid rgba(255,150,60,.22);
+.hud-sb-lane-cnt{margin-left:auto;font-size:10.5px;font-weight:600;color:rgba(223,234,245,.42)}
+.hud-sb-dot{display:inline-block;width:6px;height:6px;border-radius:99px;flex:none}
+.hud-sb-dot.dot-backlog{background:#8a9aa8}
+.hud-sb-dot.dot-todo{background:#8FB8F0}
+@keyframes sb-dot-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(91,233,176,.4)}50%{opacity:.8;box-shadow:0 0 0 3px rgba(91,233,176,.15)}}
+.hud-sb-dot.dot-inprog{background:#5BE9B0;animation:sb-dot-pulse 2s ease-in-out infinite}
+.hud-sb-dot.dot-review{background:#B7A6FF}
+.hud-sb-dot.dot-done{background:#76E0AE}
+/* lane header label color per lane */
+.hud-sb-lane-head.lh-backlog{color:#aebcc9}
+.hud-sb-lane-head.lh-todo{color:#8FB8F0}
+.hud-sb-lane-head.lh-inprog{color:#5BE9B0}
+.hud-sb-lane-head.lh-review{color:#B7A6FF}
+.hud-sb-lane-head.lh-done{color:#76E0AE}
+/* story card — mirrors .kc from Status dashboard */
+.hud-kc{
+  border-radius:12px;padding:10px 11px;margin-bottom:7px;
+  border:1px solid rgba(255,255,255,.11);
+  background:rgba(26,38,60,.5);
+  display:block;min-width:0;text-decoration:none;color:inherit;
+  transition:border-color 120ms,background 120ms;
 }
-.hud-sb-more{font-size:10px;color:rgba(91,233,176,.4);padding:1px 0 2px 14px;font-weight:600}
+.hud-kc:last-child{margin-bottom:0}
+.hud-kc.prog{border-color:rgba(91,233,176,.34)}
+.hud-kc.gate{border-color:rgba(255,150,52,.42);background:linear-gradient(160deg,rgba(255,150,52,.08),rgba(26,38,60,.5))}
+/* title row — role icon + title text */
+.hud-kt{font-size:12px;color:#F1F6FB;line-height:1.35;display:flex;gap:6px;align-items:flex-start;min-width:0}
+.hud-kt svg{width:13px;height:13px;flex:none;margin-top:1px;color:rgba(223,234,245,.42)}
+.hud-kt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* bottom row — role label + story id */
+.hud-kb{display:flex;align-items:center;justify-content:space-between;margin-top:7px;min-width:0;gap:6px}
+.hud-kr{font-size:10.5px;color:rgba(223,234,245,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-kc.prog .hud-kr{color:#5BE9B0}
+.hud-kc.gate .hud-kr{color:#FFB454}
+.hud-tk{font-size:9.5px;color:rgba(223,234,245,.35);flex:none;font-variant-numeric:tabular-nums}
+/* "+N" overflow */
+.hud-sb-more{font-size:10.5px;color:rgba(223,234,245,.38);padding:3px 2px 4px;font-weight:600}
+/* see-all button */
 .hud-sb-seeall{
   display:flex;align-items:center;justify-content:center;gap:5px;
-  margin:8px 0 0;padding:8px 0;border-radius:12px;
-  background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.16);
+  margin:8px 0 2px;padding:8px 0;border-radius:11px;
+  background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.15);
   font-size:11.5px;font-weight:700;color:rgba(91,233,176,.75);
-  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
+  cursor:pointer;transition:background 110ms,border-color 110ms;width:100%;
 }
-.hud-sb-seeall:hover{background:rgba(91,233,176,.16);border-color:rgba(91,233,176,.32)}
-/* mini (collapsed) — matches hud-sum-mini / hud-dlv-mini style */
-.hud-sb-mini{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:6px 14px 12px;font-size:11.5px;color:rgba(223,234,245,.55);font-weight:600}
+.hud-sb-seeall:hover{background:rgba(91,233,176,.15);border-color:rgba(91,233,176,.3)}
+/* mini (collapsed) */
+.hud-sb-mini{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 14px 12px;font-size:11.5px;color:rgba(223,234,245,.55);font-weight:600}
 .hud-sb-mini-cnt{color:rgba(91,233,176,.8);font-size:12px;font-weight:700}
-/* hint */
+/* hint chip when Feature not selected */
 .hud-board-hint{
   display:inline-flex;align-items:center;padding:8px 14px;border-radius:12px;
   background:rgba(11,30,24,.5);border:1px solid rgba(150,240,195,.1);
@@ -1973,13 +1989,34 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
 
 // ── Status Board (Step 5 — right panel) ──────────────────────────────────────
 
-const SB_LANES: Array<{ key: string; label: string; dot: string }> = [
-  { key: "Backlog",     label: "Backlog",    dot: "dot-backlog" },
-  { key: "Todo",        label: "To Do",      dot: "dot-todo"    },
-  { key: "In Progress", label: "กำลังทำ",   dot: "dot-inprog"  },
-  { key: "In Review",   label: "ตรวจสอบ",   dot: "dot-review"  },
-  { key: "Done",        label: "เสร็จ",      dot: "dot-done"    },
+const SB_LANES: Array<{ key: string; label: string; dot: string; lh: string }> = [
+  { key: "Backlog",     label: "Backlog",    dot: "dot-backlog", lh: "lh-backlog" },
+  { key: "Todo",        label: "To Do",      dot: "dot-todo",    lh: "lh-todo"    },
+  { key: "In Progress", label: "กำลังทำ",   dot: "dot-inprog",  lh: "lh-inprog"  },
+  { key: "In Review",   label: "ตรวจสอบ",   dot: "dot-review",  lh: "lh-review"  },
+  { key: "Done",        label: "เสร็จ",      dot: "dot-done",    lh: "lh-done"    },
 ];
+
+const ROLE_LABEL_SB: Record<string, string> = {
+  architect: "Architect", "ux-designer": "Designer",
+  "frontend-engineer": "Frontend", "backend-engineer": "Backend",
+  "qa-engineer": "QA", "security-reviewer": "Security",
+  "devops-release": "DevOps", "product-owner": "Product",
+};
+
+function RoleIconSB({ role }: { role: string }) {
+  const props = { size: 13, strokeWidth: 1.6, "aria-hidden": true };
+  switch (role) {
+    case "architect":          return <Layers {...props} />;
+    case "ux-designer":        return <Compass {...props} />;
+    case "backend-engineer":   return <Database {...props} />;
+    case "frontend-engineer":  return <Monitor {...props} />;
+    case "qa-engineer":        return <ClipboardCheck {...props} />;
+    case "security-reviewer":  return <ShieldCheck {...props} />;
+    case "devops-release":     return <GitBranch {...props} />;
+    default:                   return <FileText {...props} />;
+  }
+}
 
 export interface StatusBoardProps {
   stories: MapEpicStory[];
@@ -2038,27 +2075,35 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
         <ChevBtn />
       </div>
       <div className="hud-sb-body">
-        {SB_LANES.map((lane, li) => {
+        {SB_LANES.map(lane => {
           const items = byLane[lane.key];
+          if (!items.length) return null;
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
           return (
             <div key={lane.key}>
-              {li > 0 && <div className="hud-sb-sep" />}
-              {/* Lane header — same style as .hud-sum-row */}
-              <div className="hud-sb-lane-head">
+              {/* Lane header — colour-coded matching dashboard .col-h */}
+              <div className={`hud-sb-lane-head ${lane.lh}`}>
                 <span className={`hud-sb-dot ${lane.dot}`} />
                 <span>{lane.label}</span>
                 <span className="hud-sb-lane-cnt">{items.length}</span>
               </div>
-              {/* Story rows */}
+              {/* Story cards — mirrors .kc from dashboard */}
               {shown.map(s => {
+                const isActive = s.status === "In Progress";
                 const isAwaiting = s.labels.includes("awaiting-you");
+                const roleKey = s.role ?? "";
+                const roleStr = ROLE_LABEL_SB[roleKey] ?? roleKey ?? "team";
                 return (
-                  <div key={s.id} className={`hud-sb-item${s.status === "In Progress" ? " active" : ""}${isAwaiting ? " awaiting" : ""}`}>
-                    <span className="hud-sb-item-dot" />
-                    <span className="hud-sb-item-title">{s.title}</span>
-                    {isAwaiting && <span className="hud-sb-await-tag">รอคุณ</span>}
+                  <div key={s.id} className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}`}>
+                    <div className="hud-kt">
+                      <RoleIconSB role={roleKey} />
+                      <span title={s.title}>{s.title}</span>
+                    </div>
+                    <div className="hud-kb">
+                      <span className="hud-kr">{isActive && <span style={{ marginRight: 4 }}>●</span>}{isAwaiting ? "รอคุณ" : roleStr}</span>
+                      <span className="hud-tk">{s.id}</span>
+                    </div>
                   </div>
                 );
               })}
