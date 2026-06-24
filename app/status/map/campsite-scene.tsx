@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, DeliveryCard, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -1040,6 +1040,8 @@ export default function CampsiteScene({
   const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
   const [boardCollapsed, setBoardCollapsed] = useState<boolean>(() => readFilterCookie().boardCollapsed ?? false);
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
+  const [envPickerOpen, setEnvPickerOpen] = useState(false);
+  const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1551,6 +1553,20 @@ export default function CampsiteScene({
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
           <ViewToggle dashboardHref={dashboardHref} />
+          <button
+            ref={envPickerTriggerRef}
+            className="hud-env-toggle"
+            aria-label="ผลผลิต Scout Team — เปิดใน Staging / Production"
+            data-testid="btn--map-env-picker"
+            onClick={() => setEnvPickerOpen(v => !v)}
+          >
+            ผลผลิต Scout Team
+          </button>
+          <EnvPickerPanel
+            isOpen={envPickerOpen}
+            onClose={() => setEnvPickerOpen(false)}
+            triggerRef={envPickerTriggerRef}
+          />
           <SoundToggle />
         </div>
       </div>
