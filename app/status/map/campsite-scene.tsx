@@ -28,6 +28,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import {
   ADJ,
   buildScoutState,
@@ -1470,7 +1471,7 @@ export default function CampsiteScene({
 
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
-      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS + HUD_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS + HUD_CSS + DELIVERY_GIFT_CSS }} />
 
       {/* CAM-162: Responsive background image with srcset for hi-res screens.
           sizes="max(100vw, 177.78vh)" accounts for cover overscale on 16:9 —
@@ -1510,6 +1511,9 @@ export default function CampsiteScene({
             {debugGrid && <DebugGrid />}
             {debugRoutes && <DebugRoutes />}
             {debugPick && <WaypointPicker />}
+
+            {/* CAM-171: Gift indicator — above campfire (left:50% top:44%), pointer-events wrapper */}
+            <DeliveryGift epics={epics} />
 
             {/* You rendered first so it comes first in tab order.
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
