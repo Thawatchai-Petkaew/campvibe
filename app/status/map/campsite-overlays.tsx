@@ -51,12 +51,12 @@ const HUD_CSS = `
   z-index:40;
   display:flex;
   align-items:stretch;
-  background:rgba(10,20,36,.82);
-  backdrop-filter:saturate(165%) blur(22px);
-  -webkit-backdrop-filter:saturate(165%) blur(22px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.56);
+  backdrop-filter:saturate(195%) blur(30px);
+  -webkit-backdrop-filter:saturate(195%) blur(30px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:999px;
-  box-shadow:0 16px 48px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow:0 16px 48px rgba(0,0,0,.52),inset 0 1px 0 rgba(200,255,232,.14);
   max-width:min(960px,94vw);
   overflow-x:auto;
   overflow-y:hidden;
@@ -149,12 +149,12 @@ const HUD_CSS = `
   position:fixed;
   bottom:80px;
   z-index:50;
-  background:rgba(10,20,36,.92);
-  backdrop-filter:saturate(165%) blur(24px);
-  -webkit-backdrop-filter:saturate(165%) blur(24px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.62);
+  backdrop-filter:saturate(195%) blur(32px);
+  -webkit-backdrop-filter:saturate(195%) blur(32px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:18px;
-  box-shadow:0 24px 56px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.1);
+  box-shadow:0 24px 56px rgba(0,0,0,.56),inset 0 1px 0 rgba(200,255,232,.12);
   padding:18px 20px 20px;
   min-width:260px;
   max-width:min(360px,92vw);
@@ -206,12 +206,12 @@ const HUD_CSS = `
   width:min(900px,96vw);
   max-height:88vh;
   overflow-y:auto;
-  background:rgba(10,20,36,.94);
-  backdrop-filter:saturate(165%) blur(26px);
-  -webkit-backdrop-filter:saturate(165%) blur(26px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.68);
+  backdrop-filter:saturate(195%) blur(34px);
+  -webkit-backdrop-filter:saturate(195%) blur(34px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:22px;
-  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(200,255,232,.14);
   padding:24px 26px 28px;
   color:rgba(223,234,245,.9);
 }
@@ -418,7 +418,7 @@ const HUD_CSS = `
 
 /* Scope switcher inside panel */
 .hud-seg-group {
-  display:flex;gap:0;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden;margin-bottom:8px;
+  display:flex;gap:0;border:1px solid rgba(150,240,195,.13);border-radius:8px;overflow:hidden;margin-bottom:8px;
 }
 .hud-seg-tab {
   flex:1;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;
@@ -506,12 +506,12 @@ const HUD_CSS = `
   transform:translateX(-50%);
   z-index:22;
   display:inline-flex;
-  border:1px solid rgba(255,255,255,.16);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:999px;
   overflow:hidden;
-  background:rgba(16,26,42,.62);
-  backdrop-filter:saturate(150%) blur(18px);
-  -webkit-backdrop-filter:saturate(150%) blur(18px);
+  background:rgba(11,30,24,.52);
+  backdrop-filter:saturate(195%) blur(26px);
+  -webkit-backdrop-filter:saturate(195%) blur(26px);
   box-shadow:0 8px 24px rgba(0,0,0,.32);
 }
 .hud-toggle-item {

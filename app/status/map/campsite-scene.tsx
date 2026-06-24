@@ -198,11 +198,11 @@ const SCENE_CSS = `
   --text: #F1F6FB;
   --muted: rgba(223,234,245,.66);
   --faint: rgba(223,234,245,.42);
-  --line: rgba(255,255,255,.13);
-  --line-2: rgba(255,255,255,.18);
+  --line: rgba(150,240,195,.12);
+  --line-2: rgba(150,240,195,.16);
   --hi: rgba(255,255,255,.16);
-  --glass: rgba(16,26,42,.42);
-  --blur: saturate(150%) blur(20px);
+  --glass: rgba(11,30,24,.42);
+  --blur: saturate(195%) blur(30px);
   --mono: 'JetBrains Mono','Fira Mono','Consolas',monospace;
 }
 .map-wrap{
@@ -259,9 +259,9 @@ const SCENE_CSS = `
 .sound-toggle{
   position:fixed;top:18px;right:18px;z-index:22;
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid rgba(255,255,255,.16);border-radius:999px;
-  background:rgba(16,26,42,.62);
-  backdrop-filter:saturate(150%) blur(18px);-webkit-backdrop-filter:saturate(150%) blur(18px);
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
   box-shadow:0 8px 24px rgba(0,0,0,.32);
   color:rgba(223,234,245,.66);cursor:pointer;
   transition:background 120ms,color 120ms,border-color 120ms;
@@ -339,8 +339,8 @@ const SCENE_CSS = `
 .badge{
   position:absolute;left:50%;bottom:calc(var(--bh) + 4px);transform:translateX(-50%);
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:7;
-  background:rgba(18,30,48,.46);backdrop-filter:saturate(165%) blur(18px);-webkit-backdrop-filter:saturate(165%) blur(18px);
-  border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:4px 9px;
+  background:rgba(11,30,24,.46);backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;padding:4px 9px;
   box-shadow:0 6px 16px rgba(0,0,0,.32)
 }
 .badge .bdot{width:7px;height:7px;border-radius:50%;flex:none;background:rgba(190,202,218,.4)}
@@ -366,7 +366,7 @@ const SCENE_CSS = `
 .popover{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%) translateY(6px);
   width:194px;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:12;
-  background:rgba(14,24,40,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:rgba(10,28,20,.80);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
   border:1px solid var(--line-2);border-radius:13px;padding:11px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.46)
 }
