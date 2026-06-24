@@ -22,6 +22,8 @@ interface Props {
   initialEpic: string;
   initialGroup: "feature" | "persona";
   initialEfilter: "all" | "prog" | "done" | "todo";
+  /** CAM-164 dev tool: render a % coordinate grid overlay when true (?grid=1). */
+  debugGrid?: boolean;
 }
 
 export default function SceneLoader({
@@ -31,6 +33,7 @@ export default function SceneLoader({
   initialEpic,
   initialGroup,
   initialEfilter,
+  debugGrid = false,
 }: Props) {
   return (
     <CampsiteScene
@@ -40,6 +43,7 @@ export default function SceneLoader({
       initialEpic={initialEpic}
       initialGroup={initialGroup}
       initialEfilter={initialEfilter}
+      debugGrid={debugGrid}
     />
   );
 }

@@ -126,35 +126,37 @@ const ROLE_CONFIG: Record<
 // Speed variation per role index — slight spread so agents don't arrive in a clump.
 const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 
-// ── CAM-161: Layout tables (% of fixed 1920×1080 design canvas) ─────────────
-// LAYOUT_WIDE: art-measured positions for ≥ 7:5 aspect ratio (wide/16:9/ultrawide).
-// Characters sit on dock, tents, tables, board in the art.
-// Exact coords are visual judgments confirmed by owner screenshot.
+// ── CAM-164: Layout tables (% of fixed 1920×1080 design canvas) ─────────────
+// Screenshot-tuned values, refined via ?grid=1 coordinate overlay.
+//
+// LAYOUT_WIDE: spread to use the whole camp — fills upper clearing, lower tables,
+// and the dock. Characters are distributed across all thirds (≥ 7:5 aspect ratio).
 export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 55, y: 30 },
+  "architect":          { x: 50, y: 32 },
   "ux-designer":        { x: 66, y: 33 },
-  "backend-engineer":   { x: 67, y: 55 },
-  "frontend-engineer":  { x: 60, y: 68 },
-  "devops-release":     { x: 39, y: 68 },
-  "qa-engineer":        { x: 33, y: 50 },
-  "security-reviewer":  { x: 35, y: 40 },
+  "backend-engineer":   { x: 73, y: 52 },
+  "frontend-engineer":  { x: 63, y: 72 },
+  "devops-release":     { x: 35, y: 72 },
+  "qa-engineer":        { x: 27, y: 55 },
+  "security-reviewer":  { x: 28, y: 42 },
 };
-export const YOU_POS_WIDE = { x: 41, y: 26 };
+export const YOU_POS_WIDE = { x: 38, y: 24 };
 
-// LAYOUT_NARROW: compact cluster for < 7:5 aspect ratio (portrait phone/tablet).
-// All 8 characters packed into canvas x∈[34,66] so they stay within the visible
+// LAYOUT_NARROW: tight centered cluster for < 7:5 aspect ratio (portrait phone/tablet).
+// All 8 characters packed into canvas x∈[40,60] so they stay within the visible
 // center band under cover scaling on a 9:16 screen.
-// You sits top-center; others form a 2-column grid around the campfire (50,54).
+// You sits top-center; agents form a symmetric 2-column grid below.
+// Screenshot-tuned via ?grid=1; next round of tuning refines further.
 export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 38, y: 33 },
-  "ux-designer":        { x: 62, y: 33 },
-  "backend-engineer":   { x: 62, y: 47 },
-  "frontend-engineer":  { x: 62, y: 61 },
-  "devops-release":     { x: 38, y: 61 },
-  "qa-engineer":        { x: 38, y: 47 },
-  "security-reviewer":  { x: 50, y: 40 },
+  "architect":          { x: 40, y: 34 },
+  "ux-designer":        { x: 60, y: 34 },
+  "backend-engineer":   { x: 60, y: 50 },
+  "frontend-engineer":  { x: 60, y: 64 },
+  "devops-release":     { x: 40, y: 64 },
+  "qa-engineer":        { x: 40, y: 50 },
+  "security-reviewer":  { x: 50, y: 42 },
 };
-export const YOU_POS_NARROW = { x: 50, y: 25 };
+export const YOU_POS_NARROW = { x: 50, y: 22 };
 
 // Active layout (mutable at runtime; starts with wide, switched by matchMedia).
 // currentLayout is read by homeStyle() which is called each render, so React state
@@ -192,7 +194,7 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: 104px;
+  --scout-size: 116px;
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -208,7 +210,7 @@ const SCENE_CSS = `
 /* Narrow layout: portrait screens where the narrow scale factor is large.
    Reduce scout-size so the compact cluster doesn't produce giant overlapping characters. */
 @media (max-aspect-ratio: 7/5) {
-  :root { --scout-size: 82px; }
+  :root { --scout-size: 90px; }
 }
 .map-wrap{
   position:fixed;inset:0;overflow:hidden;
@@ -564,6 +566,90 @@ function syncUrl(params: Record<string, string>): void {
   }
 }
 
+// ── Debug coordinate grid ────────────────────────────────────────────────────
+// CAM-164: Dev tool rendered inside .scout-layer when ?grid=1 is present.
+// Renders vertical + horizontal lines every 10% with numeric labels on the top
+// and left edges. Coordinates match character % positions exactly (1920×1080 canvas).
+// pointer-events:none + z-index below HUD + absent in production (prop=false).
+
+function DebugGrid() {
+  const ticks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  return (
+    <div
+      data-testid="debug--map-grid"
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 20,
+        pointerEvents: "none",
+        overflow: "hidden",
+      }}
+    >
+      {/* Vertical lines + top-edge labels */}
+      {ticks.map((v) => (
+        <div key={`v${v}`}>
+          <div
+            style={{
+              position: "absolute",
+              left: `${v}%`,
+              top: 0,
+              bottom: 0,
+              width: 1,
+              background: "rgba(255,255,255,0.25)",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: `${v}%`,
+              top: 2,
+              transform: "translateX(-50%)",
+              fontSize: 10,
+              fontFamily: "monospace",
+              color: "rgba(255,255,180,0.85)",
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {v}
+          </span>
+        </div>
+      ))}
+      {/* Horizontal lines + left-edge labels */}
+      {ticks.map((v) => (
+        <div key={`h${v}`}>
+          <div
+            style={{
+              position: "absolute",
+              top: `${v}%`,
+              left: 0,
+              right: 0,
+              height: 1,
+              background: "rgba(255,255,255,0.25)",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              top: `${v}%`,
+              left: 2,
+              transform: "translateY(-50%)",
+              fontSize: 10,
+              fontFamily: "monospace",
+              color: "rgba(255,255,180,0.85)",
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {v}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -574,6 +660,8 @@ interface Props {
   initialEpic: string;
   initialGroup: "feature" | "persona";
   initialEfilter: "all" | "prog" | "done" | "todo";
+  /** CAM-164 dev tool: render a % coordinate grid overlay when true (?grid=1). */
+  debugGrid?: boolean;
 }
 
 export interface SceneHandle {
@@ -588,6 +676,7 @@ export default function CampsiteScene({
   initialEpic,
   initialGroup,
   initialEfilter,
+  debugGrid = false,
 }: Props) {
   // S6: liveModel is the authoritative data — starts from SSR initial value, updated
   // by the SSE reconcile. All overlay data reads from liveModel, never from the stale
@@ -604,10 +693,18 @@ export default function CampsiteScene({
   const [group, setGroup]         = useState<"feature" | "persona">(initialGroup);
   const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(initialEfilter);
 
-  // CAM-161: layout key — "wide" | "narrow". Changing this key causes YouScout and
-  // homeStyle() to re-render with the new layout's coordinates. The engine's setHomes()
-  // is called from the aspect-ratio listener to snap/redirect idle agents without remount.
-  const [layoutKey, setLayoutKey] = useState<"wide" | "narrow">("wide");
+  // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
+  // client render (scene is ssr:false so window is always available here). This
+  // prevents YouScout from rendering at YOU_POS_WIDE on portrait before the
+  // useEffect fires — the initial render is already at the correct layout.
+  // The module-level currentLayout is also pre-seeded here so homeStyle() is correct
+  // on the very first render without waiting for the effect.
+  const [layoutKey, setLayoutKey] = useState<"wide" | "narrow">(() => {
+    if (typeof window === "undefined") return "wide"; // SSR guard (never reached — ssr:false)
+    const isWide = window.matchMedia("(min-aspect-ratio: 7/5)").matches;
+    currentLayout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW;
+    return isWide ? "wide" : "narrow";
+  });
 
   const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
   const closePanel = useCallback(() => setOpenOverlay(null), []);
@@ -989,6 +1086,11 @@ export default function CampsiteScene({
             role="list"
             aria-label="ทีม AI delivery agents บนแผนที่"
           >
+            {/* CAM-164 dev tool: % coordinate grid — only when ?grid=1 is present.
+                Renders inside .scout-layer so its % coords match character positions exactly.
+                pointer-events:none; below HUD; absent in normal view. */}
+            {debugGrid && <DebugGrid />}
+
             {/* You rendered first so it comes first in tab order.
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
             <YouScout

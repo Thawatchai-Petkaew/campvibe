@@ -158,8 +158,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale mode
   it("--scout-size is a fixed design-px value (not vw-relative)", () => {
     // Must NOT contain 'vw' in the scout-size definition
     expect(src).not.toContain("7.2vw");
-    // Must contain a fixed px value
-    expect(src).toContain("--scout-size: 104px");
+    // CAM-164: bumped from 104px → 116px (proportional to 1920×1080 canvas)
+    expect(src).toContain("--scout-size: 116px");
   });
 
   it("does NOT use the old width:max() approach for scaling", () => {
@@ -760,5 +760,112 @@ describe("app/status/map/campsite-scene.tsx — CAM-163: idle placement on mount
     // NODES was only used in stopLoop (now replaced by homeX/homeY); remove verifies no leak.
     expect(src).not.toContain("import {\n  NODES,");
     expect(src).not.toContain('"NODES"');
+  });
+});
+
+// ============================================================
+// CAM-164 — Debug grid + portrait fix + layout rebalance
+// ============================================================
+
+// ---------- CAM-164: debug coordinate grid (?grid=1) -------------------------
+describe("app/status/map/page.tsx — CAM-164: ?grid=1 param plumbing", () => {
+  const src = read("../app/status/map/page.tsx");
+
+  it("reads sp.grid from searchParams", () => {
+    expect(src).toContain("grid");
+  });
+
+  it("debugGrid is true only when sp.grid === '1'", () => {
+    expect(src).toContain('sp.grid === "1"');
+    expect(src).toContain("debugGrid");
+  });
+
+  it("passes debugGrid prop to SceneLoader", () => {
+    expect(src).toContain("debugGrid={debugGrid}");
+  });
+});
+
+describe("app/status/map/scene-loader.tsx — CAM-164: debugGrid prop forwarded", () => {
+  const src = read("../app/status/map/scene-loader.tsx");
+
+  it("accepts debugGrid prop", () => {
+    expect(src).toContain("debugGrid");
+  });
+
+  it("passes debugGrid to CampsiteScene", () => {
+    expect(src).toContain("debugGrid={debugGrid}");
+  });
+});
+
+describe("app/status/map/campsite-scene.tsx — CAM-164: debug grid component", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("DebugGrid component is defined", () => {
+    expect(src).toContain("function DebugGrid");
+  });
+
+  it("debug grid has data-testid for QA assertion", () => {
+    expect(src).toContain('data-testid="debug--map-grid"');
+  });
+
+  it("debug grid is aria-hidden (dev overlay, not content)", () => {
+    expect(src).toContain('aria-hidden="true"');
+  });
+
+  it("debug grid renders only when debugGrid prop is true", () => {
+    expect(src).toContain("{debugGrid && <DebugGrid />}");
+  });
+
+  it("Props interface includes debugGrid boolean", () => {
+    expect(src).toContain("debugGrid?");
+  });
+});
+
+// ---------- CAM-164: portrait fix — lazy state initializer -------------------
+describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("layoutKey useState uses a lazy initializer (not a hardcoded 'wide' literal)", () => {
+    // The lazy initializer reads matchMedia on first client render so portrait
+    // gets LAYOUT_NARROW immediately without waiting for the useEffect.
+    expect(src).toContain("useState<\"wide\" | \"narrow\">(() =>");
+  });
+
+  it("lazy initializer reads (min-aspect-ratio: 7/5) matchMedia", () => {
+    expect(src).toContain("window.matchMedia(\"(min-aspect-ratio: 7/5)\")");
+  });
+
+  it("lazy initializer pre-seeds currentLayout for homeStyle() on first render", () => {
+    // currentLayout must be set in the lazy init so homeStyle() is correct on first paint.
+    expect(src).toContain("currentLayout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW");
+  });
+});
+
+// ---------- CAM-164: rebalanced layout coordinates ---------------------------
+describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coords", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("YOU_POS_WIDE is updated to {x:38, y:24} (moved to upper-left clearing)", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 24 }");
+  });
+
+  it("YOU_POS_NARROW is updated to {x:50, y:22} (centered top)", () => {
+    expect(src).toContain("YOU_POS_NARROW = { x: 50, y: 22 }");
+  });
+
+  it("LAYOUT_NARROW x-values are within [40,60] for centered portrait cluster", () => {
+    // All narrow x-values should be in the 40–60 band (tighter than old 38–62)
+    expect(src).toContain('{ x: 40, y: 34 }'); // architect
+    expect(src).toContain('{ x: 60, y: 34 }'); // ux-designer
+    expect(src).toContain('{ x: 50, y: 42 }'); // security-reviewer (center)
+  });
+
+  it("scout sizes updated: root 116px, narrow override 90px", () => {
+    expect(src).toContain("--scout-size: 116px");
+    expect(src).toContain("--scout-size: 90px");
+  });
+
+  it("CAM-164 layout comment references ?grid=1 tuning", () => {
+    expect(src).toContain("?grid=1");
   });
 });

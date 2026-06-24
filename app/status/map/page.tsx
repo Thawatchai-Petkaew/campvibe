@@ -21,6 +21,7 @@ export default async function StatusMapPage({
     epic?: string;
     group?: string;
     efilter?: string;
+    grid?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -33,6 +34,9 @@ export default async function StatusMapPage({
   const initialEfilter  = (["all", "prog", "done", "todo"] as const).includes(
     sp.efilter as "all" | "prog" | "done" | "todo"
   ) ? (sp.efilter as "all" | "prog" | "done" | "todo") : "all";
+  // CAM-164 dev tool: ?grid=1 renders a % coordinate overlay for layout tuning.
+  // Absent in normal view — no grid param = false.
+  const debugGrid = sp.grid === "1";
 
   if (required && sp.token !== required) {
     const body =
@@ -97,6 +101,7 @@ export default async function StatusMapPage({
           initialEpic={initialEpic}
           initialGroup={initialGroup}
           initialEfilter={initialEfilter}
+          debugGrid={debugGrid}
         />
       )}
     </>
