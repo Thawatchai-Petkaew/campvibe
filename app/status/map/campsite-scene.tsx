@@ -127,8 +127,40 @@ const ROLE_CONFIG: Record<
 // Speed variation per role index — slight spread so agents don't arrive in a clump.
 const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 
-// YOU is stationary — near bridge, per mockup.
-const YOU_POS = { x: 33, y: 28 };
+// ── CAM-161: Layout tables (% of fixed 1920×1080 design canvas) ─────────────
+// LAYOUT_WIDE: art-measured positions for ≥ 7:5 aspect ratio (wide/16:9/ultrawide).
+// Characters sit on dock, tents, tables, board in the art.
+// Exact coords are visual judgments confirmed by owner screenshot.
+export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
+  "architect":          { x: 55, y: 30 },
+  "ux-designer":        { x: 66, y: 33 },
+  "backend-engineer":   { x: 67, y: 55 },
+  "frontend-engineer":  { x: 60, y: 68 },
+  "devops-release":     { x: 39, y: 68 },
+  "qa-engineer":        { x: 33, y: 50 },
+  "security-reviewer":  { x: 35, y: 40 },
+};
+export const YOU_POS_WIDE = { x: 41, y: 26 };
+
+// LAYOUT_NARROW: compact cluster for < 7:5 aspect ratio (portrait phone/tablet).
+// All 8 characters packed into canvas x∈[34,66] so they stay within the visible
+// center band under cover scaling on a 9:16 screen.
+// You sits top-center; others form a 2-column grid around the campfire (50,54).
+export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
+  "architect":          { x: 38, y: 33 },
+  "ux-designer":        { x: 62, y: 33 },
+  "backend-engineer":   { x: 62, y: 47 },
+  "frontend-engineer":  { x: 62, y: 61 },
+  "devops-release":     { x: 38, y: 61 },
+  "qa-engineer":        { x: 38, y: 47 },
+  "security-reviewer":  { x: 50, y: 40 },
+};
+export const YOU_POS_NARROW = { x: 50, y: 25 };
+
+// Active layout (mutable at runtime; starts with wide, switched by matchMedia).
+// currentLayout is read by homeStyle() which is called each render, so React state
+// (layoutKey) ensures re-renders pick up the new table on layout switch.
+let currentLayout: Record<string, { x: number; y: number }> = LAYOUT_WIDE;
 
 // Hex color → rgba helper
 function hexA(hex: string, a: number): string {
@@ -140,9 +172,28 @@ function hexA(hex: string, a: number): string {
 // Idle-sway is always-on ambient; walking-mode overrides it during traversal.
 // All animations are wrapped in @media (prefers-reduced-motion: no-preference)
 // so the OS setting kills everything at once. The rAF loop is separately gated.
+//
+// CAM-161 — Fixed-canvas scale model:
+//
+// .map-wrap is the full-screen container (fixed inset:0).
+// .map-bg is a full-viewport cover <img> for the forest background (decoupled
+//   from the character canvas; Story B will add srcset for hi-res).
+// .map-viewport centres the 1920×1080 design canvas.
+// .map-stage is the fixed 1920×1080 canvas scaled by --s = max(vw/1920, vh/1080)
+//   so both axes cover the viewport (same logic as object-fit:cover).
+//   transform:scale(--s) scales the canvas AND all characters as one unit →
+//   character size is now proportional to the map on every screen shape.
+//   transform-origin:center means grid place-items:center handles layout;
+//   the old translate(-50%,-50%) trick is replaced by the grid.
+// .scout-layer is inset:0 inside the 1920×1080 canvas.
+//   Characters use left/top as % of the canvas; z-index by y (engine unchanged).
+// --scout-size is a fixed design-px value (104px on the 1920×1080 canvas) so
+//   it scales with transform — proportional to the map on every screen.
+// Under LAYOUT_NARROW (portrait ≥ 9:16) the narrow MQ overrides --scout-size
+//   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: clamp(88px, 7.2vw, 116px);
+  --scout-size: 104px;
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -155,45 +206,46 @@ const SCENE_CSS = `
   --blur: saturate(150%) blur(20px);
   --mono: 'JetBrains Mono','Fira Mono','Consolas',monospace;
 }
-/*
- * CAM-160 — Forest background coupled to the character stage.
- *
- * .map-wrap is the full-screen container (fixed inset:0). It holds #070d1c as a
- * fallback colour visible only on very slow loads before the WebP paints.
- *
- * .map-stage IS the campsite — it carries the forest background and is sized so
- * it always covers the viewport at the image's native 16:9 aspect ratio, then
- * zoomed in by --zoom (1.12) so the campsite fills more of the frame. The stage
- * is centred with top:50%+left:50%+translate(-50%,-50%).
- *
- * Cover logic (CSS custom properties evaluated at render time):
- *   --ar  = 16/9 (the image aspect ratio)
- *   On a 16:9 viewport  → width drives: 100vw * zoom, height = 100vw/ar * zoom
- *     → fills the width; height matches exactly * zoom.
- *   On a wider viewport → same formula; the stage crops the forest equally on top/bottom.
- *   On a portrait screen → height drives: 100vh * zoom, width = 100vh*ar * zoom
- *     (wider than viewport, sides overflow) so the forest centre stays visible.
- *   max() picks the larger of both dimensions so the forest never shows a gap
- *   regardless of aspect ratio. Equivalent to background-size:cover but couples
- *   the character positions (% of .map-stage) to the image at the same time.
- *
- * Characters use style.left/top as % of .map-stage (set by the engine and by
- * homeStyle()). Because the stage and the image are the same element, character
- * positions always land on the correct part of the campsite on every screen size.
- */
+/* Narrow layout: portrait screens where the narrow scale factor is large.
+   Reduce scout-size so the compact cluster doesn't produce giant overlapping characters. */
+@media (max-aspect-ratio: 7/5) {
+  :root { --scout-size: 82px; }
+}
 .map-wrap{
   position:fixed;inset:0;overflow:hidden;
   background:#070d1c;
   z-index:5;
 }
+/* CAM-161: Full-viewport background image — decoupled from the character canvas.
+   Cover semantics: width:100%; height:100%; object-fit:cover.
+   z-index:0 keeps it behind the canvas (z-index:5 on .map-wrap is the stacking
+   context; everything inside resolves within it).
+   Story B will add srcset for hi-res screens. */
+.map-bg{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  z-index:0;pointer-events:none;display:block;
+}
+/* CAM-161: Viewport grid — centres the fixed canvas.
+   overflow:hidden clips the scaled canvas edges that extend beyond the viewport
+   (same as background-size:cover clipping). */
+.map-viewport{
+  position:absolute;inset:0;overflow:hidden;
+  display:grid;place-items:center;
+  z-index:5;
+}
+/* CAM-161: Fixed 1920×1080 design canvas.
+   --s = max(100vw/1920, 100vh/1080): cover logic — picks the larger scale so
+   both axes are covered (analogous to background-size:cover).
+   transform:scale(--s) scales the canvas + all children as one unit.
+   transform-origin:center keeps the centre fixed as the grid already centres it.
+   width/height are the design-canvas dimensions; the transform makes them fill
+   the viewport. Characters write left/top as % of this canvas (engine unchanged). */
 .map-stage{
-  position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%);
-  --ar:calc(16 / 9);
-  --zoom:1.12;
-  width:calc(max(100vw, 100vh * var(--ar)) * var(--zoom));
-  height:calc(max(100vh, 100vw / var(--ar)) * var(--zoom));
-  background:url("/status-map/campsite-forest.webp") center/cover no-repeat;
+  position:relative;
+  width:1920px;height:1080px;
+  --s:max(calc(100vw / 1920), calc(100vh / 1080));
+  transform:scale(var(--s));
+  transform-origin:center;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
@@ -422,10 +474,12 @@ function AgentScout({
 interface YouScoutProps {
   gates: MapGate[];
   onOpenGates: () => void;
+  /** CAM-161: current layout's You position (% of 1920×1080 canvas) */
+  youPos: { x: number; y: number };
 }
 
-function YouScout({ gates, onOpenGates }: YouScoutProps) {
-  const zIndex = Math.round(YOU_POS.y * 12) + 5;
+function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
+  const zIndex = Math.round(youPos.y * 12) + 5;
   const hasGates = gates.length > 0;
 
   // S7: reduced-motion You label
@@ -438,8 +492,8 @@ function YouScout({ gates, onOpenGates }: YouScoutProps) {
       type="button"
       className="scout you idle"
       style={{
-        left:   `${YOU_POS.x}%`,
-        top:    `${YOU_POS.y}%`,
+        left:   `${youPos.x}%`,
+        top:    `${youPos.y}%`,
         zIndex,
         // Reset button default styles
         background: "none",
@@ -551,6 +605,11 @@ export default function CampsiteScene({
   const [group, setGroup]         = useState<"feature" | "persona">(initialGroup);
   const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(initialEfilter);
 
+  // CAM-161: layout key — "wide" | "narrow". Changing this key causes YouScout and
+  // homeStyle() to re-render with the new layout's coordinates. The engine's setHomes()
+  // is called from the aspect-ratio listener to snap/redirect idle agents without remount.
+  const [layoutKey, setLayoutKey] = useState<"wide" | "narrow">("wide");
+
   const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
   const closePanel = useCallback(() => setOpenOverlay(null), []);
 
@@ -644,8 +703,44 @@ export default function CampsiteScene({
     }
     mq.addEventListener("change", onMqChange);
 
+    // CAM-161: aspect-ratio layout switcher — no remount.
+    // (min-aspect-ratio: 7/5) = wide: use LAYOUT_WIDE.
+    // Below threshold: use LAYOUT_NARROW so all 8 stay in the visible centre band.
+    const arMq = window.matchMedia("(min-aspect-ratio: 7/5)");
+
+    function applyLayout(isWide: boolean) {
+      const layout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW;
+      // Update the module-level var so homeStyle() picks up the new table.
+      currentLayout = layout;
+      // Trigger React re-render so YouScout + homeStyle() re-calculate.
+      setLayoutKey(isWide ? "wide" : "narrow");
+      // Snap/redirect agents via engine (if running).
+      if (engine) {
+        engine.setHomes(layout);
+      } else {
+        // Reduced-motion: directly write positions to DOM roots.
+        for (const ref of scoutRefs) {
+          const s    = ref.state;
+          const home = layout[s.role];
+          if (!home || !s.rootEl) continue;
+          s.rootEl.style.left   = `${home.x}%`;
+          s.rootEl.style.top    = `${home.y}%`;
+          s.rootEl.style.zIndex = String(Math.round(home.y * 12) + 5);
+        }
+      }
+    }
+
+    // Apply immediately for the initial aspect ratio.
+    applyLayout(arMq.matches);
+
+    function onArChange(e: MediaQueryListEvent) {
+      applyLayout(e.matches);
+    }
+    arMq.addEventListener("change", onArChange);
+
     return () => {
       mq.removeEventListener("change", onMqChange);
+      arMq.removeEventListener("change", onArChange);
       stopLoop();
     };
   }, []); // mount-once — engine is data-independent at this stage
@@ -771,15 +866,15 @@ export default function CampsiteScene({
   }, []);
 
   // Static home position for each agent (used as initial style + reduced-motion fallback).
+  // CAM-161: reads from currentLayout (LAYOUT_WIDE or LAYOUT_NARROW) rather than NODES,
+  // so positions match the active art-measured layout table.
   function homeStyle(role: string): { left: string; top: string; zIndex: number } {
-    const cfg  = ROLE_CONFIG[role];
-    if (!cfg) return { left: "50%", top: "50%", zIndex: 10 };
-    const node = NODES[cfg.node];
-    if (!node) return { left: "50%", top: "50%", zIndex: 10 };
+    const pos = currentLayout[role];
+    if (!pos) return { left: "50%", top: "50%", zIndex: 10 };
     return {
-      left:   `${node.x}%`,
-      top:    `${node.y}%`,
-      zIndex: Math.round(node.y * 12) + 5,
+      left:   `${pos.x}%`,
+      top:    `${pos.y}%`,
+      zIndex: Math.round(pos.y * 12) + 5,
     };
   }
 
@@ -805,9 +900,23 @@ export default function CampsiteScene({
     return `/status?${u.toString()}`;
   })();
 
+  // CAM-161: derive active You position from the current layout.
+  const youPos = layoutKey === "wide" ? YOU_POS_WIDE : YOU_POS_NARROW;
+
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
+
+      {/* CAM-161: Full-viewport background image — decoupled from the character canvas.
+          Not inside .map-viewport so it never scales with the canvas.
+          Story B will add srcset for hi-res. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="map-bg"
+        src="/status-map/campsite-forest.webp"
+        alt=""
+        aria-hidden="true"
+      />
 
       {/* Canvas dim overlay when a panel is open */}
       {openOverlay !== null && (
@@ -824,52 +933,59 @@ export default function CampsiteScene({
         />
       )}
 
-      {/* S7: Scene root with role="img" + aria-label summary for screen readers */}
-      <div
-        className="map-stage"
-        role="img"
-        aria-label={sceneAriaLabel}
-        style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
-        data-testid="stage--status-map"
-      >
-        {/* S7: tab order — You first (carries gates), then agents in role order */}
+      {/* CAM-161: Viewport grid — centres the fixed 1920×1080 design canvas. */}
+      <div className="map-viewport">
+        {/* S7: Scene root with role="img" + aria-label summary for screen readers */}
         <div
-          className="scout-layer"
-          role="list"
-          aria-label="ทีม AI delivery agents บนแผนที่"
+          className="map-stage"
+          role="img"
+          aria-label={sceneAriaLabel}
+          style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
+          data-testid="stage--status-map"
         >
-          {/* You rendered first so it comes first in tab order */}
-          <YouScout
-            gates={gates}
-            onOpenGates={() => openPanel("gates")}
-          />
-          {agents.map((agent) => {
-            const pos = homeStyle(agent.role);
-            return (
-              <AgentScout
-                key={agent.role}
-                agent={agent}
-                staticLeft={pos.left}
-                staticTop={pos.top}
-                staticZ={pos.zIndex}
-                rootRef={(el) => { rootRefs.current[agent.role] = el; }}
-                bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
-                onActivate={() => {
-                  // Clicking an agent opens the Crew overlay panel so the user can
-                  // see that agent's full details. This is the keyboard-triggerable
-                  // action the spec requires (AC2).
-                  openPanel("crew");
-                }}
-              />
-            );
-          })}
+          {/* S7: tab order — You first (carries gates), then agents in role order */}
+          <div
+            className="scout-layer"
+            role="list"
+            aria-label="ทีม AI delivery agents บนแผนที่"
+          >
+            {/* You rendered first so it comes first in tab order.
+                CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
+            <YouScout
+              gates={gates}
+              onOpenGates={() => openPanel("gates")}
+              youPos={youPos}
+            />
+            {agents.map((agent) => {
+              const pos = homeStyle(agent.role);
+              return (
+                <AgentScout
+                  key={agent.role}
+                  agent={agent}
+                  staticLeft={pos.left}
+                  staticTop={pos.top}
+                  staticZ={pos.zIndex}
+                  rootRef={(el) => { rootRefs.current[agent.role] = el; }}
+                  bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
+                  onActivate={() => {
+                    // Clicking an agent opens the Crew overlay panel so the user can
+                    // see that agent's full details. This is the keyboard-triggerable
+                    // action the spec requires (AC2).
+                    openPanel("crew");
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links. */}
+      {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links.
+          position:fixed sibling — NOT inside .map-viewport so it never scales. */}
       <ViewToggle dashboardHref={dashboardHref} />
 
-      {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode */}
+      {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
+          position:fixed siblings — NOT inside .map-viewport so they never scale. */}
       <MapOverlays
         model={{
           projectPct,
