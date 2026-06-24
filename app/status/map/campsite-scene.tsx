@@ -26,14 +26,17 @@
 // style.zIndex / style.opacity / style.pointerEvents on refs. No per-frame React setState.
 // Effect cleanup cancels rAF.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { MapOverlays, ViewToggle } from "./campsite-overlays";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApprovalCard, DeliveryCard, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import {
+  ADJ,
   buildScoutState,
+  NODES,
   startEngine,
   type EngineHandle,
   type ScoutRef,
 } from "./campsite-engine";
+import { LOGO } from "../dashboard-assets";
 
 export interface MapAgent {
   role: string;         // canonical role key, e.g. "frontend-engineer"
@@ -79,6 +82,7 @@ export interface MapEpicStory {
   role: string;         // canonical role from [role] tag (may be "")
   url: string;
   startedAt: string | null;
+  completedAt: string | null;
 }
 
 /** One epic as projected for the map client. */
@@ -114,13 +118,13 @@ const ROLE_CONFIG: Record<
   string,
   { node: string; color: string; poseIdx: number; displayName: string; roleLabel: string }
 > = {
-  "architect":          { node: "N",  color: "#8FB8F0", poseIdx: 0, displayName: "Architect",  roleLabel: "วางแผนระบบ" },
-  "ux-designer":        { node: "NE", color: "#B7A6FF", poseIdx: 1, displayName: "Designer",   roleLabel: "UX และวิชวล" },
-  "backend-engineer":   { node: "E",  color: "#5BE9B0", poseIdx: 2, displayName: "Backend",    roleLabel: "API และบริการ" },
-  "frontend-engineer":  { node: "SE", color: "#5FD0DE", poseIdx: 3, displayName: "Frontend",   roleLabel: "หน้าแอป" },
-  "devops-release":     { node: "SW", color: "#BFE85B", poseIdx: 4, displayName: "DevOps",     roleLabel: "CI/CD" },
-  "qa-engineer":        { node: "W",  color: "#F39FD2", poseIdx: 5, displayName: "QA",         roleLabel: "ทดสอบและตรวจสอบ" },
-  "security-reviewer":  { node: "NW", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
+  "architect":          { node: "W0",  color: "#8FB8F0", poseIdx: 0, displayName: "Architect",  roleLabel: "วางแผนระบบ" },
+  "ux-designer":        { node: "W28", color: "#B7A6FF", poseIdx: 1, displayName: "Designer",   roleLabel: "UX และวิชวล" },
+  "backend-engineer":   { node: "W23", color: "#5BE9B0", poseIdx: 2, displayName: "Backend",    roleLabel: "API และบริการ" },
+  "frontend-engineer":  { node: "W3",  color: "#5FD0DE", poseIdx: 3, displayName: "Frontend",   roleLabel: "หน้าแอป" },
+  "devops-release":     { node: "W2",  color: "#BFE85B", poseIdx: 4, displayName: "DevOps",     roleLabel: "CI/CD" },
+  "qa-engineer":        { node: "W1",  color: "#F39FD2", poseIdx: 5, displayName: "QA",         roleLabel: "ทดสอบและตรวจสอบ" },
+  "security-reviewer":  { node: "W29", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
 };
 
 // Speed variation per role index — slight spread so agents don't arrive in a clump.
@@ -134,31 +138,22 @@ const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 // on open dirt; furniture (tents/tables/board) is backdrop only, not occupied.
 // You stays at the dock (upper-left). Walk routes stay on open dirt.
 export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 50, y: 38 },
-  "ux-designer":        { x: 60, y: 43 },
-  "backend-engineer":   { x: 63, y: 52 },
-  "frontend-engineer":  { x: 59, y: 61 },
-  "devops-release":     { x: 41, y: 61 },
-  "qa-engineer":        { x: 37, y: 52 },
-  "security-reviewer":  { x: 41, y: 43 },
+  "architect":          { x: 50.1, y: 38.2 },  // W0
+  "ux-designer":        { x: 60.2, y: 43.1 },  // W28
+  "backend-engineer":   { x: 65.9, y: 60.2 },  // W23
+  "frontend-engineer":  { x: 49.8, y: 75.8 },  // W3
+  "devops-release":     { x: 37.3, y: 65.3 },  // W2
+  "qa-engineer":        { x: 32.3, y: 50.4 },  // W1
+  "security-reviewer":  { x: 43.8, y: 42.5 },  // W29
 };
-export const YOU_POS_WIDE = { x: 38, y: 23 };
+export const YOU_POS_WIDE = { x: 38, y: 31 };
 
-// LAYOUT_NARROW: tight centered cluster for < 7:5 aspect ratio (portrait phone/tablet).
-// All 8 characters packed into canvas x∈[40,60] so they stay within the visible
-// center band under cover scaling on a 9:16 screen.
-// You sits top-center; agents form a symmetric 2-column grid below.
-// Screenshot-tuned via ?grid=1; next round of tuning refines further.
-export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 42, y: 34 },
-  "ux-designer":        { x: 58, y: 34 },
-  "backend-engineer":   { x: 58, y: 50 },
-  "frontend-engineer":  { x: 58, y: 64 },
-  "devops-release":     { x: 42, y: 64 },
-  "qa-engineer":        { x: 42, y: 50 },
-  "security-reviewer":  { x: 50, y: 42 },
-};
-export const YOU_POS_NARROW = { x: 50, y: 22 };
+// Single-layout model: the decoupled fixed play area uses ONE ring on every
+// screen (narrow simply crops at the edges — no reflow). Narrow aliases the one
+// layout so the existing matchMedia wiring is a no-op; that dual-layout machinery
+// is fully retired (and tests reconciled) at the final quality gate.
+export const LAYOUT_NARROW = LAYOUT_WIDE;
+export const YOU_POS_NARROW = YOU_POS_WIDE;
 
 // Active layout (mutable at runtime; starts with wide, switched by matchMedia).
 // currentLayout is read by homeStyle() which is called each render, so React state
@@ -196,23 +191,21 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: 88px;
+  /* Container-relative (resolves against .map-stage, container-type:size) + clamped:
+     characters scale with the box but never get unreadably small or huge. cqmin =
+     % of the box's shorter side. Tune on local. */
+  --scout-size: clamp(44px, 9cqmin, 96px);
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
   --muted: rgba(223,234,245,.66);
   --faint: rgba(223,234,245,.42);
-  --line: rgba(255,255,255,.13);
-  --line-2: rgba(255,255,255,.18);
+  --line: rgba(150,240,195,.12);
+  --line-2: rgba(150,240,195,.16);
   --hi: rgba(255,255,255,.16);
-  --glass: rgba(16,26,42,.42);
-  --blur: saturate(150%) blur(20px);
+  --glass: rgba(11,30,24,.42);
+  --blur: saturate(195%) blur(30px);
   --mono: 'JetBrains Mono','Fira Mono','Consolas',monospace;
-}
-/* Narrow layout: portrait screens where the narrow scale factor is large.
-   Reduce scout-size so the compact cluster doesn't produce giant overlapping characters. */
-@media (max-aspect-ratio: 7/5) {
-  :root { --scout-size: 74px; }
 }
 .map-wrap{
   position:fixed;inset:0;overflow:hidden;
@@ -233,7 +226,6 @@ const SCENE_CSS = `
    (same as background-size:cover clipping). */
 .map-viewport{
   position:absolute;inset:0;overflow:hidden;
-  display:grid;place-items:center;
   z-index:5;
 }
 /* CAM-161: Fixed 1920×1080 design canvas.
@@ -244,13 +236,93 @@ const SCENE_CSS = `
    width/height are the design-canvas dimensions; the transform makes them fill
    the viewport. Characters write left/top as % of this canvas (engine unchanged). */
 .map-stage{
-  position:relative;
-  width:1920px;height:1080px;
-  --s:max(calc(100vw / 1920), calc(100vh / 1080));
-  transform:scale(var(--s));
-  transform-origin:center;
+  /* Contain-fit play area (reference HTML technique: design/campvibe-campsite.html
+     .stage). The box always FITS ENTIRELY within the viewport — min() of the
+     width-bound and the height-bound — so the whole character ring scales DOWN to
+     stay fully visible on any screen and is never cropped. Centred via translate.
+     Decoupled from the full-screen cover background and the fixed HUD.
+     container-type:size makes --scout-size's cqw resolve against this box, so the
+     characters scale together with the box. PAD clears the top toggle + bottom dock. */
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  --pad-x: 32px;
+  --pad-y: 140px;
+  /* Square FIT safe-zone (Phaser FIT + safeArea / reference .stage): the largest
+     square that still fits the viewport (min of width- and height-bound), CLAMPED
+     so it is never too small (phone) or too large (4K). The ring scales DOWN to
+     stay fully visible on any screen, never cropped. */
+  width: clamp(320px, min(calc(100vw - var(--pad-x)), calc(100vh - var(--pad-y))), 1100px);
+  aspect-ratio: 1 / 1;
+  container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
+/* Top row — NO bar background; transparent container, each item floats as its own chip. */
+.hud-topbar{
+  position:fixed;top:0;left:0;right:0;z-index:23;
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  pointer-events:none;
+}
+.hud-topbar > *{pointer-events:auto}
+/* logo wrapped in its own green-glass chip */
+.hud-topbar-logo{
+  display:inline-flex;align-items:center;flex:none;
+  padding:7px 16px;
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
+}
+/* Left panel stack — summary + approval, stacked vertically */
+.hud-left-panels{
+  position:fixed;top:80px;left:18px;z-index:22;
+  display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;
+  max-height:calc(100svh - 100px);overflow:hidden;
+}
+.hud-left-panels > *{pointer-events:auto}
+.hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
+.hud-right-panels > *{pointer-events:auto}
+.hud-topbar-spacer{flex:1 1 auto}
+.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
+.cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
+/* Ambient sound toggle — glass button inside the top bar. */
+.sound-toggle{
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32);
+  color:rgba(223,234,245,.66);cursor:pointer;
+  transition:background 120ms,color 120ms,border-color 120ms;
+}
+.sound-toggle:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.95)}
+.sound-toggle:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.sound-toggle.on{color:#5BE9B0;border-color:rgba(91,233,176,.4);background:rgba(91,233,176,.12)}
+.sound-toggle svg{width:20px;height:20px;display:block}
+/* Idle "waiting for work" speech bubble — engine toggles .show; text set via JS. */
+.speech{
+  position:absolute;left:50%;bottom:calc(var(--bh) + 56px);
+  transform:translateX(-50%) translateY(6px) scale(.88);
+  max-width:160px;white-space:nowrap;
+  padding:5px 11px;border-radius:13px;
+  font-size:10.5px;font-weight:600;line-height:1;color:var(--text);
+  background:rgba(18,46,37,.92);
+  box-shadow:0 8px 22px rgba(0,0,0,.42);
+  opacity:0;pointer-events:none;z-index:7;
+  transition:opacity .26s ease;
+}
+.speech::after{
+  content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:rgba(18,46,37,.92);
+}
+.speech.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+@media (prefers-reduced-motion: no-preference){
+  .speech.show{animation:speechIn .3s cubic-bezier(.34,1.56,.64,1) both, speechFloat 2.8s ease-in-out .3s infinite}
+}
+@keyframes speechIn{from{opacity:0;transform:translateX(-50%) translateY(7px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes speechFloat{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-3px) scale(1)}}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
 .scout .glow{
   position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
@@ -298,8 +370,8 @@ const SCENE_CSS = `
 .badge{
   position:absolute;left:50%;bottom:calc(var(--bh) + 4px);transform:translateX(-50%);
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:7;
-  background:rgba(18,30,48,.46);backdrop-filter:saturate(165%) blur(18px);-webkit-backdrop-filter:saturate(165%) blur(18px);
-  border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:4px 9px;
+  background:rgba(11,30,24,.46);backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;padding:4px 9px;
   box-shadow:0 6px 16px rgba(0,0,0,.32)
 }
 .badge .bdot{width:7px;height:7px;border-radius:50%;flex:none;background:rgba(190,202,218,.4)}
@@ -325,7 +397,7 @@ const SCENE_CSS = `
 .popover{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%) translateY(6px);
   width:194px;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:12;
-  background:rgba(14,24,40,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  background:rgba(10,28,20,.80);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
   border:1px solid var(--line-2);border-radius:13px;padding:11px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.46)
 }
@@ -365,6 +437,7 @@ interface AgentScoutProps {
   agent: MapAgent;
   bodyRef: (el: HTMLElement | null) => void;
   rootRef: (el: HTMLElement | null) => void;
+  speechRef: (el: HTMLElement | null) => void;
   /** Inline position used as static fallback (reduced-motion / pre-engine) */
   staticLeft: string;
   staticTop:  string;
@@ -372,14 +445,13 @@ interface AgentScoutProps {
   onActivate: () => void;
 }
 
-function AgentScout({
-  agent, bodyRef, rootRef, staticLeft, staticTop, staticZ, onActivate,
+function AgentScoutInner({
+  agent, bodyRef, rootRef, speechRef, staticLeft, staticTop, staticZ, onActivate,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
 
   const stateClass = agent.active ? "working" : "idle";
-  const relaxSrc   = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
 
   const bstatText = agent.active && agent.task
     ? agent.task.id
@@ -425,12 +497,9 @@ function AgentScout({
       <div className="glow" aria-hidden="true" />
       <div className="aura-ring" aria-hidden="true" />
       <div className="shadow" aria-hidden="true" />
-      <div
-        ref={bodyRef}
-        className="body"
-        style={{ backgroundImage: `url("${relaxSrc}")` }}
-        aria-hidden="true"
-      />
+      <div ref={bodyRef} className="body" aria-hidden="true" />
+      {/* Idle "waiting for work" speech bubble — the engine sets the text + .show class. */}
+      <div ref={speechRef} className="speech" aria-hidden="true" />
       {/* Always-in-tree badge for screen readers */}
       <div className="badge" aria-hidden="true">
         <span className="bdot" aria-hidden="true" />
@@ -473,6 +542,18 @@ function AgentScout({
     </button>
   );
 }
+
+// The agent position is engine-owned (imperative per-frame DOM writes). Memoise so a
+// status-feed re-render (every SSE pulse / 60s poll) does NOT re-apply the static home
+// position and warp a walking agent. Re-render only when its displayed data changes.
+const AgentScout = memo(AgentScoutInner, (prev, next) =>
+  prev.agent.active === next.agent.active &&
+  prev.agent.done === next.agent.done &&
+  prev.agent.activeCount === next.agent.activeCount &&
+  prev.agent.queued === next.agent.queued &&
+  prev.agent.task?.id === next.agent.task?.id &&
+  prev.agent.task?.title === next.agent.task?.title,
+);
 
 interface YouScoutProps {
   gates: MapGate[];
@@ -555,6 +636,27 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 // ── URL param helpers ─────────────────────────────────────────────────────────
 // Mirror syncUrl idiom from dashboard-client.tsx — history.replaceState, no navigation.
 
+// Filter persistence (cookie) — restored on the next visit so the view is remembered.
+const FILTER_COOKIE = "campvibe.map.filter";
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean; boardCollapsed?: boolean; teamCollapsed?: boolean };
+function readFilterCookie(): FilterCookie {
+  if (typeof document === "undefined") return {};
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)campvibe\.map\.filter=([^;]+)/);
+    return m ? (JSON.parse(decodeURIComponent(m[1])) as FilterCookie) : {};
+  } catch {
+    return {};
+  }
+}
+function writeFilterCookie(v: FilterCookie): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${FILTER_COOKIE}=${encodeURIComponent(JSON.stringify(v))};path=/;max-age=${60 * 60 * 24 * 30};samesite=lax`;
+  } catch {
+    /* ignore */
+  }
+}
+
 function syncUrl(params: Record<string, string>): void {
   try {
     const u = new URL(location.href);
@@ -573,6 +675,134 @@ function syncUrl(params: Record<string, string>): void {
 // Renders vertical + horizontal lines every 10% with numeric labels on the top
 // and left edges. Coordinates match character % positions exactly (1920×1080 canvas).
 // pointer-events:none + z-index below HUD + absent in production (prop=false).
+
+// Builds copy-pasteable NODES + ADJ source from picked waypoints. Two waypoints are
+// auto-connected when within `radius` (% of the play area) of each other.
+function genWaypointCode(points: Array<{ x: number; y: number }>, radius: number): string {
+  if (points.length === 0) return "// คลิกบนลานดิน/ทางเดินเพื่อวาง waypoint";
+  const adj: Record<number, number[]> = {};
+  points.forEach((_, i) => (adj[i] = []));
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) <= radius) {
+        adj[i].push(j);
+        adj[j].push(i);
+      }
+    }
+  }
+  const nodes = points.map((p, i) => `  W${i}: { x: ${p.x}, y: ${p.y} },`).join("\n");
+  const edges = points.map((_, i) => `  W${i}: [${adj[i].map((j) => `"W${j}"`).join(", ")}],`).join("\n");
+  return `export const NODES = {\n${nodes}\n};\n\nexport const ADJ = {\n${edges}\n};`;
+}
+
+// Dev editor (?pick=1): click the clearing to drop walk-graph waypoints on the REAL
+// scene (the only place the decoupled character layer is accurately positioned).
+// Auto-connects nearby points and prints NODES/ADJ to copy. Click a point to remove it.
+function WaypointPicker() {
+  const [points, setPoints] = useState<Array<{ x: number; y: number }>>([]);
+  const RADIUS = 26;
+  const edges: Array<[number, number]> = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) <= RADIUS) edges.push([i, j]);
+    }
+  }
+  const btn = {
+    background: "rgba(255,255,255,0.08)", color: "#dfeaf5", border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontFamily: "monospace",
+  } as const;
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
+          const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+          setPoints((prev) => {
+            const hit = prev.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 2.5);
+            return hit >= 0 ? prev.filter((_, i) => i !== hit) : [...prev, { x, y }];
+          });
+        }}
+        style={{ position: "absolute", inset: 0, zIndex: 2000, cursor: "crosshair" }}
+      />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2001, pointerEvents: "none", overflow: "visible" }}
+      >
+        {edges.map(([a, b], i) => (
+          <line key={i} x1={points[a].x} y1={points[a].y} x2={points[b].x} y2={points[b].y} stroke="rgba(143,184,240,0.65)" strokeWidth={0.3} />
+        ))}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={1.4} fill="#8FB8F0" />
+            <text x={p.x} y={p.y - 2.2} textAnchor="middle" fontSize={2.6} fontWeight={700} fontFamily="monospace" fill="#d6e6ff">{i}</text>
+          </g>
+        ))}
+      </svg>
+      <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2002, width: 320, background: "rgba(12,20,34,0.95)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12, padding: "11px 13px", color: "#dfeaf5", fontFamily: "monospace", fontSize: 11 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+          <strong style={{ fontSize: 12 }}>waypoint picker · {points.length}</strong>
+          <span>
+            <button type="button" onClick={() => setPoints((p) => p.slice(0, -1))} style={btn}>undo</button>
+            <button type="button" onClick={() => setPoints([])} style={{ ...btn, marginLeft: 6 }}>clear</button>
+          </span>
+        </div>
+        <div style={{ opacity: 0.65, marginBottom: 8, lineHeight: 1.45 }}>
+          คลิกลานดิน/ทางเดิน = วางจุด · คลิกจุดเดิม = ลบ · ต่อเส้นอัตโนมัติเมื่อใกล้ ≤{RADIUS}% · ก๊อปโค้ดส่งผม
+        </div>
+        <textarea
+          readOnly
+          value={genWaypointCode(points, RADIUS)}
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ width: "100%", height: 168, background: "rgba(0,0,0,0.34)", color: "#a8e8d0", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: 8, fontSize: 10, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+        />
+      </div>
+    </>
+  );
+}
+
+// Dev overlay (?routes=1): draws the walk graph — waypoints + edges + the central
+// campfire keep-out — in the same % space as the characters, so the route network is
+// visible for verification/tuning. Pairs with ?wander=1 to watch agents traverse it.
+function DebugRoutes() {
+  const edges: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const [a, nbrs] of Object.entries(ADJ)) {
+    for (const b of nbrs) {
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push([a, b]);
+    }
+  }
+  return (
+    <svg
+      data-testid="debug--map-routes"
+      aria-hidden="true"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 21, pointerEvents: "none", overflow: "visible" }}
+    >
+      {/* campfire keep-out (no route should cross it) */}
+      <circle cx={50} cy={54} r={7} fill="rgba(255,140,40,0.10)" stroke="rgba(255,150,60,0.75)" strokeWidth={0.3} strokeDasharray="1.4 1" />
+      {edges.map(([a, b]) => {
+        const p = NODES[a];
+        const q = NODES[b];
+        if (!p || !q) return null;
+        return <line key={`${a}-${b}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="rgba(91,233,176,0.55)" strokeWidth={0.3} />;
+      })}
+      {Object.entries(NODES).map(([k, c]) => (
+        <g key={k}>
+          <circle cx={c.x} cy={c.y} r={1.2} fill="#5BE9B0" />
+          <text x={c.x} y={c.y - 2} textAnchor="middle" fontSize={2.4} fontFamily="monospace" fontWeight={700} fill="#aeffdd">{k}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 function DebugGrid() {
   const ticks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -652,6 +882,102 @@ function DebugGrid() {
   );
 }
 
+// ── Ambient sound toggle ─────────────────────────────────────────────────────
+// A small glass button (top-right) that loops the campfire/wildlife ambience.
+// Browser autoplay policy: audio with sound only starts inside a user gesture, so
+// the default is OFF and the toggle click IS the gesture. The preference persists
+// in localStorage; on reload, if it was ON we try to resume and otherwise start on
+// the next interaction (no surprise audio, never throws).
+const SOUND_KEY = "campvibe.map.sound";
+const SOUND_SRC = "/status-map/campfire-wildlife-ambience.mp3";
+const SOUND_VOL = 0.35;
+
+function SoundToggle() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [on, setOn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(SOUND_KEY) === "on";
+    } catch {
+      return false;
+    }
+  });
+
+  // On mount, if sound was left ON, try to resume it. Autoplay may be blocked until a
+  // user gesture, so fall back to starting on the next interaction.
+  useEffect(() => {
+    if (!on) return;
+    const a = audioRef.current;
+    if (!a) return;
+    a.volume = SOUND_VOL;
+    a.play().catch(() => {
+      const resume = () => a.play().catch(() => undefined);
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+    });
+    // run once on mount; `on`'s initial value is what we restored from storage
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggle = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    setOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+      } catch {
+        /* localStorage unavailable */
+      }
+      if (next) {
+        a.volume = SOUND_VOL;
+        a.play().catch(() => undefined);
+      } else {
+        a.pause();
+      }
+      return next;
+    });
+  }, []);
+
+  const label = on ? "ปิดเสียงบรรยากาศ" : "เปิดเสียงบรรยากาศ";
+  return (
+    <>
+      <audio ref={audioRef} src={SOUND_SRC} loop preload="none" aria-hidden="true" />
+      <button
+        type="button"
+        className={on ? "sound-toggle on" : "sound-toggle"}
+        onClick={toggle}
+        aria-pressed={on}
+        aria-label={label}
+        title={label}
+        data-testid="btn--map-sound-toggle"
+      >
+        {on ? (
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor" />
+            <path
+              d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8 8 0 0 1 0 12"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor" />
+            <path
+              d="m16 9 5 6M21 9l-5 6"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </button>
+    </>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -686,14 +1012,100 @@ export default function CampsiteScene({
   const [liveModel, setLiveModel] = useState<MapModel>(model);
   const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = liveModel;
 
-  // S4: single-open overlay state — null = all closed
-  const [openOverlay, setOpenOverlay] = useState<string | null>(null);
-
   // S5: scope state — restored from URL params on mount via initial props
-  const [scope, setScope]         = useState<"all" | "epic">(initialScope);
-  const [activeEpic, setActiveEpic] = useState<string>(initialEpic);
+  const [scope, setScope]         = useState<"all" | "epic">(() => (initialEpic || readFilterCookie().epic) ? "epic" : initialScope);
+  const [activeEpic, setActiveEpic] = useState<string>(() => initialEpic || readFilterCookie().epic || "");
   const [group, setGroup]         = useState<"feature" | "persona">(initialGroup);
-  const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(initialEfilter);
+  const [efilter, setEfilter]     = useState<"all" | "prog" | "done" | "todo">(() => {
+    if (initialEfilter !== "all") return initialEfilter;
+    const c = readFilterCookie().efilter;
+    return c === "prog" || c === "done" || c === "todo" ? c : "all";
+  });
+  const [persona, setPersona]     = useState<string>(() => readFilterCookie().persona ?? "");
+  const [feature, setFeature]     = useState<string>(() => readFilterCookie().feature ?? "");
+
+  // Cascading filter options (Persona → Feature → Epic), narrowed by the current selection.
+  const filterOpts = useMemo(() => {
+    const personas = [...new Set(epics.map((e) => e.persona).filter(Boolean))].sort();
+    const featPool = persona ? epics.filter((e) => e.persona === persona) : epics;
+    const features = [...new Set(featPool.map((e) => e.feature).filter(Boolean))].sort();
+    const epicList = featPool
+      .filter((e) => !feature || e.feature === feature)
+      .map((e) => ({ key: e.key, label: e.label }));
+    return { personas, features, epics: epicList };
+  }, [epics, persona, feature]);
+
+  const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(() => readFilterCookie().summaryCollapsed ?? false);
+  const [deliveryCollapsed, setDeliveryCollapsed] = useState<boolean>(() => readFilterCookie().deliveryCollapsed ?? false);
+  const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
+  const [boardCollapsed, setBoardCollapsed] = useState<boolean>(() => readFilterCookie().boardCollapsed ?? false);
+  const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
+
+  // Summary stats — filtered by the current persona/feature/epic selection.
+  const summaryStats = useMemo(() => {
+    let filtered = epics;
+    if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
+    else if (feature) filtered = epics.filter((e) => e.feature === feature);
+    else if (persona) filtered = epics.filter((e) => e.persona === persona);
+
+    const allStories = filtered.flatMap((e) => e.stories);
+    const storyDone = allStories.filter((s) => s.statusType === "completed").length;
+    const storyTotal = allStories.length;
+    const backlog = allStories.filter((s) => s.status === "Backlog").length;
+    const epicDone = filtered.filter((e) => e.bucket === "done").length;
+    const epicTotal = filtered.length;
+    const pct = storyTotal ? Math.round((storyDone / storyTotal) * 100) : projectPct;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStories = allStories.filter((s) => s.completedAt?.startsWith(todayStr)).length;
+    const todayEpics = filtered.filter(
+      (e) => e.bucket === "done" && e.stories.some((s) => s.completedAt?.startsWith(todayStr))
+    ).length;
+
+    const sparkline: number[] = Array(7).fill(0);
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+    for (const s of allStories) {
+      if (!s.completedAt) continue;
+      const daysAgo = Math.floor((Date.now() - new Date(s.completedAt).getTime()) / 86400000);
+      if (daysAgo >= 0 && daysAgo < 7) sparkline[6 - daysAgo]++;
+    }
+    const weekStories = sparkline.reduce((a, b) => a + b, 0);
+    const weekEpics = filtered.filter(
+      (e) => e.stories.some((s) => s.completedAt && new Date(s.completedAt).getTime() >= sevenDaysAgo)
+    ).length;
+
+    const statusCounts: Record<string, number> = {};
+    for (const s of allStories) { statusCounts[s.status] = (statusCounts[s.status] ?? 0) + 1; }
+
+    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline, statusCounts };
+  }, [epics, persona, feature, scope, activeEpic, projectPct]);
+
+  const showBoard = !!feature || (scope === "epic" && !!activeEpic);
+  const boardStories = useMemo(() => {
+    if (!showBoard) return [];
+    let filtered = epics;
+    if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
+    else if (feature) filtered = epics.filter((e) => e.feature === feature);
+    return filtered.flatMap((e) => e.stories);
+  }, [epics, feature, scope, activeEpic, showBoard]);
+
+  const boardLabel = useMemo(() => {
+    if (scope === "epic" && activeEpic) return epics.find((e) => e.key === activeEpic)?.label ?? activeEpic;
+    if (feature) return feature;
+    return "";
+  }, [scope, activeEpic, feature, epics]);
+
+  // One handler for the 3-level filter; choosing a higher level resets the lower ones.
+  const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
+    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
+    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); }
+    else { setActiveEpic(value); setScope(value ? "epic" : "all"); }
+  }, []);
+
+  // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
+  useEffect(() => {
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed, teamCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed, teamCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -708,18 +1120,42 @@ export default function CampsiteScene({
     return isWide ? "wide" : "narrow";
   });
 
-  const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
-  const closePanel = useCallback(() => setOpenOverlay(null), []);
 
   // DOM refs — body and root element per agent, indexed by role.
   const bodyRefs = useRef<Record<string, HTMLElement | null>>({});
   const rootRefs = useRef<Record<string, HTMLElement | null>>({});
+  const speechRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Exposed handle for S6 (parent can access via a forwarded ref if needed).
   const engineRef = useRef<EngineHandle | null>(null);
 
   // S7: track whether engine has started — used to re-apply scope after engine starts.
   const [engineReady, setEngineReady] = useState(false);
+
+  // Dev: ?routes=1 overlays the walk graph (waypoints + edges + campfire keep-out).
+  const debugRoutes =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("routes") === "1";
+
+  // Dev: ?pick=1 turns on the waypoint editor — click the clearing to lay down the
+  // walk graph on the real scene, then copy the generated NODES/ADJ for me to wire in.
+  const debugPick =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("pick") === "1";
+
+  // Drive wander/rest from live data: active roles wander, idle roles rest.
+  // Runs once the engine is ready and again whenever an agent's status changes.
+  // Dev aid: ?wander=1 forces everyone to wander (the wander behaviour is otherwise
+  // hard to see when the live data has no active work).
+  useEffect(() => {
+    if (!engineReady) return;
+    const forceWander =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("wander") === "1";
+    const activeByRole: Record<string, boolean> = {};
+    for (const a of agents) activeByRole[a.role] = forceWander || a.active;
+    engineRef.current?.setActivity(activeByRole);
+  }, [engineReady, agents]);
 
   useEffect(() => {
     // Guard: only run in the browser (this is a "use client" component, but be safe).
@@ -745,11 +1181,18 @@ export default function CampsiteScene({
       const state       = buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0, homeCoords);
       state.bodyEl = bodyRefs.current[role] ?? null;
       state.rootEl = rootRefs.current[role] ?? null;
-      // Apply idle class and correct DOM position immediately so the first paint
-      // matches the layout (no frame where agents sit at the wrong place).
+      state.speechEl = speechRefs.current[role] ?? null;
+      // The engine owns the body sprite from here on; set the initial relax pose now
+      // so the character is visible on the first paint (React no longer sets it).
+      if (state.bodyEl) {
+        const relaxSrc = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
+        state.bodyEl.style.backgroundImage = `url("${relaxSrc}")`;
+        state.lastSrc = relaxSrc;
+      }
+      // Position immediately so the first paint matches the layout. The idle/working
+      // class is owned by React (className); the engine only toggles walking-mode.
       if (state.rootEl) {
-        state.rootEl.classList.remove("entering", "walking-mode");
-        state.rootEl.classList.add("idle");
+        state.rootEl.classList.remove("walking-mode");
         state.rootEl.style.left   = `${state.homeX}%`;
         state.rootEl.style.top    = `${state.homeY}%`;
         state.rootEl.style.zIndex = String(Math.round(state.homeY * 12) + 5);
@@ -780,9 +1223,8 @@ export default function CampsiteScene({
         s.rootEl.style.left   = `${s.homeX}%`;
         s.rootEl.style.top    = `${s.homeY}%`;
         s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
-        // Restore class to idle (idle CSS sway is also off under reduced-motion)
-        s.rootEl.classList.remove("entering", "walking-mode");
-        s.rootEl.classList.add("idle");
+        // React owns idle/working; the engine only toggles walking-mode.
+        s.rootEl.classList.remove("walking-mode");
       }
     }
 
@@ -920,8 +1362,6 @@ export default function CampsiteScene({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-
     // 60s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
     const FALLBACK_MS = 60_000;
     let fallbackId: ReturnType<typeof setInterval> | null = null;
@@ -933,18 +1373,11 @@ export default function CampsiteScene({
         if (!res.ok) return; // S7: non-ok response — keep last-known data, don't crash
         const next = (await res.json()) as MapModel;
 
-        // Update React state — overlays will re-render with fresh data.
+        // Update React state — overlays re-render, and the setActivity effect (keyed on
+        // the agents' active flags) drives wander/rest. No per-pulse triggerWalk loop:
+        // it yanked active wanderers home on every pulse (breaking continuous, random
+        // wandering) and could redirect a mid-walk agent on a path across the campfire.
         setLiveModel(next);
-
-        // Mutate the running engine for each agent: if active status or task changed,
-        // trigger a walk so the character visually responds to the data change.
-        const engine = engineRef.current;
-        if (engine && !mq.matches) {
-          for (const nextAgent of next.agents) {
-            engine.triggerWalk(nextAgent.role);
-          }
-        }
-        // Under reduced-motion: setLiveModel above updates overlay data statically; no walk.
       } catch {
         // S7: transient fetch error — keep last-known liveModel, don't crash or blank.
         // Next poll or SSE event will retry.
@@ -985,17 +1418,14 @@ export default function CampsiteScene({
     };
   }, [token]); // token is stable after mount; reconnect only if it changes
 
-  // Scope change helpers passed to MapOverlays.
   const handleSelectEpic = useCallback((epicKey: string) => {
     setActiveEpic(epicKey);
     setScope("epic");
-    setOpenOverlay(null); // close switcher after selecting
   }, []);
 
   const handleBackToOverview = useCallback(() => {
     setScope("all");
     setActiveEpic("");
-    setOpenOverlay(null);
   }, []);
 
   // Static home position for each agent (used as initial style + reduced-motion fallback).
@@ -1038,7 +1468,7 @@ export default function CampsiteScene({
 
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
-      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS + HUD_CSS }} />
 
       {/* CAM-162: Responsive background image with srcset for hi-res screens.
           sizes="max(100vw, 177.78vh)" accounts for cover overscale on 16:9 —
@@ -1057,21 +1487,6 @@ export default function CampsiteScene({
         fetchPriority="high"
       />
 
-      {/* Canvas dim overlay when a panel is open */}
-      {openOverlay !== null && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 19,
-            background: "rgba(6,11,26,.38)",
-            pointerEvents: "none",
-            transition: "opacity 200ms",
-          }}
-        />
-      )}
-
       {/* CAM-161: Viewport grid — centres the fixed 1920×1080 design canvas. */}
       <div className="map-viewport">
         {/* S7: Scene root with role="img" + aria-label summary for screen readers */}
@@ -1079,7 +1494,6 @@ export default function CampsiteScene({
           className="map-stage"
           role="img"
           aria-label={sceneAriaLabel}
-          style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
           data-testid="stage--status-map"
         >
           {/* S7: tab order — You first (carries gates), then agents in role order */}
@@ -1092,12 +1506,14 @@ export default function CampsiteScene({
                 Renders inside .scout-layer so its % coords match character positions exactly.
                 pointer-events:none; below HUD; absent in normal view. */}
             {debugGrid && <DebugGrid />}
+            {debugRoutes && <DebugRoutes />}
+            {debugPick && <WaypointPicker />}
 
             {/* You rendered first so it comes first in tab order.
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
             <YouScout
               gates={gates}
-              onOpenGates={() => openPanel("gates")}
+              onOpenGates={() => setApprovalCollapsed(false)}
               youPos={youPos}
             />
             {agents.map((agent) => {
@@ -1111,12 +1527,8 @@ export default function CampsiteScene({
                   staticZ={pos.zIndex}
                   rootRef={(el) => { rootRefs.current[agent.role] = el; }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
-                  onActivate={() => {
-                    // Clicking an agent opens the Crew overlay panel so the user can
-                    // see that agent's full details. This is the keyboard-triggerable
-                    // action the spec requires (AC2).
-                    openPanel("crew");
-                  }}
+                  speechRef={(el) => { speechRefs.current[agent.role] = el; }}
+                  onActivate={() => setTeamCollapsed(false)}
                 />
               );
             })}
@@ -1124,36 +1536,81 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links.
-          position:fixed sibling — NOT inside .map-viewport so it never scales. */}
-      <ViewToggle dashboardHref={dashboardHref} />
+      {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
+      <div className="hud-topbar">
+        <div className="hud-topbar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO }} />
+        <FilterSignposts
+          personas={filterOpts.personas}
+          features={filterOpts.features}
+          epics={filterOpts.epics}
+          persona={persona}
+          feature={feature}
+          epic={scope === "epic" ? activeEpic : ""}
+          onChange={onFilterChange}
+        />
+        <div className="hud-topbar-spacer" />
+        <div className="hud-topbar-right">
+          <ViewToggle dashboardHref={dashboardHref} />
+          <SoundToggle />
+        </div>
+      </div>
 
-      {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
-          position:fixed siblings — NOT inside .map-viewport so they never scale. */}
-      <MapOverlays
-        model={{
-          projectPct,
-          gates,
-          agents,
-          epicsActive,
-          totalEpics,
-          backlogItems,
-          envLanes,
-          epics,
-        }}
-        scope={scope}
-        activeEpic={activeEpic}
-        activeEpicData={activeEpicData}
-        group={group}
-        efilter={efilter}
-        openOverlay={openOverlay}
-        onOpen={openPanel}
-        onClose={closePanel}
-        onSelectEpic={handleSelectEpic}
-        onBackToOverview={handleBackToOverview}
-        onGroupChange={setGroup}
-        onEfilterChange={setEfilter}
-      />
+      {/* Left panel stack — summary · delivery · approval */}
+      <div className="hud-left-panels">
+        <SummaryCard
+          pct={summaryStats.pct}
+          epicDone={summaryStats.epicDone}
+          epicTotal={summaryStats.epicTotal}
+          storyDone={summaryStats.storyDone}
+          storyTotal={summaryStats.storyTotal}
+          backlog={summaryStats.backlog}
+          statusCounts={summaryStats.statusCounts}
+          collapsed={summaryCollapsed}
+          onToggle={() => setSummaryCollapsed((v) => !v)}
+        />
+        <DeliveryCard
+          todayEpics={summaryStats.todayEpics}
+          todayStories={summaryStats.todayStories}
+          weekEpics={summaryStats.weekEpics}
+          weekStories={summaryStats.weekStories}
+          sparkline={summaryStats.sparkline}
+          epicDone={summaryStats.epicDone}
+          epicTotal={summaryStats.epicTotal}
+          storyDone={summaryStats.storyDone}
+          storyTotal={summaryStats.storyTotal}
+          collapsed={deliveryCollapsed}
+          onToggle={() => setDeliveryCollapsed((v) => !v)}
+        />
+        {gates.length > 0 && (
+          <ApprovalCard
+            gates={gates}
+            collapsed={approvalCollapsed}
+            onToggle={() => setApprovalCollapsed((v) => !v)}
+            onOpen={() => setApprovalCollapsed(false)}
+          />
+        )}
+        <TeamRoster
+          agents={agents}
+          collapsed={teamCollapsed}
+          onToggle={() => setTeamCollapsed((v) => !v)}
+        />
+      </div>
+
+      {/* Right panel — status board */}
+      <div className="hud-right-panels">
+        {showBoard ? (
+          <StatusBoard
+            stories={boardStories}
+            label={boardLabel}
+            pct={summaryStats.pct}
+            collapsed={boardCollapsed}
+            onToggle={() => setBoardCollapsed((v) => !v)}
+          />
+        ) : (
+          <StatusBoardHint />
+        )}
+      </div>
+
     </div>
   );
 }

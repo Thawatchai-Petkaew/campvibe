@@ -25,9 +25,11 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
+  useState,
 } from "react";
+import { createPortal } from "react-dom";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Inbox, Layers, Monitor, ShieldCheck, Trophy } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -41,7 +43,7 @@ import { buildTrail, stageOf, STAGES } from "@/lib/status-derive";
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
-const HUD_CSS = `
+export const HUD_CSS = `
 /* ---- Dock ---- */
 .hud-dock {
   position:fixed;
@@ -51,12 +53,12 @@ const HUD_CSS = `
   z-index:40;
   display:flex;
   align-items:stretch;
-  background:rgba(10,20,36,.82);
-  backdrop-filter:saturate(165%) blur(22px);
-  -webkit-backdrop-filter:saturate(165%) blur(22px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.56);
+  backdrop-filter:saturate(195%) blur(30px);
+  -webkit-backdrop-filter:saturate(195%) blur(30px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:999px;
-  box-shadow:0 16px 48px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow:0 16px 48px rgba(0,0,0,.52),inset 0 1px 0 rgba(200,255,232,.14);
   max-width:min(960px,94vw);
   overflow-x:auto;
   overflow-y:hidden;
@@ -149,12 +151,12 @@ const HUD_CSS = `
   position:fixed;
   bottom:80px;
   z-index:50;
-  background:rgba(10,20,36,.92);
-  backdrop-filter:saturate(165%) blur(24px);
-  -webkit-backdrop-filter:saturate(165%) blur(24px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.62);
+  backdrop-filter:saturate(195%) blur(32px);
+  -webkit-backdrop-filter:saturate(195%) blur(32px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:18px;
-  box-shadow:0 24px 56px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.1);
+  box-shadow:0 24px 56px rgba(0,0,0,.56),inset 0 1px 0 rgba(200,255,232,.12);
   padding:18px 20px 20px;
   min-width:260px;
   max-width:min(360px,92vw);
@@ -206,12 +208,12 @@ const HUD_CSS = `
   width:min(900px,96vw);
   max-height:88vh;
   overflow-y:auto;
-  background:rgba(10,20,36,.94);
-  backdrop-filter:saturate(165%) blur(26px);
-  -webkit-backdrop-filter:saturate(165%) blur(26px);
-  border:1px solid rgba(255,255,255,.18);
+  background:rgba(11,30,24,.68);
+  backdrop-filter:saturate(195%) blur(34px);
+  -webkit-backdrop-filter:saturate(195%) blur(34px);
+  border:1px solid rgba(150,240,195,.13);
   border-radius:22px;
-  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(200,255,232,.14);
   padding:24px 26px 28px;
   color:rgba(223,234,245,.9);
 }
@@ -245,8 +247,8 @@ const HUD_CSS = `
 .hud-metric-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .hud-metric{
   display:inline-flex;flex-direction:column;align-items:center;
-  background:linear-gradient(180deg,rgba(11,42,43,.3),rgba(8,19,22,.18));
-  border:1px solid rgba(255,255,255,.06);border-radius:10px;
+  background:rgba(91,233,176,.07);
+  border:1px solid rgba(150,240,195,.15);border-radius:10px;
   padding:8px 14px;min-width:62px;text-align:center;
 }
 .hud-metric-val{
@@ -284,41 +286,43 @@ const HUD_CSS = `
 .hud-col[data-col="Done"] .hud-col-head{color:#76E0AE}
 
 .hud-card{
-  background:linear-gradient(180deg,rgba(11,42,43,.32),rgba(8,19,22,.2));
-  border:1px solid rgba(255,255,255,.07);
-  border-radius:11px;padding:10px 11px;margin-bottom:8px;
+  display:block;text-decoration:none;color:inherit;
+  background:rgba(91,233,176,.05);
+  border:1px solid rgba(150,240,195,.13);
+  border-radius:12px;padding:10px 11px;margin-bottom:8px;
 }
 .hud-card:last-child{margin-bottom:0}
-.hud-card.active{border-color:rgba(91,233,176,.34)}
-.hud-card.awaiting{border-color:rgba(255,150,52,.4);background:linear-gradient(160deg,rgba(255,150,52,.1),transparent)}
+@keyframes hud-card-glow{
+  0%,100%{box-shadow:none;border-color:rgba(91,233,176,.22)}
+  50%{box-shadow:0 0 12px rgba(91,233,176,.2),0 0 4px rgba(91,233,176,.1);border-color:rgba(91,233,176,.6)}
+}
+.hud-card.active{border-color:rgba(91,233,176,.35);background:rgba(91,233,176,.09);animation:hud-card-glow 2.4s ease-in-out infinite}
+.hud-card.awaiting{border-color:rgba(255,150,52,.45);background:linear-gradient(160deg,rgba(255,150,52,.09),rgba(91,233,176,.04))}
 .hud-card-lane{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
   font-size:9px;letter-spacing:.08em;text-transform:uppercase;
-  color:rgba(223,234,245,.45);margin-bottom:5px;
+  color:rgba(223,234,245,.42);margin-bottom:5px;
 }
 .hud-card.active .hud-card-lane{color:#5BE9B0}
 .hud-card.awaiting .hud-card-lane{color:#FFB454}
-.hud-card-id{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
-  font-size:9.5px;color:rgba(223,234,245,.4);
-}
-.hud-card-title{font-size:12px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px}
+.hud-card-id{font-size:9.5px;color:rgba(223,234,245,.35)}
+.hud-card-title{font-size:12.5px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px}
 .hud-card-footer{
   display:flex;align-items:center;justify-content:space-between;margin-top:7px;
 }
 .hud-card-role{
-  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
-  font-size:9px;padding:2px 6px;border-radius:999px;
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-  color:rgba(223,234,245,.5);
+  font-size:9.5px;padding:2px 7px;border-radius:999px;
+  background:rgba(91,233,176,.08);border:1px solid rgba(150,240,195,.15);
+  color:rgba(223,234,245,.55);
 }
+.hud-card.active .hud-card-role{color:#5BE9B0;border-color:rgba(91,233,176,.3);background:rgba(91,233,176,.12)}
+.hud-card.awaiting .hud-card-role{color:rgba(255,180,80,.85);border-color:rgba(255,150,52,.3)}
 .hud-you-badge{
   font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;
   background:#FFB454;color:#241402;
 }
 .hud-col-empty{
-  border:1px dashed rgba(255,255,255,.1);border-radius:10px;
-  padding:18px 6px;text-align:center;color:rgba(223,234,245,.28);font-size:10.5px;
+  border:1px dashed rgba(150,240,195,.13);border-radius:10px;
+  padding:18px 6px;text-align:center;color:rgba(223,234,245,.25);font-size:10.5px;font-style:italic;
 }
 .hud-legend{
   display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:14px;
@@ -418,7 +422,7 @@ const HUD_CSS = `
 
 /* Scope switcher inside panel */
 .hud-seg-group {
-  display:flex;gap:0;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden;margin-bottom:8px;
+  display:flex;gap:0;border:1px solid rgba(150,240,195,.13);border-radius:8px;overflow:hidden;margin-bottom:8px;
 }
 .hud-seg-tab {
   flex:1;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;
@@ -498,39 +502,250 @@ const HUD_CSS = `
 }
 .hud-queue-title{font-size:11px;color:rgba(223,234,245,.8);line-height:1.4;flex:1}
 
-/* View toggle (top center) */
+/* View switch → single "Dashboard" button, top-LEFT (top-centre is freed for content) */
 .hud-view-toggle {
-  position:fixed;
-  top:18px;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:22;
-  display:inline-flex;
-  border:1px solid rgba(255,255,255,.16);
+  display:inline-flex;align-items:center;gap:8px;
+  padding:0 16px;min-height:44px;
+  border:1px solid rgba(150,240,195,.13);
   border-radius:999px;
-  overflow:hidden;
-  background:rgba(16,26,42,.62);
-  backdrop-filter:saturate(150%) blur(18px);
-  -webkit-backdrop-filter:saturate(150%) blur(18px);
-  box-shadow:0 8px 24px rgba(0,0,0,.32);
+  background:rgba(11,30,24,.52);
+  backdrop-filter:saturate(195%) blur(26px);
+  -webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
+  color:rgba(223,234,245,.82);
+  font-size:12.5px;font-weight:600;text-decoration:none;
+  transition:background 120ms,color 120ms,border-color 120ms;
 }
-.hud-toggle-item {
-  display:inline-flex;align-items:center;
-  padding:10px 20px;min-height:44px;
-  font-size:12.5px;font-weight:600;
-  color:rgba(223,234,245,.6);
-  text-decoration:none;
-  border-right:1px solid rgba(255,255,255,.12);
+.hud-view-toggle:hover{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.3)}
+.hud-view-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
+.hud-view-toggle svg{display:block;flex:none}
+/* ── Top filter: cascading signposts (Persona→Feature→Epic) ── */
+.hud-signposts{display:inline-flex;align-items:center;flex:none}
+.hud-signpost-wrap{position:relative;display:inline-flex}
+.hud-signpost{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:0 13px;min-height:40px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+  color:rgba(223,234,245,.78);font-size:12px;font-weight:600;cursor:pointer;
+  transition:background 120ms,color 120ms,border-color 120ms;
+}
+.hud-signpost-wrap:first-child .hud-signpost{border-radius:999px 0 0 999px;padding-left:15px}
+.hud-signpost-wrap:last-child .hud-signpost{border-radius:0 999px 999px 0;padding-right:15px}
+.hud-signpost-wrap:not(:first-child) .hud-signpost{border-left:none}
+.hud-signpost:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
+.hud-signpost.active{color:#5BE9B0}
+.hud-sp-icon{display:inline-flex;opacity:.85}
+.hud-sp-label{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-sp-caret{opacity:.55;margin-left:2px;display:block;flex:none}
+.hud-signpost-menu{
+  position:absolute;top:calc(100% + 7px);left:0;z-index:30;width:220px;max-height:62vh;overflow-y:auto;
+  display:flex;flex-direction:column;gap:1px;padding:6px;
+  border:1px solid rgba(150,240,195,.16);border-radius:14px;
+  background:rgba(11,30,24,.72);
+  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
+  box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-sp-opt{
+  display:block;width:100%;
+  text-align:left;padding:9px 12px;border-radius:9px;
+  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:background 100ms,color 100ms;
+}
+.hud-sp-opt:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
+.hud-sp-opt.sel{background:rgba(91,233,176,.15);color:#5BE9B0}
+/* status chips — second floating row under the filter */
+.hud-efilter{
+  position:fixed;top:64px;left:18px;z-index:22;
+  display:inline-flex;align-items:center;gap:4px;
+  padding:5px 8px;border-radius:999px;
+  border:1px solid rgba(150,240,195,.12);background:rgba(11,30,24,.45);
+  backdrop-filter:saturate(195%) blur(24px);-webkit-backdrop-filter:saturate(195%) blur(24px);
+  box-shadow:inset 0 1px 0 rgba(200,255,232,.08);
+}
+.hud-ef-chip{
+  padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;
+  color:rgba(223,234,245,.6);transition:background 100ms,color 100ms;
+}
+.hud-ef-chip:hover{color:rgba(223,234,245,.9)}
+.hud-ef-chip.on{background:rgba(91,233,176,.16);color:#5BE9B0}
+
+/* ── Summary card (Step 3, left panel below top bar) ── */
+/* Summary + Approval cards — positioned by .hud-left-panels wrapper in campsite-scene.tsx */
+.hud-summary{}
+.hud-sum-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.52);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 4px 16px rgba(0,0,0,.28),inset 0 1px 0 rgba(200,255,232,.10);
+  color:rgba(223,234,245,.78);font-size:12px;font-weight:600;
   transition:background 120ms,color 120ms;
 }
-.hud-toggle-item:last-child{border-right:none}
-.hud-toggle-item:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.9)}
-.hud-toggle-item:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:-2px}
-.hud-toggle-item.active{
-  background:rgba(91,233,176,.15);
-  color:#5BE9B0;
-  cursor:default;
+.hud-sum-chip:hover{background:rgba(91,233,176,.10);color:rgba(223,234,245,.92)}
+.hud-sum-chip-pct{color:#5BE9B0;font-weight:700}
+.hud-sum-chip-dot{opacity:.4;margin:0 1px}
+.hud-sum-chip-caret{opacity:.5;display:block;flex:none}
+.hud-sum-chip-item{display:inline-flex;align-items:center;gap:4px}
+.hud-sum-today-item{display:inline-flex;align-items:center;gap:4px}
+.hud-sum-mini{padding:6px 12px 12px}
+/* 5 kanban lane chips in a 2-col grid */
+.hud-sum-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.hud-sum-mini-lane{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 10px;border-radius:10px;
+  background:rgba(91,233,176,.05);border:1px solid rgba(150,240,195,.11);
 }
+.hud-sum-mini-dot{width:6px;height:6px;border-radius:99px;flex:none}
+@keyframes mini-dot-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(91,233,176,.4)}50%{opacity:.8;box-shadow:0 0 0 3px rgba(91,233,176,.15)}}
+.hud-sum-mini-dot.dot-inprog{animation:mini-dot-pulse 2s ease-in-out infinite}
+.hud-sum-mini-cnt{font-size:13px;font-weight:800;line-height:1;flex:none}
+.hud-sum-mini-lbl{font-size:9.5px;font-weight:600;letter-spacing:.02em;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-sum-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-sum-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px 0;
+}
+.hud-sum-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-sum-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-sum-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-sum-body{padding:4px 16px 14px}
+.hud-sum-gauge{margin:6px 0 10px}
+.hud-sum-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:3px 0;font-size:12.5px;color:rgba(223,234,245,.65);
+}
+.hud-sum-row-l{display:flex;align-items:center;gap:5px}
+.hud-sum-count{font-size:13px;font-weight:700;color:rgba(223,234,245,.9)}
+.hud-sum-sep{height:1px;background:rgba(150,240,195,.09);margin:8px 0 6px}
+.hud-sum-today-label{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(91,233,176,.5);text-align:center;margin-bottom:5px}
+.hud-sum-today{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12.5px;font-weight:600;color:rgba(223,234,245,.8);padding-bottom:8px}
+.hud-sum-today-none{font-size:11.5px;color:rgba(223,234,245,.3);text-align:center;padding-bottom:8px}
+.hud-sum-spark-label{font-size:9.5px;color:rgba(223,234,245,.28);text-align:right;margin-bottom:3px}
+.hud-spark{display:flex;align-items:flex-end;gap:3px;height:30px}
+.hud-spark-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px;transition:height .4s ease}
+/* ── Delivery card ── */
+.hud-dlv-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-dlv-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0}
+.hud-dlv-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-dlv-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-dlv-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-dlv-tabs{
+  display:flex;gap:4px;padding:8px 14px 0;
+}
+.hud-dlv-tab{
+  flex:1;padding:5px 0;border-radius:999px;font-size:10.5px;font-weight:700;
+  text-align:center;cursor:pointer;border:1px solid rgba(150,240,195,.1);
+  background:transparent;color:rgba(223,234,245,.45);
+  transition:background 110ms,color 110ms,border-color 110ms;
+}
+.hud-dlv-tab:hover{color:rgba(223,234,245,.75)}
+.hud-dlv-tab.on{background:rgba(91,233,176,.15);border-color:rgba(91,233,176,.3);color:#5BE9B0}
+.hud-dlv-body{padding:10px 14px 14px}
+/* big-number view (today / week headline) */
+.hud-dlv-nums{display:flex;gap:8px;margin-bottom:4px}
+.hud-dlv-num{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:10px 6px;border-radius:12px;
+  background:rgba(91,233,176,.07);border:1px solid rgba(91,233,176,.12);
+}
+.hud-dlv-big{font-size:28px;font-weight:800;color:#5BE9B0;line-height:1}
+.hud-dlv-sub{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:rgba(223,234,245,.45);letter-spacing:.05em;text-transform:uppercase}
+@keyframes dlv-pulse{
+  0%,100%{color:#5BE9B0;text-shadow:0 0 0 rgba(91,233,176,0);transform:scale(1)}
+  50%{color:#8fffd6;text-shadow:0 0 14px rgba(91,233,176,.7),0 0 32px rgba(91,233,176,.3);transform:scale(1.06)}
+}
+.hud-dlv-pulse{animation:dlv-pulse 2.4s ease-in-out infinite}
+.hud-dlv-empty{font-size:11.5px;color:rgba(223,234,245,.3);text-align:center;padding:14px 0}
+/* sparkline (week) */
+.hud-dlv-spark{display:flex;align-items:flex-end;gap:3px;height:44px;margin-bottom:8px}
+.hud-dlv-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px}
+.hud-dlv-total{font-size:11.5px;color:rgba(223,234,245,.55);text-align:center}
+.hud-dlv-total strong{color:rgba(223,234,245,.85);font-size:13px}
+/* progress rows (all) */
+.hud-dlv-prog-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hud-dlv-prog-label{font-size:11.5px;color:rgba(223,234,245,.55);width:42px;flex:none;display:flex;align-items:center;gap:4px}
+.hud-dlv-prog-bar{flex:1;height:6px;border-radius:3px;background:rgba(91,233,176,.1);overflow:hidden}
+.hud-dlv-prog-fill{height:100%;background:#5BE9B0;border-radius:3px;transition:width .6s ease}
+.hud-dlv-prog-val{font-size:11px;font-weight:700;color:rgba(223,234,245,.7);flex:none;width:40px;text-align:right}
+/* mini (collapsed) */
+.hud-dlv-mini{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 14px 12px;font-size:12px;font-weight:600;color:rgba(223,234,245,.7)}
+.hud-dlv-mini-val{color:#5BE9B0;font-size:13px;font-weight:700}
+/* ── Approval card ── */
+.hud-appr-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(255,190,80,.18);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,220,130,.08);
+}
+.hud-appr-head{
+  display:flex;align-items:center;gap:7px;justify-content:space-between;
+  padding:11px 14px 0;
+}
+.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,190,80,.7)}
+.hud-appr-mini{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 14px 12px;
+  font-size:12px;font-weight:600;color:rgba(223,234,245,.7);
+}
+.hud-appr-mini-label{display:flex;align-items:center;gap:6px;color:rgba(255,190,80,.85)}
+.hud-appr-body{padding:6px 14px 12px;display:flex;flex-direction:column;gap:4px}
+.hud-appr-item{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;
+  background:rgba(255,190,80,.06);border:1px solid rgba(255,190,80,.12);
+}
+.hud-appr-badge{
+  flex:none;padding:2px 7px;border-radius:99px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
+  background:rgba(255,190,80,.2);color:rgba(255,200,80,.9);
+}
+.hud-appr-title{flex:1;min-width:0;font-size:11.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-appr-link{
+  flex:none;display:inline-flex;align-items:center;
+  color:rgba(223,234,245,.35);transition:color 110ms;
+}
+.hud-appr-link:hover{color:rgba(91,233,176,.8)}
+.hud-appr-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin:4px 0 0;padding:9px 14px;border-radius:12px;
+  background:rgba(255,190,80,.12);border:1px solid rgba(255,190,80,.2);
+  font-size:12px;font-weight:700;color:rgba(255,200,80,.9);
+  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
+}
+.hud-appr-btn:hover{background:rgba(255,190,80,.2);border-color:rgba(255,190,80,.36)}
+.hud-appr-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(255,190,80,.45);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-appr-collapse:hover{background:rgba(255,190,80,.1);color:rgba(255,190,80,.9)}
 
 /* Epic open board button inside dock */
 .hud-board-btn {
@@ -545,6 +760,161 @@ const HUD_CSS = `
 }
 .hud-board-btn:hover{background:rgba(91,233,176,.16)}
 .hud-board-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:-2px}
+
+/* ── Status Board right panel ── */
+.hud-sb-card{
+  width:220px;border-radius:18px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+  display:flex;flex-direction:column;overflow:hidden;
+  max-height:calc(100svh - 100px - 20px);
+}
+.hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
+.hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-sb-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-sb-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+/* body scrolls when content exceeds available card height */
+.hud-sb-body{
+  padding:8px 10px 10px;display:flex;flex-direction:column;gap:0;
+  overflow-y:auto;flex:1;
+  scrollbar-width:thin;scrollbar-color:rgba(91,233,176,.18) transparent;
+}
+.hud-sb-body::-webkit-scrollbar{width:4px}
+.hud-sb-body::-webkit-scrollbar-track{background:transparent}
+.hud-sb-body::-webkit-scrollbar-thumb{background:rgba(91,233,176,.2);border-radius:4px}
+/* empty lane — compact single-line (no extra row, just dimmed count) */
+.hud-sb-lane-empty .hud-sb-lane-head{padding-bottom:6px;opacity:.55}
+/* lane header */
+.hud-sb-lane-head{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 2px 5px;
+  font-size:11px;font-weight:700;letter-spacing:.03em;
+}
+.hud-sb-lane-cnt{margin-left:auto;font-size:10.5px;font-weight:600;color:rgba(223,234,245,.42)}
+.hud-sb-dot{display:inline-block;width:6px;height:6px;border-radius:99px;flex:none}
+.hud-sb-dot.dot-backlog{background:#8a9aa8}
+.hud-sb-dot.dot-todo{background:#8FB8F0}
+@keyframes sb-dot-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(91,233,176,.4)}50%{opacity:.8;box-shadow:0 0 0 3px rgba(91,233,176,.15)}}
+.hud-sb-dot.dot-inprog{background:#5BE9B0;animation:sb-dot-pulse 2s ease-in-out infinite}
+.hud-sb-dot.dot-review{background:#B7A6FF}
+.hud-sb-dot.dot-done{background:#76E0AE}
+/* lane header label color per lane */
+.hud-sb-lane-head.lh-backlog{color:#aebcc9}
+.hud-sb-lane-head.lh-todo{color:#8FB8F0}
+.hud-sb-lane-head.lh-inprog{color:#5BE9B0}
+.hud-sb-lane-head.lh-review{color:#B7A6FF}
+.hud-sb-lane-head.lh-done{color:#76E0AE}
+/* story card — .kc structure, green-glass HUD palette */
+.hud-kc{
+  border-radius:12px;padding:10px 11px;margin-bottom:7px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(91,233,176,.05);
+  display:block;min-width:0;text-decoration:none;color:inherit;
+}
+.hud-kc:last-child{margin-bottom:0}
+@keyframes hud-kc-glow{
+  0%,100%{box-shadow:none;border-color:rgba(91,233,176,.28)}
+  50%{box-shadow:0 0 14px rgba(91,233,176,.22),0 0 4px rgba(91,233,176,.12);border-color:rgba(91,233,176,.7)}
+}
+.hud-kc.prog{
+  border-color:rgba(91,233,176,.35);
+  background:rgba(91,233,176,.09);
+  animation:hud-kc-glow 2.4s ease-in-out infinite;
+}
+.hud-kc.gate{
+  border-color:rgba(255,150,52,.45);
+  background:linear-gradient(160deg,rgba(255,150,52,.09),rgba(91,233,176,.04));
+}
+/* title row — role icon + title text */
+.hud-kt{font-size:12px;color:rgba(223,234,245,.88);line-height:1.35;display:flex;gap:6px;align-items:flex-start;min-width:0}
+.hud-kt svg{width:13px;height:13px;flex:none;margin-top:1px;color:rgba(91,233,176,.5)}
+.hud-kt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* bottom row — role label + story id */
+.hud-kb{display:flex;align-items:center;justify-content:space-between;margin-top:7px;min-width:0;gap:6px}
+.hud-kr{font-size:10.5px;color:rgba(223,234,245,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-kc.prog .hud-kr{color:#5BE9B0;font-weight:600}
+.hud-kc.gate .hud-kr{color:rgba(255,180,80,.85)}
+.hud-tk{font-size:9.5px;color:rgba(223,234,245,.3);flex:none;font-variant-numeric:tabular-nums}
+/* empty lane */
+.hud-sb-empty{font-size:10.5px;color:rgba(223,234,245,.22);padding:4px 2px 6px;font-style:italic}
+/* "+N" overflow */
+.hud-sb-more{font-size:10.5px;color:rgba(223,234,245,.38);padding:3px 2px 4px;font-weight:600}
+/* see-all button — pinned at bottom of scrollable body */
+.hud-sb-seeall{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  margin:8px 0 2px;padding:8px 0;border-radius:11px;flex:none;
+  background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.15);
+  font-size:11.5px;font-weight:700;color:rgba(91,233,176,.75);
+  cursor:pointer;transition:background 110ms,border-color 110ms;width:100%;position:sticky;bottom:0;
+}
+.hud-sb-seeall:hover{background:rgba(91,233,176,.15);border-color:rgba(91,233,176,.3)}
+/* mini (collapsed) */
+.hud-sb-mini{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 14px 12px;font-size:11.5px;color:rgba(223,234,245,.55);font-weight:600}
+.hud-sb-mini-cnt{color:rgba(91,233,176,.8);font-size:12px;font-weight:700}
+/* hint chip when Feature not selected */
+.hud-board-hint{
+  display:inline-flex;align-items:center;padding:8px 14px;border-radius:12px;
+  background:rgba(11,30,24,.5);border:1px solid rgba(150,240,195,.1);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  font-size:11px;font-weight:600;color:rgba(91,233,176,.4);pointer-events:none;
+}
+/* ── Team Roster panel ── */
+.hud-team-card{
+  width:220px;border-radius:18px;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+  display:flex;flex-direction:column;overflow:hidden;flex:none;
+}
+.hud-team-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
+.hud-team-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-team-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-team-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-team-body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:rgba(91,233,176,.18) transparent}
+.hud-team-body::-webkit-scrollbar{width:4px}
+.hud-team-body::-webkit-scrollbar-thumb{background:rgba(91,233,176,.2);border-radius:4px}
+/* role row */
+.hud-role-row{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 9px;border-radius:10px;
+}
+.hud-role-row.active{background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.16)}
+.hud-role-row.sleep{background:rgba(91,233,176,.02);border:1px solid rgba(150,240,195,.07)}
+.hud-role-dot{width:7px;height:7px;border-radius:99px;flex:none}
+@keyframes role-dot-pulse{0%,100%{box-shadow:0 0 0 0 rgba(91,233,176,.5)}50%{box-shadow:0 0 0 4px rgba(91,233,176,.1)}}
+.hud-role-dot.active{background:#5BE9B0;animation:role-dot-pulse 2.2s ease-in-out infinite}
+.hud-role-dot.sleep{background:rgba(223,234,245,.18)}
+.hud-role-icon{flex:none;color:rgba(91,233,176,.5)}
+.hud-role-row.sleep .hud-role-icon{color:rgba(223,234,245,.2)}
+.hud-role-label{font-size:11.5px;font-weight:600;color:rgba(223,234,245,.82);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-role-row.sleep .hud-role-label{color:rgba(223,234,245,.32)}
+.hud-role-badge{font-size:9px;font-weight:700;letter-spacing:.04em;flex:none;padding:2px 6px;border-radius:6px}
+.hud-role-badge.active{color:#5BE9B0;background:rgba(91,233,176,.12)}
+.hud-role-badge.sleep{color:rgba(223,234,245,.25);background:rgba(223,234,245,.05)}
+/* mini (collapsed) — role icon grid */
+.hud-team-mini{padding:6px 10px 10px}
+.hud-team-mini-icons{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+.hud-team-mini-icon{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;
+}
+.hud-team-mini-icon.active{color:#5BE9B0;background:rgba(91,233,176,.12);border:1px solid rgba(91,233,176,.2)}
+.hud-team-mini-icon.sleep{color:rgba(223,234,245,.2);background:rgba(223,234,245,.04);border:1px solid rgba(223,234,245,.07)}
+.hud-team-mini-txt{font-size:10.5px;color:rgba(223,234,245,.4);font-weight:600}
+.hud-team-mini-txt strong{color:#5BE9B0;font-size:11.5px}
 `;
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
@@ -671,7 +1041,7 @@ const BOARD_COLS: [string, string][] = [
   ["Done",        "เสร็จ"],
 ];
 
-function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose }: KanbanModalProps) {
+export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose }: KanbanModalProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   useFocusTrap(boxRef as React.RefObject<HTMLElement | null>, triggerRef as React.RefObject<HTMLElement | null>, isOpen, onClose);
 
@@ -690,7 +1060,7 @@ function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose 
     byCol[col].push(s);
   }
 
-  return (
+  return createPortal(
     <>
       <div
         className="hud-modal-backdrop"
@@ -781,10 +1151,14 @@ function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose 
                         const cardCls = isActive ? "active" : hasAwait ? "awaiting" : "";
                         const laneText = isActive ? "กำลังทำ" : hasAwait ? "รอคุณ" : colLabel;
                         return (
-                          <div
+                          <a
                             key={s.id}
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={`hud-card ${cardCls}`}
                             data-testid={`card--hud-board-${s.id}`}
+                            aria-label={`เปิด ${s.id} ใน Linear`}
                           >
                             <div className="hud-card-lane">{laneText}</div>
                             <div className="hud-card-id">{s.id}</div>
@@ -797,7 +1171,7 @@ function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose 
                                 <span className="hud-you-badge">รอคุณ</span>
                               )}
                             </div>
-                          </div>
+                          </a>
                         );
                       })
                     )}
@@ -820,7 +1194,8 @@ function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose 
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -1271,33 +1646,676 @@ interface ViewToggleProps {
   dashboardHref: string;
 }
 
+// ── Top filter: cascading signposts + status chips ───────────────────────────
+const PERSONA_LABEL: Record<string, string> = {
+  host: "Host", camper: "Camper", admin: "Admin", platform: "Platform",
+};
+const EF_OPTS: Array<[("all" | "prog" | "done" | "todo"), string]> = [
+  ["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จ"], ["todo", "ยังไม่เริ่ม"],
+];
+
+const SpIcon = {
+  persona: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.4" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M5.5 19c.7-3.2 3.3-5 6.5-5s5.8 1.8 6.5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  ),
+  feature: (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  epic: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+      <path d="M12 5 3.4 20h17.2L12 5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M9.3 20 12 12.4 14.7 20" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
+interface FilterSignpostsProps {
+  personas: string[];
+  features: string[];
+  epics: Array<{ key: string; label: string }>;
+  persona: string;
+  feature: string;
+  epic: string;
+  onChange: (level: "persona" | "feature" | "epic", value: string) => void;
+}
+
+export function FilterSignposts({ personas, features, epics, persona, feature, epic, onChange }: FilterSignpostsProps) {
+  const [open, setOpen] = useState<null | "persona" | "feature" | "epic">(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(null);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
+
+  const epicLabel = epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "All Epic";
+  const signs = [
+    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : "All Persona",
+      opts: [{ v: "", l: "All Persona" }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
+    { key: "feature" as const, value: feature, valueLabel: feature || "All Feature",
+      opts: [{ v: "", l: "All Feature" }, ...features.map((f) => ({ v: f, l: f }))] },
+    { key: "epic" as const, value: epic, valueLabel: epicLabel,
+      opts: [{ v: "", l: "All Epic" }, ...epics.map((e) => ({ v: e.key, l: e.label.replace(/\[[a-z-]+\]\s*/gi, "").trim() }))] },
+  ];
+
+  return (
+    <div className="hud-signposts" onPointerDown={(e) => e.stopPropagation()} data-testid="nav--map-filter">
+      {signs.map((s) => (
+        <div className="hud-signpost-wrap" key={s.key}>
+          <button
+            type="button"
+            className={s.value ? "hud-signpost active" : "hud-signpost"}
+            aria-expanded={open === s.key}
+            onClick={() => setOpen(open === s.key ? null : s.key)}
+            data-testid={`btn--map-filter-${s.key}`}
+          >
+            <span className="hud-sp-icon" aria-hidden="true">{SpIcon[s.key]}</span>
+            <span className="hud-sp-label">{s.valueLabel}</span>
+            <svg className="hud-sp-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {open === s.key && (
+            <div className="hud-signpost-menu">
+              {s.opts.map((o) => (
+                <button
+                  type="button"
+                  key={o.v || "all"}
+                  className={o.v === s.value ? "hud-sp-opt sel" : "hud-sp-opt"}
+                  onClick={() => { onChange(s.key, o.v); setOpen(null); }}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EfilterChips({ efilter, onChange }: { efilter: "all" | "prog" | "done" | "todo"; onChange: (f: "all" | "prog" | "done" | "todo") => void }) {
+  return (
+    <div className="hud-efilter" role="group" aria-label="กรองตามสถานะงาน" data-testid="nav--map-efilter">
+      {EF_OPTS.map(([v, l]) => (
+        <button type="button" key={v} className={efilter === v ? "hud-ef-chip on" : "hud-ef-chip"} onClick={() => onChange(v)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Summary Card (Step 3) ────────────────────────────────────────────────────
+
+function GaugeRing({ pct }: { pct: number }) {
+  const r = 32;
+  const circ = 2 * Math.PI * r;
+  const dash = Math.max(0, Math.min(pct / 100, 1)) * circ;
+  return (
+    <svg width="82" height="82" viewBox="0 0 82 82" aria-hidden="true" style={{ display: "block", margin: "0 auto" }}>
+      <defs>
+        <filter id="glow-sum" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <circle cx="41" cy="41" r={r} fill="none" stroke="rgba(91,233,176,.12)" strokeWidth="7" />
+      <circle
+        cx="41" cy="41" r={r} fill="none"
+        stroke="#5BE9B0" strokeWidth="7" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`}
+        filter="url(#glow-sum)"
+        style={{ transform: "rotate(-90deg)", transformOrigin: "41px 41px", transition: "stroke-dasharray .7s cubic-bezier(.34,1.56,.64,1)" }}
+      />
+      <text x="41" y="46" textAnchor="middle" fill="#5BE9B0" fontSize="15" fontWeight="700" fontFamily="system-ui,sans-serif">{pct}%</text>
+    </svg>
+  );
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="hud-spark" aria-hidden="true">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className="hud-spark-bar"
+          style={{ height: `${Math.max(2, Math.round((v / max) * 28))}px`, opacity: i === 6 ? 1 : 0.3 + i * 0.1 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const MINI_LANES: Array<{ key: string; label: string; dot: string; cls?: string }> = [
+  { key: "Backlog",     label: "Backlog",  dot: "#8a9aa8" },
+  { key: "Todo",        label: "To Do",    dot: "#8FB8F0" },
+  { key: "In Progress", label: "กำลังทำ", dot: "#5BE9B0", cls: "dot-inprog" },
+  { key: "In Review",   label: "ตรวจสอบ", dot: "#B7A6FF" },
+  { key: "Done",        label: "เสร็จ",   dot: "#76E0AE" },
+];
+
+export interface SummaryCardProps {
+  pct: number;
+  epicDone: number;
+  epicTotal: number;
+  storyDone: number;
+  storyTotal: number;
+  backlog: number;
+  statusCounts: Record<string, number>;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, statusCounts, collapsed, onToggle }: SummaryCardProps) {
+  if (collapsed) {
+    return (
+      <div className="hud-summary">
+        <div className="hud-sum-card" role="complementary" aria-label="ภาพรวมโครงการ">
+          <div className="hud-sum-head">
+            <span className="hud-sum-heading">ภาพรวม</span>
+            <button type="button" className="hud-sum-collapse" onClick={onToggle} aria-label="ขยายภาพรวม" aria-expanded="false">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <div className="hud-sum-mini">
+            <div className="hud-sum-mini-grid">
+              {MINI_LANES.map(lane => {
+                const cnt = statusCounts[lane.key] ?? 0;
+                return (
+                  <div key={lane.key} className="hud-sum-mini-lane">
+                    <span className={`hud-sum-mini-dot${lane.cls ? " " + lane.cls : ""}`} style={{ background: lane.dot }} />
+                    <span className="hud-sum-mini-cnt" style={{ color: lane.dot }}>{cnt}</span>
+                    <span className="hud-sum-mini-lbl">{lane.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="hud-summary">
+      <div className="hud-sum-card" role="complementary" aria-label="ภาพรวมโครงการ">
+        <div className="hud-sum-head">
+          <span className="hud-sum-heading">ภาพรวม</span>
+          <button type="button" className="hud-sum-collapse" onClick={onToggle} aria-label="ย่อภาพรวม" aria-expanded="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+              <path d="m6 15 6-6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="hud-sum-body">
+          <div className="hud-sum-gauge"><GaugeRing pct={pct} /></div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l"><Layers size={13} strokeWidth={1.7} /><span>Epic</span></span>
+            <span className="hud-sum-count">{epicDone} / {epicTotal}</span>
+          </div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l"><FileText size={13} strokeWidth={1.7} /><span>Story</span></span>
+            <span className="hud-sum-count">{storyDone} / {storyTotal}</span>
+          </div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l"><Inbox size={13} strokeWidth={1.7} /><span>Backlog</span></span>
+            <span className="hud-sum-count">{backlog}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Delivery Card (split from Step 3) ────────────────────────────────────────
+
+type DeliveryPeriod = "today" | "week" | "all";
+
+export interface DeliveryCardProps {
+  todayEpics: number;
+  todayStories: number;
+  weekEpics: number;
+  weekStories: number;
+  sparkline: number[];
+  epicDone: number;
+  epicTotal: number;
+  storyDone: number;
+  storyTotal: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function DeliveryCard({ todayEpics, todayStories, weekEpics, weekStories, sparkline, epicDone, epicTotal, storyDone, storyTotal, collapsed, onToggle }: DeliveryCardProps) {
+  const [period, setPeriod] = useState<DeliveryPeriod>("today");
+
+  const sparMax = Math.max(...sparkline, 1);
+  const TABS: [DeliveryPeriod, string][] = [["today", "วันนี้"], ["week", "7 วัน"], ["all", "ทั้งหมด"]];
+
+  function CollapseBtn({ isCollapsed }: { isCollapsed: boolean }) {
+    return (
+      <button type="button" className="hud-dlv-collapse" onClick={onToggle}
+        aria-label={isCollapsed ? "ขยายส่งมอบ" : "ย่อส่งมอบ"} aria-expanded={!isCollapsed}>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+          <path d={isCollapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    );
+  }
+
+  if (collapsed) {
+    const miniVal = period === "today" ? todayStories : period === "week" ? weekStories : storyDone;
+    const miniLabel = period === "today" ? "Story วันนี้" : period === "week" ? "Story 7 วัน" : `Story ${storyDone}/${storyTotal}`;
+    return (
+      <div className="hud-dlv-card" role="complementary" aria-label="งานส่งมอบ">
+        <div className="hud-dlv-head">
+          <span className="hud-dlv-heading">ส่งมอบ</span>
+          <CollapseBtn isCollapsed />
+        </div>
+        <div className="hud-dlv-mini">
+          <span className="hud-dlv-mini-val">{miniVal}</span>
+          <span>{miniLabel}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-dlv-card" role="complementary" aria-label="งานส่งมอบ">
+      <div className="hud-dlv-head">
+        <span className="hud-dlv-heading">ส่งมอบ</span>
+        <CollapseBtn isCollapsed={false} />
+      </div>
+      <div className="hud-dlv-tabs" role="group" aria-label="ช่วงเวลา">
+        {TABS.map(([v, l]) => (
+          <button key={v} type="button" className={period === v ? "hud-dlv-tab on" : "hud-dlv-tab"} onClick={() => setPeriod(v)}>{l}</button>
+        ))}
+      </div>
+      <div className="hud-dlv-body">
+        {period === "today" && (
+          todayStories === 0 && todayEpics === 0 ? (
+            <div className="hud-dlv-empty">ยังไม่มีงานส่งมอบวันนี้</div>
+          ) : (
+            <div className="hud-dlv-nums">
+              {todayEpics > 0 && (
+                <div className="hud-dlv-num">
+                  <span className="hud-dlv-big hud-dlv-pulse">{todayEpics}</span>
+                  <span className="hud-dlv-sub"><Trophy size={10} strokeWidth={1.8} />Epic</span>
+                </div>
+              )}
+              {todayStories > 0 && (
+                <div className="hud-dlv-num">
+                  <span className="hud-dlv-big hud-dlv-pulse" style={{ animationDelay: ".3s" }}>{todayStories}</span>
+                  <span className="hud-dlv-sub"><CheckCircle2 size={10} strokeWidth={1.8} />Story</span>
+                </div>
+              )}
+            </div>
+          )
+        )}
+        {period === "week" && (
+          <>
+            <div className="hud-dlv-spark" aria-hidden="true">
+              {sparkline.map((v, i) => (
+                <div key={i} className="hud-dlv-bar"
+                  style={{ height: `${Math.max(2, Math.round((v / sparMax) * 42))}px`, opacity: i === 6 ? 1 : 0.3 + i * 0.1 }} />
+              ))}
+            </div>
+            <div className="hud-dlv-total">
+              <strong>{weekStories}</strong> Story · <strong>{weekEpics}</strong> Epic (7 วัน)
+            </div>
+          </>
+        )}
+        {period === "all" && (
+          <>
+            <div className="hud-dlv-prog-row">
+              <span className="hud-dlv-prog-label"><Layers size={11} strokeWidth={1.7} />Epic</span>
+              <div className="hud-dlv-prog-bar">
+                <div className="hud-dlv-prog-fill" style={{ width: `${epicTotal ? Math.round((epicDone / epicTotal) * 100) : 0}%` }} />
+              </div>
+              <span className="hud-dlv-prog-val">{epicDone}/{epicTotal}</span>
+            </div>
+            <div className="hud-dlv-prog-row">
+              <span className="hud-dlv-prog-label"><FileText size={11} strokeWidth={1.7} />Story</span>
+              <div className="hud-dlv-prog-bar">
+                <div className="hud-dlv-prog-fill" style={{ width: `${storyTotal ? Math.round((storyDone / storyTotal) * 100) : 0}%` }} />
+              </div>
+              <span className="hud-dlv-prog-val">{storyDone}/{storyTotal}</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Approval Card (Step 4) ───────────────────────────────────────────────────
+
+interface ApprovalCardProps {
+  gates: MapGate[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}
+
+function ChevronToggle({ collapsed, onClick, label }: { collapsed: boolean; onClick: () => void; label: string }) {
+  return (
+    <button type="button" className="hud-appr-collapse" onClick={onClick} aria-label={label} aria-expanded={!collapsed}>
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+        <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCardProps) {
+  const count = gates.length;
+  const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  const sorted = [...gates].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9));
+
+  if (collapsed) {
+    return (
+      <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
+        <div className="hud-appr-head">
+          <span className="hud-appr-heading">
+            <AlertTriangle size={12} strokeWidth={2} />
+            รออนุมัติ
+          </span>
+          <ChevronToggle collapsed onClick={onToggle} label="ขยายรออนุมัติ" />
+        </div>
+        <div className="hud-appr-mini">
+          <span className="hud-appr-mini-label">
+            <AlertTriangle size={11} strokeWidth={2} />
+            {count} รายการรออนุมัติ
+          </span>
+          <button type="button" className="hud-appr-btn" style={{ width: "auto", padding: "5px 12px", margin: 0, fontSize: "11px" }} onClick={onOpen}>
+            ดู
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
+      <div className="hud-appr-head">
+        <span className="hud-appr-heading">
+          <AlertTriangle size={12} strokeWidth={2} />
+          รออนุมัติ {count} รายการ
+        </span>
+        <ChevronToggle collapsed={false} onClick={onToggle} label="ย่อรออนุมัติ" />
+      </div>
+      <div className="hud-appr-body">
+        {sorted.map((g) => (
+          <div key={g.id} className="hud-appr-item">
+            {g.priority && <span className="hud-appr-badge">{g.priority}</span>}
+            <span className="hud-appr-title">{g.title}</span>
+            <a href={g.url} target="_blank" rel="noopener noreferrer" className="hud-appr-link" aria-label="เปิดใน Linear">
+              <ExternalLink size={12} strokeWidth={1.8} />
+            </a>
+          </div>
+        ))}
+        <button type="button" className="hud-appr-btn" onClick={onOpen}>
+          <AlertTriangle size={12} strokeWidth={2} />
+          ดูและอนุมัติทั้งหมด
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function ViewToggle({ dashboardHref }: ViewToggleProps) {
   return (
-    <nav
-      role="tablist"
-      aria-label="สลับระหว่างแดชบอร์ดและแผนที่"
+    <a
+      href={dashboardHref}
       className="hud-view-toggle"
-      data-testid="nav--map-view-toggle"
+      data-testid="link--map-to-dashboard"
+      aria-label="กลับไปดูแดชบอร์ด"
     >
-      <a
-        href={dashboardHref}
-        role="tab"
-        aria-selected={false}
-        className="hud-toggle-item"
-        data-testid="link--map-toggle-dashboard"
-      >
-        แดชบอร์ด
-      </a>
-      <span
-        role="tab"
-        aria-selected={true}
-        aria-current="page"
-        className="hud-toggle-item active"
-        data-testid="tab--map-toggle-map"
-      >
-        แผนที่
-      </span>
-    </nav>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+      <span>แดชบอร์ด</span>
+    </a>
+  );
+}
+
+// ── Status Board (Step 5 — right panel) ──────────────────────────────────────
+
+const SB_LANES: Array<{ key: string; label: string; dot: string; lh: string }> = [
+  { key: "Backlog",     label: "Backlog",    dot: "dot-backlog", lh: "lh-backlog" },
+  { key: "Todo",        label: "To Do",      dot: "dot-todo",    lh: "lh-todo"    },
+  { key: "In Progress", label: "กำลังทำ",   dot: "dot-inprog",  lh: "lh-inprog"  },
+  { key: "In Review",   label: "ตรวจสอบ",   dot: "dot-review",  lh: "lh-review"  },
+  { key: "Done",        label: "เสร็จ",      dot: "dot-done",    lh: "lh-done"    },
+];
+
+const ROLE_LABEL_SB: Record<string, string> = {
+  architect: "Architect", "ux-designer": "Designer",
+  "frontend-engineer": "Frontend", "backend-engineer": "Backend",
+  "qa-engineer": "QA", "security-reviewer": "Security",
+  "devops-release": "DevOps", "product-owner": "Product",
+};
+
+function RoleIconSB({ role }: { role: string }) {
+  const props = { size: 13, strokeWidth: 1.6, "aria-hidden": true };
+  switch (role) {
+    case "architect":          return <Layers {...props} />;
+    case "ux-designer":        return <Compass {...props} />;
+    case "backend-engineer":   return <Database {...props} />;
+    case "frontend-engineer":  return <Monitor {...props} />;
+    case "qa-engineer":        return <ClipboardCheck {...props} />;
+    case "security-reviewer":  return <ShieldCheck {...props} />;
+    case "devops-release":     return <GitBranch {...props} />;
+    default:                   return <FileText {...props} />;
+  }
+}
+
+export interface StatusBoardProps {
+  stories: MapEpicStory[];
+  label: string;
+  pct: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function StatusBoard({ stories, label, pct, collapsed, onToggle }: StatusBoardProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const modalTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const byLane = Object.fromEntries(SB_LANES.map(l => [l.key, [] as MapEpicStory[]]));
+  for (const s of stories) {
+    const k = SB_LANES.find(l => l.key === s.status)?.key ?? "Backlog";
+    byLane[k].push(s);
+  }
+
+  const ChevBtn = () => (
+    <button type="button" className="hud-sb-collapse" onClick={onToggle}
+      aria-label={collapsed ? "ขยายบอร์ด" : "ย่อบอร์ด"} aria-expanded={!collapsed}>
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+        <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <div className="hud-sb-card" role="complementary" aria-label="บอร์ดงาน">
+        <div className="hud-sb-head">
+          <span className="hud-sb-heading">บอร์ดงาน</span>
+          <ChevBtn />
+        </div>
+        <div className="hud-sb-mini">
+          {SB_LANES.map(l => {
+            const cnt = byLane[l.key].length;
+            if (!cnt) return null;
+            return (
+              <span key={l.key} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span className={`hud-sb-dot ${l.dot}`} />
+                <span className="hud-sb-mini-cnt">{cnt}</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-sb-card" role="complementary" aria-label="บอร์ดงาน">
+      <div className="hud-sb-head">
+        <span className="hud-sb-heading">บอร์ดงาน</span>
+        <ChevBtn />
+      </div>
+      <div className="hud-sb-body">
+        {SB_LANES.map(lane => {
+          const items = byLane[lane.key];
+          const shown = items.slice(0, 3);
+          const extra = items.length - shown.length;
+          return (
+            /* empty lanes use compact header-only display to save space */
+            <div key={lane.key} className={items.length === 0 ? "hud-sb-lane-empty" : undefined}>
+              {/* Lane header — colour-coded matching dashboard .col-h */}
+              <div className={`hud-sb-lane-head ${lane.lh}`}>
+                <span className={`hud-sb-dot ${lane.dot}`} />
+                <span>{lane.label}</span>
+                <span className="hud-sb-lane-cnt">{items.length}</span>
+              </div>
+              {/* Story cards — mirrors .kc from dashboard */}
+              {shown.map(s => {
+                const isActive = s.status === "In Progress";
+                const isAwaiting = s.labels.includes("awaiting-you");
+                const roleKey = s.role ?? "";
+                const roleStr = ROLE_LABEL_SB[roleKey] ?? roleKey ?? "team";
+                return (
+                  <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}`} aria-label={`เปิด ${s.id} ใน Linear`}>
+                    <div className="hud-kt">
+                      <RoleIconSB role={roleKey} />
+                      <span title={s.title}>{s.title}</span>
+                    </div>
+                    <div className="hud-kb">
+                      <span className="hud-kr">{isActive && <span style={{ marginRight: 4 }}>●</span>}{isAwaiting ? "รอคุณ" : roleStr}</span>
+                      <span className="hud-tk">{s.id}</span>
+                    </div>
+                  </a>
+                );
+              })}
+              {extra > 0 && <div className="hud-sb-more">+{extra} อื่นๆ</div>}
+            </div>
+          );
+        })}
+        <button type="button" ref={modalTriggerRef} className="hud-sb-seeall" onClick={() => setModalOpen(true)}>
+          ดูทั้งหมด →
+        </button>
+      </div>
+      <KanbanModal
+        epicLabel={label}
+        epicPct={pct}
+        stories={stories}
+        triggerRef={modalTriggerRef}
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
+    </div>
+  );
+}
+
+export function StatusBoardHint() {
+  return <div className="hud-board-hint">เลือก Feature เพื่อดูบอร์ด</div>;
+}
+
+// ── Team Roster panel ─────────────────────────────────────────────────────────
+
+const ROLE_SHORT: Record<string, string> = {
+  architect:          "Architect",
+  "ux-designer":      "Designer",
+  "frontend-engineer":"Frontend",
+  "backend-engineer": "Backend",
+  "devops-release":   "DevOps",
+  "qa-engineer":      "QA",
+  "security-reviewer":"Security",
+};
+
+export interface TeamRosterProps {
+  agents: MapAgent[];
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function TeamRoster({ agents, collapsed, onToggle }: TeamRosterProps) {
+  const activeCount = agents.filter(a => a.active).length;
+
+  function ChevBtn() {
+    return (
+      <button type="button" className="hud-team-collapse" onClick={onToggle}
+        aria-label={collapsed ? "ขยายทีม" : "ย่อทีม"} aria-expanded={!collapsed}>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+          <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"}
+            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    );
+  }
+
+  if (collapsed) {
+    return (
+      <div className="hud-team-card" role="complementary" aria-label="ทีม">
+        <div className="hud-team-head">
+          <span className="hud-team-heading">ทีม</span>
+          <ChevBtn />
+        </div>
+        <div className="hud-team-mini">
+          <div className="hud-team-mini-icons">
+            {agents.map(a => (
+              <span key={a.role} className={`hud-team-mini-icon ${a.active ? "active" : "sleep"}`}
+                title={ROLE_SHORT[a.role] ?? a.role}>
+                <RoleIconSB role={a.role} />
+              </span>
+            ))}
+          </div>
+          <span className="hud-team-mini-txt">
+            <strong>{activeCount}</strong> / {agents.length} active
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-team-card" role="complementary" aria-label="ทีม">
+      <div className="hud-team-head">
+        <span className="hud-team-heading">ทีม · {agents.length} คน</span>
+        <ChevBtn />
+      </div>
+      <div className="hud-team-body">
+        {agents.map(agent => {
+          const label = ROLE_SHORT[agent.role] ?? agent.role;
+          const isActive = agent.active;
+          return (
+            <div key={agent.role} className={`hud-role-row ${isActive ? "active" : "sleep"}`}>
+              <span className={`hud-role-dot ${isActive ? "active" : "sleep"}`} />
+              <span className="hud-role-icon"><RoleIconSB role={agent.role} /></span>
+              <span className="hud-role-label">{label}</span>
+              <span className={`hud-role-badge ${isActive ? "active" : "sleep"}`}>
+                {isActive ? "Active" : "Sleep"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

@@ -104,6 +104,7 @@ function buildEpicStories(issues: StatusIssue[]): MapEpicStory[] {
     role: canonRole(titleRoleOf(i.title)),
     url: i.url,
     startedAt: i.startedAt,
+    completedAt: i.completedAt,
   }));
 }
 

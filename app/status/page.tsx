@@ -150,10 +150,7 @@ function topBar(m: Model, tab: string, epic: string, group: string, efilter: str
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
     + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
     + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
-    + `<nav role="tablist" aria-label="สลับระหว่างแดชบอร์ดและแผนที่" style="display:inline-flex;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden;margin-left:10px;">`
-    + `<span role="tab" aria-selected="true" style="display:inline-flex;align-items:center;padding:8px 14px;min-height:44px;min-width:44px;font-size:12px;font-weight:600;color:var(--emerald,#5BE9B0);background:rgba(91,233,176,.12);cursor:default;">แดชบอร์ด</span>`
-    + `<a href="${esc(mapUrl)}" role="tab" aria-selected="false" style="display:inline-flex;align-items:center;padding:8px 14px;min-height:44px;min-width:44px;font-size:12px;font-weight:600;color:rgba(223,234,245,.6);text-decoration:none;border-left:1px solid rgba(255,255,255,.12);" data-testid="link--status-toggle-map">แผนที่</a>`
-    + `</nav>`
+    + `<a href="${esc(mapUrl)}" data-testid="link--status-to-map" aria-label="ดูแผนที่" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:0 15px;min-height:40px;border:1px solid rgba(150,240,195,.2);border-radius:999px;background:rgba(11,30,24,.5);font-size:12.5px;font-weight:600;color:rgba(223,234,245,.85);text-decoration:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:block;flex:none"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.6"/></svg>ดูแผนที่</a>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
 
