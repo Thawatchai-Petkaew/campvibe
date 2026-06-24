@@ -233,7 +233,6 @@ const SCENE_CSS = `
    (same as background-size:cover clipping). */
 .map-viewport{
   position:absolute;inset:0;overflow:hidden;
-  display:grid;place-items:center;
   z-index:5;
 }
 /* CAM-161: Fixed 1920×1080 design canvas.
@@ -244,11 +243,16 @@ const SCENE_CSS = `
    width/height are the design-canvas dimensions; the transform makes them fill
    the viewport. Characters write left/top as % of this canvas (engine unchanged). */
 .map-stage{
-  position:relative;
+  /* Always centred on the viewport via negative margins (half the FIXED design
+     size — no % ambiguity), then scaled around its own centre. The centre never
+     moves; only the scale changes with the screen. */
+  position:absolute;
+  top:50%;left:50%;
   width:1920px;height:1080px;
+  margin-left:-960px;margin-top:-540px;
   --s:max(calc(100vw / 1920), calc(100vh / 1080));
   transform:scale(var(--s));
-  transform-origin:center;
+  transform-origin:center center;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
