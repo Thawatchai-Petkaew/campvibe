@@ -120,7 +120,7 @@ const WALK_AR    = 0.6106;  // walk-sprite width-to-height ratio
 const RELAX_POSES = 6;      // relax-0..5.webp
 
 const WANDER_START_MIN = 300,  WANDER_START_MAX = 4200; // staggered first wander leg (ms)
-const WANDER_PAUSE_MIN = 450,  WANDER_PAUSE_MAX = 1900; // pause at each waypoint (ms)
+const WANDER_PAUSE_MIN = 1500, WANDER_PAUSE_MAX = 4500; // pause at each waypoint (ms) — longer = walk less often
 const REST_STROLL_MS   = 60000;                          // stand ~1 min → short stroll
 const POSE_MIN = 4500, POSE_MAX = 8500;                  // relax-pose cycle (ms)
 const POSE_LOCK = 800;                                   // after a pose change, hold off speech (ms)
