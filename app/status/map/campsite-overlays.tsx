@@ -755,13 +755,16 @@ const HUD_CSS = `
 
 /* ── Status Board right panel ── */
 .hud-sb-card{
-  width:220px;border-radius:18px;overflow:hidden;
+  width:220px;border-radius:18px;
   border:1px solid rgba(150,240,195,.13);
   background:rgba(11,30,24,.60);
   backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
   box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+  /* viewport-safe: card never taller than available space below topbar */
+  max-height:calc(100svh - 100px - 20px);
+  display:flex;flex-direction:column;overflow:hidden;
 }
-.hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0}
+.hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
 .hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
 .hud-sb-collapse{
   display:flex;align-items:center;justify-content:center;
@@ -770,7 +773,17 @@ const HUD_CSS = `
   transition:background 110ms,color 110ms;
 }
 .hud-sb-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
-.hud-sb-body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:0}
+/* body scrolls when content exceeds available card height */
+.hud-sb-body{
+  padding:8px 10px 10px;display:flex;flex-direction:column;gap:0;
+  overflow-y:auto;flex:1;
+  scrollbar-width:thin;scrollbar-color:rgba(91,233,176,.18) transparent;
+}
+.hud-sb-body::-webkit-scrollbar{width:4px}
+.hud-sb-body::-webkit-scrollbar-track{background:transparent}
+.hud-sb-body::-webkit-scrollbar-thumb{background:rgba(91,233,176,.2);border-radius:4px}
+/* empty lane — compact single-line (no extra row, just dimmed count) */
+.hud-sb-lane-empty .hud-sb-lane-head{padding-bottom:6px;opacity:.55}
 /* lane header */
 .hud-sb-lane-head{
   display:flex;align-items:center;gap:6px;
@@ -826,13 +839,13 @@ const HUD_CSS = `
 .hud-sb-empty{font-size:10.5px;color:rgba(223,234,245,.22);padding:4px 2px 6px;font-style:italic}
 /* "+N" overflow */
 .hud-sb-more{font-size:10.5px;color:rgba(223,234,245,.38);padding:3px 2px 4px;font-weight:600}
-/* see-all button */
+/* see-all button — pinned at bottom of scrollable body */
 .hud-sb-seeall{
   display:flex;align-items:center;justify-content:center;gap:5px;
-  margin:8px 0 2px;padding:8px 0;border-radius:11px;
+  margin:8px 0 2px;padding:8px 0;border-radius:11px;flex:none;
   background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.15);
   font-size:11.5px;font-weight:700;color:rgba(91,233,176,.75);
-  cursor:pointer;transition:background 110ms,border-color 110ms;width:100%;
+  cursor:pointer;transition:background 110ms,border-color 110ms;width:100%;position:sticky;bottom:0;
 }
 .hud-sb-seeall:hover{background:rgba(91,233,176,.15);border-color:rgba(91,233,176,.3)}
 /* mini (collapsed) */
@@ -2095,15 +2108,14 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
           return (
-            <div key={lane.key}>
+            /* empty lanes use compact header-only display to save space */
+            <div key={lane.key} className={items.length === 0 ? "hud-sb-lane-empty" : undefined}>
               {/* Lane header — colour-coded matching dashboard .col-h */}
               <div className={`hud-sb-lane-head ${lane.lh}`}>
                 <span className={`hud-sb-dot ${lane.dot}`} />
                 <span>{lane.label}</span>
                 <span className="hud-sb-lane-cnt">{items.length}</span>
               </div>
-              {/* Empty lane */}
-              {items.length === 0 && <div className="hud-sb-empty">— ว่าง</div>}
               {/* Story cards — mirrors .kc from dashboard */}
               {shown.map(s => {
                 const isActive = s.status === "In Progress";
