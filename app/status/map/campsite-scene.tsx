@@ -852,10 +852,15 @@ export default function CampsiteScene({
 
   // Drive wander/rest from live data: active roles wander, idle roles rest.
   // Runs once the engine is ready and again whenever an agent's status changes.
+  // Dev aid: ?wander=1 forces everyone to wander (the wander behaviour is otherwise
+  // hard to see when the live data has no active work).
   useEffect(() => {
     if (!engineReady) return;
+    const forceWander =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("wander") === "1";
     const activeByRole: Record<string, boolean> = {};
-    for (const a of agents) activeByRole[a.role] = a.active;
+    for (const a of agents) activeByRole[a.role] = forceWander || a.active;
     engineRef.current?.setActivity(activeByRole);
   }, [engineReady, agents]);
 
