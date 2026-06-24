@@ -268,6 +268,28 @@ const SCENE_CSS = `
 .sound-toggle:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 .sound-toggle.on{color:#5BE9B0;border-color:rgba(91,233,176,.4);background:rgba(91,233,176,.12)}
 .sound-toggle svg{width:20px;height:20px;display:block}
+/* Idle "waiting for work" speech bubble — engine toggles .show; text set via JS. */
+.speech{
+  position:absolute;left:50%;bottom:calc(var(--bh) + 30px);
+  transform:translateX(-50%) translateY(6px) scale(.88);
+  max-width:160px;white-space:nowrap;
+  padding:5px 11px;border-radius:13px;
+  font-size:10.5px;font-weight:600;line-height:1;color:var(--text);
+  background:rgba(18,46,37,.92);border:1px solid rgba(91,233,176,.38);
+  box-shadow:0 8px 22px rgba(0,0,0,.42);
+  opacity:0;pointer-events:none;z-index:6;
+  transition:opacity .26s ease;
+}
+.speech::after{
+  content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:rgba(18,46,37,.92);
+}
+.speech.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+@media (prefers-reduced-motion: no-preference){
+  .speech.show{animation:speechIn .3s cubic-bezier(.34,1.56,.64,1) both, speechFloat 2.8s ease-in-out .3s infinite}
+}
+@keyframes speechIn{from{opacity:0;transform:translateX(-50%) translateY(7px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes speechFloat{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-3px) scale(1)}}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
 .scout .glow{
   position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
@@ -382,6 +404,7 @@ interface AgentScoutProps {
   agent: MapAgent;
   bodyRef: (el: HTMLElement | null) => void;
   rootRef: (el: HTMLElement | null) => void;
+  speechRef: (el: HTMLElement | null) => void;
   /** Inline position used as static fallback (reduced-motion / pre-engine) */
   staticLeft: string;
   staticTop:  string;
@@ -390,13 +413,12 @@ interface AgentScoutProps {
 }
 
 function AgentScout({
-  agent, bodyRef, rootRef, staticLeft, staticTop, staticZ, onActivate,
+  agent, bodyRef, rootRef, speechRef, staticLeft, staticTop, staticZ, onActivate,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
 
   const stateClass = agent.active ? "working" : "idle";
-  const relaxSrc   = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
 
   const bstatText = agent.active && agent.task
     ? agent.task.id
@@ -442,12 +464,9 @@ function AgentScout({
       <div className="glow" aria-hidden="true" />
       <div className="aura-ring" aria-hidden="true" />
       <div className="shadow" aria-hidden="true" />
-      <div
-        ref={bodyRef}
-        className="body"
-        style={{ backgroundImage: `url("${relaxSrc}")` }}
-        aria-hidden="true"
-      />
+      <div ref={bodyRef} className="body" aria-hidden="true" />
+      {/* Idle "waiting for work" speech bubble — the engine sets the text + .show class. */}
+      <div ref={speechRef} className="speech" aria-hidden="true" />
       {/* Always-in-tree badge for screen readers */}
       <div className="badge" aria-hidden="true">
         <span className="bdot" aria-hidden="true" />
@@ -823,12 +842,22 @@ export default function CampsiteScene({
   // DOM refs — body and root element per agent, indexed by role.
   const bodyRefs = useRef<Record<string, HTMLElement | null>>({});
   const rootRefs = useRef<Record<string, HTMLElement | null>>({});
+  const speechRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Exposed handle for S6 (parent can access via a forwarded ref if needed).
   const engineRef = useRef<EngineHandle | null>(null);
 
   // S7: track whether engine has started — used to re-apply scope after engine starts.
   const [engineReady, setEngineReady] = useState(false);
+
+  // Drive wander/rest from live data: active roles wander, idle roles rest.
+  // Runs once the engine is ready and again whenever an agent's status changes.
+  useEffect(() => {
+    if (!engineReady) return;
+    const activeByRole: Record<string, boolean> = {};
+    for (const a of agents) activeByRole[a.role] = a.active;
+    engineRef.current?.setActivity(activeByRole);
+  }, [engineReady, agents]);
 
   useEffect(() => {
     // Guard: only run in the browser (this is a "use client" component, but be safe).
@@ -854,11 +883,18 @@ export default function CampsiteScene({
       const state       = buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0, homeCoords);
       state.bodyEl = bodyRefs.current[role] ?? null;
       state.rootEl = rootRefs.current[role] ?? null;
-      // Apply idle class and correct DOM position immediately so the first paint
-      // matches the layout (no frame where agents sit at the wrong place).
+      state.speechEl = speechRefs.current[role] ?? null;
+      // The engine owns the body sprite from here on; set the initial relax pose now
+      // so the character is visible on the first paint (React no longer sets it).
+      if (state.bodyEl) {
+        const relaxSrc = `/status-map/sprites/relax-${cfg.poseIdx}.webp`;
+        state.bodyEl.style.backgroundImage = `url("${relaxSrc}")`;
+        state.lastSrc = relaxSrc;
+      }
+      // Position immediately so the first paint matches the layout. The idle/working
+      // class is owned by React (className); the engine only toggles walking-mode.
       if (state.rootEl) {
-        state.rootEl.classList.remove("entering", "walking-mode");
-        state.rootEl.classList.add("idle");
+        state.rootEl.classList.remove("walking-mode");
         state.rootEl.style.left   = `${state.homeX}%`;
         state.rootEl.style.top    = `${state.homeY}%`;
         state.rootEl.style.zIndex = String(Math.round(state.homeY * 12) + 5);
@@ -889,9 +925,8 @@ export default function CampsiteScene({
         s.rootEl.style.left   = `${s.homeX}%`;
         s.rootEl.style.top    = `${s.homeY}%`;
         s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
-        // Restore class to idle (idle CSS sway is also off under reduced-motion)
-        s.rootEl.classList.remove("entering", "walking-mode");
-        s.rootEl.classList.add("idle");
+        // React owns idle/working; the engine only toggles walking-mode.
+        s.rootEl.classList.remove("walking-mode");
       }
     }
 
@@ -1220,6 +1255,7 @@ export default function CampsiteScene({
                   staticZ={pos.zIndex}
                   rootRef={(el) => { rootRefs.current[agent.role] = el; }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
+                  speechRef={(el) => { speechRefs.current[agent.role] = el; }}
                   onActivate={() => {
                     // Clicking an agent opens the Crew overlay panel so the user can
                     // see that agent's full details. This is the keyboard-triggerable

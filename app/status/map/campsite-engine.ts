@@ -1,56 +1,56 @@
-// campsite-engine.ts — S3 hybrid motion model for the campsite delivery map.
-// Pure TypeScript module (no React). Driven from a useEffect in campsite-scene.tsx.
+// campsite-engine.ts — character behaviour engine for the campsite delivery map.
+// Pure TypeScript (no React); driven from a useEffect in campsite-scene.tsx.
 //
-// Motion model:
-//   entering  → agent walks from an arm-tip entry node to its home station on first mount.
-//   idle      → no rAF position work; CSS .idle .body { animation: breathe } handles sway.
-//   walking   → path traversal via triggerWalk() — hook wired for S6; not called from data yet.
+// Behaviour model (per agent; "You" is the YouScout and never wanders):
+//   ACTIVE  (role has work) → continuous, NON-repeating WANDER around the clearing:
+//       randomised start delay, random next waypoint (never immediately backtracking),
+//       smooth multi-segment walks (no teleport/warp), short pause, then repeat — forever.
+//   IDLE    (no work) → REST near home:
+//       • on settling, separate from any overlapping resting neighbour,
+//       • randomly cycle the relax pose,
+//       • periodically float an animated speech bubble ("ส่งงานมาเลยจ้า", …) —
+//         never at the same moment as a pose change,
+//       • after ~1 min standing, take a short stroll then settle again.
 //
-// No random wander — agents only walk on a real state change (AC requirement).
-// DOM writes are limited to: style.left / style.top / style.zIndex / style.backgroundImage
-// on element refs. No React setState in the loop.
+// DOM writes only (no React state in the loop): rootEl left/top/zIndex + walking-mode
+// class, bodyEl backgroundImage/size, speechEl text + .show class. The engine OWNS the
+// body sprite (relax pose + walk frames) so React never clobbers it on re-render.
 
-// ── Waypoint graph (% coords, isometric campsite layout) ────────────────────
+// ── Geometry ─────────────────────────────────────────────────────────────────
 export interface Coord { x: number; y: number; }
 
+// Walkable clearing waypoints (% of the square play area). A ring on the open dirt
+// AROUND the campfire (centre ~50,59), clear of the central fire and the furniture
+// at the edges. The 7 role homes sit on N..NW (see LAYOUT_WIDE in the scene — kept in
+// sync); S is a role-less waypoint that adds wander variety. Tune on local via ?grid=1.
 export const NODES: Record<string, Coord> = {
-  N:   { x: 49, y: 44 },
-  NE:  { x: 58, y: 48 },
-  E:   { x: 62, y: 55 },
-  SE:  { x: 58, y: 62 },
-  S:   { x: 49, y: 66 },
-  SW:  { x: 40, y: 62 },
-  W:   { x: 37, y: 55 },
-  NW:  { x: 42, y: 50 },
-  // arm-tip entry nodes (used as entrance walk start positions)
-  aN:  { x: 49, y: 35 },
-  aE:  { x: 70, y: 54 },
-  aSE: { x: 66, y: 66 },
-  aS:  { x: 49, y: 75 },
-  aSW: { x: 33, y: 67 },
-  aW:  { x: 29, y: 54 },
+  N:  { x: 50, y: 46 },
+  NE: { x: 60, y: 51 },
+  E:  { x: 63, y: 60 },
+  SE: { x: 59, y: 69 },
+  S:  { x: 50, y: 72 },
+  SW: { x: 41, y: 69 },
+  W:  { x: 37, y: 60 },
+  NW: { x: 41, y: 51 },
 };
 
-// Undirected adjacency — dead-end arm-tips each connect to one ring node.
+// Adjacency = each node to its 2 ring-neighbours + 2 skip-1 neighbours. The extra
+// chords let wander routes vary (not a fixed loop / no predictable pattern) while
+// every edge stays in the clearing annulus — none crosses the central campfire.
 export const ADJ: Record<string, string[]> = {
-  N:   ["NE", "NW", "aN"],
-  NE:  ["N",  "E"],
-  E:   ["NE", "SE", "aE"],
-  SE:  ["E",  "S",  "aSE"],
-  S:   ["SE", "SW", "aS"],
-  SW:  ["S",  "W",  "aSW"],
-  W:   ["SW", "NW", "aW"],
-  NW:  ["W",  "N"],
-  aN:  ["N"],
-  aE:  ["E"],
-  aSE: ["SE"],
-  aS:  ["S"],
-  aSW: ["SW"],
-  aW:  ["W"],
+  N:  ["NE", "NW", "E",  "W"],
+  NE: ["E",  "N",  "SE", "NW"],
+  E:  ["SE", "NE", "S",  "N"],
+  SE: ["S",  "E",  "SW", "NE"],
+  S:  ["SW", "SE", "W",  "E"],
+  SW: ["W",  "S",  "NW", "SE"],
+  W:  ["NW", "SW", "N",  "S"],
+  NW: ["N",  "W",  "NE", "SW"],
 };
 
+const ALL_NODES = Object.keys(NODES);
 
-// ── Direction helper (ported from reference engine dirFor) ───────────────────
+// ── Direction helper ─────────────────────────────────────────────────────────
 export type WalkDir = "frontRight" | "frontLeft" | "backRight" | "backLeft";
 
 export function dirFor(dx: number, dy: number): WalkDir {
@@ -60,7 +60,6 @@ export function dirFor(dx: number, dy: number): WalkDir {
   return "backLeft";
 }
 
-// ── Walk sprite paths ────────────────────────────────────────────────────────
 export const WALK_SPRITES: Record<WalkDir, [string, string]> = {
   frontRight: ["/status-map/sprites/walk-front-right-0.webp", "/status-map/sprites/walk-front-right-1.webp"],
   frontLeft:  ["/status-map/sprites/walk-front-left-0.webp",  "/status-map/sprites/walk-front-left-1.webp"],
@@ -68,41 +67,75 @@ export const WALK_SPRITES: Record<WalkDir, [string, string]> = {
   backLeft:   ["/status-map/sprites/walk-back-left-0.webp",   "/status-map/sprites/walk-back-left-1.webp"],
 };
 
-// ── Physics constants (ported from reference engine) ─────────────────────────
-const BASE_SPEED = 0.0019; // % per ms at 1× speed (calm stroll)
-const STEP_DIST  = 1.2;    // % walked before leg-swap frame (gait-locked to speed)
-const WALK_AR    = 0.6106; // walk-sprite width-to-height ratio
+// ── Tunables ─────────────────────────────────────────────────────────────────
+const BASE_SPEED = 0.0019;  // % per ms at 1× speed (calm stroll)
+const STEP_DIST  = 1.2;     // % walked before a leg-swap frame
+const WALK_AR    = 0.6106;  // walk-sprite width-to-height ratio
+const RELAX_POSES = 6;      // relax-0..5.webp
+
+const WANDER_START_MIN = 300,  WANDER_START_MAX = 4200; // staggered first wander leg (ms)
+const WANDER_PAUSE_MIN = 450,  WANDER_PAUSE_MAX = 1900; // pause at each waypoint (ms)
+const REST_STROLL_MS   = 60000;                          // stand ~1 min → short stroll
+const POSE_MIN = 4500, POSE_MAX = 8500;                  // relax-pose cycle (ms)
+const POSE_LOCK = 800;                                   // after a pose change, hold off speech (ms)
+const SPEECH_MIN = 6500, SPEECH_MAX = 13000;             // gap between bubbles (ms)
+const SPEECH_SHOW = 3600;                                // bubble visible duration (ms)
+const OVERLAP_DIST = 7.5;                                // % — closer than this counts as overlapping
+
+// Idle "waiting for work" chatter. Plain, friendly Thai (no jargon).
+export const SPEECH_LINES = [
+  "ส่งงานมาเลยจ้า",
+  "รองานอยู่นะ",
+  "เมื่อไหร่งานจะมา?",
+  "เหงาจังเลย",
+  "ว่างอยู่ มางานเลย",
+  "พร้อมลุยทุกเมื่อ",
+];
+
+const rand    = (a: number, b: number) => a + Math.random() * (b - a);
+const randInt = (n: number) => Math.floor(Math.random() * n);
+const pick = <T,>(arr: T[]): T => arr[randInt(arr.length)];
 
 // ── Scout state ──────────────────────────────────────────────────────────────
-export type ScoutMode = "entering" | "walking" | "idle";
+export type ScoutMode = "walking" | "resting";
 
 export interface ScoutState {
   role:     string;
-  homeNode: string;   // octagon station key (BFS graph node, used for path traversal)
-  poseIdx:  number;   // index into relax-N.webp (0–5), set by component
-  // CAM-163: authoritative resting position (% of 1920×1080 canvas).
-  // Set from LAYOUT_WIDE / LAYOUT_NARROW by setHomes(); used by enterIdle()
-  // so the final resting spot always comes from the art-measured layout table,
-  // never from NODES[homeNode] (the old compass node coord).
-  homeX:    number;
+  homeNode: string;   // the agent's ring node (= its rest spot)
+  poseIdx:  number;   // currently shown relax pose (0..RELAX_POSES-1)
+  homeX:    number;   // authoritative rest position (% of the play area)
   homeY:    number;
-  // path traversal (only used in entering / walking mode)
+  // path traversal
   cur:      string;   // current node key
   tgt:      string;   // next target node key
-  t:        number;   // interpolation [0,1] along cur → tgt segment
-  // world position (viewport %)
+  t:        number;   // interpolation [0,1] along the current segment
+  fx:       number;   // segment-FROM position (the agent's real start of this segment)
+  fy:       number;   // — lets a walk begin smoothly from wherever the agent stands
+  // world position (% of play area)
   x:        number;
   y:        number;
   // motion
   mode:     ScoutMode;
   dir:      WalkDir;
-  frame:    number;   // 0 or 1 leg frame
-  distAcc:  number;   // accumulated distance for gait swap
-  lastSrc:  string;   // last applied backgroundImage — skip redundant DOM write
-  speedVar: number;   // per-agent speed multiplier
-  // DOM element refs, wired by the component after render
+  frame:    number;
+  distAcc:  number;
+  lastSrc:  string;
+  speedVar: number;
+  // behaviour
+  active:    boolean;  // role has work → wander; otherwise rest
+  lastNode:  string;   // anti-backtrack for wander
+  waitTimer: number;   // ms until the next wander leg (or the staggered first leg)
+  rest:      number;    // ms standing at rest (→ stroll at REST_STROLL_MS)
+  poseT:     number;   // ms until the next pose change
+  poseLock:  number;   // ms cooldown after a pose change (suppresses speech)
+  speechT:   number;   // ms until the next bubble
+  speechHide: number;  // ms until the current bubble hides
+  speechOn:  boolean;
+  strolling: boolean;  // current walk is a rest-stroll / nudge (settle again on arrival)
+  // DOM refs (wired by the component after render)
   bodyEl:   HTMLElement | null;
   rootEl:   HTMLElement | null;
+  speechEl: HTMLElement | null;
 }
 
 export interface ScoutRef {
@@ -111,7 +144,7 @@ export interface ScoutRef {
   path:  string[];
 }
 
-// ── BFS shortest path ────────────────────────────────────────────────────────
+// ── BFS shortest path on the clearing graph ──────────────────────────────────
 function bfsPath(from: string, to: string): string[] {
   if (from === to) return [from];
   const queue: string[][] = [[from]];
@@ -127,23 +160,14 @@ function bfsPath(from: string, to: string): string[] {
       }
     }
   }
-  return [from]; // shouldn't happen in a connected graph
+  return [from];
 }
 
-// ── Smooth easing (cosine, same as reference engine) ─────────────────────────
 function ease(t: number): number {
   return -(Math.cos(Math.PI * t) - 1) / 2;
 }
 
-// ── Build initial scout state ─────────────────────────────────────────────────
-// CAM-163: Agents now start directly in "idle" mode at their layout home position
-// (homeX / homeY), so they appear correctly placed from the first paint with no
-// compass-detour entrance walk. The scene passes the active layout's coords via
-// the `homeCoords` parameter; if omitted, we fall back to the NODES[homeNode]
-// coord so the function is safe to call without a layout.
-//
-// S6 re-triggers walks via triggerWalk(); the entrance walk was removed because it
-// caused the "snap-to-wrong-compass-node" bug (CAM-163 root cause).
+// ── Build initial scout state (starts resting at its home) ────────────────────
 export function buildScoutState(
   role: string,
   homeNode: string,
@@ -151,7 +175,7 @@ export function buildScoutState(
   speedVar: number,
   homeCoords?: { x: number; y: number },
 ): ScoutState {
-  const homePos  = NODES[homeNode] ?? { x: 50, y: 50 };
+  const homePos = NODES[homeNode] ?? { x: 50, y: 55 };
   const hx = homeCoords?.x ?? homePos.x;
   const hy = homeCoords?.y ?? homePos.y;
 
@@ -159,47 +183,51 @@ export function buildScoutState(
     role,
     homeNode,
     poseIdx,
-    homeX:    hx,
-    homeY:    hy,
-    cur:      homeNode,
-    tgt:      homeNode,
-    t:        0,
-    x:        hx,
-    y:        hy,
-    mode:     "idle",
-    dir:      "frontRight",
-    frame:    0,
-    distAcc:  0,
-    lastSrc:  "",
+    homeX: hx,
+    homeY: hy,
+    cur: homeNode,
+    tgt: homeNode,
+    t: 0,
+    fx: hx,
+    fy: hy,
+    x: hx,
+    y: hy,
+    mode: "resting",
+    dir: "frontRight",
+    frame: 0,
+    distAcc: 0,
+    lastSrc: "",
     speedVar,
-    bodyEl:   null,
-    rootEl:   null,
+    active: false,
+    lastNode: homeNode,
+    waitTimer: rand(WANDER_START_MIN, WANDER_START_MAX),
+    rest: 0,
+    poseT: rand(POSE_MIN, POSE_MAX),
+    poseLock: 0,
+    speechT: rand(SPEECH_MIN, SPEECH_MAX),
+    speechHide: 0,
+    speechOn: false,
+    strolling: false,
+    bodyEl: null,
+    rootEl: null,
+    speechEl: null,
   };
 }
 
 // ── Engine ───────────────────────────────────────────────────────────────────
 export interface EngineHandle {
-  /**
-   * S6 hook — walk the agent at `role` to `toNode` (defaults to its home station).
-   * Call this when live data changes and you want the agent to visually move.
-   */
+  /** S6 hook — walk the agent at `role` to `toNode` (defaults to its home node). */
   triggerWalk: (role: string, toNode?: string) => void;
-  /**
-   * S5 hook — narrow / restore the scene without remounting the rAF loop.
-   * In Epic scope: dim/hide agents whose role is NOT in epicRoles; all others stay.
-   * In Overview scope (scope="all", epicRoles empty): restore all agents to full opacity.
-   * The rAF loop keeps running; only CSS opacity/pointer-events on rootEl are touched.
-   */
+  /** S5 hook — dim/restore agents by epic scope (CSS opacity only; loop untouched). */
   setScope: (scope: "all" | "epic", epicRoles: string[]) => void;
-  /**
-   * CAM-161 — Switch all agents to a new set of home coordinates (absolute %).
-   * Used when the layout switches between LAYOUT_WIDE and LAYOUT_NARROW.
-   * Each agent's homeNode x/y is overwritten; idle agents snap immediately;
-   * agents in entering/walking mode adopt the new target as their next home.
-   * The rAF loop keeps running — no remount.
-   */
+  /** CAM-161 — switch all agents to a new set of home (rest) coordinates. */
   setHomes: (homes: Record<string, { x: number; y: number }>) => void;
-  /** Cancel the rAF loop. Must be called in useEffect cleanup to prevent leaks. */
+  /**
+   * Drive behaviour from live data: which roles currently have work.
+   * Active roles start wandering; inactive roles settle and rest. Idempotent.
+   */
+  setActivity: (activeByRole: Record<string, boolean>) => void;
+  /** Cancel the rAF loop. Must be called in useEffect cleanup. */
   stop: () => void;
 }
 
@@ -209,90 +237,120 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
   let active = true;
 
   // ── DOM helpers ─────────────────────────────────────────────────────────────
-
   function setWalkBody(s: ScoutState) {
     if (!s.bodyEl) return;
     s.bodyEl.style.width  = `calc(var(--scout-size) * ${WALK_AR})`;
     s.bodyEl.style.height = "var(--scout-size)";
   }
 
-  function setIdleBody(s: ScoutState) {
+  function setRestBody(s: ScoutState) {
     if (!s.bodyEl) return;
-    // Clear walk-specific sizing (CSS defaults handle relax sprites via contain).
-    s.bodyEl.style.width  = "";
+    s.bodyEl.style.width  = ""; // relax sprites use the CSS contain sizing
     s.bodyEl.style.height = "";
-    const relaxSrc = `/status-map/sprites/relax-${s.poseIdx}.webp`;
-    if (s.lastSrc !== relaxSrc) {
-      s.bodyEl.style.backgroundImage = `url("${relaxSrc}")`;
-      s.lastSrc = relaxSrc;
+    const src = `/status-map/sprites/relax-${s.poseIdx}.webp`;
+    if (s.lastSrc !== src) {
+      s.bodyEl.style.backgroundImage = `url("${src}")`;
+      s.lastSrc = src;
     }
+  }
+
+  function cyclePose(s: ScoutState) {
+    // pick a different pose than the current one
+    let next = s.poseIdx;
+    if (RELAX_POSES > 1) {
+      next = randInt(RELAX_POSES - 1);
+      if (next >= s.poseIdx) next += 1;
+    }
+    s.poseIdx = next;
+    setRestBody(s);
+  }
+
+  function showSpeech(s: ScoutState, text: string) {
+    s.speechOn = true;
+    if (s.speechEl) {
+      s.speechEl.textContent = text;
+      s.speechEl.classList.add("show");
+    }
+  }
+
+  function hideSpeech(s: ScoutState) {
+    s.speechOn = false;
+    if (s.speechEl) s.speechEl.classList.remove("show");
+  }
+
+  function place(s: ScoutState) {
+    if (!s.rootEl) return;
+    s.rootEl.style.left   = `${s.x}%`;
+    s.rootEl.style.top    = `${s.y}%`;
+    s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
   }
 
   // ── Mode transitions ─────────────────────────────────────────────────────────
-
-  function enterIdle(ref: ScoutRef) {
-    const s = ref.state;
-    s.mode   = "idle";
-    ref.path = [];
-    // CAM-163: snap to homeX/homeY (the art-measured layout position),
-    // NOT to NODES[homeNode] (the old compass node coord that caused the bug).
-    s.x   = s.homeX;
-    s.y   = s.homeY;
-    s.cur = s.homeNode;
-    s.tgt = s.homeNode;
-    s.t   = 0;
-    if (s.rootEl) {
-      s.rootEl.classList.remove("entering", "walking-mode");
-      s.rootEl.classList.add("idle");
-      s.rootEl.style.left   = `${s.x}%`;
-      s.rootEl.style.top    = `${s.y}%`;
-      s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
-    }
-    setIdleBody(s);
-  }
-
   function enterWalking(ref: ScoutRef, targetNode: string) {
-    const s        = ref.state;
-    const fullPath = bfsPath(s.cur, targetNode);
-    // Need at least 2 nodes to move anywhere.
-    if (fullPath.length < 2) {
-      enterIdle(ref);
+    const s = ref.state;
+    const full = bfsPath(s.cur, targetNode);
+    if (full.length < 2) {           // already there / nowhere to go
+      settle(ref);
       return;
     }
-    s.tgt    = fullPath[1];
-    ref.path = fullPath.slice(2);
+    s.tgt    = full[1];
+    ref.path = full.slice(2);
     s.t      = 0;
+    s.fx     = s.x;                  // start this segment from the real position (no warp)
+    s.fy     = s.y;
     s.mode   = "walking";
-    if (s.rootEl) {
-      s.rootEl.classList.remove("idle", "entering");
-      s.rootEl.classList.add("walking-mode");
-    }
+    if (s.rootEl) s.rootEl.classList.add("walking-mode");
     setWalkBody(s);
-    s.lastSrc = ""; // force sprite update on next render
+    s.lastSrc = "";                 // force a sprite write next frame
   }
 
-  // ── Per-frame step (ported from reference engine step()) ─────────────────────
+  /** Arrived / nothing to do → stand still and (re)start the rest behaviour. */
+  function settle(ref: ScoutRef) {
+    const s = ref.state;
+    s.mode = "resting";
+    s.tgt  = s.cur;
+    s.t    = 0;
+    if (s.rootEl) s.rootEl.classList.remove("walking-mode");
 
+    if (s.active) {
+      // Wander pause; the next leg is chosen when waitTimer elapses.
+      s.waitTimer = rand(WANDER_PAUSE_MIN, WANDER_PAUSE_MAX);
+      setRestBody(s);
+      return;
+    }
+
+    // Idle: rest where we arrived — the home on the first settle, the stroll/nudge
+    // spot afterwards. Never snap back to home (that would warp + undo separation).
+    place(s);
+    setRestBody(s);
+    s.rest      = 0;
+    s.poseT     = rand(POSE_MIN, POSE_MAX);
+    s.poseLock  = 0;
+    s.speechT   = rand(SPEECH_MIN, SPEECH_MAX);
+    const wasStroll = s.strolling;
+    s.strolling = false;
+    if (!wasStroll) separateIfOverlapping(ref); // only when first arriving, not after a stroll
+  }
+
+  // ── Per-frame walk step (interpolates from fx/fy → tgt node) ──────────────────
   function stepWalk(s: ScoutState, dt: number, path: string[]): void {
-    const p = NODES[s.cur];
-    let   q = NODES[s.tgt];
-    if (!p || !q) return;
+    let q = NODES[s.tgt];
+    if (!q) return;
 
-    const segLen = Math.hypot(q.x - p.x, q.y - p.y) || 0.001;
+    const segLen = Math.hypot(q.x - s.fx, q.y - s.fy) || 0.001;
     const moved  = BASE_SPEED * s.speedVar * dt;
-
     s.t       += moved / segLen;
     s.distAcc += moved;
 
-    // Advance through waypoints while s.t overflows 1.
     let guard = 0;
     while (s.t >= 1 && guard++ < 8) {
-      s.t   -= 1;
-      s.cur  = s.tgt;
+      s.t  -= 1;
+      s.cur = s.tgt;
+      const reached = NODES[s.cur];
+      if (reached) { s.fx = reached.x; s.fy = reached.y; }
       if (path.length > 0) {
         s.tgt = path.shift()!;
       } else {
-        // Arrived at destination — tgt stays as cur; loop exit detected below.
         s.tgt = s.cur;
         s.t   = 0;
         break;
@@ -301,70 +359,140 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
       if (!q) break;
     }
 
-    // Leg-swap gait.
     if (s.distAcc >= STEP_DIST) {
       s.distAcc -= STEP_DIST;
       s.frame   ^= 1;
     }
 
-    // Interpolated position.
-    const qFinal = NODES[s.tgt];
-    if (!qFinal) return;
+    const qF = NODES[s.tgt];
+    if (!qF) return;
     const e = ease(Math.min(s.t, 1));
-    s.x   = p.x + (qFinal.x - p.x) * e;
-    s.y   = p.y + (qFinal.y - p.y) * e;
-    s.dir = dirFor(qFinal.x - p.x, qFinal.y - p.y);
+    s.x   = s.fx + (qF.x - s.fx) * e;
+    s.y   = s.fy + (qF.y - s.fy) * e;
+    s.dir = dirFor(qF.x - s.fx, qF.y - s.fy);
   }
 
-  // ── Render pass (DOM writes only) ───────────────────────────────────────────
+  function renderWalk(s: ScoutState) {
+    place(s);
+    if (!s.bodyEl) return;
+    const [f0, f1] = WALK_SPRITES[s.dir];
+    const src = s.frame === 0 ? f0 : f1;
+    if (src !== s.lastSrc) {
+      s.bodyEl.style.backgroundImage = `url("${src}")`;
+      s.lastSrc = src;
+    }
+  }
 
-  function renderScout(s: ScoutState) {
-    if (!s.rootEl) return;
-    // Position and z-order (isometric depth by y).
-    s.rootEl.style.left   = `${s.x}%`;
-    s.rootEl.style.top    = `${s.y}%`;
-    s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
+  // ── Wander (active) ───────────────────────────────────────────────────────────
+  function startWanderLeg(ref: ScoutRef) {
+    const s = ref.state;
+    // random target: any node except where we are and where we just came from
+    const pool = ALL_NODES.filter((n) => n !== s.cur && n !== s.lastNode);
+    const target = pick(pool.length ? pool : ALL_NODES.filter((n) => n !== s.cur));
+    s.lastNode = s.cur;
+    s.strolling = false;
+    enterWalking(ref, target);
+  }
 
-    if (s.mode === "entering" || s.mode === "walking") {
-      if (!s.bodyEl) return;
-      const [f0, f1] = WALK_SPRITES[s.dir];
-      const src = s.frame === 0 ? f0 : f1;
-      if (src !== s.lastSrc) {
-        s.bodyEl.style.backgroundImage = `url("${src}")`;
-        s.lastSrc = src;
+  // ── Rest (idle) ───────────────────────────────────────────────────────────────
+  function strollFromRest(ref: ScoutRef) {
+    const s = ref.state;
+    const nbrs = (ADJ[s.cur] ?? ALL_NODES).filter((n) => n !== s.lastNode);
+    const target = pick(nbrs.length ? nbrs : (ADJ[s.cur] ?? ALL_NODES));
+    s.lastNode  = s.cur;
+    s.strolling = true;
+    enterWalking(ref, target);
+  }
+
+  /** If another RESTING scout is too close, hop one node away to separate. */
+  function separateIfOverlapping(ref: ScoutRef) {
+    const s = ref.state;
+    const tooClose = scouts.some((o) => {
+      if (o === ref) return false;
+      const os = o.state;
+      if (os.active || os.mode !== "resting") return false;
+      return Math.hypot(os.x - s.x, os.y - s.y) < OVERLAP_DIST;
+    });
+    if (!tooClose) return;
+
+    // choose the neighbouring node that maximises the min distance to others
+    const nbrs = ADJ[s.cur] ?? [];
+    let best: string | null = null;
+    let bestMin = -Infinity;
+    for (const n of nbrs) {
+      const c = NODES[n];
+      if (!c) continue;
+      let minD = Infinity;
+      for (const o of scouts) {
+        if (o === ref) continue;
+        minD = Math.min(minD, Math.hypot(o.state.x - c.x, o.state.y - c.y));
+      }
+      if (minD > bestMin) { bestMin = minD; best = n; }
+    }
+    if (best) {
+      s.lastNode  = s.cur;
+      s.strolling = true; // settle (no recursive separation) on arrival
+      enterWalking(ref, best);
+    }
+  }
+
+  function tickRest(ref: ScoutRef, dt: number) {
+    const s = ref.state;
+    s.rest += dt;
+    if (s.poseLock > 0) s.poseLock -= dt;
+
+    // speech lifecycle
+    if (s.speechOn) {
+      s.speechHide -= dt;
+      if (s.speechHide <= 0) hideSpeech(s);
+    } else {
+      s.speechT -= dt;
+      if (s.speechT <= 0 && s.poseLock <= 0) {
+        showSpeech(s, pick(SPEECH_LINES));
+        s.speechHide = SPEECH_SHOW;
+        s.speechT    = rand(SPEECH_MIN, SPEECH_MAX);
       }
     }
-    // Idle: CSS animation handles sway — no per-frame DOM write needed.
+
+    // pose cycle — never while a bubble is up, so the two never clash
+    if (!s.speechOn) {
+      s.poseT -= dt;
+      if (s.poseT <= 0) {
+        cyclePose(s);
+        s.poseT    = rand(POSE_MIN, POSE_MAX);
+        s.poseLock = POSE_LOCK;
+      }
+    }
+
+    // stood for ~1 min → short stroll then settle again (only when calm)
+    if (s.rest >= REST_STROLL_MS && !s.speechOn) {
+      s.rest = 0;
+      strollFromRest(ref);
+    }
   }
 
-  // ── Main rAF loop ────────────────────────────────────────────────────────────
-
+  // ── Main rAF loop ──────────────────────────────────────────────────────────────
   function loop(now: number) {
     if (!active) return;
     let dt = now - last;
-    last   = now;
-    // Cap spike (tab hidden, GC pause, etc.).
+    last = now;
     if (dt > 50) dt = 50;
 
     for (const ref of scouts) {
       const s = ref.state;
-
-      if (s.mode === "entering" || s.mode === "walking") {
-        // Arrived when cur === tgt and no more path segments.
-        const arrived = s.cur === s.tgt && ref.path.length === 0;
-        if (arrived) {
-          enterIdle(ref);
+      if (s.mode === "walking") {
+        stepWalk(s, dt, ref.path);
+        if (s.cur === s.tgt && ref.path.length === 0) {
+          settle(ref);
         } else {
-          stepWalk(s, dt, ref.path);
-          // Re-check after step (may have just reached destination).
-          if (s.cur === s.tgt && ref.path.length === 0) {
-            enterIdle(ref);
-          } else {
-            renderScout(s);
-          }
+          renderWalk(s);
         }
+      } else if (s.active) {
+        s.waitTimer -= dt;
+        if (s.waitTimer <= 0) startWanderLeg(ref);
+      } else {
+        tickRest(ref, dt);
       }
-      // mode === "idle": position is fixed; breathe animation is CSS-only.
     }
 
     rafId = requestAnimationFrame(loop);
@@ -376,55 +504,57 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
     triggerWalk(role: string, toNode?: string) {
       const ref = scouts.find((r) => r.state.role === role);
       if (!ref) return;
-      const target = toNode ?? ref.state.homeNode;
-      enterWalking(ref, target);
+      enterWalking(ref, toNode ?? ref.state.homeNode);
     },
     setScope(scope: "all" | "epic", epicRoles: string[]) {
-      // DOM-only: adjust opacity/pointer-events without touching the rAF loop.
       for (const ref of scouts) {
         const el = ref.state.rootEl;
         if (!el) continue;
         if (scope === "all") {
-          // Restore all agents to full presence.
-          el.style.opacity        = "";
-          el.style.pointerEvents  = "";
-          el.style.transition     = "opacity 300ms ease-out";
+          el.style.opacity       = "";
+          el.style.pointerEvents = "";
+          el.style.transition    = "opacity 300ms ease-out";
         } else {
           const inEpic = epicRoles.includes(ref.state.role);
-          el.style.opacity        = inEpic ? "1" : "0.18";
-          el.style.pointerEvents  = inEpic ? "" : "none";
-          el.style.transition     = "opacity 300ms ease-out";
+          el.style.opacity       = inEpic ? "1" : "0.18";
+          el.style.pointerEvents = inEpic ? "" : "none";
+          el.style.transition    = "opacity 300ms ease-out";
         }
       }
     },
-    // CAM-161 / CAM-163: Switch all agents to a new layout's home coordinates.
-    // homeX/homeY are updated on EVERY scout regardless of mode — this is the
-    // authoritative resting position that enterIdle() reads.
-    // Idle agents also snap their DOM position immediately.
-    // Walking/entering agents carry the new homeX/homeY and will land there
-    // when they next reach enterIdle (no compass-node detour).
     setHomes(homes: Record<string, { x: number; y: number }>) {
       for (const ref of scouts) {
-        const s    = ref.state;
+        const s = ref.state;
         const home = homes[s.role];
         if (!home) continue;
-
-        // Always update the authoritative resting coordinates.
         s.homeX = home.x;
         s.homeY = home.y;
-
-        if (s.mode === "idle") {
-          // Snap DOM immediately to the new home.
+        // Idle + standing still → snap onto the new rest spot immediately.
+        if (!s.active && s.mode === "resting") {
           s.x = home.x;
           s.y = home.y;
-          if (s.rootEl) {
-            s.rootEl.style.left   = `${s.x}%`;
-            s.rootEl.style.top    = `${s.y}%`;
-            s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
-          }
+          s.cur = s.homeNode;
+          place(s);
         }
-        // Walking/entering: homeX/homeY already updated above.
-        // enterIdle() will snap to the new home when the agent arrives.
+      }
+    },
+    setActivity(activeByRole: Record<string, boolean>) {
+      for (const ref of scouts) {
+        const s = ref.state;
+        const next = !!activeByRole[s.role];
+        if (next === s.active) continue;
+        s.active = next;
+        if (next) {
+          // Became busy → start wandering after a short, staggered delay.
+          if (s.mode === "resting") {
+            hideSpeech(s);
+            s.waitTimer = rand(WANDER_START_MIN, WANDER_START_MAX);
+          }
+        } else {
+          // Became idle → walk home and rest (separation happens on arrival).
+          s.strolling = false;
+          if (s.mode === "resting") enterWalking(ref, s.homeNode);
+        }
       }
     },
     stop() {
