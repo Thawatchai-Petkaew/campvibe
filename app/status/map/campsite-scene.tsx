@@ -742,25 +742,29 @@ const SOUND_VOL = 0.35;
 
 function SoundToggle() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [on, setOn] = useState(false);
-
-  useEffect(() => {
-    let want = false;
+  const [on, setOn] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      want = localStorage.getItem(SOUND_KEY) === "on";
+      return localStorage.getItem(SOUND_KEY) === "on";
     } catch {
-      /* localStorage unavailable */
+      return false;
     }
+  });
+
+  // On mount, if sound was left ON, try to resume it. Autoplay may be blocked until a
+  // user gesture, so fall back to starting on the next interaction.
+  useEffect(() => {
+    if (!on) return;
     const a = audioRef.current;
-    if (!want || !a) return;
-    setOn(true);
+    if (!a) return;
     a.volume = SOUND_VOL;
     a.play().catch(() => {
-      // Autoplay blocked until a user gesture — resume on the next interaction.
       const resume = () => a.play().catch(() => undefined);
       window.addEventListener("pointerdown", resume, { once: true });
       window.addEventListener("keydown", resume, { once: true });
     });
+    // run once on mount; `on`'s initial value is what we restored from storage
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = useCallback(() => {
