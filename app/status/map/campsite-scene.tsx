@@ -612,6 +612,94 @@ function syncUrl(params: Record<string, string>): void {
 // and left edges. Coordinates match character % positions exactly (1920×1080 canvas).
 // pointer-events:none + z-index below HUD + absent in production (prop=false).
 
+// Builds copy-pasteable NODES + ADJ source from picked waypoints. Two waypoints are
+// auto-connected when within `radius` (% of the play area) of each other.
+function genWaypointCode(points: Array<{ x: number; y: number }>, radius: number): string {
+  if (points.length === 0) return "// คลิกบนลานดิน/ทางเดินเพื่อวาง waypoint";
+  const adj: Record<number, number[]> = {};
+  points.forEach((_, i) => (adj[i] = []));
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) <= radius) {
+        adj[i].push(j);
+        adj[j].push(i);
+      }
+    }
+  }
+  const nodes = points.map((p, i) => `  W${i}: { x: ${p.x}, y: ${p.y} },`).join("\n");
+  const edges = points.map((_, i) => `  W${i}: [${adj[i].map((j) => `"W${j}"`).join(", ")}],`).join("\n");
+  return `export const NODES = {\n${nodes}\n};\n\nexport const ADJ = {\n${edges}\n};`;
+}
+
+// Dev editor (?pick=1): click the clearing to drop walk-graph waypoints on the REAL
+// scene (the only place the decoupled character layer is accurately positioned).
+// Auto-connects nearby points and prints NODES/ADJ to copy. Click a point to remove it.
+function WaypointPicker() {
+  const [points, setPoints] = useState<Array<{ x: number; y: number }>>([]);
+  const RADIUS = 26;
+  const edges: Array<[number, number]> = [];
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) <= RADIUS) edges.push([i, j]);
+    }
+  }
+  const btn = {
+    background: "rgba(255,255,255,0.08)", color: "#dfeaf5", border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 6, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontFamily: "monospace",
+  } as const;
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
+          const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
+          setPoints((prev) => {
+            const hit = prev.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 2.5);
+            return hit >= 0 ? prev.filter((_, i) => i !== hit) : [...prev, { x, y }];
+          });
+        }}
+        style={{ position: "absolute", inset: 0, zIndex: 2000, cursor: "crosshair" }}
+      />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2001, pointerEvents: "none", overflow: "visible" }}
+      >
+        {edges.map(([a, b], i) => (
+          <line key={i} x1={points[a].x} y1={points[a].y} x2={points[b].x} y2={points[b].y} stroke="rgba(143,184,240,0.65)" strokeWidth={0.3} />
+        ))}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={1.4} fill="#8FB8F0" />
+            <text x={p.x} y={p.y - 2.2} textAnchor="middle" fontSize={2.6} fontWeight={700} fontFamily="monospace" fill="#d6e6ff">{i}</text>
+          </g>
+        ))}
+      </svg>
+      <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2002, width: 320, background: "rgba(12,20,34,0.95)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12, padding: "11px 13px", color: "#dfeaf5", fontFamily: "monospace", fontSize: 11 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+          <strong style={{ fontSize: 12 }}>waypoint picker · {points.length}</strong>
+          <span>
+            <button type="button" onClick={() => setPoints((p) => p.slice(0, -1))} style={btn}>undo</button>
+            <button type="button" onClick={() => setPoints([])} style={{ ...btn, marginLeft: 6 }}>clear</button>
+          </span>
+        </div>
+        <div style={{ opacity: 0.65, marginBottom: 8, lineHeight: 1.45 }}>
+          คลิกลานดิน/ทางเดิน = วางจุด · คลิกจุดเดิม = ลบ · ต่อเส้นอัตโนมัติเมื่อใกล้ ≤{RADIUS}% · ก๊อปโค้ดส่งผม
+        </div>
+        <textarea
+          readOnly
+          value={genWaypointCode(points, RADIUS)}
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ width: "100%", height: 168, background: "rgba(0,0,0,0.34)", color: "#a8e8d0", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: 8, fontSize: 10, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+        />
+      </div>
+    </>
+  );
+}
+
 // Dev overlay (?routes=1): draws the walk graph — waypoints + edges + the central
 // campfire keep-out — in the same % space as the characters, so the route network is
 // visible for verification/tuning. Pairs with ?wander=1 to watch agents traverse it.
@@ -900,6 +988,12 @@ export default function CampsiteScene({
   const debugRoutes =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("routes") === "1";
+
+  // Dev: ?pick=1 turns on the waypoint editor — click the clearing to lay down the
+  // walk graph on the real scene, then copy the generated NODES/ADJ for me to wire in.
+  const debugPick =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("pick") === "1";
 
   // Drive wander/rest from live data: active roles wander, idle roles rest.
   // Runs once the engine is ready and again whenever an agent's status changes.
@@ -1284,6 +1378,7 @@ export default function CampsiteScene({
                 pointer-events:none; below HUD; absent in normal view. */}
             {debugGrid && <DebugGrid />}
             {debugRoutes && <DebugRoutes />}
+            {debugPick && <WaypointPicker />}
 
             {/* You rendered first so it comes first in tab order.
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
