@@ -158,8 +158,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale mode
   it("--scout-size is a fixed design-px value (not vw-relative)", () => {
     // Must NOT contain 'vw' in the scout-size definition
     expect(src).not.toContain("7.2vw");
-    // CAM-164: bumped from 104px → 116px (proportional to 1920×1080 canvas)
-    expect(src).toContain("--scout-size: 116px");
+    // CAM-167: reduced 116px → 88px so the clearing ring doesn't overlap at 1920
+    expect(src).toContain("--scout-size: 88px");
   });
 
   it("does NOT use the old width:max() approach for scaling", () => {
@@ -861,9 +861,9 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coord
     expect(src).toContain('{ x: 50, y: 42 }'); // security-reviewer (center)
   });
 
-  it("scout sizes updated: root 116px, narrow override 90px", () => {
-    expect(src).toContain("--scout-size: 116px");
-    expect(src).toContain("--scout-size: 90px");
+  it("scout sizes updated: root 88px, narrow override 74px", () => {
+    expect(src).toContain("--scout-size: 88px");
+    expect(src).toContain("--scout-size: 74px");
   });
 
   it("CAM-164 layout comment references ?grid=1 tuning", () => {

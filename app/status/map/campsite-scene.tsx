@@ -196,7 +196,7 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: 116px;
+  --scout-size: 88px;
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -212,7 +212,7 @@ const SCENE_CSS = `
 /* Narrow layout: portrait screens where the narrow scale factor is large.
    Reduce scout-size so the compact cluster doesn't produce giant overlapping characters. */
 @media (max-aspect-ratio: 7/5) {
-  :root { --scout-size: 90px; }
+  :root { --scout-size: 74px; }
 }
 .map-wrap{
   position:fixed;inset:0;overflow:hidden;
