@@ -750,62 +750,69 @@ const HUD_CSS = `
 .hud-board-btn:hover{background:rgba(91,233,176,.16)}
 .hud-board-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:-2px}
 
-/* ── Status Board right panel ── */
+/* ── Status Board right panel — matches sum/dlv card system exactly ── */
 .hud-sb-card{
-  width:240px;border-radius:18px;overflow:hidden;
+  width:220px;border-radius:18px;overflow:hidden;
   border:1px solid rgba(150,240,195,.13);
   background:rgba(11,30,24,.60);
   backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(200,255,232,.12);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
 }
 .hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0}
-.hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(91,233,176,.7)}
+.hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
 .hud-sb-collapse{
   display:flex;align-items:center;justify-content:center;
   width:26px;height:26px;border-radius:8px;border:none;
-  background:transparent;color:rgba(91,233,176,.35);cursor:pointer;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
   transition:background 110ms,color 110ms;
 }
-.hud-sb-collapse:hover{background:rgba(91,233,176,.1);color:rgba(91,233,176,.85)}
-.hud-sb-lanes{padding:8px 14px 4px;display:flex;flex-direction:column;gap:9px}
-.hud-sb-lane-head{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.hud-sb-dot{display:inline-block;width:7px;height:7px;border-radius:99px;flex:none}
+.hud-sb-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-sb-body{padding:6px 14px 14px;display:flex;flex-direction:column;gap:0}
+.hud-sb-sep{height:1px;background:rgba(150,240,195,.08);margin:5px 0}
+.hud-sb-lane-head{
+  display:flex;align-items:center;gap:6px;padding:5px 0 3px;
+  font-size:11.5px;font-weight:700;color:rgba(223,234,245,.6);
+}
+.hud-sb-lane-cnt{margin-left:auto;font-size:11px;font-weight:700;color:rgba(91,233,176,.65)}
+.hud-sb-dot{display:inline-block;width:6px;height:6px;border-radius:99px;flex:none}
 .hud-sb-dot.dot-backlog{background:rgba(223,234,245,.22)}
-.hud-sb-dot.dot-todo{background:rgba(91,233,176,.42)}
-.hud-sb-dot.dot-inprog{background:#5BE9B0}
+.hud-sb-dot.dot-todo{background:rgba(91,233,176,.45)}
+@keyframes sb-dot-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.45)}}
+.hud-sb-dot.dot-inprog{background:#5BE9B0;animation:sb-dot-pulse 1.8s ease-in-out infinite}
 .hud-sb-dot.dot-review{background:#F0C050}
-.hud-sb-dot.dot-done{background:rgba(91,233,176,.65)}
-.hud-sb-lane-label{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:rgba(223,234,245,.6);flex:1}
-.hud-sb-lane-count{font-size:10.5px;font-weight:700;color:rgba(91,233,176,.6)}
+.hud-sb-dot.dot-done{background:rgba(91,233,176,.6)}
 .hud-sb-item{
-  display:flex;align-items:center;gap:7px;padding:5px 7px;margin-bottom:3px;
-  border-radius:9px;background:rgba(91,233,176,.05);border:1px solid rgba(91,233,176,.09);min-height:30px;
+  display:flex;align-items:center;gap:6px;
+  padding:2px 0 2px 14px;min-height:22px;
+  font-size:11px;color:rgba(223,234,245,.55);
 }
-@keyframes sb-active-pulse{
-  0%,100%{border-color:rgba(91,233,176,.2);box-shadow:none}
-  50%{border-color:rgba(91,233,176,.75);box-shadow:0 0 10px rgba(91,233,176,.2)}
+.hud-sb-item.active{color:rgba(223,234,245,.85)}
+.hud-sb-item.awaiting .hud-sb-item-title{color:rgba(255,165,60,.85)}
+.hud-sb-item-dot{width:4px;height:4px;border-radius:99px;background:rgba(150,240,195,.3);flex:none}
+.hud-sb-item-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-sb-await-tag{
+  flex:none;font-size:8.5px;font-weight:700;letter-spacing:.03em;
+  color:rgba(255,165,60,.85);padding:1px 5px;border-radius:5px;
+  background:rgba(255,150,60,.12);border:1px solid rgba(255,150,60,.22);
 }
-.hud-sb-item.active{animation:sb-active-pulse 2s ease-in-out infinite}
-.hud-sb-item.awaiting{border-color:rgba(255,150,60,.45)}
-.hud-sb-role{flex:none;font-size:8.5px;font-weight:800;letter-spacing:.04em;color:rgba(91,233,176,.8);background:rgba(91,233,176,.1);border-radius:5px;padding:1px 4px}
-.hud-sb-title{flex:1;min-width:0;font-size:11px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hud-sb-await-badge{flex:none;font-size:8.5px;font-weight:700;color:rgba(255,150,60,.9);padding:1px 5px;border-radius:5px;background:rgba(255,150,60,.12);border:1px solid rgba(255,150,60,.25)}
-.hud-sb-more{font-size:10px;color:rgba(91,233,176,.45);padding:2px 7px;font-weight:600}
+.hud-sb-more{font-size:10px;color:rgba(91,233,176,.4);padding:1px 0 2px 14px;font-weight:600}
 .hud-sb-seeall{
-  display:flex;align-items:center;justify-content:center;
-  margin:6px 14px 12px;padding:8px 14px;border-radius:12px;
-  background:rgba(91,233,176,.1);border:1px solid rgba(91,233,176,.2);
-  font-size:12px;font-weight:700;color:rgba(91,233,176,.85);
-  cursor:pointer;transition:background 120ms,border-color 120ms;width:calc(100% - 28px);
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  margin:8px 0 0;padding:8px 0;border-radius:12px;
+  background:rgba(91,233,176,.08);border:1px solid rgba(91,233,176,.16);
+  font-size:11.5px;font-weight:700;color:rgba(91,233,176,.75);
+  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
 }
-.hud-sb-seeall:hover{background:rgba(91,233,176,.2);border-color:rgba(91,233,176,.36)}
-.hud-sb-mini{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 14px 12px}
-.hud-sb-mini-item{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:rgba(223,234,245,.65)}
+.hud-sb-seeall:hover{background:rgba(91,233,176,.16);border-color:rgba(91,233,176,.32)}
+/* mini (collapsed) — matches hud-sum-mini / hud-dlv-mini style */
+.hud-sb-mini{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:6px 14px 12px;font-size:11.5px;color:rgba(223,234,245,.55);font-weight:600}
+.hud-sb-mini-cnt{color:rgba(91,233,176,.8);font-size:12px;font-weight:700}
+/* hint */
 .hud-board-hint{
   display:inline-flex;align-items:center;padding:8px 14px;border-radius:12px;
   background:rgba(11,30,24,.5);border:1px solid rgba(150,240,195,.1);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  font-size:11px;font-weight:600;color:rgba(91,233,176,.45);pointer-events:none;
+  font-size:11px;font-weight:600;color:rgba(91,233,176,.4);pointer-events:none;
 }
 `;
 
@@ -1991,31 +1998,33 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
     byLane[k].push(s);
   }
 
-  function CollapseBtn({ isCollapsed }: { isCollapsed: boolean }) {
-    return (
-      <button type="button" className="hud-sb-collapse" onClick={onToggle}
-        aria-label={isCollapsed ? "ขยายบอร์ด" : "ย่อบอร์ด"} aria-expanded={!isCollapsed}>
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
-          <path d={isCollapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-    );
-  }
+  const ChevBtn = () => (
+    <button type="button" className="hud-sb-collapse" onClick={onToggle}
+      aria-label={collapsed ? "ขยายบอร์ด" : "ย่อบอร์ด"} aria-expanded={!collapsed}>
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+        <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
 
   if (collapsed) {
     return (
       <div className="hud-sb-card" role="complementary" aria-label="บอร์ดงาน">
         <div className="hud-sb-head">
           <span className="hud-sb-heading">บอร์ดงาน</span>
-          <CollapseBtn isCollapsed />
+          <ChevBtn />
         </div>
         <div className="hud-sb-mini">
-          {SB_LANES.map(l => byLane[l.key].length > 0 && (
-            <span key={l.key} className="hud-sb-mini-item">
-              <span className={`hud-sb-dot ${l.dot}`} />
-              {byLane[l.key].length}
-            </span>
-          ))}
+          {SB_LANES.map(l => {
+            const cnt = byLane[l.key].length;
+            if (!cnt) return null;
+            return (
+              <span key={l.key} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span className={`hud-sb-dot ${l.dot}`} />
+                <span className="hud-sb-mini-cnt">{cnt}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
     );
@@ -2024,30 +2033,31 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
   return (
     <div className="hud-sb-card" role="complementary" aria-label="บอร์ดงาน">
       <div className="hud-sb-head">
-        <span className="hud-sb-heading">บอร์ดงาน · {label}</span>
-        <CollapseBtn isCollapsed={false} />
+        <span className="hud-sb-heading">บอร์ดงาน</span>
+        <ChevBtn />
       </div>
-      <div className="hud-sb-lanes">
-        {SB_LANES.map(lane => {
+      <div className="hud-sb-body">
+        {SB_LANES.map((lane, li) => {
           const items = byLane[lane.key];
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
           return (
-            <div key={lane.key} className="hud-sb-lane">
+            <div key={lane.key}>
+              {li > 0 && <div className="hud-sb-sep" />}
+              {/* Lane header — same style as .hud-sum-row */}
               <div className="hud-sb-lane-head">
                 <span className={`hud-sb-dot ${lane.dot}`} />
-                <span className="hud-sb-lane-label">{lane.label}</span>
-                <span className="hud-sb-lane-count">{items.length}</span>
+                <span>{lane.label}</span>
+                <span className="hud-sb-lane-cnt">{items.length}</span>
               </div>
+              {/* Story rows */}
               {shown.map(s => {
-                const roleAbbr = s.role ? s.role.split("-").map(w => w[0] ?? "").join("").toUpperCase().slice(0, 2) : "";
-                const isActive = s.status === "In Progress";
                 const isAwaiting = s.labels.includes("awaiting-you");
                 return (
-                  <div key={s.id} className={`hud-sb-item${isActive ? " active" : ""}${isAwaiting ? " awaiting" : ""}`}>
-                    {roleAbbr && <span className="hud-sb-role">{roleAbbr}</span>}
-                    <span className="hud-sb-title">{s.title}</span>
-                    {isAwaiting && <span className="hud-sb-await-badge">รอคุณ</span>}
+                  <div key={s.id} className={`hud-sb-item${s.status === "In Progress" ? " active" : ""}${isAwaiting ? " awaiting" : ""}`}>
+                    <span className="hud-sb-item-dot" />
+                    <span className="hud-sb-item-title">{s.title}</span>
+                    {isAwaiting && <span className="hud-sb-await-tag">รอคุณ</span>}
                   </div>
                 );
               })}
@@ -2055,10 +2065,10 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
             </div>
           );
         })}
+        <button type="button" ref={modalTriggerRef} className="hud-sb-seeall" onClick={() => setModalOpen(true)}>
+          ดูทั้งหมด →
+        </button>
       </div>
-      <button type="button" ref={modalTriggerRef} className="hud-sb-seeall" onClick={() => setModalOpen(true)}>
-        ดูทั้งหมด →
-      </button>
       <KanbanModal
         epicLabel={label}
         epicPct={pct}
