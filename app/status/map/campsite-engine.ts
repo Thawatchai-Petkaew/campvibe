@@ -49,17 +49,6 @@ export const ADJ: Record<string, string[]> = {
   aW:  ["W"],
 };
 
-// Nearest arm-tip entry node for each home station.
-const ENTRY_FOR_HOME: Record<string, string> = {
-  N:  "aN",
-  NE: "aN",   // arm-N is the closest tip; walk aN → N → NE
-  E:  "aE",
-  SE: "aSE",
-  S:  "aS",
-  SW: "aSW",
-  W:  "aW",
-  NW: "aW",   // arm-W is the closest tip; walk aW → W → NW
-};
 
 // ── Direction helper (ported from reference engine dirFor) ───────────────────
 export type WalkDir = "frontRight" | "frontLeft" | "backRight" | "backLeft";
@@ -89,8 +78,14 @@ export type ScoutMode = "entering" | "walking" | "idle";
 
 export interface ScoutState {
   role:     string;
-  homeNode: string;   // octagon station key
+  homeNode: string;   // octagon station key (BFS graph node, used for path traversal)
   poseIdx:  number;   // index into relax-N.webp (0–5), set by component
+  // CAM-163: authoritative resting position (% of 1920×1080 canvas).
+  // Set from LAYOUT_WIDE / LAYOUT_NARROW by setHomes(); used by enterIdle()
+  // so the final resting spot always comes from the art-measured layout table,
+  // never from NODES[homeNode] (the old compass node coord).
+  homeX:    number;
+  homeY:    number;
   // path traversal (only used in entering / walking mode)
   cur:      string;   // current node key
   tgt:      string;   // next target node key
@@ -140,34 +135,39 @@ function ease(t: number): number {
   return -(Math.cos(Math.PI * t) - 1) / 2;
 }
 
-// ── Build initial scout state (entrance walk) ─────────────────────────────────
-// The agent starts at the arm-tip nearest its home station and walks inward.
-// On first mount this produces the entrance animation; S6 can re-trigger via triggerWalk().
+// ── Build initial scout state ─────────────────────────────────────────────────
+// CAM-163: Agents now start directly in "idle" mode at their layout home position
+// (homeX / homeY), so they appear correctly placed from the first paint with no
+// compass-detour entrance walk. The scene passes the active layout's coords via
+// the `homeCoords` parameter; if omitted, we fall back to the NODES[homeNode]
+// coord so the function is safe to call without a layout.
+//
+// S6 re-triggers walks via triggerWalk(); the entrance walk was removed because it
+// caused the "snap-to-wrong-compass-node" bug (CAM-163 root cause).
 export function buildScoutState(
   role: string,
   homeNode: string,
   poseIdx: number,
   speedVar: number,
+  homeCoords?: { x: number; y: number },
 ): ScoutState {
-  const entryKey = ENTRY_FOR_HOME[homeNode] ?? homeNode;
-  const entryPos = NODES[entryKey] ?? NODES[homeNode];
-  const homePos  = NODES[homeNode];
-
-  // Initial direction: from entry toward home.
-  const dx = homePos.x - entryPos.x;
-  const dy = homePos.y - entryPos.y;
+  const homePos  = NODES[homeNode] ?? { x: 50, y: 50 };
+  const hx = homeCoords?.x ?? homePos.x;
+  const hy = homeCoords?.y ?? homePos.y;
 
   return {
     role,
     homeNode,
     poseIdx,
-    cur:      entryKey,
+    homeX:    hx,
+    homeY:    hy,
+    cur:      homeNode,
     tgt:      homeNode,
     t:        0,
-    x:        entryPos.x,
-    y:        entryPos.y,
-    mode:     "entering",
-    dir:      dirFor(dx, dy),
+    x:        hx,
+    y:        hy,
+    mode:     "idle",
+    dir:      "frontRight",
     frame:    0,
     distAcc:  0,
     lastSrc:  "",
@@ -234,9 +234,10 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
     const s = ref.state;
     s.mode   = "idle";
     ref.path = [];
-    // Snap to the home node exactly.
-    const home = NODES[s.homeNode];
-    if (home) { s.x = home.x; s.y = home.y; }
+    // CAM-163: snap to homeX/homeY (the art-measured layout position),
+    // NOT to NODES[homeNode] (the old compass node coord that caused the bug).
+    s.x   = s.homeX;
+    s.y   = s.homeY;
     s.cur = s.homeNode;
     s.tgt = s.homeNode;
     s.t   = 0;
@@ -396,21 +397,24 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
         }
       }
     },
-    // CAM-161: Switch all agents to a new layout's home coordinates.
-    // Idle agents snap immediately; walking/entering agents redirect to the
-    // new home without stopping the rAF loop.
+    // CAM-161 / CAM-163: Switch all agents to a new layout's home coordinates.
+    // homeX/homeY are updated on EVERY scout regardless of mode — this is the
+    // authoritative resting position that enterIdle() reads.
+    // Idle agents also snap their DOM position immediately.
+    // Walking/entering agents carry the new homeX/homeY and will land there
+    // when they next reach enterIdle (no compass-node detour).
     setHomes(homes: Record<string, { x: number; y: number }>) {
       for (const ref of scouts) {
         const s    = ref.state;
         const home = homes[s.role];
         if (!home) continue;
 
-        // Update the logical home x/y on the scout state.
-        // NODES entries are walk-graph nodes; homeNode stays as the graph key
-        // so BFS still works. We override the final resting position directly
-        // by snapping idle scouts and redirecting walking scouts.
+        // Always update the authoritative resting coordinates.
+        s.homeX = home.x;
+        s.homeY = home.y;
+
         if (s.mode === "idle") {
-          // Snap immediately to the new home.
+          // Snap DOM immediately to the new home.
           s.x = home.x;
           s.y = home.y;
           if (s.rootEl) {
@@ -418,16 +422,9 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
             s.rootEl.style.top    = `${s.y}%`;
             s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
           }
-        } else {
-          // Walking/entering: once they reach their current tgt, the rAF loop
-          // calls enterIdle which snaps to NODES[homeNode]. We override homeNode
-          // by pointing cur+tgt toward the new position via a virtual node write.
-          // Simplest: redirect to NODES nearest the new home (walk graph is still
-          // used for path, but final idle snap is overridden in the home tracker).
-          // Store the override so enterIdle can pick it up.
-          s.x = home.x;
-          s.y = home.y;
         }
+        // Walking/entering: homeX/homeY already updated above.
+        // enterIdle() will snap to the new home when the agent arrives.
       }
     },
     stop() {

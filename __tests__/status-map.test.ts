@@ -683,3 +683,82 @@ describe("campsite-scene.tsx — CAM-162: responsive srcset background", () => {
     expect(src).not.toContain('src="/status-map/campsite-forest.webp"');
   });
 });
+
+// ============================================================
+// CAM-163 — Layout-apply fix: homeX/homeY authoritative resting position
+// ============================================================
+
+// ---------- CAM-163: ScoutState carries homeX/homeY -------------------------
+describe("app/status/map/campsite-engine.ts — CAM-163: ScoutState.homeX/homeY", () => {
+  const src = read("../app/status/map/campsite-engine.ts");
+
+  it("ScoutState interface declares homeX and homeY fields", () => {
+    expect(src).toContain("homeX:");
+    expect(src).toContain("homeY:");
+  });
+
+  it("buildScoutState accepts optional homeCoords and initialises homeX/homeY from it", () => {
+    expect(src).toContain("homeCoords");
+    expect(src).toContain("homeX:");
+    expect(src).toContain("homeY:");
+  });
+
+  it("buildScoutState returns scouts in idle mode (not entering)", () => {
+    // CAM-163: entrance walk removed — scouts start idle at their layout home.
+    expect(src).toContain('mode:     "idle"');
+    // Ensure "entering" is NOT the default mode produced by buildScoutState.
+    // (entering still exists as a type for triggerWalk, but the default build is idle)
+    expect(src).not.toContain('mode:     "entering"');
+  });
+
+  it("enterIdle snaps to s.homeX / s.homeY — NOT to NODES[s.homeNode]", () => {
+    // The fix: enterIdle reads s.homeX and s.homeY, not the old compass node coords.
+    expect(src).toContain("s.x   = s.homeX");
+    expect(src).toContain("s.y   = s.homeY");
+    // Must NOT fall back to NODES[homeNode] for the resting snap inside enterIdle.
+    // (NODES is still used in stepWalk for path interpolation — that is fine.)
+    expect(src).not.toContain("const home = NODES[s.homeNode]");
+  });
+
+  it("setHomes updates homeX and homeY on ALL scouts regardless of mode", () => {
+    expect(src).toContain("s.homeX = home.x");
+    expect(src).toContain("s.homeY = home.y");
+  });
+});
+
+// ---------- CAM-163: scene builds scouts at layout home from first frame -----
+describe("app/status/map/campsite-scene.tsx — CAM-163: idle placement on mount", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("determines initial layout BEFORE building scoutRefs (no compass-detour on load)", () => {
+    // Scene reads arMqEarly and initialLayout before calling buildScoutState.
+    expect(src).toContain("arMqEarly");
+    expect(src).toContain("initialLayout");
+  });
+
+  it("passes homeCoords from initialLayout into buildScoutState", () => {
+    expect(src).toContain("homeCoords");
+    expect(src).toContain("buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0, homeCoords)");
+  });
+
+  it("applies idle class and correct DOM position immediately after buildScoutState", () => {
+    // Agents must be placed at homeX/homeY from the first frame.
+    expect(src).toContain("state.homeX");
+    expect(src).toContain("state.homeY");
+    expect(src).toContain('state.rootEl.classList.add("idle")');
+  });
+
+  it("stopLoop restores agents to homeX/homeY — not NODES[homeNode]", () => {
+    // CAM-163: stopLoop (reduced-motion fallback) uses s.homeX/s.homeY.
+    expect(src).toContain("s.homeX");
+    expect(src).toContain("s.homeY");
+    // Must NOT use the old NODES-based position in the stopLoop path.
+    expect(src).not.toContain("NODES[s.homeNode]");
+  });
+
+  it("NODES is no longer imported by campsite-scene (not needed after CAM-163 fix)", () => {
+    // NODES was only used in stopLoop (now replaced by homeX/homeY); remove verifies no leak.
+    expect(src).not.toContain("import {\n  NODES,");
+    expect(src).not.toContain('"NODES"');
+  });
+});

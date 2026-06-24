@@ -29,7 +29,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
-  NODES,
   buildScoutState,
   startEngine,
   type EngineHandle,
@@ -627,22 +626,37 @@ export default function CampsiteScene({
     // Guard: only run in the browser (this is a "use client" component, but be safe).
     if (typeof window === "undefined") return;
 
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mq    = window.matchMedia("(prefers-reduced-motion: reduce)");
+    // CAM-163: Determine the active layout BEFORE building scouts so they are
+    // placed at the correct art-measured position from the very first frame —
+    // no compass-detour entrance walk and no visible snap on load.
+    const arMqEarly = window.matchMedia("(min-aspect-ratio: 7/5)");
+    const initialLayout = arMqEarly.matches ? LAYOUT_WIDE : LAYOUT_NARROW;
+    // Sync the module-level var so homeStyle() is correct on first render.
+    currentLayout = initialLayout;
+    setLayoutKey(arMqEarly.matches ? "wide" : "narrow");
 
-    // Build scout state for each agent.
+    // Build scout state for each agent — idle, at their layout home from the start.
+    // CAM-163: passing homeCoords from the active layout so homeX/homeY are set
+    // correctly before the engine starts. No entrance walk needed or produced.
     const roleKeys = Object.keys(ROLE_CONFIG);
     const scoutRefs: ScoutRef[] = roleKeys.map((role, idx) => {
-      const cfg   = ROLE_CONFIG[role];
-      const state = buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0);
+      const cfg         = ROLE_CONFIG[role];
+      const homeCoords  = initialLayout[role];
+      const state       = buildScoutState(role, cfg.node, cfg.poseIdx, SPEED_VAR[idx] ?? 1.0, homeCoords);
       state.bodyEl = bodyRefs.current[role] ?? null;
       state.rootEl = rootRefs.current[role] ?? null;
+      // Apply idle class and correct DOM position immediately so the first paint
+      // matches the layout (no frame where agents sit at the wrong place).
+      if (state.rootEl) {
+        state.rootEl.classList.remove("entering", "walking-mode");
+        state.rootEl.classList.add("idle");
+        state.rootEl.style.left   = `${state.homeX}%`;
+        state.rootEl.style.top    = `${state.homeY}%`;
+        state.rootEl.style.zIndex = String(Math.round(state.homeY * 12) + 5);
+      }
       return { state, path: [] };
     });
-
-    // Ensure initial path is set: entering agents walk entry→home.
-    // buildScoutState already sets cur=entryNode, tgt=homeNode with t=0.
-    // We pass the remaining path (empty, since only one hop: cur→tgt is all we need).
-    // The engine's step loop will detect arrival at homeNode and call enterIdle.
 
     let engine: EngineHandle | null = null;
 
@@ -659,14 +673,14 @@ export default function CampsiteScene({
       engine = null;
       engineRef.current = null;
       setEngineReady(false);
-      // Restore all agents to their home station (static fallback).
+      // Restore all agents to their current layout home (homeX/homeY — not NODES).
+      // CAM-163: use homeX/homeY so reduced-motion fallback respects the active layout.
       for (const ref of scoutRefs) {
-        const s   = ref.state;
-        const home = NODES[s.homeNode];
-        if (!home || !s.rootEl) continue;
-        s.rootEl.style.left   = `${home.x}%`;
-        s.rootEl.style.top    = `${home.y}%`;
-        s.rootEl.style.zIndex = String(Math.round(home.y * 12) + 5);
+        const s = ref.state;
+        if (!s.rootEl) continue;
+        s.rootEl.style.left   = `${s.homeX}%`;
+        s.rootEl.style.top    = `${s.homeY}%`;
+        s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
         // Restore class to idle (idle CSS sway is also off under reduced-motion)
         s.rootEl.classList.remove("entering", "walking-mode");
         s.rootEl.classList.add("idle");
@@ -674,7 +688,7 @@ export default function CampsiteScene({
     }
 
     if (!mq.matches) {
-      // Reduced-motion is NOT set → start the entrance walk loop.
+      // Reduced-motion is NOT set → start the rAF loop (idle-sway + walk support).
       startLoop();
     }
     // If reduced-motion IS set, skip the loop entirely; agents sit at their
@@ -685,28 +699,40 @@ export default function CampsiteScene({
       if (e.matches) {
         stopLoop();
       } else {
-        // Reduced-motion was turned off → restart entrance walk.
+        // Reduced-motion was turned off → restart the loop.
+        // CAM-163: rebuild scouts in idle mode at their current layout home,
+        // not at the old compass entry arm-tip (no entrance walk on re-enable).
         for (const ref of scoutRefs) {
-          const s   = ref.state;
-          const cfg = ROLE_CONFIG[s.role];
+          const s    = ref.state;
+          const cfg  = ROLE_CONFIG[s.role];
           if (!cfg) continue;
-          // Reset scout state to entering from arm-tip.
-          const fresh = buildScoutState(s.role, cfg.node, cfg.poseIdx, s.speedVar);
+          const homeCoords = { x: s.homeX, y: s.homeY };
+          const fresh = buildScoutState(s.role, cfg.node, cfg.poseIdx, s.speedVar, homeCoords);
           fresh.bodyEl = s.bodyEl;
           fresh.rootEl = s.rootEl;
           // Overwrite mutable fields in place so the array ref stays stable.
           Object.assign(s, fresh);
           ref.path = [];
+          // Re-apply idle class + position after reset.
+          if (s.rootEl) {
+            s.rootEl.classList.remove("entering", "walking-mode");
+            s.rootEl.classList.add("idle");
+            s.rootEl.style.left   = `${s.homeX}%`;
+            s.rootEl.style.top    = `${s.homeY}%`;
+            s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
+          }
         }
         startLoop();
       }
     }
     mq.addEventListener("change", onMqChange);
 
-    // CAM-161: aspect-ratio layout switcher — no remount.
+    // CAM-161 / CAM-163: aspect-ratio layout switcher — no remount.
     // (min-aspect-ratio: 7/5) = wide: use LAYOUT_WIDE.
     // Below threshold: use LAYOUT_NARROW so all 8 stay in the visible centre band.
-    const arMq = window.matchMedia("(min-aspect-ratio: 7/5)");
+    // arMqEarly is already declared above for the initial layout determination;
+    // reuse it here (same MediaQueryList object) for the change listener.
+    const arMq = arMqEarly;
 
     function applyLayout(isWide: boolean) {
       const layout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW;
@@ -715,6 +741,8 @@ export default function CampsiteScene({
       // Trigger React re-render so YouScout + homeStyle() re-calculate.
       setLayoutKey(isWide ? "wide" : "narrow");
       // Snap/redirect agents via engine (if running).
+      // CAM-163: setHomes updates homeX/homeY on ALL scouts so enterIdle()
+      // lands at the new layout position even for walking/entering agents.
       if (engine) {
         engine.setHomes(layout);
       } else {
@@ -723,6 +751,8 @@ export default function CampsiteScene({
           const s    = ref.state;
           const home = layout[s.role];
           if (!home || !s.rootEl) continue;
+          s.homeX = home.x;
+          s.homeY = home.y;
           s.rootEl.style.left   = `${home.x}%`;
           s.rootEl.style.top    = `${home.y}%`;
           s.rootEl.style.zIndex = String(Math.round(home.y * 12) + 5);
@@ -730,7 +760,11 @@ export default function CampsiteScene({
       }
     }
 
-    // Apply immediately for the initial aspect ratio.
+    // CAM-163: Initial layout was already applied when building scoutRefs above
+    // (scouts start idle at initialLayout coords). We still call applyLayout here
+    // so the engine's setHomes and the React layoutKey are in sync (the early
+    // setLayoutKey call above already sets the React state, but calling applyLayout
+    // again is harmless — idle-mode setHomes is a cheap DOM write).
     applyLayout(arMq.matches);
 
     function onArChange(e: MediaQueryListEvent) {
