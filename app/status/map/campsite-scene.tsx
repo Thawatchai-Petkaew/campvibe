@@ -256,20 +256,26 @@ const SCENE_CSS = `
   container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
-/* Top bar — fixed full-width green-glass: logo (left) + view switch + sound (right). */
+/* Top row — NO bar background; transparent container, each item floats as its own chip. */
 .hud-topbar{
   position:fixed;top:0;left:0;right:0;z-index:23;
-  display:flex;align-items:center;gap:14px;
-  padding:11px 18px;
-  background:rgba(11,30,24,.50);
-  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
-  border-bottom:1px solid rgba(150,240,195,.13);
-  box-shadow:0 8px 28px rgba(0,0,0,.30),inset 0 1px 0 rgba(200,255,232,.10);
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;
+  pointer-events:none;
 }
-.hud-topbar-logo{display:flex;align-items:center;flex:none}
+.hud-topbar > *{pointer-events:auto}
+/* logo wrapped in its own green-glass chip */
+.hud-topbar-logo{
+  display:inline-flex;align-items:center;flex:none;
+  padding:7px 16px;
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
+}
 .hud-topbar-spacer{flex:1 1 auto}
 .hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
-.cv-logo{height:30px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
+.cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
 /* Ambient sound toggle — glass button inside the top bar. */
 .sound-toggle{
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
