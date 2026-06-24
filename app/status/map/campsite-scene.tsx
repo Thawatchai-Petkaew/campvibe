@@ -1075,7 +1075,10 @@ export default function CampsiteScene({
       (e) => e.stories.some((s) => s.completedAt && new Date(s.completedAt).getTime() >= sevenDaysAgo)
     ).length;
 
-    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline };
+    const statusCounts: Record<string, number> = {};
+    for (const s of allStories) { statusCounts[s.status] = (statusCounts[s.status] ?? 0) + 1; }
+
+    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline, statusCounts };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
 
   const showBoard = !!feature || (scope === "epic" && !!activeEpic);
@@ -1588,6 +1591,7 @@ export default function CampsiteScene({
           storyDone={summaryStats.storyDone}
           storyTotal={summaryStats.storyTotal}
           backlog={summaryStats.backlog}
+          statusCounts={summaryStats.statusCounts}
           collapsed={summaryCollapsed}
           onToggle={() => setSummaryCollapsed((v) => !v)}
         />

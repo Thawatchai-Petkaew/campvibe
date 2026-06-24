@@ -591,15 +591,19 @@ const HUD_CSS = `
 .hud-sum-chip-caret{opacity:.5;display:block;flex:none}
 .hud-sum-chip-item{display:inline-flex;align-items:center;gap:4px}
 .hud-sum-today-item{display:inline-flex;align-items:center;gap:4px}
-.hud-sum-mini{padding:8px 12px 12px}
-.hud-sum-mini-cells{display:flex;gap:5px}
-.hud-sum-mini-cell{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:9px 4px;border-radius:12px;
-  background:rgba(91,233,176,.07);border:1px solid rgba(91,233,176,.12);
+.hud-sum-mini{padding:6px 12px 12px}
+/* 5 kanban lane chips in a 2-col grid */
+.hud-sum-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.hud-sum-mini-lane{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 10px;border-radius:10px;
+  background:rgba(91,233,176,.05);border:1px solid rgba(150,240,195,.11);
 }
-.hud-sum-mini-big{font-size:16px;font-weight:800;color:#5BE9B0;line-height:1}
-.hud-sum-mini-sub{display:inline-flex;align-items:center;gap:2px;font-size:9.5px;font-weight:600;color:rgba(223,234,245,.42);letter-spacing:.04em;margin-top:1px}
+.hud-sum-mini-dot{width:6px;height:6px;border-radius:99px;flex:none}
+@keyframes mini-dot-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(91,233,176,.4)}50%{opacity:.8;box-shadow:0 0 0 3px rgba(91,233,176,.15)}}
+.hud-sum-mini-dot.dot-inprog{animation:mini-dot-pulse 2s ease-in-out infinite}
+.hud-sum-mini-cnt{font-size:13px;font-weight:800;line-height:1;flex:none}
+.hud-sum-mini-lbl{font-size:9.5px;font-weight:600;letter-spacing:.02em;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hud-sum-card{
   width:220px;border-radius:18px;overflow:hidden;
   border:1px solid rgba(150,240,195,.13);
@@ -1736,6 +1740,14 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
+const MINI_LANES: Array<{ key: string; label: string; dot: string; cls?: string }> = [
+  { key: "Backlog",     label: "Backlog",  dot: "#8a9aa8" },
+  { key: "Todo",        label: "To Do",    dot: "#8FB8F0" },
+  { key: "In Progress", label: "กำลังทำ", dot: "#5BE9B0", cls: "dot-inprog" },
+  { key: "In Review",   label: "ตรวจสอบ", dot: "#B7A6FF" },
+  { key: "Done",        label: "เสร็จ",   dot: "#76E0AE" },
+];
+
 export interface SummaryCardProps {
   pct: number;
   epicDone: number;
@@ -1743,11 +1755,12 @@ export interface SummaryCardProps {
   storyDone: number;
   storyTotal: number;
   backlog: number;
+  statusCounts: Record<string, number>;
   collapsed: boolean;
   onToggle: () => void;
 }
 
-export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, collapsed, onToggle }: SummaryCardProps) {
+export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, statusCounts, collapsed, onToggle }: SummaryCardProps) {
   if (collapsed) {
     return (
       <div className="hud-summary">
@@ -1761,19 +1774,17 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
             </button>
           </div>
           <div className="hud-sum-mini">
-            <div className="hud-sum-mini-cells">
-              <div className="hud-sum-mini-cell">
-                <span className="hud-sum-mini-big">{pct}%</span>
-                <span className="hud-sum-mini-sub">เสร็จ</span>
-              </div>
-              <div className="hud-sum-mini-cell">
-                <span className="hud-sum-mini-big">{epicDone}/{epicTotal}</span>
-                <span className="hud-sum-mini-sub"><Layers size={9} strokeWidth={1.7} />Epic</span>
-              </div>
-              <div className="hud-sum-mini-cell">
-                <span className="hud-sum-mini-big">{storyDone}/{storyTotal}</span>
-                <span className="hud-sum-mini-sub"><FileText size={9} strokeWidth={1.7} />Story</span>
-              </div>
+            <div className="hud-sum-mini-grid">
+              {MINI_LANES.map(lane => {
+                const cnt = statusCounts[lane.key] ?? 0;
+                return (
+                  <div key={lane.key} className="hud-sum-mini-lane">
+                    <span className={`hud-sum-mini-dot${lane.cls ? " " + lane.cls : ""}`} style={{ background: lane.dot }} />
+                    <span className="hud-sum-mini-cnt" style={{ color: lane.dot }}>{cnt}</span>
+                    <span className="hud-sum-mini-lbl">{lane.label}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
