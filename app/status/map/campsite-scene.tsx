@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MapOverlays } from "./campsite-overlays";
+import { MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
   NODES,
   buildScoutState,
@@ -621,11 +621,18 @@ export default function CampsiteScene({
 
     if (scope === "epic" && activeEpic) {
       // Determine which roles appear in the active epic's stories.
+      // CAM-159 Epic bug fix: if roles resolves to empty (no [role] tags on stories),
+      // fall back to "all" scope so the scene is never entirely dimmed/blank.
       const epicData = epics.find((e) => e.key === activeEpic);
       const roles = epicData
         ? [...new Set(epicData.stories.map((s) => s.role).filter(Boolean))]
         : [];
-      engine.setScope("epic", roles);
+      if (roles.length > 0) {
+        engine.setScope("epic", roles);
+      } else {
+        // Empty roles = unresolved; keep all agents gently visible (fall back to all).
+        engine.setScope("all", []);
+      }
     } else {
       engine.setScope("all", []);
     }
@@ -739,7 +746,10 @@ export default function CampsiteScene({
   }
 
   // Derive the active epic data for Epic overlays.
-  const activeEpicData = epics.find((e) => e.key === activeEpic) ?? null;
+  // CAM-159 Epic bug fix: deep-link ?epic= may pass a key that isn't yet in epics
+  // (e.g. race on first load). Fall back gracefully to null so the scene renders
+  // and shows an empty state rather than a broken view.
+  const activeEpicData = (activeEpic ? (epics.find((e) => e.key === activeEpic) ?? null) : null);
 
   // S7: aria-label summary for the scene container (role="img").
   const activeAgentCount = agents.filter((a) => a.active).length;
@@ -818,67 +828,8 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* S6: Dashboard|Map segmented toggle — fixed below the scope chip (top-left).
-           Real anchor links: works without JS; copies current map params to dashboard URL. */}
-      <nav
-        role="tablist"
-        aria-label="สลับระหว่างแดชบอร์ดและแผนที่"
-        style={{
-          position: "fixed",
-          top: 70,
-          left: 16,
-          zIndex: 22,
-          display: "inline-flex",
-          border: "1px solid rgba(255,255,255,.16)",
-          borderRadius: 8,
-          overflow: "hidden",
-          background: "rgba(16,26,42,.52)",
-          backdropFilter: "saturate(150%) blur(18px)",
-          WebkitBackdropFilter: "saturate(150%) blur(18px)",
-        }}
-        data-testid="nav--map-view-toggle"
-      >
-        <a
-          href={dashboardHref}
-          role="tab"
-          aria-selected={false}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "8px 14px",
-            minHeight: 44,
-            minWidth: 44,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "rgba(223,234,245,.6)",
-            textDecoration: "none",
-            borderRight: "1px solid rgba(255,255,255,.12)",
-            transition: "background 120ms, color 120ms",
-          }}
-          data-testid="link--map-toggle-dashboard"
-        >
-          แดชบอร์ด
-        </a>
-        <span
-          role="tab"
-          aria-selected={true}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "8px 14px",
-            minHeight: 44,
-            minWidth: 44,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "#5BE9B0",
-            background: "rgba(91,233,176,.15)",
-            cursor: "default",
-          }}
-          data-testid="tab--map-toggle-map"
-        >
-          แผนที่
-        </span>
-      </nav>
+      {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links. */}
+      <ViewToggle dashboardHref={dashboardHref} />
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode */}
       <MapOverlays
