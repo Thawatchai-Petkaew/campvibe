@@ -499,10 +499,6 @@ const HUD_CSS = `
 
 /* View switch → single "Dashboard" button, top-LEFT (top-centre is freed for content) */
 .hud-view-toggle {
-  position:fixed;
-  top:18px;
-  left:18px;
-  z-index:22;
   display:inline-flex;align-items:center;gap:8px;
   padding:0 16px;min-height:44px;
   border:1px solid rgba(150,240,195,.13);

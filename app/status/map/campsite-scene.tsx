@@ -36,6 +36,7 @@ import {
   type EngineHandle,
   type ScoutRef,
 } from "./campsite-engine";
+import { LOGO } from "../dashboard-assets";
 
 export interface MapAgent {
   role: string;         // canonical role key, e.g. "frontend-engineer"
@@ -255,9 +256,22 @@ const SCENE_CSS = `
   container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
-/* Ambient sound toggle — fixed glass button (top-right), matches the HUD pill. */
+/* Top bar — fixed full-width green-glass: logo (left) + view switch + sound (right). */
+.hud-topbar{
+  position:fixed;top:0;left:0;right:0;z-index:23;
+  display:flex;align-items:center;gap:14px;
+  padding:11px 18px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
+  border-bottom:1px solid rgba(150,240,195,.13);
+  box-shadow:0 8px 28px rgba(0,0,0,.30),inset 0 1px 0 rgba(200,255,232,.10);
+}
+.hud-topbar-logo{display:flex;align-items:center;flex:none}
+.hud-topbar-spacer{flex:1 1 auto}
+.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
+.cv-logo{height:30px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
+/* Ambient sound toggle — glass button inside the top bar. */
 .sound-toggle{
-  position:fixed;top:18px;right:18px;z-index:22;
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid rgba(150,240,195,.13);border-radius:999px;
   background:rgba(11,30,24,.50);
@@ -1424,12 +1438,15 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links.
-          position:fixed sibling — NOT inside .map-viewport so it never scales. */}
-      <ViewToggle dashboardHref={dashboardHref} />
-
-      {/* Ambient campfire/wildlife sound — on/off glass button (top-right). */}
-      <SoundToggle />
+      {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
+      <div className="hud-topbar">
+        <div className="hud-topbar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO }} />
+        <div className="hud-topbar-spacer" />
+        <div className="hud-topbar-right">
+          <ViewToggle dashboardHref={dashboardHref} />
+          <SoundToggle />
+        </div>
+      </div>
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}
