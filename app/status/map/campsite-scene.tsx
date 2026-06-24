@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -1012,9 +1012,6 @@ export default function CampsiteScene({
   const [liveModel, setLiveModel] = useState<MapModel>(model);
   const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = liveModel;
 
-  // S4: single-open overlay state — null = all closed
-  const [openOverlay, setOpenOverlay] = useState<string | null>(null);
-
   // S5: scope state — restored from URL params on mount via initial props
   const [scope, setScope]         = useState<"all" | "epic">(() => (initialEpic || readFilterCookie().epic) ? "epic" : initialScope);
   const [activeEpic, setActiveEpic] = useState<string>(() => initialEpic || readFilterCookie().epic || "");
@@ -1123,8 +1120,6 @@ export default function CampsiteScene({
     return isWide ? "wide" : "narrow";
   });
 
-  const openPanel = useCallback((id: string) => setOpenOverlay(id), []);
-  const closePanel = useCallback(() => setOpenOverlay(null), []);
 
   // DOM refs — body and root element per agent, indexed by role.
   const bodyRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -1423,17 +1418,14 @@ export default function CampsiteScene({
     };
   }, [token]); // token is stable after mount; reconnect only if it changes
 
-  // Scope change helpers passed to MapOverlays.
   const handleSelectEpic = useCallback((epicKey: string) => {
     setActiveEpic(epicKey);
     setScope("epic");
-    setOpenOverlay(null); // close switcher after selecting
   }, []);
 
   const handleBackToOverview = useCallback(() => {
     setScope("all");
     setActiveEpic("");
-    setOpenOverlay(null);
   }, []);
 
   // Static home position for each agent (used as initial style + reduced-motion fallback).
@@ -1476,7 +1468,7 @@ export default function CampsiteScene({
 
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
-      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: SCENE_CSS + HUD_CSS }} />
 
       {/* CAM-162: Responsive background image with srcset for hi-res screens.
           sizes="max(100vw, 177.78vh)" accounts for cover overscale on 16:9 —
@@ -1495,21 +1487,6 @@ export default function CampsiteScene({
         fetchPriority="high"
       />
 
-      {/* Canvas dim overlay when a panel is open */}
-      {openOverlay !== null && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 19,
-            background: "rgba(6,11,26,.38)",
-            pointerEvents: "none",
-            transition: "opacity 200ms",
-          }}
-        />
-      )}
-
       {/* CAM-161: Viewport grid — centres the fixed 1920×1080 design canvas. */}
       <div className="map-viewport">
         {/* S7: Scene root with role="img" + aria-label summary for screen readers */}
@@ -1517,7 +1494,6 @@ export default function CampsiteScene({
           className="map-stage"
           role="img"
           aria-label={sceneAriaLabel}
-          style={{ opacity: openOverlay !== null ? 0.82 : 1, transition: "opacity 200ms" }}
           data-testid="stage--status-map"
         >
           {/* S7: tab order — You first (carries gates), then agents in role order */}
@@ -1537,7 +1513,7 @@ export default function CampsiteScene({
                 CAM-161: youPos switches between LAYOUT_WIDE/LAYOUT_NARROW. */}
             <YouScout
               gates={gates}
-              onOpenGates={() => openPanel("gates")}
+              onOpenGates={() => setApprovalCollapsed(false)}
               youPos={youPos}
             />
             {agents.map((agent) => {
@@ -1552,12 +1528,7 @@ export default function CampsiteScene({
                   rootRef={(el) => { rootRefs.current[agent.role] = el; }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
                   speechRef={(el) => { speechRefs.current[agent.role] = el; }}
-                  onActivate={() => {
-                    // Clicking an agent opens the Crew overlay panel so the user can
-                    // see that agent's full details. This is the keyboard-triggerable
-                    // action the spec requires (AC2).
-                    openPanel("crew");
-                  }}
+                  onActivate={() => setTeamCollapsed(false)}
                 />
               );
             })}
@@ -1615,7 +1586,7 @@ export default function CampsiteScene({
             gates={gates}
             collapsed={approvalCollapsed}
             onToggle={() => setApprovalCollapsed((v) => !v)}
-            onOpen={() => openPanel("gates")}
+            onOpen={() => setApprovalCollapsed(false)}
           />
         )}
         <TeamRoster
@@ -1640,32 +1611,6 @@ export default function CampsiteScene({
         )}
       </div>
 
-      {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
-          position:fixed siblings — NOT inside .map-viewport so they never scale. */}
-      <MapOverlays
-        model={{
-          projectPct,
-          gates,
-          agents,
-          epicsActive,
-          totalEpics,
-          backlogItems,
-          envLanes,
-          epics,
-        }}
-        scope={scope}
-        activeEpic={activeEpic}
-        activeEpicData={activeEpicData}
-        group={group}
-        efilter={efilter}
-        openOverlay={openOverlay}
-        onOpen={openPanel}
-        onClose={closePanel}
-        onSelectEpic={handleSelectEpic}
-        onBackToOverview={handleBackToOverview}
-        onGroupChange={setGroup}
-        onEfilterChange={setEfilter}
-      />
     </div>
   );
 }

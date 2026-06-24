@@ -43,7 +43,7 @@ import { buildTrail, stageOf, STAGES } from "@/lib/status-derive";
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
-const HUD_CSS = `
+export const HUD_CSS = `
 /* ---- Dock ---- */
 .hud-dock {
   position:fixed;
