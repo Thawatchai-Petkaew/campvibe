@@ -223,8 +223,13 @@ export async function POST(req: Request) {
 
   let dispatch: Awaited<ReturnType<typeof fireDispatch>> | null = null;
   if (looksApproved) {
-    // The "Approved" notification is sent from the Telegram Approve tap (telegram-webhook),
-    // where the awaiting-you removal is known reliably; here we only continue the orchestrator.
+    // SINGLE SOURCE of the "Approved" notification: fires whenever a gate's `awaiting-you` is
+    // removed — by the Telegram Approve tap OR an approval done directly in the Linear UI. The tap
+    // path no longer sends it (so there is no double-send); this covers both. Then continue the
+    // orchestrator (the GitHub Action re-confirms the gate before acting).
+    const msg = buildEventMessage("approved", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+    notified.push("approved");
     dispatch = await fireDispatch({
       identifier: id,
       title,

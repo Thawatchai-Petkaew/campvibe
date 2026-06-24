@@ -120,7 +120,9 @@ export function toMapModel(m: Model): MapModel {
     id: i.id,
     title: cleanTitle(i.title),
     url: i.url,
-    epicKey: epicOf(i.title),
+    // New-structure stories carry no "·", so epicOf() is empty — fall back to the parent (epic)
+    // title so the gate chip scopes/deep-links to its epic, same as backlog items below.
+    epicKey: epicOf(i.title) || i.parent?.title || "",
     priority: i.priority,
   }));
 

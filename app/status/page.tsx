@@ -6,7 +6,7 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, epicBucket, regressionRound, type EnvLane } from "@/lib/status-derive";
+import { buildTrail, epicBucket, regressionRound, canonRole, type EnvLane } from "@/lib/status-derive";
 import { buildModel, type Model, type EpicNode, epicOf, isActive, isDone, hasAwait, personaOf, featureOf } from "@/lib/status-model";
 import StatusClient from "./dashboard-client";
 
@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "CampVibe — Live Delivery" };
 
 // ---------- title-convention parsing (page-specific helpers) ----------
-const roleOf = (t: string) => { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; };
+// Canonicalize the [role] tag so short aliases ([backend], [qa], [design]) resolve to the long
+// token ROLE_LABEL/ICON key on — the board no longer shows a blank role for an alias-tagged story.
+const roleOf = (t: string) => { const m = t.match(/\[([a-z-]+)\]/); return m ? canonRole(m[1]) : ""; };
 const gateOf = (t: string) => (t.match(/Gate\s*G\d/i) || [""])[0];
 const clean = (t: string) => {
   const dot = t.indexOf("·");
