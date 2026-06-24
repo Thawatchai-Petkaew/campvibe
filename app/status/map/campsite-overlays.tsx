@@ -789,27 +789,39 @@ const HUD_CSS = `
 .hud-sb-lane-head.lh-inprog{color:#5BE9B0}
 .hud-sb-lane-head.lh-review{color:#B7A6FF}
 .hud-sb-lane-head.lh-done{color:#76E0AE}
-/* story card — mirrors .kc from Status dashboard */
+/* story card — .kc structure, green-glass HUD palette */
 .hud-kc{
   border-radius:12px;padding:10px 11px;margin-bottom:7px;
-  border:1px solid rgba(255,255,255,.11);
-  background:rgba(26,38,60,.5);
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(91,233,176,.05);
   display:block;min-width:0;text-decoration:none;color:inherit;
-  transition:border-color 120ms,background 120ms;
 }
 .hud-kc:last-child{margin-bottom:0}
-.hud-kc.prog{border-color:rgba(91,233,176,.34)}
-.hud-kc.gate{border-color:rgba(255,150,52,.42);background:linear-gradient(160deg,rgba(255,150,52,.08),rgba(26,38,60,.5))}
+@keyframes hud-kc-glow{
+  0%,100%{box-shadow:none;border-color:rgba(91,233,176,.28)}
+  50%{box-shadow:0 0 14px rgba(91,233,176,.22),0 0 4px rgba(91,233,176,.12);border-color:rgba(91,233,176,.7)}
+}
+.hud-kc.prog{
+  border-color:rgba(91,233,176,.35);
+  background:rgba(91,233,176,.09);
+  animation:hud-kc-glow 2.4s ease-in-out infinite;
+}
+.hud-kc.gate{
+  border-color:rgba(255,150,52,.45);
+  background:linear-gradient(160deg,rgba(255,150,52,.09),rgba(91,233,176,.04));
+}
 /* title row — role icon + title text */
-.hud-kt{font-size:12px;color:#F1F6FB;line-height:1.35;display:flex;gap:6px;align-items:flex-start;min-width:0}
-.hud-kt svg{width:13px;height:13px;flex:none;margin-top:1px;color:rgba(223,234,245,.42)}
+.hud-kt{font-size:12px;color:rgba(223,234,245,.88);line-height:1.35;display:flex;gap:6px;align-items:flex-start;min-width:0}
+.hud-kt svg{width:13px;height:13px;flex:none;margin-top:1px;color:rgba(91,233,176,.5)}
 .hud-kt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* bottom row — role label + story id */
 .hud-kb{display:flex;align-items:center;justify-content:space-between;margin-top:7px;min-width:0;gap:6px}
-.hud-kr{font-size:10.5px;color:rgba(223,234,245,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hud-kc.prog .hud-kr{color:#5BE9B0}
-.hud-kc.gate .hud-kr{color:#FFB454}
-.hud-tk{font-size:9.5px;color:rgba(223,234,245,.35);flex:none;font-variant-numeric:tabular-nums}
+.hud-kr{font-size:10.5px;color:rgba(223,234,245,.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-kc.prog .hud-kr{color:#5BE9B0;font-weight:600}
+.hud-kc.gate .hud-kr{color:rgba(255,180,80,.85)}
+.hud-tk{font-size:9.5px;color:rgba(223,234,245,.3);flex:none;font-variant-numeric:tabular-nums}
+/* empty lane */
+.hud-sb-empty{font-size:10.5px;color:rgba(223,234,245,.22);padding:4px 2px 6px;font-style:italic}
 /* "+N" overflow */
 .hud-sb-more{font-size:10.5px;color:rgba(223,234,245,.38);padding:3px 2px 4px;font-weight:600}
 /* see-all button */
@@ -2077,7 +2089,6 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
       <div className="hud-sb-body">
         {SB_LANES.map(lane => {
           const items = byLane[lane.key];
-          if (!items.length) return null;
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
           return (
@@ -2088,6 +2099,8 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
                 <span>{lane.label}</span>
                 <span className="hud-sb-lane-cnt">{items.length}</span>
               </div>
+              {/* Empty lane */}
+              {items.length === 0 && <div className="hud-sb-empty">— ว่าง</div>}
               {/* Story cards — mirrors .kc from dashboard */}
               {shown.map(s => {
                 const isActive = s.status === "In Progress";
