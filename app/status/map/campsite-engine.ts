@@ -386,31 +386,39 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
     s.speechT   = rand(SPEECH_MIN, SPEECH_MAX);
   }
 
-  // ── Per-frame walk step (interpolates from fx/fy → tgt node) ──────────────────
+  // ── Per-frame walk step ───────────────────────────────────────────────────────
+  // Consume the frame's travel distance ALONG the path (real arc-length), not a
+  // per-segment normalised t. This keeps the on-screen speed constant across segments
+  // so the agent never lurches/jitters at a waypoint when consecutive segments differ
+  // in length (the 31-node graph mixes very short and long edges).
   function stepWalk(s: ScoutState, dt: number, path: string[]): void {
-    let q = NODES[s.tgt];
-    if (!q) return;
-
-    const segLen = Math.hypot(q.x - s.fx, q.y - s.fy) || 0.001;
-    const moved  = BASE_SPEED * s.speedVar * dt;
-    s.t       += moved / segLen;
-    s.distAcc += moved;
+    let remaining = BASE_SPEED * s.speedVar * dt; // % distance to cover this frame
+    s.distAcc += remaining;
 
     let guard = 0;
-    while (s.t >= 1 && guard++ < 8) {
-      s.t  -= 1;
-      s.cur = s.tgt;
-      const reached = NODES[s.cur];
-      if (reached) { s.fx = reached.x; s.fy = reached.y; }
-      if (path.length > 0) {
-        s.tgt = path.shift()!;
-      } else {
-        s.tgt = s.cur;
+    while (remaining > 0 && guard++ < 24) {
+      const q = NODES[s.tgt];
+      if (!q) return;
+      const segLen = Math.hypot(q.x - s.fx, q.y - s.fy);
+      const distToTgt = (1 - s.t) * segLen;
+
+      if (segLen < 1e-4 || remaining >= distToTgt) {
+        // reach this node, then carry the leftover distance onto the next segment
+        remaining -= Math.max(distToTgt, 0);
+        s.cur = s.tgt;
+        s.fx  = q.x;
+        s.fy  = q.y;
         s.t   = 0;
-        break;
+        if (path.length > 0) {
+          s.tgt = path.shift()!;
+        } else {
+          s.tgt = s.cur; // arrived — no more segments
+          break;
+        }
+      } else {
+        s.t += remaining / segLen;
+        remaining = 0;
       }
-      q = NODES[s.tgt];
-      if (!q) break;
     }
 
     if (s.distAcc >= STEP_DIST) {
@@ -420,11 +428,8 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
 
     const qF = NODES[s.tgt];
     if (!qF) return;
-    // Linear within a segment = steady stroll speed with no deceleration at the
-    // intermediate waypoints of a multi-hop leg.
-    const e = Math.min(s.t, 1);
-    s.x   = s.fx + (qF.x - s.fx) * e;
-    s.y   = s.fy + (qF.y - s.fy) * e;
+    s.x   = s.fx + (qF.x - s.fx) * s.t;
+    s.y   = s.fy + (qF.y - s.fy) * s.t;
     s.dir = dirFor(qF.x - s.fx, qF.y - s.fy);
   }
 
