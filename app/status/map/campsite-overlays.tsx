@@ -567,6 +567,57 @@ const HUD_CSS = `
 .hud-ef-chip:hover{color:rgba(223,234,245,.9)}
 .hud-ef-chip.on{background:rgba(91,233,176,.16);color:#5BE9B0}
 
+/* ── Summary card (Step 3, left panel below top bar) ── */
+.hud-summary{position:fixed;top:68px;left:18px;z-index:22;pointer-events:auto}
+.hud-sum-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.52);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 4px 16px rgba(0,0,0,.28),inset 0 1px 0 rgba(200,255,232,.10);
+  color:rgba(223,234,245,.78);font-size:12px;font-weight:600;
+  transition:background 120ms,color 120ms;
+}
+.hud-sum-chip:hover{background:rgba(91,233,176,.10);color:rgba(223,234,245,.92)}
+.hud-sum-chip-pct{color:#5BE9B0;font-weight:700}
+.hud-sum-chip-dot{opacity:.4;margin:0 1px}
+.hud-sum-chip-caret{opacity:.5;display:block;flex:none}
+.hud-sum-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-sum-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px 0;
+}
+.hud-sum-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-sum-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-sum-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-sum-body{padding:4px 16px 14px}
+.hud-sum-gauge{margin:6px 0 10px}
+.hud-sum-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:3px 0;font-size:12.5px;color:rgba(223,234,245,.65);
+}
+.hud-sum-row-l{display:flex;align-items:center;gap:5px}
+.hud-sum-count{font-size:13px;font-weight:700;color:rgba(223,234,245,.9)}
+.hud-sum-sep{height:1px;background:rgba(150,240,195,.09);margin:8px 0 6px}
+.hud-sum-today-label{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(91,233,176,.5);text-align:center;margin-bottom:5px}
+.hud-sum-today{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12.5px;font-weight:600;color:rgba(223,234,245,.8);padding-bottom:8px}
+.hud-sum-today-none{font-size:11.5px;color:rgba(223,234,245,.3);text-align:center;padding-bottom:8px}
+.hud-sum-spark-label{font-size:9.5px;color:rgba(223,234,245,.28);text-align:right;margin-bottom:3px}
+.hud-spark{display:flex;align-items:flex-end;gap:3px;height:30px}
+.hud-spark-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px;transition:height .4s ease}
+
 /* Epic open board button inside dock */
 .hud-board-btn {
   display:inline-flex;align-items:center;gap:6px;
@@ -1411,6 +1462,125 @@ export function EfilterChips({ efilter, onChange }: { efilter: "all" | "prog" | 
     </div>
   );
 }
+
+// ── Summary Card (Step 3) ────────────────────────────────────────────────────
+
+function GaugeRing({ pct }: { pct: number }) {
+  const r = 32;
+  const circ = 2 * Math.PI * r;
+  const dash = Math.max(0, Math.min(pct / 100, 1)) * circ;
+  return (
+    <svg width="82" height="82" viewBox="0 0 82 82" aria-hidden="true" style={{ display: "block", margin: "0 auto" }}>
+      <defs>
+        <filter id="glow-sum" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <circle cx="41" cy="41" r={r} fill="none" stroke="rgba(91,233,176,.12)" strokeWidth="7" />
+      <circle
+        cx="41" cy="41" r={r} fill="none"
+        stroke="#5BE9B0" strokeWidth="7" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`}
+        filter="url(#glow-sum)"
+        style={{ transform: "rotate(-90deg)", transformOrigin: "41px 41px", transition: "stroke-dasharray .7s cubic-bezier(.34,1.56,.64,1)" }}
+      />
+      <text x="41" y="47" textAnchor="middle" fill="#5BE9B0" fontSize="20" fontWeight="700" fontFamily="system-ui,sans-serif">{pct}%</text>
+    </svg>
+  );
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="hud-spark" aria-hidden="true">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className="hud-spark-bar"
+          style={{ height: `${Math.max(2, Math.round((v / max) * 28))}px`, opacity: i === 6 ? 1 : 0.3 + i * 0.1 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export interface SummaryCardProps {
+  pct: number;
+  epicDone: number;
+  epicTotal: number;
+  storyDone: number;
+  storyTotal: number;
+  backlog: number;
+  todayStories: number;
+  todayEpics: number;
+  sparkline: number[];
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, sparkline, collapsed, onToggle }: SummaryCardProps) {
+  if (collapsed) {
+    return (
+      <div className="hud-summary">
+        <button type="button" className="hud-sum-chip" onClick={onToggle} aria-label="ขยายภาพรวม" aria-expanded="false">
+          <span className="hud-sum-chip-pct">{pct}%</span>
+          <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
+          <span>⛺ {epicDone}/{epicTotal}</span>
+          <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
+          <span>📋 {storyDone}/{storyTotal}</span>
+          <svg className="hud-sum-chip-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="hud-summary">
+      <div className="hud-sum-card" role="complementary" aria-label="ภาพรวมโครงการ">
+        <div className="hud-sum-head">
+          <span className="hud-sum-heading">ภาพรวม</span>
+          <button type="button" className="hud-sum-collapse" onClick={onToggle} aria-label="ย่อภาพรวม" aria-expanded="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+              <path d="m6 15 6-6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="hud-sum-body">
+          <div className="hud-sum-gauge"><GaugeRing pct={pct} /></div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l">⛺ <span>Epic</span></span>
+            <span className="hud-sum-count">{epicDone} / {epicTotal}</span>
+          </div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l">📋 <span>Story</span></span>
+            <span className="hud-sum-count">{storyDone} / {storyTotal}</span>
+          </div>
+          <div className="hud-sum-row">
+            <span className="hud-sum-row-l">🪵 <span>Backlog</span></span>
+            <span className="hud-sum-count">{backlog}</span>
+          </div>
+          <div className="hud-sum-sep" />
+          <div className="hud-sum-today-label">วันนี้ส่งมอบ</div>
+          {todayStories > 0 || todayEpics > 0 ? (
+            <div className="hud-sum-today">
+              {todayEpics > 0 && <span>⛺ {todayEpics} Epic</span>}
+              {todayEpics > 0 && todayStories > 0 && <span className="hud-sum-chip-dot">·</span>}
+              {todayStories > 0 && <span>📋 {todayStories} Story</span>}
+            </div>
+          ) : (
+            <div className="hud-sum-today-none">ยังไม่มีงานส่งมอบวันนี้</div>
+          )}
+          <div className="hud-sum-spark-label">7 วันล่าสุด</div>
+          <Sparkline data={sparkline} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function ViewToggle({ dashboardHref }: ViewToggleProps) {
   return (

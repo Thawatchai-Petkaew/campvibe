@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FilterSignposts, MapOverlays, ViewToggle } from "./campsite-overlays";
+import { FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -82,6 +82,7 @@ export interface MapEpicStory {
   role: string;         // canonical role from [role] tag (may be "")
   url: string;
   startedAt: string | null;
+  completedAt: string | null;
 }
 
 /** One epic as projected for the map client. */
@@ -627,7 +628,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 
 // Filter persistence (cookie) — restored on the next visit so the view is remembered.
 const FILTER_COOKIE = "campvibe.map.filter";
-type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string };
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean };
 function readFilterCookie(): FilterCookie {
   if (typeof document === "undefined") return {};
   try {
@@ -1027,6 +1028,39 @@ export default function CampsiteScene({
     return { personas, features, epics: epicList };
   }, [epics, persona, feature]);
 
+  const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(() => readFilterCookie().summaryCollapsed ?? false);
+
+  // Summary stats — filtered by the current persona/feature/epic selection.
+  const summaryStats = useMemo(() => {
+    let filtered = epics;
+    if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
+    else if (feature) filtered = epics.filter((e) => e.feature === feature);
+    else if (persona) filtered = epics.filter((e) => e.persona === persona);
+
+    const allStories = filtered.flatMap((e) => e.stories);
+    const storyDone = allStories.filter((s) => s.statusType === "completed").length;
+    const storyTotal = allStories.length;
+    const backlog = allStories.filter((s) => s.status === "Backlog").length;
+    const epicDone = filtered.filter((e) => e.bucket === "done").length;
+    const epicTotal = filtered.length;
+    const pct = storyTotal ? Math.round((storyDone / storyTotal) * 100) : projectPct;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStories = allStories.filter((s) => s.completedAt?.startsWith(todayStr)).length;
+    const todayEpics = filtered.filter(
+      (e) => e.bucket === "done" && e.stories.some((s) => s.completedAt?.startsWith(todayStr))
+    ).length;
+
+    const sparkline: number[] = Array(7).fill(0);
+    for (const s of allStories) {
+      if (!s.completedAt) continue;
+      const daysAgo = Math.floor((Date.now() - new Date(s.completedAt).getTime()) / 86400000);
+      if (daysAgo >= 0 && daysAgo < 7) sparkline[6 - daysAgo]++;
+    }
+
+    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, sparkline };
+  }, [epics, persona, feature, scope, activeEpic, projectPct]);
+
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
   const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
     if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
@@ -1034,10 +1068,10 @@ export default function CampsiteScene({
     else { setActiveEpic(value); setScope(value ? "epic" : "all"); }
   }, []);
 
-  // Persist the filter to a cookie so it is restored on the next visit.
+  // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
   useEffect(() => {
-    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter });
-  }, [persona, feature, scope, activeEpic, efilter]);
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1512,6 +1546,13 @@ export default function CampsiteScene({
           <SoundToggle />
         </div>
       </div>
+
+      {/* Summary card — fixed left, below top bar. */}
+      <SummaryCard
+        {...summaryStats}
+        collapsed={summaryCollapsed}
+        onToggle={() => setSummaryCollapsed((v) => !v)}
+      />
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}
