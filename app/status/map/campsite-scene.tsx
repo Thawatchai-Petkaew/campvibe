@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, StatusBoard, StatusBoardHint, SummaryCard, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -281,6 +281,8 @@ const SCENE_CSS = `
   pointer-events:none;
 }
 .hud-left-panels > *{pointer-events:auto}
+.hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.hud-right-panels > *{pointer-events:auto}
 .hud-topbar-spacer{flex:1 1 auto}
 .hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
 .cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
@@ -635,7 +637,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 
 // Filter persistence (cookie) — restored on the next visit so the view is remembered.
 const FILTER_COOKIE = "campvibe.map.filter";
-type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean };
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean; boardCollapsed?: boolean };
 function readFilterCookie(): FilterCookie {
   if (typeof document === "undefined") return {};
   try {
@@ -1038,6 +1040,7 @@ export default function CampsiteScene({
   const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(() => readFilterCookie().summaryCollapsed ?? false);
   const [deliveryCollapsed, setDeliveryCollapsed] = useState<boolean>(() => readFilterCookie().deliveryCollapsed ?? false);
   const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
+  const [boardCollapsed, setBoardCollapsed] = useState<boolean>(() => readFilterCookie().boardCollapsed ?? false);
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1075,6 +1078,21 @@ export default function CampsiteScene({
     return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
 
+  const showBoard = !!feature || (scope === "epic" && !!activeEpic);
+  const boardStories = useMemo(() => {
+    if (!showBoard) return [];
+    let filtered = epics;
+    if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
+    else if (feature) filtered = epics.filter((e) => e.feature === feature);
+    return filtered.flatMap((e) => e.stories);
+  }, [epics, feature, scope, activeEpic, showBoard]);
+
+  const boardLabel = useMemo(() => {
+    if (scope === "epic" && activeEpic) return epics.find((e) => e.key === activeEpic)?.label ?? activeEpic;
+    if (feature) return feature;
+    return "";
+  }, [scope, activeEpic, feature, epics]);
+
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
   const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
     if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
@@ -1084,8 +1102,8 @@ export default function CampsiteScene({
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
   useEffect(() => {
-    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed });
-  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed]);
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed, boardCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1593,6 +1611,21 @@ export default function CampsiteScene({
             onToggle={() => setApprovalCollapsed((v) => !v)}
             onOpen={() => openPanel("gates")}
           />
+        )}
+      </div>
+
+      {/* Right panel stack — status board */}
+      <div className="hud-right-panels">
+        {showBoard ? (
+          <StatusBoard
+            stories={boardStories}
+            label={boardLabel}
+            pct={summaryStats.pct}
+            collapsed={boardCollapsed}
+            onToggle={() => setBoardCollapsed((v) => !v)}
+          />
+        ) : (
+          <StatusBoardHint />
         )}
       </div>
 
