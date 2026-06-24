@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { FileText, Inbox, Layers } from "lucide-react";
+import { AlertTriangle, ExternalLink, FileText, Inbox, Layers } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -570,7 +570,8 @@ const HUD_CSS = `
 .hud-ef-chip.on{background:rgba(91,233,176,.16);color:#5BE9B0}
 
 /* ── Summary card (Step 3, left panel below top bar) ── */
-.hud-summary{position:fixed;top:80px;left:18px;z-index:22;pointer-events:auto}
+/* Summary + Approval cards — positioned by .hud-left-panels wrapper in campsite-scene.tsx */
+.hud-summary{}
 .hud-sum-chip{
   display:inline-flex;align-items:center;gap:7px;
   padding:7px 14px;border-radius:999px;cursor:pointer;
@@ -627,6 +628,55 @@ const HUD_CSS = `
 .hud-sum-spark-label{font-size:9.5px;color:rgba(223,234,245,.28);text-align:right;margin-bottom:3px}
 .hud-spark{display:flex;align-items:flex-end;gap:3px;height:30px}
 .hud-spark-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px;transition:height .4s ease}
+/* ── Approval card ── */
+.hud-appr-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(255,190,80,.18);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,220,130,.08);
+}
+.hud-appr-head{
+  display:flex;align-items:center;gap:7px;justify-content:space-between;
+  padding:11px 14px 0;
+}
+.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,190,80,.7)}
+.hud-appr-mini{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 14px 12px;
+  font-size:12px;font-weight:600;color:rgba(223,234,245,.7);
+}
+.hud-appr-mini-label{display:flex;align-items:center;gap:6px;color:rgba(255,190,80,.85)}
+.hud-appr-body{padding:6px 14px 12px;display:flex;flex-direction:column;gap:4px}
+.hud-appr-item{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;
+  background:rgba(255,190,80,.06);border:1px solid rgba(255,190,80,.12);
+}
+.hud-appr-badge{
+  flex:none;padding:2px 7px;border-radius:99px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
+  background:rgba(255,190,80,.2);color:rgba(255,200,80,.9);
+}
+.hud-appr-title{flex:1;min-width:0;font-size:11.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-appr-link{
+  flex:none;display:inline-flex;align-items:center;
+  color:rgba(223,234,245,.35);transition:color 110ms;
+}
+.hud-appr-link:hover{color:rgba(91,233,176,.8)}
+.hud-appr-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin:4px 0 0;padding:9px 14px;border-radius:12px;
+  background:rgba(255,190,80,.12);border:1px solid rgba(255,190,80,.2);
+  font-size:12px;font-weight:700;color:rgba(255,200,80,.9);
+  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
+}
+.hud-appr-btn:hover{background:rgba(255,190,80,.2);border-color:rgba(255,190,80,.36)}
+.hud-appr-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(255,190,80,.45);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-appr-collapse:hover{background:rgba(255,190,80,.1);color:rgba(255,190,80,.9)}
 
 /* Epic open board button inside dock */
 .hud-board-btn {
@@ -1592,6 +1642,81 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
           <div className="hud-sum-spark-label">7 วันล่าสุด</div>
           <Sparkline data={sparkline} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Approval Card (Step 4) ───────────────────────────────────────────────────
+
+interface ApprovalCardProps {
+  gates: MapGate[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}
+
+function ChevronToggle({ collapsed, onClick, label }: { collapsed: boolean; onClick: () => void; label: string }) {
+  return (
+    <button type="button" className="hud-appr-collapse" onClick={onClick} aria-label={label} aria-expanded={!collapsed}>
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+        <path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCardProps) {
+  const count = gates.length;
+  const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  const sorted = [...gates].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9));
+
+  if (collapsed) {
+    return (
+      <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
+        <div className="hud-appr-head">
+          <span className="hud-appr-heading">
+            <AlertTriangle size={12} strokeWidth={2} />
+            รออนุมัติ
+          </span>
+          <ChevronToggle collapsed onClick={onToggle} label="ขยายรออนุมัติ" />
+        </div>
+        <div className="hud-appr-mini">
+          <span className="hud-appr-mini-label">
+            <AlertTriangle size={11} strokeWidth={2} />
+            {count} รายการรออนุมัติ
+          </span>
+          <button type="button" className="hud-appr-btn" style={{ width: "auto", padding: "5px 12px", margin: 0, fontSize: "11px" }} onClick={onOpen}>
+            ดู
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
+      <div className="hud-appr-head">
+        <span className="hud-appr-heading">
+          <AlertTriangle size={12} strokeWidth={2} />
+          รออนุมัติ {count} รายการ
+        </span>
+        <ChevronToggle collapsed={false} onClick={onToggle} label="ย่อรออนุมัติ" />
+      </div>
+      <div className="hud-appr-body">
+        {sorted.map((g) => (
+          <div key={g.id} className="hud-appr-item">
+            {g.priority && <span className="hud-appr-badge">{g.priority}</span>}
+            <span className="hud-appr-title">{g.title}</span>
+            <a href={g.url} target="_blank" rel="noopener noreferrer" className="hud-appr-link" aria-label="เปิดใน Linear">
+              <ExternalLink size={12} strokeWidth={1.8} />
+            </a>
+          </div>
+        ))}
+        <button type="button" className="hud-appr-btn" onClick={onOpen}>
+          <AlertTriangle size={12} strokeWidth={2} />
+          ดูและอนุมัติทั้งหมด
+        </button>
       </div>
     </div>
   );

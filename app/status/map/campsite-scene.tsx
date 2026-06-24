@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -274,6 +274,13 @@ const SCENE_CSS = `
   backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
   box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
 }
+/* Left panel stack — summary + approval, stacked vertically */
+.hud-left-panels{
+  position:fixed;top:80px;left:18px;z-index:22;
+  display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;
+}
+.hud-left-panels > *{pointer-events:auto}
 .hud-topbar-spacer{flex:1 1 auto}
 .hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
 .cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
@@ -628,7 +635,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 
 // Filter persistence (cookie) — restored on the next visit so the view is remembered.
 const FILTER_COOKIE = "campvibe.map.filter";
-type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean };
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean };
 function readFilterCookie(): FilterCookie {
   if (typeof document === "undefined") return {};
   try {
@@ -1029,6 +1036,7 @@ export default function CampsiteScene({
   }, [epics, persona, feature]);
 
   const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(() => readFilterCookie().summaryCollapsed ?? false);
+  const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1070,8 +1078,8 @@ export default function CampsiteScene({
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
   useEffect(() => {
-    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed });
-  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed]);
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, approvalCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, approvalCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1547,12 +1555,22 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* Summary card — fixed left, below top bar. */}
-      <SummaryCard
-        {...summaryStats}
-        collapsed={summaryCollapsed}
-        onToggle={() => setSummaryCollapsed((v) => !v)}
-      />
+      {/* Left panel stack — summary + approval */}
+      <div className="hud-left-panels">
+        <SummaryCard
+          {...summaryStats}
+          collapsed={summaryCollapsed}
+          onToggle={() => setSummaryCollapsed((v) => !v)}
+        />
+        {gates.length > 0 && (
+          <ApprovalCard
+            gates={gates}
+            collapsed={approvalCollapsed}
+            onToggle={() => setApprovalCollapsed((v) => !v)}
+            onOpen={() => openPanel("gates")}
+          />
+        )}
+      </div>
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}
