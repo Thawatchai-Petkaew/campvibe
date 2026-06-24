@@ -26,7 +26,7 @@
 // style.zIndex / style.opacity / style.pointerEvents on refs. No per-frame React setState.
 // Effect cleanup cancels rAF.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
@@ -414,7 +414,7 @@ interface AgentScoutProps {
   onActivate: () => void;
 }
 
-function AgentScout({
+function AgentScoutInner({
   agent, bodyRef, rootRef, speechRef, staticLeft, staticTop, staticZ, onActivate,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
@@ -511,6 +511,18 @@ function AgentScout({
     </button>
   );
 }
+
+// The agent position is engine-owned (imperative per-frame DOM writes). Memoise so a
+// status-feed re-render (every SSE pulse / 60s poll) does NOT re-apply the static home
+// position and warp a walking agent. Re-render only when its displayed data changes.
+const AgentScout = memo(AgentScoutInner, (prev, next) =>
+  prev.agent.active === next.agent.active &&
+  prev.agent.done === next.agent.done &&
+  prev.agent.activeCount === next.agent.activeCount &&
+  prev.agent.queued === next.agent.queued &&
+  prev.agent.task?.id === next.agent.task?.id &&
+  prev.agent.task?.title === next.agent.task?.title,
+);
 
 interface YouScoutProps {
   gates: MapGate[];
