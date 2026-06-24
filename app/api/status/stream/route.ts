@@ -17,7 +17,8 @@ export async function GET(req: Request) {
   if (!authorized(req)) return new Response("unauthorized", { status: 401 });
 
   // Read per-request (env-overridable) so tests can drive the loop with tiny values.
-  const POLL_MS = Number(process.env.STATUS_STREAM_POLL_MS) || 2500;
+  // CAM-175: default reduced from 2500ms to 1500ms for ≤15s freshness target.
+  const POLL_MS = Number(process.env.STATUS_STREAM_POLL_MS) || 1500;
   const HEARTBEAT_MS = Number(process.env.STATUS_STREAM_HEARTBEAT_MS) || 15000;
   const MAX_MS = Number(process.env.STATUS_STREAM_MAX_MS) || 25000;
 

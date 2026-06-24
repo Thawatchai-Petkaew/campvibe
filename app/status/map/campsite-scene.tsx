@@ -29,6 +29,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
+import { boardColumnOf } from "@/lib/status-derive";
 import {
   ADJ,
   buildScoutState,
@@ -1078,7 +1079,10 @@ export default function CampsiteScene({
     ).length;
 
     const statusCounts: Record<string, number> = {};
-    for (const s of allStories) { statusCounts[s.status] = (statusCounts[s.status] ?? 0) + 1; }
+    for (const s of allStories) {
+      const col = boardColumnOf(s);
+      statusCounts[col] = (statusCounts[col] ?? 0) + 1;
+    }
 
     return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline, statusCounts };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
@@ -1360,13 +1364,14 @@ export default function CampsiteScene({
   }, [scope, activeEpic, group, efilter, epics, engineReady]);
 
   // S6: SSE reconcile — subscribe to /api/status/stream exactly like dashboard-client.tsx
-  // (same backoff + 60s fallback interval). On a pulse event, fetch the new MapModel from
+  // (same backoff + 15s fallback interval). On a pulse event, fetch the new MapModel from
   // /status/map/data and merge it into the running engine without remounting.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 60s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
-    const FALLBACK_MS = 60_000;
+    // 15s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
+    // CAM-175: reduced from 60s to ≤15s to meet the freshness AC.
+    const FALLBACK_MS = 15_000;
     let fallbackId: ReturnType<typeof setInterval> | null = null;
 
     async function reconcile() {
@@ -1409,7 +1414,7 @@ export default function CampsiteScene({
           }
         };
       } catch {
-        /* SSE unsupported → the 60s fallback interval still reconciles */
+        /* SSE unsupported → the 15s fallback interval still reconciles */
       }
     }
 
