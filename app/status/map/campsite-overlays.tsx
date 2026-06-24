@@ -535,7 +535,7 @@ const HUD_CSS = `
 .hud-signpost.active{color:#5BE9B0}
 .hud-sp-icon{display:inline-flex;opacity:.85}
 .hud-sp-label{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hud-sp-caret{opacity:.5;font-size:9px;margin-left:1px}
+.hud-sp-caret{opacity:.55;margin-left:2px;display:block;flex:none}
 .hud-signpost-menu{
   position:absolute;top:calc(100% + 7px);left:0;z-index:30;min-width:172px;max-height:62vh;overflow-y:auto;
   display:flex;flex-direction:column;gap:1px;padding:6px;
@@ -1327,9 +1327,9 @@ const SpIcon = {
     </svg>
   ),
   epic: (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
-      <path d="m12 4 8 16H4l8-16Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <path d="M12 9v11" stroke="currentColor" strokeWidth="1.6" />
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+      <path d="M12 5 3.4 20h17.2L12 5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M9.3 20 12 12.4 14.7 20" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   ),
 };
@@ -1353,14 +1353,14 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
     return () => window.removeEventListener("pointerdown", close);
   }, [open]);
 
-  const epicLabel = epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "ทั้งหมด";
+  const epicLabel = epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "All Epic";
   const signs = [
-    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : "ทั้งหมด",
-      opts: [{ v: "", l: "ทั้งหมด" }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
-    { key: "feature" as const, value: feature, valueLabel: feature || "ทั้งหมด",
-      opts: [{ v: "", l: "ทั้งหมด" }, ...features.map((f) => ({ v: f, l: f }))] },
+    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : "All Persona",
+      opts: [{ v: "", l: "All Persona" }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
+    { key: "feature" as const, value: feature, valueLabel: feature || "All Feature",
+      opts: [{ v: "", l: "All Feature" }, ...features.map((f) => ({ v: f, l: f }))] },
     { key: "epic" as const, value: epic, valueLabel: epicLabel,
-      opts: [{ v: "", l: "ทั้งหมด" }, ...epics.map((e) => ({ v: e.key, l: e.label }))] },
+      opts: [{ v: "", l: "All Epic" }, ...epics.map((e) => ({ v: e.key, l: e.label }))] },
   ];
 
   return (
@@ -1376,7 +1376,9 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
           >
             <span className="hud-sp-icon" aria-hidden="true">{SpIcon[s.key]}</span>
             <span className="hud-sp-label">{s.valueLabel}</span>
-            <span className="hud-sp-caret" aria-hidden="true">▾</span>
+            <svg className="hud-sp-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           {open === s.key && (
             <div className="hud-signpost-menu">

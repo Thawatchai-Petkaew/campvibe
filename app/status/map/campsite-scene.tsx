@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EfilterChips, FilterSignposts, MapOverlays, ViewToggle } from "./campsite-overlays";
+import { FilterSignposts, MapOverlays, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -1512,7 +1512,6 @@ export default function CampsiteScene({
           <SoundToggle />
         </div>
       </div>
-      <EfilterChips efilter={efilter} onChange={setEfilter} />
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}
