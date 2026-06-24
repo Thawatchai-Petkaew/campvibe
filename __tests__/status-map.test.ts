@@ -138,28 +138,29 @@ describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () =>
 describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale model", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
 
-  it("has .map-viewport grid wrapper (centres the fixed canvas)", () => {
+  it("has .map-viewport wrapper (contains the play area)", () => {
     expect(src).toContain(".map-viewport");
-    expect(src).toContain("display:grid");
-    expect(src).toContain("place-items:center");
+    expect(src).toContain("position:absolute");
+    expect(src).toContain("overflow:hidden");
   });
 
-  it("has .map-stage as a fixed 1920×1080 design canvas", () => {
-    expect(src).toContain("width:1920px");
-    expect(src).toContain("height:1080px");
+  it("has .map-stage as the contained play area (square FIT model)", () => {
+    // CAM-166+: responsive square via clamp + aspect-ratio (replaces fixed 1920px)
+    expect(src).toContain("aspect-ratio: 1 / 1");
+    expect(src).toContain("clamp(320px");
   });
 
-  it("scale(var(--s)) with cover formula drives the canvas proportional scale", () => {
-    expect(src).toContain("transform:scale(var(--s))");
-    expect(src).toContain("calc(100vw / 1920)");
-    expect(src).toContain("calc(100vh / 1080)");
+  it("map-stage is centred via translate(-50%,-50%) (replaces scale model)", () => {
+    // CAM-166+: square FIT — translate keeps centre fixed; no transform:scale
+    expect(src).toContain("translate(-50%,-50%)");
+    expect(src).toContain("top:50%;left:50%");
   });
 
-  it("--scout-size is a fixed design-px value (not vw-relative)", () => {
+  it("--scout-size uses cqmin (container-relative, not vw-relative)", () => {
     // Must NOT contain 'vw' in the scout-size definition
     expect(src).not.toContain("7.2vw");
-    // CAM-167: reduced 116px → 88px so the clearing ring doesn't overlap at 1920
-    expect(src).toContain("--scout-size: 88px");
+    // CAM-166+: responsive clamp using container query units
+    expect(src).toContain("--scout-size: clamp(");
   });
 
   it("does NOT use the old width:max() approach for scaling", () => {
@@ -237,7 +238,7 @@ describe("app/status/map/campsite-engine.ts — CAM-161: setHomes", () => {
 
   it("setHomes implementation snaps idle agents and redirects walking agents", () => {
     expect(src).toContain("setHomes(homes:");
-    expect(src).toContain("s.mode === \"idle\"");
+    expect(src).toContain("s.mode === \"resting\"");
   });
 });
 
@@ -573,19 +574,18 @@ describe("campsite-overlays.tsx — CAM-159 AC4: Epic scope dock structure", () 
 describe("campsite-overlays.tsx — CAM-159 AC5: ViewToggle top-center", () => {
   const src = read("../app/status/map/campsite-overlays.tsx");
 
-  it("ViewToggle CSS positions fixed top:18px centered (not top-left)", () => {
+  it("ViewToggle CSS exists as a glass pill in the top bar", () => {
     expect(src).toContain(".hud-view-toggle");
-    expect(src).toContain("top:18px");
-    // centered via left:50% + translateX(-50%)
-    expect(src).toContain("left:50%");
+    expect(src).toContain("border-radius:999px");
+    // positioned inside .hud-topbar-right (not fixed top:18px)
+    expect(src).toContain("backdrop-filter");
   });
 
-  it("ViewToggle renders nav[role='tablist'] with แดชบอร์ด and แผนที่ links", () => {
+  it("ViewToggle renders as a link to the dashboard with แดชบอร์ด label", () => {
     expect(src).toContain("แดชบอร์ด");
-    expect(src).toContain("แผนที่");
-    expect(src).toContain('data-testid="nav--map-view-toggle"');
-    expect(src).toContain('data-testid="link--map-toggle-dashboard"');
-    expect(src).toContain('data-testid="tab--map-toggle-map"');
+    // CAM-159+: single dashboard link (not a dual tablist)
+    expect(src).toContain('data-testid="link--map-to-dashboard"');
+    expect(src).toContain("aria-label");
   });
 });
 
@@ -703,20 +703,18 @@ describe("app/status/map/campsite-engine.ts — CAM-163: ScoutState.homeX/homeY"
     expect(src).toContain("homeY:");
   });
 
-  it("buildScoutState returns scouts in idle mode (not entering)", () => {
-    // CAM-163: entrance walk removed — scouts start idle at their layout home.
-    expect(src).toContain('mode:     "idle"');
+  it("buildScoutState returns scouts in resting mode (not entering)", () => {
+    // CAM-163+: entrance walk removed — scouts start resting at their layout home.
+    expect(src).toContain('mode: "resting"');
     // Ensure "entering" is NOT the default mode produced by buildScoutState.
-    // (entering still exists as a type for triggerWalk, but the default build is idle)
-    expect(src).not.toContain('mode:     "entering"');
+    expect(src).not.toContain('mode: "entering"');
   });
 
-  it("enterIdle snaps to s.homeX / s.homeY — NOT to NODES[s.homeNode]", () => {
-    // The fix: enterIdle reads s.homeX and s.homeY, not the old compass node coords.
-    expect(src).toContain("s.x   = s.homeX");
-    expect(src).toContain("s.y   = s.homeY");
-    // Must NOT fall back to NODES[homeNode] for the resting snap inside enterIdle.
-    // (NODES is still used in stepWalk for path interpolation — that is fine.)
+  it("setHomes snaps idle agents to new home coords via home.x / home.y", () => {
+    // CAM-163+: setHomes uses home.x/home.y from the layout table
+    expect(src).toContain("s.x = home.x");
+    expect(src).toContain("s.y = home.y");
+    // Must NOT fall back to NODES[homeNode] for the resting snap.
     expect(src).not.toContain("const home = NODES[s.homeNode]");
   });
 
@@ -745,7 +743,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-163: idle placement on mount
     // Agents must be placed at homeX/homeY from the first frame.
     expect(src).toContain("state.homeX");
     expect(src).toContain("state.homeY");
-    expect(src).toContain('state.rootEl.classList.add("idle")');
+    // scene uses local ref var name (state or s) for classList add
+    expect(src).toContain('classList.add("idle")');
   });
 
   it("stopLoop restores agents to homeX/homeY — not NODES[homeNode]", () => {
@@ -845,25 +844,23 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix"
 describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coords", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
 
-  it("YOU_POS_WIDE is updated to {x:38, y:23} (dock, upper-left)", () => {
-    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 23 }");
+  it("YOU_POS_WIDE is set to {x:38, y:31} (upper-left of clearing)", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 31 }");
   });
 
-  it("YOU_POS_NARROW is updated to {x:50, y:22} (centered top)", () => {
-    expect(src).toContain("YOU_POS_NARROW = { x: 50, y: 22 }");
+  it("YOU_POS_NARROW aliases YOU_POS_WIDE (single-layout model)", () => {
+    // CAM-166+: single layout — NARROW mirrors WIDE so matchMedia wiring is a no-op
+    expect(src).toContain("YOU_POS_NARROW = YOU_POS_WIDE");
   });
 
-  // CAM-165: LAYOUT_NARROW tightened from x40/x60 to x42/x58 so all 8 stay
-  // fully inside the visible band on 9:16 portrait (visible x ≈ 34–66%).
-  it("LAYOUT_NARROW x-values are within [42,58] for centered portrait cluster (CAM-165)", () => {
-    expect(src).toContain('{ x: 42, y: 34 }'); // architect
-    expect(src).toContain('{ x: 58, y: 34 }'); // ux-designer
-    expect(src).toContain('{ x: 50, y: 42 }'); // security-reviewer (center)
+  // CAM-166+: single-layout model — LAYOUT_NARROW aliases LAYOUT_WIDE
+  it("LAYOUT_NARROW aliases LAYOUT_WIDE (single-layout, no separate portrait cluster)", () => {
+    expect(src).toContain("LAYOUT_NARROW = LAYOUT_WIDE");
   });
 
-  it("scout sizes updated: root 88px, narrow override 74px", () => {
-    expect(src).toContain("--scout-size: 88px");
-    expect(src).toContain("--scout-size: 74px");
+  it("scout sizes updated: responsive clamp (not fixed 88px/74px)", () => {
+    // CAM-166+: container-relative cqmin replaces fixed px sizes
+    expect(src).toContain("--scout-size: clamp(");
   });
 
   it("CAM-164 layout comment references ?grid=1 tuning", () => {
@@ -911,35 +908,35 @@ describe("app/status/map/campsite-scene.tsx — CAM-165: .map-wrap is position:f
 describe("app/status/map/campsite-scene.tsx — CAM-166: LAYOUT_WIDE clearing-ring coords", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
 
-  it("Architect placed at {x:50, y:38} (ring — top-centre of clearing)", () => {
-    expect(src).toContain('{ x: 50, y: 38 }');
+  it("Architect placed at {x:50.1, y:38.2} (ring — top-centre of clearing)", () => {
+    expect(src).toContain('{ x: 50.1, y: 38.2 }');
   });
 
-  it("Designer placed at {x:60, y:43} (ring — upper-right)", () => {
-    expect(src).toContain('{ x: 60, y: 43 }');
+  it("Designer placed at {x:60.2, y:43.1} (ring — upper-right)", () => {
+    expect(src).toContain('{ x: 60.2, y: 43.1 }');
   });
 
-  it("Backend placed at {x:63, y:52} (ring — right)", () => {
-    expect(src).toContain('{ x: 63, y: 52 }');
+  it("Backend placed at {x:65.9, y:60.2} (ring — right)", () => {
+    expect(src).toContain('{ x: 65.9, y: 60.2 }');
   });
 
-  it("Frontend placed at {x:59, y:61} (ring — lower-right)", () => {
-    expect(src).toContain('{ x: 59, y: 61 }');
+  it("Frontend placed at {x:49.8, y:75.8} (ring — lower-centre)", () => {
+    expect(src).toContain('{ x: 49.8, y: 75.8 }');
   });
 
-  it("DevOps placed at {x:41, y:61} (ring — lower-left)", () => {
-    expect(src).toContain('{ x: 41, y: 61 }');
+  it("DevOps placed at {x:37.3, y:65.3} (ring — lower-left)", () => {
+    expect(src).toContain('{ x: 37.3, y: 65.3 }');
   });
 
-  it("QA placed at {x:37, y:52} (ring — left)", () => {
-    expect(src).toContain('{ x: 37, y: 52 }');
+  it("QA placed at {x:32.3, y:50.4} (ring — left)", () => {
+    expect(src).toContain('{ x: 32.3, y: 50.4 }');
   });
 
-  it("Security placed at {x:41, y:43} (ring — upper-left)", () => {
-    expect(src).toContain('{ x: 41, y: 43 }');
+  it("Security placed at {x:43.8, y:42.5} (ring — upper-left)", () => {
+    expect(src).toContain('{ x: 43.8, y: 42.5 }');
   });
 
-  it("YOU_POS_WIDE updated to {x:38, y:23} (dock, upper-left — unchanged role)", () => {
-    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 23 }");
+  it("YOU_POS_WIDE updated to {x:38, y:31} (upper-left of clearing)", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 31 }");
   });
 });
