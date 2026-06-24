@@ -116,13 +116,13 @@ const ROLE_CONFIG: Record<
   string,
   { node: string; color: string; poseIdx: number; displayName: string; roleLabel: string }
 > = {
-  "architect":          { node: "N",  color: "#8FB8F0", poseIdx: 0, displayName: "Architect",  roleLabel: "วางแผนระบบ" },
-  "ux-designer":        { node: "NE", color: "#B7A6FF", poseIdx: 1, displayName: "Designer",   roleLabel: "UX และวิชวล" },
-  "backend-engineer":   { node: "E",  color: "#5BE9B0", poseIdx: 2, displayName: "Backend",    roleLabel: "API และบริการ" },
-  "frontend-engineer":  { node: "SE", color: "#5FD0DE", poseIdx: 3, displayName: "Frontend",   roleLabel: "หน้าแอป" },
-  "devops-release":     { node: "SW", color: "#BFE85B", poseIdx: 4, displayName: "DevOps",     roleLabel: "CI/CD" },
-  "qa-engineer":        { node: "W",  color: "#F39FD2", poseIdx: 5, displayName: "QA",         roleLabel: "ทดสอบและตรวจสอบ" },
-  "security-reviewer":  { node: "NW", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
+  "architect":          { node: "W0",  color: "#8FB8F0", poseIdx: 0, displayName: "Architect",  roleLabel: "วางแผนระบบ" },
+  "ux-designer":        { node: "W28", color: "#B7A6FF", poseIdx: 1, displayName: "Designer",   roleLabel: "UX และวิชวล" },
+  "backend-engineer":   { node: "W23", color: "#5BE9B0", poseIdx: 2, displayName: "Backend",    roleLabel: "API และบริการ" },
+  "frontend-engineer":  { node: "W3",  color: "#5FD0DE", poseIdx: 3, displayName: "Frontend",   roleLabel: "หน้าแอป" },
+  "devops-release":     { node: "W2",  color: "#BFE85B", poseIdx: 4, displayName: "DevOps",     roleLabel: "CI/CD" },
+  "qa-engineer":        { node: "W1",  color: "#F39FD2", poseIdx: 5, displayName: "QA",         roleLabel: "ทดสอบและตรวจสอบ" },
+  "security-reviewer":  { node: "W29", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
 };
 
 // Speed variation per role index — slight spread so agents don't arrive in a clump.
@@ -136,13 +136,13 @@ const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 // on open dirt; furniture (tents/tables/board) is backdrop only, not occupied.
 // You stays at the dock (upper-left). Walk routes stay on open dirt.
 export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 50, y: 46 },
-  "ux-designer":        { x: 60, y: 51 },
-  "backend-engineer":   { x: 63, y: 60 },
-  "frontend-engineer":  { x: 59, y: 69 },
-  "devops-release":     { x: 41, y: 69 },
-  "qa-engineer":        { x: 37, y: 60 },
-  "security-reviewer":  { x: 41, y: 51 },
+  "architect":          { x: 50.1, y: 38.2 },  // W0
+  "ux-designer":        { x: 60.2, y: 43.1 },  // W28
+  "backend-engineer":   { x: 65.9, y: 60.2 },  // W23
+  "frontend-engineer":  { x: 49.8, y: 75.8 },  // W3
+  "devops-release":     { x: 37.3, y: 65.3 },  // W2
+  "qa-engineer":        { x: 32.3, y: 50.4 },  // W1
+  "security-reviewer":  { x: 43.8, y: 42.5 },  // W29
 };
 export const YOU_POS_WIDE = { x: 38, y: 31 };
 
@@ -723,7 +723,7 @@ function DebugRoutes() {
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 21, pointerEvents: "none", overflow: "visible" }}
     >
       {/* campfire keep-out (no route should cross it) */}
-      <circle cx={50} cy={59} r={8.5} fill="rgba(255,140,40,0.10)" stroke="rgba(255,150,60,0.75)" strokeWidth={0.3} strokeDasharray="1.4 1" />
+      <circle cx={50} cy={54} r={7} fill="rgba(255,140,40,0.10)" stroke="rgba(255,150,60,0.75)" strokeWidth={0.3} strokeDasharray="1.4 1" />
       {edges.map(([a, b]) => {
         const p = NODES[a];
         const q = NODES[b];
