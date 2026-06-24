@@ -270,14 +270,14 @@ const SCENE_CSS = `
 .sound-toggle svg{width:20px;height:20px;display:block}
 /* Idle "waiting for work" speech bubble — engine toggles .show; text set via JS. */
 .speech{
-  position:absolute;left:50%;bottom:calc(var(--bh) + 30px);
+  position:absolute;left:50%;bottom:calc(var(--bh) + 56px);
   transform:translateX(-50%) translateY(6px) scale(.88);
   max-width:160px;white-space:nowrap;
   padding:5px 11px;border-radius:13px;
   font-size:10.5px;font-weight:600;line-height:1;color:var(--text);
-  background:rgba(18,46,37,.92);border:1px solid rgba(91,233,176,.38);
+  background:rgba(18,46,37,.92);
   box-shadow:0 8px 22px rgba(0,0,0,.42);
-  opacity:0;pointer-events:none;z-index:6;
+  opacity:0;pointer-events:none;z-index:7;
   transition:opacity .26s ease;
 }
 .speech::after{
