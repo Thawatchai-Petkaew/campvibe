@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AlertTriangle, ExternalLink, FileText, Inbox, Layers } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Inbox, Layers, Trophy } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -665,7 +665,12 @@ const HUD_CSS = `
   background:rgba(91,233,176,.07);border:1px solid rgba(91,233,176,.12);
 }
 .hud-dlv-big{font-size:28px;font-weight:800;color:#5BE9B0;line-height:1}
-.hud-dlv-sub{font-size:10px;font-weight:600;color:rgba(223,234,245,.45);letter-spacing:.05em;text-transform:uppercase}
+.hud-dlv-sub{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:rgba(223,234,245,.45);letter-spacing:.05em;text-transform:uppercase}
+@keyframes dlv-pulse{
+  0%,100%{color:#5BE9B0;text-shadow:0 0 0 rgba(91,233,176,0);transform:scale(1)}
+  50%{color:#8fffd6;text-shadow:0 0 14px rgba(91,233,176,.7),0 0 32px rgba(91,233,176,.3);transform:scale(1.06)}
+}
+.hud-dlv-pulse{animation:dlv-pulse 2.4s ease-in-out infinite}
 .hud-dlv-empty{font-size:11.5px;color:rgba(223,234,245,.3);text-align:center;padding:14px 0}
 /* sparkline (week) */
 .hud-dlv-spark{display:flex;align-items:flex-end;gap:3px;height:44px;margin-bottom:8px}
@@ -1755,14 +1760,14 @@ export function DeliveryCard({ todayEpics, todayStories, weekEpics, weekStories,
             <div className="hud-dlv-nums">
               {todayEpics > 0 && (
                 <div className="hud-dlv-num">
-                  <span className="hud-dlv-big">{todayEpics}</span>
-                  <span className="hud-dlv-sub"><Layers size={10} strokeWidth={1.8} /> Epic</span>
+                  <span className="hud-dlv-big hud-dlv-pulse">{todayEpics}</span>
+                  <span className="hud-dlv-sub"><Trophy size={10} strokeWidth={1.8} />Epic</span>
                 </div>
               )}
               {todayStories > 0 && (
                 <div className="hud-dlv-num">
-                  <span className="hud-dlv-big">{todayStories}</span>
-                  <span className="hud-dlv-sub"><FileText size={10} strokeWidth={1.8} /> Story</span>
+                  <span className="hud-dlv-big hud-dlv-pulse" style={{ animationDelay: ".3s" }}>{todayStories}</span>
+                  <span className="hud-dlv-sub"><CheckCircle2 size={10} strokeWidth={1.8} />Story</span>
                 </div>
               )}
             </div>
