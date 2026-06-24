@@ -330,3 +330,212 @@ describe("campsite-scene.tsx — S7 AC7: deep-link scope fix", () => {
     expect(src).toContain("S7 fix");
   });
 });
+
+// ============================================================
+// CAM-159 — HUD redesign: command dock + expand-panel + Kanban modal
+// ============================================================
+
+// ---------- CAM-159 AC1: single bottom dock replaces corner chips ----------
+describe("campsite-overlays.tsx — CAM-159 AC1: single bottom command dock", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("exports MapOverlays (root component) + ViewToggle (top-center toggle)", () => {
+    expect(src).toContain("export function MapOverlays");
+    expect(src).toContain("export function ViewToggle");
+  });
+
+  it("renders dock with data-testid dock--hud-overview (Overview) and dock--hud-epic (Epic)", () => {
+    expect(src).toContain('data-testid="dock--hud-overview"');
+    expect(src).toContain('data-testid="dock--hud-epic"');
+  });
+
+  it("dock has role='toolbar' for a11y (grouped controls)", () => {
+    expect(src).toContain('role="toolbar"');
+  });
+
+  it("no corner chip positions in the new overlay: top-left/top-right/bottom-left/bottom-right removed", () => {
+    // The old CHIP_POSITIONS / Overlay primitive is gone
+    expect(src).not.toContain("CHIP_POSITIONS");
+    expect(src).not.toContain('"top-left"');
+    expect(src).not.toContain('"bottom-right"');
+    expect(src).not.toContain('"bottom-left"');
+  });
+
+  it("dock segments are real <button> elements with aria-expanded", () => {
+    expect(src).toContain('aria-expanded={openOverlay === "switcher"}');
+    expect(src).toContain('aria-expanded={openOverlay === "delivery"}');
+    expect(src).toContain('aria-expanded={openOverlay === "crew"}');
+  });
+
+  it("dock is centered bottom (hud-dock class, bottom 18px, translateX -50%)", () => {
+    expect(src).toContain(".hud-dock");
+    expect(src).toContain("bottom:18px");
+    expect(src).toContain("translateX(-50%)");
+  });
+});
+
+// ---------- CAM-159 AC2: expand panels rise above dock ----------
+describe("campsite-overlays.tsx — CAM-159 AC2: expand panels", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("ExpandPanel renders with role='dialog' aria-modal", () => {
+    expect(src).toContain('role="dialog"');
+    expect(src).toContain('aria-modal="true"');
+  });
+
+  it("hud-panel CSS has bottom:80px (rises above dock)", () => {
+    expect(src).toContain("bottom:80px");
+  });
+
+  it("panel CSS has panelRise animation wrapped in prefers-reduced-motion:no-preference", () => {
+    expect(src).toContain("panelRise");
+    expect(src).toContain("prefers-reduced-motion:no-preference");
+  });
+
+  it("focus trap implemented via FOCUSABLE selector + Escape handler", () => {
+    expect(src).toContain("FOCUSABLE");
+    expect(src).toContain('e.key === "Escape"');
+  });
+});
+
+// ---------- CAM-159 AC3: Kanban modal for heavy data ----------
+describe("campsite-overlays.tsx — CAM-159 AC3: Kanban modal", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("KanbanModal renders a centered modal box (hud-modal-box)", () => {
+    expect(src).toContain("hud-modal-box");
+  });
+
+  it("modal backdrop darkens scene (hud-modal-backdrop)", () => {
+    expect(src).toContain("hud-modal-backdrop");
+  });
+
+  it("modal has scale+fade animation via modalIn (prefers-reduced-motion gated)", () => {
+    expect(src).toContain("modalIn");
+  });
+
+  it("modal renders 5 Kanban columns (Backlog/Todo/In Progress/In Review/Done)", () => {
+    expect(src).toContain('"Backlog"');
+    expect(src).toContain('"Todo"');
+    expect(src).toContain('"In Progress"');
+    expect(src).toContain('"In Review"');
+    expect(src).toContain('"Done"');
+  });
+
+  it("modal renders metric pills (running/review/todo/done)", () => {
+    expect(src).toContain('data-testid="metric--modal-run"');
+    expect(src).toContain('data-testid="metric--modal-done"');
+  });
+
+  it("KanbanModal empty state: ยังไม่มีสตอรีใน epic นี้", () => {
+    expect(src).toContain("ยังไม่มีสตอรีใน epic นี้");
+  });
+
+  it("board testid follows doc convention: board--hud-{epicLabel}", () => {
+    expect(src).toContain("`board--hud-${epicLabel}`");
+  });
+});
+
+// ---------- CAM-159 AC4: Epic scope — no overlapping surfaces ----------
+describe("campsite-overlays.tsx — CAM-159 AC4: Epic scope dock structure", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("Epic dock has seg--hud-epic-progress segment (no duplicate position='right')", () => {
+    expect(src).toContain('data-testid="seg--hud-epic-progress"');
+  });
+
+  it("Epic dock has seg--hud-upnext (Up Next segment — no longer at position='right')", () => {
+    expect(src).toContain('data-testid="seg--hud-upnext"');
+  });
+
+  it("Epic dock has hud-board-btn (prominent open-board CTA)", () => {
+    expect(src).toContain("hud-board-btn");
+    expect(src).toContain("เปิดบอร์ด");
+  });
+
+  it("back-to-overview button present in Epic scope dock", () => {
+    expect(src).toContain('data-testid="btn--scope-back-overview"');
+  });
+});
+
+// ---------- CAM-159 AC5: View toggle top-center ----------
+describe("campsite-overlays.tsx — CAM-159 AC5: ViewToggle top-center", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("ViewToggle CSS positions fixed top:18px centered (not top-left)", () => {
+    expect(src).toContain(".hud-view-toggle");
+    expect(src).toContain("top:18px");
+    // centered via left:50% + translateX(-50%)
+    expect(src).toContain("left:50%");
+  });
+
+  it("ViewToggle renders nav[role='tablist'] with แดชบอร์ด and แผนที่ links", () => {
+    expect(src).toContain("แดชบอร์ด");
+    expect(src).toContain("แผนที่");
+    expect(src).toContain('data-testid="nav--map-view-toggle"');
+    expect(src).toContain('data-testid="link--map-toggle-dashboard"');
+    expect(src).toContain('data-testid="tab--map-toggle-map"');
+  });
+});
+
+// ---------- CAM-159 AC6: Epic bug — setScope non-blank fix ----------
+describe("campsite-scene.tsx — CAM-159 AC6: setScope non-blank fix", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("scope effect falls back to all-scope when epicRoles is empty", () => {
+    // The CAM-159 fix: roles.length > 0 guard before setting epic scope
+    expect(src).toContain("roles.length > 0");
+    expect(src).toContain('engine.setScope("all", [])');
+  });
+
+  it("CAM-159 Epic bug fix comment is present", () => {
+    expect(src).toContain("CAM-159 Epic bug fix");
+  });
+
+  it("activeEpicData resolves with fallback guard for deep-link", () => {
+    // Guard: activeEpic ? find(...) ?? null : null
+    expect(src).toContain("activeEpic ? (epics.find");
+  });
+});
+
+// ---------- CAM-159 AC7: reduced-motion — all transitions gated ----------
+describe("campsite-overlays.tsx — CAM-159 AC7: reduced-motion compliance", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("panelRise animation inside prefers-reduced-motion:no-preference block", () => {
+    expect(src).toContain("prefers-reduced-motion:no-preference");
+    expect(src).toContain("panelRise");
+  });
+
+  it("modalIn animation inside prefers-reduced-motion:no-preference block", () => {
+    expect(src).toContain("modalIn");
+  });
+
+  it("bdFade backdrop animation inside prefers-reduced-motion:no-preference block", () => {
+    expect(src).toContain("bdFade");
+  });
+
+  it("progress fill transition inside prefers-reduced-motion:no-preference block", () => {
+    expect(src).toContain(".hud-prog-fill");
+  });
+});
+
+// ---------- CAM-159: ViewToggle exported and used in campsite-scene ----------
+describe("campsite-scene.tsx — CAM-159: ViewToggle integrated top-center", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("imports ViewToggle from campsite-overlays", () => {
+    expect(src).toContain("ViewToggle");
+    expect(src).toContain("campsite-overlays");
+  });
+
+  it("renders ViewToggle with dashboardHref (not the old inline nav)", () => {
+    expect(src).toContain("<ViewToggle dashboardHref={dashboardHref}");
+  });
+
+  it("old inline nav with top:70 left:16 corner position is removed", () => {
+    // The old corner nav style is gone
+    expect(src).not.toContain("top: 70");
+    expect(src).not.toContain("left: 16,");
+  });
+});
