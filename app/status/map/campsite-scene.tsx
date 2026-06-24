@@ -187,7 +187,9 @@ function hexA(hex: string, a: number): string {
 //   to a slightly smaller value because the cover scale (--s) is large (~1.78).
 const SCENE_CSS = `
 :root {
-  --scout-size: 80px;
+  /* Container-relative: resolves against .map-stage (container-type:size), so the
+     characters scale together with the contain-fit play area. Tune on local. */
+  --scout-size: 5cqw;
   --amber: #FFB454;
   --amber-glow: rgba(255,150,52,.6);
   --text: #F1F6FB;
@@ -229,15 +231,21 @@ const SCENE_CSS = `
    width/height are the design-canvas dimensions; the transform makes them fill
    the viewport. Characters write left/top as % of this canvas (engine unchanged). */
 .map-stage{
-  /* Fixed play area: a 1920×1080 box centred on the viewport via negative
-     margins, NOT scaled. Characters are a fixed px size (--scout-size) and live
-     only inside this box; on a screen smaller than the box the edges are clipped
-     by .map-viewport's overflow:hidden. Fully decoupled from the cover background
-     and the HUD — only the background scales/crops with the viewport. */
+  /* Contain-fit play area (reference HTML technique: design/campvibe-campsite.html
+     .stage). The box always FITS ENTIRELY within the viewport — min() of the
+     width-bound and the height-bound — so the whole character ring scales DOWN to
+     stay fully visible on any screen and is never cropped. Centred via translate.
+     Decoupled from the full-screen cover background and the fixed HUD.
+     container-type:size makes --scout-size's cqw resolve against this box, so the
+     characters scale together with the box. PAD clears the top toggle + bottom dock. */
   position:absolute;
   top:50%;left:50%;
-  width:1920px;height:1080px;
-  margin-left:-960px;margin-top:-540px;
+  transform:translate(-50%,-50%);
+  --pad-x: 32px;
+  --pad-y: 140px;
+  width: min(calc(100vw - var(--pad-x)), calc((100vh - var(--pad-y)) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
