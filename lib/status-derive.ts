@@ -309,6 +309,46 @@ export function envOf(i: StatusIssue): EnvLane {
   return "dev";
 }
 
+// ---------- boardColumnOf (Kanban board lane derivation) ----------
+
+export const BOARD_COLUMNS = ["Backlog", "Todo", "In Progress", "In Review", "Done"] as const;
+export type BoardColumn = (typeof BOARD_COLUMNS)[number];
+
+/**
+ * Derive the Kanban board lane for a story.
+ * Accepts both StatusIssue (raw title with [role] tag, no .role field) and
+ * MapEpicStory (cleaned title, has .role already canonicalized).
+ *
+ * Precedence (top wins):
+ *   1. completed / status "Done"        → "Done"
+ *   2. awaiting-you OR role ∈ {qa-engineer, security-reviewer} → "In Review"
+ *   3. statusType "started"             → "In Progress"
+ *   4. statusType "unstarted"           → "Todo"
+ *   5. otherwise                        → "Backlog"
+ */
+export function boardColumnOf(i: {
+  status: string;
+  statusType: string;
+  labels: string[];
+  title?: string;
+  role?: string;
+}): BoardColumn {
+  if (i.statusType === "completed" || i.status === "Done") return "Done";
+  const role =
+    i.role != null && i.role !== ""
+      ? canonRole(i.role)
+      : canonRole(roleOf(i.title ?? ""));
+  if (
+    i.labels.includes("awaiting-you") ||
+    role === "qa-engineer" ||
+    role === "security-reviewer"
+  )
+    return "In Review";
+  if (i.statusType === "started") return "In Progress";
+  if (i.statusType === "unstarted") return "Todo";
+  return "Backlog";
+}
+
 // ---------- epicBucket (Epics lifecycle filter on /status) ----------
 export type EpicBucket = "done" | "prog" | "todo";
 

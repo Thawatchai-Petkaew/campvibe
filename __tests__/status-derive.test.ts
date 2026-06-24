@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import {
+  boardColumnOf,
   stageOf,
   buildTrail,
   rolesOf,
@@ -684,5 +685,127 @@ describe("buildTrail — mid-flight: only passed stages are 'done', future stage
 
   it("allDone=false", () => {
     expect(buildTrail(midFlightStories).allDone).toBe(false);
+  });
+});
+
+// ---------- CAM-175: boardColumnOf ----------
+
+/** Helper for StatusIssue-shaped input (has raw title, no .role field). */
+function mkBoard(overrides: {
+  status?: string;
+  statusType?: string;
+  labels?: string[];
+  title?: string;
+  role?: string;
+} = {}) {
+  return {
+    status: "Todo",
+    statusType: "unstarted",
+    labels: [],
+    title: "[frontend-engineer] Default story",
+    ...overrides,
+  };
+}
+
+describe("boardColumnOf — lane derivation (AC: CAM-175)", () => {
+  it("statusType completed → Done", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "completed" }))).toBe("Done");
+  });
+
+  it("status 'Done' → Done (even if statusType is started)", () => {
+    expect(boardColumnOf(mkBoard({ status: "Done", statusType: "started" }))).toBe("Done");
+  });
+
+  it("awaiting-you label → In Review (even when statusType started)", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", labels: ["awaiting-you"] }))).toBe("In Review");
+  });
+
+  it("role qa-engineer (via .role field) → In Review", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "Clean title", role: "qa-engineer" }))).toBe("In Review");
+  });
+
+  it("role security-reviewer (via .role field) → In Review", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "Clean title", role: "security-reviewer" }))).toBe("In Review");
+  });
+
+  it("resolves role from raw [qa-engineer] title when no .role field", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "[qa-engineer] Write tests" }))).toBe("In Review");
+  });
+
+  it("resolves role from .role field (MapEpicStory case — cleaned title, role pre-derived)", () => {
+    // MapEpicStory has .role set and a cleaned title without [tag]
+    expect(boardColumnOf({ status: "In Progress", statusType: "started", labels: [], title: "Write tests", role: "security-reviewer" })).toBe("In Review");
+  });
+
+  it("statusType started, other role → In Progress", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "[frontend-engineer] Build feature" }))).toBe("In Progress");
+  });
+
+  it("statusType unstarted → Todo", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "unstarted" }))).toBe("Todo");
+  });
+
+  it("statusType backlog → Backlog", () => {
+    expect(boardColumnOf(mkBoard({ status: "Backlog", statusType: "backlog" }))).toBe("Backlog");
+  });
+
+  it("precedence: completed beats awaiting-you (Done wins)", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "completed", labels: ["awaiting-you"] }))).toBe("Done");
+  });
+
+  it("precedence: awaiting-you beats started (In Review wins over In Progress)", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", labels: ["awaiting-you"] }))).toBe("In Review");
+  });
+
+  it("short alias [qa] in title resolves to qa-engineer → In Review", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "[qa] Review test suite" }))).toBe("In Review");
+  });
+
+  it("short alias [security] in title resolves to security-reviewer → In Review", () => {
+    expect(boardColumnOf(mkBoard({ statusType: "started", title: "[security] Audit authz" }))).toBe("In Review");
+  });
+
+  it("no role, unstarted → Todo", () => {
+    expect(boardColumnOf(mkBoard({ status: "Todo", statusType: "unstarted", title: "No tag story", role: "" }))).toBe("Todo");
+  });
+});
+
+// ---------- CAM-175: source inspection — boardColumnOf consumers ----------
+
+describe("source inspection — boardColumnOf wired in consumers", () => {
+  const overlaySrc = readFileSync(
+    resolve(__dirname, "../app/status/map/campsite-overlays.tsx"),
+    "utf8"
+  );
+  const pageSrc = readFileSync(
+    resolve(__dirname, "../app/status/page.tsx"),
+    "utf8"
+  );
+
+  it("campsite-overlays.tsx imports boardColumnOf from status-derive", () => {
+    expect(overlaySrc).toContain("boardColumnOf");
+    expect(overlaySrc).toContain("status-derive");
+  });
+
+  it("campsite-overlays.tsx byCol bucketing uses boardColumnOf(s) not s.status match", () => {
+    expect(overlaySrc).toContain("boardColumnOf(s)");
+    // Should NOT find the old raw status match pattern for the Kanban byCol
+    expect(overlaySrc).not.toContain('BOARD_COLS.find(([k]) => k === s.status)');
+  });
+
+  it("campsite-overlays.tsx SB_LANES bucketing uses boardColumnOf(s) not s.status match", () => {
+    // The old pattern: SB_LANES.find(l => l.key === s.status)?.key
+    expect(overlaySrc).not.toContain('SB_LANES.find(l => l.key === s.status)');
+  });
+
+  it("app/status/page.tsx imports boardColumnOf from status-derive", () => {
+    expect(pageSrc).toContain("boardColumnOf");
+    expect(pageSrc).toContain("status-derive");
+  });
+
+  it("app/status/page.tsx COLS filter uses boardColumnOf(i) not i.status === name", () => {
+    expect(pageSrc).toContain("boardColumnOf(i) === name");
+    // Should NOT find the old raw status match for the board COLS filter
+    expect(pageSrc).not.toContain('i.status === name');
   });
 });
