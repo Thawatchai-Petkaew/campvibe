@@ -1129,18 +1129,11 @@ export default function CampsiteScene({
         if (!res.ok) return; // S7: non-ok response — keep last-known data, don't crash
         const next = (await res.json()) as MapModel;
 
-        // Update React state — overlays will re-render with fresh data.
+        // Update React state — overlays re-render, and the setActivity effect (keyed on
+        // the agents' active flags) drives wander/rest. No per-pulse triggerWalk loop:
+        // it yanked active wanderers home on every pulse (breaking continuous, random
+        // wandering) and could redirect a mid-walk agent on a path across the campfire.
         setLiveModel(next);
-
-        // Mutate the running engine for each agent: if active status or task changed,
-        // trigger a walk so the character visually responds to the data change.
-        const engine = engineRef.current;
-        if (engine && !mq.matches) {
-          for (const nextAgent of next.agents) {
-            engine.triggerWalk(nextAgent.role);
-          }
-        }
-        // Under reduced-motion: setLiveModel above updates overlay data statically; no walk.
       } catch {
         // S7: transient fetch error — keep last-known liveModel, don't crash or blank.
         // Next poll or SSE event will retry.

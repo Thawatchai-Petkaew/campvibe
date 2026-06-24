@@ -163,10 +163,6 @@ function bfsPath(from: string, to: string): string[] {
   return [from];
 }
 
-function ease(t: number): number {
-  return -(Math.cos(Math.PI * t) - 1) / 2;
-}
-
 // ── Build initial scout state (starts resting at its home) ────────────────────
 export function buildScoutState(
   role: string,
@@ -288,6 +284,14 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
   // ── Mode transitions ─────────────────────────────────────────────────────────
   function enterWalking(ref: ScoutRef, targetNode: string) {
     const s = ref.state;
+    // Mid-edge redirect: the agent is partway along a real ring edge (cur → tgt).
+    // Do NOT re-anchor to the off-node live position aimed at a neighbour of cur —
+    // that first segment would not be a ring edge and could cut across the campfire.
+    // Keep the current edge; recompute only the tail from the node we're heading to.
+    if (s.mode === "walking" && s.tgt !== s.cur) {
+      ref.path = bfsPath(s.tgt, targetNode).slice(1);
+      return;
+    }
     const full = bfsPath(s.cur, targetNode);
     if (full.length < 2) {           // already there / nowhere to go
       settle(ref);
@@ -366,7 +370,9 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
 
     const qF = NODES[s.tgt];
     if (!qF) return;
-    const e = ease(Math.min(s.t, 1));
+    // Linear within a segment = steady stroll speed with no deceleration at the
+    // intermediate waypoints of a multi-hop leg.
+    const e = Math.min(s.t, 1);
     s.x   = s.fx + (qF.x - s.fx) * e;
     s.y   = s.fy + (qF.y - s.fy) * e;
     s.dir = dirFor(qF.x - s.fx, qF.y - s.fy);
@@ -386,10 +392,18 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
   // ── Wander (active) ───────────────────────────────────────────────────────────
   function startWanderLeg(ref: ScoutRef) {
     const s = ref.state;
-    // random target: any node except where we are and where we just came from
-    const pool = ALL_NODES.filter((n) => n !== s.cur && n !== s.lastNode);
-    const target = pick(pool.length ? pool : ALL_NODES.filter((n) => n !== s.cur));
-    s.lastNode = s.cur;
+    const from = s.cur;
+    // Random target: any node except where we are and where we just came from. Retry
+    // so the route's FIRST hop never retraces the node we just came from — a 2-hop
+    // BFS path could otherwise route straight back through it (a visible bounce).
+    let target = from;
+    for (let i = 0; i < 6; i++) {
+      const pool = ALL_NODES.filter((n) => n !== from && n !== s.lastNode);
+      target = pick(pool.length ? pool : ALL_NODES.filter((n) => n !== from));
+      const hop1 = bfsPath(from, target)[1] ?? target;
+      if (hop1 !== s.lastNode) break;
+    }
+    s.lastNode = from;
     s.strolling = false;
     enterWalking(ref, target);
   }
@@ -444,7 +458,10 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
     // speech lifecycle
     if (s.speechOn) {
       s.speechHide -= dt;
-      if (s.speechHide <= 0) hideSpeech(s);
+      if (s.speechHide <= 0) {
+        hideSpeech(s);
+        s.poseLock = POSE_LOCK; // hold off a pose change right as the bubble closes
+      }
     } else {
       s.speechT -= dt;
       if (s.speechT <= 0 && s.poseLock <= 0) {
@@ -454,8 +471,9 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
       }
     }
 
-    // pose cycle — never while a bubble is up, so the two never clash
-    if (!s.speechOn) {
+    // pose cycle — never while a bubble is up OR within the post-bubble lock window,
+    // so a pose change and a bubble can never coincide (same-frame hole closed)
+    if (!s.speechOn && s.poseLock <= 0) {
       s.poseT -= dt;
       if (s.poseT <= 0) {
         cyclePose(s);
