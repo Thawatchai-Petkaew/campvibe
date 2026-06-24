@@ -845,8 +845,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix"
 describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coords", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
 
-  it("YOU_POS_WIDE is updated to {x:38, y:24} (moved to upper-left clearing)", () => {
-    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 24 }");
+  it("YOU_POS_WIDE is updated to {x:38, y:23} (dock, upper-left)", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 23 }");
   });
 
   it("YOU_POS_NARROW is updated to {x:50, y:22} (centered top)", () => {
@@ -905,39 +905,41 @@ describe("app/status/map/campsite-scene.tsx — CAM-165: .map-wrap is position:f
   });
 });
 
-// ---------- CAM-165 Fix 2: updated LAYOUT_WIDE grid-read coords ---------------
-describe("app/status/map/campsite-scene.tsx — CAM-165: LAYOUT_WIDE grid-tuned coords", () => {
+// ---------- CAM-165 Fix 2: updated LAYOUT_WIDE coords — superseded by CAM-166 ring -----
+// CAM-166: all 7 role agents placed in a clean ring on the central dirt clearing
+// around the campfire (~50,52). Furniture is backdrop only, not occupied.
+describe("app/status/map/campsite-scene.tsx — CAM-166: LAYOUT_WIDE clearing-ring coords", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
 
-  it("Architect moved to {x:49, y:33} (dock/clearing)", () => {
-    expect(src).toContain('{ x: 49, y: 33 }');
+  it("Architect placed at {x:50, y:38} (ring — top-centre of clearing)", () => {
+    expect(src).toContain('{ x: 50, y: 38 }');
   });
 
-  it("Designer moved to {x:65, y:35} (tent area)", () => {
-    expect(src).toContain('{ x: 65, y: 35 }');
+  it("Designer placed at {x:60, y:43} (ring — upper-right)", () => {
+    expect(src).toContain('{ x: 60, y: 43 }');
   });
 
-  it("Backend moved to {x:76, y:52} (pulled in from right tree-edge)", () => {
-    expect(src).toContain('{ x: 76, y: 52 }');
+  it("Backend placed at {x:63, y:52} (ring — right)", () => {
+    expect(src).toContain('{ x: 63, y: 52 }');
   });
 
-  it("Security moved to {x:33, y:42} (pulled in from left margin)", () => {
-    expect(src).toContain('{ x: 33, y: 42 }');
+  it("Frontend placed at {x:59, y:61} (ring — lower-right)", () => {
+    expect(src).toContain('{ x: 59, y: 61 }');
   });
 
-  it("QA moved to {x:34, y:54}", () => {
-    expect(src).toContain('{ x: 34, y: 54 }');
+  it("DevOps placed at {x:41, y:61} (ring — lower-left)", () => {
+    expect(src).toContain('{ x: 41, y: 61 }');
   });
 
-  it("DevOps moved to {x:39, y:68}", () => {
-    expect(src).toContain('{ x: 39, y: 68 }');
+  it("QA placed at {x:37, y:52} (ring — left)", () => {
+    expect(src).toContain('{ x: 37, y: 52 }');
   });
 
-  it("Frontend moved to {x:61, y:68}", () => {
-    expect(src).toContain('{ x: 61, y: 68 }');
+  it("Security placed at {x:41, y:43} (ring — upper-left)", () => {
+    expect(src).toContain('{ x: 41, y: 43 }');
   });
 
-  it("YOU_POS_WIDE unchanged at {x:38, y:24}", () => {
-    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 24 }");
+  it("YOU_POS_WIDE updated to {x:38, y:23} (dock, upper-left — unchanged role)", () => {
+    expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 23 }");
   });
 });
