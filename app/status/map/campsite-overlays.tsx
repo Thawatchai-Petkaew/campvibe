@@ -628,6 +628,59 @@ const HUD_CSS = `
 .hud-sum-spark-label{font-size:9.5px;color:rgba(223,234,245,.28);text-align:right;margin-bottom:3px}
 .hud-spark{display:flex;align-items:flex-end;gap:3px;height:30px}
 .hud-spark-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px;transition:height .4s ease}
+/* ── Delivery card ── */
+.hud-dlv-card{
+  width:220px;border-radius:18px;overflow:hidden;
+  border:1px solid rgba(150,240,195,.13);
+  background:rgba(11,30,24,.60);
+  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
+  box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
+}
+.hud-dlv-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0}
+.hud-dlv-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
+.hud-dlv-collapse{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;border:none;
+  background:transparent;color:rgba(223,234,245,.38);cursor:pointer;
+  transition:background 110ms,color 110ms;
+}
+.hud-dlv-collapse:hover{background:rgba(91,233,176,.10);color:rgba(91,233,176,.85)}
+.hud-dlv-tabs{
+  display:flex;gap:4px;padding:8px 14px 0;
+}
+.hud-dlv-tab{
+  flex:1;padding:5px 0;border-radius:999px;font-size:10.5px;font-weight:700;
+  text-align:center;cursor:pointer;border:1px solid rgba(150,240,195,.1);
+  background:transparent;color:rgba(223,234,245,.45);
+  transition:background 110ms,color 110ms,border-color 110ms;
+}
+.hud-dlv-tab:hover{color:rgba(223,234,245,.75)}
+.hud-dlv-tab.on{background:rgba(91,233,176,.15);border-color:rgba(91,233,176,.3);color:#5BE9B0}
+.hud-dlv-body{padding:10px 14px 14px}
+/* big-number view (today / week headline) */
+.hud-dlv-nums{display:flex;gap:8px;margin-bottom:4px}
+.hud-dlv-num{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:10px 6px;border-radius:12px;
+  background:rgba(91,233,176,.07);border:1px solid rgba(91,233,176,.12);
+}
+.hud-dlv-big{font-size:28px;font-weight:800;color:#5BE9B0;line-height:1}
+.hud-dlv-sub{font-size:10px;font-weight:600;color:rgba(223,234,245,.45);letter-spacing:.05em;text-transform:uppercase}
+.hud-dlv-empty{font-size:11.5px;color:rgba(223,234,245,.3);text-align:center;padding:14px 0}
+/* sparkline (week) */
+.hud-dlv-spark{display:flex;align-items:flex-end;gap:3px;height:44px;margin-bottom:8px}
+.hud-dlv-bar{flex:1;background:#5BE9B0;border-radius:3px 3px 2px 2px;min-height:2px}
+.hud-dlv-total{font-size:11.5px;color:rgba(223,234,245,.55);text-align:center}
+.hud-dlv-total strong{color:rgba(223,234,245,.85);font-size:13px}
+/* progress rows (all) */
+.hud-dlv-prog-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hud-dlv-prog-label{font-size:11.5px;color:rgba(223,234,245,.55);width:42px;flex:none;display:flex;align-items:center;gap:4px}
+.hud-dlv-prog-bar{flex:1;height:6px;border-radius:3px;background:rgba(91,233,176,.1);overflow:hidden}
+.hud-dlv-prog-fill{height:100%;background:#5BE9B0;border-radius:3px;transition:width .6s ease}
+.hud-dlv-prog-val{font-size:11px;font-weight:700;color:rgba(223,234,245,.7);flex:none;width:40px;text-align:right}
+/* mini (collapsed) */
+.hud-dlv-mini{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 14px 12px;font-size:12px;font-weight:600;color:rgba(223,234,245,.7)}
+.hud-dlv-mini-val{color:#5BE9B0;font-size:13px;font-weight:700}
 /* ── Approval card ── */
 .hud-appr-card{
   width:220px;border-radius:18px;overflow:hidden;
@@ -1572,14 +1625,11 @@ export interface SummaryCardProps {
   storyDone: number;
   storyTotal: number;
   backlog: number;
-  todayStories: number;
-  todayEpics: number;
-  sparkline: number[];
   collapsed: boolean;
   onToggle: () => void;
 }
 
-export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, sparkline, collapsed, onToggle }: SummaryCardProps) {
+export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, backlog, collapsed, onToggle }: SummaryCardProps) {
   if (collapsed) {
     return (
       <div className="hud-summary">
@@ -1628,20 +1678,127 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
             <span className="hud-sum-row-l"><Inbox size={13} strokeWidth={1.7} /><span>Backlog</span></span>
             <span className="hud-sum-count">{backlog}</span>
           </div>
-          <div className="hud-sum-sep" />
-          <div className="hud-sum-today-label">วันนี้ส่งมอบ</div>
-          {todayStories > 0 || todayEpics > 0 ? (
-            <div className="hud-sum-today">
-              {todayEpics > 0 && <span className="hud-sum-today-item"><Layers size={12} strokeWidth={1.7} />{todayEpics} Epic</span>}
-              {todayEpics > 0 && todayStories > 0 && <span className="hud-sum-chip-dot">·</span>}
-              {todayStories > 0 && <span className="hud-sum-today-item"><FileText size={12} strokeWidth={1.7} />{todayStories} Story</span>}
-            </div>
-          ) : (
-            <div className="hud-sum-today-none">ยังไม่มีงานส่งมอบวันนี้</div>
-          )}
-          <div className="hud-sum-spark-label">7 วันล่าสุด</div>
-          <Sparkline data={sparkline} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Delivery Card (split from Step 3) ────────────────────────────────────────
+
+type DeliveryPeriod = "today" | "week" | "all";
+
+export interface DeliveryCardProps {
+  todayEpics: number;
+  todayStories: number;
+  weekEpics: number;
+  weekStories: number;
+  sparkline: number[];
+  epicDone: number;
+  epicTotal: number;
+  storyDone: number;
+  storyTotal: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function DeliveryCard({ todayEpics, todayStories, weekEpics, weekStories, sparkline, epicDone, epicTotal, storyDone, storyTotal, collapsed, onToggle }: DeliveryCardProps) {
+  const [period, setPeriod] = useState<DeliveryPeriod>("today");
+
+  const sparMax = Math.max(...sparkline, 1);
+  const TABS: [DeliveryPeriod, string][] = [["today", "วันนี้"], ["week", "7 วัน"], ["all", "ทั้งหมด"]];
+
+  function CollapseBtn({ isCollapsed }: { isCollapsed: boolean }) {
+    return (
+      <button type="button" className="hud-dlv-collapse" onClick={onToggle}
+        aria-label={isCollapsed ? "ขยายส่งมอบ" : "ย่อส่งมอบ"} aria-expanded={!isCollapsed}>
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" aria-hidden="true">
+          <path d={isCollapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    );
+  }
+
+  if (collapsed) {
+    const miniVal = period === "today" ? todayStories : period === "week" ? weekStories : storyDone;
+    const miniLabel = period === "today" ? "Story วันนี้" : period === "week" ? "Story 7 วัน" : `Story ${storyDone}/${storyTotal}`;
+    return (
+      <div className="hud-dlv-card" role="complementary" aria-label="งานส่งมอบ">
+        <div className="hud-dlv-head">
+          <span className="hud-dlv-heading">ส่งมอบ</span>
+          <CollapseBtn isCollapsed />
+        </div>
+        <div className="hud-dlv-mini">
+          <span className="hud-dlv-mini-val">{miniVal}</span>
+          <span>{miniLabel}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hud-dlv-card" role="complementary" aria-label="งานส่งมอบ">
+      <div className="hud-dlv-head">
+        <span className="hud-dlv-heading">ส่งมอบ</span>
+        <CollapseBtn isCollapsed={false} />
+      </div>
+      <div className="hud-dlv-tabs" role="group" aria-label="ช่วงเวลา">
+        {TABS.map(([v, l]) => (
+          <button key={v} type="button" className={period === v ? "hud-dlv-tab on" : "hud-dlv-tab"} onClick={() => setPeriod(v)}>{l}</button>
+        ))}
+      </div>
+      <div className="hud-dlv-body">
+        {period === "today" && (
+          todayStories === 0 && todayEpics === 0 ? (
+            <div className="hud-dlv-empty">ยังไม่มีงานส่งมอบวันนี้</div>
+          ) : (
+            <div className="hud-dlv-nums">
+              {todayEpics > 0 && (
+                <div className="hud-dlv-num">
+                  <span className="hud-dlv-big">{todayEpics}</span>
+                  <span className="hud-dlv-sub"><Layers size={10} strokeWidth={1.8} /> Epic</span>
+                </div>
+              )}
+              {todayStories > 0 && (
+                <div className="hud-dlv-num">
+                  <span className="hud-dlv-big">{todayStories}</span>
+                  <span className="hud-dlv-sub"><FileText size={10} strokeWidth={1.8} /> Story</span>
+                </div>
+              )}
+            </div>
+          )
+        )}
+        {period === "week" && (
+          <>
+            <div className="hud-dlv-spark" aria-hidden="true">
+              {sparkline.map((v, i) => (
+                <div key={i} className="hud-dlv-bar"
+                  style={{ height: `${Math.max(2, Math.round((v / sparMax) * 42))}px`, opacity: i === 6 ? 1 : 0.3 + i * 0.1 }} />
+              ))}
+            </div>
+            <div className="hud-dlv-total">
+              <strong>{weekStories}</strong> Story · <strong>{weekEpics}</strong> Epic (7 วัน)
+            </div>
+          </>
+        )}
+        {period === "all" && (
+          <>
+            <div className="hud-dlv-prog-row">
+              <span className="hud-dlv-prog-label"><Layers size={11} strokeWidth={1.7} />Epic</span>
+              <div className="hud-dlv-prog-bar">
+                <div className="hud-dlv-prog-fill" style={{ width: `${epicTotal ? Math.round((epicDone / epicTotal) * 100) : 0}%` }} />
+              </div>
+              <span className="hud-dlv-prog-val">{epicDone}/{epicTotal}</span>
+            </div>
+            <div className="hud-dlv-prog-row">
+              <span className="hud-dlv-prog-label"><FileText size={11} strokeWidth={1.7} />Story</span>
+              <div className="hud-dlv-prog-bar">
+                <div className="hud-dlv-prog-fill" style={{ width: `${storyTotal ? Math.round((storyDone / storyTotal) * 100) : 0}%` }} />
+              </div>
+              <span className="hud-dlv-prog-val">{storyDone}/{storyTotal}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

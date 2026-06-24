@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, FilterSignposts, MapOverlays, SummaryCard, ViewToggle } from "./campsite-overlays";
 import {
   ADJ,
   buildScoutState,
@@ -635,7 +635,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
 
 // Filter persistence (cookie) — restored on the next visit so the view is remembered.
 const FILTER_COOKIE = "campvibe.map.filter";
-type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean };
+type FilterCookie = { persona?: string; feature?: string; epic?: string; efilter?: string; summaryCollapsed?: boolean; approvalCollapsed?: boolean; deliveryCollapsed?: boolean };
 function readFilterCookie(): FilterCookie {
   if (typeof document === "undefined") return {};
   try {
@@ -1036,6 +1036,7 @@ export default function CampsiteScene({
   }, [epics, persona, feature]);
 
   const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(() => readFilterCookie().summaryCollapsed ?? false);
+  const [deliveryCollapsed, setDeliveryCollapsed] = useState<boolean>(() => readFilterCookie().deliveryCollapsed ?? false);
   const [approvalCollapsed, setApprovalCollapsed] = useState<boolean>(() => readFilterCookie().approvalCollapsed ?? false);
 
   // Summary stats — filtered by the current persona/feature/epic selection.
@@ -1060,13 +1061,18 @@ export default function CampsiteScene({
     ).length;
 
     const sparkline: number[] = Array(7).fill(0);
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
     for (const s of allStories) {
       if (!s.completedAt) continue;
       const daysAgo = Math.floor((Date.now() - new Date(s.completedAt).getTime()) / 86400000);
       if (daysAgo >= 0 && daysAgo < 7) sparkline[6 - daysAgo]++;
     }
+    const weekStories = sparkline.reduce((a, b) => a + b, 0);
+    const weekEpics = filtered.filter(
+      (e) => e.stories.some((s) => s.completedAt && new Date(s.completedAt).getTime() >= sevenDaysAgo)
+    ).length;
 
-    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, sparkline };
+    return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
 
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
@@ -1078,8 +1084,8 @@ export default function CampsiteScene({
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
   useEffect(() => {
-    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, approvalCollapsed });
-  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, approvalCollapsed]);
+    writeFilterCookie({ persona, feature, epic: scope === "epic" ? activeEpic : "", efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed });
+  }, [persona, feature, scope, activeEpic, efilter, summaryCollapsed, deliveryCollapsed, approvalCollapsed]);
 
   // CAM-164 portrait fix: derive initial layoutKey from the actual viewport on first
   // client render (scene is ssr:false so window is always available here). This
@@ -1555,12 +1561,30 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* Left panel stack — summary + approval */}
+      {/* Left panel stack — summary · delivery · approval */}
       <div className="hud-left-panels">
         <SummaryCard
-          {...summaryStats}
+          pct={summaryStats.pct}
+          epicDone={summaryStats.epicDone}
+          epicTotal={summaryStats.epicTotal}
+          storyDone={summaryStats.storyDone}
+          storyTotal={summaryStats.storyTotal}
+          backlog={summaryStats.backlog}
           collapsed={summaryCollapsed}
           onToggle={() => setSummaryCollapsed((v) => !v)}
+        />
+        <DeliveryCard
+          todayEpics={summaryStats.todayEpics}
+          todayStories={summaryStats.todayStories}
+          weekEpics={summaryStats.weekEpics}
+          weekStories={summaryStats.weekStories}
+          sparkline={summaryStats.sparkline}
+          epicDone={summaryStats.epicDone}
+          epicTotal={summaryStats.epicTotal}
+          storyDone={summaryStats.storyDone}
+          storyTotal={summaryStats.storyTotal}
+          collapsed={deliveryCollapsed}
+          onToggle={() => setDeliveryCollapsed((v) => !v)}
         />
         {gates.length > 0 && (
           <ApprovalCard
