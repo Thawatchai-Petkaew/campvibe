@@ -155,8 +155,46 @@ const SCENE_CSS = `
   --blur: saturate(150%) blur(20px);
   --mono: 'JetBrains Mono','Fira Mono','Consolas',monospace;
 }
-.map-wrap{position:relative;z-index:5;min-height:100vh;width:100%;overflow:hidden}
-.map-stage{position:relative;width:100%;height:100vh;min-height:600px}
+/*
+ * CAM-160 — Forest background coupled to the character stage.
+ *
+ * .map-wrap is the full-screen container (fixed inset:0). It holds #070d1c as a
+ * fallback colour visible only on very slow loads before the WebP paints.
+ *
+ * .map-stage IS the campsite — it carries the forest background and is sized so
+ * it always covers the viewport at the image's native 16:9 aspect ratio, then
+ * zoomed in by --zoom (1.12) so the campsite fills more of the frame. The stage
+ * is centred with top:50%+left:50%+translate(-50%,-50%).
+ *
+ * Cover logic (CSS custom properties evaluated at render time):
+ *   --ar  = 16/9 (the image aspect ratio)
+ *   On a 16:9 viewport  → width drives: 100vw * zoom, height = 100vw/ar * zoom
+ *     → fills the width; height matches exactly * zoom.
+ *   On a wider viewport → same formula; the stage crops the forest equally on top/bottom.
+ *   On a portrait screen → height drives: 100vh * zoom, width = 100vh*ar * zoom
+ *     (wider than viewport, sides overflow) so the forest centre stays visible.
+ *   max() picks the larger of both dimensions so the forest never shows a gap
+ *   regardless of aspect ratio. Equivalent to background-size:cover but couples
+ *   the character positions (% of .map-stage) to the image at the same time.
+ *
+ * Characters use style.left/top as % of .map-stage (set by the engine and by
+ * homeStyle()). Because the stage and the image are the same element, character
+ * positions always land on the correct part of the campsite on every screen size.
+ */
+.map-wrap{
+  position:fixed;inset:0;overflow:hidden;
+  background:#070d1c;
+  z-index:5;
+}
+.map-stage{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  --ar:calc(16 / 9);
+  --zoom:1.12;
+  width:calc(max(100vw, 100vh * var(--ar)) * var(--zoom));
+  height:calc(max(100vh, 100vw / var(--ar)) * var(--zoom));
+  background:url("/status-map/campsite-forest.webp") center/cover no-repeat;
+}
 .scout-layer{position:absolute;inset:0;z-index:30}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
 .scout .glow{
