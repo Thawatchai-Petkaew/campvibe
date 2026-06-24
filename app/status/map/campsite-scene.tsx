@@ -279,6 +279,7 @@ const SCENE_CSS = `
   position:fixed;top:80px;left:18px;z-index:22;
   display:flex;flex-direction:column;gap:8px;
   pointer-events:none;
+  max-height:calc(100svh - 100px);overflow:hidden;
 }
 .hud-left-panels > *{pointer-events:auto}
 .hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
@@ -1617,9 +1618,14 @@ export default function CampsiteScene({
             onOpen={() => openPanel("gates")}
           />
         )}
+        <TeamRoster
+          agents={agents}
+          collapsed={teamCollapsed}
+          onToggle={() => setTeamCollapsed((v) => !v)}
+        />
       </div>
 
-      {/* Right panel stack — status board · team roster */}
+      {/* Right panel — status board */}
       <div className="hud-right-panels">
         {showBoard ? (
           <StatusBoard
@@ -1632,11 +1638,6 @@ export default function CampsiteScene({
         ) : (
           <StatusBoardHint />
         )}
-        <TeamRoster
-          agents={agents}
-          collapsed={teamCollapsed}
-          onToggle={() => setTeamCollapsed((v) => !v)}
-        />
       </div>
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.

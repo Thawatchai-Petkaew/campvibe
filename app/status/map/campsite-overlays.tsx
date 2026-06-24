@@ -767,8 +767,8 @@ const HUD_CSS = `
   background:rgba(11,30,24,.60);
   backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
   box-shadow:0 12px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(200,255,232,.12);
-  /* flex:1 so it fills remaining space in the right-panels container */
-  display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;
+  display:flex;flex-direction:column;overflow:hidden;
+  max-height:calc(100svh - 100px - 20px);
 }
 .hud-sb-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 0;flex:none}
 .hud-sb-heading{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(223,234,245,.38)}
@@ -903,14 +903,17 @@ const HUD_CSS = `
 .hud-role-badge{font-size:9px;font-weight:700;letter-spacing:.04em;flex:none;padding:2px 6px;border-radius:6px}
 .hud-role-badge.active{color:#5BE9B0;background:rgba(91,233,176,.12)}
 .hud-role-badge.sleep{color:rgba(223,234,245,.25);background:rgba(223,234,245,.05)}
-/* mini (collapsed) — dot cluster row */
-.hud-team-mini{padding:7px 12px 12px;display:flex;flex-direction:column;gap:6px}
-.hud-team-mini-dots{display:flex;gap:5px;align-items:center}
-.hud-team-mini-dot{width:9px;height:9px;border-radius:99px;flex:none}
-.hud-team-mini-dot.active{background:#5BE9B0;animation:role-dot-pulse 2.2s ease-in-out infinite}
-.hud-team-mini-dot.sleep{background:rgba(223,234,245,.18)}
-.hud-team-mini-txt{font-size:10.5px;color:rgba(223,234,245,.45);font-weight:600}
-.hud-team-mini-txt strong{color:#5BE9B0;font-size:12px}
+/* mini (collapsed) — role icon grid */
+.hud-team-mini{padding:6px 10px 10px}
+.hud-team-mini-icons{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+.hud-team-mini-icon{
+  display:flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:8px;
+}
+.hud-team-mini-icon.active{color:#5BE9B0;background:rgba(91,233,176,.12);border:1px solid rgba(91,233,176,.2)}
+.hud-team-mini-icon.sleep{color:rgba(223,234,245,.2);background:rgba(223,234,245,.04);border:1px solid rgba(223,234,245,.07)}
+.hud-team-mini-txt{font-size:10.5px;color:rgba(223,234,245,.4);font-weight:600}
+.hud-team-mini-txt strong{color:#5BE9B0;font-size:11.5px}
 `;
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
@@ -2269,10 +2272,12 @@ export function TeamRoster({ agents, collapsed, onToggle }: TeamRosterProps) {
           <ChevBtn />
         </div>
         <div className="hud-team-mini">
-          <div className="hud-team-mini-dots">
+          <div className="hud-team-mini-icons">
             {agents.map(a => (
-              <span key={a.role} className={`hud-team-mini-dot ${a.active ? "active" : "sleep"}`}
-                title={ROLE_SHORT[a.role] ?? a.role} />
+              <span key={a.role} className={`hud-team-mini-icon ${a.active ? "active" : "sleep"}`}
+                title={ROLE_SHORT[a.role] ?? a.role}>
+                <RoleIconSB role={a.role} />
+              </span>
             ))}
           </div>
           <span className="hud-team-mini-txt">
