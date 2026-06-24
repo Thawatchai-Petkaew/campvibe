@@ -132,13 +132,13 @@ const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 // LAYOUT_WIDE: spread to use the whole camp — fills upper clearing, lower tables,
 // and the dock. Characters are distributed across all thirds (≥ 7:5 aspect ratio).
 export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 50, y: 32 },
-  "ux-designer":        { x: 66, y: 33 },
-  "backend-engineer":   { x: 73, y: 52 },
-  "frontend-engineer":  { x: 63, y: 72 },
-  "devops-release":     { x: 35, y: 72 },
-  "qa-engineer":        { x: 27, y: 55 },
-  "security-reviewer":  { x: 28, y: 42 },
+  "architect":          { x: 49, y: 33 },
+  "ux-designer":        { x: 65, y: 35 },
+  "backend-engineer":   { x: 76, y: 52 },
+  "frontend-engineer":  { x: 61, y: 68 },
+  "devops-release":     { x: 39, y: 68 },
+  "qa-engineer":        { x: 34, y: 54 },
+  "security-reviewer":  { x: 33, y: 42 },
 };
 export const YOU_POS_WIDE = { x: 38, y: 24 };
 
@@ -148,12 +148,12 @@ export const YOU_POS_WIDE = { x: 38, y: 24 };
 // You sits top-center; agents form a symmetric 2-column grid below.
 // Screenshot-tuned via ?grid=1; next round of tuning refines further.
 export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 40, y: 34 },
-  "ux-designer":        { x: 60, y: 34 },
-  "backend-engineer":   { x: 60, y: 50 },
-  "frontend-engineer":  { x: 60, y: 64 },
-  "devops-release":     { x: 40, y: 64 },
-  "qa-engineer":        { x: 40, y: 50 },
+  "architect":          { x: 42, y: 34 },
+  "ux-designer":        { x: 58, y: 34 },
+  "backend-engineer":   { x: 58, y: 50 },
+  "frontend-engineer":  { x: 58, y: 64 },
+  "devops-release":     { x: 42, y: 64 },
+  "qa-engineer":        { x: 42, y: 50 },
   "security-reviewer":  { x: 50, y: 42 },
 };
 export const YOU_POS_NARROW = { x: 50, y: 22 };

@@ -18,7 +18,6 @@ export const CSS = `
 *{box-sizing:border-box}html,body{margin:0;padding:0}
 body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;background:#070d1c;overflow-x:hidden}
 .map-scene{position:fixed;inset:0;z-index:0;overflow:hidden;background:#070d1c}
-.map-wrap{position:relative;z-index:5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .map-placeholder{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi);padding:40px 48px;text-align:center;max-width:480px}
 .map-placeholder-text{font-family:var(--disp);font-size:18px;font-weight:600;color:var(--text);margin:0}
 .gatebox{max-width:430px;margin:16vh auto;text-align:center;position:relative;z-index:5;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi);padding:26px}
