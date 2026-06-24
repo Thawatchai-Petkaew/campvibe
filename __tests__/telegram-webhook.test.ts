@@ -49,15 +49,14 @@ describe("telegram-webhook", () => {
     expect((await POST(req("{not json", SECRET))).status).toBe(400);
   });
 
-  it("approve callback removes awaiting-you + sends the 'Approved' message (single source)", async () => {
+  it("approve callback removes awaiting-you + acks only — webhook is the single 'Approved' source", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "approve:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "approve", id: "CAM-11", changed: true });
     expect(linear.removeAwaitingYou).toHaveBeenCalledWith("CAM-11");
     expect(notify.answerCallback).toHaveBeenCalled();
-    // The Approve tap is the reliable signal → it sends "Approved" (the webhook does not, so no duplicate).
-    expect(notify.sendTelegram).toHaveBeenCalledTimes(1);
-    const [text] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
-    expect(text).toContain("Approved");
+    // Removing awaiting-you triggers the Linear webhook, which is the SINGLE source of the
+    // "Approved" notification (covers this tap AND a Linear-UI approval). The tap must NOT send it.
+    expect(notify.sendTelegram).not.toHaveBeenCalled();
   });
 
   it("approve callback toast is English and emoji-free", async () => {

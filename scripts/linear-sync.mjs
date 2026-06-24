@@ -68,6 +68,18 @@ async function notifyTelegram(text, buttons) {
   } catch (e) { console.error("telegram notify failed:", e.message); }
 }
 
+// Best-effort: nudge the live /status + /map pulse so connected dashboards refresh immediately
+// after a write — independent of the Linear webhook (the primary pulse trigger), so freshness
+// survives the webhook being down/unconfigured. No-throw; needs APP_BASE_URL + STATUS_TOKEN.
+async function nudgePulse() {
+  const base = ENV.APP_BASE_URL || "https://campvibe-staging.vercel.app";
+  const token = ENV.STATUS_TOKEN;
+  if (!token) return;
+  try {
+    await fetch(`${base}/api/status/pulse`, { method: "POST", headers: { "x-status-token": token } });
+  } catch { /* a dashboard-refresh nudge must never fail a Linear write */ }
+}
+
 async function ctx() {
   // Split into two queries — fetching team meta + 250 issues with nested labels in
   // one shot trips Linear's "Query too complex" limit.
@@ -136,6 +148,7 @@ async function cmdSet(id, flags) {
   await gql(`mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`, { id: issue.id, input });
   const bits = [flags.state ? `state→${flags.state}` : "", flags.add.length ? `+[${flags.add}]` : "", flags.remove.length ? `-[${flags.remove}]` : ""].filter(Boolean);
   console.log(`✓ ${id} updated: ${bits.join(" ")}`);
+  await nudgePulse();
   // NOTE: Telegram event notifications (gate / done / handoff / released / etc.) are sent
   // exclusively by the Linear webhook (app/api/linear-webhook/route.ts), which fires for any
   // actor. This script only sets state/labels/title; those changes trigger the webhook which
@@ -162,6 +175,17 @@ function epicOf(t) { const x = t.split("·"); return x.length > 1 ? x[0].trim() 
 function roleOf(t) { const m = t.match(/\[([a-z-]+)\]/); return m ? m[1] : ""; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function cleanTitle(t) { return t.replace(/\[[a-z-]+\]\s*/g, "").trim(); }
+
+// ── Work-issue classification (must match lib/status-model.ts buildModel) ──
+// The team migrated from legacy "·"-prefixed issues to a parent/project hierarchy:
+//   • new story    = a child issue (has a parent) — grouped under parent.title / project.
+//   • new epic      = a parentless issue WITH a Linear project + no "·" (the grouping container).
+//   • legacy story  = a "·"-titled active-loop issue (no parent), grouped by the "·" prefix.
+// A trackable WORK STORY is therefore (has a parent) OR ("·" in title), excluding gate issues
+// and the new-structure epic container. Before this, every command keyed on `title.includes("·")`
+// alone, so parented stories (the current convention) were invisible to list/pull/index/audit.
+function isGateIssue(i) { return /Gate\s*G\d/i.test(i.title); }
+function isWorkStory(i) { return !isGateIssue(i) && (!!i.parent || i.title.includes("·")); }
 
 // ── Delivery artifact store: docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ ──
 // feature = Linear project · epic = parent issue (fallback: the "·" title prefix) · persona = label.
@@ -221,29 +245,29 @@ function statusUrl(epic) {
 
 async function cmdList() {
   const team = await ctx();
-  const rows = team.issues.nodes.filter((i) => i.title.includes("·")).sort((a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true }));
+  const rows = team.issues.nodes.filter(isWorkStory).sort((a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true }));
   const byEpic = {};
-  rows.forEach((i) => (byEpic[epicOf(i.title)] = byEpic[epicOf(i.title)] || []).push(i));
+  rows.forEach((i) => (byEpic[epicName(i)] = byEpic[epicName(i)] || []).push(i));
   for (const [epic, items] of Object.entries(byEpic)) {
     const done = items.filter((i) => i.state.type === "completed").length;
     console.log(`\n● ${epic}  (${done}/${items.length} done)`);
     for (const i of items) {
       const labels = i.labels.nodes.map((l) => l.name).join(",");
-      console.log(`  ${i.identifier.padEnd(7)} ${i.state.name.padEnd(12)} [${roleOf(i.title) || "—"}]${labels ? " {" + labels + "}" : ""}  ${i.title.replace(/^[^·]*·\s*/, "").slice(0, 54)}`);
+      console.log(`  ${i.identifier.padEnd(7)} ${i.state.name.padEnd(12)} [${roleOf(i.title) || "—"}]${labels ? " {" + labels + "}" : ""}  ${storyName(i).slice(0, 54)}`);
     }
   }
 }
 
 async function cmdPull(outfile) {
   const team = await ctx();
-  const work = team.issues.nodes.filter((i) => i.title.includes("·"));
+  const work = team.issues.nodes.filter(isWorkStory);
   const epics = {};
   work.forEach((i) => {
-    const e = epicOf(i.title);
+    const e = epicName(i);
     (epics[e] = epics[e] || []).push({
       id: i.identifier, role: roleOf(i.title), state: i.state.name, statusType: i.state.type,
       labels: i.labels.nodes.map((l) => l.name), startedAt: i.startedAt, url: i.url,
-      title: i.title.replace(/^[^·]*·\s*/, ""),
+      title: storyName(i),
     });
   });
   const snapshot = {
@@ -284,17 +308,18 @@ async function cmdGates() {
 }
 
 async function cmdAudit() {
-  // Template conformance: an ACTIVE story-level issue (work item with "·", not a gate, no parent,
-  // not completed) must carry the §7.1 ticket template — at minimum ## Story + ## AC. Sub-tasks
-  // (have a parent) and shipped issues are exempt. Template: .claude/templates/story.md.
-  // Exit 11 if any active story fails.
+  // Template conformance: an ACTIVE work story (isWorkStory = has a parent OR "·"-titled, not a
+  // gate, not the epic container, not completed) must carry the §7.1 ticket template — at minimum
+  // ## Story + ## AC. Shipped issues are exempt. Template: .claude/templates/story.md. Exit 11 if
+  // any active story fails. (Before: filter required "·" + `!i.parent`, so parented stories — the
+  // current convention — were never audited.)
   const team = await ctx();
   const REQ = ["## Story", "## AC"];
   const NICE = ["## Why", "## Rules", "## Data", "## Out of scope", "## Self-verify"];
   const stories = team.issues.nodes
-    .filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title) && !i.parent && i.state.type !== "completed")
+    .filter((i) => isWorkStory(i) && i.state.type !== "completed")
     .sort((a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true }));
-  if (!stories.length) { console.log("no story-level issues to audit (work issue with '·', no parent, not a gate)"); return; }
+  if (!stories.length) { console.log("no active story-level issues to audit (parented or '·'-titled work story, not a gate)"); return; }
   let bad = 0;
   for (const s of stories) {
     const d = s.description || "";
@@ -307,6 +332,22 @@ async function cmdAudit() {
   console.log(`\n${stories.length} story issue(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/story.md`);
   if (bad) process.exitCode = 11;
 
+  // ── Handoff discipline ── a story showing a [role] tag MUST carry the matching role:<role>
+  // label, which only `handoff` writes. A bare title edit that skips `handoff` leaves the tag
+  // without the label — and /status + the Telegram loop never fire. Flag it so "the team handed
+  // off" is provable, not assumed. (Addresses: roles not advancing in headless/solo runs.)
+  let noHandoff = 0;
+  for (const s of stories) {
+    const tag = roleOf(s.title);
+    if (!tag) continue;
+    const hasLabel = s.labels.nodes.some((l) => l.name.toLowerCase() === `role:${tag.toLowerCase()}`);
+    if (!hasLabel) {
+      noHandoff++;
+      console.log(`  ⚠ ${s.identifier} title shows [${tag}] but has no role:${tag} label — handoff was skipped (run: linear-sync handoff ${s.identifier} --role ${tag})`);
+    }
+  }
+  if (noHandoff) { console.log(`handoff: ${noHandoff} active story(ies) changed [role] without a handoff call`); process.exitCode = 11; }
+
   // ── Delivery artifact-store consistency (docs/delivery/) — ON-DEMAND / role-driven ──
   // story.md always; a role artifact is expected ONLY when the matching role:* label proves
   // that role acted. Checks ACTIVE stories INCL. parented children (CAM-129 — was parentless-only,
@@ -314,7 +355,7 @@ async function cmdAudit() {
   // feature.md/epic.md left as scaffold <placeholder> stubs — the PO must fill them (CAM-127 gap).
   const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "delivery.md"]];
   const STUB_RE = /<[a-zA-Z][^>\n]{2,}>/; // an unfilled angle-bracket placeholder from the scaffold
-  const artStories = team.issues.nodes.filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title) && i.state.type !== "completed");
+  const artStories = team.issues.nodes.filter((i) => isWorkStory(i) && i.state.type !== "completed");
   let notYet = 0, broken = 0, stale = 0, stub = 0;
   const stubSeen = new Set();
   for (const s of artStories) {
@@ -355,6 +396,13 @@ async function cmdHandoff(id, args) {
   }
   if (!role) {
     console.log("usage: linear-sync handoff <CAM-id> --role <role> [--state <state>] [--note <note>]");
+    process.exit(1);
+  }
+  // Validate against the canonical role set (the 9 keys /status + the webhook map to a stage/icon).
+  // An unknown or short-form token ("qa" vs "qa-engineer", or a typo) would write a junk role:*
+  // label and a [role] tag that /status can't map and that mis-ranks the regression bump — reject.
+  if (!(role in ROLE_LABEL)) {
+    console.error(`✗ unknown role "${role}". Use one of: ${Object.keys(ROLE_LABEL).join(", ")}`);
     process.exit(1);
   }
 
@@ -443,6 +491,7 @@ async function cmdHandoff(id, args) {
   const roleLabel = ROLE_LABEL[role] || role;
   const bits = [`role→${roleLabel}`, `+[${labelName}]`, ...extraBits.map((l) => `+[${l}]`), state ? `state→${state}` : ""].filter(Boolean);
   console.log(`✓ ${id} handoff: ${bits.join(" ")} | title: ${newTitle}`);
+  await nudgePulse();
   // NOTE: The Telegram handoff notification is sent by the Linear webhook (app/api/linear-webhook/route.ts)
   // which detects the `role:*` label addition and calls buildEventMessage("handoff", ...).
   // Do NOT send it here — that causes double-sends.
@@ -484,7 +533,7 @@ async function cmdScaffold(id) {
 // index — regenerate docs/delivery/INDEX.md from Linear (feature→epic→story tree + by-persona view).
 async function cmdIndex() {
   const team = await ctx();
-  const work = team.issues.nodes.filter((i) => i.title.includes("·") && !/Gate\s*G\d/i.test(i.title));
+  const work = team.issues.nodes.filter(isWorkStory);
   const feats = {};
   for (const i of work) { const f = featureName(i), e = epicName(i); ((feats[f] = feats[f] || {})[e] = feats[f][e] || []).push(i); }
   const sortId = (a, b) => a.identifier.localeCompare(b.identifier, undefined, { numeric: true });

@@ -52,6 +52,31 @@ describe("lib/status-model.ts — shared model (CAM-151)", () => {
   });
 });
 
+// ---------- camper-infra: map gate/backlog epicKey survives the new (parented) structure ----------
+describe("lib/status-map-model.ts — gate epicKey parent fallback (camper-infra)", () => {
+  const src = read("../lib/status-map-model.ts");
+
+  it("gates fall back to parent.title when the title has no '·' (new-structure epic scoping)", () => {
+    // A new-structure story carries no '·', so epicOf() is empty — the gate chip must key off the
+    // parent (epic) title to deep-link/scope, exactly like the backlog items already do.
+    expect(src).toContain("epicKey: epicOf(i.title) || i.parent?.title");
+  });
+
+  it("backlog keeps the same parent.title fallback (parity with gates)", () => {
+    expect(src).toContain('epicOf(i.title) || i.parent?.title || ""');
+  });
+});
+
+// ---------- camper-infra: /status board canonicalizes the [role] tag ----------
+describe("app/status/page.tsx — roleOf canonicalizes via canonRole (camper-infra)", () => {
+  const src = read("../app/status/page.tsx");
+
+  it("roleOf runs the raw tag through canonRole so short aliases resolve (no blank role)", () => {
+    expect(src).toContain("canonRole");
+    expect(src).toContain("return m ? canonRole(m[1]) : \"\";");
+  });
+});
+
 // ---------- CAM-151: /status no longer declares buildModel locally ----------
 describe("app/status/page.tsx — consumes the shared model (CAM-151)", () => {
   const src = read("../app/status/page.tsx");

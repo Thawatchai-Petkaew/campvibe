@@ -184,14 +184,18 @@ describe("linear-webhook", () => {
     expect(tg).not.toHaveBeenCalled();
   });
 
-  it("gate-approval dispatch fires when awaiting-you is removed, but the webhook does NOT send 'Approved' (the Telegram tap does)", async () => {
+  it("gate-approval: removing awaiting-you sends 'Approved' (single source) + fires dispatch", async () => {
     const body = issueUpdate(
       { identifier: "CAM-9", title: "Gate G3 · ship", labels: [] },
       { labelIds: ["aw"] }
     );
     const res = await POST(req(body));
-    expect(await res.json()).toMatchObject({ approved: true, dispatched: false });
-    expect(tg).not.toHaveBeenCalled();
+    // The webhook is now the single source of the "Approved" notification — it fires whenever a
+    // gate's awaiting-you is removed (this tap OR a Linear-UI approval), so the tap no longer sends it.
+    expect(await res.json()).toMatchObject({ approved: true, notified: ["approved"], dispatched: false });
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0] as [string];
+    expect(text).toContain("Approved");
   });
 
   it("created (default off) does NOT send Telegram even on Issue/create", async () => {
