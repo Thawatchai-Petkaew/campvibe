@@ -907,15 +907,21 @@ export default function CampsiteScene({
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: SCENE_CSS }} />
 
-      {/* CAM-161: Full-viewport background image — decoupled from the character canvas.
-          Not inside .map-viewport so it never scales with the canvas.
-          Story B will add srcset for hi-res. */}
+      {/* CAM-162: Responsive background image with srcset for hi-res screens.
+          sizes="max(100vw, 177.78vh)" accounts for cover overscale on 16:9 —
+          177.78vh = 100vh × (16/9) so the browser picks a large-enough source
+          on both landscape 16:9 AND portrait screens.
+          fetchpriority="high" keeps this as the LCP candidate.
+          Not inside .map-viewport so it never scales with the character canvas. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="map-bg"
-        src="/status-map/campsite-forest.webp"
+        src="/status-map/forest-1920.webp"
+        srcSet="/status-map/forest-1280.webp 1280w, /status-map/forest-1920.webp 1920w, /status-map/forest-2560.webp 2560w, /status-map/forest-3840.webp 3840w"
+        sizes="max(100vw, 177.78vh)"
         alt=""
         aria-hidden="true"
+        fetchPriority="high"
       />
 
       {/* Canvas dim overlay when a panel is open */}

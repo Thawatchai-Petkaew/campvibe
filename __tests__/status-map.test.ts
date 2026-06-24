@@ -171,7 +171,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale mode
   it("has .map-bg full-viewport background image (decoupled from canvas)", () => {
     expect(src).toContain(".map-bg");
     expect(src).toContain("object-fit:cover");
-    expect(src).toContain("campsite-forest.webp");
+    // CAM-162: single WebP replaced by responsive srcset; forest-1920.webp is the fallback src
+    expect(src).toContain("forest-1920.webp");
   });
 
   it("background image is an <img> element with aria-hidden (not CSS background-image on stage)", () => {
@@ -647,5 +648,38 @@ describe("campsite-scene.tsx — CAM-159: ViewToggle integrated top-center", () 
     // The old corner nav style is gone
     expect(src).not.toContain("top: 70");
     expect(src).not.toContain("left: 16,");
+  });
+});
+
+// ============================================================
+// CAM-162 — Responsive background: srcset hi-res WebP
+// ============================================================
+
+describe("campsite-scene.tsx — CAM-162: responsive srcset background", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("uses forest-1920.webp as the fallback src (not campsite-forest.webp)", () => {
+    expect(src).toContain('src="/status-map/forest-1920.webp"');
+    expect(src).not.toContain('src="/status-map/campsite-forest.webp"');
+  });
+
+  it("has srcSet with all four responsive widths (1280w, 1920w, 2560w, 3840w)", () => {
+    expect(src).toContain("forest-1280.webp 1280w");
+    expect(src).toContain("forest-1920.webp 1920w");
+    expect(src).toContain("forest-2560.webp 2560w");
+    expect(src).toContain("forest-3840.webp 3840w");
+  });
+
+  it("has sizes='max(100vw, 177.78vh)' to account for cover overscale on portrait screens", () => {
+    expect(src).toContain('sizes="max(100vw, 177.78vh)"');
+  });
+
+  it("has fetchPriority='high' for LCP (not lazy-loaded)", () => {
+    expect(src).toContain('fetchPriority="high"');
+  });
+
+  it("does NOT reference the removed single-size campsite-forest.webp in any src attribute", () => {
+    // The old single-size fallback must not appear as an img src
+    expect(src).not.toContain('src="/status-map/campsite-forest.webp"');
   });
 });
