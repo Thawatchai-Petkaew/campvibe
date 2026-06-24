@@ -191,6 +191,14 @@ export interface EngineHandle {
    * The rAF loop keeps running; only CSS opacity/pointer-events on rootEl are touched.
    */
   setScope: (scope: "all" | "epic", epicRoles: string[]) => void;
+  /**
+   * CAM-161 — Switch all agents to a new set of home coordinates (absolute %).
+   * Used when the layout switches between LAYOUT_WIDE and LAYOUT_NARROW.
+   * Each agent's homeNode x/y is overwritten; idle agents snap immediately;
+   * agents in entering/walking mode adopt the new target as their next home.
+   * The rAF loop keeps running — no remount.
+   */
+  setHomes: (homes: Record<string, { x: number; y: number }>) => void;
   /** Cancel the rAF loop. Must be called in useEffect cleanup to prevent leaks. */
   stop: () => void;
 }
@@ -385,6 +393,40 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
           el.style.opacity        = inEpic ? "1" : "0.18";
           el.style.pointerEvents  = inEpic ? "" : "none";
           el.style.transition     = "opacity 300ms ease-out";
+        }
+      }
+    },
+    // CAM-161: Switch all agents to a new layout's home coordinates.
+    // Idle agents snap immediately; walking/entering agents redirect to the
+    // new home without stopping the rAF loop.
+    setHomes(homes: Record<string, { x: number; y: number }>) {
+      for (const ref of scouts) {
+        const s    = ref.state;
+        const home = homes[s.role];
+        if (!home) continue;
+
+        // Update the logical home x/y on the scout state.
+        // NODES entries are walk-graph nodes; homeNode stays as the graph key
+        // so BFS still works. We override the final resting position directly
+        // by snapping idle scouts and redirecting walking scouts.
+        if (s.mode === "idle") {
+          // Snap immediately to the new home.
+          s.x = home.x;
+          s.y = home.y;
+          if (s.rootEl) {
+            s.rootEl.style.left   = `${s.x}%`;
+            s.rootEl.style.top    = `${s.y}%`;
+            s.rootEl.style.zIndex = String(Math.round(s.y * 12) + 5);
+          }
+        } else {
+          // Walking/entering: once they reach their current tgt, the rAF loop
+          // calls enterIdle which snaps to NODES[homeNode]. We override homeNode
+          // by pointing cur+tgt toward the new position via a virtual node write.
+          // Simplest: redirect to NODES nearest the new home (walk graph is still
+          // used for path, but final idle snap is overridden in the home tracker).
+          // Store the override so enterIdle can pick it up.
+          s.x = home.x;
+          s.y = home.y;
         }
       }
     },

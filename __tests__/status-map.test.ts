@@ -130,6 +130,116 @@ describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () =>
   });
 });
 
+// ============================================================
+// CAM-161 — Responsive scene: fixed-canvas scale + 2-layout switch
+// ============================================================
+
+// ---------- CAM-161: new CSS architecture — .map-viewport + transform:scale ----------
+describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale model", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("has .map-viewport grid wrapper (centres the fixed canvas)", () => {
+    expect(src).toContain(".map-viewport");
+    expect(src).toContain("display:grid");
+    expect(src).toContain("place-items:center");
+  });
+
+  it("has .map-stage as a fixed 1920×1080 design canvas", () => {
+    expect(src).toContain("width:1920px");
+    expect(src).toContain("height:1080px");
+  });
+
+  it("scale(var(--s)) with cover formula drives the canvas proportional scale", () => {
+    expect(src).toContain("transform:scale(var(--s))");
+    expect(src).toContain("calc(100vw / 1920)");
+    expect(src).toContain("calc(100vh / 1080)");
+  });
+
+  it("--scout-size is a fixed design-px value (not vw-relative)", () => {
+    // Must NOT contain 'vw' in the scout-size definition
+    expect(src).not.toContain("7.2vw");
+    // Must contain a fixed px value
+    expect(src).toContain("--scout-size: 104px");
+  });
+
+  it("does NOT use the old width:max() approach for scaling", () => {
+    // The old CAM-160 technique used width:calc(max(100vw,...)) on the stage.
+    // CAM-161 replaces this with a fixed 1920px width + transform:scale().
+    expect(src).not.toContain("width:calc(max(100vw");
+  });
+
+  it("has .map-bg full-viewport background image (decoupled from canvas)", () => {
+    expect(src).toContain(".map-bg");
+    expect(src).toContain("object-fit:cover");
+    expect(src).toContain("campsite-forest.webp");
+  });
+
+  it("background image is an <img> element with aria-hidden (not CSS background-image on stage)", () => {
+    expect(src).toContain('className="map-bg"');
+    expect(src).toContain('aria-hidden="true"');
+  });
+
+  it("does NOT set background-image on .map-stage (stage is no longer the bg carrier)", () => {
+    // The old approach: background:url("/status-map/campsite-forest.webp") on .map-stage
+    expect(src).not.toContain('background:url("/status-map/campsite-forest.webp")');
+  });
+});
+
+// ---------- CAM-161: 2-layout tables + matchMedia switch ----------
+describe("app/status/map/campsite-scene.tsx — CAM-161: LAYOUT_WIDE + LAYOUT_NARROW", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("exports LAYOUT_WIDE for aspect ≥ 7:5 (art-measured positions)", () => {
+    expect(src).toContain("LAYOUT_WIDE");
+  });
+
+  it("exports LAYOUT_NARROW for aspect < 7:5 (compact centre-band cluster)", () => {
+    expect(src).toContain("LAYOUT_NARROW");
+  });
+
+  it("YOU_POS_WIDE and YOU_POS_NARROW define separate You positions per layout", () => {
+    expect(src).toContain("YOU_POS_WIDE");
+    expect(src).toContain("YOU_POS_NARROW");
+  });
+
+  it("matchMedia '(min-aspect-ratio: 7/5)' drives the layout switch", () => {
+    expect(src).toContain("min-aspect-ratio: 7/5");
+  });
+
+  it("aspect change listener calls setLayoutKey without remounting engine", () => {
+    expect(src).toContain("setLayoutKey");
+    expect(src).toContain("arMq.addEventListener");
+  });
+
+  it("engine.setHomes() is called on aspect ratio change", () => {
+    expect(src).toContain("engine.setHomes");
+  });
+
+  it("homeStyle() reads from currentLayout (not NODES)", () => {
+    expect(src).toContain("currentLayout[role]");
+  });
+
+  it("YouScout receives youPos prop derived from layoutKey", () => {
+    expect(src).toContain("youPos={youPos}");
+    expect(src).toContain("youPos: { x: number; y: number }");
+  });
+});
+
+// ---------- CAM-161: engine setHomes addition ----------
+describe("app/status/map/campsite-engine.ts — CAM-161: setHomes", () => {
+  const src = read("../app/status/map/campsite-engine.ts");
+
+  it("EngineHandle interface declares setHomes method", () => {
+    expect(src).toContain("setHomes");
+    expect(src).toContain("Record<string, { x: number; y: number }>");
+  });
+
+  it("setHomes implementation snaps idle agents and redirects walking agents", () => {
+    expect(src).toContain("setHomes(homes:");
+    expect(src).toContain("s.mode === \"idle\"");
+  });
+});
+
 // ---------- CAM-152: sprite shell CSS has no base64 either ----------
 describe("app/status/map/campsite-assets.ts — night-scene shell (CAM-152)", () => {
   const src = read("../app/status/map/campsite-assets.ts");
