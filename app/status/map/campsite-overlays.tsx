@@ -28,6 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { FileText, Inbox, Layers } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -537,7 +538,7 @@ const HUD_CSS = `
 .hud-sp-label{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hud-sp-caret{opacity:.55;margin-left:2px;display:block;flex:none}
 .hud-signpost-menu{
-  position:absolute;top:calc(100% + 7px);left:0;z-index:30;min-width:172px;max-height:62vh;overflow-y:auto;
+  position:absolute;top:calc(100% + 7px);left:0;z-index:30;min-width:160px;max-width:240px;max-height:62vh;overflow-y:auto;
   display:flex;flex-direction:column;gap:1px;padding:6px;
   border:1px solid rgba(150,240,195,.16);border-radius:14px;
   background:rgba(11,30,24,.72);
@@ -546,7 +547,8 @@ const HUD_CSS = `
 }
 .hud-sp-opt{
   text-align:left;padding:9px 12px;border-radius:9px;
-  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;white-space:nowrap;
+  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   transition:background 100ms,color 100ms;
 }
 .hud-sp-opt:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
@@ -568,7 +570,7 @@ const HUD_CSS = `
 .hud-ef-chip.on{background:rgba(91,233,176,.16);color:#5BE9B0}
 
 /* ── Summary card (Step 3, left panel below top bar) ── */
-.hud-summary{position:fixed;top:68px;left:18px;z-index:22;pointer-events:auto}
+.hud-summary{position:fixed;top:80px;left:18px;z-index:22;pointer-events:auto}
 .hud-sum-chip{
   display:inline-flex;align-items:center;gap:7px;
   padding:7px 14px;border-radius:999px;cursor:pointer;
@@ -583,6 +585,8 @@ const HUD_CSS = `
 .hud-sum-chip-pct{color:#5BE9B0;font-weight:700}
 .hud-sum-chip-dot{opacity:.4;margin:0 1px}
 .hud-sum-chip-caret{opacity:.5;display:block;flex:none}
+.hud-sum-chip-item{display:inline-flex;align-items:center;gap:4px}
+.hud-sum-today-item{display:inline-flex;align-items:center;gap:4px}
 .hud-sum-card{
   width:220px;border-radius:18px;overflow:hidden;
   border:1px solid rgba(150,240,195,.13);
@@ -1485,7 +1489,7 @@ function GaugeRing({ pct }: { pct: number }) {
         filter="url(#glow-sum)"
         style={{ transform: "rotate(-90deg)", transformOrigin: "41px 41px", transition: "stroke-dasharray .7s cubic-bezier(.34,1.56,.64,1)" }}
       />
-      <text x="41" y="47" textAnchor="middle" fill="#5BE9B0" fontSize="20" fontWeight="700" fontFamily="system-ui,sans-serif">{pct}%</text>
+      <text x="41" y="46" textAnchor="middle" fill="#5BE9B0" fontSize="15" fontWeight="700" fontFamily="system-ui,sans-serif">{pct}%</text>
     </svg>
   );
 }
@@ -1526,9 +1530,9 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
         <button type="button" className="hud-sum-chip" onClick={onToggle} aria-label="ขยายภาพรวม" aria-expanded="false">
           <span className="hud-sum-chip-pct">{pct}%</span>
           <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
-          <span>⛺ {epicDone}/{epicTotal}</span>
+          <span className="hud-sum-chip-item"><Layers size={11} strokeWidth={1.8} />{epicDone}/{epicTotal}</span>
           <span className="hud-sum-chip-dot" aria-hidden="true">·</span>
-          <span>📋 {storyDone}/{storyTotal}</span>
+          <span className="hud-sum-chip-item"><FileText size={11} strokeWidth={1.8} />{storyDone}/{storyTotal}</span>
           <svg className="hud-sum-chip-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
             <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -1550,24 +1554,24 @@ export function SummaryCard({ pct, epicDone, epicTotal, storyDone, storyTotal, b
         <div className="hud-sum-body">
           <div className="hud-sum-gauge"><GaugeRing pct={pct} /></div>
           <div className="hud-sum-row">
-            <span className="hud-sum-row-l">⛺ <span>Epic</span></span>
+            <span className="hud-sum-row-l"><Layers size={13} strokeWidth={1.7} /><span>Epic</span></span>
             <span className="hud-sum-count">{epicDone} / {epicTotal}</span>
           </div>
           <div className="hud-sum-row">
-            <span className="hud-sum-row-l">📋 <span>Story</span></span>
+            <span className="hud-sum-row-l"><FileText size={13} strokeWidth={1.7} /><span>Story</span></span>
             <span className="hud-sum-count">{storyDone} / {storyTotal}</span>
           </div>
           <div className="hud-sum-row">
-            <span className="hud-sum-row-l">🪵 <span>Backlog</span></span>
+            <span className="hud-sum-row-l"><Inbox size={13} strokeWidth={1.7} /><span>Backlog</span></span>
             <span className="hud-sum-count">{backlog}</span>
           </div>
           <div className="hud-sum-sep" />
           <div className="hud-sum-today-label">วันนี้ส่งมอบ</div>
           {todayStories > 0 || todayEpics > 0 ? (
             <div className="hud-sum-today">
-              {todayEpics > 0 && <span>⛺ {todayEpics} Epic</span>}
+              {todayEpics > 0 && <span className="hud-sum-today-item"><Layers size={12} strokeWidth={1.7} />{todayEpics} Epic</span>}
               {todayEpics > 0 && todayStories > 0 && <span className="hud-sum-chip-dot">·</span>}
-              {todayStories > 0 && <span>📋 {todayStories} Story</span>}
+              {todayStories > 0 && <span className="hud-sum-today-item"><FileText size={12} strokeWidth={1.7} />{todayStories} Story</span>}
             </div>
           ) : (
             <div className="hud-sum-today-none">ยังไม่มีงานส่งมอบวันนี้</div>
