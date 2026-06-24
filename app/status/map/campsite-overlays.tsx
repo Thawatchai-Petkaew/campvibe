@@ -2154,7 +2154,7 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
 
 const STAGING_URL = "https://campvibe-staging.vercel.app";
 const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL ?? "";
-const ENV_PATH = "/status/map";
+const ENV_PATH = "";
 
 export function EnvPickerPanel({
   isOpen,
