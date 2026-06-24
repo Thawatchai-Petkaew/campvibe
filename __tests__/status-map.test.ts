@@ -940,3 +940,48 @@ describe("app/status/map/campsite-scene.tsx — CAM-166: LAYOUT_WIDE clearing-ri
     expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 31 }");
   });
 });
+
+// ── CAM-167: ENV picker button + modal ────────────────────────────────────────
+describe("CAM-167: ENV picker — shimmer button + side-by-side modal in top bar", () => {
+  const sceneSrc = read("../app/status/map/campsite-scene.tsx");
+  const overlaySrc = read("../app/status/map/campsite-overlays.tsx");
+
+  it('campsite-scene imports EnvPickerPanel from campsite-overlays', () => {
+    expect(sceneSrc).toContain("EnvPickerPanel");
+  });
+
+  it('campsite-scene renders btn--map-env-picker with correct testid', () => {
+    expect(sceneSrc).toContain('data-testid="btn--map-env-picker"');
+  });
+
+  it('campsite-scene renders EnvPickerPanel with isOpen + onClose + triggerRef', () => {
+    expect(sceneSrc).toContain("<EnvPickerPanel");
+    expect(sceneSrc).toContain("envPickerOpen");
+    expect(sceneSrc).toContain("envPickerTriggerRef");
+  });
+
+  it('campsite-overlays exports EnvPickerPanel function', () => {
+    expect(overlaySrc).toContain("export function EnvPickerPanel");
+  });
+
+  it('HUD_CSS contains shimmer animation + .hud-env-toggle', () => {
+    expect(overlaySrc).toContain("hud-shimmer");
+    expect(overlaySrc).toContain(".hud-env-toggle");
+  });
+
+  it('HUD_CSS contains .hud-env-panel-grid (side-by-side layout)', () => {
+    expect(overlaySrc).toContain(".hud-env-panel-grid");
+  });
+
+  it('HUD_CSS contains .hud-env-card', () => {
+    expect(overlaySrc).toContain(".hud-env-card");
+  });
+
+  it('EnvPickerPanel references campvibe-staging.vercel.app', () => {
+    expect(overlaySrc).toContain("campvibe-staging.vercel.app");
+  });
+
+  it('EnvPickerPanel references NEXT_PUBLIC_PROD_URL for production link', () => {
+    expect(overlaySrc).toContain("NEXT_PUBLIC_PROD_URL");
+  });
+});

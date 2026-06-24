@@ -915,6 +915,42 @@ export const HUD_CSS = `
 .hud-team-mini-icon.sleep{color:rgba(223,234,245,.2);background:rgba(223,234,245,.04);border:1px solid rgba(223,234,245,.07)}
 .hud-team-mini-txt{font-size:10.5px;color:rgba(223,234,245,.4);font-weight:600}
 .hud-team-mini-txt strong{color:#5BE9B0;font-size:11.5px}
+/* ── ENV picker ──────────────────────────────────────────────────────────── */
+@keyframes hud-shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+.hud-env-toggle{
+  background:linear-gradient(110deg,rgba(11,30,24,.58) 30%,rgba(91,233,176,.26) 50%,rgba(11,30,24,.58) 70%);
+  background-size:200% auto;
+  animation:hud-shimmer 3s linear infinite;
+  backdrop-filter:saturate(195%) blur(26px);
+  border:1px solid rgba(150,240,195,.30);
+  border-radius:999px;
+  padding:6px 14px;
+  color:#5BE9B0;
+  font-size:13px;
+  font-weight:500;
+  letter-spacing:.02em;
+  pointer-events:auto;
+  cursor:pointer;
+  white-space:nowrap;
+  line-height:1;
+}
+.hud-env-toggle:hover{border-color:rgba(150,240,195,.60);background-size:180% auto}
+.hud-env-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
+.hud-env-panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0}
+.hud-env-card{
+  display:flex;flex-direction:column;align-items:center;
+  gap:5px;padding:14px 10px;border-radius:14px;
+  background:rgba(150,240,195,.07);
+  border:1px solid rgba(150,240,195,.14);
+  color:#F1F6FB;text-decoration:none;font-size:13px;text-align:center;
+  transition:background .15s,border-color .15s;
+}
+.hud-env-card:hover{background:rgba(150,240,195,.16);border-color:rgba(150,240,195,.32)}
+.hud-env-card:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
+.hud-env-card-icon{font-size:20px;line-height:1}
+.hud-env-card-label{font-weight:600;font-size:13px}
+.hud-env-card-sublabel{font-size:11px;opacity:.6}
+.hud-env-card-arrow{font-size:14px;opacity:.7;margin-top:2px}
 `;
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
@@ -2089,6 +2125,59 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
       </svg>
       <span>แดชบอร์ด</span>
     </a>
+  );
+}
+
+// ── ENV Picker (CAM-167) ─────────────────────────────────────────────────────
+
+const STAGING_URL = "https://campvibe-staging.vercel.app";
+const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL ?? "";
+const ENV_PATH = "/status/map";
+
+export function EnvPickerPanel({
+  isOpen,
+  onClose,
+  triggerRef,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+}) {
+  return (
+    <ExpandPanel
+      id="env-picker"
+      title="ผลผลิต Scout Team"
+      isOpen={isOpen}
+      onClose={onClose}
+      triggerRef={triggerRef as React.RefObject<HTMLButtonElement | null>}
+    >
+      <div className="hud-env-panel-grid">
+        <a
+          href={STAGING_URL + ENV_PATH}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hud-env-card"
+          onClick={onClose}
+        >
+          <span className="hud-env-card-icon">🟡</span>
+          <span className="hud-env-card-label">Staging</span>
+          <span className="hud-env-card-sublabel">ทดสอบ / QA</span>
+          <span className="hud-env-card-arrow">↗</span>
+        </a>
+        <a
+          href={(PROD_URL || STAGING_URL) + ENV_PATH}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hud-env-card"
+          onClick={onClose}
+        >
+          <span className="hud-env-card-icon">🟢</span>
+          <span className="hud-env-card-label">Production</span>
+          <span className="hud-env-card-sublabel">Live App</span>
+          <span className="hud-env-card-arrow">↗</span>
+        </a>
+      </div>
+    </ExpandPanel>
   );
 }
 
