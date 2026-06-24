@@ -29,7 +29,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Inbox, Layers, Monitor, ShieldCheck, Trophy } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Globe, Inbox, Layers, Monitor, Server, ShieldCheck, Trophy, X } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -918,39 +918,61 @@ export const HUD_CSS = `
 /* ── ENV picker ──────────────────────────────────────────────────────────── */
 @keyframes hud-shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
 .hud-env-toggle{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:0 16px;min-height:44px;
+  border:1px solid rgba(150,240,195,.30);
+  border-radius:999px;
   background:linear-gradient(110deg,rgba(11,30,24,.58) 30%,rgba(91,233,176,.26) 50%,rgba(11,30,24,.58) 70%);
   background-size:200% auto;
   animation:hud-shimmer 3s linear infinite;
   backdrop-filter:saturate(195%) blur(26px);
-  border:1px solid rgba(150,240,195,.30);
-  border-radius:999px;
-  padding:6px 14px;
+  -webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
   color:#5BE9B0;
-  font-size:13px;
-  font-weight:500;
-  letter-spacing:.02em;
-  pointer-events:auto;
-  cursor:pointer;
-  white-space:nowrap;
-  line-height:1;
+  font-size:12.5px;font-weight:600;
+  pointer-events:auto;cursor:pointer;white-space:nowrap;
+  transition:border-color 120ms;
 }
-.hud-env-toggle:hover{border-color:rgba(150,240,195,.60);background-size:180% auto}
+.hud-env-toggle:hover{border-color:rgba(150,240,195,.55)}
 .hud-env-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
-.hud-env-panel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0}
+.hud-env-modal{position:fixed;inset:0;z-index:62;display:flex;align-items:center;justify-content:center;padding:20px 16px}
+.hud-env-modal-box{
+  width:min(460px,92vw);
+  background:rgba(11,30,24,.72);
+  backdrop-filter:saturate(195%) blur(34px);
+  -webkit-backdrop-filter:saturate(195%) blur(34px);
+  border:1px solid rgba(150,240,195,.14);
+  border-radius:22px;
+  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(200,255,232,.14);
+  padding:24px;
+  animation:hud-modal-in 180ms cubic-bezier(.32,1.1,.5,1) both;
+}
+.hud-env-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.hud-env-modal-title{font-size:14px;font-weight:600;color:rgba(223,234,245,.85)}
+.hud-env-modal-close{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  color:rgba(223,234,245,.6);cursor:pointer;flex:none;
+  transition:background 120ms;
+}
+.hud-env-modal-close:hover{background:rgba(255,255,255,.14)}
+.hud-env-modal-close:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
+.hud-env-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .hud-env-card{
   display:flex;flex-direction:column;align-items:center;
-  gap:5px;padding:14px 10px;border-radius:14px;
+  gap:10px;padding:20px 16px;border-radius:16px;
   background:rgba(150,240,195,.07);
   border:1px solid rgba(150,240,195,.14);
-  color:#F1F6FB;text-decoration:none;font-size:13px;text-align:center;
+  color:#F1F6FB;text-decoration:none;text-align:center;
   transition:background .15s,border-color .15s;
 }
-.hud-env-card:hover{background:rgba(150,240,195,.16);border-color:rgba(150,240,195,.32)}
-.hud-env-card:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
-.hud-env-card-icon{font-size:20px;line-height:1}
-.hud-env-card-label{font-weight:600;font-size:13px}
-.hud-env-card-sublabel{font-size:11px;opacity:.6}
-.hud-env-card-arrow{font-size:14px;opacity:.7;margin-top:2px}
+.hud-env-card:hover{background:rgba(150,240,195,.15);border-color:rgba(150,240,195,.30)}
+.hud-env-card:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px;border-radius:16px}
+.hud-env-card-icon{color:rgba(150,240,195,.75)}
+.hud-env-card-label{font-weight:600;font-size:14px}
+.hud-env-card-sublabel{font-size:12px;opacity:.55}
+.hud-env-card-link{display:flex;align-items:center;gap:4px;font-size:12px;color:#5BE9B0;opacity:.8;margin-top:2px}
 `;
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
@@ -2143,41 +2165,64 @@ export function EnvPickerPanel({
   onClose: () => void;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  return (
-    <ExpandPanel
-      id="env-picker"
-      title="ผลผลิต Scout Team"
-      isOpen={isOpen}
-      onClose={onClose}
-      triggerRef={triggerRef as React.RefObject<HTMLButtonElement | null>}
-    >
-      <div className="hud-env-panel-grid">
-        <a
-          href={STAGING_URL + ENV_PATH}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hud-env-card"
-          onClick={onClose}
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(boxRef as React.RefObject<HTMLElement | null>, triggerRef as React.RefObject<HTMLElement | null>, isOpen, onClose);
+
+  if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <>
+      <div className="hud-modal-backdrop" onClick={onClose} />
+      <div className="hud-env-modal">
+        <div
+          ref={boxRef}
+          className="hud-env-modal-box"
+          role="dialog"
+          aria-modal="true"
+          aria-label="ผลผลิต Scout Team"
         >
-          <span className="hud-env-card-icon">🟡</span>
-          <span className="hud-env-card-label">Staging</span>
-          <span className="hud-env-card-sublabel">ทดสอบ / QA</span>
-          <span className="hud-env-card-arrow">↗</span>
-        </a>
-        <a
-          href={(PROD_URL || STAGING_URL) + ENV_PATH}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hud-env-card"
-          onClick={onClose}
-        >
-          <span className="hud-env-card-icon">🟢</span>
-          <span className="hud-env-card-label">Production</span>
-          <span className="hud-env-card-sublabel">Live App</span>
-          <span className="hud-env-card-arrow">↗</span>
-        </a>
+          <div className="hud-env-modal-header">
+            <span className="hud-env-modal-title">ผลผลิต Scout Team</span>
+            <button
+              type="button"
+              className="hud-env-modal-close"
+              aria-label="ปิด"
+              onClick={() => { onClose(); triggerRef.current?.focus(); }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="hud-env-grid">
+            <a
+              href={STAGING_URL + ENV_PATH}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-env-card"
+              onClick={onClose}
+            >
+              <span className="hud-env-card-icon"><Server size={28} /></span>
+              <span className="hud-env-card-label">Staging</span>
+              <span className="hud-env-card-sublabel">ทดสอบ / QA</span>
+              <span className="hud-env-card-link"><ExternalLink size={13} /> เปิดแท็บใหม่</span>
+            </a>
+            <a
+              href={(PROD_URL || STAGING_URL) + ENV_PATH}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-env-card"
+              onClick={onClose}
+            >
+              <span className="hud-env-card-icon"><Globe size={28} /></span>
+              <span className="hud-env-card-label">Production</span>
+              <span className="hud-env-card-sublabel">Live App</span>
+              <span className="hud-env-card-link"><ExternalLink size={13} /> เปิดแท็บใหม่</span>
+            </a>
+          </div>
+        </div>
       </div>
-    </ExpandPanel>
+    </>,
+    document.body
   );
 }
 
