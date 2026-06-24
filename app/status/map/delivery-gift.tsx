@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * DeliveryGift — CAM-173 (polish: design-system modal + card list + entity decode)
+ * DeliveryGift — CAM-174 (revert DS → scene glass)
  * Amber glass gift button above the campfire opens a "ส่งมอบสำเร็จ" modal.
  * Mounted inside .scout-layer; modal uses createPortal to document.body.
  *
- * CAM-173 changes:
- *   - Modal surface: app design-system tokens (bg-popover, rounded-3xl, shadow-2xl, ring-1)
- *   - Each delivery: <Card size="sm"> with CheckCircle2 + decoded title + Badge + Thai date
- *   - decodeHtmlEntities() applied to item.title before render
- *   - Removed dark-green glass CSS from DELIVERY_GIFT_CSS (gift button CSS unchanged)
+ * CAM-174 changes (reverts CAM-173 DS approach):
+ *   - Modal surface: scene-glass CSS (.delivery-modal-box / .delivery-modal-overlay)
+ *     mirrors hud-modal-box / hud-modal-backdrop exact rgba values
+ *   - Each delivery: .delivery-card (mirrors hud-kc / hud-card glass surface)
+ *     CheckCircle2 (#5BE9B0) + decoded title + epic chip (.delivery-epic-chip mirrors
+ *     hud-card-role) + Thai date (mono, faint)
+ *   - Removed: Card/CardContent/Badge/Button DS imports (CAM-173)
+ *   - Kept: decodeHtmlEntities(item.title), createPortal, useFocusTrap/Esc/return-focus,
+ *     markSeen on close, gift button + .gift-indicator CSS, all testids
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Gift, X } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { decodeHtmlEntities } from "@/lib/html-utils";
 import {
   DELIVERY_SEEN_KEY,
@@ -128,7 +129,6 @@ interface DeliveryModalProps {
 }
 
 function DeliveryModal({ items, triggerRef, onClose }: DeliveryModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const modalId = "delivery-modal-title";
 
@@ -147,111 +147,95 @@ function DeliveryModal({ items, triggerRef, onClose }: DeliveryModalProps) {
   };
 
   return createPortal(
-    /* Overlay — app token backdrop (same as DialogOverlay) */
-    <div
-      ref={overlayRef}
-      className="delivery-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-foreground/15 supports-[backdrop-filter]:backdrop-blur-sm"
-      aria-hidden="true"
-      onClick={(e) => {
-        if (e.target === overlayRef.current) handleClose();
-      }}
-    >
-      {/* Modal box — app design-system surface */}
+    <>
+      {/* Overlay / backdrop — mirrors .hud-modal-backdrop */}
       <div
-        ref={modalRef}
-        className="delivery-modal-box flex w-full max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-3xl bg-popover text-popover-foreground shadow-2xl ring-1 ring-foreground/5 sm:max-w-md"
-        style={{ maxHeight: "min(600px, calc(100svh - 4rem))" }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={modalId}
-        data-testid="modal--map-delivery"
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-6 py-4">
-          <Gift
-            size={20}
-            aria-hidden="true"
-            className="shrink-0 text-warning"
-          />
-          <span
-            id={modalId}
-            className="flex-1 text-base font-semibold text-foreground"
-          >
-            {COPY.modalTitle}
-          </span>
-          {/* Close [X] — size="icon" = h-11 w-11 = 44×44px tap target */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={COPY.closeAriaLabel}
-            onClick={handleClose}
-          >
-            <X size={18} aria-hidden="true" />
-          </Button>
-        </div>
+        className="delivery-modal-overlay"
+        aria-hidden="true"
+        onClick={handleClose}
+      />
 
-        {/* Body — scroll area */}
+      {/* Modal positioner — mirrors .hud-modal */}
+      <div className="delivery-modal-positioner">
+        {/* Modal box — mirrors .hud-modal-box glass surface */}
         <div
-          className="flex-1 space-y-3 overflow-y-auto px-6 py-4"
-          style={{ scrollbarWidth: "thin" }}
+          ref={modalRef}
+          className="delivery-modal-box"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={modalId}
+          data-testid="modal--map-delivery"
+          tabIndex={-1}
+          onClick={(e) => e.stopPropagation()}
         >
-          {!hasItems ? (
-            <div
-              className="py-6 text-center text-sm text-muted-foreground"
-              role="status"
+          {/* Header — Gift icon (amber) + title + close button */}
+          <div className="delivery-modal-head">
+            <Gift
+              size={20}
+              aria-hidden="true"
+              style={{ color: "var(--amber)", flexShrink: 0 }}
+            />
+            <span
+              id={modalId}
+              className="delivery-modal-title"
             >
-              {COPY.emptyState}
-            </div>
-          ) : (
-            items.map((item) => (
-              <Card
-                key={item.id}
-                size="sm"
-                className="transition-colors duration-[120ms] hover:bg-muted/50"
-              >
-                <CardContent className="flex items-start gap-3 p-4">
+              {COPY.modalTitle}
+            </span>
+            <button
+              type="button"
+              className="delivery-modal-close"
+              aria-label={COPY.closeAriaLabel}
+              onClick={handleClose}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          {/* Scroll body */}
+          <div className="delivery-modal-body">
+            {!hasItems ? (
+              <div className="delivery-empty" role="status">
+                {COPY.emptyState}
+              </div>
+            ) : (
+              items.map((item) => (
+                <div key={item.id} className="delivery-card">
                   <CheckCircle2
-                    size={20}
+                    size={16}
                     aria-hidden="true"
-                    className="mt-0.5 shrink-0 text-success"
+                    style={{ color: "#5BE9B0", flexShrink: 0, marginTop: 1 }}
                   />
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <p className="text-sm font-semibold leading-snug text-foreground">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="delivery-card-title">
                       {decodeHtmlEntities(item.title)}
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="muted" aria-hidden="true" className="shrink-0">
-                        {item.epic}
-                      </Badge>
+                    <div className="delivery-card-meta">
+                      <span className="delivery-epic-chip">{item.epic}</span>
                       {item.completedAt && (
-                        <span className="tabular-nums text-xs text-muted-foreground">
+                        <span className="delivery-card-date">
                           {formatThaiDate(item.completedAt)}
                         </span>
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                </div>
+              ))
+            )}
+          </div>
 
-        {/* Footer */}
-        <div className="shrink-0 border-t border-border px-6 py-4">
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={handleClose}
-          >
-            {COPY.closeBtn}
-          </Button>
+          {/* Footer */}
+          <div className="delivery-modal-footer">
+            <button
+              type="button"
+              className="delivery-close-btn"
+              onClick={handleClose}
+            >
+              {COPY.closeBtn}
+            </button>
+          </div>
         </div>
       </div>
-    </div>,
+    </>,
     document.body
   );
 }
@@ -356,11 +340,10 @@ export default function DeliveryGift({ epics }: DeliveryGiftProps) {
 
 // ── Scene-scoped CSS (injected into the scene's style block) ─────────────────
 // KEEP: .delivery-gift-wrapper, .gift-indicator, .gift-badge (campfire gift button — unchanged)
-// KEEP: entry animations for modal overlay + box (moved to Tailwind for surface; animations kept)
-// REMOVED: .delivery-modal*, .delivery-story-item (replaced by Tailwind + DS components in CAM-173)
+// CAM-174: .delivery-modal* and .delivery-card* now use scene-glass (hud-modal-box / hud-kc values)
 
 export const DELIVERY_GIFT_CSS = `
-/* ── CAM-171: Gift indicator (campfire button) — unchanged in CAM-173 ── */
+/* ── CAM-171: Gift indicator (campfire button) — unchanged in CAM-174 ── */
 
 /* Wrapper — pointer-events off so agent routes pass through */
 .delivery-gift-wrapper {
@@ -448,10 +431,202 @@ export const DELIVERY_GIFT_CSS = `
   .gift-glow { animation: none; }
 }
 
-/* ── CAM-173: Modal entry animations (surface now uses Tailwind DS tokens) ── */
+/* ── CAM-174: Delivery modal — scene glass (mirrors hud-modal-backdrop + hud-modal-box) ── */
+
+/* Overlay — mirrors .hud-modal-backdrop */
+.delivery-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(4,8,22,.72);
+}
+
+/* Modal positioner — mirrors .hud-modal */
+.delivery-modal-positioner {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+}
+
+/* Modal box — mirrors .hud-modal-box exact values */
+.delivery-modal-box {
+  width: min(520px, 96vw);
+  max-height: min(600px, calc(100svh - 4rem));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(11,30,24,.68);
+  backdrop-filter: saturate(195%) blur(34px);
+  -webkit-backdrop-filter: saturate(195%) blur(34px);
+  border: 1px solid rgba(150,240,195,.13);
+  border-radius: 22px;
+  box-shadow: 0 32px 72px rgba(0,0,0,.64), inset 0 1px 0 rgba(200,255,232,.14);
+  padding: 24px 26px 28px;
+  color: rgba(223,234,245,.9);
+}
+
+/* Modal header */
+.delivery-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+/* Modal title — mirrors .hud-modal-title */
+.delivery-modal-title {
+  flex: 1;
+  font-family: 'Outfit','Anuphan',system-ui,sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #F1F6FB;
+  line-height: 1.25;
+}
+
+/* Close button — mirrors .hud-modal-close */
+.delivery-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  color: rgba(223,234,245,.7);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms;
+}
+.delivery-modal-close:hover { background: rgba(255,255,255,.14); }
+.delivery-modal-close:focus-visible {
+  outline: 2px solid rgba(91,233,176,.8);
+  outline-offset: 2px;
+}
+
+/* Scroll body */
+.delivery-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(91,233,176,.18) transparent;
+}
+.delivery-modal-body::-webkit-scrollbar { width: 4px; }
+.delivery-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(91,233,176,.2);
+  border-radius: 4px;
+}
+
+/* Delivery card — mirrors .hud-kc / .hud-card surface */
+.delivery-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  background: rgba(91,233,176,.05);
+  border: 1px solid rgba(150,240,195,.13);
+  border-radius: 12px;
+  padding: 10px 11px;
+  transition: background 120ms, border-color 120ms;
+}
+.delivery-card:hover {
+  background: rgba(91,233,176,.09);
+  border-color: rgba(150,240,195,.22);
+}
+
+/* Card title — mirrors .hud-card-title / .hud-kt */
+.delivery-card-title {
+  font-size: 12.5px;
+  color: rgba(223,234,245,.88);
+  line-height: 1.35;
+  margin: 0 0 5px;
+}
+
+/* Card meta row */
+.delivery-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Epic chip — mirrors .hud-card-role */
+.delivery-epic-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(91,233,176,.08);
+  border: 1px solid rgba(150,240,195,.15);
+  color: rgba(223,234,245,.55);
+}
+
+/* Date — mirrors .hud-card-id / .hud-bl-id */
+.delivery-card-date {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: rgba(223,234,245,.45);
+}
+
+/* Empty state — mirrors .hud-empty */
+.delivery-empty {
+  font-size: 11.5px;
+  color: rgba(223,234,245,.38);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Footer */
+.delivery-modal-footer {
+  margin-top: 14px;
+  border-top: 1px solid rgba(150,240,195,.09);
+  padding-top: 14px;
+  flex-shrink: 0;
+}
+
+/* Footer close button — mirrors .hud-sb-seeall */
+.delivery-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  width: 100%;
+  min-height: 44px;
+  background: rgba(91,233,176,.08);
+  border: 1px solid rgba(91,233,176,.15);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(91,233,176,.75);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.delivery-close-btn:hover {
+  background: rgba(91,233,176,.15);
+  border-color: rgba(91,233,176,.30);
+}
+.delivery-close-btn:focus-visible {
+  outline: 2px solid rgba(91,233,176,.8);
+  outline-offset: 2px;
+}
+
+/* Entry animations */
 @media (prefers-reduced-motion: no-preference) {
   .delivery-modal-overlay {
-    animation: deliveryFadeIn 160ms ease both;
+    animation: deliveryFadeIn 200ms ease both;
   }
   .delivery-modal-box {
     animation: deliveryModalIn 200ms cubic-bezier(0.23,1,0.32,1) both;
@@ -461,8 +636,8 @@ export const DELIVERY_GIFT_CSS = `
     to   { opacity: 1; }
   }
   @keyframes deliveryModalIn {
-    from { opacity: 0; transform: scale(0.92) translateY(8px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
   }
 }
 `;

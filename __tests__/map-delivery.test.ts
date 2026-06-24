@@ -594,6 +594,9 @@ describe("i18n verbatim — locales/translations.json map.delivery (AC#2)", () =
 // for these structural/a11y/animation properties is source-inspection: we
 // assert that the exact attributes and patterns are present in the source,
 // then complement them with real unit tests on the pure logic above.
+//
+// CAM-174: asserts scene-glass approach (DELIVERY_GIFT_CSS classes + rgba values)
+// instead of CAM-173 DS tokens (bg-popover/Card/Badge/Button).
 
 describe("Source-inspection: delivery-gift.tsx — testids, aria, a11y, portal, animation", () => {
   const src = fs.readFileSync(
@@ -644,9 +647,14 @@ describe("Source-inspection: delivery-gift.tsx — testids, aria, a11y, portal, 
     expect(src).toContain("if (unseenCount === 0) return null;");
   });
 
-  // a11y: close button uses 44×44px (CAM-173 — now Button size="icon" = size-11 = 44px)
-  it("[a11y] close button uses Button size=\"icon\" (44×44px via size-11 Tailwind class)", () => {
-    expect(src).toContain('size="icon"');
+  // CAM-174: a11y — close button uses scene-glass .delivery-modal-close (44×44px via CSS)
+  it("[a11y][CAM-174] close button uses .delivery-modal-close class (44px via scene CSS)", () => {
+    expect(src).toContain('className="delivery-modal-close"');
+    // DELIVERY_GIFT_CSS must define the 44px tap target
+    expect(src).toContain(".delivery-modal-close");
+    expect(src).toContain("width: 44px");
+    expect(src).toContain("height: 44px");
+    expect(src).toContain("min-width: 44px");
   });
 
   it("[a11y] DELIVERY_GIFT_CSS retains gift-indicator CSS with 44px tap target", () => {
@@ -708,6 +716,118 @@ describe("Source-inspection: delivery-gift.tsx — testids, aria, a11y, portal, 
   // Badge: 9+ cap on badge label
   it("[boundary] badge displays '9+' when unseenCount > 9", () => {
     expect(src).toContain('unseenCount > 9 ? "9+" : String(unseenCount)');
+  });
+
+  // ── CAM-174: Scene-glass assertions (replaces CAM-173 DS token assertions) ──
+
+  it("[CAM-174][design] modal overlay uses scene scrim rgba(4,8,22,.72) — not app DS backdrop", () => {
+    expect(src).toContain("rgba(4,8,22,.72)");
+    // Negative: no Tailwind DS backdrop token inside modal overlay
+    expect(src).not.toContain("bg-foreground/15");
+    expect(src).not.toContain("supports-[backdrop-filter]:backdrop-blur-sm");
+  });
+
+  it("[CAM-174][design] modal box uses hud-modal-box glass: rgba(11,30,24,.68) background", () => {
+    expect(src).toContain("rgba(11,30,24,.68)");
+  });
+
+  it("[CAM-174][design] modal box uses hud-modal-box blur: saturate(195%) blur(34px)", () => {
+    expect(src).toContain("saturate(195%) blur(34px)");
+  });
+
+  it("[CAM-174][design] modal box uses hud-modal-box border: rgba(150,240,195,.13)", () => {
+    expect(src).toContain("rgba(150,240,195,.13)");
+  });
+
+  it("[CAM-174][design] modal box uses hud-modal-box border-radius: 22px", () => {
+    expect(src).toContain("border-radius: 22px");
+  });
+
+  it("[CAM-174][design] modal box uses hud-modal-box shadow: rgba(0,0,0,.64)", () => {
+    expect(src).toContain("rgba(0,0,0,.64)");
+    expect(src).toContain("inset 0 1px 0 rgba(200,255,232,.14)");
+  });
+
+  it("[CAM-174][design] delivery card uses hud-kc glass: rgba(91,233,176,.05) background", () => {
+    expect(src).toContain("rgba(91,233,176,.05)");
+  });
+
+  it("[CAM-174][design] delivery card class .delivery-card is defined in DELIVERY_GIFT_CSS", () => {
+    expect(src).toContain(".delivery-card");
+    expect(src).toContain('className="delivery-card"');
+  });
+
+  it("[CAM-174][design] epic chip uses .delivery-epic-chip class (mirrors hud-card-role)", () => {
+    expect(src).toContain(".delivery-epic-chip");
+    expect(src).toContain('className="delivery-epic-chip"');
+    // Mirrors hud-card-role values
+    expect(src).toContain("rgba(91,233,176,.08)");
+    expect(src).toContain("rgba(223,234,245,.55)");
+  });
+
+  it("[CAM-174][design] CheckCircle2 uses teal #5BE9B0 (not text-success DS class)", () => {
+    expect(src).toContain("#5BE9B0");
+    expect(src).toContain("CheckCircle2");
+    // Negative: no DS text-success class
+    expect(src).not.toContain("text-success");
+  });
+
+  it("[CAM-174][design] date uses .delivery-card-date with mono font var(--mono)", () => {
+    expect(src).toContain(".delivery-card-date");
+    expect(src).toContain("font-family: var(--mono)");
+    expect(src).toContain("rgba(223,234,245,.45)");
+  });
+
+  it("[CAM-174][design] card title uses .delivery-card-title (rgba(223,234,245,.88), 12.5px)", () => {
+    expect(src).toContain(".delivery-card-title");
+    expect(src).toContain("rgba(223,234,245,.88)");
+    expect(src).toContain("12.5px");
+  });
+
+  it("[CAM-174][design] footer close button uses .delivery-close-btn (mirrors hud-sb-seeall)", () => {
+    expect(src).toContain(".delivery-close-btn");
+    expect(src).toContain('className="delivery-close-btn"');
+    expect(src).toContain("rgba(91,233,176,.08)");
+    expect(src).toContain("rgba(91,233,176,.75)");
+  });
+
+  it("[CAM-174][design] empty state uses .delivery-empty class (mirrors hud-empty)", () => {
+    expect(src).toContain(".delivery-empty");
+    expect(src).toContain("rgba(223,234,245,.38)");
+  });
+
+  it("[CAM-174][no-DS] no main-DS modal tokens in source (bg-popover, rounded-3xl, shadow-2xl, ring-foreground)", () => {
+    expect(src).not.toContain("bg-popover");
+    expect(src).not.toContain("rounded-3xl");
+    expect(src).not.toContain("shadow-2xl");
+    expect(src).not.toContain("ring-foreground");
+  });
+
+  it("[CAM-174][no-DS] no Card/CardContent/Badge imports (DS primitives removed)", () => {
+    expect(src).not.toContain('from "@/components/ui/card"');
+    expect(src).not.toContain('from "@/components/ui/badge"');
+    expect(src).not.toContain("<Card");
+    expect(src).not.toContain("<Badge");
+  });
+
+  it("[CAM-174][no-DS] no Button DS import used inside modal", () => {
+    // Button from DS is removed; close buttons use scene CSS classes
+    expect(src).not.toContain('from "@/components/ui/button"');
+  });
+
+  it("[CAM-174][a11y] modal overlay entry animation guards prefers-reduced-motion: no-preference", () => {
+    // Both overlay + box should animate
+    expect(src).toContain("deliveryFadeIn");
+    expect(src).toContain("deliveryModalIn");
+  });
+
+  it("[CAM-174][a11y] modal title font uses Outfit/Anuphan (hud-modal-title pattern)", () => {
+    expect(src).toContain("'Outfit','Anuphan',system-ui,sans-serif");
+  });
+
+  it("[CAM-174][design] Gift icon uses var(--amber) color (not Tailwind text-warning)", () => {
+    expect(src).toContain("var(--amber)");
+    expect(src).not.toContain("text-warning");
   });
 });
 
