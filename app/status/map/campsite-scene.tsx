@@ -134,15 +134,15 @@ const SPEED_VAR = [0.95, 1.05, 1.00, 1.10, 0.90, 1.08, 0.92];
 // on open dirt; furniture (tents/tables/board) is backdrop only, not occupied.
 // You stays at the dock (upper-left). Walk routes stay on open dirt.
 export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
-  "architect":          { x: 50, y: 38 },
-  "ux-designer":        { x: 60, y: 43 },
-  "backend-engineer":   { x: 63, y: 52 },
-  "frontend-engineer":  { x: 59, y: 61 },
-  "devops-release":     { x: 41, y: 61 },
-  "qa-engineer":        { x: 37, y: 52 },
-  "security-reviewer":  { x: 41, y: 43 },
+  "architect":          { x: 50, y: 46 },
+  "ux-designer":        { x: 60, y: 51 },
+  "backend-engineer":   { x: 63, y: 60 },
+  "frontend-engineer":  { x: 59, y: 69 },
+  "devops-release":     { x: 41, y: 69 },
+  "qa-engineer":        { x: 37, y: 60 },
+  "security-reviewer":  { x: 41, y: 51 },
 };
-export const YOU_POS_WIDE = { x: 38, y: 23 };
+export const YOU_POS_WIDE = { x: 38, y: 31 };
 
 // Single-layout model: the decoupled fixed play area uses ONE ring on every
 // screen (narrow simply crops at the edges — no reflow). Narrow aliases the one
