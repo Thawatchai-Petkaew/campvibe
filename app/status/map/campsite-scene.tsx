@@ -253,6 +253,21 @@ const SCENE_CSS = `
   container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
+/* Ambient sound toggle — fixed glass button (top-right), matches the HUD pill. */
+.sound-toggle{
+  position:fixed;top:18px;right:18px;z-index:22;
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,.16);border-radius:999px;
+  background:rgba(16,26,42,.62);
+  backdrop-filter:saturate(150%) blur(18px);-webkit-backdrop-filter:saturate(150%) blur(18px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32);
+  color:rgba(223,234,245,.66);cursor:pointer;
+  transition:background 120ms,color 120ms,border-color 120ms;
+}
+.sound-toggle:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.95)}
+.sound-toggle:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.sound-toggle.on{color:#5BE9B0;border-color:rgba(91,233,176,.4);background:rgba(91,233,176,.12)}
+.sound-toggle svg{width:20px;height:20px;display:block}
 .scout{position:absolute;--bh:calc(var(--scout-size)*0.9);transform:translate(-50%,-100%)}
 .scout .glow{
   position:absolute;left:50%;bottom:5%;transform:translateX(-50%);
@@ -651,6 +666,98 @@ function DebugGrid() {
         </div>
       ))}
     </div>
+  );
+}
+
+// ── Ambient sound toggle ─────────────────────────────────────────────────────
+// A small glass button (top-right) that loops the campfire/wildlife ambience.
+// Browser autoplay policy: audio with sound only starts inside a user gesture, so
+// the default is OFF and the toggle click IS the gesture. The preference persists
+// in localStorage; on reload, if it was ON we try to resume and otherwise start on
+// the next interaction (no surprise audio, never throws).
+const SOUND_KEY = "campvibe.map.sound";
+const SOUND_SRC = "/status-map/campfire-wildlife-ambience.mp3";
+const SOUND_VOL = 0.35;
+
+function SoundToggle() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    let want = false;
+    try {
+      want = localStorage.getItem(SOUND_KEY) === "on";
+    } catch {
+      /* localStorage unavailable */
+    }
+    const a = audioRef.current;
+    if (!want || !a) return;
+    setOn(true);
+    a.volume = SOUND_VOL;
+    a.play().catch(() => {
+      // Autoplay blocked until a user gesture — resume on the next interaction.
+      const resume = () => a.play().catch(() => undefined);
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+    });
+  }, []);
+
+  const toggle = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    setOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+      } catch {
+        /* localStorage unavailable */
+      }
+      if (next) {
+        a.volume = SOUND_VOL;
+        a.play().catch(() => undefined);
+      } else {
+        a.pause();
+      }
+      return next;
+    });
+  }, []);
+
+  const label = on ? "ปิดเสียงบรรยากาศ" : "เปิดเสียงบรรยากาศ";
+  return (
+    <>
+      <audio ref={audioRef} src={SOUND_SRC} loop preload="none" aria-hidden="true" />
+      <button
+        type="button"
+        className={on ? "sound-toggle on" : "sound-toggle"}
+        onClick={toggle}
+        aria-pressed={on}
+        aria-label={label}
+        title={label}
+        data-testid="btn--map-sound-toggle"
+      >
+        {on ? (
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor" />
+            <path
+              d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8 8 0 0 1 0 12"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor" />
+            <path
+              d="m16 9 5 6M21 9l-5 6"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </button>
+    </>
   );
 }
 
@@ -1129,6 +1236,9 @@ export default function CampsiteScene({
       {/* CAM-159: View toggle moved to top-center (pill, not corner). Real anchor links.
           position:fixed sibling — NOT inside .map-viewport so it never scales. */}
       <ViewToggle dashboardHref={dashboardHref} />
+
+      {/* Ambient campfire/wildlife sound — on/off glass button (top-right). */}
+      <SoundToggle />
 
       {/* S4/S5 Overlays — scope-aware: Overview mode or Epic mode.
           position:fixed siblings — NOT inside .map-viewport so they never scale. */}
