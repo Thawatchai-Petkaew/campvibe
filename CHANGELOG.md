@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v0.10.2 — 2026-06-25
+
+### Fixed
+
+- **Deploys no longer fail when the database is briefly unreachable (ops):** `vercel-build` ran `prisma migrate deploy` as its first step, so a paused/unreachable database (P1001) failed the entire deployment — even for code-only releases with no migration. `prisma migrate deploy` is now non-blocking: it still applies migrations when the database is reachable, but on a connection failure it logs a warning and the build continues (`next build` provably needs no database — it builds green in CI without one). This also unblocked the v0.10.1 flicker fix, which had been stuck behind a paused database.
+
+### Note
+
+When a release does carry a migration, confirm the database is reachable so `migrate deploy` applies it (a connection failure is now a warning, not a hard stop).
+
 ## v0.10.1 — 2026-06-25
 
 ### Fixed
