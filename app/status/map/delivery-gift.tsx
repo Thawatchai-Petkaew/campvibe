@@ -349,8 +349,8 @@ export const DELIVERY_GIFT_CSS = `
 .delivery-gift-wrapper {
   position: absolute;
   left: 50%;
-  top: 44%;
-  z-index: 25;
+  top: 48%;
+  z-index: 1300;
   pointer-events: none;
 }
 
