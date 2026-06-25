@@ -432,7 +432,45 @@ const SCENE_CSS = `
   .rm-label-status.amber{color:var(--amber);border-color:rgba(255,180,84,.4);}
 }
 /* S4: map-stat-bar replaced by Delivery chip overlay */
-`;
+
+/* ── CAM-181: Firefly layer ──────────────────────────────────────────────────
+   Decorative ambient layer: 12 fireflies blink out of sync across the
+   tree-line and clearing edges.
+
+   z-index 35 places the layer in front of .scout-layer (z-index 30) —
+   pointer-events:none so all clicks pass through to agents underneath.
+   aria-hidden on both the layer and each dot (purely decorative).
+
+   Keep-out zones (no firefly placed there):
+     - Campfire / gift zone: x 43–57 %, y 46–60 %
+     - HUD corner guard bands: y 0–7 % (topbar row)
+
+   Reduced-motion:
+     Default (no animation fallback): static faint dots at opacity:0.3
+     @media (prefers-reduced-motion: no-preference): full twinkle animation
+*/
+.firefly-layer{
+  position:absolute;inset:0;pointer-events:none;z-index:35;overflow:hidden;
+}
+.firefly{
+  position:absolute;
+  width:3px;height:3px;border-radius:9999px;
+  background:#FFB454;
+  box-shadow:0 0 6px 1px rgba(255,180,84,.7);
+  pointer-events:none;
+  /* Default: faint static dot (prefers-reduced-motion:reduce fallback) */
+  opacity:0.3;
+}
+@media (prefers-reduced-motion: no-preference){
+  @keyframes fireflyTwinkle{
+    0%,100%{opacity:0}
+    50%{opacity:0.9}
+  }
+  .firefly{
+    opacity:0;
+    animation:fireflyTwinkle var(--ff-dur,3.5s) ease-in-out var(--ff-delay,0s) infinite;
+  }
+}`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -1575,6 +1613,41 @@ export default function CampsiteScene({
                 />
               );
             })}
+          </div>
+          {/* CAM-181: Firefly decorative layer — 12 amber dots blink out of sync.
+              z-index 35 = in front of .scout-layer (z-index 30), click-through.
+              Keep-out: campfire/gift zone (x 43–57 %, y 46–60 %),
+              topbar row (y 0–7 %), right-panel corner (x > 82 %, y < 18 %),
+              left-panel corner (x < 10 %, y < 18 %). */}
+          <div
+            className="firefly-layer"
+            aria-hidden="true"
+            data-testid="layer--map-fireflies"
+          >
+            {/* ff-1: upper-left tree area */}
+            <span className="firefly" aria-hidden="true" style={{ left: "14%", top: "12%", ["--ff-dur" as string]: "3.2s", ["--ff-delay" as string]: "0s" }} />
+            {/* ff-2: left mid-forest */}
+            <span className="firefly" aria-hidden="true" style={{ left: "24%", top: "24%", ["--ff-dur" as string]: "4.1s", ["--ff-delay" as string]: "0.7s" }} />
+            {/* ff-3: upper-right tree canopy */}
+            <span className="firefly" aria-hidden="true" style={{ left: "68%", top: "9%", ["--ff-dur" as string]: "2.8s", ["--ff-delay" as string]: "1.4s" }} />
+            {/* ff-4: right mid-forest */}
+            <span className="firefly" aria-hidden="true" style={{ left: "78%", top: "27%", ["--ff-dur" as string]: "5.0s", ["--ff-delay" as string]: "0.3s" }} />
+            {/* ff-5: right clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "82%", top: "48%", ["--ff-dur" as string]: "3.6s", ["--ff-delay" as string]: "2.1s" }} />
+            {/* ff-6: left clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "22%", top: "55%", ["--ff-dur" as string]: "4.4s", ["--ff-delay" as string]: "0.9s" }} />
+            {/* ff-7: upper-centre tree line */}
+            <span className="firefly" aria-hidden="true" style={{ left: "41%", top: "16%", ["--ff-dur" as string]: "2.9s", ["--ff-delay" as string]: "1.7s" }} />
+            {/* ff-8: lower-right, near agents but outside keep-out */}
+            <span className="firefly" aria-hidden="true" style={{ left: "71%", top: "64%", ["--ff-dur" as string]: "3.8s", ["--ff-delay" as string]: "0.5s" }} />
+            {/* ff-9: far-left mid-clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "11%", top: "39%", ["--ff-dur" as string]: "4.7s", ["--ff-delay" as string]: "1.2s" }} />
+            {/* ff-10: upper-far-right */}
+            <span className="firefly" aria-hidden="true" style={{ left: "88%", top: "18%", ["--ff-dur" as string]: "3.3s", ["--ff-delay" as string]: "1.9s" }} />
+            {/* ff-11: lower-left clearing edge (y 68 % = below campfire keep-out) */}
+            <span className="firefly" aria-hidden="true" style={{ left: "31%", top: "68%", ["--ff-dur" as string]: "4.9s", ["--ff-delay" as string]: "0.1s" }} />
+            {/* ff-12: mid-right, between tree line and agents */}
+            <span className="firefly" aria-hidden="true" style={{ left: "59%", top: "33%", ["--ff-dur" as string]: "3.5s", ["--ff-delay" as string]: "1.5s" }} />
           </div>
         </div>
       </div>
