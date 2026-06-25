@@ -5,6 +5,8 @@ import { requireCampSiteOwnership } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
+import { auth } from '@/lib/auth';
+import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +16,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!campSite) {
       return apiError('Campground not found', 404);
+    }
+
+    // SEC-1: gate non-public campsites. Auth is lazy — only called when the camp
+    // is not public so the hot path (public camp) pays zero auth overhead.
+    if (!isCampSitePublic(campSite)) {
+      const session = await auth();
+      if (!canViewCampSite(campSite, session)) {
+        // 404 not 403 — no information-disclosure (don't confirm the camp exists).
+        return apiError('Campground not found', 404);
+      }
     }
 
     return apiSuccess(campSite);
