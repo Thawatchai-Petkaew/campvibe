@@ -27,6 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BellRing } from "lucide-react";
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
@@ -364,11 +365,9 @@ const SCENE_CSS = `
   @keyframes pdot2{0%,100%{box-shadow:0 0 4px 0 var(--aura);opacity:1}50%{box-shadow:0 0 9px 2px var(--aura);opacity:.7}}
   @keyframes badgeGlow{0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.32),0 0 5px 0 var(--auraGlow)}50%{box-shadow:0 6px 16px rgba(0,0,0,.32),0 0 13px 2px var(--auraGlow)}}
   @keyframes alertPulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
-  @keyframes pdot3{0%{box-shadow:0 0 0 0 rgba(122,59,0,.6)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
   .scout.working .badge{animation:badgeGlow 1.3s ease-in-out infinite}
   .scout.working .badge .bdot{animation:pdot2 1.6s ease-in-out infinite}
   .you-alert{animation:alertPulse 1.9s ease-in-out infinite}
-  .you-alert .adot{animation:pdot3 1.3s infinite}
 }
 .badge{
   position:absolute;left:50%;bottom:calc(var(--bh) + 4px);transform:translateX(-50%);
@@ -388,14 +387,15 @@ const SCENE_CSS = `
 .scout.working .badge{border-color:var(--aura)}
 .you-alert{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%);
-  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:9;cursor:pointer;
-  font-size:11px;font-weight:700;color:#241402;
-  background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1px solid rgba(255,207,134,.7);
-  border-radius:11px;padding:5px 11px;box-shadow:0 8px 22px -3px var(--amber-glow);
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;z-index:9;cursor:pointer;
+  font-size:13px;font-weight:700;color:#241402;
+  background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1.5px solid rgba(255,220,130,.75);
+  border-radius:13px;padding:7px 14px;
+  box-shadow:0 0 0 1.5px rgba(255,180,84,.55),0 10px 28px -4px rgba(255,150,52,.7);
   font-family:inherit;min-height:44px;min-width:44px;
 }
 .you-alert:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px;}
-.you-alert .adot{width:7px;height:7px;border-radius:50%;background:#7a3b00;flex:none}
+.you-alert svg{width:15px;height:15px;flex:none}
 .you-alert::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#ff9d3c}
 .popover{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%) translateY(6px);
@@ -658,15 +658,15 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
           className="you-alert"
           aria-hidden="true"
         >
-          <span className="adot" aria-hidden="true" />
-          <span>&#9873;{gates.length} รอตรวจสอบ</span>
+          <BellRing size={15} strokeWidth={2} aria-hidden="true" />
+          <span>{gates.length} รอตรวจสอบ</span>
         </span>
       )}
 
       <div className="popover" role="tooltip">
         <div className="pop-name">คุณ</div>
         <div className="pop-hint" style={{ marginTop: 0 }}>
-          {hasGates ? `${gates.length} gate รอการอนุมัติ — กดปุ่ม ⚑` : "ไม่มี gate รอ"}
+          {hasGates ? `${gates.length} gate รอการอนุมัติ — กดเพื่อดูรายละเอียด` : "ไม่มี gate รอ"}
         </div>
       </div>
     </button>

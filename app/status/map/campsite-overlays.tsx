@@ -29,7 +29,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Globe, Inbox, Layers, Monitor, Server, ShieldCheck, Trophy, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Globe, Inbox, Layers, Monitor, Server, ShieldCheck, Trophy, X } from "lucide-react";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -698,18 +698,34 @@ export const HUD_CSS = `
 .hud-dlv-mini{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 14px 12px;font-size:12px;font-weight:600;color:rgba(223,234,245,.7)}
 .hud-dlv-mini-val{color:#5BE9B0;font-size:13px;font-weight:700}
 /* ── Approval card ── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes apprCardGlow {
+    0%,100% { box-shadow:0 10px 32px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,220,130,.14),inset 0 0 0 1px rgba(255,190,80,.08); border-color:rgba(255,190,80,.32); }
+    50%      { box-shadow:0 10px 32px rgba(0,0,0,.44),0 0 18px rgba(255,160,52,.22),inset 0 1px 0 rgba(255,220,130,.22),inset 0 0 0 1px rgba(255,190,80,.16); border-color:rgba(255,190,80,.52); }
+  }
+}
 .hud-appr-card{
   width:220px;border-radius:18px;overflow:hidden;
-  border:1px solid rgba(255,190,80,.18);
+  border:1.5px solid rgba(255,190,80,.32);
   background:rgba(11,30,24,.60);
   backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,220,130,.08);
+  box-shadow:0 10px 32px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,220,130,.14),inset 0 0 0 1px rgba(255,190,80,.08);
+  position:relative;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hud-appr-card{animation:apprCardGlow 2.8s ease-in-out infinite}
 }
 .hud-appr-head{
   display:flex;align-items:center;gap:7px;justify-content:space-between;
   padding:11px 14px 0;
+  position:relative;
 }
-.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,190,80,.7)}
+.hud-appr-head::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,rgba(255,180,84,0),rgba(255,180,84,.6),rgba(255,180,84,0));
+  border-radius:18px 18px 0 0;
+}
+.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,190,80,.7)}
 .hud-appr-mini{
   display:flex;align-items:center;justify-content:space-between;
   padding:6px 14px 12px;
@@ -718,14 +734,14 @@ export const HUD_CSS = `
 .hud-appr-mini-label{display:flex;align-items:center;gap:6px;color:rgba(255,190,80,.85)}
 .hud-appr-body{padding:6px 14px 12px;display:flex;flex-direction:column;gap:4px}
 .hud-appr-item{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;
-  background:rgba(255,190,80,.06);border:1px solid rgba(255,190,80,.12);
+  display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:11px;
+  background:rgba(255,190,80,.09);border:1px solid rgba(255,190,80,.18);
 }
 .hud-appr-badge{
-  flex:none;padding:2px 7px;border-radius:99px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
-  background:rgba(255,190,80,.2);color:rgba(255,200,80,.9);
+  flex:none;padding:3px 8px;border-radius:99px;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  background:rgba(255,190,80,.28);color:rgba(255,210,80,.95);
 }
-.hud-appr-title{flex:1;min-width:0;font-size:11.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-appr-title{flex:1;min-width:0;font-size:12.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hud-appr-link{
   flex:none;display:inline-flex;align-items:center;
   color:rgba(223,234,245,.35);transition:color 110ms;
@@ -733,12 +749,14 @@ export const HUD_CSS = `
 .hud-appr-link:hover{color:rgba(91,233,176,.8)}
 .hud-appr-btn{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  margin:4px 0 0;padding:9px 14px;border-radius:12px;
-  background:rgba(255,190,80,.12);border:1px solid rgba(255,190,80,.2);
-  font-size:12px;font-weight:700;color:rgba(255,200,80,.9);
-  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
+  margin:4px 0 0;padding:11px 14px;border-radius:13px;min-height:44px;
+  background:rgba(255,190,80,.18);border:1.5px solid rgba(255,190,80,.32);
+  box-shadow:inset 0 1px 0 rgba(255,220,130,.18);
+  font-size:12.5px;font-weight:700;color:rgba(255,200,80,.9);
+  cursor:pointer;transition:background 120ms,border-color 120ms,box-shadow 120ms;width:100%;
 }
-.hud-appr-btn:hover{background:rgba(255,190,80,.2);border-color:rgba(255,190,80,.36)}
+.hud-appr-btn:hover{background:rgba(255,190,80,.26);border-color:rgba(255,190,80,.50);box-shadow:0 0 10px rgba(255,160,52,.2),inset 0 1px 0 rgba(255,220,130,.22)}
+.hud-appr-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 .hud-appr-collapse{
   display:flex;align-items:center;justify-content:center;
   width:26px;height:26px;border-radius:8px;border:none;
@@ -2083,17 +2101,17 @@ export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCar
       <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
         <div className="hud-appr-head">
           <span className="hud-appr-heading">
-            <AlertTriangle size={12} strokeWidth={2} />
+            <ClipboardCheck size={13} strokeWidth={2} aria-hidden="true" />
             รออนุมัติ
           </span>
           <ChevronToggle collapsed onClick={onToggle} label="ขยายรออนุมัติ" />
         </div>
         <div className="hud-appr-mini">
           <span className="hud-appr-mini-label">
-            <AlertTriangle size={11} strokeWidth={2} />
+            <ClipboardCheck size={12} strokeWidth={2} aria-hidden="true" />
             {count} รายการรออนุมัติ
           </span>
-          <button type="button" className="hud-appr-btn" style={{ width: "auto", padding: "5px 12px", margin: 0, fontSize: "11px" }} onClick={onOpen}>
+          <button type="button" className="hud-appr-btn" style={{ width: "auto", padding: "8px 14px", margin: 0, fontSize: "11px", minHeight: "36px" }} onClick={onOpen}>
             ดู
           </button>
         </div>
@@ -2105,7 +2123,7 @@ export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCar
     <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
       <div className="hud-appr-head">
         <span className="hud-appr-heading">
-          <AlertTriangle size={12} strokeWidth={2} />
+          <ClipboardCheck size={13} strokeWidth={2} aria-hidden="true" />
           รออนุมัติ {count} รายการ
         </span>
         <ChevronToggle collapsed={false} onClick={onToggle} label="ย่อรออนุมัติ" />
@@ -2121,7 +2139,7 @@ export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCar
           </div>
         ))}
         <button type="button" className="hud-appr-btn" onClick={onOpen}>
-          <AlertTriangle size={12} strokeWidth={2} />
+          <ClipboardCheck size={14} strokeWidth={2} aria-hidden="true" />
           ดูและอนุมัติทั้งหมด
         </button>
       </div>
