@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v0.10.1 — 2026-06-25
+
+### Fixed
+
+- **Walking-agent flicker on /status/map, fully resolved (follow-up to CAM-176):** Agent position is owned by the animation engine (imperative per-frame DOM writes), but the React component also declared `left/top/zIndex` in its inline style — so every genuine live-feed update (a change to an agent's counts, activity, or task) re-applied the static home position and snapped a walking agent back home for one paint frame. Removed the three position properties from the React style prop so the engine is the sole owner of position; the first-paint position is now seeded once imperatively in the `rootRef` callback. v0.10.0's CAM-176 fix only covered no-op polls (identical payloads); this covers real data updates, which is the case that was still flickering. 10 regression tests guard the contract (re-adding position to the style prop turns them red).
+
+### No schema change
+
+No Prisma schema or database migration in this release. Frontend only.
+
+### Rollback
+
+Revert the merge commit on `main` via PR (UI-only change, no migration — trivially reversible), or redeploy the previous prod deployment.
+
 ## v0.10.0 — 2026-06-25
 
 ### /status/map delivery dashboard — gift, board accuracy, freshness
