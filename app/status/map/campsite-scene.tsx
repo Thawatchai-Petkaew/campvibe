@@ -28,7 +28,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BellRing } from "lucide-react";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
 import { payloadChanged } from "@/lib/status-map-model";
@@ -373,7 +373,7 @@ const SCENE_CSS = `
   position:absolute;left:50%;bottom:calc(var(--bh) + 4px);transform:translateX(-50%);
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:7;
   background:rgba(11,30,24,.46);backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
-  border:1px solid rgba(150,240,195,.13);border-radius:999px;padding:4px 9px;
+  border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:4px 9px;
   box-shadow:0 6px 16px rgba(0,0,0,.32)
 }
 .badge .bdot{width:7px;height:7px;border-radius:50%;flex:none;background:rgba(190,202,218,.4)}
@@ -387,28 +387,30 @@ const SCENE_CSS = `
 .scout.working .badge{border-color:var(--aura)}
 .you-alert{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%);
-  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;z-index:9;cursor:pointer;
-  font-size:13px;font-weight:700;color:#241402;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:9;cursor:pointer;
+  font-size:12px;font-weight:700;color:#241402;
   background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1.5px solid rgba(255,220,130,.75);
-  border-radius:13px;padding:7px 14px;
+  border-radius:12px;padding:5px 11px;
   box-shadow:0 0 0 1.5px rgba(255,180,84,.55),0 10px 28px -4px rgba(255,150,52,.7);
   font-family:inherit;min-height:44px;min-width:44px;
 }
 .you-alert:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px;}
-.you-alert svg{width:15px;height:15px;flex:none}
+.you-alert svg{width:13px;height:13px;flex:none}
+/* suppress popover when a gate is pending — prevents overlap with the notification */
+.scout.has-gate .popover{display:none;pointer-events:none}
 .you-alert::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#ff9d3c}
 .popover{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%) translateY(6px);
   width:194px;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:12;
   background:rgba(10,28,20,.80);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
-  border:1px solid var(--line-2);border-radius:13px;padding:11px 12px;
+  border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:11px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.46)
 }
 .scout:hover .popover,.scout:focus-visible .popover{opacity:1;transform:translateX(-50%) translateY(0)}
 .pop-name{font-weight:600;font-size:13px}
 .pop-role{
   display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
-  padding:2px 8px;border-radius:999px;margin-top:6px;border:1px solid var(--line)
+  padding:2px 8px;border-radius:999px;margin-top:6px;border:1px solid rgba(255,255,255,.08)
 }
 .pop-task{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4}
 .pop-task .pid{font-family:var(--mono);color:var(--text)}
@@ -598,11 +600,12 @@ const AgentScout = memo(AgentScoutInner, (prev, next) =>
 interface YouScoutProps {
   gates: MapGate[];
   onOpenGates: () => void;
+  onOpenFirstGate: () => void;
   /** CAM-161: current layout's You position (% of 1920×1080 canvas) */
   youPos: { x: number; y: number };
 }
 
-function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
+function YouScout({ gates, onOpenGates, onOpenFirstGate, youPos }: YouScoutProps) {
   const zIndex = Math.round(youPos.y * 12) + 5;
   const hasGates = gates.length > 0;
 
@@ -614,7 +617,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
     // S7: You is a button too — comes first in the DOM so tab order reaches You first
     <button
       type="button"
-      className="scout you idle"
+      className={`scout you idle${hasGates ? " has-gate" : ""}`}
       style={{
         left:   `${youPos.x}%`,
         top:    `${youPos.y}%`,
@@ -654,13 +657,16 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
       </div>
 
       {hasGates && (
-        <span
+        <button
+          type="button"
           className="you-alert"
-          aria-hidden="true"
+          aria-label={`${gates.length} gate รอตรวจสอบ — กดเพื่อดูรายละเอียด`}
+          onClick={(e) => { e.stopPropagation(); onOpenFirstGate(); }}
+          data-testid="btn--map-you-alert"
         >
-          <BellRing size={15} strokeWidth={2} aria-hidden="true" />
+          <BellRing size={13} strokeWidth={2} aria-hidden="true" />
           <span>{gates.length} รอตรวจสอบ</span>
-        </span>
+        </button>
       )}
 
       <div className="popover" role="tooltip">
@@ -1082,6 +1088,10 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // CAM-184: GateDetailModal state
+  const [gateDetailId, setGateDetailId] = useState<string>("");
+  const [gateDetailOpen, setGateDetailOpen] = useState(false);
+  const gateDetailTriggerRef = useRef<HTMLElement | null>(null);
   // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
   // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
   // the very first poll of an unchanged board is already a no-op.
@@ -1587,6 +1597,13 @@ export default function CampsiteScene({
             <YouScout
               gates={gates}
               onOpenGates={() => setApprovalCollapsed(false)}
+              onOpenFirstGate={() => {
+                if (gates.length > 0) {
+                  setGateDetailId(gates[0].id);
+                  gateDetailTriggerRef.current = document.querySelector('[data-testid="btn--map-you-alert"]');
+                  setGateDetailOpen(true);
+                }
+              }}
               youPos={youPos}
             />
             {agents.map((agent) => {
@@ -1717,6 +1734,11 @@ export default function CampsiteScene({
             collapsed={approvalCollapsed}
             onToggle={() => setApprovalCollapsed((v) => !v)}
             onOpen={() => setApprovalCollapsed(false)}
+            token={token}
+            onOpenDetail={(id) => {
+              setGateDetailId(id);
+              setGateDetailOpen(true);
+            }}
           />
         )}
         <TeamRoster
@@ -1740,6 +1762,21 @@ export default function CampsiteScene({
           <StatusBoardHint />
         )}
       </div>
+
+      {/* CAM-184: Gate detail modal — portal, rendered at root of scene */}
+      {gateDetailOpen && gateDetailId && (
+        <GateDetailModal
+          gateId={gateDetailId}
+          gateUrl={gates.find((g) => g.id === gateDetailId)?.url ?? ""}
+          token={token}
+          triggerRef={gateDetailTriggerRef}
+          isOpen={gateDetailOpen}
+          onClose={() => setGateDetailOpen(false)}
+          onApproved={() => {
+            setGateDetailOpen(false);
+          }}
+        />
+      )}
 
     </div>
   );
