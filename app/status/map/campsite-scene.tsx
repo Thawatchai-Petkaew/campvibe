@@ -441,15 +441,11 @@ interface AgentScoutProps {
   bodyRef: (el: HTMLElement | null) => void;
   rootRef: (el: HTMLElement | null) => void;
   speechRef: (el: HTMLElement | null) => void;
-  /** Inline position used as static fallback (reduced-motion / pre-engine) */
-  staticLeft: string;
-  staticTop:  string;
-  staticZ:    number;
   onActivate: () => void;
 }
 
 function AgentScoutInner({
-  agent, bodyRef, rootRef, speechRef, staticLeft, staticTop, staticZ, onActivate,
+  agent, bodyRef, rootRef, speechRef, onActivate,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
@@ -480,9 +476,12 @@ function AgentScoutInner({
       type="button"
       className={`scout ${stateClass}`}
       style={{
-        left: staticLeft,
-        top:  staticTop,
-        zIndex: staticZ,
+        // Position is engine-owned (imperative per-frame via place()). Do NOT set
+        // left/top/zIndex here — React re-applying them on every feed update would
+        // warp a walking agent back to home for one paint frame (flicker).
+        // The initial position is seeded imperatively in the rootRef callback at the
+        // render site so there is no unpositioned flash before the engine effect runs.
+
         // Reset button default styles; all visual styling is via .scout CSS
         background: "none",
         border: "none",
@@ -1558,10 +1557,18 @@ export default function CampsiteScene({
                 <AgentScout
                   key={agent.role}
                   agent={agent}
-                  staticLeft={pos.left}
-                  staticTop={pos.top}
-                  staticZ={pos.zIndex}
-                  rootRef={(el) => { rootRefs.current[agent.role] = el; }}
+                  rootRef={(el) => {
+                    rootRefs.current[agent.role] = el;
+                    // Seed the first-paint position imperatively so there is no
+                    // unpositioned flash before the engine effect runs. The engine
+                    // owns position after mount; React never writes left/top/zIndex
+                    // again (they are not in the component's style prop).
+                    if (el) {
+                      el.style.left   = pos.left;
+                      el.style.top    = pos.top;
+                      el.style.zIndex = String(pos.zIndex);
+                    }
+                  }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
                   speechRef={(el) => { speechRefs.current[agent.role] = el; }}
                   onActivate={() => setTeamCollapsed(false)}
