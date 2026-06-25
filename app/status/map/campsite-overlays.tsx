@@ -2153,7 +2153,7 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
 // ── ENV Picker (CAM-167) ─────────────────────────────────────────────────────
 
 const STAGING_URL = "https://campvibe-staging.vercel.app";
-const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL ?? "";
+const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL || "https://campvibe.vercel.app";
 const ENV_PATH = "";
 
 export function EnvPickerPanel({
@@ -2207,7 +2207,7 @@ export function EnvPickerPanel({
               <span className="hud-env-card-link"><ExternalLink size={13} /> เปิดแท็บใหม่</span>
             </a>
             <a
-              href={(PROD_URL || STAGING_URL) + ENV_PATH}
+              href={PROD_URL + ENV_PATH}
               target="_blank"
               rel="noopener noreferrer"
               className="hud-env-card"
