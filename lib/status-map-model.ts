@@ -166,3 +166,19 @@ export function toMapModel(m: Model): MapModel {
 export function buildMapModel(issues: StatusIssue[]): MapModel {
   return toMapModel(buildModel(issues));
 }
+
+/**
+ * CAM-176 — reconcile no-op guard.
+ *
+ * Pure helper: returns true when the serialized payload has changed since the
+ * last reconcile, false when it is identical (no re-render needed).
+ *
+ * Keeping this as a standalone pure function makes it unit-testable without
+ * rendering the client component.
+ *
+ * @param prev - JSON string from the previous successful reconcile (or the SSR initial value).
+ * @param next - JSON string just received from /status/map/data.
+ */
+export function payloadChanged(prev: string, next: string): boolean {
+  return prev !== next;
+}

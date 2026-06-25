@@ -6,7 +6,7 @@
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
-import { buildTrail, epicBucket, regressionRound, canonRole, type EnvLane } from "@/lib/status-derive";
+import { boardColumnOf, buildTrail, epicBucket, regressionRound, canonRole, type EnvLane } from "@/lib/status-derive";
 import { buildModel, type Model, type EpicNode, epicOf, isActive, isDone, hasAwait, personaOf, featureOf } from "@/lib/status-model";
 import StatusClient from "./dashboard-client";
 
@@ -179,7 +179,7 @@ function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: strin
   const doneN = it.filter(isDone).length, pct = total ? Math.round((doneN / total) * 100) : 0;
   const active = it.some(isActive), gate = it.some(hasAwait);
   const st = gate ? "waiting on you" : active ? "in progress" : !total ? "no stories yet" : pct === 100 ? "shipped · done" : "queued";
-  const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => i.status === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
+  const mix = total ? COLS.map(([s], idx) => { const num = it.filter((i) => boardColumnOf(i) === s).length; return num ? `<span style="width:${(num / total) * 100}%;background:${MIX_COLORS[idx]}"></span>` : ""; }).join("") : "";
   const estatus = epicBucket(n.stories);
   const hide = efilter !== "all" && estatus !== efilter ? ' style="display:none"' : "";
   return `<a class="epic ${gate ? "live" : ""}" data-estatus="${estatus}"${hide} href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><div class="epic-head"><span class="epic-ic">${epicIcon(n.label)}</span><div class="epic-id"><div class="epic-name">${esc(n.label)}</div><div class="epic-st">${esc(st)}</div></div>${chip}</div><div class="epic-prog"><div class="epic-bar"><i style="width:${pct}%"></i></div><span class="epic-pct">${pct}%</span></div><div class="epic-mix">${mix}</div></a>`;
@@ -356,7 +356,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   // board
   h += `<section class="glass board-wrap"><div class="pane-h"><span class="t">Board</span><span class="x">${it.length} stories · live from Linear</span></div><div class="board">`;
   COLS.forEach(([name, key]) => {
-    const items = it.filter((i) => i.status === name);
+    const items = it.filter((i) => boardColumnOf(i) === name);
     h += `<div class="col" data-k="${key}"><div class="col-h"><span class="dot cd"></span>${esc(name)}<span class="c">${items.length}</span></div>`;
     if (!items.length) h += `<div class="empty">—</div>`;
     items.forEach((i) => {

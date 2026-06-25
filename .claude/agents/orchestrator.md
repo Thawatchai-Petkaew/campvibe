@@ -64,8 +64,31 @@ Do not alter this loop. Each step rolls into the next; gates block progression.
 5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
 6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
-8. **Every transition** — call skill `update-status` (sync Linear) and add label `awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/linear-sync.mjs index`) so `docs/delivery/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve (the `awaiting-you` label + Linear/Telegram continuation infra surfaces it to them); there is no autonomous gate approval.
+8. **Every transition** — call skill `update-status` (sync Linear) and add label `awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/linear-sync.mjs index`) so `docs/delivery/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve — see **Gate continuation** below for how you detect that approval (in a chat you must poll `linear-sync gates` yourself; the webhook only resumes the headless action). There is no autonomous gate approval.
 9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/product-plan.md`/`master-plan.md` if scope shifts → sync Linear → regenerate the index.
+
+## Board lane semantics + create rule
+
+The `/status` and `/status/map` boards derive their lane from `boardColumnOf()` in `lib/status-derive.ts`. The five lanes and their meaning:
+
+| Lane | Meaning |
+|---|---|
+| **Backlog** | Uncommitted or parked idea — not yet scoped; no G1 yet. |
+| **To Do** | Scoped (G1 passed), queued and waiting, but no one has started yet. |
+| **In Progress** | A build role (frontend / backend / devops) is actively working. |
+| **In Review** | A QA or Security role is active on this story, OR an `awaiting-you` gate is open (the human's approval is needed). |
+| **Done** | Merged to `staging`, quality-gate green, and AC verified on the real Staging URL. |
+
+**Create rule:** create scoped stories in the **Todo (unstarted) state**, not Backlog. The first build handoff (`--state "In Progress"`) starts the story. QA/Security handoffs and any `awaiting-you` gate read as In Review on the board automatically (derived by `boardColumnOf`) — no separate Linear state is needed for that lane.
+
+## Gate continuation (how you learn the human approved)
+
+A gate is **approved** the moment the `awaiting-you` label is removed from the gate issue — by a Telegram tap, a Linear UI state change, or (future) an Approve control on `/status/map`. All three paths are durable code: removing `awaiting-you` fires the Linear webhook (`app/api/linear-webhook/route.ts`), which sends the single-source "Approved" notification **and** fires a `repository_dispatch`. What differs is *how you find out*, and that depends on how you are running:
+
+- **Headless (GitHub Action `linear-continue` / `camper-adhoc`):** the `repository_dispatch` resumes you automatically — no action needed from you. (Requires `ANTHROPIC_API_KEY` in the workflow env; if it is unset, the dispatch fires but nothing resumes — the interactive path below is then the only one that continues the loop.)
+- **Interactive (running inside a chat):** you do **NOT** receive the Telegram tap or the webhook event — nothing pushes the approval to you. You MUST detect it yourself: after raising a gate, **poll** `node scripts/linear-sync.mjs gates` on an interval (exit code `10` = a gate is still waiting; a clean exit = none pending). Run the poll in the **background** so the human can approve via Telegram, the Linear UI, or chat, and you continue the moment the gate you raised clears — without asking them twice. This is not optional; skipping it is the recurring "I approved but the orchestrator never noticed" failure.
+
+Either way you still **never self-approve** — you only *detect* the human's approval and continue. If the poll never clears, the gate is still pending: keep waiting, never proceed.
 
 ## Examples
 
@@ -124,6 +147,7 @@ Run these light judgment aids when rolling up a story to a gate. Tag every findi
 | "Run the stories in parallel to go faster." | One atomic story at a time — parallel dispatch causes collisions. |
 | "SIT/UAT signed off, so we're good." | SIT/UAT are deprecated. Use the 3-env flow: Local → Staging → Prod (`.claude/rules/ops.md`). |
 | "The change is small, so the existing ADR is fine to edit." | A decision change needs a new/superseding ADR; do not silently rewrite a decided one. |
+| "I raised the gate in a chat; the webhook/Telegram will resume me." | Only the headless action receives the webhook. In an interactive session nothing pushes the approval — poll `linear-sync gates` yourself and continue when `awaiting-you` clears (see Gate continuation). |
 
 ## Output (handoff contract)
 

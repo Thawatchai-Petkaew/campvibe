@@ -638,6 +638,16 @@
             "ownerDesc": "Full access (owner).",
             "permissionsTitle": "Permissions",
             "permissionsNote": "Permissions can be refined per camp site (coming soon)."
+        },
+        "map": {
+            "delivery": {
+                "indicatorLabel": "View {count} delivered items",
+                "modalTitle": "Delivery complete",
+                "closeBtn": "Close",
+                "emptyState": "No delivery data available",
+                "epicLabel": "Epic",
+                "dateLabel": "Delivered on"
+            }
         }
     },
     "th": {
@@ -1280,6 +1290,16 @@
             "ownerDesc": "สิทธิ์เต็ม (เจ้าของ)",
             "permissionsTitle": "สิทธิ์การเข้าถึง",
             "permissionsNote": "สิทธิ์สามารถปรับได้ตามแต่ละลาน (เร็วๆ นี้)"
+        },
+        "map": {
+            "delivery": {
+                "indicatorLabel": "ดูงานที่ส่งมอบสำเร็จ {count} รายการ",
+                "modalTitle": "ส่งมอบสำเร็จ",
+                "closeBtn": "ปิด",
+                "emptyState": "ไม่มีข้อมูลงานที่ส่งมอบ",
+                "epicLabel": "Epic",
+                "dateLabel": "ส่งมอบเมื่อ"
+            }
         }
     }
 }

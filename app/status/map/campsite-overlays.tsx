@@ -39,7 +39,7 @@ import type {
   MapGate,
   MapModel,
 } from "./campsite-scene";
-import { buildTrail, stageOf, STAGES } from "@/lib/status-derive";
+import { boardColumnOf, buildTrail, stageOf, STAGES } from "@/lib/status-derive";
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
 
@@ -1114,7 +1114,7 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
   const byCol: Record<string, MapEpicStory[]> = {};
   BOARD_COLS.forEach(([k]) => { byCol[k] = []; });
   for (const s of stories) {
-    const col = BOARD_COLS.find(([k]) => k === s.status)?.[0] ?? "Backlog";
+    const col = boardColumnOf(s);
     byCol[col].push(s);
   }
 
@@ -2271,7 +2271,7 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
 
   const byLane = Object.fromEntries(SB_LANES.map(l => [l.key, [] as MapEpicStory[]]));
   for (const s of stories) {
-    const k = SB_LANES.find(l => l.key === s.status)?.key ?? "Backlog";
+    const k = boardColumnOf(s);
     byLane[k].push(s);
   }
 
