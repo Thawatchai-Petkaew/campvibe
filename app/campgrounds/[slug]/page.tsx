@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
 import { serializeDecimals } from "@/lib/serialize";
 import { buildReviewSummary, roundAvgRating, toReviewListItem, type ReviewListItem } from "@/lib/review-summary";
+import { canViewCampSite } from "@/lib/campsite-visibility";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -45,6 +46,11 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     }
 
     if (!campSite) {
+        notFound();
+    }
+
+    // SEC-1: gate non-public campsites — 404 (no info-disclosure).
+    if (!canViewCampSite(campSite, session)) {
         notFound();
     }
 

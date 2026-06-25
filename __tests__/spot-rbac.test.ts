@@ -31,6 +31,9 @@ import { NextResponse } from 'next/server';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    campSite: {
+      findUnique: vi.fn(),
+    },
     spot: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -473,10 +476,20 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
 // GET /api/campsites/[id]/spots  (public read — no authz gate)
 // ---------------------------------------------------------------------------
 
-describe('GET /api/campsites/[id]/spots — no auth required', () => {
-  beforeEach(() => vi.clearAllMocks());
+describe('GET /api/campsites/[id]/spots — no auth required for public camps', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // SEC-1: GET now checks campsite visibility before returning spots.
+    // Default to a publicly visible camp so RBAC-focused tests are unaffected.
+    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isActive: true,
+      isPublished: true,
+      deletedAt: null,
+      operatorId: 'op-default',
+    });
+  });
 
-  it('200 — returns spots without any permission check', async () => {
+  it('200 — returns spots for a public camp without any RBAC permission check', async () => {
     (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { id: SPOT_ID, name: 'Spot A', campSiteId: CAMPSITE_ID, images: [] },
     ]);
