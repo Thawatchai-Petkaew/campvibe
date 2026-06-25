@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## Unreleased — on `staging`, pending prod promote
+
+Verified on staging, held for the next prod release train (prod currently v0.10.2):
+
+- **Production card link fix (CAM-179):** the "ผลผลิต Scout Team" modal's Production card now opens the prod URL, not staging.
+- **Gift box above walking agents (CAM-180):** the campfire gift z-index raised above the agents + nudged down.
+- **Ambient fireflies (CAM-181):** 12 amber twinkling fireflies on the /status/map campfire scene (reduced-motion safe).
+- **Game-like approval notification + card (CAM-182):** BellRing notification + ClipboardCheck approval card with glow + amber crown.
+- **Approve/Reject gates from the map (CAM-184):** the approval card + notification are now interactive — open a gate's detail (fetched from Linear), Approve (removes `awaiting-you`) or Reject (comments + adds `changes-requested`) so the delivery loop continues; both are token-gated server actions via Linear's API (no Anthropic-token cost). Amber-transparent card, smaller notification, popover no longer overlaps.
+
 ## v0.10.2 — 2026-06-25
 
 ### Fixed
