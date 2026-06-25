@@ -62,3 +62,36 @@ export async function addComment(identifier: string, body: string): Promise<bool
   });
   return true;
 }
+
+/**
+ * Add a label (by name) to an issue. Idempotent — does nothing if the label is
+ * already present. Looks up the label id in the team's label list by name.
+ * Returns true if the label was added (or already present), false if the issue
+ * or label does not exist.
+ */
+export async function addLabel(identifier: string, labelName: string): Promise<boolean> {
+  const issue = await findIssue(identifier);
+  if (!issue) return false;
+
+  // Already has the label — idempotent, nothing to do.
+  const alreadyPresent = issue.labels.some((l) => l.name.toLowerCase() === labelName.toLowerCase());
+  if (alreadyPresent) return true;
+
+  // Fetch team labels to find the target label id.
+  const data = await gql<{
+    teams: { nodes: { labels: { nodes: { id: string; name: string }[] } }[] };
+  }>(
+    `query($k:String!){ teams(filter:{key:{eq:$k}}){ nodes{ labels{ nodes{ id name } } } } }`,
+    { k: TEAM_KEY }
+  );
+  const teamLabels = data.teams?.nodes?.[0]?.labels?.nodes ?? [];
+  const target = teamLabels.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
+  if (!target) return false;
+
+  const next = [...issue.labels.map((l) => l.id), target.id];
+  await gql(
+    `mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`,
+    { id: issue.id, input: { labelIds: next } }
+  );
+  return true;
+}

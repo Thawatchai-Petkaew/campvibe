@@ -55,15 +55,19 @@ describe("CAM-182 AC-notify-1: .you-alert uses BellRing lucide icon", () => {
   });
 });
 
-describe("CAM-182 AC-notify-2: .you-alert font-size is 13px", () => {
-  it(".you-alert CSS has font-size:13px", () => {
-    expect(sceneSrc).toContain("font-size:13px");
+describe("CAM-182 AC-notify-2: .you-alert font-size (updated by CAM-184 to 12px)", () => {
+  it(".you-alert CSS has font-size — 13px from CAM-182, reduced to 12px by CAM-184", () => {
+    // CAM-182 set font-size:13px; CAM-184 reduced it to 12px.
+    // Assert the current value that guards against accidental revert:
+    const match = sceneSrc.match(/\.you-alert\{[\s\S]*?font-size:12px/);
+    expect(match).not.toBeNull();
   });
 });
 
-describe("CAM-182 AC-notify-3: .you-alert padding is 7px 14px", () => {
-  it(".you-alert CSS has padding:7px 14px", () => {
-    expect(sceneSrc).toContain("padding:7px 14px");
+describe("CAM-182 AC-notify-3: .you-alert padding (updated by CAM-184 to 5px 11px)", () => {
+  it(".you-alert CSS has padding — 7px 14px from CAM-182, reduced to 5px 11px by CAM-184", () => {
+    // CAM-182 set padding:7px 14px; CAM-184 reduced it to 5px 11px.
+    expect(sceneSrc).toContain("padding:5px 11px");
   });
 });
 
@@ -177,10 +181,10 @@ describe("CAM-182 AC-card-6: .hud-appr-card has animation:apprCardGlow reference
   });
 });
 
-describe("CAM-182 AC-card-7: heading font-size bumped to 11.5px", () => {
-  it(".hud-appr-heading font-size is 11.5px", () => {
-    // The heading rule must include font-size:11.5px
-    expect(overlaySrc).toMatch(/\.hud-appr-heading\{[^}]*font-size:11\.5px/);
+describe("CAM-182 AC-card-7: heading font-size (updated by CAM-184 to 12px)", () => {
+  it(".hud-appr-heading font-size is 12px (CAM-182 set 11.5px; CAM-184 raised it to 12px + weight 800)", () => {
+    // CAM-182 set font-size:11.5px; CAM-184 updated to 12px + font-weight:800.
+    expect(overlaySrc).toMatch(/\.hud-appr-heading\{[^}]*font-size:12px/);
   });
 });
 
@@ -190,9 +194,10 @@ describe("CAM-182 AC-card-8: item title font-size bumped to 12.5px", () => {
   });
 });
 
-describe("CAM-182 AC-card-9: badge font-size bumped to 10.5px", () => {
-  it(".hud-appr-badge font-size is 10.5px", () => {
-    expect(overlaySrc).toMatch(/\.hud-appr-badge\{[^}]*font-size:10\.5px/);
+describe("CAM-182 AC-card-9: badge removed by CAM-184", () => {
+  it(".hud-appr-badge CSS block is absent (removed by CAM-184 design spec)", () => {
+    // CAM-182 added .hud-appr-badge at 10.5px; CAM-184 removed it entirely per design.md.
+    expect(overlaySrc).not.toMatch(/\.hud-appr-badge\{/);
   });
 });
 
