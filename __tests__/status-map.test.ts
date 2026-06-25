@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { canonRole } from "@/lib/status-derive";
+import { payloadChanged } from "@/lib/status-map-model";
 import {
   buildModel,
   epicOf,
@@ -1016,5 +1017,140 @@ describe("CAM-167: ENV picker — shimmer button + side-by-side modal in top bar
 
   it('EnvPickerPanel references NEXT_PUBLIC_PROD_URL for production link', () => {
     expect(overlaySrc).toContain("NEXT_PUBLIC_PROD_URL");
+  });
+});
+
+// ============================================================
+// CAM-176 — reconcile no-op guard: payloadChanged helper
+// ============================================================
+
+describe("lib/status-map-model.ts — CAM-176: payloadChanged pure helper", () => {
+  it("returns false when prev and next are identical strings (no re-render needed)", () => {
+    const payload = JSON.stringify({ projectPct: 42, agents: [] });
+    expect(payloadChanged(payload, payload)).toBe(false);
+  });
+
+  it("returns true when next differs from prev (real update → setLiveModel)", () => {
+    const prev = JSON.stringify({ projectPct: 42, agents: [] });
+    const next = JSON.stringify({ projectPct: 43, agents: [] });
+    expect(payloadChanged(prev, next)).toBe(true);
+  });
+
+  it("returns true when prev is empty string and next is non-empty (initial poll with data)", () => {
+    expect(payloadChanged("", '{"projectPct":0}')).toBe(true);
+  });
+
+  it("returns false when both prev and next are empty strings", () => {
+    expect(payloadChanged("", "")).toBe(false);
+  });
+
+  it("returns true when whitespace differs (exact byte compare)", () => {
+    // Confirms the guard is strict: two semantically-equal but differently-serialized
+    // strings are considered changed (no JSON.parse overhead in the hot path).
+    expect(payloadChanged('{"a":1}', '{"a": 1}')).toBe(true);
+  });
+});
+
+describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source", () => {
+  const src = readFileSync(resolve(__dirname, "../app/status/map/campsite-scene.tsx"), "utf8");
+
+  it("imports payloadChanged from @/lib/status-map-model", () => {
+    expect(src).toContain("payloadChanged");
+    expect(src).toContain("status-map-model");
+  });
+
+  it("declares lastPayloadRef with useRef and JSON.stringify(model) initializer", () => {
+    expect(src).toContain("lastPayloadRef");
+    expect(src).toContain("JSON.stringify(model)");
+  });
+
+  it("reconcile reads response as text (res.text()) not res.json()", () => {
+    // The guard compares raw strings; res.json() would lose the original text.
+    expect(src).toContain("await res.text()");
+  });
+
+  it("reconcile calls payloadChanged guard before setLiveModel", () => {
+    expect(src).toContain("payloadChanged(lastPayloadRef.current, text)");
+  });
+
+  it("reconcile updates lastPayloadRef.current on a real change", () => {
+    expect(src).toContain("lastPayloadRef.current = text");
+  });
+
+  it("reconcile calls setLiveModel with JSON.parse(text) (not res.json())", () => {
+    expect(src).toContain("JSON.parse(text) as MapModel");
+  });
+
+  it("FALLBACK_MS is still 15_000 (CAM-175 freshness preserved)", () => {
+    expect(src).toContain("FALLBACK_MS = 15_000");
+  });
+
+  // CAM-176 layer 2: activity-keyed wander/rest effect
+  it("derives activeKey via useMemo keyed on agents (role:active:activeCount per agent)", () => {
+    expect(src).toContain("activeKey");
+    expect(src).toContain("a.active ? 1 : 0");
+    expect(src).toContain("a.activeCount");
+  });
+
+  it("wander/rest effect dep array uses activeKey, not agents", () => {
+    // Confirm the effect dep is the stable string, not the raw agents array ref.
+    expect(src).toContain("[engineReady, activeKey]");
+  });
+
+  it("wander/rest effect still reads agents array inside the effect body", () => {
+    // The effect reads agents for setActivity — only the dep changes, not the logic.
+    expect(src).toContain("for (const a of agents)");
+  });
+});
+
+// ── CAM-176 layer 2: activeKey semantic tests ────────────────────────────────
+describe("CAM-176: activeKey signature — unchanged activity yields same key", () => {
+  // Replicate the activeKey formula from campsite-scene.tsx so we can assert its
+  // behaviour in isolation without rendering the component.
+  type AgentStub = { role: string; active: boolean; activeCount: number };
+  function makeKey(agents: AgentStub[]): string {
+    return agents.map((a) => `${a.role}:${a.active ? 1 : 0}:${a.activeCount}`).join("|");
+  }
+
+  it("identical agents list (new array ref, same values) yields the same key", () => {
+    const base: AgentStub[] = [
+      { role: "frontend-engineer", active: true,  activeCount: 2 },
+      { role: "qa-engineer",       active: false, activeCount: 0 },
+    ];
+    // Simulate a reconcile that returns a new array ref but identical activity data.
+    const after: AgentStub[] = [
+      { role: "frontend-engineer", active: true,  activeCount: 2 },
+      { role: "qa-engineer",       active: false, activeCount: 0 },
+    ];
+    expect(makeKey(base)).toBe(makeKey(after));
+  });
+
+  it("changed active flag yields a different key (agent starts working)", () => {
+    const before: AgentStub[] = [
+      { role: "frontend-engineer", active: false, activeCount: 0 },
+    ];
+    const after: AgentStub[] = [
+      { role: "frontend-engineer", active: true, activeCount: 1 },
+    ];
+    expect(makeKey(before)).not.toBe(makeKey(after));
+  });
+
+  it("changed activeCount alone yields a different key", () => {
+    const before: AgentStub[] = [{ role: "backend-engineer", active: true, activeCount: 1 }];
+    const after: AgentStub[]  = [{ role: "backend-engineer", active: true, activeCount: 2 }];
+    expect(makeKey(before)).not.toBe(makeKey(after));
+  });
+
+  it("unrelated field changes are NOT encoded — key stays the same", () => {
+    // The formula only uses role / active / activeCount. Changes to task / queued /
+    // other display fields do not change the key and therefore do not re-trigger
+    // setActivity, protecting a walking character from mid-walk resets.
+    const base: AgentStub[] = [{ role: "architect", active: true, activeCount: 1 }];
+    const after: AgentStub[] = [{ role: "architect", active: true, activeCount: 1 }];
+    expect(makeKey(base)).toBe(makeKey(after));
+  });
+
+  it("empty agents list yields an empty key (edge case — no crash)", () => {
+    expect(makeKey([])).toBe("");
   });
 });

@@ -30,6 +30,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
+import { payloadChanged } from "@/lib/status-map-model";
 import {
   ADJ,
   buildScoutState,
@@ -1044,6 +1045,10 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
+  // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
+  // the very first poll of an unchanged board is already a no-op.
+  const lastPayloadRef = useRef<string>(JSON.stringify(model));
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1150,8 +1155,21 @@ export default function CampsiteScene({
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("pick") === "1";
 
+  // CAM-176 — stable activity signature: encode only the fields that actually drive
+  // wander/rest (role, active flag, activeCount). A reconcile that changes unrelated
+  // fields (gate count, title, backlog) produces a new `agents` array ref but an
+  // IDENTICAL activeKey → the effect below does NOT re-run → no mid-walk disruption.
+  // A genuine activity change (agent starts/stops work) changes the key → effect fires
+  // → setActivity is called exactly once → intended behaviour preserved.
+  const activeKey = useMemo(
+    () => agents.map((a) => `${a.role}:${a.active ? 1 : 0}:${a.activeCount}`).join("|"),
+    [agents],
+  );
+
   // Drive wander/rest from live data: active roles wander, idle roles rest.
-  // Runs once the engine is ready and again whenever an agent's status changes.
+  // Runs once the engine is ready and again whenever an agent's activity changes.
+  // Dep is `activeKey` (stable string) not `agents` (new ref on every reconcile) so a
+  // data update that does not change activity does NOT interrupt a walking character.
   // Dev aid: ?wander=1 forces everyone to wander (the wander behaviour is otherwise
   // hard to see when the live data has no active work).
   useEffect(() => {
@@ -1162,7 +1180,7 @@ export default function CampsiteScene({
     const activeByRole: Record<string, boolean> = {};
     for (const a of agents) activeByRole[a.role] = forceWander || a.active;
     engineRef.current?.setActivity(activeByRole);
-  }, [engineReady, agents]);
+  }, [engineReady, activeKey]); // activeKey, not agents — guards mid-walk resets (CAM-176)
 
   useEffect(() => {
     // Guard: only run in the browser (this is a "use client" component, but be safe).
@@ -1379,13 +1397,20 @@ export default function CampsiteScene({
         const qs = token ? `?token=${encodeURIComponent(token)}` : "";
         const res = await fetch(`/status/map/data${qs}`);
         if (!res.ok) return; // S7: non-ok response — keep last-known data, don't crash
-        const next = (await res.json()) as MapModel;
+        const text = await res.text();
+        // CAM-176 — no-op guard: skip re-render when payload is byte-identical to the
+        // last seen value. The /status/map/data route serializes ABSOLUTE timestamps from
+        // Linear (startedAt / completedAt), so an unchanged board produces an identical
+        // JSON string across polls — the text compare is a reliable no-change signal.
+        // A real change → text differs → setLiveModel → one update (expected, not flicker).
+        if (!payloadChanged(lastPayloadRef.current, text)) return;
+        lastPayloadRef.current = text;
 
         // Update React state — overlays re-render, and the setActivity effect (keyed on
         // the agents' active flags) drives wander/rest. No per-pulse triggerWalk loop:
         // it yanked active wanderers home on every pulse (breaking continuous, random
         // wandering) and could redirect a mid-walk agent on a path across the campfire.
-        setLiveModel(next);
+        setLiveModel(JSON.parse(text) as MapModel);
       } catch {
         // S7: transient fetch error — keep last-known liveModel, don't crash or blank.
         // Next poll or SSE event will retry.
