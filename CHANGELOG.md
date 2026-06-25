@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v0.10.0 — 2026-06-25
+
+### /status/map delivery dashboard — gift, board accuracy, freshness
+
+- **Delivery gift on the campfire (CAM-171):** A view-once "ส่งมอบสำเร็จ" gift card appears on the /status/map campfire when a story reaches Done; clicking it opens a modal listing the delivered tickets.
+- **Gift modal in the scene's glass style (CAM-173, CAM-174):** The modal and its delivery cards use the /status/map scene glass treatment (matching the Backlog/Overview panels); HTML entities in titles are decoded so quotes render correctly.
+- **Board lanes derived by role + gate (CAM-175):** A shared `boardColumnOf` helper buckets stories into Backlog / To Do / In Progress / In Review / Done by status type + current role + label — QA and Security stories, and any story awaiting your approval, now show in the In Review (ตรวจสอบ) lane on both /status and /status/map. Backlog vs To Do semantics documented in the orchestrator manual.
+- **Faster status freshness (CAM-175):** /status/map reconcile fallback cut from 60s to 15s and the pulse poll from 2.5s to 1.5s, so the board reflects a change within ~1.5s (≤15s worst case) instead of ~60s.
+- **No more walking-agent flicker (CAM-176):** The wander/rest effect no longer re-runs on a no-op reconcile — a poll that does not change agent activity no longer resets a walking agent. Two-layer fix: skip the state update on an unchanged payload, and key the wander effect on an activity signature instead of the agents array reference.
+- **Interactive gate-watcher codified:** The orchestrator operating manual now documents that an interactive session must poll `linear-sync gates` to detect a human approval (the webhook only auto-resumes the headless action).
+
+### No schema change
+
+No Prisma schema or database migration in this release. Frontend / delivery-dashboard and docs only.
+
 ## v0.8.2 — 2026-06-22
 
 ### Image Resilience IR-1 (CAM-132, CAM-133)
