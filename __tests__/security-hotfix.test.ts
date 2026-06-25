@@ -248,6 +248,14 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
     vi.clearAllMocks();
     // Default: permission check passes (no auth error) — CAM-83: handlers use requireCampSitePermission
     (requireCampSitePermission as ReturnType<typeof vi.fn>).mockResolvedValue({ error: null });
+    // SEC-1: the GET handler now fetches campsite visibility fields first.
+    // Default to a publicly visible camp so IDOR tests focus on spot-level scoping.
+    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isActive: true,
+      isPublished: true,
+      deletedAt: null,
+      operatorId: 'op-default',
+    });
   });
 
   // ---- GET ----------------------------------------------------------------

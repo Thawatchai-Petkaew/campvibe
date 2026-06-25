@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, imageCreateNested } from '@/lib/api-utils';
+import { auth } from '@/lib/auth';
+import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
 export async function GET(
   request: NextRequest,
@@ -11,6 +13,24 @@ export async function GET(
   const { id } = await params;
 
   try {
+    // SEC-1: gate non-public campsites before returning any spot data.
+    const campSite = await prisma.campSite.findUnique({
+      where: { id },
+      select: { isActive: true, isPublished: true, deletedAt: true, operatorId: true },
+    });
+
+    if (!campSite) {
+      return apiError('Camp site not found', 404);
+    }
+
+    if (!isCampSitePublic(campSite)) {
+      const session = await auth();
+      if (!canViewCampSite(campSite, session)) {
+        // 404 not 403 — no information-disclosure.
+        return apiError('Camp site not found', 404);
+      }
+    }
+
     const spots = await prisma.spot.findMany({
       where: { campSiteId: id },
       orderBy: { createdAt: 'desc' },

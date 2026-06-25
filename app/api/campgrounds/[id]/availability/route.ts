@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiSuccess } from '@/lib/api-utils';
 import { getCampSiteDailyAvailability } from '@/lib/campsite-availability';
+import { auth } from '@/lib/auth';
+import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
 export async function GET(
   request: NextRequest,
@@ -21,17 +23,31 @@ export async function GET(
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Get camp site to check limits
+    // Get camp site — include visibility fields so the gate can be applied.
     const campSite = await prisma.campSite.findUnique({
       where: { id },
       select: {
+        isActive: true,
+        isPublished: true,
+        deletedAt: true,
+        operatorId: true,
         maxGuestsPerDay: true,
-        maxTentsPerDay: true
+        maxTentsPerDay: true,
       }
     });
 
     if (!campSite) {
       return apiError('Campground not found', 404);
+    }
+
+    // SEC-1: gate non-public campsites. Auth is lazy — only called when the camp
+    // is not public so the hot path (public camp) pays zero auth overhead.
+    if (!isCampSitePublic(campSite)) {
+      const session = await auth();
+      if (!canViewCampSite(campSite, session)) {
+        // 404 not 403 — no information-disclosure.
+        return apiError('Campground not found', 404);
+      }
     }
 
     // Get daily availability

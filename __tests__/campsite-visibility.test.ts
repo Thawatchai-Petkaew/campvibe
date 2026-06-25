@@ -80,6 +80,21 @@ describe('isCampSitePublic', () => {
       isCampSitePublic({ isActive: false, isPublished: false, deletedAt: new Date() })
     ).toBe(false);
   });
+
+  it('treats undefined deletedAt (omitted by partial select) as not-deleted — camp is still public', () => {
+    // A partial Prisma select that omits deletedAt returns undefined; this must
+    // behave identically to null (not deleted) so the gate does not false-positive.
+    expect(
+      isCampSitePublic({ isActive: true, isPublished: true, deletedAt: undefined })
+    ).toBe(true);
+  });
+
+  it('treats undefined deletedAt as not-deleted for an otherwise non-public camp', () => {
+    // The falsy check must not accidentally make an inactive/unpublished camp public.
+    expect(
+      isCampSitePublic({ isActive: false, isPublished: true, deletedAt: undefined })
+    ).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

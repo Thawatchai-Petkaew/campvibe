@@ -11,7 +11,8 @@
 export interface CampSiteVisibilityFields {
   isActive: boolean;
   isPublished: boolean;
-  deletedAt: Date | null;
+  /** null = not deleted; undefined = field omitted by a partial select (treated as not deleted). */
+  deletedAt: Date | null | undefined;
   operatorId: string;
 }
 
@@ -24,11 +25,15 @@ export type VisibilitySession =
 /**
  * Returns true when the campsite is publicly visible:
  *   active AND published AND not soft-deleted.
+ *
+ * Uses `!camp.deletedAt` (falsy) rather than `=== null` so that a partial
+ * `select` that omits `deletedAt` (returning `undefined`) is treated the same
+ * as an explicit `null` — both mean "not deleted".
  */
 export function isCampSitePublic(
   camp: Pick<CampSiteVisibilityFields, 'isActive' | 'isPublished' | 'deletedAt'>
 ): boolean {
-  return camp.isActive && camp.isPublished && camp.deletedAt === null;
+  return camp.isActive && camp.isPublished && !camp.deletedAt;
 }
 
 /**
