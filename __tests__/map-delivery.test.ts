@@ -889,3 +889,47 @@ describe("Prove-It: broken-impl regression guards", () => {
     expect(correct[0].id).toBe("new"); // correct: newest first
   });
 });
+
+// ── CAM-180: .delivery-gift-wrapper z-index + top guard ──────────────────────
+//
+// Guard: the gift wrapper must stay ABOVE the max agent z-index (Math.round(100*12)+5 = 1205).
+// A regression that lowers z-index back into agent range (≤ 1205) goes red here.
+// Also guards the nudged-down top value (48%) so it cannot silently revert to 44%.
+
+describe("CAM-180: .delivery-gift-wrapper z-index > agent max + top position guard", () => {
+  const src = fs.readFileSync(
+    path.join(process.cwd(), "app/status/map/delivery-gift.tsx"),
+    "utf-8"
+  );
+
+  // Extract the z-index value from .delivery-gift-wrapper rule
+  const zIndexMatch = src.match(/\.delivery-gift-wrapper\s*\{[^}]*z-index:\s*(\d+)/);
+  const zIndexValue = zIndexMatch ? parseInt(zIndexMatch[1], 10) : 0;
+
+  // Extract the top value from .delivery-gift-wrapper rule
+  const topMatch = src.match(/\.delivery-gift-wrapper\s*\{[^}]*top:\s*([^;]+);/);
+  const topValue = topMatch ? topMatch[1].trim() : "";
+
+  it("[AC#1] .delivery-gift-wrapper z-index is 1300 (literal value — CAM-180 fix)", () => {
+    expect(src).toContain("z-index: 1300");
+    // PROVE-IT: if z-index were reverted to 25, this exact-string assertion fails
+  });
+
+  it("[AC#1] .delivery-gift-wrapper z-index > 1205 (the agent engine max: Math.round(100*12)+5)", () => {
+    // Agent engine: Math.round(pos.y * 12) + 5 where pos.y is 0-100 → max = 1205
+    const AGENT_Z_MAX = Math.round(100 * 12) + 5; // = 1205
+    expect(zIndexValue).toBeGreaterThan(AGENT_Z_MAX);
+    // PROVE-IT: z-index 25 would be 25 > 1205 → false → test fails (regression caught)
+  });
+
+  it("[AC#2] .delivery-gift-wrapper top is 48% (nudged down from 44% — CAM-180 fix)", () => {
+    expect(topValue).toBe("48%");
+    // PROVE-IT: top: 44% would not equal "48%" → test fails (regression caught)
+  });
+
+  it("[AC#4] position, left, pointer-events are unchanged (no side effects from CAM-180)", () => {
+    expect(src).toContain("position: absolute");
+    expect(src).toContain("left: 50%");
+    expect(src).toContain("pointer-events: none");
+  });
+});
