@@ -74,6 +74,8 @@ function readSrc(relPath: string): string {
 }
 
 const pageSrc        = readSrc('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
 const gridSrc        = readSrc('components/CampgroundGrid.tsx');
 const cardSrc        = readSrc('components/CampgroundCard.tsx');
 const wishlistSrc    = readSrc('app/wishlist/page.tsx');
@@ -129,62 +131,61 @@ describe('AC-1 — campCardSelect shape (PERF-5 column swap from reviews to stor
 // AC-2 — app/page.tsx DB-sort path
 // ===========================================================================
 
-describe('AC-2 — app/page.tsx DB-sort: single findMany with avgRating orderBy + nulls:last + take:40', () => {
+describe('AC-2 — CatalogResults.tsx DB-sort: single findMany with avgRating orderBy + nulls:last + take:PAGE_SIZE', () => {
+  // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 
   it('[orderBy] orderBy uses avgRating column for the rating sort (DB sort, not JS)', () => {
     // Prove-It: reverting orderBy to use createdAt for all branches makes this fail.
-    expect(pageSrc).toContain('avgRating');
+    expect(catalogResultsSrc).toContain('avgRating');
   });
 
-  it('[orderBy] orderBy uses nulls: \'last\' for avgRating (0-review camps sort last, same semantic as before)', () => {
-    // Prove-It: removing `nulls: 'last'` from the orderBy makes this fail.
-    expect(pageSrc).toContain("nulls: 'last'");
+  it('[orderBy] orderBy uses nulls: "last" for avgRating (0-review camps sort last, same semantic as before)', () => {
+    // Prove-It: removing the nulls clause from the orderBy makes this fail.
+    expect(catalogResultsSrc).toContain('nulls: "last"');
   });
 
-  it('[orderBy] orderBy shape: `avgRating: { sort: \'desc\', nulls: \'last\' }` (exact Prisma nulls clause)', () => {
+  it('[orderBy] orderBy shape: avgRating with sort: "desc", nulls: "last" (exact Prisma nulls clause)', () => {
     // Prove-It: swapping to `{ avgRating: 'desc' }` (no nulls clause) makes this fail.
-    expect(pageSrc).toContain("avgRating: { sort: 'desc', nulls: 'last' }");
+    expect(catalogResultsSrc).toContain('avgRating: { sort: "desc", nulls: "last" }');
   });
 
   it('[unified] single campSite.findMany call (PERF-5: two sort branches collapsed into one)', () => {
     // Prove-It: splitting back into two separate findMany branches makes the count ≥ 2.
-    const matches = pageSrc.match(/campSite\.findMany/g) ?? [];
+    const matches = catalogResultsSrc.match(/campSite\.findMany/g) ?? [];
     expect(matches.length).toBe(1);
   });
 
   it('[unified] take: PAGE_SIZE present in the unified findMany (PERF-3/CAM-196 OT-1=A: take now uses shared constant)', () => {
-    // PERF-3 (CAM-196 OT-1=A): page.tsx now uses the shared PAGE_SIZE constant (24) from
-    // lib/catalog-cursor instead of the hardcoded literal 40. Both the SSR first page and
-    // the cursor API use PAGE_SIZE=24 (unified page size).
+    // PERF-3 (CAM-196 OT-1=A): CatalogResults.tsx uses the shared PAGE_SIZE constant.
     // Prove-It: changing take back to 40 or removing take makes this fail.
-    expect(pageSrc).toContain('take: PAGE_SIZE');
-    expect(pageSrc).not.toContain('take: 40');
+    expect(catalogResultsSrc).toContain('take: PAGE_SIZE');
+    expect(catalogResultsSrc).not.toContain('take: 40');
   });
 
-  it('[removed] app/page.tsx does NOT contain .slice(0, 40) (JS-sort remnant removed)', () => {
+  it('[removed] CatalogResults.tsx does NOT contain .slice(0, 40) (JS-sort remnant removed)', () => {
     // Prove-It: re-adding the `.slice(0, 40)` post-fetch step makes this fail.
-    expect(pageSrc).not.toContain('.slice(0, 40)');
+    expect(catalogResultsSrc).not.toContain('.slice(0, 40)');
   });
 
-  it('[removed] app/page.tsx does NOT call sortByRating (PERF-5: DB sort replaces in-memory sort)', () => {
-    // Prove-It: re-adding `sortByRating(` to page.tsx makes this fail.
-    expect(pageSrc).not.toContain('sortByRating(');
+  it('[removed] CatalogResults.tsx does NOT call sortByRating (PERF-5: DB sort replaces in-memory sort)', () => {
+    // Prove-It: re-adding `sortByRating(` to CatalogResults.tsx makes this fail.
+    expect(catalogResultsSrc).not.toContain('sortByRating(');
   });
 
-  it('[removed] app/page.tsx does NOT import from sort-utils (PERF-5: import removed)', () => {
+  it('[removed] CatalogResults.tsx does NOT import from sort-utils (PERF-5: import removed)', () => {
     // Prove-It: re-adding the sort-utils import makes this fail.
-    expect(pageSrc).not.toContain('sort-utils');
+    expect(catalogResultsSrc).not.toContain('sort-utils');
   });
 
-  it('[sanitize] VALID_SORT allowlist still includes \'rating\' (sort param still accepted)', () => {
+  it('[sanitize] VALID_SORT allowlist still includes "rating" (sort param still accepted)', () => {
     // The sanitize gate must pass 'rating' through; otherwise ?sort=rating falls back to 'related'.
-    expect(pageSrc).toContain("'rating'");
-    expect(pageSrc).toContain('VALID_SORT');
+    expect(catalogResultsSrc).toContain('"rating"');
+    expect(catalogResultsSrc).toContain('VALID_SORT');
   });
 
-  it('[unified] select: campCardSelect appears exactly once in app/page.tsx (single unified query)', () => {
+  it('[unified] select: campCardSelect appears exactly once in CatalogResults.tsx (single unified query)', () => {
     // Prove-It: having two findMany with different selects makes the count ≥ 2.
-    const matches = pageSrc.match(/select:\s*campCardSelect/g) ?? [];
+    const matches = catalogResultsSrc.match(/select:\s*campCardSelect/g) ?? [];
     expect(matches.length).toBe(1);
   });
 });

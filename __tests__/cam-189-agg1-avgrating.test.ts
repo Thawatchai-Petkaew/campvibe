@@ -561,27 +561,28 @@ describe('AC-5 — PERF-5 (CAM-193): read-path now consumes avgRating/reviewCoun
      * they are still used by app/wishlist/page.tsx and tested by sort-utils.test.ts.
      */
 
-    const pageSrc = fs.readFileSync(path.join(process.cwd(), 'app/page.tsx'), 'utf-8');
+    // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+    const catalogResultsSrc = fs.readFileSync(path.join(process.cwd(), 'components/CatalogResults.tsx'), 'utf-8');
     const campCardSrc = fs.readFileSync(
         path.join(process.cwd(), 'lib/read-models/camp-card.ts'),
         'utf-8',
     );
     const sortUtilsSrc = fs.readFileSync(path.join(process.cwd(), 'lib/sort-utils.ts'), 'utf-8');
 
-    // --- app/page.tsx ---
+    // --- CatalogResults.tsx (LOAD-1: was page.tsx) ---
 
-    it('[scope] app/page.tsx does NOT call sortByRating (PERF-5: DB sort replaces in-memory sort)', () => {
-        // Prove-It: re-adding sortByRating( to page.tsx makes this fail.
-        expect(pageSrc).not.toContain('sortByRating(');
+    it('[scope] CatalogResults.tsx does NOT call sortByRating (PERF-5: DB sort replaces in-memory sort)', () => {
+        // Prove-It: re-adding sortByRating( to CatalogResults.tsx makes this fail.
+        expect(catalogResultsSrc).not.toContain('sortByRating(');
     });
 
-    it('[scope] app/page.tsx orderBy uses avgRating column for rating sort (PERF-5)', () => {
+    it('[scope] CatalogResults.tsx orderBy uses avgRating column for rating sort (PERF-5)', () => {
         // Prove-It: removing avgRating from orderBy makes this fail.
-        expect(pageSrc).toMatch(/avgRating/);
+        expect(catalogResultsSrc).toMatch(/avgRating/);
     });
 
-    it('[scope] app/page.tsx does NOT import from @/lib/sort-utils (PERF-5: import removed)', () => {
-        expect(pageSrc).not.toContain('sort-utils');
+    it('[scope] CatalogResults.tsx does NOT import from @/lib/sort-utils (PERF-5: import removed)', () => {
+        expect(catalogResultsSrc).not.toContain('sort-utils');
     });
 
     // --- lib/read-models/camp-card.ts ---

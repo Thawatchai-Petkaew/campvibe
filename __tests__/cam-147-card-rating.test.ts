@@ -56,6 +56,8 @@ const wishlistClientSrc = readSrc('components/WishlistPageClient.tsx');
 const mapSrc = readSrc('components/MapComponent.tsx');
 const detailClientSrc = readSrc('components/CampgroundDetailClient.tsx');
 const pageSrc = readSrc('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
 const wishlistPageSrc = readSrc('app/wishlist/page.tsx');
 
 const raw = fs.readFileSync(path.join(process.cwd(), 'locales/translations.json'), 'utf-8');
@@ -206,13 +208,14 @@ describe('AC-3/AC-4 — MapComponent: popup rating conditional + testids + no ha
 // ---------------------------------------------------------------------------
 describe('Data correctness / security — avgRating from column (PERF-5 / CAM-193)', () => {
 
-    it('[source] app/page.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
+    it('[source] CatalogResults.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
+        // LOAD-1 (CAM-197): data-fetch moved from page.tsx → CatalogResults.tsx.
         // Prove-It: re-adding the import makes this fail.
-        expect(pageSrc).not.toContain('computeAvgRating');
+        expect(catalogResultsSrc).not.toContain('computeAvgRating');
     });
 
-    it('[source] app/page.tsx does NOT import roundAvgRating (PERF-5: AGG-1 column value is pre-rounded)', () => {
-        expect(pageSrc).not.toContain('roundAvgRating');
+    it('[source] CatalogResults.tsx does NOT import roundAvgRating (PERF-5: AGG-1 column value is pre-rounded)', () => {
+        expect(catalogResultsSrc).not.toContain('roundAvgRating');
     });
 
     it('[source] campCardSelect does NOT contain reviews (PERF-5: reviews over-fetch dropped)', () => {
@@ -226,18 +229,18 @@ describe('Data correctness / security — avgRating from column (PERF-5 / CAM-19
         expect(campCardSrc).toContain('avgRating: true');
     });
 
-    it('[source] app/page.tsx uses ONE findMany with select: campCardSelect (PERF-5: unified query)', () => {
+    it('[source] CatalogResults.tsx uses ONE findMany with select: campCardSelect (PERF-5: unified query)', () => {
         // Prove-It: splitting back to two branches increases the count.
-        const selectCount = (pageSrc.match(/select:\s*campCardSelect/g) || []).length;
+        const selectCount = (catalogResultsSrc.match(/select:\s*campCardSelect/g) || []).length;
         expect(selectCount).toBe(1);
     });
 
-    it('[source] app/page.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
-        expect(pageSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
+    it('[source] CatalogResults.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
+        expect(catalogResultsSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
     });
 
-    it('[source] app/page.tsx orderBy uses avgRating for rating sort (DB-level sort via stored column)', () => {
-        expect(pageSrc).toContain('avgRating');
+    it('[source] CatalogResults.tsx orderBy uses avgRating for rating sort (DB-level sort via stored column)', () => {
+        expect(catalogResultsSrc).toContain('avgRating');
     });
 
     it('[source] app/wishlist/page.tsx imports computeAvgRating (regression guard — wishlist still uses reviews fetch)', () => {
@@ -351,19 +354,19 @@ describe('Reuse rule — no duplicate avg/rounding logic in card or map componen
         expect(mapSrc).not.toContain('roundAvgRating');
     });
 
-    it('[reuse] app/page.tsx does NOT import computeAvgRating (PERF-5: sort moved to DB, helpers kept in sort-utils for wishlist)', () => {
-        // PERF-5 (CAM-193): the import was removed from page.tsx; helpers are still in lib/sort-utils.ts.
+    it('[reuse] CatalogResults.tsx does NOT import computeAvgRating (PERF-5: sort moved to DB)', () => {
+        // LOAD-1 (CAM-197): logic moved to CatalogResults.tsx. Helpers still in lib/sort-utils.ts.
         // Prove-It: re-adding the import makes this fail.
-        const hasImport = pageSrc.includes("from '@/lib/sort-utils'") || pageSrc.includes('from "@/lib/sort-utils"');
+        const hasImport = catalogResultsSrc.includes("from '@/lib/sort-utils'") || catalogResultsSrc.includes('from "@/lib/sort-utils"');
         expect(hasImport).toBe(false);
-        expect(pageSrc).not.toContain('computeAvgRating');
+        expect(catalogResultsSrc).not.toContain('computeAvgRating');
     });
 
-    it('[reuse] app/page.tsx does NOT import roundAvgRating (PERF-5: pre-rounded by AGG-1, no rounding needed in page.tsx)', () => {
-        // PERF-5 (CAM-193): the import was removed from page.tsx; helper is still in lib/review-summary.ts.
-        const hasImport = pageSrc.includes("from '@/lib/review-summary'") || pageSrc.includes('from "@/lib/review-summary"');
+    it('[reuse] CatalogResults.tsx does NOT import roundAvgRating (PERF-5: pre-rounded by AGG-1)', () => {
+        // LOAD-1 (CAM-197): logic moved to CatalogResults.tsx.
+        const hasImport = catalogResultsSrc.includes("from '@/lib/review-summary'") || catalogResultsSrc.includes('from "@/lib/review-summary"');
         expect(hasImport).toBe(false);
-        expect(pageSrc).not.toContain('roundAvgRating');
+        expect(catalogResultsSrc).not.toContain('roundAvgRating');
     });
 });
 
