@@ -617,6 +617,11 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
         const next = !!activeByRole[s.role];
         if (next === s.active) continue;
         s.active = next;
+        // Engine owns working/idle class (moved from React className so a re-render
+        // can no longer clobber the engine's walking-mode/entering class state or
+        // restart CSS animations mid-walk).
+        s.rootEl?.classList.toggle("working", next);
+        s.rootEl?.classList.toggle("idle", !next);
         if (next) {
           // Became busy → start wandering after a short, staggered delay.
           if (s.mode === "resting") {

@@ -490,7 +490,11 @@ function AgentScoutInner({
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
 
-  const stateClass = agent.active ? "working" : "idle";
+  // working/idle class is now engine-owned (toggled imperatively in setActivity()
+  // and seeded in the rootRef). Removing it from React's className prevents a
+  // re-render from clobbering the engine's walking-mode/entering class state or
+  // restarting CSS animations mid-walk.
+  // KEEP: bstatText, popover content, aria-label, rm-label — React-owned text/a11y.
 
   const bstatText = agent.active && agent.task
     ? agent.task.id
@@ -514,7 +518,7 @@ function AgentScoutInner({
     <button
       ref={rootRef as (el: HTMLButtonElement | null) => void}
       type="button"
-      className={`scout ${stateClass}`}
+      className="scout"
       style={{
         // Position is engine-owned (imperative per-frame via place()). Do NOT set
         // left/top/zIndex here — React re-applying them on every feed update would
@@ -1261,10 +1265,13 @@ export default function CampsiteScene({
         state.bodyEl.style.backgroundImage = `url("${relaxSrc}")`;
         state.lastSrc = relaxSrc;
       }
-      // Position immediately so the first paint matches the layout. The idle/working
-      // class is owned by React (className); the engine only toggles walking-mode.
+      // Position immediately so the first paint matches the layout. working/idle
+      // class is now engine-owned (not React className); set it here to match
+      // the initial s.active so no class is ever missing before setActivity() runs.
       if (state.rootEl) {
         state.rootEl.classList.remove("walking-mode");
+        state.rootEl.classList.toggle("working", state.active);
+        state.rootEl.classList.toggle("idle", !state.active);
         state.rootEl.style.left   = `${state.homeX}%`;
         state.rootEl.style.top    = `${state.homeY}%`;
         state.rootEl.style.zIndex = String(Math.round(state.homeY * 12) + 5);
@@ -1295,8 +1302,10 @@ export default function CampsiteScene({
         s.rootEl.style.left   = `${s.homeX}%`;
         s.rootEl.style.top    = `${s.homeY}%`;
         s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
-        // React owns idle/working; the engine only toggles walking-mode.
+        // Engine owns idle/working/walking-mode; restore to home idle state.
         s.rootEl.classList.remove("walking-mode");
+        s.rootEl.classList.toggle("working", s.active);
+        s.rootEl.classList.toggle("idle", !s.active);
       }
     }
 
@@ -1326,10 +1335,14 @@ export default function CampsiteScene({
           // Overwrite mutable fields in place so the array ref stays stable.
           Object.assign(s, fresh);
           ref.path = [];
-          // Re-apply idle class + position after reset.
+          // Re-apply working/idle class + position after reset (engine-owned).
+          // buildScoutState always produces s.active=false so classList.add("idle")
+          // is correct here; classList.toggle covers a defensive active=true case.
           if (s.rootEl) {
             s.rootEl.classList.remove("entering", "walking-mode");
-            s.rootEl.classList.add("idle");
+            s.rootEl.classList.toggle("working", s.active);
+            s.rootEl.classList.toggle("idle", !s.active);
+            if (!s.active) s.rootEl.classList.add("idle");
             s.rootEl.style.left   = `${s.homeX}%`;
             s.rootEl.style.top    = `${s.homeY}%`;
             s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
@@ -1614,14 +1627,25 @@ export default function CampsiteScene({
                   agent={agent}
                   rootRef={(el) => {
                     rootRefs.current[agent.role] = el;
-                    // Seed the first-paint position imperatively so there is no
-                    // unpositioned flash before the engine effect runs. The engine
-                    // owns position after mount; React never writes left/top/zIndex
-                    // again (they are not in the component's style prop).
-                    if (el) {
+                    // Seed the first-paint position and initial working/idle class
+                    // imperatively, guarded by dataset.posSeeded so this runs exactly
+                    // ONCE per DOM element. React reuses the same DOM node across
+                    // re-renders, so dataset.posSeeded persists and later inline-callback
+                    // invocations (triggered by re-renders where memo allows) skip the
+                    // re-seed. This keeps the first-paint seed that prevents a corner
+                    // flash, while ensuring the engine is the sole owner of position and
+                    // working/idle class from the moment the engine effect runs.
+                    // React never writes left/top/zIndex again after the initial seed
+                    // (they are not in the component's style prop); working/idle class is
+                    // toggled exclusively by the engine's setActivity() thereafter.
+                    if (el && !el.dataset.posSeeded) {
                       el.style.left   = pos.left;
                       el.style.top    = pos.top;
                       el.style.zIndex = String(pos.zIndex);
+                      // Belt-and-suspenders initial class for the pre-engine first paint.
+                      // The engine's init block will confirm/correct this once it runs.
+                      el.classList.add(agent.active ? "working" : "idle");
+                      el.dataset.posSeeded = "1";
                     }
                   }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
