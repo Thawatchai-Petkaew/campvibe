@@ -339,27 +339,22 @@ describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', ()
     expect(pageSrc).toContain('where,');
   });
 
-  // Rule — soft-delete: reviews include must use deletedAt: null
-  it('[source] reviews include uses deletedAt: null (soft-delete Rule)', () => {
-    // Prove-It: without deletedAt: null, soft-deleted reviews would be counted
-    // in the average, potentially inflating or deflating the real score.
-    // PERF-1 (CAM-192): the filter now lives in lib/read-models/camp-card.ts
-    // (campCardSelect) which app/page.tsx imports — check the canonical source.
-    const campCardSrc = fs.readFileSync(
-      path.join(process.cwd(), 'lib/read-models/camp-card.ts'),
+  // Rule — soft-delete: PERF-5 (CAM-193) — deletedAt filter now lives in app/wishlist/page.tsx (reviews select)
+  it('[source] soft-delete filter (deletedAt: null) exists in wishlist page reviews select (not campCardSelect)', () => {
+    // PERF-5 (CAM-193): campCardSelect no longer selects reviews, so deletedAt filter is only
+    // in app/wishlist/page.tsx which still uses a bespoke reviews select.
+    const wishlistSrc = fs.readFileSync(
+      path.join(process.cwd(), 'app/wishlist/page.tsx'),
       'utf-8'
     );
-    const hasFilter = pageSrc.includes('deletedAt: null') || campCardSrc.includes('deletedAt: null');
-    expect(hasFilter).toBe(true);
+    expect(wishlistSrc).toContain('deletedAt: null');
   });
 
-  // Rule — reviews field stripped before forwarding to the grid (shape parity)
-  it('[source] reviews array is stripped before forwarding to CampgroundGrid (shape parity)', () => {
-    // The grid component does not consume reviews; passing them leaks extra data
-    // to the client. The tech.md spec mandates stripping via destructuring.
-    // Pattern: `{ reviews: _reviews, ...rest }` or similar destructure
-    expect(pageSrc).toContain('_reviews');
-    // The result is passed to campSites (which feeds the grid)
+  // Rule — PERF-5: no reviews array in page.tsx (columns deliver avgRating/reviewCount)
+  it('[source] app/page.tsx does NOT contain reviews strip pattern (PERF-5: no reviews to strip)', () => {
+    // PERF-5 (CAM-193): avgRating/reviewCount come from stored columns; no reviews fetch in campCardSelect.
+    expect(pageSrc).not.toContain('_reviews');
+    // campSites assignment still present
     expect(pageSrc).toContain('campSites =');
   });
 
@@ -371,16 +366,18 @@ describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', ()
     expect(pageSrc).toContain('console.error');
   });
 
-  // AC-5 — deep link ?sort=rating works from SSR (sanitizedSort === 'rating' triggers rating branch)
-  it('[source] sanitizedSort === \'rating\' triggers the in-memory sort path (AC-5 deep-link)', () => {
-    // The branch that calls sortByRating is guarded by sanitizedSort === 'rating'
+  // AC-5 — PERF-5 (CAM-193): deep link ?sort=rating now uses DB sort via avgRating column
+  it('[source] sanitizedSort === \'rating\' triggers DB-level sort via avgRating orderBy (PERF-5)', () => {
+    // PERF-5: the rating branch no longer calls sortByRating; orderBy uses avgRating column instead.
     expect(pageSrc).toContain("sanitizedSort === 'rating'");
-    expect(pageSrc).toContain('sortByRating');
+    expect(pageSrc).toContain('avgRating');
+    expect(pageSrc).not.toContain('sortByRating');
   });
 
-  // Rule — sortByRating imported from lib/sort-utils (pure helper, independently testable)
-  it('[source] sortByRating is imported from @/lib/sort-utils (pure helper, no DB dependency)', () => {
-    expect(pageSrc).toContain('sort-utils');
-    expect(pageSrc).toContain('sortByRating');
+  // Rule — sortByRating kept in lib/sort-utils (pure helper — still used by wishlist page + tests)
+  it('[source] sortByRating is NOT imported in app/page.tsx (PERF-5: helper still exists in sort-utils for wishlist)', () => {
+    // PERF-5 (CAM-193): the import was removed from page.tsx; the export is retained in lib/sort-utils.ts.
+    expect(pageSrc).not.toContain('sort-utils');
+    expect(pageSrc).not.toContain('sortByRating');
   });
 });

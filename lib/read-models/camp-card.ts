@@ -1,19 +1,21 @@
 import { Prisma } from '@prisma/client';
 
 /**
- * Prisma select for the catalog card listing (PERF-1 / CAM-192).
+ * Prisma select for the catalog card listing (PERF-5 / CAM-193).
  *
  * Includes ONLY what CampgroundCard renders:
  *   - scalar card fields (id, name/slug, priceLow, createdAt)
+ *   - avgRating: Decimal(2,1)? column (maintained by AGG-1 / CAM-189)
+ *   - reviewCount: Int column (maintained by AGG-1 / CAM-189)
  *   - location: only province (the string the card renders — CampgroundCard.tsx:184)
  *   - images: first 5 by sortOrder (carousel shows ≤5 dots — CampgroundCard.tsx:150)
- *   - reviews: rating only, deletedAt:null (avgRating computed server-side; AGG-1 removes this later)
  *
  * Explicitly dropped (over-fetch culprits):
+ *   - reviews      (AGG-1 / CAM-189 writes avgRating/reviewCount columns; no raw reviews needed)
  *   - spots        (availability sub-tree — not rendered on the card)
  *   - options      (full MasterData taxonomy — not rendered on the card)
  *   - operator     (full User record — name used in WHERE only, not SELECT)
- *   - _count       (not needed; reviewCount derived from reviews.length)
+ *   - _count       (not needed; reviewCount comes from the stored column)
  *   - full location (only province is read; district/subDistrict/lat/lon etc. not rendered)
  *   - all images   (unbounded — capped at take:5)
  *   - priceHigh, isVerified, isPublished, latitude, longitude
@@ -27,6 +29,8 @@ export const campCardSelect = {
   nameEnSlug: true,
   priceLow: true,
   createdAt: true,
+  avgRating: true,   // PERF-5: Decimal(2,1)? column maintained by AGG-1
+  reviewCount: true, // PERF-5: Int column maintained by AGG-1
   location: {
     select: {
       province: true,
@@ -39,10 +43,6 @@ export const campCardSelect = {
     },
     orderBy: { sortOrder: 'asc' as const },
     take: 5,
-  },
-  reviews: {
-    where: { deletedAt: null },
-    select: { rating: true },
   },
 } satisfies Prisma.CampSiteSelect;
 

@@ -202,62 +202,53 @@ describe('AC-3/AC-4 — MapComponent: popup rating conditional + testids + no ha
 });
 
 // ---------------------------------------------------------------------------
-// Data correctness / security — query includes + strip
+// Data correctness / security — PERF-5 (CAM-193): column-based avgRating, no JS compute
 // ---------------------------------------------------------------------------
-describe('Data correctness / security — reviews include + avg compute + strip', () => {
+describe('Data correctness / security — avgRating from column (PERF-5 / CAM-193)', () => {
 
-    it('[source] app/page.tsx imports computeAvgRating (reuse rule — no new avg logic)', () => {
-        expect(pageSrc).toContain('computeAvgRating');
+    it('[source] app/page.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
+        // Prove-It: re-adding the import makes this fail.
+        expect(pageSrc).not.toContain('computeAvgRating');
     });
 
-    it('[source] app/page.tsx imports roundAvgRating (reuse rule — identical rounding to detail page)', () => {
-        expect(pageSrc).toContain('roundAvgRating');
+    it('[source] app/page.tsx does NOT import roundAvgRating (PERF-5: AGG-1 column value is pre-rounded)', () => {
+        expect(pageSrc).not.toContain('roundAvgRating');
     });
 
-    it('[source] app/page.tsx rating-sort branch includes reviews with deletedAt:null filter', () => {
-        // The rating branch (sanitizedSort === "rating") must include reviews with deletedAt:null.
-        // PERF-1 (CAM-192): the filter now lives in lib/read-models/camp-card.ts (campCardSelect)
-        // which app/page.tsx imports — check the canonical source file.
+    it('[source] campCardSelect does NOT contain reviews (PERF-5: reviews over-fetch dropped)', () => {
+        // Prove-It: re-adding reviews to campCardSelect makes this fail.
         const campCardSrc = readSrc('lib/read-models/camp-card.ts');
-        const hasFilter = pageSrc.includes('deletedAt: null') || campCardSrc.includes('deletedAt: null');
-        expect(hasFilter).toBe(true);
+        expect(campCardSrc).not.toContain('reviews:');
     });
 
-    it('[source] app/page.tsx else branch (non-rating sorts) ALSO includes reviews (AC-1 for all sort modes)', () => {
-        // PERF-1 (CAM-192): both query branches now share campCardSelect (single select object)
-        // which includes reviews. Verify: (a) campCardSelect contains reviews, and (b)
-        // app/page.tsx references campCardSelect in both branches (at least 2 select: occurrences).
+    it('[source] campCardSelect selects avgRating column (PERF-5: stored Decimal column from AGG-1)', () => {
         const campCardSrc = readSrc('lib/read-models/camp-card.ts');
-        // campCardSelect must contain the reviews field
-        expect(campCardSrc).toContain('reviews:');
-        // app/page.tsx must reference campCardSelect at least twice (once per branch)
+        expect(campCardSrc).toContain('avgRating: true');
+    });
+
+    it('[source] app/page.tsx uses ONE findMany with select: campCardSelect (PERF-5: unified query)', () => {
+        // Prove-It: splitting back to two branches increases the count.
         const selectCount = (pageSrc.match(/select:\s*campCardSelect/g) || []).length;
-        expect(selectCount).toBeGreaterThanOrEqual(2);
+        expect(selectCount).toBe(1);
     });
 
-    it('[source] app/page.tsx strips reviews array before forwarding to client (no PII leak)', () => {
-        // The strip pattern: ({ reviews: _reviews, ...rest })
-        expect(pageSrc).toContain('reviews: _reviews');
-        expect(pageSrc).toContain('...rest');
+    it('[source] app/page.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
+        expect(pageSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
     });
 
-    it('[source] app/page.tsx computes avgRating via roundAvgRating(computeAvgRating(_reviews))', () => {
-        expect(pageSrc).toContain('roundAvgRating(computeAvgRating(_reviews))');
+    it('[source] app/page.tsx orderBy uses avgRating for rating sort (DB-level sort via stored column)', () => {
+        expect(pageSrc).toContain('avgRating');
     });
 
-    it('[source] app/page.tsx sets reviewCount from _reviews.length (not from _count.reviews)', () => {
-        expect(pageSrc).toContain('_reviews.length');
-    });
-
-    it('[source] app/wishlist/page.tsx imports computeAvgRating', () => {
+    it('[source] app/wishlist/page.tsx imports computeAvgRating (regression guard — wishlist still uses reviews fetch)', () => {
         expect(wishlistPageSrc).toContain('computeAvgRating');
     });
 
-    it('[source] app/wishlist/page.tsx imports roundAvgRating', () => {
+    it('[source] app/wishlist/page.tsx imports roundAvgRating (regression guard — wishlist still uses reviews fetch)', () => {
         expect(wishlistPageSrc).toContain('roundAvgRating');
     });
 
-    it('[source] app/wishlist/page.tsx includes reviews with deletedAt:null in campSite select', () => {
+    it('[source] app/wishlist/page.tsx includes reviews with deletedAt:null in campSite select (out of PERF-5 scope)', () => {
         expect(wishlistPageSrc).toContain('deletedAt: null');
     });
 
@@ -360,18 +351,19 @@ describe('Reuse rule — no duplicate avg/rounding logic in card or map componen
         expect(mapSrc).not.toContain('roundAvgRating');
     });
 
-    it('[reuse] app/page.tsx imports computeAvgRating from lib/sort-utils (CAM-76 helper)', () => {
-        // The file uses double-quote imports; match either quote style
+    it('[reuse] app/page.tsx does NOT import computeAvgRating (PERF-5: sort moved to DB, helpers kept in sort-utils for wishlist)', () => {
+        // PERF-5 (CAM-193): the import was removed from page.tsx; helpers are still in lib/sort-utils.ts.
+        // Prove-It: re-adding the import makes this fail.
         const hasImport = pageSrc.includes("from '@/lib/sort-utils'") || pageSrc.includes('from "@/lib/sort-utils"');
-        expect(hasImport).toBe(true);
-        expect(pageSrc).toContain('computeAvgRating');
+        expect(hasImport).toBe(false);
+        expect(pageSrc).not.toContain('computeAvgRating');
     });
 
-    it('[reuse] app/page.tsx imports roundAvgRating from lib/review-summary (CAM-79 helper)', () => {
-        // The file uses double-quote imports; match either quote style
+    it('[reuse] app/page.tsx does NOT import roundAvgRating (PERF-5: pre-rounded by AGG-1, no rounding needed in page.tsx)', () => {
+        // PERF-5 (CAM-193): the import was removed from page.tsx; helper is still in lib/review-summary.ts.
         const hasImport = pageSrc.includes("from '@/lib/review-summary'") || pageSrc.includes('from "@/lib/review-summary"');
-        expect(hasImport).toBe(true);
-        expect(pageSrc).toContain('roundAvgRating');
+        expect(hasImport).toBe(false);
+        expect(pageSrc).not.toContain('roundAvgRating');
     });
 });
 
