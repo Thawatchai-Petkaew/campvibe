@@ -217,7 +217,7 @@ export default function InfiniteScrollGrid({
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10 mt-4"
         data-testid="grid--infinite-scroll"
       >
-        {items.map((camp) => (
+        {items.map((camp, index) => (
           <CampgroundCard
             key={camp.id}
             campground={camp as any /* serialised CampSite — createdAt is string from JSON, card handles both */}
@@ -226,6 +226,7 @@ export default function InfiniteScrollGrid({
             onGuestHeartClick={() => setIsLoginOpen(true)}
             avgRating={camp.avgRating}
             reviewCount={camp.reviewCount}
+            priority={index < 4}
           />
         ))}
 
