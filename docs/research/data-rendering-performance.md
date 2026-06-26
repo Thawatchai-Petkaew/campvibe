@@ -1,6 +1,6 @@
 # Research Map — CampVibe Data Layer (Performance · Freshness · Visibility) | Next-phase plan
 
-> **สถานะ:** ✅ **BUILT — 9 stories shipped to staging (2026-06-26):** MEAS-1 · PERF-1 (−89% payload) · PERF-2 · AGG-1 · PERF-5 · AVAIL-1 · PERF-4 · **CACHE-1** (detail total 2.8–5.8s→~1.0s warm, unstable_cache ไม่ใช่ PPR) · **FRESH-1** (+ SEC-1). **Deferred:** PERF-3 (scale-gated) · SEARCH-1/IMG-CDN-2/SEO-1 (trigger). epic CAM-186.
+> **สถานะ:** ✅ **EPIC COMPLETE — 10 stories shipped to staging (2026-06-26):** MEAS-1 · PERF-1 (−89% payload) · PERF-2 · AGG-1 · PERF-5 · AVAIL-1 · PERF-4 (webp) · CACHE-1 (detail 2.8–5.8s→~1.0s) · FRESH-1 · **PERF-3** (keyset + infinite scroll · 140 ลานครบ) (+ SEC-1 · FRESH-2 satisfied). **Deferred by trigger only:** SEARCH-1 (>10k ลาน) · IMG-CDN-2 (cost) · SEO-1. epic CAM-186.
 > **โจทย์ (เจ้าของ):** (1) ลานเยอะ/รูปเยอะ → เปิด Home/listing/filter แล้ว render การ์ด กิน performance สูง ขนาดใช้คนเดียวก็เริ่มหนัก · (2) หลังเจ้าของลงลานเสร็จ ต้องขึ้นแบบ real-time ไหม → research + design solution ทั้งระบบข้อมูล (ไม่ใช่แค่รูป)
 > **ยึดตาม:** `.claude/rules/performance.md` (Measure → Identify → Fix → Verify → Guard · metric honesty · budgets) + `.claude/rules/architecture.md` (Pixel/Set/Buffet · no N+1 · compute-on-the-fly) + `.claude/rules/seo.md` (SSR/ISR crawlable) + `.claude/rules/security.md` (default-deny / visibility)
 > **Metric honesty:** **ยังไม่ได้วัดจริง (NOT MEASURED)** — วิเคราะห์จากกลไก (query shape / Big-O) + โค้ดจริง; ตัวเลขที่ยกเป็น "ภาพประกอบเชิงกลไก" ไม่ใช่ผลวัด ขั้นแรกของ Phase ถัดไป = **วัดก่อน (MEAS-1)**
@@ -293,7 +293,7 @@ catalog: `force-dynamic` → fetch ติด tag (`next:{tags:['campsites']}` / 
 | **SEO-1** | detail page SEO: generateMetadata + robots + canonical + JSON-LD + **hard-404** (แก้ soft-404 จาก middleware+notFound) | seo | P3 | DEFERRED (รวม hard-404 จาก SEC-1) | — | page.tsx (ไม่มี generateMetadata) · middleware.ts |
 | **PERF-1** | List Buffet `campCardSelect` (การ์ด = carousel → `images take:5` ไม่ใช่ take:1) | perf | P1 | ✅ DONE (CAM-192 · payload −89%) | MEAS-1 | §4 · lib/read-models/camp-card.ts |
 | **PERF-2** | DB indexes (priceLow/createdAt composite; avgRating ใน PERF-5) | perf | P1 | ✅ DONE (CAM-188) | — | schema |
-| **PERF-3** | Keyset pagination + API `take` | perf | P1 | ⏸️ DEFERRED (scale-gated: take:40 พอที่ ~140 ลาน; เลือก UX ตอนโต) | PERF-2 | A2 · routes |
+| **PERF-3** | Keyset pagination + infinite scroll | perf | P1 | ✅ DONE (CAM-196 · 140 ลานครบ 6 pages 0 dupes verified) | PERF-2 | A2 · catalog-cursor.ts · InfiniteScrollGrid |
 | **AGG-1** | Maintained `avgRating`/`reviewCount` (txn + reconcile job) | data | P2 | ✅ DONE (CAM-189 · backfill+reconcile) | — | schema · reconcile-ratings.mjs |
 | **PERF-5** | Rating sort ฝั่ง DB (เลิก in-memory) + avgRating index | perf | P2 | ✅ DONE (CAM-193) | AGG-1, PERF-2 | page.tsx |
 | **PERF-4** | Images → next/image + `sizes` (~22 จุด/9 ไฟล์; วัดก่อน MEAS-1 ค่อยตัดสิน + spend cap) | perf | P2 | ✅ DONE (CAM-194 · webp verified · cost negligible) | MEAS-1, PERF-1 | image-with-fallback.tsx · next.config.ts |
