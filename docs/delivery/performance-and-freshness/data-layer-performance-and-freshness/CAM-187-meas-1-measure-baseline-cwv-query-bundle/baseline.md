@@ -64,10 +64,10 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 ### Server response + payload (curl, staging, รวม network)
 | Metric | Before | Target | After | Tool | Date |
 |---|---|---|---|---|---|
-| `/api/campsites` payload | **902 KB** 🔴 | เล็กลงมาก (PERF-1) | — | curl | 2026-06-26 |
-| `/api/campsites` time | TTFB ~2.3–2.7s · total ~3.0s | API p95 < 200ms | — | curl | 2026-06-26 |
-| home `/` payload | 364 KB | — | — | curl | 2026-06-26 |
-| home `/` time | total 2.4s (warm) / 5.3s (cold) | — | — | curl | 2026-06-26 |
+| `/api/campsites` payload | **902 KB** 🔴 | เล็กลงมาก (PERF-1) | **95.7 KB ✅ (−89%)** PERF-1 | curl | 2026-06-26 |
+| `/api/campsites` time | TTFB ~2.3–2.7s · total ~3.0s | API p95 < 200ms | TTFB ~1.4–3.4s (latency รอ CACHE-1/PERF-2) | curl | 2026-06-26 |
+| home `/` payload | 364 KB | — | **234 KB (−36%)** PERF-1 | curl | 2026-06-26 |
+| home `/` time | total 2.4s (warm) / 5.3s (cold) | — | ~1.8–5.1s (รอ CACHE-1) | curl | 2026-06-26 |
 | detail time | TTFB ~0.6s · total ~3.2s | — | — | curl | 2026-06-26 |
 
 ### Bundle / JS (Lighthouse insights)
