@@ -87,11 +87,17 @@ describe("SEC-2 security headers — next.config.ts headers() regression guard",
 
   // ── Presence checks ────────────────────────────────────────────────────
 
-  it("defines Content-Security-Policy header", async () => {
+  // CAM-203 SEC-3: Content-Security-Policy has moved to middleware.ts (per-request
+  // nonce CSP). It must NOT be in next.config.ts — a static CSP here would conflict
+  // with the dynamic nonce CSP from middleware (duplicate header). The SEC-3 test
+  // (__tests__/sec3-csp-nonce.test.ts) asserts the middleware CSP instead.
+  it("does NOT define Content-Security-Policy in next.config (CSP moved to middleware — CAM-203)", async () => {
     const h = await getHeaders();
     const csp = findHeader(h, "Content-Security-Policy");
-    expect(csp, "Content-Security-Policy header is missing").toBeDefined();
-    expect(csp!.length).toBeGreaterThan(0);
+    expect(
+      csp,
+      "Content-Security-Policy must NOT be in next.config.ts after CAM-203 SEC-3 (it lives in middleware.ts now)"
+    ).toBeUndefined();
   });
 
   it("defines X-Content-Type-Options: nosniff", async () => {
@@ -135,93 +141,9 @@ describe("SEC-2 security headers — next.config.ts headers() regression guard",
     expect(val).toContain("includeSubDomains");
   });
 
-  // ── CSP directive checks ───────────────────────────────────────────────
-
-  it("CSP includes default-src 'self'", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toMatch(/default-src\s+['"]?self['"]?/);
-  });
-
-  it("CSP allows script-src 'self' with unsafe-inline (required for Next.js hydration)", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("script-src");
-    expect(csp).toContain("'unsafe-inline'");
-  });
-
-  it("CSP img-src allows Unsplash", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("https://images.unsplash.com");
-  });
-
-  it("CSP img-src allows Vercel Blob Storage", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("https://*.public.blob.vercel-storage.com");
-  });
-
-  it("CSP img-src allows OpenStreetMap tile server (Leaflet map on campground detail)", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(
-      csp,
-      "CSP must allow *.tile.openstreetmap.org for Leaflet tile images"
-    ).toContain("https://*.tile.openstreetmap.org");
-  });
-
-  it("CSP img-src allows data: and blob: for image previews", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("data:");
-    expect(csp).toContain("blob:");
-  });
-
-  it("CSP font-src is 'self' (next/font/google self-hosts at build time)", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("font-src");
-    // Must NOT include fonts.gstatic.com — next/font self-hosts at build time.
-    expect(csp).not.toContain("fonts.gstatic.com");
-  });
-
-  it("CSP connect-src allows OpenStreetMap (Leaflet tile XHR)", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(
-      csp,
-      "CSP connect-src must allow *.tile.openstreetmap.org for Leaflet"
-    ).toContain("https://*.tile.openstreetmap.org");
-  });
-
-  it("CSP blocks frame-ancestors 'none'", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("frame-ancestors 'none'");
-  });
-
-  it("CSP blocks object-src 'none'", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("object-src 'none'");
-  });
-
-  it("CSP restricts base-uri to 'self'", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("base-uri 'self'");
-  });
-
-  it("CSP restricts form-action to 'self'", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("form-action 'self'");
-  });
-
-  it("CSP includes upgrade-insecure-requests", async () => {
-    const h = await getHeaders();
-    const csp = findHeader(h, "Content-Security-Policy")!;
-    expect(csp).toContain("upgrade-insecure-requests");
-  });
+  // ── CSP directive checks (moved to SEC-3 test) ────────────────────────
+  // CAM-203 SEC-3: CSP has moved to middleware.ts. The directives are now
+  // asserted in __tests__/sec3-csp-nonce.test.ts instead of here.
+  // The only CSP check remaining in this file is the "must NOT be in
+  // next.config" guard above, which prevents a duplicate-header regression.
 });
