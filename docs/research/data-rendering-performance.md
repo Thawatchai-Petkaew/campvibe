@@ -1,6 +1,6 @@
 # Research Map — CampVibe Data Layer (Performance · Freshness · Visibility) | Next-phase plan
 
-> **สถานะ:** Research + Solution Design สำหรับ **Phase ถัดไป** — ยังไม่ build ใน phase นี้ (เอกสารคือแผน)
+> **สถานะ:** ✅ **BUILT — 7 stories shipped to staging (2026-06-26):** MEAS-1 · PERF-1 (−89% payload) · PERF-2 · AGG-1 · PERF-5 · AVAIL-1 · PERF-4 (+ SEC-1). **Deferred:** CACHE-1 (PPR experimental + traffic-gated) · PERF-3 (scale-gated) · SEARCH-1/IMG-CDN-2/SEO-1 (trigger). epic CAM-186.
 > **โจทย์ (เจ้าของ):** (1) ลานเยอะ/รูปเยอะ → เปิด Home/listing/filter แล้ว render การ์ด กิน performance สูง ขนาดใช้คนเดียวก็เริ่มหนัก · (2) หลังเจ้าของลงลานเสร็จ ต้องขึ้นแบบ real-time ไหม → research + design solution ทั้งระบบข้อมูล (ไม่ใช่แค่รูป)
 > **ยึดตาม:** `.claude/rules/performance.md` (Measure → Identify → Fix → Verify → Guard · metric honesty · budgets) + `.claude/rules/architecture.md` (Pixel/Set/Buffet · no N+1 · compute-on-the-fly) + `.claude/rules/seo.md` (SSR/ISR crawlable) + `.claude/rules/security.md` (default-deny / visibility)
 > **Metric honesty:** **ยังไม่ได้วัดจริง (NOT MEASURED)** — วิเคราะห์จากกลไก (query shape / Big-O) + โค้ดจริง; ตัวเลขที่ยกเป็น "ภาพประกอบเชิงกลไก" ไม่ใช่ผลวัด ขั้นแรกของ Phase ถัดไป = **วัดก่อน (MEAS-1)**
@@ -288,20 +288,20 @@ catalog: `force-dynamic` → fetch ติด tag (`next:{tags:['campsites']}` / 
 
 | ID | Title | type | prio | status | depends | evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| **MEAS-1** | วัด baseline (CWV/API/bundle) | perf | P0 | DECIDED | — | §8 |
+| **MEAS-1** | วัด baseline (CWV/API/bundle) | perf | P0 | ✅ DONE (CAM-187 · baseline.md) | — | §8 |
 | **SEC-1** | ปิดช่องโหว่ public visibility (detail + by-id + availability + spots) | security | P0 | ✅ DONE (CAM-185 · PR #181 staging) | — | page.tsx · [id]/availability/spots routes |
 | **SEO-1** | detail page SEO: generateMetadata + robots + canonical + JSON-LD + **hard-404** (แก้ soft-404 จาก middleware+notFound) | seo | P3 | DEFERRED (รวม hard-404 จาก SEC-1) | — | page.tsx (ไม่มี generateMetadata) · middleware.ts |
-| **PERF-1** | List Buffet `campCardSelect` (การ์ด = carousel → `images take:5` ไม่ใช่ take:1) | perf | P1 | DECIDED | MEAS-1 | §4 · lib/read-models/camp-card.ts · CampgroundCard.tsx |
-| **PERF-2** | DB indexes (priceLow/createdAt/avgRating/composite) | perf | P1 | DECIDED | — | schema:335-338 |
-| **PERF-3** | Keyset pagination + API `take` | perf | P1 | DECIDED | PERF-2 | A2 · routes |
-| **AGG-1** | Maintained `avgRating`/`reviewCount` (txn + reconcile job) | data | P2 | DECIDED | — | sort-utils.ts:30-32 |
-| **PERF-5** | Rating sort ฝั่ง DB (เลิก in-memory) | perf | P2 | DECIDED | AGG-1, PERF-2 | page.tsx:94-122 |
-| **PERF-4** | Images → next/image + `sizes` (~22 จุด/9 ไฟล์; วัดก่อน MEAS-1 ค่อยตัดสิน + spend cap) | perf | P2 | DECIDED (gated by MEAS-1) | MEAS-1, PERF-1 | image-with-fallback.tsx:63 · next.config.ts |
+| **PERF-1** | List Buffet `campCardSelect` (การ์ด = carousel → `images take:5` ไม่ใช่ take:1) | perf | P1 | ✅ DONE (CAM-192 · payload −89%) | MEAS-1 | §4 · lib/read-models/camp-card.ts |
+| **PERF-2** | DB indexes (priceLow/createdAt composite; avgRating ใน PERF-5) | perf | P1 | ✅ DONE (CAM-188) | — | schema |
+| **PERF-3** | Keyset pagination + API `take` | perf | P1 | ⏸️ DEFERRED (scale-gated: take:40 พอที่ ~140 ลาน; เลือก UX ตอนโต) | PERF-2 | A2 · routes |
+| **AGG-1** | Maintained `avgRating`/`reviewCount` (txn + reconcile job) | data | P2 | ✅ DONE (CAM-189 · backfill+reconcile) | — | schema · reconcile-ratings.mjs |
+| **PERF-5** | Rating sort ฝั่ง DB (เลิก in-memory) + avgRating index | perf | P2 | ✅ DONE (CAM-193) | AGG-1, PERF-2 | page.tsx |
+| **PERF-4** | Images → next/image + `sizes` (~22 จุด/9 ไฟล์; วัดก่อน MEAS-1 ค่อยตัดสิน + spend cap) | perf | P2 | ✅ DONE (CAM-194 · webp verified · cost negligible) | MEAS-1, PERF-1 | image-with-fallback.tsx · next.config.ts |
 | **IMG-CDN-2** | Dedicated image CDN (R2 + Cloudflare Images via `loaderFile`) | perf | — | DEFERRED | PERF-4 + cost trigger | §5C |
-| **CACHE-1** | force-dynamic → cached catalog (PPR/`use cache`) | perf | P3 | NEEDS-MEASUREMENT | MEAS-1, SEC-1, FRESH-1 | §6 |
-| **FRESH-1** | `revalidateTag` wiring ครบทุก write path + guard | correctness | P3 | DECIDED | CACHE-1 | §6.3 |
-| **FRESH-2** | host preview/dashboard = no-store/refetch | ux | P2 | NEEDS-VERIFY | — | (หา host management routes) |
-| **AVAIL-1** | availability no-store + transactional capacity + BlockedDate | correctness | P1 | 🟡 PARTIAL — booking-write เสร็จ (BlockedDate+Serializable tx+P2034+CAM-57 tests); เหลือ GET availability นับ BlockedDate + explicit no-store + verify staging | — | app/api/bookings/route.ts · campsite-availability.ts:8 · [id]/availability routes |
+| **CACHE-1** | force-dynamic → cached catalog (PPR/`use cache`) | perf | P3 | ⏸️ DEFERRED — PPR ยัง experimental (เคยทำ staging ล่ม CAM-191) + traffic ต่ำ latency ยังไม่ทำร้าย; รอ traffic จริง หรือทำด้วย unstable_cache | MEAS-1, SEC-1, FRESH-1 | §6 |
+| **FRESH-1** | `revalidateTag` wiring ครบทุก write path + guard | correctness | P3 | ⏸️ DEFERRED (คู่กับ CACHE-1) | CACHE-1 | §6.3 |
+| **FRESH-2** | host preview/dashboard = no-store/refetch | ux | P2 | ✅ พอแล้ว (host pages = force-dynamic; formalize ตอน CACHE-1) | — | dashboard/host routes |
+| **AVAIL-1** | availability no-store + transactional capacity + BlockedDate | correctness | P1 | ✅ DONE (CAM-190 · GET นับ BlockedDate + blockedByHost + no-store verified) | — | campsite-availability.ts · [id]/availability routes |
 | **BOOK-1** | verify snapshot-on-CONFIRMED | correctness | P2 | ✅ VERIFIED — snapshot ตรึงตอน create (PENDING) ใน txn | — | app/api/bookings/route.ts:145-171 |
 | **PROD-1** | moderation/draft gate? | product | P1 | ✅ DECIDED (delegated): ไม่เพิ่ม — เผยแพร่ทันทีตามเดิม | — | V4 |
 | **SEARCH-1** | search engine decision gate | arch | — | DEFERRED | trigger | §5D |
