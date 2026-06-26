@@ -17,7 +17,8 @@
     "db:reset:staging": "node scripts/db-reset.mjs",
     "db:load:staging": "node scripts/load-mock-staging.mjs",
     "check:palette": "node scripts/check-palette.mjs",
-    "check:ds": "node scripts/check-ds.mjs"
+    "check:ds": "node scripts/check-ds.mjs",
+    "reconcile:ratings": "node scripts/reconcile-ratings.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

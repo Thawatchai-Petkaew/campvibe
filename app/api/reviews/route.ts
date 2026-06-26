@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { reviewBodySchema, canReview, VERIFIED_STAY_STATUSES } from '@/lib/validations/review';
@@ -50,16 +51,41 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 5. Create the review.
-        const review = await prisma.review.create({
-            data: {
-                authorId,
-                campSiteId: data.campSiteId,
-                rating: data.rating,
-                title: data.title ?? '',
-                content: data.content,
-                visitDate: data.visitDate ? new Date(data.visitDate) : null,
-            },
+        // 5. Create the review and maintain aggregate in a single atomic transaction (AGG-1 / CAM-189).
+        // The aggregate is recomputed from all non-deleted reviews for this camp AFTER the new row is
+        // inserted, so the new review is included in the count and avg.
+        const review = await prisma.$transaction(async (tx) => {
+            const created = await tx.review.create({
+                data: {
+                    authorId,
+                    campSiteId: data.campSiteId,
+                    rating: data.rating,
+                    title: data.title ?? '',
+                    content: data.content,
+                    visitDate: data.visitDate ? new Date(data.visitDate) : null,
+                },
+            });
+
+            // Recompute aggregate from source of truth (non-deleted reviews for this camp).
+            const agg = await tx.review.aggregate({
+                where: { campSiteId: data.campSiteId, deletedAt: null },
+                _avg: { rating: true },
+                _count: { id: true },
+            });
+
+            const count = agg._count.id;
+            const rawAvg = agg._avg.rating;
+            const avgRating =
+                rawAvg != null
+                    ? new Prisma.Decimal(Math.round(Number(rawAvg) * 10) / 10)
+                    : null;
+
+            await tx.campSite.update({
+                where: { id: data.campSiteId },
+                data: { reviewCount: count, avgRating },
+            });
+
+            return created;
         });
 
         return NextResponse.json(review, { status: 201 });
