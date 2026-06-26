@@ -81,8 +81,9 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 ### Findings After (2026-06-27) — LCP ยังไม่ผ่านเป้า + bottleneck เหลือ
 
 - ✅ **TTFB 2.3s → 40ms** (CACHE-1 ได้ผลชัด) · payload −89% · LCP 9.0s → **5.5s (−39%)**.
-- 🔴 **LCP 5.5s ยังเกินเป้า 2.5s.** LCP breakdown: **Resource load delay 2,040ms** = ตัวการอันดับ 1 — รูป hero (การ์ดใบแรก) next/image โหลด `loading="lazy"` + ไม่มี `fetchpriority="high"` → **CAM-199 (PERF-IMG-LCP)** แก้: priority รูปการ์ดใบแรกๆ. คาด LCP ลง ~3.x s.
-- 🔴 **Unused JS 687 KiB + render-blocking CSS + main-thread 3.8s** = bottleneck อันดับ 2 (ฝั่ง client, epic ไม่ได้แตะ) → **PERF-BUNDLE** (story ถัดไป ถ้า LCP ยังไม่ถึง 2.5s หลัง CAM-199 + re-measure).
+- ✅ **CAM-199 (PERF-IMG-LCP) DONE** — แก้รูป LCP lazy (resource load delay 2,040ms) → priority+preload การ์ด 4 ใบแรก. **วัดซ้ำ: LCP 5.5s → 2.3s ✅ ผ่านเป้า ≤2.5s** (Perf 71→82). ผลข้างเคียง: TBT 270→610ms (JS ยังหนัก).
+- ✅ **CAM-200 (PERF-BUNDLE) DONE** — เจอตัวการ: `FilterModal` `import * as lucide` ลากไอคอน 1414 ตัว = 173 KB (53% ของ bundle). แก้: named ICON_MAP 39 ไอคอน + lazy modal (Search/Login/Register). **First Load JS 327 → 127 KB gz (−61%)** เข้าใต้ budget 200 KB. คาดกด TBT/main-thread ลง → owner re-measure.
+- ⏭️ เหลือ (follow-on PERF-BUNDLE-2, นอก scope): `CampgroundForm`/`AmenitiesModal` ก็มี lucide wildcard (เฉพาะ route dashboard ไม่กระทบ Home).
 - /campgrounds: ไม่ได้วัดซ้ำรอบนี้ (วัด Home เป็นตัวแทน — LCP image เป็นการ์ดเหมือนกัน).
 
 > **ยังไม่วัด (optional, ไม่บล็อก):** prisma_query internal durationMs (ดึงจาก Vercel log ได้) · First-Load JS gz ต่อ route (Next 16 build ไม่พิมพ์ตาราง size แล้ว — ใช้ `ANALYZE=1` ถ้าต้องการ) · `EXPLAIN ANALYZE` (ต้อง psql เข้า staging DB). Lighthouse + curl ครอบคลุมภาพหลักพอสำหรับ before/after.
