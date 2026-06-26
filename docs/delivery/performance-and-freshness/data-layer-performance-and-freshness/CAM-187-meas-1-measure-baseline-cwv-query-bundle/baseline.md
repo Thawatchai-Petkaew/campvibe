@@ -82,7 +82,9 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 
 - ✅ **TTFB 2.3s → 40ms** (CACHE-1 ได้ผลชัด) · payload −89% · LCP 9.0s → **5.5s (−39%)**.
 - ✅ **CAM-199 (PERF-IMG-LCP) DONE** — แก้รูป LCP lazy (resource load delay 2,040ms) → priority+preload การ์ด 4 ใบแรก. **วัดซ้ำ: LCP 5.5s → 2.3s ✅ ผ่านเป้า ≤2.5s** (Perf 71→82). ผลข้างเคียง: TBT 270→610ms (JS ยังหนัก).
-- ✅ **CAM-200 (PERF-BUNDLE) DONE** — เจอตัวการ: `FilterModal` `import * as lucide` ลากไอคอน 1414 ตัว = 173 KB (53% ของ bundle). แก้: named ICON_MAP 39 ไอคอน + lazy modal (Search/Login/Register). **First Load JS 327 → 127 KB gz (−61%)** เข้าใต้ budget 200 KB. คาดกด TBT/main-thread ลง → owner re-measure.
+- ✅ **CAM-200 (PERF-BUNDLE) DONE** — เจอตัวการ: `FilterModal` `import * as lucide` ลากไอคอน 1414 ตัว = 173 KB (53% ของ bundle). แก้: named ICON_MAP 39 ไอคอน + lazy modal (Search/Login/Register). **First Load JS 327 → 127 KB gz (−61%)** เข้าใต้ budget 200 KB.
+- 🎯 **วัดซ้ำ Lighthouse 2026-06-27 (หลัง CAM-199 + CAM-200) — เป้าครบทุกตัว:** **Perf 66→94** · **LCP 9.0→2.4s ✅** · **TBT 610→200ms ✅** · **CLS 0 ✅** · FCP 1.6s · SI 2.5s. epic CAM-186 บรรลุ KPI (LCP ≤2.5s) บน staging.
+- 🔒 **SEC-2 (CAM-202) DONE** — เพิ่ม security headers ครบ (CSP/nosniff/Referrer/X-Frame/Permissions/COOP/HSTS) ปิดช่องโหว่ตาม security.md. follow-up: SEC-3 strict-CSP (ลบ unsafe-inline).
 - ⏭️ เหลือ (follow-on PERF-BUNDLE-2, นอก scope): `CampgroundForm`/`AmenitiesModal` ก็มี lucide wildcard (เฉพาะ route dashboard ไม่กระทบ Home).
 - /campgrounds: ไม่ได้วัดซ้ำรอบนี้ (วัด Home เป็นตัวแทน — LCP image เป็นการ์ดเหมือนกัน).
 
