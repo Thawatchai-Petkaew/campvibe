@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { assertSeedAllowed } from '@/lib/seed-guard';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
 
 async function fetchWithRetry(url: string, retries = 3) {
     for (let i = 0; i < retries; i++) {
@@ -197,6 +199,10 @@ export async function POST() {
 
             results.push({ name: nameTh, imageCount: localImages.length });
         }
+
+        // FRESH-1: invalidate the full catalog cache after a scraper-based seed
+        // run replaces catalog contents. Called once at handler end.
+        revalidateTag(CATALOG_TAG, {});
 
         return NextResponse.json({ success: true, count: results.length, data: results });
     } catch (error) {

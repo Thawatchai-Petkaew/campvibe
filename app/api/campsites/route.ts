@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
@@ -6,6 +7,7 @@ import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNest
 import { requireAuth } from '@/lib/auth-utils';
 import { withTiming } from '@/lib/route-timing';
 import { campCardSelect } from '@/lib/read-models/camp-card';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -138,6 +140,10 @@ export async function POST(request: NextRequest) {
         operatorId: userId,
       },
     });
+
+    // FRESH-1: invalidate the public catalog cache after a new camp is created.
+    // Called after the DB write succeeds, before the success response.
+    revalidateTag(CATALOG_TAG, {});
 
     return apiSuccess(campSite, 201);
   } catch (error) {

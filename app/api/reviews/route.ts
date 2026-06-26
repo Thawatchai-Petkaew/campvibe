@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { reviewBodySchema, canReview, VERIFIED_STAY_STATUSES } from '@/lib/validations/review';
+import { CATALOG_TAG, campTag } from '@/lib/catalog-cache';
 
 export async function POST(request: NextRequest) {
     // 1. Authentication — session must exist; authorId comes from session only.
@@ -87,6 +89,13 @@ export async function POST(request: NextRequest) {
 
             return created;
         });
+
+        // FRESH-1: invalidate the camp-specific cache entry and the broad
+        // catalog cache after the AGG-1 transaction commits (avgRating /
+        // reviewCount on CampSite are updated inside the tx above).
+        // Called after the transaction succeeds, before the success response.
+        revalidateTag(campTag(data.campSiteId), {});
+        revalidateTag(CATALOG_TAG, {});
 
         return NextResponse.json(review, { status: 201 });
 
