@@ -10,28 +10,23 @@ import { useState } from "react";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { LoginModal } from "@/components/LoginModal";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { CampCardPayload } from "@/lib/read-models/camp-card";
 
-// Minimal shape serialised from the server component.
-export interface CampSiteCardData {
-    id: string;
-    nameTh: string;
-    nameEn: string | null;
-    nameThSlug: string;
-    nameEnSlug: string;
-    images?: { url: string }[]; // S4b: Image relation (was CSV)
-    priceLow: number | null;
-    priceHigh: number | null;
-    isVerified: boolean;
-    isPublished: boolean;
-    latitude: number;
-    longitude: number;
-    createdAt: string; // ISO string (Date serialised)
-    location: { province: string };
+/**
+ * Serialised card shape passed from the server component (PERF-1 / CAM-192).
+ * Derived from CampCardPayload: reviews are stripped server-side and replaced
+ * with the computed avgRating / reviewCount scalars.
+ * priceLow is serialised to number | null by serializeDecimals (was Decimal).
+ * createdAt is serialised to ISO string.
+ */
+export type CampSiteCardData = Omit<CampCardPayload, 'reviews' | 'priceLow' | 'createdAt'> & {
+    priceLow: number | null;   // Decimal serialised to number
+    createdAt: string;          // Date serialised to ISO string
     /** CAM-147: server-computed average rating (1dp) or null when no reviews. */
     avgRating?: number | null;
     /** CAM-147: total non-deleted review count. */
     reviewCount?: number;
-}
+};
 
 interface CampgroundGridProps {
     camps: CampSiteCardData[];

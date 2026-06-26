@@ -215,14 +215,24 @@ describe('Data correctness / security — reviews include + avg compute + strip'
     });
 
     it('[source] app/page.tsx rating-sort branch includes reviews with deletedAt:null filter', () => {
-        // The rating branch (sanitizedSort === "rating") must include reviews
-        expect(pageSrc).toContain('deletedAt: null');
+        // The rating branch (sanitizedSort === "rating") must include reviews with deletedAt:null.
+        // PERF-1 (CAM-192): the filter now lives in lib/read-models/camp-card.ts (campCardSelect)
+        // which app/page.tsx imports — check the canonical source file.
+        const campCardSrc = readSrc('lib/read-models/camp-card.ts');
+        const hasFilter = pageSrc.includes('deletedAt: null') || campCardSrc.includes('deletedAt: null');
+        expect(hasFilter).toBe(true);
     });
 
     it('[source] app/page.tsx else branch (non-rating sorts) ALSO includes reviews (AC-1 for all sort modes)', () => {
-        // Count occurrences of the reviews include pattern — must be at least 2 (one per branch)
-        const reviewsIncludeCount = (pageSrc.match(/reviews:\s*\{/g) || []).length;
-        expect(reviewsIncludeCount).toBeGreaterThanOrEqual(2);
+        // PERF-1 (CAM-192): both query branches now share campCardSelect (single select object)
+        // which includes reviews. Verify: (a) campCardSelect contains reviews, and (b)
+        // app/page.tsx references campCardSelect in both branches (at least 2 select: occurrences).
+        const campCardSrc = readSrc('lib/read-models/camp-card.ts');
+        // campCardSelect must contain the reviews field
+        expect(campCardSrc).toContain('reviews:');
+        // app/page.tsx must reference campCardSelect at least twice (once per branch)
+        const selectCount = (pageSrc.match(/select:\s*campCardSelect/g) || []).length;
+        expect(selectCount).toBeGreaterThanOrEqual(2);
     });
 
     it('[source] app/page.tsx strips reviews array before forwarding to client (no PII leak)', () => {

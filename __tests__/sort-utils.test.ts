@@ -343,7 +343,14 @@ describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', ()
   it('[source] reviews include uses deletedAt: null (soft-delete Rule)', () => {
     // Prove-It: without deletedAt: null, soft-deleted reviews would be counted
     // in the average, potentially inflating or deflating the real score.
-    expect(pageSrc).toContain('deletedAt: null');
+    // PERF-1 (CAM-192): the filter now lives in lib/read-models/camp-card.ts
+    // (campCardSelect) which app/page.tsx imports — check the canonical source.
+    const campCardSrc = fs.readFileSync(
+      path.join(process.cwd(), 'lib/read-models/camp-card.ts'),
+      'utf-8'
+    );
+    const hasFilter = pageSrc.includes('deletedAt: null') || campCardSrc.includes('deletedAt: null');
+    expect(hasFilter).toBe(true);
   });
 
   // Rule — reviews field stripped before forwarding to the grid (shape parity)
