@@ -29,6 +29,22 @@ const nextConfig: NextConfig = {
     ],
     dangerouslyAllowSVG: false,
   },
+  // CAM-201 — walking-agent flicker root cause: the /status/map walk + relax sprite
+  // frames are swapped via background-image every frame. Next.js' default for /public
+  // is `max-age=0, must-revalidate`, so on deployed envs (Staging/Prod) the browser
+  // revalidates each frame over the network before painting → a blank flash mid-walk
+  // (invisible on localhost where the round-trip is ~0ms). These sprites are immutable
+  // build assets — cache them hard so a frame swap never triggers a revalidation.
+  async headers() {
+    return [
+      {
+        source: "/status-map/sprites/:file*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withAnalyzer(nextConfig);

@@ -279,6 +279,27 @@ export function startEngine(scouts: ScoutRef[]): EngineHandle {
   let last   = performance.now();
   let active = true;
 
+  // CAM-201 — preload + decode every walk/relax frame once at start, and keep the
+  // decoded images alive (the array reference prevents GC). A background-image swap
+  // mid-walk then paints from memory with no fetch/decode flash even on the very
+  // first cycle. Pairs with the immutable Cache-Control on these assets (next.config)
+  // so no frame swap ever triggers a network revalidation. Browser-only (the scene
+  // is a client component loaded with ssr:false), so window/Image is available.
+  const preloadedSprites: HTMLImageElement[] = [];
+  if (typeof window !== "undefined" && typeof Image !== "undefined") {
+    const allFrames = [
+      ...Object.values(WALK_SPRITES).flat(),
+      ...Array.from({ length: RELAX_POSES }, (_, i) => `/status-map/sprites/relax-${i}.webp`),
+    ];
+    for (const src of allFrames) {
+      const img = new Image();
+      img.src = src;
+      img.decode?.().catch(() => {});
+      preloadedSprites.push(img);
+    }
+  }
+  void preloadedSprites; // referenced only to keep the decoded frames alive
+
   // ── DOM helpers ─────────────────────────────────────────────────────────────
   function setWalkBody(s: ScoutState) {
     if (!s.bodyEl) return;

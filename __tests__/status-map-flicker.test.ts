@@ -329,3 +329,44 @@ describe("[regression CAM-201 GAP B] working/idle class is engine-owned, not Rea
     expect(agentScoutInnerSrc).toContain("working/idle class is now engine-owned");
   });
 });
+
+// ============================================================
+// Regression test: CAM-201 — the REAL deployed flicker root cause
+//
+// Bug (the one the owner actually saw — "flickers on Staging/Prod, not Local;
+// while walking; pre-existing"): the walk + relax sprite frames are swapped via
+// background-image every frame. Next.js' default Cache-Control for /public is
+// `max-age=0, must-revalidate`, so on deployed envs the browser revalidated each
+// frame over the network before painting → a blank flash mid-walk. Invisible on
+// localhost (round-trip ~0ms). Confirmed by the live header on the deployed asset.
+//
+// Fix (two layers):
+//   1. next.config headers() serves /status-map/sprites/* as immutable long-cache
+//      → the browser never revalidates a frame swap.
+//   2. The engine preloads + decodes every frame once at start and keeps the
+//      decoded images alive → no fetch/decode flash even on the first cycle.
+//
+// Source-inspection guard (node-only Vitest, same harness as above). Re-introducing
+// the bug (dropping the cache rule or the preload) turns these red.
+// ============================================================
+const nextConfigSrc = readFileSync(resolve(__dirname, "../next.config.ts"), "utf8");
+
+describe("CAM-201 — sprite cache + preload (real deployed flicker fix)", () => {
+  it("next.config caches /status-map/sprites/* as immutable (no per-frame revalidation)", () => {
+    expect(nextConfigSrc).toContain("/status-map/sprites/:file*");
+    expect(nextConfigSrc).toMatch(/max-age=31536000.*immutable/);
+  });
+
+  it("next.config sets Cache-Control via headers()", () => {
+    expect(nextConfigSrc).toMatch(/async headers\(\)/);
+    expect(nextConfigSrc).toContain('key: "Cache-Control"');
+  });
+
+  it("engine preloads + decodes all walk + relax frames at start and keeps them alive", () => {
+    expect(engineSrc).toContain("preloadedSprites");
+    expect(engineSrc).toContain("Object.values(WALK_SPRITES).flat()");
+    expect(engineSrc).toMatch(/relax-\$\{i\}\.webp/);
+    expect(engineSrc).toContain("new Image()");
+    expect(engineSrc).toContain("decode?.()");
+  });
+});
