@@ -32,7 +32,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { CampgroundSkeleton } from "@/components/CampgroundSkeleton";
-import { LoginModal } from "@/components/LoginModal";
+// CAM-200 PERF-BUNDLE Action D: lazy-load LoginModal — shown only on heart-click by guests.
+// ssr:false is correct — LoginModal uses client-only hooks (useSession, usePathname).
+import dynamic from "next/dynamic";
+const LoginModal = dynamic(
+  () => import("@/components/LoginModal").then((m) => ({ default: m.LoginModal })),
+  { ssr: false, loading: () => null }
+);
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { CampSiteCardData } from "@/components/CampgroundGrid";
 
