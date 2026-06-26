@@ -101,6 +101,7 @@ description: One line — what it does. Use when <trigger>. Do NOT use when <exc
 - **Verification is measurable.** "Verify AC on the Staging URL", "`linear-sync audit` passes", "`npm audit --omit=dev` → 0 high/critical" — not "make sure it works".
 - **Token-conscious.** Keep the main file lean (well under the official 500-line ceiling); split a supporting `references/<name>.md` only when reference material exceeds ~100 lines. Do not create empty dirs to mirror others.
 - **Cross-reference, don't duplicate.** Point at the other skill or rule by name (`.claude/rules/qa.md`, the `open-pr` skill); never copy its content.
+- **Capturing lessons into rules (the learning loop).** Lessons from closed stories enter a rule only via the `retro` skill, and only when **reusable + role-general** — append a `## Common Rationalizations` row or a `## Standards` bullet, each citing its origin **CAM-### (the WHY)**. Before adding, scan the `docs/delivery/LESSONS.md` ledger + the target section for a near-duplicate and **strengthen/merge** instead of twinning. A rule edit is owner-approved (it steers the whole team). One-offs go to orchestrator memory, not a rule. Prune on a cadence (ledger-driven) so files stay under the size ceiling.
 
 ## Common Rationalizations
 

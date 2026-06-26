@@ -125,6 +125,7 @@ A verified performance budget (CWV measured against targets, route bundle and AP
 | "It feels faster now / the CWV improved." | No evidence is not a result. State measured vs potential explicitly. |
 | "Memo/useCallback everywhere is safer." | Blanket memoization adds cost and bugs. Only where a profile says it pays off. |
 | "Fixed it, shipping it." | A fix with no re-measure or guard silently regresses. Verify + Guard. |
+| "Static images/sprites don't need cache tuning." | Assets swapped at runtime (e.g. `background-image` frame cycling) under the `/public` default `Cache-Control: max-age=0, must-revalidate` revalidate over the network on every swap → a blank flash, visible on deployed envs but not localhost. Serve runtime-swapped static assets `immutable` (long max-age) via `next.config` headers and preload+decode animated frames (CAM-201). |
 
 ## Verify (exit criteria)
 
