@@ -330,7 +330,7 @@ async function main() {
           isPublished: true,
           logo: extractLogo(camp.imageManifest, camp.nameThSlug),
           options: { connect: resolvedOptions },
-          operatorId: host.id,
+          operator: { connect: { id: host.id } },
           // Location — create inline on first upsert
           location: {
             create: {
