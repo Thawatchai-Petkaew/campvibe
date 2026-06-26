@@ -172,6 +172,7 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 | "One big PR covers more ground." | Multi-concern PRs can't be reviewed or reverted. 1 atomic story, ≤400 lines. |
 | "The happy path works, ship it." | Missing error/empty states is a half-built feature. Cover every state per the AC. |
 | "I'll write this util now, we'll need it later." | Speculative code is dead weight. Add it when there's a real caller. |
+| "It works on local, so a Staging/Prod-only bug is a deploy fluke." | A bug that appears only on a deployed env points at the environment — HTTP cache headers, CDN, case-sensitivity (macOS local is case-insensitive, Linux/Vercel is not), network latency — not app logic. Triage env/assets/headers and reproduce on the deployed URL before changing code (CAM-201). |
 
 ## Verify (exit criteria)
 
