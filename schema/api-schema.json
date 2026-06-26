@@ -248,6 +248,79 @@
         }
     },
     "endpoints": {
+        "GET /api/campsites/[id]/availability": {
+            "story": "CAM-190 (AVAIL-1)",
+            "auth": "public for public campsites (isActive+isPublished+deletedAt:null); authenticated (operator/admin) for non-public — non-public returns 404 to avoid information-disclosure",
+            "cacheDirective": "Cache-Control: no-store (explicit header on response) + export const dynamic = 'force-dynamic' on the route module",
+            "input": {
+                "id": "string (path param) — campSiteId",
+                "startDate": "ISO date string (query) — range start",
+                "endDate": "ISO date string (query) — range end"
+            },
+            "output": {
+                "campSiteId": "string",
+                "availability": "AvailabilityDay[]",
+                "limits": {
+                    "maxGuestsPerDay": "number | null",
+                    "maxTentsPerDay": "number | null"
+                }
+            },
+            "outputTypes": {
+                "AvailabilityDay": {
+                    "date": "string (YYYY-MM-DD)",
+                    "bookedGuests": "number",
+                    "bookedTents": "number",
+                    "maxGuests": "number | null",
+                    "maxTents": "number | null",
+                    "available": "boolean — false when capacity-full OR blocked by host",
+                    "remainingGuests": "number | null",
+                    "remainingTents": "number | null",
+                    "blockedByHost": "boolean — true when a BlockedDate covers this day (NEW CAM-190)",
+                    "blockedReason": "string | null — host-authored reason from BlockedDate.reason (NEW CAM-190)"
+                }
+            },
+            "errors": {
+                "400": "missing or invalid startDate / endDate — { error: string }",
+                "401": "N/A — public endpoint (non-public returns 404)",
+                "403": "N/A — non-public silently returns 404",
+                "404": "campsite not found or not visible to the caller — { error: string }",
+                "409": "N/A — read-only",
+                "500": "internal — generic message only; detail logged server-side"
+            },
+            "errorShape": "{ error: string }",
+            "queryStrategy": "3 queries: prisma.campSite.findUnique (visibility check) + prisma.booking.findMany (range) + prisma.blockedDate.findMany (range, identical predicate to POST /api/bookings CAM-57 lines 93-104). No N+1.",
+            "availabilityMergeRule": "available=false when (maxGuestsPerDay && bookedGuests >= maxGuestsPerDay) OR (maxTentsPerDay && bookedTents >= maxTentsPerDay) OR blockedByHost===true",
+            "blockedDatePredicate": "campSiteId + deletedAt:null + OR[spotId:null, spotId:spotId(if provided)] + AND[startDate:{lte:endDate}, endDate:{gte:startDate}] — mirrors app/api/bookings/route.ts lines 93-104"
+        },
+        "GET /api/campgrounds/[id]/availability": {
+            "story": "CAM-190 (AVAIL-1)",
+            "note": "Structurally identical to GET /api/campsites/[id]/availability above; output key is 'campgroundId' instead of 'campSiteId'",
+            "auth": "same visibility gate as campsites route",
+            "cacheDirective": "Cache-Control: no-store + export const dynamic = 'force-dynamic'",
+            "input": {
+                "id": "string (path param) — campSiteId",
+                "startDate": "ISO date string (query)",
+                "endDate": "ISO date string (query)"
+            },
+            "output": {
+                "campgroundId": "string",
+                "availability": "AvailabilityDay[] — same shape as campsites route",
+                "limits": {
+                    "maxGuestsPerDay": "number | null",
+                    "maxTentsPerDay": "number | null"
+                }
+            },
+            "errors": {
+                "400": "missing or invalid startDate / endDate",
+                "401": "N/A",
+                "403": "N/A",
+                "404": "campground not found or not visible",
+                "409": "N/A",
+                "500": "internal"
+            },
+            "errorShape": "{ error: string }",
+            "queryStrategy": "same as campsites route — 3 queries, no N+1"
+        },
         "POST /api/vitals": {
             "story": "CAM-187 (MEAS-1)",
             "auth": "unauthenticated (public telemetry — browser sendBeacon, no session required)",

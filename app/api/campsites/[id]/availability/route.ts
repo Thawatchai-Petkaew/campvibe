@@ -5,6 +5,10 @@ import { getCampSiteDailyAvailability } from '@/lib/campsite-availability';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
+// CAM-190: opt out of static generation so every request runs the handler live.
+// Paired with the explicit Cache-Control: no-store header on the response.
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -54,8 +58,9 @@ export async function GET(
     const availability = await getCampSiteDailyAvailability(id, start, end);
 
     // Format response with availability status
+    // available = false when capacity-exceeded OR blocked by host (CAM-190 AVAIL-1).
     const formatted = Object.entries(availability).map(([date, data]) => {
-      const isFull = 
+      const isCapacityFull =
         (campSite.maxGuestsPerDay && data.bookedGuests >= campSite.maxGuestsPerDay) ||
         (campSite.maxTentsPerDay && data.bookedTents >= campSite.maxTentsPerDay);
 
@@ -65,13 +70,15 @@ export async function GET(
         bookedTents: data.bookedTents,
         maxGuests: campSite.maxGuestsPerDay,
         maxTents: campSite.maxTentsPerDay,
-        available: !isFull,
+        available: !isCapacityFull && !data.blockedByHost,
         remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - data.bookedGuests : null,
-        remainingTents: campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null
+        remainingTents: campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null,
+        blockedByHost: data.blockedByHost,
       };
     });
 
-    return apiSuccess({
+    // CAM-190: explicit no-store so the calendar always reflects live availability.
+    const response = apiSuccess({
       campSiteId: id,
       availability: formatted,
       limits: {
@@ -79,6 +86,8 @@ export async function GET(
         maxTentsPerDay: campSite.maxTentsPerDay
       }
     });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     return apiError('Failed to fetch availability', 500, error);
   }
