@@ -62,6 +62,7 @@ next-env.d.ts
 !/scripts/db-reset.mjs
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
+!/scripts/load-mock-staging.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
