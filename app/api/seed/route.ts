@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { assertSeedAllowed } from '@/lib/seed-guard';
 import bcrypt from 'bcryptjs';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,6 +125,10 @@ export async function GET() {
                 createdCount++;
             }
         }
+
+        // FRESH-1: invalidate the full catalog cache after a seed run replaces
+        // catalog data. Called once at handler end, after all DB writes succeed.
+        revalidateTag(CATALOG_TAG, {});
 
         return NextResponse.json({
             success: true,

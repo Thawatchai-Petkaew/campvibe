@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { assertSeedAllowed } from '@/lib/seed-guard';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
 
 const PROVINCES = [
     'Chiang Mai', 'Kanchanaburi', 'Phetchaburi', 'Nakhon Ratchasima',
@@ -110,6 +112,10 @@ export async function POST() {
                 });
             }
         }
+
+        // FRESH-1: invalidate the full catalog cache after bulk synthetic data
+        // load replaces catalog contents. Called once at handler end.
+        revalidateTag(CATALOG_TAG, {});
 
         return NextResponse.json({ success: true, message: '100 camp sites and their spots seeded successfully.' });
     } catch (error) {
