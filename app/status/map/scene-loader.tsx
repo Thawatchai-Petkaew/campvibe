@@ -2,14 +2,22 @@
 import dynamic from "next/dynamic";
 import type { MapModel } from "./campsite-scene";
 
-// S7: Loading placeholder — shows the night background (already rendered by SCENE in page.tsx)
-// plus a labelled placeholder that is accessible and never blank.
+// CAM-198: Loading fallback — indeterminate progress bar on the night scene.
+// The glass card (.map-placeholder) is replaced with a slim amber bar.
+// SCENE background is always rendered by page.tsx (keep it); this adds only the
+// progress indicator. role=progressbar + aria-busy satisfies AC-4 (screen reader).
 const CampsiteScene = dynamic(() => import("./campsite-scene"), {
   ssr: false,
   loading: () => (
     <div className="map-wrap" role="status" aria-live="polite" aria-label="กำลังโหลดแผนที่แคมป์">
-      <div className="map-placeholder" data-testid="loading--status-map">
-        <p className="map-placeholder-text">กำลังโหลดแผนที่แคมป์…</p>
+      <div
+        className="map-progress"
+        data-testid="loading--status-map"
+        role="progressbar"
+        aria-busy="true"
+        aria-label="กำลังโหลดแผนที่แคมป์"
+      >
+        <span className="map-progress-bar" aria-hidden="true" />
       </div>
     </div>
   ),

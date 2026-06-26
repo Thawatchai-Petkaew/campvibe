@@ -20,6 +20,10 @@ body{font-family:var(--body);color:var(--text);font-size:15px;line-height:1.5;-w
 .map-scene{position:fixed;inset:0;z-index:0;overflow:hidden;background:#070d1c}
 .map-placeholder{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi);padding:40px 48px;text-align:center;max-width:480px}
 .map-placeholder-text{font-family:var(--disp);font-size:18px;font-weight:600;color:var(--text);margin:0}
+.map-progress{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(280px,60vw);height:3px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.map-progress-bar{display:block;height:100%;width:50%;border-radius:999px;background:var(--amber);box-shadow:0 0 8px var(--amber),0 0 16px rgba(255,180,84,.4)}
+@keyframes map-sweep{0%{transform:translateX(-120%)}100%{transform:translateX(240%)}}
+@media(prefers-reduced-motion:no-preference){.map-progress-bar{animation:map-sweep 1.4s cubic-bezier(0.65,0,0.35,1) infinite}}
 .gatebox{max-width:430px;margin:16vh auto;text-align:center;position:relative;z-index:5;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi);padding:26px}
 .gatebox h2{font-family:var(--disp);margin:0 0 10px}
 .gatebox code{font-family:monospace;color:var(--emerald)}

@@ -1154,3 +1154,63 @@ describe("CAM-176: activeKey signature — unchanged activity yields same key", 
     expect(makeKey([])).toBe("");
   });
 });
+
+// ============================================================
+// CAM-198 — Replace loading card with progress bar
+// ============================================================
+
+describe("app/status/map/scene-loader.tsx — CAM-198: progress bar loading fallback", () => {
+  const src = read("../app/status/map/scene-loader.tsx");
+
+  it("loading fallback renders .map-progress (not .map-placeholder card)", () => {
+    expect(src).toContain("map-progress");
+    expect(src).not.toContain('className="map-placeholder"');
+  });
+
+  it("loading fallback has role='progressbar' and aria-busy='true'", () => {
+    expect(src).toContain('role="progressbar"');
+    expect(src).toContain('aria-busy="true"');
+  });
+
+  it("loading fallback keeps data-testid='loading--status-map' (QA parity)", () => {
+    expect(src).toContain('data-testid="loading--status-map"');
+  });
+
+  it("loading fallback has Thai aria-label for screen reader (AC-4)", () => {
+    expect(src).toContain("กำลังโหลดแผนที่แคมป์");
+  });
+
+  it("renders .map-progress-bar span (the animated fill)", () => {
+    expect(src).toContain("map-progress-bar");
+  });
+
+  it("does NOT render .map-placeholder-text (no text box in loading state)", () => {
+    expect(src).not.toContain("map-placeholder-text");
+  });
+});
+
+describe("app/status/map/campsite-assets.ts — CAM-198: progress bar CSS", () => {
+  const src = read("../app/status/map/campsite-assets.ts");
+
+  it("defines .map-progress track CSS", () => {
+    expect(src).toContain(".map-progress");
+  });
+
+  it("defines .map-progress-bar fill CSS with amber color", () => {
+    expect(src).toContain(".map-progress-bar");
+    expect(src).toContain("var(--amber)");
+  });
+
+  it("sweep animation (@keyframes map-sweep) is defined", () => {
+    expect(src).toContain("@keyframes map-sweep");
+  });
+
+  it("sweep animation is wrapped in prefers-reduced-motion:no-preference (AC-3)", () => {
+    expect(src).toContain("prefers-reduced-motion:no-preference");
+    expect(src).toContain("map-sweep");
+  });
+
+  it("still contains .map-placeholder rule (error card state preserved)", () => {
+    expect(src).toContain(".map-placeholder");
+  });
+});
