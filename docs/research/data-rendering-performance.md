@@ -276,6 +276,9 @@ catalog: `force-dynamic` → fetch ติด tag (`next:{tags:['campsites']}` / 
 | ✅ DECIDED | soft-404 page | bundle เข้า `SEO-1` (deferred) — page คืน 200 เพราะ middleware+notFound; ข้อมูลปลอดภัยแล้ว ไม่ใช่ security |
 | ⏸️ BLOCKED-ON-MEASUREMENT | force-dynamic → cache | optimization ที่ยังไม่ได้วัด — ต้อง `MEAS-1` ก่อน (§6.5) |
 | 🕒 DEFERRED | search engine | `SEARCH-1` — trigger-based (D) |
+| ✅ DECIDED | CWV telemetry | **ตัวฟรีของเราเอง** — `web-vitals` → `POST /api/vitals` (ไม่ใช่ Vercel Speed Insights ที่เสียเงิน) |
+| ✅ DECIDED | images (`PERF-4`) | **วัดก่อน (MEAS-1) ค่อยตัดสิน** ว่ารูปเป็นคอขวดจริงไหม → next/image+spend-cap หรือ defer `IMG-CDN-2` (cost → escalate) |
+| 🎯 TARGET | caching (`CACHE-1`) | **PPR / `'use cache'`** เป็นเป้า (spike ยืนยัน Next 16.2 ก่อน) · fallback `unstable_cache + revalidateTag` ถ้าไม่ viable · ยัง blocked-on-MEAS-1 |
 
 ---
 
@@ -288,17 +291,17 @@ catalog: `force-dynamic` → fetch ติด tag (`next:{tags:['campsites']}` / 
 | **MEAS-1** | วัด baseline (CWV/API/bundle) | perf | P0 | DECIDED | — | §8 |
 | **SEC-1** | ปิดช่องโหว่ public visibility (detail + by-id + availability + spots) | security | P0 | ✅ DONE (CAM-185 · PR #181 staging) | — | page.tsx · [id]/availability/spots routes |
 | **SEO-1** | detail page SEO: generateMetadata + robots + canonical + JSON-LD + **hard-404** (แก้ soft-404 จาก middleware+notFound) | seo | P3 | DEFERRED (รวม hard-404 จาก SEC-1) | — | page.tsx (ไม่มี generateMetadata) · middleware.ts |
-| **PERF-1** | List Buffet `campCardSelect` | perf | P1 | DECIDED | MEAS-1 | §4 |
+| **PERF-1** | List Buffet `campCardSelect` (การ์ด = carousel → `images take:5` ไม่ใช่ take:1) | perf | P1 | DECIDED | MEAS-1 | §4 · lib/read-models/camp-card.ts · CampgroundCard.tsx |
 | **PERF-2** | DB indexes (priceLow/createdAt/avgRating/composite) | perf | P1 | DECIDED | — | schema:335-338 |
 | **PERF-3** | Keyset pagination + API `take` | perf | P1 | DECIDED | PERF-2 | A2 · routes |
 | **AGG-1** | Maintained `avgRating`/`reviewCount` (txn + reconcile job) | data | P2 | DECIDED | — | sort-utils.ts:30-32 |
 | **PERF-5** | Rating sort ฝั่ง DB (เลิก in-memory) | perf | P2 | DECIDED | AGG-1, PERF-2 | page.tsx:94-122 |
-| **PERF-4** | Images → next/image + `sizes` (Vercel optimize+CDN ในตัว, ไม่มี CDN แยก) | perf | P2 | DECIDED | PERF-1 | image-with-fallback.tsx · next.config.ts · upload/route.ts |
+| **PERF-4** | Images → next/image + `sizes` (~22 จุด/9 ไฟล์; วัดก่อน MEAS-1 ค่อยตัดสิน + spend cap) | perf | P2 | DECIDED (gated by MEAS-1) | MEAS-1, PERF-1 | image-with-fallback.tsx:63 · next.config.ts |
 | **IMG-CDN-2** | Dedicated image CDN (R2 + Cloudflare Images via `loaderFile`) | perf | — | DEFERRED | PERF-4 + cost trigger | §5C |
 | **CACHE-1** | force-dynamic → cached catalog (PPR/`use cache`) | perf | P3 | NEEDS-MEASUREMENT | MEAS-1, SEC-1, FRESH-1 | §6 |
 | **FRESH-1** | `revalidateTag` wiring ครบทุก write path + guard | correctness | P3 | DECIDED | CACHE-1 | §6.3 |
 | **FRESH-2** | host preview/dashboard = no-store/refetch | ux | P2 | NEEDS-VERIFY | — | (หา host management routes) |
-| **AVAIL-1** | availability no-store + transactional capacity + BlockedDate | correctness | P1 | DECIDED | — | campsite-availability.ts · schema:634 |
+| **AVAIL-1** | availability no-store + transactional capacity + BlockedDate | correctness | P1 | 🟡 PARTIAL — booking-write เสร็จ (BlockedDate+Serializable tx+P2034+CAM-57 tests); เหลือ GET availability นับ BlockedDate + explicit no-store + verify staging | — | app/api/bookings/route.ts · campsite-availability.ts:8 · [id]/availability routes |
 | **BOOK-1** | verify snapshot-on-CONFIRMED | correctness | P2 | ✅ VERIFIED — snapshot ตรึงตอน create (PENDING) ใน txn | — | app/api/bookings/route.ts:145-171 |
 | **PROD-1** | moderation/draft gate? | product | P1 | ✅ DECIDED (delegated): ไม่เพิ่ม — เผยแพร่ทันทีตามเดิม | — | V4 |
 | **SEARCH-1** | search engine decision gate | arch | — | DEFERRED | trigger | §5D |
