@@ -152,9 +152,13 @@ describe('AC-2 — app/page.tsx DB-sort: single findMany with avgRating orderBy 
     expect(matches.length).toBe(1);
   });
 
-  it('[unified] take: 40 present in the unified findMany (PERF-5: DB-level take replaces JS slice)', () => {
-    // Prove-It: removing take:40 from the findMany makes this fail.
-    expect(pageSrc).toContain('take: 40');
+  it('[unified] take: PAGE_SIZE present in the unified findMany (PERF-3/CAM-196 OT-1=A: take now uses shared constant)', () => {
+    // PERF-3 (CAM-196 OT-1=A): page.tsx now uses the shared PAGE_SIZE constant (24) from
+    // lib/catalog-cursor instead of the hardcoded literal 40. Both the SSR first page and
+    // the cursor API use PAGE_SIZE=24 (unified page size).
+    // Prove-It: changing take back to 40 or removing take makes this fail.
+    expect(pageSrc).toContain('take: PAGE_SIZE');
+    expect(pageSrc).not.toContain('take: 40');
   });
 
   it('[removed] app/page.tsx does NOT contain .slice(0, 40) (JS-sort remnant removed)', () => {

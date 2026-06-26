@@ -248,6 +248,73 @@
         }
     },
     "endpoints": {
+        "GET /api/campsites": {
+            "story": "CAM-196 (PERF-3)",
+            "auth": "public — no session required; visibility gate always applied via buildCampSiteWhere (isActive:true, isPublished:true, deletedAt:null)",
+            "input": {
+                "sort": "enum: related | price_asc | price_desc | rating — optional; default: related",
+                "cursor": "string (opaque base64url-encoded keyset cursor) — optional; absent = first page",
+                "type": "string optional — camp type filter",
+                "keyword": "string optional",
+                "province": "string optional",
+                "district": "string optional",
+                "startDate": "ISO date string optional",
+                "endDate": "ISO date string optional",
+                "guests": "string (integer) optional",
+                "min": "string (number) optional — priceLow >=",
+                "max": "string (number) optional — priceLow <=",
+                "access": "string optional — comma-separated MasterData codes",
+                "facilities": "string optional",
+                "external": "string optional",
+                "equipment": "string optional",
+                "activities": "string optional",
+                "terrain": "string optional"
+            },
+            "output": {
+                "items": "CampCardPayload[] — serialised: priceLow→number|null, avgRating→number|null, createdAt→ISO string",
+                "nextCursor": "string | null — null when items.length < take (end of result set)"
+            },
+            "outputTypes": {
+                "CampCardPayload": {
+                    "id": "string (uuid)",
+                    "nameTh": "string",
+                    "nameEn": "string | null",
+                    "nameThSlug": "string",
+                    "nameEnSlug": "string",
+                    "priceLow": "number | null — serialised from Decimal",
+                    "createdAt": "string (ISO)",
+                    "avgRating": "number | null — Decimal(2,1) maintained by AGG-1; null when reviewCount=0",
+                    "reviewCount": "number — maintained by AGG-1",
+                    "location": { "province": "string | null" },
+                    "images": "{ url: string, sortOrder: number }[] — max 5, sorted by sortOrder asc"
+                }
+            },
+            "cursorContract": {
+                "encoding": "base64url(JSON.stringify({ k: <sortKeyValue>, id: <string> }))",
+                "k": "sort key value of the last item: ISO string (related/createdAt) | number|null (priceLow) | number|null (avgRating)",
+                "id": "CampSite.id of the last item — UUID string tiebreaker",
+                "nullK": "k = null when the last item has null priceLow (free camp) or null avgRating (unreviewed camp)",
+                "decodeError": "malformed base64 or JSON → 400 VALIDATION_ERROR"
+            },
+            "keysetWhere": {
+                "related (createdAt DESC, id DESC)": "OR: [{ createdAt: { lt: k } }, { createdAt: k, id: { lt: cursorId } }]",
+                "price_asc (priceLow ASC nulls first, id ASC)": "two cases — k=null: AND[priceLow:null, id:{gt}]; k!=null: AND[priceLow:{not:null}, OR[{priceLow:{gt:k}},{priceLow:k,id:{gt}}]]",
+                "price_desc (priceLow DESC nulls last, id DESC)": "two cases (mirror of avgRating) — k!=null: OR[{priceLow:{lt:k}},{priceLow:k,id:{lt}},{priceLow:null}]; k=null: AND[priceLow:null, id:{lt}]",
+                "rating (avgRating DESC nulls last, id DESC)": "two cases — k!=null (rated segment): OR[{avgRating:{lt:k}},{avgRating:k,id:{lt}},{avgRating:null}]; k=null (null segment): AND[avgRating:null, id:{lt}]"
+            },
+            "take": 24,
+            "queryStrategy": "single prisma.campSite.findMany — where: AND[buildCampSiteWhere(filters), keysetPredicate], select: campCardSelect, orderBy per sort, take:24. No N+1: campCardSelect caps images at take:5",
+            "errors": {
+                "400": "zod validation failed (invalid sort, cursor decode error, malformed filter) — { error: { code: 'VALIDATION_ERROR', message: string } }",
+                "401": "N/A — public endpoint",
+                "403": "N/A — public endpoint",
+                "404": "N/A — returns items:[] nextCursor:null rather than 404",
+                "409": "N/A — read-only",
+                "500": "internal — generic message, detail logged server-side — { error: { code: 'INTERNAL_ERROR', message: string } }"
+            },
+            "errorShape": "{ error: { code: string, message: string } }",
+            "openTradeoff": "OT-1: page size 24 vs 40 — getDefaultCatalog currently take:40; recommend standardising both to take:24 (see tech.md Open Trade-offs)"
+        },
         "GET /api/campsites/[id]/availability": {
             "story": "CAM-190 (AVAIL-1)",
             "auth": "public for public campsites (isActive+isPublished+deletedAt:null); authenticated (operator/admin) for non-public — non-public returns 404 to avoid information-disclosure",
