@@ -60,6 +60,8 @@ function readSrc(relPath: string): string {
 }
 
 const pageSrc       = readSrc('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
 const campsiteSrc   = readSrc('app/api/campsites/route.ts');
 const campgroundSrc = readSrc('app/api/campgrounds/route.ts');
 const cardSrc       = readSrc('components/CampgroundCard.tsx');
@@ -174,26 +176,25 @@ describe('AC-1 — campCardSelect shape', () => {
 // ---------------------------------------------------------------------------
 describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', () => {
 
-  // app/page.tsx
-  it('[call-site] app/page.tsx imports campCardSelect from lib/read-models/camp-card', () => {
+  // CatalogResults.tsx (LOAD-1 CAM-197: data-fetch moved from page.tsx)
+  it('[call-site] CatalogResults.tsx imports campCardSelect from lib/read-models/camp-card', () => {
     // Prove-It: removing the import makes this fail.
-    // Source files use double-quote imports.
-    expect(pageSrc).toContain('from "@/lib/read-models/camp-card"');
+    expect(catalogResultsSrc).toContain('from "@/lib/read-models/camp-card"');
   });
 
-  it('[call-site] app/page.tsx uses `select: campCardSelect` in exactly 1 place (PERF-5: unified single findMany)', () => {
+  it('[call-site] CatalogResults.tsx uses `select: campCardSelect` in exactly 1 place (PERF-5: unified single findMany)', () => {
     // PERF-5 (CAM-193): the two sort branches collapsed into one findMany with a computed orderBy.
     // Prove-It: splitting back into two branches makes the count ≥ 2.
-    const matches = pageSrc.match(/select:\s*campCardSelect/g) ?? [];
+    const matches = catalogResultsSrc.match(/select:\s*campCardSelect/g) ?? [];
     expect(matches.length).toBe(1);
   });
 
-  it('[call-site] app/page.tsx does NOT use `include: { spots` (over-fetch dropped)', () => {
-    expect(pageSrc).not.toMatch(/include:\s*\{\s*spots/);
+  it('[call-site] CatalogResults.tsx does NOT use `include: { spots` (over-fetch dropped)', () => {
+    expect(catalogResultsSrc).not.toMatch(/include:\s*\{\s*spots/);
   });
 
-  it('[call-site] app/page.tsx does NOT use `include: { options` (over-fetch dropped)', () => {
-    expect(pageSrc).not.toMatch(/include:\s*\{\s*options/);
+  it('[call-site] CatalogResults.tsx does NOT use `include: { options` (over-fetch dropped)', () => {
+    expect(catalogResultsSrc).not.toMatch(/include:\s*\{\s*options/);
   });
 
   // app/api/campsites/route.ts
@@ -236,34 +237,35 @@ describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', 
 // ---------------------------------------------------------------------------
 // AC-3 — PERF-5 (CAM-193): avgRating/reviewCount from stored columns, no JS compute in page.tsx
 // ---------------------------------------------------------------------------
-describe('AC-3 — PERF-5: avgRating read from column, no JS compute in app/page.tsx', () => {
+describe('AC-3 — PERF-5: avgRating read from column, no JS compute in CatalogResults.tsx', () => {
+  // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 
-  it('[pipeline] app/page.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
+  it('[pipeline] CatalogResults.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
     // Prove-It: re-adding the import makes this fail.
-    expect(pageSrc).not.toContain('computeAvgRating');
+    expect(catalogResultsSrc).not.toContain('computeAvgRating');
   });
 
-  it('[pipeline] app/page.tsx does NOT import roundAvgRating (PERF-5: column value is pre-rounded by AGG-1)', () => {
-    expect(pageSrc).not.toContain('roundAvgRating');
+  it('[pipeline] CatalogResults.tsx does NOT import roundAvgRating (PERF-5: column value is pre-rounded by AGG-1)', () => {
+    expect(catalogResultsSrc).not.toContain('roundAvgRating');
   });
 
-  it('[pipeline] app/page.tsx does NOT call sortByRating (PERF-5: rating sort now done at DB)', () => {
+  it('[pipeline] CatalogResults.tsx does NOT call sortByRating (PERF-5: rating sort now done at DB)', () => {
     // Prove-It: re-adding sortByRating call makes this fail.
-    expect(pageSrc).not.toContain('sortByRating(');
+    expect(catalogResultsSrc).not.toContain('sortByRating(');
   });
 
-  it('[pipeline] app/page.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
-    expect(pageSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
+  it('[pipeline] CatalogResults.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
+    expect(catalogResultsSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
   });
 
-  it('[pipeline] app/page.tsx orderBy uses avgRating column for rating sort (DB sort, not JS)', () => {
+  it('[pipeline] CatalogResults.tsx orderBy uses avgRating column for rating sort (DB sort, not JS)', () => {
     // Prove-It: removing avgRating from orderBy makes this fail.
-    expect(pageSrc).toContain('avgRating');
+    expect(catalogResultsSrc).toContain('avgRating');
   });
 
-  it('[pipeline] app/page.tsx has ONE campSite.findMany call (PERF-5: unified query — no split branches)', () => {
+  it('[pipeline] CatalogResults.tsx has ONE campSite.findMany call (PERF-5: unified query — no split branches)', () => {
     // Count only campSite.findMany (not wishlist.findMany which is a separate query).
-    const matches = pageSrc.match(/campSite\.findMany/g) ?? [];
+    const matches = catalogResultsSrc.match(/campSite\.findMany/g) ?? [];
     expect(matches.length).toBe(1);
   });
 

@@ -30,10 +30,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Loader2 } from "lucide-react";
 import { CampgroundCard } from "@/components/CampgroundCard";
+import { CampgroundSkeleton } from "@/components/CampgroundSkeleton";
 import { LoginModal } from "@/components/LoginModal";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { CampSiteCardData } from "@/components/CampgroundGrid";
 
@@ -80,30 +79,6 @@ interface InfiniteScrollGridProps {
   activeFilters: ActiveFilters;
   savedIds: string[];
   isLoggedIn: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton card row — preserves grid layout while loading next page (no CLS).
-// Matches the aspect-square card used by CampgroundCard.
-// ---------------------------------------------------------------------------
-
-function SkeletonCards({ count }: { count: number }) {
-  return (
-    <>
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="space-y-3">
-          {/* Match CampgroundCard image: aspect-square, rounded-3xl */}
-          <Skeleton className="aspect-square w-full rounded-3xl bg-muted" />
-          {/* Match card text rows */}
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-3/4 rounded-xl bg-muted" />
-            <Skeleton className="h-3 w-1/2 rounded-xl bg-muted" />
-            <Skeleton className="h-3 w-1/3 rounded-xl bg-muted" />
-          </div>
-        </div>
-      ))}
-    </>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -254,10 +229,10 @@ export default function InfiniteScrollGrid({
           />
         ))}
 
-        {/* Loading skeletons — rendered inside the grid to avoid CLS. */}
-        {loading && (
-          <SkeletonCards count={5} />
-        )}
+        {/* Loading skeletons — rendered inside the grid to preserve layout (CLS = 0). */}
+        {loading && Array.from({ length: 5 }).map((_, i) => (
+          <CampgroundSkeleton key={`sk-${i}`} />
+        ))}
       </div>
 
       {/* End-of-list message — shown when cursor is null after at least one extra fetch. */}
@@ -268,16 +243,6 @@ export default function InfiniteScrollGrid({
         >
           {t.catalog.end_of_list}
         </p>
-      )}
-
-      {/* Loading spinner for the sentinel area — supplemental, alongside skeletons. */}
-      {loading && (
-        <div
-          className="flex justify-center mt-6"
-          aria-hidden="true"
-        >
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
       )}
 
       {/*

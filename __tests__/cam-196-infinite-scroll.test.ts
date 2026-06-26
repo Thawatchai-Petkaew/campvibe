@@ -89,10 +89,13 @@ function readSrc(relPath: string): string {
   return fs.readFileSync(path.join(process.cwd(), relPath), 'utf-8');
 }
 
-const routeSrc         = readSrc('app/api/campsites/route.ts');
-const infiniteGridSrc  = readSrc('components/InfiniteScrollGrid.tsx');
-const pageSrc          = readSrc('app/page.tsx');
-const translationsJson = readSrc('locales/translations.json');
+const routeSrc           = readSrc('app/api/campsites/route.ts');
+const infiniteGridSrc    = readSrc('components/InfiniteScrollGrid.tsx');
+const pageSrc            = readSrc('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch + SSR logic moved from page.tsx → CatalogResults.tsx.
+// Tests that previously asserted on pageSrc for data patterns now check catalogResultsSrc.
+const catalogResultsSrc  = readSrc('components/CatalogResults.tsx');
+const translationsJson   = readSrc('locales/translations.json');
 
 // Parse the translations JSON once for i18n assertions.
 const translations = JSON.parse(translationsJson) as Record<string, Record<string, unknown>>;
@@ -321,10 +324,11 @@ describe('AC-UI — InfiniteScrollGrid structural + a11y contract', () => {
     expect(infiniteGridSrc).toContain('t.catalog.end_of_list');
   });
 
-  it('[normal] loading state renders SkeletonCards inside the grid', () => {
+  it('[normal] loading state renders CampgroundSkeleton cards inside the grid', () => {
     // Loading state preserves grid layout while fetching next page (prevents CLS).
-    // Prove-It: FAILS if `<SkeletonCards` is removed from the loading branch.
-    expect(infiniteGridSrc).toContain('<SkeletonCards');
+    // LOAD-1 (CAM-197): SkeletonCards local was replaced with shared CampgroundSkeleton.
+    // Prove-It: FAILS if the CampgroundSkeleton import or loading branch is removed.
+    expect(infiniteGridSrc).toContain('CampgroundSkeleton');
     expect(infiniteGridSrc).toContain('loading &&');
   });
 
@@ -429,48 +433,50 @@ describe('AC-UI — InfiniteScrollGrid structural + a11y contract', () => {
 
 describe('AC-UI-RESET — sort/filter change resets the grid (React key from parent)', () => {
 
-  it('[normal] parent page.tsx passes a key that includes activeSortForCursor', () => {
+  it('[normal] CatalogResults.tsx passes a key that includes activeSortForCursor', () => {
     // The key must include the sort so a sort change unmounts and re-mounts the grid,
     // resetting cursor/items state to the new SSR first page.
+    // LOAD-1 (CAM-197): key moved from page.tsx → CatalogResults.tsx.
     // Prove-It: FAILS if activeSortForCursor is removed from the key expression.
-    expect(pageSrc).toContain('activeSortForCursor');
+    expect(catalogResultsSrc).toContain('activeSortForCursor');
     // Key is a template literal starting with activeSortForCursor
-    expect(pageSrc).toMatch(/key=\{`\$\{activeSortForCursor\}/);
+    expect(catalogResultsSrc).toMatch(/key=\{`\$\{activeSortForCursor\}/);
   });
 
   it('[normal] key includes type, keyword, province, district filter params', () => {
     // Prove-It: FAILS if any of these filter params are removed from the key.
-    expect(pageSrc).toMatch(/key=\{`[^`]*\$\{type/);
-    expect(pageSrc).toMatch(/\$\{keyword/);
-    expect(pageSrc).toMatch(/\$\{province/);
-    expect(pageSrc).toMatch(/\$\{district/);
+    expect(catalogResultsSrc).toMatch(/key=\{`[^`]*\$\{type/);
+    expect(catalogResultsSrc).toMatch(/\$\{keyword/);
+    expect(catalogResultsSrc).toMatch(/\$\{province/);
+    expect(catalogResultsSrc).toMatch(/\$\{district/);
   });
 
   it('[normal] key includes startDate, endDate, guests filter params', () => {
     // Date/guest changes require a full grid reset (new first-page from SSR).
     // Prove-It: FAILS if these are removed from the key.
-    expect(pageSrc).toMatch(/\$\{startDate/);
-    expect(pageSrc).toMatch(/\$\{endDate/);
-    expect(pageSrc).toMatch(/\$\{guests/);
+    expect(catalogResultsSrc).toMatch(/\$\{startDate/);
+    expect(catalogResultsSrc).toMatch(/\$\{endDate/);
+    expect(catalogResultsSrc).toMatch(/\$\{guests/);
   });
 
   it('[normal] key includes min, max, access, facilities, activities, terrain filter params', () => {
     // All filter dimensions must be in the key so any change triggers a full reset.
     // Prove-It: FAILS if any of these are removed.
-    expect(pageSrc).toMatch(/\$\{min/);
-    expect(pageSrc).toMatch(/\$\{max/);
-    expect(pageSrc).toMatch(/\$\{access/);
-    expect(pageSrc).toMatch(/\$\{facilities/);
-    expect(pageSrc).toMatch(/\$\{activities/);
-    expect(pageSrc).toMatch(/\$\{terrain/);
+    expect(catalogResultsSrc).toMatch(/\$\{min/);
+    expect(catalogResultsSrc).toMatch(/\$\{max/);
+    expect(catalogResultsSrc).toMatch(/\$\{access/);
+    expect(catalogResultsSrc).toMatch(/\$\{facilities/);
+    expect(catalogResultsSrc).toMatch(/\$\{activities/);
+    expect(catalogResultsSrc).toMatch(/\$\{terrain/);
   });
 
   it('[normal] the InfiniteScrollGrid component itself receives the key prop in JSX', () => {
     // The key must be on the InfiniteScrollGrid element, not a parent wrapper.
+    // LOAD-1 (CAM-197): key is now in CatalogResults.tsx on the InfiniteScrollGrid element.
     // Prove-It: FAILS if the key is moved off the InfiniteScrollGrid element.
-    const gridLine = pageSrc.indexOf('<InfiniteScrollGrid');
+    const gridLine = catalogResultsSrc.indexOf('<InfiniteScrollGrid');
     expect(gridLine).toBeGreaterThan(-1);
-    const keyAttr  = pageSrc.indexOf('key={`', gridLine);
+    const keyAttr  = catalogResultsSrc.indexOf('key={`', gridLine);
     expect(keyAttr).toBeGreaterThan(gridLine);
   });
 });
@@ -549,75 +555,78 @@ describe('AC-I18N — catalog i18n keys exist in both en and th with correct Tha
 
 describe('AC-SSR — page.tsx SSR wiring: initialItems + initialCursor + InfiniteScrollGrid', () => {
 
-  it('[normal] page.tsx imports InfiniteScrollGrid (not the old CampgroundGrid for the home page)', () => {
-    // PERF-3 Part B replaces CampgroundGrid with InfiniteScrollGrid on the home page.
-    // Prove-It: FAILS if InfiniteScrollGrid import is removed from page.tsx.
-    expect(pageSrc).toContain("import InfiniteScrollGrid from \"@/components/InfiniteScrollGrid\"");
+  it('[normal] CatalogResults.tsx imports InfiniteScrollGrid (SSR wiring — LOAD-1)', () => {
+    // LOAD-1 (CAM-197): SSR wiring moved from page.tsx → CatalogResults.tsx.
+    // Prove-It: FAILS if InfiniteScrollGrid import is removed from CatalogResults.tsx.
+    expect(catalogResultsSrc).toContain("import InfiniteScrollGrid from \"@/components/InfiniteScrollGrid\"");
   });
 
-  it('[normal] page.tsx renders InfiniteScrollGrid in JSX (not CampgroundGrid on the main branch)', () => {
-    // Prove-It: FAILS if <InfiniteScrollGrid is removed from the page JSX.
-    expect(pageSrc).toContain('<InfiniteScrollGrid');
+  it('[normal] CatalogResults.tsx renders InfiniteScrollGrid in JSX', () => {
+    // Prove-It: FAILS if <InfiniteScrollGrid is removed from CatalogResults JSX.
+    expect(catalogResultsSrc).toContain('<InfiniteScrollGrid');
   });
 
-  it('[normal] page.tsx passes initialItems={serialisedCamps} to InfiniteScrollGrid', () => {
-    // First 24 cards from SSR are in the HTML — crawler / no-JS sees them.
+  it('[normal] CatalogResults.tsx passes initialItems={serialisedCamps} to InfiniteScrollGrid', () => {
+    // First page cards from SSR are in the HTML — crawler / no-JS sees them.
     // Prove-It: FAILS if initialItems prop is removed from the InfiniteScrollGrid element.
-    expect(pageSrc).toContain('initialItems={serialisedCamps}');
+    expect(catalogResultsSrc).toContain('initialItems={serialisedCamps}');
   });
 
-  it('[normal] page.tsx serialises camps before passing to InfiniteScrollGrid', () => {
+  it('[normal] CatalogResults.tsx serialises camps before passing to InfiniteScrollGrid', () => {
     // serializeDecimals converts Decimal to number (JSON-safe) for the client component.
     // Prove-It: FAILS if serializeDecimals call is removed.
-    expect(pageSrc).toContain('serializeDecimals(');
-    expect(pageSrc).toContain('serialisedCamps');
+    expect(catalogResultsSrc).toContain('serializeDecimals(');
+    expect(catalogResultsSrc).toContain('serialisedCamps');
   });
 
-  it('[normal] page.tsx passes initialCursor={initialCursor} to InfiniteScrollGrid', () => {
+  it('[normal] CatalogResults.tsx passes initialCursor={initialCursor} to InfiniteScrollGrid', () => {
     // The opaque cursor for page 2 is computed on the server and passed as a prop.
     // Prove-It: FAILS if initialCursor prop is removed.
-    expect(pageSrc).toContain('initialCursor={initialCursor}');
+    expect(catalogResultsSrc).toContain('initialCursor={initialCursor}');
   });
 
-  it('[normal] page.tsx passes sort={activeSortForCursor} to InfiniteScrollGrid', () => {
+  it('[normal] CatalogResults.tsx passes sort={activeSortForCursor} to InfiniteScrollGrid', () => {
     // The client needs the sort so cursor API calls use the same sort as the first page.
     // Prove-It: FAILS if sort prop is removed.
-    expect(pageSrc).toContain('sort={activeSortForCursor}');
+    expect(catalogResultsSrc).toContain('sort={activeSortForCursor}');
   });
 
-  it('[normal] page.tsx passes activeFilters object to InfiniteScrollGrid', () => {
+  it('[normal] CatalogResults.tsx passes activeFilters object to InfiniteScrollGrid', () => {
     // Filter params are forwarded so cursor pages honour the same filter context.
     // Prove-It: FAILS if activeFilters prop is removed.
-    expect(pageSrc).toContain('activeFilters={{');
+    expect(catalogResultsSrc).toContain('activeFilters={{');
   });
 
-  it('[normal] page.tsx passes savedIds and isLoggedIn to InfiniteScrollGrid', () => {
+  it('[normal] CatalogResults.tsx passes savedIds and isLoggedIn to InfiniteScrollGrid', () => {
     // Server-hydrated wishlist ids and auth flag.
     // Prove-It: FAILS if either prop is removed.
-    expect(pageSrc).toContain('savedIds={savedCampSiteIds}');
-    expect(pageSrc).toContain('isLoggedIn={!!session?.user?.id}');
+    expect(catalogResultsSrc).toContain('savedIds={savedCampSiteIds}');
+    expect(catalogResultsSrc).toContain('isLoggedIn={isLoggedIn}');
   });
 
-  it('[null/empty] page.tsx renders EmptyState when campSites.length === 0 (no InfiniteScrollGrid)', () => {
+  it('[null/empty] CatalogResults.tsx renders EmptyState when campSites.length === 0', () => {
     // An empty result set shows the EmptyState, not an empty grid.
     // Prove-It: FAILS if campSites.length === 0 guard is removed.
-    expect(pageSrc).toContain('campSites.length === 0');
-    expect(pageSrc).toContain('<EmptyState');
+    expect(catalogResultsSrc).toContain('campSites.length === 0');
+    expect(catalogResultsSrc).toContain('<EmptyState');
   });
 
-  it('[normal] page.tsx computes activeSortForCursor for both cached and filtered paths', () => {
+  it('[normal] CatalogResults.tsx computes activeSortForCursor for both cached and filtered paths', () => {
     // The cursor must be computed with the right sort for both the default (related)
     // and the filtered path (user-selected sort).
+    // LOAD-1 (CAM-197): logic moved to CatalogResults.tsx.
     // Prove-It: FAILS if activeSortForCursor is removed.
-    expect(pageSrc).toContain('activeSortForCursor');
-    expect(pageSrc).toContain("'related'");
+    expect(catalogResultsSrc).toContain('activeSortForCursor');
+    // CatalogResults.tsx uses double-quote string literals
+    expect(catalogResultsSrc).toContain('"related"');
   });
 
-  it('[normal] page.tsx createdAt is serialised to ISO string before passing to client', () => {
+  it('[normal] CatalogResults.tsx serialises createdAt to ISO string before passing to client', () => {
     // Date objects are not JSON-serialisable — must be string for the client component.
+    // LOAD-1 (CAM-197): serialisation moved to CatalogResults.tsx.
     // Prove-It: FAILS if createdAt serialisation is removed.
-    expect(pageSrc).toContain('c.createdAt instanceof Date');
-    expect(pageSrc).toContain('.toISOString()');
+    expect(catalogResultsSrc).toContain('c.createdAt instanceof Date');
+    expect(catalogResultsSrc).toContain('.toISOString()');
   });
 });
 
