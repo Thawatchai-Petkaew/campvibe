@@ -41,6 +41,78 @@ const __dirname = dirname(__filename);
 const DATA_PATH = join(__dirname, '../prisma/data/mock-staging-all.json');
 
 // ─────────────────────────────────────────────────────────────
+// MEAS-1: Unsplash image pool
+//
+// The themed /seed/ images referenced in imageManifest have not been generated yet.
+// We use a curated pool of real Unsplash URLs so the 128-camp staging load
+// produces a realistic visual baseline for MEAS-1 measurements.
+// Swap back when public/seed images exist (imageManifest holds the prompts).
+// ─────────────────────────────────────────────────────────────
+
+// MEAS-1: themed /seed images not generated yet — using Unsplash pool for a realistic
+// baseline; swap back when public/seed images exist (imageManifest holds the prompts).
+const UNSPLASH_POOL = [
+  // Tent / campfire / camp setup
+  'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1200', // tents in a green field
+  'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=1200', // campfire at night
+  'https://images.unsplash.com/photo-1487730116645-74489c95b41b?w=1200', // tent at sunrise
+  'https://images.unsplash.com/photo-1445308394109-4ec2920981b1?w=1200', // mountain tents foggy
+  'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=1200', // tent on beach
+  // Forest / jungle
+  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200', // forest light rays
+  'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200', // dense forest path
+  'https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=1200', // tent among tall trees
+  // Mountain / highland
+  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200', // mountain panorama
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200', // alpine peaks sunset
+  'https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=1200', // hiking ridge
+  'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=1200', // mountain camp misty
+  // Lake / river / waterside
+  'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1200', // lakeside camp
+  'https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?w=1200', // river forest camp
+  'https://images.unsplash.com/photo-1476611338391-6f395a0dd82e?w=1200', // lake reflection tents
+  // Stars / night sky / milky way
+  'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1200', // milky way over tent
+  'https://images.unsplash.com/photo-1464207687429-7505649dae38?w=1200', // starry night campsite
+  // Nature / meadow / sunrise
+  'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1200', // green meadow sunrise
+];
+
+const POOL_SIZE = UNSPLASH_POOL.length; // 18
+
+/**
+ * Deterministically pick N URLs from UNSPLASH_POOL for a given camp.
+ * Uses a hash of nameThSlug so:
+ *   - Different camps get different starting offsets (visual variety)
+ *   - Re-runs produce the same result (idempotent)
+ *   - 3–5 images per camp (gallery) plus 1 logo (first picked URL)
+ */
+function pickPoolUrls(nameThSlug, count) {
+  // FNV-1a-style integer hash — fast, no crypto needed for this purpose
+  let hash = 2166136261;
+  for (let i = 0; i < nameThSlug.length; i++) {
+    hash ^= nameThSlug.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0; // keep 32-bit unsigned
+  }
+  const offset = hash % POOL_SIZE;
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(UNSPLASH_POOL[(offset + i) % POOL_SIZE]);
+  }
+  return result;
+}
+
+/**
+ * How many gallery images to assign a camp — deterministic (3–5) based on slug hash.
+ * Spread across the range so the load feels varied.
+ */
+function galleryCount(nameThSlug) {
+  let h = 0;
+  for (let i = 0; i < nameThSlug.length; i++) h = (h * 31 + nameThSlug.charCodeAt(i)) >>> 0;
+  return 3 + (h % 3); // 3, 4, or 5
+}
+
+// ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
@@ -65,23 +137,34 @@ function buildOptionsConnect(camp) {
 }
 
 /**
- * Build Image createMany data from imageManifest.
+ * Build Image createMany data using the Unsplash pool.
+ *
+ * MEAS-1: imageManifest paths (/seed/...) are NOT used as image URLs here —
+ * those files do not exist yet. The manifest is preserved in memory for future
+ * themed generation (option B). We assign 3–5 real Unsplash URLs instead.
+ *
  * Images table has (url, campSiteId) — skipDuplicates on createMany handles re-runs.
  */
-function buildImageRows(campSiteId, imageManifest) {
-  if (!Array.isArray(imageManifest) || imageManifest.length === 0) return [];
-  return imageManifest.map((img, idx) => ({
-    url: img.path,
-    alt: img.alt ?? null,
+function buildImageRows(campSiteId, _imageManifest, nameThSlug) {
+  const count = galleryCount(nameThSlug);
+  const urls = pickPoolUrls(nameThSlug, count);
+  return urls.map((url, idx) => ({
+    url,
+    alt: null,
     sortOrder: idx,
     campSiteId,
   }));
 }
 
-/** Extract logo path from imageManifest (first entry with role === 'logo'). */
-function extractLogo(imageManifest) {
-  if (!Array.isArray(imageManifest)) return undefined;
-  return imageManifest.find((i) => i.role === 'logo')?.path ?? undefined;
+/**
+ * Extract logo URL — uses first Unsplash pool entry for this camp's slug.
+ *
+ * MEAS-1: imageManifest logo path (/seed/...) does not exist yet; use pool instead.
+ */
+function extractLogo(imageManifest, nameThSlug) {
+  // imageManifest argument kept for API compatibility; not used for the URL.
+  // When /seed images are generated, swap: return imageManifest.find(i => i.role === 'logo')?.path
+  return pickPoolUrls(nameThSlug, 1)[0];
 }
 
 /** Simple hash of email for deterministic but non-reversible key display in logs. */
@@ -207,7 +290,7 @@ async function main() {
           petFriendly: camp.petFriendly ?? false,
           isActive: camp.isActive ?? true,
           isPublished: true,
-          logo: extractLogo(camp.imageManifest),
+          logo: extractLogo(camp.imageManifest, camp.nameThSlug),
           options: { set: resolvedOptions },
           operatorId: host.id,
         },
@@ -245,7 +328,7 @@ async function main() {
           petFriendly: camp.petFriendly ?? false,
           isActive: camp.isActive ?? true,
           isPublished: true,
-          logo: extractLogo(camp.imageManifest),
+          logo: extractLogo(camp.imageManifest, camp.nameThSlug),
           options: { connect: resolvedOptions },
           operatorId: host.id,
           // Location — create inline on first upsert
@@ -263,7 +346,7 @@ async function main() {
       campsUpserted++;
 
       // ── 3. Images (createMany + skipDuplicates) ────────────
-      const imageRows = buildImageRows(campSite.id, camp.imageManifest);
+      const imageRows = buildImageRows(campSite.id, camp.imageManifest, camp.nameThSlug);
       if (imageRows.length > 0) {
         const result = await prisma.image.createMany({
           data: imageRows,
