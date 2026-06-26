@@ -7,6 +7,7 @@ import { getTranslations } from "@/locales/translations";
 import { serializeDecimals } from "@/lib/serialize";
 import { buildReviewSummary, roundAvgRating, toReviewListItem, type ReviewListItem } from "@/lib/review-summary";
 import { canViewCampSite } from "@/lib/campsite-visibility";
+import { getCampBySlug } from "@/lib/catalog-cache";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -16,30 +17,14 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     const session = await auth();
     const { slug } = await params;
 
+    // CACHE-1 (CAM-195): detail read served from unstable_cache on warm requests.
+    // getCampBySlug wraps the same prisma.campSite.findFirst (OR slug) + include as before.
+    // CRITICAL: canViewCampSite MUST run AFTER the cached call, on the per-request session.
+    // It is never cached — caching the access-control decision would leak unpublished camp
+    // data to strangers (session-dependent gate, see lib/campsite-visibility.ts).
     let campSite;
     try {
-        campSite = await prisma.campSite.findFirst({
-            where: {
-                OR: [
-                    { nameThSlug: slug },
-                    { nameEnSlug: slug }
-                ]
-            },
-            include: {
-                location: true,
-                operator: {
-                    select: {
-                        id: true,
-                        name: true,
-                        image: true,
-                        createdAt: true,
-                    },
-                },
-                spots: true,
-                options: true,
-                images: { orderBy: { sortOrder: 'asc' } },
-            }
-        });
+        campSite = await getCampBySlug(slug);
     } catch (error) {
         console.error("Database connection error:", error);
         notFound();
@@ -50,6 +35,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     }
 
     // SEC-1: gate non-public campsites — 404 (no info-disclosure).
+    // Runs OUTSIDE the cache with the live per-request session — never cached.
     if (!canViewCampSite(campSite, session)) {
         notFound();
     }
