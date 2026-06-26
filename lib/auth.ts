@@ -4,9 +4,20 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import type { UserRole } from "@/types/api"
+import { authConfig } from "@/lib/auth.config"
 
+/**
+ * Full NextAuth config — Node runtime only.
+ * Spreads the Edge-safe authConfig (pages + authorized callback) and adds the
+ * Node-only parts: Credentials provider (bcrypt + prisma), jwt callback
+ * (prisma refresh on trigger==='update'), and session callback.
+ *
+ * Exported symbols (handlers, auth, signIn, signOut) are used throughout the
+ * app in API routes and server actions; they must never be imported by
+ * middleware.ts (use lib/auth.config.ts there instead).
+ */
 export const { handlers, auth, signIn, signOut } = NextAuth({
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    ...authConfig,
     providers: [
         Credentials({
             credentials: {
@@ -52,19 +63,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
         }),
     ],
-    pages: {
-        signIn: '/login',
-    },
     callbacks: {
-        authorized({ auth, request: { nextUrl } }) {
-            const isLoggedIn = !!auth?.user;
-            const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
-            if (isOnDashboard) {
-                if (isLoggedIn) return true;
-                return false; // Redirect unauthenticated users to login page
-            }
-            return true;
-        },
+        // Keep the authorized callback from authConfig (dashboard gate)
+        ...authConfig.callbacks,
         async jwt({ token, user, trigger }) {
             // On sign in, add user data to token
             if (user) {
