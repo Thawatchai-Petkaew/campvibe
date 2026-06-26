@@ -26,6 +26,24 @@ const sarabun = Sarabun({
 export const metadata: Metadata = {
   title: "CampVibe | Professional Camping Ecosystem",
   description: "Find and book the best camping experiences",
+  openGraph: {
+    title: "CampVibe | Professional Camping Ecosystem",
+    description: "Find and book the best camping experiences",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CampVibe camping discovery and booking platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CampVibe | Professional Camping Ecosystem",
+    description: "Find and book the best camping experiences",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({

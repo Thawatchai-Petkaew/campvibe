@@ -63,3 +63,8 @@ next-env.d.ts
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
 .claude/linear-snapshot.json
+
+# local design source (large binaries; runtime copies live in public/status-map/)
+/design/
+# local font working dir (not wired; app uses next/font/google)
+/public/fonts/
