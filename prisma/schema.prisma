@@ -346,6 +346,8 @@ model CampSite {
   // PERF-2 (CAM-188): composite indexes for catalog price-sort and default/related-sort
   @@index([isPublished, deletedAt, priceLow, id])
   @@index([isPublished, deletedAt, createdAt, id])
+  // PERF-5 (CAM-193): composite index for catalog rating-sort at DB (avgRating column, NULLS LAST)
+  @@index([isPublished, deletedAt, avgRating, id])
 }
 
 model CampSiteTeamMember {

@@ -9,8 +9,6 @@ import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
 import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
-import { sortByRating, computeAvgRating } from "@/lib/sort-utils";
-import { roundAvgRating } from "@/lib/review-summary";
 import { campCardSelect, type CampCardPayload } from "@/lib/read-models/camp-card";
 
 export const dynamic = 'force-dynamic'
@@ -83,51 +81,27 @@ export default async function Home({ searchParams }: HomeProps) {
       ? (sort as SortParam)
       : 'related';
 
-  // For all sorts except 'rating', build the Prisma orderBy as before.
+  // PERF-5 (CAM-193): unified orderBy for ALL sort values — rating now uses the stored column.
+  // avgRating is Decimal(2,1)? maintained by AGG-1; nulls: 'last' keeps nulls at the end (same semantic as before).
   const orderBy =
     sanitizedSort === 'price_asc'  ? { priceLow: 'asc' as const }  :
     sanitizedSort === 'price_desc' ? { priceLow: 'desc' as const } :
-    { createdAt: 'desc' as const }; // 'related' default
+    sanitizedSort === 'rating'
+      ? ({ avgRating: { sort: 'desc', nulls: 'last' } } as const)
+      : { createdAt: 'desc' as const };  // 'related' default
 
-  // Fetch camp sites server-side
-  type CampCard = Omit<CampCardPayload, 'reviews'> & { avgRating: number | null; reviewCount: number };
+  // Fetch camp sites server-side — single findMany, no JS sort, no JS slice.
+  // avgRating/reviewCount arrive directly from the stored columns; no reviews to strip.
+  type CampCard = CampCardPayload;
   let campSites: CampCard[] = [];
   try {
-    if (sanitizedSort === 'rating') {
-      // SCALE GUARD: in-memory sort is valid up to ~200 published campsites.
-      // When the catalog exceeds that threshold, replace with a stored
-      // CampSite.avgRating column updated by a background job (C-2.5).
-      const rows = await prisma.campSite.findMany({
-        where, // buildCampSiteWhere result — filter first, then sort
-        select: campCardSelect,
-        // No orderBy or take here — JS sort + slice(0,40) in sortByRating takes over
-      });
-
-      // Sort descending by avg rating, nulls last, capped at 40
-      const sorted = sortByRating(rows);
-
-      // Compute avgRating/reviewCount server-side, then strip the reviews array.
-      // Cards receive only the scalar props — no PII, no author data.
-      campSites = sorted.map(({ reviews: _reviews, ...rest }) => ({
-        ...rest,
-        avgRating: roundAvgRating(computeAvgRating(_reviews)),
-        reviewCount: _reviews.length,
-      }));
-    } else {
-      const rows = await prisma.campSite.findMany({
-        where,
-        select: campCardSelect,
-        orderBy,
-        take: 40,
-      });
-
-      // Compute avgRating/reviewCount server-side, then strip the reviews array.
-      campSites = rows.map(({ reviews: _reviews, ...rest }) => ({
-        ...rest,
-        avgRating: roundAvgRating(computeAvgRating(_reviews)),
-        reviewCount: _reviews.length,
-      }));
-    }
+    const rows = await prisma.campSite.findMany({
+      where,
+      select: campCardSelect,
+      orderBy,
+      take: 40,
+    });
+    campSites = rows;
   } catch (error) {
     console.error("Database connection error:", error);
     campSites = [];

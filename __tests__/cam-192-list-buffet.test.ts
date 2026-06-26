@@ -140,18 +140,18 @@ describe('AC-1 — campCardSelect shape', () => {
     expect(campCardSelect.images.select.sortOrder).toBe(true);
   });
 
-  // reviews sub-select
-  it('[shape] reviews.where.deletedAt === null (soft-deleted reviews excluded)', () => {
-    // Prove-It: removing the where clause makes this fail.
-    expect(campCardSelect.reviews.where).toEqual({ deletedAt: null });
+  // PERF-5 (CAM-193): reviews removed; avgRating/reviewCount columns replace the sub-select
+  it('[shape] campCardSelect does NOT contain a "reviews" key (PERF-5: AGG-1 column replaces reviews fetch)', () => {
+    // Prove-It: re-adding reviews to campCardSelect makes this fail.
+    expect('reviews' in campCardSelect).toBe(false);
   });
 
-  it('[shape] reviews selects only rating (no author PII)', () => {
-    const reviewSelectKeys = Object.keys(campCardSelect.reviews.select);
-    expect(reviewSelectKeys).toContain('rating');
-    expect(reviewSelectKeys).not.toContain('authorId');
-    expect(reviewSelectKeys).not.toContain('content');
-    expect(reviewSelectKeys).not.toContain('author');
+  it('[shape] campCardSelect selects avgRating (PERF-5: stored Decimal column from AGG-1)', () => {
+    expect(campCardSelect.avgRating).toBe(true);
+  });
+
+  it('[shape] campCardSelect selects reviewCount (PERF-5: stored Int column from AGG-1)', () => {
+    expect(campCardSelect.reviewCount).toBe(true);
   });
 
   // location sub-select
@@ -181,10 +181,11 @@ describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', 
     expect(pageSrc).toContain('from "@/lib/read-models/camp-card"');
   });
 
-  it('[call-site] app/page.tsx uses `select: campCardSelect` in at least 2 places (both sort branches)', () => {
-    // Prove-It: collapsing both branches to one reference drops the count below 2.
+  it('[call-site] app/page.tsx uses `select: campCardSelect` in exactly 1 place (PERF-5: unified single findMany)', () => {
+    // PERF-5 (CAM-193): the two sort branches collapsed into one findMany with a computed orderBy.
+    // Prove-It: splitting back into two branches makes the count ≥ 2.
     const matches = pageSrc.match(/select:\s*campCardSelect/g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(matches.length).toBe(1);
   });
 
   it('[call-site] app/page.tsx does NOT use `include: { spots` (over-fetch dropped)', () => {
@@ -233,35 +234,41 @@ describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', 
 });
 
 // ---------------------------------------------------------------------------
-// AC-3 — avgRating pipeline still wired in app/page.tsx after PERF-1 refactor
+// AC-3 — PERF-5 (CAM-193): avgRating/reviewCount from stored columns, no JS compute in page.tsx
 // ---------------------------------------------------------------------------
-describe('AC-3 — avgRating pipeline intact in app/page.tsx', () => {
+describe('AC-3 — PERF-5: avgRating read from column, no JS compute in app/page.tsx', () => {
 
-  it('[pipeline] app/page.tsx imports computeAvgRating (reuse rule — same helper as pre-refactor)', () => {
-    expect(pageSrc).toContain('computeAvgRating');
+  it('[pipeline] app/page.tsx does NOT import computeAvgRating (PERF-5: column replaces JS compute)', () => {
+    // Prove-It: re-adding the import makes this fail.
+    expect(pageSrc).not.toContain('computeAvgRating');
   });
 
-  it('[pipeline] app/page.tsx imports roundAvgRating (reuse rule — same helper as pre-refactor)', () => {
-    expect(pageSrc).toContain('roundAvgRating');
+  it('[pipeline] app/page.tsx does NOT import roundAvgRating (PERF-5: column value is pre-rounded by AGG-1)', () => {
+    expect(pageSrc).not.toContain('roundAvgRating');
   });
 
-  it('[pipeline] app/page.tsx computes avgRating via roundAvgRating(computeAvgRating(_reviews))', () => {
-    // Prove-It: renaming the call expression makes this fail.
-    expect(pageSrc).toContain('roundAvgRating(computeAvgRating(_reviews))');
+  it('[pipeline] app/page.tsx does NOT call sortByRating (PERF-5: rating sort now done at DB)', () => {
+    // Prove-It: re-adding sortByRating call makes this fail.
+    expect(pageSrc).not.toContain('sortByRating(');
   });
 
-  it('[pipeline] app/page.tsx strips reviews before forwarding to grid (no PII to client)', () => {
-    expect(pageSrc).toContain('reviews: _reviews');
-    expect(pageSrc).toContain('...rest');
+  it('[pipeline] app/page.tsx does NOT contain roundAvgRating(computeAvgRating(_reviews)) (PERF-5: expression removed)', () => {
+    expect(pageSrc).not.toContain('roundAvgRating(computeAvgRating(_reviews))');
   });
 
-  it('[pipeline] app/page.tsx sets reviewCount from _reviews.length', () => {
-    expect(pageSrc).toContain('_reviews.length');
+  it('[pipeline] app/page.tsx orderBy uses avgRating column for rating sort (DB sort, not JS)', () => {
+    // Prove-It: removing avgRating from orderBy makes this fail.
+    expect(pageSrc).toContain('avgRating');
   });
 
-  // Logic: verify the helpers still produce correct values from {rating}[] shaped input
-  // (i.e., the exact shape campCardSelect.reviews returns: {rating: number}[])
-  it('[logic] computeAvgRating produces correct avg from {rating}[] slice (PERF-1 reviews shape)', () => {
+  it('[pipeline] app/page.tsx has ONE campSite.findMany call (PERF-5: unified query — no split branches)', () => {
+    // Count only campSite.findMany (not wishlist.findMany which is a separate query).
+    const matches = pageSrc.match(/campSite\.findMany/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  // Logic: verify the helpers still produce correct values — they are KEPT (used by wishlist page + tests)
+  it('[logic] computeAvgRating produces correct avg from {rating}[] slice (helper retained for wishlist)', () => {
     const reviews: { rating: number }[] = [{ rating: 4 }, { rating: 5 }];
     expect(computeAvgRating(reviews)).toBe(4.5);
   });
@@ -364,15 +371,14 @@ describe('AC-5 — card render contract: all CampgroundCard fields present in ca
     expect(campCardSelect.images.select.url).toBe(true);
   });
 
-  // avgRating / reviewCount — these are computed server-side from reviews, not read directly from reviews
-  it('[contract] campCardSelect provides reviews so server can compute avgRating prop for card', () => {
-    // The card receives avgRating as a prop; it's derived from reviews in app/page.tsx.
-    // Verify the reviews key exists in campCardSelect.
-    expect('reviews' in campCardSelect).toBe(true);
+  // PERF-5 (CAM-193): avgRating/reviewCount come directly from stored columns, not reviews sub-select
+  it('[contract] campCardSelect provides avgRating column (PERF-5: stored Decimal column from AGG-1)', () => {
+    // The card receives avgRating from the stored column; no reviews sub-select needed.
+    expect(campCardSelect.avgRating).toBe(true);
   });
 
-  it('[contract] campCardSelect.reviews selects rating (the only field needed to compute avgRating)', () => {
-    expect(campCardSelect.reviews.select.rating).toBe(true);
+  it('[contract] campCardSelect provides reviewCount column (PERF-5: stored Int column from AGG-1)', () => {
+    expect(campCardSelect.reviewCount).toBe(true);
   });
 
   // Verify CampgroundCard.tsx still reads province from location

@@ -549,16 +549,16 @@ describe('AC-4 — migration shape: ADD COLUMN only + correct backfill (no DROP/
 });
 
 // ===========================================================================
-// AC-5 — scope guard: read-path files not changed to consume new columns
+// AC-5 — PERF-5 (CAM-193): read-path updated to consume stored columns
 // ===========================================================================
 
-describe('AC-5 — scope guard: read-path files unchanged (CAM-189 only writes the columns)', () => {
+describe('AC-5 — PERF-5 (CAM-193): read-path now consumes avgRating/reviewCount columns', () => {
     /**
-     * CAM-189 only WRITES avgRating/reviewCount (POST route + migration backfill + reconcile).
-     * Consumers (page.tsx, camp-card.ts, sort-utils.ts) must NOT yet read them — the
-     * in-memory sort (sortByRating from lib/sort-utils.ts using reviews[]) is still the
-     * authoritative sort mechanism.  Changing the read path to consume the columns is a
-     * separate story (C-2.5 scale guard).
+     * CAM-189 (AGG-1) WROTE avgRating/reviewCount. PERF-5 (CAM-193) now READS them.
+     * The in-memory sortByRating path is removed from app/page.tsx; rating sort is done
+     * at DB via orderBy avgRating. campCardSelect now selects the stored columns, not reviews.
+     * The pure helpers (sortByRating, computeAvgRating) are KEPT in lib/sort-utils.ts —
+     * they are still used by app/wishlist/page.tsx and tested by sort-utils.test.ts.
      */
 
     const pageSrc = fs.readFileSync(path.join(process.cwd(), 'app/page.tsx'), 'utf-8');
@@ -570,43 +570,39 @@ describe('AC-5 — scope guard: read-path files unchanged (CAM-189 only writes t
 
     // --- app/page.tsx ---
 
-    it('[scope] app/page.tsx still calls sortByRating (in-memory sort path unchanged)', () => {
-        // Prove-It: fails if page.tsx was changed to read campSite.avgRating directly
-        expect(pageSrc).toContain('sortByRating');
+    it('[scope] app/page.tsx does NOT call sortByRating (PERF-5: DB sort replaces in-memory sort)', () => {
+        // Prove-It: re-adding sortByRating( to page.tsx makes this fail.
+        expect(pageSrc).not.toContain('sortByRating(');
     });
 
-    it('[scope] app/page.tsx does NOT read campSite.avgRating column directly', () => {
-        // The new column must not appear in the query shape passed to the grid
-        // (campCardSelect drives the shape; page.tsx must not add avgRating to it)
-        // Allow it in a comment but not in a Prisma select/orderBy/where literal
-        expect(pageSrc).not.toMatch(/\bavgRating\b.*:\s*true/);
-        expect(pageSrc).not.toMatch(/orderBy.*avgRating/);
+    it('[scope] app/page.tsx orderBy uses avgRating column for rating sort (PERF-5)', () => {
+        // Prove-It: removing avgRating from orderBy makes this fail.
+        expect(pageSrc).toMatch(/avgRating/);
     });
 
-    it('[scope] app/page.tsx still imports from @/lib/sort-utils (computeAvgRating or sortByRating)', () => {
-        expect(pageSrc).toContain('sort-utils');
+    it('[scope] app/page.tsx does NOT import from @/lib/sort-utils (PERF-5: import removed)', () => {
+        expect(pageSrc).not.toContain('sort-utils');
     });
 
     // --- lib/read-models/camp-card.ts ---
 
-    it('[scope] campCardSelect still selects reviews with rating (in-memory avg source)', () => {
-        // Prove-It: fails if reviews was removed from the select (breaking the in-memory sort)
-        expect(campCardSrc).toContain('reviews');
-        expect(campCardSrc).toContain('rating: true');
+    it('[scope] campCardSelect selects avgRating column (PERF-5: column is now consumed)', () => {
+        // Prove-It: removing avgRating from campCardSelect makes this fail.
+        expect(campCardSrc).toMatch(/\bavgRating\b.*:\s*true/);
     });
 
-    it('[scope] campCardSelect does NOT select avgRating column (not consumed yet)', () => {
-        // The stored column must not appear in campCardSelect — CAM-189 only writes it
-        expect(campCardSrc).not.toMatch(/\bavgRating\b.*:\s*true/);
+    it('[scope] campCardSelect selects reviewCount column (PERF-5: column is now consumed)', () => {
+        expect(campCardSrc).toMatch(/\breviewCount\b.*:\s*true/);
     });
 
-    it('[scope] campCardSelect does NOT select reviewCount column (not consumed yet)', () => {
-        expect(campCardSrc).not.toMatch(/\breviewCount\b.*:\s*true/);
+    it('[scope] campCardSelect does NOT select reviews (PERF-5: reviews over-fetch removed)', () => {
+        // Prove-It: re-adding reviews to campCardSelect makes this fail.
+        expect(campCardSrc).not.toContain('reviews:');
     });
 
-    // --- lib/sort-utils.ts ---
+    // --- lib/sort-utils.ts (helpers retained — used by wishlist page + tests) ---
 
-    it('[scope] sort-utils.ts still exports computeAvgRating and sortByRating (pure helpers)', () => {
+    it('[scope] sort-utils.ts still exports computeAvgRating and sortByRating (pure helpers — retained for wishlist)', () => {
         expect(sortUtilsSrc).toContain('export function computeAvgRating');
         expect(sortUtilsSrc).toContain('export function sortByRating');
     });
