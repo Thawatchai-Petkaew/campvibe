@@ -70,6 +70,8 @@ export function LogoUpload({
                         alt={t.newCampground.logoPreview}
                         className="w-full h-full"
                         imgClassName="object-contain"
+                        width={128}
+                        height={128}
                     />
                     <button
                         type="button"

@@ -69,6 +69,7 @@ export function ImageUpload({
                             alt={t.newCampground.imagePreview}
                             className="w-full h-full"
                             imgClassName="object-cover"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                         />
                         <button
                             type="button"

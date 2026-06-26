@@ -133,6 +133,7 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
             className="w-full h-48 md:h-64"
             imgClassName="object-cover"
             data-testid="img--booking-cover"
+            sizes="100vw"
           />
           <div className="absolute top-4 left-4">
             <Badge

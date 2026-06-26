@@ -99,6 +99,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                     alt={imageOfLabel}
                     className="max-w-full max-h-full"
                     imgClassName="object-contain max-w-full max-h-full"
+                    sizes="(max-width: 1024px) 100vw, 80vw"
                 />
             </div>
 
@@ -128,6 +129,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                             alt=""
                             className="w-full h-full"
                             imgClassName="object-cover"
+                            sizes="80px"
                         />
                     </button>
                 ))}
