@@ -650,6 +650,7 @@
             }
         },
         "catalog": {
+            "loading": "Loading camps",
             "loading_more": "Loading more camps",
             "end_of_list": "You've seen all camps"
         }
@@ -1306,6 +1307,7 @@
             }
         },
         "catalog": {
+            "loading": "กำลังโหลดลาน",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
             "end_of_list": "ดูลานครบทั้งหมดแล้ว"
         }

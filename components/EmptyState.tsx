@@ -16,10 +16,21 @@ export function EmptyState({ title, subtitle, showReset }: EmptyStateProps) {
         <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
             <div className="relative mb-4 group">
                 <div className="absolute inset-0 bg-primary/10 rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                {/* Light theme illustration */}
                 <img
-                    src="/empty-state.png"
+                    src="/camping-empty.svg"
                     alt={t.emptyState.noResults}
-                    className="w-64 md:w-80 h-auto relative"
+                    width="320"
+                    height="200"
+                    className="w-64 md:w-80 h-auto relative dark:hidden"
+                />
+                {/* Dark theme illustration — tuned for dark backgrounds */}
+                <img
+                    src="/camping-empty-dark.svg"
+                    alt={t.emptyState.noResults}
+                    width="320"
+                    height="200"
+                    className="w-64 md:w-80 h-auto relative hidden dark:block"
                 />
             </div>
 

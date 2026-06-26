@@ -301,9 +301,10 @@ describe('sortByRating', () => {
 // .claude/rules/qa.md §6 ("mock only the external boundary"), source-inspection
 // is the correct layer for Server Component conditionals.
 // ---------------------------------------------------------------------------
-describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', () => {
-  const pageSrc = fs.readFileSync(
-    path.join(process.cwd(), 'app/page.tsx'),
+describe('Source-inspection — CatalogResults.tsx (CAM-76 implementation checks + LOAD-1 CAM-197)', () => {
+  // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+  const catalogResultsSrc = fs.readFileSync(
+    path.join(process.cwd(), 'components/CatalogResults.tsx'),
     'utf-8'
   );
 
@@ -311,32 +312,33 @@ describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', ()
   it('[source] VALID_SORT allowlist contains exactly the 4 documented values', () => {
     // Prove-It: if 'rating' were missing from the allowlist, sort=rating would
     // fall back to 'related' and the campsite order would never change.
-    expect(pageSrc).toContain("'related'");
-    expect(pageSrc).toContain("'price_asc'");
-    expect(pageSrc).toContain("'price_desc'");
-    expect(pageSrc).toContain("'rating'");
+    // CatalogResults.tsx uses double-quote string literals.
+    expect(catalogResultsSrc).toContain('"related"');
+    expect(catalogResultsSrc).toContain('"price_asc"');
+    expect(catalogResultsSrc).toContain('"price_desc"');
+    expect(catalogResultsSrc).toContain('"rating"');
     // The constant is named VALID_SORT
-    expect(pageSrc).toContain('VALID_SORT');
+    expect(catalogResultsSrc).toContain('VALID_SORT');
   });
 
-  it('[source] unknown sort value falls back to \'related\' (AC-3 / Rule §5)', () => {
+  it('[source] unknown sort value falls back to "related" (AC-3 / Rule §5)', () => {
     // The sanitization expression must assign 'related' as the fallback
-    expect(pageSrc).toContain(": 'related'");
+    expect(catalogResultsSrc).toContain(': "related"');
   });
 
   it('[source] sort param is sanitized via VALID_SORT.includes() before any branch (AC-3 security)', () => {
     // Ensures the raw `sort` string from searchParams never reaches a Prisma field directly
-    expect(pageSrc).toContain('VALID_SORT');
-    expect(pageSrc).toContain('includes(sort');
+    expect(catalogResultsSrc).toContain('VALID_SORT');
+    expect(catalogResultsSrc).toContain('includes(sort');
   });
 
   // AC-1 — rating branch reuses buildCampSiteWhere (filter-compat)
   it('[source] rating branch uses buildCampSiteWhere result (filter-compat with province/keyword etc.)', () => {
     // The `where` variable (produced by buildCampSiteWhere) must be passed inside
     // the rating branch's findMany call — not a separate, filter-less query.
-    expect(pageSrc).toContain('buildCampSiteWhere');
-    // where clause is referenced in the findMany calls
-    expect(pageSrc).toContain('where,');
+    // LOAD-1 (CAM-197): logic in CatalogResults.tsx.
+    expect(catalogResultsSrc).toContain('buildCampSiteWhere');
+    expect(catalogResultsSrc).toContain('where,');
   });
 
   // Rule — soft-delete: PERF-5 (CAM-193) — deletedAt filter now lives in app/wishlist/page.tsx (reviews select)
@@ -350,34 +352,36 @@ describe('Source-inspection — app/page.tsx (CAM-76 implementation checks)', ()
     expect(wishlistSrc).toContain('deletedAt: null');
   });
 
-  // Rule — PERF-5: no reviews array in page.tsx (columns deliver avgRating/reviewCount)
-  it('[source] app/page.tsx does NOT contain reviews strip pattern (PERF-5: no reviews to strip)', () => {
+  // Rule — PERF-5: no reviews array (columns deliver avgRating/reviewCount)
+  it('[source] CatalogResults.tsx does NOT contain reviews strip pattern (PERF-5: no reviews to strip)', () => {
     // PERF-5 (CAM-193): avgRating/reviewCount come from stored columns; no reviews fetch in campCardSelect.
-    expect(pageSrc).not.toContain('_reviews');
+    // LOAD-1 (CAM-197): logic in CatalogResults.tsx.
+    expect(catalogResultsSrc).not.toContain('_reviews');
     // campSites assignment still present
-    expect(pageSrc).toContain('campSites =');
+    expect(catalogResultsSrc).toContain('campSites =');
   });
 
   // AC-4 — DB error → silent empty list (no user-facing error message)
   it('[source] DB error falls back to empty array, no new user-facing error message (AC-4)', () => {
     // The catch block assigns campSites = [] (silent empty list per AC-4 and Rule §6)
-    expect(pageSrc).toContain('campSites = []');
+    expect(catalogResultsSrc).toContain('campSites = []');
     // The catch block must use console.error (server-side log), not a user-facing throw
-    expect(pageSrc).toContain('console.error');
+    expect(catalogResultsSrc).toContain('console.error');
   });
 
   // AC-5 — PERF-5 (CAM-193): deep link ?sort=rating now uses DB sort via avgRating column
-  it('[source] sanitizedSort === \'rating\' triggers DB-level sort via avgRating orderBy (PERF-5)', () => {
+  it('[source] sanitizedSort === "rating" triggers DB-level sort via avgRating orderBy (PERF-5)', () => {
     // PERF-5: the rating branch no longer calls sortByRating; orderBy uses avgRating column instead.
-    expect(pageSrc).toContain("sanitizedSort === 'rating'");
-    expect(pageSrc).toContain('avgRating');
-    expect(pageSrc).not.toContain('sortByRating');
+    // CatalogResults.tsx uses double-quote string literals.
+    expect(catalogResultsSrc).toContain('sanitizedSort === "rating"');
+    expect(catalogResultsSrc).toContain('avgRating');
+    expect(catalogResultsSrc).not.toContain('sortByRating');
   });
 
   // Rule — sortByRating kept in lib/sort-utils (pure helper — still used by wishlist page + tests)
-  it('[source] sortByRating is NOT imported in app/page.tsx (PERF-5: helper still exists in sort-utils for wishlist)', () => {
-    // PERF-5 (CAM-193): the import was removed from page.tsx; the export is retained in lib/sort-utils.ts.
-    expect(pageSrc).not.toContain('sort-utils');
-    expect(pageSrc).not.toContain('sortByRating');
+  it('[source] sortByRating is NOT imported in CatalogResults.tsx (PERF-5: helper still exists in sort-utils for wishlist)', () => {
+    // PERF-5 (CAM-193): the import was not added to CatalogResults.tsx.
+    expect(catalogResultsSrc).not.toContain('sort-utils');
+    expect(catalogResultsSrc).not.toContain('sortByRating');
   });
 });

@@ -92,6 +92,8 @@ function src(relPath: string): string {
 const catalogCacheSrc = src('lib/catalog-cache.ts');
 const slugPageSrc = src('app/campgrounds/[slug]/page.tsx');
 const homeSrc = src('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+const catalogResultsSrc = src('components/CatalogResults.tsx');
 const campsiteIdRouteSrc = src('app/api/campsites/[id]/route.ts');
 
 // ===========================================================================
@@ -280,46 +282,47 @@ describe('AC-4 — page.tsx default-vs-filtered branch (app/page.tsx)', () => {
     expect(homeSrc).not.toContain('export const dynamic = "force-dynamic"');
   });
 
-  it('[import] page.tsx imports getDefaultCatalog from lib/catalog-cache', () => {
-    // Source uses double-quotes — match the actual import statement.
-    expect(homeSrc).toContain('import { getDefaultCatalog } from "@/lib/catalog-cache"');
+  it('[import] CatalogResults.tsx imports getDefaultCatalog from lib/catalog-cache (LOAD-1)', () => {
+    // LOAD-1 (CAM-197): data logic moved from page.tsx → CatalogResults.tsx.
+    expect(catalogResultsSrc).toContain('import { getDefaultCatalog } from "@/lib/catalog-cache"');
   });
 
-  it('[gate] page.tsx defines isSearchActive to decide the cache-vs-live branch', () => {
+  it('[gate] CatalogResults.tsx defines isSearchActive to decide the cache-vs-live branch', () => {
     // The gate variable must be present — it drives the useCache flag.
-    expect(homeSrc).toContain('isSearchActive');
+    expect(catalogResultsSrc).toContain('isSearchActive');
   });
 
-  it('[gate] page.tsx defines isDefaultSort to exclude non-default sort from cached path', () => {
-    expect(homeSrc).toContain('isDefaultSort');
+  it('[gate] CatalogResults.tsx defines isDefaultSort to exclude non-default sort from cached path', () => {
+    expect(catalogResultsSrc).toContain('isDefaultSort');
   });
 
-  it('[gate] page.tsx derives useCache from isSearchActive and isDefaultSort', () => {
+  it('[gate] CatalogResults.tsx derives useCache from isSearchActive and isDefaultSort', () => {
     // Both conditions must be false for useCache to be true (default path).
-    expect(homeSrc).toContain('useCache');
-    expect(homeSrc).toContain('!isSearchActive && isDefaultSort');
+    expect(catalogResultsSrc).toContain('useCache');
+    expect(catalogResultsSrc).toContain('!isSearchActive && isDefaultSort');
   });
 
-  it('[cache-path] page.tsx calls getDefaultCatalog() when useCache is true', () => {
+  it('[cache-path] CatalogResults.tsx calls getDefaultCatalog() when useCache is true', () => {
     // Prove-It: FAILS if the cache call is replaced with a direct prisma.findMany.
-    expect(homeSrc).toContain('getDefaultCatalog()');
+    expect(catalogResultsSrc).toContain('getDefaultCatalog()');
   });
 
-  it('[live-path] page.tsx calls buildCampSiteWhere when the filtered path is active', () => {
+  it('[live-path] CatalogResults.tsx calls buildCampSiteWhere when the filtered path is active', () => {
     // The live Prisma path must still use buildCampSiteWhere — same as before CACHE-1.
-    expect(homeSrc).toContain('buildCampSiteWhere(');
+    expect(catalogResultsSrc).toContain('buildCampSiteWhere(');
   });
 
-  it('[wishlist] page.tsx fetches wishlist via prisma.wishlist.findMany (live, not cached)', () => {
+  it('[wishlist] CatalogResults.tsx fetches wishlist via prisma.wishlist.findMany (live, not cached)', () => {
     // Wishlist lookup is per-user and must remain live (not inside the catalog cache wrapper).
     // Prove-It: FAILS if the wishlist fetch is moved inside getDefaultCatalog.
-    expect(homeSrc).toContain('prisma.wishlist.findMany(');
+    expect(catalogResultsSrc).toContain('prisma.wishlist.findMany(');
     // Confirm it is NOT in lib/catalog-cache.ts
     expect(catalogCacheSrc).not.toContain('wishlist');
   });
 
-  it('[wishlist] wishlist lookup is guarded by session.user.id (only when logged in)', () => {
-    expect(homeSrc).toContain("session?.user?.id");
+  it('[wishlist] wishlist lookup is guarded by userId (only when logged in)', () => {
+    // LOAD-1: userId is passed as a prop (not session directly) in CatalogResults.
+    expect(catalogResultsSrc).toContain("userId");
   });
 });
 

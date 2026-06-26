@@ -57,10 +57,12 @@ function readSrc(relPath: string): string {
   return fs.readFileSync(path.join(process.cwd(), relPath), 'utf-8');
 }
 
-const catalogCacheSrc = readSrc('lib/catalog-cache.ts');
-const pageSrc         = readSrc('app/page.tsx');
-const routeSrc        = readSrc('app/api/campsites/route.ts');
-const gridSrc         = readSrc('components/CampgroundGrid.tsx');
+const catalogCacheSrc    = readSrc('lib/catalog-cache.ts');
+const pageSrc            = readSrc('app/page.tsx');
+// LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
+const catalogResultsSrc  = readSrc('components/CatalogResults.tsx');
+const routeSrc           = readSrc('app/api/campsites/route.ts');
+const gridSrc            = readSrc('components/CampgroundGrid.tsx');
 
 // ===========================================================================
 // PAGE_SIZE
@@ -513,47 +515,47 @@ describe('lib/catalog-cache.ts — take:24 (OT-1=A, PERF-3 / CAM-196)', () => {
 // app/page.tsx — initialCursor plumbing (source-inspect)
 // ===========================================================================
 
-describe('app/page.tsx — initialCursor computation and prop (PERF-3 / CAM-196)', () => {
+describe('CatalogResults.tsx — initialCursor computation and prop (PERF-3 / CAM-196 + LOAD-1 / CAM-197)', () => {
+  // LOAD-1 (CAM-197): initialCursor logic moved from page.tsx → CatalogResults.tsx.
 
-  it('[normal] page.tsx imports encodeCursorFromItem from catalog-cursor', () => {
+  it('[normal] CatalogResults.tsx imports encodeCursorFromItem from catalog-cursor', () => {
     // Prove-It: FAILS if encodeCursorFromItem import is removed.
-    expect(pageSrc).toContain('encodeCursorFromItem');
-    expect(pageSrc).toContain("from \"@/lib/catalog-cursor\"");
+    expect(catalogResultsSrc).toContain('encodeCursorFromItem');
+    expect(catalogResultsSrc).toContain("from \"@/lib/catalog-cursor\"");
   });
 
-  it('[normal] page.tsx imports PAGE_SIZE from catalog-cursor', () => {
-    expect(pageSrc).toContain('PAGE_SIZE');
+  it('[normal] CatalogResults.tsx imports PAGE_SIZE from catalog-cursor', () => {
+    expect(catalogResultsSrc).toContain('PAGE_SIZE');
   });
 
-  it('[normal] page.tsx computes initialCursor', () => {
-    expect(pageSrc).toContain('initialCursor');
+  it('[normal] CatalogResults.tsx computes initialCursor', () => {
+    expect(catalogResultsSrc).toContain('initialCursor');
   });
 
-  it('[normal] page.tsx passes initialCursor to CampgroundGrid', () => {
-    // The prop must be threaded through so PR B can wire it without changing page.tsx.
-    expect(pageSrc).toContain('initialCursor={initialCursor}');
+  it('[normal] CatalogResults.tsx passes initialCursor to InfiniteScrollGrid', () => {
+    // The prop must be threaded through so the client can request page 2.
+    expect(catalogResultsSrc).toContain('initialCursor={initialCursor}');
   });
 
-  it('[normal] page.tsx uses PAGE_SIZE (not hardcoded 24 or 40) for the take param', () => {
+  it('[normal] CatalogResults.tsx uses PAGE_SIZE (not hardcoded 24 or 40) for the take param', () => {
     // Prove-It: FAILS if take is hardcoded instead of using the constant.
-    expect(pageSrc).toContain('take: PAGE_SIZE');
-    // And the old hardcoded take:40 in the filtered path is gone
-    expect(pageSrc).not.toContain('take: 40');
+    expect(catalogResultsSrc).toContain('take: PAGE_SIZE');
+    expect(catalogResultsSrc).not.toContain('take: 40');
   });
 
-  it('[normal] page.tsx still renders the first page in SSR (CampgroundGrid present in JSX)', () => {
-    // The SSR render must not be broken — CampgroundGrid still renders.
-    expect(pageSrc).toContain('CampgroundGrid');
+  it('[normal] CatalogResults.tsx still renders the first page in SSR (InfiniteScrollGrid present in JSX)', () => {
+    // The SSR render must not be broken — InfiniteScrollGrid still renders the SSR-seeded cards.
+    expect(catalogResultsSrc).toContain('InfiniteScrollGrid');
   });
 
-  it('[normal] page.tsx computes initialCursor from the last item when campSites.length === PAGE_SIZE', () => {
+  it('[normal] CatalogResults.tsx computes initialCursor from the last item when campSites.length === PAGE_SIZE', () => {
     // The length guard ensures we only emit a cursor when there is a next page.
-    expect(pageSrc).toContain('campSites.length === PAGE_SIZE');
+    expect(catalogResultsSrc).toContain('campSites.length === PAGE_SIZE');
   });
 
-  it('[normal] page.tsx sets initialCursor to null when campSites is empty or < PAGE_SIZE', () => {
+  it('[normal] CatalogResults.tsx sets initialCursor to null when campSites is empty or < PAGE_SIZE', () => {
     // The null case: fewer results than a full page → no next cursor.
-    expect(pageSrc).toContain(': null');
+    expect(catalogResultsSrc).toContain(': null');
   });
 });
 
