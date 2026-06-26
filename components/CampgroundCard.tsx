@@ -24,6 +24,12 @@ interface CampgroundCardProps {
     avgRating?: number | null;
     /** CAM-147: total non-deleted review count. */
     reviewCount?: number;
+    /**
+     * CAM-199 (PERF-IMG-LCP): pass true only for the first N above-the-fold cards.
+     * Sets fetchpriority="high" + eager loading on the underlying next/image.
+     * Default false (lazy) for all below-the-fold cards.
+     */
+    priority?: boolean;
 }
 
 export function CampgroundCard({
@@ -33,6 +39,7 @@ export function CampgroundCard({
     onGuestHeartClick,
     avgRating,
     reviewCount = 0,
+    priority = false,
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -123,6 +130,7 @@ export function CampgroundCard({
                             className="w-full h-full"
                             imgClassName="object-cover group-hover:scale-105 transition duration-500 ease-out"
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            priority={priority}
                         />
 
                         {/* Navigation Arrows (visible on hover) */}

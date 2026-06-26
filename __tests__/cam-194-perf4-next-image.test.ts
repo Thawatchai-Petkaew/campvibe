@@ -18,10 +18,12 @@
  *         LogoUpload passes width={128} height={128} → exercises fixed mode.
  *         ImageGallery/CampgroundDetailClient do NOT pass width/height → fill mode.
  *
- *   AC-4  priority only on detail hero (index 0 per branch)
+ *   AC-4  priority on detail hero + first-N catalog cards (CAM-199)
  *         CampgroundDetailClient: hero image (every 1/2/3/4/5+ branch) carries `priority`.
  *         Secondary images (i !== 0 in 2-image branch) carry priority={i === 0}.
- *         ImageGallery, CampgroundCard, app/bookings/page, app/dashboard/campsites/page,
+ *         CampgroundCard: accepts priority prop (default false), forwards to ImageWithFallback;
+ *           InfiniteScrollGrid passes priority={index < 4} — first 4 cards eager, rest lazy.
+ *         ImageGallery, app/bookings/page, app/dashboard/campsites/page,
  *         and ImageUpload do NOT use priority (no LCP role).
  *
  *   AC-5  next.config images contract
@@ -49,6 +51,8 @@
  *         Removing `fill` from the fill branch makes the fill-mode test fail.
  *   AC-4: adding priority to ImageGallery makes the "no priority in gallery" test fail.
  *         Removing priority from the 3-image hero branch makes that hero test fail.
+ *         Removing priority prop from CampgroundCard makes the card priority-prop test fail.
+ *         Removing index < 4 from InfiniteScrollGrid.map makes the grid priority test fail.
  *   AC-5: adding "image/avif" to formats makes the avif-exclusion test fail.
  *         Setting dangerouslyAllowSVG: true makes that test fail.
  *   AC-6: removing onError from Image makes the fallback-wired test fail.
@@ -83,14 +87,15 @@ function readSrc(relPath: string): string {
   return fs.readFileSync(path.join(process.cwd(), relPath), 'utf-8');
 }
 
-const iwfSrc         = readSrc('components/ui/image-with-fallback.tsx');
-const detailSrc      = readSrc('components/CampgroundDetailClient.tsx');
-const gallerySrc     = readSrc('components/ImageGallery.tsx');
-const cardSrc        = readSrc('components/CampgroundCard.tsx');
-const bookingsSrc    = readSrc('app/bookings/page.tsx');
-const dashCampSrc    = readSrc('app/dashboard/campsites/page.tsx');
-const imageUploadSrc = readSrc('components/ImageUpload.tsx');
-const logoUploadSrc  = readSrc('components/LogoUpload.tsx');
+const iwfSrc            = readSrc('components/ui/image-with-fallback.tsx');
+const detailSrc         = readSrc('components/CampgroundDetailClient.tsx');
+const gallerySrc        = readSrc('components/ImageGallery.tsx');
+const cardSrc           = readSrc('components/CampgroundCard.tsx');
+const infiniteGridSrc2  = readSrc('components/InfiniteScrollGrid.tsx');
+const bookingsSrc       = readSrc('app/bookings/page.tsx');
+const dashCampSrc       = readSrc('app/dashboard/campsites/page.tsx');
+const imageUploadSrc    = readSrc('components/ImageUpload.tsx');
+const logoUploadSrc     = readSrc('components/LogoUpload.tsx');
 
 // next.config is TypeScript source; read the raw source to inspect values.
 const nextConfigSrc  = readSrc('next.config.ts');
@@ -231,7 +236,7 @@ describe('AC-3 — fill mode (default) vs fixed mode (width+height both provided
 // AC-4 — priority only on detail hero (index 0); absent from all other consumers
 // ===========================================================================
 
-describe('AC-4 — priority=true on detail hero only; no priority on gallery/card/booking/dashboard', () => {
+describe('AC-4 — priority=true on detail hero; card accepts priority prop (CAM-199); gallery/booking/dashboard have none', () => {
 
   // --- hero priority present on every grid branch ---
 
@@ -323,9 +328,25 @@ describe('AC-4 — priority=true on detail hero only; no priority on gallery/car
     expect(gallerySrc).not.toContain('priority');
   });
 
-  it('[no-priority] CampgroundCard (catalog card slider) has NO priority prop', () => {
-    // Cards are below-the-fold items — not LCP. Priority would cause eager loading of many images.
-    expect(cardSrc).not.toContain('priority');
+  it('[priority-prop] CampgroundCard accepts a priority prop forwarded from the grid parent (CAM-199)', () => {
+    // CAM-199 (PERF-IMG-LCP): CampgroundCard now accepts priority as an optional prop
+    // (default false) and forwards it to ImageWithFallback. The grid parent (InfiniteScrollGrid)
+    // is responsible for passing priority={index < 4} — only the first 4 above-the-fold
+    // cards get it. The card itself never hardcodes priority; control belongs to the caller.
+    // Prove-It: removing the priority prop from CampgroundCard interface makes this fail.
+    expect(cardSrc).toContain('priority?: boolean');
+    // The prop is forwarded to ImageWithFallback (not hardcoded true/false inline).
+    expect(cardSrc).toContain('priority={priority}');
+  });
+
+  it('[priority-grid] InfiniteScrollGrid passes priority={index < 4} to the first 4 cards only (CAM-199)', () => {
+    // CAM-199: first 4 cards are above-the-fold across mobile→desktop breakpoints.
+    // Cards at index >= 4 stay lazy (default false). Infinite-scroll-appended cards are
+    // always at index >= 4 (initial page has the first 4 at indices 0-3).
+    // Prove-It: removing `index < 4` from the grid map makes this fail.
+    expect(infiniteGridSrc2).toContain('priority={index < 4}');
+    // The map must also capture the index variable.
+    expect(infiniteGridSrc2).toMatch(/items\.map\(\(camp,\s*index\)/);
   });
 
   it('[no-priority] app/bookings/page.tsx has NO priority prop on ImageWithFallback', () => {

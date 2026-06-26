@@ -41,17 +41,17 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 
 ## ผลลัพธ์ — วัดจริง 2026-06-26 · ชุด 140 ลาน · staging
 
-> Before = ก่อนแก้ (force-dynamic + over-fetch + raw `<img>`). After = เว้นไว้จนหลัง PERF-1/CACHE-1/PERF-4. ทุกค่า = เลขวัดจริงจากเครื่องมือ (ไม่แต่ง).
+> Before = ก่อนแก้ (force-dynamic + over-fetch + raw `<img>`). **After = วัดซ้ำ 2026-06-27** หลัง epic CAM-186 ครบ (PERF-1/CACHE-1/PERF-4/keyset). ทุกค่า = เลขวัดจริงจากเครื่องมือ (ไม่แต่ง).
 
 ### Core Web Vitals — Home `/` (Lighthouse mobile)
 | Metric | Before | Target | After | Tool | Date |
 |---|---|---|---|---|---|
-| Performance score | **66** | — | — | Lighthouse | 2026-06-26 |
-| LCP | **9.0s** 🔴 | ≤ 2.5s | — | Lighthouse | 2026-06-26 |
-| CLS | **0** ✅ | ≤ 0.1 | — | Lighthouse | 2026-06-26 |
-| TBT (INP proxy, lab) | 240ms | ≤ 200ms (INP) | — | Lighthouse | 2026-06-26 |
-| FCP | 1.7s | — | — | Lighthouse | 2026-06-26 |
-| Speed Index | 5.2s | — | — | Lighthouse | 2026-06-26 |
+| Performance score | **66** | — | **71** | Lighthouse | 2026-06-27 |
+| LCP | **9.0s** 🔴 | ≤ 2.5s | **5.5s** 🟠 (−39% แต่ยังเกินเป้า) | Lighthouse | 2026-06-27 |
+| CLS | **0** ✅ | ≤ 0.1 | **0.039** ✅ | Lighthouse | 2026-06-27 |
+| TBT (INP proxy, lab) | 240ms | ≤ 200ms (INP) | **270ms** 🟠 | Lighthouse | 2026-06-27 |
+| FCP | 1.7s | — | **1.9s** | Lighthouse | 2026-06-27 |
+| Speed Index | 5.2s | — | **4.4s** | Lighthouse | 2026-06-27 |
 
 ### Core Web Vitals — `/campgrounds` (Lighthouse mobile)
 | Metric | Before | Target | After | Tool | Date |
@@ -73,10 +73,17 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 ### Bundle / JS (Lighthouse insights)
 | Metric | Before | Target | After | Tool | Date |
 |---|---|---|---|---|---|
-| Unused JavaScript | **689 KiB** 🔴 | ลดลง | — | Lighthouse | 2026-06-26 |
-| JS execution time | 1.6s | — | — | Lighthouse | 2026-06-26 |
-| Main-thread work | 3.1s | — | — | Lighthouse | 2026-06-26 |
+| Unused JavaScript | **689 KiB** 🔴 | ลดลง | **687 KiB** 🔴 (ยังไม่แตะ → PERF-BUNDLE) | Lighthouse | 2026-06-27 |
+| JS execution time | 1.6s | — | **1.5s** | Lighthouse | 2026-06-27 |
+| Main-thread work | 3.1s | — | **3.8s** | Lighthouse | 2026-06-27 |
 | Legacy / minify JS | 14 / 86 KiB | — | — | Lighthouse | 2026-06-26 |
+
+### Findings After (2026-06-27) — LCP ยังไม่ผ่านเป้า + bottleneck เหลือ
+
+- ✅ **TTFB 2.3s → 40ms** (CACHE-1 ได้ผลชัด) · payload −89% · LCP 9.0s → **5.5s (−39%)**.
+- 🔴 **LCP 5.5s ยังเกินเป้า 2.5s.** LCP breakdown: **Resource load delay 2,040ms** = ตัวการอันดับ 1 — รูป hero (การ์ดใบแรก) next/image โหลด `loading="lazy"` + ไม่มี `fetchpriority="high"` → **CAM-199 (PERF-IMG-LCP)** แก้: priority รูปการ์ดใบแรกๆ. คาด LCP ลง ~3.x s.
+- 🔴 **Unused JS 687 KiB + render-blocking CSS + main-thread 3.8s** = bottleneck อันดับ 2 (ฝั่ง client, epic ไม่ได้แตะ) → **PERF-BUNDLE** (story ถัดไป ถ้า LCP ยังไม่ถึง 2.5s หลัง CAM-199 + re-measure).
+- /campgrounds: ไม่ได้วัดซ้ำรอบนี้ (วัด Home เป็นตัวแทน — LCP image เป็นการ์ดเหมือนกัน).
 
 > **ยังไม่วัด (optional, ไม่บล็อก):** prisma_query internal durationMs (ดึงจาก Vercel log ได้) · First-Load JS gz ต่อ route (Next 16 build ไม่พิมพ์ตาราง size แล้ว — ใช้ `ANALYZE=1` ถ้าต้องการ) · `EXPLAIN ANALYZE` (ต้อง psql เข้า staging DB). Lighthouse + curl ครอบคลุมภาพหลักพอสำหรับ before/after.
 
