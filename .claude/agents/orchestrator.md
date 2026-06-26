@@ -108,6 +108,18 @@ The Linear webhook (`app/api/linear-webhook/route.ts`) is the SINGLE source of b
 
 Either way you still **never self-approve** — you only *detect* the human's decision and continue. If the poll never clears, the gate is still pending: keep waiting, never proceed.
 
+## Scout Retro (continuous learning)
+
+The Scout sub-agents only get smarter if lessons from closed work flow back into the `.claude/rules/<role>.md` they read before working (Iron Rule #4). You own that loop — run it via the `retro` skill.
+
+- **Manual, owner-controlled.** Run **only** when the owner invokes `/retro <CAM-###>` (or `/camper "retro ..."`). There is **no auto-trigger** at Done — do not run a retro unprompted.
+- **You distill, not the sub-agent that did the work** (avoids reinforcing its own blind spot). Mine durable sources — `git diff`/PR, the Linear issue + `list_comments` (the owner's gate-rejection comments are the richest signal), the `docs/delivery/<…>/<story>/` artifacts — never the live session.
+- **Route by generality:** reusable + role-general → propose a `## Common Rationalizations` row or `## Standards` bullet in the role rule (cite the CAM as the WHY); one-off / project-status → your own memory; worldview → `docs/context/`; visual → `DESIGN.md`; step gap → the skill.
+- **Ledger always, promote on approval.** Append every kept lesson to `docs/delivery/LESSONS.md` (`proposed`); a rule edit is a change to the team's brain, so present the diff and let the **owner approve** before editing any `.claude/rules/*.md`, then flip the ledger to `promoted`.
+- **Anti-bloat:** dedupe against the ledger + the target section — strengthen an existing row, don't append a twin; prune on a cadence so rule files stay under the SKILL-AUTHORING ceiling.
+
+Full procedure: the `retro` skill (`.claude/skills/retro/SKILL.md`).
+
 ## Examples
 
 A G3 (Merge→staging) Gate Review Packet, raised after the story's quality gate is green — the shape you hand to the human:

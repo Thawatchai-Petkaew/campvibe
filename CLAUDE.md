@@ -45,4 +45,4 @@ Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ ho
 
 ## Commands
 
-`/new-feature "<requirement>"` start the loop · `/status` view status · `/promote-release --to <staging|prod>` promote across envs
+`/new-feature "<requirement>"` start the loop · `/status` view status · `/promote-release --to <staging|prod>` promote across envs · `/retro <CAM-###>` distill lessons from a closed story → ledger + propose rule promotions (owner-approved) so the Scout team learns (Iron Rule #4); manual, no auto-trigger
