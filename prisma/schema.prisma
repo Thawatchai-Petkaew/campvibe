@@ -335,6 +335,9 @@ model CampSite {
   @@index([operatorId])
   @@index([locationId])
   @@index([isPublished, deletedAt])
+  // PERF-2 (CAM-188): composite indexes for catalog price-sort and default/related-sort
+  @@index([isPublished, deletedAt, priceLow, id])
+  @@index([isPublished, deletedAt, createdAt, id])
 }
 
 model CampSiteTeamMember {
