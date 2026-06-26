@@ -11,6 +11,7 @@ import { auth } from "@/lib/auth";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
 import { sortByRating, computeAvgRating } from "@/lib/sort-utils";
 import { roundAvgRating } from "@/lib/review-summary";
+import { campCardSelect, type CampCardPayload } from "@/lib/read-models/camp-card";
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +90,8 @@ export default async function Home({ searchParams }: HomeProps) {
     { createdAt: 'desc' as const }; // 'related' default
 
   // Fetch camp sites server-side
-  let campSites: any[] = [];
+  type CampCard = Omit<CampCardPayload, 'reviews'> & { avgRating: number | null; reviewCount: number };
+  let campSites: CampCard[] = [];
   try {
     if (sanitizedSort === 'rating') {
       // SCALE GUARD: in-memory sort is valid up to ~200 published campsites.
@@ -97,16 +99,7 @@ export default async function Home({ searchParams }: HomeProps) {
       // CampSite.avgRating column updated by a background job (C-2.5).
       const rows = await prisma.campSite.findMany({
         where, // buildCampSiteWhere result — filter first, then sort
-        include: {
-          location: true,
-          operator: { select: { name: true } },
-          images: { orderBy: { sortOrder: 'asc' } },
-          _count: { select: { reviews: true } },
-          reviews: {
-            where:  { deletedAt: null }, // exclude soft-deleted reviews
-            select: { rating: true },    // only the field needed; no N+1
-          },
-        },
+        select: campCardSelect,
         // No orderBy or take here — JS sort + slice(0,40) in sortByRating takes over
       });
 
@@ -123,16 +116,7 @@ export default async function Home({ searchParams }: HomeProps) {
     } else {
       const rows = await prisma.campSite.findMany({
         where,
-        include: {
-          location: true,
-          operator: { select: { name: true } },
-          images: { orderBy: { sortOrder: 'asc' } },
-          _count: { select: { reviews: true } },
-          reviews: {
-            where:  { deletedAt: null },
-            select: { rating: true },
-          },
-        },
+        select: campCardSelect,
         orderBy,
         take: 40,
       });

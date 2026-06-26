@@ -5,6 +5,7 @@ import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-fi
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { requireAuth } from '@/lib/auth-utils';
 import { withTiming } from '@/lib/route-timing';
+import { campCardSelect } from '@/lib/read-models/camp-card';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,13 +34,7 @@ export async function GET(request: NextRequest) {
     const campSites = await withTiming('catalog_list', () =>
       prisma.campSite.findMany({
         where,
-        include: {
-          location: true,
-          spots: true,
-          reviews: { select: { rating: true } },
-          options: true,
-          images: { orderBy: { sortOrder: 'asc' } }
-        },
+        select: campCardSelect,
       })
     );
 
