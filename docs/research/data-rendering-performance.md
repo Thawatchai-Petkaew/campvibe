@@ -1,6 +1,6 @@
 # Research Map — CampVibe Data Layer (Performance · Freshness · Visibility) | Next-phase plan
 
-> **สถานะ:** ✅ **BUILT — 7 stories shipped to staging (2026-06-26):** MEAS-1 · PERF-1 (−89% payload) · PERF-2 · AGG-1 · PERF-5 · AVAIL-1 · PERF-4 (+ SEC-1). **Deferred:** CACHE-1 (PPR experimental + traffic-gated) · PERF-3 (scale-gated) · SEARCH-1/IMG-CDN-2/SEO-1 (trigger). epic CAM-186.
+> **สถานะ:** ✅ **BUILT — 9 stories shipped to staging (2026-06-26):** MEAS-1 · PERF-1 (−89% payload) · PERF-2 · AGG-1 · PERF-5 · AVAIL-1 · PERF-4 · **CACHE-1** (detail total 2.8–5.8s→~1.0s warm, unstable_cache ไม่ใช่ PPR) · **FRESH-1** (+ SEC-1). **Deferred:** PERF-3 (scale-gated) · SEARCH-1/IMG-CDN-2/SEO-1 (trigger). epic CAM-186.
 > **โจทย์ (เจ้าของ):** (1) ลานเยอะ/รูปเยอะ → เปิด Home/listing/filter แล้ว render การ์ด กิน performance สูง ขนาดใช้คนเดียวก็เริ่มหนัก · (2) หลังเจ้าของลงลานเสร็จ ต้องขึ้นแบบ real-time ไหม → research + design solution ทั้งระบบข้อมูล (ไม่ใช่แค่รูป)
 > **ยึดตาม:** `.claude/rules/performance.md` (Measure → Identify → Fix → Verify → Guard · metric honesty · budgets) + `.claude/rules/architecture.md` (Pixel/Set/Buffet · no N+1 · compute-on-the-fly) + `.claude/rules/seo.md` (SSR/ISR crawlable) + `.claude/rules/security.md` (default-deny / visibility)
 > **Metric honesty:** **ยังไม่ได้วัดจริง (NOT MEASURED)** — วิเคราะห์จากกลไก (query shape / Big-O) + โค้ดจริง; ตัวเลขที่ยกเป็น "ภาพประกอบเชิงกลไก" ไม่ใช่ผลวัด ขั้นแรกของ Phase ถัดไป = **วัดก่อน (MEAS-1)**
@@ -298,8 +298,8 @@ catalog: `force-dynamic` → fetch ติด tag (`next:{tags:['campsites']}` / 
 | **PERF-5** | Rating sort ฝั่ง DB (เลิก in-memory) + avgRating index | perf | P2 | ✅ DONE (CAM-193) | AGG-1, PERF-2 | page.tsx |
 | **PERF-4** | Images → next/image + `sizes` (~22 จุด/9 ไฟล์; วัดก่อน MEAS-1 ค่อยตัดสิน + spend cap) | perf | P2 | ✅ DONE (CAM-194 · webp verified · cost negligible) | MEAS-1, PERF-1 | image-with-fallback.tsx · next.config.ts |
 | **IMG-CDN-2** | Dedicated image CDN (R2 + Cloudflare Images via `loaderFile`) | perf | — | DEFERRED | PERF-4 + cost trigger | §5C |
-| **CACHE-1** | force-dynamic → cached catalog (PPR/`use cache`) | perf | P3 | ⏸️ DEFERRED — PPR ยัง experimental (เคยทำ staging ล่ม CAM-191) + traffic ต่ำ latency ยังไม่ทำร้าย; รอ traffic จริง หรือทำด้วย unstable_cache | MEAS-1, SEC-1, FRESH-1 | §6 |
-| **FRESH-1** | `revalidateTag` wiring ครบทุก write path + guard | correctness | P3 | ⏸️ DEFERRED (คู่กับ CACHE-1) | CACHE-1 | §6.3 |
+| **CACHE-1** | cached catalog ด้วย **unstable_cache** (ไม่ใช่ PPR) + revalidateTag | perf | P3 | ✅ DONE (CAM-195 · detail total 2.8–5.8s→~1.0s warm · ship-gated by TTFB) | MEAS-1, SEC-1, FRESH-1 | §6 |
+| **FRESH-1** | `revalidateTag` wiring ครบทุก write path + guard | correctness | P3 | ✅ DONE (CAM-195 PR-A · 6 write paths + freshness-guard test) | CACHE-1 | §6.3 |
 | **FRESH-2** | host preview/dashboard = no-store/refetch | ux | P2 | ✅ พอแล้ว (host pages = force-dynamic; formalize ตอน CACHE-1) | — | dashboard/host routes |
 | **AVAIL-1** | availability no-store + transactional capacity + BlockedDate | correctness | P1 | ✅ DONE (CAM-190 · GET นับ BlockedDate + blockedByHost + no-store verified) | — | campsite-availability.ts · [id]/availability routes |
 | **BOOK-1** | verify snapshot-on-CONFIRMED | correctness | P2 | ✅ VERIFIED — snapshot ตรึงตอน create (PENDING) ใน txn | — | app/api/bookings/route.ts:145-171 |
