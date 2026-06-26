@@ -6,9 +6,22 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { handleSignOut } from "@/lib/actions";
 import { useState, useMemo, useEffect } from "react";
-import { SearchModal } from "./SearchModal";
-import { LoginModal } from "./LoginModal";
-import { RegisterModal } from "./RegisterModal";
+// CAM-200 PERF-BUNDLE Actions B + D: lazy-load interaction-only modals.
+// Triggers (search bar, login/register buttons) stay eager in Navbar.
+// ssr:false is correct — each modal uses client-only hooks (useSearchParams, useSession).
+import dynamic from "next/dynamic";
+const SearchModal = dynamic(
+  () => import("./SearchModal").then((m) => ({ default: m.SearchModal })),
+  { ssr: false, loading: () => null }
+);
+const LoginModal = dynamic(
+  () => import("./LoginModal").then((m) => ({ default: m.LoginModal })),
+  { ssr: false, loading: () => null }
+);
+const RegisterModal = dynamic(
+  () => import("./RegisterModal").then((m) => ({ default: m.RegisterModal })),
+  { ssr: false, loading: () => null }
+);
 import { useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

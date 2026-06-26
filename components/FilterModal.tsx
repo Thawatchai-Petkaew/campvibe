@@ -21,11 +21,28 @@ import { cn } from "@/lib/utils";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
-// DB-driven icon resolver — keeps lucide for campground attribute icons fetched from DB.
-// This is intentional: the iconName string (e.g. "Tent", "Mountain") comes from the DB
-// and maps to lucide icons. We keep this resolver as-is and only swap the two static UI
-// icons (X and SlidersHorizontal) to tabler equivalents above.
-import * as LucideIcons from "lucide-react";
+// DB-driven icon resolver — named imports only for the 39 icons that MasterData.icon
+// can ever hold (sourced from prisma/seed.ts). HelpCircle is the fallback for any
+// future DB icon not yet in the map. This replaces the previous wildcard import that
+// bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
+import {
+  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
+  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
+  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
+  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
+  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
+  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
+  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+};
 
 export function FilterModal() {
     const { t, language } = useLanguage();
@@ -418,8 +435,7 @@ export function FilterModal() {
     );
 }
 
-function getIconComponent(iconName: string | null) {
+function getIconComponent(iconName: string | null): LucideIcon | null {
     if (!iconName) return null;
-    // @ts-ignore
-    return LucideIcons[iconName] || LucideIcons.HelpCircle;
+    return ICON_MAP[iconName] ?? HelpCircle;
 }
