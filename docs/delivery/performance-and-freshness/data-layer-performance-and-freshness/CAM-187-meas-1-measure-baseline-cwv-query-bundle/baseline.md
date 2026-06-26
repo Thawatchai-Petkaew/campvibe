@@ -39,30 +39,46 @@ Vercel → ลบ `PRISMA_QUERY_LOG` ออก (ไม่ทิ้งไว้)
 
 ---
 
-## ผลลัพธ์ (กรอกเลขจริง)
+## ผลลัพธ์ — วัดจริง 2026-06-26 · ชุด 140 ลาน · staging
 
-### Core Web Vitals — Home `/`
-| Metric | Before (force-dynamic, 128 ลาน) | Target | After (post-CACHE-1) | Tool | Date/SHA |
-|---|---|---|---|---|---|
-| LCP | — | ≤ 2.5s | — | Lighthouse mobile (median/3) | — |
-| INP | — | ≤ 200ms | — | Lighthouse / field | — |
-| CLS | — | ≤ 0.1 | — | Lighthouse | — |
-| Performance score | — | — | — | Lighthouse | — |
+> Before = ก่อนแก้ (force-dynamic + over-fetch + raw `<img>`). After = เว้นไว้จนหลัง PERF-1/CACHE-1/PERF-4. ทุกค่า = เลขวัดจริงจากเครื่องมือ (ไม่แต่ง).
 
-### Core Web Vitals — Detail `/campgrounds/[slug]`
-| Metric | Before | Target | After | Tool | Date/SHA |
+### Core Web Vitals — Home `/` (Lighthouse mobile)
+| Metric | Before | Target | After | Tool | Date |
 |---|---|---|---|---|---|
-| LCP | — | ≤ 2.5s | — | Lighthouse mobile (median/3) | — |
-| CLS | — | ≤ 0.1 | — | Lighthouse | — |
+| Performance score | **66** | — | — | Lighthouse | 2026-06-26 |
+| LCP | **9.0s** 🔴 | ≤ 2.5s | — | Lighthouse | 2026-06-26 |
+| CLS | **0** ✅ | ≤ 0.1 | — | Lighthouse | 2026-06-26 |
+| TBT (INP proxy, lab) | 240ms | ≤ 200ms (INP) | — | Lighthouse | 2026-06-26 |
+| FCP | 1.7s | — | — | Lighthouse | 2026-06-26 |
+| Speed Index | 5.2s | — | — | Lighthouse | 2026-06-26 |
 
-### Server / payload
-| Metric | Before | Target | After | Tool | Date/SHA |
+### Core Web Vitals — `/campgrounds` (Lighthouse mobile)
+| Metric | Before | Target | After | Tool | Date |
 |---|---|---|---|---|---|
-| listing query durationMs (warm) | — | < 200ms | — | prisma_query log | — |
-| listing query durationMs (cold) | — | — | — | prisma_query log | — |
-| First-Load JS `/` | — | < 200KB gz | — | bundle analyzer | — |
-| First-Load JS detail | — | < 200KB gz | — | bundle analyzer | — |
-| EXPLAIN: index hit? | — | ใช้ index | — | EXPLAIN ANALYZE | — |
+| Performance score | **66** | — | — | Lighthouse | 2026-06-26 |
+| LCP | **9.0s** 🔴 | ≤ 2.5s | — | Lighthouse | 2026-06-26 |
+| CLS | **0** ✅ | ≤ 0.1 | — | Lighthouse | 2026-06-26 |
+| TBT | 240ms | ≤ 200ms | — | Lighthouse | 2026-06-26 |
+
+### Server response + payload (curl, staging, รวม network)
+| Metric | Before | Target | After | Tool | Date |
+|---|---|---|---|---|---|
+| `/api/campsites` payload | **902 KB** 🔴 | เล็กลงมาก (PERF-1) | — | curl | 2026-06-26 |
+| `/api/campsites` time | TTFB ~2.3–2.7s · total ~3.0s | API p95 < 200ms | — | curl | 2026-06-26 |
+| home `/` payload | 364 KB | — | — | curl | 2026-06-26 |
+| home `/` time | total 2.4s (warm) / 5.3s (cold) | — | — | curl | 2026-06-26 |
+| detail time | TTFB ~0.6s · total ~3.2s | — | — | curl | 2026-06-26 |
+
+### Bundle / JS (Lighthouse insights)
+| Metric | Before | Target | After | Tool | Date |
+|---|---|---|---|---|---|
+| Unused JavaScript | **689 KiB** 🔴 | ลดลง | — | Lighthouse | 2026-06-26 |
+| JS execution time | 1.6s | — | — | Lighthouse | 2026-06-26 |
+| Main-thread work | 3.1s | — | — | Lighthouse | 2026-06-26 |
+| Legacy / minify JS | 14 / 86 KiB | — | — | Lighthouse | 2026-06-26 |
+
+> **ยังไม่วัด (optional, ไม่บล็อก):** prisma_query internal durationMs (ดึงจาก Vercel log ได้) · First-Load JS gz ต่อ route (Next 16 build ไม่พิมพ์ตาราง size แล้ว — ใช้ `ANALYZE=1` ถ้าต้องการ) · `EXPLAIN ANALYZE` (ต้อง psql เข้า staging DB). Lighthouse + curl ครอบคลุมภาพหลักพอสำหรับ before/after.
 
 ---
 
@@ -78,6 +94,8 @@ LIMIT 40;
 
 ---
 
-## สรุป (เติมหลังวัด)
-- bottleneck ที่ยืนยันด้วยเลข: …
-- ปลดล็อกอะไรต่อ: PERF-1/PERF-2 (ตามเลข query/bundle) · CACHE-1 (ต้องมี Before นี้ก่อน ship)
+## สรุป (วัดแล้ว 2026-06-26)
+
+- **bottleneck ยืนยันด้วยเลข:** (1) **LCP 9.0s** 🔴 ทั้ง home + `/campgrounds` (เป้า ≤2.5s = ช้า 3.6×) · (2) **`/api/campsites` payload 902 KB** = over-fetch ชัดเจน · (3) home force-dynamic total 2.4–5.3s · (4) **unused JS 689 KiB** + main-thread 3.1s · **CLS = 0** (ดีอยู่แล้ว ไม่ต้องแตะ)
+- **ปลดล็อกแล้ว (มี Before เทียบ):** PERF-1 (Buffet ตัด 902 KB) · PERF-4 (รูป → LCP) · CACHE-1 (force-dynamic → cached) · PERF-2 (index) — ลงมือแล้ววัดซ้ำเติมช่อง After
+- ⚠️ **อย่าลืม:** ลบ `PRISMA_QUERY_LOG` ออกจาก Vercel (Step 6) หลังเก็บเสร็จ
