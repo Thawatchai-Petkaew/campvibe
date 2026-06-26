@@ -195,9 +195,11 @@ describe('GET /api/campsites — coverage', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 200 with list of campsites', async () => {
+  it('returns 200 with { items, nextCursor } shape (PERF-3/CAM-196 cursor API)', async () => {
+    // PERF-3 (CAM-196): GET /api/campsites now returns { items, nextCursor } instead of a
+    // flat array. nextCursor is null when items.length < PAGE_SIZE (end of results).
     (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { id: 'site-1', nameTh: 'ค่าย A', location: {}, spots: [], reviews: [] },
+      { id: 'site-1', nameTh: 'ค่าย A', location: {}, spots: [], reviews: [], createdAt: new Date(), priceLow: null, avgRating: null },
     ]);
 
     const req = new NextRequest('http://localhost/api/campsites');
@@ -205,11 +207,17 @@ describe('GET /api/campsites — coverage', () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body).toHaveLength(1);
+    // New contract: { items: CampCardPayload[], nextCursor: string | null }
+    expect(body).toHaveProperty('items');
+    expect(body).toHaveProperty('nextCursor');
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.items).toHaveLength(1);
+    // 1 item < PAGE_SIZE=24 → no next page
+    expect(body.nextCursor).toBeNull();
   });
 
-  it('returns 200 with empty list when no campsites exist', async () => {
+  it('returns 200 with empty items and null nextCursor when no campsites exist', async () => {
+    // PERF-3 (CAM-196): empty result → items:[], nextCursor:null.
     (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const req = new NextRequest('http://localhost/api/campsites');
@@ -217,7 +225,9 @@ describe('GET /api/campsites — coverage', () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual([]);
+    expect(body).toHaveProperty('items');
+    expect(body.items).toEqual([]);
+    expect(body.nextCursor).toBeNull();
   });
 
   it('returns 500 when prisma throws', async () => {

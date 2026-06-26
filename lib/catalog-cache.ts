@@ -89,7 +89,8 @@ export const getCampBySlug = unstable_cache(
  * getDefaultCatalog — cached default/unfiltered listing.
  *
  * Equivalent to the zero-filter branch of app/page.tsx (all HomeSearchParams undefined,
- * sort = 'related'). Returns CampCardPayload[] capped at take:40.
+ * sort = 'related'). Returns CampCardPayload[] capped at take:24 (OT-1=A — PERF-3/CAM-196:
+ * unified page size for SSR first page and cursor pages).
  *
  * Called ONLY when isSearchActive is false in the page. Filtered views bypass this
  * entirely and query Prisma directly (they remain live / uncached — same as today).
@@ -110,7 +111,7 @@ export const getDefaultCatalog = unstable_cache(
       },
       select: campCardSelect,
       orderBy: { createdAt: 'desc' },
-      take: 40,
+      take: 24,
     });
   },
   ['catalog-default'],

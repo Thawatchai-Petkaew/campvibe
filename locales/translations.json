@@ -648,6 +648,10 @@
                 "epicLabel": "Epic",
                 "dateLabel": "Delivered on"
             }
+        },
+        "catalog": {
+            "loading_more": "Loading more camps",
+            "end_of_list": "You've seen all camps"
         }
     },
     "th": {
@@ -1300,6 +1304,10 @@
                 "epicLabel": "Epic",
                 "dateLabel": "ส่งมอบเมื่อ"
             }
+        },
+        "catalog": {
+            "loading_more": "กำลังโหลดลานเพิ่มเติม",
+            "end_of_list": "ดูลานครบทั้งหมดแล้ว"
         }
     }
 }

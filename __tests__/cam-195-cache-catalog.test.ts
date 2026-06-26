@@ -128,9 +128,12 @@ describe('AC-1 — getDefaultCatalog shape (lib/catalog-cache.ts)', () => {
     expect(catalogCacheSrc).toContain("orderBy: { createdAt: 'desc' }");
   });
 
-  it('[take] caps the result at 40 rows', () => {
-    // Prove-It: FAILS if take is changed to a different value.
-    expect(catalogCacheSrc).toMatch(/take:\s*40/);
+  it('[take] caps the result at 24 rows (PERF-3/CAM-196 OT-1=A: unified page size)', () => {
+    // PERF-3 (CAM-196 OT-1=A): getDefaultCatalog now uses take:24 (was 40) to match the
+    // cursor API page size. This reduces the cached first-page size for faster SSR TTI.
+    // Prove-It: FAILS if take is changed back to 40 or to any other value.
+    expect(catalogCacheSrc).toMatch(/take:\s*24/);
+    expect(catalogCacheSrc).not.toMatch(/take:\s*40/);
   });
 
   it('[tag] carries the CATALOG_TAG so write paths can bust it', () => {

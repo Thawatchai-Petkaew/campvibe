@@ -31,6 +31,13 @@ interface CampgroundGridProps {
     camps: CampSiteCardData[];
     savedIds: Set<string> | string[];
     isLoggedIn: boolean;
+    /**
+     * PERF-3 (CAM-196): opaque keyset cursor pointing after the last item of the first page.
+     * Null when there are fewer than PAGE_SIZE items (end of results).
+     * Currently unused by this component — the InfiniteScrollGrid client (PR B) will
+     * consume it. Staged here so the server plumbing is in place before the UI lands.
+     */
+    initialCursor?: string | null;
 }
 
 export function CampgroundGrid({ camps, savedIds, isLoggedIn }: CampgroundGridProps) {
