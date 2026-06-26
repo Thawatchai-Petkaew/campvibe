@@ -246,5 +246,38 @@
             "OPERATOR": "Campground Operator",
             "CAMPER": "Camper/Guest"
         }
+    },
+    "endpoints": {
+        "POST /api/vitals": {
+            "story": "CAM-187 (MEAS-1)",
+            "auth": "unauthenticated (public telemetry — browser sendBeacon, no session required)",
+            "rateLimit": "200 req / 15 min per IP (in-process, best-effort — lib/rate-limit.ts)",
+            "input": {
+                "name": "enum: LCP | INP | CLS | TTFB | FCP",
+                "value": "number (finite, nonnegative) — milliseconds or unitless depending on metric",
+                "rating": "enum: good | needs-improvement | poor",
+                "id": "string max 64 — web-vitals attribution id (not PII)",
+                "navigationType": "string max 32 optional — navigate | reload | back-forward",
+                "routeTemplate": "string max 200 — path pattern with dynamic segments replaced, e.g. /camps/[slug]. NEVER the raw URL with real IDs."
+            },
+            "output": {
+                "success": "204 No Content — empty body (fire-and-forget)"
+            },
+            "sideEffect": "emits one structured JSON log line per request: { level, event:'cwv_vital', metric, value, rating, routeTemplate, navigationType, deployShA, vitalsId }. No Prisma write. No DB.",
+            "pii": "none — IP used only as rate-limit key, never logged",
+            "errors": {
+                "204": "success — no body",
+                "400": "zod validation failed — { error: { code: 'VALIDATION_ERROR', message: string } }",
+                "429": "rate limit exceeded — { error: { code: 'RATE_LIMITED', retryAfter: number } }",
+                "500": "internal — generic message only; detail logged server-side",
+                "401": "N/A — public endpoint",
+                "403": "N/A — public endpoint",
+                "404": "N/A — no resource fetched",
+                "409": "N/A — no resource created"
+            },
+            "errorShape": "{ error: { code: string, message: string } } (standard) | empty for 204",
+            "validationSchema": "lib/validations/vitals.ts (VitalPayloadSchema)",
+            "queryStrategy": "no DB query"
+        }
     }
 }

@@ -4,6 +4,7 @@ import { campSiteSchema } from '@/lib/validations/campsite';
 import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { requireAuth } from '@/lib/auth-utils';
+import { withTiming } from '@/lib/route-timing';
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,17 +30,19 @@ export async function GET(request: NextRequest) {
 
     const where = buildCampSiteWhere(filterParams);
 
-    const campSites = await prisma.campSite.findMany({
-      where,
-      include: {
-        location: true,
-        spots: true,
-        reviews: { select: { rating: true } },
-        options: true,
-        images: { orderBy: { sortOrder: 'asc' } }
-      },
-    });
-    
+    const campSites = await withTiming('catalog_list', () =>
+      prisma.campSite.findMany({
+        where,
+        include: {
+          location: true,
+          spots: true,
+          reviews: { select: { rating: true } },
+          options: true,
+          images: { orderBy: { sortOrder: 'asc' } }
+        },
+      })
+    );
+
     return apiSuccess(campSites);
   } catch (error) {
     return apiError('Failed to fetch camp sites', 500, error);
