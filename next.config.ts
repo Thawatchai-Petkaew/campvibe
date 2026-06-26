@@ -12,12 +12,22 @@ const withAnalyzer = withBundleAnalyzer({
 
 const nextConfig: NextConfig = {
   images: {
+    formats: ["image/webp"],
+    qualities: [75],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [64, 80, 128, 256],
+    minimumCacheTTL: 60 * 60 * 24 * 31, // 31 days in seconds (CAM-194 PERF-4)
     remotePatterns: [
       {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
     ],
+    dangerouslyAllowSVG: false,
   },
 };
 

@@ -131,12 +131,13 @@ export default function MyBookingsPage() {
                                 <div key={booking.id} className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
                                     <div className="flex flex-col md:flex-row">
                                         {/* Image Section */}
-                                        <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
+                                        <div className="md:w-64 h-48 md:aspect-[4/3] overflow-hidden relative">
                                             <ImageWithFallback
                                                 src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
                                                 alt={booking.campSite?.nameEn || booking.campground?.nameEn || ""}
                                                 className="w-full h-full"
                                                 imgClassName="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                sizes="(max-width: 768px) 100vw, 256px"
                                             />
                                             <div className="absolute top-4 left-4">
                                                 {(() => {

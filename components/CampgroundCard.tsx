@@ -122,6 +122,7 @@ export function CampgroundCard({
                             alt={name}
                             className="w-full h-full"
                             imgClassName="object-cover group-hover:scale-105 transition duration-500 ease-out"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         />
 
                         {/* Navigation Arrows (visible on hover) */}

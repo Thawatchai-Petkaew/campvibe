@@ -219,7 +219,7 @@ export default function MyCampSitesPage() {
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
                                                 {camp.images?.length ? (
-                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" />
+                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" sizes="64px" />
                                                 ) : (
                                                     <Tent className="w-full h-full p-4 text-muted-foreground/40" />
                                                 )}

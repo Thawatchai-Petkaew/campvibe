@@ -433,6 +433,8 @@ export default function CampgroundDetailClient({
                             className="w-full h-full cursor-pointer"
                             imgClassName="object-cover"
                             onClick={() => openGallery(0)}
+                            sizes="100vw"
+                            priority
                         />
                         <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
                             {t.gallery.imageOf.replace("{n}", "1").replace("{total}", String(images.length))}
@@ -460,6 +462,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="100vw"
+                                    priority
                                 />
                             </button>
                         </div>
@@ -479,6 +483,8 @@ export default function CampgroundDetailClient({
                                         alt={i === 0 ? name : ""}
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 100vw, 50vw"
+                                        priority={i === 0}
                                     />
                                 </button>
                             ))}
@@ -497,6 +503,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 66vw"
+                                    priority
                                 />
                             </button>
                             {images.slice(1, 3).map((src, i) => (
@@ -512,6 +520,7 @@ export default function CampgroundDetailClient({
                                         alt=""
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 50vw, 33vw"
                                     />
                                 </button>
                             ))}
@@ -530,6 +539,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
+                                    priority
                                 />
                             </button>
                             <button
@@ -543,6 +554,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                             <button
@@ -556,6 +568,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                             <button
@@ -569,6 +582,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                         </div>
@@ -586,6 +600,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
+                                    priority
                                 />
                             </button>
                             {images.slice(1, 4).map((src, i) => (
@@ -601,6 +617,7 @@ export default function CampgroundDetailClient({
                                         alt=""
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 50vw, 25vw"
                                     />
                                 </button>
                             ))}
@@ -615,6 +632,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                                 {images.length > 5 && (
                                     <div className="absolute bottom-4 right-4">

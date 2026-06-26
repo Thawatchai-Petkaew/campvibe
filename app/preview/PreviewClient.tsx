@@ -644,6 +644,7 @@ export function PreviewClient() {
                             className="aspect-square rounded-xl"
                             imgClassName="object-cover"
                             data-testid="img--preview-good"
+                            sizes="(max-width: 640px) 33vw, 200px"
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageGood}</span>
                     </div>
@@ -653,6 +654,8 @@ export function PreviewClient() {
                             alt="Broken image example"
                             className="aspect-square rounded-xl"
                             data-testid="img--preview-broken"
+                            sizes="(max-width: 640px) 33vw, 200px"
+                            unoptimized
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageBroken}</span>
                     </div>
@@ -662,6 +665,7 @@ export function PreviewClient() {
                             alt="No source example"
                             className="aspect-square rounded-xl"
                             data-testid="img--preview-nosrc"
+                            sizes="(max-width: 640px) 33vw, 200px"
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageNone}</span>
                     </div>
