@@ -65,7 +65,7 @@ async function main() {
                     isVerified: true,
                     isActive: true,
                     isPublished: true,
-                    images: { create: [{ url: '/mockup/campgrounds/1.jpg', sortOrder: 0 }] }, // Default mock image
+                    images: { create: [{ url: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800', sortOrder: 0 }] }, // Default placeholder image
                     latitude: 18.7883,
                     longitude: 98.9853
                 }
