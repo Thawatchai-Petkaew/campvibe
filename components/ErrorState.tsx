@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export type ErrorVariant = "not-found" | "error" | "forbidden" | "generic";
+export type ErrorVariant = "not-found" | "error" | "forbidden" | "generic" | "coming-soon";
 
 export interface ErrorStateProps {
   variant: ErrorVariant;
@@ -34,14 +34,16 @@ const VARIANT_MASCOT: Record<ErrorVariant, string> = {
   error: "/mascot/coding.png",
   forbidden: "/mascot/waving.png",
   generic: "/mascot/walking.png",
+  "coming-soon": "/mascot/walking.png",
 };
 
 // Map variant to the i18n key used in t.errors.<key>
-const VARIANT_KEY: Record<ErrorVariant, "notFound" | "unexpected" | "forbidden" | "generic"> = {
+const VARIANT_KEY: Record<ErrorVariant, "notFound" | "unexpected" | "forbidden" | "generic" | "comingSoon"> = {
   "not-found": "notFound",
   error: "unexpected",
   forbidden: "forbidden",
   generic: "generic",
+  "coming-soon": "comingSoon",
 };
 
 export function ErrorState({
@@ -59,7 +61,7 @@ export function ErrorState({
 
   const resolvedTitle = title ?? copy.title;
   const resolvedMessage = message ?? copy.message;
-  const resolvedActionLabel = actionLabel ?? copy.cta;
+  const resolvedActionLabel = actionLabel ?? ("cta" in copy ? copy.cta : undefined);
   const mascotSrc = VARIANT_MASCOT[variant];
   const mascotAlt = copy.mascotAlt;
 
@@ -93,6 +95,7 @@ export function ErrorState({
             alt={mascotAlt}
             width={320}
             height={320}
+            unoptimized
             data-testid={`img--error-mascot-${variant}`}
             className="relative rounded-full"
             imgClassName="object-contain"
@@ -108,7 +111,8 @@ export function ErrorState({
             {resolvedMessage}
           </p>
 
-          {/* CTA group */}
+          {/* CTA group — not rendered for coming-soon (no navigation on a gated site) */}
+          {variant !== "coming-soon" && (
           <div className="flex flex-col sm:flex-row gap-3 mt-6">
             {variant === "error" && onRetry ? (
               <>
@@ -148,6 +152,7 @@ export function ErrorState({
               </Button>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
