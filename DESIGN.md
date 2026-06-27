@@ -217,6 +217,10 @@ Before building anything new, check this list and the Component Index (§3.1 bel
 
 `rounded-xl` · `py-2.5` · `font-normal` · `focus:bg-accent`
 
+**Shared content grammar** (the container that wraps items — part of the same contract):
+
+`rounded-2xl` · **`p-1.5`** (items inset so the hover pill floats — applies to `Select`, `DropdownMenu`, and `Command` content alike; `Select` applies `p-1.5` on the `Viewport`, `DropdownMenu` on the `Content` directly — the visual result is identical)
+
 Consumers **must not** override the item focus state (e.g. no per-item `focus:bg-primary/10`). The Navbar Host-Dashboard item currently violates this rule and will be corrected in story A1.
 
 ### §3.1 Component Index — check before building any UI (SoT for agents)
