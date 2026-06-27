@@ -191,7 +191,7 @@ Before building anything new, check this list and the Component Index (§3.1 bel
 | `ModalHeader` / `ModalContent` | `components/ui/modal-shell.tsx` | every modal's header band + shell (centered title, divider, 44px close, `rounded-3xl`) — the **canonical modal shell**; do not hand-roll a modal header |
 | `EmptyState` | `components/EmptyState.tsx` | empty result / no-data state with an illustration |
 | `ErrorState` | `components/ErrorState.tsx` | error / not-found / forbidden — full-page or inline |
-| `ConfirmDialog` | *(planned — story B3)* | canonical destructive-confirm wrapper over `AlertDialog`; **do not hand-roll a confirm dialog** — wait for B3 or use `AlertDialog` directly in the interim |
+| `ConfirmDialog` | `components/ui/confirm-dialog.tsx` | canonical destructive-confirm wrapper over `AlertDialog`; **use when: destructive/confirm dialog** (delete, cancel, remove member) — do not hand-roll a confirm dialog |
 | `InputField` | `components/ui/input-field.tsx` | input + label + inline error in one unit |
 | `InputGroup` | `components/ui/input-group.tsx` | grouped inputs (e.g. date pair) |
 | `DateRangePicker` | `components/ui/date-range-picker.tsx` | pick a date range (wraps Calendar + Popover) |
@@ -265,7 +265,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 |---|---|---|
 | `EmptyState` | `components/EmptyState.tsx` | Empty result / no-data state with illustration |
 | `ErrorState` | `components/ErrorState.tsx` | Error / not-found / forbidden — full-page or inline |
-| `ConfirmDialog` | *(planned — story B3)* | Canonical destructive-confirm over `AlertDialog` |
+| `ConfirmDialog` | `components/ui/confirm-dialog.tsx` | Canonical destructive-confirm over `AlertDialog` — use for delete, cancel, remove member |
 
 ### Interaction states + accessibility (required on every interactive element)
 

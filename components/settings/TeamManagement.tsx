@@ -20,16 +20,7 @@ import { TableSkeleton } from "@/components/ui/loading-skeleton";
 import { toast } from "sonner";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface TeamMember {
     id: string;
@@ -448,27 +439,22 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
             />
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
-                <AlertDialogContent className="rounded-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{ts?.confirmRemove || "Remove team member?"}</AlertDialogTitle>
-                        <AlertDialogDescription className="text-left">
-                            {ts?.confirmRemoveDesc || "This will remove"} <strong>{memberToDelete?.user.name || memberToDelete?.user.email}</strong> {ts?.fromTeam || "from your team. They will lose access to this camp site."}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">
-                            Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction 
-                            onClick={handleDeleteMember}
-                            className="rounded-full bg-destructive hover:bg-destructive/90"
-                        >
-                            {ts?.remove || "Remove"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={!!memberToDelete}
+                onOpenChange={(open) => !open && setMemberToDelete(null)}
+                title={ts?.confirmRemove || "Remove team member?"}
+                description={
+                    <>
+                        {ts?.confirmRemoveDesc || "This will remove"}{" "}
+                        <strong>{memberToDelete?.user.name || memberToDelete?.user.email}</strong>{" "}
+                        {ts?.fromTeam || "from your team. They will lose access to this camp site."}
+                    </>
+                }
+                confirmLabel={ts?.remove || "Remove"}
+                cancelLabel="Cancel"
+                onConfirm={handleDeleteMember}
+                destructive
+            />
         </div>
     );
 }

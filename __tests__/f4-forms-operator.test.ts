@@ -174,14 +174,16 @@ describe("token-compliance: text-white must be over bg-primary (AC-token-2)", ()
 describe("no-confirm-alert: window.confirm and bare confirm() (AC-confirm-*)", () => {
     const CONFIRM_PATTERN = /\bwindow\.(confirm|alert)\b|\bconfirm\s*\(/;
 
-    it("CampgroundForm has NO confirm/alert — uses AlertDialog", () => {
+    it("CampgroundForm has NO confirm/alert — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog)
         expect(campgroundFormSrc).not.toMatch(CONFIRM_PATTERN);
-        expect(campgroundFormSrc).toContain("AlertDialog");
+        expect(campgroundFormSrc).toContain("ConfirmDialog");
     });
 
-    it("TeamManagement has NO confirm/alert — uses AlertDialog", () => {
+    it("TeamManagement has NO confirm/alert — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog)
         expect(teamManagementSrc).not.toMatch(CONFIRM_PATTERN);
-        expect(teamManagementSrc).toContain("AlertDialog");
+        expect(teamManagementSrc).toContain("ConfirmDialog");
     });
 
     it("dashboard/page.tsx has NO confirm/alert", () => {
@@ -196,10 +198,11 @@ describe("no-confirm-alert: window.confirm and bare confirm() (AC-confirm-*)", (
         expect(settingsPageSrc).not.toMatch(CONFIRM_PATTERN);
     });
 
-    it("FIXED-D1: campsites/page.tsx has NO bare confirm() — uses AlertDialog", () => {
-        // Fixed: bare confirm() replaced with AlertDialog + pendingDeleteId state.
+    it("FIXED-D1: campsites/page.tsx has NO bare confirm() — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog).
+        // deleteDialogOpen + pendingDeleteId state still present; dialog logic now in ConfirmDialog.
         expect(campsitesPageSrc).not.toMatch(/\bconfirm\s*\(/);
-        expect(campsitesPageSrc).toContain("AlertDialog");
+        expect(campsitesPageSrc).toContain("ConfirmDialog");
         expect(campsitesPageSrc).toContain("deleteDialogOpen");
         expect(campsitesPageSrc).toContain("pendingDeleteId");
     });

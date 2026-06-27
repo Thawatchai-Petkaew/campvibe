@@ -25,16 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function MyCampSitesPage() {
     const { t, formatCurrency, language } = useLanguage();
@@ -299,20 +290,16 @@ export default function MyCampSitesPage() {
                 </div>
             </div>
 
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
-                        <AlertDialogDescription>{t.newCampground.confirmDeleteDesc}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t.dashboard.cancel}</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            {t.dashboard.confirm}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t.newCampground.confirmDelete}
+                description={t.newCampground.confirmDeleteDesc}
+                confirmLabel={t.dashboard.confirm}
+                cancelLabel={t.dashboard.cancel}
+                onConfirm={confirmDelete}
+                destructive
+            />
         </div>
     );
 }
