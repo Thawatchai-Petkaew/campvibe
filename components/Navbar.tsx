@@ -179,14 +179,14 @@ export function Navbar({ currentUser }: NavbarProps) {
                                     className="rounded-full font-medium"
                                     onClick={() => setIsLoginOpen(true)}
                                 >
-                                    Log in
+                                    {t.auth.login}
                                 </Button>
                                 <Button
                                     variant="default"
                                     className="rounded-full font-medium bg-primary hover:bg-primary/90"
                                     onClick={() => setIsRegisterOpen(true)}
                                 >
-                                    Sign up
+                                    {t.auth.signup}
                                 </Button>
                             </div>
                         )}
@@ -217,10 +217,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
-                                            <Link href="/profile">My Profile</Link>
+                                            <Link href="/profile">{t.nav.myProfile}</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
-                                            <Link href="/bookings">My Bookings</Link>
+                                            <Link href="/bookings">{t.nav.myBookings}</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
@@ -228,10 +228,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="min-w-0">
                                                         <div className="font-semibold text-foreground truncate">
-                                                            Host Dashboard
+                                                            {t.nav.hostDashboard}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground truncate">
-                                                            Switch to host context
+                                                            {t.nav.switchToHostContext}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -252,7 +252,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                             onClick={() => handleSignOut()}
                                             className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                                         >
-                                            Sign out
+                                            {t.auth.signOut}
                                         </DropdownMenuItem>
                                     </>
                                 ) : (
@@ -261,20 +261,20 @@ export function Navbar({ currentUser }: NavbarProps) {
                                             className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsLoginOpen(true)}
                                         >
-                                            Log in
+                                            {t.auth.login}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="cursor-pointer py-2.5 px-3"
                                             onClick={() => setIsRegisterOpen(true)}
                                         >
-                                            Sign up
+                                            {t.auth.signup}
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
-                                            Host your home
+                                            {t.nav.hostYourHome}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem className="cursor-pointer py-2.5 px-3">
-                                            Help Center
+                                            {t.nav.helpCenter}
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
