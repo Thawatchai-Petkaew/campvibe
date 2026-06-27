@@ -91,3 +91,29 @@ export async function register(prevState: string | undefined, formData: FormData
 export async function handleSignOut() {
     await signOut();
 }
+
+/**
+ * googleSignIn — initiates Google OAuth sign-in (ADR-008).
+ *
+ * Applies the same open-redirect guard used in authenticate():
+ *   - redirectTo must start with a single "/"
+ *   - rejects "//" (protocol-relative) and "/\" (backslash trick)
+ *   - rejects any control char (charCode < 0x20)
+ *   - falls back to "/" when invalid or missing
+ *
+ * Throws a Next.js NEXT_REDIRECT internally on success (signIn redirects);
+ * callers must NOT catch this throw — let it propagate so Next.js completes
+ * the redirect.
+ */
+export async function googleSignIn(redirectTo?: string) {
+    const isSafeInternalPath =
+        typeof redirectTo === "string" &&
+        redirectTo.startsWith("/") &&
+        !redirectTo.startsWith("//") &&
+        !redirectTo.startsWith("/\\") &&
+        ![...redirectTo].some((ch) => ch.charCodeAt(0) < 0x20);
+
+    await signIn("google", {
+        redirectTo: isSafeInternalPath ? redirectTo : "/",
+    });
+}

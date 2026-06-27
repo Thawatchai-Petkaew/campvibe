@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useTransition } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { authenticate } from '@/lib/actions';
+import { authenticate, googleSignIn } from '@/lib/actions';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { GoogleIcon } from '@/components/icons/GoogleIcon';
 
 export default function LoginPage() {
     const { t } = useLanguage();
@@ -21,6 +22,7 @@ export default function LoginPage() {
         authenticate,
         undefined
     );
+    const [isGooglePending, startGoogleTransition] = useTransition();
     const [email, setEmail] = useState("");
     const [hasSubmitted, setHasSubmitted] = useState(false);
 
@@ -124,6 +126,35 @@ export default function LoginPage() {
                             {isPending ? t.auth.signingIn : t.auth.login}
                         </Button>
                     </form>
+
+                    {/* Divider + Google sign-in */}
+                    <div className="relative flex items-center gap-4">
+                        <div className="flex-1 border-t border-border/60" />
+                        <span className="text-xs text-muted-foreground select-none">
+                            {t.common?.or ?? "or"}
+                        </span>
+                        <div className="flex-1 border-t border-border/60" />
+                    </div>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        disabled={isGooglePending || isPending}
+                        data-testid="btn--login-google"
+                        aria-label={t.auth.signInWithGoogle}
+                        className="w-full rounded-full flex items-center justify-center gap-3"
+                        onClick={() => {
+                            startGoogleTransition(() => googleSignIn(callbackUrl));
+                        }}
+                    >
+                        <GoogleIcon aria-hidden />
+                        <span>
+                            {isGooglePending
+                                ? (t.auth.signingInWithGoogle ?? t.auth.signingIn)
+                                : t.auth.signInWithGoogle}
+                        </span>
+                    </Button>
 
                     {/* Footer */}
                     <div className="pt-4 border-t border-border/60 text-center">

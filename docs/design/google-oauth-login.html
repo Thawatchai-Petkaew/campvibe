@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe — Google OAuth Login · Design Doc</title>
+<style>
+  :root{
+    --bg:#0b1120; --surface:#0f172a; --card:#121c30; --line:#1e2a44;
+    --fg:#e7eef7; --muted:#93a4bd; --primary:#14b8a6; --primary-dim:#0d9488;
+    --accent:#34d399; --warn:#f59e0b; --danger:#f87171; --chip:#1b2942;
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#0b1120,#0a0f1d);color:var(--fg);
+    font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
+  header.hero{padding:34px 30px;border:1px solid var(--line);border-radius:24px;
+    background:radial-gradient(120% 140% at 0% 0%,rgba(20,184,166,.18),transparent 55%),var(--surface);}
+  .eyebrow{letter-spacing:.22em;text-transform:uppercase;font-size:11px;color:var(--primary);font-weight:800}
+  h1{margin:.3em 0 .2em;font-size:30px;letter-spacing:-.02em}
+  .sub{color:var(--muted);max-width:70ch}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .badge{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--fg)}
+  .badge.ok{color:var(--accent);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+  .badge.warn{color:var(--warn);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+  .badge.hold{color:var(--danger);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)}
+  nav.toc{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 6px}
+  nav.toc a{font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px}
+  nav.toc a:hover{color:var(--fg);border-color:var(--primary)}
+  section{margin-top:34px}
+  h2{font-size:21px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9px;
+    background:var(--primary);color:#04211d;font-size:14px;font-weight:900}
+  h3{font-size:15px;color:var(--primary);margin:22px 0 8px;letter-spacing:.02em}
+  .lead{color:var(--muted);margin:.2em 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  /* journey */
+  .flow{display:grid;gap:0}
+  .step{display:grid;grid-template-columns:36px 1fr;gap:14px;padding:12px 0;position:relative}
+  .step:not(:last-child)::before{content:"";position:absolute;left:17px;top:34px;bottom:-6px;width:2px;background:var(--line)}
+  .dot{width:36px;height:36px;border-radius:50%;background:var(--chip);border:1px solid var(--primary);
+    color:var(--primary);font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:1}
+  .step .t{font-weight:700}
+  .step .d{color:var(--muted);font-size:13.5px}
+  .who{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  /* architecture layers */
+  .arch{display:grid;gap:12px}
+  .layer{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface)}
+  .layer .lt{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+  .nodes{display:flex;flex-wrap:wrap;gap:10px}
+  .node{flex:1 1 200px;min-width:180px;border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--card)}
+  .node b{display:block;font-size:14px}
+  .node span{color:var(--muted);font-size:12.5px}
+  .node.edge{border-color:rgba(52,211,153,.45)}
+  .node.node-ext{border-color:rgba(245,158,11,.45)}
+  .arrow{text-align:center;color:var(--primary);font-size:18px;line-height:1}
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13.5px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:800}
+  td code,code.inl{background:#0a1424;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12.5px;color:var(--accent)}
+  .rec{color:var(--accent);font-weight:800}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .pill{font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--chip)}
+  ul.tight{margin:6px 0 0;padding-left:18px}ul.tight li{margin:3px 0;color:var(--muted)}
+  ul.tight li b{color:var(--fg)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .callout{border-left:3px solid var(--primary);background:rgba(20,184,166,.07);padding:12px 16px;border-radius:0 12px 12px 0;margin-top:14px}
+  .callout.warn{border-color:var(--warn);background:rgba(245,158,11,.07)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">CampVibe · Design Doc</div>
+    <h1>Sign in with Google — OAuth Login</h1>
+    <p class="sub">User Journey · System Architecture · System Design. สังเคราะห์จาก research (architect) บนโค้ดจริง: Next.js App Router + NextAuth v5 (Auth.js) + Prisma/PostgreSQL. แนวทางที่แนะนำ = <b>JWT-only upsert</b> (ไม่ต้อง migration).</p>
+    <div class="badges">
+      <span class="badge ok">Cost: ฟรี (Google OAuth)</span>
+      <span class="badge">NextAuth v5 · JWT</span>
+      <span class="badge">1 atomic story · no migration</span>
+      <span class="badge warn">Pre-G1 · research</span>
+      <span class="badge hold">Prod: HELD</span>
+    </div>
+    <nav class="toc">
+      <a href="#journey">1 · User Journey</a>
+      <a href="#arch">2 · System Architecture</a>
+      <a href="#design">3 · System Design</a>
+      <a href="#decisions">Decisions</a>
+    </nav>
+  </header>
+
+  <!-- 1. USER JOURNEY -->
+  <section id="journey">
+    <h2><span class="n">1</span> User Journey</h2>
+    <p class="lead">เส้นทางผู้ใช้ตั้งแต่กดปุ่มจนเข้าระบบสำเร็จ — Google login วางคู่กับ Credentials เดิม (ไม่แทนที่).</p>
+    <div class="card">
+      <div class="flow">
+        <div class="step"><div class="dot">1</div><div><div class="who">Camper · Browser</div><div class="t">กดปุ่ม “เข้าสู่ระบบด้วย Google”</div><div class="d">บนหน้า Login (ข้างฟอร์ม email/password เดิม) → เรียก server action <code class="inl">signIn('google')</code></div></div></div>
+        <div class="step"><div class="dot">2</div><div><div class="who">NextAuth → Google</div><div class="t">redirect ไปหน้ายินยอมของ Google</div><div class="d"><code class="inl">accounts.google.com</code> — ผู้ใช้เลือกบัญชี Google + ยินยอม scope <code class="inl">openid email profile</code></div></div></div>
+        <div class="step"><div class="dot">3</div><div><div class="who">Google → App</div><div class="t">Google ส่งกลับมาที่ callback</div><div class="d"><code class="inl">/api/auth/callback/google</code> พร้อม authorization code → NextAuth แลกเป็น token + ดึง profile (name/email/avatar)</div></div></div>
+        <div class="step"><div class="dot">4</div><div><div class="who">jwt callback · Prisma</div><div class="t">upsert ผู้ใช้ด้วย email</div><div class="d">เจอ user เดิม (email ตรง) → ใช้บัญชีนั้น · ไม่เจอ → สร้างใหม่ <code class="inl">role: CAMPER</code>, <code class="inl">password: null</code></div></div></div>
+        <div class="step"><div class="dot">5</div><div><div class="who">Session (JWT)</div><div class="t">ออก session แล้วเข้าระบบ</div><div class="d">session shape เดิมเป๊ะ: <code class="inl">id · email · name · image · role</code> → กลับหน้าแรก/ที่ตั้งใจไป</div></div></div>
+      </div>
+      <div class="callout">
+        <b>Account linking (D-2 · แนะนำ link-by-email):</b> ผู้ใช้ที่เคยสมัครด้วย email+password แล้วมาใช้ Google ด้วย <b>อีเมลเดียวกัน</b> → เข้าบัญชีเดิม (ไม่สร้างซ้ำ). Google verify อีเมลให้แล้ว ความเสี่ยงต่ำ.
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div class="card">
+        <h3 style="margin-top:0">2 ประเภทผู้ใช้</h3>
+        <ul class="tight">
+          <li><b>ผู้ใช้ใหม่</b> → Google สร้าง User อัตโนมัติ (role=CAMPER) เหมือน register เดิม</li>
+          <li><b>ผู้ใช้เดิม (Credentials)</b> → Google อีเมลเดียวกันเข้าบัญชีเดิม (link)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">States ที่ต้องครอบ</h3>
+        <ul class="tight">
+          <li>กำลัง redirect (loading) · ยกเลิกที่ Google (กลับ login)</li>
+          <li>error (เช่น email ถูกใช้กับ provider อื่น — ขึ้นกับ D-2)</li>
+          <li>สำเร็จ → Navbar/role อัปเดต (เหมือน Credentials flow)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. SYSTEM ARCHITECTURE -->
+  <section id="arch">
+    <h2><span class="n">2</span> System Architecture</h2>
+    <p class="lead">ส่วนประกอบและการเชื่อมต่อ — คง <b>Edge/Node split</b> เดิม (middleware = Edge-safe, ไม่มี Prisma; auth จริง = Node).</p>
+    <div class="card arch">
+      <div class="layer">
+        <div class="lt">Client</div>
+        <div class="nodes">
+          <div class="node"><b>Browser · Login page</b><span>ฟอร์ม Credentials + ปุ่ม “Sign in with Google”</span></div>
+        </div>
+      </div>
+      <div class="arrow">&#8595;</div>
+      <div class="layer">
+        <div class="lt">Next.js App Router (Vercel)</div>
+        <div class="nodes">
+          <div class="node edge"><b>middleware.ts → lib/auth.config.ts</b><span>Edge-safe · route guard (authorized) · <code class="inl">providers:[]</code> · ไม่แตะ</span></div>
+          <div class="node"><b>server action → lib/auth.ts</b><span>Node runtime · Credentials + <b>Google</b> providers · jwt/session callbacks</span></div>
+        </div>
+      </div>
+      <div class="arrow">&#8595; &#8593;</div>
+      <div class="layer">
+        <div class="lt">Auth</div>
+        <div class="nodes">
+          <div class="node"><b>NextAuth v5 (Auth.js)</b><span>orchestrates OAuth handshake · ออก JWT session</span></div>
+          <div class="node node-ext"><b>Google OAuth 2.0</b><span>external · consent + token + profile · redirect allowlist</span></div>
+        </div>
+      </div>
+      <div class="arrow">&#8595;</div>
+      <div class="layer">
+        <div class="lt">Data</div>
+        <div class="nodes">
+          <div class="node"><b>Prisma → PostgreSQL</b><span>User (password nullable) · upsert by email · <b>ไม่ต้องมี Account table</b> (JWT approach)</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <b>3-env:</b> Local · Staging · Prod — แต่ละ env มี redirect URI + secret ของตัวเอง (DB แยก). เปิดทีละ env: local → staging → prod (หลัง verify บน staging URL จริง).
+    </div>
+  </section>
+
+  <!-- 3. SYSTEM DESIGN -->
+  <section id="design">
+    <h2><span class="n">3</span> System Design</h2>
+    <p class="lead">รายละเอียดทางเทคนิคของแนวทางที่แนะนำ (Approach A — JWT-only).</p>
+
+    <div class="card">
+      <table>
+        <tr><th>มิติ</th><th>ปัจจุบัน</th><th>หลังเพิ่ม Google (แนะนำ)</th></tr>
+        <tr><td>Providers</td><td>Credentials เท่านั้น</td><td class="rec">Credentials + Google</td></tr>
+        <tr><td>Session strategy</td><td>JWT (ไม่มี adapter)</td><td>JWT (เหมือนเดิม)</td></tr>
+        <tr><td>Schema / migration</td><td>—</td><td class="rec">ไม่เปลี่ยน · ไม่มี migration</td></tr>
+        <tr><td>Account linking</td><td>—</td><td>upsert by email (link)</td></tr>
+        <tr><td>Session shape</td><td><code>id·email·name·image·role</code></td><td>เหมือนเดิมเป๊ะ</td></tr>
+        <tr><td>Env vars (ต่อ env)</td><td>—</td><td><code>AUTH_GOOGLE_ID</code> · <code>AUTH_GOOGLE_SECRET</code> (server-only)</td></tr>
+        <tr><td>Cost</td><td>—</td><td class="rec">ฟรี</td></tr>
+      </table>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div class="card">
+        <h3 style="margin-top:0">Files ที่แตะ (1 story · ~60–100 บรรทัด)</h3>
+        <ul class="tight">
+          <li><b>lib/auth.ts</b> — เพิ่ม Google provider + upsert ใน jwt callback</li>
+          <li><b>lib/actions.ts</b> — server action <code class="inl">googleSignIn()</code></li>
+          <li><b>app/login/page.tsx</b> — ปุ่ม Google</li>
+          <li><b>lib/auth.config.ts</b> · <b>middleware.ts</b> — ไม่แตะ</li>
+          <li><b>docs/adr/ADR-008</b> — บันทึกการตัดสินใจ JWT-only</li>
+          <li><b>.env</b> + Vercel (staging/prod) — ใส่ secret</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Security &amp; PDPA</h3>
+        <ul class="tight">
+          <li><b>Secret</b> ใน env เท่านั้น ต่อ env · ห้าม <code class="inl">NEXT_PUBLIC_*</code> · rotate เมื่อรั่ว</li>
+          <li><b>Redirect allowlist</b> ที่ Google Console (กัน open-redirect) + reuse guard เดิมใน actions.ts</li>
+          <li><b>PDPA:</b> Google ส่ง email/name/avatar = PII (field เดิม) → <b>ต้องอัปเดต privacy policy ก่อนเปิด prod</b></li>
+          <li>ไม่ต้องแก้ CSP (redirect ระดับ HTTP ไม่ใช่ script)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>งานที่เจ้าของทำเอง (~15 นาที, ฟรี)</h3>
+    <div class="card">
+      <ul class="tight">
+        <li>สร้าง Google Cloud project → OAuth Consent Screen (app=CampVibe, scopes openid/email/profile)</li>
+        <li>สร้าง OAuth 2.0 Client ID (Web) → ใส่ Authorized Redirect URIs ต่อ env:
+          <br><code class="inl">http://localhost:3000/api/auth/callback/google</code>
+          <br><code class="inl">https://campvibe-staging.vercel.app/api/auth/callback/google</code>
+          <br><code class="inl">https://&lt;prod-domain&gt;/api/auth/callback/google</code></li>
+        <li>copy Client ID + Secret → ใส่ env ทั้ง 3</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DECISIONS -->
+  <section id="decisions">
+    <h2><span class="n">?</span> Decisions ที่เจ้าของต้องเลือก</h2>
+    <div class="card">
+      <table>
+        <tr><th>#</th><th>ตัวเลือก</th><th>แนะนำ</th></tr>
+        <tr><td>D-1</td><td>JWT-only upsert <span class="pill">ไม่ migration</span> vs Prisma adapter + Account table <span class="pill">migration</span></td><td class="rec">JWT-only</td></tr>
+        <tr><td>D-2</td><td>email ตรง → link อัตโนมัติ vs reject</td><td class="rec">link by email</td></tr>
+        <tr><td>D-3</td><td>เก็บ Credentials คู่ Google vs Google-only</td><td class="rec">เก็บทั้งคู่</td></tr>
+        <tr><td>D-4</td><td>เปิด env ไหนก่อน</td><td class="rec">local → staging → prod</td></tr>
+        <tr><td>D-5</td><td>OAuth client เดียวทุก env vs แยกต่อ env</td><td>แยก = blast radius เล็กกว่า (optional)</td></tr>
+        <tr><td>D-6</td><td>อัปเดต privacy policy (PDPA)</td><td class="rec">ต้องทำก่อน prod</td></tr>
+      </table>
+    </div>
+    <div class="callout warn">
+      <b>สถานะ:</b> เอกสารนี้เป็น research/design ก่อน G1 — ยังไม่ลงมือ. ถ้าเจ้าของเลือก decisions ข้างบน → ผมเปิด story (architect → backend → qa → security → gate) + บันทึก ADR-008.
+    </div>
+  </section>
+
+  <footer>
+    CampVibe · Google OAuth Login — Design Doc · สังเคราะห์จาก research บนโค้ดจริง (lib/auth.ts · lib/auth.config.ts · prisma/schema.prisma) ·
+    Approach: JWT-only upsert · Cost: ฟรี · Prod: HELD · pre-G1.
+  </footer>
+
+</div>
+</body>
+</html>
