@@ -6,11 +6,22 @@ import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNest
 import { requireAuth } from '@/lib/auth-utils';
 import { withTiming } from '@/lib/route-timing';
 import { campCardSelect } from '@/lib/read-models/camp-card';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // RISK-4: IP-based rate-limit on the list endpoint (100 req / 15 min).
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const rl = checkRateLimit(`campgrounds:list:${ip}`, { limit: 100, windowMs: 15 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) },
+    });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     const filterParams: CampSiteFilterParams = {
       type: searchParams.get('type') || undefined,
       keyword: searchParams.get('keyword') || undefined,
@@ -31,10 +42,12 @@ export async function GET(request: NextRequest) {
 
     const where = buildCampSiteWhere(filterParams);
 
+    // RISK-4: cap result set to prevent unbounded fetches.
     const campSites = await withTiming('campground_list', () =>
       prisma.campSite.findMany({
         where,
         select: campCardSelect,
+        take: 50,
       })
     );
 

@@ -7,6 +7,7 @@ import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailabilityInTx } from '@/lib/campsite-availability';
 import { serializeDecimals } from '@/lib/serialize';
 import { resolveUnitPrice, computeBookingPrice } from '@/lib/booking-pricing';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // ---------------------------------------------------------------------------
 // Internal helper types for the booking transaction result
@@ -204,6 +205,15 @@ export async function POST(request: NextRequest) {
   const userId = session?.user?.id;
   if (!userId) {
     return apiError('User ID not found in session', 401);
+  }
+
+  // RISK-3: Rate-limit booking creation per user (20 req / 1 min).
+  const rl = checkRateLimit(`booking:create:${userId}`, { limit: 20, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) },
+    });
   }
 
   try {

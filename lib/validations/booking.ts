@@ -22,6 +22,15 @@ export const bookingSchema = z.object({
 }, {
     message: "Check-out date must be after check-in date",
     path: ["checkOutDate"],
+// RISK-3: cap booking window at 30 nights to kill the O(nights) query loop.
+}).refine((data) => {
+    const start = new Date(data.checkInDate);
+    const end = new Date(data.checkOutDate);
+    const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return nights <= 30;
+}, {
+    message: "Booking cannot exceed 30 nights",
+    path: ["checkOutDate"],
 });
 
 export type BookingInput = z.infer<typeof bookingSchema>;

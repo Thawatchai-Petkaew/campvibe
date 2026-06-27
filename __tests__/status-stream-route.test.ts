@@ -4,11 +4,16 @@ vi.mock("@/lib/status-pulse", () => ({ readPulse: vi.fn(async () => 0) }));
 
 import { GET } from "@/app/api/status/stream/route";
 import { readPulse } from "@/lib/status-pulse";
+import { _store as rateLimitStore } from "@/lib/rate-limit";
 
 const rp = vi.mocked(readPulse);
 
+const TEST_TOKEN = "test-secret";
+
 function req(token?: string) {
-  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  // Default to the TEST_TOKEN so tests that exercise the happy path pass auth.
+  const t = token !== undefined ? token : TEST_TOKEN;
+  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
   return new Request(`http://localhost/api/status/stream${qs}`);
 }
 
@@ -33,10 +38,13 @@ async function drain(res: Response, ms: number): Promise<string> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.STATUS_TOKEN;
+  // RISK-7: STATUS_TOKEN is now required; set a test token so happy-path tests pass auth.
+  process.env.STATUS_TOKEN = TEST_TOKEN;
   process.env.STATUS_STREAM_POLL_MS = "15";
   process.env.STATUS_STREAM_HEARTBEAT_MS = "1000";
   process.env.STATUS_STREAM_MAX_MS = "400";
+  // Clear in-process rate-limit store between tests.
+  rateLimitStore.clear();
 });
 afterEach(() => {
   delete process.env.STATUS_STREAM_POLL_MS;

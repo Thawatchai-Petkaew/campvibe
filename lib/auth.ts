@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 import type { UserRole } from "@/types/api"
 import { authConfig } from "@/lib/auth.config"
+import { checkRateLimit } from "@/lib/rate-limit"
 
 /**
  * Full NextAuth config — Node runtime only.
@@ -24,7 +25,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" }
             },
-            authorize: async (credentials) => {
+            authorize: async (credentials, request) => {
+                // RISK-1: Rate-limit login attempts by IP (10 req / 15 min).
+                // NextAuth authorize cannot return an HTTP 429 directly; returning null
+                // surfaces as a CredentialsSignin error on the sign-in page, which is the
+                // safest contract-preserving option (does not break NextAuth callbacks).
+                const ip =
+                    (request as Request | undefined)?.headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ??
+                    "unknown";
+                const rl = checkRateLimit(`auth:login:${ip}`, { limit: 10, windowMs: 15 * 60 * 1000 });
+                if (!rl.allowed) {
+                    return null;
+                }
+
                 const parsedCredentials = z
                     .object({ email: z.string().email(), password: z.string().min(6) })
                     .safeParse(credentials);

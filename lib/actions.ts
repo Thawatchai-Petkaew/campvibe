@@ -57,7 +57,8 @@ export async function register(prevState: string | undefined, formData: FormData
             return 'User already exists.';
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // RISK-1: bcrypt cost raised to 12 (security standard ≥12 rounds).
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         await prisma.user.create({
             data: {
