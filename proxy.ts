@@ -3,7 +3,14 @@ import { authConfig, isRouteAllowed } from "@/lib/auth.config"
 import { NextResponse } from "next/server"
 
 /**
- * CAM-203 SEC-3 — Strict nonce-based CSP, Step 1 (Report-Only).
+ * CAM-203 SEC-3 — Strict nonce-based CSP.
+ *
+ * Next 16: the `middleware` file convention is deprecated and renamed to
+ * `proxy` (https://nextjs.org/docs/app/api-reference/file-conventions/proxy).
+ * This file was renamed middleware.ts -> proxy.ts; behaviour is byte-identical.
+ * The proxy file exports a single function as the default export — the
+ * NextAuth v5 `auth()` wrapper returns exactly that, so the export form is
+ * unchanged. `export const config = { matcher }` is also unchanged in Next 16.
  *
  * Restructured from the simple `export default NextAuth(authConfig).auth`
  * form to the auth() callback form so we can:
@@ -111,6 +118,6 @@ export default auth(async (req) => {
 })
 
 export const config = {
-    // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
+    // https://nextjs.org/docs/app/api-reference/file-conventions/proxy#matcher
     matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
 }

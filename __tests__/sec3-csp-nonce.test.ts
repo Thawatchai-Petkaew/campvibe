@@ -9,14 +9,19 @@
  *    not re-implemented correctly). These tests guard against protection regressions
  *    when the auth() callback form is used (which does NOT auto-invoke authorized).
  *
- * 2. Source-inspect tests — static analysis of middleware.ts and next.config.ts
+ * 2. Source-inspect tests — static analysis of proxy.ts and next.config.ts
  *    without running a server. Checks:
- *    - middleware.ts sets Content-Security-Policy-Report-Only (NOT enforced CSP)
+ *    - proxy.ts sets Content-Security-Policy-Report-Only (NOT enforced CSP)
  *    - CSP contains 'strict-dynamic' (the Lighthouse-visible upgrade)
- *    - middleware sets x-nonce on request headers
+ *    - proxy sets x-nonce on request headers
  *    - nonce generation uses crypto.getRandomValues + btoa (NOT Buffer)
  *    - next.config.ts no longer contains Content-Security-Policy (no duplicate)
  *    - next.config.ts still contains the 6 other SEC-2 static headers
+ *
+ * Next 16: the `middleware` file convention was renamed to `proxy`
+ * (https://nextjs.org/docs/app/api-reference/file-conventions/proxy). The CSP
+ * + nonce + /dashboard protection logic is unchanged; only the source file the
+ * static analysis reads moved from middleware.ts to proxy.ts.
  */
 
 import { describe, it, expect } from "vitest";
@@ -87,7 +92,7 @@ describe("isRouteAllowed() — /dashboard protection rule (CAM-203 SEC-3 Risk 1)
 });
 
 // ---------------------------------------------------------------------------
-// 2. Source-inspect — middleware.ts + next.config.ts static analysis
+// 2. Source-inspect — proxy.ts + next.config.ts static analysis
 // ---------------------------------------------------------------------------
 
 const rootDir = join(__dirname, "..");
@@ -96,27 +101,28 @@ function readSource(filename: string): string {
     return readFileSync(join(rootDir, filename), "utf-8");
 }
 
-describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () => {
+describe("SEC-3 proxy.ts source inspection — nonce + enforced CSP", () => {
     let middlewareSrc: string;
 
+    // Next 16 renamed the middleware file convention to proxy.ts (logic unchanged).
     function getMiddleware(): string {
         if (!middlewareSrc) {
-            middlewareSrc = readSource("middleware.ts");
+            middlewareSrc = readSource("proxy.ts");
         }
         return middlewareSrc;
     }
 
     it("sets the enforced Content-Security-Policy header (CAM-203 step 2)", () => {
         const src = getMiddleware();
-        // Enforced: middleware must call .set('Content-Security-Policy', csp).
+        // Enforced: proxy must call .set('Content-Security-Policy', csp).
         expect(
             src,
-            "middleware.ts must set the enforced Content-Security-Policy header (step 2)"
+            "proxy.ts must set the enforced Content-Security-Policy header (step 2)"
         ).toMatch(/\.set\(\s*['"]Content-Security-Policy['"]\s*,/);
         // Report-Only must be gone from executable code (flipped to enforced).
         expect(
             src,
-            "middleware.ts must NOT still set Content-Security-Policy-Report-Only after step 2"
+            "proxy.ts must NOT still set Content-Security-Policy-Report-Only after step 2"
         ).not.toMatch(/\.set\(\s*['"]Content-Security-Policy-Report-Only['"]\s*,/);
     });
 
@@ -139,11 +145,11 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
     it("uses btoa() for base64 encoding (NOT Buffer — Edge-safe per ADR-007 Risk 4)", () => {
         expect(
             getMiddleware(),
-            "middleware.ts must use btoa() for nonce base64 encoding"
+            "proxy.ts must use btoa() for nonce base64 encoding"
         ).toContain("btoa(");
         expect(
             getMiddleware(),
-            "middleware.ts must NOT use Buffer for nonce encoding (not Edge-safe)"
+            "proxy.ts must NOT use Buffer for nonce encoding (not Edge-safe)"
         ).not.toContain("Buffer.from");
     });
 
@@ -159,7 +165,7 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
             .join("\n");
         expect(
             executableLines,
-            "middleware.ts must NOT use the simple NextAuth(authConfig).auth export pattern (SEC-2 form)"
+            "proxy.ts must NOT use the simple NextAuth(authConfig).auth export pattern (SEC-2 form)"
         ).not.toContain("export default NextAuth(authConfig).auth");
     });
 
@@ -212,7 +218,7 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
         // The conditional guard must exist in executable code.
         expect(
             executableLines,
-            "middleware.ts must guard 'unsafe-eval' behind NODE_ENV === 'development' in executable code"
+            "proxy.ts must guard 'unsafe-eval' behind NODE_ENV === 'development' in executable code"
         ).toMatch(/NODE_ENV\s*===\s*["']development["'][^;]*unsafe-eval/);
         // There must be NO unconditional (non-ternary-guarded) bare script-src that
         // hard-codes unsafe-eval. A hard-coded occurrence would not be preceded by a ternary.

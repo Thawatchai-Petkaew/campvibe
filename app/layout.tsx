@@ -25,6 +25,9 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative OG/Twitter image URLs (e.g. "/og-image.png") to absolute.
+  // Reuses the existing APP_BASE_URL convention + staging fallback (lib/notify-messages.ts).
+  metadataBase: new URL(process.env.APP_BASE_URL ?? "https://campvibe-staging.vercel.app"),
   title: "CampVibe | Professional Camping Ecosystem",
   description: "Find and book the best camping experiences",
   openGraph: {
