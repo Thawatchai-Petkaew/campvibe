@@ -19,7 +19,11 @@ function req(token?: string) {
 
 // Drain the SSE stream for up to `ms`, returning all text seen. Bounded so it never hangs
 // (the route also self-closes at MAX_MS). Reads against a per-read timeout to stay responsive.
-async function drain(res: Response, ms: number): Promise<string> {
+// Drain the SSE stream up to `ms`. If `until` is given, return early as soon as that
+// substring is seen — so a happy-path assertion waits on the real event instead of a
+// fixed window that flakes under CI load. The stream self-closes at STATUS_STREAM_MAX_MS,
+// so a route that never emits still ends the loop (done) and the assertion fails — teeth intact.
+async function drain(res: Response, ms: number, until?: string): Promise<string> {
   const reader = res.body!.getReader();
   const dec = new TextDecoder();
   let out = "";
@@ -31,6 +35,7 @@ async function drain(res: Response, ms: number): Promise<string> {
     ])) as { value?: Uint8Array; done: boolean };
     if (step.done) break;
     if (step.value) out += dec.decode(step.value);
+    if (until && out.includes(until)) break;
   }
   try { await reader.cancel(); } catch { /* ignore */ }
   return out;
@@ -73,7 +78,9 @@ describe("status/stream (SSE)", () => {
     rp.mockImplementation(async () => v);
     const res = await GET(req());
     setTimeout(() => { v = 1; }, 30); // bump shortly after the stream opens
-    const out = await drain(res, 300);
+    // Wait until the data event actually arrives (early-exit), not a fixed window.
+    // 2000ms is only a safety cap — the stream self-closes at MAX_MS (400ms) well before it.
+    const out = await drain(res, 2000, 'data: {"version":1}');
     expect(out).toContain('data: {"version":1}');
   });
 
