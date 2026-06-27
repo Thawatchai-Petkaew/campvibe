@@ -87,6 +87,9 @@ const campgroundCardSrc = src("components/CampgroundCard.tsx");
 const campgroundFormSrc = src("components/CampgroundForm.tsx");
 const loadingSkeletonSrc = src("components/ui/loading-skeleton.tsx");
 const previewSrc = src("app/preview/PreviewClient.tsx");
+// CAM-220: the shared close button (with aria-label) migrated into ModalHeader inside
+// modal-shell.tsx. Assertions that pinned consumer inline close buttons now check the shell.
+const modalShellSrc = src("components/ui/modal-shell.tsx");
 
 // ── Page files with !h-12 ─────────────────────────────────────
 const loginPageSrc = src("app/login/page.tsx");
@@ -482,26 +485,30 @@ describe("clean--search-modal: keyword input no inline height (AC-clean-7)", () 
 });
 
 describe("clean--modals: close buttons have aria-label (AC-clean-8)", () => {
-  // FilterModal and SearchModal have their own close buttons (showCloseButton=false, manual)
-  it("AC-clean-8: FilterModal manual close Button has aria-label", () => {
-    // The FilterModal close button has aria-label; distance from <Button to aria-label is ~239 chars
-    const closeBtnBlock = filterModalSrc.match(/<Button[\s\S]{0,400}?aria-label[\s\S]{0,200}?<\/Button>/);
-    expect(closeBtnBlock).not.toBeNull();
+  // CAM-220: all 6 modal consumers now use the shared ModalHeader from
+  // components/ui/modal-shell.tsx. The close Button with aria-label={closeLabel}
+  // lives in the shell, not in the individual consumer files.
+  // These assertions redirect to modal-shell.tsx to preserve the intent.
+
+  it("AC-clean-8: shared ModalHeader close Button has aria-label prop (covers Filter/Search/Login/Register)", () => {
+    // The shell's close Button carries aria-label={closeLabel} — asserted here for all consumers
+    // that previously had inline close buttons (FilterModal, SearchModal, LoginModal, RegisterModal).
+    // The Button is wrapped in <DialogClose asChild>, so we search the full ModalHeader block.
+    expect(modalShellSrc).toMatch(/aria-label=\{closeLabel\}/);
   });
 
-  it("AC-clean-8: SearchModal manual close Button has aria-label", () => {
-    // Same structure as FilterModal — use 400-char window for <Button to aria-label
-    const closeBtnBlock = searchModalSrc.match(/<Button[\s\S]{0,400}?aria-label[\s\S]{0,200}?<\/Button>/);
-    expect(closeBtnBlock).not.toBeNull();
+  it("AC-clean-8: modal-shell.tsx close Button has aria-label={closeLabel} binding", () => {
+    // Verify the aria-label is wired to the closeLabel prop (not hardcoded)
+    expect(modalShellSrc).toMatch(/aria-label=\{closeLabel\}/);
   });
 
-  it("AC-clean-8: LoginModal manual close Button has aria-label", () => {
-    // LoginModal has a manual close button (showCloseButton=false)
-    expect(loginModalSrc).toMatch(/aria-label/);
+  it("AC-clean-8: LoginModal passes closeLabel to ModalHeader (aria-label chain)", () => {
+    // Consumer supplies the i18n-resolved label; ModalHeader passes it to the Button.
+    expect(loginModalSrc).toMatch(/closeLabel=/);
   });
 
-  it("AC-clean-8: RegisterModal manual close Button has aria-label", () => {
-    expect(registerModalSrc).toMatch(/aria-label/);
+  it("AC-clean-8: RegisterModal passes closeLabel to ModalHeader (aria-label chain)", () => {
+    expect(registerModalSrc).toMatch(/closeLabel=/);
   });
 });
 
