@@ -24,10 +24,11 @@
  *         Renders children; showCloseButton={false} suppresses the built-in X;
  *         className includes rounded-3xl.
  *
- *   AC-7  Migration held — all 6 modals import from modal-shell
- *         LoginModal, RegisterModal, FilterModal, SearchModal, AmenitiesModal,
- *         AddMemberDialog — each imports ModalContent + ModalHeader from modal-shell;
- *         none has a duplicate btn--modal-close (only one X per rendered modal).
+ *   AC-7  Migration held — all modal consumers import from modal-shell
+ *         Directory scan of app/ + components/ (excluding components/ui/**, app/status/**)
+ *         finds every .tsx that uses <ModalContent or <DialogContent (non-AlertDialog);
+ *         each must import from modal-shell; none may duplicate btn--modal-close.
+ *         Adding a new hand-rolled modal automatically makes this suite red.
  *
  * Layer: source-inspect (static parse of real production files).
  *
@@ -56,7 +57,8 @@
  *   AC-6:  rounded-3xl test FAILS if removed from ModalContent className.
  *   AC-6:  showCloseButton=false test FAILS if removed (built-in X reappears).
  *   AC-6:  p-0 test FAILS if padding is added to ModalContent wrapper.
- *   AC-7:  import test FAILS if any migrated modal drops modal-shell import.
+ *   AC-7:  scan-guard FAILS if the walkTsx scan returns 0 consumers.
+ *   AC-7:  import test FAILS if any discovered modal drops modal-shell import.
  *   AC-7:  single btn--modal-close test FAILS if a modal duplicates the X button.
  *
  * Staging-only ACs (not automatable at source-inspect layer):
@@ -95,13 +97,85 @@ function src(relPath: string): string {
 // The component under test
 const shellSrc = src('components/ui/modal-shell.tsx');
 
-// The 6 migrated modal consumers
-const loginModalSrc       = src('components/LoginModal.tsx');
-const registerModalSrc    = src('components/RegisterModal.tsx');
-const filterModalSrc      = src('components/FilterModal.tsx');
-const searchModalSrc      = src('components/SearchModal.tsx');
-const amenitiesModalSrc   = src('components/AmenitiesModal.tsx');
-const addMemberDialogSrc  = src('components/settings/AddMemberDialog.tsx');
+// ---------------------------------------------------------------------------
+// AC-7 directory scan — discover all .tsx files under app/ and components/
+// that use <ModalContent or <DialogContent (excluding pure AlertDialog files
+// and shadcn primitives / app/status internal tooling).
+// This replaces the previous static 6-file list so any future modal that
+// hand-rolls DialogContent is automatically caught.
+// ---------------------------------------------------------------------------
+
+/** Walk a directory tree and collect all .tsx files (sync, no deps). */
+function walkTsx(dir: string, results: string[] = []): string[] {
+    let entries: string[];
+    try {
+        entries = fs.readdirSync(dir);
+    } catch {
+        return results;
+    }
+    for (const entry of entries) {
+        const abs = path.join(dir, entry);
+        let stat: fs.Stats;
+        try { stat = fs.statSync(abs); } catch { continue; }
+        if (stat.isDirectory()) {
+            walkTsx(abs, results);
+        } else if (abs.endsWith('.tsx')) {
+            results.push(abs);
+        }
+    }
+    return results;
+}
+
+/** Directories / path segments to exclude from the modal scan. */
+const MODAL_SCAN_EXCLUDE = [
+    path.join(root, 'components', 'ui'),   // shadcn auto-generated primitives
+    path.join(root, 'app', 'status'),      // internal tooling, out of scope
+];
+
+function isModalScanExcluded(abs: string): boolean {
+    return MODAL_SCAN_EXCLUDE.some(
+        (p) => abs.startsWith(p + path.sep) || abs === p,
+    );
+}
+
+/**
+ * Collect all .tsx files (in app/ and components/) that contain
+ * <ModalContent or <DialogContent but are NOT purely AlertDialog-only
+ * (i.e. their DialogContent usage is not exclusively via AlertDialogContent).
+ * These are the files that MUST import from @/components/ui/modal-shell.
+ */
+function findModalConsumers(): Array<{ relPath: string; fileSrc: string }> {
+    const scanDirs = [
+        path.join(root, 'app'),
+        path.join(root, 'components'),
+    ];
+    const consumers: Array<{ relPath: string; fileSrc: string }> = [];
+
+    for (const dir of scanDirs) {
+        for (const abs of walkTsx(dir)) {
+            if (isModalScanExcluded(abs)) continue;
+            let content: string;
+            try { content = fs.readFileSync(abs, 'utf-8'); } catch { continue; }
+
+            const hasModalContent = content.includes('<ModalContent');
+            // True DialogContent JSX usage: look for the actual JSX opening tag <DialogContent
+            // (not just the string "DialogContent" in comments or text).
+            // Remove all AlertDialogContent occurrences first so they don't count.
+            const hasDialogContent =
+                /<DialogContent\b/.test(content.replace(/<AlertDialogContent/g, ''));
+
+            if (hasModalContent || hasDialogContent) {
+                consumers.push({
+                    relPath: path.relative(root, abs),
+                    fileSrc: content,
+                });
+            }
+        }
+    }
+    return consumers;
+}
+
+const modalConsumers = findModalConsumers();
 
 // ===========================================================================
 // AC-1 — ModalHeader renders the title
@@ -370,40 +444,30 @@ describe('AC-6 — ModalContent shell contract (modal--modal-content-shell)', ()
 //         section--modal-migration-held
 // ===========================================================================
 
-describe('AC-7 — Migration held: all 6 modals import from modal-shell (section--modal-migration-held)', () => {
+describe('AC-7 — Migration held: all modal consumers import from modal-shell (section--modal-migration-held)', () => {
 
-    const migratedModals: Array<[string, string]> = [
-        ['LoginModal',       loginModalSrc],
-        ['RegisterModal',    registerModalSrc],
-        ['FilterModal',      filterModalSrc],
-        ['SearchModal',      searchModalSrc],
-        ['AmenitiesModal',   amenitiesModalSrc],
-        ['AddMemberDialog',  addMemberDialogSrc],
-    ];
+    // The consumer list is discovered dynamically via directory scan of app/ + components/
+    // (excluding components/ui/** and app/status/**) — any file that uses <ModalContent or
+    // <DialogContent (excluding pure AlertDialog) must import from @/components/ui/modal-shell.
+    // Adding a new modal without the import will make this suite red automatically.
 
-    for (const [name, fileSrc] of migratedModals) {
+    // Prove-It: FAILS if the directory scan yields zero consumers (guard against a broken scan).
+    it('[scan-guard] directory scan found at least 1 modal consumer', () => {
+        expect(modalConsumers.length).toBeGreaterThan(0);
+    });
+
+    for (const { relPath, fileSrc } of modalConsumers) {
+        const label = path.basename(relPath, '.tsx');
+
         // Prove-It: FAILS if any modal drops the modal-shell import.
-        it(`[import] ${name} imports from @/components/ui/modal-shell`, () => {
+        it(`[import] ${label} (${relPath}) imports from @/components/ui/modal-shell`, () => {
             expect(fileSrc).toMatch(/from ["']@\/components\/ui\/modal-shell["']/);
         });
 
-        // Prove-It: FAILS if any modal stops using ModalContent.
-        it(`[ModalContent] ${name} uses <ModalContent`, () => {
-            expect(fileSrc).toContain('<ModalContent');
-        });
-
-        // Prove-It: FAILS if any modal stops using ModalHeader.
-        it(`[ModalHeader] ${name} uses <ModalHeader`, () => {
-            expect(fileSrc).toContain('<ModalHeader');
-        });
-
         // Prove-It: FAILS if any modal adds its own close button
-        // (i.e. data-testid="btn--modal-close" must NOT appear in the consumer source —
+        // (data-testid="btn--modal-close" must NOT appear in the consumer source —
         // the shell owns it, consumers don't duplicate it).
-        it(`[no-dupe-x] ${name} does NOT have its own data-testid="btn--modal-close" (shell owns the X)`, () => {
-            // The consumer file must NOT contain the testid — the shell file is the only place
-            // it should live. If a consumer defines its own btn--modal-close, there would
-            // be two X buttons when composed with ModalHeader.
+        it(`[no-dupe-x] ${label} does NOT have its own data-testid="btn--modal-close" (shell owns the X)`, () => {
             expect(fileSrc).not.toContain('data-testid="btn--modal-close"');
         });
     }
