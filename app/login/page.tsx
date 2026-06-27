@@ -97,7 +97,7 @@ export default function LoginPage() {
                             error={emailValidationError}
                             leftIcon={<Mail className="w-4 h-4" />}
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Password */}
@@ -111,7 +111,7 @@ export default function LoginPage() {
                             leftIcon={<Lock className="w-4 h-4" />}
                             containerClassName="mb-8"
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Submit Button */}

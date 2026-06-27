@@ -129,7 +129,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             <InputField
@@ -159,7 +159,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 }
                                 containerClassName="mb-8"
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
 

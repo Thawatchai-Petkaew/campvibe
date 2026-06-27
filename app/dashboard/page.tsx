@@ -162,7 +162,7 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalRevenue}
                         </CardTitle>
-                        <div className="p-2 bg-success/10 rounded-lg">
+                        <div className="p-2 bg-success/10 rounded-xl">
                             <DollarSign className="h-4 w-4 text-success" />
                         </div>
                     </CardHeader>
@@ -180,7 +180,7 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.totalBookings}
                         </CardTitle>
-                        <div className="p-2 bg-primary/10 rounded-lg">
+                        <div className="p-2 bg-primary/10 rounded-xl">
                             <TrendingUp className="h-4 w-4 text-primary" />
                         </div>
                     </CardHeader>
@@ -196,7 +196,7 @@ export default function OperatorDashboard() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             {t.dashboard.activeListings}
                         </CardTitle>
-                        <div className="p-2 bg-muted rounded-lg">
+                        <div className="p-2 bg-muted rounded-xl">
                             <Tent className="h-4 w-4 text-muted-foreground" />
                         </div>
                     </CardHeader>

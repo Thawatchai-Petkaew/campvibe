@@ -175,11 +175,11 @@ export default function MyCampSitesPage() {
                                 <SelectValue placeholder={t.dashboard.sortBy} />
                             </div>
                         </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-border shadow-xl min-w-[180px]">
-                            <SelectItem value="newest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortNewest}</SelectItem>
-                            <SelectItem value="oldest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortOldest}</SelectItem>
-                            <SelectItem value="price_asc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceLow}</SelectItem>
-                            <SelectItem value="price_desc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceHigh}</SelectItem>
+                        <SelectContent className="rounded-2xl border-border shadow-lg min-w-[180px]">
+                            <SelectItem value="newest" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortNewest}</SelectItem>
+                            <SelectItem value="oldest" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortOldest}</SelectItem>
+                            <SelectItem value="price_asc" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceLow}</SelectItem>
+                            <SelectItem value="price_desc" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceHigh}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

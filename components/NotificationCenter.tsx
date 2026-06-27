@@ -412,7 +412,7 @@ export function NotificationCenter({
                               </div>
                               <div className="mt-3 flex items-center justify-end">
                                 <Link href={item.href}>
-                                  <Button variant="outline" size="sm" className="h-9 rounded-full">
+                                  <Button variant="outline" size="sm" className="rounded-full">
                                     {(t as any).common?.view || "View"}
                                   </Button>
                                 </Link>

@@ -346,7 +346,7 @@ describe("a11y: icon-only buttons must have aria-label (AC-a11y-6 — FIXED-D2)"
 describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 — FIXED-D3)", () => {
     it("FIXED-D3: bookings/page prev pagination button (h-10 w-10) has aria-label", () => {
         // Fixed: aria-label={t.dashboardBookings.previousPage} added
-        const prevButtonIdx = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
+        const prevButtonIdx = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border");
         expect(prevButtonIdx).toBeGreaterThan(0); // button exists
         const context = bookingsPageSrc.substring(prevButtonIdx - 300, prevButtonIdx + 100);
         expect(context).toContain("aria-label");
@@ -354,8 +354,8 @@ describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 —
 
     it("FIXED-D3: bookings/page next pagination button (h-10 w-10) has aria-label", () => {
         // Fixed: aria-label={t.dashboardBookings.nextPage} added
-        const first = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
-        const second = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border", first + 1);
+        const first = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border");
+        const second = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border", first + 1);
         expect(second).toBeGreaterThan(0);
         const context = bookingsPageSrc.substring(second - 300, second + 100);
         expect(context).toContain("aria-label");

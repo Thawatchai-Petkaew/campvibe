@@ -121,7 +121,7 @@ export default function MyBookingsPage() {
                             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
                                 {t.bookings.startSearching}
                             </p>
-                            <Button asChild size="lg" className="px-8 font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                            <Button asChild size="lg" className="px-8 font-bold shadow-lg shadow-primary/20">
                                 <Link href="/">{t.bookings.exploreButton}</Link>
                             </Button>
                         </div>
@@ -249,7 +249,7 @@ export default function MyBookingsPage() {
                                                             </AlertDialogContent>
                                                         </AlertDialog>
                                                     )}
-                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors">
+                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors">
                                                         <Link href={`/campgrounds/${booking.campSite?.nameThSlug || booking.campground?.nameThSlug}`}>
                                                             {t.bookings.viewDetails} <ChevronRight className="w-4 h-4 ml-1" />
                                                         </Link>

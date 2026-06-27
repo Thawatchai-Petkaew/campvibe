@@ -136,7 +136,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     onChange={(e) => setKeyword(e.target.value)}
                                     placeholder={t.search.keywordPlaceholder}
                                     leftIcon={<Search className="w-4 h-4" />}
-                                    className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                    className="rounded-full bg-background border-border"
                                 />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">

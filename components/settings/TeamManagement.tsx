@@ -368,7 +368,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                     </div>
                                                                     <Badge
                                                                         variant={getRoleVariant(member.role)}
-                                                                        className="rounded-full text-[11px] font-bold"
+                                                                        className="rounded-full text-xs font-bold"
                                                                     >
                                                                         {member.role}
                                                                     </Badge>
@@ -383,7 +383,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                     ))}
                                                                 </ul>
 
-                                                                <div className="text-[11px] text-muted-foreground">
+                                                                <div className="text-xs text-muted-foreground">
                                                                     {ts?.permissionsNote || "Tip: permissions can be refined per camp site (coming soon)."}
                                                                 </div>
                                                             </div>

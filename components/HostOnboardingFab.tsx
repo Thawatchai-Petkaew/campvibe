@@ -41,7 +41,7 @@ export function HostOnboardingFab({ isLoggedIn }: HostOnboardingFabProps) {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <Link href="/host">
-        <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+        <Button className="rounded-full shadow-lg shadow-primary/20">
           <Store className="w-4 h-4 mr-2" />
           {t.nav?.campYourHome || "Become a Host"}
           <ArrowRight className="w-4 h-4 ml-2 opacity-80" />

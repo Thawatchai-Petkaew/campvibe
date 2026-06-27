@@ -73,7 +73,7 @@ export default function MapComponent({ latitude, longitude, campground, avgRatin
                     }}
                 >
                     <Popup closeButton={false} minWidth={240} className="hover-card-popup">
-                        <div className="w-60 overflow-hidden rounded-lg">
+                        <div className="w-60 overflow-hidden rounded-2xl">
                             <img
                                 src={coverImage}
                                 alt=""

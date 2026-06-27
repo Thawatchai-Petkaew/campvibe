@@ -29,7 +29,7 @@ export default function BookingNotFound() {
             <p className="text-muted-foreground mb-8">
               {t.bookings.notFoundDescription}
             </p>
-            <Button asChild variant="outline" size="default" className="rounded-full h-11 px-6 font-semibold">
+            <Button asChild variant="outline" size="default" className="rounded-full px-6 font-semibold">
               <Link href="/bookings">
                 {t.bookings.detail.backToBookings}
               </Link>
