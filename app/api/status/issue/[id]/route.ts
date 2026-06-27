@@ -14,15 +14,17 @@
 import { NextResponse } from "next/server";
 import { fetchStatusIssues } from "@/lib/linear";
 import { roleFromTitle } from "@/lib/notify-messages";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ID_RE = /^[A-Z]+-\d+$/;
 
+/** SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
 function authorized(req: Request): boolean {
   const required = process.env.STATUS_TOKEN;
-  if (!required) return true;
+  if (!required) return false; // token must be configured; no unauthenticated access
   const url = new URL(req.url);
   const query = url.searchParams.get("token");
   const header = req.headers.get("x-status-token");
@@ -35,6 +37,16 @@ export async function GET(
 ) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // SEC-A: rate-limit 60 req/min per IP.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = checkRateLimit(`status:issue:${ip}`, { limit: 60, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
   }
 
   const { id } = await params;
