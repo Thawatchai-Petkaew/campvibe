@@ -11,6 +11,8 @@
             "dontHaveAccount": "Don't have an account?",
             "register": "Register",
             "signingIn": "Signing in...",
+            "signingInWithGoogle": "Signing in...",
+            "signInWithGoogle": "Sign in with Google",
             "invalidCredentials": "The email or password you entered is incorrect. Please check and try again.",
             "registerModal": {
                 "title": "Start Your Adventure",
@@ -66,6 +68,7 @@
             "imageNone": "No source"
         },
         "common": {
+            "or": "or",
             "share": "Share",
             "save": "Save",
             "reviews": "reviews",
@@ -702,6 +705,8 @@
             "dontHaveAccount": "ยังไม่มีบัญชีผู้ใช้?",
             "register": "ลงทะเบียน",
             "signingIn": "กำลังเข้าสู่ระบบ...",
+            "signingInWithGoogle": "กำลังเข้าสู่ระบบ...",
+            "signInWithGoogle": "เข้าสู่ระบบด้วย Google",
             "invalidCredentials": "อีเมลหรือรหัสผ่านที่คุณป้อนไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง",
             "registerModal": {
                 "title": "เริ่มต้นการผจญภัยของคุณ",
@@ -757,6 +762,7 @@
             "imageNone": "ไม่มีรูปภาพ"
         },
         "common": {
+            "or": "หรือ",
             "share": "แชร์",
             "save": "บันทึก",
             "reviews": "รีวิว",
