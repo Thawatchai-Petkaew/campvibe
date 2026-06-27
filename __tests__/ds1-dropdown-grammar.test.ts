@@ -9,9 +9,11 @@
  *  AC-select-1    SelectContent has rounded-2xl
  *  AC-select-2    SelectItem has rounded-xl + font-normal
  *  AC-select-3    SelectTrigger has rounded-full + h-11 via data-[size=default]:h-11
+ *  AC-select-4    SelectViewport has p-1.5 (content-padding parity with DropdownMenuContent) [CAM-232]
  *  AC-dropdown-1  DropdownMenuContent has rounded-2xl
  *  AC-dropdown-2  DropdownMenuItem has rounded-xl + font-normal
  *  AC-dropdown-3  DropdownMenuContent has NO border-none
+ *  AC-dropdown-4  DropdownMenuContent has p-1.5 (shared content grammar) [CAM-232]
  *  AC-popover-1   PopoverContent has rounded-2xl
  *  AC-command-1   Command root has rounded-2xl
  *  AC-command-2   CommandItem has rounded-xl + font-normal
@@ -92,6 +94,15 @@ describe("select--primitive: grammar (AC-select-1/2/3)", () => {
   it("AC-select-3: SelectTrigger uses data-[size=default]:h-11 (not bare h-10 or h-11)", () => {
     expect(selectSrc).toMatch(/data-\[size=default\]:h-11/);
   });
+
+  // CAM-232 DD-1 — content-padding parity: SelectViewport must have p-1.5 so the hover pill
+  // floats with the same inset as DropdownMenuContent (which carries p-1.5 on its Content node).
+  it("AC-select-4: SelectViewport has p-1.5 (content-padding parity with DropdownMenuContent)", () => {
+    // SelectPrimitive.Viewport className must contain p-1.5
+    const viewportMatch = selectSrc.match(/SelectPrimitive\.Viewport[\s\S]*?className=\{cn\(\s*"([^"]*)"/)
+    expect(viewportMatch).not.toBeNull();
+    expect(viewportMatch![1]).toMatch(/\bp-1\.5\b/);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -117,6 +128,14 @@ describe("dropdown--primitive: grammar (AC-dropdown-1/2/3)", () => {
     const contentMatch = dropdownSrc.match(/"z-50 max-h-[^"]*"/);
     expect(contentMatch).not.toBeNull();
     expect(contentMatch![0]).not.toMatch(/border-none/);
+  });
+
+  // CAM-232 DD-1 — shared content grammar: DropdownMenuContent must retain p-1.5
+  // (the reference side of the parity — both Select and DropdownMenu must carry this padding).
+  it("AC-dropdown-4: DropdownMenuContent class string has p-1.5 (shared content grammar)", () => {
+    const contentMatch = dropdownSrc.match(/"z-50 max-h-[^"]*"/);
+    expect(contentMatch).not.toBeNull();
+    expect(contentMatch![0]).toMatch(/\bp-1\.5\b/);
   });
 });
 
