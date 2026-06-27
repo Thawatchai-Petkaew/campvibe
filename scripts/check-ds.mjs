@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * check-ds.mjs — DS-6 design-system consistency guard (CAM-126)
- *               Extended with REPORT-MODE drift detection (CAM-223)
+ *               Phase A complete; all rules now BLOCKING (CAM-228 A8)
  *
  * Scans app/** and components/** (.tsx/.ts) for patterns that violate the
- * CampVibe design-system grammar locked in by DS-2, DS-3 and DS-5.
+ * CampVibe design-system grammar locked in by DS-2, DS-3, DS-5, and CAM-223.
  *
- * Exit 0  → clean (no BLOCKING violations; report-mode warnings are informational)
+ * Exit 0  → clean (0 violations)
  * Exit 1  → BLOCKING violations found (list printed to stderr)
  *
  * Usage:
@@ -17,17 +17,22 @@
  *   1. No @tabler/icons-react imports — lucide-react only (DS-5)
  *   2. No !h-* / !w-* important sizing overrides — use Button/Input size prop (DS-2/3)
  *   3. No rounded-[Npx] arbitrary px radius — use Tailwind radius scale tokens (DS-3)
+ *   R1. Off-role radius: rounded-(sm|md|lg) on consumers (CAM-223)
+ *   R2. Off-tier shadow: shadow-xl / shadow-xs / shadow-inner on consumers (CAM-223)
+ *   R3. Arbitrary font size: text-[Npx] (CAM-223)
+ *   R4. Hardcoded input focus ring: focus-visible:ring-primary / focus-visible:border-primary (CAM-223)
+ *   R5. Button/Badge color override: bg-foreground / text-background as CTA; <Button/<Badge with bg-* variant in className (CAM-223)
+ *   R6. Raw status-pill span: <span className containing rounded-full + text-xs + bg- (CAM-223)
+ *   R7. Inline height on Button: <Button … className="…h-\d (CAM-223)
+ *   R8. Hand-rolled modal: file imports DialogContent but not from modal-shell (CAM-223)
  *
- * ── REPORT-MODE rules (warn + count, do NOT affect exit code) ────────────────
- *   CAM-223 Phase A — will become blocking after Phase A cleanup:
- *   R1. Off-role radius: rounded-(sm|md|lg) on consumers (should use role-scale tokens)
- *   R2. Off-tier shadow: shadow-xl / shadow-xs / shadow-inner on consumers
- *   R3. Arbitrary font size: text-[Npx]
- *   R4. Hardcoded input focus ring: focus-visible:ring-primary / focus-visible:border-primary
- *   R5. Button/Badge color override: bg-foreground / text-background as CTA; <Button/<Badge with bg-* variant in className
- *   R6. Raw status-pill span: <span className containing rounded-full + text-xs + bg- (should be <Badge>)
- *   R7. Inline height on Button: <Button … className="…h-\d (should use size= prop)
- *   R8. Hand-rolled modal: file imports DialogContent but not from modal-shell
+ * ── Designer-approved allowlist (CAM-228 A8) ─────────────────────────────────
+ *   R5a: app/profile/page.tsx — avatar hover scrim (bg-foreground/50 opacity-0 group-hover:opacity-100)
+ *        → approved intentional image-overlay scrim; not a CTA
+ *   R5a: components/CampgroundDetailClient.tsx — photo caption chip (bg-foreground/60 text-background on a <div> with backdrop-blur)
+ *        → approved intentional adaptive scrim for text legibility on photos; not a CTA
+ *   R5b: any line with variant="ghost" AND hover:bg-primary/5
+ *        → approved "ghost-primary" link-action pattern on utility/dashboard surfaces (bookings, dashboard)
  *
  * Exclusions:
  *   - app/status/**         (intentionally pinned light UI, out of scope)
@@ -62,8 +67,6 @@ const IMPORTANT_W_RE = /\B!w-\S+/g;
  */
 const ARBITRARY_RADIUS_RE = /rounded-\[\d+px\]/g;
 
-// ── REPORT-MODE Patterns (CAM-223, Phase A) ───────────────────────────────────
-
 /**
  * R1. Off-role radius: rounded-sm / rounded-md / rounded-lg on consumer files.
  * Role scale: control=rounded-full, card=rounded-3xl, popover=rounded-2xl, inner/badge=rounded-xl.
@@ -97,6 +100,12 @@ const REPORT_FOCUS_RING_RE = /\bfocus-visible:(ring-primary|border-primary)\b/g;
  * R5a. bg-foreground / text-background used as a CTA color heuristic.
  * These are intentional DS tokens only for specific roles; appearing in arbitrary
  * consumer classNames usually signals a manual CTA color override.
+ *
+ * Designer-approved allowlist (CAM-228 A8):
+ *   - app/profile/page.tsx lines with "bg-foreground/50 opacity-0 group-hover:opacity-100"
+ *     (avatar hover scrim — image overlay, not a CTA)
+ *   - components/CampgroundDetailClient.tsx lines with "bg-foreground/60 text-background"
+ *     AND "backdrop-blur" (photo caption chip — adaptive scrim on photo, not a CTA)
  */
 const REPORT_CTA_COLOR_RE = /\b(bg-foreground|text-background)\b/g;
 
@@ -104,6 +113,10 @@ const REPORT_CTA_COLOR_RE = /\b(bg-foreground|text-background)\b/g;
  * R5b. <Button or <Badge with a className prop containing bg-(primary|foreground|secondary|destructive).
  * Heuristic: scan for the JSX opening tag on the same line or multi-line block.
  * Line-level scan: flag any line that has both "<Button" or "<Badge" AND "bg-(variant)".
+ *
+ * Designer-approved allowlist (CAM-228 A8):
+ *   - Lines with variant="ghost" AND hover:bg-primary/5
+ *     (ghost-primary link-action pattern on utility/dashboard surfaces)
  */
 const REPORT_BTN_BADGE_COLOR_RE = /\b(bg-primary|bg-foreground|bg-secondary|bg-destructive)\b/g;
 
@@ -170,7 +183,7 @@ function walkDir(dir, exts, results = []) {
   return results;
 }
 
-// ── BLOCKING Scanner ──────────────────────────────────────────────────────────
+// ── All-rules Scanner (blocking) ─────────────────────────────────────────────
 
 /**
  * Each blocking rule: { re, label, hint }
@@ -230,12 +243,13 @@ function scanFile(absPath) {
   return violations;
 }
 
-// ── REPORT-MODE Scanner ───────────────────────────────────────────────────────
+// ── R1–R8 Scanner (now blocking, CAM-228 A8) ─────────────────────────────────
 
 /**
- * Scans a file for all 8 REPORT-MODE drift categories.
+ * Scans a file for all 8 consistency categories (R1–R8).
  * Returns an object keyed by category name, each an array of { file, line, snippet, match }.
- * Does NOT affect exit code.
+ * All findings are now BLOCKING (exit 1). Designer-approved exceptions are allowlisted
+ * per the comments on each rule above.
  */
 function scanFileReport(absPath) {
   const src = readFileSync(absPath, "utf8");
@@ -286,16 +300,37 @@ function scanFileReport(absPath) {
     }
 
     // R5a. CTA color (bg-foreground / text-background anywhere)
+    // Allowlist (designer-approved A8/CAM-228):
+    //   - app/profile/page.tsx: avatar hover scrim — bg-foreground/50 with opacity-0 group-hover:opacity-100
+    //   - components/CampgroundDetailClient.tsx: photo caption chip — bg-foreground/60 text-background with backdrop-blur
     REPORT_CTA_COLOR_RE.lastIndex = 0;
-    for (const m of [...line.matchAll(REPORT_CTA_COLOR_RE)]) {
-      findings["R5-cta-color"].push({ file: rel, line: lineNo, snippet: trimmed, match: m[0] });
+    const isProfileAvatarScrim =
+      rel === "app/profile/page.tsx" &&
+      line.includes("bg-foreground/50") &&
+      line.includes("opacity-0") &&
+      line.includes("group-hover:opacity-100");
+    const isCampgroundPhotoChip =
+      rel === "components/CampgroundDetailClient.tsx" &&
+      line.includes("bg-foreground/60") &&
+      line.includes("text-background") &&
+      line.includes("backdrop-blur");
+    if (!isProfileAvatarScrim && !isCampgroundPhotoChip) {
+      for (const m of [...line.matchAll(REPORT_CTA_COLOR_RE)]) {
+        findings["R5-cta-color"].push({ file: rel, line: lineNo, snippet: trimmed, match: m[0] });
+      }
     }
 
     // R5b. <Button or <Badge with a bg-variant class on the same line
+    // Allowlist (designer-approved A8/CAM-228):
+    //   - Lines with variant="ghost" AND hover:bg-primary/5 → ghost-primary link-action pattern
     if (/<(Button|Badge)\b/.test(line)) {
-      REPORT_BTN_BADGE_COLOR_RE.lastIndex = 0;
-      for (const m of [...line.matchAll(REPORT_BTN_BADGE_COLOR_RE)]) {
-        findings["R5b-btn-badge-color"].push({ file: rel, line: lineNo, snippet: trimmed, match: m[0] });
+      const isGhostPrimaryLinkAction =
+        line.includes('variant="ghost"') && line.includes("hover:bg-primary/5");
+      if (!isGhostPrimaryLinkAction) {
+        REPORT_BTN_BADGE_COLOR_RE.lastIndex = 0;
+        for (const m of [...line.matchAll(REPORT_BTN_BADGE_COLOR_RE)]) {
+          findings["R5b-btn-badge-color"].push({ file: rel, line: lineNo, snippet: trimmed, match: m[0] });
+        }
       }
     }
 
@@ -340,7 +375,7 @@ const EXTS = [".tsx", ".ts"];
 const allFiles = SCAN_DIRS.flatMap((d) => walkDir(d, EXTS));
 const allViolations = allFiles.flatMap((f) => scanFile(f));
 
-// ── Aggregate REPORT-MODE findings ───────────────────────────────────────────
+// ── Collect R1–R8 findings (now blocking) ────────────────────────────────────
 
 const reportTotals = {
   "R1-off-role-radius": [],
@@ -361,12 +396,12 @@ for (const f of allFiles) {
   }
 }
 
-// ── Print REPORT-MODE banner ──────────────────────────────────────────────────
+// ── Print active guard summary ────────────────────────────────────────────────
 
 console.log("");
 console.log("┌─────────────────────────────────────────────────────────────────────────────┐");
-console.log("│ REPORT MODE — new consistency rules (will become blocking after Phase A)    │");
-console.log("│ CAM-223 UI Consistency Hardening — Phase A sweep must clear these first.    │");
+console.log("│ CampVibe DS Guard — active (R1–R8 fully blocking since CAM-228 A8)         │");
+console.log("│ Approved allowlist in guard source; violations = CI failure.               │");
 console.log("└─────────────────────────────────────────────────────────────────────────────┘");
 console.log("");
 
@@ -382,30 +417,27 @@ const REPORT_LABELS = {
   "R8-hand-rolled-modal":      "R8  Hand-rolled modal  (DialogContent without modal-shell import)",
 };
 
-let totalReportFindings = 0;
+// Collect R1–R8 violations into allViolations so exit code is unified
+const reportViolations = [];
 for (const [key, label] of Object.entries(REPORT_LABELS)) {
   const items = reportTotals[key];
-  totalReportFindings += items.length;
   const count = items.length;
-  const status = count > 0 ? `WARN (${count})` : "ok   (0)";
+  const status = count > 0 ? `FAIL (${count})` : "ok   (0)";
   console.log(`  ${status.padEnd(12)} ${label}`);
-  // Print each finding for visibility in CI output
   for (const { file, line, snippet, match } of items) {
     const loc = line > 0 ? `${file}:${line}` : file;
     console.log(`               ${loc}: [${match}]  ${snippet.slice(0, 100)}`);
+    reportViolations.push({ file, line, snippet, match, label });
   }
 }
 
 console.log("");
-console.log(
-  `  Report total: ${totalReportFindings} drift instance${totalReportFindings === 1 ? "" : "s"} detected (informational — not blocking CI).`
-);
-console.log("  Fix these in Phase A (CAM-223), then flip to blocking.");
-console.log("");
 
 // ── BLOCKING output + exit ────────────────────────────────────────────────────
 
-if (allViolations.length === 0) {
+const totalViolations = allViolations.length + reportViolations.length;
+
+if (totalViolations === 0) {
   console.log("check:ds — PASS (0 violations)");
   process.exit(0);
 }
@@ -417,18 +449,32 @@ for (const v of allViolations) {
   byFile.get(v.file).push(v);
 }
 
-console.error("\ncheck:ds — FAIL (blocking violations)\n");
-for (const [file, items] of byFile) {
-  for (const { line, snippet, match, label } of items) {
-    console.error(`  ${file}:${line}: [${label}] ${match}  →  ${snippet}`);
+if (byFile.size > 0) {
+  console.error("\ncheck:ds — FAIL (blocking violations)\n");
+  for (const [file, items] of byFile) {
+    for (const { line, snippet, match, label } of items) {
+      console.error(`  ${file}:${line}: [${label}] ${match}  →  ${snippet}`);
+    }
   }
+
+  // Collect unique hints
+  const hints = new Set(allViolations.map((v) => RULES.find((r) => r.label === v.label)?.hint).filter(Boolean));
+  console.error(`\n${allViolations.length} violation${allViolations.length === 1 ? "" : "s"} found.\n`);
+  for (const h of hints) {
+    console.error(`  ${h}`);
+  }
+  console.error("");
 }
 
-// Collect unique hints
-const hints = new Set(allViolations.map((v) => RULES.find((r) => r.label === v.label)?.hint).filter(Boolean));
-console.error(`\n${allViolations.length} violation${allViolations.length === 1 ? "" : "s"} found.\n`);
-for (const h of hints) {
-  console.error(`  ${h}`);
+if (reportViolations.length > 0) {
+  console.error("\ncheck:ds — FAIL (R1–R8 consistency violations)\n");
+  for (const { file, line, snippet, match, label } of reportViolations) {
+    const loc = line > 0 ? `${file}:${line}` : file;
+    console.error(`  ${loc}: [${label}] ${match}  →  ${snippet.slice(0, 100)}`);
+  }
+  console.error(`\n${reportViolations.length} R1–R8 violation${reportViolations.length === 1 ? "" : "s"} found.`);
+  console.error("  Fix the drift or add to the designer-approved allowlist in check-ds.mjs.");
+  console.error("");
 }
-console.error("");
+
 process.exit(1);

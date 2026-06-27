@@ -85,7 +85,8 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                     <Button
                         onClick={onClose}
                         size="lg"
-                        className="w-full bg-foreground hover:bg-foreground/90 text-background text-base font-medium"
+                        variant="secondary"
+                        className="w-full"
                     >
                         {t.common.close}
                     </Button>
