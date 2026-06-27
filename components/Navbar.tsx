@@ -223,7 +223,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                             <Link href="/bookings">My Bookings</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3 focus:bg-primary/10 focus:text-foreground">
+                                        <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
                                             <Link href={hostEntryHref} className="flex items-center justify-between gap-3">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="min-w-0">
