@@ -83,6 +83,7 @@ The fast path for any UI work (full rules below):
 - Every neutral is **already tinted toward the teal hue** (hue ~197–228) — do not drop in a flat gray (zinc/slate/neutral numbered).
 - Dark mode flips automatically via `.dark` — **do not hand-write `dark:` color overrides.**
 - The `--color-primary:#0d9488` card value in `@theme` (top of globals.css) is a stale hex → the `:root` OKLCH is authoritative (cleanup is in the backlog).
+- `bg-foreground/50` or `bg-foreground/60` **over an image** (avatar hover scrim, gallery caption chip with `backdrop-blur`) is an **approved intentional use** at opacity — it is the correct light/dark-adaptive overlay idiom; not a CTA button, not a DS violation. Do not replace with a hardcoded color.
 
 ### Typography (bilingual)
 
@@ -178,6 +179,8 @@ The fast path for any UI work (full rules below):
 | pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` |
 | status label (not clickable) | `Badge` `rounded-xl` | status (confirmed/paid) uses `Badge` + token success/destructive/muted — **not a raw `<span>`** · a clickable filter → FilterChip (§ table) |
 | truncated text + tooltip | `TruncatedLabel` | — |
+| **icon-chip background** (stat cards, active nav, dashboard) | `<div>` / `<span>` wrapping an icon | `bg-(primary\|success\|warning\|info\|destructive)/10` — 10% opacity tint fill; pair with the matching `text-(color)` or `text-(color)-foreground` icon · ❌ do **not** apply this pattern to a `<Button>` or `<Badge>` className (use variant instead) |
+| **ghost-primary link-action** (utility/dashboard surfaces) | `<Button variant="ghost">` | add `className="text-primary hover:bg-primary/5"` — low-chrome "view / go" action on product-utility pages (dashboard, bookings list) · ❌ do **not** use as a primary CTA or on marketing/brand pages (use `default` or `link` variant) |
 
 ### Composition (existing primitives and wrappers — reuse, do not rebuild)
 

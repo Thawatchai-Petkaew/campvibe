@@ -229,3 +229,36 @@ describe("AC-dod-1: npm run check:ds exits 0 repo-wide", () => {
     expect(stdout).toMatch(/PASS.*0 violations/i);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// AC-blocking: R1–R8 rules are now BLOCKING (CAM-228 A8)
+// ─────────────────────────────────────────────────────────────
+
+describe("AC-blocking: R1–R8 are blocking (CAM-228 A8 flip)", () => {
+  it("guard script does NOT contain REPORT MODE banner (rules are now blocking)", () => {
+    // The old report-mode banner is removed; guard is fully blocking since CAM-228 A8.
+    expect(guardSrc).not.toMatch(/REPORT MODE.*will become blocking/i);
+  });
+
+  it("guard script contains the active blocking header (CAM-228 A8)", () => {
+    expect(guardSrc).toMatch(/active.*R1.{0,10}R8.*blocking/i);
+  });
+
+  it("guard script declares designer-approved allowlist for R5a profile avatar scrim", () => {
+    // Allowlist: app/profile/page.tsx avatar hover scrim (bg-foreground/50 opacity-0 group-hover:opacity-100)
+    expect(guardSrc).toMatch(/app\/profile\/page\.tsx/);
+    expect(guardSrc).toMatch(/bg-foreground\/50/);
+  });
+
+  it("guard script declares designer-approved allowlist for R5a CampgroundDetail photo chip", () => {
+    // Allowlist: components/CampgroundDetailClient.tsx photo caption chip (bg-foreground/60 backdrop-blur)
+    expect(guardSrc).toMatch(/CampgroundDetailClient/);
+    expect(guardSrc).toMatch(/bg-foreground\/60/);
+  });
+
+  it("guard script declares designer-approved allowlist for R5b ghost-primary link-action", () => {
+    // Allowlist: variant="ghost" + hover:bg-primary/5 (bookings/dashboard ghost-primary pattern)
+    expect(guardSrc).toMatch(/ghost.*primary.*link-action|ghost-primary/i);
+    expect(guardSrc).toMatch(/hover:bg-primary\/5/);
+  });
+});
