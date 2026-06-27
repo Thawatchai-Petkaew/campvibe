@@ -1,7 +1,8 @@
-"use client";
-
 // CAM-218 ERR-1: Global 404 page.
-// Must be "use client" to use useLanguage().
+// SERVER component on purpose: a "use client" not-found falls under the root
+// app/loading.tsx Suspense boundary and gets stuck on the skeleton fallback for
+// unmatched routes. Rendering server-side resolves synchronously (no skeleton).
+// The child ErrorState is "use client" and handles TH/EN via useLanguage().
 // Renders Navbar + full-page ErrorState variant="not-found".
 
 import { Navbar } from "@/components/Navbar";
