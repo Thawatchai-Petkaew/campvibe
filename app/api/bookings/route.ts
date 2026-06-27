@@ -9,6 +9,11 @@ import { serializeDecimals } from '@/lib/serialize';
 import { resolveUnitPrice, computeBookingPrice } from '@/lib/booking-pricing';
 import { checkRateLimit } from '@/lib/rate-limit';
 
+// RISK-12: cap the list query so it never does a full-table scan as data grows.
+// Returns the most recent N bookings (orderBy createdAt desc).
+// Full keyset + infinite-scroll is a deferred FE story.
+const BOOKING_LIST_LIMIT = 100;
+
 // ---------------------------------------------------------------------------
 // Internal helper types for the booking transaction result
 // ---------------------------------------------------------------------------
@@ -274,7 +279,8 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: BOOKING_LIST_LIMIT,
     });
 
     return apiSuccess(bookings);
