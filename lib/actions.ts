@@ -25,8 +25,19 @@ export async function authenticate(
         throw error;
     }
 
-    const redirectTo = (formData.get("redirectTo") as string | null) || "/";
-    redirect(redirectTo);
+    // SEC-A: open-redirect fix (CWE-601).
+    // Accept only a same-origin path: must start with a single "/", must NOT
+    // start with "//" (protocol-relative) or "/\" (backslash trick), and must
+    // contain no control chars (e.g. a "/\t//evil.com" prefix some parsers could
+    // authority-resolve). Anything else falls back to "/".
+    const rawRedirect = formData.get("redirectTo");
+    const isSafeInternalPath =
+        typeof rawRedirect === "string" &&
+        rawRedirect.startsWith("/") &&
+        !rawRedirect.startsWith("//") &&
+        !rawRedirect.startsWith("/\\") &&
+        ![...rawRedirect].some((ch) => ch.charCodeAt(0) < 0x20);
+    redirect(isSafeInternalPath ? (rawRedirect as string) : "/");
 }
 
 const RegisterSchema = z.object({
@@ -57,7 +68,8 @@ export async function register(prevState: string | undefined, formData: FormData
             return 'User already exists.';
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // RISK-1: bcrypt cost raised to 12 (security standard ≥12 rounds).
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         await prisma.user.create({
             data: {
@@ -78,4 +90,30 @@ export async function register(prevState: string | undefined, formData: FormData
 
 export async function handleSignOut() {
     await signOut();
+}
+
+/**
+ * googleSignIn — initiates Google OAuth sign-in (ADR-008).
+ *
+ * Applies the same open-redirect guard used in authenticate():
+ *   - redirectTo must start with a single "/"
+ *   - rejects "//" (protocol-relative) and "/\" (backslash trick)
+ *   - rejects any control char (charCode < 0x20)
+ *   - falls back to "/" when invalid or missing
+ *
+ * Throws a Next.js NEXT_REDIRECT internally on success (signIn redirects);
+ * callers must NOT catch this throw — let it propagate so Next.js completes
+ * the redirect.
+ */
+export async function googleSignIn(redirectTo?: string) {
+    const isSafeInternalPath =
+        typeof redirectTo === "string" &&
+        redirectTo.startsWith("/") &&
+        !redirectTo.startsWith("//") &&
+        !redirectTo.startsWith("/\\") &&
+        ![...redirectTo].some((ch) => ch.charCodeAt(0) < 0x20);
+
+    await signIn("google", {
+        redirectTo: isSafeInternalPath ? redirectTo : "/",
+    });
 }

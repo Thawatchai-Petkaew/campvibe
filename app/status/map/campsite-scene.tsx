@@ -27,7 +27,8 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { BellRing } from "lucide-react";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
 import { payloadChanged } from "@/lib/status-map-model";
@@ -364,17 +365,15 @@ const SCENE_CSS = `
   @keyframes pdot2{0%,100%{box-shadow:0 0 4px 0 var(--aura);opacity:1}50%{box-shadow:0 0 9px 2px var(--aura);opacity:.7}}
   @keyframes badgeGlow{0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.32),0 0 5px 0 var(--auraGlow)}50%{box-shadow:0 6px 16px rgba(0,0,0,.32),0 0 13px 2px var(--auraGlow)}}
   @keyframes alertPulse{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
-  @keyframes pdot3{0%{box-shadow:0 0 0 0 rgba(122,59,0,.6)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
   .scout.working .badge{animation:badgeGlow 1.3s ease-in-out infinite}
   .scout.working .badge .bdot{animation:pdot2 1.6s ease-in-out infinite}
   .you-alert{animation:alertPulse 1.9s ease-in-out infinite}
-  .you-alert .adot{animation:pdot3 1.3s infinite}
 }
 .badge{
   position:absolute;left:50%;bottom:calc(var(--bh) + 4px);transform:translateX(-50%);
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:7;
   background:rgba(11,30,24,.46);backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
-  border:1px solid rgba(150,240,195,.13);border-radius:999px;padding:4px 9px;
+  border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:4px 9px;
   box-shadow:0 6px 16px rgba(0,0,0,.32)
 }
 .badge .bdot{width:7px;height:7px;border-radius:50%;flex:none;background:rgba(190,202,218,.4)}
@@ -389,26 +388,29 @@ const SCENE_CSS = `
 .you-alert{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%);
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;z-index:9;cursor:pointer;
-  font-size:11px;font-weight:700;color:#241402;
-  background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1px solid rgba(255,207,134,.7);
-  border-radius:11px;padding:5px 11px;box-shadow:0 8px 22px -3px var(--amber-glow);
+  font-size:12px;font-weight:700;color:#241402;
+  background:linear-gradient(180deg,#ffcf86,#ff9d3c);border:1.5px solid rgba(255,220,130,.75);
+  border-radius:12px;padding:5px 11px;
+  box-shadow:0 0 0 1.5px rgba(255,180,84,.55),0 10px 28px -4px rgba(255,150,52,.7);
   font-family:inherit;min-height:44px;min-width:44px;
 }
 .you-alert:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px;}
-.you-alert .adot{width:7px;height:7px;border-radius:50%;background:#7a3b00;flex:none}
+.you-alert svg{width:13px;height:13px;flex:none}
+/* suppress popover when a gate is pending — prevents overlap with the notification */
+.scout.has-gate .popover{display:none;pointer-events:none}
 .you-alert::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#ff9d3c}
 .popover{
   position:absolute;left:50%;bottom:calc(var(--bh) + 38px);transform:translateX(-50%) translateY(6px);
   width:194px;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;z-index:12;
   background:rgba(10,28,20,.80);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
-  border:1px solid var(--line-2);border-radius:13px;padding:11px 12px;
+  border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:11px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.46)
 }
 .scout:hover .popover,.scout:focus-visible .popover{opacity:1;transform:translateX(-50%) translateY(0)}
 .pop-name{font-weight:600;font-size:13px}
 .pop-role{
   display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
-  padding:2px 8px;border-radius:999px;margin-top:6px;border:1px solid var(--line)
+  padding:2px 8px;border-radius:999px;margin-top:6px;border:1px solid rgba(255,255,255,.08)
 }
 .pop-task{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4}
 .pop-task .pid{font-family:var(--mono);color:var(--text)}
@@ -432,7 +434,45 @@ const SCENE_CSS = `
   .rm-label-status.amber{color:var(--amber);border-color:rgba(255,180,84,.4);}
 }
 /* S4: map-stat-bar replaced by Delivery chip overlay */
-`;
+
+/* ── CAM-181: Firefly layer ──────────────────────────────────────────────────
+   Decorative ambient layer: 12 fireflies blink out of sync across the
+   tree-line and clearing edges.
+
+   z-index 35 places the layer in front of .scout-layer (z-index 30) —
+   pointer-events:none so all clicks pass through to agents underneath.
+   aria-hidden on both the layer and each dot (purely decorative).
+
+   Keep-out zones (no firefly placed there):
+     - Campfire / gift zone: x 43–57 %, y 46–60 %
+     - HUD corner guard bands: y 0–7 % (topbar row)
+
+   Reduced-motion:
+     Default (no animation fallback): static faint dots at opacity:0.3
+     @media (prefers-reduced-motion: no-preference): full twinkle animation
+*/
+.firefly-layer{
+  position:absolute;inset:0;pointer-events:none;z-index:35;overflow:hidden;
+}
+.firefly{
+  position:absolute;
+  width:3px;height:3px;border-radius:9999px;
+  background:#FFB454;
+  box-shadow:0 0 6px 1px rgba(255,180,84,.7);
+  pointer-events:none;
+  /* Default: faint static dot (prefers-reduced-motion:reduce fallback) */
+  opacity:0.3;
+}
+@media (prefers-reduced-motion: no-preference){
+  @keyframes fireflyTwinkle{
+    0%,100%{opacity:0}
+    50%{opacity:0.9}
+  }
+  .firefly{
+    opacity:0;
+    animation:fireflyTwinkle var(--ff-dur,3.5s) ease-in-out var(--ff-delay,0s) infinite;
+  }
+}`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
@@ -450,7 +490,11 @@ function AgentScoutInner({
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
 
-  const stateClass = agent.active ? "working" : "idle";
+  // working/idle class is now engine-owned (toggled imperatively in setActivity()
+  // and seeded in the rootRef). Removing it from React's className prevents a
+  // re-render from clobbering the engine's walking-mode/entering class state or
+  // restarting CSS animations mid-walk.
+  // KEEP: bstatText, popover content, aria-label, rm-label — React-owned text/a11y.
 
   const bstatText = agent.active && agent.task
     ? agent.task.id
@@ -474,7 +518,7 @@ function AgentScoutInner({
     <button
       ref={rootRef as (el: HTMLButtonElement | null) => void}
       type="button"
-      className={`scout ${stateClass}`}
+      className="scout"
       style={{
         // Position is engine-owned (imperative per-frame via place()). Do NOT set
         // left/top/zIndex here — React re-applying them on every feed update would
@@ -560,11 +604,12 @@ const AgentScout = memo(AgentScoutInner, (prev, next) =>
 interface YouScoutProps {
   gates: MapGate[];
   onOpenGates: () => void;
+  onOpenFirstGate: () => void;
   /** CAM-161: current layout's You position (% of 1920×1080 canvas) */
   youPos: { x: number; y: number };
 }
 
-function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
+function YouScout({ gates, onOpenGates, onOpenFirstGate, youPos }: YouScoutProps) {
   const zIndex = Math.round(youPos.y * 12) + 5;
   const hasGates = gates.length > 0;
 
@@ -576,7 +621,7 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
     // S7: You is a button too — comes first in the DOM so tab order reaches You first
     <button
       type="button"
-      className="scout you idle"
+      className={`scout you idle${hasGates ? " has-gate" : ""}`}
       style={{
         left:   `${youPos.x}%`,
         top:    `${youPos.y}%`,
@@ -616,19 +661,22 @@ function YouScout({ gates, onOpenGates, youPos }: YouScoutProps) {
       </div>
 
       {hasGates && (
-        <span
+        <button
+          type="button"
           className="you-alert"
-          aria-hidden="true"
+          aria-label={`${gates.length} gate รอตรวจสอบ — กดเพื่อดูรายละเอียด`}
+          onClick={(e) => { e.stopPropagation(); onOpenFirstGate(); }}
+          data-testid="btn--map-you-alert"
         >
-          <span className="adot" aria-hidden="true" />
-          <span>&#9873;{gates.length} รอตรวจสอบ</span>
-        </span>
+          <BellRing size={13} strokeWidth={2} aria-hidden="true" />
+          <span>{gates.length} รอตรวจสอบ</span>
+        </button>
       )}
 
       <div className="popover" role="tooltip">
         <div className="pop-name">คุณ</div>
         <div className="pop-hint" style={{ marginTop: 0 }}>
-          {hasGates ? `${gates.length} gate รอการอนุมัติ — กดปุ่ม ⚑` : "ไม่มี gate รอ"}
+          {hasGates ? `${gates.length} gate รอการอนุมัติ — กดเพื่อดูรายละเอียด` : "ไม่มี gate รอ"}
         </div>
       </div>
     </button>
@@ -1044,6 +1092,10 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // CAM-184: GateDetailModal state
+  const [gateDetailId, setGateDetailId] = useState<string>("");
+  const [gateDetailOpen, setGateDetailOpen] = useState(false);
+  const gateDetailTriggerRef = useRef<HTMLElement | null>(null);
   // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
   // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
   // the very first poll of an unchanged board is already a no-op.
@@ -1213,10 +1265,13 @@ export default function CampsiteScene({
         state.bodyEl.style.backgroundImage = `url("${relaxSrc}")`;
         state.lastSrc = relaxSrc;
       }
-      // Position immediately so the first paint matches the layout. The idle/working
-      // class is owned by React (className); the engine only toggles walking-mode.
+      // Position immediately so the first paint matches the layout. working/idle
+      // class is now engine-owned (not React className); set it here to match
+      // the initial s.active so no class is ever missing before setActivity() runs.
       if (state.rootEl) {
         state.rootEl.classList.remove("walking-mode");
+        state.rootEl.classList.toggle("working", state.active);
+        state.rootEl.classList.toggle("idle", !state.active);
         state.rootEl.style.left   = `${state.homeX}%`;
         state.rootEl.style.top    = `${state.homeY}%`;
         state.rootEl.style.zIndex = String(Math.round(state.homeY * 12) + 5);
@@ -1247,8 +1302,10 @@ export default function CampsiteScene({
         s.rootEl.style.left   = `${s.homeX}%`;
         s.rootEl.style.top    = `${s.homeY}%`;
         s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
-        // React owns idle/working; the engine only toggles walking-mode.
+        // Engine owns idle/working/walking-mode; restore to home idle state.
         s.rootEl.classList.remove("walking-mode");
+        s.rootEl.classList.toggle("working", s.active);
+        s.rootEl.classList.toggle("idle", !s.active);
       }
     }
 
@@ -1278,10 +1335,14 @@ export default function CampsiteScene({
           // Overwrite mutable fields in place so the array ref stays stable.
           Object.assign(s, fresh);
           ref.path = [];
-          // Re-apply idle class + position after reset.
+          // Re-apply working/idle class + position after reset (engine-owned).
+          // buildScoutState always produces s.active=false so classList.add("idle")
+          // is correct here; classList.toggle covers a defensive active=true case.
           if (s.rootEl) {
             s.rootEl.classList.remove("entering", "walking-mode");
-            s.rootEl.classList.add("idle");
+            s.rootEl.classList.toggle("working", s.active);
+            s.rootEl.classList.toggle("idle", !s.active);
+            if (!s.active) s.rootEl.classList.add("idle");
             s.rootEl.style.left   = `${s.homeX}%`;
             s.rootEl.style.top    = `${s.homeY}%`;
             s.rootEl.style.zIndex = String(Math.round(s.homeY * 12) + 5);
@@ -1549,6 +1610,13 @@ export default function CampsiteScene({
             <YouScout
               gates={gates}
               onOpenGates={() => setApprovalCollapsed(false)}
+              onOpenFirstGate={() => {
+                if (gates.length > 0) {
+                  setGateDetailId(gates[0].id);
+                  gateDetailTriggerRef.current = document.querySelector('[data-testid="btn--map-you-alert"]');
+                  setGateDetailOpen(true);
+                }
+              }}
               youPos={youPos}
             />
             {agents.map((agent) => {
@@ -1559,14 +1627,25 @@ export default function CampsiteScene({
                   agent={agent}
                   rootRef={(el) => {
                     rootRefs.current[agent.role] = el;
-                    // Seed the first-paint position imperatively so there is no
-                    // unpositioned flash before the engine effect runs. The engine
-                    // owns position after mount; React never writes left/top/zIndex
-                    // again (they are not in the component's style prop).
-                    if (el) {
+                    // Seed the first-paint position and initial working/idle class
+                    // imperatively, guarded by dataset.posSeeded so this runs exactly
+                    // ONCE per DOM element. React reuses the same DOM node across
+                    // re-renders, so dataset.posSeeded persists and later inline-callback
+                    // invocations (triggered by re-renders where memo allows) skip the
+                    // re-seed. This keeps the first-paint seed that prevents a corner
+                    // flash, while ensuring the engine is the sole owner of position and
+                    // working/idle class from the moment the engine effect runs.
+                    // React never writes left/top/zIndex again after the initial seed
+                    // (they are not in the component's style prop); working/idle class is
+                    // toggled exclusively by the engine's setActivity() thereafter.
+                    if (el && !el.dataset.posSeeded) {
                       el.style.left   = pos.left;
                       el.style.top    = pos.top;
                       el.style.zIndex = String(pos.zIndex);
+                      // Belt-and-suspenders initial class for the pre-engine first paint.
+                      // The engine's init block will confirm/correct this once it runs.
+                      el.classList.add(agent.active ? "working" : "idle");
+                      el.dataset.posSeeded = "1";
                     }
                   }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
@@ -1575,6 +1654,41 @@ export default function CampsiteScene({
                 />
               );
             })}
+          </div>
+          {/* CAM-181: Firefly decorative layer — 12 amber dots blink out of sync.
+              z-index 35 = in front of .scout-layer (z-index 30), click-through.
+              Keep-out: campfire/gift zone (x 43–57 %, y 46–60 %),
+              topbar row (y 0–7 %), right-panel corner (x > 82 %, y < 18 %),
+              left-panel corner (x < 10 %, y < 18 %). */}
+          <div
+            className="firefly-layer"
+            aria-hidden="true"
+            data-testid="layer--map-fireflies"
+          >
+            {/* ff-1: upper-left tree area */}
+            <span className="firefly" aria-hidden="true" style={{ left: "14%", top: "12%", ["--ff-dur" as string]: "3.2s", ["--ff-delay" as string]: "0s" }} />
+            {/* ff-2: left mid-forest */}
+            <span className="firefly" aria-hidden="true" style={{ left: "24%", top: "24%", ["--ff-dur" as string]: "4.1s", ["--ff-delay" as string]: "0.7s" }} />
+            {/* ff-3: upper-right tree canopy */}
+            <span className="firefly" aria-hidden="true" style={{ left: "68%", top: "9%", ["--ff-dur" as string]: "2.8s", ["--ff-delay" as string]: "1.4s" }} />
+            {/* ff-4: right mid-forest */}
+            <span className="firefly" aria-hidden="true" style={{ left: "78%", top: "27%", ["--ff-dur" as string]: "5.0s", ["--ff-delay" as string]: "0.3s" }} />
+            {/* ff-5: right clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "82%", top: "48%", ["--ff-dur" as string]: "3.6s", ["--ff-delay" as string]: "2.1s" }} />
+            {/* ff-6: left clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "22%", top: "55%", ["--ff-dur" as string]: "4.4s", ["--ff-delay" as string]: "0.9s" }} />
+            {/* ff-7: upper-centre tree line */}
+            <span className="firefly" aria-hidden="true" style={{ left: "41%", top: "16%", ["--ff-dur" as string]: "2.9s", ["--ff-delay" as string]: "1.7s" }} />
+            {/* ff-8: lower-right, near agents but outside keep-out */}
+            <span className="firefly" aria-hidden="true" style={{ left: "71%", top: "64%", ["--ff-dur" as string]: "3.8s", ["--ff-delay" as string]: "0.5s" }} />
+            {/* ff-9: far-left mid-clearing edge */}
+            <span className="firefly" aria-hidden="true" style={{ left: "11%", top: "39%", ["--ff-dur" as string]: "4.7s", ["--ff-delay" as string]: "1.2s" }} />
+            {/* ff-10: upper-far-right */}
+            <span className="firefly" aria-hidden="true" style={{ left: "88%", top: "18%", ["--ff-dur" as string]: "3.3s", ["--ff-delay" as string]: "1.9s" }} />
+            {/* ff-11: lower-left clearing edge (y 68 % = below campfire keep-out) */}
+            <span className="firefly" aria-hidden="true" style={{ left: "31%", top: "68%", ["--ff-dur" as string]: "4.9s", ["--ff-delay" as string]: "0.1s" }} />
+            {/* ff-12: mid-right, between tree line and agents */}
+            <span className="firefly" aria-hidden="true" style={{ left: "59%", top: "33%", ["--ff-dur" as string]: "3.5s", ["--ff-delay" as string]: "1.5s" }} />
           </div>
         </div>
       </div>
@@ -1644,6 +1758,11 @@ export default function CampsiteScene({
             collapsed={approvalCollapsed}
             onToggle={() => setApprovalCollapsed((v) => !v)}
             onOpen={() => setApprovalCollapsed(false)}
+            token={token}
+            onOpenDetail={(id) => {
+              setGateDetailId(id);
+              setGateDetailOpen(true);
+            }}
           />
         )}
         <TeamRoster
@@ -1667,6 +1786,21 @@ export default function CampsiteScene({
           <StatusBoardHint />
         )}
       </div>
+
+      {/* CAM-184: Gate detail modal — portal, rendered at root of scene */}
+      {gateDetailOpen && gateDetailId && (
+        <GateDetailModal
+          gateId={gateDetailId}
+          gateUrl={gates.find((g) => g.id === gateDetailId)?.url ?? ""}
+          token={token}
+          triggerRef={gateDetailTriggerRef}
+          isOpen={gateDetailOpen}
+          onClose={() => setGateDetailOpen(false)}
+          onApproved={() => {
+            setGateDetailOpen(false);
+          }}
+        />
+      )}
 
     </div>
   );

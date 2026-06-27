@@ -314,6 +314,14 @@ model CampSite {
   deletedAt DateTime? // soft-delete
   version   Int       @default(1)
 
+  // AGG-1 (CAM-189): denormalized aggregate — maintained on every review write inside a
+  // transaction; recomputed by reconcile job as backstop. Derivation trail:
+  //   avgRating   = roundAvgRating(computeAvgRating(non-deleted Review.rating for this camp))
+  //   reviewCount = COUNT of non-deleted Review rows for this camp
+  // Source: lib/review-summary.ts:roundAvgRating + lib/sort-utils.ts:computeAvgRating
+  avgRating   Decimal? @db.Decimal(2, 1) // [Public] null when reviewCount = 0
+  reviewCount Int      @default(0)       // [Public]
+
   // Relations
   locationId String
   location   Location @relation(fields: [locationId], references: [id])
@@ -335,6 +343,11 @@ model CampSite {
   @@index([operatorId])
   @@index([locationId])
   @@index([isPublished, deletedAt])
+  // PERF-2 (CAM-188): composite indexes for catalog price-sort and default/related-sort
+  @@index([isPublished, deletedAt, priceLow, id])
+  @@index([isPublished, deletedAt, createdAt, id])
+  // PERF-5 (CAM-193): composite index for catalog rating-sort at DB (avgRating column, NULLS LAST)
+  @@index([isPublished, deletedAt, avgRating, id])
 }
 
 model CampSiteTeamMember {

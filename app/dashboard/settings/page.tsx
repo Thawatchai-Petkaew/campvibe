@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 type SettingsTab = "team" | "notifications" | "billing";
@@ -118,9 +119,9 @@ export default function SettingsPage() {
                             <tab.icon className="w-5 h-5" />
                             {tab.label}
                             {tab.disabled && (
-                                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                                <Badge variant="muted">
                                     {t.settings?.comingSoon || "Coming Soon"}
-                                </span>
+                                </Badge>
                             )}
                         </button>
                     ))}

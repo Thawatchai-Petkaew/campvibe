@@ -15,17 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { toast } from "sonner";
@@ -73,6 +63,7 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
   const { t, language, formatCurrency } = useLanguage();
   const [booking, setBooking] = useState(initialBooking);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const { labelKey, variant } = getBookingStatusMeta(booking.status);
   const statusLabel = labelKey
@@ -133,6 +124,7 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
             className="w-full h-48 md:h-64"
             imgClassName="object-cover"
             data-testid="img--booking-cover"
+            sizes="100vw"
           />
           <div className="absolute top-4 left-4">
             <Badge
@@ -261,45 +253,32 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
           {/* Action footer */}
           {isCancellable && (
             <div className="pt-4 border-t border-border/60">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    disabled={isCancelling}
-                    aria-label={t.bookings.cancelBookingAriaLabel}
-                    data-testid="btn--booking-cancel"
-                    className="w-full sm:w-auto text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full h-11 px-6 font-bold active:scale-95 transition-colors"
-                  >
-                    {isCancelling ? (
-                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      t.bookings.cancelBooking
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent data-testid="booking-cancel-dialog">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t.bookings.confirmCancelTitle}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t.bookings.confirmCancelDescription}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel size="default" className="rounded-full h-11">
-                      {t.bookings.keepBooking}
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      size="default"
-                      className="rounded-full h-11 active:scale-95"
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                    >
-                      {t.bookings.confirmCancelAction}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button
+                variant="ghost"
+                disabled={isCancelling}
+                aria-label={t.bookings.cancelBookingAriaLabel}
+                data-testid="btn--booking-cancel"
+                className="w-full sm:w-auto text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full h-11 px-6 font-bold active:scale-95 transition-colors"
+                onClick={() => setCancelDialogOpen(true)}
+              >
+                {isCancelling ? (
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  t.bookings.cancelBooking
+                )}
+              </Button>
+              <ConfirmDialog
+                open={cancelDialogOpen}
+                onOpenChange={setCancelDialogOpen}
+                title={t.bookings.confirmCancelTitle}
+                description={t.bookings.confirmCancelDescription}
+                confirmLabel={t.bookings.confirmCancelAction}
+                cancelLabel={t.bookings.keepBooking}
+                onConfirm={handleCancel}
+                isLoading={isCancelling}
+                destructive
+                data-testid="booking-cancel-dialog"
+              />
             </div>
           )}
         </div>

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { wishlistAPI } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { useTheme } from "next-themes";
 
 interface CampgroundCardProps {
     campground: CampSite & { location: { province: string }; images?: { url: string }[] };
@@ -24,6 +25,12 @@ interface CampgroundCardProps {
     avgRating?: number | null;
     /** CAM-147: total non-deleted review count. */
     reviewCount?: number;
+    /**
+     * CAM-199 (PERF-IMG-LCP): pass true only for the first N above-the-fold cards.
+     * Sets fetchpriority="high" + eager loading on the underlying next/image.
+     * Default false (lazy) for all below-the-fold cards.
+     */
+    priority?: boolean;
 }
 
 export function CampgroundCard({
@@ -33,15 +40,16 @@ export function CampgroundCard({
     onGuestHeartClick,
     avgRating,
     reviewCount = 0,
+    priority = false,
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
+    const { resolvedTheme } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [saved, setSaved] = useState(initialSaved);
     const [isLoading, setIsLoading] = useState(false);
 
-    const imageUrls = campground.images?.length ? campground.images.map((img) => img.url) : [
-        "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=800"
-    ];
+    const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
+    const imageUrls = campground.images?.length ? campground.images.map((img) => img.url) : [placeholderSrc];
 
     const nextImage = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -110,7 +118,7 @@ export function CampgroundCard({
                     {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
                         <div className="absolute top-3 left-3 z-10">
                             <Badge variant="secondary" className="h-6 px-2 text-xs font-medium bg-background/90 backdrop-blur-sm text-foreground shadow-sm border-border/50">
-                                New
+                                {t.common.new}
                             </Badge>
                         </div>
                     )}
@@ -119,9 +127,11 @@ export function CampgroundCard({
                     <div className="relative w-full h-full">
                         <ImageWithFallback
                             src={imageUrls[currentIndex]}
-                            alt={name}
+                            alt={campground.images?.length ? name : t.campground.noImageAlt}
                             className="w-full h-full"
                             imgClassName="object-cover group-hover:scale-105 transition duration-500 ease-out"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            priority={priority}
                         />
 
                         {/* Navigation Arrows (visible on hover) */}

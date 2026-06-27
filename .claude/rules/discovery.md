@@ -137,6 +137,8 @@ Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `n
 | "Put the event-code/class name/variable/testid in the AC." | Those live only in the technical spec. |
 | "An em-dash (—) is fine to separate Thai copy; jargon (API, webhook, endpoint) is fine in user copy." | Use plain language. |
 | "One big chunk across many concerns ships faster." | Split atomic; small work uses one ticket, add spec/tech/test only when genuinely complex. |
+| "Every task gets a Linear story card." | Card only deliverable work (feature/fix/perf/security with AC, tracked on /status, behind gates). Tooling/docs/config/process — a skill, the lessons ledger, a baseline doc — is a plain PR with no card; CAM-205/206 over-carded internal tooling. |
+| "A quick hotfix / one-off issue doesn't need a project." | Every tracked issue gets a project (+ a parent epic for a story) AT CREATION, or it orphans on /status and must be retro-grouped later (CAM-191 hotfix + the CAM-96..104 Atomic Schema epic both slipped). |
 | "Skip Linear and just build." | Research first, or you duplicate/conflict with existing work. |
 
 ## Verify (exit criteria)

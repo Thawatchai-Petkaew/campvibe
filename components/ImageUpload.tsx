@@ -69,6 +69,7 @@ export function ImageUpload({
                             alt={t.newCampground.imagePreview}
                             className="w-full h-full"
                             imgClassName="object-cover"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                         />
                         <button
                             type="button"
@@ -102,7 +103,7 @@ export function ImageUpload({
                             </div>
                             <div className="text-center px-2">
                                 <p className="text-xs font-semibold text-foreground">{t.newCampground.addPhotos}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{t.newCampground.upTo10Images}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.newCampground.upTo10Images}</p>
                             </div>
                         </>
                     )}

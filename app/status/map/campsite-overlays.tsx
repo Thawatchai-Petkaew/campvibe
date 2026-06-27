@@ -29,7 +29,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Compass, Database, ExternalLink, FileText, GitBranch, Globe, Inbox, Layers, Monitor, Server, ShieldCheck, Trophy, X } from "lucide-react";
+import { Check, CheckCircle2, CheckSquare, ClipboardCheck, Compass, CornerDownLeft, Database, ExternalLink, FileText, GitBranch, Globe, Inbox, Layers, Loader, Monitor, Server, ShieldCheck, Trophy, X } from "lucide-react";
+import { decodeHtmlEntities } from "@/lib/html-utils";
 import type {
   MapAgent,
   MapBacklogItem,
@@ -698,18 +699,34 @@ export const HUD_CSS = `
 .hud-dlv-mini{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 14px 12px;font-size:12px;font-weight:600;color:rgba(223,234,245,.7)}
 .hud-dlv-mini-val{color:#5BE9B0;font-size:13px;font-weight:700}
 /* ── Approval card ── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes apprCardGlow {
+    0%,100% { box-shadow:0 10px 32px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,220,130,.14),inset 0 0 0 1px rgba(255,190,80,.08); border-color:rgba(255,190,80,.32); }
+    50%      { box-shadow:0 10px 32px rgba(0,0,0,.44),0 0 18px rgba(255,160,52,.22),inset 0 1px 0 rgba(255,220,130,.22),inset 0 0 0 1px rgba(255,190,80,.16); border-color:rgba(255,190,80,.52); }
+  }
+}
 .hud-appr-card{
   width:220px;border-radius:18px;overflow:hidden;
-  border:1px solid rgba(255,190,80,.18);
-  background:rgba(11,30,24,.60);
-  backdrop-filter:saturate(195%) blur(28px);-webkit-backdrop-filter:saturate(195%) blur(28px);
-  box-shadow:0 8px 28px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,220,130,.08);
+  border:1.5px solid rgba(255,190,80,.32);
+  background:linear-gradient(160deg,rgba(40,26,6,.42),rgba(11,30,24,.54));
+  backdrop-filter:saturate(180%) blur(28px);-webkit-backdrop-filter:saturate(180%) blur(28px);
+  box-shadow:0 10px 32px rgba(0,0,0,.44),0 0 18px rgba(255,160,52,.12),inset 0 1px 0 rgba(255,220,130,.14),inset 0 0 0 1px rgba(255,190,80,.08);
+  position:relative;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hud-appr-card{animation:apprCardGlow 2.8s ease-in-out infinite}
 }
 .hud-appr-head{
   display:flex;align-items:center;gap:7px;justify-content:space-between;
   padding:11px 14px 0;
+  position:relative;
 }
-.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,190,80,.7)}
+.hud-appr-head::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,rgba(255,180,84,0),rgba(255,180,84,.6),rgba(255,180,84,0));
+  border-radius:18px 18px 0 0;
+}
+.hud-appr-heading{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#FFB454}
 .hud-appr-mini{
   display:flex;align-items:center;justify-content:space-between;
   padding:6px 14px 12px;
@@ -718,14 +735,18 @@ export const HUD_CSS = `
 .hud-appr-mini-label{display:flex;align-items:center;gap:6px;color:rgba(255,190,80,.85)}
 .hud-appr-body{padding:6px 14px 12px;display:flex;flex-direction:column;gap:4px}
 .hud-appr-item{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;
-  background:rgba(255,190,80,.06);border:1px solid rgba(255,190,80,.12);
+  display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:11px;
+  background:rgba(255,190,80,.09);border:1px solid rgba(255,190,80,.18);
+  width:100%;text-align:left;cursor:pointer;min-height:44px;
+  transition:background 120ms,border-color 120ms;
 }
-.hud-appr-badge{
-  flex:none;padding:2px 7px;border-radius:99px;font-size:9.5px;font-weight:700;letter-spacing:.04em;
-  background:rgba(255,190,80,.2);color:rgba(255,200,80,.9);
+.hud-appr-item:hover{background:rgba(255,190,80,.16);border-color:rgba(255,190,80,.28)}
+.hud-appr-item:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){
+  .hud-appr-item:active{opacity:.88;transform:scale(0.98)}
 }
-.hud-appr-title{flex:1;min-width:0;font-size:11.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud-appr-item:disabled{opacity:.45;cursor:not-allowed}
+.hud-appr-title{flex:1;min-width:0;font-size:12.5px;color:rgba(223,234,245,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hud-appr-link{
   flex:none;display:inline-flex;align-items:center;
   color:rgba(223,234,245,.35);transition:color 110ms;
@@ -733,12 +754,14 @@ export const HUD_CSS = `
 .hud-appr-link:hover{color:rgba(91,233,176,.8)}
 .hud-appr-btn{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  margin:4px 0 0;padding:9px 14px;border-radius:12px;
-  background:rgba(255,190,80,.12);border:1px solid rgba(255,190,80,.2);
-  font-size:12px;font-weight:700;color:rgba(255,200,80,.9);
-  cursor:pointer;transition:background 120ms,border-color 120ms;width:100%;
+  margin:4px 0 0;padding:11px 14px;border-radius:13px;min-height:44px;
+  background:rgba(255,190,80,.18);border:1.5px solid rgba(255,190,80,.32);
+  box-shadow:inset 0 1px 0 rgba(255,220,130,.18);
+  font-size:12.5px;font-weight:700;color:rgba(255,200,80,.9);
+  cursor:pointer;transition:background 120ms,border-color 120ms,box-shadow 120ms;width:100%;
 }
-.hud-appr-btn:hover{background:rgba(255,190,80,.2);border-color:rgba(255,190,80,.36)}
+.hud-appr-btn:hover{background:rgba(255,190,80,.26);border-color:rgba(255,190,80,.50);box-shadow:0 0 10px rgba(255,160,52,.2),inset 0 1px 0 rgba(255,220,130,.22)}
+.hud-appr-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 .hud-appr-collapse{
   display:flex;align-items:center;justify-content:center;
   width:26px;height:26px;border-radius:8px;border:none;
@@ -746,6 +769,117 @@ export const HUD_CSS = `
   transition:background 110ms,color 110ms;
 }
 .hud-appr-collapse:hover{background:rgba(255,190,80,.1);color:rgba(255,190,80,.9)}
+
+/* ── Gate Detail Modal ── */
+.hud-gate-modal-box{
+  width:min(520px,94vw);max-height:86vh;overflow-y:auto;
+  background:rgba(11,30,24,.68);
+  backdrop-filter:saturate(195%) blur(34px);-webkit-backdrop-filter:saturate(195%) blur(34px);
+  border:1px solid rgba(255,190,80,.22);border-radius:22px;
+  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(255,220,130,.12);
+  padding:22px 24px 26px;color:rgba(223,234,245,.9);
+}
+@media (prefers-reduced-motion:no-preference){
+  .hud-gate-modal-box{animation:modalIn 200ms cubic-bezier(0.23,1,0.32,1) both}
+}
+.hud-gate-modal-head{
+  display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;
+}
+.hud-gate-modal-icon{
+  width:40px;height:40px;border-radius:10px;flex:none;
+  background:rgba(255,190,80,.18);border:1px solid rgba(255,190,80,.28);
+  display:flex;align-items:center;justify-content:center;color:#FFB454;
+}
+.hud-gate-modal-titles{flex:1;min-width:0}
+.hud-gate-modal-key{
+  font-family:var(--mono,'JetBrains Mono','Fira Mono','Consolas',monospace);
+  font-size:11px;color:#FFB454;font-weight:700;letter-spacing:.04em;margin-bottom:3px;display:block;
+}
+.hud-gate-modal-title{
+  font-family:'Outfit','Anuphan',system-ui,sans-serif;
+  font-size:15px;font-weight:700;color:#F1F6FB;line-height:1.3;
+}
+.hud-gate-modal-meta{
+  font-size:11.5px;color:rgba(223,234,245,.55);
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  margin-bottom:14px;
+}
+.hud-gate-modal-meta-val{color:rgba(223,234,245,.8)}
+.hud-gate-modal-sep{height:1px;background:rgba(255,190,80,.14);margin:12px 0}
+.hud-gate-modal-desc{
+  font-size:12.5px;line-height:1.6;color:rgba(223,234,245,.78);
+  white-space:pre-wrap;word-break:break-word;
+  max-height:160px;overflow-y:auto;margin-bottom:14px;
+  scrollbar-width:thin;scrollbar-color:rgba(255,190,80,.2) transparent;
+}
+.hud-gate-modal-desc-empty{font-size:12.5px;color:rgba(223,234,245,.35);font-style:italic;margin-bottom:14px}
+.hud-gate-modal-desc-error{font-size:12.5px;color:rgba(255,120,90,.8);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hud-gate-modal-retry{
+  font-size:11.5px;font-weight:600;color:#5BE9B0;cursor:pointer;
+  background:none;border:1px solid rgba(91,233,176,.3);border-radius:6px;padding:3px 10px;
+  transition:background 120ms;
+}
+.hud-gate-modal-retry:hover{background:rgba(91,233,176,.1)}
+.hud-gate-modal-retry:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.hud-gate-modal-skel{
+  height:14px;border-radius:4px;
+  background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.06) 75%);
+  background-size:200% 100%;margin-bottom:8px;
+}
+@media (prefers-reduced-motion:no-preference){
+  .hud-gate-modal-skel{animation:hud-shimmer 1.4s linear infinite}
+}
+.hud-gate-modal-reason-label{
+  font-size:11px;font-weight:600;color:rgba(223,234,245,.55);margin-bottom:6px;display:block;
+}
+.hud-gate-modal-textarea{
+  width:100%;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,190,80,.22);
+  color:rgba(223,234,245,.88);font-size:12.5px;line-height:1.5;
+  padding:9px 11px;resize:vertical;min-height:64px;max-height:140px;
+  outline:none;font-family:inherit;transition:border-color 120ms;box-sizing:border-box;
+}
+.hud-gate-modal-textarea:focus{border-color:rgba(255,190,80,.5);box-shadow:0 0 0 2px rgba(255,190,80,.12)}
+.hud-gate-modal-textarea::placeholder{color:rgba(223,234,245,.3)}
+.hud-gate-modal-actions{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.hud-gate-btn-approve{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:11px 18px;border-radius:12px;min-height:44px;
+  background:rgba(255,190,80,.22);border:1.5px solid rgba(255,190,80,.40);
+  color:rgba(255,200,80,.95);font-size:13px;font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,220,130,.20);
+  cursor:pointer;transition:background 120ms,border-color 120ms,box-shadow 120ms;
+}
+.hud-gate-btn-approve:hover{background:rgba(255,190,80,.32);border-color:rgba(255,190,80,.60);box-shadow:0 0 12px rgba(255,160,52,.25),inset 0 1px 0 rgba(255,220,130,.24)}
+.hud-gate-btn-approve:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.hud-gate-btn-approve:disabled{opacity:.5;cursor:not-allowed}
+.hud-gate-btn-approve.confirm{background:rgba(255,190,80,.36);border-color:rgba(255,190,80,.68);box-shadow:0 0 14px rgba(255,160,52,.3),inset 0 1px 0 rgba(255,220,130,.26);color:#FFB454}
+.hud-gate-btn-approve.success{background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.30);color:rgba(91,233,176,.95);box-shadow:none}
+@media (prefers-reduced-motion:no-preference){
+  .hud-gate-btn-approve:not(:disabled):active{opacity:.88;transform:scale(0.97)}
+}
+.hud-gate-btn-reject{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:11px 16px;border-radius:12px;min-height:44px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+  color:rgba(223,234,245,.72);font-size:13px;font-weight:600;
+  cursor:pointer;transition:background 120ms,border-color 120ms;
+}
+.hud-gate-btn-reject:hover{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.22);color:rgba(223,234,245,.92)}
+.hud-gate-btn-reject:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.hud-gate-btn-reject:disabled{opacity:.5;cursor:not-allowed}
+@media (prefers-reduced-motion:no-preference){
+  .hud-gate-btn-reject:not(:disabled):active{opacity:.88;transform:scale(0.97)}
+}
+.hud-gate-link-linear{
+  margin-left:auto;display:inline-flex;align-items:center;gap:5px;
+  font-size:11.5px;font-weight:600;color:rgba(223,234,245,.45);text-decoration:none;
+  padding:6px 10px;border-radius:8px;min-height:44px;
+  transition:color 120ms,background 120ms;
+}
+.hud-gate-link-linear:hover{color:rgba(91,233,176,.8);background:rgba(91,233,176,.07)}
+.hud-gate-link-linear:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+.hud-gate-modal-action-error{font-size:11.5px;color:rgba(255,100,80,.8);margin-top:8px;width:100%}
 
 /* Epic open board button inside dock */
 .hud-board-btn {
@@ -1810,6 +1944,307 @@ export function EfilterChips({ efilter, onChange }: { efilter: "all" | "prog" | 
   );
 }
 
+// ── Gate actions (client fetch fns) ───────────────────────────────────────────
+
+export async function approveGate(id: string, token: string): Promise<{ ok: boolean; approved?: boolean }> {
+  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`/api/status/approve${qs}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json() as Promise<{ ok: boolean; approved?: boolean }>;
+}
+
+export async function rejectGate(id: string, reason: string, token: string): Promise<{ ok: boolean }> {
+  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`/api/status/reject${qs}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, reason: reason.trim() || undefined }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json() as Promise<{ ok: boolean }>;
+}
+
+interface IssueDetail {
+  id: string;
+  title: string;
+  status: string;
+  statusType: string;
+  role?: string;
+  description?: string;
+  url: string;
+  assignee?: { name: string } | null;
+  project?: { id: string; name: string } | null;
+  labels?: string[];
+}
+
+export async function fetchGateDetail(id: string, token: string): Promise<IssueDetail> {
+  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`/api/status/issue/${encodeURIComponent(id)}${qs}`);
+  if (res.status === 404) throw new Error("not_found");
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json() as Promise<IssueDetail>;
+}
+
+// ── GateDetailModal ────────────────────────────────────────────────────────────
+
+interface GateDetailModalProps {
+  gateId: string;
+  gateUrl: string;
+  token: string;
+  triggerRef: React.RefObject<HTMLElement | null>;
+  isOpen: boolean;
+  onClose: () => void;
+  onApproved: () => void;
+}
+
+type ApproveState = "idle" | "confirm" | "submitting" | "success" | "error";
+type RejectState  = "idle" | "submitting" | "error";
+type FetchState   = "loading" | "loaded" | "error";
+
+export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, onClose, onApproved }: GateDetailModalProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(boxRef as React.RefObject<HTMLElement | null>, triggerRef, isOpen, onClose);
+
+  const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [detail, setDetail] = useState<IssueDetail | null>(null);
+  const [reason, setReason] = useState("");
+  const [approveState, setApproveState] = useState<ApproveState>("idle");
+  const [rejectState, setRejectState] = useState<RejectState>("idle");
+  const [actionError, setActionError] = useState<string>("");
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch detail on open
+  useEffect(() => {
+    if (!isOpen) return;
+    setFetchState("loading");
+    setDetail(null);
+    setApproveState("idle");
+    setRejectState("idle");
+    setActionError("");
+    setReason("");
+    fetchGateDetail(gateId, token)
+      .then((d) => { setDetail(d); setFetchState("loaded"); })
+      .catch(() => setFetchState("error"));
+  }, [isOpen, gateId, token]);
+
+  // Clear confirm timer on unmount
+  useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current); }, []);
+
+  if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
+
+  const submitting = approveState === "submitting" || rejectState === "submitting";
+
+  function handleApproveClick() {
+    if (approveState === "idle" || approveState === "error") {
+      setApproveState("confirm");
+      setActionError("");
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = setTimeout(() => setApproveState("idle"), 3000);
+      return;
+    }
+    if (approveState === "confirm") {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      setApproveState("submitting");
+      approveGate(gateId, token)
+        .then(() => {
+          setApproveState("success");
+          setTimeout(() => { onClose(); onApproved(); }, 1500);
+        })
+        .catch(() => {
+          setApproveState("error");
+          setActionError("อนุมัติไม่สำเร็จ กรุณาลองใหม่");
+        });
+    }
+  }
+
+  function handleRejectClick() {
+    setRejectState("submitting");
+    setActionError("");
+    rejectGate(gateId, reason, token)
+      .then(() => { onClose(); onApproved(); })
+      .catch(() => {
+        setRejectState("error");
+        setActionError("ส่งกลับไม่สำเร็จ กรุณาลองใหม่");
+      });
+  }
+
+  function handleRetry() {
+    setFetchState("loading");
+    fetchGateDetail(gateId, token)
+      .then((d) => { setDetail(d); setFetchState("loaded"); })
+      .catch(() => setFetchState("error"));
+  }
+
+  const approveBtnLabel =
+    approveState === "confirm" ? "ยืนยันการอนุมัติ"
+    : approveState === "success" ? "อนุมัติแล้ว"
+    : "อนุมัติ";
+
+  const approveBtnCls =
+    approveState === "confirm" ? "hud-gate-btn-approve confirm"
+    : approveState === "success" ? "hud-gate-btn-approve success"
+    : "hud-gate-btn-approve";
+
+  const approveBtnText =
+    approveState === "submitting" ? null
+    : approveState === "confirm" ? "ยืนยัน?"
+    : approveState === "success" ? "อนุมัติแล้ว"
+    : "อนุมัติ";
+
+  const displayTitle = detail ? decodeHtmlEntities(detail.title) : gateId;
+
+  return createPortal(
+    <>
+      <div className="hud-modal-backdrop" aria-hidden="true" onClick={onClose} />
+      <div className="hud-modal" data-testid="modal--map-gate-detail">
+        <div
+          ref={boxRef}
+          className="hud-gate-modal-box"
+          role="dialog"
+          aria-modal="true"
+          aria-label="รายละเอียดงานรออนุมัติ"
+          tabIndex={-1}
+          data-testid="box--gate-detail-modal"
+        >
+          {/* Header */}
+          <div className="hud-gate-modal-head">
+            <div className="hud-gate-modal-icon" aria-hidden="true">
+              <CheckSquare size={18} strokeWidth={1.8} />
+            </div>
+            <div className="hud-gate-modal-titles">
+              <span className="hud-gate-modal-key">{gateId}</span>
+              <div className="hud-gate-modal-title">{displayTitle}</div>
+            </div>
+            <button
+              type="button"
+              className="hud-modal-close"
+              aria-label="ปิด"
+              onClick={() => { onClose(); triggerRef.current?.focus(); }}
+              data-testid="btn--gate-modal-close"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          {/* Meta row */}
+          {detail && (
+            <div className="hud-gate-modal-meta">
+              <span>สถานะ:<span className="hud-gate-modal-meta-val"> {detail.status}</span></span>
+              <span aria-hidden="true">·</span>
+              <span>บทบาท:<span className="hud-gate-modal-meta-val"> {detail.role ?? "—"}</span></span>
+            </div>
+          )}
+
+          {/* Separator */}
+          <div className="hud-gate-modal-sep" aria-hidden="true" />
+
+          {/* Description */}
+          {fetchState === "loading" && (
+            <div aria-busy="true" aria-label="กำลังโหลด">
+              <div className="hud-gate-modal-skel" style={{ width: "90%" }} />
+              <div className="hud-gate-modal-skel" style={{ width: "70%" }} />
+            </div>
+          )}
+          {fetchState === "error" && (
+            <div className="hud-gate-modal-desc-error" data-testid="error--gate-detail-fetch">
+              ดึงข้อมูลไม่ได้ กรุณาลองใหม่
+              <button type="button" className="hud-gate-modal-retry" onClick={handleRetry}>ลองใหม่</button>
+            </div>
+          )}
+          {fetchState === "loaded" && (
+            detail?.description ? (
+              <div className="hud-gate-modal-desc" data-testid="desc--gate-detail">
+                {detail.description}
+              </div>
+            ) : (
+              <div className="hud-gate-modal-desc-empty" data-testid="empty--gate-detail-desc">
+                ไม่มีคำอธิบาย
+              </div>
+            )
+          )}
+
+          {/* Separator */}
+          <div className="hud-gate-modal-sep" aria-hidden="true" />
+
+          {/* Reason textarea */}
+          <label className="hud-gate-modal-reason-label" htmlFor="gate-detail-reason">
+            เหตุผล (ถ้าจะส่งกลับ)
+          </label>
+          <textarea
+            id="gate-detail-reason"
+            className="hud-gate-modal-textarea"
+            aria-label="เหตุผลในการส่งกลับ"
+            placeholder="เพิ่มเหตุผล (ไม่บังคับ)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            readOnly={submitting}
+            data-testid="textarea--gate-reason"
+          />
+
+          {/* Actions */}
+          <div className="hud-gate-modal-actions">
+            <button
+              type="button"
+              className={approveBtnCls}
+              aria-label={approveBtnLabel}
+              disabled={submitting || approveState === "success"}
+              onClick={handleApproveClick}
+              data-testid="btn--gate-approve"
+            >
+              {approveState === "submitting" ? (
+                <Loader size={16} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Check size={15} aria-hidden="true" />
+              )}
+              {approveBtnText && <span>{approveBtnText}</span>}
+            </button>
+
+            <button
+              type="button"
+              className="hud-gate-btn-reject"
+              aria-label="ส่งกลับ"
+              disabled={submitting || approveState === "success"}
+              onClick={handleRejectClick}
+              data-testid="btn--gate-reject"
+            >
+              {rejectState === "submitting" ? (
+                <Loader size={16} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <CornerDownLeft size={15} aria-hidden="true" />
+              )}
+              <span>ส่งกลับ</span>
+            </button>
+
+            <a
+              href={gateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-gate-link-linear"
+              aria-label="เปิดใน Linear (เปิดแท็บใหม่)"
+              data-testid="link--gate-linear"
+            >
+              <ExternalLink size={13} aria-hidden="true" />
+              เปิด Linear
+            </a>
+          </div>
+
+          {actionError && (
+            <div className="hud-gate-modal-action-error" role="alert" data-testid="error--gate-action">
+              {actionError}
+            </div>
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
 // ── Summary Card (Step 3) ────────────────────────────────────────────────────
 
 function GaugeRing({ pct }: { pct: number }) {
@@ -2061,6 +2496,8 @@ interface ApprovalCardProps {
   collapsed: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  token: string;
+  onOpenDetail: (id: string) => void;
 }
 
 function ChevronToggle({ collapsed, onClick, label }: { collapsed: boolean; onClick: () => void; label: string }) {
@@ -2073,28 +2510,79 @@ function ChevronToggle({ collapsed, onClick, label }: { collapsed: boolean; onCl
   );
 }
 
-export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCardProps) {
+export function ApprovalCard({ gates, collapsed, onToggle, onOpen, token, onOpenDetail }: ApprovalCardProps) {
   const count = gates.length;
   const PRIORITY_ORDER: Record<string, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
   const sorted = [...gates].sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9));
+
+  // Confirm-morph state for approve-all footer CTA
+  const [approveAllState, setApproveAllState] = useState<"idle" | "confirm" | "submitting" | "success" | "error">("idle");
+  const [approveAllError, setApproveAllError] = useState<string>("");
+  const confirmAllTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (confirmAllTimerRef.current) clearTimeout(confirmAllTimerRef.current); }, []);
+
+  function handleApproveAllClick() {
+    if (approveAllState === "idle" || approveAllState === "error") {
+      setApproveAllState("confirm");
+      setApproveAllError("");
+      if (confirmAllTimerRef.current) clearTimeout(confirmAllTimerRef.current);
+      confirmAllTimerRef.current = setTimeout(() => setApproveAllState("idle"), 3000);
+      return;
+    }
+    if (approveAllState === "confirm") {
+      if (confirmAllTimerRef.current) clearTimeout(confirmAllTimerRef.current);
+      setApproveAllState("submitting");
+      // Approve sequentially
+      (async () => {
+        let failed = 0;
+        for (const g of sorted) {
+          try { await approveGate(g.id, token); }
+          catch { failed++; }
+        }
+        if (failed === 0) {
+          setApproveAllState("success");
+          setTimeout(() => { setApproveAllState("idle"); onOpen(); }, 1500);
+        } else {
+          setApproveAllState("error");
+          setApproveAllError(`อนุมัติสำเร็จ ${sorted.length - failed}/${sorted.length}`);
+        }
+      })();
+    }
+  }
+
+  const approveAllBtnText =
+    approveAllState === "submitting" ? null
+    : approveAllState === "confirm"  ? `ยืนยัน? (${count} รายการ)`
+    : approveAllState === "success"  ? "อนุมัติแล้ว"
+    : "อนุมัติทั้งหมด";
+
+  const approveAllDisabled = approveAllState === "submitting" || approveAllState === "success";
 
   if (collapsed) {
     return (
       <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
         <div className="hud-appr-head">
           <span className="hud-appr-heading">
-            <AlertTriangle size={12} strokeWidth={2} />
+            <ClipboardCheck size={13} strokeWidth={2} aria-hidden="true" />
             รออนุมัติ
           </span>
           <ChevronToggle collapsed onClick={onToggle} label="ขยายรออนุมัติ" />
         </div>
         <div className="hud-appr-mini">
           <span className="hud-appr-mini-label">
-            <AlertTriangle size={11} strokeWidth={2} />
+            <ClipboardCheck size={12} strokeWidth={2} aria-hidden="true" />
             {count} รายการรออนุมัติ
           </span>
-          <button type="button" className="hud-appr-btn" style={{ width: "auto", padding: "5px 12px", margin: 0, fontSize: "11px" }} onClick={onOpen}>
-            ดู
+          <button
+            type="button"
+            className="hud-appr-btn"
+            style={{ width: "auto", padding: "8px 14px", margin: 0, fontSize: "11px", minHeight: "36px" }}
+            onClick={handleApproveAllClick}
+            disabled={approveAllDisabled}
+            data-testid="btn--approval-card-cta-mini"
+          >
+            {approveAllState === "submitting" ? <Loader size={13} className="animate-spin" aria-hidden="true" /> : approveAllBtnText}
           </button>
         </div>
       </div>
@@ -2105,24 +2593,52 @@ export function ApprovalCard({ gates, collapsed, onToggle, onOpen }: ApprovalCar
     <div className="hud-appr-card" role="complementary" aria-label="งานรออนุมัติ">
       <div className="hud-appr-head">
         <span className="hud-appr-heading">
-          <AlertTriangle size={12} strokeWidth={2} />
+          <ClipboardCheck size={13} strokeWidth={2} aria-hidden="true" />
           รออนุมัติ {count} รายการ
         </span>
         <ChevronToggle collapsed={false} onClick={onToggle} label="ย่อรออนุมัติ" />
       </div>
       <div className="hud-appr-body">
         {sorted.map((g) => (
-          <div key={g.id} className="hud-appr-item">
-            {g.priority && <span className="hud-appr-badge">{g.priority}</span>}
+          <button
+            key={g.id}
+            type="button"
+            className="hud-appr-item"
+            aria-label={`ดูรายละเอียด ${g.id}`}
+            onClick={() => onOpenDetail(g.id)}
+            data-testid={`btn--approval-card-row-${g.id}`}
+          >
             <span className="hud-appr-title">{g.title}</span>
-            <a href={g.url} target="_blank" rel="noopener noreferrer" className="hud-appr-link" aria-label="เปิดใน Linear">
+            <a
+              href={g.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-appr-link"
+              aria-label={`เปิด ${g.id} ใน Linear`}
+              onClick={(e) => e.stopPropagation()}
+            >
               <ExternalLink size={12} strokeWidth={1.8} />
             </a>
-          </div>
+          </button>
         ))}
-        <button type="button" className="hud-appr-btn" onClick={onOpen}>
-          <AlertTriangle size={12} strokeWidth={2} />
-          ดูและอนุมัติทั้งหมด
+        {approveAllError && (
+          <div style={{ fontSize: "11px", color: "#FFB454", padding: "4px 2px" }} role="alert" data-testid="error--approval-all">
+            {approveAllError}
+          </div>
+        )}
+        <button
+          type="button"
+          className="hud-appr-btn"
+          onClick={handleApproveAllClick}
+          disabled={approveAllDisabled}
+          data-testid="btn--approval-card-cta"
+        >
+          {approveAllState === "submitting" ? (
+            <Loader size={14} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <ClipboardCheck size={14} strokeWidth={2} aria-hidden="true" />
+          )}
+          {approveAllBtnText}
         </button>
       </div>
     </div>
@@ -2153,7 +2669,7 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
 // ── ENV Picker (CAM-167) ─────────────────────────────────────────────────────
 
 const STAGING_URL = "https://campvibe-staging.vercel.app";
-const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL ?? "";
+const PROD_URL = process.env.NEXT_PUBLIC_PROD_URL || "https://campvibe.vercel.app";
 const ENV_PATH = "";
 
 export function EnvPickerPanel({
@@ -2207,7 +2723,7 @@ export function EnvPickerPanel({
               <span className="hud-env-card-link"><ExternalLink size={13} /> เปิดแท็บใหม่</span>
             </a>
             <a
-              href={(PROD_URL || STAGING_URL) + ENV_PATH}
+              href={PROD_URL + ENV_PATH}
               target="_blank"
               rel="noopener noreferrer"
               className="hud-env-card"

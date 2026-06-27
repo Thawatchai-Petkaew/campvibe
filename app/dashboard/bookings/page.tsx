@@ -29,12 +29,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
 import { Badge } from "@/components/ui/badge";
-
-function bookingStatusVariant(status: string): "success" | "destructive" | "muted" {
-    if (status === "CONFIRMED") return "success";
-    if (status === "CANCELLED") return "destructive";
-    return "muted";
-}
+import { getBookingStatusMeta } from "@/lib/booking-status";
 
 interface Booking {
     id: string;
@@ -302,11 +297,11 @@ export default function BookingsPage() {
                                     <SelectValue placeholder={t.dashboardBookings.status} />
                                 </div>
                             </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-border shadow-xl min-w-[180px]">
-                                <SelectItem value="ALL" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.allStatus}</SelectItem>
-                                <SelectItem value="PENDING" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.pending}</SelectItem>
-                                <SelectItem value="CONFIRMED" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.confirmed}</SelectItem>
-                                <SelectItem value="CANCELLED" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.cancelled}</SelectItem>
+                            <SelectContent className="rounded-2xl border-border shadow-lg min-w-[180px]">
+                                <SelectItem value="ALL" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.allStatus}</SelectItem>
+                                <SelectItem value="PENDING" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.pending}</SelectItem>
+                                <SelectItem value="CONFIRMED" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.confirmed}</SelectItem>
+                                <SelectItem value="CANCELLED" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboardBookings.cancelled}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -403,12 +398,17 @@ export default function BookingsPage() {
                                         </td>
                                         <td className="px-8 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-8 py-5">
-                                            <Badge
-                                                variant={bookingStatusVariant(booking.status)}
-                                                className="font-bold uppercase tracking-wider"
-                                            >
-                                                {booking.status}
-                                            </Badge>
+                                            {(() => {
+                                                const { variant } = getBookingStatusMeta(booking.status);
+                                                return (
+                                                    <Badge
+                                                        variant={variant}
+                                                        className="font-bold uppercase tracking-wider"
+                                                    >
+                                                        {booking.status}
+                                                    </Badge>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
@@ -471,12 +471,12 @@ export default function BookingsPage() {
                                     setCurrentPage(1);
                                 }}
                             >
-                                <SelectTrigger className="h-8 w-[70px] rounded-lg border-border bg-background">
+                                <SelectTrigger className="h-8 w-[70px] rounded-full border-border bg-background">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl">
                                     {[10, 20, 30, 40, 50].map(val => (
-                                        <SelectItem key={val} value={val.toString()} className="rounded-lg cursor-pointer">{val}</SelectItem>
+                                        <SelectItem key={val} value={val.toString()} className="rounded-xl cursor-pointer">{val}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -488,7 +488,7 @@ export default function BookingsPage() {
                                 variant="outline"
                                 size="icon"
                                 aria-label={t.dashboardBookings.previousPage}
-                                className="h-10 w-10 rounded-lg border-border"
+                                className="h-10 w-10 rounded-full border-border"
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
                             >
@@ -514,7 +514,7 @@ export default function BookingsPage() {
                                             key={pageNum}
                                             variant={currentPage === pageNum ? "default" : "outline"}
                                             size="sm"
-                                            className={`h-10 w-10 rounded-lg p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
+                                            className={`h-10 w-10 rounded-full p-0 font-normal ${currentPage === pageNum ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-transparent bg-transparent hover:bg-muted"}`}
                                             onClick={() => setCurrentPage(pageNum)}
                                         >
                                             {pageNum}
@@ -527,7 +527,7 @@ export default function BookingsPage() {
                                 variant="outline"
                                 size="icon"
                                 aria-label={t.dashboardBookings.nextPage}
-                                className="h-10 w-10 rounded-lg border-border"
+                                className="h-10 w-10 rounded-full border-border"
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
                             >

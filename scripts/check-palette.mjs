@@ -59,6 +59,9 @@ const EXCLUDE_PREFIXES = [
   join(ROOT, "scripts"),
   join(ROOT, "__tests__"),
   join(ROOT, "app", "status"),
+  // brand-asset SVG marks (Google/etc.) use their own brand colors — not design tokens (AUTH-G1)
+  // Scoped ONLY to components/icons/ — do not broaden this exclusion.
+  join(ROOT, "components", "icons"),
 ];
 
 /** Individual files excluded by absolute path. */

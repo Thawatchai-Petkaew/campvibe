@@ -1,11 +1,15 @@
 "use client";
 
-import { X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    Wifi, Utensils, ShowerHead, Car, Waves, Dumbbell, Snowflake,
+    ThermometerSun, Tv, Shirt, Wind, Zap, Bath, Coffee, ShoppingBasket,
+    Store, Droplets, Trash2, Table, CheckCircle2,
+} from "lucide-react";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import * as Icons from "lucide-react";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 
 interface AmenitiesModalProps {
     isOpen: boolean;
@@ -17,54 +21,52 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
     const { t } = useLanguage();
 
     const getIcon = (key: string) => {
-        // Map facility codes to Lucide icons
-        const iconMap: Record<string, any> = {
-            'WIFI': Icons.Wifi,
-            'KITC': Icons.Utensils,
-            'SHOW': Icons.ShowerHead,
-            'PARK': Icons.Car,
-            'POOL': Icons.Waves,
-            'GYM': Icons.Dumbbell,
-            'AC': Icons.Snowflake,
-            'HEAT': Icons.ThermometerSun,
-            'TV': Icons.Tv,
-            'WASH': Icons.Shirt,
-            'DRYE': Icons.Wind,
-            'ELEC': Icons.Zap,
-            'TOIL': Icons.Bath,
-            'CAFE': Icons.Coffee,
-            'REST': Icons.Utensils,
-            'CART': Icons.ShoppingBasket,
-            'LOTS': Icons.Store,
-            'MIBC': Icons.Store,
-            'MAKT': Icons.Store,
-            '711': Icons.Store,
-            'FEDW': Icons.Droplets,
-            'FEIC': Icons.Snowflake,
-            'GRIL': Icons.Utensils,
-            'SANI': Icons.Trash2,
-            'POTA': Icons.Droplets,
-            'SINK': Icons.Droplets,
-            'TRAS': Icons.Trash2,
-            'WATE': Icons.Droplets,
-            'MIMT': Icons.Store,
-            'PICN': Icons.Table,
-            'SVEL': Icons.Store,
+        // Map facility codes to Lucide icons (named imports only — PERF-BUNDLE fix, CAM-200)
+        const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+            'WIFI': Wifi,
+            'KITC': Utensils,
+            'SHOW': ShowerHead,
+            'PARK': Car,
+            'POOL': Waves,
+            'GYM': Dumbbell,
+            'AC': Snowflake,
+            'HEAT': ThermometerSun,
+            'TV': Tv,
+            'WASH': Shirt,
+            'DRYE': Wind,
+            'ELEC': Zap,
+            'TOIL': Bath,
+            'CAFE': Coffee,
+            'REST': Utensils,
+            'CART': ShoppingBasket,
+            'LOTS': Store,
+            'MIBC': Store,
+            'MAKT': Store,
+            '711': Store,
+            'FEDW': Droplets,
+            'FEIC': Snowflake,
+            'GRIL': Utensils,
+            'SANI': Trash2,
+            'POTA': Droplets,
+            'SINK': Droplets,
+            'TRAS': Trash2,
+            'WATE': Droplets,
+            'MIMT': Store,
+            'PICN': Table,
+            'SVEL': Store,
         };
-        const IconComponent = iconMap[key] || Icons.CheckCircle2;
+        const IconComponent = iconMap[key] ?? CheckCircle2;
         return <IconComponent className="w-6 h-6 text-muted-foreground" />;
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-                <DialogHeader className="p-6 pb-4 border-b">
-                    <div className="flex items-center justify-between">
-                        <DialogTitle className="text-xl font-bold">
-                            {t.campground.whatOffers}
-                        </DialogTitle>
-                    </div>
-                </DialogHeader>
+            <ModalContent className="max-w-2xl max-h-[85vh] flex flex-col gap-0" aria-describedby={undefined}>
+                <ModalHeader
+                    title={t.campground.whatOffers}
+                    closeLabel={t.common.close}
+                    onClose={onClose}
+                />
 
                 <ScrollArea className="flex-1 p-6">
                     <div className="grid gap-6">
@@ -72,7 +74,7 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                             <div key={facility} className="flex items-center gap-4 py-2 border-b last:border-0 border-border/60">
                                 {getIcon(facility)}
                                 <span className="text-foreground text-base">
-                                    {(t.filter as any)[facility] || facility}
+                                    {(t.filter as Record<string, string>)[facility] || facility}
                                 </span>
                             </div>
                         ))}
@@ -83,12 +85,13 @@ export function AmenitiesModal({ isOpen, onClose, facilities }: AmenitiesModalPr
                     <Button
                         onClick={onClose}
                         size="lg"
-                        className="w-full bg-foreground hover:bg-foreground/90 text-background text-base font-medium"
+                        variant="secondary"
+                        className="w-full"
                     >
                         {t.common.close}
                     </Button>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

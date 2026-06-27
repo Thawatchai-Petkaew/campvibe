@@ -83,6 +83,7 @@ The fast path for any UI work (full rules below):
 - Every neutral is **already tinted toward the teal hue** (hue ~197–228) — do not drop in a flat gray (zinc/slate/neutral numbered).
 - Dark mode flips automatically via `.dark` — **do not hand-write `dark:` color overrides.**
 - The `--color-primary:#0d9488` card value in `@theme` (top of globals.css) is a stale hex → the `:root` OKLCH is authoritative (cleanup is in the backlog).
+- `bg-foreground/50` or `bg-foreground/60` **over an image** (avatar hover scrim, gallery caption chip with `backdrop-blur`) is an **approved intentional use** at opacity — it is the correct light/dark-adaptive overlay idiom; not a CTA button, not a DS violation. Do not replace with a hardcoded color.
 
 ### Typography (bilingual)
 
@@ -178,10 +179,97 @@ The fast path for any UI work (full rules below):
 | pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` |
 | status label (not clickable) | `Badge` `rounded-xl` | status (confirmed/paid) uses `Badge` + token success/destructive/muted — **not a raw `<span>`** · a clickable filter → FilterChip (§ table) |
 | truncated text + tooltip | `TruncatedLabel` | — |
+| **icon-chip background** (stat cards, active nav, dashboard) | `<div>` / `<span>` wrapping an icon | `bg-(primary\|success\|warning\|info\|destructive)/10` — 10% opacity tint fill; pair with the matching `text-(color)` or `text-(color)-foreground` icon · ❌ do **not** apply this pattern to a `<Button>` or `<Badge>` className (use variant instead) |
+| **ghost-primary link-action** (utility/dashboard surfaces) | `<Button variant="ghost">` | add `className="text-primary hover:bg-primary/5"` — low-chrome "view / go" action on product-utility pages (dashboard, bookings list) · ❌ do **not** use as a primary CTA or on marketing/brand pages (use `default` or `link` variant) |
 
-### Composition (existing custom wrappers — reuse, do not rebuild)
+### Composition (existing primitives and wrappers — reuse, do not rebuild)
 
-`InputField` (input+label+inline error) · `InputGroup` · `DateRangePicker` · `ErrorBanner` (server error on a form) · `LoadingSpinner`/`Skeleton`/`LoadingSkeleton` (loading) · `PermissionTooltip` · `TruncatedLabel`.
+Before building anything new, check this list and the Component Index (§3.1 below). Re-implementing an existing primitive is the #1 source of UI drift (CAM-220/CAM-221).
+
+| primitive | file | use when |
+|---|---|---|
+| `ModalHeader` / `ModalContent` | `components/ui/modal-shell.tsx` | every modal's header band + shell (centered title, divider, 44px close, `rounded-3xl`) — the **canonical modal shell**; do not hand-roll a modal header |
+| `EmptyState` | `components/EmptyState.tsx` | empty result / no-data state with an illustration |
+| `ErrorState` | `components/ErrorState.tsx` | error / not-found / forbidden — full-page or inline |
+| `ConfirmDialog` | `components/ui/confirm-dialog.tsx` | canonical destructive-confirm wrapper over `AlertDialog`; **use when: destructive/confirm dialog** (delete, cancel, remove member) — do not hand-roll a confirm dialog |
+| `InputField` | `components/ui/input-field.tsx` | input + label + inline error in one unit |
+| `InputGroup` | `components/ui/input-group.tsx` | grouped inputs (e.g. date pair) |
+| `DateRangePicker` | `components/ui/date-range-picker.tsx` | pick a date range (wraps Calendar + Popover) |
+| `ErrorBanner` | `components/ui/error-banner.tsx` | server / form-submit error shown at the top of a form |
+| `LoadingSpinner` | `components/ui/loading-spinner.tsx` | inline / button loading indicator |
+| `Skeleton` | `components/ui/skeleton.tsx` | single-element loading placeholder |
+| `LoadingSkeleton` | `components/ui/loading-skeleton.tsx` | composite page/card skeleton (use for route-level loading) |
+| `PermissionTooltip` | `components/ui/permission-tooltip.tsx` | wrap a disabled control to explain why it is disabled |
+| `TruncatedLabel` | `components/ui/truncated-label.tsx` | text that may overflow — shows a tooltip with full text |
+| `FilterChip` | `components/ui/filter-chip.tsx` | multi-select / toggle filter pill |
+| `ImageWithFallback` | `components/ui/image-with-fallback.tsx` | `next/image` with a graceful fallback |
+
+### Dropdown / select grammar (canonical — resolves the "which dropdown is correct" question)
+
+`Select` and `DropdownMenu` are **different primitives for different jobs** and must NOT be mixed:
+
+| primitive | job | example in the codebase |
+|---|---|---|
+| `Select` | Pick one value from a list (form control) — shows a persistent selected-check mark | `SortDropdown` — the canonical sort picker |
+| `DropdownMenu` | Action / account menu — navigate to an action, no persistent selected state | Navbar profile menu |
+
+**Shared item grammar (both primitives must use this — no exceptions):**
+
+`rounded-xl` · `py-2.5` · `font-normal` · `focus:bg-accent`
+
+**Shared content grammar** (the container that wraps items — part of the same contract):
+
+`rounded-2xl` · **`p-1.5`** (items inset so the hover pill floats — applies to `Select`, `DropdownMenu`, and `Command` content alike; `Select` applies `p-1.5` on the `Viewport`, `DropdownMenu` on the `Content` directly — the visual result is identical)
+
+Consumers **must not** override the item focus state (e.g. no per-item `focus:bg-primary/10`). The Navbar Host-Dashboard item currently violates this rule and will be corrected in story A1.
+
+### §3.1 Component Index — check before building any UI (SoT for agents)
+
+> **Check this index before building any UI — reuse, do not rebuild.** If a primitive exists here, use it. If DESIGN.md names a primitive as "(planned)", build that primitive first (don't hand-roll inline).
+
+#### `components/ui/*` primitives (31)
+
+| component | use when | role/radius note |
+|---|---|---|
+| `alert-dialog` | Confirm / destructive action — the only modal that prompts for consent | `rounded-3xl` |
+| `badge` | Status label (not clickable) — confirmed / paid / pending | `rounded-xl`; pair with a token color + text/icon (never color-only) |
+| `button` | All buttons | `rounded-full`; size sm/md/lg; 1 primary per view |
+| `calendar` | Pick a single date | trigger `rounded-full h-11` |
+| `card` | Raised surface grouping related content | `rounded-3xl p-4 md:p-6` |
+| `checkbox` | Boolean toggle in a form | — |
+| `command` | Searchable list (long / province / place) — use inside a `Popover` | item `rounded-xl` |
+| `date-range-picker` | Pick a start + end date | wraps `Calendar` + `Popover` |
+| `dialog` | Focused-task modal (centered) | `rounded-3xl`, close `h-11 w-11` |
+| `dropdown-menu` | Action / account menu — no persistent selected state | content `rounded-2xl` · item `rounded-xl py-2.5 font-normal focus:bg-accent` |
+| `error-banner` | Server error shown at the top of a form after submit | — |
+| `filter-chip` | Multi-select / toggle filter pill | `rounded-full`; selected = `bg-foreground text-background` |
+| `image-with-fallback` | `next/image` with a graceful fallback | — |
+| `input` | Raw text input (use `input-field` when label + error needed) | `rounded-full h-11` |
+| `input-field` | Input + label + inline error in one unit | — |
+| `input-group` | Grouped inputs (e.g. date pair) | — |
+| `label` | Form field label | — |
+| `loading-skeleton` | Composite page/card skeleton (route-level loading) | — |
+| `loading-spinner` | Inline / button loading indicator | — |
+| `modal-shell` (`ModalHeader` / `ModalContent`) | Every modal's header band + shell — canonical modal shell | centered title, divider, 44px close, `rounded-3xl` |
+| `permission-tooltip` | Wrap a disabled control to explain why it is disabled | — |
+| `popover` | Small anchored panel (date, picker, command) | `rounded-2xl` |
+| `scroll-area` | Scrollable container with styled scrollbar | — |
+| `select` | Pick one value from a short list (form control) | trigger `rounded-full h-11` · content `rounded-2xl` · item `rounded-xl py-2.5` |
+| `sheet` | Side / bottom drawer — long or contextual content | — |
+| `skeleton` | Single-element loading placeholder | — |
+| `sonner` | Transient toast feedback | — |
+| `tabs` | Switch sections within one page (not cross-page nav) | — |
+| `textarea` | Multi-line text input | `rounded-3xl` |
+| `tooltip` | Short hint text only — no action | — |
+| `truncated-label` | Text that may overflow — shows full text in a tooltip | — |
+
+#### Composed components (`components/`)
+
+| component | file | use when |
+|---|---|---|
+| `EmptyState` | `components/EmptyState.tsx` | Empty result / no-data state with illustration |
+| `ErrorState` | `components/ErrorState.tsx` | Error / not-found / forbidden — full-page or inline |
+| `ConfirmDialog` | `components/ui/confirm-dialog.tsx` | Canonical destructive-confirm over `AlertDialog` — use for delete, cancel, remove member |
 
 ### Interaction states + accessibility (required on every interactive element)
 

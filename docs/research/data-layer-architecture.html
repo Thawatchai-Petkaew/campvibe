@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampVibe — Data-Layer Architecture &amp; Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===================== TOKENS ===================== */
+:root {
+  --text: #F1F6FB;
+  --muted: rgba(223,234,245,.66);
+  --faint: rgba(223,234,245,.42);
+
+  --teal: #2dd4bf;
+  --teal-dim: rgba(45,212,191,.18);
+  --teal-glow: rgba(45,212,191,.45);
+  --teal-border: rgba(45,212,191,.38);
+
+  --amber: #FFB454;
+  --amber-2: #FF9D3C;
+  --amber-glow: rgba(255,150,52,.55);
+  --amber-bg: rgba(58,38,18,.45);
+  --amber-border: rgba(255,150,52,.45);
+
+  --red: #f87171;
+  --red-bg: rgba(60,18,18,.42);
+  --red-border: rgba(248,113,113,.38);
+
+  --blue: #8FB8F0;
+  --blue-bg: rgba(18,38,70,.42);
+  --blue-border: rgba(143,184,240,.35);
+
+  --green: #4ade80;
+  --green-bg: rgba(18,60,30,.42);
+  --green-border: rgba(74,222,128,.38);
+
+  --grey-pill: rgba(130,140,160,.18);
+  --grey-border: rgba(180,190,210,.25);
+
+  --glass: rgba(16,26,42,.48);
+  --glass-2: rgba(26,38,60,.54);
+  --line: rgba(255,255,255,.12);
+  --line-2: rgba(255,255,255,.2);
+  --hi: rgba(255,255,255,.14);
+  --blur: saturate(150%) blur(20px);
+
+  --r: 20px;
+  --r-sm: 14px;
+  --r-xs: 10px;
+  --disp: 'Outfit', system-ui, sans-serif;
+  --body: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* light overrides */
+html:not(.dark) {
+  --text: #0d1b2a;
+  --muted: rgba(30,50,80,.72);
+  --faint: rgba(30,50,80,.45);
+  --glass: rgba(240,248,255,.72);
+  --glass-2: rgba(225,238,252,.76);
+  --line: rgba(0,40,80,.12);
+  --line-2: rgba(0,40,80,.2);
+  --hi: rgba(255,255,255,.6);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh}
+body{
+  font-family:var(--body);
+  color:var(--text);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ===== BACKGROUND ===== */
+.scene{
+  position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:linear-gradient(170deg,#060b1a 0%,#091324 30%,#0e2742 62%,#123a40 85%,#163f3a 100%);
+}
+html:not(.dark) .scene{
+  background:linear-gradient(170deg,#dff4f0 0%,#e8f5f2 30%,#d0ecea 62%,#c8e8e2 100%);
+}
+.aurora{
+  position:absolute;inset:-10% -10% auto;height:70%;
+  filter:blur(60px);opacity:.38;mix-blend-mode:screen;
+  background:
+    radial-gradient(40% 60% at 25% 30%,rgba(45,212,191,.6),transparent 70%),
+    radial-gradient(46% 64% at 68% 18%,rgba(80,180,255,.45),transparent 72%),
+    radial-gradient(38% 56% at 82% 36%,rgba(120,230,180,.5),transparent 70%);
+}
+@media (prefers-reduced-motion:no-preference){
+  .aurora{animation:drift 22s ease-in-out infinite alternate}
+}
+@keyframes drift{0%{transform:translateX(-3%) translateY(0)}100%{transform:translateX(4%) translateY(2%)}}
+
+/* ===== LAYOUT ===== */
+.wrap{
+  position:relative;z-index:5;
+  max-width:1100px;margin:0 auto;
+  padding:28px 22px 80px;
+  display:flex;flex-direction:column;gap:18px;
+}
+
+/* ===== GLASS CARD ===== */
+.glass{
+  background:var(--glass);
+  backdrop-filter:var(--blur);
+  -webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi);
+}
+.card{padding:28px 30px}
+
+/* ===== HEADER ===== */
+.header-row{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;
+  padding:22px 28px 20px;
+}
+.header-title{
+  font-family:var(--disp);font-weight:700;
+  font-size:clamp(18px,3vw,26px);
+  line-height:1.2;letter-spacing:-.02em;
+  color:var(--text);
+}
+.header-sub{
+  font-size:13.5px;color:var(--muted);
+  margin-top:7px;font-family:var(--body);
+}
+.not-measured-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--amber-bg);
+  border:1.5px solid var(--amber-border);
+  color:var(--amber);
+  font-family:var(--mono);font-size:11.5px;font-weight:600;
+  padding:9px 16px;border-radius:999px;
+  margin-top:13px;line-height:1.3;
+  box-shadow:0 4px 18px -6px var(--amber-glow);
+}
+.not-measured-pill svg{flex:none;width:16px;height:16px}
+
+/* toggle button */
+.toggle-btn{
+  flex:none;
+  border:1px solid var(--line-2);
+  background:var(--glass-2);
+  color:var(--muted);
+  font-family:var(--mono);font-size:11px;
+  padding:9px 14px;border-radius:12px;
+  cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  backdrop-filter:var(--blur);
+  -webkit-backdrop-filter:var(--blur);
+  white-space:nowrap;
+  transition:border-color .15s,color .15s;
+}
+.toggle-btn:hover{border-color:var(--teal-border);color:var(--teal)}
+.toggle-btn:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+
+/* ===== SECTION HEADING ===== */
+.sec-h{
+  font-family:var(--disp);font-weight:600;
+  font-size:15px;color:var(--text);
+  display:flex;align-items:center;gap:9px;
+  margin-bottom:18px;
+}
+.sec-h svg{width:18px;height:18px;flex:none;opacity:.85}
+.sec-label{
+  font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint);margin-left:auto;
+}
+
+/* ===== TL;DR ===== */
+.tldr-body{
+  font-size:15px;line-height:1.7;color:var(--text);
+}
+.tldr-body strong{color:var(--teal);font-weight:600;}
+.tldr-nums{
+  display:flex;flex-direction:column;gap:10px;margin-top:14px;
+}
+.tldr-point{
+  display:flex;align-items:flex-start;gap:12px;
+  background:var(--glass-2);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:12px 15px;
+  font-size:14px;
+}
+.tldr-point .num{
+  font-family:var(--mono);font-weight:600;font-size:13px;
+  color:var(--amber);background:var(--amber-bg);
+  border:1px solid var(--amber-border);
+  border-radius:999px;width:26px;height:26px;
+  flex:none;display:grid;place-items:center;
+}
+.tldr-point .txt{color:var(--text);line-height:1.5;}
+.tldr-point .txt em{color:var(--red);font-style:normal;font-family:var(--mono);font-size:12px;}
+
+/* ===== DATA FLOW (Current vs Target) ===== */
+.flow-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.flow-panel{
+  border-radius:var(--r-sm);padding:20px;
+  border:1px solid var(--line);
+  background:var(--glass-2);
+}
+.flow-panel.current{border-color:var(--red-border);background:var(--red-bg);}
+.flow-panel.target{border-color:var(--teal-border);background:var(--teal-dim);}
+.flow-label{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;padding:5px 10px;border-radius:999px;
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+}
+.flow-label.red{color:var(--red);background:var(--red-bg);border:1px solid var(--red-border);}
+.flow-label.teal{color:var(--teal);background:var(--teal-dim);border:1px solid var(--teal-border);}
+.flow-chain{display:flex;flex-direction:column;gap:6px;}
+.flow-node{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.04);border:1px solid var(--line);
+  border-radius:var(--r-xs);padding:9px 12px;
+  font-size:13px;color:var(--text);
+}
+.flow-node.bad{border-color:var(--red-border);}
+.flow-node.good{border-color:var(--teal-border);}
+.flow-arrow{
+  display:flex;justify-content:center;align-items:center;
+  color:var(--faint);height:14px;
+}
+.flow-chip{
+  font-family:var(--mono);font-size:10.5px;
+  color:var(--faint);background:rgba(0,0,0,.22);
+  padding:3px 8px;border-radius:6px;margin-left:auto;flex:none;
+  border:1px solid rgba(255,255,255,.08);white-space:nowrap;
+}
+.flow-chip.bad-chip{color:var(--red);}
+.flow-chip.good-chip{color:var(--teal);}
+
+/* ===== PHASE DAG ===== */
+.dag-wrap{overflow-x:auto;padding-bottom:8px;}
+.dag{display:flex;align-items:stretch;gap:0;min-width:720px;}
+.phase-col{
+  display:flex;flex-direction:column;gap:8px;
+  padding:0 10px;min-width:148px;flex:1;
+}
+.phase-col:first-child{padding-left:0}
+.phase-col:last-child{padding-right:0}
+.phase-hdr{
+  font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint);
+  margin-bottom:6px;padding-bottom:8px;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:7px;
+}
+.phase-name{font-family:var(--disp);font-weight:600;font-size:12.5px;color:var(--muted);}
+
+/* story pill */
+.spill{
+  display:flex;align-items:center;gap:8px;
+  border-radius:var(--r-xs);padding:9px 11px;
+  border:1px solid var(--line);
+  background:var(--glass-2);
+  font-size:12px;
+}
+.spill-id{font-family:var(--mono);font-size:10px;font-weight:600;flex:none;}
+.spill-txt{color:var(--text);line-height:1.3;flex:1;}
+.spill.decided{border-color:var(--teal-border);background:var(--teal-dim);}
+.spill.decided .spill-id{color:var(--teal);}
+.spill.done{border-color:var(--green-border);background:var(--green-bg);}
+.spill.done .spill-id{color:var(--green);}
+.spill.measure{border-color:var(--amber-border);background:var(--amber-bg);}
+.spill.measure .spill-id{color:var(--amber);}
+.spill.deferred{border-color:var(--grey-border);opacity:.6;}
+.spill.deferred .spill-id{color:var(--faint);}
+.spill.blocked{
+  border-color:var(--amber-border);
+  background:repeating-linear-gradient(
+    -45deg,
+    rgba(255,150,52,.06) 0px,
+    rgba(255,150,52,.06) 4px,
+    transparent 4px,
+    transparent 10px
+  );
+}
+.spill.blocked .spill-id{color:var(--amber);}
+.spill.parallel{border-color:var(--blue-border);background:var(--blue-bg);}
+.spill.parallel .spill-id{color:var(--blue);}
+
+.check-icon{color:var(--green);flex:none;width:14px;height:14px;}
+
+/* gate divider */
+.gate-divider{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 4px;min-width:62px;flex:none;
+}
+.gate-line{width:2px;flex:1;background:repeating-linear-gradient(
+  180deg,var(--amber) 0 5px,transparent 5px 11px
+);}
+.gate-pill{
+  font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber);background:var(--amber-bg);
+  border:1.5px solid var(--amber-border);
+  border-radius:999px;padding:7px 10px;
+  text-align:center;writing-mode:vertical-rl;
+  text-orientation:mixed;line-height:1.3;
+  transform:rotate(180deg);
+  box-shadow:0 0 18px -4px var(--amber-glow);
+  white-space:nowrap;
+}
+
+/* dag legend */
+.dag-legend{
+  display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;
+}
+.dleg{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--muted);
+  font-family:var(--mono);
+}
+.dleg .dot{width:10px;height:10px;border-radius:3px;flex:none;}
+.dleg .dot.decided{background:var(--teal);opacity:.8;}
+.dleg .dot.done{background:var(--green);opacity:.8;}
+.dleg .dot.measure{background:var(--amber);opacity:.8;}
+.dleg .dot.blocked{
+  background:repeating-linear-gradient(-45deg,var(--amber) 0 2px,transparent 2px 5px);
+}
+.dleg .dot.deferred{background:var(--faint);}
+.dleg .dot.parallel{background:var(--blue);opacity:.8;}
+
+/* blocked-on edge note */
+.blocked-note{
+  font-size:11px;color:var(--amber);
+  font-family:var(--mono);
+  margin-top:4px;padding:4px 10px;
+  background:var(--amber-bg);border:1px dashed var(--amber-border);
+  border-radius:8px;text-align:center;
+}
+
+/* ===== IMAGE PIPELINE ===== */
+.img-table-wrap{overflow-x:auto;}
+table.img-table{
+  width:100%;border-collapse:collapse;
+  font-size:13px;
+}
+table.img-table th{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--faint);
+  padding:10px 13px;border-bottom:1px solid var(--line);
+  text-align:left;white-space:nowrap;
+}
+table.img-table td{
+  padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--text);vertical-align:top;
+}
+table.img-table td.mono-cell{
+  font-family:var(--mono);font-size:11.5px;color:var(--blue);
+}
+table.img-table td.flag-cell{
+  font-family:var(--mono);font-size:11px;
+  color:var(--muted);
+}
+table.img-table tr:last-child td{border-bottom:none;}
+
+.callout-amber{
+  display:flex;align-items:flex-start;gap:14px;
+  background:var(--amber-bg);border:1.5px solid var(--amber-border);
+  border-radius:var(--r-sm);padding:15px 18px;
+  margin-top:16px;
+  box-shadow:0 4px 18px -8px var(--amber-glow);
+}
+.callout-amber svg{flex:none;width:20px;height:20px;color:var(--amber);margin-top:1px;}
+.callout-amber .ca-body{font-size:13.5px;color:var(--text);line-height:1.6;}
+.callout-amber .ca-body strong{color:var(--amber);}
+
+/* ===== METRIC TABLE ===== */
+table.metric-table{
+  width:100%;border-collapse:collapse;font-size:13px;
+}
+table.metric-table caption{
+  font-size:11.5px;color:var(--muted);
+  font-family:var(--mono);padding:0 0 12px;
+  text-align:left;caption-side:bottom;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--line);
+}
+table.metric-table th{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--faint);
+  padding:10px 13px;border-bottom:1px solid var(--line);
+  text-align:left;
+}
+table.metric-table td{
+  padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--text);vertical-align:middle;
+}
+table.metric-table tr:last-child td{border-bottom:none;}
+.metric-name{font-weight:600;font-family:var(--disp);font-size:13.5px;}
+.target-cell{
+  font-family:var(--mono);font-size:12px;
+  color:var(--teal);font-weight:600;
+}
+.pending-cell{
+  font-family:var(--mono);font-size:11.5px;
+  color:var(--faint);
+}
+
+/* ===== DECISION LOG ===== */
+table.dec-table{
+  width:100%;border-collapse:collapse;font-size:13px;
+}
+table.dec-table th{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--faint);
+  padding:9px 13px;border-bottom:1px solid var(--line);
+  text-align:left;white-space:nowrap;
+}
+table.dec-table td{
+  padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--text);vertical-align:top;line-height:1.5;
+}
+table.dec-table tr:last-child td{border-bottom:none;}
+.dec-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;white-space:nowrap;
+}
+.dec-pill.decided{color:var(--teal);background:var(--teal-dim);border:1px solid var(--teal-border);}
+.dec-pill.done{color:var(--green);background:var(--green-bg);border:1px solid var(--green-border);}
+.dec-pill.deferred{color:var(--faint);background:var(--grey-pill);border:1px solid var(--grey-border);}
+.dec-pill.blocked{color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-border);}
+
+/* ===== BACKLOG TABLE ===== */
+.backlog-wrap{overflow-x:auto;}
+table.backlog{
+  width:100%;border-collapse:collapse;
+  font-family:var(--mono);font-size:12px;
+  min-width:780px;
+}
+table.backlog th{
+  font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--faint);padding:9px 12px;
+  border-bottom:1px solid var(--line);text-align:left;
+}
+table.backlog td{
+  padding:8px 12px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  vertical-align:top;line-height:1.45;
+}
+table.backlog tr:last-child td{border-bottom:none;}
+table.backlog td.id-cell{
+  font-weight:600;white-space:nowrap;
+}
+table.backlog td.dep-cell{color:var(--faint);font-size:11px;}
+table.backlog td.ev-cell{color:var(--blue);font-size:11px;}
+.bpill{
+  display:inline-block;
+  font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:999px;
+  border:1px solid;white-space:nowrap;
+}
+.bpill.p0{color:var(--red);border-color:var(--red-border);background:var(--red-bg);}
+.bpill.p1{color:var(--amber);border-color:var(--amber-border);background:var(--amber-bg);}
+.bpill.p2{color:var(--blue);border-color:var(--blue-border);background:var(--blue-bg);}
+.bpill.p3{color:var(--teal);border-color:var(--teal-border);background:var(--teal-dim);}
+.bpill.p4{color:var(--faint);border-color:var(--grey-border);background:var(--grey-pill);}
+
+.bstat{
+  display:inline-block;
+  font-size:9px;font-weight:700;
+  padding:2px 7px;border-radius:999px;
+  border:1px solid;white-space:nowrap;
+}
+.bstat.gate{color:var(--amber);border-color:var(--amber-border);background:var(--amber-bg);}
+.bstat.done{color:var(--green);border-color:var(--green-border);background:var(--green-bg);}
+.bstat.ready{color:var(--teal);border-color:var(--teal-border);background:var(--teal-dim);}
+.bstat.blocked{color:var(--amber);border-color:var(--amber-border);background:var(--amber-bg);}
+.bstat.deferred{color:var(--faint);border-color:var(--grey-border);background:var(--grey-pill);}
+.bstat.wip{color:var(--blue);border-color:var(--blue-border);background:var(--blue-bg);}
+
+/* ===== FOOTER CTA ===== */
+.cta-card{
+  background:linear-gradient(160deg,rgba(255,150,52,.16),rgba(45,212,191,.1));
+  border:1.5px solid var(--amber-border);
+  border-radius:var(--r);
+  padding:26px 30px;
+  box-shadow:0 14px 44px rgba(0,0,0,.34),inset 0 1px 0 var(--hi),0 0 48px -18px var(--amber-glow);
+}
+.cta-card .cta-h{
+  font-family:var(--disp);font-weight:700;font-size:17px;
+  color:var(--text);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.cta-card .cta-h svg{color:var(--amber);flex:none;width:22px;height:22px;}
+.cta-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.cta-item{
+  background:rgba(0,0,0,.2);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:14px 16px;
+}
+.cta-item .cta-k{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:6px;
+}
+.cta-item .cta-v{font-size:13px;color:var(--text);line-height:1.5;}
+.cta-item .cta-v strong{color:var(--teal);}
+.cta-item.warn .cta-v strong{color:var(--amber);}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:860px){
+  .flow-cols{grid-template-columns:1fr;}
+  .cta-grid{grid-template-columns:1fr 1fr;}
+  .card{padding:22px 20px;}
+  .header-row{padding:18px 20px 16px;}
+}
+@media (max-width:760px){
+  .cta-grid{grid-template-columns:1fr;}
+  .dag{min-width:600px;}
+  .phase-col{min-width:120px;}
+}
+@media (max-width:560px){
+  .wrap{padding:18px 12px 56px;}
+  .card{padding:18px 15px;}
+  .header-row{padding:15px 16px 14px;}
+  .header-title{font-size:18px;}
+  .gate-pill{font-size:8px;}
+  table.backlog{font-size:11px;}
+  .not-measured-pill{font-size:10.5px;}
+}
+
+/* ===== UTILITY ===== */
+.mono{font-family:var(--mono);}
+.muted{color:var(--muted);}
+.faint{color:var(--faint);}
+.teal{color:var(--teal);}
+.amber{color:var(--amber);}
+.red{color:var(--red);}
+.green{color:var(--green);}
+.blue{color:var(--blue);}
+.row-gap{display:flex;flex-direction:column;gap:14px;}
+</style>
+</head>
+<body>
+
+<!-- Background scene -->
+<div class="scene" aria-hidden="true">
+  <div class="aurora"></div>
+</div>
+
+<main class="wrap" role="main">
+
+  <!-- ===== 1. HEADER ===== -->
+  <header class="glass" aria-label="Document header">
+    <div class="header-row">
+      <div>
+        <h1 class="header-title">CampVibe — Data-Layer Architecture &amp; Roadmap</h1>
+        <p class="header-sub">Research + Solution Design · Phase ถัดไป</p>
+        <div class="not-measured-pill" role="note" aria-label="Not measured warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          ยังไม่ได้วัดจริง (NOT MEASURED) — ตัวเลขเป็นเชิงกลไก ขั้นแรกคือ MEAS-1 วัดก่อน
+        </div>
+      </div>
+      <button
+        class="toggle-btn"
+        id="theme-toggle"
+        aria-label="Toggle light/dark mode"
+        onclick="document.documentElement.classList.toggle('dark');this.textContent=document.documentElement.classList.contains('dark')?'☀ Light':'◑ Dark';"
+      >◑ Dark</button>
+    </div>
+  </header>
+
+  <!-- ===== 2. TL;DR ===== -->
+  <section class="glass card" aria-labelledby="tldr-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="tldr-h">TL;DR — ปัญหาหลักคืออะไร</span>
+      <span class="sec-label">SUMMARY</span>
+    </div>
+    <p class="tldr-body">
+      ที่ช้าไม่ใช่เพราะข้อมูลเยอะ แต่เพราะ <strong>โครงสร้าง</strong> — แก้ไขได้โดยไม่ต้องเปลี่ยน stack
+    </p>
+    <div class="tldr-nums">
+      <div class="tldr-point">
+        <div class="num">1</div>
+        <div class="txt">
+          หน้า Home เป็น <em>force-dynamic</em> = ปิด cache ทุก request → query ใหม่ทุกครั้ง ทุกคนที่เข้า
+        </div>
+      </div>
+      <div class="tldr-point">
+        <div class="num">2</div>
+        <div class="txt">
+          Over-fetch — ดึงรีวิว / รูปทั้งหมด ทุกลาน เพื่อแสดงการ์ดที่ใช้แค่ ชื่อ / ราคา / ดาว / รูปเดียว
+        </div>
+      </div>
+      <div class="tldr-point">
+        <div class="num">3</div>
+        <div class="txt">
+          real-time ไม่ต้อง — ข้อมูลลานแคมป์ไม่เปลี่ยนทุกวินาที freshness ผ่าน <em>revalidate</em> พอแล้ว
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 3. CURRENT vs TARGET DATA FLOW ===== -->
+  <section class="glass card" aria-labelledby="flow-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span id="flow-h">Current vs Target — Data Flow</span>
+      <span class="sec-label">ARCHITECTURE</span>
+    </div>
+    <div class="flow-cols">
+      <!-- CURRENT -->
+      <div class="flow-panel current" role="region" aria-label="Current data flow (problematic)">
+        <div class="flow-label red">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+          CURRENT — ปัญหา
+        </div>
+        <div class="flow-chain">
+          <div class="flow-node bad">
+            <span>Client (Browser)</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node bad">
+            <span>force-dynamic page (no cache)</span>
+            <span class="flow-chip bad-chip">app/page.tsx:15</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node bad">
+            <span>heavy findMany</span>
+            <span class="flow-chip bad-chip" title="includes reviews + all images + spots + options">include reviews+images+spots+options</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node bad">
+            <span>raw &lt;img&gt; (unoptimized)</span>
+            <span class="flow-chip bad-chip">image-with-fallback.tsx:63</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARGET -->
+      <div class="flow-panel target" role="region" aria-label="Target data flow (after fixes)">
+        <div class="flow-label teal">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
+          TARGET — หลัง MEAS-1
+        </div>
+        <div class="flow-chain">
+          <div class="flow-node good">
+            <span>Client (Browser)</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node good">
+            <span>cached catalog (PPR, post-MEAS-1)</span>
+            <span class="flow-chip good-chip">next.config.ts</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node good">
+            <span>List Buffet campCardSelect</span>
+            <span class="flow-chip good-chip">lib/read-models/camp-card.ts</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+          <div class="flow-node good">
+            <span>next/image (optimize + CDN)</span>
+            <span class="flow-chip good-chip">≤5 img · +avgRating column</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 4. PHASE TIMELINE / DAG ===== -->
+  <section class="glass card" aria-labelledby="dag-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span id="dag-h">Phase Timeline — P0 → P4</span>
+      <span class="sec-label">ROADMAP</span>
+    </div>
+
+    <div class="dag-wrap" role="region" aria-label="Phase timeline from P0 to P4">
+      <div class="dag">
+        <!-- P0 Measure + Secure -->
+        <div class="phase-col">
+          <div class="phase-hdr">
+            <span class="bpill p0">P0</span>
+            <span class="phase-name">Measure + Secure</span>
+          </div>
+          <div class="spill measure" role="listitem">
+            <span class="spill-id">MEAS-1</span>
+            <span class="spill-txt">วัด CWV + API baseline</span>
+          </div>
+          <div class="spill done" role="listitem">
+            <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-label="Done"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="spill-id">SEC-1</span>
+            <span class="spill-txt">ownership + auth audit</span>
+          </div>
+        </div>
+
+        <!-- GATE DIVIDER -->
+        <div class="gate-divider" aria-label="MEAS-1 gate: measure before proceeding">
+          <div class="gate-line" aria-hidden="true"></div>
+          <div class="gate-pill">MEAS-1 GATE วัดก่อน</div>
+          <div class="gate-line" aria-hidden="true"></div>
+        </div>
+
+        <!-- P1 Read-model + correctness -->
+        <div class="phase-col">
+          <div class="phase-hdr">
+            <span class="bpill p1">P1</span>
+            <span class="phase-name">Read-model</span>
+          </div>
+          <div class="spill decided" role="listitem">
+            <span class="spill-id">PERF-1</span>
+            <span class="spill-txt">List Buffet campCardSelect</span>
+          </div>
+          <div class="spill parallel" role="listitem">
+            <span class="spill-id">PERF-2</span>
+            <span class="spill-txt">DB indexes</span>
+          </div>
+          <div class="spill decided" role="listitem">
+            <span class="spill-id">PERF-3</span>
+            <span class="spill-txt">keyset pagination</span>
+          </div>
+          <div class="spill parallel" role="listitem">
+            <span class="spill-id">AVAIL-1</span>
+            <span class="spill-txt">GET availability + BlockedDate (เกือบเสร็จ)</span>
+          </div>
+        </div>
+
+        <!-- P2 Aggregate + images -->
+        <div class="phase-col">
+          <div class="phase-hdr">
+            <span class="bpill p2">P2</span>
+            <span class="phase-name">Aggregate + Images</span>
+          </div>
+          <div class="spill parallel" role="listitem">
+            <span class="spill-id">AGG-1</span>
+            <span class="spill-txt">maintained avgRating</span>
+          </div>
+          <div class="spill decided" role="listitem">
+            <span class="spill-id">PERF-5</span>
+            <span class="spill-txt">rating sort ใน DB</span>
+          </div>
+          <div class="spill measure" role="listitem">
+            <span class="spill-id">PERF-4</span>
+            <span class="spill-txt">images (วัดก่อน)</span>
+          </div>
+          <div class="spill parallel" role="listitem">
+            <span class="spill-id">FRESH-2</span>
+            <span class="spill-txt">host preview no-store</span>
+          </div>
+        </div>
+
+        <!-- P3 Caching -->
+        <div class="phase-col">
+          <div class="phase-hdr">
+            <span class="bpill p3">P3</span>
+            <span class="phase-name">Caching</span>
+          </div>
+          <div class="spill blocked" role="listitem">
+            <span class="spill-id">CACHE-1</span>
+            <span class="spill-txt">PPR / unstable_cache</span>
+          </div>
+          <div class="blocked-note" aria-label="Blocked on MEAS-1 measurement gate">blocked-on-MEAS-1</div>
+          <div class="spill decided" role="listitem" style="margin-top:6px">
+            <span class="spill-id">FRESH-1</span>
+            <span class="spill-txt">revalidate wiring</span>
+          </div>
+        </div>
+
+        <!-- P4 Search -->
+        <div class="phase-col">
+          <div class="phase-hdr">
+            <span class="bpill p4">P4</span>
+            <span class="phase-name">Search</span>
+          </div>
+          <div class="spill deferred" role="listitem">
+            <span class="spill-id">SEARCH-1</span>
+            <span class="spill-txt">full-text search (deferred)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="dag-legend" role="list" aria-label="Legend">
+      <div class="dleg" role="listitem"><span class="dot decided" aria-hidden="true"></span> DECIDED</div>
+      <div class="dleg" role="listitem"><span class="dot done" aria-hidden="true"></span> DONE</div>
+      <div class="dleg" role="listitem"><span class="dot measure" aria-hidden="true"></span> NEEDS-MEASUREMENT</div>
+      <div class="dleg" role="listitem"><span class="dot blocked" aria-hidden="true"></span> BLOCKED-on-gate</div>
+      <div class="dleg" role="listitem"><span class="dot parallel" aria-hidden="true"></span> เริ่มได้เลย (parallel)</div>
+      <div class="dleg" role="listitem"><span class="dot deferred" aria-hidden="true"></span> DEFERRED</div>
+    </div>
+  </section>
+
+  <!-- ===== 5. IMAGE PIPELINE ===== -->
+  <section class="glass card" aria-labelledby="img-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span id="img-h">Image Pipeline — sizes decision table</span>
+      <span class="sec-label">IMAGES</span>
+    </div>
+
+    <div class="img-table-wrap">
+      <table class="img-table" role="table" aria-label="Image sizes and optimization decisions">
+        <thead>
+          <tr>
+            <th scope="col">Context</th>
+            <th scope="col">priority / loading</th>
+            <th scope="col">sizes</th>
+            <th scope="col">flag</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Detail hero</strong></td>
+            <td class="mono-cell">priority · LCP</td>
+            <td class="mono-cell">(max-width:768px) 100vw, 66vw</td>
+            <td class="flag-cell">ต้องมี fetchpriority="high"</td>
+          </tr>
+          <tr>
+            <td><strong>Card grid</strong></td>
+            <td class="mono-cell">lazy</td>
+            <td class="mono-cell">(max-width:560px) 50vw,<br>(max-width:860px) 33vw, 25vw</td>
+            <td class="flag-cell">≤5 รูปต่อลาน</td>
+          </tr>
+          <tr>
+            <td><strong>Thumb ~80px</strong></td>
+            <td class="mono-cell">lazy · fixed</td>
+            <td class="mono-cell">80px</td>
+            <td class="flag-cell">width/height fixed</td>
+          </tr>
+          <tr>
+            <td><strong>Lightbox</strong></td>
+            <td class="mono-cell">lazy · NOT LCP</td>
+            <td class="mono-cell">(max-width:768px) 100vw, 80vw</td>
+            <td class="flag-cell">ไม่ใส่ priority</td>
+          </tr>
+          <tr>
+            <td><strong>Upload preview</strong><br><span class="faint mono" style="font-size:11px">blob: / data:</span></td>
+            <td class="mono-cell">—</td>
+            <td class="mono-cell">—</td>
+            <td class="flag-cell">unoptimized (ไม่ผ่าน next/image)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout-amber" role="note" aria-label="Cost warning for image optimization">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="ca-body">
+        <strong>ค่าใช้จ่าย:</strong> next/image ใช้ Vercel Image Optimization (คิดเงินต่อรูปที่ optimize) — ตัดสินหลัง MEAS-1 + ต้องตั้ง spend cap <strong>(human decision)</strong> ก่อนเปิดใช้
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 6. METRIC TABLE ===== -->
+  <section class="glass card" aria-labelledby="metric-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span id="metric-h">Before / After — Metric Table (placeholder)</span>
+      <span class="sec-label">METRICS</span>
+    </div>
+
+    <div class="img-table-wrap">
+      <table class="metric-table" role="table" aria-label="Performance metrics baseline and targets">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">Baseline (MEAS-1)</th>
+            <th scope="col">Target</th>
+            <th scope="col">After</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="metric-name">LCP</span><br><span class="faint" style="font-size:11px">Largest Contentful Paint</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">≤ 2.5s</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+          <tr>
+            <td><span class="metric-name">INP</span><br><span class="faint" style="font-size:11px">Interaction to Next Paint</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">≤ 200ms</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+          <tr>
+            <td><span class="metric-name">CLS</span><br><span class="faint" style="font-size:11px">Cumulative Layout Shift</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">≤ 0.1</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+          <tr>
+            <td><span class="metric-name">API p95</span><br><span class="faint" style="font-size:11px">Server response time</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">&lt; 200ms</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+          <tr>
+            <td><span class="metric-name">JS bundle / route</span><br><span class="faint" style="font-size:11px">gzipped</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">&lt; 200KB gz</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+          <tr>
+            <td><span class="metric-name">Image transform count</span><br><span class="faint" style="font-size:11px">Vercel Image Optimization</span></td>
+            <td class="pending-cell">— pending MEAS-1</td>
+            <td class="target-cell">&lt; 200KB / image</td>
+            <td class="pending-cell">— pending MEAS-1</td>
+          </tr>
+        </tbody>
+        <caption>ทุก cell ของ Baseline/After จะเป็นเลขที่วัดจริงเท่านั้น (metric honesty)</caption>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 7. DECISION LOG ===== -->
+  <section class="glass card" aria-labelledby="dec-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span id="dec-h">Decision Log</span>
+      <span class="sec-label">DECISIONS</span>
+    </div>
+
+    <div class="img-table-wrap">
+      <table class="dec-table" role="table" aria-label="Architecture decision log">
+        <thead>
+          <tr>
+            <th scope="col">เรื่อง</th>
+            <th scope="col">ตัดสิน</th>
+            <th scope="col">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>real-time data</strong></td>
+            <td>ไม่ทำ — revalidate พอ (ข้อมูลลานไม่เปลี่ยนทุกวินาที)</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>image CDN</strong></td>
+            <td>ไม่มี CDN แยก — ใช้ next/image Vercel ในตัว; IMG-CDN-2 deferred</td>
+            <td><span class="dec-pill deferred">DEFERRED</span></td>
+          </tr>
+          <tr>
+            <td><strong>read-model</strong></td>
+            <td>List Buffet — campCardSelect (ชื่อ/ราคา/ดาว/รูป≤5)</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>pagination</strong></td>
+            <td>keyset pagination (ไม่ใช่ offset)</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>aggregate</strong></td>
+            <td>denormalize avgRating / reviewCount (txn + reconcile)</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>SEC-1</strong></td>
+            <td>ownership + auth audit</td>
+            <td><span class="dec-pill done">DONE</span></td>
+          </tr>
+          <tr>
+            <td><strong>PROD-1 draft gate</strong></td>
+            <td>ไม่มี draft gate — เผยแพร่ทันที</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>CACHE-1 caching</strong></td>
+            <td>PPR เป้าหมาย (fallback unstable_cache) — blocked-on-MEAS-1</td>
+            <td><span class="dec-pill blocked">BLOCKED</span></td>
+          </tr>
+          <tr>
+            <td><strong>CWV telemetry</strong></td>
+            <td>ตัวฟรีของเราเอง — web-vitals → /api/vitals</td>
+            <td><span class="dec-pill decided">DECIDED</span></td>
+          </tr>
+          <tr>
+            <td><strong>search</strong></td>
+            <td>SEARCH-1 deferred — ยังไม่เริ่ม</td>
+            <td><span class="dec-pill deferred">DEFERRED</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 8. BACKLOG MATRIX ===== -->
+  <section class="glass card" aria-labelledby="backlog-h">
+    <div class="sec-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span id="backlog-h">Backlog Matrix</span>
+      <span class="sec-label">BACKLOG</span>
+    </div>
+
+    <div class="backlog-wrap">
+      <table class="backlog" role="table" aria-label="Full backlog with dependencies and file evidence">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">งาน</th>
+            <th scope="col">prio</th>
+            <th scope="col">status</th>
+            <th scope="col">depends</th>
+            <th scope="col">evidence (file:line)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="id-cell amber">MEAS-1</td>
+            <td>วัด CWV baseline + API p95 (web-vitals → /api/vitals)</td>
+            <td><span class="bpill p0">P0</span></td>
+            <td><span class="bstat gate">GATE</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">§8 (กำหนดในแผน)</td>
+          </tr>
+          <tr>
+            <td class="id-cell green">SEC-1</td>
+            <td>ownership + auth audit ทุก mutation</td>
+            <td><span class="bpill p0">P0</span></td>
+            <td><span class="bstat done">DONE ✓</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell teal">PERF-1</td>
+            <td>List Buffet — campCardSelect read model (ชื่อ/ราคา/ดาว/รูป≤5)</td>
+            <td><span class="bpill p1">P1</span></td>
+            <td><span class="bstat ready">READY</span></td>
+            <td class="dep-cell">← MEAS-1</td>
+            <td class="ev-cell">lib/read-models/camp-card.ts</td>
+          </tr>
+          <tr>
+            <td class="id-cell blue">PERF-2</td>
+            <td>DB indexes บน campsite (status, rating, createdAt)</td>
+            <td><span class="bpill p1">P1</span></td>
+            <td><span class="bstat ready">เริ่มได้เลย</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">prisma/schema.prisma</td>
+          </tr>
+          <tr>
+            <td class="id-cell teal">PERF-3</td>
+            <td>keyset pagination แทน offset</td>
+            <td><span class="bpill p1">P1</span></td>
+            <td><span class="bstat ready">READY</span></td>
+            <td class="dep-cell">← PERF-2</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell blue">AGG-1</td>
+            <td>maintained avgRating / reviewCount (denormalize + txn reconcile)</td>
+            <td><span class="bpill p2">P2</span></td>
+            <td><span class="bstat ready">เริ่มได้เลย</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">prisma/schema.prisma · reviews</td>
+          </tr>
+          <tr>
+            <td class="id-cell teal">PERF-5</td>
+            <td>rating sort ใน DB (ไม่ sort ใน JS)</td>
+            <td><span class="bpill p2">P2</span></td>
+            <td><span class="bstat ready">READY</span></td>
+            <td class="dep-cell">← AGG-1 + PERF-2</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell amber">PERF-4</td>
+            <td>images → next/image + sizes (~22 จุด / 9 ไฟล์)</td>
+            <td><span class="bpill p2">P2</span></td>
+            <td><span class="bstat gate">วัดก่อน</span></td>
+            <td class="dep-cell">← MEAS-1 + PERF-1</td>
+            <td class="ev-cell">~22 จุด / 9 ไฟล์ (ระบุหลัง MEAS-1)</td>
+          </tr>
+          <tr>
+            <td class="id-cell amber">CACHE-1</td>
+            <td>PPR caching (fallback unstable_cache)</td>
+            <td><span class="bpill p3">P3</span></td>
+            <td><span class="bstat blocked">BLOCKED</span></td>
+            <td class="dep-cell">← MEAS-1 + FRESH-1 + SEC-1</td>
+            <td class="ev-cell">NEEDS-MEASUREMENT</td>
+          </tr>
+          <tr>
+            <td class="id-cell teal">FRESH-1</td>
+            <td>revalidate wiring (tag-based revalidation)</td>
+            <td><span class="bpill p3">P3</span></td>
+            <td><span class="bstat ready">READY</span></td>
+            <td class="dep-cell">← CACHE-1</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell blue">FRESH-2</td>
+            <td>host preview no-store header</td>
+            <td><span class="bpill p2">P2</span></td>
+            <td><span class="bstat ready">เริ่มได้เลย</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell blue">AVAIL-1</td>
+            <td>GET availability + BlockedDate endpoint</td>
+            <td><span class="bpill p1">P1</span></td>
+            <td><span class="bstat wip">WIP</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">เกือบเสร็จ</td>
+          </tr>
+          <tr>
+            <td class="id-cell green">BOOK-1</td>
+            <td>booking flow</td>
+            <td><span class="bpill p1">P1</span></td>
+            <td><span class="bstat done">DONE ✓</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell faint">IMG-CDN-2</td>
+            <td>CDN แยกสำหรับรูป (เช่น Cloudflare)</td>
+            <td><span class="bpill p4">P4</span></td>
+            <td><span class="bstat deferred">DEFERRED</span></td>
+            <td class="dep-cell">cost decision</td>
+            <td class="ev-cell">—</td>
+          </tr>
+          <tr>
+            <td class="id-cell faint">SEARCH-1</td>
+            <td>full-text search (Postgres tsvector หรือ external)</td>
+            <td><span class="bpill p4">P4</span></td>
+            <td><span class="bstat deferred">DEFERRED</span></td>
+            <td class="dep-cell">—</td>
+            <td class="ev-cell">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 9. OPEN DECISIONS FOOTER ===== -->
+  <section class="cta-card" aria-labelledby="cta-h">
+    <div class="cta-h">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span id="cta-h">Open Decisions — รอการตัดสิน</span>
+    </div>
+    <div class="cta-grid">
+      <div class="cta-item">
+        <div class="cta-k">ตัดสินแล้ว</div>
+        <div class="cta-v">
+          <strong>Telemetry ฟรี</strong> — web-vitals → /api/vitals (ไม่ใช้ service ภายนอก)<br>
+          <strong>Images</strong> — วัดก่อน ค่อยตัดสิน<br>
+          <strong>Caching</strong> — PPR เป้าหมาย (fallback unstable_cache)
+        </div>
+      </div>
+      <div class="cta-item">
+        <div class="cta-k">รอหลัง MEAS-1</div>
+        <div class="cta-v">
+          ตัดสิน images — เปิด / ไม่เปิด next/image optimization ตามเลขจริง<br>
+          ตัดสิน caching — เปิด / ปรับแต่ง CACHE-1 ตาม baseline
+        </div>
+      </div>
+      <div class="cta-item warn">
+        <div class="cta-k">ต้องอนุมัติก่อน (cost)</div>
+        <div class="cta-v">
+          <strong>Vercel Image Optimization</strong> — คิดเงินต่อรูปที่ optimize<br>
+          ต้องตั้ง spend cap + อนุมัติโดย owner ก่อนเปิดใช้ PERF-4
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

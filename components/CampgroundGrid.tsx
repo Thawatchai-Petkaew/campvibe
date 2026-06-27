@@ -10,33 +10,34 @@ import { useState } from "react";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { LoginModal } from "@/components/LoginModal";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { CampCardPayload } from "@/lib/read-models/camp-card";
 
-// Minimal shape serialised from the server component.
-export interface CampSiteCardData {
-    id: string;
-    nameTh: string;
-    nameEn: string | null;
-    nameThSlug: string;
-    nameEnSlug: string;
-    images?: { url: string }[]; // S4b: Image relation (was CSV)
-    priceLow: number | null;
-    priceHigh: number | null;
-    isVerified: boolean;
-    isPublished: boolean;
-    latitude: number;
-    longitude: number;
-    createdAt: string; // ISO string (Date serialised)
-    location: { province: string };
-    /** CAM-147: server-computed average rating (1dp) or null when no reviews. */
-    avgRating?: number | null;
-    /** CAM-147: total non-deleted review count. */
-    reviewCount?: number;
-}
+/**
+ * Serialised card shape passed from the server component (PERF-5 / CAM-193).
+ * Derived from CampCardPayload: avgRating/reviewCount come directly from the stored
+ * columns (AGG-1 / CAM-189 maintains them). priceLow + avgRating are serialised to
+ * number by serializeDecimals (were Decimal). createdAt is serialised to ISO string.
+ */
+export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'createdAt' | 'avgRating'> & {
+    priceLow: number | null;   // Decimal serialised to number
+    createdAt: string;          // Date serialised to ISO string
+    /** PERF-5: stored average rating column (1dp) or null when no reviews. */
+    avgRating: number | null;
+    /** PERF-5: stored review count column. */
+    reviewCount: number;
+};
 
 interface CampgroundGridProps {
     camps: CampSiteCardData[];
     savedIds: Set<string> | string[];
     isLoggedIn: boolean;
+    /**
+     * PERF-3 (CAM-196): opaque keyset cursor pointing after the last item of the first page.
+     * Null when there are fewer than PAGE_SIZE items (end of results).
+     * Currently unused by this component — the InfiniteScrollGrid client (PR B) will
+     * consume it. Staged here so the server plumbing is in place before the UI lands.
+     */
+    initialCursor?: string | null;
 }
 
 export function CampgroundGrid({ camps, savedIds, isLoggedIn }: CampgroundGridProps) {

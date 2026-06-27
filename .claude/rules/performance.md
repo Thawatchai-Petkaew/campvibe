@@ -121,10 +121,13 @@ A verified performance budget (CWV measured against targets, route bundle and AP
 
 | Rationalization | Reality |
 |---|---|
+| "Import the icon/util lib with `import * as X`." | A wildcard/barrel import ships the whole library into the client bundle (lucide = 1414 icons / 173 KB = 53% of the route's First-Load JS). Use named imports; confirm the heavy chunk with `ANALYZE=1 build` before guessing (CAM-200). |
+| "We moved to `next/image`, so images are optimized." | `next/image` lazy-loads by default — the LCP/above-the-fold image needs `priority` (eager + fetchpriority) or LCP stalls on resource-load-delay. Set it on the first ~N cards only, never all (CAM-199). |
 | "I know where the bottleneck is, just optimize it." | Guessing wastes effort on the wrong spot. Profile to find the real one first. |
 | "It feels faster now / the CWV improved." | No evidence is not a result. State measured vs potential explicitly. |
 | "Memo/useCallback everywhere is safer." | Blanket memoization adds cost and bugs. Only where a profile says it pays off. |
 | "Fixed it, shipping it." | A fix with no re-measure or guard silently regresses. Verify + Guard. |
+| "Static images/sprites don't need cache tuning." | Assets swapped at runtime (e.g. `background-image` frame cycling) under the `/public` default `Cache-Control: max-age=0, must-revalidate` revalidate over the network on every swap → a blank flash, visible on deployed envs but not localhost. Serve runtime-swapped static assets `immutable` (long max-age) via `next.config` headers and preload+decode animated frames (CAM-201). |
 
 ## Verify (exit criteria)
 

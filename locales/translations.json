@@ -11,6 +11,8 @@
             "dontHaveAccount": "Don't have an account?",
             "register": "Register",
             "signingIn": "Signing in...",
+            "signingInWithGoogle": "Signing in...",
+            "signInWithGoogle": "Sign in with Google",
             "invalidCredentials": "The email or password you entered is incorrect. Please check and try again.",
             "registerModal": {
                 "title": "Start Your Adventure",
@@ -38,6 +40,12 @@
             "anywhere": "Anywhere",
             "anyWeek": "Any week",
             "addGuests": "Add guests",
+            "helpCenter": "Help Center",
+            "hostDashboard": "Host Dashboard",
+            "hostYourHome": "Host your home",
+            "myBookings": "My Bookings",
+            "myProfile": "My Profile",
+            "switchToHostContext": "Switch to host context",
             "themeToggleGroup": "Display theme",
             "themeLight": "Light",
             "themeSystem": "System",
@@ -60,6 +68,7 @@
             "imageNone": "No source"
         },
         "common": {
+            "or": "or",
             "share": "Share",
             "save": "Save",
             "reviews": "reviews",
@@ -70,6 +79,7 @@
             "photos": "photos",
             "amenities": "amenities",
             "free": "Free",
+            "new": "New",
             "newListing": "New Listing",
             "pickDate": "Pick a date",
             "accept": "Accept",
@@ -130,7 +140,8 @@
             "equipmentRent": "Equipment for Rent",
             "walkInDesc": "Park and walk to your site",
             "boatAccessDesc": "Accessible by boat only",
-            "rvAccessDesc": "RV accessible site"
+            "rvAccessDesc": "RV accessible site",
+            "noImageAlt": "No camp photo available"
         },
         "booking": {
             "checkIn": "Check-in",
@@ -648,6 +659,43 @@
                 "epicLabel": "Epic",
                 "dateLabel": "Delivered on"
             }
+        },
+        "catalog": {
+            "loading": "Loading camps",
+            "loading_more": "Loading more camps",
+            "end_of_list": "You've seen all camps"
+        },
+        "errors": {
+            "notFound": {
+                "title": "Page not found",
+                "message": "This page has moved or no longer exists. Let's get you back on the trail.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot thinking"
+            },
+            "unexpected": {
+                "title": "Something went wrong",
+                "message": "An unexpected error occurred. Try again or return home.",
+                "retryLabel": "Try again",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot with laptop"
+            },
+            "forbidden": {
+                "title": "Access not permitted",
+                "message": "You don't have permission to view this page.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot waving"
+            },
+            "generic": {
+                "title": "Something went wrong",
+                "message": "We couldn't load this page. Please try again later.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot walking"
+            },
+            "comingSoon": {
+                "title": "Setting up camp",
+                "message": "We'll be open soon",
+                "mascotAlt": "CampVibe mascot"
+            }
         }
     },
     "th": {
@@ -662,6 +710,8 @@
             "dontHaveAccount": "ยังไม่มีบัญชีผู้ใช้?",
             "register": "ลงทะเบียน",
             "signingIn": "กำลังเข้าสู่ระบบ...",
+            "signingInWithGoogle": "กำลังเข้าสู่ระบบ...",
+            "signInWithGoogle": "เข้าสู่ระบบด้วย Google",
             "invalidCredentials": "อีเมลหรือรหัสผ่านที่คุณป้อนไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง",
             "registerModal": {
                 "title": "เริ่มต้นการผจญภัยของคุณ",
@@ -689,6 +739,12 @@
             "anywhere": "ทุกที่",
             "anyWeek": "ทุกสัปดาห์",
             "addGuests": "เพิ่มผู้เข้าพัก",
+            "helpCenter": "ศูนย์ช่วยเหลือ",
+            "hostDashboard": "แดชบอร์ดเจ้าของแคมป์",
+            "hostYourHome": "ลงประกาศแคมป์ของคุณ",
+            "myBookings": "การจองของฉัน",
+            "myProfile": "โปรไฟล์ของฉัน",
+            "switchToHostContext": "สลับไปโหมดเจ้าของแคมป์",
             "themeToggleGroup": "รูปแบบการแสดงผล",
             "themeLight": "สว่าง",
             "themeSystem": "ตามอุปกรณ์",
@@ -711,6 +767,7 @@
             "imageNone": "ไม่มีรูปภาพ"
         },
         "common": {
+            "or": "หรือ",
             "share": "แชร์",
             "save": "บันทึก",
             "reviews": "รีวิว",
@@ -721,6 +778,7 @@
             "photos": "รูปภาพ",
             "amenities": "สิ่งอำนวยความสะดวก",
             "free": "ฟรี",
+            "new": "ใหม่",
             "newListing": "รายการใหม่",
             "pickDate": "เลือกวันที่",
             "accept": "ยอมรับ",
@@ -781,7 +839,8 @@
             "equipmentRent": "อุปกรณ์ให้เช่า",
             "walkInDesc": "จอดรถและเดินไปยังจุดกางเต็นท์",
             "boatAccessDesc": "เข้าถึงได้ทางเรือเท่านั้น",
-            "rvAccessDesc": "รองรับรถบ้าน"
+            "rvAccessDesc": "รองรับรถบ้าน",
+            "noImageAlt": "ไม่มีรูปภาพแคมป์"
         },
         "booking": {
             "checkIn": "เช็คอิน",
@@ -1299,6 +1358,43 @@
                 "emptyState": "ไม่มีข้อมูลงานที่ส่งมอบ",
                 "epicLabel": "Epic",
                 "dateLabel": "ส่งมอบเมื่อ"
+            }
+        },
+        "catalog": {
+            "loading": "กำลังโหลดลาน",
+            "loading_more": "กำลังโหลดลานเพิ่มเติม",
+            "end_of_list": "ดูลานครบทั้งหมดแล้ว"
+        },
+        "errors": {
+            "notFound": {
+                "title": "ไม่พบหน้านี้",
+                "message": "หน้านี้ถูกย้ายหรือไม่มีอยู่แล้ว กลับไปหน้าหลักเพื่อค้นหาแคมป์ที่ชอบ",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตกำลังคิด"
+            },
+            "unexpected": {
+                "title": "เกิดข้อผิดพลาด",
+                "message": "มีข้อผิดพลาดที่ไม่คาดคิดเกิดขึ้น ลองใหม่อีกครั้งหรือกลับหน้าหลัก",
+                "retryLabel": "ลองใหม่อีกครั้ง",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตพร้อมแล็ปท็อป"
+            },
+            "forbidden": {
+                "title": "ไม่มีสิทธิ์เข้าถึง",
+                "message": "คุณไม่มีสิทธิ์ดูหน้านี้",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตโบกมือ"
+            },
+            "generic": {
+                "title": "เกิดข้อผิดพลาด",
+                "message": "โหลดหน้านี้ไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตเดินทาง"
+            },
+            "comingSoon": {
+                "title": "กำลังตั้งแคมป์อยู่นะ",
+                "message": "เว็บไซต์จะเปิดให้บริการเร็วๆ นี้",
+                "mascotAlt": "มาสคอต CampVibe"
             }
         }
     }

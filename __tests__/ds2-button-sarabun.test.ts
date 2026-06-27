@@ -71,6 +71,9 @@ const loginModalSrc = src("components/LoginModal.tsx");
 const registerModalSrc = src("components/RegisterModal.tsx");
 const searchModalSrc = src("components/SearchModal.tsx");
 const amenitiesModalSrc = src("components/AmenitiesModal.tsx");
+// CAM-220: the shared modal close button now lives in modal-shell.tsx; consumer close-button
+// assertions redirect here so the no-h-10 / aria-label / size-icon intent is preserved.
+const modalShellSrc = src("components/ui/modal-shell.tsx");
 const campDetailSrc = src("components/CampgroundDetailClient.tsx");
 const campFormSrc = src("components/CampgroundForm.tsx");
 const bookingsSrc = src("app/bookings/page.tsx");
@@ -296,10 +299,11 @@ describe("consumer--filter-modal: focus-visible duplicate + size cleanup (AC-con
 });
 
 describe("consumer--login-modal: close button + submit button cleanup (AC-consumer-3/4)", () => {
-  it("AC-consumer-3: LoginModal close icon Button has no inline h-10 height override", () => {
-    // The close button has size="icon" and onClick={handleClose}
-    // Search for Button block containing onClick={handleClose}
-    const closeBlock = loginModalSrc.match(/onClick=\{handleClose\}[\s\S]{0,300}?<\/Button>/);
+  it("AC-consumer-3: modal close icon Button has no inline h-10 height override", () => {
+    // CAM-220: the close button migrated from inline LoginModal markup into the shared
+    // ModalHeader in components/ui/modal-shell.tsx. The intent (no h-10 override; size
+    // is governed by size="icon" on Button) is now asserted against the shell.
+    const closeBlock = modalShellSrc.match(/data-testid="btn--modal-close"[\s\S]{0,300}?<\/Button>/);
     expect(closeBlock).not.toBeNull();
     expect(closeBlock![0]).not.toMatch(/\bh-10\b/);
   });
@@ -319,9 +323,11 @@ describe("consumer--login-modal: close button + submit button cleanup (AC-consum
 });
 
 describe("consumer--register-modal: close button + submit button cleanup (AC-consumer-5/6)", () => {
-  it("AC-consumer-5: RegisterModal close icon Button has no inline h-10 height override", () => {
-    // RegisterModal close: size="icon" onClick={onClose}
-    const closeBlock = registerModalSrc.match(/onClick=\{onClose\}[\s\S]{0,300}?<\/Button>/);
+  it("AC-consumer-5: modal close icon Button has no inline h-10 height override", () => {
+    // CAM-220: the close button migrated from inline RegisterModal markup into the shared
+    // ModalHeader in components/ui/modal-shell.tsx. Assertion redirected to the shell;
+    // intent (no h-10 override; Button size="icon" governs the size) is preserved.
+    const closeBlock = modalShellSrc.match(/data-testid="btn--modal-close"[\s\S]{0,300}?<\/Button>/);
     expect(closeBlock).not.toBeNull();
     expect(closeBlock![0]).not.toMatch(/\bh-10\b/);
   });

@@ -2,19 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, X, Tent, Car, Soup, Mountain, Trees, Waves, Palmtree, Map } from "lucide-react";
+import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Car, Soup, Mountain, Trees, Waves, Palmtree, Map } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PROVINCES, THAILAND_DATA } from "@/lib/thailand-data";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import {
@@ -98,23 +93,13 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <ModalContent className="sm:max-w-3xl" aria-describedby={undefined}>
                 <div className="flex flex-col h-full max-h-[90vh] relative">
-                    {/* Header */}
-                    <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60">
-                        <DialogClose asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
-                                onClick={onClose}
-                                aria-label="Close"
-                            >
-                                <X className="w-5 h-5 text-foreground" />
-                            </Button>
-                        </DialogClose>
-                        <DialogTitle className="text-lg font-bold text-foreground">{t.search.search}</DialogTitle>
-                    </div>
+                    <ModalHeader
+                        title={t.search.search}
+                        closeLabel={t.common?.close ?? "Close"}
+                        onClose={onClose}
+                    />
 
                     {/* Standard Rounded Search UI */}
                     <div className="p-6 md:p-8 flex-grow overflow-y-auto custom-scrollbar space-y-8">
@@ -151,7 +136,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     onChange={(e) => setKeyword(e.target.value)}
                                     placeholder={t.search.keywordPlaceholder}
                                     leftIcon={<Search className="w-4 h-4" />}
-                                    className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                    className="rounded-full bg-background border-border"
                                 />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
@@ -290,7 +275,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         </Button>
                     </div>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

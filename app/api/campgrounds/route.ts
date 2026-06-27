@@ -4,11 +4,24 @@ import { campSiteSchema } from '@/lib/validations/campsite';
 import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { requireAuth } from '@/lib/auth-utils';
+import { withTiming } from '@/lib/route-timing';
+import { campCardSelect } from '@/lib/read-models/camp-card';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // RISK-4: IP-based rate-limit on the list endpoint (100 req / 15 min).
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const rl = checkRateLimit(`campgrounds:list:${ip}`, { limit: 100, windowMs: 15 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) },
+    });
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     const filterParams: CampSiteFilterParams = {
       type: searchParams.get('type') || undefined,
       keyword: searchParams.get('keyword') || undefined,
@@ -29,17 +42,15 @@ export async function GET(request: NextRequest) {
 
     const where = buildCampSiteWhere(filterParams);
 
-    const campSites = await prisma.campSite.findMany({
-      where,
-      include: {
-        location: true,
-        spots: true,
-        reviews: { select: { rating: true } },
-        options: true,
-        images: { orderBy: { sortOrder: 'asc' } }
-      },
-    });
-    
+    // RISK-4: cap result set to prevent unbounded fetches.
+    const campSites = await withTiming('campground_list', () =>
+      prisma.campSite.findMany({
+        where,
+        select: campCardSelect,
+        take: 50,
+      })
+    );
+
     return apiSuccess(campSites);
   } catch (error) {
     return apiError('Failed to fetch campgrounds', 500, error);
@@ -53,6 +64,15 @@ export async function POST(request: NextRequest) {
   const userId = session?.user?.id;
   if (!userId) {
     return apiError('User ID not found in session', 401);
+  }
+
+  // Rate-limit: 10 camp creations per user per hour (shared key with campsites route).
+  const rl = checkRateLimit(`campsite:create:${userId}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการสร้างแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
   }
 
   try {

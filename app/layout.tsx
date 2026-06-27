@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/Providers";
+import VitalsReporter from "@/components/vitals-reporter";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -24,8 +25,29 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative OG/Twitter image URLs (e.g. "/og-image.png") to absolute.
+  // Reuses the existing APP_BASE_URL convention + staging fallback (lib/notify-messages.ts).
+  metadataBase: new URL(process.env.APP_BASE_URL ?? "https://campvibe-staging.vercel.app"),
   title: "CampVibe | Professional Camping Ecosystem",
   description: "Find and book the best camping experiences",
+  openGraph: {
+    title: "CampVibe | Professional Camping Ecosystem",
+    description: "Find and book the best camping experiences",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CampVibe camping discovery and booking platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CampVibe | Professional Camping Ecosystem",
+    description: "Find and book the best camping experiences",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
@@ -38,6 +60,7 @@ export default function RootLayout({
       <body className="antialiased" suppressHydrationWarning>
         <Providers>
           <LanguageProvider>
+            <VitalsReporter />
             {children}
             <Toaster />
           </LanguageProvider>

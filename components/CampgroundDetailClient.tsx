@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "next-themes";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
@@ -54,6 +55,7 @@ export default function CampgroundDetailClient({
     reviewsError?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
+    const { resolvedTheme } = useTheme();
     const router = useRouter();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
@@ -257,10 +259,11 @@ export default function CampgroundDetailClient({
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
 
-    // Parse images from CSV
+    // Parse images from relation
+    const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
     const images: string[] = campground.images?.length
         ? campground.images.map((img: { url: string }) => img.url)
-        : ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200"];
+        : [placeholderSrc];
 
     const displayImages = images.slice(0, 5);
 
@@ -433,8 +436,10 @@ export default function CampgroundDetailClient({
                             className="w-full h-full cursor-pointer"
                             imgClassName="object-cover"
                             onClick={() => openGallery(0)}
+                            sizes="100vw"
+                            priority
                         />
-                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-xs font-bold px-2 py-1 rounded-xl backdrop-blur-sm">
                             {t.gallery.imageOf.replace("{n}", "1").replace("{total}", String(images.length))}
                         </div>
                         <Button
@@ -460,6 +465,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="100vw"
+                                    priority
                                 />
                             </button>
                         </div>
@@ -479,6 +486,8 @@ export default function CampgroundDetailClient({
                                         alt={i === 0 ? name : ""}
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 100vw, 50vw"
+                                        priority={i === 0}
                                     />
                                 </button>
                             ))}
@@ -497,6 +506,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 66vw"
+                                    priority
                                 />
                             </button>
                             {images.slice(1, 3).map((src, i) => (
@@ -512,6 +523,7 @@ export default function CampgroundDetailClient({
                                         alt=""
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 50vw, 33vw"
                                     />
                                 </button>
                             ))}
@@ -530,6 +542,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
+                                    priority
                                 />
                             </button>
                             <button
@@ -543,6 +557,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                             <button
@@ -556,6 +571,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                             <button
@@ -569,6 +585,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                             </button>
                         </div>
@@ -586,6 +603,8 @@ export default function CampgroundDetailClient({
                                     alt={name}
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
+                                    priority
                                 />
                             </button>
                             {images.slice(1, 4).map((src, i) => (
@@ -601,6 +620,7 @@ export default function CampgroundDetailClient({
                                         alt=""
                                         className="w-full h-full"
                                         imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                        sizes="(max-width: 1024px) 50vw, 25vw"
                                     />
                                 </button>
                             ))}
@@ -615,6 +635,7 @@ export default function CampgroundDetailClient({
                                     alt=""
                                     className="w-full h-full"
                                     imgClassName="object-cover hover:brightness-95 transition duration-200"
+                                    sizes="(max-width: 1024px) 50vw, 25vw"
                                 />
                                 {images.length > 5 && (
                                     <div className="absolute bottom-4 right-4">
@@ -819,7 +840,7 @@ export default function CampgroundDetailClient({
                                             return (
                                                 <li
                                                     key={index}
-                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-sm -mx-1 px-1"
+                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-xl -mx-1 px-1"
                                                     data-testid={`item--review-${index}`}
                                                 >
                                                     <p className="font-semibold text-foreground text-sm mb-1">
@@ -914,7 +935,7 @@ export default function CampgroundDetailClient({
                             <div className="border border-border rounded-xl overflow-hidden mb-4 bg-background">
                                 <div className="flex border-b border-border/60">
                                     <div className="w-1/2 p-3 border-r border-border/60">
-                                        <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">{t.booking.checkIn}</label>
+                                        <label className="block text-xs font-bold uppercase text-muted-foreground mb-1">{t.booking.checkIn}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -942,7 +963,7 @@ export default function CampgroundDetailClient({
                                         </Popover>
                                     </div>
                                     <div className="w-1/2 p-3">
-                                        <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">{t.booking.checkOut}</label>
+                                        <label className="block text-xs font-bold uppercase text-muted-foreground mb-1">{t.booking.checkOut}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -971,7 +992,7 @@ export default function CampgroundDetailClient({
                                     </div>
                                 </div>
                                 <div className="p-3">
-                                    <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
+                                    <label className="block text-xs font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
                                     <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
                                         <SelectTrigger className="w-full border border-border hover:border-foreground transition">
                                             <div className="flex items-center gap-2">

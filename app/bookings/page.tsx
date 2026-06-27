@@ -16,17 +16,7 @@ import {
 } from "lucide-react";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Button } from "@/components/ui/button";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -41,6 +31,7 @@ export default function MyBookingsPage() {
     const [loading, setLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
+    const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
     useEffect(() => {
         fetch('/api/bookings')
@@ -121,7 +112,7 @@ export default function MyBookingsPage() {
                             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
                                 {t.bookings.startSearching}
                             </p>
-                            <Button asChild size="lg" className="px-8 font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                            <Button asChild size="lg" className="px-8 font-bold shadow-lg shadow-primary/20">
                                 <Link href="/">{t.bookings.exploreButton}</Link>
                             </Button>
                         </div>
@@ -131,12 +122,13 @@ export default function MyBookingsPage() {
                                 <div key={booking.id} className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
                                     <div className="flex flex-col md:flex-row">
                                         {/* Image Section */}
-                                        <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
+                                        <div className="md:w-64 h-48 md:aspect-[4/3] overflow-hidden relative">
                                             <ImageWithFallback
                                                 src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
                                                 alt={booking.campSite?.nameEn || booking.campground?.nameEn || ""}
                                                 className="w-full h-full"
                                                 imgClassName="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                sizes="(max-width: 768px) 100vw, 256px"
                                             />
                                             <div className="absolute top-4 left-4">
                                                 {(() => {
@@ -214,41 +206,37 @@ export default function MyBookingsPage() {
                                                 </div>
                                                 <div className="flex gap-3">
                                                     {booking.status !== 'CANCELLED' && (
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    disabled={cancellingId === booking.id}
-                                                                    aria-label={t.bookings.cancelBookingAriaLabel}
-                                                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors"
-                                                                >
-                                                                    {cancellingId === booking.id ? (
-                                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                                    ) : (
-                                                                        t.bookings.cancelBooking
-                                                                    )}
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>{t.bookings.confirmCancelTitle}</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        {t.bookings.confirmCancelDescription}
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>{t.bookings.keepBooking}</AlertDialogCancel>
-                                                                    <AlertDialogAction
-                                                                        variant="destructive"
-                                                                        onClick={() => handleCancel(booking.id)}
-                                                                    >
-                                                                        {t.bookings.confirmCancelAction}
-                                                                    </AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                disabled={cancellingId === booking.id}
+                                                                aria-label={t.bookings.cancelBookingAriaLabel}
+                                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors"
+                                                                onClick={() => setCancelConfirmId(booking.id)}
+                                                            >
+                                                                {cancellingId === booking.id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    t.bookings.cancelBooking
+                                                                )}
+                                                            </Button>
+                                                            <ConfirmDialog
+                                                                open={cancelConfirmId === booking.id}
+                                                                onOpenChange={(open) => !open && setCancelConfirmId(null)}
+                                                                title={t.bookings.confirmCancelTitle}
+                                                                description={t.bookings.confirmCancelDescription}
+                                                                confirmLabel={t.bookings.confirmCancelAction}
+                                                                cancelLabel={t.bookings.keepBooking}
+                                                                onConfirm={() => {
+                                                                    setCancelConfirmId(null);
+                                                                    handleCancel(booking.id);
+                                                                }}
+                                                                isLoading={cancellingId === booking.id}
+                                                                destructive
+                                                            />
+                                                        </>
                                                     )}
-                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors">
+                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors">
                                                         <Link href={`/campgrounds/${booking.campSite?.nameThSlug || booking.campground?.nameThSlug}`}>
                                                             {t.bookings.viewDetails} <ChevronRight className="w-4 h-4 ml-1" />
                                                         </Link>

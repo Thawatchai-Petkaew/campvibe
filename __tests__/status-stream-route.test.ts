@@ -4,17 +4,26 @@ vi.mock("@/lib/status-pulse", () => ({ readPulse: vi.fn(async () => 0) }));
 
 import { GET } from "@/app/api/status/stream/route";
 import { readPulse } from "@/lib/status-pulse";
+import { _store as rateLimitStore } from "@/lib/rate-limit";
 
 const rp = vi.mocked(readPulse);
 
+const TEST_TOKEN = "test-secret";
+
 function req(token?: string) {
-  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  // Default to the TEST_TOKEN so tests that exercise the happy path pass auth.
+  const t = token !== undefined ? token : TEST_TOKEN;
+  const qs = t ? `?token=${encodeURIComponent(t)}` : "";
   return new Request(`http://localhost/api/status/stream${qs}`);
 }
 
 // Drain the SSE stream for up to `ms`, returning all text seen. Bounded so it never hangs
 // (the route also self-closes at MAX_MS). Reads against a per-read timeout to stay responsive.
-async function drain(res: Response, ms: number): Promise<string> {
+// Drain the SSE stream up to `ms`. If `until` is given, return early as soon as that
+// substring is seen — so a happy-path assertion waits on the real event instead of a
+// fixed window that flakes under CI load. The stream self-closes at STATUS_STREAM_MAX_MS,
+// so a route that never emits still ends the loop (done) and the assertion fails — teeth intact.
+async function drain(res: Response, ms: number, until?: string): Promise<string> {
   const reader = res.body!.getReader();
   const dec = new TextDecoder();
   let out = "";
@@ -26,6 +35,7 @@ async function drain(res: Response, ms: number): Promise<string> {
     ])) as { value?: Uint8Array; done: boolean };
     if (step.done) break;
     if (step.value) out += dec.decode(step.value);
+    if (until && out.includes(until)) break;
   }
   try { await reader.cancel(); } catch { /* ignore */ }
   return out;
@@ -33,10 +43,13 @@ async function drain(res: Response, ms: number): Promise<string> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  delete process.env.STATUS_TOKEN;
+  // RISK-7: STATUS_TOKEN is now required; set a test token so happy-path tests pass auth.
+  process.env.STATUS_TOKEN = TEST_TOKEN;
   process.env.STATUS_STREAM_POLL_MS = "15";
   process.env.STATUS_STREAM_HEARTBEAT_MS = "1000";
   process.env.STATUS_STREAM_MAX_MS = "400";
+  // Clear in-process rate-limit store between tests.
+  rateLimitStore.clear();
 });
 afterEach(() => {
   delete process.env.STATUS_STREAM_POLL_MS;
@@ -65,7 +78,9 @@ describe("status/stream (SSE)", () => {
     rp.mockImplementation(async () => v);
     const res = await GET(req());
     setTimeout(() => { v = 1; }, 30); // bump shortly after the stream opens
-    const out = await drain(res, 300);
+    // Wait until the data event actually arrives (early-exit), not a fixed window.
+    // 2000ms is only a safety cap — the stream self-closes at MAX_MS (400ms) well before it.
+    const out = await drain(res, 2000, 'data: {"version":1}');
     expect(out).toContain('data: {"version":1}');
   });
 

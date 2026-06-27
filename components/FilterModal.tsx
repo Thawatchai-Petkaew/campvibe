@@ -2,18 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
     DialogTrigger,
-    DialogFooter
 } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,11 +18,28 @@ import { cn } from "@/lib/utils";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
-// DB-driven icon resolver — keeps lucide for campground attribute icons fetched from DB.
-// This is intentional: the iconName string (e.g. "Tent", "Mountain") comes from the DB
-// and maps to lucide icons. We keep this resolver as-is and only swap the two static UI
-// icons (X and SlidersHorizontal) to tabler equivalents above.
-import * as LucideIcons from "lucide-react";
+// DB-driven icon resolver — named imports only for the 39 icons that MasterData.icon
+// can ever hold (sourced from prisma/seed.ts). HelpCircle is the fallback for any
+// future DB icon not yet in the map. This replaces the previous wildcard import that
+// bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
+import {
+  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
+  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
+  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
+  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
+  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
+  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
+  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+};
 
 export function FilterModal() {
     const { t, language } = useLanguage();
@@ -316,30 +330,21 @@ export function FilterModal() {
                     <SlidersHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
                     {activeFilterCount > 0 && (
-                        <span aria-hidden="true" className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-primary-foreground bg-primary rounded-full animate-in zoom-in duration-200 border-2 border-background">
+                        <Badge
+                            aria-hidden="true"
+                            variant="default"
+                            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full animate-in zoom-in duration-200 border-2 border-background"
+                        >
                             {activeFilterCount}
-                        </span>
+                        </Badge>
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[85vh] bg-card">
-
-                {/* Header - Aligned with Search Modal */}
-                <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60 relative shrink-0">
-                    <DialogClose asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
-                            aria-label={t.common?.close || "Close"}
-                        >
-                            <X className="w-5 h-5 text-foreground" />
-                        </Button>
-                    </DialogClose>
-                    <DialogTitle className="text-lg font-bold text-foreground">
-                        {t.filter?.title || "Filters"}
-                    </DialogTitle>
-                </div>
+            <ModalContent className="sm:max-w-3xl gap-0 flex flex-col max-h-[85vh]" aria-describedby={undefined}>
+                <ModalHeader
+                    title={t.filter?.title ?? "Filters"}
+                    closeLabel={t.common?.close}
+                />
 
                 {/* Scrollable Content - Compacted */}
                 <div className="overflow-y-auto p-6 md:p-8 space-y-6 flex-1 custom-scrollbar">
@@ -413,13 +418,12 @@ export function FilterModal() {
                         }
                     </Button>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }
 
-function getIconComponent(iconName: string | null) {
+function getIconComponent(iconName: string | null): LucideIcon | null {
     if (!iconName) return null;
-    // @ts-ignore
-    return LucideIcons[iconName] || LucideIcons.HelpCircle;
+    return ICON_MAP[iconName] ?? HelpCircle;
 }

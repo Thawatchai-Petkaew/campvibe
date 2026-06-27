@@ -28,6 +28,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { LogoUpload } from "@/components/LogoUpload";
 import { LocationPicker } from "@/components/LocationPicker";
 import { InputField } from "@/components/ui/input-field";
+import { Badge } from "@/components/ui/badge";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Label } from "@/components/ui/label";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
@@ -41,16 +42,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import * as LucideIcons from "lucide-react";
@@ -278,7 +270,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 )}
                             >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                                    <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                                         <IconComp className="w-3.5 h-3.5" />
                                     </div>
                                     <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
@@ -429,7 +421,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                             {formData.logo && (
                                 <>
-                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-muted shrink-0">
+                                    <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center bg-muted shrink-0">
                                         {logoError ? (
                                             <div className="w-full h-full flex items-center justify-center bg-muted">
                                                 <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,7 +444,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <h1 className="text-lg font-bold text-foreground leading-tight truncate">
                                     {isEditing ? `Edit: ${formData.nameTh}` : t.dashboard.createListing}
                                 </h1>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{t.dashboard.hostPanel}</p>
+                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{t.dashboard.hostPanel}</p>
                             </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
@@ -771,9 +763,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {formData.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         {formData.tags.map((tag, idx) => (
-                                            <span key={idx} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                                            <Badge key={idx} variant="secondary">
                                                 {tag}
-                                            </span>
+                                            </Badge>
                                         ))}
                                     </div>
                                 )}
@@ -1237,27 +1229,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             </form>
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t.newCampground.confirmDeleteDesc}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">
-                            {t.dashboard.cancel}
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="rounded-full bg-destructive hover:bg-destructive/90"
-                        >
-                            {t.common.delete}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t.newCampground.confirmDelete}
+                description={t.newCampground.confirmDeleteDesc}
+                confirmLabel={t.common.delete}
+                cancelLabel={t.dashboard.cancel}
+                onConfirm={handleDelete}
+                destructive
+            />
         </div>
     );
 }

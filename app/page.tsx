@@ -1,18 +1,21 @@
+import { Suspense } from "react";
 import { Navbar } from "@/components/Navbar";
 import { CategoryBar } from "@/components/CategoryBar";
-import { CampgroundGrid } from "@/components/CampgroundGrid";
-import { EmptyState } from "@/components/EmptyState";
 import { SortDropdown } from "@/components/SortDropdown";
 import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
-import { prisma } from "@/lib/prisma";
-import { serializeDecimals } from "@/lib/serialize";
+import { CampgroundGridSkeleton } from "@/components/CampgroundSkeleton";
+import CatalogResults from "@/components/CatalogResults";
 import { auth } from "@/lib/auth";
-import { buildCampSiteWhere } from "@/lib/campsite-filters";
-import { sortByRating, computeAvgRating } from "@/lib/sort-utils";
-import { roundAvgRating } from "@/lib/review-summary";
 
-export const dynamic = 'force-dynamic'
+// CACHE-1 (CAM-195): force-dynamic removed. The page is still dynamic because auth()
+// and the wishlist lookup are per-request. The default catalog read is now served from
+// unstable_cache (getDefaultCatalog) to avoid a DB round-trip on warm requests.
+// Filtered/search paths remain live (direct Prisma) — the page stays dynamic for those too.
+//
+// LOAD-1 (CAM-197): Data-fetch + results render moved to CatalogResults (async server child).
+// Suspense with a key derived from all search/filter params triggers the skeleton fallback
+// instantly on every sort/filter/search/category change (cases 2–5 in the loading matrix).
 
 interface HomeSearchParams {
   type?: string;
@@ -57,113 +60,25 @@ export default async function Home({ searchParams }: HomeProps) {
     terrain,
   } = sp;
 
-  const where = buildCampSiteWhere({
-    type,
-    keyword,
-    province,
-    district,
-    startDate,
-    endDate,
-    guests,
-    min,
-    max,
-    access,
-    facilities,
-    activities,
-    terrain,
-  });
-
-  // 7. Sorting — sanitize the sort param against an allowlist before any branch.
-  // Anything outside the allowlist (incl. undefined / injected values) falls back to 'related'.
-  const VALID_SORT = ['related', 'price_asc', 'price_desc', 'rating'] as const;
-  type SortParam = typeof VALID_SORT[number];
-  const sanitizedSort: SortParam =
-    typeof sort === 'string' && (VALID_SORT as readonly string[]).includes(sort)
-      ? (sort as SortParam)
-      : 'related';
-
-  // For all sorts except 'rating', build the Prisma orderBy as before.
-  const orderBy =
-    sanitizedSort === 'price_asc'  ? { priceLow: 'asc' as const }  :
-    sanitizedSort === 'price_desc' ? { priceLow: 'desc' as const } :
-    { createdAt: 'desc' as const }; // 'related' default
-
-  // Fetch camp sites server-side
-  let campSites: any[] = [];
-  try {
-    if (sanitizedSort === 'rating') {
-      // SCALE GUARD: in-memory sort is valid up to ~200 published campsites.
-      // When the catalog exceeds that threshold, replace with a stored
-      // CampSite.avgRating column updated by a background job (C-2.5).
-      const rows = await prisma.campSite.findMany({
-        where, // buildCampSiteWhere result — filter first, then sort
-        include: {
-          location: true,
-          operator: { select: { name: true } },
-          images: { orderBy: { sortOrder: 'asc' } },
-          _count: { select: { reviews: true } },
-          reviews: {
-            where:  { deletedAt: null }, // exclude soft-deleted reviews
-            select: { rating: true },    // only the field needed; no N+1
-          },
-        },
-        // No orderBy or take here — JS sort + slice(0,40) in sortByRating takes over
-      });
-
-      // Sort descending by avg rating, nulls last, capped at 40
-      const sorted = sortByRating(rows);
-
-      // Compute avgRating/reviewCount server-side, then strip the reviews array.
-      // Cards receive only the scalar props — no PII, no author data.
-      campSites = sorted.map(({ reviews: _reviews, ...rest }) => ({
-        ...rest,
-        avgRating: roundAvgRating(computeAvgRating(_reviews)),
-        reviewCount: _reviews.length,
-      }));
-    } else {
-      const rows = await prisma.campSite.findMany({
-        where,
-        include: {
-          location: true,
-          operator: { select: { name: true } },
-          images: { orderBy: { sortOrder: 'asc' } },
-          _count: { select: { reviews: true } },
-          reviews: {
-            where:  { deletedAt: null },
-            select: { rating: true },
-          },
-        },
-        orderBy,
-        take: 40,
-      });
-
-      // Compute avgRating/reviewCount server-side, then strip the reviews array.
-      campSites = rows.map(({ reviews: _reviews, ...rest }) => ({
-        ...rest,
-        avgRating: roundAvgRating(computeAvgRating(_reviews)),
-        reviewCount: _reviews.length,
-      }));
-    }
-  } catch (error) {
-    console.error("Database connection error:", error);
-    campSites = [];
-  }
-
-  const isSearchActive = !!(keyword || province || district || startDate || endDate || guests || (type && type !== 'ALL') || min || max || access || facilities || activities || terrain);
-
-  // Fetch wishlist ids once per page-load (only when logged in). No N+1.
-  let savedCampSiteIds: string[] = [];
-  if (session?.user?.id) {
-    try {
-      const wishlistRows = await prisma.wishlist.findMany({
-        where: { userId: session.user.id },
-        select: { campSiteId: true },
-      });
-      savedCampSiteIds = wishlistRows.map((r) => r.campSiteId);
-    } catch {
-      // Non-fatal — cards render with saved=false on error.
-    }
-  }
+  // Compose the Suspense key from all params that can change the results set.
+  // Mirrors the key used for InfiniteScrollGrid in page.tsx previously (same formula).
+  // When any param changes → key changes → React shows the fallback skeleton instantly.
+  const searchParamsKey = [
+    sort ?? "",
+    type ?? "",
+    keyword ?? "",
+    province ?? "",
+    district ?? "",
+    startDate ?? "",
+    endDate ?? "",
+    guests ?? "",
+    min ?? "",
+    max ?? "",
+    access ?? "",
+    facilities ?? "",
+    activities ?? "",
+    terrain ?? "",
+  ].join("|");
 
   return (
     <main className="min-h-screen pb-20 bg-background text-foreground">
@@ -183,20 +98,33 @@ export default async function Home({ searchParams }: HomeProps) {
       </FilterSortBar>
 
       <div className="container mx-auto px-6">
-        {campSites.length === 0 ? (
-          <EmptyState
-            showReset={isSearchActive}
-          />
-        ) : (
-          <CampgroundGrid
-            camps={campSites.map((c: any) => serializeDecimals({
-              ...c,
-              createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-            }))}
-            savedIds={savedCampSiteIds}
+        {/*
+          LOAD-1: Suspense boundary wraps only the results area.
+          The shell (Navbar, CategoryBar, FilterSortBar) renders synchronously — users see
+          the nav + filters instantly. The key change on every param triggers the fallback
+          (CampgroundGridSkeleton) immediately, before the server stream arrives.
+          CatalogResults is an async server component — SSR first-page cards are in HTML.
+        */}
+        <Suspense key={searchParamsKey} fallback={<CampgroundGridSkeleton />}>
+          <CatalogResults
+            type={type}
+            keyword={keyword}
+            province={province}
+            district={district}
+            startDate={startDate}
+            endDate={endDate}
+            guests={guests}
+            sort={sort}
+            min={min}
+            max={max}
+            access={access}
+            facilities={facilities}
+            activities={activities}
+            terrain={terrain}
+            userId={session?.user?.id}
             isLoggedIn={!!session?.user?.id}
           />
-        )}
+        </Suspense>
       </div>
     </main>
   );

@@ -71,8 +71,9 @@ describe("ImageWithFallback — component contract", () => {
         expect(iwfSrc).toMatch(/from "lucide-react"/);
     });
 
-    it("AC-component-3: renders <img> element when src present", () => {
-        expect(iwfSrc).toMatch(/<img/);
+    it("AC-component-3: renders next/image (Image) element when src present", () => {
+        // PERF-4 (CAM-194): <img> replaced with <Image> from next/image
+        expect(iwfSrc).toMatch(/from "next\/image"/);
         expect(iwfSrc).toMatch(/onError/);
     });
 

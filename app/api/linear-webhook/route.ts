@@ -215,18 +215,43 @@ export async function POST(req: Request) {
     notified.push("done");
   }
 
-  // ── Existing behaviour: a gate whose `awaiting-you` was just removed → orchestrator continues.
-  //    (Coarse on purpose — the GitHub Action re-confirms with `status:gates` before acting.) ──
-  const isGate = /Gate\s*G\d/i.test(title) || labelNames.includes("awaiting-you");
+  // ── Gate approval vs rejection detection ──────────────────────────────────────────────────────
+  //
+  // The gate decision is signalled by a combination of label changes:
+  //   APPROVED  = awaiting-you removed AND changes-requested is NOT present (clean approval)
+  //   REJECTED  = changes-requested added (the reject endpoint sets this before removing awaiting-you)
+  //
+  // A plain map-approval via POST /api/status/approve uses removeAwaitingYou() only →
+  // no changes-requested → looksApproved = true.
+  //
+  // A map-rejection via POST /api/status/reject uses addLabel("changes-requested") then
+  // removeAwaitingYou() → when the webhook fires for the awaiting-you removal, changes-requested
+  // is already in labelNames → looksApproved = false; looksRejected = true.
+  //
+  // (Coarse on purpose — the GitHub Action re-confirms with `status:gates` before acting.)
+  const isGate =
+    /Gate\s*G\d/i.test(title) ||
+    labelNames.includes("awaiting-you") ||
+    (Array.isArray(updatedFrom.labelIds) &&
+      (updatedFrom.labelIds as string[]).some(
+        (lid) => currentLabels.some((cl) => cl.id === lid && cl.name === "awaiting-you")
+      ));
   const stillAwaiting = labelNames.includes("awaiting-you");
-  const looksApproved = isGate && labelChanged && !stillAwaiting;
+  const hasChangesRequested = labelNames.includes("changes-requested");
+
+  // APPROVED: awaiting-you removed AND changes-requested is NOT present.
+  const looksApproved = isGate && labelChanged && !stillAwaiting && !hasChangesRequested;
+
+  // REJECTED: changes-requested was just added (the reject endpoint adds it first).
+  const looksRejected = isGate && labelChanged && addedNames.includes("changes-requested");
 
   let dispatch: Awaited<ReturnType<typeof fireDispatch>> | null = null;
+
   if (looksApproved) {
     // SINGLE SOURCE of the "Approved" notification: fires whenever a gate's `awaiting-you` is
-    // removed — by the Telegram Approve tap OR an approval done directly in the Linear UI. The tap
-    // path no longer sends it (so there is no double-send); this covers both. Then continue the
-    // orchestrator (the GitHub Action re-confirms the gate before acting).
+    // removed — by the Telegram Approve tap, the /status/map approve button, or a direct Linear
+    // UI change.  The tap path no longer sends it (no double-send); this covers all three.
+    // Then continue the orchestrator (the GitHub Action re-confirms the gate before acting).
     const msg = buildEventMessage("approved", ctx);
     if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
     notified.push("approved");
@@ -237,5 +262,19 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, notified, approved: looksApproved, ...(dispatch ?? {}) });
+  if (looksRejected && !looksApproved) {
+    // SINGLE SOURCE of the "Rejected" notification: fires whenever changes-requested is added to
+    // a gate issue.  Does NOT fire the proceed-dispatch — the AI must rework and re-raise.
+    const msg = buildEventMessage("rejected", ctx);
+    if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+    notified.push("rejected");
+  }
+
+  return NextResponse.json({
+    ok: true,
+    notified,
+    approved: looksApproved,
+    rejected: looksRejected && !looksApproved,
+    ...(dispatch ?? {}),
+  });
 }

@@ -12,8 +12,8 @@ These ADRs are the **G2 design artifact** for the epic *"Atomic Schema · data m
 | [ADR-004](ADR-004-multi-region-location.md) | Multi-country location: Country + AdminArea tree | Proposed (G2) |
 | [ADR-005](ADR-005-booking-snapshot.md) | Booking snapshot (crystallization) scope | Proposed (G2) |
 | [ADR-006](ADR-006-booking-atomic-inventory-lock.md) | Booking atomic inventory lock: serializable isolation with bounded retry (CAM-57) | Proposed (G2) |
-| ADR-007 | Soft-delete + audit + classification convention | Planned |
-| ADR-007 | ID strategy uuid → cuid | Planned |
-| ADR-008 | pgvector / AI embeddings seam (defer) | Planned |
+| [ADR-007](ADR-007-strict-csp-nonce-nextauth.md) | Strict nonce-based CSP composition with NextAuth v5 middleware (CAM-203) | Proposed (G2) |
+| [ADR-008](ADR-008-google-oauth-jwt-upsert.md) | Google OAuth login — JWT-only upsert (no adapter), link-by-email (CAM-234) | Accepted |
+| ADR-009 | pgvector / AI embeddings seam (defer) | Planned |
 
 **Cross-cutting (decided in plan, recorded here):** pre-launch → clean breaking migration + DB reset + re-seed (no backfill/expand-contract); "reversible" = tested reset/reseed runbook + prior migration set. Each schema change ships as one atomic story (≤~400 LOC) updating schema + zod + seed + api/components together.

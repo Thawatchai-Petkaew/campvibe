@@ -178,7 +178,7 @@ async function main() {
 
     // 3. Create Test Users
     console.log('👥 Creating test users...')
-    const hashedPassword = await bcrypt.hash('password123', 10)
+    const hashedPassword = await bcrypt.hash('password123', 12)
 
     const adminUser = await prisma.user.upsert({
         where: { email: 'admin@campvibe.com' },
@@ -250,7 +250,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์เขาใหญ่',
@@ -283,7 +283,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์ดอยอ่างขาง',
@@ -316,7 +316,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1445308394109-4ec2920981b1?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์ปางอุ๋ง',
@@ -349,7 +349,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1487730116645-74489c95b41b?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์หาดไร่เลย์',
@@ -382,7 +382,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์เขาค้อ',
@@ -415,7 +415,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์ภูกระดึง',
@@ -448,7 +448,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์เกาะช้าง',
@@ -481,7 +481,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์ดอยสุเทพ',
@@ -514,7 +514,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1445308394109-4ec2920981b1?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์เขาสก',
@@ -547,7 +547,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1487730116645-74489c95b41b?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์ภูชี้ฟ้า',
@@ -580,7 +580,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800'
+            images: '/placeholder-camp.svg'
         },
         {
             nameTh: 'ลานกางเต็นท์หาดป่าตอง',
@@ -613,7 +613,7 @@ async function main() {
             isVerified: true,
             isActive: true,
             isPublished: true,
-            images: 'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800'
+            images: '/placeholder-camp.svg'
         }
     ]
 

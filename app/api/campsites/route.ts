@@ -1,48 +1,122 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
-import { buildCampSiteWhere, type CampSiteFilterParams } from '@/lib/campsite-filters';
+import { catalogQuerySchema } from '@/lib/validations/catalog-cursor';
+import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
+import { serializeDecimals } from '@/lib/serialize';
 import { requireAuth } from '@/lib/auth-utils';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { withTiming } from '@/lib/route-timing';
+import { campCardSelect } from '@/lib/read-models/camp-card';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
+import {
+  decodeCursor,
+  buildKeysetWhere,
+  orderByFor,
+  encodeCursorFromItem,
+  PAGE_SIZE,
+  type CatalogSort,
+} from '@/lib/catalog-cursor';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
-    const filterParams: CampSiteFilterParams = {
-      type: searchParams.get('type') || undefined,
-      keyword: searchParams.get('keyword') || undefined,
-      province: searchParams.get('province') || undefined,
-      district: searchParams.get('district') || undefined,
-      startDate: searchParams.get('startDate') || undefined,
-      endDate: searchParams.get('endDate') || undefined,
-      guests: searchParams.get('guests') || undefined,
-      min: searchParams.get('min') || undefined,
-      max: searchParams.get('max') || undefined,
-      access: searchParams.get('access') || undefined,
-      facilities: searchParams.get('facilities') || undefined,
-      external: searchParams.get('external') || undefined,
-      equipment: searchParams.get('equipment') || undefined,
-      activities: searchParams.get('activities') || undefined,
-      terrain: searchParams.get('terrain') || undefined,
-    };
 
-    const where = buildCampSiteWhere(filterParams);
+    // 1. Validate at the boundary — zod-parse every query param.
+    const rawParams: Record<string, string | undefined> = {};
+    searchParams.forEach((value, key) => { rawParams[key] = value; });
 
-    const campSites = await prisma.campSite.findMany({
-      where,
-      include: {
-        location: true,
-        spots: true,
-        reviews: { select: { rating: true } },
-        options: true,
-        images: { orderBy: { sortOrder: 'asc' } }
-      },
+    const parsed = catalogQuerySchema.safeParse(rawParams);
+    if (!parsed.success) {
+      return Response.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid query parameters' } },
+        { status: 400 }
+      );
+    }
+
+    const {
+      sort,
+      cursor: cursorParam,
+      type, keyword, province, district, startDate, endDate,
+      guests, min, max, access, facilities, external, equipment, activities, terrain,
+    } = parsed.data;
+
+    // 2. Decode cursor (SEC-1: never pass raw cursor to Prisma; decode first).
+    let decodedCursor = null;
+    if (cursorParam !== undefined) {
+      decodedCursor = decodeCursor(cursorParam);
+      if (decodedCursor === null) {
+        return Response.json(
+          { error: { code: 'VALIDATION_ERROR', message: 'Invalid cursor' } },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 3. Build base filter (SEC-1: isActive/isPublished/deletedAt always present).
+    const baseWhere = buildCampSiteWhere({
+      type, keyword, province, district, startDate, endDate,
+      guests, min, max, access, facilities, external, equipment, activities, terrain,
     });
-    
-    return apiSuccess(campSites);
+
+    // 4. Merge keyset WHERE via AND (never replaces the base gate).
+    const where = decodedCursor
+      ? { AND: [baseWhere, buildKeysetWhere(sort as CatalogSort, decodedCursor)] }
+      : baseWhere;
+
+    // 5. Query — take PAGE_SIZE + 1 to detect hasNextPage without a separate count.
+    const rows = await withTiming('catalog_cursor_list', () =>
+      prisma.campSite.findMany({
+        where,
+        select: campCardSelect,
+        orderBy: orderByFor(sort as CatalogSort),
+        take: PAGE_SIZE + 1,
+      })
+    );
+
+    // 6. Detect next page: if we got PAGE_SIZE+1 rows, there is more data.
+    const hasMore = rows.length > PAGE_SIZE;
+    const items = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+
+    // 7. Compute nextCursor from the last item returned (null when end of results).
+    const nextCursor: string | null =
+      hasMore && items.length > 0
+        ? encodeCursorFromItem(
+            {
+              id: items[items.length - 1].id,
+              createdAt: items[items.length - 1].createdAt,
+              // Decimal → number via toNumber() for cursor encoding
+              priceLow:
+                items[items.length - 1].priceLow !== null
+                  ? Number(items[items.length - 1].priceLow)
+                  : null,
+              avgRating:
+                items[items.length - 1].avgRating !== null
+                  ? Number(items[items.length - 1].avgRating)
+                  : null,
+            },
+            sort as CatalogSort
+          )
+        : null;
+
+    // 8. Serialise Decimals at the boundary (priceLow/avgRating: Decimal → number).
+    const serialisedItems = serializeDecimals(
+      items.map((c) => ({
+        ...c,
+        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+      }))
+    );
+
+    // 9. Return contract shape: { items, nextCursor }.
+    return Response.json({ items: serialisedItems, nextCursor }, { status: 200 });
   } catch (error) {
-    return apiError('Failed to fetch camp sites', 500, error);
+    console.error('[API Error 500]: GET /api/campsites', error);
+    return Response.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch camp sites' } },
+      { status: 500 }
+    );
   }
 }
 
@@ -53,6 +127,15 @@ export async function POST(request: NextRequest) {
   const userId = session?.user?.id;
   if (!userId) {
     return apiError('User ID not found in session', 401);
+  }
+
+  // Rate-limit: 10 camp creations per user per hour (shared key with campgrounds route).
+  const rl = checkRateLimit(`campsite:create:${userId}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการสร้างแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
   }
 
   try {
@@ -140,6 +223,10 @@ export async function POST(request: NextRequest) {
         operatorId: userId,
       },
     });
+
+    // FRESH-1: invalidate the public catalog cache after a new camp is created.
+    // Called after the DB write succeeds, before the success response.
+    revalidateTag(CATALOG_TAG, {});
 
     return apiSuccess(campSite, 201);
   } catch (error) {

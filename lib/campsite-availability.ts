@@ -2,8 +2,43 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 /**
+ * Returns BlockedDate rows that overlap [startDate, endDate] for the given
+ * campSiteId, applying the IDENTICAL predicate used by the booking write path
+ * (app/api/bookings/route.ts lines 93–104, CAM-57 / ADR-006).
+ *
+ * spotId: when provided, also includes spot-level blocks for that spot.
+ * When omitted (campsite-level availability), only whole-camp blocks (spotId null) are returned.
+ *
+ * PRIVACY DECISION (CAM-190, owner-delegated): reason field is intentionally NOT
+ * returned to callers — guests see only a blockedByHost boolean flag, not the
+ * host's free-text notes.
+ */
+export async function getBlockedDatesForRange(
+  campSiteId: string,
+  startDate: Date,
+  endDate: Date,
+  spotId?: string
+): Promise<{ startDate: Date; endDate: Date }[]> {
+  return prisma.blockedDate.findMany({
+    where: {
+      campSiteId,
+      deletedAt: null,
+      OR: [
+        { spotId: null },
+        ...(spotId ? [{ spotId }] : []),
+      ],
+      AND: [
+        { startDate: { lte: endDate } },
+        { endDate: { gte: startDate } },
+      ],
+    },
+    select: { startDate: true, endDate: true },
+  });
+}
+
+/**
  * Get daily availability for a camp site
- * Returns guests and tents booked for each date
+ * Returns guests and tents booked for each date, plus host BlockedDate coverage.
  */
 export async function getCampSiteDailyAvailability(
   campSiteId: string,
@@ -28,13 +63,13 @@ export async function getCampSiteDailyAvailability(
   });
 
   // Group by date
-  const availability: Record<string, { bookedGuests: number; bookedTents: number }> = {};
-  
+  const availability: Record<string, { bookedGuests: number; bookedTents: number; blockedByHost: boolean }> = {};
+
   // Initialize all dates in range
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     const dateKey = currentDate.toISOString().split('T')[0];
-    availability[dateKey] = { bookedGuests: 0, bookedTents: 0 };
+    availability[dateKey] = { bookedGuests: 0, bookedTents: 0, blockedByHost: false };
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
@@ -42,7 +77,7 @@ export async function getCampSiteDailyAvailability(
   bookings.forEach(booking => {
     const checkIn = new Date(booking.checkInDate);
     const checkOut = new Date(booking.checkOutDate);
-    
+
     // Count each day in the booking range
     const date = new Date(checkIn);
     while (date < checkOut) {
@@ -55,6 +90,23 @@ export async function getCampSiteDailyAvailability(
       date.setDate(date.getDate() + 1);
     }
   });
+
+  // Apply host BlockedDate ranges (one query for the full range — no N+1).
+  // Predicate is IDENTICAL to the booking write path (app/api/bookings/route.ts
+  // lines 93–104, CAM-57 / ADR-006). Camp-level only (no spotId here).
+  const blockedRanges = await getBlockedDatesForRange(campSiteId, startDate, endDate);
+
+  for (const block of blockedRanges) {
+    const cur = new Date(block.startDate);
+    const blockEnd = new Date(block.endDate);
+    while (cur <= blockEnd && cur <= endDate) {
+      const dateKey = cur.toISOString().split('T')[0];
+      if (availability[dateKey]) {
+        availability[dateKey].blockedByHost = true;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
 
   return availability;
 }

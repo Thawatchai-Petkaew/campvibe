@@ -1,30 +1,27 @@
 "use client";
 
-import { useEffect, useState, useActionState } from "react";
-import { X, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { useEffect, useState, useActionState, useTransition } from "react";
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { authenticate } from "@/lib/actions";
+import { authenticate, googleSignIn } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 interface LoginModalProps {
     isOpen: boolean;
     onClose: () => void;
     /** Optional subtitle shown below the welcome heading — e.g. wishlist login prompt. */
     subtitle?: string;
+    onSwitchToRegister?: () => void;
 }
 
-export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, subtitle, onSwitchToRegister }: LoginModalProps) {
     const { t } = useLanguage();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -34,6 +31,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
         authenticate,
         undefined
     );
+    const [isGooglePending, startGoogleTransition] = useTransition();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -80,23 +78,13 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <ModalContent className="sm:max-w-md" aria-describedby={undefined}>
                 <div className="flex flex-col relative">
-                    {/* Header */}
-                    <div className="flex items-center justify-center p-6 border-b border-border/60">
-                        <DialogClose asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
-                                onClick={handleClose}
-                                aria-label={t.common?.close || "Close"}
-                            >
-                                <X className="w-5 h-5 text-foreground" />
-                            </Button>
-                        </DialogClose>
-                        <DialogTitle className="text-lg font-bold text-foreground">{t.auth.login}</DialogTitle>
-                    </div>
+                    <ModalHeader
+                        title={t.auth.login}
+                        closeLabel={t.common?.close}
+                        onClose={handleClose}
+                    />
 
                     {/* Content */}
                     <div className="p-8 space-y-6">
@@ -144,7 +132,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             <InputField
@@ -174,7 +162,7 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                                 }
                                 containerClassName="mb-8"
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
 
@@ -188,17 +176,51 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                             </Button>
                         </form>
 
+                        {/* Divider + Google sign-in */}
+                        <div className="relative flex items-center gap-4">
+                            <div className="flex-1 border-t border-border/60" />
+                            <span className="text-xs text-muted-foreground select-none">
+                                {t.common?.or ?? "or"}
+                            </span>
+                            <div className="flex-1 border-t border-border/60" />
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            disabled={isGooglePending || isPending}
+                            data-testid="btn--login-google"
+                            aria-label={t.auth.signInWithGoogle}
+                            className="w-full rounded-full flex items-center justify-center gap-3"
+                            onClick={() => {
+                                const redirectTo = `${pathname || "/"}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
+                                startGoogleTransition(() => googleSignIn(redirectTo));
+                            }}
+                        >
+                            <GoogleIcon aria-hidden />
+                            <span>
+                                {isGooglePending
+                                    ? (t.auth.signingInWithGoogle ?? t.auth.signingIn)
+                                    : t.auth.signInWithGoogle}
+                            </span>
+                        </Button>
+
                         <div className="pt-4 border-t border-border/60 text-center">
                             <p className="text-sm text-muted-foreground">
                                 {t.auth.dontHaveAccount}{" "}
-                                <a href="/register" className="text-primary font-bold hover:underline">
+                                <button
+                                    type="button"
+                                    onClick={onSwitchToRegister}
+                                    className="text-primary font-bold hover:underline"
+                                >
                                     {t.auth.register}
-                                </a>
+                                </button>
                             </p>
                         </div>
                     </div>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

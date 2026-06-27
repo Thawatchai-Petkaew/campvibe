@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { assertSeedAllowed } from '@/lib/seed-guard';
 import bcrypt from 'bcryptjs';
+import { CATALOG_TAG } from '@/lib/catalog-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,7 @@ export async function GET() {
         console.log('Starting seed...');
 
         // 1. Create a Default Operator
-        const hashedPassword = await bcrypt.hash('password123', 10);
+        const hashedPassword = await bcrypt.hash('password123', 12);
         const operator = await prisma.user.upsert({
             where: { email: 'operator@campvibe.com' },
             update: {},
@@ -38,7 +40,7 @@ export async function GET() {
                 priceHigh: 1200,
                 lat: 18.9167,
                 lon: 98.9667,
-                images: Array.from({ length: 10 }, (_, i) => `/mockup/campgrounds/khob-chon-camp-935/img-${i}.${i < 8 ? 'jpeg' : 'jpg'}`).join(','),
+                images: '/placeholder-camp.svg',
             },
             {
                 nameTh: 'รัศมีฟาร์ม Ratsamee Farm',
@@ -50,7 +52,7 @@ export async function GET() {
                 priceHigh: 1500,
                 lat: 18.8167,
                 lon: 99.0667,
-                images: Array.from({ length: 10 }, (_, i) => `/mockup/campgrounds/ratsamee-farm-86/img-${i}.jpg`).join(','),
+                images: '/placeholder-camp.svg',
             },
             {
                 nameTh: 'ดอยหมอก แคมป์ปิ้ง',
@@ -62,7 +64,7 @@ export async function GET() {
                 priceHigh: 2000,
                 lat: 19.3667,
                 lon: 99.1667,
-                images: Array.from({ length: 10 }, (_, i) => `/mockup/campgrounds/pn-valley-camp-472/img-${i}.jpg`).join(','),
+                images: '/placeholder-camp.svg',
             }
         ];
 
@@ -111,6 +113,10 @@ export async function GET() {
                 createdCount++;
             }
         }
+
+        // FRESH-1: invalidate the full catalog cache after a seed run replaces
+        // catalog data. Called once at handler end, after all DB writes succeed.
+        revalidateTag(CATALOG_TAG, {});
 
         return NextResponse.json({
             success: true,

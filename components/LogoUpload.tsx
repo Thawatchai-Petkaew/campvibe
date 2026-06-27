@@ -70,6 +70,8 @@ export function LogoUpload({
                         alt={t.newCampground.logoPreview}
                         className="w-full h-full"
                         imgClassName="object-contain"
+                        width={128}
+                        height={128}
                     />
                     <button
                         type="button"
@@ -101,7 +103,7 @@ export function LogoUpload({
                             </div>
                             <div className="text-center px-2">
                                 <p className="text-xs font-semibold text-foreground">{t.newCampground.uploadLogo}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{t.newCampground.uploadLogoFormats}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.newCampground.uploadLogoFormats}</p>
                             </div>
                         </>
                     )}

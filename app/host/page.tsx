@@ -69,7 +69,7 @@ export default async function HostLandingPage() {
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Link href={session?.user ? "/host/new" : "/login?callbackUrl=/host"}>
-              <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-6">
+              <Button className="rounded-full px-6">
                 เริ่มเพิ่มลานของฉัน
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

@@ -81,14 +81,44 @@ The `/status` and `/status/map` boards derive their lane from `boardColumnOf()` 
 
 **Create rule:** create scoped stories in the **Todo (unstarted) state**, not Backlog. The first build handoff (`--state "In Progress"`) starts the story. QA/Security handoffs and any `awaiting-you` gate read as In Review on the board automatically (derived by `boardColumnOf`) — no separate Linear state is needed for that lane.
 
-## Gate continuation (how you learn the human approved)
+## Gate continuation (how you learn the human approved or rejected)
 
-A gate is **approved** the moment the `awaiting-you` label is removed from the gate issue — by a Telegram tap, a Linear UI state change, or (future) an Approve control on `/status/map`. All three paths are durable code: removing `awaiting-you` fires the Linear webhook (`app/api/linear-webhook/route.ts`), which sends the single-source "Approved" notification **and** fires a `repository_dispatch`. What differs is *how you find out*, and that depends on how you are running:
+A gate decision is signalled by changes to the `awaiting-you` and `changes-requested` labels on the gate issue.  There are now **three approve paths**: Telegram tap, Linear UI, and the `/status/map` Approve button — all converge on `removeAwaitingYou()`.  The reject path is new: `/status/map` Reject (or a future Telegram "Send Back" tap) calls `addLabel("changes-requested")` then `removeAwaitingYou()`.
 
-- **Headless (GitHub Action `linear-continue` / `camper-adhoc`):** the `repository_dispatch` resumes you automatically — no action needed from you. (Requires `ANTHROPIC_API_KEY` in the workflow env; if it is unset, the dispatch fires but nothing resumes — the interactive path below is then the only one that continues the loop.)
-- **Interactive (running inside a chat):** you do **NOT** receive the Telegram tap or the webhook event — nothing pushes the approval to you. You MUST detect it yourself: after raising a gate, **poll** `node scripts/linear-sync.mjs gates` on an interval (exit code `10` = a gate is still waiting; a clean exit = none pending). Run the poll in the **background** so the human can approve via Telegram, the Linear UI, or chat, and you continue the moment the gate you raised clears — without asking them twice. This is not optional; skipping it is the recurring "I approved but the orchestrator never noticed" failure.
+**How to read the outcome when `awaiting-you` is cleared:**
 
-Either way you still **never self-approve** — you only *detect* the human's approval and continue. If the poll never clears, the gate is still pending: keep waiting, never proceed.
+| `changes-requested` label present? | Meaning | What to do |
+|---|---|---|
+| **No** | **APPROVED** — proceed | Continue to the next story/step as planned |
+| **Yes** | **REJECTED** — rework required | Read the owner's reason (Linear MCP `list_comments` on the issue), rework per the comment, then re-raise: remove `changes-requested` + re-add `awaiting-you` |
+
+The Linear webhook (`app/api/linear-webhook/route.ts`) is the SINGLE source of both notifications: "Approved — the team continues" fires when `awaiting-you` is removed WITHOUT `changes-requested`; "Sent back for changes" fires when `changes-requested` is ADDED.  The webhook fires a `repository_dispatch` only on approval, not on rejection.
+
+**How you detect the outcome, by run mode:**
+
+- **Headless (GitHub Action `linear-continue` / `camper-adhoc`):** the `repository_dispatch` resumes you automatically on **approval** — no action needed from you.  On **rejection** the dispatch does NOT fire; the next session must sync via `node scripts/linear-sync.mjs gates` to detect the `changes-requested` label.  (Requires `ANTHROPIC_API_KEY` in the workflow env; if it is unset, the dispatch fires but nothing resumes — the interactive path below is then the only one that continues the loop.)
+- **Interactive (running inside a chat):** you do **NOT** receive the Telegram tap, webhook event, or map action — nothing pushes the result to you. You MUST detect it yourself: after raising a gate, **poll** `node scripts/linear-sync.mjs gates` on an interval (exit code `10` = a gate is still waiting; a clean exit = none pending). When `awaiting-you` clears, check whether `changes-requested` is also present on that issue to determine approved vs rejected. Run the poll in the **background** so the human can decide via Telegram, the Linear UI, or /status/map, and you continue the moment the gate clears — without asking them twice. This is not optional; skipping it is the recurring "I approved but the orchestrator never noticed" failure.
+
+**On REJECTION (rework loop):**
+
+1. Read the owner's reason via Linear MCP `list_comments` on the gate issue.
+2. Dispatch the appropriate role to rework per the comment.
+3. When rework is complete, re-raise the gate: remove `changes-requested` + re-add `awaiting-you` on the issue.
+4. Resume polling for the next decision.
+
+Either way you still **never self-approve** — you only *detect* the human's decision and continue. If the poll never clears, the gate is still pending: keep waiting, never proceed.
+
+## Scout Retro (continuous learning)
+
+The Scout sub-agents only get smarter if lessons from closed work flow back into the `.claude/rules/<role>.md` they read before working (Iron Rule #4). You own that loop — run it via the `retro` skill.
+
+- **Manual, owner-controlled.** Run **only** when the owner invokes `/retro <CAM-###>` (or `/camper "retro ..."`). There is **no auto-trigger** at Done — do not run a retro unprompted.
+- **You distill, not the sub-agent that did the work** (avoids reinforcing its own blind spot). Mine durable sources — `git diff`/PR, the Linear issue + `list_comments` (the owner's gate-rejection comments are the richest signal), the `docs/delivery/<…>/<story>/` artifacts — never the live session.
+- **Route by generality:** reusable + role-general → propose a `## Common Rationalizations` row or `## Standards` bullet in the role rule (cite the CAM as the WHY); one-off / project-status → your own memory; worldview → `docs/context/`; visual → `DESIGN.md`; step gap → the skill.
+- **Ledger always, promote on approval.** Append every kept lesson to `docs/delivery/LESSONS.md` (`proposed`); a rule edit is a change to the team's brain, so present the diff and let the **owner approve** before editing any `.claude/rules/*.md`, then flip the ledger to `promoted`.
+- **Anti-bloat:** dedupe against the ledger + the target section — strengthen an existing row, don't append a twin; prune on a cadence so rule files stay under the SKILL-AUTHORING ceiling.
+
+Full procedure: the `retro` skill (`.claude/skills/retro/SKILL.md`).
 
 ## Examples
 

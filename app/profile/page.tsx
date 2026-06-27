@@ -265,7 +265,7 @@ export default function ProfilePage() {
                             onChange={(e) => setName(e.target.value)}
                             placeholder={t.profile?.namePlaceholder || 'Enter your name'}
                             leftIcon={<User className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border h-12"
                         />
 
                         {/* Email */}
@@ -277,7 +277,7 @@ export default function ProfilePage() {
                             placeholder={t.profile?.emailPlaceholder || 'Enter your email'}
                             error={emailValidationError}
                             leftIcon={<Mail className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border h-12"
                         />
 
                         {/* Phone */}
@@ -288,7 +288,7 @@ export default function ProfilePage() {
                             onChange={(e) => setPhone(e.target.value)}
                             placeholder={t.profile?.phonePlaceholder || 'Enter your phone number'}
                             leftIcon={<Phone className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12 focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border h-12"
                         />
 
                         {/* Role Badge */}

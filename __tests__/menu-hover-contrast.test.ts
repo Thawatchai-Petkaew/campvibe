@@ -70,12 +70,13 @@ describe("AC-nav-1: Navbar account menu no longer uses the low-contrast focus:bg
   });
 });
 
-describe("AC-nav-2: Navbar keeps the intentional, already-visible item treatments", () => {
+describe("AC-nav-2: Navbar keeps only the intentional per-item focus overrides", () => {
   const navSrc = src("components/Navbar.tsx");
-  it("Host Dashboard keeps its focus:bg-primary/10 tint", () => {
-    expect(navSrc).toMatch(/focus:bg-primary\/10/);
+  // CAM-224 A1: Host Dashboard no longer overrides focus — inherits canonical focus:bg-accent from the primitive.
+  it("Host Dashboard item does NOT override focus:bg-primary/10 (canonical focus:bg-accent applies)", () => {
+    expect(navSrc).not.toMatch(/Host Dashboard[\s\S]{0,300}focus:bg-primary\/10/);
   });
-  it("Sign out keeps its focus:bg-destructive/10 tint", () => {
+  it("Sign out keeps its focus:bg-destructive/10 tint (intentional destructive variant)", () => {
     expect(navSrc).toMatch(/focus:bg-destructive\/10/);
   });
 });

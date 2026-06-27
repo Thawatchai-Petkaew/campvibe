@@ -131,11 +131,17 @@ Security review must PASS at two gates: **G3 (pre-merge → staging)** — run t
 
 | Rationalization | Reality |
 |---|---|
+| "`default-src 'self'` is the safe CSP." | A blanket `'self'` CSP silently breaks real origins the app uses (map tiles e.g. Leaflet/OpenStreetMap, image CDNs, fonts). Inventory external origins first; when breakage is browser-only, roll out the enforced CSP as Report-Only, then flip after the console is clean (CAM-202/CAM-203). |
+| "Refactoring the auth middleware is mechanical." | Restructuring NextAuth v5 middleware (e.g. to the `auth((req)=>…)` form for a CSP nonce) can silently drop the auto-invoked `authorized` callback and unprotect routes. Re-verify route protection with a test after any auth/middleware change — an authz regression is worse than the bug being fixed (CAM-203). |
 | "`where: { id }` is enough for the mutation." | That's IDOR — anyone with the id mutates it. Scope with `where: { id, ownerId: session.user.id }`. |
 | "`prisma.x.update({ data: req.body })` is convenient." | That's mass-assignment — clients set fields you never meant to expose. Pick only allowed fields after zod parse. |
 | "Trust the `role` from the client/JWT we set." | Client-set claims are forgeable. Read role from DB/session server-side. |
 | "Leave `app/api/seed`, `bulk-seed`, `scrape-seed` open in prod." | Open seed/scrape routes are remote code/data exposure. Guard with env (`NODE_ENV !== 'production'` or a secret token) — **check every release before G5**. |
 | "Send the raw error/stack to the client to debug faster." | Stack traces leak internals to attackers. Return a generic message + log server-side (Thai copy per `playbook §6.6`, no technical jargon). |
+| "The audit says add a role gate, so add it." | An audit's authz recommendation can conflict with an intended self-service flow (e.g. a self-registering host where `operatorId = session.user.id`) — gating to a role with no upgrade path breaks onboarding. Verify the business rule + existing flow before applying it; if the goal is anti-abuse, a rate-limit closes it without breaking the flow (CAM-211). |
+| "Return a 429 from the NextAuth `authorize` callback." | `authorize` can't emit an HTTP status. Rate-limit before the password compare and return `null` (surfaces as CredentialsSignin), or wrap the sign-in route — don't expect a clean 429 from inside `authorize` (CAM-209). |
+| "We set up a nonce CSP, so static pages still work." | A statically-prerendered route under a per-request nonce CSP has **all** its scripts blocked — CSP3 ignores `'unsafe-inline'` once a `nonce-` source is present, but the static HTML is baked at build with no nonce while the middleware sets a fresh nonce per request, so next-themes/providers/every client bundle silently never run (theme/i18n/interactivity dead, no error thrown). A route that must run client JS under a nonce CSP must render dynamically (`export const dynamic = 'force-dynamic'`); verify the HTML's `nonce` matches the response CSP header (CAM-218). |
+| "Blocking `//` and `/\` is enough to stop an open redirect." | A control-char prefix like `/\t//evil.com` still passes a bare leading-`/` check. A same-origin redirect allowlist must accept only a leading single `/` AND reject control chars (charCode < 0x20), not just `//` and `/\` (CAM-215). |
 
 ## Verify (exit criteria)
 

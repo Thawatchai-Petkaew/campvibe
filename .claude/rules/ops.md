@@ -127,12 +127,15 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 
 | Rationalization | Reality |
 |---|---|
+| "`gh`/the script said merged, so it merged." | A chained `&& echo merged` can lie. Confirm with `gh pr view --json state`; a branch BEHIND after a concurrent merge makes the required status check "expected" and blocks even `--admin` → update the branch (merge base in) → re-run CI → merge (CAM-203). |
+| "`git add -A` then branch — the tree is clean enough." | Another team's uncommitted WIP rides onto your branch and into the PR. Pre-flight `git status` before branching; stage explicit paths, never `git add -A`, when the tree may hold others' work (CAM-199). |
 | "I'll promote straight from feature/Preview to prod." | Prod always goes through Staging + G4 sign-off first. |
 | "This migration is irreversible / I'll test it first on prod." | Make it reversible + test on Staging before prod. |
 | "Ship the release without a tag/changelog/rollback." | All three are required for every prod release. |
 | "It failed, so I'll just silently retry." | Stop the promotion + auto-open a Linear ticket. |
 | "Local/Preview passed, so call it Done." | Done means AC verified on the real Staging URL. |
 | "One `DATABASE_URL` across envs is simpler." | Keep staging/prod strictly separate. |
+| "Add the new consistency/lint guard straight as blocking." | A grep guard catches forbidden STRINGS, not structural/role drift (CAM-221: ~90 drift passed `check-ds` with correct tokens but the wrong role / re-implemented). Use AST/co-occurrence heuristics for structural rules, and roll out **report-mode → clear the backlog to 0 → flip to blocking**; never ship a blocking guard with a non-zero backlog. Make supplementary CI checks (visual regression) advisory (`continue-on-error` + non-required) so they don't block the gate. |
 
 ## Verify (exit criteria)
 

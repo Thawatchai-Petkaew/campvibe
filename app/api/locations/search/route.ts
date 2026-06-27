@@ -94,11 +94,9 @@ export async function GET(request: NextRequest) {
             }
             return NextResponse.json(results);
         }
-    } catch (error: any) {
-        console.error('Location search error:', error);
-        return NextResponse.json({
-            error: 'Failed to fetch locations',
-            detail: error.message
-        }, { status: 500 });
+    } catch (error: unknown) {
+        // RISK-9: log detail server-side only; never leak error.message to the client.
+        console.error('[GET /api/locations/search]', error);
+        return NextResponse.json({ error: 'Failed to fetch locations' }, { status: 500 });
     }
 }

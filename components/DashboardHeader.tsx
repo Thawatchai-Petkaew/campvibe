@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { User, ChevronDown } from "lucide-react";
 import {
@@ -30,14 +29,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user }: DashboardHeaderProps) {
     const { t } = useLanguage();
-    const router = useRouter();
     const [imageError, setImageError] = useState(false);
-
-    // Debug: Log current user
-    useEffect(() => {
-        console.log("=== CURRENT USER INFO ===");
-        console.log("User:", user);
-    }, [user]);
 
     return (
         <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -89,13 +81,13 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                         </div>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
-                            <Link href="/profile">My Profile</Link>
+                            <Link href="/profile">{t.nav.myProfile}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => handleSignOut()}
                             className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
-                            Sign out
+                            {t.auth.signOut}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

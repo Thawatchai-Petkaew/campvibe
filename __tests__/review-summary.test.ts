@@ -345,10 +345,13 @@ describe('AC-6 — error isolation (source-inspection)', () => {
         // We locate the review catch block by finding the reviewsError assignment.
         expect(pageSrc).toContain('reviewsError = true');
         // The notFound() call must appear outside the review catch — only in the campSite block.
-        // Count notFound() occurrences: should be exactly 2 (one for catch, one for if (!campSite))
+        // Count notFound() occurrences: should be exactly 3:
+        //   1. campSite DB catch block
+        //   2. if (!campSite)
+        //   3. SEC-1 visibility gate: if (!canViewCampSite(...))
         // and not inside the same try as reviewsError assignment.
         const notFoundCount = (pageSrc.match(/notFound\(\)/g) || []).length;
-        expect(notFoundCount).toBe(2); // campSite catch + if (!campSite)
+        expect(notFoundCount).toBe(3); // campSite catch + if (!campSite) + SEC-1 visibility gate
     });
 
     it('[source] page.tsx: review query is inside its own isolated try block (separate from campSite query)', () => {

@@ -1,34 +1,32 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
-import { X, Mail, Lock, User } from "lucide-react";
+import { useState, useActionState, useEffect, useTransition } from "react";
+import { Mail, Lock, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { register } from "@/lib/actions";
+import { register, googleSignIn } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 interface RegisterModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    onSwitchToLogin?: () => void;
 }
 
-export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps) {
+export function RegisterModal({ isOpen, onClose, onSuccess, onSwitchToLogin }: RegisterModalProps) {
     const { t } = useLanguage();
     const [errorMessage, formAction, isPending] = useActionState(
         register,
         undefined
     );
+    const [isGooglePending, startGoogleTransition] = useTransition();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -115,26 +113,14 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <ModalContent className="sm:max-w-md">
                 <div className="flex flex-col relative">
-                    {/* Header */}
-                    <div className="flex items-center justify-center p-6 border-b border-border/60">
-                        <DialogClose asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
-                                onClick={onClose}
-                                aria-label={t.common?.close || "Close"}
-                            >
-                                <X className="w-5 h-5 text-foreground" />
-                            </Button>
-                        </DialogClose>
-                        <div className="text-center">
-                            <DialogTitle className="text-lg font-bold text-foreground">{t.auth.registerModal.title}</DialogTitle>
-                            <p className="text-sm text-muted-foreground mt-1">{t.auth.registerModal.subtitle}</p>
-                        </div>
-                    </div>
+                    <ModalHeader
+                        title={t.auth.registerModal.title}
+                        description={t.auth.registerModal.subtitle}
+                        closeLabel={t.common?.close}
+                        onClose={onClose}
+                    />
 
                     {/* Content */}
                     <div className="p-8 space-y-4">
@@ -154,7 +140,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 required
                                 leftIcon={<User className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             {/* Email */}
@@ -170,7 +156,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 error={emailValidationError}
                                 leftIcon={<Mail className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             {/* Password */}
@@ -188,7 +174,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
                                 leftIcon={<Lock className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             {/* Confirm Password */}
@@ -205,7 +191,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                                 error={validationError && validationError.includes('password') ? validationError : undefined}
                                 leftIcon={<Lock className="w-4 h-4" />}
                                 inputSize="lg"
-                                className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                                className="rounded-full bg-background border-border"
                             />
 
                             {/* Consent Checkboxes */}
@@ -256,12 +242,42 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             </Button>
                         </form>
 
+                        {/* Divider + Google sign-up */}
+                        <div className="relative flex items-center gap-4">
+                            <div className="flex-1 border-t border-border/60" />
+                            <span className="text-xs text-muted-foreground select-none">
+                                {t.common?.or ?? "or"}
+                            </span>
+                            <div className="flex-1 border-t border-border/60" />
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            disabled={isGooglePending || isPending}
+                            data-testid="btn--register-google"
+                            aria-label={t.auth.signInWithGoogle}
+                            className="w-full rounded-full flex items-center justify-center gap-3"
+                            onClick={() => {
+                                startGoogleTransition(() => googleSignIn("/"));
+                            }}
+                        >
+                            <GoogleIcon aria-hidden />
+                            <span>
+                                {isGooglePending
+                                    ? (t.auth.signingInWithGoogle ?? t.auth.signingIn)
+                                    : t.auth.signInWithGoogle}
+                            </span>
+                        </Button>
+
                         {/* Footer */}
                         <div className="pt-4 border-t border-border/60 text-center">
                             <p className="text-sm text-muted-foreground">
                                 {t.auth.registerModal.alreadyHaveAccount}{" "}
                                 <button
-                                    onClick={onClose}
+                                    type="button"
+                                    onClick={onSwitchToLogin}
                                     className="text-primary font-bold hover:underline"
                                 >
                                     {t.auth.registerModal.signIn}
@@ -270,7 +286,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                         </div>
                     </div>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

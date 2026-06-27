@@ -130,7 +130,7 @@ export function PreviewClient() {
                     {COLOR_SWATCHES.map(({ label, bg, text }) => (
                         <div key={label} className="flex flex-col gap-1">
                             <div
-                                className={`${bg} ${text} rounded-lg h-14 flex items-center justify-center border border-border`}
+                                className={`${bg} ${text} rounded-xl h-14 flex items-center justify-center border border-border`}
                                 aria-label={label}
                             />
                             <span className="text-xs text-muted-foreground text-center leading-tight">
@@ -336,7 +336,7 @@ export function PreviewClient() {
                         { icon: X, label: "Close" },
                     ].map(({ icon: Icon, label }) => (
                         <div key={label} className="flex flex-col items-center gap-1.5">
-                            <div className="p-2 rounded-lg bg-muted">
+                            <div className="p-2 rounded-xl bg-muted">
                                 <Icon className="h-5 w-5 text-foreground" aria-hidden="true" />
                             </div>
                             <span className="text-xs text-muted-foreground">{label}</span>
@@ -639,11 +639,12 @@ export function PreviewClient() {
                 <div className="grid grid-cols-3 gap-4">
                     <div className="flex flex-col gap-2">
                         <ImageWithFallback
-                            src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400"
-                            alt="Campfire at sunset"
+                            src="/placeholder-camp.svg"
+                            alt="Camp photo placeholder"
                             className="aspect-square rounded-xl"
                             imgClassName="object-cover"
                             data-testid="img--preview-good"
+                            sizes="(max-width: 640px) 33vw, 200px"
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageGood}</span>
                     </div>
@@ -653,6 +654,8 @@ export function PreviewClient() {
                             alt="Broken image example"
                             className="aspect-square rounded-xl"
                             data-testid="img--preview-broken"
+                            sizes="(max-width: 640px) 33vw, 200px"
+                            unoptimized
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageBroken}</span>
                     </div>
@@ -662,6 +665,7 @@ export function PreviewClient() {
                             alt="No source example"
                             className="aspect-square rounded-xl"
                             data-testid="img--preview-nosrc"
+                            sizes="(max-width: 640px) 33vw, 200px"
                         />
                         <span className="text-xs text-muted-foreground text-center">{t.preview.imageNone}</span>
                     </div>

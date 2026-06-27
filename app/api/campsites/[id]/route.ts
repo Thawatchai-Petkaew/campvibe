@@ -1,10 +1,14 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag, revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
+import { auth } from '@/lib/auth';
+import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
+import { CATALOG_TAG, campTag } from '@/lib/catalog-cache';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +18,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!campSite) {
       return apiError('Camp site not found', 404);
+    }
+
+    // SEC-1: gate non-public campsites. Auth is lazy — only called when the camp
+    // is not public so the hot path (public camp) pays zero auth overhead.
+    if (!isCampSitePublic(campSite)) {
+      const session = await auth();
+      if (!canViewCampSite(campSite, session)) {
+        // 404 not 403 — no information-disclosure (don't confirm the camp exists).
+        return apiError('Camp site not found', 404);
+      }
     }
 
     return apiSuccess(campSite);
@@ -124,6 +138,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     });
 
+    // FRESH-1: invalidate the camp-specific cache entry and the broad catalog
+    // cache after any edit (including isPublished flips for publish/unpublish).
+    // revalidatePath covers the detail page URL for both slug variants.
+    // Called after the DB write succeeds, before the success response.
+    revalidateTag(campTag(id), {});
+    revalidateTag(CATALOG_TAG, {});
+    revalidatePath('/campgrounds/' + updated.nameThSlug);
+    revalidatePath('/campgrounds/' + updated.nameEnSlug);
+
     return apiSuccess(updated);
   } catch (error) {
     return apiError('Failed to update camp site', 500, error);
@@ -141,6 +164,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await prisma.campSite.delete({
       where: { id }
     });
+
+    // FRESH-1: invalidate the camp-specific cache entry and the broad catalog
+    // cache after deletion. Called after the DB write succeeds, before the
+    // success response.
+    revalidateTag(campTag(id), {});
+    revalidateTag(CATALOG_TAG, {});
 
     return apiSuccess({ success: true });
   } catch (error) {

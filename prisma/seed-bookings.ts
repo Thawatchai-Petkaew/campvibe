@@ -65,7 +65,7 @@ async function main() {
                     isVerified: true,
                     isActive: true,
                     isPublished: true,
-                    images: { create: [{ url: '/mockup/campgrounds/1.jpg', sortOrder: 0 }] }, // Default mock image
+                    images: { create: [{ url: '/placeholder-camp.svg', sortOrder: 0 }] }, // Default placeholder image
                     latitude: 18.7883,
                     longitude: 98.9853
                 }

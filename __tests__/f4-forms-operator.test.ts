@@ -174,14 +174,16 @@ describe("token-compliance: text-white must be over bg-primary (AC-token-2)", ()
 describe("no-confirm-alert: window.confirm and bare confirm() (AC-confirm-*)", () => {
     const CONFIRM_PATTERN = /\bwindow\.(confirm|alert)\b|\bconfirm\s*\(/;
 
-    it("CampgroundForm has NO confirm/alert — uses AlertDialog", () => {
+    it("CampgroundForm has NO confirm/alert — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog)
         expect(campgroundFormSrc).not.toMatch(CONFIRM_PATTERN);
-        expect(campgroundFormSrc).toContain("AlertDialog");
+        expect(campgroundFormSrc).toContain("ConfirmDialog");
     });
 
-    it("TeamManagement has NO confirm/alert — uses AlertDialog", () => {
+    it("TeamManagement has NO confirm/alert — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog)
         expect(teamManagementSrc).not.toMatch(CONFIRM_PATTERN);
-        expect(teamManagementSrc).toContain("AlertDialog");
+        expect(teamManagementSrc).toContain("ConfirmDialog");
     });
 
     it("dashboard/page.tsx has NO confirm/alert", () => {
@@ -196,10 +198,11 @@ describe("no-confirm-alert: window.confirm and bare confirm() (AC-confirm-*)", (
         expect(settingsPageSrc).not.toMatch(CONFIRM_PATTERN);
     });
 
-    it("FIXED-D1: campsites/page.tsx has NO bare confirm() — uses AlertDialog", () => {
-        // Fixed: bare confirm() replaced with AlertDialog + pendingDeleteId state.
+    it("FIXED-D1: campsites/page.tsx has NO bare confirm() — uses ConfirmDialog (CAM-229 B3)", () => {
+        // CAM-229 B3: migrated to canonical ConfirmDialog wrapper (built on AlertDialog).
+        // deleteDialogOpen + pendingDeleteId state still present; dialog logic now in ConfirmDialog.
         expect(campsitesPageSrc).not.toMatch(/\bconfirm\s*\(/);
-        expect(campsitesPageSrc).toContain("AlertDialog");
+        expect(campsitesPageSrc).toContain("ConfirmDialog");
         expect(campsitesPageSrc).toContain("deleteDialogOpen");
         expect(campsitesPageSrc).toContain("pendingDeleteId");
     });
@@ -346,7 +349,7 @@ describe("a11y: icon-only buttons must have aria-label (AC-a11y-6 — FIXED-D2)"
 describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 — FIXED-D3)", () => {
     it("FIXED-D3: bookings/page prev pagination button (h-10 w-10) has aria-label", () => {
         // Fixed: aria-label={t.dashboardBookings.previousPage} added
-        const prevButtonIdx = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
+        const prevButtonIdx = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border");
         expect(prevButtonIdx).toBeGreaterThan(0); // button exists
         const context = bookingsPageSrc.substring(prevButtonIdx - 300, prevButtonIdx + 100);
         expect(context).toContain("aria-label");
@@ -354,8 +357,8 @@ describe("a11y: pagination prev/next buttons must have aria-label (AC-a11y-7 —
 
     it("FIXED-D3: bookings/page next pagination button (h-10 w-10) has aria-label", () => {
         // Fixed: aria-label={t.dashboardBookings.nextPage} added
-        const first = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border");
-        const second = bookingsPageSrc.indexOf("h-10 w-10 rounded-lg border-border", first + 1);
+        const first = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border");
+        const second = bookingsPageSrc.indexOf("h-10 w-10 rounded-full border-border", first + 1);
         expect(second).toBeGreaterThan(0);
         const context = bookingsPageSrc.substring(second - 300, second + 100);
         expect(context).toContain("aria-label");
@@ -707,24 +710,31 @@ describe("dark-mode: stat icon backgrounds are semantic (AC-dark-1)", () => {
 // ─────────────────────────────────────────────────────────────
 // AC-dark-2  DS-4: Status badges now use <Badge variant=...> (semantic via badge.tsx)
 // ─────────────────────────────────────────────────────────────
-describe("dark-mode: status badge tokens are semantic (AC-dark-2)", () => {
-    it("dashboard/page CONFIRMED uses Badge variant='success'", () => {
-        // DS-4: raw span+conditional classes replaced by Badge+bookingStatusVariant()
-        expect(dashboardPageSrc).toMatch(/function bookingStatusVariant/);
-        expect(dashboardPageSrc).toMatch(/return ['"]success['"]/);
+// CAM-225: dashboard pages now use getBookingStatusMeta from lib/booking-status (unified SSOT).
+// CANCELLED now maps to 'muted' consistently (was 'destructive' in the local function — intentional fix).
+describe("dark-mode: status badge tokens are semantic (AC-dark-2, updated CAM-225)", () => {
+    it("dashboard/page CONFIRMED uses Badge via getBookingStatusMeta (→ 'success')", () => {
+        // CAM-225: local bookingStatusVariant removed; shared util getBookingStatusMeta is the SSOT
+        expect(dashboardPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("dashboard/page CANCELLED uses Badge variant='destructive'", () => {
-        expect(dashboardPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("dashboard/page CANCELLED → 'muted' via getBookingStatusMeta (NOT 'destructive', CAM-225)", () => {
+        // No local function returning 'destructive' for CANCELLED
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(dashboardPageSrc).not.toMatch(cancDestPattern);
     });
 
-    it("bookings/page uses <Badge variant={bookingStatusVariant(...)}>", () => {
-        expect(bookingsPageSrc).toMatch(/function bookingStatusVariant/);
-        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{bookingStatusVariant\(/);
+    it("dashboard/bookings uses <Badge> via getBookingStatusMeta (CAM-225)", () => {
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(bookingsPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("bookings/page CANCELLED uses Badge variant='destructive'", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("dashboard/bookings CANCELLED → 'muted' via getBookingStatusMeta (NOT 'destructive', CAM-225)", () => {
+        expect(bookingsPageSrc).not.toMatch(/function bookingStatusVariant/);
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(bookingsPageSrc).not.toMatch(cancDestPattern);
     });
 });
 

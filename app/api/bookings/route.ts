@@ -7,6 +7,12 @@ import { apiError, apiSuccess, calculateNights } from '@/lib/api-utils';
 import { checkDateAvailabilityInTx } from '@/lib/campsite-availability';
 import { serializeDecimals } from '@/lib/serialize';
 import { resolveUnitPrice, computeBookingPrice } from '@/lib/booking-pricing';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// RISK-12: cap the list query so it never does a full-table scan as data grows.
+// Returns the most recent N bookings (orderBy createdAt desc).
+// Full keyset + infinite-scroll is a deferred FE story.
+const BOOKING_LIST_LIMIT = 100;
 
 // ---------------------------------------------------------------------------
 // Internal helper types for the booking transaction result
@@ -206,6 +212,15 @@ export async function POST(request: NextRequest) {
     return apiError('User ID not found in session', 401);
   }
 
+  // RISK-3: Rate-limit booking creation per user (20 req / 1 min).
+  const rl = checkRateLimit(`booking:create:${userId}`, { limit: 20, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ error: 'rate_limited' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) },
+    });
+  }
+
   try {
     const body = await request.json();
 
@@ -264,7 +279,8 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: BOOKING_LIST_LIMIT,
     });
 
     return apiSuccess(bookings);

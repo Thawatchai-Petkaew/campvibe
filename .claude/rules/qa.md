@@ -149,11 +149,15 @@ Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage
 
 | Rationalization | Reality |
 |---|---|
+| "Tests green + curl 200 = the AC is verified." | Lighthouse CWV (LCP/TBT), CSP console violations, interactive states (skeleton-on-click), and theme visuals are browser-only — not verifiable headless. Mark them owner-verify ACs; verify the curl-able layer (HTTP status, headers, SSR HTML, asset 200, redirect) and never claim a browser-only AC Done from curl alone (CAM-197/CAM-199/CAM-203). |
+| "Merged + the key signal looks ok = Done." | Done = walk EVERY AC row and record verified / owner-verify / N-A; a visual or browser-only AC row needs a structured owner sign-off, not a vague "looks ok" or a bare "close" (CAM-197 was closed on a bare `ปิด` with no row-by-row check). |
 | "It renders without throwing, that's a test." | A test that doesn't assert proves nothing. Assert the result (DOM / return / DB row / copy). |
 | "Mock everything so the test passes." | Over-mocking makes the test pass while the real thing breaks. Mock only the outer boundary (network/clock); keep the real logic. |
-| "A short `sleep` fixes the flakiness." | Timing/order/`sleep` make it flaky. Wait on a real condition (`findBy*`/`waitFor`); keep tests independent of order. |
+| "A short `sleep` (or a fixed drain window) fixes the flakiness." | Timing/order/`sleep` make it flaky — and draining a stream/async output for a FIXED window then asserting flakes under CI load when the event lands late. Wait on a real condition (`findBy*`/`waitFor`, or read until the awaited substring appears and early-exit), lean on a real terminal condition (e.g. the stream self-close) to keep teeth, and keep tests order-independent (CAM-212/223). |
 | "More tests = better coverage." | Worthless tests just pump the number. Write tests that fail when behavior breaks. |
 | "Tests are green locally, ship it." | Not Done until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`). |
+| "My class/token change is correct, so the red guard test is wrong." | A design-system refactor changes canonical classes, so source-inspection tests that pinned the OLD class go red — updating them to the new canonical class is correct, NOT weakening. Prefer asserting at the shared primitive/guard over duplicating exact-class greps across many consumer test files (CAM-224/226/229). |
+| "Visual-regression screenshots will just work in CI." | Playwright `toHaveScreenshot` baselines are OS-specific (macOS `-darwin` vs CI `-linux`) → the first CI run shows baseline-missing/pixel-diff red. Commit Linux baselines (or generate them in CI) AND make the visual/a11y job advisory (`continue-on-error` + a non-required check) so cross-OS pixel diffs never block the merge gate; route diffs to review (CAM-230). |
 
 ## Verify (exit criteria)
 

@@ -25,16 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function MyCampSitesPage() {
     const { t, formatCurrency, language } = useLanguage();
@@ -175,11 +166,11 @@ export default function MyCampSitesPage() {
                                 <SelectValue placeholder={t.dashboard.sortBy} />
                             </div>
                         </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-border shadow-xl min-w-[180px]">
-                            <SelectItem value="newest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortNewest}</SelectItem>
-                            <SelectItem value="oldest" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortOldest}</SelectItem>
-                            <SelectItem value="price_asc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceLow}</SelectItem>
-                            <SelectItem value="price_desc" className="rounded-lg cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceHigh}</SelectItem>
+                        <SelectContent className="rounded-2xl border-border shadow-lg min-w-[180px]">
+                            <SelectItem value="newest" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortNewest}</SelectItem>
+                            <SelectItem value="oldest" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortOldest}</SelectItem>
+                            <SelectItem value="price_asc" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceLow}</SelectItem>
+                            <SelectItem value="price_desc" className="rounded-xl cursor-pointer py-2.5 px-3 m-1">{t.dashboard.sortPriceHigh}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -219,7 +210,7 @@ export default function MyCampSitesPage() {
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
                                                 {camp.images?.length ? (
-                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" />
+                                                    <ImageWithFallback src={camp.images[0].url} alt="" className="w-full h-full" imgClassName="object-cover" sizes="64px" />
                                                 ) : (
                                                     <Tent className="w-full h-full p-4 text-muted-foreground/40" />
                                                 )}
@@ -299,20 +290,16 @@ export default function MyCampSitesPage() {
                 </div>
             </div>
 
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
-                        <AlertDialogDescription>{t.newCampground.confirmDeleteDesc}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t.dashboard.cancel}</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            {t.dashboard.confirm}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t.newCampground.confirmDelete}
+                description={t.newCampground.confirmDeleteDesc}
+                confirmLabel={t.dashboard.confirm}
+                cancelLabel={t.dashboard.cancel}
+                onConfirm={confirmDelete}
+                destructive
+            />
         </div>
     );
 }
