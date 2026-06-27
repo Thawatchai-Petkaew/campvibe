@@ -44,7 +44,7 @@ function buildCsp(nonce: string): string {
         "default-src 'self'",
         `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`,
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https://images.unsplash.com https://*.public.blob.vercel-storage.com https://*.tile.openstreetmap.org",
+        "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.tile.openstreetmap.org",
         "font-src 'self'",
         "connect-src 'self' https://*.tile.openstreetmap.org",
         "media-src 'self'",

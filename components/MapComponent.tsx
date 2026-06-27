@@ -43,7 +43,7 @@ export default function MapComponent({ latitude, longitude, campground, avgRatin
         popupAnchor: [0, -46], // 0.25rem (4px) gap above the pin
     });
     const images = (campground.images ?? []).map((img: { url: string }) => img.url);
-    const coverImage = images[0] || "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=400";
+    const coverImage = images[0] || "/placeholder-camp.svg";
 
     return (
         <div className="w-full h-full relative rounded-xl overflow-hidden border border-border shadow-sm">
@@ -76,7 +76,8 @@ export default function MapComponent({ latitude, longitude, campground, avgRatin
                         <div className="w-60 overflow-hidden rounded-lg">
                             <img
                                 src={coverImage}
-                                alt={campground.nameTh}
+                                alt=""
+                                aria-hidden="true"
                                 className="w-full h-32 object-cover"
                                 onError={(e) => {
                                     const el = e.currentTarget;

@@ -40,11 +40,7 @@ export async function GET() {
                 priceHigh: 1200,
                 lat: 18.9167,
                 lon: 98.9667,
-                images: [
-                    'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800',
-                    'https://images.unsplash.com/photo-1533575770077-052fa2c609fc?w=800',
-                    'https://images.unsplash.com/photo-1510312305653-8ed496efae75?w=800',
-                ].join(','),
+                images: '/placeholder-camp.svg',
             },
             {
                 nameTh: 'รัศมีฟาร์ม Ratsamee Farm',
@@ -56,11 +52,7 @@ export async function GET() {
                 priceHigh: 1500,
                 lat: 18.8167,
                 lon: 99.0667,
-                images: [
-                    'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800',
-                    'https://images.unsplash.com/photo-1537565266759-34b6f4ee5da9?w=800',
-                    'https://images.unsplash.com/photo-1525811902-f2342640856e?w=800',
-                ].join(','),
+                images: '/placeholder-camp.svg',
             },
             {
                 nameTh: 'ดอยหมอก แคมป์ปิ้ง',
@@ -72,11 +64,7 @@ export async function GET() {
                 priceHigh: 2000,
                 lat: 19.3667,
                 lon: 99.1667,
-                images: [
-                    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800',
-                    'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800',
-                    'https://images.unsplash.com/photo-1445308394109-4ec2920981b1?w=800',
-                ].join(','),
+                images: '/placeholder-camp.svg',
             }
         ];
 

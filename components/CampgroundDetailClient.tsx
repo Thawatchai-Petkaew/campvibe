@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "next-themes";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
@@ -54,6 +55,7 @@ export default function CampgroundDetailClient({
     reviewsError?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
+    const { resolvedTheme } = useTheme();
     const router = useRouter();
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
@@ -257,10 +259,11 @@ export default function CampgroundDetailClient({
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
 
-    // Parse images from CSV
+    // Parse images from relation
+    const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
     const images: string[] = campground.images?.length
         ? campground.images.map((img: { url: string }) => img.url)
-        : ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=1200"];
+        : [placeholderSrc];
 
     const displayImages = images.slice(0, 5);
 
