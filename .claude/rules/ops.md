@@ -127,6 +127,8 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 
 | Rationalization | Reality |
 |---|---|
+| "`gh`/the script said merged, so it merged." | A chained `&& echo merged` can lie. Confirm with `gh pr view --json state`; a branch BEHIND after a concurrent merge makes the required status check "expected" and blocks even `--admin` → update the branch (merge base in) → re-run CI → merge (CAM-203). |
+| "`git add -A` then branch — the tree is clean enough." | Another team's uncommitted WIP rides onto your branch and into the PR. Pre-flight `git status` before branching; stage explicit paths, never `git add -A`, when the tree may hold others' work (CAM-199). |
 | "I'll promote straight from feature/Preview to prod." | Prod always goes through Staging + G4 sign-off first. |
 | "This migration is irreversible / I'll test it first on prod." | Make it reversible + test on Staging before prod. |
 | "Ship the release without a tag/changelog/rollback." | All three are required for every prod release. |

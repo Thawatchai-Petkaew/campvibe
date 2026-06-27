@@ -131,6 +131,8 @@ Security review must PASS at two gates: **G3 (pre-merge → staging)** — run t
 
 | Rationalization | Reality |
 |---|---|
+| "`default-src 'self'` is the safe CSP." | A blanket `'self'` CSP silently breaks real origins the app uses (map tiles e.g. Leaflet/OpenStreetMap, image CDNs, fonts). Inventory external origins first; when breakage is browser-only, roll out the enforced CSP as Report-Only, then flip after the console is clean (CAM-202/CAM-203). |
+| "Refactoring the auth middleware is mechanical." | Restructuring NextAuth v5 middleware (e.g. to the `auth((req)=>…)` form for a CSP nonce) can silently drop the auto-invoked `authorized` callback and unprotect routes. Re-verify route protection with a test after any auth/middleware change — an authz regression is worse than the bug being fixed (CAM-203). |
 | "`where: { id }` is enough for the mutation." | That's IDOR — anyone with the id mutates it. Scope with `where: { id, ownerId: session.user.id }`. |
 | "`prisma.x.update({ data: req.body })` is convenient." | That's mass-assignment — clients set fields you never meant to expose. Pick only allowed fields after zod parse. |
 | "Trust the `role` from the client/JWT we set." | Client-set claims are forgeable. Read role from DB/session server-side. |
