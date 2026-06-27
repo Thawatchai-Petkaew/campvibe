@@ -71,6 +71,48 @@ function buildCsp(nonce: string): string {
 }
 
 export default auth(async (req) => {
+    // ── 0. COMING_SOON gate (CAM-237 LAUNCH-1) ──────────────────────────────
+    // Process env read is Edge-safe (process.env is available in the Edge runtime).
+    // This block runs BEFORE the nonce/CSP/dashboard logic so the holding page
+    // is served with zero auth overhead.
+    //
+    // Flag OFF behaviour (COMING_SOON !== "1"):
+    //   - /api/* routes now reach the matcher (api| was removed), so we must
+    //     explicitly pass them through — this is byte-identical to the previous
+    //     behaviour where the matcher excluded /api entirely.
+    //   - All other routes fall through to the unchanged nonce/CSP/dashboard logic.
+    //
+    // Flag ON behaviour (COMING_SOON === "1"):
+    //   - /api/* → 404 (the site is not open; no API surface exposed).
+    //   - /coming-soon and /status-map/sprites/* → fall through so the holding
+    //     page still receives its CSP nonce and sprites are served normally.
+    //   - Every other route → rewrite to /coming-soon (same origin, same host).
+    const { pathname } = req.nextUrl
+    // Lowercase once for the /api checks so /API/... is also caught (case-insensitive guard).
+    // The /coming-soon and /status-map/sprites allowlist checks below stay on the original
+    // pathname — our own paths; a weird-cased variant simply rewrites to the page (still safe).
+    const lowerPath = pathname.toLowerCase()
+    const comingSoon = process.env.COMING_SOON === "1"
+
+    if (comingSoon) {
+        if (lowerPath.startsWith("/api")) {
+            return new NextResponse(null, { status: 404 })
+        }
+        // Allow the holding page and its sprite assets through to normal handling
+        // so the page still gets the CSP nonce and sprites render correctly.
+        if (!pathname.startsWith("/coming-soon") && !pathname.startsWith("/status-map/sprites")) {
+            return NextResponse.rewrite(new URL("/coming-soon", req.url))
+        }
+        // /coming-soon (HTML) and sprites fall through → existing nonce/CSP logic below.
+    } else {
+        // FLAG OFF — /api/* was previously unmatched by the old matcher exclusion.
+        // Now that the matcher includes /api, pass it through immediately so
+        // NextAuth's own /api/auth/* and all other API routes are unaffected.
+        if (lowerPath.startsWith("/api")) {
+            return NextResponse.next()
+        }
+    }
+
     // ── 1. Generate a per-request nonce — Edge-safe Web Crypto ──────────────
     // btoa + String.fromCharCode is used intentionally (NOT Buffer) so this
     // works in all runtimes: Edge, Node, browser. (ADR-007 Risk 4.)
@@ -119,5 +161,8 @@ export default auth(async (req) => {
 
 export const config = {
     // https://nextjs.org/docs/app/api-reference/file-conventions/proxy#matcher
-    matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+    // CAM-237 LAUNCH-1: removed the `api|` exclusion so /api routes now reach
+    // the middleware. Flag OFF: /api/* is passed through immediately (byte-identical
+    // to the previous matcher-excluded behaviour). Flag ON: /api/* → 404.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
 }
