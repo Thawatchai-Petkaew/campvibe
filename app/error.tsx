@@ -5,7 +5,7 @@
 // Does NOT surface error.message or stack to the user — generic copy only (security).
 // Logs the error server-side/dev via useEffect.
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { ErrorState } from "@/components/ErrorState";
 
@@ -22,7 +22,10 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
 
   return (
     <main className="min-h-screen bg-background">
-      <Navbar />
+      {/* Navbar uses useSearchParams() — wrap in Suspense to avoid a CSR bailout. */}
+      <Suspense fallback={null}>
+        <Navbar />
+      </Suspense>
       <ErrorState variant="error" onRetry={reset} />
     </main>
   );
