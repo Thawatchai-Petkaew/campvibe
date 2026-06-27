@@ -654,6 +654,33 @@
             "loading": "Loading camps",
             "loading_more": "Loading more camps",
             "end_of_list": "You've seen all camps"
+        },
+        "errors": {
+            "notFound": {
+                "title": "Page not found",
+                "message": "This page has moved or no longer exists. Let's get you back on the trail.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot thinking"
+            },
+            "unexpected": {
+                "title": "Something went wrong",
+                "message": "An unexpected error occurred. Try again or return home.",
+                "retryLabel": "Try again",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot with laptop"
+            },
+            "forbidden": {
+                "title": "Access not permitted",
+                "message": "You don't have permission to view this page.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot waving"
+            },
+            "generic": {
+                "title": "Something went wrong",
+                "message": "We couldn't load this page. Please try again later.",
+                "cta": "Back to home",
+                "mascotAlt": "Mascot walking"
+            }
         }
     },
     "th": {
@@ -1312,6 +1339,33 @@
             "loading": "กำลังโหลดลาน",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
             "end_of_list": "ดูลานครบทั้งหมดแล้ว"
+        },
+        "errors": {
+            "notFound": {
+                "title": "ไม่พบหน้านี้",
+                "message": "หน้านี้ถูกย้ายหรือไม่มีอยู่แล้ว กลับไปหน้าหลักเพื่อค้นหาแคมป์ที่ชอบ",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตกำลังคิด"
+            },
+            "unexpected": {
+                "title": "เกิดข้อผิดพลาด",
+                "message": "มีข้อผิดพลาดที่ไม่คาดคิดเกิดขึ้น ลองใหม่อีกครั้งหรือกลับหน้าหลัก",
+                "retryLabel": "ลองใหม่อีกครั้ง",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตพร้อมแล็ปท็อป"
+            },
+            "forbidden": {
+                "title": "ไม่มีสิทธิ์เข้าถึง",
+                "message": "คุณไม่มีสิทธิ์ดูหน้านี้",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตโบกมือ"
+            },
+            "generic": {
+                "title": "เกิดข้อผิดพลาด",
+                "message": "โหลดหน้านี้ไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
+                "cta": "กลับหน้าหลัก",
+                "mascotAlt": "มาสคอตเดินทาง"
+            }
         }
     }
 }
