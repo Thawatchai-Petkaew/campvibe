@@ -150,6 +150,7 @@ Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage
 | Rationalization | Reality |
 |---|---|
 | "Tests green + curl 200 = the AC is verified." | Lighthouse CWV (LCP/TBT), CSP console violations, interactive states (skeleton-on-click), and theme visuals are browser-only — not verifiable headless. Mark them owner-verify ACs; verify the curl-able layer (HTTP status, headers, SSR HTML, asset 200, redirect) and never claim a browser-only AC Done from curl alone (CAM-197/CAM-199/CAM-203). |
+| "Merged + the key signal looks ok = Done." | Done = walk EVERY AC row and record verified / owner-verify / N-A; a visual or browser-only AC row needs a structured owner sign-off, not a vague "looks ok" or a bare "close" (CAM-197 was closed on a bare `ปิด` with no row-by-row check). |
 | "It renders without throwing, that's a test." | A test that doesn't assert proves nothing. Assert the result (DOM / return / DB row / copy). |
 | "Mock everything so the test passes." | Over-mocking makes the test pass while the real thing breaks. Mock only the outer boundary (network/clock); keep the real logic. |
 | "A short `sleep` fixes the flakiness." | Timing/order/`sleep` make it flaky. Wait on a real condition (`findBy*`/`waitFor`); keep tests independent of order. |
