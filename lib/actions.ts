@@ -25,8 +25,19 @@ export async function authenticate(
         throw error;
     }
 
-    const redirectTo = (formData.get("redirectTo") as string | null) || "/";
-    redirect(redirectTo);
+    // SEC-A: open-redirect fix (CWE-601).
+    // Accept only a same-origin path: must start with a single "/", must NOT
+    // start with "//" (protocol-relative) or "/\" (backslash trick), and must
+    // contain no control chars (e.g. a "/\t//evil.com" prefix some parsers could
+    // authority-resolve). Anything else falls back to "/".
+    const rawRedirect = formData.get("redirectTo");
+    const isSafeInternalPath =
+        typeof rawRedirect === "string" &&
+        rawRedirect.startsWith("/") &&
+        !rawRedirect.startsWith("//") &&
+        !rawRedirect.startsWith("/\\") &&
+        ![...rawRedirect].some((ch) => ch.charCodeAt(0) < 0x20);
+    redirect(isSafeInternalPath ? (rawRedirect as string) : "/");
 }
 
 const RegisterSchema = z.object({
