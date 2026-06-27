@@ -28,10 +28,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log('🔍 [GET /api/team/members]');
-    console.log('   campSiteId:', campSiteId);
-    console.log('   user:', session!.user!.email);
-
     // Check if user has permission to view team
     const campSite = await prisma.campSite.findUnique({
       where: { id: campSiteId },
@@ -39,19 +35,13 @@ export async function GET(request: NextRequest) {
     });
 
     if (!campSite) {
-      console.log('❌ Camp site not found');
       return apiError('Camp site not found', 404);
     }
 
-    console.log('   campSite.operatorId:', campSite.operatorId);
-
     // Only owner can view team for now (will add permission check later)
     if (campSite.operatorId !== session!.user!.id) {
-      console.log('❌ Permission denied');
       return apiError('Forbidden: You don\'t have permission to view team members', 403);
     }
-
-    console.log('✅ Fetching team members...');
 
     // Get team members (including OWNER)
     const members = await prisma.campSiteTeamMember.findMany({
@@ -82,11 +72,9 @@ export async function GET(request: NextRequest) {
       // permissions is already a string[] from Prisma, no need to parse
     }));
 
-    console.log(`✅ Found ${members.length} members`);
-
     return apiSuccess(formattedMembers);
   } catch (error) {
-    console.error('❌ [GET /api/team/members] Error:', error);
+    console.error('[GET /api/team/members] Error:', error);
     return apiError('Failed to fetch team members', 500, error);
   }
 }

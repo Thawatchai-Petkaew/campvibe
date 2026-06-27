@@ -17,7 +17,7 @@ export async function GET() {
         console.log('Starting seed...');
 
         // 1. Create a Default Operator
-        const hashedPassword = await bcrypt.hash('password123', 10);
+        const hashedPassword = await bcrypt.hash('password123', 12);
         const operator = await prisma.user.upsert({
             where: { email: 'operator@campvibe.com' },
             update: {},

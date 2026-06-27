@@ -178,7 +178,7 @@ async function main() {
 
     // 3. Create Test Users
     console.log('👥 Creating test users...')
-    const hashedPassword = await bcrypt.hash('password123', 10)
+    const hashedPassword = await bcrypt.hash('password123', 12)
 
     const adminUser = await prisma.user.upsert({
         where: { email: 'admin@campvibe.com' },
