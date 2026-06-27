@@ -55,7 +55,7 @@ export function ModalHeader({
                     onClick={onClose}
                     aria-label={closeLabel}
                     data-testid="btn--modal-close"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full hover:bg-muted active:translate-y-[-50%] motion-safe:active:scale-100"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full hover:bg-muted active:not-aria-[haspopup]:translate-y-[-50%] motion-safe:active:scale-100"
                 >
                     <X className="w-5 h-5 text-foreground" />
                 </Button>

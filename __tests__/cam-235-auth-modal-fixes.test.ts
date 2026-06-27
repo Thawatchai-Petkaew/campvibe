@@ -29,7 +29,7 @@
  *  AC-5: FAILS if notFound() is removed from register/page.tsx.
  *  AC-6: FAILS if login page footer register link is changed back to "/register".
  *  AC-7: FAILS if supports-backdrop-filter:backdrop-blur-sm is re-added to DialogOverlay.
- *  AC-8: FAILS if active:translate-y-[-50%] is removed from ModalHeader close Button.
+ *  AC-8: FAILS if active:not-aria-[haspopup]:translate-y-[-50%] is removed from ModalHeader close Button.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -267,15 +267,18 @@ describe('AC-7 — DialogOverlay: supports-backdrop-filter:backdrop-blur-sm remo
 // AC-8 — ModalHeader close Button: bounce neutralized
 // ===========================================================================
 
-describe('AC-8 — ModalHeader close Button: active:translate-y-[-50%] overrides press-down', () => {
+describe('AC-8 — ModalHeader close Button: active:not-aria-[haspopup]:translate-y-[-50%] overrides press-down', () => {
 
-    it('[no-bounce] ModalHeader close Button has active:translate-y-[-50%] to neutralize press-down', () => {
-        // The close button className must include the override to keep it vertically centered on press
+    it('[no-bounce] ModalHeader close Button has active:not-aria-[haspopup]:translate-y-[-50%] to neutralize press-down', () => {
+        // The close button className must use the EXACT same variant as the base
+        // (active:not-aria-[haspopup]:) so tailwind-merge deduplicates and the
+        // override wins — keeping the button vertically centered on :active press.
         const closeBtnClassMatch = modalShellSrc.match(
             /data-testid="btn--modal-close"[\s\S]*?className=["'`]([^"'`]+)["'`]/
         );
         expect(closeBtnClassMatch).not.toBeNull();
-        expect(closeBtnClassMatch![1]).toContain('active:translate-y-[-50%]');
+        expect(closeBtnClassMatch![1]).toContain('active:not-aria-[haspopup]:translate-y-[-50%]');
+        expect(closeBtnClassMatch![1]).not.toContain('active:translate-y-[-50%]');
     });
 
     it('[centering] ModalHeader close Button still has top-1/2 and -translate-y-1/2 (centering preserved)', () => {
