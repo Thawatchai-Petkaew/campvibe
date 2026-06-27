@@ -162,6 +162,7 @@ Backend implements the endpoint to this standard → qa writes contract + happy/
 | "Return the Prisma error/stack straight to the client." | Map it to a safe error shape. |
 | "Migration without a down / never tried rollback is OK." | Test up→down→up on Staging first. |
 | "Cram `fullName: \"นายสมชาย\"`, `price: \"฿1,250\"`." | Atomic fields per `types/api.ts`. |
+| "Adding pagination means adding a cursor." | A keyset cursor changes the list response shape (array → `{items, nextCursor}`) and breaks flat-array consumers. Check the consumers first; a bounded `take` (newest-first) closes the unbounded-scan risk non-breaking — only change the contract if the FE is updated in the same story (CAM-212). |
 
 ## Verify (exit criteria)
 

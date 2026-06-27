@@ -173,6 +173,7 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 | "The happy path works, ship it." | Missing error/empty states is a half-built feature. Cover every state per the AC. |
 | "I'll write this util now, we'll need it later." | Speculative code is dead weight. Add it when there's a real caller. |
 | "It works on local, so a Staging/Prod-only bug is a deploy fluke." | A bug that appears only on a deployed env points at the environment — HTTP cache headers, CDN, case-sensitivity (macOS local is case-insensitive, Linux/Vercel is not), network latency — not app logic. Triage env/assets/headers and reproduce on the deployed URL before changing code (CAM-201). |
+| "Removing the config entry drops the dependency." | The references usually live beyond the config — seed data, component fallbacks, CSP, tests (and may expose a latent data mismatch). Grep the whole lifecycle (model → write → read → seed → config → CSP → tests) before a "remove X everywhere" change (CAM-213). |
 
 ## Verify (exit criteria)
 

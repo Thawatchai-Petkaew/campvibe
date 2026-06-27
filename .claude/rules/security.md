@@ -138,6 +138,8 @@ Security review must PASS at two gates: **G3 (pre-merge → staging)** — run t
 | "Trust the `role` from the client/JWT we set." | Client-set claims are forgeable. Read role from DB/session server-side. |
 | "Leave `app/api/seed`, `bulk-seed`, `scrape-seed` open in prod." | Open seed/scrape routes are remote code/data exposure. Guard with env (`NODE_ENV !== 'production'` or a secret token) — **check every release before G5**. |
 | "Send the raw error/stack to the client to debug faster." | Stack traces leak internals to attackers. Return a generic message + log server-side (Thai copy per `playbook §6.6`, no technical jargon). |
+| "The audit says add a role gate, so add it." | An audit's authz recommendation can conflict with an intended self-service flow (e.g. a self-registering host where `operatorId = session.user.id`) — gating to a role with no upgrade path breaks onboarding. Verify the business rule + existing flow before applying it; if the goal is anti-abuse, a rate-limit closes it without breaking the flow (CAM-211). |
+| "Return a 429 from the NextAuth `authorize` callback." | `authorize` can't emit an HTTP status. Rate-limit before the password compare and return `null` (surfaces as CredentialsSignin), or wrap the sign-in route — don't expect a clean 429 from inside `authorize` (CAM-209). |
 
 ## Verify (exit criteria)
 

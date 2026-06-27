@@ -207,6 +207,7 @@ Architect designs the data model + API contract → Backend implements the migra
 | "I'll just pick the trade-off myself." | Silent important trade-offs aren't yours to make; write an ADR + escalate to the human at G2. |
 | "Name the column after what the screen shows." | UI-shaped columns (`profileCardLine2`, `displayPriceText`) rot; store a Pixel + compose with Buffet / `Intl.NumberFormat` at render. |
 | "The cached `ratingAverage` is good enough as the value." | A cached aggregate that can't derive from source Pixels becomes a lie; compute-on-the-fly, cache is only a cache with a derivation trail. |
+| "An in-process `Map` is fine for the rate-limit / counter / cache." | On serverless it's per-instance: it resets on cold start and is not shared across concurrent instances → best-effort only, never correct cross-instance. Use a shared store; reusing the primary DB for a hot counter burns the very quota it protects — weigh that against an external KV / edge WAF (CAM-209/210). |
 
 ## Verify (exit criteria)
 
