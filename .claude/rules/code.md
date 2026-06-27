@@ -79,6 +79,7 @@ Read before working, every time:
 - **1 PR = 1 atomic story, ≤ ~400 lines** — split the story if it exceeds; PR base = `staging`.
 - Finish the story completely — **code + every state (empty/loading/error/success) + validation + self-test** — before moving on.
 - No future-proofing code / dead branches / `// TODO for later` / commented-out code.
+- **Reuse before create** — before implementing any new UI pattern or component, check `components/ui/*` and the `DESIGN.md` Component Index (§3.1) for an existing primitive. Use it. If `DESIGN.md` names a primitive as "(planned)", build that primitive first rather than hand-rolling inline. Re-implementing an existing pattern is the #1 source of UI drift (CAM-220 modal headers, CAM-221 consistency sweep).
 
 ### 4. i18n & copy
 
@@ -175,6 +176,7 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 | "It works on local, so a Staging/Prod-only bug is a deploy fluke." | A bug that appears only on a deployed env points at the environment — HTTP cache headers, CDN, case-sensitivity (macOS local is case-insensitive, Linux/Vercel is not), network latency, CSP — not app logic. **Capture the actual error first** (the `npm run build` prerender error, the Vercel runtime log, the response CSP/cache header) and reproduce on the deployed URL before changing code — a green local build can still hide a prerender/CSP failure, and theorizing instead re-shipped two wrong fixes (CAM-201, CAM-218). |
 | "Removing the config entry drops the dependency." | The references usually live beyond the config — seed data, component fallbacks, CSP, tests (and may expose a latent data mismatch). Grep the whole lifecycle (model → write → read → seed → config → CSP → tests) before a "remove X everywhere" change (CAM-213). |
 | "`useSearchParams()` is fine to use anywhere." | In a component (e.g. Navbar) rendered on `not-found.tsx`/`error.tsx` it CSR-bails during the static `/404` prerender; with a root `app/loading.tsx` present the page sticks on the loading skeleton (the bailout shows as a never-resolving Suspense fallback). Wrap any `useSearchParams()` user in `<Suspense>` on error/not-found pages — and don't delete a root `loading.tsx` to "fix" one page; it is an app-wide Suspense net other routes rely on (CAM-218). |
+| "This pattern doesn't exist as a component, so I'll build it inline." | Check `components/ui/*` and the `DESIGN.md` §3.1 Component Index first — the primitive very likely exists (`ModalHeader`, `EmptyState`, `ErrorState`, `FilterChip`, …). Re-implementing an existing primitive is the #1 source of UI drift (CAM-220/CAM-221). |
 
 ## Verify (exit criteria)
 
