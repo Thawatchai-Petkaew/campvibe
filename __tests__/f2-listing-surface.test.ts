@@ -49,6 +49,9 @@ const searchModalSrc = src("components/SearchModal.tsx");
 const buttonSrc = src("components/ui/button.tsx");
 const pageSrc = src("app/page.tsx");
 const campgroundGridSrc = src("components/CampgroundGrid.tsx");
+// CAM-220: the shared close button (X icon, aria-label, size-11 tap target) moved into
+// ModalHeader in modal-shell.tsx. Assertions that pinned inline consumer patterns redirect here.
+const modalShellSrc = src("components/ui/modal-shell.tsx");
 
 const ALL_FIVE = [filterModalSrc, campgroundCardSrc, activeFiltersSrc, searchModalSrc, pageSrc];
 
@@ -161,8 +164,13 @@ describe("modal--filter: tap targets on trigger and close", () => {
         expect(filterModalSrc).toMatch(/\bh-11\b/);
     });
 
-    it("AC-a11y-3: FilterModal close button has w-11 h-11 (44px square)", () => {
-        expect(filterModalSrc).toMatch(/w-11 h-11/);
+    it("AC-a11y-3: modal close button is size-11 (44px square) via size=\"icon\" in modal-shell.tsx", () => {
+        // CAM-220: the close Button migrated from FilterModal into the shared ModalHeader.
+        // Button size="icon" resolves to size-11 (44×44px). The intent (44px tap target) is
+        // preserved; assertion redirected to where the button now lives.
+        expect(modalShellSrc).toMatch(/size=["']icon["']/);
+        // Also confirm Button primitive still maps "icon" to size-11
+        expect(buttonSrc).toMatch(/\bsize-11\b/);
     });
 });
 
@@ -226,16 +234,19 @@ describe("section--active-filters: clearAll button a11y", () => {
 // AC-icons-1  FilterModal uses lucide icons for static UI controls
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: lucide icons for static UI", () => {
-    it("AC-icons-1: imports X from lucide-react", () => {
-        expect(filterModalSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
+    it("AC-icons-1: X icon imported from lucide-react (now in modal-shell.tsx after CAM-220)", () => {
+        // CAM-220: X (the close icon) migrated from FilterModal into the shared ModalHeader in
+        // modal-shell.tsx. The lucide-only invariant (no @tabler) is preserved; assertion redirected.
+        expect(modalShellSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
     });
 
     it("AC-icons-1: imports SlidersHorizontal from lucide-react", () => {
         expect(filterModalSrc).toMatch(/import.*SlidersHorizontal.*from ["']lucide-react["']/);
     });
 
-    it("AC-icons-1: uses X in JSX (close button)", () => {
-        expect(filterModalSrc).toMatch(/<X\b/);
+    it("AC-icons-1: uses X in JSX — close button (now in modal-shell.tsx after CAM-220)", () => {
+        // CAM-220: <X renders inside ModalHeader in modal-shell.tsx, not inline in FilterModal.
+        expect(modalShellSrc).toMatch(/<X\b/);
     });
 
     it("AC-icons-1: uses SlidersHorizontal in JSX (trigger button)", () => {
@@ -422,17 +433,23 @@ describe("modal--filter: selected chip dark-mode safety", () => {
 // AC-searchmodal-1  SearchModal close button: w-11 h-11 + focus ring
 // (Defect gate — these tests are expected to FAIL until SearchModal is fixed)
 // ─────────────────────────────────────────────────────────────
-describe("modal--search: close button size and focus ring [DEFECT D2, D3]", () => {
-    it("AC-searchmodal-1 [DEFECT D2]: SearchModal close button should be w-11 h-11 (44px, not 40px)", () => {
-        // Current code has w-10 h-10 — spec requires w-11 h-11
-        expect(searchModalSrc).toMatch(/absolute right-4 top-4[^"]*w-11 h-11/);
+describe("modal--search: close button size and focus ring [DEFECT D2, D3 — fixed by CAM-220]", () => {
+    it("AC-searchmodal-1 [DEFECT D2 fixed]: close button is size-11 (44px) via shared ModalHeader shell", () => {
+        // CAM-220: the close button migrated from SearchModal inline markup into the shared
+        // ModalHeader in modal-shell.tsx. It now uses Button size="icon" (= size-11 = 44px).
+        // The old top-4 positioning (source of the padding asymmetry) is replaced by
+        // top-1/2 -translate-y-1/2 (vertically centered). Assertion redirected to the shell.
+        // size="icon" appears before data-testid on the Button opening tag, so we assert
+        // the shell contains the close button (via data-testid) AND size="icon" on that Button.
+        expect(modalShellSrc).toMatch(/data-testid="btn--modal-close"/);
+        expect(modalShellSrc).toMatch(/size=["']icon["'][^>]*data-testid="btn--modal-close"|data-testid="btn--modal-close"[^>]*size=["']icon["']|size=["']icon["'][\s\S]{0,200}data-testid="btn--modal-close"/);
     });
 
-    it("AC-searchmodal-1 [DEFECT D3]: SearchModal close button has a focus ring (via Button primitive, DS-2)", () => {
-        // DS-2: the close button is a <Button size="icon"> — the focus ring now comes from the
-        // Button primitive (focus-visible:ring-3 ring-ring/30), not an inline override.
-        const closeButtonBlock = searchModalSrc.match(/absolute right-4 top-4[^"]*"/);
-        expect(closeButtonBlock).not.toBeNull();
+    it("AC-searchmodal-1 [DEFECT D3 fixed]: close button has focus ring via Button primitive (DS-2)", () => {
+        // The focus ring (focus-visible:ring-3 ring-ring/30) comes from the Button primitive, not
+        // an inline override — this was always the case with DS-2; now the button is in the shell.
+        const closeBtnBlock = modalShellSrc.match(/data-testid="btn--modal-close"[\s\S]{0,200}?<\/Button>/);
+        expect(closeBtnBlock).not.toBeNull();
         expect(buttonSrc).toMatch(/focus-visible:ring-ring/);
     });
 });

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Mail, Phone, UserPlus, X } from "lucide-react";
+import { Mail, Phone, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import {
@@ -14,12 +14,9 @@ import {
 } from "@/components/ui/select";
 import {
     Dialog,
-    DialogContent,
-    DialogDescription,
     DialogFooter,
-    DialogHeader,
-    DialogTitle,
 } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,17 +80,15 @@ export function AddMemberDialog({ isOpen, onClose, campSiteId, onMemberAdded }: 
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="rounded-2xl max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="text-left">
-                        {t.settings?.addTeamMember || "Add Team Member"}
-                    </DialogTitle>
-                    <DialogDescription className="text-left">
-                        {t.settings?.addMemberDesc || "Invite a team member to help manage your camp site"}
-                    </DialogDescription>
-                </DialogHeader>
+            <ModalContent className="sm:max-w-md">
+                <ModalHeader
+                    title={t.settings?.addTeamMember ?? "Add Team Member"}
+                    description={t.settings?.addMemberDesc ?? "Invite a team member to help manage your camp site"}
+                    closeLabel={t.common?.close}
+                    onClose={handleClose}
+                />
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6 p-6">
                     {/* Contact Method Tabs */}
                     <Tabs value={method} onValueChange={(v) => setMethod(v as 'email' | 'phone')}>
                         <TabsList className="grid w-full grid-cols-2 rounded-full p-1">
@@ -204,7 +199,7 @@ export function AddMemberDialog({ isOpen, onClose, campSiteId, onMemberAdded }: 
                         </Button>
                     </DialogFooter>
                 </form>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

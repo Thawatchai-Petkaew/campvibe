@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect } from "react";
-import { X, Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { register } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,8 @@ import { InputField } from "@/components/ui/input-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 
 interface RegisterModalProps {
     isOpen: boolean;
@@ -115,26 +110,14 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent showCloseButton={false} className="sm:max-w-md p-0 overflow-hidden border-none shadow-2xl bg-card">
+            <ModalContent className="sm:max-w-md">
                 <div className="flex flex-col relative">
-                    {/* Header */}
-                    <div className="flex items-center justify-center p-6 border-b border-border/60">
-                        <DialogClose asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors"
-                                onClick={onClose}
-                                aria-label={t.common?.close || "Close"}
-                            >
-                                <X className="w-5 h-5 text-foreground" />
-                            </Button>
-                        </DialogClose>
-                        <div className="text-center">
-                            <DialogTitle className="text-lg font-bold text-foreground">{t.auth.registerModal.title}</DialogTitle>
-                            <p className="text-sm text-muted-foreground mt-1">{t.auth.registerModal.subtitle}</p>
-                        </div>
-                    </div>
+                    <ModalHeader
+                        title={t.auth.registerModal.title}
+                        description={t.auth.registerModal.subtitle}
+                        closeLabel={t.common?.close}
+                        onClose={onClose}
+                    />
 
                     {/* Content */}
                     <div className="p-8 space-y-4">
@@ -270,7 +253,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                         </div>
                     </div>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

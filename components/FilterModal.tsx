@@ -2,17 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
     Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
     DialogTrigger,
-    DialogFooter
 } from "@/components/ui/dialog";
+import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
@@ -339,24 +335,11 @@ export function FilterModal() {
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent showCloseButton={false} className="sm:max-w-3xl border-none shadow-2xl p-0 gap-0 overflow-hidden flex flex-col max-h-[85vh] bg-card">
-
-                {/* Header - Aligned with Search Modal */}
-                <div className="flex items-center justify-center p-6 pb-2 border-b border-border/60 relative shrink-0">
-                    <DialogClose asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-4 top-4 rounded-full hover:bg-muted transition-colors w-11 h-11"
-                            aria-label={t.common?.close || "Close"}
-                        >
-                            <X className="w-5 h-5 text-foreground" />
-                        </Button>
-                    </DialogClose>
-                    <DialogTitle className="text-lg font-bold text-foreground">
-                        {t.filter?.title || "Filters"}
-                    </DialogTitle>
-                </div>
+            <ModalContent className="sm:max-w-3xl gap-0 flex flex-col max-h-[85vh]" aria-describedby={undefined}>
+                <ModalHeader
+                    title={t.filter?.title ?? "Filters"}
+                    closeLabel={t.common?.close}
+                />
 
                 {/* Scrollable Content - Compacted */}
                 <div className="overflow-y-auto p-6 md:p-8 space-y-6 flex-1 custom-scrollbar">
@@ -430,7 +413,7 @@ export function FilterModal() {
                         }
                     </Button>
                 </div>
-            </DialogContent>
+            </ModalContent>
         </Dialog>
     );
 }

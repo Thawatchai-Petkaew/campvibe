@@ -181,12 +181,18 @@ describe("select: ChevronsUpDown from lucide-react (replaces IconSelector)", () 
 
 // ─────────────────────────────────────────────────────────────
 // AC-lucide-5  FilterModal — X and SlidersHorizontal (replaces IconAdjustmentsHorizontal)
+// CAM-220: X (the close icon) migrated from FilterModal into the shared ModalHeader in
+// components/ui/modal-shell.tsx. SlidersHorizontal (the trigger icon) remains in FilterModal.
+// The "lucide-only, no-@tabler" intent is preserved; assertions redirect to where each icon lives.
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: X and SlidersHorizontal from lucide-react", () => {
     const filterSrc = src("components/FilterModal.tsx");
+    const shellSrc = src("components/ui/modal-shell.tsx");
 
-    it("AC-lucide-5: imports X from lucide-react", () => {
-        expect(filterSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
+    it("AC-lucide-5: X icon imported from lucide-react (now in modal-shell.tsx, not FilterModal)", () => {
+        // CAM-220: X moved to the shared ModalHeader shell. Asserting here preserves the
+        // "X is a lucide named import, not a @tabler import" invariant.
+        expect(shellSrc).toMatch(/import.*\bX\b.*from ["']lucide-react["']/);
     });
 
     it("AC-lucide-5: imports SlidersHorizontal from lucide-react", () => {
@@ -197,8 +203,9 @@ describe("modal--filter: X and SlidersHorizontal from lucide-react", () => {
         expect(filterSrc).toMatch(/<SlidersHorizontal\b/);
     });
 
-    it("AC-lucide-5: uses <X in JSX (close button)", () => {
-        expect(filterSrc).toMatch(/<X\b/);
+    it("AC-lucide-5: uses <X in JSX (close button, now in modal-shell.tsx)", () => {
+        // CAM-220: <X renders inside ModalHeader in the shell, not inline in FilterModal.
+        expect(shellSrc).toMatch(/<X\b/);
     });
 });
 
