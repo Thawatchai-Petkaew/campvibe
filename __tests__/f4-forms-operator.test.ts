@@ -707,24 +707,31 @@ describe("dark-mode: stat icon backgrounds are semantic (AC-dark-1)", () => {
 // ─────────────────────────────────────────────────────────────
 // AC-dark-2  DS-4: Status badges now use <Badge variant=...> (semantic via badge.tsx)
 // ─────────────────────────────────────────────────────────────
-describe("dark-mode: status badge tokens are semantic (AC-dark-2)", () => {
-    it("dashboard/page CONFIRMED uses Badge variant='success'", () => {
-        // DS-4: raw span+conditional classes replaced by Badge+bookingStatusVariant()
-        expect(dashboardPageSrc).toMatch(/function bookingStatusVariant/);
-        expect(dashboardPageSrc).toMatch(/return ['"]success['"]/);
+// CAM-225: dashboard pages now use getBookingStatusMeta from lib/booking-status (unified SSOT).
+// CANCELLED now maps to 'muted' consistently (was 'destructive' in the local function — intentional fix).
+describe("dark-mode: status badge tokens are semantic (AC-dark-2, updated CAM-225)", () => {
+    it("dashboard/page CONFIRMED uses Badge via getBookingStatusMeta (→ 'success')", () => {
+        // CAM-225: local bookingStatusVariant removed; shared util getBookingStatusMeta is the SSOT
+        expect(dashboardPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("dashboard/page CANCELLED uses Badge variant='destructive'", () => {
-        expect(dashboardPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("dashboard/page CANCELLED → 'muted' via getBookingStatusMeta (NOT 'destructive', CAM-225)", () => {
+        // No local function returning 'destructive' for CANCELLED
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(dashboardPageSrc).not.toMatch(cancDestPattern);
     });
 
-    it("bookings/page uses <Badge variant={bookingStatusVariant(...)}>", () => {
-        expect(bookingsPageSrc).toMatch(/function bookingStatusVariant/);
-        expect(bookingsPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{bookingStatusVariant\(/);
+    it("dashboard/bookings uses <Badge> via getBookingStatusMeta (CAM-225)", () => {
+        expect(bookingsPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(bookingsPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("bookings/page CANCELLED uses Badge variant='destructive'", () => {
-        expect(bookingsPageSrc).toMatch(/return ['"]destructive['"]/);
+    it("dashboard/bookings CANCELLED → 'muted' via getBookingStatusMeta (NOT 'destructive', CAM-225)", () => {
+        expect(bookingsPageSrc).not.toMatch(/function bookingStatusVariant/);
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(bookingsPageSrc).not.toMatch(cancDestPattern);
     });
 });
 

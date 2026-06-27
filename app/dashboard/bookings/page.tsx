@@ -29,12 +29,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
 import { Badge } from "@/components/ui/badge";
-
-function bookingStatusVariant(status: string): "success" | "destructive" | "muted" {
-    if (status === "CONFIRMED") return "success";
-    if (status === "CANCELLED") return "destructive";
-    return "muted";
-}
+import { getBookingStatusMeta } from "@/lib/booking-status";
 
 interface Booking {
     id: string;
@@ -403,12 +398,17 @@ export default function BookingsPage() {
                                         </td>
                                         <td className="px-8 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-8 py-5">
-                                            <Badge
-                                                variant={bookingStatusVariant(booking.status)}
-                                                className="font-bold uppercase tracking-wider"
-                                            >
-                                                {booking.status}
-                                            </Badge>
+                                            {(() => {
+                                                const { variant } = getBookingStatusMeta(booking.status);
+                                                return (
+                                                    <Badge
+                                                        variant={variant}
+                                                        className="font-bold uppercase tracking-wider"
+                                                    >
+                                                        {booking.status}
+                                                    </Badge>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
