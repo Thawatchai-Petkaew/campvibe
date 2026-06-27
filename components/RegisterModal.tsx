@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState, useActionState, useEffect, useTransition } from "react";
 import { Mail, Lock, User } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { register } from "@/lib/actions";
+import { register, googleSignIn } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -11,19 +11,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
+import { GoogleIcon } from "@/components/icons/GoogleIcon";
 
 interface RegisterModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    onSwitchToLogin?: () => void;
 }
 
-export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps) {
+export function RegisterModal({ isOpen, onClose, onSuccess, onSwitchToLogin }: RegisterModalProps) {
     const { t } = useLanguage();
     const [errorMessage, formAction, isPending] = useActionState(
         register,
         undefined
     );
+    const [isGooglePending, startGoogleTransition] = useTransition();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -239,12 +242,42 @@ export function RegisterModal({ isOpen, onClose, onSuccess }: RegisterModalProps
                             </Button>
                         </form>
 
+                        {/* Divider + Google sign-up */}
+                        <div className="relative flex items-center gap-4">
+                            <div className="flex-1 border-t border-border/60" />
+                            <span className="text-xs text-muted-foreground select-none">
+                                {t.common?.or ?? "or"}
+                            </span>
+                            <div className="flex-1 border-t border-border/60" />
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            disabled={isGooglePending || isPending}
+                            data-testid="btn--register-google"
+                            aria-label={t.auth.signInWithGoogle}
+                            className="w-full rounded-full flex items-center justify-center gap-3"
+                            onClick={() => {
+                                startGoogleTransition(() => googleSignIn("/"));
+                            }}
+                        >
+                            <GoogleIcon aria-hidden />
+                            <span>
+                                {isGooglePending
+                                    ? (t.auth.signingInWithGoogle ?? t.auth.signingIn)
+                                    : t.auth.signInWithGoogle}
+                            </span>
+                        </Button>
+
                         {/* Footer */}
                         <div className="pt-4 border-t border-border/60 text-center">
                             <p className="text-sm text-muted-foreground">
                                 {t.auth.registerModal.alreadyHaveAccount}{" "}
                                 <button
-                                    onClick={onClose}
+                                    type="button"
+                                    onClick={onSwitchToLogin}
                                     className="text-primary font-bold hover:underline"
                                 >
                                     {t.auth.registerModal.signIn}

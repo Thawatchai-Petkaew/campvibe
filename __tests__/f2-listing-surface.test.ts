@@ -448,7 +448,8 @@ describe("modal--search: close button size and focus ring [DEFECT D2, D3 — fix
     it("AC-searchmodal-1 [DEFECT D3 fixed]: close button has focus ring via Button primitive (DS-2)", () => {
         // The focus ring (focus-visible:ring-3 ring-ring/30) comes from the Button primitive, not
         // an inline override — this was always the case with DS-2; now the button is in the shell.
-        const closeBtnBlock = modalShellSrc.match(/data-testid="btn--modal-close"[\s\S]{0,200}?<\/Button>/);
+        // CAM-235: limit raised to 400 — active:translate-y-[-50%] class lengthened the className.
+        const closeBtnBlock = modalShellSrc.match(/data-testid="btn--modal-close"[\s\S]{0,400}?<\/Button>/);
         expect(closeBtnBlock).not.toBeNull();
         expect(buttonSrc).toMatch(/focus-visible:ring-ring/);
     });

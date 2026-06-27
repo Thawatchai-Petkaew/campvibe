@@ -94,6 +94,7 @@ const modalShellSrc = src("components/ui/modal-shell.tsx");
 // ── Page files with !h-12 ─────────────────────────────────────
 const loginPageSrc = src("app/login/page.tsx");
 const registerPageSrc = src("app/register/page.tsx");
+// CAM-235: /register now 404s; register form grammar lives in RegisterModal (declared above).
 
 // =============================================================
 // Priority 1 — Input primitive grammar
@@ -628,8 +629,11 @@ describe("defect-scope--login-register-pages: !h-12 is on Button AND InputField 
   });
 
   it("SCOPE-CHECK: app/register/page.tsx !h-12 also applied to InputField via inputHeight variable", () => {
-    // DS-4 fix: inputHeight variable removed; InputField uses inputSize="lg" prop.
+    // CAM-235: /register now calls notFound(); form grammar lives in RegisterModal.
+    // Guard: the page file has no inputHeight variable and no !h-12.
     expect(registerPageSrc).not.toMatch(/const inputHeight = ["']!h-12["']/);
-    expect(registerPageSrc).toMatch(/inputSize="lg"/);
+    expect(registerPageSrc).not.toMatch(/!h-12/);
+    // The inputSize="lg" grammar is enforced on RegisterModal (where the form lives).
+    expect(registerModalSrc).toMatch(/inputSize="lg"/);
   });
 });

@@ -156,11 +156,11 @@ export default function LoginPage() {
                         </span>
                     </Button>
 
-                    {/* Footer */}
+                    {/* Footer — /register 404s; direct to home where the register modal is accessible */}
                     <div className="pt-4 border-t border-border/60 text-center">
                         <p className="text-sm text-muted-foreground">
                             {t.auth.dontHaveAccount}{" "}
-                            <Link href="/register" className="text-primary font-bold hover:underline">
+                            <Link href="/" className="text-primary font-bold hover:underline">
                                 {t.auth.register}
                             </Link>
                         </p>
