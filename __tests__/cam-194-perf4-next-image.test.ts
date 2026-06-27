@@ -393,9 +393,12 @@ describe('AC-5 — next.config images settings (webp-only, no avif, qualities, b
     expect(nextConfigSrc).toContain('*.public.blob.vercel-storage.com');
   });
 
-  it('[remotePatterns] Unsplash (images.unsplash.com) is absent from remotePatterns (CAM-213 self-host)', () => {
-    // CAM-213: all placeholder images are now self-hosted; unsplash must not appear.
-    expect(nextConfigSrc).not.toContain('images.unsplash.com');
+  it('[remotePatterns] Unsplash (images.unsplash.com) is present in remotePatterns (mock/demo campsite images)', () => {
+    // CAM-213 originally removed unsplash (self-host migration).
+    // Re-added as a remotePattern to unblock next/image for mock/demo campsite images
+    // that still reference images.unsplash.com (local-dev fix; does not affect the CSP
+    // img-src which remains strictly self/blob/OSM only via middleware.ts).
+    expect(nextConfigSrc).toContain('images.unsplash.com');
   });
 
   it('[minimumCacheTTL] minimumCacheTTL is set (non-zero, 31-day equivalent)', () => {
