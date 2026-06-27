@@ -171,7 +171,6 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
         const src = getMiddleware();
         expect(src).toContain("default-src 'self'");
         expect(src).toContain("style-src 'self' 'unsafe-inline'");
-        expect(src).toContain("https://images.unsplash.com");
         expect(src).toContain("https://*.public.blob.vercel-storage.com");
         expect(src).toContain("https://*.tile.openstreetmap.org");
         expect(src).toContain("font-src 'self'");
@@ -182,6 +181,12 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
         expect(src).toContain("base-uri 'self'");
         expect(src).toContain("form-action 'self'");
         expect(src).toContain("upgrade-insecure-requests");
+    });
+
+    it("CSP does not include unsplash (CAM-213 self-host images)", () => {
+        // CAM-213: images are now self-hosted; the img-src unsplash entry must be absent.
+        const src = getMiddleware();
+        expect(src).not.toContain("https://images.unsplash.com");
     });
 });
 

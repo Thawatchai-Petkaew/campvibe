@@ -30,7 +30,7 @@
  *         formats: ["image/webp"] (webp only, NOT avif);
  *         dangerouslyAllowSVG: false;
  *         remotePatterns includes *.public.blob.vercel-storage.com;
- *         remotePatterns includes images.unsplash.com;
+ *         remotePatterns does NOT include images.unsplash.com (CAM-213 self-host);
  *         minimumCacheTTL set (non-zero);
  *         qualities: [75].
  *
@@ -393,9 +393,9 @@ describe('AC-5 — next.config images settings (webp-only, no avif, qualities, b
     expect(nextConfigSrc).toContain('*.public.blob.vercel-storage.com');
   });
 
-  it('[remotePatterns] Unsplash (images.unsplash.com) is retained in remotePatterns', () => {
-    // IR-1 had Unsplash for placeholder images — must not be removed.
-    expect(nextConfigSrc).toContain('images.unsplash.com');
+  it('[remotePatterns] Unsplash (images.unsplash.com) is absent from remotePatterns (CAM-213 self-host)', () => {
+    // CAM-213: all placeholder images are now self-hosted; unsplash must not appear.
+    expect(nextConfigSrc).not.toContain('images.unsplash.com');
   });
 
   it('[minimumCacheTTL] minimumCacheTTL is set (non-zero, 31-day equivalent)', () => {
@@ -494,5 +494,39 @@ describe('AC-7 — bookings page image wrapper uses aspect-[4/3] (CLS prevention
     // fill mode without sizes degrades to 100vw — a perf regression.
     // Prove-It: removing sizes from bookings ImageWithFallback makes this fail.
     expect(bookingsSrc).toContain('sizes=');
+  });
+});
+
+// ===========================================================================
+// CAM-213 — self-host images: no-image fallback uses /placeholder-camp.svg
+// ===========================================================================
+
+describe('CAM-213 — no-image fallback uses self-hosted placeholder (not unsplash)', () => {
+  const cam213CardSrc   = readSrc('components/CampgroundCard.tsx');
+  const cam213DetailSrc = readSrc('components/CampgroundDetailClient.tsx');
+  const cam213MapSrc    = readSrc('components/MapComponent.tsx');
+
+  it('[fallback] CampgroundCard uses /placeholder-camp.svg as no-image fallback', () => {
+    expect(cam213CardSrc).toContain('/placeholder-camp.svg');
+  });
+
+  it('[fallback] CampgroundCard does NOT reference images.unsplash.com', () => {
+    expect(cam213CardSrc).not.toContain('images.unsplash.com');
+  });
+
+  it('[fallback] CampgroundDetailClient uses /placeholder-camp.svg as no-image fallback', () => {
+    expect(cam213DetailSrc).toContain('/placeholder-camp.svg');
+  });
+
+  it('[fallback] CampgroundDetailClient does NOT reference images.unsplash.com', () => {
+    expect(cam213DetailSrc).not.toContain('images.unsplash.com');
+  });
+
+  it('[fallback] MapComponent uses /placeholder-camp.svg as no-image fallback', () => {
+    expect(cam213MapSrc).toContain('/placeholder-camp.svg');
+  });
+
+  it('[fallback] MapComponent does NOT reference images.unsplash.com', () => {
+    expect(cam213MapSrc).not.toContain('images.unsplash.com');
   });
 });

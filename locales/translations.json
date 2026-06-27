@@ -130,7 +130,8 @@
             "equipmentRent": "Equipment for Rent",
             "walkInDesc": "Park and walk to your site",
             "boatAccessDesc": "Accessible by boat only",
-            "rvAccessDesc": "RV accessible site"
+            "rvAccessDesc": "RV accessible site",
+            "noImageAlt": "No camp photo available"
         },
         "booking": {
             "checkIn": "Check-in",
@@ -786,7 +787,8 @@
             "equipmentRent": "อุปกรณ์ให้เช่า",
             "walkInDesc": "จอดรถและเดินไปยังจุดกางเต็นท์",
             "boatAccessDesc": "เข้าถึงได้ทางเรือเท่านั้น",
-            "rvAccessDesc": "รองรับรถบ้าน"
+            "rvAccessDesc": "รองรับรถบ้าน",
+            "noImageAlt": "ไม่มีรูปภาพแคมป์"
         },
         "booking": {
             "checkIn": "เช็คอิน",

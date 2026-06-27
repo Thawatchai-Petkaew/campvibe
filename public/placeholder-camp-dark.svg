@@ -1,0 +1,45 @@
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ไม่มีรูปภาพแคมป์">
+  <!-- Background: --muted dark oklch(0.275 0.011 216.9) ≈ #2e454f -->
+  <rect width="800" height="800" fill="#2e454f"/>
+
+  <!-- Mountain left — lifted palette from camping-empty-dark -->
+  <path d="M60 650 L280 220 L500 650 Z" fill="#4E7A82"/>
+  <path d="M280 220 L500 650 L600 650 L280 220 Z" fill="#3D6B72"/>
+  <!-- Snow cap left — muted, lower luminance (same approach as camping-empty-dark) -->
+  <path d="M280 220 L230 340 L258 352 L280 290 Z" fill="#8AACB0"/>
+  <path d="M280 220 L280 290 L308 325 L325 305 Z" fill="#7098A0"/>
+
+  <!-- Mountain right -->
+  <path d="M320 650 L560 140 L800 650 Z" fill="#4A7880"/>
+  <path d="M560 140 L800 650 L800 650 L560 140 Z" fill="#3A686F"/>
+  <!-- Snow cap right -->
+  <path d="M560 140 L502 270 L534 284 L560 248 Z" fill="#8AACB0"/>
+  <path d="M560 140 L560 248 L592 288 L612 268 Z" fill="#7098A0"/>
+
+  <!-- Ground strip — dark pine (slightly lifted above dark bg) -->
+  <rect x="0" y="620" width="800" height="180" fill="#1E3838"/>
+
+  <!-- Foreground bushes — lifted from camping-empty-dark -->
+  <ellipse cx="100" cy="645" rx="80" ry="40" fill="#264848"/>
+  <ellipse cx="220" cy="632" rx="100" ry="48" fill="#1F3C3B"/>
+  <ellipse cx="600" cy="638" rx="90" ry="42" fill="#264848"/>
+  <ellipse cx="710" cy="650" rx="70" ry="35" fill="#1F3C3B"/>
+
+  <!-- Tent — warm tones read fine on dark bg (same as camping-empty-dark) -->
+  <path d="M280 640 L400 410 L520 640 Z" fill="#C28757"/>
+  <path d="M280 640 L400 410 L400 640 Z" fill="#D09B6A"/>
+  <path d="M370 640 L400 480 L430 640 Z" fill="#1E3838"/>
+  <path d="M400 410 L520 640 L400 640 Z" fill="#A87C5F"/>
+
+  <!-- Tent pole -->
+  <rect x="395" y="405" width="10" height="30" fill="#A87C5F"/>
+
+  <!-- Stars — lifted to soft light teal visible on dark bg (from camping-empty-dark) -->
+  <path d="M160 180 C163 177 166 177 169 180 C172 177 175 177 178 180" stroke="#A8C4CA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M170 162 C173 159 176 159 179 162 C182 159 185 159 188 162" stroke="#A8C4CA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M614 170 C617 167 620 167 623 170 C626 167 629 167 632 170" stroke="#A8C4CA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M624 188 C627 185 630 185 633 188 C636 185 639 185 642 188" stroke="#A8C4CA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Small cloud — muted on dark bg (from camping-empty-dark) -->
+  <path d="M540 200 C540 188 547 181 560 181 C567 168 578 162 592 162 C606 162 617 168 624 181 C637 181 644 188 644 200 Z" fill="#4E7A82"/>
+</svg>

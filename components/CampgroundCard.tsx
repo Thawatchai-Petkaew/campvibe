@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { wishlistAPI } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { useTheme } from "next-themes";
 
 interface CampgroundCardProps {
     campground: CampSite & { location: { province: string }; images?: { url: string }[] };
@@ -42,13 +43,13 @@ export function CampgroundCard({
     priority = false,
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
+    const { resolvedTheme } = useTheme();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [saved, setSaved] = useState(initialSaved);
     const [isLoading, setIsLoading] = useState(false);
 
-    const imageUrls = campground.images?.length ? campground.images.map((img) => img.url) : [
-        "https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&q=80&w=800"
-    ];
+    const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
+    const imageUrls = campground.images?.length ? campground.images.map((img) => img.url) : [placeholderSrc];
 
     const nextImage = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -126,7 +127,7 @@ export function CampgroundCard({
                     <div className="relative w-full h-full">
                         <ImageWithFallback
                             src={imageUrls[currentIndex]}
-                            alt={name}
+                            alt={campground.images?.length ? name : t.campground.noImageAlt}
                             className="w-full h-full"
                             imgClassName="object-cover group-hover:scale-105 transition duration-500 ease-out"
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

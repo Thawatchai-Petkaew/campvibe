@@ -639,8 +639,8 @@ export function PreviewClient() {
                 <div className="grid grid-cols-3 gap-4">
                     <div className="flex flex-col gap-2">
                         <ImageWithFallback
-                            src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400"
-                            alt="Campfire at sunset"
+                            src="/placeholder-camp.svg"
+                            alt="Camp photo placeholder"
                             className="aspect-square rounded-xl"
                             imgClassName="object-cover"
                             data-testid="img--preview-good"
