@@ -660,11 +660,6 @@
                 "dateLabel": "Delivered on"
             }
         },
-        "comingSoon": {
-            "title": "Setting up camp",
-            "subtitle": "We'll be open soon",
-            "mascotAlt": "CampVibe mascot walking"
-        },
         "catalog": {
             "loading": "Loading camps",
             "loading_more": "Loading more camps",
@@ -695,6 +690,11 @@
                 "message": "We couldn't load this page. Please try again later.",
                 "cta": "Back to home",
                 "mascotAlt": "Mascot walking"
+            },
+            "comingSoon": {
+                "title": "Setting up camp",
+                "message": "We'll be open soon",
+                "mascotAlt": "CampVibe mascot"
             }
         }
     },
@@ -1360,11 +1360,6 @@
                 "dateLabel": "ส่งมอบเมื่อ"
             }
         },
-        "comingSoon": {
-            "title": "กำลังตั้งแคมป์อยู่นะ",
-            "subtitle": "เว็บไซต์จะเปิดให้บริการเร็วๆ นี้",
-            "mascotAlt": "มาสคอต CampVibe กำลังเดิน"
-        },
         "catalog": {
             "loading": "กำลังโหลดลาน",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
@@ -1395,6 +1390,11 @@
                 "message": "โหลดหน้านี้ไม่สำเร็จ กรุณาลองใหม่ภายหลัง",
                 "cta": "กลับหน้าหลัก",
                 "mascotAlt": "มาสคอตเดินทาง"
+            },
+            "comingSoon": {
+                "title": "กำลังตั้งแคมป์อยู่นะ",
+                "message": "เว็บไซต์จะเปิดให้บริการเร็วๆ นี้",
+                "mascotAlt": "มาสคอต CampVibe"
             }
         }
     }
