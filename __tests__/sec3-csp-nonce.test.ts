@@ -96,7 +96,7 @@ function readSource(filename: string): string {
     return readFileSync(join(rootDir, filename), "utf-8");
 }
 
-describe("SEC-3 middleware.ts source inspection — nonce + Report-Only CSP", () => {
+describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () => {
     let middlewareSrc: string;
 
     function getMiddleware(): string {
@@ -106,20 +106,18 @@ describe("SEC-3 middleware.ts source inspection — nonce + Report-Only CSP", ()
         return middlewareSrc;
     }
 
-    it("sets Content-Security-Policy-Report-Only (not the enforced CSP header)", () => {
+    it("sets the enforced Content-Security-Policy header (CAM-203 step 2)", () => {
         const src = getMiddleware();
+        // Enforced: middleware must call .set('Content-Security-Policy', csp).
         expect(
             src,
-            "middleware.ts must set Content-Security-Policy-Report-Only (Step 1 — not yet enforced)"
-        ).toContain("Content-Security-Policy-Report-Only");
-        // Must NOT call headers.set('Content-Security-Policy', ...) — that would be the
-        // enforced header. We check that the exact .set() call with the enforced header
-        // name (no -Report-Only suffix) is absent from executable code.
-        // Use a regex that matches the set() call pattern to avoid matching comments/docs.
+            "middleware.ts must set the enforced Content-Security-Policy header (step 2)"
+        ).toMatch(/\.set\(\s*['"]Content-Security-Policy['"]\s*,/);
+        // Report-Only must be gone from executable code (flipped to enforced).
         expect(
             src,
-            "middleware.ts must NOT set the enforced Content-Security-Policy header in Step 1"
-        ).not.toMatch(/\.set\(\s*['"]Content-Security-Policy['"]\s*,/);
+            "middleware.ts must NOT still set Content-Security-Policy-Report-Only after step 2"
+        ).not.toMatch(/\.set\(\s*['"]Content-Security-Policy-Report-Only['"]\s*,/);
     });
 
     it("CSP string includes 'strict-dynamic' (the Lighthouse-visible strict CSP upgrade)", () => {
