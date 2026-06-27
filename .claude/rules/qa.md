@@ -156,6 +156,8 @@ Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage
 | "A short `sleep` (or a fixed drain window) fixes the flakiness." | Timing/order/`sleep` make it flaky — and draining a stream/async output for a FIXED window then asserting flakes under CI load when the event lands late. Wait on a real condition (`findBy*`/`waitFor`, or read until the awaited substring appears and early-exit), lean on a real terminal condition (e.g. the stream self-close) to keep teeth, and keep tests order-independent (CAM-212/223). |
 | "More tests = better coverage." | Worthless tests just pump the number. Write tests that fail when behavior breaks. |
 | "Tests are green locally, ship it." | Not Done until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`). |
+| "My class/token change is correct, so the red guard test is wrong." | A design-system refactor changes canonical classes, so source-inspection tests that pinned the OLD class go red — updating them to the new canonical class is correct, NOT weakening. Prefer asserting at the shared primitive/guard over duplicating exact-class greps across many consumer test files (CAM-224/226/229). |
+| "Visual-regression screenshots will just work in CI." | Playwright `toHaveScreenshot` baselines are OS-specific (macOS `-darwin` vs CI `-linux`) → the first CI run shows baseline-missing/pixel-diff red. Commit Linux baselines (or generate them in CI) AND make the visual/a11y job advisory (`continue-on-error` + a non-required check) so cross-OS pixel diffs never block the merge gate; route diffs to review (CAM-230). |
 
 ## Verify (exit criteria)
 
