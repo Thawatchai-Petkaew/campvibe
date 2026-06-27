@@ -32,6 +32,10 @@ const { auth } = NextAuth(authConfig)
  *   - Old browsers: fall back to unsafe-inline + https (no regression).
  *   - Lighthouse recognises 'strict-dynamic' as an effective strict CSP.
  *
+ * DEV-ONLY: 'unsafe-eval' is appended in development mode only.
+ *   React/Next.js Turbopack requires eval() during development for fast refresh.
+ *   Production CSP remains strict — 'unsafe-eval' is NEVER added in prod.
+ *
  * style-src: keeps 'unsafe-inline' — /status and /status/map inject CSS via
  * <style dangerouslySetInnerHTML>. Style XSS risk << script XSS. Nonce-ing
  * styles would require threading the nonce through multiple Server Components
@@ -40,9 +44,12 @@ const { auth } = NextAuth(authConfig)
  * All other directives are identical to the SEC-2 static CSP.
  */
 function buildCsp(nonce: string): string {
+    // React/Next.js Turbopack needs 'unsafe-eval' in dev (fast refresh). DEV-ONLY.
+    // process.env.NODE_ENV is inlined by Next.js at build time — Edge-safe.
+    const scriptSrc = `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`
     return [
         "default-src 'self'",
-        `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`,
+        scriptSrc,
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.tile.openstreetmap.org",
         "font-src 'self'",

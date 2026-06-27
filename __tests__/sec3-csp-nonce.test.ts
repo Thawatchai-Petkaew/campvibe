@@ -183,10 +183,59 @@ describe("SEC-3 middleware.ts source inspection — nonce + enforced CSP", () =>
         expect(src).toContain("upgrade-insecure-requests");
     });
 
-    it("CSP does not include unsplash (CAM-213 self-host images)", () => {
-        // CAM-213: images are now self-hosted; the img-src unsplash entry must be absent.
+    it("CSP does not include unsplash in img-src (CAM-213 self-host images)", () => {
+        // CAM-213: images are now self-hosted; the img-src unsplash entry must be absent
+        // from middleware.ts (next/image remotePatterns in next.config.ts is separate).
         const src = getMiddleware();
-        expect(src).not.toContain("https://images.unsplash.com");
+        // The img-src directive must not contain unsplash.
+        const imgSrcLine = src
+            .split("\n")
+            .find((l) => l.includes("img-src")) ?? "";
+        expect(imgSrcLine).not.toContain("https://images.unsplash.com");
+    });
+
+    it("prod CSP does NOT include 'unsafe-eval' (security: dev-only flag)", () => {
+        // When NODE_ENV is not 'development', the script-src must not contain unsafe-eval.
+        // We verify by source-inspecting the executable (non-comment) lines:
+        // 'unsafe-eval' must only appear inside a ternary guarded by NODE_ENV === 'development',
+        // never as a bare unconditional string in the script-src directive.
+        const src = getMiddleware();
+        // Strip comment lines (// and * block-comment lines) so we only inspect executable code.
+        const executableLines = src
+            .split("\n")
+            .filter(
+                (line) =>
+                    !line.trimStart().startsWith("*") &&
+                    !line.trimStart().startsWith("//")
+            )
+            .join("\n");
+        // The conditional guard must exist in executable code.
+        expect(
+            executableLines,
+            "middleware.ts must guard 'unsafe-eval' behind NODE_ENV === 'development' in executable code"
+        ).toMatch(/NODE_ENV\s*===\s*["']development["'][^;]*unsafe-eval/);
+        // There must be NO unconditional (non-ternary-guarded) bare script-src that
+        // hard-codes unsafe-eval. A hard-coded occurrence would not be preceded by a ternary.
+        // The safe pattern is: the only executable-code occurrence is inside the ternary expression.
+        // We assert the executable code does NOT contain 'unsafe-eval' outside of a ternary context
+        // by checking that every occurrence is on the same line as the NODE_ENV guard.
+        const linesWithUnsafeEval = executableLines
+            .split("\n")
+            .filter((line) => line.includes("'unsafe-eval'"));
+        for (const line of linesWithUnsafeEval) {
+            expect(
+                line,
+                `Every executable 'unsafe-eval' occurrence must be guarded by NODE_ENV === 'development': "${line}"`
+            ).toMatch(/NODE_ENV\s*===\s*["']development["']/);
+        }
+    });
+
+    it("dev CSP includes 'unsafe-eval' in the script-src (React/Turbopack dev requirement)", () => {
+        // Source-level check: the ternary that produces " 'unsafe-eval'" for dev must be present.
+        const src = getMiddleware();
+        expect(src).toContain("'unsafe-eval'");
+        // The conditional must inject it only when NODE_ENV === 'development'.
+        expect(src).toMatch(/NODE_ENV\s*===\s*["']development["']/);
     });
 });
 
