@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { reviewBodySchema, canReview, VERIFIED_STAY_STATUSES } from '@/lib/validations/review';
 import { CATALOG_TAG, campTag } from '@/lib/catalog-cache';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     // 1. Authentication — session must exist; authorId comes from session only.
@@ -13,6 +14,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     const authorId = session.user.id;
+
+    // RISK-5: Rate-limit review creation per user (5 req / 1 hour).
+    const rl = checkRateLimit(`review:create:${authorId}`, { limit: 5, windowMs: 3_600_000 });
+    if (!rl.allowed) {
+        return NextResponse.json(
+            { error: 'rate_limited' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
+        );
+    }
 
     try {
         // 2. Input validation — authorId is never read from the request body.

@@ -48,6 +48,7 @@ import { NextRequest } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { roundAvgRating } from '@/lib/review-summary';
+import { _store as rateLimitStore } from '@/lib/rate-limit';
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before any route imports
@@ -137,6 +138,9 @@ function validBody(override: Record<string, unknown> = {}) {
 
 beforeEach(() => {
     vi.clearAllMocks();
+    // Clear in-process rate-limit store so tests don't hit the per-user cap
+    // (reviews: 5 req/hour) after running many iterations in the same process.
+    rateLimitStore.clear();
 });
 
 // ===========================================================================

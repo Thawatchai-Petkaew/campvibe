@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
+    // RISK-6: Location creation requires authentication.
+    const { error: authError } = await requireAuth();
+    if (authError) return authError;
+
     try {
         const body = await request.json();
 
