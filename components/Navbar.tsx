@@ -313,11 +313,13 @@ export function Navbar({ currentUser }: NavbarProps) {
             <LoginModal
                 isOpen={isLoginOpen}
                 onClose={() => setIsLoginOpen(false)}
+                onSwitchToRegister={() => { setIsLoginOpen(false); setIsRegisterOpen(true); }}
             />
 
             <RegisterModal
                 isOpen={isRegisterOpen}
                 onClose={() => setIsRegisterOpen(false)}
+                onSwitchToLogin={() => { setIsRegisterOpen(false); setIsLoginOpen(true); }}
                 onSuccess={() => {
                     setIsRegisterOpen(false);
                     setIsLoginOpen(true);

@@ -18,9 +18,10 @@ interface LoginModalProps {
     onClose: () => void;
     /** Optional subtitle shown below the welcome heading — e.g. wishlist login prompt. */
     subtitle?: string;
+    onSwitchToRegister?: () => void;
 }
 
-export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, subtitle, onSwitchToRegister }: LoginModalProps) {
     const { t } = useLanguage();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -208,9 +209,13 @@ export function LoginModal({ isOpen, onClose, subtitle }: LoginModalProps) {
                         <div className="pt-4 border-t border-border/60 text-center">
                             <p className="text-sm text-muted-foreground">
                                 {t.auth.dontHaveAccount}{" "}
-                                <a href="/register" className="text-primary font-bold hover:underline">
+                                <button
+                                    type="button"
+                                    onClick={onSwitchToRegister}
+                                    className="text-primary font-bold hover:underline"
+                                >
                                     {t.auth.register}
-                                </a>
+                                </button>
                             </p>
                         </div>
                     </div>
