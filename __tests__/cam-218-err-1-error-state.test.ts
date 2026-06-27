@@ -694,9 +694,12 @@ describe('Page wiring: app/not-found.tsx uses ErrorState variant="not-found"', (
     expect(notFoundPageSrc).toContain('variant="not-found"');
   });
 
-  // Prove-It: FAILS if "use client" is removed (page uses useLanguage via ErrorState).
-  it('[directive] app/not-found.tsx has "use client" directive', () => {
-    expect(hasUseClientDirective(notFoundPageSrc)).toBe(true);
+  // Prove-It: FAILS if "use client" is RE-ADDED. not-found.tsx must be a SERVER
+  // component — a "use client" not-found falls under the root app/loading.tsx
+  // Suspense boundary and gets stuck on the skeleton fallback for unmatched routes
+  // (observed on staging). The child ErrorState stays "use client" for TH/EN.
+  it('[directive] app/not-found.tsx is a SERVER component (no "use client" — avoids loading.tsx skeleton)', () => {
+    expect(hasUseClientDirective(notFoundPageSrc)).toBe(false);
   });
 
   // Prove-It: FAILS if Navbar is removed from the 404 page.
