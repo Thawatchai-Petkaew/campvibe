@@ -32,7 +32,10 @@ export function SortDropdown() {
 
     return (
         <Select value={currentSort} onValueChange={handleSort}>
-            <SelectTrigger className="w-[200px] border border-border hover:border-foreground transition">
+            <SelectTrigger
+                className="w-[200px] border border-border hover:border-foreground transition"
+                aria-label={t.sort.sortBy}
+            >
                 <div className="flex items-center gap-2">
                     <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
                     <SelectValue />
