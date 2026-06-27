@@ -10,7 +10,7 @@ import { NextResponse } from "next/server"
  *   1. Generate a per-request nonce (Edge-safe Web Crypto, btoa — no Buffer)
  *   2. Set the nonce on the request header `x-nonce` for Next.js to stamp
  *      onto every SSR-generated <script> tag
- *   3. Set Content-Security-Policy-Report-Only on the response (Step 1 —
+ *   3. Set the enforced Content-Security-Policy on the response (CAM-203 step 2 —
  *      browser reports violations but does NOT block scripts; Step 2 flips
  *      to Content-Security-Policy after owner confirms no violations)
  *   4. Replicate /dashboard protection explicitly (auth() callback form does
@@ -76,12 +76,12 @@ export default auth(async (req) => {
 
     if (!isRouteAllowed(nextUrl.pathname, isLoggedIn)) {
         // Redirect unauthenticated user to login.
-        // Also set CSP-Report-Only on the redirect response for header completeness
+        // Also set the enforced CSP on the redirect response for header completeness
         // (browsers do not enforce CSP on 302/307 redirect responses, but including
         // it keeps the header behaviour consistent across all matched routes).
         const loginUrl = new URL('/login', req.url)
         const redirectResponse = NextResponse.redirect(loginUrl)
-        redirectResponse.headers.set('Content-Security-Policy-Report-Only', csp)
+        redirectResponse.headers.set('Content-Security-Policy', csp)
         return redirectResponse
     }
 
@@ -95,11 +95,10 @@ export default auth(async (req) => {
         request: { headers: requestHeaders },
     })
 
-    // STEP 1 — Report-Only: browser reports violations but does NOT block scripts.
-    // Flip "Content-Security-Policy-Report-Only" → "Content-Security-Policy"
-    // in Step 2 after the owner confirms no violations in the browser console
-    // on the Staging URL.
-    response.headers.set('Content-Security-Policy-Report-Only', csp)
+    // Enforced CSP (CAM-203 step 2): the strict nonce policy now BLOCKS inline-XSS.
+    // Verified on Staging — no app violations (the only report was the Vercel dev
+    // toolbar at vercel.live, which is staging-only and intentionally not allow-listed).
+    response.headers.set('Content-Security-Policy', csp)
 
     return response
 })
