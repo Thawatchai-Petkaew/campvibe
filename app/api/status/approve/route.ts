@@ -17,10 +17,11 @@ import { checkRateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Reuse the STATUS_TOKEN gate: ?token= query param OR x-status-token header. */
+/** Reuse the STATUS_TOKEN gate: ?token= query param OR x-status-token header.
+ * SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
 function authorized(req: Request): boolean {
   const required = process.env.STATUS_TOKEN;
-  if (!required) return true;
+  if (!required) return false; // token must be configured; no unauthenticated access
   const url = new URL(req.url);
   const query = url.searchParams.get("token");
   const header = req.headers.get("x-status-token");

@@ -176,44 +176,52 @@ describe("POST /api/status/approve", () => {
     expect(removeAwaitingYou).toHaveBeenCalledWith("CAM-9");
   });
 
-  it("open (no token configured) — 200 in dev/test", async () => {
+  // SEC-A: no open fallback — missing STATUS_TOKEN must return 401
+  it("[SEC-A] 401 when STATUS_TOKEN is not configured", async () => {
+    // STATUS_TOKEN is already deleted in beforeEach
     const res = await approve(approveReq({ id: "CAM-10" }));
-    expect(res.status).toBe(200);
-    expect(removeAwaitingYou).toHaveBeenCalledWith("CAM-10");
+    expect(res.status).toBe(401);
+    expect(removeAwaitingYou).not.toHaveBeenCalled();
   });
 
   it("[AC6] 400 on bad id — lowercase letters", async () => {
-    const res = await approve(approveReq({ id: "cam-9" }));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await approve(approveReq({ id: "cam-9" }, { token: "secret" }));
     expect(res.status).toBe(400);
     expect(removeAwaitingYou).not.toHaveBeenCalled();
   });
 
   it("[AC6] 400 on bad id — no number suffix", async () => {
-    const res = await approve(approveReq({ id: "CAM" }));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await approve(approveReq({ id: "CAM" }, { token: "secret" }));
     expect(res.status).toBe(400);
   });
 
   it("[AC6] 400 on bad id — empty string", async () => {
-    const res = await approve(approveReq({ id: "" }));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await approve(approveReq({ id: "" }, { token: "secret" }));
     expect(res.status).toBe(400);
   });
 
   it("[AC6] 400 on missing id field", async () => {
-    const res = await approve(approveReq({}));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await approve(approveReq({}, { token: "secret" }));
     expect(res.status).toBe(400);
   });
 
   it("429 when rate-limit is exceeded", async () => {
+    process.env.STATUS_TOKEN = "secret";
     checkRateLimit.mockReturnValue({ allowed: false, remaining: 0, retryAfterSec: 30 });
-    const res = await approve(approveReq({ id: "CAM-9" }));
+    const res = await approve(approveReq({ id: "CAM-9" }, { token: "secret" }));
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("30");
     expect(removeAwaitingYou).not.toHaveBeenCalled();
   });
 
   it("[AC2] approve returns {ok:true, approved:false} when issue not found in Linear", async () => {
+    process.env.STATUS_TOKEN = "secret";
     removeAwaitingYou.mockResolvedValueOnce(false);
-    const res = await approve(approveReq({ id: "CAM-999" }));
+    const res = await approve(approveReq({ id: "CAM-999" }, { token: "secret" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, approved: false });
   });
@@ -237,18 +245,20 @@ describe("POST /api/status/reject", () => {
   });
 
   it("[AC6] 400 on bad id", async () => {
-    const res = await reject(rejectReq({ id: "not-valid" }));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await reject(rejectReq({ id: "not-valid" }, { token: "secret" }));
     expect(res.status).toBe(400);
     expect(addComment).not.toHaveBeenCalled();
   });
 
   it("[AC3] calls addComment + addLabel + removeAwaitingYou in order", async () => {
+    process.env.STATUS_TOKEN = "secret";
     const order: string[] = [];
     addComment.mockImplementation(async () => { order.push("comment"); return true; });
     addLabelFn.mockImplementation(async () => { order.push("label"); return true; });
     removeAwaitingYou.mockImplementation(async () => { order.push("remove"); return true; });
 
-    const res = await reject(rejectReq({ id: "CAM-9", reason: "Needs more polish" }));
+    const res = await reject(rejectReq({ id: "CAM-9", reason: "Needs more polish" }, { token: "secret" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true });
     expect(order).toEqual(["comment", "label", "remove"]);
@@ -259,7 +269,8 @@ describe("POST /api/status/reject", () => {
   });
 
   it("[AC3] uses default Thai reason when reason is empty/omitted", async () => {
-    await reject(rejectReq({ id: "CAM-9" }));
+    process.env.STATUS_TOKEN = "secret";
+    await reject(rejectReq({ id: "CAM-9" }, { token: "secret" }));
     expect(addComment).toHaveBeenCalledWith(
       "CAM-9",
       "ส่งกลับให้แก้ไขจาก /status/map"
@@ -267,20 +278,23 @@ describe("POST /api/status/reject", () => {
   });
 
   it("[AC3] trims and caps reason at 2000 chars", async () => {
+    process.env.STATUS_TOKEN = "secret";
     const longReason = "A".repeat(3000);
-    await reject(rejectReq({ id: "CAM-9", reason: longReason }));
+    await reject(rejectReq({ id: "CAM-9", reason: longReason }, { token: "secret" }));
     const [, calledReason] = addComment.mock.calls[0];
     expect(calledReason.length).toBe(2000);
   });
 
   it("uses default reason when reason is whitespace-only", async () => {
-    await reject(rejectReq({ id: "CAM-9", reason: "   " }));
+    process.env.STATUS_TOKEN = "secret";
+    await reject(rejectReq({ id: "CAM-9", reason: "   " }, { token: "secret" }));
     expect(addComment).toHaveBeenCalledWith("CAM-9", "ส่งกลับให้แก้ไขจาก /status/map");
   });
 
   it("429 when rate-limit is exceeded", async () => {
+    process.env.STATUS_TOKEN = "secret";
     checkRateLimit.mockReturnValue({ allowed: false, remaining: 0, retryAfterSec: 15 });
-    const res = await reject(rejectReq({ id: "CAM-9" }));
+    const res = await reject(rejectReq({ id: "CAM-9" }, { token: "secret" }));
     expect(res.status).toBe(429);
     expect(addComment).not.toHaveBeenCalled();
   });
@@ -300,13 +314,23 @@ describe("GET /api/status/issue/[id]", () => {
     expect(fetchStatusIssues).not.toHaveBeenCalled();
   });
 
+  // SEC-A: 401 when STATUS_TOKEN is not configured
+  it("[SEC-A] 401 when STATUS_TOKEN is not configured", async () => {
+    // STATUS_TOKEN is already deleted in beforeEach
+    const res = await issueDetail(detailReq("CAM-9"), makeParams("CAM-9"));
+    expect(res.status).toBe(401);
+    expect(fetchStatusIssues).not.toHaveBeenCalled();
+  });
+
   it("[AC6] 400 on bad id", async () => {
-    const res = await issueDetail(detailReq("invalid"), makeParams("invalid"));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await issueDetail(detailReq("invalid", { token: "secret" }), makeParams("invalid"));
     expect(res.status).toBe(400);
   });
 
   it("[AC1] 200 with valid id returns the issue detail", async () => {
-    const res = await issueDetail(detailReq("CAM-9"), makeParams("CAM-9"));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await issueDetail(detailReq("CAM-9", { token: "secret" }), makeParams("CAM-9"));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toMatchObject({
@@ -323,13 +347,15 @@ describe("GET /api/status/issue/[id]", () => {
   });
 
   it("[AC1] case-insensitive id match (cam-9 → CAM-9)", async () => {
-    const res = await issueDetail(detailReq("cam-9"), makeParams("cam-9"));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await issueDetail(detailReq("cam-9", { token: "secret" }), makeParams("cam-9"));
     expect(res.status).toBe(200);
     expect((await res.json()).id).toBe("CAM-9");
   });
 
   it("[AC1] 404 when issue not in the list", async () => {
-    const res = await issueDetail(detailReq("CAM-999"), makeParams("CAM-999"));
+    process.env.STATUS_TOKEN = "secret";
+    const res = await issueDetail(detailReq("CAM-999", { token: "secret" }), makeParams("CAM-999"));
     expect(res.status).toBe(404);
     expect(await res.json()).toMatchObject({ error: "not_found" });
   });
@@ -344,6 +370,7 @@ describe("GET /api/status/issue/[id]", () => {
   });
 
   it("issue without [role] tag returns undefined role (not present in response)", async () => {
+    process.env.STATUS_TOKEN = "secret";
     fetchStatusIssues.mockResolvedValueOnce([
       {
         id: "CAM-99",
@@ -362,10 +389,23 @@ describe("GET /api/status/issue/[id]", () => {
         parent: null,
       },
     ]);
-    const res = await issueDetail(detailReq("CAM-99"), makeParams("CAM-99"));
+    const res = await issueDetail(detailReq("CAM-99", { token: "secret" }), makeParams("CAM-99"));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.role).toBeUndefined();
+  });
+
+  // SEC-A: rate-limit 429
+  it("[SEC-A] 429 + Retry-After when rate limit is exceeded for issue/[id]", async () => {
+    checkRateLimit.mockReturnValue({ allowed: false, remaining: 0, retryAfterSec: 30 });
+    process.env.STATUS_TOKEN = "secret";
+    const res = await issueDetail(
+      detailReq("CAM-9", { token: "secret" }),
+      makeParams("CAM-9")
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("30");
+    expect(fetchStatusIssues).not.toHaveBeenCalled();
   });
 });
 
