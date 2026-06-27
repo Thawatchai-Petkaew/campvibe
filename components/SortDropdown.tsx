@@ -39,7 +39,7 @@ export function SortDropdown() {
                 </div>
             </SelectTrigger>
             <SelectContent className="shadow-2xl">
-                <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                     {t.sort.sortBy}
                 </div>
                 {options.map((opt) => (

@@ -120,7 +120,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                         onClick={() => setCurrentIndex(index)}
                         aria-label={t.gallery.imageOf.replace("{n}", String(index + 1)).replace("{total}", String(images.length))}
                         aria-current={index === currentIndex ? "true" : undefined}
-                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black/95 ${
+                        className={`flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden border-2 transition focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black/95 ${
                             index === currentIndex ? "border-white" : "border-transparent opacity-60 hover:opacity-100"
                         }`}
                     >

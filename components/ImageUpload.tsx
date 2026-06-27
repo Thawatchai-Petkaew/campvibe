@@ -103,7 +103,7 @@ export function ImageUpload({
                             </div>
                             <div className="text-center px-2">
                                 <p className="text-xs font-semibold text-foreground">{t.newCampground.addPhotos}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{t.newCampground.upTo10Images}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.newCampground.upTo10Images}</p>
                             </div>
                         </>
                     )}

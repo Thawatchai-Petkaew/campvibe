@@ -279,7 +279,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 )}
                             >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                                    <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                                         <IconComp className="w-3.5 h-3.5" />
                                     </div>
                                     <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
@@ -430,7 +430,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                             {formData.logo && (
                                 <>
-                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center bg-muted shrink-0">
+                                    <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center bg-muted shrink-0">
                                         {logoError ? (
                                             <div className="w-full h-full flex items-center justify-center bg-muted">
                                                 <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -453,7 +453,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <h1 className="text-lg font-bold text-foreground leading-tight truncate">
                                     {isEditing ? `Edit: ${formData.nameTh}` : t.dashboard.createListing}
                                 </h1>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{t.dashboard.hostPanel}</p>
+                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{t.dashboard.hostPanel}</p>
                             </div>
                         </div>
                         <div className="flex gap-2 shrink-0">

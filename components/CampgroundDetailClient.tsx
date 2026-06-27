@@ -840,7 +840,7 @@ export default function CampgroundDetailClient({
                                             return (
                                                 <li
                                                     key={index}
-                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-sm -mx-1 px-1"
+                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-xl -mx-1 px-1"
                                                     data-testid={`item--review-${index}`}
                                                 >
                                                     <p className="font-semibold text-foreground text-sm mb-1">
@@ -935,7 +935,7 @@ export default function CampgroundDetailClient({
                             <div className="border border-border rounded-xl overflow-hidden mb-4 bg-background">
                                 <div className="flex border-b border-border/60">
                                     <div className="w-1/2 p-3 border-r border-border/60">
-                                        <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">{t.booking.checkIn}</label>
+                                        <label className="block text-xs font-bold uppercase text-muted-foreground mb-1">{t.booking.checkIn}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -963,7 +963,7 @@ export default function CampgroundDetailClient({
                                         </Popover>
                                     </div>
                                     <div className="w-1/2 p-3">
-                                        <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">{t.booking.checkOut}</label>
+                                        <label className="block text-xs font-bold uppercase text-muted-foreground mb-1">{t.booking.checkOut}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -992,7 +992,7 @@ export default function CampgroundDetailClient({
                                     </div>
                                 </div>
                                 <div className="p-3">
-                                    <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
+                                    <label className="block text-xs font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
                                     <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
                                         <SelectTrigger className="w-full border border-border hover:border-foreground transition">
                                             <div className="flex items-center gap-2">

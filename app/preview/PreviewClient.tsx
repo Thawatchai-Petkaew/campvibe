@@ -130,7 +130,7 @@ export function PreviewClient() {
                     {COLOR_SWATCHES.map(({ label, bg, text }) => (
                         <div key={label} className="flex flex-col gap-1">
                             <div
-                                className={`${bg} ${text} rounded-lg h-14 flex items-center justify-center border border-border`}
+                                className={`${bg} ${text} rounded-xl h-14 flex items-center justify-center border border-border`}
                                 aria-label={label}
                             />
                             <span className="text-xs text-muted-foreground text-center leading-tight">
@@ -336,7 +336,7 @@ export function PreviewClient() {
                         { icon: X, label: "Close" },
                     ].map(({ icon: Icon, label }) => (
                         <div key={label} className="flex flex-col items-center gap-1.5">
-                            <div className="p-2 rounded-lg bg-muted">
+                            <div className="p-2 rounded-xl bg-muted">
                                 <Icon className="h-5 w-5 text-foreground" aria-hidden="true" />
                             </div>
                             <span className="text-xs text-muted-foreground">{label}</span>

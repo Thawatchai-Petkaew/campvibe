@@ -235,7 +235,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <Badge variant="default" className="rounded-full text-[11px] font-bold">
+                                                <Badge variant="default" className="rounded-full text-xs font-bold">
                                                     HOST
                                                 </Badge>
                                             </Link>

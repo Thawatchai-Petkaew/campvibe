@@ -139,7 +139,7 @@ export default function RegisterPage() {
                             required
                             leftIcon={<User className="w-4 h-4" />}
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Email */}
@@ -155,7 +155,7 @@ export default function RegisterPage() {
                             error={emailValidationError}
                             leftIcon={<Mail className="w-4 h-4" />}
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Password */}
@@ -173,7 +173,7 @@ export default function RegisterPage() {
                             hint={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
                             leftIcon={<Lock className="w-4 h-4" />}
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Confirm Password */}
@@ -190,7 +190,7 @@ export default function RegisterPage() {
                             error={validationError && validationError.includes('password') ? validationError : undefined}
                             leftIcon={<Lock className="w-4 h-4" />}
                             inputSize="lg"
-                            className="rounded-full bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            className="rounded-full bg-background border-border"
                         />
 
                         {/* Consent Checkboxes */}

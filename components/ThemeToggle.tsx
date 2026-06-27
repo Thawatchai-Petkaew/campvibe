@@ -47,7 +47,7 @@ export function ThemeToggle() {
                         data-testid={testId}
                         onClick={() => setTheme(value)}
                         className={[
-                            "min-h-[44px] min-w-[44px] rounded-md transition-colors",
+                            "min-h-[44px] min-w-[44px] rounded-full transition-colors",
                             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                             isSelected
                                 ? "bg-accent text-accent-foreground"
