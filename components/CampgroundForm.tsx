@@ -42,16 +42,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import * as LucideIcons from "lucide-react";
@@ -1238,27 +1229,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             </form>
 
             {/* Delete Confirmation Dialog */}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t.newCampground.confirmDelete}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t.newCampground.confirmDeleteDesc}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">
-                            {t.dashboard.cancel}
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="rounded-full bg-destructive hover:bg-destructive/90"
-                        >
-                            {t.common.delete}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t.newCampground.confirmDelete}
+                description={t.newCampground.confirmDeleteDesc}
+                confirmLabel={t.common.delete}
+                cancelLabel={t.dashboard.cancel}
+                onConfirm={handleDelete}
+                destructive
+            />
         </div>
     );
 }

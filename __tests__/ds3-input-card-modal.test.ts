@@ -418,14 +418,11 @@ describe("clean--campground-form: card sections + inputs (AC-clean-1/2/3)", () =
     }
   });
 
-  it("AC-clean-3: CampgroundForm AlertDialogContent has no rounded-2xl class override", () => {
-    // AlertDialogContent in CampgroundForm should NOT pass rounded-2xl — primitive provides rounded-3xl
-    const alertBlock = campgroundFormSrc.match(/<AlertDialogContent[\s\S]{0,200}?>/);
-    if (alertBlock) {
-      expect(alertBlock[0]).not.toMatch(/\brounded-2xl\b/);
-    }
-    // Confirm the AlertDialogContent block exists (sanity)
-    expect(campgroundFormSrc).toMatch(/<AlertDialogContent/);
+  it("AC-clean-3: CampgroundForm uses ConfirmDialog (not a hand-rolled AlertDialogContent)", () => {
+    // CAM-229 B3: CampgroundForm was migrated to <ConfirmDialog — no inline AlertDialogContent.
+    // The primitive (AlertDialogContent) still lives inside ConfirmDialog itself and provides rounded-3xl.
+    expect(campgroundFormSrc).toMatch(/<ConfirmDialog/);
+    expect(campgroundFormSrc).not.toMatch(/<AlertDialogContent/);
   });
 });
 

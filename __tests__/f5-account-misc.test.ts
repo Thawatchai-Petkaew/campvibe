@@ -253,28 +253,28 @@ describe("AC-confirm-1: no window.confirm / window.alert / bare confirm( / bare 
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-confirm-2  Bookings uses AlertDialog (not confirm)
+// AC-confirm-2  Bookings uses ConfirmDialog (CAM-229 B3 migration)
 // ─────────────────────────────────────────────────────────────
-describe("AC-confirm-2: bookings/page.tsx uses AlertDialog for cancel flow", () => {
-    it("imports AlertDialog from @/components/ui/alert-dialog", () => {
-        // Import is a multi-line destructured import block; check for the closing line
-        expect(bookingsPageSrc).toMatch(/from ["']@\/components\/ui\/alert-dialog["']/);
-        expect(bookingsPageSrc).toMatch(/AlertDialog[,\s]/);
+describe("AC-confirm-2: bookings/page.tsx uses ConfirmDialog for cancel flow (CAM-229 B3)", () => {
+    it("imports ConfirmDialog from @/components/ui/confirm-dialog", () => {
+        // CAM-229 B3: migrated from hand-rolled AlertDialog to canonical ConfirmDialog wrapper
+        expect(bookingsPageSrc).toMatch(/from ["']@\/components\/ui\/confirm-dialog["']/);
+        expect(bookingsPageSrc).toContain("ConfirmDialog");
     });
 
-    it("uses AlertDialogTrigger", () => {
-        expect(bookingsPageSrc).toMatch(/AlertDialogTrigger/);
+    it("does NOT have hand-rolled AlertDialogTrigger (migrated to ConfirmDialog)", () => {
+        expect(bookingsPageSrc).not.toMatch(/AlertDialogTrigger/);
     });
 
-    it("uses AlertDialogAction with variant destructive", () => {
-        expect(bookingsPageSrc).toMatch(/AlertDialogAction[\s\S]*?variant="destructive"/);
+    it("does NOT have inline AlertDialogAction (handled by ConfirmDialog)", () => {
+        expect(bookingsPageSrc).not.toMatch(/AlertDialogAction/);
     });
 
-    it("uses AlertDialogCancel", () => {
-        expect(bookingsPageSrc).toMatch(/AlertDialogCancel/);
+    it("does NOT have inline AlertDialogCancel (handled by ConfirmDialog)", () => {
+        expect(bookingsPageSrc).not.toMatch(/AlertDialogCancel/);
     });
 
-    it("AlertDialogDescription contains confirmCancelDescription i18n key", () => {
+    it("confirmCancelDescription i18n key is passed to ConfirmDialog description prop", () => {
         expect(bookingsPageSrc).toMatch(/t\.bookings\.confirmCancelDescription/);
     });
 });
