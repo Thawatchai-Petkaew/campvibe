@@ -28,6 +28,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { LogoUpload } from "@/components/LogoUpload";
 import { LocationPicker } from "@/components/LocationPicker";
 import { InputField } from "@/components/ui/input-field";
+import { Badge } from "@/components/ui/badge";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Label } from "@/components/ui/label";
 import { TruncatedLabel } from "@/components/ui/truncated-label";
@@ -771,9 +772,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {formData.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         {formData.tags.map((tag, idx) => (
-                                            <span key={idx} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                                            <Badge key={idx} variant="secondary">
                                                 {tag}
-                                            </span>
+                                            </Badge>
                                         ))}
                                     </div>
                                 )}

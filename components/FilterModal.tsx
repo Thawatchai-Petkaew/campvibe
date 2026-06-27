@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { InputField } from "@/components/ui/input-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -329,9 +330,13 @@ export function FilterModal() {
                     <SlidersHorizontal className="w-4 h-4 mr-2" />
                     {t.filter?.title || "Filters"}
                     {activeFilterCount > 0 && (
-                        <span aria-hidden="true" className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-primary-foreground bg-primary rounded-full animate-in zoom-in duration-200 border-2 border-background">
+                        <Badge
+                            aria-hidden="true"
+                            variant="default"
+                            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full animate-in zoom-in duration-200 border-2 border-background"
+                        >
                             {activeFilterCount}
-                        </span>
+                        </Badge>
                     )}
                 </Button>
             </DialogTrigger>

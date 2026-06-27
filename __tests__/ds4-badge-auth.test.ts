@@ -18,10 +18,10 @@
  *  AC-status-2  getBookingStatusMeta CONFIRMED → variant 'success'
  *  AC-status-3  getBookingStatusMeta CANCELLED → variant 'muted' (NOT 'destructive' — CAM-60)
  *  AC-status-4  getBookingStatusMeta PENDING → variant 'warning' (via util, no inline function)
- *  AC-status-5  app/dashboard/page.tsx uses bookingStatusVariant() + <Badge variant=...>
- *  AC-status-6  dashboard bookingStatusVariant CONFIRMED → 'success'
- *  AC-status-7  dashboard bookingStatusVariant CANCELLED → 'destructive'
- *  AC-status-8  app/dashboard/bookings/page.tsx uses bookingStatusVariant() + <Badge variant=...>
+ *  AC-status-5  app/dashboard/page.tsx uses getBookingStatusMeta() from lib/booking-status (CAM-225)
+ *  AC-status-6  dashboard getBookingStatusMeta CONFIRMED → 'success'
+ *  AC-status-7  dashboard getBookingStatusMeta CANCELLED → 'muted' (unified — was 'destructive', CAM-225)
+ *  AC-status-8  app/dashboard/bookings/page.tsx uses getBookingStatusMeta() from lib/booking-status (CAM-225)
  *
  *  AC-role-1    app/profile/page.tsx uses roleVariant() + <Badge variant=...>
  *  AC-role-2    roleVariant ADMIN → 'destructive'
@@ -211,23 +211,34 @@ describe("badge--status-bookings: getBookingStatusMeta + Badge usage (AC-status-
 // Priority 2 — Status variant mapping: app/dashboard/page.tsx
 // =============================================================
 
-describe("badge--status-dashboard: bookingStatusVariant + Badge (AC-status-5/6/7)", () => {
-    it("AC-status-5: app/dashboard/page.tsx defines bookingStatusVariant function", () => {
-        expect(dashboardPageSrc).toMatch(/function bookingStatusVariant/);
+// CAM-225: dashboard/page now uses getBookingStatusMeta from lib/booking-status (unified SSOT).
+// No more local bookingStatusVariant — CANCELLED maps to 'muted' consistently.
+describe("badge--status-dashboard: getBookingStatusMeta + Badge (AC-status-5/6/7, CAM-225)", () => {
+    it("AC-status-5: app/dashboard/page.tsx imports getBookingStatusMeta from lib/booking-status", () => {
+        expect(dashboardPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(dashboardPageSrc).toMatch(/booking-status/);
     });
 
-    it("AC-status-6: bookingStatusVariant maps CONFIRMED → 'success'", () => {
-        const fnBody = dashboardPageSrc.match(/function bookingStatusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/["']success['"]/);
+    it("AC-status-5: app/dashboard/page.tsx does NOT define a local bookingStatusVariant function (CAM-225)", () => {
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("AC-status-7: bookingStatusVariant maps CANCELLED → 'destructive'", () => {
-        const fnBody = dashboardPageSrc.match(/function bookingStatusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/["']destructive['"]/);
+    it("AC-status-6: dashboard uses getBookingStatusMeta — CONFIRMED resolves to 'success' via the shared util", () => {
+        // The mapping lives in lib/booking-status.ts; dashboard just calls getBookingStatusMeta.
+        // Verify it references the util (not a local function)
+        expect(dashboardPageSrc).toMatch(/getBookingStatusMeta/);
     });
 
-    it("AC-status-5: dashboard/page renders <Badge variant={bookingStatusVariant(...)}>", () => {
-        expect(dashboardPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{bookingStatusVariant\(/);
+    it("AC-status-7: dashboard CANCELLED → 'muted' (unified via getBookingStatusMeta, NOT 'destructive', CAM-225)", () => {
+        // The dashboard must NOT have a local function returning 'destructive' for CANCELLED
+        expect(dashboardPageSrc).not.toMatch(/function bookingStatusVariant/);
+        // No inline CANCELLED→destructive mapping
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(dashboardPageSrc).not.toMatch(cancDestPattern);
+    });
+
+    it("AC-status-5: dashboard/page renders <Badge variant={variant}> from getBookingStatusMeta destructure", () => {
+        expect(dashboardPageSrc).toMatch(/getBookingStatusMeta\(booking\.status\)/);
     });
 
     it("AC-i18n-2: dashboard/page status label comes from booking.status (not hardcoded)", () => {
@@ -239,18 +250,26 @@ describe("badge--status-dashboard: bookingStatusVariant + Badge (AC-status-5/6/7
 // Priority 2 — Status variant mapping: app/dashboard/bookings/page.tsx
 // =============================================================
 
-describe("badge--status-dash-bookings: bookingStatusVariant + Badge (AC-status-8)", () => {
-    it("AC-status-8: app/dashboard/bookings/page.tsx defines bookingStatusVariant function", () => {
-        expect(dashBookPageSrc).toMatch(/function bookingStatusVariant/);
+// CAM-225: dashboard/bookings page now uses getBookingStatusMeta from lib/booking-status (unified SSOT).
+describe("badge--status-dash-bookings: getBookingStatusMeta + Badge (AC-status-8, CAM-225)", () => {
+    it("AC-status-8: app/dashboard/bookings/page.tsx imports getBookingStatusMeta from lib/booking-status", () => {
+        expect(dashBookPageSrc).toMatch(/getBookingStatusMeta/);
+        expect(dashBookPageSrc).toMatch(/booking-status/);
     });
 
-    it("AC-status-8: dashboard/bookings renders <Badge variant={bookingStatusVariant(...)}>", () => {
-        expect(dashBookPageSrc).toMatch(/<Badge[\s\S]{0,200}?variant=\{bookingStatusVariant\(/);
+    it("AC-status-8: dashboard/bookings does NOT define a local bookingStatusVariant function (CAM-225)", () => {
+        expect(dashBookPageSrc).not.toMatch(/function bookingStatusVariant/);
     });
 
-    it("AC-status-8: dashboard/bookings CANCELLED maps to 'destructive'", () => {
-        const fnBody = dashBookPageSrc.match(/function bookingStatusVariant[\s\S]{0,300}?\}/)?.[0] ?? "";
-        expect(fnBody).toMatch(/["']destructive['"]/);
+    it("AC-status-8: dashboard/bookings CANCELLED → 'muted' (via shared util, NOT 'destructive', CAM-225)", () => {
+        // No inline CANCELLED→destructive mapping
+        expect(dashBookPageSrc).not.toMatch(/function bookingStatusVariant/);
+        const cancDestPattern = /CANCELLED.*destructive|destructive.*CANCELLED/;
+        expect(dashBookPageSrc).not.toMatch(cancDestPattern);
+    });
+
+    it("AC-status-8: dashboard/bookings renders Badge with variant from getBookingStatusMeta", () => {
+        expect(dashBookPageSrc).toMatch(/getBookingStatusMeta\(booking\.status\)/);
     });
 });
 

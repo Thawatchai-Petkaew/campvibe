@@ -439,7 +439,7 @@ export default function CampgroundDetailClient({
                             sizes="100vw"
                             priority
                         />
-                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+                        <div className="absolute top-4 right-4 bg-foreground/60 text-background text-xs font-bold px-2 py-1 rounded-xl backdrop-blur-sm">
                             {t.gallery.imageOf.replace("{n}", "1").replace("{total}", String(images.length))}
                         </div>
                         <Button
