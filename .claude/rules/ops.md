@@ -135,6 +135,7 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 | "It failed, so I'll just silently retry." | Stop the promotion + auto-open a Linear ticket. |
 | "Local/Preview passed, so call it Done." | Done means AC verified on the real Staging URL. |
 | "One `DATABASE_URL` across envs is simpler." | Keep staging/prod strictly separate. |
+| "Add the new consistency/lint guard straight as blocking." | A grep guard catches forbidden STRINGS, not structural/role drift (CAM-221: ~90 drift passed `check-ds` with correct tokens but the wrong role / re-implemented). Use AST/co-occurrence heuristics for structural rules, and roll out **report-mode → clear the backlog to 0 → flip to blocking**; never ship a blocking guard with a non-zero backlog. Make supplementary CI checks (visual regression) advisory (`continue-on-error` + non-required) so they don't block the gate. |
 
 ## Verify (exit criteria)
 
