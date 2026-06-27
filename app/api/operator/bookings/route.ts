@@ -5,6 +5,11 @@ import { apiError, apiSuccess } from '@/lib/api-utils';
 import type { PermissionCode, TeamRole } from '@/lib/team-permissions';
 import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
 
+// RISK-12: cap the list query so it never does a full-table scan as data grows.
+// Returns the most recent N bookings (orderBy createdAt desc).
+// Full keyset + infinite-scroll is a deferred FE story.
+const BOOKING_LIST_LIMIT = 100;
+
 export async function GET(request: NextRequest) {
   const { error: authError, session } = await requireAuth();
   if (authError) return authError;
@@ -82,7 +87,8 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         createdAt: sort === 'asc' ? 'asc' : 'desc'
-      }
+      },
+      take: BOOKING_LIST_LIMIT,
     });
 
     const withAccess = bookings.map((b: any) => {
