@@ -66,6 +66,15 @@ export async function POST(request: NextRequest) {
     return apiError('User ID not found in session', 401);
   }
 
+  // Rate-limit: 10 camp creations per user per hour (shared key with campsites route).
+  const rl = checkRateLimit(`campsite:create:${userId}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการสร้างแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
+
   try {
     const body = await request.json();
 

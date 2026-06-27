@@ -7,6 +7,7 @@ import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { serializeDecimals } from '@/lib/serialize';
 import { requireAuth } from '@/lib/auth-utils';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { withTiming } from '@/lib/route-timing';
 import { campCardSelect } from '@/lib/read-models/camp-card';
 import { CATALOG_TAG } from '@/lib/catalog-cache';
@@ -126,6 +127,15 @@ export async function POST(request: NextRequest) {
   const userId = session?.user?.id;
   if (!userId) {
     return apiError('User ID not found in session', 401);
+  }
+
+  // Rate-limit: 10 camp creations per user per hour (shared key with campgrounds route).
+  const rl = checkRateLimit(`campsite:create:${userId}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการสร้างแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
   }
 
   try {
