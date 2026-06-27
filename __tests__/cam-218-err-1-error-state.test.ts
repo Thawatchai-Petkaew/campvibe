@@ -702,6 +702,23 @@ describe('Page wiring: app/not-found.tsx uses ErrorState variant="not-found"', (
     expect(hasUseClientDirective(notFoundPageSrc)).toBe(false);
   });
 
+  // Prove-It: FAILS if force-dynamic is removed from not-found.tsx.
+  //
+  // CAM-218 fix: the global /_not-found was statically prerendered (○), which
+  // meant Next.js served a pre-baked HTML file with no nonce attributes on any
+  // <script> tags. The middleware generates a per-request CSP nonce and sets
+  // Content-Security-Policy: script-src 'nonce-N' 'strict-dynamic' ... on the
+  // response. Per CSP Level 3, when a nonce is present, 'unsafe-inline' is
+  // ignored — so the inline next-themes script (which applies the dark/light
+  // class to <html>) is BLOCKED, and all external JS bundles (ThemeProvider,
+  // LanguageProvider) also lack nonces and therefore can't load under
+  // strict-dynamic. Result: theme + language never applied; toggling had no
+  // effect. force-dynamic makes the route SSR-rendered per request (ƒ), so
+  // the middleware nonce is stamped on every <script> tag at render time.
+  it('[dynamic] app/not-found.tsx exports dynamic = "force-dynamic" (CSP nonce fix — CAM-218)', () => {
+    expect(notFoundPageSrc).toContain('export const dynamic = "force-dynamic"');
+  });
+
   // Prove-It: FAILS if Navbar is removed from the 404 page.
   it('[shell] app/not-found.tsx includes Navbar (navigation always available on 404)', () => {
     expect(notFoundPageSrc).toContain('<Navbar');
