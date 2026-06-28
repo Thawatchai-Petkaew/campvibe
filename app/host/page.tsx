@@ -10,13 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function HostLandingPage() {
   const session = await auth();
 
-  const currentUser = session?.user
-    ? { name: session.user.name ?? null, image: (session.user as any).image ?? null }
-    : null;
-
   return (
     <div className="min-h-screen bg-background">
-      <Navbar currentUser={currentUser} />
+      <Navbar />
 
       <main className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-6">

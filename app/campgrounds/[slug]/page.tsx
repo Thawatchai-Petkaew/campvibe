@@ -97,7 +97,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
 
     return (
         <main className="min-h-screen bg-background">
-            <Navbar currentUser={session?.user} />
+            <Navbar />
             <CampgroundDetailClient
                 campground={serializeDecimals(campSite)}
                 isOwner={isOwner}

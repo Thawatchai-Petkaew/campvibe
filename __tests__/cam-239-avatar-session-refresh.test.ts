@@ -148,24 +148,24 @@ describe('[no-effect-update] update() must not be inside a useEffect', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. Scope guard updated for B2 (CAM-240): Navbar now derives the displayed user
-//    from navUser (client session keyed by status). currentUser prop is KEPT as
-//    the loading-state initial value (no SSR flash). The img src is now navUser.image
-//    (live — reflects update() immediately). See cam-240-b2-navbar-session.test.ts
-//    for the full B2 test suite.
+// 9. Scope guard updated for CAM-242 MEDIA-4: Navbar uses a single authoritative
+//    source — SessionProvider is hydrated with the server session in layout.tsx
+//    so navUser = session?.user ?? null on first paint (no loading flash, no
+//    frozen prop). The currentUser prop has been removed from NavbarProps.
+//    See cam-240-b2-navbar-session.test.ts for the full suite.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('[navbar-b2] Navbar derives avatar from navUser (B2 CAM-240 live-update)', () => {
-    it('Navbar.tsx still accepts the currentUser prop (loading-state initial value)', () => {
-        const navbarSrc = src('components/Navbar.tsx');
-        // currentUser prop must still exist — used as the SSR initial (loading) value.
-        expect(navbarSrc).toContain('currentUser');
-    });
-
+describe('[navbar-cam242] Navbar derives avatar from single-source navUser (CAM-242 hydrated provider)', () => {
     it('Navbar.tsx avatar <img> src is navUser.image (live client session, not stale prop)', () => {
         const navbarSrc = src('components/Navbar.tsx');
-        // B2: avatar reads from navUser (which is session.user when authenticated).
+        // CAM-242: avatar reads from navUser = session?.user ?? null (single source).
         expect(navbarSrc).toContain('src={navUser.image}');
-        // The stale direct prop reference must no longer be the img src.
+        // The stale direct prop reference must not be the img src.
         expect(navbarSrc).not.toContain('src={currentUser.image}');
+    });
+
+    it('Navbar.tsx does NOT declare currentUser prop (CAM-242: vestigial prop removed)', () => {
+        const navbarSrc = src('components/Navbar.tsx');
+        // CAM-242: currentUser prop removed — SessionProvider hydration is the source of truth.
+        expect(navbarSrc).not.toContain('currentUser?:');
     });
 });

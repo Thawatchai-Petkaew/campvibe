@@ -89,7 +89,7 @@ export default async function WishlistPage() {
 
     return (
         <main className="min-h-screen pb-20 bg-background text-foreground">
-            <Navbar currentUser={session?.user} />
+            <Navbar />
 
             <div className="container mx-auto px-6 pt-8">
                 <WishlistPageClient
