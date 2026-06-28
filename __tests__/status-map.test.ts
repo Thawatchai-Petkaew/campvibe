@@ -1816,79 +1816,118 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
   });
 });
 
-describe("SMUX-6 — bottom filter row (<1024px, drop-up)", () => {
+describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignposts chip", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
 
-  // AC-2: FilterRowMobile exported from campsite-overlays
-  it("campsite-overlays exports FilterRowMobile", () => {
-    expect(overly).toContain("export function FilterRowMobile");
+  // CAM-258: the duplicate FilterRowMobile implementation is GONE (one filter impl)
+  it("campsite-overlays no longer exports FilterRowMobile (duplicate removed)", () => {
+    expect(overly).not.toContain("FilterRowMobile");
   });
 
-  // AC-2: scene imports and renders FilterRowMobile
-  it("campsite-scene.tsx imports FilterRowMobile from campsite-overlays", () => {
-    const importLine = scene.split("\n").find((l) => l.includes("campsite-overlays"));
-    expect(importLine).toContain("FilterRowMobile");
+  it("campsite-scene.tsx no longer imports or renders FilterRowMobile", () => {
+    expect(scene).not.toContain("FilterRowMobile");
   });
 
-  it("campsite-scene.tsx renders <FilterRowMobile> in JSX", () => {
-    expect(scene).toContain("<FilterRowMobile");
+  // CAM-258: the bottom filter is FilterSignposts with layout="bottom"
+  it("campsite-scene.tsx renders <FilterSignposts layout=\"bottom\"> for the bottom row", () => {
+    expect(scene).toContain('layout="bottom"');
+    // and the bottom render is a FilterSignposts (not a separate component)
+    const idx = scene.indexOf('layout="bottom"');
+    const block = scene.slice(scene.lastIndexOf("<", idx), idx);
+    expect(block).toContain("FilterSignposts");
   });
 
-  // AC-2: 3 equal flex:1 columns
-  it("HUD_CSS defines .hud-filter-col with flex:1 for equal columns", () => {
-    expect(overly).toContain(".hud-filter-col{");
-    expect(overly).toContain("flex:1");
+  // CAM-258: FilterSignposts accepts the layout variant prop
+  it("FilterSignposts accepts a layout variant prop (top default | bottom)", () => {
+    expect(overly).toContain("export function FilterSignposts");
+    expect(overly).toContain('layout?: "top" | "bottom"');
+    expect(overly).toContain('layout = "top"');
   });
 
-  // AC-2: min-height:30px on filter row buttons
-  it("HUD_CSS defines .hud-filter-col-btn with min-height:30px", () => {
-    expect(overly).toContain(".hud-filter-col-btn{");
-    expect(overly).toContain("min-height:30px");
+  // CAM-258: the bottom filter renders the SAME .hud-signpost chip class (desktop chip)
+  it("bottom filter reuses the .hud-signpost chip + .hud-signpost-menu (no parallel .hud-filter-* classes)", () => {
+    // the shared chip primitives are still present
+    expect(overly).toContain(".hud-signpost{");
+    expect(overly).toContain(".hud-signpost-menu{");
+    // the old duplicate CSS classes are deleted
+    expect(overly).not.toContain(".hud-filter-row-mobile");
+    expect(overly).not.toContain(".hud-filter-cols");
+    expect(overly).not.toContain(".hud-filter-col{");
+    expect(overly).not.toContain(".hud-filter-dropup");
   });
 
-  // AC-2: label truncates with text-overflow:ellipsis (no overflow at 320px)
-  it("HUD_CSS defines text-overflow:ellipsis for label overflow safety at 320px", () => {
+  // CAM-258: bottom variant = equal columns that fill the frame width (flex:1)
+  it("HUD_CSS gives the bottom variant equal columns that fill the width (flex:1)", () => {
+    expect(overly).toContain(".hud-signposts-bottom{");
+    expect(overly).toContain(".hud-signposts-bottom .hud-signpost-wrap{flex:1;min-width:0}");
+    // chip fills its column
+    const block = overly.slice(overly.indexOf(".hud-signposts-bottom .hud-signpost{"));
+    expect(block.slice(0, 200)).toContain("width:100%");
+  });
+
+  // CAM-258: bottom chip min-height:30px
+  it("HUD_CSS gives the bottom chip min-height:30px", () => {
+    const block = overly.slice(overly.indexOf(".hud-signposts-bottom .hud-signpost{"));
+    expect(block.slice(0, 200)).toContain("min-height:30px");
+  });
+
+  // CAM-258: label truncates to its column (no overflow at ≥320px) — truncate + flex-shrink
+  it("HUD_CSS truncates the bottom label + shrinks columns for 320px overflow safety", () => {
+    // shared chip label already uses ellipsis
+    expect(overly).toContain(".hud-sp-label{");
     expect(overly).toContain("text-overflow:ellipsis");
+    // columns shrink (min-width:0) so they never push past 320px
+    expect(overly).toContain(".hud-signposts-bottom .hud-signpost-wrap{flex:1;min-width:0}");
+    expect(overly).toContain(".hud-signposts-bottom .hud-sp-label{flex:1;max-width:none;min-width:0;text-align:left}");
   });
 
-  // AC-2: drop-up menus open upward with bottom: calc(100% + ...)
-  it("HUD_CSS defines .hud-filter-dropup with bottom:calc(100%+...) for upward opening", () => {
-    expect(overly).toContain(".hud-filter-dropup{");
-    expect(overly).toContain("bottom:calc(100%");
+  // CAM-258: menu opens UPWARD (drop-up) for the bottom row
+  it("HUD_CSS opens the bottom menu upward via .hud-signpost-menu-up (bottom:calc(100%+...))", () => {
+    expect(overly).toContain(".hud-signpost-menu-up{");
+    const block = overly.slice(overly.indexOf(".hud-signpost-menu-up{"));
+    expect(block.slice(0, 160)).toContain("bottom:calc(100%");
+    expect(block.slice(0, 160)).toContain("top:auto");
   });
 
-  // AC-2: filter row shown on tablet/mobile (<1024) via CSS
-  it("HUD_CSS shows .hud-filter-row-mobile at max-width:1023px", () => {
-    expect(overly).toContain(".hud-filter-row-mobile");
-    // Should have a media block that shows it
-    const mediaBlock = overly.slice(overly.indexOf("@media (max-width: 1023px)"), overly.indexOf("@media (min-width: 1024px)", overly.indexOf("@media (max-width: 1023px)")));
-    expect(mediaBlock).toContain("hud-filter-row-mobile");
-    expect(mediaBlock).toContain("display:block");
+  // CAM-258: bottom row shown on tablet/mobile (<1024) via CSS
+  it("HUD_CSS shows .hud-signposts-bottom at max-width:1023px", () => {
+    expect(overly).toContain(".hud-signposts-bottom");
+    const mediaBlock = overly.slice(overly.indexOf("@media (max-width: 1023px){"), overly.indexOf("@media (min-width: 1024px){", overly.indexOf("@media (max-width: 1023px){")));
+    expect(mediaBlock).toContain("hud-signposts-bottom");
+    expect(mediaBlock).toContain("display:flex");
   });
 
-  // AC-2: filter row hidden on desktop (≥1024) via CSS
-  it("HUD_CSS hides .hud-filter-row-mobile on desktop (min-width:1024px)", () => {
-    const minBlock = overly.slice(overly.lastIndexOf("@media (min-width: 1024px)"));
-    expect(minBlock).toContain("hud-filter-row-mobile");
-    expect(minBlock).toContain("display:none");
+  // CAM-258: bottom row hidden on desktop (≥1024) via CSS
+  it("HUD_CSS hides .hud-signposts-bottom on desktop (min-width:1024px)", () => {
+    // the LAST min-width:1024px block inside the signpost CSS area hides the bottom row
+    const idx = overly.indexOf(".hud-signposts-bottom{display:none !important}");
+    expect(idx).toBeGreaterThan(-1);
+    const before = overly.slice(0, idx);
+    expect(before.lastIndexOf("@media (min-width: 1024px){")).toBeGreaterThan(-1);
   });
 
-  // AC-2: filter row has correct data-testid for QA
-  it("FilterRowMobile renders data-testid='filter-row--map-mobile'", () => {
-    expect(overly).toContain('data-testid="filter-row--map-mobile"');
+  // CAM-258: bottom row keeps the QA data-testid
+  it("the bottom filter renders data-testid='filter-row--map-mobile'", () => {
+    expect(overly).toContain('"filter-row--map-mobile"');
   });
 
-  // AC-2: no JSX span with hud-filter-compact class (replaced by FilterRowMobile bottom row)
-  it("campsite-scene.tsx does not render a JSX <span> with className hud-filter-compact (replaced by FilterRowMobile)", () => {
-    // Only check the JSX className attribute — CSS class selectors are allowed (backward compat)
+  // CAM-258: no JSX span with the removed hud-filter-compact class
+  it("campsite-scene.tsx does not render a JSX <span> with className hud-filter-compact", () => {
     expect(scene).not.toContain('className="hud-filter-compact"');
   });
 
-  // AC-2: a11y — aria-haspopup and aria-expanded on each column button
-  it("FilterRowMobile column buttons have aria-haspopup and aria-expanded for a11y", () => {
+  // CAM-258: a11y merged onto the unified chip — listbox semantics + Escape + focus return
+  it("FilterSignposts wires listbox a11y (aria-haspopup/expanded/controls + role=option + Escape)", () => {
     expect(overly).toContain('aria-haspopup="listbox"');
-    expect(overly).toContain("aria-expanded={");
+    expect(overly).toContain("aria-expanded={open === s.key}");
+    expect(overly).toContain("aria-controls={`hud-signpost-menu-${s.key}`}");
+    expect(overly).toContain('role="listbox"');
+    expect(overly).toContain('role="option"');
+    expect(overly).toContain("aria-selected={o.v === s.value}");
+    // Escape closes + returns focus to the trigger
+    expect(overly).toContain('e.key === "Escape"');
+    expect(overly).toContain("ref?.current?.focus()");
   });
 });
 
@@ -2268,8 +2307,9 @@ describe("CAM-257 C — single horizontal row + no overlap", () => {
 
   it("filter row clears the mobile toolbar with breathing room (no overlapping bands)", () => {
     // the <640 block lifts the filter row above the 52px toolbar + its bottom padding + an 8px gap
+    // CAM-258: the bottom row is now FilterSignposts layout="bottom" → .hud-signposts-bottom
     const block = overly.slice(overly.indexOf("@media (max-width: 639px)"));
-    expect(block).toContain("hud-filter-row-mobile");
+    expect(block).toContain("hud-signposts-bottom");
     expect(block).toContain("bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px)");
   });
 });
