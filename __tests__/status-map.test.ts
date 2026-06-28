@@ -1754,3 +1754,304 @@ describe("campsite-scene.tsx — CAM-254 Fix 3: single close button per Sheet", 
     expect(sheetSrc).toContain("showCloseButton = true");
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// CAM-256 SMUX-6 — Tablet/mobile chrome: icon buttons + filter row + env capsule
+// Source-inspection tests on campsite-scene.tsx and campsite-overlays.tsx
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
+  const scene  = read("../app/status/map/campsite-scene.tsx");
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  // AC-1: Icon button class exists with 44x44 sizing
+  it("HUD_CSS defines .hud-icon-btn with 44px width and height for tap target", () => {
+    expect(overly).toContain(".hud-icon-btn");
+    expect(overly).toContain("width:44px");
+    expect(overly).toContain("height:44px");
+  });
+
+  // AC-1: Dashboard link icon button with Thai aria-label
+  it("scene renders LayoutDashboard icon link with Thai aria-label 'ดูผลงานทั้งหมด'", () => {
+    expect(scene).toContain("LayoutDashboard");
+    expect(scene).toContain("ดูผลงานทั้งหมด");
+    expect(scene).toContain('data-testid="link--map-icon-dashboard"');
+  });
+
+  // AC-1: Env/productivity icon button with Gauge icon + Thai aria-label
+  it("scene renders Gauge icon button with Thai aria-label 'ผลผลิต Scout Team'", () => {
+    expect(scene).toContain("Gauge");
+    expect(scene).toContain("ผลผลิต Scout Team");
+    expect(scene).toContain('data-testid="btn--map-icon-env"');
+  });
+
+  // AC-1: Icon buttons container hidden on desktop ≥1024 via CSS
+  it("SCENE_CSS hides .hud-topbar-icons on desktop (min-width:1024px) with display:none", () => {
+    expect(scene).toContain("hud-topbar-icons");
+    // The min-width 1024 block should hide them
+    const minBlock = scene.slice(scene.lastIndexOf("@media (min-width: 1024px)"));
+    expect(minBlock).toContain("hud-topbar-icons");
+    expect(minBlock).toContain("display:none");
+  });
+
+  // AC-1: Original full-text env toggle hidden at <1024 via CSS
+  it("SCENE_CSS hides .hud-env-toggle on mobile/tablet (<1024px)", () => {
+    const maxBlock = scene.slice(scene.indexOf("@media (max-width: 1023px)"), scene.indexOf("@media (max-width: 639px)"));
+    expect(maxBlock).toContain("hud-env-toggle");
+    expect(maxBlock).toContain("display:none");
+  });
+
+  // AC-1: focus-visible ring on icon button for a11y
+  it("HUD_CSS defines focus-visible ring on .hud-icon-btn for keyboard a11y", () => {
+    expect(overly).toContain(".hud-icon-btn:focus-visible");
+    expect(overly).toContain("outline:");
+  });
+
+  // AC-1: Lucide imports include LayoutDashboard and Gauge
+  it("campsite-scene.tsx imports LayoutDashboard and Gauge from lucide-react", () => {
+    const importLine = scene.split("\n").find((l) => l.includes("lucide-react"));
+    expect(importLine).toBeDefined();
+    expect(importLine).toContain("LayoutDashboard");
+    expect(importLine).toContain("Gauge");
+  });
+});
+
+describe("SMUX-6 — bottom filter row (<1024px, drop-up)", () => {
+  const scene  = read("../app/status/map/campsite-scene.tsx");
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  // AC-2: FilterRowMobile exported from campsite-overlays
+  it("campsite-overlays exports FilterRowMobile", () => {
+    expect(overly).toContain("export function FilterRowMobile");
+  });
+
+  // AC-2: scene imports and renders FilterRowMobile
+  it("campsite-scene.tsx imports FilterRowMobile from campsite-overlays", () => {
+    const importLine = scene.split("\n").find((l) => l.includes("campsite-overlays"));
+    expect(importLine).toContain("FilterRowMobile");
+  });
+
+  it("campsite-scene.tsx renders <FilterRowMobile> in JSX", () => {
+    expect(scene).toContain("<FilterRowMobile");
+  });
+
+  // AC-2: 3 equal flex:1 columns
+  it("HUD_CSS defines .hud-filter-col with flex:1 for equal columns", () => {
+    expect(overly).toContain(".hud-filter-col{");
+    expect(overly).toContain("flex:1");
+  });
+
+  // AC-2: min-height:30px on filter row buttons
+  it("HUD_CSS defines .hud-filter-col-btn with min-height:30px", () => {
+    expect(overly).toContain(".hud-filter-col-btn{");
+    expect(overly).toContain("min-height:30px");
+  });
+
+  // AC-2: label truncates with text-overflow:ellipsis (no overflow at 320px)
+  it("HUD_CSS defines text-overflow:ellipsis for label overflow safety at 320px", () => {
+    expect(overly).toContain("text-overflow:ellipsis");
+  });
+
+  // AC-2: drop-up menus open upward with bottom: calc(100% + ...)
+  it("HUD_CSS defines .hud-filter-dropup with bottom:calc(100%+...) for upward opening", () => {
+    expect(overly).toContain(".hud-filter-dropup{");
+    expect(overly).toContain("bottom:calc(100%");
+  });
+
+  // AC-2: filter row shown on tablet/mobile (<1024) via CSS
+  it("HUD_CSS shows .hud-filter-row-mobile at max-width:1023px", () => {
+    expect(overly).toContain(".hud-filter-row-mobile");
+    // Should have a media block that shows it
+    const mediaBlock = overly.slice(overly.indexOf("@media (max-width: 1023px)"), overly.indexOf("@media (min-width: 1024px)", overly.indexOf("@media (max-width: 1023px)")));
+    expect(mediaBlock).toContain("hud-filter-row-mobile");
+    expect(mediaBlock).toContain("display:block");
+  });
+
+  // AC-2: filter row hidden on desktop (≥1024) via CSS
+  it("HUD_CSS hides .hud-filter-row-mobile on desktop (min-width:1024px)", () => {
+    const minBlock = overly.slice(overly.lastIndexOf("@media (min-width: 1024px)"));
+    expect(minBlock).toContain("hud-filter-row-mobile");
+    expect(minBlock).toContain("display:none");
+  });
+
+  // AC-2: filter row has correct data-testid for QA
+  it("FilterRowMobile renders data-testid='filter-row--map-mobile'", () => {
+    expect(overly).toContain('data-testid="filter-row--map-mobile"');
+  });
+
+  // AC-2: no JSX span with hud-filter-compact class (replaced by FilterRowMobile bottom row)
+  it("campsite-scene.tsx does not render a JSX <span> with className hud-filter-compact (replaced by FilterRowMobile)", () => {
+    // Only check the JSX className attribute — CSS class selectors are allowed (backward compat)
+    expect(scene).not.toContain('className="hud-filter-compact"');
+  });
+
+  // AC-2: a11y — aria-haspopup and aria-expanded on each column button
+  it("FilterRowMobile column buttons have aria-haspopup and aria-expanded for a11y", () => {
+    expect(overly).toContain('aria-haspopup="listbox"');
+    expect(overly).toContain("aria-expanded={");
+  });
+});
+
+describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", () => {
+  const scene  = read("../app/status/map/campsite-scene.tsx");
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  // AC-3: toolbar background is transparent (not rgba(...) fill)
+  it("SCENE_CSS makes .hud-map-toolbar transparent (no background fill) on <640px", () => {
+    const mobileBlock = scene.slice(
+      scene.indexOf("@media (max-width: 639px)"),
+      scene.indexOf("@media (max-width: 639px)") + 1200
+    );
+    expect(mobileBlock).toContain("hud-map-toolbar");
+    expect(mobileBlock).toContain("background:transparent");
+    expect(mobileBlock).toContain("border-top:none");
+  });
+
+  // AC-3: no backdrop-filter on toolbar on mobile
+  it("SCENE_CSS removes backdrop-filter from .hud-map-toolbar on mobile", () => {
+    const mobileBlock = scene.slice(
+      scene.indexOf("@media (max-width: 639px)"),
+      scene.indexOf("@media (max-width: 639px)") + 1200
+    );
+    expect(mobileBlock).toContain("backdrop-filter:none");
+  });
+
+  // AC-4: EnvPipelineCapsule exported from campsite-overlays
+  it("campsite-overlays exports EnvPipelineCapsule", () => {
+    expect(overly).toContain("export function EnvPipelineCapsule");
+  });
+
+  // AC-4: scene imports EnvPipelineCapsule
+  it("campsite-scene.tsx imports EnvPipelineCapsule from campsite-overlays", () => {
+    const importLine = scene.split("\n").find((l) => l.includes("campsite-overlays"));
+    expect(importLine).toContain("EnvPipelineCapsule");
+  });
+
+  // AC-4: scene renders <EnvPipelineCapsule> in mobile toolbar
+  it("campsite-scene.tsx renders <EnvPipelineCapsule> in the toolbar (replaces bare pct%)", () => {
+    expect(scene).toContain("<EnvPipelineCapsule");
+  });
+
+  // AC-4: EnvPipelineCapsule receives envLanes prop
+  it("<EnvPipelineCapsule> receives envLanes prop in scene", () => {
+    const capsuleBlock = scene.slice(scene.indexOf("<EnvPipelineCapsule"), scene.indexOf("/>", scene.indexOf("<EnvPipelineCapsule")));
+    expect(capsuleBlock).toContain("envLanes={envLanes}");
+  });
+
+  // AC-4: EnvPipelineCapsule receives projectPct prop
+  it("<EnvPipelineCapsule> receives projectPct prop in scene", () => {
+    const capsuleBlock = scene.slice(scene.indexOf("<EnvPipelineCapsule"), scene.indexOf("/>", scene.indexOf("<EnvPipelineCapsule")));
+    expect(capsuleBlock).toContain("projectPct={projectPct}");
+  });
+
+  // AC-4: EnvPipelineCapsule has min-height:44px for tap target
+  it("HUD_CSS defines .env-capsule with min-height:44px for tap target", () => {
+    expect(overly).toContain(".env-capsule{");
+    expect(overly).toContain("min-height:44px");
+  });
+
+  // AC-4: 3 env lane segments in bar (dev/staging/ship)
+  it("HUD_CSS defines .env-bar-seg.dev/.staging/.ship with correct colors", () => {
+    expect(overly).toContain(".env-bar-seg.dev{background:#60a5fa}");
+    expect(overly).toContain(".env-bar-seg.staging{background:#fb923c}");
+    expect(overly).toContain(".env-bar-seg.ship{background:#4ade80}");
+  });
+
+  // AC-4: capsule aria-label contains dynamic lang and pct
+  it("EnvPipelineCapsule renders aria-label with Thai text for a11y", () => {
+    expect(overly).toContain("สถานะ Env Pipeline");
+  });
+
+  // AC-4: capsule has testid for QA assertions
+  it("EnvPipelineCapsule has data-testid='btn--map-env-capsule'", () => {
+    expect(overly).toContain('data-testid="btn--map-env-capsule"');
+  });
+
+  // AC-4: capsule button has aria-expanded and aria-controls for a11y
+  it("EnvPipelineCapsule has aria-expanded and aria-controls on the trigger", () => {
+    expect(overly).toContain("aria-expanded={open}");
+    expect(overly).toContain('aria-controls="env-summary"');
+  });
+
+  // AC-4: summary popover has role=dialog for a11y
+  it("EnvPipelineCapsule summary popover has role='dialog'", () => {
+    expect(overly).toContain('role="dialog"');
+    expect(overly).toContain('id="env-summary"');
+    expect(overly).toContain('data-testid="popover--map-env-summary"');
+  });
+
+  // AC-4: summary popover shows gates, epics, backlog rows
+  it("EnvPipelineCapsule summary shows gates/epics/backlog rows with testids", () => {
+    expect(overly).toContain('data-testid="row--env-summary-gates"');
+    expect(overly).toContain('data-testid="row--env-summary-epics"');
+    expect(overly).toContain('data-testid="row--env-summary-backlog"');
+  });
+
+  // AC-4: summary close button accessible
+  it("EnvPipelineCapsule summary has a close button with Thai aria-label 'ปิดสรุป'", () => {
+    expect(overly).toContain("ปิดสรุป");
+    expect(overly).toContain('data-testid="btn--env-summary-close"');
+  });
+
+  // AC-4: old bare pct% center display removed from toolbar
+  it("campsite-scene.tsx no longer renders a bare pct% in the toolbar center (replaced by capsule)", () => {
+    // The center pct% was in a hud-toolbar-center div — that div should no longer be in the toolbar
+    // The toolbar block is between hud-map-toolbar open and close
+    const toolbarStart = scene.indexOf('data-testid="toolbar--map-mobile"');
+    const toolbarEnd   = scene.indexOf("</div>", toolbarStart + 2000);
+    const toolbarBlock = scene.slice(toolbarStart, toolbarEnd + 10);
+    expect(toolbarBlock).not.toContain("hud-toolbar-center");
+  });
+});
+
+describe("SMUX-6 — i18n keys for SMUX-6 copy", () => {
+  const translations = read("../locales/translations.json");
+
+  // AC-5: topBar i18n keys present in both EN and TH
+  it("translations.json contains statusMap.topBar.viewAll in EN", () => {
+    expect(translations).toContain('"viewAll"');
+    expect(translations).toContain('"View all work"');
+  });
+
+  it("translations.json contains statusMap.topBar.viewAll in TH", () => {
+    expect(translations).toContain('"ดูผลงานทั้งหมด"');
+  });
+
+  it("translations.json contains statusMap.topBar.productivity in TH", () => {
+    expect(translations).toContain('"ผลผลิต Scout Team"');
+  });
+
+  // AC-5: envPipeline i18n keys present
+  it("translations.json contains statusMap.envPipeline.summaryTitle in TH", () => {
+    expect(translations).toContain('"สถานะโปรเจกต์"');
+  });
+
+  it("translations.json contains statusMap.envPipeline.capsuleAriaLabel in TH", () => {
+    expect(translations).toContain('"สถานะ Env Pipeline — Dev {dev}, Staging {stg}, Ship {ship}, {pct}%"');
+  });
+});
+
+describe("SMUX-6 — desktop unchanged (≥1024px)", () => {
+  const scene = read("../app/status/map/campsite-scene.tsx");
+
+  // AC-6: FilterSignposts still rendered for desktop
+  it("campsite-scene.tsx still renders <FilterSignposts> inside .hud-signposts-desktop for desktop", () => {
+    // The JSX block renders className="hud-signposts-desktop" wrapping FilterSignposts
+    // Use the JSX className attribute to locate the correct block (not the CSS class selector)
+    const jsxMarker = 'className="hud-signposts-desktop"';
+    const markerIdx = scene.indexOf(jsxMarker);
+    expect(markerIdx).toBeGreaterThan(-1);
+    const desktopBlock = scene.slice(markerIdx, scene.indexOf("</span>", markerIdx) + 10);
+    expect(desktopBlock).toContain("FilterSignposts");
+  });
+
+  // AC-6: ViewToggle still rendered (unchanged desktop link)
+  it("campsite-scene.tsx still renders <ViewToggle> for desktop", () => {
+    expect(scene).toContain("<ViewToggle");
+  });
+
+  // AC-6: hud-signposts-desktop class still present (desktop filter row untouched)
+  it("campsite-scene.tsx retains hud-signposts-desktop class for desktop filter row", () => {
+    expect(scene).toContain("hud-signposts-desktop");
+  });
+});

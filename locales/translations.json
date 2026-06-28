@@ -682,6 +682,22 @@
                 "all_personas": "All personas",
                 "all_features": "All features",
                 "all_epics": "All epics"
+            },
+            "topBar": {
+                "viewAll": "View all work",
+                "productivity": "Scout Team productivity",
+                "sound": "Toggle sound"
+            },
+            "envPipeline": {
+                "dev": "Dev",
+                "staging": "Staging",
+                "ship": "Ship",
+                "capsuleAriaLabel": "Env Pipeline — Dev {dev}, Staging {stg}, Ship {ship}, {pct}%",
+                "summaryTitle": "Project Status",
+                "gates": "Gates",
+                "epics": "Epics",
+                "backlog": "Backlog",
+                "loadError": "Failed to load"
             }
         },
         "catalog": {
@@ -1407,6 +1423,22 @@
                 "all_personas": "ผู้ใช้งานทั้งหมด",
                 "all_features": "ทุก Feature",
                 "all_epics": "ทุก Epic"
+            },
+            "topBar": {
+                "viewAll": "ดูผลงานทั้งหมด",
+                "productivity": "ผลผลิต Scout Team",
+                "sound": "เปิด/ปิดเสียง"
+            },
+            "envPipeline": {
+                "dev": "Dev",
+                "staging": "Staging",
+                "ship": "Ship",
+                "capsuleAriaLabel": "สถานะ Env Pipeline — Dev {dev}, Staging {stg}, Ship {ship}, {pct}%",
+                "summaryTitle": "สถานะโปรเจกต์",
+                "gates": "Gates",
+                "epics": "Epics",
+                "backlog": "Backlog",
+                "loadError": "โหลดไม่สำเร็จ"
             }
         },
         "catalog": {
