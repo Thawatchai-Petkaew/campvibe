@@ -176,3 +176,36 @@ h6 {
     @apply font-sans;
     }
 }
+
+/*
+ * CAM-245 (LOAD-PILOT) — Anti-flicker: delay-before-show for Suspense skeleton.
+ *
+ * The skeleton fades in after ~300ms. Loads that resolve in less than 300ms
+ * never show the skeleton to the user — no flicker for fast connections.
+ *
+ * Implementation note: min-display-time is intentionally omitted for Suspense
+ * fallbacks (see pilot learnings report). Once React resolves the Suspense,
+ * the skeleton is immediately replaced by real content regardless of how long
+ * it has been visible. Min-display belongs on client-fetch skeletons where the
+ * display timing is in JS control, not on Suspense boundaries.
+ *
+ * prefers-reduced-motion: the fade-in is opacity-only (safe under reduce-motion)
+ * but we respect the preference by skipping the transition entirely.
+ */
+@keyframes skeleton-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-delay-show {
+    animation: skeleton-appear 0ms linear 300ms both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Under reduce-motion: show immediately (no delay, no animation). */
+  .skeleton-delay-show {
+    opacity: 1;
+  }
+}
