@@ -99,7 +99,8 @@
             "status": "Status",
             "view": "View",
             "delete": "Delete",
-            "retry": "Try again"
+            "retry": "Try again",
+            "loading_sr": "Loading…"
         },
         "notifications": {
             "unreadCountAria": "{count} unread notifications"
@@ -799,7 +800,8 @@
             "status": "สถานะ",
             "view": "ดู",
             "delete": "ลบ",
-            "retry": "ลองอีกครั้ง"
+            "retry": "ลองอีกครั้ง",
+            "loading_sr": "กำลังโหลด…"
         },
         "notifications": {
             "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
