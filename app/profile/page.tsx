@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { InputField } from '@/components/ui/input-field';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { User, Mail, Phone, Camera, ArrowLeft, Check, Loader2 } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ProfileFormSkeleton } from '@/components/ui/profile-form-skeleton';
+import { useMinimumLoading } from '@/lib/hooks/use-minimum-loading';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -60,14 +61,17 @@ export default function ProfilePage() {
     const [serverError, setServerError] = useState<string | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
 
+    // Anti-flicker for the profile data fetch.
+    const showSkeleton = useMinimumLoading(isLoading);
+
     // Client-side validation errors (inline)
     const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
         ? t.profile.emailFormatError
         : undefined;
 
-    // Fetch profile on mount
     useEffect(() => {
         fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchProfile = async () => {
@@ -85,7 +89,7 @@ export default function ProfilePage() {
             setEmail(data.email || '');
             setPhone(data.phone || '');
             setImage(data.image);
-        } catch (error) {
+        } catch {
             toast.error(t.profile.failedToLoad);
         } finally {
             setIsLoading(false);
@@ -96,13 +100,11 @@ export default function ProfilePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
             toast.error(t.profile.invalidImageType);
             return;
         }
 
-        // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             toast.error(t.profile.imageTooLarge);
             return;
@@ -124,10 +126,9 @@ export default function ProfilePage() {
             const imageUrl = data.url || data.downloadUrl;
             setImage(imageUrl);
 
-            // Auto-save image
             await saveProfile({ image: imageUrl });
             toast.success(t.profile.imageUploadSuccess);
-        } catch (error) {
+        } catch {
             toast.error(t.profile.imageUploadFailed);
         } finally {
             setIsUploading(false);
@@ -145,26 +146,23 @@ export default function ProfilePage() {
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || 'Failed to update profile');
+                const errorBody = await res.json();
+                throw new Error(errorBody.error || 'Failed to update profile');
             }
 
             const data = await res.json();
             setProfile(data);
-            // Refresh JWT (triggers trigger==="update" branch in jwt callback → re-reads
-            // image/name from DB), then re-render server components so Navbar's
-            // currentUser prop picks up the fresh session. Both steps required; order matters.
             await update();
             router.refresh();
             if (!updates) {
                 toast.success(t.profile?.saved || 'Profile saved successfully');
                 setHasSubmitted(false);
             }
-        } catch (error: any) {
-            setServerError(error.message || 'Failed to save profile');
+        } catch (err: any) {
+            setServerError(err.message || 'Failed to save profile');
             setHasSubmitted(true);
             if (!updates) {
-                toast.error(error.message || 'Failed to save profile');
+                toast.error(err.message || 'Failed to save profile');
             }
         } finally {
             setIsSaving(false);
@@ -177,14 +175,10 @@ export default function ProfilePage() {
         saveProfile();
     };
 
-    if (isLoading) {
-        return <LoadingSpinner fullScreen />;
-    }
-
     return (
-        <div className="min-h-screen bg-background py-12 px-4">
+        <div className="min-h-screen bg-background py-12 px-4" data-testid="page--profile">
             <div className="max-w-xl mx-auto">
-                {/* Back Button */}
+                {/* Chrome: back link renders instantly — not gated on data */}
                 <Link
                     href="/"
                     className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -193,145 +187,148 @@ export default function ProfilePage() {
                     <span>{t.dashboard?.backToHome || 'Back to home'}</span>
                 </Link>
 
-                {/* Profile Card */}
-                <div className="bg-card rounded-3xl shadow-2xl p-8 space-y-8">
-                    {/* Header */}
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-foreground">
-                            {t.profile?.title || 'My Profile'}
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {t.profile?.subtitle || 'Manage your account information'}
-                        </p>
-                    </div>
-
-                    {/* Profile Image */}
-                    <div className="flex justify-center">
-                        <div className="relative group">
-                            <div
-                                className={cn(
-                                    "w-32 h-32 rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg",
-                                    "ring-4 ring-primary/10 transition-all",
-                                    isUploading && "opacity-50"
-                                )}
-                            >
-                                {(image && !imageError) ? (
-                                    <img
-                                        src={image}
-                                        alt="Profile"
-                                        className="w-full h-full object-cover"
-                                        onError={() => setImageError(true)}
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                                        <User className="w-16 h-16 text-muted-foreground/50" />
-                                    </div>
-                                )}
+                {/* Async section: skeleton until profile data is ready */}
+                {showSkeleton ? (
+                    <ProfileFormSkeleton />
+                ) : (
+                    <>
+                        {/* Profile Card */}
+                        <div
+                            className="bg-card rounded-3xl shadow-2xl p-8 space-y-8"
+                            data-testid="section--profile-form"
+                        >
+                            {/* Header */}
+                            <div className="text-center">
+                                <h1 className="text-2xl font-bold text-foreground">
+                                    {t.profile?.title || 'My Profile'}
+                                </h1>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {t.profile?.subtitle || 'Manage your account information'}
+                                </p>
                             </div>
 
-                            {/* Upload Overlay */}
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isUploading}
-                                aria-label={t.profile.changeAvatarAria}
-                                className={cn(
-                                    "absolute inset-0 rounded-full bg-foreground/50 opacity-0 group-hover:opacity-100",
-                                    "flex items-center justify-center transition-opacity cursor-pointer",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100",
-                                    isUploading && "opacity-100"
-                                )}
-                            >
-                                {isUploading ? (
-                                    <Loader2 className="w-8 h-8 text-primary-foreground animate-spin" />
-                                ) : (
-                                    <Camera className="w-8 h-8 text-primary-foreground" />
-                                )}
-                            </button>
+                            {/* Profile Image */}
+                            <div className="flex justify-center">
+                                <div className="relative group">
+                                    <div
+                                        className={cn(
+                                            "w-32 h-32 rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg",
+                                            "ring-4 ring-primary/10 transition-all",
+                                            isUploading && "opacity-50"
+                                        )}
+                                    >
+                                        {(image && !imageError) ? (
+                                            <img
+                                                src={image}
+                                                alt={t.profile?.title || 'Profile'}
+                                                className="w-full h-full object-cover"
+                                                onError={() => setImageError(true)}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                                                <User className="w-16 h-16 text-muted-foreground/50" />
+                                            </div>
+                                        )}
+                                    </div>
 
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                            />
+                                    {/* Upload Overlay */}
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        aria-label={t.profile.changeAvatarAria}
+                                        className={cn(
+                                            "absolute inset-0 rounded-full bg-foreground/50 opacity-0 group-hover:opacity-100",
+                                            "flex items-center justify-center transition-opacity cursor-pointer",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100",
+                                            isUploading && "opacity-100"
+                                        )}
+                                    >
+                                        {isUploading ? (
+                                            <Loader2 className="w-8 h-8 text-primary-foreground animate-spin" />
+                                        ) : (
+                                            <Camera className="w-8 h-8 text-primary-foreground" />
+                                        )}
+                                    </button>
+
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleImageUpload}
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Edit Form */}
+                            <form noValidate onSubmit={handleSubmit} className="space-y-5">
+                                {hasSubmitted && serverError && (
+                                    <ErrorBanner message={serverError} />
+                                )}
+
+                                <InputField
+                                    label={t.profile?.name || 'Full Name'}
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder={t.profile?.namePlaceholder || 'Enter your name'}
+                                    leftIcon={<User className="w-4 h-4" />}
+                                    className="rounded-full bg-background border-border h-12"
+                                />
+
+                                <InputField
+                                    label={t.auth?.email || 'Email'}
+                                    type="text"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder={t.profile?.emailPlaceholder || 'Enter your email'}
+                                    error={emailValidationError}
+                                    leftIcon={<Mail className="w-4 h-4" />}
+                                    className="rounded-full bg-background border-border h-12"
+                                />
+
+                                <InputField
+                                    label={t.profile?.phone || 'Phone Number'}
+                                    type="tel"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder={t.profile?.phonePlaceholder || 'Enter your phone number'}
+                                    leftIcon={<Phone className="w-4 h-4" />}
+                                    className="rounded-full bg-background border-border h-12"
+                                />
+
+                                <div className="flex justify-center pt-2">
+                                    <Badge
+                                        variant={roleVariant(profile?.role || 'CAMPER')}
+                                        className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider"
+                                    >
+                                        {getRoleLabel(profile?.role || 'CAMPER', t.profile)}
+                                    </Badge>
+                                </div>
+
+                                <Button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold h-12 text-lg shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                                >
+                                    {isSaving ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Check className="w-5 h-5 mr-2" />
+                                            {t.profile?.save || 'Save Changes'}
+                                        </>
+                                    )}
+                                </Button>
+                            </form>
                         </div>
-                    </div>
 
-                    {/* Edit Form */}
-                    <form noValidate onSubmit={handleSubmit} className="space-y-5">
-                        {/* Server Error Banner (after submit) */}
-                        {hasSubmitted && serverError && (
-                            <ErrorBanner message={serverError} />
+                        {profile?.createdAt && (
+                            <p className="text-center text-sm text-muted-foreground mt-6">
+                                {t.profile?.memberSince || 'Member since'}{' '}
+                                {new Date(profile.createdAt).toLocaleDateString()}
+                            </p>
                         )}
-
-                        {/* Name */}
-                        <InputField
-                            label={t.profile?.name || 'Full Name'}
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder={t.profile?.namePlaceholder || 'Enter your name'}
-                            leftIcon={<User className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12"
-                        />
-
-                        {/* Email */}
-                        <InputField
-                            label={t.auth?.email || 'Email'}
-                            type="text"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder={t.profile?.emailPlaceholder || 'Enter your email'}
-                            error={emailValidationError}
-                            leftIcon={<Mail className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12"
-                        />
-
-                        {/* Phone */}
-                        <InputField
-                            label={t.profile?.phone || 'Phone Number'}
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            placeholder={t.profile?.phonePlaceholder || 'Enter your phone number'}
-                            leftIcon={<Phone className="w-4 h-4" />}
-                            className="rounded-full bg-background border-border h-12"
-                        />
-
-                        {/* Role Badge */}
-                        <div className="flex justify-center pt-2">
-                            <Badge
-                                variant={roleVariant(profile?.role || 'CAMPER')}
-                                className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider"
-                            >
-                                {getRoleLabel(profile?.role || 'CAMPER', t.profile)}
-                            </Badge>
-                        </div>
-
-                        {/* Save Button */}
-                        <Button
-                            type="submit"
-                            disabled={isSaving}
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold h-12 text-lg shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                        >
-                            {isSaving ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    <Check className="w-5 h-5 mr-2" />
-                                    {t.profile?.save || 'Save Changes'}
-                                </>
-                            )}
-                        </Button>
-                    </form>
-                </div>
-
-                {/* Member Since */}
-                {profile?.createdAt && (
-                    <p className="text-center text-sm text-muted-foreground mt-6">
-                        {t.profile?.memberSince || 'Member since'}{' '}
-                        {new Date(profile.createdAt).toLocaleDateString()}
-                    </p>
+                    </>
                 )}
             </div>
         </div>

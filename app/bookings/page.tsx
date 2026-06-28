@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useSession } from "next-auth/react";
 import {
     Calendar,
     MapPin,
@@ -20,18 +19,21 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { toast } from "sonner";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { BookingListSkeleton } from "@/components/ui/booking-list-skeleton";
+import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
 import { Badge } from "@/components/ui/badge";
 import { getBookingStatusMeta } from "@/lib/booking-status";
 
 export default function MyBookingsPage() {
     const { t, formatCurrency, language } = useLanguage();
-    const { data: session } = useSession();
     const [bookings, setBookings] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [cancellingId, setCancellingId] = useState<string | null>(null);
     const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+
+    // Anti-flicker: delay-before-show + min-display via LOAD-2 hook.
+    const showSkeleton = useMinimumLoading(isLoading);
 
     useEffect(() => {
         fetch('/api/bookings')
@@ -42,12 +44,11 @@ export default function MyBookingsPage() {
                 } else {
                     setHasError(true);
                 }
-                setLoading(false);
+                setIsLoading(false);
             })
-            .catch(err => {
-                console.error("Failed to load bookings", err);
+            .catch(() => {
                 setHasError(true);
-                setLoading(false);
+                setIsLoading(false);
             });
     }, []);
 
@@ -66,8 +67,7 @@ export default function MyBookingsPage() {
             } else {
                 toast.error(t.bookings.failedToCancel);
             }
-        } catch (error) {
-            console.error("Cancel error:", error);
+        } catch {
             toast.error(t.bookings.errorOccurred);
         } finally {
             setCancellingId(null);
@@ -80,7 +80,8 @@ export default function MyBookingsPage() {
 
             <div className="container mx-auto px-6 py-12">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex justify-between items-center mb-10">
+                    {/* Chrome: hero/header renders instantly — not gated on async data */}
+                    <div className="flex justify-between items-center mb-10" data-testid="section--bookings-header">
                         <div>
                             <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
                                 {t.bookings.myBookings}
@@ -97,9 +98,10 @@ export default function MyBookingsPage() {
                         </Button>
                     </div>
 
-                    {loading ? (
-                        <LoadingSpinner text={t.bookings.loadingTrips} />
-                    ) : bookings.length === 0 && hasError && !loading ? (
+                    {/* Async section: skeleton while loading, real content when ready */}
+                    {showSkeleton ? (
+                        <BookingListSkeleton count={3} />
+                    ) : hasError ? (
                         <ErrorBanner message={t.bookings.errorOccurred} />
                     ) : bookings.length === 0 ? (
                         <div className="bg-card rounded-3xl p-16 text-center border border-dashed border-border shadow-sm">
@@ -117,7 +119,7 @@ export default function MyBookingsPage() {
                             </Button>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-6" data-testid="section--booking-list">
                             {bookings.map((booking) => (
                                 <div key={booking.id} className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
                                     <div className="flex flex-col md:flex-row">
