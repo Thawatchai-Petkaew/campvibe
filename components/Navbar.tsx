@@ -37,24 +37,15 @@ import { HostOnboardingFab } from "@/components/HostOnboardingFab";
 import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-interface NavbarProps {
-    currentUser?: {
-        name?: string | null;
-        image?: string | null;
-    } | null;
-}
-
-export function Navbar({ currentUser }: NavbarProps) {
+export function Navbar() {
     const { t } = useLanguage();
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const { data: session, status } = useSession();
-    // B2 (CAM-240): derive the displayed user from the CLIENT session keyed by
-    // status — not unconditionally from the server-passed currentUser prop.
-    //   loading      → use currentUser (SSR/server value — no avatar flash on first paint)
-    //   authenticated → use session.user (fresh — reflects update() immediately)
-    //   unauthenticated → null (logged-out UI, even if stale currentUser prop still holds a value)
-    const navUser = status === "loading" ? (currentUser ?? null) : (session?.user ?? null);
+    // CAM-242 MEDIA-4: single authoritative source — SessionProvider is hydrated with the
+    // server session in layout.tsx so session.user is correct on first paint (no loading flash).
+    // This eliminates the dual-source (frozen server prop vs client session) race.
+    const navUser = session?.user ?? null;
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -65,15 +56,8 @@ export function Navbar({ currentUser }: NavbarProps) {
     const isDashboard = pathname?.startsWith('/dashboard');
 
     useEffect(() => {
-        if (!currentUser) return;
-        // Safety net: after login succeeds and Navbar re-renders with currentUser, ensure no auth modal overlay remains.
-        setIsLoginOpen(false);
-        setIsRegisterOpen(false);
-    }, [currentUser]);
-
-    useEffect(() => {
         if (status !== "authenticated") return;
-        // Extra safety net: session can update without a route change; ensure any overlay modals are closed.
+        // Safety net: after login succeeds, ensure any overlay modals are closed.
         setIsLoginOpen(false);
         setIsRegisterOpen(false);
         setIsSearchOpen(false);

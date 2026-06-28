@@ -6,6 +6,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/Providers";
 import VitalsReporter from "@/components/vitals-reporter";
+import { auth } from "@/lib/auth";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -50,15 +51,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, outfit.variable, sarabun.variable)}>
       <body className="antialiased" suppressHydrationWarning>
-        <Providers>
+        <Providers session={session}>
           <LanguageProvider>
             <VitalsReporter />
             {children}
