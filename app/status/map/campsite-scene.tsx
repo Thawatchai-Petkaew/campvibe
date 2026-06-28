@@ -521,7 +521,7 @@ const SCENE_CSS = `
   }
   .hud-edge-tab.right{
     right:0;border-right:none;
-    border-radius:6px 0 0 6px;
+    border-radius:0 6px 6px 0;
     transform:translateY(-50%) rotate(180deg);
   }
   .hud-edge-tab:hover{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.3)}
@@ -578,12 +578,12 @@ const SCENE_CSS = `
   .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
   /* Move dock up so toolbar doesn't overlap it on mobile */
   .hud-dock{bottom:60px}
-  /* Compact filter top-right on mobile (via hud-topbar positioning) */
+  /* Compact filter stays in topbar flow on mobile — no fixed override */
   .hud-filter-compact{
-    position:fixed;top:10px;right:10px;z-index:23;display:inline-flex;
+    display:inline-flex;
   }
   /* Hide desktop signposts on mobile */
-  .hud-signposts-desktop{display:none}
+  .hud-signposts-desktop{display:none !important}
 }
 /* ── SMUX-3: Map↔Board/Filter bidirectional sync ────────────────────────────
    .scout--focused: pulsing teal ring around the agent sprite when a board card
@@ -2001,6 +2001,7 @@ export default function CampsiteScene({
         <SheetContent
           id="sheet-roster"
           side="left"
+          showCloseButton={false}
           className="w-[280px] sm:w-[320px] border-r-0 rounded-r-3xl p-0 overflow-y-auto"
           style={{
             background: "rgba(11,30,24,.88)",
@@ -2059,6 +2060,7 @@ export default function CampsiteScene({
         <SheetContent
           id="sheet-board"
           side="right"
+          showCloseButton={false}
           className="w-[300px] sm:w-[360px] border-l-0 rounded-l-3xl p-0 overflow-y-auto"
           style={{
             background: "rgba(11,30,24,.88)",
