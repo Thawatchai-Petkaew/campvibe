@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlignJustify, BellRing, ChevronUp, Gauge, LayoutDashboard, Layers, X } from "lucide-react";
+import { AlignJustify, BellRing, ChevronUp, Gauge, LayoutDashboard, LayoutGrid, Layers, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -570,24 +570,40 @@ const SCENE_CSS = `
     backdrop-filter:none;-webkit-backdrop-filter:none;
     border-top:none;
   }
+  /* SMUX-6-fix-3 (CAM-259): same dark-green HUD glass language as .hud-signpost /
+     .hud-view-toggle (campsite-overlays.tsx) so the toolbar buttons read as one
+     family with the filter chips + the desktop dashboard chip. */
   .hud-toolbar-btn{
-    display:inline-flex;align-items:center;gap:5px;
-    padding:7px 14px;font-size:11px;font-weight:800;
-    color:rgba(223,234,245,.88);
-    background:rgba(255,255,255,.07);
-    border:1px solid rgba(150,240,195,.18);border-radius:999px;
+    display:inline-flex;align-items:center;gap:6px;
+    padding:0 16px;font-size:12px;font-weight:600;
+    color:rgba(223,234,245,.82);
+    background:rgba(11,30,24,.50);
+    backdrop-filter:saturate(195%) blur(26px);
+    -webkit-backdrop-filter:saturate(195%) blur(26px);
+    border:1px solid rgba(150,240,195,.13);border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
     min-height:44px;min-width:44px;cursor:pointer;
     transition:background 120ms,border-color 120ms,color 120ms;
   }
-  .hud-toolbar-btn:hover{background:rgba(255,255,255,.12)}
+  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
   .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
   .hud-toolbar-btn[aria-expanded="true"]{
     background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0;
   }
+  .hud-toolbar-btn svg{display:block;flex:none}
   @media(prefers-reduced-motion:no-preference){
     .hud-toolbar-btn:active{transform:scale(.96)}
   }
   .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+  /* SMUX-6-fix-3: at ≤380px collapse the toolbar buttons to icon-only (hide the
+     text label; the lucide icon + aria-label carry the meaning, ≥44px hit area
+     kept). The Board button keeps its LayoutGrid board icon and hides the expand
+     caret (.hud-toolbar-caret) in this state. */
+  @media (max-width: 380px){
+    .hud-toolbar-btn-label{display:none}
+    .hud-toolbar-btn{padding:0;width:44px;justify-content:center;gap:0}
+    .hud-toolbar-caret{display:none}
+  }
   .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
   /* Move dock up so toolbar doesn't overlap it on mobile */
   .hud-dock{bottom:60px}
@@ -2034,8 +2050,8 @@ export default function CampsiteScene({
           data-testid="btn--map-toolbar-roster"
           onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
         >
-          <AlignJustify size={14} aria-hidden="true" />
-          <span>≡ ทีม</span>
+          <AlignJustify size={16} aria-hidden="true" />
+          <span className="hud-toolbar-btn-label">ทีม</span>
         </button>
 
         {/* SMUX-6 / CAM-257: Env Pipeline Capsule — counts scoped to the active filter
@@ -2062,8 +2078,9 @@ export default function CampsiteScene({
           data-testid="btn--map-toolbar-board"
           onClick={() => setOpenSheet(openSheet === "board" ? null : "board")}
         >
-          <span>Board</span>
-          <ChevronUp size={14} aria-hidden="true" />
+          <LayoutGrid size={16} aria-hidden="true" />
+          <span className="hud-toolbar-btn-label">Board</span>
+          <ChevronUp className="hud-toolbar-caret" size={14} aria-hidden="true" />
         </button>
       </div>
 
