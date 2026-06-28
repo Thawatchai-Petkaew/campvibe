@@ -1,19 +1,21 @@
 /**
- * LOAD-1 (CAM-197): Cold-load skeleton shell (case 1 — first hard navigation).
- * Replaces the full-screen spinner to keep the loading experience consistent:
- * every loading case on the Home page now shows the same card-shaped skeleton.
- * Container padding mirrors the page.tsx layout so there is no layout shift
- * when the real content streams in.
+ * LOAD-2 (CAM-246): Root loading.tsx — neutral shell fallback.
+ *
+ * Replaces CampgroundGridSkeleton (LOAD-1, CAM-197) with the neutral
+ * RootShellSkeleton so that routes without their own loading.tsx
+ * (profile, host, detail, etc.) no longer flash a camp-grid skeleton.
+ *
+ * Home's grid skeleton is unaffected — it comes from the <Suspense>
+ * fallback inside app/page.tsx (CampgroundGridSkeleton), which is
+ * independent of this file.
+ *
+ * Standard §S3 (loading-ui-standard): root app/loading.tsx must be a
+ * minimal, neutral last-resort only — NOT a substitute for route-specific
+ * skeletons.
  */
 
-import { CampgroundGridSkeleton } from "@/components/CampgroundSkeleton";
+import { RootShellSkeleton } from "@/components/ui/root-shell-skeleton";
 
 export default function Loading() {
-  return (
-    <div className="min-h-screen pb-20 bg-background">
-      <div className="container mx-auto px-6">
-        <CampgroundGridSkeleton />
-      </div>
-    </div>
-  );
+  return <RootShellSkeleton />;
 }

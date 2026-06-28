@@ -478,21 +478,36 @@ describe('AC-5 — InfiniteScrollGrid no longer uses Loader2 (components/Infinit
 });
 
 // ===========================================================================
-// AC-6 — loading.tsx uses CampgroundGridSkeleton, NOT LoadingSpinner
-//         section--loading-uses-skeleton
+// AC-6 — loading.tsx uses RootShellSkeleton (neutral shell), NOT CampgroundGridSkeleton
+//         Updated by LOAD-2 (CAM-246): root loading is now a neutral shell so that
+//         non-catalog routes (profile, host, detail) no longer flash a camp-grid.
+//         Home's grid skeleton is unaffected — it comes from the <Suspense> fallback
+//         in app/page.tsx (CampgroundGridSkeleton), which is independent of this file.
+//         section--loading-uses-root-shell
 // ===========================================================================
 
-describe('AC-6 — loading.tsx uses CampgroundGridSkeleton (app/loading.tsx)', () => {
+describe('AC-6 — loading.tsx uses RootShellSkeleton neutral shell (app/loading.tsx) [LOAD-2 CAM-246]', () => {
 
-  // Prove-It: FAILS if the CampgroundGridSkeleton import is removed from loading.tsx
-  it('[import] imports CampgroundGridSkeleton from CampgroundSkeleton', () => {
-    expect(loadingSrc).toContain('CampgroundGridSkeleton');
-    expect(loadingSrc).toContain('CampgroundSkeleton');
+  // Prove-It: FAILS if RootShellSkeleton import is removed from loading.tsx
+  it('[import] imports RootShellSkeleton from components/ui/root-shell-skeleton', () => {
+    expect(loadingSrc).toContain('RootShellSkeleton');
+    expect(loadingSrc).toContain('root-shell-skeleton');
   });
 
-  // Prove-It: FAILS if the render is changed to something else
-  it('[render] renders <CampgroundGridSkeleton />', () => {
-    expect(loadingSrc).toContain('<CampgroundGridSkeleton');
+  // Prove-It: FAILS if the render is changed away from RootShellSkeleton
+  it('[render] renders <RootShellSkeleton />', () => {
+    expect(loadingSrc).toContain('<RootShellSkeleton');
+  });
+
+  // Prove-It: FAILS if CampgroundGridSkeleton is re-added as code (camp-grid must NOT flash on non-catalog routes).
+  // Comments mentioning the old component are allowed — only executable code is checked.
+  it('[removed] does NOT import or render CampgroundGridSkeleton (camp-grid removed from root loading)', () => {
+    // Strip single-line and block comments before checking so historical references don't trigger
+    const noComments = loadingSrc
+      .replace(/\/\/[^\n]*/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(noComments).not.toContain('CampgroundGridSkeleton');
+    expect(noComments).not.toContain('CampgroundSkeleton');
   });
 
   // Prove-It: FAILS if LoadingSpinner is re-added
