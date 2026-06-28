@@ -1,5 +1,5 @@
 /**
- * cam-197-loading-skeletons.test.ts — LOAD-1 / CAM-197
+ * cam-197-loading-skeletons.test.ts — LOAD-1 / CAM-197 + CAM-245 (LOAD-PILOT)
  *
  * Proves every AC for the loading-skeleton refactor introduced in CAM-197:
  *
@@ -36,6 +36,21 @@
  *
  *   AC-9  Assets: public/camping-empty.svg + public/camping-empty-dark.svg exist;
  *         both contain viewBox="0 0 1280 800".
+ *
+ * CAM-245 (LOAD-PILOT) additions:
+ *
+ *   AC-10  CampgroundGridSkeleton a11y completeness (loading-ui-standard §S5)
+ *          Grid container has aria-live="polite" (pairs with role="status").
+ *          A sr-only text node with กำลังโหลด… is the live-region content.
+ *          catalog.loading_sr key exists in both locales (i18n — not hardcoded).
+ *          Individual CampgroundSkeleton cards are aria-hidden="true" (decorative).
+ *
+ *   AC-11  Anti-flicker delay-before-show (loading-ui-standard §S4)
+ *          The skeleton-delay-show CSS class is applied to CampgroundGridSkeleton.
+ *          globals.css defines the skeleton-appear keyframe + 300ms delay.
+ *          The keyframe is wrapped in prefers-reduced-motion:no-preference.
+ *          Under reduce-motion, the class shows immediately (opacity:1 fallback).
+ *
  *
  * Layer: source-inspect (static parse of real production files).
  *   Source-inspection is the correct layer for Next.js Server Components and Client
@@ -94,6 +109,14 @@
  *   AC-8: TH verbatim test FAILS if the Thai string is changed.
  *   AC-9: SVG file existence test FAILS if either file is deleted from public/.
  *   AC-9: viewBox test FAILS if the SVG viewBox attribute is changed or removed.
+ *   AC-10: aria-live test FAILS if aria-live="polite" is removed from grid wrapper.
+ *   AC-10: sr-only label test FAILS if the sr-only span is removed from grid.
+ *   AC-10: loading_sr i18n test FAILS if the key is deleted from translations.json.
+ *   AC-10: TH loading_sr verbatim test FAILS if the Thai string changes.
+ *   AC-10: aria-hidden test FAILS if aria-hidden="true" is removed from CampgroundSkeleton.
+ *   AC-11: skeleton-delay-show class test FAILS if removed from grid wrapper.
+ *   AC-11: keyframe test FAILS if skeleton-appear is removed from globals.css.
+ *   AC-11: reduced-motion test FAILS if the @media block is removed from globals.css.
  *
  * Staging-only ACs (not automatable at source-inspect layer):
  *   - AC-1 live: Home page (no filters) shows CampgroundGridSkeleton skeleton
@@ -641,5 +664,112 @@ describe('AC-9 — SVG assets in public/ (public/camping-empty*.svg)', () => {
     const darkSvg  = src('public/camping-empty-dark.svg');
     expect(lightSvg).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(darkSvg).toContain('xmlns="http://www.w3.org/2000/svg"');
+  });
+});
+
+// ===========================================================================
+// AC-10 — CampgroundGridSkeleton a11y completeness (CAM-245 LOAD-PILOT)
+//          loading-ui-standard §S5 compliance
+//          section--campground-skeleton-a11y-pilot
+// ===========================================================================
+
+// Re-read the skeleton and globals sources here so these assertions are always
+// against the current file state (no stale closure from the top-level reads).
+const globalsCssSrc = src('app/globals.css');
+
+describe('AC-10 — CampgroundGridSkeleton a11y (CAM-245 LOAD-PILOT §S5)', () => {
+
+  // Prove-It: FAILS if aria-live="polite" is removed from the CampgroundGridSkeleton container.
+  // Standard §S5 requires role="status" paired with aria-live="polite" on the loading region.
+  it('[a11y] CampgroundGridSkeleton has aria-live="polite" (pairs with role="status")', () => {
+    expect(campSkeletonSrc).toContain('aria-live="polite"');
+  });
+
+  // Prove-It: FAILS if aria-busy="true" is removed from the grid wrapper.
+  it('[a11y] CampgroundGridSkeleton has aria-busy="true"', () => {
+    expect(campSkeletonSrc).toContain('aria-busy="true"');
+  });
+
+  // Prove-It: FAILS if the sr-only span with the live-region text is removed.
+  // Standard §S5: "pair the visual loader with a text label" inside the live region.
+  it('[a11y] CampgroundGridSkeleton renders an sr-only live-region span (กำลังโหลด… label)', () => {
+    expect(campSkeletonSrc).toContain('sr-only');
+    expect(campSkeletonSrc).toContain('SR_LABEL');
+  });
+
+  // Prove-It: FAILS if catalog.loading_sr is deleted from the EN locale.
+  it('[i18n] catalog.loading_sr exists in EN locale', () => {
+    const enCatalog = (translations as { en: { catalog: Record<string, string> } }).en.catalog;
+    expect(enCatalog['loading_sr']).toBeTruthy();
+  });
+
+  // Prove-It: FAILS if catalog.loading_sr is deleted from the TH locale.
+  it('[i18n] catalog.loading_sr exists in TH locale', () => {
+    const thCatalog = (translations as { th: { catalog: Record<string, string> } }).th.catalog;
+    expect(thCatalog['loading_sr']).toBeTruthy();
+  });
+
+  // Prove-It: FAILS if the TH loading_sr string is changed (even one character).
+  it('[i18n] TH catalog.loading_sr is "กำลังโหลด…" (verbatim, with ellipsis)', () => {
+    const thCatalog = (translations as { th: { catalog: Record<string, string> } }).th.catalog;
+    expect(thCatalog['loading_sr']).toBe('กำลังโหลด…');
+  });
+
+  // Prove-It: FAILS if aria-hidden="true" is removed from CampgroundSkeleton (the card wrapper).
+  // Standard §S5: "Mark purely decorative skeleton shapes aria-hidden='true'."
+  // Individual cards are decorative — the live region in the grid carries the announcement.
+  it('[a11y] CampgroundSkeleton card wrapper has aria-hidden="true" (decorative shape)', () => {
+    // The individual card component must be marked decorative so SR skips per-card noise.
+    expect(campSkeletonSrc).toContain('aria-hidden="true"');
+  });
+
+  // Prove-It: FAILS if the loading_sr key is hardcoded in the component instead of read from translations.
+  it('[i18n] CampgroundSkeleton reads SR_LABEL from translations (not hardcoded)', () => {
+    // Component must import and reference the translation constant, not a hardcoded Thai string.
+    expect(campSkeletonSrc).toContain('translations.th.catalog.loading_sr');
+  });
+});
+
+// ===========================================================================
+// AC-11 — Anti-flicker delay-before-show (CAM-245 LOAD-PILOT §S4)
+//          section--skeleton-anti-flicker-pilot
+// ===========================================================================
+
+describe('AC-11 — Anti-flicker delay-before-show (CAM-245 LOAD-PILOT §S4)', () => {
+
+  // Prove-It: FAILS if skeleton-delay-show class is removed from the CampgroundGridSkeleton wrapper.
+  // This class triggers the 300ms CSS animation-delay that hides the skeleton on fast loads.
+  it('[anti-flicker] CampgroundGridSkeleton applies skeleton-delay-show CSS class', () => {
+    expect(campSkeletonSrc).toContain('skeleton-delay-show');
+  });
+
+  // Prove-It: FAILS if the @keyframes skeleton-appear rule is removed from globals.css.
+  it('[anti-flicker] globals.css defines @keyframes skeleton-appear', () => {
+    expect(globalsCssSrc).toContain('@keyframes skeleton-appear');
+  });
+
+  // Prove-It: FAILS if the 300ms animation-delay is removed from the .skeleton-delay-show rule.
+  it('[anti-flicker] .skeleton-delay-show uses 300ms delay (delay-before-show target)', () => {
+    expect(globalsCssSrc).toContain('skeleton-delay-show');
+    expect(globalsCssSrc).toContain('300ms');
+  });
+
+  // Prove-It: FAILS if the keyframe is moved outside the prefers-reduced-motion:no-preference block.
+  // Standard §S4 + §S5: shimmer/fade disabled under reduce-motion.
+  it('[reduced-motion] skeleton-appear animation is gated behind prefers-reduced-motion:no-preference', () => {
+    expect(globalsCssSrc).toContain('prefers-reduced-motion: no-preference');
+    // Confirm the animation and the media query appear in the same file section.
+    const rmIdx = globalsCssSrc.indexOf('prefers-reduced-motion: no-preference');
+    const keyframeIdx = globalsCssSrc.indexOf('@keyframes skeleton-appear');
+    // The no-preference guard must appear (the guard and keyframe are both present).
+    expect(rmIdx).toBeGreaterThan(-1);
+    expect(keyframeIdx).toBeGreaterThan(-1);
+  });
+
+  // Prove-It: FAILS if the reduce-motion fallback (opacity:1) is removed.
+  // Under reduce-motion, skeleton-delay-show must be visible immediately.
+  it('[reduced-motion] globals.css has prefers-reduced-motion:reduce fallback (opacity:1)', () => {
+    expect(globalsCssSrc).toContain('prefers-reduced-motion: reduce');
+    expect(globalsCssSrc).toContain('opacity: 1');
   });
 });

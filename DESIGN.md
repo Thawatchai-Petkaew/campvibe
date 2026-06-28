@@ -248,8 +248,8 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `input-field` | Input + label + inline error in one unit | — |
 | `input-group` | Grouped inputs (e.g. date pair) | — |
 | `label` | Form field label | — |
-| `loading-skeleton` | Composite page/card skeleton (route-level loading) | — |
-| `loading-spinner` | Inline / button loading indicator | — |
+| `loading-skeleton` | Composite page/card skeleton (route-level loading) — see `.claude/rules/loading.md` for the decision matrix, skeleton-mirrors-layout rule, section-level Suspense, and a11y contract | — |
+| `loading-spinner` | Inline / button loading indicator — use for isolated module/widget (> ~1s) or user-action feedback on the control | — |
 | `modal-shell` (`ModalHeader` / `ModalContent`) | Every modal's header band + shell — canonical modal shell | centered title, divider, 44px close, `rounded-3xl` |
 | `permission-tooltip` | Wrap a disabled control to explain why it is disabled | — |
 | `popover` | Small anchored panel (date, picker, command) | `rounded-2xl` |
@@ -270,6 +270,11 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `EmptyState` | `components/EmptyState.tsx` | Empty result / no-data state with illustration |
 | `ErrorState` | `components/ErrorState.tsx` | Error / not-found / forbidden — full-page or inline |
 | `ConfirmDialog` | `components/ui/confirm-dialog.tsx` | Canonical destructive-confirm over `AlertDialog` — use for delete, cancel, remove member |
+| `CampgroundGridSkeleton` | `components/ui/loading-skeleton.tsx` (exported) | Camp-list route skeleton — mirrors the campground grid exactly (6 cards, `aspect-video`, same grid/gap); see `.claude/rules/loading.md` |
+| `DashboardOverviewSkeleton` | `components/ui/loading-skeleton.tsx` (exported) | Operator-dashboard route skeleton; see `.claude/rules/loading.md` |
+| `RootShellSkeleton` *(planned)* | — | Minimal last-resort skeleton for `app/loading.tsx`; planned S2 |
+| `ProfileFormSkeleton` *(planned)* | — | Profile form section skeleton; planned S3 |
+| `BookingListSkeleton` *(planned)* | — | Booking-list section skeleton; planned S4 |
 
 ### Interaction states + accessibility (required on every interactive element)
 
@@ -317,6 +322,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 - [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5)
 - [ ] **Scale matches role** — radius/size/spacing per §2 (no inline height override)
 - [ ] **All 8 states** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
+- [ ] **Loading state (blocks PR)** — every page/component with an async dependency must: (a) use the correct loader per the decision matrix (`.claude/rules/loading.md`); (b) if skeleton: mirror the real layout exactly (exact dims/count/grid — CLS = 0), NOT a generic gray block; (c) show a section-level skeleton only (chrome/navbar renders instantly) unless the ENTIRE route is async; (d) wire a11y (`aria-busy`, `role="status"`, `aria-live="polite"`, `กำลังโหลด…` label, `prefers-reduced-motion` disables shimmer); (e) anti-flicker per context — Suspense fallback: delay-before-show via `loading-delay` CSS utility (`app/globals.css`), min-display N/A; client-fetch skeleton: both delay + min-display via `useMinimumLoading` hook. Missing loading state OR wrong loader for the matrix OR full-page skeleton for a section-level fetch OR missing a11y = **Critical, blocks merge**.
 - [ ] **a11y AA** — contrast **4.5:1 body / 3:1 heading**, visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe)
 - [ ] **i18n** — TH/EN in `locales/`, no em-dash separator, no technical jargon, tabular-nums
 - [ ] **Motion** — transform/opacity only, 120–250ms, no `transition:all`, respect reduced-motion
