@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlignJustify, BellRing, ChevronUp, Layers, X } from "lucide-react";
+import { AlignJustify, BellRing, ChevronUp, Gauge, LayoutDashboard, Layers, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -35,7 +35,7 @@ import {
   SheetTitle,
   SheetClose,
 } from "@/components/ui/sheet";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterRowMobile, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
 import { payloadChanged } from "@/lib/status-map-model";
@@ -530,32 +530,45 @@ const SCENE_CSS = `
   @media(prefers-reduced-motion:no-preference){
     .hud-edge-tab:active{background:rgba(91,233,176,.12)}
   }
-  /* Compact filter chip — replaces 3-dropdown row on tablet */
-  .hud-filter-compact{display:inline-flex}
+  /* SMUX-6: filter row is a separate bottom row (FilterRowMobile), not in the topbar */
   /* Hide 3-filter desktop row on tablet */
   .hud-signposts-desktop{display:none}
   .hud-map-toolbar{display:none}
 }
-/* On desktop, hide the compact chip, edge tabs, and mobile toolbar */
+/* On desktop, hide the edge tabs and mobile toolbar; show desktop filter row */
 @media (min-width: 1024px) {
   .hud-edge-tab{display:none}
   .hud-filter-compact{display:none}
   .hud-map-toolbar{display:none}
 }
+/* ── SMUX-6: Mobile top-bar icon buttons — shown only at <1024 ───────────────
+   The .hud-topbar-right children that should only be visible on desktop are
+   hidden at <1024; instead the SMUX-6 icon buttons appear in the top bar. */
+@media (max-width: 1023px) {
+  /* Hide the full-text env toggle and ViewToggle on tablet/mobile */
+  .hud-env-toggle{display:none}
+  /* Icon buttons are always visible; ViewToggle becomes icon-only handled by hud-icon-btn */
+}
+@media (min-width: 1024px) {
+  /* On desktop show the original full-text controls, hide icon-only versions */
+  .hud-topbar-icons{display:none !important}
+}
+
 /* ── SMUX-2: Mobile <640px — bottom toolbar + hide edge tabs ─────────────────
    Bottom toolbar replaces panel triggers on very small screens.
-   Dock is still visible but shifted up; toolbar floats at z-index:25. */
+   Dock is still visible but shifted up; toolbar floats at z-index:25.
+   SMUX-6: toolbar background removed — transparent; only the glass chips have fill. */
 @media (max-width: 639px) {
   .hud-edge-tab{display:none}
-  /* Bottom toolbar */
+  /* Bottom toolbar — SMUX-6: transparent background, no blur/border */
   .hud-map-toolbar{
     position:fixed;bottom:0;left:0;right:0;z-index:25;
     display:flex;align-items:center;justify-content:space-between;
     padding:6px 14px max(10px, env(safe-area-inset-bottom)) 14px;
     min-height:52px;
-    background:rgba(11,30,24,.70);
-    backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
-    border-top:1px solid rgba(150,240,195,.15);
+    background:transparent;
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-top:none;
   }
   .hud-toolbar-btn{
     display:inline-flex;align-items:center;gap:5px;
@@ -578,10 +591,7 @@ const SCENE_CSS = `
   .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
   /* Move dock up so toolbar doesn't overlap it on mobile */
   .hud-dock{bottom:60px}
-  /* Compact filter stays in topbar flow on mobile — no fixed override */
-  .hud-filter-compact{
-    display:inline-flex;
-  }
+  /* SMUX-6: FilterRowMobile sits at bottom:52px (above the toolbar) — see HUD_CSS */
   /* Hide desktop signposts on mobile */
   .hud-signposts-desktop{display:none !important}
 }
@@ -1898,21 +1908,9 @@ export default function CampsiteScene({
             onChange={onFilterChange}
           />
         </span>
-        {/* Tablet/mobile compact filter chip — hidden on desktop via .hud-filter-compact CSS.
-            Opens the persona signpost dropdown as the combined filter entry point. */}
-        <span className="hud-filter-compact">
-          <FilterSignposts
-            personas={filterOpts.personas}
-            features={filterOpts.features}
-            epics={filterOpts.epics}
-            persona={persona}
-            feature={feature}
-            epic={scope === "epic" ? activeEpic : ""}
-            onChange={onFilterChange}
-          />
-        </span>
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
+          {/* Desktop: full-text env toggle + ViewToggle */}
           <ViewToggle dashboardHref={dashboardHref} />
           <button
             ref={envPickerTriggerRef}
@@ -1929,8 +1927,45 @@ export default function CampsiteScene({
             triggerRef={envPickerTriggerRef}
           />
           <SoundToggle />
+
+          {/* SMUX-6: Tablet/mobile icon-only buttons (hidden on desktop ≥1024 via CSS) */}
+          <div className="hud-topbar-icons" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Dashboard link — icon only */}
+            <a
+              href={dashboardHref}
+              className="hud-icon-btn"
+              aria-label="ดูผลงานทั้งหมด"
+              data-testid="link--map-icon-dashboard"
+            >
+              <LayoutDashboard size={20} aria-hidden="true" />
+            </a>
+            {/* Env/productivity toggle — icon only */}
+            <button
+              type="button"
+              className={`hud-icon-btn${envPickerOpen ? " active" : ""}`}
+              aria-label="ผลผลิต Scout Team"
+              aria-pressed={envPickerOpen}
+              data-testid="btn--map-icon-env"
+              onClick={() => setEnvPickerOpen(v => !v)}
+            >
+              <Gauge size={20} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* SMUX-6: Bottom filter row — tablet + mobile (<1024px).
+          3 equal columns (persona/feature/epic) with drop-up menus.
+          Positioned above the mobile toolbar. */}
+      <FilterRowMobile
+        personas={filterOpts.personas}
+        features={filterOpts.features}
+        epics={filterOpts.epics}
+        persona={persona}
+        feature={feature}
+        epic={scope === "epic" ? activeEpic : ""}
+        onChange={onFilterChange}
+      />
 
       {/* SMUX-2: Tablet edge drawer tabs — visible on 640–1023px only (CSS hides on mobile/desktop). */}
       <button
@@ -1960,7 +1995,8 @@ export default function CampsiteScene({
         Board ▸
       </button>
 
-      {/* SMUX-2: Mobile bottom toolbar — visible on <640px only (CSS hides on tablet/desktop). */}
+      {/* SMUX-2/SMUX-6: Mobile bottom toolbar — visible on <640px only (CSS hides on tablet/desktop).
+          SMUX-6: transparent bar; chips keep their own glass fill; center = EnvPipelineCapsule. */}
       <div className="hud-map-toolbar" role="toolbar" aria-label="เมนูหลัก" data-testid="toolbar--map-mobile">
         <button
           ref={rosterToolbarRef}
@@ -1974,11 +2010,19 @@ export default function CampsiteScene({
           onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
         >
           <AlignJustify size={14} aria-hidden="true" />
-          <span>ทีม</span>
+          <span>≡ ทีม</span>
         </button>
-        <div className="hud-toolbar-center" aria-hidden="true">
-          <span style={{ color: "#5BE9B0", fontWeight: 700, fontFamily: "'JetBrains Mono','Fira Mono',monospace" }}>{summaryStats.pct}%</span>
-        </div>
+
+        {/* SMUX-6: Env Pipeline Capsule — replaces bare pct% display */}
+        <EnvPipelineCapsule
+          envLanes={envLanes}
+          projectPct={projectPct}
+          gates={gates}
+          epicsActive={epicsActive}
+          totalEpics={totalEpics}
+          backlogItems={backlogItems}
+        />
+
         <button
           ref={boardToolbarRef}
           type="button"

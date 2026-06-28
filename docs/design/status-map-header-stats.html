@@ -1,0 +1,1577 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe — /status/map Header + Stats Wireframe · CAM-255 SMUX-5</title>
+<style>
+/* ── Design-doc variables (mirror status-map-responsive.html palette exactly) ── */
+:root {
+  --bg: #f0f4f3;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-alt: #e8f4f2;
+  --line: #d8e8e6;
+  --line-strong: #b8d4d0;
+  --fg: #1a2c2e;
+  --muted: #4e6e6b;
+  --muted-lt: #7a9896;
+  --primary: #14b8a6;
+  --primary-dim: #0d9488;
+  --primary-10: rgba(20,184,166,.10);
+  --primary-20: rgba(20,184,166,.20);
+  --success: #16a34a;
+  --success-10: rgba(22,163,74,.10);
+  --warn: #d97706;
+  --warn-10: rgba(217,119,6,.10);
+  --danger: #dc2626;
+  --radius-card: 22px;
+  --radius-ctrl: 999px;
+  --radius-inner: 14px;
+  --radius-pop: 18px;
+
+  /* Map/scene palette — night dark, always-on, immune to .dark */
+  --night: #070d1c;
+  --night-2: #0b1e18;
+  --glass: rgba(11,30,24,.55);
+  --glass-hi: rgba(11,30,24,.70);
+  --glass-border: rgba(150,240,195,.14);
+  --glass-border-hi: rgba(91,233,176,.40);
+  --teal-glow: #5BE9B0;
+  --amber: #FFB454;
+  --text-night: #F1F6FB;
+  --muted-night: rgba(223,234,245,.65);
+  --faint-night: rgba(223,234,245,.40);
+  --fire: #ff7c32;
+  --fire-glow: rgba(255,140,40,.50);
+  --agent-done: rgba(91,233,176,.70);
+  --agent-active: rgba(255,180,84,.70);
+  --agent-idle: rgba(180,210,230,.45);
+
+  /* Env pipeline colors */
+  --env-dev: #60a5fa;       /* blue-400 — Dev */
+  --env-staging: #fb923c;   /* orange-400 — Staging */
+  --env-ship: #4ade80;      /* green-400 — Ship/Released */
+  --env-dev-bg: rgba(96,165,250,.18);
+  --env-staging-bg: rgba(251,146,60,.18);
+  --env-ship-bg: rgba(74,222,128,.22);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14.5px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+  padding: 0 0 80px;
+}
+
+/* ── Doc shell ── */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 32px 24px 80px; }
+
+/* ── Hero ── */
+.hero {
+  padding: 36px 40px 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: linear-gradient(135deg, var(--card-alt) 0%, var(--surface) 60%);
+  margin-bottom: 32px;
+}
+.eyebrow {
+  letter-spacing: .2em; text-transform: uppercase; font-size: 11px;
+  color: var(--primary); font-weight: 800;
+}
+h1 { margin: .4em 0 .25em; font-size: 28px; letter-spacing: -.02em; color: var(--fg); }
+.sub { color: var(--muted); max-width: 76ch; font-size: 14px; line-height: 1.7; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.badge {
+  font-size: 11.5px; font-weight: 700; padding: 4px 13px;
+  border-radius: var(--radius-ctrl); border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+}
+.badge.ok  { color: var(--success); border-color: rgba(22,163,74,.35); background: var(--success-10); }
+.badge.warn { color: var(--warn); border-color: rgba(217,119,6,.35); background: var(--warn-10); }
+.badge.info { color: var(--primary-dim); border-color: rgba(20,184,166,.35); background: var(--primary-10); }
+.badge.nxt  { color: #8b5cf6; border-color: rgba(139,92,246,.35); background: rgba(139,92,246,.08); }
+.badge.block { color: #dc2626; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.06); }
+
+/* ── Nav ── */
+nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+nav.toc a {
+  font-size: 12.5px; font-weight: 700; color: var(--muted); text-decoration: none;
+  padding: 5px 13px; border: 1px solid var(--line); border-radius: var(--radius-ctrl);
+  transition: color .15s, border-color .15s;
+}
+nav.toc a:hover { color: var(--fg); border-color: var(--primary); }
+
+/* ── Section titles ── */
+section { margin-top: 48px; }
+h2 {
+  font-size: 19px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; color: var(--fg);
+}
+h2 .n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 9px;
+  background: var(--primary); color: #fff; font-size: 13px; font-weight: 900; flex-shrink: 0;
+}
+.section-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; max-width: 88ch; }
+
+/* ── 3-col layout for the main frames row ── */
+.bp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .bp-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) {
+  .bp-row { grid-template-columns: 1fr; }
+}
+
+/* ── 2-col state frames ── */
+.states-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 800px) { .states-row-2 { grid-template-columns: 1fr; } }
+
+/* ── Individual breakpoint frame ── */
+.bp-frame {
+  border-radius: var(--radius-card);
+  border: 1.5px solid var(--line-strong);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  background: var(--night);
+}
+.bp-label-bar {
+  background: var(--card-alt);
+  border-bottom: 1px solid var(--line);
+  padding: 9px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.bp-label {
+  font-size: 12px; font-weight: 800; color: var(--fg); letter-spacing: .04em; text-transform: uppercase;
+}
+.bp-dim { font-size: 11px; color: var(--muted); font-weight: 600; }
+.bp-state-badge {
+  font-size: 10px; font-weight: 800; padding: 3px 10px;
+  border-radius: 999px; letter-spacing: .04em;
+}
+.bp-state-badge.new { background: rgba(20,184,166,.15); color: var(--primary-dim); border: 1px solid rgba(20,184,166,.30); }
+.bp-state-badge.unchanged { background: rgba(74,222,128,.10); color: #15803d; border: 1px solid rgba(74,222,128,.30); }
+.bp-state-badge.open { background: rgba(251,146,60,.15); color: #c2410c; border: 1px solid rgba(251,146,60,.30); }
+.bp-state-badge.expanded { background: rgba(139,92,246,.12); color: #6d28d9; border: 1px solid rgba(139,92,246,.25); }
+
+/* ── Map scene container ── */
+.map-scene {
+  position: relative;
+  width: 100%;
+  background: var(--night);
+  overflow: hidden;
+}
+
+/* ── Night sky SVG background (reusable) ── */
+.scene-svg { display: block; width: 100%; }
+
+/* ── HUD elements (shared) ── */
+
+/* TOP BAR — ICON ONLY (tablet/mobile <1024) */
+.hud-topbar-icon {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center;
+  padding: 8px 12px;
+  gap: 6px;
+  /* no background — transparent */
+}
+.hud-logo-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; font-size: 10px; font-weight: 800;
+  color: var(--text-night);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  letter-spacing: .02em;
+}
+.hud-spacer { flex: 1; }
+/* Icon button (≥44px tap target, icon-only on narrow) */
+.hud-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  color: var(--muted-night);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+.hud-icon-btn:hover, .hud-icon-btn.active {
+  border-color: var(--glass-border-hi);
+  color: var(--teal-glow);
+}
+/* Tooltip hint shown on hover (illustrated as visible in wireframe) */
+.hud-icon-btn .tip {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(7,13,28,.90);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 9px; font-weight: 700; color: var(--teal-glow);
+  pointer-events: none;
+  display: none;
+}
+.hud-icon-btn.show-tip .tip { display: block; }
+
+/* Desktop top bar (3 dropdowns — unchanged) */
+.hud-topbar-desktop {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+}
+.hud-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; font-size: 11px; font-weight: 700;
+  color: var(--teal-glow); background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hud-chip.logo { color: var(--text-night); font-size: 9px; }
+.hud-chip.active { border-color: var(--glass-border-hi); }
+.hud-chip.view-link { color: var(--muted-night); font-size: 9px; gap: 3px; }
+.hud-chip.view-link span.on { color: var(--teal-glow); }
+
+/* ── FILTER ROW (bottom of top section, <1024) ── */
+.hud-filter-row {
+  position: absolute;
+  /* placed just below top bar */
+  top: 56px; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: stretch;
+  gap: 0;
+}
+.filter-col {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 36px;
+  padding: 0 8px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-right: none;
+  font-size: 10px; font-weight: 700;
+  color: var(--teal-glow);
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  gap: 4px;
+  position: relative;
+}
+.filter-col:first-child { border-radius: 0 0 0 0; border-left: none; }
+.filter-col:last-child  { border-right: 1px solid var(--glass-border); }
+.filter-col .filter-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: calc(100% - 14px);
+  display: block;
+}
+.filter-arrow { flex-shrink: 0; opacity: .7; font-size: 9px; }
+.filter-col.active { border-color: var(--glass-border-hi); color: var(--teal-glow); background: rgba(91,233,176,.08); }
+
+/* Drop-up menu */
+.dropup-menu {
+  position: absolute; bottom: calc(100% + 2px); left: 0; right: 0; z-index: 40;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: 10px 10px 0 0;
+  padding: 4px 0;
+  backdrop-filter: saturate(180%) blur(24px);
+  min-width: 120px;
+}
+.dropup-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  font-size: 10px; font-weight: 600; color: var(--muted-night);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dropup-item:hover, .dropup-item.sel {
+  color: var(--teal-glow);
+  background: rgba(91,233,176,.08);
+}
+.dropup-item.sel::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal-glow);
+  flex-shrink: 0;
+}
+.dropup-item:not(.sel)::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  flex-shrink: 0;
+}
+
+/* ── BOTTOM TOOLBAR (mobile — transparent bar) ── */
+.hud-map-toolbar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
+  display: flex; align-items: center;
+  padding: 8px 12px 10px;
+  /* NO background — transparent */
+  gap: 8px;
+  min-height: 52px;
+}
+/* Glass chip only on the buttons, not the bar */
+.toolbar-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; font-size: 11px; font-weight: 800;
+  color: var(--text-night);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  min-height: 44px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toolbar-btn.active { border-color: var(--glass-border-hi); color: var(--teal-glow); }
+
+/* ── ENV PIPELINE CAPSULE ── */
+.env-capsule {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  /* no background — transparent, content only */
+  cursor: pointer;
+  min-width: 0;
+}
+.env-capsule-inner {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(7,13,28,.65);
+  border: 1px solid rgba(150,240,195,.22);
+  border-radius: 999px;
+  padding: 6px 14px;
+  min-height: 40px;
+  backdrop-filter: saturate(180%) blur(12px);
+  max-width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+}
+.env-capsule-inner:hover {
+  border-color: var(--glass-border-hi);
+}
+.env-seg {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.env-seg .env-label { font-size: 9px; font-weight: 700; opacity: .75; }
+.env-seg .env-count {
+  font-size: 12px; font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.env-seg.dev   .env-label, .env-seg.dev   .env-count { color: var(--env-dev); }
+.env-seg.stg   .env-label, .env-seg.stg   .env-count { color: var(--env-staging); }
+.env-seg.ship  .env-label, .env-seg.ship  .env-count { color: var(--env-ship); }
+.env-arrow {
+  font-size: 9px; color: var(--faint-night); font-weight: 700; flex-shrink: 0;
+}
+.env-divider { width: 1px; height: 18px; background: rgba(255,255,255,.12); flex-shrink: 0; margin: 0 2px; }
+
+/* 3-segment bar */
+.env-bar-wrap {
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.env-bar {
+  display: flex; gap: 1px;
+  width: 36px; height: 4px; border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255,255,255,.10);
+}
+.env-bar-seg { height: 100%; border-radius: 1px; }
+.env-bar-seg.dev   { background: var(--env-dev); }
+.env-bar-seg.stg   { background: var(--env-staging); }
+.env-bar-seg.ship  { background: var(--env-ship); }
+.env-pct {
+  font-size: 11px; font-weight: 900;
+  color: var(--text-night);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ── EXPANDED SUMMARY POPOVER (sheet rising from bottom toolbar) ── */
+.env-summary-popover {
+  position: absolute; bottom: 52px; left: 12px; right: 12px; z-index: 35;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: 14px;
+  padding: 14px 16px;
+  backdrop-filter: saturate(200%) blur(32px);
+}
+.env-summary-title {
+  font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--teal-glow); margin-bottom: 10px;
+}
+.env-summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.env-summary-cell {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.env-summary-cell-label {
+  font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted-night); margin-bottom: 3px;
+}
+.env-summary-cell-val {
+  font-size: 16px; font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-night);
+}
+.env-summary-cell-val.dev   { color: var(--env-dev); }
+.env-summary-cell-val.stg   { color: var(--env-staging); }
+.env-summary-cell-val.ship  { color: var(--env-ship); }
+
+.env-summary-meta {
+  display: flex; gap: 12px; margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px;
+}
+.env-meta-item {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.env-meta-label {
+  font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted-night);
+}
+.env-meta-val {
+  font-size: 13px; font-weight: 800;
+  color: var(--text-night);
+  font-variant-numeric: tabular-nums;
+}
+
+.env-summary-bar-row {
+  margin-top: 8px; display: flex; align-items: center; gap: 8px;
+}
+.env-summary-bar {
+  flex: 1; height: 6px; border-radius: 3px;
+  display: flex; gap: 1px; overflow: hidden;
+  background: rgba(255,255,255,.08);
+}
+
+/* ── HUD panels for desktop (unchanged) ── */
+.hud-left {
+  position: absolute; top: 54px; left: 10px; z-index: 20;
+  width: 130px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+}
+.hud-right {
+  position: absolute; top: 54px; right: 10px; z-index: 20;
+  width: 150px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+}
+.hud-panel-title {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--teal-glow); margin-bottom: 7px;
+}
+.roster-row {
+  display: flex; align-items: center; gap: 6px; padding: 3.5px 0;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dot.active  { background: var(--teal-glow); box-shadow: 0 0 4px var(--teal-glow); }
+.dot.busy    { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+.dot.idle    { background: var(--muted-night); }
+.roster-name { font-size: 9px; font-weight: 600; color: var(--muted-night); }
+.board-col { margin-bottom: 7px; }
+.board-col-title {
+  font-size: 8.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-night); margin-bottom: 3px;
+}
+.board-card {
+  font-size: 8px; font-weight: 600; color: var(--text-night);
+  background: rgba(255,255,255,.07); border-radius: 6px;
+  padding: 3px 6px; margin-bottom: 2px;
+  border-left: 2px solid transparent;
+}
+.board-card.in-prog { border-left-color: var(--amber); }
+.board-card.done    { border-left-color: var(--teal-glow); }
+.board-card.todo    { border-left-color: var(--muted-night); }
+
+/* DESKTOP bottom dock */
+.hud-dock {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 20;
+  display: flex; align-items: center;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 92%;
+}
+.dock-seg {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; min-height: 40px; min-width: 44px;
+  font-size: 10px; font-weight: 700; color: var(--muted-night);
+  border-right: 1px solid rgba(255,255,255,.10);
+}
+.dock-seg:last-child { border-right: none; }
+.dock-seg .val { font-size: 12px; font-weight: 800; color: var(--teal-glow); }
+.dock-seg .val.amber { color: var(--amber); }
+
+/* ── Annotation panel ── */
+.annotation {
+  background: var(--card-alt);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pop);
+  padding: 18px 20px;
+  margin-top: 16px;
+  font-size: 12.5px;
+}
+.annotation h3 { font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 10px; }
+.annotation ul { padding-left: 18px; color: var(--muted); line-height: 1.9; }
+.annotation ul li { margin-bottom: 2px; }
+.annotation ul li strong { color: var(--fg); }
+.annotation code {
+  font-size: 11px; font-family: 'JetBrains Mono','Fira Mono',monospace;
+  background: rgba(0,0,0,.06); border-radius: 4px; padding: 1px 5px;
+}
+.annotation .ann-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+@media (max-width: 700px) { .annotation .ann-row { grid-template-columns: 1fr; } }
+
+/* ── Invariant callout ── */
+.invariant {
+  background: rgba(15,25,30,.06); border-left: 3px solid var(--primary);
+  border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0;
+  font-size: 12.5px; color: var(--muted);
+}
+.invariant strong { color: var(--fg); }
+
+/* ── Note box ── */
+.note {
+  display: flex; gap: 10px;
+  background: var(--primary-10); border: 1px solid rgba(20,184,166,.25); border-radius: 12px;
+  padding: 14px 16px; margin: 16px 0 0;
+}
+.note p { font-size: 13px; color: var(--fg); line-height: 1.6; }
+.note p strong { color: var(--primary-dim); }
+.note-warn { background: var(--warn-10); border-color: rgba(217,119,6,.30); }
+.note-warn p strong { color: var(--warn); }
+.note-block { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); }
+.note-block p strong { color: #dc2626; }
+
+/* Token table */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 12px; }
+thead th {
+  text-align: left; padding: 7px 12px;
+  background: var(--card-alt); border-bottom: 2px solid var(--line-strong);
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+tbody td { padding: 7px 12px; border-bottom: 1px solid var(--line); color: var(--fg); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+code.token {
+  font-size: 11px; font-family: 'JetBrains Mono','Fira Mono',monospace;
+  background: rgba(0,0,0,.05); border-radius: 4px; padding: 1px 5px; color: var(--primary-dim);
+}
+
+/* ── Divider ── */
+.divider { border: none; border-top: 1px solid var(--line-strong); margin: 40px 0 0; }
+
+/* "Unchanged" overlay */
+.unchanged-overlay {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(7,13,28,.55);
+  backdrop-filter: blur(2px);
+}
+.unchanged-label {
+  background: rgba(74,222,128,.15);
+  border: 1.5px solid rgba(74,222,128,.45);
+  border-radius: 12px;
+  padding: 14px 24px;
+  text-align: center;
+}
+.unchanged-label .u-title {
+  font-size: 14px; font-weight: 800; color: #4ade80; letter-spacing: .02em;
+}
+.unchanged-label .u-sub {
+  font-size: 11px; color: rgba(223,234,245,.65); margin-top: 4px;
+}
+
+/* Lucide-style SVG icons (inline, 18px viewBox) */
+svg.icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="eyebrow">CampVibe · CAM-255 · SMUX-5 · Designer Wireframe</div>
+  <h1>/status/map — Header Rework + Env-Pipeline Stats</h1>
+  <p class="sub">Tablet/mobile chrome refinement after SMUX-2 staging review. Top bar becomes icon-only. Filter dropdowns move to a bottom row with drop-up menus. Mobile bottom bar becomes transparent with an Env-pipeline capsule (Dev / Staging / Ship). Desktop ≥1024 is unchanged. For owner review at G2 before any code is written (SMUX-6).</p>
+  <div class="badges">
+    <span class="badge info">G2 Design Review</span>
+    <span class="badge info">SMUX-5 Wireframe</span>
+    <span class="badge ok">Tablet Frame</span>
+    <span class="badge ok">Mobile Frame</span>
+    <span class="badge ok">Drop-up Open State</span>
+    <span class="badge ok">Env Capsule Expanded</span>
+    <span class="badge ok">Desktop Unchanged</span>
+    <span class="badge warn">No App Code Changed</span>
+    <span class="badge nxt">Handoff to SMUX-6 Frontend</span>
+  </div>
+</div>
+
+<!-- ── TOC ── -->
+<nav class="toc">
+  <a href="#breakpoints">Breakpoints Overview</a>
+  <a href="#dropup">Drop-up State</a>
+  <a href="#capsule-expanded">Capsule Expanded</a>
+  <a href="#annotations">Annotations</a>
+  <a href="#tokens">Tokens</a>
+</nav>
+
+<!-- ═══════════════════════════════════════
+     §1  THREE BREAKPOINTS
+     ═══════════════════════════════════════ -->
+<section id="breakpoints">
+  <h2><span class="n">1</span>Three Breakpoints — Default (Closed) State</h2>
+  <p class="section-sub">
+    Tablet (640–1023px) and Mobile (&lt;640px) show the new icon-only top bar and the transparent bottom toolbar with the Env-pipeline capsule.
+    Desktop (≥1024px) is shown for contrast — no change.
+  </p>
+
+  <div class="bp-row">
+
+    <!-- ══ DESKTOP ≥1024 — UNCHANGED ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Desktop</span>
+        <span class="bp-dim">≥ 1024px</span>
+        <span class="bp-state-badge unchanged">ไม่เปลี่ยน</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Sky SVG -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 400 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="sky-d" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0d2535"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="fire-d" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".9"/>
+              <stop offset="60%" stop-color="#ff5c00" stop-opacity=".5"/>
+              <stop offset="100%" stop-color="#ff3d00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="400" height="480" fill="url(#sky-d)"/>
+          <g fill="white" opacity=".5">
+            <circle cx="40" cy="30" r="1"/><circle cx="90" cy="15" r="1.2"/><circle cx="160" cy="25" r=".9"/>
+            <circle cx="230" cy="10" r="1.1"/><circle cx="310" cy="20" r="1"/><circle cx="370" cy="35" r=".8"/>
+            <circle cx="60" cy="60" r=".7"/><circle cx="130" cy="45" r="1"/><circle cx="280" cy="55" r=".9"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,320 25,240 50,320"/>
+            <polygon points="10,320 38,220 65,320"/>
+            <polygon points="340,320 368,235 396,320"/>
+            <polygon points="355,320 380,215 400,320"/>
+          </g>
+          <rect x="0" y="380" width="400" height="100" fill="#071510" opacity=".6"/>
+          <!-- Campfire -->
+          <g transform="translate(200,290)">
+            <ellipse cx="0" cy="18" rx="55" ry="28" fill="url(#fire-d)" opacity=".55"/>
+            <ellipse cx="0" cy="20" rx="22" ry="7" fill="#1a0f06"/>
+            <line x1="-18" y1="17" x2="18" y2="23" stroke="#2d1a08" stroke-width="5" stroke-linecap="round"/>
+            <path d="M0,20 Q-8,8 -4,-4 Q0,4 4,-8 Q6,4 10,0 Q6,12 0,20Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,20 Q-5,10 -2,2 Q2,10 5,0 Q4,12 0,20Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+          <!-- Agent dots -->
+          <g>
+            <circle cx="200" cy="200" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="200" cy="200" r="5" fill="#5BE9B0"/>
+            <circle cx="235" cy="218" r="11" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="235" cy="218" r="5" fill="#FFB454"/>
+            <circle cx="250" cy="262" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="250" cy="262" r="5" fill="#5BE9B0"/>
+            <circle cx="200" cy="308" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="200" cy="308" r="5" fill="#5BE9B0"/>
+            <circle cx="152" cy="278" r="11" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="152" cy="278" r="5" fill="#FFB454"/>
+            <circle cx="144" cy="228" r="11" fill="rgba(180,210,230,.18)" stroke="rgba(180,210,230,.6)" stroke-width="1.5"/>
+            <circle cx="144" cy="228" r="5" fill="rgba(180,210,230,.7)"/>
+            <circle cx="174" cy="205" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="174" cy="205" r="5" fill="#5BE9B0"/>
+          </g>
+        </svg>
+
+        <!-- Desktop: 3-dropdown top bar (unchanged) -->
+        <div class="hud-topbar-desktop">
+          <div class="hud-chip logo">CampVibe</div>
+          <div class="hud-spacer"></div>
+          <div class="hud-chip">ผู้ใช้งาน ▾</div>
+          <div class="hud-chip active">Feature ▾</div>
+          <div class="hud-chip">Epic ▾</div>
+          <div class="hud-spacer"></div>
+          <div class="hud-chip view-link">
+            <span>แดชบอร์ด</span>
+            <span style="color:rgba(255,255,255,.25)">|</span>
+            <span class="on">แผนที่</span>
+          </div>
+        </div>
+        <!-- Desktop left panel -->
+        <div class="hud-left">
+          <div class="hud-panel-title">ทีมงาน</div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Architect</div></div>
+          <div class="roster-row"><div class="dot busy"></div><div class="roster-name">UX Designer</div></div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Backend</div></div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Frontend</div></div>
+          <div class="roster-row"><div class="dot busy"></div><div class="roster-name">DevOps</div></div>
+          <div class="roster-row"><div class="dot idle"></div><div class="roster-name">QA</div></div>
+        </div>
+        <!-- Desktop right panel -->
+        <div class="hud-right">
+          <div class="hud-panel-title">Board · SMUX</div>
+          <div class="board-col">
+            <div class="board-col-title">In Progress</div>
+            <div class="board-card in-prog">SMUX-5 Wireframe</div>
+            <div class="board-card in-prog">CAM-254 Perf</div>
+          </div>
+          <div class="board-col">
+            <div class="board-col-title">Done</div>
+            <div class="board-card done">SMUX-2 Responsive</div>
+            <div class="board-card done">SMUX-3 Sync</div>
+          </div>
+        </div>
+        <!-- Desktop bottom dock -->
+        <div class="hud-dock">
+          <div class="dock-seg">Gates <span class="val">4</span></div>
+          <div class="dock-seg">Epics <span class="val amber">3</span></div>
+          <div class="dock-seg">Backlog <span class="val">12</span></div>
+          <div class="dock-seg"><span class="val">45%</span></div>
+        </div>
+
+        <!-- Unchanged overlay -->
+        <div class="unchanged-overlay">
+          <div class="unchanged-label">
+            <div class="u-title">Desktop ≥1024px — ไม่เปลี่ยน</div>
+            <div class="u-sub">3 dropdown filters + left/right panels + bottom dock คงเดิมทั้งหมด</div>
+          </div>
+        </div>
+
+      </div><!-- /map-scene desktop -->
+    </div><!-- /bp-frame desktop -->
+
+    <!-- ══ TABLET 640–1023 ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Tablet</span>
+        <span class="bp-dim">640–1023px</span>
+        <span class="bp-state-badge new">ใหม่</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Sky SVG -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 360 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="sky-t" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0c2030"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="fire-t" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".85"/>
+              <stop offset="60%" stop-color="#ff5c00" stop-opacity=".4"/>
+              <stop offset="100%" stop-color="#ff3d00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="360" height="480" fill="url(#sky-t)"/>
+          <g fill="white" opacity=".5">
+            <circle cx="35" cy="28" r="1"/><circle cx="85" cy="12" r="1.1"/><circle cx="150" cy="22" r=".9"/>
+            <circle cx="220" cy="8" r="1"/><circle cx="300" cy="18" r=".9"/><circle cx="340" cy="32" r=".8"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,320 22,248 44,320"/>
+            <polygon points="315,320 340,238 360,320"/>
+            <polygon points="330,320 355,218 375,320"/>
+          </g>
+          <rect x="0" y="380" width="360" height="100" fill="#071510" opacity=".55"/>
+          <!-- Campfire -->
+          <g transform="translate(180,290)">
+            <ellipse cx="0" cy="16" rx="48" ry="24" fill="url(#fire-t)" opacity=".5"/>
+            <ellipse cx="0" cy="18" rx="19" ry="6" fill="#1a0f06"/>
+            <line x1="-15" y1="15" x2="15" y2="21" stroke="#2d1a08" stroke-width="4" stroke-linecap="round"/>
+            <path d="M0,18 Q-7,7 -3,-3 Q0,3 3,-7 Q5,3 9,0 Q5,10 0,18Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,18 Q-4,9 -2,2 Q2,9 4,0 Q3,10 0,18Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+          <!-- Agent dots (narrower ring) -->
+          <g>
+            <circle cx="180" cy="205" r="10" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="180" cy="205" r="4.5" fill="#5BE9B0"/>
+            <circle cx="210" cy="222" r="10" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="210" cy="222" r="4.5" fill="#FFB454"/>
+            <circle cx="224" cy="262" r="10" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="224" cy="262" r="4.5" fill="#5BE9B0"/>
+            <circle cx="180" cy="300" r="10" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="180" cy="300" r="4.5" fill="#5BE9B0"/>
+            <circle cx="136" cy="276" r="10" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="136" cy="276" r="4.5" fill="#FFB454"/>
+            <circle cx="130" cy="233" r="10" fill="rgba(180,210,230,.18)" stroke="rgba(180,210,230,.6)" stroke-width="1.5"/>
+            <circle cx="130" cy="233" r="4.5" fill="rgba(180,210,230,.7)"/>
+            <circle cx="156" cy="210" r="10" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="156" cy="210" r="4.5" fill="#5BE9B0"/>
+          </g>
+        </svg>
+
+        <!-- TOP BAR — icon only -->
+        <div class="hud-topbar-icon">
+          <div class="hud-logo-chip">
+            <!-- Tent/campfire icon -->
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l9-18 9 18"/><path d="M9 21l3-6 3 6"/></svg>
+            CampVibe
+          </div>
+          <div class="hud-spacer"></div>
+          <!-- Dashboard icon button (→/status) -->
+          <div class="hud-icon-btn show-tip" aria-label="ดูผลงานทั้งหมด">
+            <!-- Lucide LayoutDashboard -->
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span class="tip">ดูผลงาน</span>
+          </div>
+          <!-- Productivity / Env toggle -->
+          <div class="hud-icon-btn" aria-label="ผลผลิต Scout Team">
+            <!-- Lucide Gauge -->
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M12 20v2"/><path d="m19.07 19.07-1.41-1.41"/><path d="M2 12h2"/><path d="m4.93 19.07 1.41-1.41"/></svg>
+          </div>
+          <!-- Sound toggle -->
+          <div class="hud-icon-btn active" aria-label="เปิด/ปิดเสียง">
+            <!-- Lucide Volume2 -->
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </div>
+        </div>
+
+        <!-- FILTER ROW (below top bar, 3 equal cols) -->
+        <div class="hud-filter-row">
+          <div class="filter-col">
+            <span class="filter-label">ผู้ใช้งาน</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+          <div class="filter-col active">
+            <span class="filter-label">Feature</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+          <div class="filter-col">
+            <span class="filter-label">Epic</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+        </div>
+
+        <!-- BOTTOM TOOLBAR (transparent bar) -->
+        <div class="hud-map-toolbar">
+          <!-- ≡ ทีม button (glass chip) -->
+          <button class="toolbar-btn" aria-label="เปิดรายชื่อทีม">
+            <!-- Lucide Users -->
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ทีม
+          </button>
+
+          <!-- ENV PIPELINE CAPSULE (center) -->
+          <div class="env-capsule" role="button" aria-label="สถานะ Env pipeline — แตะเพื่อดูรายละเอียด">
+            <div class="env-capsule-inner">
+              <!-- Dev -->
+              <div class="env-seg dev">
+                <span class="env-label">Dev</span>
+                <span class="env-count">5</span>
+              </div>
+              <span class="env-arrow">▸</span>
+              <!-- Staging -->
+              <div class="env-seg stg">
+                <span class="env-label">Staging</span>
+                <span class="env-count">3</span>
+              </div>
+              <span class="env-arrow">▸</span>
+              <!-- Ship -->
+              <div class="env-seg ship">
+                <span class="env-label">Ship</span>
+                <span class="env-count">2</span>
+              </div>
+              <div class="env-divider"></div>
+              <!-- 3-segment bar + % -->
+              <div class="env-bar-wrap">
+                <div class="env-bar">
+                  <div class="env-bar-seg dev" style="width:50%"></div>
+                  <div class="env-bar-seg stg" style="width:30%"></div>
+                  <div class="env-bar-seg ship" style="width:20%"></div>
+                </div>
+              </div>
+              <span class="env-pct">45%</span>
+            </div>
+          </div>
+
+          <!-- Board button (glass chip) -->
+          <button class="toolbar-btn" aria-label="เปิด Board">
+            Board
+            <!-- Lucide ChevronRight -->
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+      </div><!-- /map-scene tablet -->
+    </div><!-- /bp-frame tablet -->
+
+    <!-- ══ MOBILE <640 ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Mobile</span>
+        <span class="bp-dim">&lt; 640px</span>
+        <span class="bp-state-badge new">ใหม่</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Sky SVG -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 300 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="sky-m" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0b1f2e"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="fire-m" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".85"/>
+              <stop offset="60%" stop-color="#ff5c00" stop-opacity=".4"/>
+              <stop offset="100%" stop-color="#ff3d00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="300" height="480" fill="url(#sky-m)"/>
+          <g fill="white" opacity=".5">
+            <circle cx="30" cy="25" r="1"/><circle cx="75" cy="12" r="1"/><circle cx="135" cy="20" r=".9"/>
+            <circle cx="195" cy="8" r="1"/><circle cx="255" cy="16" r=".8"/><circle cx="285" cy="30" r=".8"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,320 18,255 36,320"/>
+            <polygon points="265,320 285,242 300,320"/>
+          </g>
+          <rect x="0" y="385" width="300" height="95" fill="#071510" opacity=".55"/>
+          <!-- Campfire -->
+          <g transform="translate(150,295)">
+            <ellipse cx="0" cy="14" rx="40" ry="20" fill="url(#fire-m)" opacity=".5"/>
+            <ellipse cx="0" cy="16" rx="16" ry="5" fill="#1a0f06"/>
+            <line x1="-12" y1="13" x2="12" y2="19" stroke="#2d1a08" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M0,16 Q-6,6 -2,-2 Q0,2 2,-6 Q4,2 7,0 Q4,9 0,16Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,16 Q-3,8 -1,1 Q2,8 4,0 Q2,9 0,16Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+          <!-- Agent dots (tight ring) -->
+          <g>
+            <circle cx="150" cy="210" r="9" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="150" cy="210" r="4" fill="#5BE9B0"/>
+            <circle cx="175" cy="226" r="9" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="175" cy="226" r="4" fill="#FFB454"/>
+            <circle cx="186" cy="262" r="9" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="186" cy="262" r="4" fill="#5BE9B0"/>
+            <circle cx="150" cy="295" r="9" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="150" cy="295" r="4" fill="#5BE9B0"/>
+            <circle cx="114" cy="272" r="9" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="114" cy="272" r="4" fill="#FFB454"/>
+            <circle cx="108" cy="235" r="9" fill="rgba(180,210,230,.18)" stroke="rgba(180,210,230,.6)" stroke-width="1.5"/>
+            <circle cx="108" cy="235" r="4" fill="rgba(180,210,230,.7)"/>
+            <circle cx="128" cy="214" r="9" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="128" cy="214" r="4" fill="#5BE9B0"/>
+          </g>
+        </svg>
+
+        <!-- TOP BAR — icon only (mobile) -->
+        <div class="hud-topbar-icon">
+          <div class="hud-logo-chip">
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l9-18 9 18"/><path d="M9 21l3-6 3 6"/></svg>
+            CampVibe
+          </div>
+          <div class="hud-spacer"></div>
+          <div class="hud-icon-btn" aria-label="ดูผลงานทั้งหมด">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="hud-icon-btn" aria-label="ผลผลิต Scout Team">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M12 20v2"/><path d="m19.07 19.07-1.41-1.41"/><path d="M2 12h2"/><path d="m4.93 19.07 1.41-1.41"/></svg>
+          </div>
+          <div class="hud-icon-btn active" aria-label="เปิด/ปิดเสียง">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </div>
+        </div>
+
+        <!-- FILTER ROW (mobile — 3 equal cols, tighter) -->
+        <div class="hud-filter-row">
+          <div class="filter-col">
+            <span class="filter-label">ผู้ใช้งาน</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+          <div class="filter-col">
+            <span class="filter-label">Feature</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+          <div class="filter-col">
+            <span class="filter-label">Epic</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+        </div>
+
+        <!-- BOTTOM TOOLBAR (transparent, mobile — slightly compressed capsule) -->
+        <div class="hud-map-toolbar">
+          <button class="toolbar-btn" aria-label="เปิดรายชื่อทีม">
+            <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ทีม
+          </button>
+
+          <div class="env-capsule" role="button" aria-label="สถานะ Env pipeline">
+            <div class="env-capsule-inner" style="padding:5px 10px; gap:5px;">
+              <div class="env-seg dev">
+                <span class="env-label">Dev</span>
+                <span class="env-count" style="font-size:11px;">5</span>
+              </div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg stg">
+                <span class="env-label">Stg</span>
+                <span class="env-count" style="font-size:11px;">3</span>
+              </div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg ship">
+                <span class="env-label">Ship</span>
+                <span class="env-count" style="font-size:11px;">2</span>
+              </div>
+              <div class="env-divider"></div>
+              <div class="env-bar" style="width:30px; height:3px;">
+                <div class="env-bar-seg dev" style="width:50%"></div>
+                <div class="env-bar-seg stg" style="width:30%"></div>
+                <div class="env-bar-seg ship" style="width:20%"></div>
+              </div>
+              <span class="env-pct" style="font-size:10px;">45%</span>
+            </div>
+          </div>
+
+          <button class="toolbar-btn" aria-label="เปิด Board">
+            Board
+            <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+      </div><!-- /map-scene mobile -->
+    </div><!-- /bp-frame mobile -->
+
+  </div><!-- /bp-row -->
+
+  <div class="note" style="margin-top:20px;">
+    <p><strong>Filter row position:</strong> บนทั้ง tablet+mobile แถว filter วางต่อจาก top bar (top: 56px) แทนที่จะอยู่ในแถบบน ทำให้แผนที่มี chrome น้อยลงและ filter ยังเข้าถึงได้ทันที arrow ชี้ขึ้น (▴) บอกว่าเมนูเปิดขึ้นด้านบน (drop-up)</p>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ═══════════════════════════════════════
+     §2  DROP-UP OPEN STATE
+     ═══════════════════════════════════════ -->
+<section id="dropup">
+  <h2><span class="n">2</span>Filter Drop-up Menu — Open State</h2>
+  <p class="section-sub">
+    เมนู filter เปิดขึ้นด้านบน (drop-up) เพราะ filter row อยู่ใกล้ขอบล่างของ top section แสดงบน mobile frame เป็นตัวอย่าง
+  </p>
+
+  <div class="states-row-2">
+
+    <!-- Drop-up on first filter column -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Mobile</span>
+        <span class="bp-dim">&lt; 640px · filter ผู้ใช้งาน เปิด</span>
+        <span class="bp-state-badge open">Drop-up Open</span>
+      </div>
+      <div class="map-scene" style="height:380px;">
+        <!-- minimal sky bg -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 300 380" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="380" fill="#070d1c"/>
+          <g fill="white" opacity=".4">
+            <circle cx="30" cy="25" r="1"/><circle cx="85" cy="12" r="1"/><circle cx="155" cy="20" r=".9"/>
+            <circle cx="210" cy="8" r=".9"/><circle cx="270" cy="18" r=".8"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,310 18,248 36,310"/><polygon points="265,310 282,245 300,310"/>
+          </g>
+          <rect x="0" y="330" width="300" height="50" fill="#071510" opacity=".5"/>
+        </svg>
+
+        <!-- Top bar -->
+        <div class="hud-topbar-icon">
+          <div class="hud-logo-chip">
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l9-18 9 18"/><path d="M9 21l3-6 3 6"/></svg>
+            CampVibe
+          </div>
+          <div class="hud-spacer"></div>
+          <div class="hud-icon-btn" aria-label="ดูผลงานทั้งหมด">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </div>
+          <div class="hud-icon-btn" aria-label="ผลผลิต Scout Team">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          </div>
+          <div class="hud-icon-btn" aria-label="เปิด/ปิดเสียง">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </div>
+        </div>
+
+        <!-- Filter row with FIRST column open (drop-up) -->
+        <div class="hud-filter-row">
+          <!-- First col — active, has drop-up -->
+          <div class="filter-col active" style="position:relative;">
+            <span class="filter-label">ผู้ใช้งาน</span>
+            <span class="filter-arrow" style="color:var(--teal-glow);">▴</span>
+            <!-- DROP-UP MENU (opens upward) -->
+            <div class="dropup-menu">
+              <div class="dropup-item sel">ทั้งหมด</div>
+              <div class="dropup-item">Architect</div>
+              <div class="dropup-item">Frontend</div>
+              <div class="dropup-item">Backend</div>
+              <div class="dropup-item">UX Designer</div>
+              <div class="dropup-item">DevOps</div>
+              <div class="dropup-item">QA</div>
+            </div>
+          </div>
+          <div class="filter-col">
+            <span class="filter-label">Feature</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+          <div class="filter-col">
+            <span class="filter-label">Epic</span>
+            <span class="filter-arrow">▴</span>
+          </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="hud-map-toolbar">
+          <button class="toolbar-btn" aria-label="เปิดรายชื่อทีม">
+            <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            ทีม
+          </button>
+          <div class="env-capsule">
+            <div class="env-capsule-inner" style="padding:5px 10px; gap:5px; opacity:.6;">
+              <div class="env-seg dev"><span class="env-label">Dev</span><span class="env-count" style="font-size:11px;">5</span></div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg stg"><span class="env-label">Stg</span><span class="env-count" style="font-size:11px;">3</span></div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg ship"><span class="env-label">Ship</span><span class="env-count" style="font-size:11px;">2</span></div>
+              <div class="env-divider"></div>
+              <span class="env-pct" style="font-size:10px;">45%</span>
+            </div>
+          </div>
+          <button class="toolbar-btn" aria-label="เปิด Board">Board <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+
+      </div>
+    </div><!-- /drop-up frame -->
+
+    <!-- Annotation for drop-up -->
+    <div>
+      <div class="annotation">
+        <h3>Drop-up: กฎและพฤติกรรม</h3>
+        <ul>
+          <li><strong>ทิศทางเปิด:</strong> ขึ้นบนเสมอ (<code>bottom: calc(100% + 2px)</code>) เพราะ filter row อยู่ใกล้ขอบบน viewport ฝั่งแผนที่ เพื่อไม่ให้เมนูกดทับแผนที่ด้านล่าง</li>
+          <li><strong>ความกว้าง:</strong> เต็มความกว้างคอลัมน์ของตัวเอง (stretch) — <code>left:0; right:0</code> สัมพัทธ์กับคอลัมน์</li>
+          <li><strong>รัศมี:</strong> <code>border-radius: 10px 10px 0 0</code> — โค้งด้านบน ตัดตรงด้านล่างที่ต่อกับ filter row</li>
+          <li><strong>รายการที่เลือก:</strong> มีจุดสีเขียว (<code>--teal-glow</code>) ก่อน label + ตัวหนังสือสี teal</li>
+          <li><strong>Keyboard:</strong> <kbd>ArrowUp</kbd>/<kbd>ArrowDown</kbd> เลื่อน, <kbd>Enter</kbd> เลือก, <kbd>Escape</kbd> ปิด, focus กลับที่ filter trigger</li>
+          <li><strong>คลิกนอก:</strong> ปิด drop-up (click-outside dismiss)</li>
+          <li><strong>ARIA:</strong> filter trigger = <code>aria-haspopup="listbox" aria-expanded="true/false"</code>, เมนู = <code>role="listbox"</code>, รายการ = <code>role="option" aria-selected</code></li>
+          <li><strong>แถว filter ทั้งหมดสูง ≥30px</strong> ตลอดเวลา, คอลัมน์เท่ากัน (<code>flex:1</code>), label ตัดด้วย ellipsis ถ้าข้อความยาวเกิน</li>
+        </ul>
+      </div>
+
+      <div class="note note-warn" style="margin-top:12px;">
+        <p><strong>กฎ truncate + ≥30px:</strong> filter-col ต้องสูงขั้นต่ำ 30px และ label ต้องมี <code>overflow:hidden; text-overflow:ellipsis; white-space:nowrap</code> ห้าม wrap เพราะคอลัมน์แคบบนมือถือ ตัวอย่าง: "ผู้ใช้งาน" บนจอ 320px อาจกลายเป็น "ผู้ใช้..."</p>
+      </div>
+    </div>
+
+  </div><!-- /states-row-2 dropup -->
+</section>
+
+<hr class="divider"/>
+
+<!-- ═══════════════════════════════════════
+     §3  ENV CAPSULE EXPANDED
+     ═══════════════════════════════════════ -->
+<section id="capsule-expanded">
+  <h2><span class="n">3</span>Env-Pipeline Capsule — Expanded Summary</h2>
+  <p class="section-sub">
+    แตะ/คลิก capsule → ขยายเป็น popover summary (เปิดขึ้นด้านบนจาก bottom toolbar) แสดง gates / epics / backlog พร้อมแถบ 3-segment ขนาดใหญ่ขึ้น
+  </p>
+
+  <div class="states-row-2">
+
+    <!-- Expanded capsule frame -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Mobile</span>
+        <span class="bp-dim">&lt; 640px · capsule ขยาย</span>
+        <span class="bp-state-badge expanded">Capsule Expanded</span>
+      </div>
+      <div class="map-scene" style="height:420px;">
+        <!-- Sky bg -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 300 420" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="420" fill="#070d1c"/>
+          <g fill="white" opacity=".4">
+            <circle cx="30" cy="25" r="1"/><circle cx="85" cy="12" r="1"/><circle cx="155" cy="20" r=".9"/>
+            <circle cx="210" cy="8" r=".9"/><circle cx="270" cy="18" r=".8"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,340 18,270 36,340"/><polygon points="265,340 282,272 300,340"/>
+          </g>
+          <rect x="0" y="370" width="300" height="50" fill="#071510" opacity=".5"/>
+          <!-- Campfire faint -->
+          <g transform="translate(150,300)" opacity=".4">
+            <ellipse cx="0" cy="14" rx="38" ry="18" fill="#ff5c00" opacity=".3"/>
+            <path d="M0,14 Q-5,5 -2,-2 Q0,2 2,-5 Q4,2 6,0 Q3,8 0,14Z" fill="#ff9a32" opacity=".7"/>
+          </g>
+        </svg>
+
+        <!-- Top bar (dimmed) -->
+        <div class="hud-topbar-icon" style="opacity:.5;">
+          <div class="hud-logo-chip">
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l9-18 9 18"/><path d="M9 21l3-6 3 6"/></svg>
+            CampVibe
+          </div>
+          <div class="hud-spacer"></div>
+          <div class="hud-icon-btn"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
+          <div class="hud-icon-btn"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/></svg></div>
+          <div class="hud-icon-btn"><svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg></div>
+        </div>
+        <!-- Filter row (dimmed) -->
+        <div class="hud-filter-row" style="opacity:.4;">
+          <div class="filter-col"><span class="filter-label">ผู้ใช้งาน</span><span class="filter-arrow">▴</span></div>
+          <div class="filter-col"><span class="filter-label">Feature</span><span class="filter-arrow">▴</span></div>
+          <div class="filter-col"><span class="filter-label">Epic</span><span class="filter-arrow">▴</span></div>
+        </div>
+
+        <!-- EXPANDED SUMMARY POPOVER -->
+        <div class="env-summary-popover">
+          <div class="env-summary-title">สถานะโปรเจกต์ — Env Pipeline</div>
+          <!-- 3 env cells -->
+          <div class="env-summary-grid">
+            <div class="env-summary-cell">
+              <div class="env-summary-cell-label">Dev</div>
+              <div class="env-summary-cell-val dev">5</div>
+            </div>
+            <div class="env-summary-cell">
+              <div class="env-summary-cell-label">Staging</div>
+              <div class="env-summary-cell-val stg">3</div>
+            </div>
+            <div class="env-summary-cell">
+              <div class="env-summary-cell-label">Ship</div>
+              <div class="env-summary-cell-val ship">2</div>
+            </div>
+          </div>
+          <!-- 3-seg bar full width -->
+          <div class="env-summary-bar-row">
+            <div class="env-summary-bar">
+              <div class="env-bar-seg dev" style="width:50%"></div>
+              <div class="env-bar-seg stg" style="width:30%"></div>
+              <div class="env-bar-seg ship" style="width:20%"></div>
+            </div>
+            <span style="font-size:14px; font-weight:900; color:var(--text-night); font-variant-numeric:tabular-nums;">45%</span>
+          </div>
+          <!-- Meta row: gates / epics / backlog -->
+          <div class="env-summary-meta">
+            <div class="env-meta-item">
+              <div class="env-meta-label">Gates</div>
+              <div class="env-meta-val">G3 · 2 เปิด</div>
+            </div>
+            <div class="env-meta-item">
+              <div class="env-meta-label">Epics</div>
+              <div class="env-meta-val">3 / 8</div>
+            </div>
+            <div class="env-meta-item">
+              <div class="env-meta-label">Backlog</div>
+              <div class="env-meta-val">12</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom bar (dimmed while popover open) -->
+        <div class="hud-map-toolbar" style="opacity:.75;">
+          <button class="toolbar-btn" aria-label="เปิดรายชื่อทีม">
+            <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            ทีม
+          </button>
+          <div class="env-capsule">
+            <div class="env-capsule-inner" style="padding:5px 10px; gap:5px; border-color:var(--glass-border-hi);">
+              <div class="env-seg dev"><span class="env-label">Dev</span><span class="env-count" style="font-size:11px;">5</span></div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg stg"><span class="env-label">Stg</span><span class="env-count" style="font-size:11px;">3</span></div>
+              <span class="env-arrow">▸</span>
+              <div class="env-seg ship"><span class="env-label">Ship</span><span class="env-count" style="font-size:11px;">2</span></div>
+              <div class="env-divider"></div>
+              <div class="env-bar" style="width:30px; height:3px;">
+                <div class="env-bar-seg dev" style="width:50%"></div>
+                <div class="env-bar-seg stg" style="width:30%"></div>
+                <div class="env-bar-seg ship" style="width:20%"></div>
+              </div>
+              <span class="env-pct" style="font-size:10px;">45%</span>
+            </div>
+          </div>
+          <button class="toolbar-btn">Board <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+
+      </div><!-- /map-scene -->
+    </div><!-- /capsule frame -->
+
+    <!-- Annotation for expanded capsule -->
+    <div>
+      <div class="annotation">
+        <h3>Capsule Expanded — กฎและข้อมูล</h3>
+        <ul>
+          <li><strong>Trigger:</strong> tap/click env-capsule → toggle popover (ขึ้นด้านบนจาก bottom toolbar)</li>
+          <li><strong>Data mapping:</strong></li>
+        </ul>
+        <table style="margin-top:6px;">
+          <thead>
+            <tr>
+              <th>Label ใน UI</th>
+              <th>Source (MapModel)</th>
+              <th>สี</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Dev</strong></td>
+              <td><code class="token">envLanes.dev.length</code></td>
+              <td style="color:#60a5fa; font-weight:700;">blue-400 #60a5fa</td>
+            </tr>
+            <tr>
+              <td><strong>Staging</strong></td>
+              <td><code class="token">envLanes.staging.length</code></td>
+              <td style="color:#fb923c; font-weight:700;">orange-400 #fb923c</td>
+            </tr>
+            <tr>
+              <td><strong>Ship</strong></td>
+              <td><code class="token">envLanes.prod.length</code> (label <code>released</code>)</td>
+              <td style="color:#4ade80; font-weight:700;">green-400 #4ade80</td>
+            </tr>
+            <tr>
+              <td><strong>%</strong></td>
+              <td><code class="token">projectPct</code></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>3-seg widths</strong></td>
+              <td><code class="token">dev/(dev+stg+ship) × 100%</code> etc.</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Gates</strong></td>
+              <td><code class="token">gates</code> count + open count</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Epics</strong></td>
+              <td><code class="token">epicsActive / totalEpics</code></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Backlog</strong></td>
+              <td><code class="token">agents[].queued</code> sum</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+        <ul style="margin-top:10px;">
+          <li><strong>ปิด popover:</strong> tap capsule อีกครั้ง หรือ tap นอก popover (click-outside)</li>
+          <li><strong>ARIA:</strong> capsule = <code>role="button" aria-expanded="true/false" aria-controls="env-summary"</code>; popover = <code>id="env-summary" role="dialog" aria-label="สถานะ Env Pipeline"</code></li>
+          <li><strong>Ship segment สีต่างออก:</strong> ใช้ <code>green-400</code> (สว่างกว่า Dev/Staging) เพื่อให้ "ส่งสำเร็จ" เด่นชัด</li>
+          <li><strong>ตัวเลข = tabular-nums</strong> ทุกที่ เพื่อกันขยับเมื่อตัวเลขเปลี่ยน</li>
+        </ul>
+      </div>
+
+      <div class="note" style="margin-top:12px;">
+        <p><strong>Env pipeline invariant:</strong> prod lane ใน MapModel = stories ที่มี label <code>released</code> (ดู <code>status-derive.ts:306 envOf()</code>) → แสดงเป็น "Ship" ในภาษาที่ผู้ใช้เข้าใจ ไม่ใช้คำว่า "Prod" หรือ "Production" ในหน้า UI</p>
+      </div>
+    </div>
+
+  </div><!-- /states-row-2 capsule -->
+</section>
+
+<hr class="divider"/>
+
+<!-- ═══════════════════════════════════════
+     §4  ANNOTATIONS
+     ═══════════════════════════════════════ -->
+<section id="annotations">
+  <h2><span class="n">4</span>Annotations — Specs สำหรับ SMUX-6 Frontend</h2>
+  <p class="section-sub">กฎและค่าที่ Frontend ต้องปฏิบัติตามทุกข้อ</p>
+
+  <div class="annotation">
+    <h3>A. Top Bar — Icon-only (<1024px)</h3>
+    <div class="ann-row">
+      <ul>
+        <li><strong>Breakpoint:</strong> <code>&lt;1024px</code> (tablet + mobile) ซ่อน filter dropdowns จาก top bar ทั้งหมด</li>
+        <li><strong>Logo:</strong> CampVibe chip ซ้าย (<code>hud-logo-chip</code>) ทำงานเหมือนเดิม ไม่เปลี่ยน</li>
+        <li><strong>ไอคอน 3 ปุ่ม (ขวา):</strong>
+          <ul style="padding-left:16px; margin-top:4px;">
+            <li>Dashboard → <code>/status</code> : lucide <strong>LayoutDashboard</strong>, <code>aria-label="ดูผลงานทั้งหมด"</code></li>
+            <li>Env/Productivity toggle : lucide <strong>Gauge</strong>, <code>aria-label="ผลผลิต Scout Team"</code></li>
+            <li>Sound toggle : lucide <strong>Volume2</strong> / <strong>VolumeX</strong>, <code>aria-label="เปิด/ปิดเสียง"</code></li>
+          </ul>
+        </li>
+        <li><strong>Tap target ≥44px:</strong> icon button ต้องเป็น <code>w-11 h-11</code> (44px) ขั้นต่ำ — WCAG 2.1 AA</li>
+        <li><strong>State active:</strong> border <code>--glass-border-hi</code>, icon color <code>--teal-glow</code></li>
+        <li><strong>Tooltip on hover/focus:</strong> label Thai สั้นปรากฏด้านล่างปุ่ม (ไม่ใช่ tooltip จาก shadcn ทั่วไป — ใช้ CSS position หรือ Radix Tooltip ก็ได้)</li>
+      </ul>
+      <ul>
+        <li><strong>Desktop ≥1024:</strong> top bar คงเดิมทั้งหมด — ซ่อนไอคอนบน ≥1024, แสดง filter dropdowns + view-link chip เหมือนเดิม</li>
+        <li><strong>Background:</strong> top bar ไม่มีพื้น (transparent) เหมือนเดิม</li>
+        <li><strong>Order (ซ้าย→ขวา):</strong> Logo → spacer → LayoutDashboard icon → Gauge icon → Volume icon</li>
+        <li><strong>Motion:</strong> icon active state ใช้ transition opacity/color 120–250ms, ไม่ animate layout</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="annotation" style="margin-top:12px;">
+    <h3>B. Filter Row (<1024px)</h3>
+    <ul>
+      <li><strong>Position:</strong> ต่อจาก top bar — <code>position:absolute; top:56px; left:0; right:0</code> (หรือ flex column ตาม implementation); ไม่ใช่ top bar เดิม</li>
+      <li><strong>Layout:</strong> 3 คอลัมน์เท่ากัน <code>flex: 1</code> เต็มความกว้าง frame</li>
+      <li><strong>ความสูง:</strong> ขั้นต่ำ <strong>30px</strong> — ถ้า label ยาว label ตัด ellipsis แถวไม่ขยาย</li>
+      <li><strong>Label truncate:</strong> <code>overflow:hidden; text-overflow:ellipsis; white-space:nowrap</code> บน element label ไม่ใช่บน wrapper</li>
+      <li><strong>Arrow:</strong> ▴ (ชี้ขึ้น) สะท้อนว่าเมนูเปิดขึ้นบน (drop-up); เมื่อเมนูปิด ชี้ขึ้นเช่นกัน (convention คง upward เพื่อบอกทิศทาง)</li>
+      <li><strong>Background:</strong> <code>--glass</code> border <code>--glass-border</code> — ไม่ใช่ solid สีพื้น</li>
+      <li><strong>Drop-up menu:</strong> เปิดขึ้นด้านบนเสมอ, <code>border-radius: 10px 10px 0 0</code>, ความกว้างเท่าคอลัมน์</li>
+      <li><strong>ARIA:</strong> <code>aria-haspopup="listbox" aria-expanded aria-controls</code> บน trigger; menu = <code>role="listbox"</code>; item = <code>role="option" aria-selected</code></li>
+      <li><strong>Keyboard:</strong> ArrowUp/Down เลื่อน option, Enter เลือก, Escape ปิด + focus กลับ trigger</li>
+    </ul>
+  </div>
+
+  <div class="annotation" style="margin-top:12px;">
+    <h3>C. Mobile Bottom Toolbar — Transparent Bar</h3>
+    <ul>
+      <li><strong>Bar background:</strong> <strong>ไม่มีพื้น (transparent)</strong> — ลบ <code>background: var(--glass-hi)</code> และ <code>border-top</code> ออกจาก toolbar element</li>
+      <li><strong>ปุ่ม ≡ ทีม / Board:</strong> ยังคง glass chip (<code>background: var(--glass); border: 1px solid var(--glass-border)</code>) ในระดับ <code>&lt;button&gt;</code> ไม่ใช่ toolbar</li>
+      <li><strong>Env capsule:</strong> อยู่ตรงกลาง (<code>flex:1</code>), ไม่มี background ของตัวเอง — inner ใช้ <code>background: rgba(7,13,28,.65)</code> + <code>border</code> เล็กน้อย</li>
+      <li><strong>Desktop/Tablet ≥1024:</strong> bottom toolbar ไม่เปลี่ยน (dock design เดิม)</li>
+      <li><strong>Safe area:</strong> padding-bottom ต้องรองรับ iOS safe-area-inset-bottom (<code>env(safe-area-inset-bottom)</code>)</li>
+    </ul>
+  </div>
+
+  <div class="annotation" style="margin-top:12px;">
+    <h3>D. Env-Pipeline Capsule</h3>
+    <ul>
+      <li><strong>Data:</strong> อ่านจาก <code>MapModel.envLanes.dev</code>, <code>.staging</code>, <code>.prod</code> (array ของ stories); แสดง <code>.length</code></li>
+      <li><strong>Label mapping:</strong> <code>prod</code> lane → label <strong>"Ship"</strong> (ไม่ใช้ "Prod"/"Production" ใน UI)</li>
+      <li><strong>3-segment bar widths:</strong> proportional — <code>dev/(dev+staging+prod) × 100%</code> ฯลฯ; ถ้าทุก lane = 0 แสดง bar เป็น muted full-width</li>
+      <li><strong>%:</strong> <code>projectPct</code> ตรงๆ + ต้องเป็น tabular-nums</li>
+      <li><strong>สี Ship segment:</strong> สว่างกว่า Dev/Staging เพื่อให้ "ส่งสำเร็จ" เด่น — ใช้ token <code>--env-ship: #4ade80</code> (green-400)</li>
+      <li><strong>Tap target capsule:</strong> ≥44px height (min-height ของ capsule-inner)</li>
+      <li><strong>Expanded popover:</strong> เปิด/ปิดด้วย toggle, dismiss นอก; ใช้ shadcn <code>Popover</code> หรือ custom positioned absolute — ห้าม modal/dialog</li>
+    </ul>
+  </div>
+
+  <div class="invariant" style="margin-top:16px;">
+    <strong>Invariant — Night scene immune to .dark:</strong> CSS ทั้งหมดใน HUD ของ <code>/status/map</code> ใช้ custom properties ภายใน scope (<code>--night, --glass, --teal-glow</code> ฯลฯ) ไม่ขึ้นกับ token ของ CampVibe light/dark theme รูปแบบนี้ถูกต้องและตั้งใจ ห้าม refactor เป็น <code>bg-card</code> หรือ token theme อื่น
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ═══════════════════════════════════════
+     §5  TOKEN TABLE
+     ═══════════════════════════════════════ -->
+<section id="tokens">
+  <h2><span class="n">5</span>Tokens + Values</h2>
+  <p class="section-sub">ทุก value ที่ใช้ใน wireframe นี้ — ไม่มีค่า hex/px ที่ hardcode นอก scope</p>
+
+  <div class="annotation">
+    <h3>Night-scene custom properties (scope: /status/map — immune to .dark)</h3>
+    <table>
+      <thead><tr><th>Token</th><th>Value</th><th>ใช้ใน</th></tr></thead>
+      <tbody>
+        <tr><td><code class="token">--night</code></td><td><code>#070d1c</code></td><td>Map scene background</td></tr>
+        <tr><td><code class="token">--glass</code></td><td><code>rgba(11,30,24,.55)</code></td><td>Glass chip / toolbar button background</td></tr>
+        <tr><td><code class="token">--glass-hi</code></td><td><code>rgba(11,30,24,.70)</code></td><td>Popover / summary background</td></tr>
+        <tr><td><code class="token">--glass-border</code></td><td><code>rgba(150,240,195,.14)</code></td><td>Chip / button border default</td></tr>
+        <tr><td><code class="token">--glass-border-hi</code></td><td><code>rgba(91,233,176,.40)</code></td><td>Chip / button border active/hover</td></tr>
+        <tr><td><code class="token">--teal-glow</code></td><td><code>#5BE9B0</code></td><td>Icon active, filter active, selected item</td></tr>
+        <tr><td><code class="token">--text-night</code></td><td><code>#F1F6FB</code></td><td>Primary text on night scene</td></tr>
+        <tr><td><code class="token">--muted-night</code></td><td><code>rgba(223,234,245,.65)</code></td><td>Secondary text, roster names</td></tr>
+        <tr><td><code class="token">--faint-night</code></td><td><code>rgba(223,234,245,.40)</code></td><td>Tertiary text, env arrow</td></tr>
+        <tr><td><code class="token">--env-dev</code></td><td><code>#60a5fa</code> (blue-400)</td><td>Dev lane: text + bar segment</td></tr>
+        <tr><td><code class="token">--env-staging</code></td><td><code>#fb923c</code> (orange-400)</td><td>Staging lane: text + bar segment</td></tr>
+        <tr><td><code class="token">--env-ship</code></td><td><code>#4ade80</code> (green-400)</td><td>Ship (released/prod) lane: text + bar segment</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:16px;">Sizing / layout rules</h3>
+    <table>
+      <thead><tr><th>Rule</th><th>Value</th><th>จุดประสงค์</th></tr></thead>
+      <tbody>
+        <tr><td>Icon button tap target</td><td><code>44px × 44px</code> (w-11 h-11)</td><td>WCAG 2.1 AA touch target</td></tr>
+        <tr><td>Filter row min-height</td><td><code>30px</code></td><td>กำหนดโดย owner — ห้ามต่ำกว่านี้</td></tr>
+        <tr><td>Bottom toolbar min-height</td><td><code>52px</code></td><td>รองรับ tap target + capsule</td></tr>
+        <tr><td>Capsule min-height</td><td><code>40px</code></td><td>tap target capsule</td></tr>
+        <tr><td>Filter col layout</td><td><code>flex: 1</code> (equal)</td><td>3 คอลัมน์เท่ากัน เต็ม frame width</td></tr>
+        <tr><td>Drop-up radius</td><td><code>10px 10px 0 0</code></td><td>โค้งบน ตัดล่าง ต่อ filter row</td></tr>
+        <tr><td>Summary popover radius</td><td><code>14px</code></td><td>~= <code>--radius-inner</code> (14px)</td></tr>
+        <tr><td>Motion duration</td><td><code>120–250ms</code></td><td>DESIGN.md §2 motion token</td></tr>
+        <tr><td>Motion properties</td><td><code>transform</code> + <code>opacity</code> only</td><td>ห้าม width/height/top animation</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:16px;">Breakpoints</h3>
+    <table>
+      <thead><tr><th>Breakpoint</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt; 640px</code> — Mobile</td><td>Icon top bar + filter row + transparent bottom bar + env capsule (compressed)</td></tr>
+        <tr><td><code>640–1023px</code> — Tablet</td><td>Icon top bar + filter row + transparent bottom bar + env capsule (full)</td></tr>
+        <tr><td><code>≥ 1024px</code> — Desktop</td><td>3-dropdown top row + left/right panels + bottom dock — <strong>unchanged</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note note-block" style="margin-top:16px;">
+    <p><strong>ห้าม hardcode palette:</strong> ค่าสี env-dev/staging/ship เป็น custom properties ภายใน scope ไม่ใช่ OKLCH theme token ของ CampVibe — ต้องประกาศใน <code>SCENE_CSS</code> ของ <code>campsite-scene.tsx</code> ภายใน <code>:scope</code> หรือ <code>[data-map-scene]</code> selector เพื่อกันไม่ให้รั่วออกสู่ theme global</p>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ═══════════════════════════════════════
+     §6  A11Y CHECKLIST
+     ═══════════════════════════════════════ -->
+<section>
+  <h2><span class="n">6</span>A11y Checklist — WCAG 2.1 AA</h2>
+  <p class="section-sub">Frontend ต้องผ่านทุกข้อก่อนส่ง design gate</p>
+
+  <div class="annotation">
+    <div class="ann-row">
+      <ul>
+        <li><strong>Icon buttons (3 ปุ่ม top bar):</strong> ทุกปุ่มมี <code>aria-label</code> ภาษาไทย, tap target = 44×44px</li>
+        <li><strong>Filter triggers:</strong> <code>aria-haspopup="listbox"</code> + <code>aria-expanded</code> + <code>aria-controls</code></li>
+        <li><strong>Drop-up items:</strong> <code>role="option"</code> + <code>aria-selected</code>; selected item ใช้สี <strong>และ</strong> dot (ไม่ใช้สีอย่างเดียว)</li>
+        <li><strong>Env capsule:</strong> <code>role="button"</code> + <code>aria-expanded</code> + <code>aria-label</code> บรรยายความหมาย (ไม่ใช่แค่ตัวเลข)</li>
+        <li><strong>Summary popover:</strong> <code>role="dialog"</code> + <code>aria-label="สถานะ Env Pipeline"</code>; focus ย้ายเข้า dialog เมื่อเปิด</li>
+      </ul>
+      <ul>
+        <li><strong>Focus ring:</strong> visible ring บนทุก interactive element (<code>outline-ring/50</code> หรือ custom night-scene ring)</li>
+        <li><strong>Keyboard nav:</strong> Tab ผ่านปุ่มทุกตัว, ArrowKey ใน drop-up, Escape ปิด menus</li>
+        <li><strong>Color-not-only:</strong> Env segments ใช้สี + label text + bar position — ไม่ใช้สีเป็น signal เดียว</li>
+        <li><strong>Contrast:</strong> text-night (#F1F6FB) บน glass (rgba 11,30,24,.55–.70) — <strong>not measured</strong>; Frontend ต้องวัดด้วย axe ก่อน ship</li>
+        <li><strong>prefers-reduced-motion:</strong> ปิด shimmer / animation ทั้งหมด; capsule toggle ใช้ opacity snap แทน</li>
+        <li><strong>iOS safe area:</strong> toolbar padding-bottom รองรับ <code>env(safe-area-inset-bottom)</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+</body>
+</html>

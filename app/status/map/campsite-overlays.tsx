@@ -1123,7 +1123,199 @@ export const HUD_CSS = `
 .hud-env-card-label{font-weight:600;font-size:14px}
 .hud-env-card-sublabel{font-size:12px;opacity:.55}
 .hud-env-card-link{display:flex;align-items:center;gap:4px;font-size:12px;color:#5BE9B0;opacity:.8;margin-top:2px}
+
+/* ── SMUX-6: Mobile icon buttons (top bar <1024) ── */
+.hud-icon-btn{
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32);
+  color:rgba(223,234,245,.70);cursor:pointer;
+  transition:background 120ms,color 120ms,border-color 120ms;
+}
+.hud-icon-btn:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.30)}
+.hud-icon-btn:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:2px}
+.hud-icon-btn:active{transform:scale(.95)}
+.hud-icon-btn.active{color:#5BE9B0;border-color:rgba(91,233,176,.40);background:rgba(91,233,176,.12)}
+.hud-icon-btn:disabled{opacity:.45;pointer-events:none}
+.hud-icon-btn svg{width:20px;height:20px;display:block}
+
+/* ── SMUX-6: Bottom filter row (<1024) — 3 equal columns, drop-up menus ── */
+.hud-filter-row-mobile{
+  position:fixed;
+  /* sits just above the mobile toolbar (52px) or at the frame bottom when toolbar is absent */
+  bottom:52px;
+  left:0;right:0;
+  z-index:24;
+  display:none; /* shown via @media below */
+  width:100%;
+  box-sizing:border-box;
+}
+/* 3 equal-width filter columns */
+.hud-filter-cols{
+  display:flex;
+  width:100%;
+  box-sizing:border-box;
+  padding:0 0 2px 0;
+}
+.hud-filter-col{
+  flex:1;
+  min-width:0;
+  position:relative;
+  display:flex;
+}
+/* trigger button fills its column */
+.hud-filter-col-btn{
+  flex:1;min-width:0;
+  display:flex;align-items:center;justify-content:space-between;gap:4px;
+  min-height:30px;
+  padding:0 8px;
+  font-size:11px;font-weight:600;
+  color:rgba(223,234,245,.78);
+  background:rgba(11,30,24,.60);
+  border:1px solid rgba(150,240,195,.12);
+  border-right:none;
+  backdrop-filter:saturate(195%) blur(20px);-webkit-backdrop-filter:saturate(195%) blur(20px);
+  cursor:pointer;
+  transition:background 120ms,color 120ms;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  box-sizing:border-box;
+}
+.hud-filter-col:first-child .hud-filter-col-btn{border-radius:8px 0 0 0}
+.hud-filter-col:last-child .hud-filter-col-btn{border-right:1px solid rgba(150,240,195,.12);border-radius:0 8px 0 0}
+.hud-filter-col-btn:hover{background:rgba(91,233,176,.10);color:rgba(223,234,245,.96)}
+.hud-filter-col-btn.active{color:#5BE9B0;background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.25)}
+.hud-filter-col-btn:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:-2px;z-index:2}
+.hud-filter-col-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.hud-filter-col-caret{flex:none;opacity:.55;margin-left:2px}
+/* drop-up menu — opens above the trigger */
+.hud-filter-dropup{
+  position:absolute;
+  bottom:calc(100% + 2px);
+  left:0;
+  z-index:35;
+  min-width:180px;max-width:min(280px,90vw);
+  max-height:55vh;overflow-y:auto;
+  display:flex;flex-direction:column;gap:1px;padding:6px;
+  background:rgba(11,30,24,.82);
+  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
+  border:1px solid rgba(150,240,195,.18);
+  border-radius:10px 10px 0 0;
+  box-shadow:0 -12px 36px rgba(0,0,0,.50),inset 0 -1px 0 rgba(200,255,232,.08);
+}
+.hud-filter-dropup-item{
+  display:block;width:100%;
+  text-align:left;padding:9px 12px;border-radius:7px;
+  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:background 100ms,color 100ms;
+  background:none;border:none;
+}
+.hud-filter-dropup-item:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
+.hud-filter-dropup-item.sel{background:rgba(91,233,176,.16);color:#5BE9B0;font-weight:700}
+.hud-filter-dropup-item:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:-2px}
+/* Selected indicator — dot before label */
+.hud-filter-dropup-item.sel::before{content:"•";margin-right:6px}
+
+/* Show filter row on tablet + mobile */
+@media (max-width: 1023px) {
+  .hud-filter-row-mobile{display:block}
+}
+/* On desktop, always hidden */
+@media (min-width: 1024px) {
+  .hud-filter-row-mobile{display:none !important}
+}
+
+/* ── SMUX-6: Env Pipeline Capsule (mobile bottom bar center) ── */
+.env-capsule-wrap{position:relative;display:flex;align-items:center}
+.env-capsule{
+  display:inline-flex;flex-direction:column;align-items:center;
+  gap:4px;
+  padding:6px 12px;
+  min-height:44px;min-width:44px;
+  border:1px solid rgba(150,240,195,.20);border-radius:10px;
+  background:rgba(11,30,24,.55);
+  backdrop-filter:saturate(195%) blur(22px);-webkit-backdrop-filter:saturate(195%) blur(22px);
+  box-shadow:0 6px 18px rgba(0,0,0,.36),inset 0 1px 0 rgba(200,255,232,.10);
+  cursor:pointer;
+  transition:background 120ms,border-color 120ms;
+}
+.env-capsule:hover{background:rgba(11,30,24,.70);border-color:rgba(91,233,176,.35)}
+.env-capsule:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:2px}
+.env-capsule:active{transform:scale(.97)}
+.env-capsule[aria-expanded="true"]{border-color:rgba(91,233,176,.40);background:rgba(91,233,176,.07)}
+.env-capsule-lanes{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;line-height:1}
+.env-lane-label{display:inline-flex;align-items:center;gap:3px}
+.env-lane-label.dev{color:#60a5fa}
+.env-lane-label.staging{color:#fb923c}
+.env-lane-label.ship{color:#4ade80}
+.env-lane-count{font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;font-size:11px;font-weight:800}
+.env-lane-arrow{font-size:8px;opacity:.5;color:rgba(223,234,245,.50)}
+/* 3-segment progress bar */
+.env-capsule-bar{
+  display:flex;height:3px;width:100%;border-radius:2px;overflow:hidden;
+  background:rgba(255,255,255,.08);
+}
+.env-bar-seg{height:100%;border-radius:2px}
+.env-bar-seg.dev{background:#60a5fa}
+.env-bar-seg.staging{background:#fb923c}
+.env-bar-seg.ship{background:#4ade80}
+.env-bar-seg.muted{background:rgba(255,255,255,.12)}
+@media (prefers-reduced-motion:no-preference){
+  .env-bar-seg{transition:width 300ms ease-out}
+}
+.env-capsule-pct{
+  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
+  font-size:12px;font-weight:800;color:#5BE9B0;line-height:1;
+}
+
+/* Summary popover — anchored above capsule */
+.env-summary{
+  position:absolute;
+  bottom:calc(100% + 8px);
+  left:50%;transform:translateX(-50%);
+  z-index:50;
+  width:min(220px,88vw);
+  background:rgba(11,30,24,.78);
+  backdrop-filter:saturate(195%) blur(32px);-webkit-backdrop-filter:saturate(195%) blur(32px);
+  border:1px solid rgba(150,240,195,.18);
+  border-radius:14px;
+  padding:14px 16px 12px;
+  box-shadow:0 20px 50px rgba(0,0,0,.60),inset 0 1px 0 rgba(200,255,232,.12);
+  color:rgba(223,234,245,.9);
+  outline:none;
+}
+@media (prefers-reduced-motion:no-preference){
+  .env-summary{animation:envSummaryIn 150ms cubic-bezier(.32,1.1,.5,1) both}
+  @keyframes envSummaryIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+}
+.env-summary-title{
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(223,234,245,.45);margin-bottom:10px;
+}
+.env-summary-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.env-summary-row{display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.env-summary-key{color:rgba(223,234,245,.55);font-weight:600}
+.env-summary-val{
+  font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
+  font-size:13px;font-weight:700;color:rgba(223,234,245,.9);
+  display:flex;align-items:baseline;gap:3px;
+}
+.env-summary-sub{font-size:10px;font-weight:400;color:rgba(223,234,245,.45);font-family:inherit}
+.env-summary-close{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;padding:7px 0;border-radius:8px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  color:rgba(223,234,245,.55);font-size:11px;font-weight:600;cursor:pointer;
+  transition:background 120ms;
+}
+.env-summary-close:hover{background:rgba(255,255,255,.12);color:rgba(223,234,245,.9)}
+.env-summary-close:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:2px}
 `;
+
 
 // ── Focus trap helpers ────────────────────────────────────────────────────────
 
@@ -3402,3 +3594,324 @@ export function MapOverlays({
     </>
   );
 }
+
+// ── FilterRowMobile (SMUX-6) ─────────────────────────────────────────────────
+// Bottom filter row for tablet/mobile (<1024px).
+// 3 equal-flex columns (Persona/Feature/Epic), each with a drop-up menu.
+// Menus open upward since the row sits at the bottom edge.
+// No overflow at ≥320px: columns flex-shrink + labels truncate.
+
+interface FilterRowMobileProps {
+  personas: string[];
+  features: string[];
+  epics: { key: string; label: string }[];
+  persona: string;
+  feature: string;
+  epic: string;
+  onChange: (level: "persona" | "feature" | "epic", value: string) => void;
+}
+
+export function FilterRowMobile({ personas, features, epics, persona, feature, epic, onChange }: FilterRowMobileProps) {
+  const [openCol, setOpenCol] = useState<"persona" | "feature" | "epic" | null>(null);
+  const colRefs = {
+    persona: useRef<HTMLButtonElement | null>(null),
+    feature: useRef<HTMLButtonElement | null>(null),
+    epic:    useRef<HTMLButtonElement | null>(null),
+  };
+
+  // Close on Escape + click-outside
+  useEffect(() => {
+    if (!openCol) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const ref = colRefs[openCol!];
+        setOpenCol(null);
+        ref?.current?.focus();
+      }
+    }
+    function onOutside(e: MouseEvent) {
+      // If click is inside any filter col, let it handle itself
+      const target = e.target as Node;
+      const filterRow = document.querySelector("[data-testid=\"filter-row--map-mobile\"]");
+      if (filterRow?.contains(target)) return;
+      setOpenCol(null);
+    }
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("mousedown", onOutside, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("mousedown", onOutside, true);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCol]);
+
+  const cols: Array<{
+    key: "persona" | "feature" | "epic";
+    label: string;
+    value: string;
+    opts: Array<{ key: string; label: string }>;
+    all: string;
+    ariaLabel: string;
+  }> = [
+    {
+      key: "persona",
+      label: persona || "ผู้ใช้งาน",
+      value: persona,
+      opts: personas.map((p) => ({ key: p, label: p })),
+      all: "ทั้งหมด",
+      ariaLabel: "กรองตามผู้ใช้งาน",
+    },
+    {
+      key: "feature",
+      label: feature || "Feature",
+      value: feature,
+      opts: features.map((f) => ({ key: f, label: f })),
+      all: "ทั้งหมด",
+      ariaLabel: "กรองตาม Feature",
+    },
+    {
+      key: "epic",
+      label: epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "Epic",
+      value: epic,
+      opts: epics,
+      all: "ทั้งหมด",
+      ariaLabel: "กรองตาม Epic",
+    },
+  ];
+
+  return (
+    <div
+      className="hud-filter-row-mobile"
+      data-testid="filter-row--map-mobile"
+    >
+      <div className="hud-filter-cols">
+        {cols.map((col) => {
+          const isOpen = openCol === col.key;
+          const isActive = !!col.value;
+          return (
+            <div key={col.key} className="hud-filter-col">
+              <button
+                ref={colRefs[col.key]}
+                type="button"
+                className={`hud-filter-col-btn${isActive ? " active" : ""}`}
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                aria-controls={`filter-dropup-${col.key}`}
+                aria-label={col.ariaLabel}
+                onClick={() => setOpenCol(isOpen ? null : col.key)}
+                data-testid={`btn--filter-col-${col.key}`}
+              >
+                <span className="hud-filter-col-label">{col.label}</span>
+                <span className="hud-filter-col-caret" aria-hidden="true">▾</span>
+              </button>
+              {isOpen && (
+                <div
+                  id={`filter-dropup-${col.key}`}
+                  role="listbox"
+                  className="hud-filter-dropup"
+                  aria-label={col.ariaLabel}
+                  data-testid={`dropup--filter-${col.key}`}
+                >
+                  {/* "All" option */}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={!col.value}
+                    className={`hud-filter-dropup-item${!col.value ? " sel" : ""}`}
+                    onClick={() => { onChange(col.key, ""); setOpenCol(null); colRefs[col.key].current?.focus(); }}
+                  >
+                    {col.all}
+                  </button>
+                  {col.opts.map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="option"
+                      aria-selected={col.value === opt.key}
+                      className={`hud-filter-dropup-item${col.value === opt.key ? " sel" : ""}`}
+                      onClick={() => { onChange(col.key, opt.key); setOpenCol(null); colRefs[col.key].current?.focus(); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── EnvPipelineCapsule (SMUX-6) ───────────────────────────────────────────────
+// Mobile bottom bar center element. Shows Dev/Staging/Ship counts + 3-seg bar + pct.
+// Tap to expand a summary popover with gates / epics / backlog counts.
+// Anchored to the bottom toolbar — custom absolute-positioned popover (not Dialog/Sheet,
+// per the Design Brief: small, anchored).
+
+export interface EnvPipelineCapsuleProps {
+  envLanes: { dev: MapEnvItem[]; staging: MapEnvItem[]; prod: MapEnvItem[] };
+  projectPct: number;
+  gates: MapGate[];
+  epicsActive: number;
+  totalEpics: number;
+  backlogItems: MapBacklogItem[];
+}
+
+export function EnvPipelineCapsule({
+  envLanes,
+  projectPct,
+  gates,
+  epicsActive,
+  totalEpics,
+  backlogItems,
+}: EnvPipelineCapsuleProps) {
+  const [open, setOpen] = useState(false);
+  const capsuleRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Data derive
+  const devCount     = envLanes?.dev?.length     ?? 0;
+  const stagingCount = envLanes?.staging?.length ?? 0;
+  const shipCount    = envLanes?.prod?.length    ?? 0;
+  const total        = devCount + stagingCount + shipCount;
+
+  const devPct     = total > 0 ? (devCount / total) * 100 : 33.33;
+  const stagingPct = total > 0 ? (stagingCount / total) * 100 : 33.33;
+  const shipPct    = total > 0 ? (shipCount / total) * 100 : 33.33;
+  const isAllZero  = total === 0;
+
+  // Accessible label — updates dynamically
+  const ariaLabel = `สถานะ Env Pipeline — Dev ${devCount}, Staging ${stagingCount}, Ship ${shipCount}, ${projectPct}%`;
+
+  // Close on Escape + click-outside
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        capsuleRef.current?.focus();
+      }
+    }
+    function onOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        popoverRef.current?.contains(t) ||
+        capsuleRef.current?.contains(t)
+      ) return;
+      setOpen(false);
+    }
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("mousedown", onOutside, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("mousedown", onOutside, true);
+    };
+  }, [open]);
+
+  // Move focus into popover when it opens
+  useEffect(() => {
+    if (!open) return;
+    const el = popoverRef.current;
+    if (!el) return;
+    const first = el.querySelector<HTMLElement>(
+      'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    );
+    (first ?? el).focus();
+  }, [open]);
+
+  return (
+    <div className="env-capsule-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      {/* The capsule button */}
+      <button
+        ref={capsuleRef}
+        type="button"
+        className="env-capsule"
+        role="button"
+        aria-expanded={open}
+        aria-controls="env-summary"
+        aria-label={ariaLabel}
+        onClick={() => setOpen((v) => !v)}
+        data-testid="btn--map-env-capsule"
+      >
+        {/* Lane counts row */}
+        <span className="env-capsule-lanes">
+          <span className="env-lane-label dev" aria-hidden="true">
+            Dev <span className="env-lane-count">{devCount !== undefined ? devCount : "—"}</span>
+          </span>
+          <span className="env-lane-arrow" aria-hidden="true">▸</span>
+          <span className="env-lane-label staging" aria-hidden="true">
+            Staging <span className="env-lane-count">{stagingCount !== undefined ? stagingCount : "—"}</span>
+          </span>
+          <span className="env-lane-arrow" aria-hidden="true">▸</span>
+          <span className="env-lane-label ship" aria-hidden="true">
+            Ship <span className="env-lane-count">{shipCount !== undefined ? shipCount : "—"}</span>
+          </span>
+        </span>
+        {/* 3-segment bar */}
+        <span className="env-capsule-bar" aria-hidden="true">
+          {isAllZero ? (
+            <span className="env-bar-seg muted" style={{ width: "100%" }} />
+          ) : (
+            <>
+              <span className="env-bar-seg dev"     style={{ width: `${devPct}%` }} />
+              <span className="env-bar-seg staging" style={{ width: `${stagingPct}%` }} />
+              <span className="env-bar-seg ship"    style={{ width: `${shipPct}%` }} />
+            </>
+          )}
+        </span>
+        {/* Percent */}
+        <span className="env-capsule-pct" aria-hidden="true">
+          {projectPct}<span style={{ fontSize: "9px", opacity: 0.7 }}>%</span>
+        </span>
+      </button>
+
+      {/* Summary popover — anchors above the capsule */}
+      {open && (
+        <div
+          ref={popoverRef}
+          id="env-summary"
+          role="dialog"
+          aria-label="สถานะโปรเจกต์"
+          aria-modal="false"
+          className="env-summary"
+          tabIndex={-1}
+          data-testid="popover--map-env-summary"
+        >
+          <div className="env-summary-title">สถานะโปรเจกต์</div>
+          <div className="env-summary-rows">
+            <div className="env-summary-row" data-testid="row--env-summary-gates">
+              <span className="env-summary-key">Gates</span>
+              <span className="env-summary-val" style={{ color: gates.length > 0 ? "var(--env-ship-color, #FFB454)" : "#5BE9B0" }}>
+                {gates.length} <span className="env-summary-sub">เปิด</span>
+              </span>
+            </div>
+            <div className="env-summary-row" data-testid="row--env-summary-epics">
+              <span className="env-summary-key">Epics</span>
+              <span className="env-summary-val">
+                {epicsActive}<span className="env-summary-sub">/{totalEpics}</span>
+              </span>
+            </div>
+            <div className="env-summary-row" data-testid="row--env-summary-backlog">
+              <span className="env-summary-key">Backlog</span>
+              <span className="env-summary-val">{backlogItems.length}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="env-summary-close"
+            aria-label="ปิดสรุป"
+            onClick={() => { setOpen(false); capsuleRef.current?.focus(); }}
+            data-testid="btn--env-summary-close"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
