@@ -74,6 +74,8 @@ Requirements:
 
 **Full-page `loading.tsx`** (Next.js file convention): use only when the whole route is async on a true cold-load or navigation. Per-route, tailored to that route's layout — a camp-list skeleton for the list route, a camp-detail skeleton for the detail route.
 
+**Full-screen canvas/map modules (e.g. `/status/map`)**: use a progress indicator only — never a skeleton. A full-screen canvas has no predictable layout to mirror, so a skeleton adds no structural preview and causes visual whiplash. Give such a route its own `loading.tsx` that renders only the progress component (e.g. `<MapProgress />`). Without a route-level `loading.tsx`, Next.js falls back to the nearest ancestor — `app/loading.tsx` = the root neutral skeleton — producing an unwanted skeleton flash before the progress bar appears. (CAM-248 LOAD-4)
+
 **Root `app/loading.tsx`**: minimal, neutral last-resort only. Not a substitute for route-specific skeletons.
 
 **Layout caveat**: uncached/runtime data in `layout.js` (cookies/headers/uncached fetch) will not show the `loading.js` fallback and can block navigation. Move that fetch into `page.js` or wrap it in its own `<Suspense>` (Next.js docs).

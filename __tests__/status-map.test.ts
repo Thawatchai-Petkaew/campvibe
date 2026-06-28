@@ -394,8 +394,10 @@ describe("app/status/map/page.tsx — S7 AC3: error state copy matches /status",
 });
 
 // ---------- S7 AC4: loading state is labelled ----------
-describe("app/status/map/scene-loader.tsx — S7 AC4: loading state", () => {
-  const src = read("../app/status/map/scene-loader.tsx");
+// CAM-248 (LOAD-4): markup extracted to MapProgress (map-progress.tsx);
+// these assertions now check the canonical source of the a11y attributes.
+describe("app/status/map/map-progress.tsx — S7 AC4: loading state", () => {
+  const src = read("../app/status/map/map-progress.tsx");
 
   it("loading placeholder has role='status' aria-live='polite' for screen readers", () => {
     expect(src).toContain('role="status"');
@@ -1157,35 +1159,107 @@ describe("CAM-176: activeKey signature — unchanged activity yields same key", 
 
 // ============================================================
 // CAM-198 — Replace loading card with progress bar
+// CAM-248 (LOAD-4): markup extracted to MapProgress; scene-loader reuses it
 // ============================================================
 
-describe("app/status/map/scene-loader.tsx — CAM-198: progress bar loading fallback", () => {
-  const src = read("../app/status/map/scene-loader.tsx");
+// CAM-198 + CAM-248: MapProgress component carries all a11y + markup
+describe("app/status/map/map-progress.tsx — CAM-198/248: MapProgress component", () => {
+  const src = read("../app/status/map/map-progress.tsx");
 
-  it("loading fallback renders .map-progress (not .map-placeholder card)", () => {
+  it("renders map-progress (track element — not .map-placeholder card)", () => {
     expect(src).toContain("map-progress");
     expect(src).not.toContain('className="map-placeholder"');
   });
 
-  it("loading fallback has role='progressbar' and aria-busy='true'", () => {
+  it("has role='progressbar' and aria-busy='true'", () => {
     expect(src).toContain('role="progressbar"');
     expect(src).toContain('aria-busy="true"');
   });
 
-  it("loading fallback keeps data-testid='loading--status-map' (QA parity)", () => {
+  it("keeps data-testid='loading--status-map' (QA parity with CAM-198)", () => {
     expect(src).toContain('data-testid="loading--status-map"');
   });
 
-  it("loading fallback has Thai aria-label for screen reader (AC-4)", () => {
+  it("has Thai aria-label กำลังโหลดแผนที่แคมป์ (AC-4 screen reader)", () => {
     expect(src).toContain("กำลังโหลดแผนที่แคมป์");
   });
 
-  it("renders .map-progress-bar span (the animated fill)", () => {
-    expect(src).toContain("map-progress-bar");
+  it("renders the animated bar span (map-progress-standalone-bar)", () => {
+    expect(src).toContain("map-progress-standalone-bar");
   });
 
   it("does NOT render .map-placeholder-text (no text box in loading state)", () => {
     expect(src).not.toContain("map-placeholder-text");
+  });
+
+  it("inline CSS defines the sweep animation gated by prefers-reduced-motion:no-preference", () => {
+    expect(src).toContain("prefers-reduced-motion: no-preference");
+    expect(src).toContain("map-sweep-standalone");
+  });
+
+  it("full-screen dark background (#070d1c) — consistent with night-scene map", () => {
+    expect(src).toContain("#070d1c");
+  });
+
+  it("does NOT import RootShellSkeleton or any Skeleton primitive", () => {
+    expect(src).not.toContain("RootShellSkeleton");
+    expect(src).not.toContain("CampgroundGridSkeleton");
+    expect(src).not.toContain("Skeleton");
+  });
+});
+
+// CAM-248: scene-loader now delegates loading markup to MapProgress
+describe("app/status/map/scene-loader.tsx — CAM-248: reuses MapProgress", () => {
+  const src = read("../app/status/map/scene-loader.tsx");
+
+  it("imports MapProgress from ./map-progress", () => {
+    expect(src).toContain("MapProgress");
+    expect(src).toContain("map-progress");
+  });
+
+  it("loading: () => <MapProgress /> (delegates, not inline markup)", () => {
+    expect(src).toContain("loading: () => <MapProgress />");
+  });
+
+  it("does NOT contain inline map-progress JSX (markup lives in MapProgress)", () => {
+    // After extraction, scene-loader must NOT duplicate the markup
+    expect(src).not.toContain('role="progressbar"');
+    expect(src).not.toContain('aria-busy="true"');
+  });
+
+  it("does NOT render .map-placeholder-text", () => {
+    expect(src).not.toContain("map-placeholder-text");
+  });
+});
+
+// ============================================================
+// CAM-248 (LOAD-4) — Route-level loading.tsx: progress only, no skeleton
+// ============================================================
+
+describe("app/status/map/loading.tsx — CAM-248: progress only, overrides root skeleton", () => {
+  const src = read("../app/status/map/loading.tsx");
+
+  it("imports MapProgress from ./map-progress", () => {
+    expect(src).toContain("MapProgress");
+    expect(src).toContain("map-progress");
+  });
+
+  it("default export renders <MapProgress />", () => {
+    expect(src).toContain("<MapProgress />");
+  });
+
+  it("does NOT import RootShellSkeleton (no import statement for skeleton)", () => {
+    // Comments may mention it for context; imports must not reference it.
+    expect(src).not.toMatch(/import\s+.*RootShellSkeleton/);
+  });
+
+  it("does NOT import CampgroundGridSkeleton", () => {
+    expect(src).not.toMatch(/import\s+.*CampgroundGridSkeleton/);
+  });
+
+  it("does NOT import or render the <Skeleton> primitive", () => {
+    // <Skeleton is the shadcn primitive; this route must not use it.
+    expect(src).not.toContain("<Skeleton");
   });
 });
 
