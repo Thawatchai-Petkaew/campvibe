@@ -1647,3 +1647,110 @@ describe("campsite-scene.tsx — SMUX-3: filter reset clears focusedTaskId", () 
     expect(src).toContain("if (!value) setFocusedTaskId");
   });
 });
+
+// ============================================================
+// CAM-254 (SMUX-2-fix) — 3 visual defect fixes
+// ============================================================
+
+// ---------- Fix 1: right edge-tab border-radius mirrors left (inner-rounded) ---
+describe("campsite-scene.tsx — CAM-254 Fix 1: right edge-tab border-radius", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("right edge-tab uses border-radius:0 6px 6px 0 (rounds inner/map-facing edge after rotate(180deg))", () => {
+    // After rotate(180deg), the top-right and bottom-right corners (6px) visually become
+    // the top-left and bottom-left (map-facing). So the map-facing side is rounded.
+    // The frame-touching side stays flat — exactly mirroring the left tab.
+    expect(src).toContain(".hud-edge-tab.right{");
+    expect(src).toContain("border-radius:0 6px 6px 0;");
+  });
+
+  it("left edge-tab uses border-radius:0 6px 6px 0 (right side = map-facing for left-pinned tab)", () => {
+    // Left tab is pinned left:0 so its right side faces the map → rounded on the right.
+    expect(src).toContain(".hud-edge-tab.left{");
+    expect(src).toContain("border-radius:0 6px 6px 0;");
+  });
+
+  it("right tab does NOT use border-radius:6px 0 0 6px (the wrong pre-fix value)", () => {
+    // Guard: the bug was that the right tab had 6px on the left, which after rotate
+    // became rounded on the right (frame-touching) side — wrong.
+    // Verify the right-tab block no longer contains the old wrong value.
+    const rightTabBlock = src.slice(src.indexOf(".hud-edge-tab.right{"), src.indexOf(".hud-edge-tab.right{") + 200);
+    expect(rightTabBlock).not.toContain("border-radius:6px 0 0 6px");
+  });
+});
+
+// ---------- Fix 2: mobile (<640) desktop signposts hidden, compact filter visible ---
+describe("campsite-scene.tsx — CAM-254 Fix 2: mobile header overlap", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("@media (max-width: 639px) hides .hud-signposts-desktop with !important to prevent bleed", () => {
+    // !important ensures the rule beats any broader selector that might show it.
+    expect(src).toContain(".hud-signposts-desktop{display:none !important}");
+  });
+
+  it("@media (max-width: 639px) does NOT set .hud-filter-compact to position:fixed (stays in topbar flow)", () => {
+    // The old code had position:fixed;top:10px;right:10px inside the mobile block, which
+    // caused the compact filter to fly out of the topbar and overlap the logo.
+    // After the fix, the mobile block must NOT set position:fixed on .hud-filter-compact.
+    const mobileBlock = src.slice(src.lastIndexOf("@media (max-width: 639px)"), src.lastIndexOf("@media (max-width: 639px)") + 800);
+    // The compact filter block inside mobile must NOT have position:fixed
+    const compactInMobile = mobileBlock.indexOf(".hud-filter-compact");
+    if (compactInMobile >= 0) {
+      const compactCss = mobileBlock.slice(compactInMobile, compactInMobile + 120);
+      expect(compactCss).not.toContain("position:fixed");
+    }
+  });
+
+  it("@media (max-width: 1023px) also hides .hud-signposts-desktop (tablet parity)", () => {
+    expect(src).toContain(".hud-signposts-desktop{display:none}");
+  });
+});
+
+// ---------- Fix 3: each Sheet renders exactly one close button ─────────────────
+describe("campsite-scene.tsx — CAM-254 Fix 3: single close button per Sheet", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("Roster SheetContent has showCloseButton={false} (suppresses shadcn built-in button)", () => {
+    expect(src).toContain('id="sheet-roster"');
+    // Confirm showCloseButton={false} appears before the next SheetContent close tag.
+    const rosterBlock = src.slice(src.indexOf('id="sheet-roster"'), src.indexOf('id="sheet-board"'));
+    expect(rosterBlock).toContain("showCloseButton={false}");
+  });
+
+  it("Board SheetContent has showCloseButton={false} (suppresses shadcn built-in button)", () => {
+    const boardBlock = src.slice(src.indexOf('id="sheet-board"'), src.indexOf("</Sheet>", src.indexOf('id="sheet-board"')));
+    expect(boardBlock).toContain("showCloseButton={false}");
+  });
+
+  it("Roster Sheet still has exactly one SheetClose element (the custom styled one)", () => {
+    const rosterBlock = src.slice(src.indexOf('id="sheet-roster"'), src.indexOf('id="sheet-board"'));
+    // Count occurrences of SheetClose in the roster block — must be exactly 1.
+    const matches = rosterBlock.match(/<SheetClose/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it("Board Sheet still has exactly one SheetClose element (the custom styled one)", () => {
+    // The board sheet ends at the closing </Sheet> tag after id="sheet-board"
+    const boardStart = src.indexOf('id="sheet-board"');
+    // Find the </Sheet> that closes the board Sheet (first one after board starts)
+    const boardEnd = src.indexOf("</Sheet>", boardStart);
+    const boardBlock = src.slice(boardStart, boardEnd);
+    const matches = boardBlock.match(/<SheetClose/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
+  it("custom SheetClose in Roster has aria-label=ปิด (a11y intact)", () => {
+    expect(src).toContain('data-testid="btn--sheet-roster-close"');
+    expect(src).toContain('aria-label="ปิด"');
+  });
+
+  it("custom SheetClose in Board has aria-label=ปิด (a11y intact)", () => {
+    expect(src).toContain('data-testid="btn--sheet-board-close"');
+  });
+
+  it("SheetContent showCloseButton prop is accepted by the sheet component (not a stray prop)", () => {
+    const sheetSrc = read("../components/ui/sheet.tsx");
+    expect(sheetSrc).toContain("showCloseButton");
+    expect(sheetSrc).toContain("showCloseButton = true");
+  });
+});
