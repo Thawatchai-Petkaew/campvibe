@@ -1932,16 +1932,19 @@ describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", 
     expect(scene).toContain("<EnvPipelineCapsule");
   });
 
-  // AC-4: EnvPipelineCapsule receives envLanes prop
-  it("<EnvPipelineCapsule> receives envLanes prop in scene", () => {
+  // AC-4 + CAM-257: EnvPipelineCapsule receives FILTER-SCOPED counts (capsuleStats), not
+  // the raw global envLanes/projectPct — so the numbers respond to the active filter.
+  it("<EnvPipelineCapsule> receives filter-scoped lane counts (capsuleStats) in scene", () => {
     const capsuleBlock = scene.slice(scene.indexOf("<EnvPipelineCapsule"), scene.indexOf("/>", scene.indexOf("<EnvPipelineCapsule")));
-    expect(capsuleBlock).toContain("envLanes={envLanes}");
+    expect(capsuleBlock).toContain("devCount={capsuleStats.devCount}");
+    expect(capsuleBlock).toContain("stagingCount={capsuleStats.stagingCount}");
+    expect(capsuleBlock).toContain("shipCount={capsuleStats.shipCount}");
   });
 
-  // AC-4: EnvPipelineCapsule receives projectPct prop
-  it("<EnvPipelineCapsule> receives projectPct prop in scene", () => {
+  // AC-4 + CAM-257: capsule receives the scoped pct (done/total of the filtered set, or projectPct when "all")
+  it("<EnvPipelineCapsule> receives the filter-scoped pct (capsuleStats.pct) in scene", () => {
     const capsuleBlock = scene.slice(scene.indexOf("<EnvPipelineCapsule"), scene.indexOf("/>", scene.indexOf("<EnvPipelineCapsule")));
-    expect(capsuleBlock).toContain("projectPct={projectPct}");
+    expect(capsuleBlock).toContain("pct={capsuleStats.pct}");
   });
 
   // AC-4: EnvPipelineCapsule has min-height:44px for tap target
@@ -2053,5 +2056,220 @@ describe("SMUX-6 — desktop unchanged (≥1024px)", () => {
   // AC-6: hud-signposts-desktop class still present (desktop filter row untouched)
   it("campsite-scene.tsx retains hud-signposts-desktop class for desktop filter row", () => {
     expect(scene).toContain("hud-signposts-desktop");
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// CAM-257 (SMUX-6-fix) — EnvPipelineCapsule fixes (3 owner-reported issues)
+//   A. counts scoped to the active filter (not the global envLanes)
+//   B. glass-chip style matching .hud-signpost neighbours (pill, glass tokens)
+//   C. single horizontal row + no overlap with the filter row / toolbar
+// ────────────────────────────────────────────────────────────────────────────
+
+import type { MapEpicItem } from "@/app/status/map/campsite-scene";
+import { deriveCapsuleStats } from "@/lib/status-map-model";
+
+// Minimal MapEpicItem fixture builder for capsule-stats derivation tests.
+function epic(p: {
+  key: string;
+  label?: string;
+  feature?: string;
+  persona?: string;
+  bucket?: MapEpicItem["bucket"];
+  stories: Array<Partial<{ statusType: string; status: string; labels: string[] }>>;
+}): MapEpicItem {
+  return {
+    key: p.key,
+    label: p.label ?? p.key,
+    feature: p.feature ?? "feat-A",
+    persona: p.persona ?? "camper",
+    bucket: p.bucket ?? "prog",
+    stories: p.stories.map((s, i) => ({
+      id: `${p.key}-s${i}`,
+      title: `story ${i}`,
+      status: s.status ?? "In Progress",
+      statusType: s.statusType ?? "started",
+      labels: s.labels ?? [],
+      role: "frontend-engineer",
+      url: "",
+      startedAt: null,
+      completedAt: null,
+    })),
+  };
+}
+
+// A representative project: 2 features. "Authentication" has 2 dev + 1 staging + 1 ship;
+// "Booking" has 1 dev. Global env fallback below intentionally differs from the
+// per-filter derivation so the tests prove the numbers actually change.
+const FIXTURE_EPICS: MapEpicItem[] = [
+  epic({
+    key: "auth-login", label: "Login", feature: "Authentication", persona: "camper", bucket: "prog",
+    stories: [
+      { statusType: "started" },                                   // dev
+      { statusType: "unstarted" },                                 // dev
+      { statusType: "completed", status: "Done" },                 // staging (Done, not released)
+      { statusType: "completed", status: "Done", labels: ["released"] }, // ship (released)
+    ],
+  }),
+  epic({
+    key: "book-create", label: "Create booking", feature: "Booking", persona: "host", bucket: "prog",
+    stories: [{ statusType: "started" }],                          // dev
+  }),
+];
+
+const GLOBAL_FALLBACK = {
+  // deliberately different from any per-filter result (so "all" vs filtered is distinguishable)
+  envLanes: {
+    dev: [{ id: "g1", title: "", role: "" }, { id: "g2", title: "", role: "" }, { id: "g3", title: "", role: "" }],
+    staging: [{ id: "g4", title: "", role: "" }],
+    prod: [{ id: "g5", title: "", role: "" }],
+  },
+  projectPct: 40,
+  gates: [
+    { id: "G1", title: "", url: "", epicKey: "auth-login", priority: "High" },
+    { id: "G2", title: "", url: "", epicKey: "book-create", priority: "High" },
+  ],
+  backlogItems: [
+    { id: "B1", title: "", role: "", epicKey: "auth-login" },
+    { id: "B2", title: "", role: "", epicKey: "book-create" },
+  ],
+  epicsActive: 2,
+  totalEpics: 2,
+};
+
+describe("CAM-257 A — deriveCapsuleStats scopes counts to the active filter", () => {
+  it("'all' (no filter) returns the GLOBAL project numbers (original behaviour)", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "all", activeEpic: "", feature: "", persona: "",
+      ...GLOBAL_FALLBACK,
+    });
+    expect(s.scoped).toBe(false);
+    expect(s.devCount).toBe(3);     // global envLanes.dev.length
+    expect(s.stagingCount).toBe(1); // global envLanes.staging.length
+    expect(s.shipCount).toBe(1);    // global envLanes.prod.length
+    expect(s.pct).toBe(40);         // global projectPct
+    expect(s.gatesCount).toBe(2);
+    expect(s.backlogCount).toBe(2);
+    expect(s.epicsTotalCount).toBe(2);
+  });
+
+  it("selecting a FEATURE (Authentication) changes the counts to that feature's stories", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "all", activeEpic: "", feature: "Authentication", persona: "camper",
+      ...GLOBAL_FALLBACK,
+    });
+    expect(s.scoped).toBe(true);
+    // Authentication: 2 started/unstarted → dev, 1 Done → staging, 1 released → ship
+    expect(s.devCount).toBe(2);
+    expect(s.stagingCount).toBe(1);
+    expect(s.shipCount).toBe(1);
+    // pct = done(staging+ship)/total = 2/4 = 50% (NOT the global 40%)
+    expect(s.pct).toBe(50);
+  });
+
+  it("selecting a different FEATURE (Booking) yields different counts (numbers respond to the filter)", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "all", activeEpic: "", feature: "Booking", persona: "host",
+      ...GLOBAL_FALLBACK,
+    });
+    expect(s.devCount).toBe(1);
+    expect(s.stagingCount).toBe(0);
+    expect(s.shipCount).toBe(0);
+    expect(s.pct).toBe(0); // 0 done / 1 total
+  });
+
+  it("env bucketing follows envOf semantics: released→Ship, Done→Staging, else→Dev", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "epic", activeEpic: "auth-login", feature: "", persona: "",
+      ...GLOBAL_FALLBACK,
+    });
+    // a released story counts as Ship even though it is also Done
+    expect(s.shipCount).toBe(1);
+    expect(s.stagingCount).toBe(1);
+    expect(s.devCount).toBe(2);
+  });
+
+  it("summary counts (gates/backlog/epics) are scoped to the same selection", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "all", activeEpic: "", feature: "Authentication", persona: "camper",
+      ...GLOBAL_FALLBACK,
+    });
+    // only the auth-login gate/backlog match the Authentication feature's epicKeys
+    expect(s.gatesCount).toBe(1);
+    expect(s.backlogCount).toBe(1);
+    expect(s.epicsTotalCount).toBe(1);
+  });
+
+  it("empty filtered set → pct 0, no divide-by-zero", () => {
+    const s = deriveCapsuleStats({
+      epics: FIXTURE_EPICS, scope: "epic", activeEpic: "does-not-exist", feature: "", persona: "",
+      ...GLOBAL_FALLBACK,
+    });
+    expect(s.scoped).toBe(true);
+    expect(s.devCount + s.stagingCount + s.shipCount).toBe(0);
+    expect(s.pct).toBe(0);
+  });
+
+  it("scene wires capsuleStats via deriveCapsuleStats (single source of truth, no inline drift)", () => {
+    const scene = read("../app/status/map/campsite-scene.tsx");
+    expect(scene).toContain("deriveCapsuleStats");
+    expect(scene).toContain("const capsuleStats = useMemo");
+  });
+});
+
+describe("CAM-257 B — capsule matches the HUD glass-chip style (reuses .hud-signpost tokens)", () => {
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  it(".env-capsule is a pill (border-radius:999px), not the old 10px card", () => {
+    const block = overly.slice(overly.indexOf(".env-capsule{"), overly.indexOf(".env-capsule:hover"));
+    expect(block).toContain("border-radius:999px");
+    expect(block).not.toContain("border-radius:10px");
+  });
+
+  it(".env-capsule uses the same glass background + border + blur tokens as .hud-signpost", () => {
+    const block = overly.slice(overly.indexOf(".env-capsule{"), overly.indexOf(".env-capsule:hover"));
+    // identical glass language to .hud-signpost
+    expect(block).toContain("background:rgba(11,30,24,.50)");
+    expect(block).toContain("border:1px solid rgba(150,240,195,.13)");
+    expect(block).toContain("backdrop-filter:saturate(195%) blur(26px)");
+  });
+
+  it(".env-capsule hover/active matches the chip's teal-glass treatment", () => {
+    expect(overly).toContain(".env-capsule:hover{background:rgba(91,233,176,.12)");
+    expect(overly).toContain('.env-capsule[aria-expanded="true"]{border-color:rgba(91,233,176,.40)');
+  });
+});
+
+describe("CAM-257 C — single horizontal row + no overlap", () => {
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  it(".env-capsule is a single horizontal row (flex-direction:row), not a 2-row column", () => {
+    const block = overly.slice(overly.indexOf(".env-capsule{"), overly.indexOf(".env-capsule:hover"));
+    expect(block).toContain("flex-direction:row");
+    expect(block).not.toContain("flex-direction:column");
+  });
+
+  it(".env-capsule keeps ~44px height inline with its neighbours", () => {
+    const block = overly.slice(overly.indexOf(".env-capsule{"), overly.indexOf(".env-capsule:hover"));
+    expect(block).toContain("min-height:44px");
+  });
+
+  it("inline mini-bar has a fixed compact width (flex:none) so the chip stays on one row", () => {
+    const block = overly.slice(overly.indexOf(".env-capsule-bar{"), overly.indexOf(".env-bar-seg{"));
+    expect(block).toContain("flex:none");
+    expect(block).not.toContain("width:100%"); // old full-width row bar
+  });
+
+  it("narrow-width (<=400px) compression keeps the full pipeline on one line", () => {
+    expect(overly).toContain("@media (max-width:400px)");
+    const block = overly.slice(overly.indexOf("@media (max-width:400px)"));
+    expect(block).toContain(".env-capsule");
+  });
+
+  it("filter row clears the mobile toolbar with breathing room (no overlapping bands)", () => {
+    // the <640 block lifts the filter row above the 52px toolbar + its bottom padding + an 8px gap
+    const block = overly.slice(overly.indexOf("@media (max-width: 639px)"));
+    expect(block).toContain("hud-filter-row-mobile");
+    expect(block).toContain("bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px)");
   });
 });
