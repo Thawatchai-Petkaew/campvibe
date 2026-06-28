@@ -148,21 +148,24 @@ describe('[no-effect-update] update() must not be inside a useEffect', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. Scope guard: Navbar still receives avatar via currentUser prop (Fix A does
-//    not convert it to pull image from useSession — that is Fix B+C backend scope)
+// 9. Scope guard updated for B2 (CAM-240): Navbar now derives the displayed user
+//    from navUser (client session keyed by status). currentUser prop is KEPT as
+//    the loading-state initial value (no SSR flash). The img src is now navUser.image
+//    (live — reflects update() immediately). See cam-240-b2-navbar-session.test.ts
+//    for the full B2 test suite.
 // ─────────────────────────────────────────────────────────────────────────────
-describe('[navbar-untouched] Navbar still uses server-passed currentUser for avatar', () => {
-    it('Navbar.tsx still accepts and renders currentUser prop', () => {
+describe('[navbar-b2] Navbar derives avatar from navUser (B2 CAM-240 live-update)', () => {
+    it('Navbar.tsx still accepts the currentUser prop (loading-state initial value)', () => {
         const navbarSrc = src('components/Navbar.tsx');
-        // currentUser prop must still exist — Fix A must not remove it
+        // currentUser prop must still exist — used as the SSR initial (loading) value.
         expect(navbarSrc).toContain('currentUser');
     });
 
-    it('Navbar.tsx avatar <img> src still comes from currentUser.image (server prop)', () => {
+    it('Navbar.tsx avatar <img> src is navUser.image (live client session, not stale prop)', () => {
         const navbarSrc = src('components/Navbar.tsx');
-        // The avatar img src must still be driven by the server-passed currentUser prop
-        expect(navbarSrc).toContain('src={currentUser.image}');
-        // Fix A must not replace it with a session hook reference for image
-        expect(navbarSrc).not.toContain('session?.user?.image');
+        // B2: avatar reads from navUser (which is session.user when authenticated).
+        expect(navbarSrc).toContain('src={navUser.image}');
+        // The stale direct prop reference must no longer be the img src.
+        expect(navbarSrc).not.toContain('src={currentUser.image}');
     });
 });

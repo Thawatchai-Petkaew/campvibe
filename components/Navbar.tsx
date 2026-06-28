@@ -49,7 +49,13 @@ export function Navbar({ currentUser }: NavbarProps) {
     const { t } = useLanguage();
     const searchParams = useSearchParams();
     const pathname = usePathname();
-    const { status } = useSession();
+    const { data: session, status } = useSession();
+    // B2 (CAM-240): derive the displayed user from the CLIENT session keyed by
+    // status — not unconditionally from the server-passed currentUser prop.
+    //   loading      → use currentUser (SSR/server value — no avatar flash on first paint)
+    //   authenticated → use session.user (fresh — reflects update() immediately)
+    //   unauthenticated → null (logged-out UI, even if stale currentUser prop still holds a value)
+    const navUser = status === "loading" ? (currentUser ?? null) : (session?.user ?? null);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -74,8 +80,13 @@ export function Navbar({ currentUser }: NavbarProps) {
         setIsSearchOpen(false);
     }, [status]);
 
+    // Reset imageError when the avatar URL changes (e.g. after a profile update).
     useEffect(() => {
-        if (!currentUser) return;
+        setImageError(false);
+    }, [navUser?.image]);
+
+    useEffect(() => {
+        if (!navUser) return;
         const run = async () => {
             try {
                 const res = await fetch("/api/access/dashboard");
@@ -89,7 +100,9 @@ export function Navbar({ currentUser }: NavbarProps) {
             }
         };
         run();
-    }, [currentUser]);
+    // navUser identity changes when session.user changes after update() or on logout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navUser?.image, navUser?.name, status]);
 
     const activeSearchLabel = useMemo(() => {
         const keyword = searchParams.get("keyword");
@@ -116,10 +129,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                         <Link href="/" className="flex-shrink-0">
                             <img src="/logo.png" alt="CampVibe Logo" className="h-8 md:h-10 w-auto" />
                         </Link>
-                        {currentUser && isDashboard && (
+                        {navUser && isDashboard && (
                             <Link href="/dashboard">
-                                <Badge 
-                                    variant="default" 
+                                <Badge
+                                    variant="default"
                                     className="cursor-pointer hover:bg-primary/80 transition-colors text-xs px-2 py-0.5 font-bold uppercase"
                                 >
                                     HOST
@@ -151,8 +164,8 @@ export function Navbar({ currentUser }: NavbarProps) {
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <LanguageSwitcher />
 
-                        {/* Wishlist heart link — shown only when logged in (CAM-18). */}
-                        {currentUser && (
+                        {/* Wishlist heart link — shown only when logged in (CAM-18, B2 CAM-240). */}
+                        {navUser && (
                             <Link
                                 href="/wishlist"
                                 data-testid="btn--wishlist-nav"
@@ -164,7 +177,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                         )}
 
                         {/* Notifications (Camper context): booking status updates (no required action) + team invites */}
-                        {currentUser && (
+                        {navUser && (
                             <NotificationCenter
                                 showHostBookings={canAccessDashboard}
                                 showCamperBookingUpdates
@@ -172,7 +185,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                             />
                         )}
 
-                        {!currentUser && (
+                        {!navUser && status !== "loading" && (
                             <div className="hidden lg:flex items-center gap-1">
                                 <Button
                                     variant="ghost"
@@ -195,10 +208,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                             <DropdownMenuTrigger asChild aria-label="User menu">
                                 <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="w-5 h-5 text-muted-foreground" />
-                                    <div className={(currentUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
-                                        {(currentUser?.image && !imageError) ? (
+                                    <div className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
+                                        {(navUser?.image && !imageError) ? (
                                             <img
-                                                src={currentUser.image}
+                                                src={navUser.image}
                                                 alt="User"
                                                 className="w-8 h-8 rounded-full object-cover"
                                                 onError={() => setImageError(true)}
@@ -210,10 +223,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 mt-2">
-                                {currentUser ? (
+                                {navUser ? (
                                     <>
                                         <DropdownMenuLabel className="px-3 py-2">
-                                            {currentUser.name}
+                                            {navUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
@@ -327,7 +340,7 @@ export function Navbar({ currentUser }: NavbarProps) {
             />
 
             {/* Camper → Host onboarding CTA (only shows if user cannot access dashboard yet) */}
-            <HostOnboardingFab isLoggedIn={!!currentUser} />
+            <HostOnboardingFab isLoggedIn={!!navUser} />
         </>
     );
 }
