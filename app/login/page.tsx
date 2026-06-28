@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { authenticate, googleSignIn } from '@/lib/actions';
+import { googleSignIn } from '@/lib/actions';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -12,29 +12,63 @@ import { Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+
+/**
+ * Validates that `raw` is a safe same-origin path (SEC-A open-redirect guard, CWE-601):
+ *   - must be a string starting with a single "/"
+ *   - must NOT start with "//" (protocol-relative)
+ *   - must NOT start with "/\" (backslash trick)
+ *   - must contain no control chars (charCode < 0x20)
+ * Falls back to "/" on any violation.
+ */
+function sanitizeCallbackUrl(raw: string | null | undefined): string {
+    return typeof raw === "string" &&
+        raw.startsWith("/") &&
+        !raw.startsWith("//") &&
+        !raw.startsWith("/\\") &&
+        ![...raw].some((ch) => ch.charCodeAt(0) < 0x20)
+        ? raw
+        : "/";
+}
 
 export default function LoginPage() {
     const { t } = useLanguage();
+    const router = useRouter();
     const searchParams = useSearchParams();
-    // Default: stay in Camper view after login
-    const callbackUrl = searchParams.get('callbackUrl') || '/';
-    const [errorMessage, formAction, isPending] = useActionState(
-        authenticate,
-        undefined
-    );
+    // Default: stay in Camper view after login. Guard against open-redirect.
+    const callbackUrl = sanitizeCallbackUrl(searchParams.get('callbackUrl'));
+    const [isPending, startTransition] = useTransition();
     const [isGooglePending, startGoogleTransition] = useTransition();
     const [email, setEmail] = useState("");
-    const [hasSubmitted, setHasSubmitted] = useState(false);
+    const [password, setPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
-    // Check if error is invalid credentials (server error after submit)
-    const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
-                                 errorMessage?.toLowerCase().includes('credentials') ||
-                                 errorMessage?.toLowerCase().includes('incorrect');
-    
     // Client-side validation error (inline)
     const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
         ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
         : undefined;
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (emailValidationError) return;
+        startTransition(async () => {
+            setErrorMessage(undefined);
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+            if (result?.error) {
+                setErrorMessage(t.auth.invalidCredentials || "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง");
+                return;
+            }
+            // Success: navigate to the (validated) callbackUrl and refresh server state.
+            router.push(callbackUrl);
+            router.refresh();
+        });
+    };
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
@@ -65,24 +99,16 @@ export default function LoginPage() {
                     </div>
 
                     {/* Form */}
-                    <form 
-                        noValidate 
-                        action={async (formData: FormData) => {
-                            setHasSubmitted(true);
-                            formData.set('email', email);
-                            formData.set('redirectTo', callbackUrl);
-                            await formAction(formData);
-                            setHasSubmitted(false);
-                        }} 
+                    <form
+                        noValidate
+                        onSubmit={handleSubmit}
                         className="space-y-4"
                     >
-                        <input type="hidden" name="redirectTo" value={callbackUrl} />
-
-                        {/* Server Error Banner (after submit) */}
-                        {hasSubmitted && isInvalidCredentials && (
+                        {/* Error Banner (bad credentials) */}
+                        {errorMessage && (
                             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                                 <AlertCircle className="w-4 h-4 shrink-0" />
-                                <span>{errorMessage || t.auth.invalidCredentials || "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง"}</span>
+                                <span>{errorMessage}</span>
                             </div>
                         )}
 
@@ -109,6 +135,8 @@ export default function LoginPage() {
                             name="password"
                             type="password"
                             autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                             required
                             leftIcon={<Lock className="w-4 h-4" />}
                             containerClassName="mb-8"

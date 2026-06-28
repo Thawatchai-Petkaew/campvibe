@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState, useActionState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { authenticate, googleSignIn } from "@/lib/actions";
+import { googleSignIn } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
-import { usePathname, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { Dialog } from "@/components/ui/dialog";
 import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { usePathname, useSearchParams } from "next/navigation";
 
 interface LoginModalProps {
     isOpen: boolean;
@@ -26,55 +26,46 @@ export function LoginModal({ isOpen, onClose, subtitle, onSwitchToRegister }: Lo
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { status } = useSession();
-    const [errorMessage, formAction, isPending] = useActionState(
-        authenticate,
-        undefined
-    );
+    const { update } = useSession();
+    const [isPending, startTransition] = useTransition();
     const [isGooglePending, startGoogleTransition] = useTransition();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [hasSubmitted, setHasSubmitted] = useState(false);
-    
+    const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+
     const handleClose = () => {
         setEmail("");
         setPassword("");
-        setHasSubmitted(false);
+        setErrorMessage(undefined);
         onClose();
     };
 
-    // Check if error is invalid credentials (server error after submit)
-    const isInvalidCredentials = errorMessage?.toLowerCase().includes('invalid') || 
-                                 errorMessage?.toLowerCase().includes('credentials') ||
-                                 errorMessage?.toLowerCase().includes('incorrect');
-    
     // Client-side validation error (inline)
     const emailValidationError = email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
         ? "Please include an '@' in the email address. '" + email + "' is missing an '@'."
         : undefined;
 
-    // If session becomes authenticated, ensure modal/overlay closes even if route doesn't change.
-    useEffect(() => {
-        if (!isOpen) return;
-        if (status !== "authenticated") return;
-        handleClose();
-        router.refresh();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, status]);
-
-    // Close modal + remove overlay when login succeeds (no error returned)
-    useEffect(() => {
-        if (!isOpen) return;
-        if (!hasSubmitted) return;
-        if (isPending) return;
-        if (errorMessage) return;
-
-        // Success: close modal and refresh the page so Navbar gets the new session/currentUser.
-        handleClose();
-        router.refresh();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, hasSubmitted, isPending, errorMessage]);
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (emailValidationError) return;
+        startTransition(async () => {
+            setErrorMessage(undefined);
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+            if (result?.error) {
+                setErrorMessage(t.auth.invalidCredentials || "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง");
+                return;
+            }
+            // Success: update the SessionProvider in-memory, then close + refresh.
+            await update();
+            handleClose();
+            router.refresh();
+        });
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -95,28 +86,17 @@ export function LoginModal({ isOpen, onClose, subtitle, onSwitchToRegister }: Lo
                             </p>
                         </div>
 
-                        <form 
+                        <form
                             noValidate
-                            action={async (formData: FormData) => {
-                                setHasSubmitted(true);
-                                // Override with controlled input values
-                                formData.set('email', email);
-                                formData.set('password', password);
-                                // Stay in Camper view after login (unless user explicitly navigated to /login?callbackUrl=...)
-                                // For modal login, redirect back to the current page.
-                                const redirectTo = `${pathname || "/"}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
-                                formData.set('redirectTo', redirectTo);
-                                await formAction(formData);
-                                // NOTE: success/close handled by effect above. Keep hasSubmitted true to show error banner if needed.
-                            }} 
+                            onSubmit={handleSubmit}
                             className="space-y-4"
                         >
 
-                            {/* Server Error Banner (after submit) */}
-                            {hasSubmitted && isInvalidCredentials && (
+                            {/* Error Banner (bad credentials) */}
+                            {errorMessage && (
                                 <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                                     <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <span>{t.auth.invalidCredentials || "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง"}</span>
+                                    <span>{errorMessage}</span>
                                 </div>
                             )}
 

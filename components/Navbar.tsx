@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Search, Menu, User, Filter, Globe, Bell, Check, X, Heart } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { handleSignOut } from "@/lib/actions";
 import { useState, useMemo, useEffect } from "react";
 // CAM-200 PERF-BUNDLE Actions B + D: lazy-load interaction-only modals.
 // Triggers (search bar, login/register buttons) stay eager in Navbar.
@@ -35,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { HostOnboardingFab } from "@/components/HostOnboardingFab";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavbarProps {
@@ -262,7 +261,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
-                                            onClick={() => handleSignOut()}
+                                            onSelect={() => signOut({ callbackUrl: "/" })}
                                             className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                                         >
                                             {t.auth.signOut}

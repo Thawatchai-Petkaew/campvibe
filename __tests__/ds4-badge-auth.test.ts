@@ -497,12 +497,13 @@ describe("auth--register: no text-white in RegisterModal (AC-auth-12, CAM-235)",
 });
 
 describe("auth--login: layout+behavior unchanged (AC-auth-13)", () => {
-    it("AC-auth-13: login form action wires to formAction (inline async or direct ref)", () => {
-        // Login uses an inline async action that calls formAction(formData)
-        // to allow setHasSubmitted interleave — both patterns are acceptable
+    it("AC-auth-13: login form wires to a submit handler (onSubmit or formAction)", () => {
+        // CAM-241: switched from server-action formAction to client signIn (onSubmit handler).
+        // Both the old pattern (action={formAction}) and the new (onSubmit={handleSubmit}) are acceptable.
         const hasDirectAction = /action=\{formAction\}/.test(loginPageSrc);
         const hasInlineAction = /action=\{async[\s\S]{0,400}?formAction\(formData\)/.test(loginPageSrc);
-        expect(hasDirectAction || hasInlineAction).toBe(true);
+        const hasOnSubmit = /onSubmit=\{handleSubmit\}/.test(loginPageSrc);
+        expect(hasDirectAction || hasInlineAction || hasOnSubmit).toBe(true);
     });
 
     it("AC-auth-13: login form still has noValidate for client-side validation", () => {
