@@ -164,5 +164,19 @@ export const config = {
     // CAM-237 LAUNCH-1: removed the `api|` exclusion so /api routes now reach
     // the middleware. Flag OFF: /api/* is passed through immediately (byte-identical
     // to the previous matcher-excluded behaviour). Flag ON: /api/* → 404.
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+    //
+    // CAM-240 B1 — /api/auth MUST be excluded from the matcher.
+    // Wrapping NextAuth's own routes (/api/auth/session, /api/auth/signout,
+    // /api/auth/csrf, /api/auth/callback/*) with the auth() middleware is a
+    // known NextAuth v5 anti-pattern: SessionProvider's polling of /api/auth/session
+    // becomes slow, signin/signout flows are interfered with, and the session does
+    // not end cleanly after logout.
+    //
+    // The fix adds `api/auth` to the negative-lookahead so those routes bypass
+    // the middleware entirely — NextAuth handles them natively.
+    //
+    // /api/campsites etc. are still matched (no `api|` exclusion reinstated):
+    //   Flag ON:  non-auth /api/* → 404 (COMING_SOON gate intact).
+    //   Flag OFF: non-auth /api/* → NextResponse.next() pass-through.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$|api/auth).*)'],
 }
