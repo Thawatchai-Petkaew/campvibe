@@ -27,7 +27,14 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BellRing } from "lucide-react";
+import { AlignJustify, BellRing, ChevronUp, Layers, X } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
@@ -152,12 +159,20 @@ export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
 };
 export const YOU_POS_WIDE = { x: 38, y: 31 };
 
-// Single-layout model: the decoupled fixed play area uses ONE ring on every
-// screen (narrow simply crops at the edges — no reflow). Narrow aliases the one
-// layout so the existing matchMedia wiring is a no-op; that dual-layout machinery
-// is fully retired (and tests reconciled) at the final quality gate.
-export const LAYOUT_NARROW = LAYOUT_WIDE;
-export const YOU_POS_NARROW = YOU_POS_WIDE;
+// SMUX-2 (CAM-251): LAYOUT_NARROW — portrait-optimised oval for mobile (<640px).
+// x-axis contracts ~35%, y-axis expands ~40% relative to wide so all 7 agents
+// fit a vertical aspect without overlapping the campfire centre (~50.1, ~52.0).
+// Coordinates are % of the fixed 1920×1080 design canvas (same system as LAYOUT_WIDE).
+export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
+  "architect":          { x: 50.0, y: 31.0 },  // top
+  "ux-designer":        { x: 61.8, y: 37.5 },  // upper-right
+  "backend-engineer":   { x: 67.2, y: 52.5 },  // right
+  "frontend-engineer":  { x: 60.5, y: 67.0 },  // lower-right
+  "devops-release":     { x: 40.5, y: 67.0 },  // lower-left (symmetric with FE)
+  "qa-engineer":        { x: 33.8, y: 52.5 },  // left (symmetric with BE)
+  "security-reviewer":  { x: 39.2, y: 37.5 },  // upper-left (symmetric with UX)
+};
+export const YOU_POS_NARROW = { x: 38, y: 27 };
 
 // Active layout (mutable at runtime; starts with wide, switched by matchMedia).
 // currentLayout is read by homeStyle() which is called each render, so React state
@@ -472,6 +487,102 @@ const SCENE_CSS = `
     opacity:0;
     animation:fireflyTwinkle var(--ff-dur,3.5s) ease-in-out var(--ff-delay,0s) infinite;
   }
+}
+/* ── SMUX-2: Responsive HUD — tablet 640–1023px ─────────────────────────────
+   Side panels (left + right stacks) become edge-drawer tabs; the 3-filter
+   signposts collapse to a single compact chip.
+   .hud-left-panels and .hud-right-panels are hidden in favour of Sheet drawers.
+   Bottom dock stays (simplified). */
+@media (max-width: 1023px) {
+  .hud-left-panels{display:none}
+  .hud-right-panels{display:none}
+  /* Edge drawer tabs — position:fixed strips on left and right of the viewport */
+  .hud-edge-tab{
+    position:fixed;
+    top:50%;transform:translateY(-50%);
+    z-index:24;
+    display:flex;align-items:center;justify-content:center;
+    min-height:80px;width:28px;
+    background:rgba(11,30,24,.70);
+    border:1px solid rgba(150,240,195,.18);
+    backdrop-filter:saturate(195%) blur(20px);-webkit-backdrop-filter:saturate(195%) blur(20px);
+    cursor:pointer;
+    writing-mode:vertical-rl;
+    font-size:9px;font-weight:700;letter-spacing:.08em;
+    color:rgba(223,234,245,.55);
+    padding:8px 0;
+    user-select:none;
+    transition:background 140ms,border-color 140ms,color 140ms;
+  }
+  .hud-edge-tab.left{
+    left:0;border-left:none;
+    border-radius:0 6px 6px 0;
+  }
+  .hud-edge-tab.right{
+    right:0;border-right:none;
+    border-radius:6px 0 0 6px;
+    transform:translateY(-50%) rotate(180deg);
+  }
+  .hud-edge-tab:hover{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.3)}
+  .hud-edge-tab:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-edge-tab[aria-expanded="true"]{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.4)}
+  @media(prefers-reduced-motion:no-preference){
+    .hud-edge-tab:active{background:rgba(91,233,176,.12)}
+  }
+  /* Compact filter chip — replaces 3-dropdown row on tablet */
+  .hud-filter-compact{display:inline-flex}
+  /* Hide 3-filter desktop row on tablet */
+  .hud-signposts-desktop{display:none}
+  .hud-map-toolbar{display:none}
+}
+/* On desktop, hide the compact chip, edge tabs, and mobile toolbar */
+@media (min-width: 1024px) {
+  .hud-edge-tab{display:none}
+  .hud-filter-compact{display:none}
+  .hud-map-toolbar{display:none}
+}
+/* ── SMUX-2: Mobile <640px — bottom toolbar + hide edge tabs ─────────────────
+   Bottom toolbar replaces panel triggers on very small screens.
+   Dock is still visible but shifted up; toolbar floats at z-index:25. */
+@media (max-width: 639px) {
+  .hud-edge-tab{display:none}
+  /* Bottom toolbar */
+  .hud-map-toolbar{
+    position:fixed;bottom:0;left:0;right:0;z-index:25;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 14px max(10px, env(safe-area-inset-bottom)) 14px;
+    min-height:52px;
+    background:rgba(11,30,24,.70);
+    backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
+    border-top:1px solid rgba(150,240,195,.15);
+  }
+  .hud-toolbar-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:7px 14px;font-size:11px;font-weight:800;
+    color:rgba(223,234,245,.88);
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(150,240,195,.18);border-radius:999px;
+    min-height:44px;min-width:44px;cursor:pointer;
+    transition:background 120ms,border-color 120ms,color 120ms;
+  }
+  .hud-toolbar-btn:hover{background:rgba(255,255,255,.12)}
+  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-toolbar-btn[aria-expanded="true"]{
+    background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0;
+  }
+  @media(prefers-reduced-motion:no-preference){
+    .hud-toolbar-btn:active{transform:scale(.96)}
+  }
+  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+  .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
+  /* Move dock up so toolbar doesn't overlap it on mobile */
+  .hud-dock{bottom:60px}
+  /* Compact filter top-right on mobile (via hud-topbar positioning) */
+  .hud-filter-compact{
+    position:fixed;top:10px;right:10px;z-index:23;display:inline-flex;
+  }
+  /* Hide desktop signposts on mobile */
+  .hud-signposts-desktop{display:none}
 }`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -1092,6 +1203,12 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // SMUX-2: Responsive sheet state — one-at-a-time (opening one closes the other).
+  const [openSheet, setOpenSheet] = useState<"roster" | "board" | null>(null);
+  const rosterTabRef = useRef<HTMLButtonElement | null>(null);
+  const boardTabRef  = useRef<HTMLButtonElement | null>(null);
+  const rosterToolbarRef = useRef<HTMLButtonElement | null>(null);
+  const boardToolbarRef  = useRef<HTMLButtonElement | null>(null);
   // CAM-184: GateDetailModal state
   const [gateDetailId, setGateDetailId] = useState<string>("");
   const [gateDetailOpen, setGateDetailOpen] = useState(false);
@@ -1176,9 +1293,10 @@ export default function CampsiteScene({
   // useEffect fires — the initial render is already at the correct layout.
   // The module-level currentLayout is also pre-seeded here so homeStyle() is correct
   // on the very first render without waiting for the effect.
+  // SMUX-2: layoutKey initialised from min-width: 640px (not aspect-ratio).
   const [layoutKey, setLayoutKey] = useState<"wide" | "narrow">(() => {
     if (typeof window === "undefined") return "wide"; // SSR guard (never reached — ssr:false)
-    const isWide = window.matchMedia("(min-aspect-ratio: 7/5)").matches;
+    const isWide = window.matchMedia("(min-width: 640px)").matches;
     currentLayout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW;
     return isWide ? "wide" : "narrow";
   });
@@ -1241,7 +1359,9 @@ export default function CampsiteScene({
     // CAM-163: Determine the active layout BEFORE building scouts so they are
     // placed at the correct art-measured position from the very first frame —
     // no compass-detour entrance walk and no visible snap on load.
-    const arMqEarly = window.matchMedia("(min-aspect-ratio: 7/5)");
+    // SMUX-2: trigger is viewport WIDTH <640px (not aspect-ratio) so a phone in
+    // landscape still uses LAYOUT_NARROW (the canvas is small regardless of orientation).
+    const arMqEarly = window.matchMedia("(min-width: 640px)");
     const initialLayout = arMqEarly.matches ? LAYOUT_WIDE : LAYOUT_NARROW;
     // Sync the module-level var so homeStyle() is correct on first render.
     currentLayout = initialLayout;
@@ -1353,9 +1473,9 @@ export default function CampsiteScene({
     }
     mq.addEventListener("change", onMqChange);
 
-    // CAM-161 / CAM-163: aspect-ratio layout switcher — no remount.
-    // (min-aspect-ratio: 7/5) = wide: use LAYOUT_WIDE.
-    // Below threshold: use LAYOUT_NARROW so all 8 stay in the visible centre band.
+    // CAM-161 / CAM-163 / SMUX-2: width-based layout switcher — no remount.
+    // (min-width: 640px) = wide: use LAYOUT_WIDE.
+    // Below 640px: use LAYOUT_NARROW (portrait-optimised oval — CAM-251).
     // arMqEarly is already declared above for the initial layout determination;
     // reuse it here (same MediaQueryList object) for the change listener.
     const arMq = arMqEarly;
@@ -1696,15 +1816,31 @@ export default function CampsiteScene({
       {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
       <div className="hud-topbar">
         <div className="hud-topbar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO }} />
-        <FilterSignposts
-          personas={filterOpts.personas}
-          features={filterOpts.features}
-          epics={filterOpts.epics}
-          persona={persona}
-          feature={feature}
-          epic={scope === "epic" ? activeEpic : ""}
-          onChange={onFilterChange}
-        />
+        {/* Desktop: 3-filter signposts. Hidden on tablet/mobile via .hud-signposts-desktop CSS. */}
+        <span className="hud-signposts-desktop">
+          <FilterSignposts
+            personas={filterOpts.personas}
+            features={filterOpts.features}
+            epics={filterOpts.epics}
+            persona={persona}
+            feature={feature}
+            epic={scope === "epic" ? activeEpic : ""}
+            onChange={onFilterChange}
+          />
+        </span>
+        {/* Tablet/mobile compact filter chip — hidden on desktop via .hud-filter-compact CSS.
+            Opens the persona signpost dropdown as the combined filter entry point. */}
+        <span className="hud-filter-compact">
+          <FilterSignposts
+            personas={filterOpts.personas}
+            features={filterOpts.features}
+            epics={filterOpts.epics}
+            persona={persona}
+            feature={feature}
+            epic={scope === "epic" ? activeEpic : ""}
+            onChange={onFilterChange}
+          />
+        </span>
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
           <ViewToggle dashboardHref={dashboardHref} />
@@ -1725,6 +1861,189 @@ export default function CampsiteScene({
           <SoundToggle />
         </div>
       </div>
+
+      {/* SMUX-2: Tablet edge drawer tabs — visible on 640–1023px only (CSS hides on mobile/desktop). */}
+      <button
+        ref={rosterTabRef}
+        type="button"
+        className="hud-edge-tab left"
+        aria-label="เปิด Roster"
+        aria-haspopup="dialog"
+        aria-expanded={openSheet === "roster"}
+        aria-controls="sheet-roster"
+        data-testid="btn--map-edge-roster"
+        onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
+      >
+        ≡ Roster
+      </button>
+      <button
+        ref={boardTabRef}
+        type="button"
+        className="hud-edge-tab right"
+        aria-label="เปิด Board"
+        aria-haspopup="dialog"
+        aria-expanded={openSheet === "board"}
+        aria-controls="sheet-board"
+        data-testid="btn--map-edge-board"
+        onClick={() => setOpenSheet(openSheet === "board" ? null : "board")}
+      >
+        Board ▸
+      </button>
+
+      {/* SMUX-2: Mobile bottom toolbar — visible on <640px only (CSS hides on tablet/desktop). */}
+      <div className="hud-map-toolbar" role="toolbar" aria-label="เมนูหลัก" data-testid="toolbar--map-mobile">
+        <button
+          ref={rosterToolbarRef}
+          type="button"
+          className="hud-toolbar-btn"
+          aria-label="เปิดรายชื่อทีม"
+          aria-haspopup="dialog"
+          aria-expanded={openSheet === "roster"}
+          aria-controls="sheet-roster"
+          data-testid="btn--map-toolbar-roster"
+          onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
+        >
+          <AlignJustify size={14} aria-hidden="true" />
+          <span>ทีม</span>
+        </button>
+        <div className="hud-toolbar-center" aria-hidden="true">
+          <span style={{ color: "#5BE9B0", fontWeight: 700, fontFamily: "'JetBrains Mono','Fira Mono',monospace" }}>{summaryStats.pct}%</span>
+        </div>
+        <button
+          ref={boardToolbarRef}
+          type="button"
+          className="hud-toolbar-btn"
+          aria-label="เปิด Board"
+          aria-haspopup="dialog"
+          aria-expanded={openSheet === "board"}
+          aria-controls="sheet-board"
+          data-testid="btn--map-toolbar-board"
+          onClick={() => setOpenSheet(openSheet === "board" ? null : "board")}
+        >
+          <span>Board</span>
+          <ChevronUp size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* SMUX-2: Roster Sheet — side="left" on tablet, side="bottom" on mobile.
+          One Sheet, one-at-a-time open state. shadcn Sheet handles focus-trap + Esc + return-focus. */}
+      <Sheet open={openSheet === "roster"} onOpenChange={(v) => setOpenSheet(v ? "roster" : null)}>
+        <SheetContent
+          id="sheet-roster"
+          side="left"
+          className="w-[280px] sm:w-[320px] border-r-0 rounded-r-3xl p-0 overflow-y-auto"
+          style={{
+            background: "rgba(11,30,24,.88)",
+            borderRight: "1px solid rgba(150,240,195,.18)",
+          }}
+          data-testid="sheet--map-roster"
+        >
+          <div role="status" aria-live="polite" className="sr-only">กำลังโหลด…</div>
+          <SheetHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
+            <SheetTitle style={{ color: "#F1F6FB", fontFamily: "'Outfit','Anuphan',system-ui,sans-serif" }}>
+              ทีมงาน
+            </SheetTitle>
+            <SheetClose
+              className="h-11 w-11 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "rgba(223,234,245,.7)" }}
+              aria-label="ปิด"
+              data-testid="btn--sheet-roster-close"
+            >
+              <X size={16} aria-hidden="true" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="px-5 pb-5">
+            {agents.length === 0 ? (
+              <div style={{ textAlign: "center", color: "rgba(223,234,245,.35)", fontSize: 13, padding: "24px 0" }}>
+                ยังไม่มีข้อมูลทีม
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {agents.map((agent) => {
+                  const cfg = ROLE_CONFIG[agent.role];
+                  if (!cfg) return null;
+                  return (
+                    <div
+                      key={agent.role}
+                      className={`hud-role-row ${agent.active ? "active" : "sleep"}`}
+                      style={{ minHeight: 44 }}
+                    >
+                      <span className={`hud-role-dot ${agent.active ? "active" : "sleep"}`} aria-hidden="true" />
+                      <span className="hud-role-label">{cfg.displayName}</span>
+                      <span className={`hud-role-badge ${agent.active ? "active" : "sleep"}`}>
+                        {agent.active ? "กำลังทำ" : "ว่าง"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* SMUX-2: Board Sheet — side="right" on tablet, side="bottom" on mobile.
+          Shows existing StatusBoard content. */}
+      <Sheet open={openSheet === "board"} onOpenChange={(v) => setOpenSheet(v ? "board" : null)}>
+        <SheetContent
+          id="sheet-board"
+          side="right"
+          className="w-[300px] sm:w-[360px] border-l-0 rounded-l-3xl p-0 overflow-y-auto"
+          style={{
+            background: "rgba(11,30,24,.88)",
+            borderLeft: "1px solid rgba(150,240,195,.18)",
+          }}
+          data-testid="sheet--map-board"
+        >
+          <div role="status" aria-live="polite" className="sr-only">กำลังโหลด…</div>
+          <SheetHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
+            <SheetTitle style={{ color: "#F1F6FB", fontFamily: "'Outfit','Anuphan',system-ui,sans-serif" }}>
+              Board
+            </SheetTitle>
+            <SheetClose
+              className="h-11 w-11 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "rgba(223,234,245,.7)" }}
+              aria-label="ปิด"
+              data-testid="btn--sheet-board-close"
+            >
+              <X size={16} aria-hidden="true" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="px-5 pb-5">
+            {!showBoard ? (
+              <div style={{ textAlign: "center", padding: "32px 0" }}>
+                <Layers size={28} style={{ color: "rgba(91,233,176,.4)", margin: "0 auto 10px" }} aria-hidden="true" />
+                <p style={{ color: "rgba(223,234,245,.35)", fontSize: 13 }}>
+                  เลือก Feature หรือ Epic เพื่อดู Board
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={{ fontSize: 11, color: "rgba(223,234,245,.45)", marginBottom: 4 }}>{boardLabel}</p>
+                {boardStories.map((s) => (
+                  <a
+                    key={s.id}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hud-kc"
+                    style={{ display: "block", textDecoration: "none" }}
+                  >
+                    <div className="hud-kt">
+                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: "rgba(223,234,245,.88)" }}>
+                        {s.title}
+                      </span>
+                    </div>
+                    <div className="hud-kb" style={{ marginTop: 5 }}>
+                      <span className="hud-kr" style={{ fontSize: 10 }}>{s.role}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Left panel stack — summary · delivery · approval */}
       <div className="hud-left-panels">

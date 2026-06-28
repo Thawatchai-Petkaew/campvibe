@@ -230,8 +230,10 @@ describe("app/status/map/campsite-scene.tsx — CAM-161: LAYOUT_WIDE + LAYOUT_NA
     expect(src).toContain("YOU_POS_NARROW");
   });
 
-  it("matchMedia '(min-aspect-ratio: 7/5)' drives the layout switch", () => {
-    expect(src).toContain("min-aspect-ratio: 7/5");
+  it("matchMedia '(min-width: 640px)' drives the layout switch (SMUX-2: width-based, not aspect-ratio)", () => {
+    // SMUX-2 (CAM-251): changed from (min-aspect-ratio: 7/5) to (min-width: 640px)
+    // so a phone in landscape still uses LAYOUT_NARROW (it is still a small viewport).
+    expect(src).toContain("matchMedia(\"(min-width: 640px)\")");
   });
 
   it("aspect change listener calls setLayoutKey without remounting engine", () => {
@@ -858,8 +860,9 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix"
     expect(src).toContain("useState<\"wide\" | \"narrow\">(() =>");
   });
 
-  it("lazy initializer reads (min-aspect-ratio: 7/5) matchMedia", () => {
-    expect(src).toContain("window.matchMedia(\"(min-aspect-ratio: 7/5)\")");
+  it("lazy initializer reads (min-width: 640px) matchMedia (SMUX-2: width-based trigger)", () => {
+    // SMUX-2 (CAM-251): changed from aspect-ratio to viewport width trigger.
+    expect(src).toContain("window.matchMedia(\"(min-width: 640px)\")");
   });
 
   it("lazy initializer pre-seeds currentLayout for homeStyle() on first render", () => {
@@ -876,14 +879,17 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coord
     expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 31 }");
   });
 
-  it("YOU_POS_NARROW aliases YOU_POS_WIDE (single-layout model)", () => {
-    // CAM-166+: single layout — NARROW mirrors WIDE so matchMedia wiring is a no-op
-    expect(src).toContain("YOU_POS_NARROW = YOU_POS_WIDE");
+  it("YOU_POS_NARROW is a genuine portrait position distinct from YOU_POS_WIDE (SMUX-2)", () => {
+    // SMUX-2 (CAM-251): LAYOUT_NARROW is now a real portrait-optimised oval, not an alias.
+    // YOU_POS_NARROW is { x: 38, y: 27 } per the Design Brief.
+    expect(src).toContain("YOU_POS_NARROW = { x: 38, y: 27 }");
   });
 
-  // CAM-166+: single-layout model — LAYOUT_NARROW aliases LAYOUT_WIDE
-  it("LAYOUT_NARROW aliases LAYOUT_WIDE (single-layout, no separate portrait cluster)", () => {
-    expect(src).toContain("LAYOUT_NARROW = LAYOUT_WIDE");
+  // SMUX-2 (CAM-251): LAYOUT_NARROW is now a genuine portrait-optimised oval (not an alias).
+  it("LAYOUT_NARROW is a distinct portrait-optimised oval with 7 agent entries (SMUX-2)", () => {
+    expect(src).toContain("export const LAYOUT_NARROW: Record<string, { x: number; y: number }>");
+    // Spot-check the top agent from the Design Brief coordinates
+    expect(src).toContain('"architect":          { x: 50.0, y: 31.0 }');
   });
 
   it("scout sizes updated: responsive clamp (not fixed 88px/74px)", () => {
@@ -1286,5 +1292,169 @@ describe("app/status/map/campsite-assets.ts — CAM-198: progress bar CSS", () =
 
   it("still contains .map-placeholder rule (error card state preserved)", () => {
     expect(src).toContain(".map-placeholder");
+  });
+});
+
+// ============================================================
+// CAM-251 (SMUX-2) — Responsive layout: breakpoints, toolbar, sheets, narrow ring
+// ============================================================
+
+describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  // ── LAYOUT_NARROW is a genuine portrait oval (not an alias) ─────────────────
+  it("LAYOUT_NARROW exports a real portrait oval with 7 role entries", () => {
+    expect(src).toContain("export const LAYOUT_NARROW: Record<string, { x: number; y: number }>");
+    // All 7 roles must be present
+    expect(src).toContain('"architect"');
+    expect(src).toContain('"ux-designer"');
+    expect(src).toContain('"backend-engineer"');
+    expect(src).toContain('"frontend-engineer"');
+    expect(src).toContain('"devops-release"');
+    expect(src).toContain('"qa-engineer"');
+    expect(src).toContain('"security-reviewer"');
+  });
+
+  it("LAYOUT_NARROW uses portrait-optimised coords — architect at top (y: 31.0)", () => {
+    // The Design Brief places architect at top (y=31) in narrow mode
+    expect(src).toContain('"architect":          { x: 50.0, y: 31.0 }');
+  });
+
+  it("LAYOUT_NARROW is NOT the same reference as LAYOUT_WIDE", () => {
+    // After SMUX-2, they must differ — no LAYOUT_NARROW = LAYOUT_WIDE alias
+    expect(src).not.toContain("LAYOUT_NARROW = LAYOUT_WIDE");
+  });
+
+  it("YOU_POS_NARROW is { x: 38, y: 27 } (portrait upper-left, Design Brief §Narrow Ring)", () => {
+    expect(src).toContain("YOU_POS_NARROW = { x: 38, y: 27 }");
+  });
+
+  // ── matchMedia trigger uses width, not aspect-ratio ─────────────────────────
+  it("matchMedia trigger uses min-width: 640px (not min-aspect-ratio) for LAYOUT_NARROW", () => {
+    // SMUX-2: phone in landscape should still use NARROW → trigger on width, not aspect
+    expect(src).toContain('matchMedia("(min-width: 640px)")');
+  });
+
+  it("does NOT use (min-aspect-ratio: 7/5) as the layout trigger any more", () => {
+    expect(src).not.toContain("min-aspect-ratio: 7/5");
+  });
+
+  // ── Responsive CSS blocks ────────────────────────────────────────────────────
+  it("SCENE_CSS contains a tablet @media (max-width: 1023px) block hiding side panels", () => {
+    expect(src).toContain("@media (max-width: 1023px)");
+    expect(src).toContain(".hud-left-panels{display:none}");
+    expect(src).toContain(".hud-right-panels{display:none}");
+  });
+
+  it("SCENE_CSS contains a mobile @media (max-width: 639px) block with .hud-map-toolbar", () => {
+    expect(src).toContain("@media (max-width: 639px)");
+    expect(src).toContain(".hud-map-toolbar{");
+  });
+
+  it("desktop @media (min-width: 1024px) hides edge tabs and mobile toolbar", () => {
+    expect(src).toContain("@media (min-width: 1024px)");
+    expect(src).toContain(".hud-edge-tab{display:none}");
+    expect(src).toContain(".hud-map-toolbar{display:none}");
+  });
+
+  // ── Edge drawer tabs (tablet) ────────────────────────────────────────────────
+  it("renders a left edge-drawer tab button for Roster with correct aria attributes", () => {
+    expect(src).toContain('data-testid="btn--map-edge-roster"');
+    expect(src).toContain('aria-label="เปิด Roster"');
+    expect(src).toContain('aria-haspopup="dialog"');
+  });
+
+  it("renders a right edge-drawer tab button for Board with correct aria attributes", () => {
+    expect(src).toContain('data-testid="btn--map-edge-board"');
+    expect(src).toContain('aria-label="เปิด Board"');
+  });
+
+  // ── Mobile toolbar ───────────────────────────────────────────────────────────
+  it("renders a mobile toolbar with data-testid toolbar--map-mobile", () => {
+    expect(src).toContain('data-testid="toolbar--map-mobile"');
+    expect(src).toContain('role="toolbar"');
+  });
+
+  it("mobile toolbar has a Roster (ทีม) button", () => {
+    expect(src).toContain('data-testid="btn--map-toolbar-roster"');
+  });
+
+  it("mobile toolbar has a Board button with ChevronUp icon", () => {
+    expect(src).toContain('data-testid="btn--map-toolbar-board"');
+    expect(src).toContain("ChevronUp");
+  });
+
+  it("toolbar buttons have aria-haspopup=dialog and aria-controls", () => {
+    expect(src).toContain('aria-haspopup="dialog"');
+    expect(src).toContain('aria-controls="sheet-roster"');
+    expect(src).toContain('aria-controls="sheet-board"');
+  });
+
+  // ── One-at-a-time sheet state ─────────────────────────────────────────────────
+  it("manages openSheet state typed as roster|board|null (one-at-a-time constraint)", () => {
+    expect(src).toContain("openSheet, setOpenSheet] = useState<\"roster\" | \"board\" | null>");
+  });
+
+  // ── Sheets ───────────────────────────────────────────────────────────────────
+  it("renders a Sheet for the Roster with id=sheet-roster", () => {
+    expect(src).toContain('id="sheet-roster"');
+    expect(src).toContain('data-testid="sheet--map-roster"');
+  });
+
+  it("renders a Sheet for the Board with id=sheet-board", () => {
+    expect(src).toContain('id="sheet-board"');
+    expect(src).toContain('data-testid="sheet--map-board"');
+  });
+
+  it("Sheet close buttons have aria-label=ปิด and data-testid", () => {
+    expect(src).toContain('data-testid="btn--sheet-roster-close"');
+    expect(src).toContain('data-testid="btn--sheet-board-close"');
+    expect(src).toContain('aria-label="ปิด"');
+  });
+
+  it("Board Sheet empty state uses Thai copy from Design Brief verbatim", () => {
+    expect(src).toContain("เลือก Feature หรือ Epic เพื่อดู Board");
+  });
+
+  it("Roster Sheet empty state uses Thai copy from Design Brief verbatim", () => {
+    expect(src).toContain("ยังไม่มีข้อมูลทีม");
+  });
+
+  // ── i18n keys in locales ─────────────────────────────────────────────────────
+  it("i18n locale keys for toolbar.roster TH = ทีม are added to translations.json", () => {
+    const locales = read("../locales/translations.json");
+    expect(locales).toContain('"roster": "ทีม"');
+  });
+
+  it("i18n locale keys for sheet.board.empty TH are added to translations.json", () => {
+    const locales = read("../locales/translations.json");
+    expect(locales).toContain('"empty": "เลือก Feature หรือ Epic เพื่อดู Board"');
+  });
+
+  // ── Imports — Sheet and icons ────────────────────────────────────────────────
+  it("imports Sheet primitives from @/components/ui/sheet", () => {
+    expect(src).toContain('from "@/components/ui/sheet"');
+    expect(src).toContain("SheetContent");
+    expect(src).toContain("SheetTitle");
+    expect(src).toContain("SheetClose");
+  });
+
+  it("imports AlignJustify, ChevronUp, Layers, X icons from lucide-react", () => {
+    expect(src).toContain("AlignJustify");
+    expect(src).toContain("ChevronUp");
+    expect(src).toContain("Layers");
+  });
+
+  // ── Desktop unchanged guard ──────────────────────────────────────────────────
+  it("LAYOUT_WIDE is unchanged (desktop guard — 7 roles, campfire-ring coords)", () => {
+    // Spot-check desktop ring positions
+    expect(src).toContain('"architect":          { x: 50.1, y: 38.2 }');
+    expect(src).toContain('"frontend-engineer":  { x: 49.8, y: 75.8 }');
+  });
+
+  it("desktop hud-left-panels and hud-right-panels classes are still rendered", () => {
+    // Desktop panels must still be present (just hidden on small screens by CSS)
+    expect(src).toContain('className="hud-left-panels"');
+    expect(src).toContain('className="hud-right-panels"');
   });
 });

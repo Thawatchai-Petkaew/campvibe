@@ -659,6 +659,29 @@
                 "emptyState": "No delivery data available",
                 "epicLabel": "Epic",
                 "dateLabel": "Delivered on"
+            },
+            "toolbar": {
+                "roster": "Team",
+                "board": "Board",
+                "filter": "Filter"
+            },
+            "sheet": {
+                "roster": {
+                    "title": "Team",
+                    "empty": "No team data",
+                    "idle": "Idle"
+                },
+                "board": {
+                    "title": "Board",
+                    "empty": "Select a Feature or Epic to view the Board"
+                },
+                "close": "Close"
+            },
+            "filter": {
+                "label": "Filter",
+                "all_personas": "All personas",
+                "all_features": "All features",
+                "all_epics": "All epics"
             }
         },
         "catalog": {
@@ -1361,6 +1384,29 @@
                 "emptyState": "ไม่มีข้อมูลงานที่ส่งมอบ",
                 "epicLabel": "Epic",
                 "dateLabel": "ส่งมอบเมื่อ"
+            },
+            "toolbar": {
+                "roster": "ทีม",
+                "board": "Board",
+                "filter": "กรอง"
+            },
+            "sheet": {
+                "roster": {
+                    "title": "ทีมงาน",
+                    "empty": "ยังไม่มีข้อมูลทีม",
+                    "idle": "ว่าง"
+                },
+                "board": {
+                    "title": "Board",
+                    "empty": "เลือก Feature หรือ Epic เพื่อดู Board"
+                },
+                "close": "ปิด"
+            },
+            "filter": {
+                "label": "กรอง",
+                "all_personas": "ผู้ใช้งานทั้งหมด",
+                "all_features": "ทุก Feature",
+                "all_epics": "ทุก Epic"
             }
         },
         "catalog": {
