@@ -1141,11 +1141,12 @@ export const HUD_CSS = `
 .hud-icon-btn:disabled{opacity:.45;pointer-events:none}
 .hud-icon-btn svg{width:20px;height:20px;display:block}
 
-/* ── SMUX-6: Bottom filter row (<1024) — 3 equal columns, drop-up menus ── */
+/* ── SMUX-6 · CAM-257: Bottom filter row (<1024) — 3 equal columns, drop-up menus ── */
 .hud-filter-row-mobile{
   position:fixed;
-  /* sits just above the mobile toolbar (52px) or at the frame bottom when toolbar is absent */
-  bottom:52px;
+  /* Tablet 640–1023: no mobile toolbar present → sit near the frame bottom with a
+     small safe-area gap. Mobile <640 overrides this to clear the toolbar (below). */
+  bottom:calc(8px + env(safe-area-inset-bottom));
   left:0;right:0;
   z-index:24;
   display:none; /* shown via @media below */
@@ -1224,40 +1225,56 @@ export const HUD_CSS = `
 @media (max-width: 1023px) {
   .hud-filter-row-mobile{display:block}
 }
+/* CAM-257: Mobile <640 — the bottom toolbar IS present (min-height 52px + 10px/safe-area
+   bottom padding). Lift the filter row to clear the full toolbar PLUS an 8px breathing
+   gap, so the filter row and the toolbar read as one tidy group, not overlapping bands. */
+@media (max-width: 639px) {
+  .hud-filter-row-mobile{
+    bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px);
+  }
+}
 /* On desktop, always hidden */
 @media (min-width: 1024px) {
   .hud-filter-row-mobile{display:none !important}
 }
 
-/* ── SMUX-6: Env Pipeline Capsule (mobile bottom bar center) ── */
+/* ── SMUX-6 · CAM-257: Env Pipeline Capsule — slim glass CHIP (matches .hud-signpost /
+   .hud-toolbar-btn): single horizontal row, pill radius, same glass language as its
+   neighbours so it sits inline in the transparent toolbar (no foreign card look). ── */
 .env-capsule-wrap{position:relative;display:flex;align-items:center}
 .env-capsule{
-  display:inline-flex;flex-direction:column;align-items:center;
-  gap:4px;
-  padding:6px 12px;
+  /* single horizontal row — same height (~44px) as the chips/buttons beside it */
+  display:inline-flex;flex-direction:row;align-items:center;
+  gap:7px;
+  padding:0 13px;
   min-height:44px;min-width:44px;
-  border:1px solid rgba(150,240,195,.20);border-radius:10px;
-  background:rgba(11,30,24,.55);
-  backdrop-filter:saturate(195%) blur(22px);-webkit-backdrop-filter:saturate(195%) blur(22px);
-  box-shadow:0 6px 18px rgba(0,0,0,.36),inset 0 1px 0 rgba(200,255,232,.10);
+  /* glass-chip language — identical tokens to .hud-signpost */
+  border:1px solid rgba(150,240,195,.13);border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+  color:rgba(223,234,245,.78);
   cursor:pointer;
-  transition:background 120ms,border-color 120ms;
+  transition:background 120ms,border-color 120ms,color 120ms;
 }
-.env-capsule:hover{background:rgba(11,30,24,.70);border-color:rgba(91,233,176,.35)}
+.env-capsule:hover{background:rgba(91,233,176,.12);border-color:rgba(91,233,176,.30);color:rgba(223,234,245,.96)}
 .env-capsule:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:2px}
-.env-capsule:active{transform:scale(.97)}
-.env-capsule[aria-expanded="true"]{border-color:rgba(91,233,176,.40);background:rgba(91,233,176,.07)}
-.env-capsule-lanes{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;line-height:1}
+@media (prefers-reduced-motion:no-preference){
+  .env-capsule:active{transform:scale(.97)}
+}
+.env-capsule[aria-expanded="true"]{border-color:rgba(91,233,176,.40);background:rgba(91,233,176,.12);color:#5BE9B0}
+/* lane labels — small colored dots/text stay as the lane accent; container is a glass chip */
+.env-capsule-lanes{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;line-height:1}
 .env-lane-label{display:inline-flex;align-items:center;gap:3px}
 .env-lane-label.dev{color:#60a5fa}
 .env-lane-label.staging{color:#fb923c}
 .env-lane-label.ship{color:#4ade80}
 .env-lane-count{font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;font-size:11px;font-weight:800}
 .env-lane-arrow{font-size:8px;opacity:.5;color:rgba(223,234,245,.50)}
-/* 3-segment progress bar */
+/* inline mini-bar — compact fixed width so the whole chip stays on one row at ≥320px */
 .env-capsule-bar{
-  display:flex;height:3px;width:100%;border-radius:2px;overflow:hidden;
-  background:rgba(255,255,255,.08);
+  display:flex;height:3px;width:34px;flex:none;border-radius:2px;overflow:hidden;
+  background:rgba(255,255,255,.10);
 }
 .env-bar-seg{height:100%;border-radius:2px}
 .env-bar-seg.dev{background:#60a5fa}
@@ -1270,6 +1287,15 @@ export const HUD_CSS = `
 .env-capsule-pct{
   font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;
   font-size:12px;font-weight:800;color:#5BE9B0;line-height:1;
+}
+/* CAM-257: narrow-width compression — tighten gaps/padding/bar so the single-row chip
+   keeps the full Dev ▸ Staging ▸ Ship pipeline + bar + % on ONE line and never overflows
+   or wraps at ≥320px (lane text never clips; verified 320/360/414). */
+@media (max-width:400px){
+  .env-capsule{gap:5px;padding:0 10px}
+  .env-capsule-lanes{gap:3px;font-size:10.5px}
+  .env-capsule-bar{width:26px}
+  .env-capsule-pct{font-size:11px}
 }
 
 /* Summary popover — anchored above capsule */
@@ -3745,46 +3771,60 @@ export function FilterRowMobile({ personas, features, epics, persona, feature, e
   );
 }
 
-// ── EnvPipelineCapsule (SMUX-6) ───────────────────────────────────────────────
-// Mobile bottom bar center element. Shows Dev/Staging/Ship counts + 3-seg bar + pct.
+// ── EnvPipelineCapsule (SMUX-6 · CAM-257) ─────────────────────────────────────
+// Mobile bottom bar center element. Slim glass CHIP (matches .hud-signpost /
+// .hud-toolbar-btn neighbours): single horizontal row — Dev n ▸ Staging n ▸ Ship n
+// + a compact inline mini-bar + % — on ONE line, ~40–44px tall.
 // Tap to expand a summary popover with gates / epics / backlog counts.
 // Anchored to the bottom toolbar — custom absolute-positioned popover (not Dialog/Sheet,
 // per the Design Brief: small, anchored).
+//
+// CAM-257: counts are now passed in pre-computed + scoped to the active filter
+// (the scene derives them; "all" = global project numbers). The capsule no longer
+// reads global envLanes/gates/backlog — it renders whatever scalar counts it is given.
 
 export interface EnvPipelineCapsuleProps {
-  envLanes: { dev: MapEnvItem[]; staging: MapEnvItem[]; prod: MapEnvItem[] };
-  projectPct: number;
-  gates: MapGate[];
-  epicsActive: number;
-  totalEpics: number;
-  backlogItems: MapBacklogItem[];
+  /** Stories in the Dev lane for the active filter (or whole project when "all"). */
+  devCount: number;
+  /** Stories in the Staging lane (Done, not yet released). */
+  stagingCount: number;
+  /** Stories in the Ship lane (released). */
+  shipCount: number;
+  /** Completion % of the active filter's story set (done/total), or projectPct when "all". */
+  pct: number;
+  /** Open gates within the active filter (or all gates when "all"). */
+  gatesCount: number;
+  /** Epics in progress within the active filter (or epicsActive when "all"). */
+  epicsActiveCount: number;
+  /** Total epics within the active filter (or totalEpics when "all"). */
+  epicsTotalCount: number;
+  /** Backlog stories within the active filter (or all backlog when "all"). */
+  backlogCount: number;
 }
 
 export function EnvPipelineCapsule({
-  envLanes,
-  projectPct,
-  gates,
-  epicsActive,
-  totalEpics,
-  backlogItems,
+  devCount,
+  stagingCount,
+  shipCount,
+  pct,
+  gatesCount,
+  epicsActiveCount,
+  epicsTotalCount,
+  backlogCount,
 }: EnvPipelineCapsuleProps) {
   const [open, setOpen] = useState(false);
   const capsuleRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
-  // Data derive
-  const devCount     = envLanes?.dev?.length     ?? 0;
-  const stagingCount = envLanes?.staging?.length ?? 0;
-  const shipCount    = envLanes?.prod?.length    ?? 0;
-  const total        = devCount + stagingCount + shipCount;
-
-  const devPct     = total > 0 ? (devCount / total) * 100 : 33.33;
-  const stagingPct = total > 0 ? (stagingCount / total) * 100 : 33.33;
-  const shipPct    = total > 0 ? (shipCount / total) * 100 : 33.33;
-  const isAllZero  = total === 0;
+  // Bar segment widths from the (scoped) lane counts.
+  const total       = devCount + stagingCount + shipCount;
+  const devPct      = total > 0 ? (devCount / total) * 100 : 33.33;
+  const stagingPct  = total > 0 ? (stagingCount / total) * 100 : 33.33;
+  const shipPct     = total > 0 ? (shipCount / total) * 100 : 33.33;
+  const isAllZero   = total === 0;
 
   // Accessible label — updates dynamically
-  const ariaLabel = `สถานะ Env Pipeline — Dev ${devCount}, Staging ${stagingCount}, Ship ${shipCount}, ${projectPct}%`;
+  const ariaLabel = `สถานะ Env Pipeline — Dev ${devCount}, Staging ${stagingCount}, Ship ${shipCount}, ${pct}%`;
 
   // Close on Escape + click-outside
   useEffect(() => {
@@ -3840,18 +3880,18 @@ export function EnvPipelineCapsule({
         {/* Lane counts row */}
         <span className="env-capsule-lanes">
           <span className="env-lane-label dev" aria-hidden="true">
-            Dev <span className="env-lane-count">{devCount !== undefined ? devCount : "—"}</span>
+            Dev <span className="env-lane-count">{devCount}</span>
           </span>
           <span className="env-lane-arrow" aria-hidden="true">▸</span>
           <span className="env-lane-label staging" aria-hidden="true">
-            Staging <span className="env-lane-count">{stagingCount !== undefined ? stagingCount : "—"}</span>
+            Staging <span className="env-lane-count">{stagingCount}</span>
           </span>
           <span className="env-lane-arrow" aria-hidden="true">▸</span>
           <span className="env-lane-label ship" aria-hidden="true">
-            Ship <span className="env-lane-count">{shipCount !== undefined ? shipCount : "—"}</span>
+            Ship <span className="env-lane-count">{shipCount}</span>
           </span>
         </span>
-        {/* 3-segment bar */}
+        {/* Inline mini-bar (compact, same row) */}
         <span className="env-capsule-bar" aria-hidden="true">
           {isAllZero ? (
             <span className="env-bar-seg muted" style={{ width: "100%" }} />
@@ -3865,7 +3905,7 @@ export function EnvPipelineCapsule({
         </span>
         {/* Percent */}
         <span className="env-capsule-pct" aria-hidden="true">
-          {projectPct}<span style={{ fontSize: "9px", opacity: 0.7 }}>%</span>
+          {pct}<span style={{ fontSize: "9px", opacity: 0.7 }}>%</span>
         </span>
       </button>
 
@@ -3885,19 +3925,19 @@ export function EnvPipelineCapsule({
           <div className="env-summary-rows">
             <div className="env-summary-row" data-testid="row--env-summary-gates">
               <span className="env-summary-key">Gates</span>
-              <span className="env-summary-val" style={{ color: gates.length > 0 ? "var(--env-ship-color, #FFB454)" : "#5BE9B0" }}>
-                {gates.length} <span className="env-summary-sub">เปิด</span>
+              <span className="env-summary-val" style={{ color: gatesCount > 0 ? "var(--env-ship-color, #FFB454)" : "#5BE9B0" }}>
+                {gatesCount} <span className="env-summary-sub">เปิด</span>
               </span>
             </div>
             <div className="env-summary-row" data-testid="row--env-summary-epics">
               <span className="env-summary-key">Epics</span>
               <span className="env-summary-val">
-                {epicsActive}<span className="env-summary-sub">/{totalEpics}</span>
+                {epicsActiveCount}<span className="env-summary-sub">/{epicsTotalCount}</span>
               </span>
             </div>
             <div className="env-summary-row" data-testid="row--env-summary-backlog">
               <span className="env-summary-key">Backlog</span>
-              <span className="env-summary-val">{backlogItems.length}</span>
+              <span className="env-summary-val">{backlogCount}</span>
             </div>
           </div>
           <button

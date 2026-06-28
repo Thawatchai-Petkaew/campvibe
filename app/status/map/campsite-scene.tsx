@@ -38,7 +38,7 @@ import {
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterRowMobile, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
-import { payloadChanged } from "@/lib/status-map-model";
+import { payloadChanged, deriveCapsuleStats } from "@/lib/status-map-model";
 import {
   ADJ,
   buildScoutState,
@@ -1299,6 +1299,29 @@ export default function CampsiteScene({
     return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline, statusCounts };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
 
+  // CAM-257 (SMUX-6-fix): EnvPipelineCapsule counts scoped to the ACTIVE filter.
+  // Selecting a persona/feature/epic makes the capsule reflect THAT set's
+  // Dev/Staging/Ship split + % (not the whole-project envLanes); "all" (no filter)
+  // falls back to the global numbers. Logic lives in the pure, unit-tested
+  // deriveCapsuleStats() helper (lib/status-map-model) so it cannot drift.
+  const capsuleStats = useMemo(
+    () =>
+      deriveCapsuleStats({
+        epics,
+        scope,
+        activeEpic,
+        feature,
+        persona,
+        envLanes,
+        projectPct,
+        gates,
+        backlogItems,
+        epicsActive,
+        totalEpics,
+      }),
+    [epics, persona, feature, scope, activeEpic, envLanes, projectPct, gates, epicsActive, totalEpics, backlogItems],
+  );
+
   const showBoard = !!feature || (scope === "epic" && !!activeEpic);
   const boardStories = useMemo(() => {
     if (!showBoard) return [];
@@ -2013,14 +2036,17 @@ export default function CampsiteScene({
           <span>≡ ทีม</span>
         </button>
 
-        {/* SMUX-6: Env Pipeline Capsule — replaces bare pct% display */}
+        {/* SMUX-6 / CAM-257: Env Pipeline Capsule — counts scoped to the active filter
+            (capsuleStats); "all" falls back to global project numbers. */}
         <EnvPipelineCapsule
-          envLanes={envLanes}
-          projectPct={projectPct}
-          gates={gates}
-          epicsActive={epicsActive}
-          totalEpics={totalEpics}
-          backlogItems={backlogItems}
+          devCount={capsuleStats.devCount}
+          stagingCount={capsuleStats.stagingCount}
+          shipCount={capsuleStats.shipCount}
+          pct={capsuleStats.pct}
+          gatesCount={capsuleStats.gatesCount}
+          epicsActiveCount={capsuleStats.epicsActiveCount}
+          epicsTotalCount={capsuleStats.epicsTotalCount}
+          backlogCount={capsuleStats.backlogCount}
         />
 
         <button

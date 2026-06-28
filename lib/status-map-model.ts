@@ -186,3 +186,98 @@ export function buildMapModel(issues: StatusIssue[]): MapModel {
 export function payloadChanged(prev: string, next: string): boolean {
   return prev !== next;
 }
+
+/**
+ * CAM-257 (SMUX-6-fix) — EnvPipelineCapsule counts scoped to the active filter.
+ *
+ * Pure, client-safe (type-only imports; no server chain). Given the projected epics
+ * and the current persona/feature/epic selection, returns the Dev/Staging/Ship split,
+ * the % complete, and the gates/epics/backlog summary counts for THAT selection.
+ *
+ * - When no filter is active ("all") → falls back to the GLOBAL project numbers
+ *   (whole-project envLanes / projectPct / gates / epicsActive / totalEpics / backlog),
+ *   preserving the original capsule behaviour.
+ * - When a persona/feature/epic is selected → buckets the selected stories with the
+ *   same env semantics as `envOf` (released → Ship · else Done → Staging · else Dev),
+ *   `pct = done/total` of that set, and scopes gates/backlog by their epicKey.
+ *
+ * Kept as a standalone pure function so the filter-scoping logic is unit-testable
+ * without rendering the client scene (mirrors `payloadChanged`).
+ */
+export interface CapsuleStats {
+  /** true when counts are scoped to an active filter; false = global fallback. */
+  scoped: boolean;
+  devCount: number;
+  stagingCount: number;
+  shipCount: number;
+  pct: number;
+  gatesCount: number;
+  epicsActiveCount: number;
+  epicsTotalCount: number;
+  backlogCount: number;
+}
+
+export function deriveCapsuleStats(args: {
+  epics: MapEpicItem[];
+  scope: "all" | "epic";
+  activeEpic: string;
+  feature: string;
+  persona: string;
+  // global fallbacks (used when no filter is active)
+  envLanes: { dev: MapEnvItem[]; staging: MapEnvItem[]; prod: MapEnvItem[] };
+  projectPct: number;
+  gates: MapGate[];
+  backlogItems: MapBacklogItem[];
+  epicsActive: number;
+  totalEpics: number;
+}): CapsuleStats {
+  const { epics, scope, activeEpic, feature, persona } = args;
+  const filterActive =
+    (scope === "epic" && !!activeEpic) || !!feature || !!persona;
+
+  // "All" → global project numbers (original behaviour).
+  if (!filterActive) {
+    return {
+      scoped: false,
+      devCount: args.envLanes.dev.length,
+      stagingCount: args.envLanes.staging.length,
+      shipCount: args.envLanes.prod.length,
+      pct: args.projectPct,
+      gatesCount: args.gates.length,
+      epicsActiveCount: args.epicsActive,
+      epicsTotalCount: args.totalEpics,
+      backlogCount: args.backlogItems.length,
+    };
+  }
+
+  // Filtered: which epics the current selection picks (mirrors the StatusBoard derive).
+  let filteredEpics = epics;
+  if (scope === "epic" && activeEpic) filteredEpics = epics.filter((e) => e.key === activeEpic);
+  else if (feature) filteredEpics = epics.filter((e) => e.feature === feature);
+  else if (persona) filteredEpics = epics.filter((e) => e.persona === persona);
+
+  const stories = filteredEpics.flatMap((e) => e.stories);
+  let dev = 0, staging = 0, ship = 0;
+  for (const s of stories) {
+    // envOf semantics on the cleaned MapEpicStory shape.
+    if (s.labels.includes("released")) ship++;
+    else if (s.statusType === "completed" || s.status === "Done") staging++;
+    else dev++;
+  }
+  const done = staging + ship;
+  const pct = stories.length ? Math.round((done / stories.length) * 100) : 0;
+
+  // Scope the summary popover counts to the same selection.
+  const epicKeys = new Set(filteredEpics.map((e) => e.key));
+  return {
+    scoped: true,
+    devCount: dev,
+    stagingCount: staging,
+    shipCount: ship,
+    pct,
+    gatesCount: args.gates.filter((g) => epicKeys.has(g.epicKey)).length,
+    epicsActiveCount: filteredEpics.filter((e) => e.bucket === "prog").length,
+    epicsTotalCount: filteredEpics.length,
+    backlogCount: args.backlogItems.filter((b) => epicKeys.has(b.epicKey)).length,
+  };
+}
