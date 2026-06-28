@@ -1816,6 +1816,84 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
   });
 });
 
+describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass, icon-only, parity)", () => {
+  const scene  = read("../app/status/map/campsite-scene.tsx");
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  // Fix 1: ทีม button renders exactly ONE icon + its label is "ทีม" (no ≡ glyph)
+  it("the ทีม toolbar button label is 'ทีม' with no ≡ hamburger glyph (single icon)", () => {
+    // the old double-icon markup is gone
+    expect(scene).not.toContain("≡ ทีม");
+    // label is the bare word, wrapped in the collapsible label class
+    expect(scene).toContain('<span className="hud-toolbar-btn-label">ทีม</span>');
+  });
+
+  it("the ทีม toolbar button keeps a single AlignJustify icon", () => {
+    // isolate the roster toolbar button JSX and assert exactly one lucide icon tag
+    const start = scene.indexOf('data-testid="btn--map-toolbar-roster"');
+    const btn = scene.slice(start, scene.indexOf("</button>", start));
+    expect(btn).toContain("<AlignJustify");
+    // no second icon element inside the button
+    expect((btn.match(/<AlignJustify/g) ?? []).length).toBe(1);
+    expect(btn).not.toContain("≡");
+  });
+
+  // Fix 2: .hud-toolbar-btn uses the dark-green HUD glass (not the white tint)
+  it(".hud-toolbar-btn uses the dark-green glass tokens, not rgba(255,255,255,.07)", () => {
+    const block = scene.slice(scene.indexOf(".hud-toolbar-btn{"));
+    const decl = block.slice(0, 400);
+    // the established glass language (matches .hud-signpost / .hud-view-toggle)
+    expect(decl).toContain("background:rgba(11,30,24,.50)");
+    expect(decl).toContain("backdrop-filter:saturate(195%) blur(26px)");
+    expect(decl).toContain("border:1px solid rgba(150,240,195,.13)");
+    // the old white-tint background is removed
+    expect(decl).not.toContain("background:rgba(255,255,255,.07)");
+  });
+
+  it(".hud-toolbar-btn keeps min-height:44px and the teal aria-expanded active state", () => {
+    const block = scene.slice(scene.indexOf(".hud-toolbar-btn{"));
+    expect(block.slice(0, 500)).toContain("min-height:44px");
+    expect(scene).toContain('.hud-toolbar-btn[aria-expanded="true"]{');
+    const active = scene.slice(scene.indexOf('.hud-toolbar-btn[aria-expanded="true"]{'));
+    expect(active.slice(0, 160)).toContain("#5BE9B0");
+  });
+
+  // Fix 3: icon-only at ≤380px — labels hidden, hit area preserved
+  it("at max-width:380px the toolbar button labels are hidden (icon-only)", () => {
+    expect(scene).toContain("@media (max-width: 380px){");
+    const block = scene.slice(scene.indexOf("@media (max-width: 380px){"));
+    expect(block.slice(0, 260)).toContain(".hud-toolbar-btn-label{display:none}");
+    // ≥44px hit area kept (square icon button)
+    expect(block.slice(0, 260)).toContain("width:44px");
+  });
+
+  it("the Board toolbar button has a board icon (LayoutGrid) + a ChevronUp expand caret", () => {
+    expect(scene).toContain("LayoutGrid");
+    const start = scene.indexOf('data-testid="btn--map-toolbar-board"');
+    const btn = scene.slice(start, scene.indexOf("</button>", start));
+    expect(btn).toContain("<LayoutGrid");
+    expect(btn).toContain('<span className="hud-toolbar-btn-label">Board</span>');
+    // ChevronUp stays as a small caret that collapses at icon-only width
+    expect(btn).toContain('<ChevronUp className="hud-toolbar-caret"');
+  });
+
+  it("campsite-scene.tsx imports LayoutGrid from lucide-react", () => {
+    const importLine = scene.split("\n").find((l) => l.includes("lucide-react"));
+    expect(importLine).toContain("LayoutGrid");
+  });
+
+  // Fix 4: bottom filter parity — same .hud-signpost chip family as desktop
+  it("the bottom filter reuses the desktop FilterSignposts chip (.hud-signpost parity)", () => {
+    // one filter implementation: scene renders FilterSignposts layout="bottom"
+    expect(scene).toContain('layout="bottom"');
+    // both desktop and bottom share the same chip primitive class
+    expect(overly).toContain(".hud-signpost{");
+    expect(overly).toContain(".hud-signpost-menu{");
+    // the bottom variant only adapts layout (no parallel chip impl)
+    expect(overly).toContain(".hud-signposts-bottom .hud-signpost{");
+  });
+});
+
 describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignposts chip", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
