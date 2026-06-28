@@ -26,6 +26,12 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        // Google OAuth avatars (lh3/lh4/lh5/lh6.googleusercontent.com).
+        // CSP img-src is the real gate for <img> tags; this future-proofs next/image.
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
+      },
     ],
     dangerouslyAllowSVG: false,
   },
