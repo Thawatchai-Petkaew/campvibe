@@ -966,6 +966,22 @@ export const HUD_CSS = `
   border-color:rgba(255,150,52,.45);
   background:linear-gradient(160deg,rgba(255,150,52,.09),rgba(91,233,176,.04));
 }
+/* SMUX-3: focused card — teal ring + elevated bg (highlight from agent click) */
+.hud-kc.smux3-focused{
+  border-color:rgba(91,233,176,.85);
+  background:rgba(91,233,176,.13);
+  box-shadow:0 0 0 2px rgba(91,233,176,.4),0 0 18px rgba(91,233,176,.14);
+  scroll-margin-top:8px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hud-kc-focus-pulse {
+    0%,100% { box-shadow: 0 0 0 2px rgba(91,233,176,.5), 0 0 14px rgba(91,233,176,.18); }
+    50%      { box-shadow: 0 0 0 4px rgba(91,233,176,.25), 0 0 28px rgba(91,233,176,.28); }
+  }
+  .hud-kc.smux3-focused {
+    animation: hud-kc-focus-pulse 1.6s ease-in-out infinite;
+  }
+}
 /* title row — role icon + title text */
 .hud-kt{font-size:12px;color:rgba(223,234,245,.88);line-height:1.35;display:flex;gap:6px;align-items:flex-start;min-width:0}
 .hud-kt svg{width:13px;height:13px;flex:none;margin-top:1px;color:rgba(91,233,176,.5)}
@@ -2779,11 +2795,22 @@ export interface StatusBoardProps {
   pct: number;
   collapsed: boolean;
   onToggle: () => void;
+  /** SMUX-3: id of the board card to highlight (scroll-into-view + teal ring). */
+  focusedTaskId?: string;
+  /** SMUX-3: called when the user activates a card (click/Enter/Space) → focuses the matching agent on the map. */
+  onCardActivate?: (storyId: string) => void;
 }
 
-export function StatusBoard({ stories, label, pct, collapsed, onToggle }: StatusBoardProps) {
+export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedTaskId = "", onCardActivate }: StatusBoardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const modalTriggerRef = useRef<HTMLButtonElement>(null);
+  // SMUX-3: ref map for scroll-into-view on focus change.
+  const cardRefs = useRef<Record<string, HTMLElement | null>>({});
+  useEffect(() => {
+    if (!focusedTaskId) return;
+    const el = cardRefs.current[focusedTaskId];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [focusedTaskId]);
 
   const byLane = Object.fromEntries(SB_LANES.map(l => [l.key, [] as MapEpicStory[]]));
   for (const s of stories) {
@@ -2850,7 +2877,17 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle }: Status
                 const roleKey = s.role ?? "";
                 const roleStr = ROLE_LABEL_SB[roleKey] ?? roleKey ?? "team";
                 return (
-                  <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}`} aria-label={`เปิด ${s.id} ใน Linear`}>
+                  <a
+                    key={s.id}
+                    ref={(el) => { cardRefs.current[s.id] = el; }}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}${focusedTaskId === s.id ? " smux3-focused" : ""}`}
+                    aria-label={`เปิด ${s.id} ใน Linear`}
+                    data-testid={`card--board-${s.id}`}
+                    onClick={() => onCardActivate?.(s.id)}
+                  >
                     <div className="hud-kt">
                       <RoleIconSB role={roleKey} />
                       <span title={s.title}>{s.title}</span>

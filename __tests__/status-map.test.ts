@@ -1458,3 +1458,192 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).toContain('className="hud-right-panels"');
   });
 });
+
+// ============================================================
+// CAM-252 (SMUX-3) — Bidirectional Flicker↔Board/Filter sync
+// ============================================================
+
+// ---------- SMUX-3: MapAgent.task widened with epicKey + feature ─────────────
+describe("campsite-scene.tsx — SMUX-3: MapAgent.task carries epicKey + feature", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("MapAgent.task type includes epicKey field (for Map→Board/Filter sync)", () => {
+    expect(src).toContain("epicKey: string");
+  });
+
+  it("MapAgent.task type includes feature field (for Map→Board/Filter sync)", () => {
+    expect(src).toContain("feature: string");
+  });
+
+  it("MapAgent interface comment references SMUX-3 sync", () => {
+    expect(src).toContain("SMUX-3");
+  });
+});
+
+// ---------- SMUX-3: lib/status-map-model.ts projection ──────────────────────
+describe("lib/status-map-model.ts — SMUX-3: task projects epicKey + feature", () => {
+  const src = read("../lib/status-map-model.ts");
+
+  it("buildAgents projects epicKey from epicOf(title) || parent.title (mirrors backlog/gate logic)", () => {
+    expect(src).toContain("epicKey: epicOf(activeStory.title) || activeStory.parent?.title");
+  });
+
+  it("buildAgents projects feature from story.project?.name", () => {
+    expect(src).toContain("feature: activeStory.project?.name");
+  });
+
+  it("task projection still has id, title, startedAt (no regression on existing fields)", () => {
+    expect(src).toContain("id: activeStory.id");
+    expect(src).toContain("title: cleanTitle(activeStory.title)");
+    expect(src).toContain("startedAt: activeStory.startedAt");
+  });
+});
+
+// ---------- SMUX-3: sync state ───────────────────────────────────────────────
+describe("campsite-scene.tsx — SMUX-3: focusedTaskId sync state", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("declares focusedTaskId state (single source of truth for sync)", () => {
+    expect(src).toContain("focusedTaskId, setFocusedTaskId");
+  });
+
+  it("initialises focusedTaskId to empty string (no highlight on load)", () => {
+    expect(src).toContain('useState<string>("")');
+  });
+});
+
+// ---------- SMUX-3: Map → Board/Filter direction (agent click) ───────────────
+describe("campsite-scene.tsx — SMUX-3: Map→Board/Filter — agent click handler", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("handleAgentActivate is declared and wired to AgentScout onActivate", () => {
+    expect(src).toContain("handleAgentActivate");
+    expect(src).toContain("onActivate={() => handleAgentActivate(agent)");
+  });
+
+  it("agent without task falls back to roster open (original behavior preserved)", () => {
+    // The handler must check !agent.task and open team roster
+    expect(src).toContain("if (!agent.task)");
+    expect(src).toContain("setTeamCollapsed(false)");
+  });
+
+  it("agent with task sets the filter to task.epicKey (scope='epic')", () => {
+    expect(src).toContain("setActiveEpic(agent.task.epicKey)");
+    expect(src).toContain('setScope("epic")');
+  });
+
+  it("agent with task sets focusedTaskId to task.id", () => {
+    expect(src).toContain("setFocusedTaskId(agent.task.id)");
+  });
+
+  it("agent with task opens board sheet (mobile) and expands board panel (desktop)", () => {
+    expect(src).toContain('setOpenSheet("board")');
+    expect(src).toContain("setBoardCollapsed(false)");
+  });
+});
+
+// ---------- SMUX-3: Board/Filter → Map direction (board card click) ──────────
+describe("campsite-scene.tsx — SMUX-3: Board/Filter→Map — board card activate handler", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("handleBoardCardActivate is declared and sets focusedTaskId", () => {
+    expect(src).toContain("handleBoardCardActivate");
+    expect(src).toContain("setFocusedTaskId(storyId)");
+  });
+
+  it("closing the board sheet clears focusedTaskId", () => {
+    // The Sheet onOpenChange callback must clear focusedTaskId when closing
+    expect(src).toContain('setFocusedTaskId("")');
+  });
+});
+
+// ---------- SMUX-3: agent focus ring (CSS + className) ───────────────────────
+describe("campsite-scene.tsx — SMUX-3: agent focus ring", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("SCENE_CSS includes .scout--focused CSS rule with teal ring", () => {
+    expect(src).toContain(".scout--focused");
+    // The teal colour is the scene-internal #5BE9B0 or its rgba equivalent
+    expect(src).toContain("rgba(91,233,176");
+  });
+
+  it("scout--focused animation is gated by prefers-reduced-motion: no-preference", () => {
+    // Must not animate under reduce — check the guard exists in SCENE_CSS context
+    expect(src).toContain("smux3-agent-pulse");
+  });
+
+  it("AgentScout receives focused prop and applies scout--focused class when true", () => {
+    expect(src).toContain("focused ? \"scout scout--focused\" : \"scout\"");
+  });
+
+  it("AgentScoutProps interface declares focused optional boolean", () => {
+    expect(src).toContain("focused?: boolean");
+  });
+
+  it("AgentScout memo comparator includes focused in the equality check", () => {
+    expect(src).toContain("prev.focused === next.focused");
+  });
+});
+
+// ---------- SMUX-3: Filter→Map — isFocused derivation for all matching agents ─
+describe("campsite-scene.tsx — SMUX-3: Filter→Map — epic filter highlights matching agents", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("isFocused logic checks agent.task?.id === focusedTaskId (specific card path)", () => {
+    expect(src).toContain("agent.task?.id === focusedTaskId");
+  });
+
+  it("isFocused logic also highlights by epicKey when focusedTaskId is empty + activeEpic matches", () => {
+    expect(src).toContain("agent.task?.epicKey === activeEpic");
+  });
+});
+
+// ---------- SMUX-3: board card highlight in campsite-overlays.tsx ─────────────
+describe("campsite-overlays.tsx — SMUX-3: board card highlight", () => {
+  const src = read("../app/status/map/campsite-overlays.tsx");
+
+  it("StatusBoardProps declares focusedTaskId optional string", () => {
+    expect(src).toContain("focusedTaskId?: string");
+  });
+
+  it("StatusBoardProps declares onCardActivate optional callback", () => {
+    expect(src).toContain("onCardActivate?: (storyId: string) => void");
+  });
+
+  it("HUD_CSS includes .hud-kc.smux3-focused rule with teal border", () => {
+    expect(src).toContain(".hud-kc.smux3-focused");
+    expect(src).toContain("rgba(91,233,176");
+  });
+
+  it("focused card CSS animation is gated by prefers-reduced-motion: no-preference", () => {
+    expect(src).toContain("hud-kc-focus-pulse");
+  });
+
+  it("board card applies smux3-focused class when its id matches focusedTaskId", () => {
+    expect(src).toContain("smux3-focused");
+    expect(src).toContain("focusedTaskId === s.id");
+  });
+
+  it("board card calls onCardActivate with its storyId on click", () => {
+    expect(src).toContain("onCardActivate?.(s.id)");
+  });
+
+  it("board cards have data-testid following convention card--board-{id}", () => {
+    expect(src).toContain("`card--board-${s.id}`");
+  });
+
+  it("StatusBoard uses useEffect to scroll focused card into view when focusedTaskId changes", () => {
+    expect(src).toContain("scrollIntoView");
+    expect(src).toContain("cardRefs.current[focusedTaskId]");
+  });
+});
+
+// ---------- SMUX-3: onFilterChange clears focusedTaskId on reset ──────────────
+describe("campsite-scene.tsx — SMUX-3: filter reset clears focusedTaskId", () => {
+  const src = read("../app/status/map/campsite-scene.tsx");
+
+  it("onFilterChange calls setFocusedTaskId('') when clearing persona", () => {
+    // When level='persona' and value is empty → clear focus
+    expect(src).toContain("if (!value) setFocusedTaskId");
+  });
+});

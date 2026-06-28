@@ -66,11 +66,15 @@ function buildAgents(
         (i) => isActive(i) && canonRole(titleRoleOf(i.title)) === role
       ) ?? null;
 
+    // SMUX-3: derive epicKey + feature for Map↔Board/Filter sync.
+    // epicKey = "·"-prefix or parent.title (mirrors backlog/gate epicKey logic).
     const task = activeStory
       ? {
           id: activeStory.id,
           title: cleanTitle(activeStory.title),
           startedAt: activeStory.startedAt,
+          epicKey: epicOf(activeStory.title) || activeStory.parent?.title || "",
+          feature: activeStory.project?.name || "",
         }
       : null;
 

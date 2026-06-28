@@ -56,7 +56,8 @@ export interface MapAgent {
   done: number;
   activeCount: number;
   queued: number;       // total - done - active (stories not yet started)
-  task: { id: string; title: string; startedAt: string | null } | null;
+  /** Active task for this agent (null when idle). epicKey + feature power Map↔Board/Filter sync (SMUX-3). */
+  task: { id: string; title: string; startedAt: string | null; epicKey: string; feature: string } | null;
 }
 
 // Gate item for the You → Gates panel.
@@ -583,6 +584,25 @@ const SCENE_CSS = `
   }
   /* Hide desktop signposts on mobile */
   .hud-signposts-desktop{display:none}
+}
+/* ── SMUX-3: Map↔Board/Filter bidirectional sync ────────────────────────────
+   .scout--focused: pulsing teal ring around the agent sprite when a board card
+   or filter selection points at this agent. Uses CSS custom property --aura
+   (per-agent colour) as the base; the teal override makes all focused agents
+   uniform regardless of role colour. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes smux3-agent-pulse {
+    0%,100% { box-shadow: 0 0 0 3px rgba(91,233,176,.9), 0 0 18px rgba(91,233,176,.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(91,233,176,.5), 0 0 32px rgba(91,233,176,.3); }
+  }
+  .scout--focused .body {
+    animation: smux3-agent-pulse 1.4s ease-in-out infinite;
+  }
+}
+/* Reduced-motion: static ring, no animation */
+.scout--focused .body {
+  outline: 3px solid rgba(91,233,176,.9);
+  outline-offset: 3px;
 }`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -593,10 +613,12 @@ interface AgentScoutProps {
   rootRef: (el: HTMLElement | null) => void;
   speechRef: (el: HTMLElement | null) => void;
   onActivate: () => void;
+  /** SMUX-3: when true, applies the teal focus-ring/pulse to this agent sprite. */
+  focused?: boolean;
 }
 
 function AgentScoutInner({
-  agent, bodyRef, rootRef, speechRef, onActivate,
+  agent, bodyRef, rootRef, speechRef, onActivate, focused = false,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
@@ -629,7 +651,7 @@ function AgentScoutInner({
     <button
       ref={rootRef as (el: HTMLButtonElement | null) => void}
       type="button"
-      className="scout"
+      className={focused ? "scout scout--focused" : "scout"}
       style={{
         // Position is engine-owned (imperative per-frame via place()). Do NOT set
         // left/top/zIndex here — React re-applying them on every feed update would
@@ -703,13 +725,15 @@ function AgentScoutInner({
 // The agent position is engine-owned (imperative per-frame DOM writes). Memoise so a
 // status-feed re-render (every SSE pulse / 60s poll) does NOT re-apply the static home
 // position and warp a walking agent. Re-render only when its displayed data changes.
+// SMUX-3: include focused in the memo guard so focus-ring toggling forces a re-render.
 const AgentScout = memo(AgentScoutInner, (prev, next) =>
   prev.agent.active === next.agent.active &&
   prev.agent.done === next.agent.done &&
   prev.agent.activeCount === next.agent.activeCount &&
   prev.agent.queued === next.agent.queued &&
   prev.agent.task?.id === next.agent.task?.id &&
-  prev.agent.task?.title === next.agent.task?.title,
+  prev.agent.task?.title === next.agent.task?.title &&
+  prev.focused === next.focused,
 );
 
 interface YouScoutProps {
@@ -1203,6 +1227,11 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // SMUX-3: Bidirectional Map↔Board/Filter sync.
+  // Single source of truth: which task (by id) is focused on the board + map.
+  // Cleared when the filter is reset to "all" or the board sheet closes.
+  const [focusedTaskId, setFocusedTaskId] = useState<string>("");
+
   // SMUX-2: Responsive sheet state — one-at-a-time (opening one closes the other).
   const [openSheet, setOpenSheet] = useState<"roster" | "board" | null>(null);
   const rosterTabRef = useRef<HTMLButtonElement | null>(null);
@@ -1276,10 +1305,44 @@ export default function CampsiteScene({
   }, [scope, activeEpic, feature, epics]);
 
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
+  // SMUX-3: clear focusedTaskId when the filter is reset (empty value = "all").
   const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
-    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
-    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); }
-    else { setActiveEpic(value); setScope(value ? "epic" : "all"); }
+    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); if (!value) setFocusedTaskId(""); }
+    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); if (!value) setFocusedTaskId(""); }
+    else { setActiveEpic(value); setScope(value ? "epic" : "all"); if (!value) setFocusedTaskId(""); }
+  }, []);
+
+  // SMUX-3: Board card → Map. Clicking a card focuses the matching agent(s).
+  // Accepts the story id; derives which agents have that task id and focuses them.
+  const handleBoardCardActivate = useCallback((storyId: string) => {
+    setFocusedTaskId(storyId);
+  }, []);
+
+  // SMUX-3: Agent click → Board/Filter. An agent with a task → set filter to task's
+  // epic (+feature), open/show the board, highlight the card, focus the agent.
+  // An agent without a task → keep existing behavior (open roster).
+  const handleAgentActivate = useCallback((agent: MapAgent) => {
+    if (!agent.task) {
+      // No active task: open the team roster (original behavior).
+      setTeamCollapsed(false);
+      return;
+    }
+    // Set filter to the task's epic (and feature when available).
+    if (agent.task.feature) {
+      setFeature(agent.task.feature);
+      setActiveEpic("");
+      setScope("all");
+    }
+    if (agent.task.epicKey) {
+      setActiveEpic(agent.task.epicKey);
+      setScope("epic");
+    }
+    // Highlight the specific card + focus this agent.
+    setFocusedTaskId(agent.task.id);
+    // On mobile: open the board sheet.
+    setOpenSheet("board");
+    // On desktop: expand the board panel.
+    setBoardCollapsed(false);
   }, []);
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
@@ -1741,10 +1804,17 @@ export default function CampsiteScene({
             />
             {agents.map((agent) => {
               const pos = homeStyle(agent.role);
+              // SMUX-3: an agent is focused when:
+              //   • its task.id matches focusedTaskId (user clicked this agent or its board card), OR
+              //   • its task.epicKey matches the active epic filter (board/filter→map direction, all matching agents).
+              const isFocused = !!focusedTaskId && agent.task?.id === focusedTaskId
+                ? true
+                : !focusedTaskId && !!activeEpic && agent.task?.epicKey === activeEpic && !!agent.task;
               return (
                 <AgentScout
                   key={agent.role}
                   agent={agent}
+                  focused={isFocused}
                   rootRef={(el) => {
                     rootRefs.current[agent.role] = el;
                     // Seed the first-paint position and initial working/idle class
@@ -1770,7 +1840,7 @@ export default function CampsiteScene({
                   }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
                   speechRef={(el) => { speechRefs.current[agent.role] = el; }}
-                  onActivate={() => setTeamCollapsed(false)}
+                  onActivate={() => handleAgentActivate(agent)}
                 />
               );
             })}
@@ -1983,8 +2053,9 @@ export default function CampsiteScene({
       </Sheet>
 
       {/* SMUX-2: Board Sheet — side="right" on tablet, side="bottom" on mobile.
-          Shows existing StatusBoard content. */}
-      <Sheet open={openSheet === "board"} onOpenChange={(v) => setOpenSheet(v ? "board" : null)}>
+          Shows existing StatusBoard content.
+          SMUX-3: closing the board sheet clears the focused card highlight. */}
+      <Sheet open={openSheet === "board"} onOpenChange={(v) => { setOpenSheet(v ? "board" : null); if (!v) setFocusedTaskId(""); }}>
         <SheetContent
           id="sheet-board"
           side="right"
@@ -2026,8 +2097,10 @@ export default function CampsiteScene({
                     href={s.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hud-kc"
+                    className={`hud-kc${focusedTaskId === s.id ? " smux3-focused" : ""}`}
                     style={{ display: "block", textDecoration: "none" }}
+                    data-testid={`card--sheet-board-${s.id}`}
+                    onClick={() => handleBoardCardActivate(s.id)}
                   >
                     <div className="hud-kt">
                       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: "rgba(223,234,245,.88)" }}>
@@ -2097,6 +2170,8 @@ export default function CampsiteScene({
           <StatusBoard
             stories={boardStories}
             label={boardLabel}
+            focusedTaskId={focusedTaskId}
+            onCardActivate={handleBoardCardActivate}
             pct={summaryStats.pct}
             collapsed={boardCollapsed}
             onToggle={() => setBoardCollapsed((v) => !v)}
