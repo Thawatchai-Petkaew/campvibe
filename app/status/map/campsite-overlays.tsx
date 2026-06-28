@@ -558,6 +558,61 @@ export const HUD_CSS = `
 }
 .hud-sp-opt:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
 .hud-sp-opt.sel{background:rgba(91,233,176,.15);color:#5BE9B0}
+/* ── SMUX-6 · CAM-258: Bottom-row variant of the SAME signpost chip (<1024) ──
+   Reuses .hud-signpost / .hud-sp-* / .hud-signpost-menu (one filter impl, no
+   parallel mobile component). The chip is arranged as equal columns that fill
+   the frame width, each min-height 30px, label truncates, and the menu opens
+   UPWARD (.hud-signpost-menu-up) because the row sits at the bottom edge. */
+.hud-signposts-bottom{
+  position:fixed;
+  /* Tablet 640–1023: no mobile toolbar present → sit near the frame bottom with a
+     small safe-area gap. Mobile <640 overrides this to clear the toolbar (below). */
+  bottom:calc(8px + env(safe-area-inset-bottom));
+  left:0;right:0;
+  z-index:24;
+  display:none; /* shown via @media below */
+  width:100%;box-sizing:border-box;
+}
+/* equal-width columns that fill + shrink (no overflow at ≥320px) */
+.hud-signposts-bottom .hud-signpost-wrap{flex:1;min-width:0}
+.hud-signposts-bottom .hud-signpost{
+  width:100%;min-width:0;
+  justify-content:space-between;
+  min-height:30px;
+  padding:0 8px;font-size:11px;
+}
+/* top-corner radius only (row sits flush to the bottom edge) */
+.hud-signposts-bottom .hud-signpost-wrap:first-child .hud-signpost{border-radius:8px 0 0 0;padding-left:8px}
+.hud-signposts-bottom .hud-signpost-wrap:last-child .hud-signpost{border-radius:0 8px 0 0;padding-right:8px}
+.hud-signposts-bottom .hud-sp-label{flex:1;max-width:none;min-width:0;text-align:left}
+.hud-signposts-bottom .hud-signpost.active{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.25)}
+/* drop-up menu — opens above the trigger for the bottom row.
+   Width is responsive (not the fixed 220px of the top menu) so the rightmost
+   column's menu never overflows the viewport at ≥320px. */
+.hud-signpost-menu-up{
+  top:auto;bottom:calc(100% + 7px);
+  width:auto;min-width:180px;max-width:min(280px,90vw);
+  box-shadow:0 -18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
+}
+/* selected indicator — dot before the chosen option (bottom row only) */
+.hud-signpost-menu-up .hud-sp-opt.sel::before{content:"•";margin-right:6px}
+/* Show the bottom filter row on tablet + mobile */
+@media (max-width: 1023px){
+  .hud-signposts-bottom{display:flex}
+}
+/* CAM-257/258: Mobile <640 — the bottom toolbar IS present (min-height 52px +
+   10px/safe-area bottom padding). Lift the filter row to clear the full toolbar
+   PLUS an 8px breathing gap so the filter row and the toolbar read as one tidy
+   group, not overlapping bands. */
+@media (max-width: 639px){
+  .hud-signposts-bottom{
+    bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px);
+  }
+}
+/* On desktop, the bottom row is always hidden (top variant renders instead) */
+@media (min-width: 1024px){
+  .hud-signposts-bottom{display:none !important}
+}
 /* status chips — second floating row under the filter */
 .hud-efilter{
   position:fixed;top:64px;left:18px;z-index:22;
@@ -1140,103 +1195,6 @@ export const HUD_CSS = `
 .hud-icon-btn.active{color:#5BE9B0;border-color:rgba(91,233,176,.40);background:rgba(91,233,176,.12)}
 .hud-icon-btn:disabled{opacity:.45;pointer-events:none}
 .hud-icon-btn svg{width:20px;height:20px;display:block}
-
-/* ── SMUX-6 · CAM-257: Bottom filter row (<1024) — 3 equal columns, drop-up menus ── */
-.hud-filter-row-mobile{
-  position:fixed;
-  /* Tablet 640–1023: no mobile toolbar present → sit near the frame bottom with a
-     small safe-area gap. Mobile <640 overrides this to clear the toolbar (below). */
-  bottom:calc(8px + env(safe-area-inset-bottom));
-  left:0;right:0;
-  z-index:24;
-  display:none; /* shown via @media below */
-  width:100%;
-  box-sizing:border-box;
-}
-/* 3 equal-width filter columns */
-.hud-filter-cols{
-  display:flex;
-  width:100%;
-  box-sizing:border-box;
-  padding:0 0 2px 0;
-}
-.hud-filter-col{
-  flex:1;
-  min-width:0;
-  position:relative;
-  display:flex;
-}
-/* trigger button fills its column */
-.hud-filter-col-btn{
-  flex:1;min-width:0;
-  display:flex;align-items:center;justify-content:space-between;gap:4px;
-  min-height:30px;
-  padding:0 8px;
-  font-size:11px;font-weight:600;
-  color:rgba(223,234,245,.78);
-  background:rgba(11,30,24,.60);
-  border:1px solid rgba(150,240,195,.12);
-  border-right:none;
-  backdrop-filter:saturate(195%) blur(20px);-webkit-backdrop-filter:saturate(195%) blur(20px);
-  cursor:pointer;
-  transition:background 120ms,color 120ms;
-  overflow:hidden;
-  white-space:nowrap;
-  text-overflow:ellipsis;
-  box-sizing:border-box;
-}
-.hud-filter-col:first-child .hud-filter-col-btn{border-radius:8px 0 0 0}
-.hud-filter-col:last-child .hud-filter-col-btn{border-right:1px solid rgba(150,240,195,.12);border-radius:0 8px 0 0}
-.hud-filter-col-btn:hover{background:rgba(91,233,176,.10);color:rgba(223,234,245,.96)}
-.hud-filter-col-btn.active{color:#5BE9B0;background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.25)}
-.hud-filter-col-btn:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:-2px;z-index:2}
-.hud-filter-col-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.hud-filter-col-caret{flex:none;opacity:.55;margin-left:2px}
-/* drop-up menu — opens above the trigger */
-.hud-filter-dropup{
-  position:absolute;
-  bottom:calc(100% + 2px);
-  left:0;
-  z-index:35;
-  min-width:180px;max-width:min(280px,90vw);
-  max-height:55vh;overflow-y:auto;
-  display:flex;flex-direction:column;gap:1px;padding:6px;
-  background:rgba(11,30,24,.82);
-  backdrop-filter:saturate(195%) blur(30px);-webkit-backdrop-filter:saturate(195%) blur(30px);
-  border:1px solid rgba(150,240,195,.18);
-  border-radius:10px 10px 0 0;
-  box-shadow:0 -12px 36px rgba(0,0,0,.50),inset 0 -1px 0 rgba(200,255,232,.08);
-}
-.hud-filter-dropup-item{
-  display:block;width:100%;
-  text-align:left;padding:9px 12px;border-radius:7px;
-  font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  transition:background 100ms,color 100ms;
-  background:none;border:none;
-}
-.hud-filter-dropup-item:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96)}
-.hud-filter-dropup-item.sel{background:rgba(91,233,176,.16);color:#5BE9B0;font-weight:700}
-.hud-filter-dropup-item:focus-visible{outline:2px solid rgba(91,233,176,.80);outline-offset:-2px}
-/* Selected indicator — dot before label */
-.hud-filter-dropup-item.sel::before{content:"•";margin-right:6px}
-
-/* Show filter row on tablet + mobile */
-@media (max-width: 1023px) {
-  .hud-filter-row-mobile{display:block}
-}
-/* CAM-257: Mobile <640 — the bottom toolbar IS present (min-height 52px + 10px/safe-area
-   bottom padding). Lift the filter row to clear the full toolbar PLUS an 8px breathing
-   gap, so the filter row and the toolbar read as one tidy group, not overlapping bands. */
-@media (max-width: 639px) {
-  .hud-filter-row-mobile{
-    bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px);
-  }
-}
-/* On desktop, always hidden */
-@media (min-width: 1024px) {
-  .hud-filter-row-mobile{display:none !important}
-}
 
 /* ── SMUX-6 · CAM-257: Env Pipeline Capsule — slim glass CHIP (matches .hud-signpost /
    .hud-toolbar-btn): single horizontal row, pill radius, same glass language as its
@@ -2100,6 +2058,8 @@ const SpIcon = {
   ),
 };
 
+type FilterLevel = "persona" | "feature" | "epic";
+
 interface FilterSignpostsProps {
   personas: string[];
   features: string[];
@@ -2107,36 +2067,94 @@ interface FilterSignpostsProps {
   persona: string;
   feature: string;
   epic: string;
-  onChange: (level: "persona" | "feature" | "epic", value: string) => void;
+  onChange: (level: FilterLevel, value: string) => void;
+  /**
+   * "top" (default) = desktop top-bar row: 3 joined pill chips, menus drop DOWN.
+   * "bottom" = tablet/mobile bottom row: the SAME glass chips arranged as equal
+   *   columns that fill the frame width, with menus that open UPWARD (drop-up).
+   * Both variants share one implementation — there is no parallel mobile filter.
+   */
+  layout?: "top" | "bottom";
 }
 
-export function FilterSignposts({ personas, features, epics, persona, feature, epic, onChange }: FilterSignpostsProps) {
-  const [open, setOpen] = useState<null | "persona" | "feature" | "epic">(null);
+const FILTER_ARIA: Record<FilterLevel, string> = {
+  persona: "กรองตามผู้ใช้งาน",
+  feature: "กรองตาม Feature",
+  epic: "กรองตาม Epic",
+};
+
+export function FilterSignposts({ personas, features, epics, persona, feature, epic, onChange, layout = "top" }: FilterSignpostsProps) {
+  const [open, setOpen] = useState<null | FilterLevel>(null);
+  const btnRefs = {
+    persona: useRef<HTMLButtonElement | null>(null),
+    feature: useRef<HTMLButtonElement | null>(null),
+    epic:    useRef<HTMLButtonElement | null>(null),
+  };
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on click-outside (pointerdown) + Escape; return focus to the trigger on Escape.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(null);
-    window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
+    function onPointer(e: PointerEvent) {
+      if (rootRef.current?.contains(e.target as Node)) return;
+      setOpen(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const ref = btnRefs[open!];
+        setOpen(null);
+        ref?.current?.focus();
+      }
+    }
+    window.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  // btnRefs is a stable object of refs; only `open` drives this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const epicLabel = epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "All Epic";
+  const bottom = layout === "bottom";
+  // Placeholder + "all" copy differs by surface (English on the desktop top bar,
+  // Thai on the mobile bottom row) — the chip visual is identical either way.
+  const allPersona = bottom ? "ทั้งหมด" : "All Persona";
+  const allFeature = bottom ? "ทั้งหมด" : "All Feature";
+  const allEpic = bottom ? "ทั้งหมด" : "All Epic";
+  const phPersona = bottom ? "ผู้ใช้งาน" : "All Persona";
+  const phFeature = bottom ? "Feature" : "All Feature";
+  const phEpic = bottom ? "Epic" : "All Epic";
+
   const signs = [
-    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : "All Persona",
-      opts: [{ v: "", l: "All Persona" }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
-    { key: "feature" as const, value: feature, valueLabel: feature || "All Feature",
-      opts: [{ v: "", l: "All Feature" }, ...features.map((f) => ({ v: f, l: f }))] },
-    { key: "epic" as const, value: epic, valueLabel: epicLabel,
-      opts: [{ v: "", l: "All Epic" }, ...epics.map((e) => ({ v: e.key, l: e.label.replace(/\[[a-z-]+\]\s*/gi, "").trim() }))] },
+    { key: "persona" as const, value: persona, valueLabel: persona ? (PERSONA_LABEL[persona] ?? persona) : phPersona,
+      opts: [{ v: "", l: allPersona }, ...personas.map((p) => ({ v: p, l: PERSONA_LABEL[p] ?? p }))] },
+    { key: "feature" as const, value: feature, valueLabel: feature || phFeature,
+      opts: [{ v: "", l: allFeature }, ...features.map((f) => ({ v: f, l: f }))] },
+    { key: "epic" as const, value: epic, valueLabel: epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : phEpic,
+      opts: [{ v: "", l: allEpic }, ...epics.map((e) => ({ v: e.key, l: e.label.replace(/\[[a-z-]+\]\s*/gi, "").trim() }))] },
   ];
 
+  const menuCls = bottom ? "hud-signpost-menu hud-signpost-menu-up" : "hud-signpost-menu";
+
   return (
-    <div className="hud-signposts" onPointerDown={(e) => e.stopPropagation()} data-testid="nav--map-filter">
+    <div
+      ref={rootRef}
+      className={bottom ? "hud-signposts hud-signposts-bottom" : "hud-signposts"}
+      onPointerDown={(e) => e.stopPropagation()}
+      data-testid={bottom ? "filter-row--map-mobile" : "nav--map-filter"}
+    >
       {signs.map((s) => (
         <div className="hud-signpost-wrap" key={s.key}>
           <button
+            ref={btnRefs[s.key]}
             type="button"
             className={s.value ? "hud-signpost active" : "hud-signpost"}
+            aria-haspopup="listbox"
             aria-expanded={open === s.key}
+            aria-controls={`hud-signpost-menu-${s.key}`}
+            aria-label={FILTER_ARIA[s.key]}
             onClick={() => setOpen(open === s.key ? null : s.key)}
             data-testid={`btn--map-filter-${s.key}`}
           >
@@ -2147,13 +2165,15 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
             </svg>
           </button>
           {open === s.key && (
-            <div className="hud-signpost-menu">
+            <div id={`hud-signpost-menu-${s.key}`} role="listbox" aria-label={FILTER_ARIA[s.key]} className={menuCls}>
               {s.opts.map((o) => (
                 <button
                   type="button"
                   key={o.v || "all"}
+                  role="option"
+                  aria-selected={o.v === s.value}
                   className={o.v === s.value ? "hud-sp-opt sel" : "hud-sp-opt"}
-                  onClick={() => { onChange(s.key, o.v); setOpen(null); }}
+                  onClick={() => { onChange(s.key, o.v); setOpen(null); btnRefs[s.key].current?.focus(); }}
                 >
                   {o.l}
                 </button>
@@ -3618,156 +3638,6 @@ export function MapOverlays({
         onClose={onClose}
       />
     </>
-  );
-}
-
-// ── FilterRowMobile (SMUX-6) ─────────────────────────────────────────────────
-// Bottom filter row for tablet/mobile (<1024px).
-// 3 equal-flex columns (Persona/Feature/Epic), each with a drop-up menu.
-// Menus open upward since the row sits at the bottom edge.
-// No overflow at ≥320px: columns flex-shrink + labels truncate.
-
-interface FilterRowMobileProps {
-  personas: string[];
-  features: string[];
-  epics: { key: string; label: string }[];
-  persona: string;
-  feature: string;
-  epic: string;
-  onChange: (level: "persona" | "feature" | "epic", value: string) => void;
-}
-
-export function FilterRowMobile({ personas, features, epics, persona, feature, epic, onChange }: FilterRowMobileProps) {
-  const [openCol, setOpenCol] = useState<"persona" | "feature" | "epic" | null>(null);
-  const colRefs = {
-    persona: useRef<HTMLButtonElement | null>(null),
-    feature: useRef<HTMLButtonElement | null>(null),
-    epic:    useRef<HTMLButtonElement | null>(null),
-  };
-
-  // Close on Escape + click-outside
-  useEffect(() => {
-    if (!openCol) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        const ref = colRefs[openCol!];
-        setOpenCol(null);
-        ref?.current?.focus();
-      }
-    }
-    function onOutside(e: MouseEvent) {
-      // If click is inside any filter col, let it handle itself
-      const target = e.target as Node;
-      const filterRow = document.querySelector("[data-testid=\"filter-row--map-mobile\"]");
-      if (filterRow?.contains(target)) return;
-      setOpenCol(null);
-    }
-    document.addEventListener("keydown", onKey, true);
-    document.addEventListener("mousedown", onOutside, true);
-    return () => {
-      document.removeEventListener("keydown", onKey, true);
-      document.removeEventListener("mousedown", onOutside, true);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openCol]);
-
-  const cols: Array<{
-    key: "persona" | "feature" | "epic";
-    label: string;
-    value: string;
-    opts: Array<{ key: string; label: string }>;
-    all: string;
-    ariaLabel: string;
-  }> = [
-    {
-      key: "persona",
-      label: persona || "ผู้ใช้งาน",
-      value: persona,
-      opts: personas.map((p) => ({ key: p, label: p })),
-      all: "ทั้งหมด",
-      ariaLabel: "กรองตามผู้ใช้งาน",
-    },
-    {
-      key: "feature",
-      label: feature || "Feature",
-      value: feature,
-      opts: features.map((f) => ({ key: f, label: f })),
-      all: "ทั้งหมด",
-      ariaLabel: "กรองตาม Feature",
-    },
-    {
-      key: "epic",
-      label: epic ? (epics.find((e) => e.key === epic)?.label ?? epic) : "Epic",
-      value: epic,
-      opts: epics,
-      all: "ทั้งหมด",
-      ariaLabel: "กรองตาม Epic",
-    },
-  ];
-
-  return (
-    <div
-      className="hud-filter-row-mobile"
-      data-testid="filter-row--map-mobile"
-    >
-      <div className="hud-filter-cols">
-        {cols.map((col) => {
-          const isOpen = openCol === col.key;
-          const isActive = !!col.value;
-          return (
-            <div key={col.key} className="hud-filter-col">
-              <button
-                ref={colRefs[col.key]}
-                type="button"
-                className={`hud-filter-col-btn${isActive ? " active" : ""}`}
-                aria-haspopup="listbox"
-                aria-expanded={isOpen}
-                aria-controls={`filter-dropup-${col.key}`}
-                aria-label={col.ariaLabel}
-                onClick={() => setOpenCol(isOpen ? null : col.key)}
-                data-testid={`btn--filter-col-${col.key}`}
-              >
-                <span className="hud-filter-col-label">{col.label}</span>
-                <span className="hud-filter-col-caret" aria-hidden="true">▾</span>
-              </button>
-              {isOpen && (
-                <div
-                  id={`filter-dropup-${col.key}`}
-                  role="listbox"
-                  className="hud-filter-dropup"
-                  aria-label={col.ariaLabel}
-                  data-testid={`dropup--filter-${col.key}`}
-                >
-                  {/* "All" option */}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={!col.value}
-                    className={`hud-filter-dropup-item${!col.value ? " sel" : ""}`}
-                    onClick={() => { onChange(col.key, ""); setOpenCol(null); colRefs[col.key].current?.focus(); }}
-                  >
-                    {col.all}
-                  </button>
-                  {col.opts.map((opt) => (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      role="option"
-                      aria-selected={col.value === opt.key}
-                      className={`hud-filter-dropup-item${col.value === opt.key ? " sel" : ""}`}
-                      onClick={() => { onChange(col.key, opt.key); setOpenCol(null); colRefs[col.key].current?.focus(); }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

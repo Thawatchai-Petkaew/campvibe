@@ -35,7 +35,7 @@ import {
   SheetTitle,
   SheetClose,
 } from "@/components/ui/sheet";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterRowMobile, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
 import { payloadChanged, deriveCapsuleStats } from "@/lib/status-map-model";
@@ -530,7 +530,7 @@ const SCENE_CSS = `
   @media(prefers-reduced-motion:no-preference){
     .hud-edge-tab:active{background:rgba(91,233,176,.12)}
   }
-  /* SMUX-6: filter row is a separate bottom row (FilterRowMobile), not in the topbar */
+  /* SMUX-6: filter row is a separate bottom row (FilterSignposts layout="bottom"), not in the topbar */
   /* Hide 3-filter desktop row on tablet */
   .hud-signposts-desktop{display:none}
   .hud-map-toolbar{display:none}
@@ -591,7 +591,7 @@ const SCENE_CSS = `
   .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
   /* Move dock up so toolbar doesn't overlap it on mobile */
   .hud-dock{bottom:60px}
-  /* SMUX-6: FilterRowMobile sits at bottom:52px (above the toolbar) — see HUD_CSS */
+  /* SMUX-6: the bottom filter row (.hud-signposts-bottom) sits above the toolbar — see HUD_CSS */
   /* Hide desktop signposts on mobile */
   .hud-signposts-desktop{display:none !important}
 }
@@ -1977,10 +1977,12 @@ export default function CampsiteScene({
         </div>
       </div>
 
-      {/* SMUX-6: Bottom filter row — tablet + mobile (<1024px).
-          3 equal columns (persona/feature/epic) with drop-up menus.
-          Positioned above the mobile toolbar. */}
-      <FilterRowMobile
+      {/* SMUX-6 · CAM-258: Bottom filter row — tablet + mobile (<1024px).
+          The SAME FilterSignposts chip (layout="bottom"): equal columns that
+          fill the frame width with drop-up menus, positioned above the mobile
+          toolbar. One filter implementation — no parallel mobile component. */}
+      <FilterSignposts
+        layout="bottom"
         personas={filterOpts.personas}
         features={filterOpts.features}
         epics={filterOpts.epics}
