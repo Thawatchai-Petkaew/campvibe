@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { InputField } from '@/components/ui/input-field';
@@ -43,6 +44,7 @@ function getRoleLabel(role: string, profileT: { roleAdmin: string; roleOperator:
 export default function ProfilePage() {
     const { t } = useLanguage();
     const router = useRouter();
+    const { update } = useSession();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -149,6 +151,11 @@ export default function ProfilePage() {
 
             const data = await res.json();
             setProfile(data);
+            // Refresh JWT (triggers trigger==="update" branch in jwt callback → re-reads
+            // image/name from DB), then re-render server components so Navbar's
+            // currentUser prop picks up the fresh session. Both steps required; order matters.
+            await update();
+            router.refresh();
             if (!updates) {
                 toast.success(t.profile?.saved || 'Profile saved successfully');
                 setHasSubmitted(false);
