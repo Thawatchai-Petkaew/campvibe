@@ -399,13 +399,12 @@ export default function BookingsPage() {
                                         <td className="px-8 py-5 text-foreground font-bold">{formatCurrency(booking.totalPrice)}</td>
                                         <td className="px-8 py-5">
                                             {(() => {
-                                                const { variant } = getBookingStatusMeta(booking.status);
+                                                const { variant, labelKey } = getBookingStatusMeta(booking.status);
                                                 return (
-                                                    <Badge
-                                                        variant={variant}
-                                                        className="font-bold uppercase tracking-wider"
-                                                    >
-                                                        {booking.status}
+                                                    <Badge variant={variant}>
+                                                        {labelKey
+                                                            ? t.bookings[labelKey as keyof typeof t.bookings] as string
+                                                            : booking.status}
                                                     </Badge>
                                                 );
                                             })()}

@@ -114,11 +114,8 @@ export function Navbar() {
                         </Link>
                         {navUser && isDashboard && (
                             <Link href="/dashboard">
-                                <Badge
-                                    variant="default"
-                                    className="cursor-pointer hover:bg-primary/80 transition-colors text-xs px-2 py-0.5 font-bold uppercase"
-                                >
-                                    HOST
+                                <Badge variant="default">
+                                    {t.nav.hostLabel}
                                 </Badge>
                             </Link>
                         )}
@@ -231,8 +228,8 @@ export function Navbar() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <Badge variant="default" className="rounded-full text-xs font-bold">
-                                                    HOST
+                                                <Badge variant="default">
+                                                    {t.nav.hostLabel}
                                                 </Badge>
                                             </Link>
                                         </DropdownMenuItem>

@@ -49,7 +49,11 @@
             "themeToggleGroup": "Display theme",
             "themeLight": "Light",
             "themeSystem": "System",
-            "themeDark": "Dark"
+            "themeDark": "Dark",
+            "hostLabel": "Host"
+        },
+        "host": {
+            "onboardingChip": "Host onboarding"
         },
         "preview": {
             "title": "Design Preview",
@@ -789,7 +793,11 @@
             "themeToggleGroup": "รูปแบบการแสดงผล",
             "themeLight": "สว่าง",
             "themeSystem": "ตามอุปกรณ์",
-            "themeDark": "มืด"
+            "themeDark": "มืด",
+            "hostLabel": "โฮสต์"
+        },
+        "host": {
+            "onboardingChip": "เริ่มต้นโฮสต์"
         },
         "preview": {
             "title": "ตัวอย่างการออกแบบ",

@@ -299,7 +299,7 @@ export default function ProfilePage() {
                                 <div className="flex justify-center pt-2">
                                     <Badge
                                         variant={roleVariant(profile?.role || 'CAMPER')}
-                                        className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider"
+                                        className="px-4 py-1.5"
                                     >
                                         {getRoleLabel(profile?.role || 'CAMPER', t.profile)}
                                     </Badge>
