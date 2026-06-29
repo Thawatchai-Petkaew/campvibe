@@ -117,7 +117,7 @@ export function CampgroundCard({
                     {/* New Listing Badge */}
                     {new Date(campground.createdAt).getTime() > Date.now() - 14 * 24 * 60 * 60 * 1000 && (
                         <div className="absolute top-3 left-3 z-10">
-                            <Badge variant="secondary" className="h-6 px-2 text-xs font-medium bg-background/90 backdrop-blur-sm text-foreground shadow-sm border-border/50">
+                            <Badge variant="overlay" className="px-2">
                                 {t.common.new}
                             </Badge>
                         </div>

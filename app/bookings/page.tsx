@@ -139,10 +139,7 @@ export default function MyBookingsPage() {
                                                         ? t.bookings[labelKey as keyof typeof t.bookings] as string
                                                         : booking.status;
                                                     return (
-                                                        <Badge
-                                                            variant={variant}
-                                                            className="ring-2 ring-card shadow-sm font-bold tracking-wider"
-                                                        >
+                                                        <Badge variant={variant}>
                                                             {label}
                                                         </Badge>
                                                     );

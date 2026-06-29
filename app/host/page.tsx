@@ -4,11 +4,13 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Sparkles, ShieldCheck, UploadCloud } from "lucide-react";
+import translations from "@/locales/translations.json";
 
 export const dynamic = "force-dynamic";
 
 export default async function HostLandingPage() {
   const session = await auth();
+  const t = translations.th;
 
   return (
     <div className="min-h-screen bg-background">
@@ -17,9 +19,9 @@ export default async function HostLandingPage() {
       <main className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-6">
           <div className="inline-flex items-center gap-2">
-            <Badge variant="secondary" className="rounded-full">
-              <Sparkles className="w-3.5 h-3.5 mr-1" />
-              Host onboarding
+            <Badge variant="secondary">
+              <Sparkles className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+              {t.host.onboardingChip}
             </Badge>
           </div>
 

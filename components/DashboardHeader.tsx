@@ -75,7 +75,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             {user.email}
                         </div>
                         <div className="px-3 py-1">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline">
                                 {user.role || "USER"}
                             </Badge>
                         </div>
