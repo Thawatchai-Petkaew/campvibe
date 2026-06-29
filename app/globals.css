@@ -209,3 +209,10 @@ h6 {
     opacity: 1;
   }
 }
+
+/* ── status-map HUD layout constants ─────────────────────────────────────────
+   Internal layout constants for the /status/map HUD surface only.
+   Not DESIGN.md semantic tokens — scoped to app/status/** (exempt from check:palette). */
+:root {
+  --hud-inset-sm: 12px; /* horizontal breathing gap between a full-width HUD row and the screen edge on mobile/tablet */
+}

@@ -568,22 +568,24 @@ export const HUD_CSS = `
   /* Tablet 640–1023: no mobile toolbar present → sit near the frame bottom with a
      small safe-area gap. Mobile <640 overrides this to clear the toolbar (below). */
   bottom:calc(8px + env(safe-area-inset-bottom));
-  left:0;right:0;
+  /* CAM-260 Defect B: 12px inset each side so the row breathes from the viewport edge */
+  left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
   z-index:24;
   display:none; /* shown via @media below */
-  width:100%;box-sizing:border-box;
+  box-sizing:border-box;
 }
 /* equal-width columns that fill + shrink (no overflow at ≥320px) */
 .hud-signposts-bottom .hud-signpost-wrap{flex:1;min-width:0}
 .hud-signposts-bottom .hud-signpost{
   width:100%;min-width:0;
   justify-content:space-between;
-  min-height:30px;
+  /* CAM-260 Defect B: raise to 44px for WCAG 2.5.5 touch-target (was 30px — blocked merge) */
+  min-height:44px;
   padding:0 8px;font-size:11px;
 }
-/* top-corner radius only (row sits flush to the bottom edge) */
-.hud-signposts-bottom .hud-signpost-wrap:first-child .hud-signpost{border-radius:8px 0 0 0;padding-left:8px}
-.hud-signposts-bottom .hud-signpost-wrap:last-child .hud-signpost{border-radius:0 8px 0 0;padding-right:8px}
+/* CAM-260 Defect B: full pill-end radius (999px) to match desktop joined-pill grammar */
+.hud-signposts-bottom .hud-signpost-wrap:first-child .hud-signpost{border-radius:999px 0 0 999px;padding-left:8px}
+.hud-signposts-bottom .hud-signpost-wrap:last-child .hud-signpost{border-radius:0 999px 999px 0;padding-right:8px}
 .hud-signposts-bottom .hud-sp-label{flex:1;max-width:none;min-width:0;text-align:left}
 .hud-signposts-bottom .hud-signpost.active{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.25)}
 /* drop-up menu — opens above the trigger for the bottom row.
@@ -607,6 +609,13 @@ export const HUD_CSS = `
 @media (max-width: 639px){
   .hud-signposts-bottom{
     bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px);
+  }
+}
+/* CAM-260: Tablet 640–1023 — toolbar now shows (min-height 52px + safe-area).
+   Lift the filter row to clear the toolbar on tablet as well. */
+@media (min-width: 640px) and (max-width: 1023px){
+  .hud-signposts-bottom{
+    bottom:calc(52px + max(8px, env(safe-area-inset-bottom)) + 8px);
   }
 }
 /* On desktop, the bottom row is always hidden (top variant renders instead) */
@@ -1228,6 +1237,15 @@ export const HUD_CSS = `
 .env-lane-label.staging{color:#fb923c}
 .env-lane-label.ship{color:#4ade80}
 .env-lane-count{font-family:'JetBrains Mono','Fira Mono','Consolas',monospace;font-size:11px;font-weight:800}
+/* CAM-260 Defect C: compact capsule at ≤420px — word hidden, dot shown */
+.env-lane-word{display:inline}  /* shown by default; hidden at ≤420px via media query */
+.env-lane-dot{
+  display:none; /* hidden by default; shown at ≤420px via media query */
+  width:7px;height:7px;border-radius:50%;flex:none;
+}
+.env-lane-dot.dev{background:#60a5fa}
+.env-lane-dot.staging{background:#fb923c}
+.env-lane-dot.ship{background:#4ade80}
 .env-lane-arrow{font-size:8px;opacity:.5;color:rgba(223,234,245,.50)}
 /* inline mini-bar — compact fixed width so the whole chip stays on one row at ≥320px */
 .env-capsule-bar{
@@ -3747,18 +3765,24 @@ export function EnvPipelineCapsule({
         onClick={() => setOpen((v) => !v)}
         data-testid="btn--map-env-capsule"
       >
-        {/* Lane counts row */}
+        {/* Lane counts row — CAM-260: .env-lane-word/.env-lane-dot for compact ≤420px mode */}
         <span className="env-capsule-lanes">
           <span className="env-lane-label dev" aria-hidden="true">
-            Dev <span className="env-lane-count">{devCount}</span>
+            <span className="env-lane-dot dev" aria-hidden="true" />
+            <span className="env-lane-word">Dev </span>
+            <span className="env-lane-count">{devCount}</span>
           </span>
           <span className="env-lane-arrow" aria-hidden="true">▸</span>
           <span className="env-lane-label staging" aria-hidden="true">
-            Staging <span className="env-lane-count">{stagingCount}</span>
+            <span className="env-lane-dot staging" aria-hidden="true" />
+            <span className="env-lane-word">Staging </span>
+            <span className="env-lane-count">{stagingCount}</span>
           </span>
           <span className="env-lane-arrow" aria-hidden="true">▸</span>
           <span className="env-lane-label ship" aria-hidden="true">
-            Ship <span className="env-lane-count">{shipCount}</span>
+            <span className="env-lane-dot ship" aria-hidden="true" />
+            <span className="env-lane-word">Ship </span>
+            <span className="env-lane-count">{shipCount}</span>
           </span>
         </span>
         {/* Inline mini-bar (compact, same row) */}
