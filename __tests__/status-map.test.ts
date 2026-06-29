@@ -1379,9 +1379,11 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).toContain('data-testid="btn--map-toolbar-roster"');
   });
 
-  it("mobile toolbar has a Board button with ChevronUp icon", () => {
+  it("mobile toolbar has a Board button with LayoutGrid icon (CAM-260: ChevronUp caret removed)", () => {
     expect(src).toContain('data-testid="btn--map-toolbar-board"');
-    expect(src).toContain("ChevronUp");
+    // CAM-260: ChevronUp caret removed from Board button per design brief
+    expect(src).not.toContain("ChevronUp");
+    expect(src).toContain("LayoutGrid");
   });
 
   it("toolbar buttons have aria-haspopup=dialog and aria-controls", () => {
@@ -1439,9 +1441,11 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).toContain("SheetClose");
   });
 
-  it("imports AlignJustify, ChevronUp, Layers, X icons from lucide-react", () => {
-    expect(src).toContain("AlignJustify");
-    expect(src).toContain("ChevronUp");
+  it("imports Users, Layers, X icons from lucide-react (CAM-260: AlignJustify→Users, ChevronUp removed)", () => {
+    // CAM-260: AlignJustify replaced by Users for ทีม button; ChevronUp removed from Board button
+    expect(src).toContain("Users");
+    expect(src).not.toContain("AlignJustify");
+    expect(src).not.toContain("ChevronUp");
     expect(src).toContain("Layers");
   });
 
@@ -1828,13 +1832,14 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
     expect(scene).toContain('<span className="hud-toolbar-btn-label">ทีม</span>');
   });
 
-  it("the ทีม toolbar button keeps a single AlignJustify icon", () => {
-    // isolate the roster toolbar button JSX and assert exactly one lucide icon tag
+  it("the ทีม toolbar button uses a single Users icon (CAM-260: AlignJustify→Users)", () => {
+    // CAM-260: AlignJustify replaced by Users — communicates "people/team" not "menu"
     const start = scene.indexOf('data-testid="btn--map-toolbar-roster"');
     const btn = scene.slice(start, scene.indexOf("</button>", start));
-    expect(btn).toContain("<AlignJustify");
+    expect(btn).toContain("<Users");
     // no second icon element inside the button
-    expect((btn.match(/<AlignJustify/g) ?? []).length).toBe(1);
+    expect((btn.match(/<Users/g) ?? []).length).toBe(1);
+    expect(btn).not.toContain("<AlignJustify");
     expect(btn).not.toContain("≡");
   });
 
@@ -1858,23 +1863,30 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
     expect(active.slice(0, 160)).toContain("#5BE9B0");
   });
 
-  // Fix 3: icon-only at ≤380px — labels hidden, hit area preserved
-  it("at max-width:380px the toolbar button labels are hidden (icon-only)", () => {
-    expect(scene).toContain("@media (max-width: 380px){");
-    const block = scene.slice(scene.indexOf("@media (max-width: 380px){"));
-    expect(block.slice(0, 260)).toContain(".hud-toolbar-btn-label{display:none}");
+  // Fix 3 (CAM-260): icon-only at ≤420px — labels hidden, hit area preserved; gap tightens at ≤380px
+  it("at max-width:420px the toolbar button labels are hidden (CAM-260: was 380px, now 420px)", () => {
+    // CAM-260: icon-only threshold raised from ≤380px to ≤420px
+    expect(scene).toContain("@media (max-width: 420px){");
+    const block = scene.slice(scene.indexOf("@media (max-width: 420px){"));
+    expect(block.slice(0, 360)).toContain(".hud-toolbar-btn-label{display:none}");
     // ≥44px hit area kept (square icon button)
-    expect(block.slice(0, 260)).toContain("width:44px");
+    expect(block.slice(0, 360)).toContain("width:44px");
+    // gap tightens at ≤380px (separate rule)
+    expect(scene).toContain("@media (max-width: 380px){");
+    const gapBlock = scene.slice(scene.indexOf("@media (max-width: 380px){"));
+    expect(gapBlock.slice(0, 120)).toContain("gap:6px");
   });
 
-  it("the Board toolbar button has a board icon (LayoutGrid) + a ChevronUp expand caret", () => {
+  it("the Board toolbar button has LayoutGrid icon only — no ChevronUp caret (CAM-260)", () => {
+    // CAM-260: ChevronUp caret removed — it opened a sheet upward, not an expand; caret confuses intent
     expect(scene).toContain("LayoutGrid");
     const start = scene.indexOf('data-testid="btn--map-toolbar-board"');
     const btn = scene.slice(start, scene.indexOf("</button>", start));
     expect(btn).toContain("<LayoutGrid");
     expect(btn).toContain('<span className="hud-toolbar-btn-label">Board</span>');
-    // ChevronUp stays as a small caret that collapses at icon-only width
-    expect(btn).toContain('<ChevronUp className="hud-toolbar-caret"');
+    // ChevronUp caret is removed per CAM-260 design brief
+    expect(btn).not.toContain("ChevronUp");
+    expect(btn).not.toContain("hud-toolbar-caret");
   });
 
   it("campsite-scene.tsx imports LayoutGrid from lucide-react", () => {
@@ -1944,10 +1956,12 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(block.slice(0, 200)).toContain("width:100%");
   });
 
-  // CAM-258: bottom chip min-height:30px
-  it("HUD_CSS gives the bottom chip min-height:30px", () => {
+  // CAM-260: bottom chip min-height raised from 30px to 44px (WCAG 2.5.5 touch target — blocks merge if missed)
+  it("HUD_CSS gives the bottom chip min-height:44px (CAM-260: was 30px, raised for a11y)", () => {
     const block = overly.slice(overly.indexOf(".hud-signposts-bottom .hud-signpost{"));
-    expect(block.slice(0, 200)).toContain("min-height:30px");
+    expect(block.slice(0, 300)).toContain("min-height:44px");
+    // The old 30px value must be gone
+    expect(block.slice(0, 300)).not.toContain("min-height:30px");
   });
 
   // CAM-258: label truncates to its column (no overflow at ≥320px) — truncate + flex-shrink
