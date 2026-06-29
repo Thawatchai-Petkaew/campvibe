@@ -6,7 +6,7 @@ persona: Admin
 artifact: design
 owner: ux-designer
 status: In Progress
-version: v1
+version: v2
 updated: 2026-06-29
 ---
 # Design — Mobile HUD Polish: Three Responsive Defects (CAM-260)
@@ -23,13 +23,15 @@ Operator opens `/status/map` on a mobile device. They see the full-screen campsi
 
 ## Breakpoint Map
 
-Three tiers drive every rule below. Use exactly these breakpoints — they match the existing CSS media query structure.
+Three tiers drive every rule below. Mobile and tablet share **one consistent pattern** — the same structural overflow guard, the same icon-only header strip, and the same inset filter row. The only difference between them is that tablet has more horizontal space so the toolbar labels and capsule lane words stay visible. Desktop is untouched.
 
 | Tier | Range | Header | Filter row | Stats toolbar |
 |---|---|---|---|---|
-| Mobile | `<640px` | Icon-only pill strip (logo + 2 icon buttons + sound toggle); `box-sizing:border-box; max-width:100vw` enforced | `.hud-signposts-bottom` with full-pill joined ends + horizontal inset; clears toolbar | Shows "ทีม" (Users icon) + EnvPipelineCapsule (flex-grow center) + Board (LayoutGrid icon, no ChevronUp); gap-based, not space-between |
-| Tablet | `640–1023px` | Same icon-only pill strip | Same `.hud-signposts-bottom` with full-pill ends + horizontal inset | Not visible (tablet uses edge-drawer tabs) |
-| Desktop | `≥1024px` | Full text tabs restored (current desktop behavior — DO NOT TOUCH) | `.hud-signposts-desktop` (top row, current desktop behavior — DO NOT TOUCH) | Not visible (desktop uses left/right fixed panels) |
+| Mobile | `<640px` | Icon-only pill strip (logo + 3 icon buttons); `box-sizing:border-box; max-width:100%; overflow:hidden` on `.hud-topbar`; children `flex:0 1 auto; min-width:0` | `.hud-signposts-bottom`: `left:12px; right:12px; width:auto`; full-pill joined ends (999px); `min-height:44px` | Structural overflow guard: `box-sizing:border-box; max-width:100%; left:12px; right:12px; width:auto`; children `min-width:0`; `justify-content:center; gap:10px`. At ≤420px: ทีม + Board collapse to icon-only 44×44; capsule compacts to colored dots + nums + progress bar + 82% (lane words hidden) |
+| Tablet | `640–1023px` | **Same** icon-only pill strip; **same** structural overflow guard on `.hud-topbar` | **Same** `.hud-signposts-bottom` with `left:12px; right:12px; width:auto`; full-pill ends; `min-height:44px` | **Same** structural overflow guard (`box-sizing:border-box; max-width:100%; left:12px; right:12px; width:auto; min-width:0` on children; `justify-content:center; gap:10px`). At 640–1023px: ทีม + Board labels stay visible (fit); capsule keeps lane words + progress bar + 82%. Same visual family as mobile, more breathing room |
+| Desktop | `≥1024px` | Full text tabs restored (current desktop behavior — DO NOT TOUCH) | `.hud-signposts-desktop` (top row, current desktop behavior — DO NOT TOUCH) | Not visible (desktop uses left/right fixed panels — DO NOT TOUCH) |
+
+**One-pattern rule (mobile + tablet):** The structural overflow guard — `box-sizing:border-box; max-width:100%; left:12px; right:12px; width:auto` on the container; `min-width:0` on every flex child — is applied identically at both `<640px` and `640–1023px`. This is the single shared pattern. The only adaptive behavior inside that pattern is the label/word visibility at the narrower end of the range.
 
 ---
 
@@ -150,34 +152,81 @@ At `<1024px` the filter row appears as a floating joined-pill group, identical i
 
 ---
 
-## Defect C — Bottom Stats Toolbar: Icon Swap + Layout Fix
+## Defect C — Bottom Stats Toolbar: Structural Overflow Guard + Icon Swap + Layout Fix
 
 ### Root Cause
 
-At `<640px`, `.hud-map-toolbar` is `justify-content:space-between` which squeezes the center `EnvPipelineCapsule` between the two flanking buttons. At `≤380px` the text labels are hidden (`.hud-toolbar-btn-label{display:none}`) but the buttons still use `space-between`, so the capsule is stretched across the full available width, misaligning the glass-chip family.
+`.hud-map-toolbar` uses `left:0; right:0` (or equivalent full-width positioning) with no `box-sizing:border-box`, no `max-width` ceiling, and `justify-content:space-between`. This is the same root cause as the header overflow (Defect A): the container has no structural guard preventing its total content width from exceeding the viewport.
+
+At `<640px`, `justify-content:space-between` pushes the right "Board" button off the right edge when the `EnvPipelineCapsule` contains long text (e.g. "Dev 36 ▸ Staging 95 ▸ Ship 65 — 82%"). At `≤380px` the text labels are suppressed but the capsule text is still long — the stretching continues and the Board button is clipped.
 
 The "ทีม" button uses `AlignJustify` (a hamburger/lines icon), which communicates "menu" not "team/people".
 
 The Board button appends `ChevronUp` (`.hud-toolbar-caret`) — a directional caret that conflicts with `LayoutGrid` (a grid icon) and confuses the intent of the button.
 
-### Layout fix
+### Structural overflow guard (applied to BOTH mobile + tablet)
+
+This fix is the same structural pattern as Defect A. Apply to `.hud-map-toolbar` in `SCENE_CSS`:
+
+```
+/* ── STRUCTURAL OVERFLOW GUARD ── */
+box-sizing: border-box;   /* padding is contained within left+right */
+max-width: 100%;          /* hard ceiling at the viewport edge */
+left: 12px;               /* 12px inset each side — nothing butts against the edge */
+right: 12px;
+width: auto;              /* width = device width minus (12+12)px; never 100% */
+```
+
+Every direct flex child must also carry:
+
+```
+min-width: 0;   /* allows the item to shrink below its natural content width */
+```
+
+This applies identically at `<640px` (mobile) and `640–1023px` (tablet). At both breakpoints the container is physically incapable of overflowing the viewport.
+
+### Centered layout (replacing space-between)
 
 Replace `justify-content:space-between` on `.hud-map-toolbar` with:
 
 ```
 justify-content: center;
-gap: 10px;        /* gap-token: existing gap-4 scale; 10px is tighter for the toolbar context */
+gap: 10px;        /* HUD-specific layout constant; consistent with .env-capsule { gap:7px } approach */
 ```
 
-At `≤380px` (the narrow breakpoint where labels disappear), reduce the gap to:
+At `≤380px` (narrow — labels already hidden), reduce the gap to:
 
 ```
 gap: 6px;
 ```
 
-This keeps the three elements — left button, center capsule, right button — visually grouped as a unit rather than stretched apart. The `EnvPipelineCapsule` already has `min-width:44px` and its own padding; it will sit at its natural width between the two flanking buttons.
+This keeps the three elements — left button, center capsule, right button — visually grouped as a unit. The `EnvPipelineCapsule` sits at its natural width between the two flanking buttons.
 
-Gap token reference: existing DESIGN.md spacing scale `gap-4` = 16px (desktop gutter). The toolbar uses a tighter value. Propose using `gap: 10px` inline — this is a HUD-specific layout value within the page's own CSS block (consistent with the rest of `.env-capsule { gap:7px }` approach in the same file). No new DESIGN.md token is needed since this is an internal HUD layout constant.
+Gap token reference: `gap: 10px` inline — internal HUD layout constant, not a DESIGN.md semantic token. No new token needed.
+
+### Mobile narrow (≤420px): icon-only + compact capsule
+
+At `≤420px`, both flanking buttons collapse to icon-only 44×44 (drop text labels; keep `aria-label`):
+
+```
+/* at ≤420px: */
+.hud-toolbar-btn { width: 44px; padding: 0; gap: 0; }
+.hud-toolbar-btn-label { display: none; }
+```
+
+The capsule compacts: keep colored counts + progress bar + "82%" but drop the "Dev/Staging/Ship" lane text words. Replace lane words with colored dots (7×7px, teal/amber/blue):
+
+```
+/* at ≤420px: */
+.env-lane-word { display: none; }
+.env-lane-dot  { display: inline-block; }   /* 7px circle, color per lane */
+```
+
+Result at 390px: [Users icon 44px] · [compact capsule: dot•36 ▸ dot•95 ▸ dot•65 · bar 82%] · [LayoutGrid icon 44px] — centered with `gap:10px`, inset 12px each side. Nothing clipped.
+
+### Tablet (640–1023px): same guard, labels stay
+
+The same structural guard applies. Tablet has more horizontal space so ทีม/Board labels remain visible and the capsule keeps its lane words. The visual result is the same family as mobile — glass chips, centered layout, 12px inset — with more breathing room.
 
 ### Icon changes
 
@@ -223,6 +272,11 @@ All values must come from the token layer. No new hex values.
 | Filter row horizontal inset | `12px` (proposed `--hud-inset-sm`) | New HUD layout constant — see Defect B |
 | Toolbar gap (normal) | `10px` | Internal HUD layout constant |
 | Toolbar gap (narrow ≤380px) | `6px` | Internal HUD layout constant |
+| Toolbar inset (both mobile + tablet) | `left:12px; right:12px; width:auto` | Same as filter row — reuses `--hud-inset-sm: 12px` pattern |
+| Toolbar structural guard | `box-sizing:border-box; max-width:100%` | Same pattern as Defect A header fix; applied to `.hud-map-toolbar` |
+| Toolbar child shrink | `min-width:0` on each flex child | Allows capsule + buttons to shrink below natural content width |
+| Icon-only button (narrow ≤420px) | `width:44px; padding:0; gap:0` | ทีม + Board at narrow mobile; same `.hud-icon-btn` size token |
+| Compact capsule lane dot | `7px circle; teal/amber/blue` | Replaces lane word text at ≤420px; colors match lane brand |
 | Icon size in toolbar buttons | `16px` | Existing; keep unchanged |
 | Icon size in topbar icon buttons | `20px` | Existing `.hud-icon-btn svg{width:20px;height:20px}` |
 
@@ -328,14 +382,24 @@ This is an Important (not Critical) recommendation — the current DESIGN.md cov
 
 ## Anti-Slop Criteria (Design Gate)
 
-Before this PR merges, the screenshot at ~390px must pass:
+Before this PR merges, screenshots at ~390px (mobile) AND ~768px (tablet) must both pass:
+
+**Mobile (390px):**
 
 - [ ] Top header fits entirely within the viewport — no element clipped at the right edge.
-- [ ] Three icon buttons in the header are 44px tap targets, glass-chip style, visually consistent with the desktop sound-toggle idiom.
-- [ ] No text tabs visible on mobile (no "แดชบอร์ด", no "ผลผลิต Scout Team" text).
-- [ ] Bottom filter row has rounded pill ends on left and right (matches desktop joined-pill grammar), and is inset 12px from each screen edge.
-- [ ] Bottom filter row tap targets are ≥44px height.
-- [ ] Bottom toolbar: "ทีม" shows `Users` icon (not hamburger lines), Board shows `LayoutGrid` only (no ChevronUp caret), three elements are evenly gapped (not space-between stretched).
+- [ ] Three icon buttons in the header are 44px tap targets, glass-chip style, no text tabs visible (no "แดชบอร์ด", no "ผลผลิต Scout Team" text).
+- [ ] Bottom filter row has rounded pill ends (matches desktop joined-pill grammar), inset 12px from each screen edge, tap targets ≥44px height.
+- [ ] Bottom toolbar: "ทีม" shows `Users` icon (not hamburger lines), Board shows `LayoutGrid` only (no ChevronUp caret). At ≤420px both are icon-only 44×44; capsule shows colored dots + nums + progress bar + 82% (lane words hidden). Nothing clipped.
+- [ ] Structural guard confirmed: `.hud-map-toolbar` has `box-sizing:border-box; max-width:100%; left:12px; right:12px; width:auto` and all children have `min-width:0`. Board button visible with no clipping.
+
+**Tablet (768px) — same pattern as mobile:**
+
+- [ ] Top header: same icon-only strip with same structural overflow guard — no clipping, no text tabs.
+- [ ] Bottom filter row: same 12px inset, same 999px pill ends, same ≥44px tap target.
+- [ ] Bottom toolbar: same structural guard applied — ทีม + Board labels stay visible (more width), capsule keeps lane words + bar + 82%, all three elements centered with gap, nothing clipped. Visual family identical to mobile.
+
+**Both breakpoints:**
+
 - [ ] The overall feel matches the dark-glass HUD family — no foreign card look, no flat-gray, no hardcoded colors outside the existing HUD palette.
 - [ ] `npm run lint` and `npm run typecheck` green.
 - [ ] `npm run check:palette` green (no new hardcoded colors; the HUD palette is already scoped to `app/status/**` and exempt).
@@ -352,4 +416,5 @@ Before this PR merges, the screenshot at ~390px must pass:
 
 ## Changelog
 
+- v2 (2026-06-29) — two owner-requested changes: (1) Defect C expanded with structural overflow guard on `.hud-map-toolbar` (same `box-sizing:border-box; max-width:100%; left:12px; right:12px; width:auto; min-width:0 on children` pattern as A/B) plus mobile narrow (≤420px) icon-only + compact-dots capsule treatment; (2) Breakpoint Map revised so mobile (`<640px`) and tablet (`640–1023px`) share one consistent pattern — same structural guard, same icon-only header, same inset filter row — tablet keeps labels and lane words where they fit. Wireframe updated to dual-frame (Mobile 390px + Tablet 768px side by side).
 - v1 (2026-06-29) — created; covers three defects A/B/C for CAM-260
