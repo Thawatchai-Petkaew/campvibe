@@ -27,7 +27,7 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlignJustify, BellRing, ChevronUp, Gauge, LayoutDashboard, LayoutGrid, Layers, X } from "lucide-react";
+import { BellRing, Gauge, LayoutDashboard, LayoutGrid, Layers, Users, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -283,6 +283,7 @@ const SCENE_CSS = `
   display:flex;align-items:center;gap:12px;
   padding:14px 18px;
   pointer-events:none;
+  box-sizing:border-box;max-width:100vw;overflow:hidden;
 }
 .hud-topbar > *{pointer-events:auto}
 /* logo wrapped in its own green-glass chip */
@@ -304,8 +305,8 @@ const SCENE_CSS = `
 .hud-left-panels > *{pointer-events:auto}
 .hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
 .hud-right-panels > *{pointer-events:auto}
-.hud-topbar-spacer{flex:1 1 auto}
-.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
+.hud-topbar-spacer{flex:1 1 0;min-width:0}
+.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0}
 .cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
 /* Ambient sound toggle — glass button inside the top bar. */
 .sound-toggle{
@@ -533,7 +534,48 @@ const SCENE_CSS = `
   /* SMUX-6: filter row is a separate bottom row (FilterSignposts layout="bottom"), not in the topbar */
   /* Hide 3-filter desktop row on tablet */
   .hud-signposts-desktop{display:none}
-  .hud-map-toolbar{display:none}
+}
+/* ── CAM-260: Tablet (640–1023px) bottom toolbar ────────────────────────────
+   Same structural overflow guard as mobile. Labels + capsule lane words stay
+   visible at tablet width. Edge drawer tabs are kept for panel access. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hud-map-toolbar{
+    position:fixed;bottom:calc(8px + env(safe-area-inset-bottom));
+    /* CAM-260: structural overflow guard — inset 12px each side */
+    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
+    z-index:25;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:4px 0;
+    min-height:52px;
+    box-sizing:border-box;max-width:100%;
+    background:transparent;
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-top:none;
+  }
+  .hud-map-toolbar > *{min-width:0}
+  .hud-toolbar-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:0 16px;font-size:12px;font-weight:600;
+    color:rgba(223,234,245,.82);
+    background:rgba(11,30,24,.50);
+    backdrop-filter:saturate(195%) blur(26px);
+    -webkit-backdrop-filter:saturate(195%) blur(26px);
+    border:1px solid rgba(150,240,195,.13);border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+    min-height:44px;min-width:44px;cursor:pointer;
+    transition:background 120ms,border-color 120ms,color 120ms;
+  }
+  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
+  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-toolbar-btn[aria-expanded="true"]{background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0}
+  .hud-toolbar-btn svg{display:block;flex:none}
+  @media(prefers-reduced-motion:no-preference){
+    .hud-toolbar-btn:active{transform:scale(.96)}
+  }
+  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+  /* Lift dock above toolbar on tablet (same as mobile) */
+  .hud-dock{bottom:60px}
+  .hud-signposts-desktop{display:none !important}
 }
 /* On desktop, hide the edge tabs and mobile toolbar; show desktop filter row */
 @media (min-width: 1024px) {
@@ -545,31 +587,40 @@ const SCENE_CSS = `
    The .hud-topbar-right children that should only be visible on desktop are
    hidden at <1024; instead the SMUX-6 icon buttons appear in the top bar. */
 @media (max-width: 1023px) {
-  /* Hide the full-text env toggle and ViewToggle on tablet/mobile */
+  /* Hide the full-text env toggle and ViewToggle text link on tablet/mobile */
   .hud-env-toggle{display:none}
-  /* Icon buttons are always visible; ViewToggle becomes icon-only handled by hud-icon-btn */
+  .hud-view-toggle{display:none}
+  /* Icon buttons are always visible; icon-only versions in .hud-topbar-icons replace them */
 }
 @media (min-width: 1024px) {
   /* On desktop show the original full-text controls, hide icon-only versions */
   .hud-topbar-icons{display:none !important}
 }
 
-/* ── SMUX-2: Mobile <640px — bottom toolbar + hide edge tabs ─────────────────
+/* ── CAM-260: Mobile + tablet bottom toolbar (<640px) ────────────────────────
    Bottom toolbar replaces panel triggers on very small screens.
    Dock is still visible but shifted up; toolbar floats at z-index:25.
-   SMUX-6: toolbar background removed — transparent; only the glass chips have fill. */
+   SMUX-6: toolbar background removed — transparent; only the glass chips have fill.
+   CAM-260: structural overflow guard + centered layout + icon-only at ≤420px. */
 @media (max-width: 639px) {
   .hud-edge-tab{display:none}
-  /* Bottom toolbar — SMUX-6: transparent background, no blur/border */
+  /* Bottom toolbar — structural overflow guard (CAM-260 Defect C) */
   .hud-map-toolbar{
-    position:fixed;bottom:0;left:0;right:0;z-index:25;
-    display:flex;align-items:center;justify-content:space-between;
-    padding:6px 14px max(10px, env(safe-area-inset-bottom)) 14px;
+    position:fixed;bottom:0;
+    /* CAM-260: structural overflow guard — inset 12px each side, never butts against edge */
+    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
+    z-index:25;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:6px 0 max(10px, env(safe-area-inset-bottom)) 0;
     min-height:52px;
+    /* structural ceiling — padding is contained, cannot exceed viewport */
+    box-sizing:border-box;max-width:100%;
     background:transparent;
     backdrop-filter:none;-webkit-backdrop-filter:none;
     border-top:none;
   }
+  /* All direct flex children must be able to shrink (CAM-260) */
+  .hud-map-toolbar > *{min-width:0}
   /* SMUX-6-fix-3 (CAM-259): same dark-green HUD glass language as .hud-signpost /
      .hud-view-toggle (campsite-overlays.tsx) so the toolbar buttons read as one
      family with the filter chips + the desktop dashboard chip. */
@@ -595,14 +646,18 @@ const SCENE_CSS = `
     .hud-toolbar-btn:active{transform:scale(.96)}
   }
   .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
-  /* SMUX-6-fix-3: at ≤380px collapse the toolbar buttons to icon-only (hide the
-     text label; the lucide icon + aria-label carry the meaning, ≥44px hit area
-     kept). The Board button keeps its LayoutGrid board icon and hides the expand
-     caret (.hud-toolbar-caret) in this state. */
-  @media (max-width: 380px){
+  /* CAM-260: at ≤420px collapse toolbar buttons to icon-only 44×44 (hide the
+     text label; the lucide icon + aria-label carry the meaning, ≥44px hit area kept).
+     Capsule compacts: lane words hidden, colored dots shown instead. */
+  @media (max-width: 420px){
     .hud-toolbar-btn-label{display:none}
     .hud-toolbar-btn{padding:0;width:44px;justify-content:center;gap:0}
-    .hud-toolbar-caret{display:none}
+    .env-lane-word{display:none}
+    .env-lane-dot{display:inline-block}
+  }
+  /* CAM-260: at ≤380px tighten the toolbar gap further */
+  @media (max-width: 380px){
+    .hud-map-toolbar{gap:6px}
   }
   .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
   /* Move dock up so toolbar doesn't overlap it on mobile */
@@ -2050,7 +2105,7 @@ export default function CampsiteScene({
           data-testid="btn--map-toolbar-roster"
           onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
         >
-          <AlignJustify size={16} aria-hidden="true" />
+          <Users size={16} aria-hidden="true" />
           <span className="hud-toolbar-btn-label">ทีม</span>
         </button>
 
@@ -2080,7 +2135,6 @@ export default function CampsiteScene({
         >
           <LayoutGrid size={16} aria-hidden="true" />
           <span className="hud-toolbar-btn-label">Board</span>
-          <ChevronUp className="hud-toolbar-caret" size={14} aria-hidden="true" />
         </button>
       </div>
 
