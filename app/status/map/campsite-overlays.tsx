@@ -2193,22 +2193,30 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
   // Compute fixed position for the portaled menu from the trigger rect.
   // Menu width: 220px desktop / responsive min(280px,90vw) bottom.
   // Clamp left so the menu never escapes the viewport edges (8px margin each side).
+  // maxHeight is bounded to the real space left below (desktop) / above (mobile) the
+  // trigger so a long list (many epics/features) always fits the viewport and scrolls
+  // internally instead of running off-screen — CAM-262 (2nd report). Inline maxHeight
+  // wins over the CSS 62vh, which was a static guess that could still overflow.
   function menuStyle(rect: DOMRect): React.CSSProperties {
     const MENU_W = bottom ? Math.min(280, window.innerWidth * 0.9) : 220;
     const clampedLeft = Math.max(8, Math.min(rect.left, window.innerWidth - MENU_W - 8));
     if (bottom) {
       // Bottom layout: open upward so menu clears the bottom toolbar.
+      const maxHeight = Math.max(160, rect.top - 7 - 8);
       return {
         position: "fixed",
         left: clampedLeft,
         bottom: window.innerHeight - rect.top + 7,
+        maxHeight,
       };
     }
     // Top (desktop) layout: drop down below the trigger.
+    const maxHeight = Math.max(160, window.innerHeight - (rect.bottom + 7) - 8);
     return {
       position: "fixed",
       top: rect.bottom + 7,
       left: clampedLeft,
+      maxHeight,
     };
   }
 

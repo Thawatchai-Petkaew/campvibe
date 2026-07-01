@@ -1989,6 +1989,16 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(overly).toContain("rect.bottom + 7");
   });
 
+  it("CAM-262: menuStyle() bounds maxHeight to available viewport space so a long list scrolls in-view", () => {
+    // desktop: space below the trigger to the bottom edge (minus margin), floored at 160.
+    expect(overly).toContain("window.innerHeight - (rect.bottom + 7) - 8");
+    // mobile drop-up: space above the trigger, floored at 160.
+    expect(overly).toContain("rect.top - 7 - 8");
+    expect(overly).toContain("Math.max(160,");
+    // the menu keeps internal scrolling for the overflow.
+    expect(overly).toContain("overflow-y:auto");
+  });
+
   // CAM-258: bottom row shown on tablet/mobile (<1024) via CSS
   it("HUD_CSS shows .hud-signposts-bottom at max-width:1023px", () => {
     expect(overly).toContain(".hud-signposts-bottom");
