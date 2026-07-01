@@ -274,6 +274,7 @@ export const HUD_CSS = `
 
 /* ---- Kanban board inside modal ---- */
 .hud-board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.hud-col{min-width:0} /* CAM-264: keep all 5 columns equal width — a grid 1fr item defaults to min-width:auto and a long-title column (e.g. เสร็จ) would expand its track past 1fr */
 @media (max-width:700px){.hud-board{grid-template-columns:1fr 1fr}}
 @media (max-width:440px){.hud-board{grid-template-columns:1fr}}
 .hud-col-head{
@@ -308,7 +309,7 @@ export const HUD_CSS = `
 .hud-card-id{font-size:9.5px;color:rgba(223,234,245,.35)}
 .hud-card-title{font-size:12.5px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
-  min-height:calc(1.35em * 2)} /* CAM-264: clamp title to 2 lines + reserve 2-line height so every board card is the same size */
+  overflow-wrap:anywhere;min-height:calc(1.35em * 2)} /* CAM-264: clamp title to 2 lines + reserve 2-line height so every board card is the same size; break long tokens so they don't widen the column */
 .hud-card-footer{
   display:flex;align-items:center;justify-content:space-between;margin-top:7px;
 }

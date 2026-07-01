@@ -1427,9 +1427,16 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
 
   it("CAM-264: KanbanModal board cards are uniform-size (title clamped to 2 lines)", () => {
     const overlays = read("../app/status/map/campsite-overlays.tsx");
-    const block = overlays.slice(overlays.indexOf(".hud-card-title{"), overlays.indexOf(".hud-card-title{") + 240);
+    const block = overlays.slice(overlays.indexOf(".hud-card-title{"), overlays.indexOf(".hud-card-title{") + 280);
     expect(block).toContain("-webkit-line-clamp:2");
     expect(block).toContain("min-height:calc(1.35em * 2)");
+    expect(block).toContain("overflow-wrap:anywhere");
+  });
+
+  it("CAM-264: board columns are equal width (grid 1fr items get min-width:0)", () => {
+    const overlays = read("../app/status/map/campsite-overlays.tsx");
+    expect(overlays).toContain("grid-template-columns:repeat(5,1fr)");
+    expect(overlays).toContain(".hud-col{min-width:0}");
   });
 
   it("Roster Sheet empty state uses Thai copy from Design Brief verbatim", () => {
