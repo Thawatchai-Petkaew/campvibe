@@ -667,23 +667,26 @@ const SCENE_CSS = `
   .hud-signposts-desktop{display:none !important}
 }
 /* ── SMUX-3: Map↔Board/Filter bidirectional sync ────────────────────────────
-   .scout--focused: pulsing teal ring around the agent sprite when a board card
-   or filter selection points at this agent. Uses CSS custom property --aura
-   (per-agent colour) as the base; the teal override makes all focused agents
-   uniform regardless of role colour. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes smux3-agent-pulse {
-    0%,100% { box-shadow: 0 0 0 3px rgba(91,233,176,.9), 0 0 18px rgba(91,233,176,.5); }
-    50%      { box-shadow: 0 0 0 6px rgba(91,233,176,.5), 0 0 32px rgba(91,233,176,.3); }
-  }
-  .scout--focused .body {
-    animation: smux3-agent-pulse 1.4s ease-in-out infinite;
-  }
+   .scout--focused: a teal glow-ring on the GROUND (aligned with .shadow / .aura-ring)
+   when a board card or filter selection points at this agent. Replaces the old
+   rectangular sprite outline (CAM-263) so the selection reads as part of the scene.
+   Uniform teal for every role. Shown for both motion + reduced-motion; only the
+   pulse animation is gated behind prefers-reduced-motion. */
+.scout--focused::after {
+  content:"";position:absolute;left:50%;bottom:0;
+  transform:translate(-50%,30%);                 /* same anchor as .aura-ring */
+  width:calc(var(--scout-size)*0.82);height:calc(var(--scout-size)*0.34);
+  border-radius:50%;
+  border:2.5px solid rgba(91,233,176,.9);
+  box-shadow:0 0 14px rgba(91,233,176,.55),inset 0 0 8px rgba(91,233,176,.35);
+  z-index:2;pointer-events:none;                 /* on the ground, behind the body(z:3) */
 }
-/* Reduced-motion: static ring, no animation */
-.scout--focused .body {
-  outline: 3px solid rgba(91,233,176,.9);
-  outline-offset: 3px;
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes smux3-ground-pulse {
+    0%,100% { transform:translate(-50%,30%) scale(1);    box-shadow:0 0 14px rgba(91,233,176,.55),inset 0 0 8px rgba(91,233,176,.35); }
+    50%     { transform:translate(-50%,30%) scale(1.06); box-shadow:0 0 22px rgba(91,233,176,.4),inset 0 0 10px rgba(91,233,176,.25); }
+  }
+  .scout--focused::after { animation:smux3-ground-pulse 1.4s ease-in-out infinite; }
 }`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
