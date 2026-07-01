@@ -293,8 +293,8 @@ describe("AC-status: app/status/page.tsx not touched in F6 diff", () => {
     try {
       branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: root, encoding: "utf-8" }).trim();
     } catch { /* ignore */ }
-    if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145") || branch.startsWith("feature/cam-151") || branch.startsWith("feature/cam-156") || branch.startsWith("local/map-polish") || branch.startsWith("fix/camper-infra") || branch.startsWith("feat/cam-175")) {
-      return; // skip: this story (ST1/ST2/CAM-145/CAM-151/CAM-156-S6/map-polish/camper-infra/CAM-175) owns app/status/page.tsx
+    if (branch.startsWith("feature/st1") || branch.startsWith("feature/st2") || branch.startsWith("feature/st1-st2") || branch.startsWith("refactor/cut-autonomous") || branch.startsWith("feat/cam-145") || branch.startsWith("feature/cam-151") || branch.startsWith("feature/cam-156") || branch.startsWith("local/map-polish") || branch.startsWith("fix/camper-infra") || branch.startsWith("feat/cam-175") || branch.startsWith("fix/status-dashboard-csp")) {
+      return; // skip: this story (ST1/ST2/CAM-145/CAM-151/CAM-156-S6/map-polish/camper-infra/CAM-175/CAM-265-csp-fix) owns app/status/page.tsx
     }
     let diffOutput = "";
     try {
