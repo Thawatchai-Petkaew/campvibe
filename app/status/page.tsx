@@ -105,7 +105,7 @@ function renderEnvPane(m: Model, open: boolean): string {
   }).join("");
   let h = `<section class="glass board-wrap"><div class="pane-h envhead"><span class="t">Environments</span>`
     + `<span class="envsum">${pills}`
-    + `<button class="env-toggle-btn" id="env-toggle" onclick="toggleEnv()" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
+    + `<button class="env-toggle-btn" id="env-toggle" data-act="toggleEnv" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
     + `<div id="env-board" class="envwrap ${open ? "" : "collapsed"}"><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
   for (const env of ENV_ORDER) {
     const items = m.byEnv[env], meta = ENV_META[env];
@@ -150,8 +150,8 @@ function mapHref(tab: string, epic: string, group: string, efilter: string, tq: 
 function topBar(m: Model, tab: string, epic: string, group: string, efilter: string, tq: string): string {
   const mapUrl = mapHref(tab, epic, group, efilter, tq);
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
-    + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
-    + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
+    + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" data-act="showView" data-arg="overview">Overview</button>`
+    + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" data-act="showView" data-arg="epic">Epic detail</button></nav>`
     + `<a href="${esc(mapUrl)}" data-testid="link--status-to-map" aria-label="ดูแผนที่" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:0 15px;min-height:40px;border:1px solid rgba(150,240,195,.2);border-radius:999px;background:rgba(11,30,24,.5);font-size:12.5px;font-weight:600;color:rgba(223,234,245,.85);text-decoration:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:block;flex:none"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.6"/></svg>ดูแผนที่</a>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
@@ -164,14 +164,14 @@ const MIX_COLORS = ["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)",
 // segmented toggle — appears in both Epics + Project backlog headers; setGroup() keeps every copy in sync.
 const segmented = (group: string) =>
   `<div class="segmented" role="tablist" aria-label="จัดกลุ่ม">`
-  + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" onclick="setGroup('feature')">Feature</button>`
-  + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" onclick="setGroup('persona')">Persona</button></div>`;
+  + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" data-act="setGroup" data-arg="feature">Feature</button>`
+  + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" data-act="setGroup" data-arg="persona">Persona</button></div>`;
 
 // Epics lifecycle filter — All | กำลังทำ | เสร็จแล้ว | ยังไม่เริ่ม. filterEpics() shows/hides cards client-side.
 const EPIC_FILTERS: [string, string][] = [["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จแล้ว"], ["todo", "ยังไม่เริ่ม"]];
 const epicFilter = (f: string) =>
   `<div class="segmented" role="tablist" aria-label="กรองสถานะ Epic">`
-  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" onclick="filterEpics('${k}')">${lbl}</button>`).join("")
+  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" data-act="filterEpics" data-arg="${k}">${lbl}</button>`).join("")
   + `</div>`;
 
 function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: string): string {
@@ -286,8 +286,8 @@ function renderSwitcher(m: Model, current: string, tq: string, group: string): s
     const stCls = n.stories.some(hasAwait) ? "gate" : n.stories.some(isActive) ? "run" : pct === 100 && total ? "done" : "q";
     items += `<a class="sw-item ${n.key === current ? "current" : ""}" data-persona="${n.persona || "none"}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><span class="sw-ic">${epicIcon(n.label)}</span><span class="sw-m"><span class="sw-name">${esc(n.label)}</span><span class="sw-meta">${esc(n.feature)}</span></span>${personaChip(n.persona)}<span class="sw-st ${stCls}">${pct}%</span></a>`;
   });
-  const fbtn = (p: string, label: string) => `<button class="sw-fbtn ${p === "all" ? "active" : ""}" data-p="${p}" onclick="filterSwitcher('${p}')">${esc(label)}</button>`;
-  return `<div id="switcher" class="switcher" role="dialog" aria-modal="true" aria-label="สลับ epic"><div class="sw-backdrop" onclick="closeSwitcher()"></div><div class="sw-panel"><div class="sw-head"><span class="sw-title">สลับ epic</span><button class="sw-x" onclick="closeSwitcher()" aria-label="ปิด">✕</button></div><div class="sw-filter">${fbtn("all", "All")}${fbtn("host", "Host")}${fbtn("camper", "Camper")}${fbtn("admin", "Admin")}${fbtn("platform", "Platform")}</div><div class="sw-list">${items}</div></div></div>`;
+  const fbtn = (p: string, label: string) => `<button class="sw-fbtn ${p === "all" ? "active" : ""}" data-p="${p}" data-act="filterSwitcher" data-arg="${p}">${esc(label)}</button>`;
+  return `<div id="switcher" class="switcher" role="dialog" aria-modal="true" aria-label="สลับ epic"><div class="sw-backdrop" data-act="closeSwitcher"></div><div class="sw-panel"><div class="sw-head"><span class="sw-title">สลับ epic</span><button class="sw-x" data-act="closeSwitcher" aria-label="ปิด">✕</button></div><div class="sw-filter">${fbtn("all", "All")}${fbtn("host", "Host")}${fbtn("camper", "Camper")}${fbtn("admin", "Admin")}${fbtn("platform", "Platform")}</div><div class="sw-list">${items}</div></div></div>`;
 }
 
 // ---------- EPIC DETAIL ----------
@@ -307,7 +307,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
 
   let h = "";
   // breadcrumb
-  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())} · ${esc(trail.header)}</span><button class="swbtn" onclick="openSwitcher()" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
+  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())} · ${esc(trail.header)}</span><button class="swbtn" data-act="openSwitcher" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
 
   // hero orbs + pips
   h += `<section class="glass hero"><div class="orbs">`
