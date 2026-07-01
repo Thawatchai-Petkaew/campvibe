@@ -1422,7 +1422,7 @@
                 },
                 "board": {
                     "title": "Board",
-                    "empty": "เลือก Feature หรือ Epic เพื่อดู Board"
+                    "empty": "ยังไม่มีงานในบอร์ด"
                 },
                 "close": "ปิด"
             },

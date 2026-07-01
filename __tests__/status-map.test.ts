@@ -1414,8 +1414,29 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).toContain('aria-label="ปิด"');
   });
 
-  it("Board Sheet empty state uses Thai copy from Design Brief verbatim", () => {
-    expect(src).toContain("เลือก Feature หรือ Epic เพื่อดู Board");
+  it("Board Sheet empty state uses Thai copy (shown only when there is genuinely no work — CAM-264)", () => {
+    expect(src).toContain("ยังไม่มีงานในบอร์ด");
+  });
+
+  it("CAM-264: board is always shown when there is work (showBoard = boardStories.length > 0, label ทั้งหมด)", () => {
+    expect(src).toContain("const showBoard = boardStories.length > 0");
+    expect(src).toContain('return "ทั้งหมด"');
+    // the old feature/epic gate on showBoard is gone
+    expect(src).not.toContain('const showBoard = !!feature || (scope === "epic"');
+  });
+
+  it("CAM-264: KanbanModal board cards are uniform-size (title clamped to 2 lines)", () => {
+    const overlays = read("../app/status/map/campsite-overlays.tsx");
+    const block = overlays.slice(overlays.indexOf(".hud-card-title{"), overlays.indexOf(".hud-card-title{") + 280);
+    expect(block).toContain("-webkit-line-clamp:2");
+    expect(block).toContain("min-height:calc(1.35em * 2)");
+    expect(block).toContain("overflow-wrap:anywhere");
+  });
+
+  it("CAM-264: board columns are equal width (grid 1fr items get min-width:0)", () => {
+    const overlays = read("../app/status/map/campsite-overlays.tsx");
+    expect(overlays).toContain("grid-template-columns:repeat(5,1fr)");
+    expect(overlays).toContain(".hud-col{min-width:0}");
   });
 
   it("Roster Sheet empty state uses Thai copy from Design Brief verbatim", () => {
@@ -1430,7 +1451,7 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
 
   it("i18n locale keys for sheet.board.empty TH are added to translations.json", () => {
     const locales = read("../locales/translations.json");
-    expect(locales).toContain('"empty": "เลือก Feature หรือ Epic เพื่อดู Board"');
+    expect(locales).toContain('"empty": "ยังไม่มีงานในบอร์ด"');
   });
 
   // ── Imports — Sheet and icons ────────────────────────────────────────────────
