@@ -1414,8 +1414,15 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).toContain('aria-label="ปิด"');
   });
 
-  it("Board Sheet empty state uses Thai copy from Design Brief verbatim", () => {
-    expect(src).toContain("เลือก Feature หรือ Epic เพื่อดู Board");
+  it("Board Sheet empty state uses Thai copy (shown only when there is genuinely no work — CAM-264)", () => {
+    expect(src).toContain("ยังไม่มีงานในบอร์ด");
+  });
+
+  it("CAM-264: board is always shown when there is work (showBoard = boardStories.length > 0, label ทั้งหมด)", () => {
+    expect(src).toContain("const showBoard = boardStories.length > 0");
+    expect(src).toContain('return "ทั้งหมด"');
+    // the old feature/epic gate on showBoard is gone
+    expect(src).not.toContain('const showBoard = !!feature || (scope === "epic"');
   });
 
   it("Roster Sheet empty state uses Thai copy from Design Brief verbatim", () => {
@@ -1430,7 +1437,7 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
 
   it("i18n locale keys for sheet.board.empty TH are added to translations.json", () => {
     const locales = read("../locales/translations.json");
-    expect(locales).toContain('"empty": "เลือก Feature หรือ Epic เพื่อดู Board"');
+    expect(locales).toContain('"empty": "ยังไม่มีงานในบอร์ด"');
   });
 
   // ── Imports — Sheet and icons ────────────────────────────────────────────────

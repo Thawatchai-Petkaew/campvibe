@@ -1393,19 +1393,21 @@ export default function CampsiteScene({
     [epics, persona, feature, scope, activeEpic, envLanes, projectPct, gates, epicsActive, totalEpics, backlogItems],
   );
 
-  const showBoard = !!feature || (scope === "epic" && !!activeEpic);
+  // CAM-264: the board is always visible. Show ALL work when nothing is filtered; narrow
+  // when a Feature/Epic is selected. showBoard now means "is there any work to show" —
+  // the board renders whenever there are stories, and a true empty-state shows otherwise.
   const boardStories = useMemo(() => {
-    if (!showBoard) return [];
     let filtered = epics;
     if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
     else if (feature) filtered = epics.filter((e) => e.feature === feature);
     return filtered.flatMap((e) => e.stories);
-  }, [epics, feature, scope, activeEpic, showBoard]);
+  }, [epics, feature, scope, activeEpic]);
+  const showBoard = boardStories.length > 0;
 
   const boardLabel = useMemo(() => {
     if (scope === "epic" && activeEpic) return epics.find((e) => e.key === activeEpic)?.label ?? activeEpic;
     if (feature) return feature;
-    return "";
+    return "ทั้งหมด";
   }, [scope, activeEpic, feature, epics]);
 
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
@@ -2230,7 +2232,7 @@ export default function CampsiteScene({
               <div style={{ textAlign: "center", padding: "32px 0" }}>
                 <Layers size={28} style={{ color: "rgba(91,233,176,.4)", margin: "0 auto 10px" }} aria-hidden="true" />
                 <p style={{ color: "rgba(223,234,245,.35)", fontSize: 13 }}>
-                  เลือก Feature หรือ Epic เพื่อดู Board
+                  ยังไม่มีงานในบอร์ด
                 </p>
               </div>
             ) : (
