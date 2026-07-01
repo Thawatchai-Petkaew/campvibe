@@ -892,33 +892,37 @@ describe("CAM-253 SMUX-4 — Reduced-motion: agent focus ring is static ring und
     "utf8",
   );
 
-  it("[a11y] .scout--focused keyframe animation (smux3-agent-pulse) is gated by prefers-reduced-motion: no-preference", () => {
-    // The pulse animation must live inside the no-preference block
-    const noPreferenceBlock = src.indexOf("@media (prefers-reduced-motion: no-preference)");
-    const pulseIdx = src.indexOf("smux3-agent-pulse");
-    // The pulse keyframe definition must appear after (inside) the no-preference guard
+  it("[a11y] .scout--focused ground-ring pulse (smux3-ground-pulse) is gated by prefers-reduced-motion: no-preference", () => {
+    // Only the pulse animation lives inside the no-preference block; the ring itself does not.
+    const noPreferenceBlock = src.indexOf("@media (prefers-reduced-motion: no-preference)", src.indexOf(".scout--focused::after"));
+    const pulseIdx = src.indexOf("smux3-ground-pulse");
     expect(noPreferenceBlock).toBeGreaterThan(-1);
     expect(pulseIdx).toBeGreaterThan(noPreferenceBlock);
   });
 
-  it("[a11y] .scout--focused static ring (outline) exists OUTSIDE the no-preference guard (always visible)", () => {
-    // The static outline rule lives after the @media block — it has no guard.
-    // There are TWO `.scout--focused .body {` occurrences:
-    //   1. inside @media (no-preference) → animation only
-    //   2. after the closing } of @media → static outline (always-on)
-    // Find the second occurrence (static ring)
-    const first = src.indexOf(".scout--focused .body {");
-    const second = src.indexOf(".scout--focused .body {", first + 1);
-    expect(second).toBeGreaterThan(first);
-    // The static ring block contains the outline property
-    const staticBlock = src.slice(second, second + 150);
-    expect(staticBlock).toContain("outline: 3px solid rgba(91,233,176,.9)");
-    expect(staticBlock).toContain("outline-offset: 3px");
+  it("[a11y] .scout--focused ground ring is defined OUTSIDE the no-preference guard (always visible under reduced-motion)", () => {
+    // The base ::after ellipse ring is declared before the pulse @media block, so it shows
+    // (static) even under prefers-reduced-motion: reduce. CAM-263 replaced the old rectangular
+    // .body outline with this ground ellipse.
+    const ringIdx = src.indexOf(".scout--focused::after");
+    const guardIdx = src.indexOf("@media (prefers-reduced-motion: no-preference)", ringIdx);
+    expect(ringIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeGreaterThan(ringIdx); // base ring comes first, pulse guard after
+    const ringBlock = src.slice(ringIdx, guardIdx);
+    expect(ringBlock).toContain("border-radius:50%");
+    expect(ringBlock).toContain("rgba(91,233,176,.9)");
+    expect(ringBlock).toContain("pointer-events:none");
+    // no rectangular sprite outline anymore
+    expect(src).not.toContain("outline: 3px solid rgba(91,233,176,.9)");
   });
 
-  it("[a11y] static ring comment reads 'Reduced-motion: static ring, no animation'", () => {
-    // This comment documents the always-on ring as the reduced-motion fallback
-    expect(src).toContain("Reduced-motion: static ring, no animation");
+  it("[a11y] ground ring is aligned to the character's ground (aura-ring anchor) — CAM-263", () => {
+    // The ::after ring uses the same bottom + translate(-50%,30%) anchor as .aura-ring so it
+    // sits on the ground under the feet; shown even under reduced-motion (only the pulse is gated).
+    const ringIdx = src.indexOf(".scout--focused::after");
+    const ringBlock = src.slice(ringIdx, ringIdx + 320);
+    expect(ringBlock).toContain("translate(-50%,30%)");
+    expect(ringBlock).toContain("bottom:0");
   });
 });
 

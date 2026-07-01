@@ -1592,9 +1592,17 @@ describe("campsite-scene.tsx — SMUX-3: agent focus ring", () => {
     expect(src).toContain("rgba(91,233,176");
   });
 
-  it("scout--focused animation is gated by prefers-reduced-motion: no-preference", () => {
-    // Must not animate under reduce — check the guard exists in SCENE_CSS context
-    expect(src).toContain("smux3-agent-pulse");
+  it("scout--focused selection is a GROUND ring (::after ellipse), not a rectangular sprite outline (CAM-263)", () => {
+    // The selection is drawn as a ground ellipse aligned with .aura-ring, not an outline on .body.
+    expect(src).toContain(".scout--focused::after");
+    expect(src).toContain("border-radius:50%");
+    // The old rectangular outline on the sprite body must be gone.
+    expect(src).not.toContain("outline: 3px solid rgba(91,233,176,.9)");
+  });
+
+  it("scout--focused ground-ring pulse is gated by prefers-reduced-motion: no-preference", () => {
+    // Must not animate under reduce — only the pulse keyframe is inside the no-preference block.
+    expect(src).toContain("smux3-ground-pulse");
   });
 
   it("AgentScout receives focused prop and applies scout--focused class when true", () => {
@@ -1995,12 +2003,37 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(overly).toContain(".hud-signposts-bottom .hud-sp-label{flex:1;max-width:none;min-width:0;text-align:left}");
   });
 
-  // CAM-258: menu opens UPWARD (drop-up) for the bottom row
-  it("HUD_CSS opens the bottom menu upward via .hud-signpost-menu-up (bottom:calc(100%+...))", () => {
+  // CAM-258 / CAM-262: bottom menu opens upward — enforced by menuStyle() in the portal,
+  // not by CSS (CAM-262 removed the absolute positioning from .hud-signpost-menu-up and
+  // replaced it with a portaled fixed-position div whose top/bottom come from the JS
+  // menuStyle() function). The class still exists for non-position overrides (width/shadow).
+  it("HUD_CSS .hud-signpost-menu-up class still exists (carries non-position overrides: width, shadow)", () => {
     expect(overly).toContain(".hud-signpost-menu-up{");
-    const block = overly.slice(overly.indexOf(".hud-signpost-menu-up{"));
-    expect(block.slice(0, 160)).toContain("bottom:calc(100%");
-    expect(block.slice(0, 160)).toContain("top:auto");
+  });
+
+  it("CAM-262: menuStyle() opens bottom menu upward via window.innerHeight - rect.top (portal positioning)", () => {
+    // The portal-based positioning uses window.innerHeight - rect.top + 7 for the bottom variant.
+    expect(overly).toContain("window.innerHeight - rect.top + 7");
+    // For the top (desktop) variant it drops down below: rect.bottom + 7.
+    expect(overly).toContain("rect.bottom + 7");
+  });
+
+  it("CAM-262: menuStyle() caps maxHeight to a modest fixed size (not viewport-tall) and scrolls a long list", () => {
+    // A modest FIXED cap (~9 rows) so a long list is a normal-sized dropdown, not a
+    // viewport-tall menu; still shrinks to available space on short screens (floored 160).
+    expect(overly).toContain("MENU_MAX_H = 340");
+    expect(overly).toContain("Math.min(MENU_MAX_H, window.innerHeight - (rect.bottom + 7) - 8)");
+    expect(overly).toContain("Math.min(MENU_MAX_H, rect.top - 7 - 8)");
+    expect(overly).toContain("Math.max(160,");
+    // the menu keeps internal scrolling for the overflow.
+    expect(overly).toContain("overflow-y:auto");
+  });
+
+  it("CAM-262: option rows are fixed-size (flex:0 0 auto) so the flex column overflows + scrolls instead of squishing rows", () => {
+    // Without flex:0 0 auto the flex column shrinks the rows to fit max-height → no scroll.
+    const optBlock = overly.slice(overly.indexOf(".hud-sp-opt{"), overly.indexOf(".hud-sp-opt{") + 260);
+    expect(optBlock).toContain("flex:0 0 auto");
+    expect(optBlock).toContain("min-height:36px");
   });
 
   // CAM-258: bottom row shown on tablet/mobile (<1024) via CSS
@@ -2030,14 +2063,16 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(scene).not.toContain('className="hud-filter-compact"');
   });
 
-  // CAM-258: a11y merged onto the unified chip — listbox semantics + Escape + focus return
+  // CAM-258 / CAM-262: a11y merged onto the unified chip — listbox semantics + Escape + focus return.
+  // CAM-262: aria-selected now uses openSign.value (portaled menu uses openSign, not s).
   it("FilterSignposts wires listbox a11y (aria-haspopup/expanded/controls + role=option + Escape)", () => {
     expect(overly).toContain('aria-haspopup="listbox"');
     expect(overly).toContain("aria-expanded={open === s.key}");
     expect(overly).toContain("aria-controls={`hud-signpost-menu-${s.key}`}");
     expect(overly).toContain('role="listbox"');
     expect(overly).toContain('role="option"');
-    expect(overly).toContain("aria-selected={o.v === s.value}");
+    // CAM-262: portaled option uses openSign.value (the resolved open sign from signs[])
+    expect(overly).toContain("aria-selected={o.v === openSign.value}");
     // Escape closes + returns focus to the trigger
     expect(overly).toContain('e.key === "Escape"');
     expect(overly).toContain("ref?.current?.focus()");
@@ -2424,5 +2459,94 @@ describe("CAM-257 C — single horizontal row + no overlap", () => {
     const block = overly.slice(overly.indexOf("@media (max-width: 639px)"));
     expect(block).toContain("hud-signposts-bottom");
     expect(block).toContain("bottom:calc(52px + max(10px, env(safe-area-inset-bottom)) + 8px)");
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// CAM-262 — Desktop top-toolbar filter dropdowns clipped fix
+//   Root cause: .hud-signpost-menu was position:absolute inside .map-wrap
+//   (position:fixed;inset:0;overflow:hidden) and a backdrop-filter ancestor
+//   (which creates a containing block), clipping the menu to a thin sliver.
+//   Fix: portal the open menu to document.body with position:fixed; compute
+//   coords from the trigger's DOMRect via useLayoutEffect + menuStyle().
+// ────────────────────────────────────────────────────────────────────────────
+describe("CAM-262 — FilterSignposts: desktop dropdown clipping fix (portal)", () => {
+  const overly = read("../app/status/map/campsite-overlays.tsx");
+
+  it("FilterSignposts imports useLayoutEffect from React (for trigger rect measurement)", () => {
+    // The import block must include useLayoutEffect.
+    expect(overly).toContain("useLayoutEffect");
+  });
+
+  it("FilterSignposts renders the open menu via createPortal to document.body", () => {
+    // The portaled menu must call createPortal(..., document.body) — this is how we
+    // escape overflow:hidden and backdrop-filter containing-block ancestors.
+    expect(overly).toContain("createPortal(");
+    expect(overly).toContain("document.body");
+  });
+
+  it("FilterSignposts declares menuRef for the portaled menu div (click-outside guard)", () => {
+    // menuRef is used in the click-outside handler so that clicking an option button
+    // inside the portaled menu does NOT close it before the option's onClick fires.
+    expect(overly).toContain("menuRef");
+    expect(overly).toContain("menuRef.current?.contains(e.target as Node)");
+  });
+
+  it("FilterSignposts uses useLayoutEffect keyed on open to measure the trigger DOMRect", () => {
+    // getBoundingClientRect() supplies the trigger position for the portaled fixed menu.
+    expect(overly).toContain("getBoundingClientRect()");
+    expect(overly).toContain("setTriggerRect");
+  });
+
+  it("menuStyle() computes position:fixed with left clamping (never overflows viewport edges)", () => {
+    // Clamping formula: Math.max(8, Math.min(rect.left, window.innerWidth - MENU_W - 8))
+    expect(overly).toContain("window.innerWidth - MENU_W - 8");
+    expect(overly).toContain("Math.max(8,");
+    expect(overly).toContain('position: "fixed"');
+  });
+
+  it("menuStyle() drops down (rect.bottom + 7) for top/desktop layout", () => {
+    expect(overly).toContain("rect.bottom + 7");
+  });
+
+  it("menuStyle() opens upward (window.innerHeight - rect.top + 7) for bottom/mobile layout", () => {
+    expect(overly).toContain("window.innerHeight - rect.top + 7");
+  });
+
+  it("click-outside handler checks both rootRef and menuRef before closing", () => {
+    // The handler must not close the menu when the pointer lands inside the portaled div.
+    expect(overly).toContain("rootRef.current?.contains(e.target as Node)");
+    expect(overly).toContain("menuRef.current?.contains(e.target as Node)");
+  });
+
+  it("closes the menu on resize but NOT on scroll (a scroll listener would close it when scrolling inside — CAM-262)", () => {
+    expect(overly).toContain('"resize"');
+    // The scroll listener was removed: it fired on the menu's own internal scroll and
+    // closed it, making the dropdown impossible to scroll.
+    const effect = overly.slice(overly.indexOf("function onViewportChange"), overly.indexOf("function onViewportChange") + 400);
+    expect(effect).not.toContain('addEventListener("scroll"');
+  });
+
+  it(".hud-signpost-menu CSS no longer sets position:absolute or top:calc(100% + 7px)", () => {
+    // Position is now fully driven by inline style on the portaled div.
+    const menuBlock = overly.slice(overly.indexOf(".hud-signpost-menu{"), overly.indexOf(".hud-sp-opt{"));
+    expect(menuBlock).not.toContain("position:absolute");
+    expect(menuBlock).not.toContain("top:calc(100% + 7px)");
+  });
+
+  it("all existing aria attributes on the trigger and menu are preserved (no a11y regression)", () => {
+    // Trigger button
+    expect(overly).toContain('aria-haspopup="listbox"');
+    expect(overly).toContain("aria-expanded={open === s.key}");
+    expect(overly).toContain("aria-controls={`hud-signpost-menu-${s.key}`}");
+    // Portaled menu div
+    expect(overly).toContain('role="listbox"');
+    expect(overly).toContain("aria-label={FILTER_ARIA");
+    // Option buttons
+    expect(overly).toContain('role="option"');
+    expect(overly).toContain("aria-selected={o.v === openSign.value}");
+    // Escape + focus-return still wired
+    expect(overly).toContain('e.key === "Escape"');
+    expect(overly).toContain("ref?.current?.focus()");
   });
 });
