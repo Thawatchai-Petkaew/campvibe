@@ -1425,6 +1425,13 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(src).not.toContain('const showBoard = !!feature || (scope === "epic"');
   });
 
+  it("CAM-264: KanbanModal board cards are uniform-size (title clamped to 2 lines)", () => {
+    const overlays = read("../app/status/map/campsite-overlays.tsx");
+    const block = overlays.slice(overlays.indexOf(".hud-card-title{"), overlays.indexOf(".hud-card-title{") + 240);
+    expect(block).toContain("-webkit-line-clamp:2");
+    expect(block).toContain("min-height:calc(1.35em * 2)");
+  });
+
   it("Roster Sheet empty state uses Thai copy from Design Brief verbatim", () => {
     expect(src).toContain("ยังไม่มีข้อมูลทีม");
   });

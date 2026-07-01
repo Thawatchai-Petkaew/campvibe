@@ -306,7 +306,9 @@ export const HUD_CSS = `
 .hud-card.active .hud-card-lane{color:#5BE9B0}
 .hud-card.awaiting .hud-card-lane{color:#FFB454}
 .hud-card-id{font-size:9.5px;color:rgba(223,234,245,.35)}
-.hud-card-title{font-size:12.5px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px}
+.hud-card-title{font-size:12.5px;color:rgba(223,234,245,.88);line-height:1.35;margin-top:2px;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+  min-height:calc(1.35em * 2)} /* CAM-264: clamp title to 2 lines + reserve 2-line height so every board card is the same size */
 .hud-card-footer{
   display:flex;align-items:center;justify-content:space-between;margin-top:7px;
 }
