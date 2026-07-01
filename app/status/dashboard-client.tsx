@@ -84,6 +84,16 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       syncUrl("efilter", f);
     };
 
+    const onDelegatedClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-act]");
+      if (!el) return;
+      const act = el.getAttribute("data-act") || "";
+      const arg = el.getAttribute("data-arg") ?? "";
+      const fn = (w as unknown as Record<string, unknown>)[act];
+      if (typeof fn === "function") (fn as (a: string) => void)(arg);
+    };
+    document.addEventListener("click", onDelegatedClick);
+
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") w.closeSwitcher?.(); };
     document.addEventListener("keydown", onKey);
 
@@ -147,6 +157,7 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       clearInterval(refreshId);
       es?.close();
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onDelegatedClick);
     };
   }, [router, refreshSeconds, token]);
 
