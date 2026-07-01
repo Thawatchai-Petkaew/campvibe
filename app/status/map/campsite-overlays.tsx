@@ -25,6 +25,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -542,7 +543,8 @@ export const HUD_CSS = `
 .hud-sp-label{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hud-sp-caret{opacity:.55;margin-left:2px;display:block;flex:none}
 .hud-signpost-menu{
-  position:absolute;top:calc(100% + 7px);left:0;z-index:30;width:220px;max-height:62vh;overflow-y:auto;
+  /* position:fixed + top/left/bottom come from inline style on the portaled div */
+  z-index:9999;width:220px;max-height:62vh;overflow-y:auto;
   display:flex;flex-direction:column;gap:1px;padding:6px;
   border:1px solid rgba(150,240,195,.16);border-radius:14px;
   background:rgba(11,30,24,.72);
@@ -592,7 +594,7 @@ export const HUD_CSS = `
    Width is responsive (not the fixed 220px of the top menu) so the rightmost
    column's menu never overflows the viewport at ≥320px. */
 .hud-signpost-menu-up{
-  top:auto;bottom:calc(100% + 7px);
+  /* top/bottom come from inline style; keep only non-position overrides */
   width:auto;min-width:180px;max-width:min(280px,90vw);
   box-shadow:0 -18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
 }
@@ -2101,6 +2103,12 @@ const FILTER_ARIA: Record<FilterLevel, string> = {
   epic: "กรองตาม Epic",
 };
 
+// CAM-262: FilterSignposts portal fix — desktop menus were clipped by overflow:hidden on
+// .map-wrap{position:fixed;inset:0} and the glass topbar container (backdrop-filter becomes
+// a containing block, clipping position:absolute children). The fix portals the open menu
+// to document.body with position:fixed, computing its coords from the trigger's DOMRect.
+// The mobile "bottom" layout was already unaffected (position:fixed inline), but we now
+// use the same portal path for both so there is one code path.
 export function FilterSignposts({ personas, features, epics, persona, feature, epic, onChange, layout = "top" }: FilterSignpostsProps) {
   const [open, setOpen] = useState<null | FilterLevel>(null);
   const btnRefs = {
@@ -2109,12 +2117,32 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
     epic:    useRef<HTMLButtonElement | null>(null),
   };
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // Ref for the portaled menu div — used for click-outside so option clicks don't
+  // close the menu before the option's onClick fires.
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  // Trigger rect — measured just before the menu paints (useLayoutEffect) so the
+  // fixed menu opens at the exact position of the button that was clicked.
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+
+  // Measure the trigger button's rect immediately before the menu paints.
+  // Keyed on `open` so it re-runs each time a different button is opened.
+  useLayoutEffect(() => {
+    if (!open) { setTriggerRect(null); return; }
+    const rect = btnRefs[open]?.current?.getBoundingClientRect() ?? null;
+    setTriggerRect(rect);
+  // btnRefs is a stable object of stable refs; only `open` drives this.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Close on click-outside (pointerdown) + Escape; return focus to the trigger on Escape.
+  // Also close on resize/scroll (the full-screen canvas moves nothing, but the rect
+  // would be stale — simplest fix is to close).
   useEffect(() => {
     if (!open) return;
     function onPointer(e: PointerEvent) {
+      // Allow clicks inside the trigger bar or inside the portaled menu.
       if (rootRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
       setOpen(null);
     }
     function onKey(e: KeyboardEvent) {
@@ -2125,13 +2153,19 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
         ref?.current?.focus();
       }
     }
+    function onViewportChange() { setOpen(null); }
     window.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey, true);
+    // capture:true so scroll inside the portaled menu itself doesn't close it
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, { capture: true });
     return () => {
       window.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, { capture: true });
     };
-  // btnRefs is a stable object of refs; only `open` drives this effect.
+  // btnRefs + menuRef are stable refs; only `open` drives this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -2156,51 +2190,94 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
 
   const menuCls = bottom ? "hud-signpost-menu hud-signpost-menu-up" : "hud-signpost-menu";
 
-  return (
-    <div
-      ref={rootRef}
-      className={bottom ? "hud-signposts hud-signposts-bottom" : "hud-signposts"}
-      onPointerDown={(e) => e.stopPropagation()}
-      data-testid={bottom ? "filter-row--map-mobile" : "nav--map-filter"}
-    >
-      {signs.map((s) => (
-        <div className="hud-signpost-wrap" key={s.key}>
-          <button
-            ref={btnRefs[s.key]}
-            type="button"
-            className={s.value ? "hud-signpost active" : "hud-signpost"}
-            aria-haspopup="listbox"
-            aria-expanded={open === s.key}
-            aria-controls={`hud-signpost-menu-${s.key}`}
-            aria-label={FILTER_ARIA[s.key]}
-            onClick={() => setOpen(open === s.key ? null : s.key)}
-            data-testid={`btn--map-filter-${s.key}`}
+  // Compute fixed position for the portaled menu from the trigger rect.
+  // Menu width: 220px desktop / responsive min(280px,90vw) bottom.
+  // Clamp left so the menu never escapes the viewport edges (8px margin each side).
+  function menuStyle(rect: DOMRect): React.CSSProperties {
+    const MENU_W = bottom ? Math.min(280, window.innerWidth * 0.9) : 220;
+    const clampedLeft = Math.max(8, Math.min(rect.left, window.innerWidth - MENU_W - 8));
+    if (bottom) {
+      // Bottom layout: open upward so menu clears the bottom toolbar.
+      return {
+        position: "fixed",
+        left: clampedLeft,
+        bottom: window.innerHeight - rect.top + 7,
+      };
+    }
+    // Top (desktop) layout: drop down below the trigger.
+    return {
+      position: "fixed",
+      top: rect.bottom + 7,
+      left: clampedLeft,
+    };
+  }
+
+  // The open menu, portaled to document.body.
+  const openSign = open ? signs.find((s) => s.key === open) : null;
+  const portaledMenu =
+    openSign && triggerRect
+      ? createPortal(
+          <div
+            ref={menuRef}
+            id={`hud-signpost-menu-${openSign.key}`}
+            role="listbox"
+            aria-label={FILTER_ARIA[openSign.key]}
+            className={menuCls}
+            style={menuStyle(triggerRect)}
           >
-            <span className="hud-sp-icon" aria-hidden="true">{SpIcon[s.key]}</span>
-            <span className="hud-sp-label">{s.valueLabel}</span>
-            <svg className="hud-sp-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
-              <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {open === s.key && (
-            <div id={`hud-signpost-menu-${s.key}`} role="listbox" aria-label={FILTER_ARIA[s.key]} className={menuCls}>
-              {s.opts.map((o) => (
-                <button
-                  type="button"
-                  key={o.v || "all"}
-                  role="option"
-                  aria-selected={o.v === s.value}
-                  className={o.v === s.value ? "hud-sp-opt sel" : "hud-sp-opt"}
-                  onClick={() => { onChange(s.key, o.v); setOpen(null); btnRefs[s.key].current?.focus(); }}
-                >
-                  {o.l}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+            {openSign.opts.map((o) => (
+              <button
+                type="button"
+                key={o.v || "all"}
+                role="option"
+                aria-selected={o.v === openSign.value}
+                className={o.v === openSign.value ? "hud-sp-opt sel" : "hud-sp-opt"}
+                onClick={() => {
+                  onChange(openSign.key, o.v);
+                  setOpen(null);
+                  btnRefs[openSign.key].current?.focus();
+                }}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <div
+        ref={rootRef}
+        className={bottom ? "hud-signposts hud-signposts-bottom" : "hud-signposts"}
+        onPointerDown={(e) => e.stopPropagation()}
+        data-testid={bottom ? "filter-row--map-mobile" : "nav--map-filter"}
+      >
+        {signs.map((s) => (
+          <div className="hud-signpost-wrap" key={s.key}>
+            <button
+              ref={btnRefs[s.key]}
+              type="button"
+              className={s.value ? "hud-signpost active" : "hud-signpost"}
+              aria-haspopup="listbox"
+              aria-expanded={open === s.key}
+              aria-controls={`hud-signpost-menu-${s.key}`}
+              aria-label={FILTER_ARIA[s.key]}
+              onClick={() => setOpen(open === s.key ? null : s.key)}
+              data-testid={`btn--map-filter-${s.key}`}
+            >
+              <span className="hud-sp-icon" aria-hidden="true">{SpIcon[s.key]}</span>
+              <span className="hud-sp-label">{s.valueLabel}</span>
+              <svg className="hud-sp-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+      {portaledMenu}
+    </>
   );
 }
 
