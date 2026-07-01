@@ -2000,6 +2000,13 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(overly).toContain("overflow-y:auto");
   });
 
+  it("CAM-262: option rows are fixed-size (flex:0 0 auto) so the flex column overflows + scrolls instead of squishing rows", () => {
+    // Without flex:0 0 auto the flex column shrinks the rows to fit max-height → no scroll.
+    const optBlock = overly.slice(overly.indexOf(".hud-sp-opt{"), overly.indexOf(".hud-sp-opt{") + 260);
+    expect(optBlock).toContain("flex:0 0 auto");
+    expect(optBlock).toContain("min-height:36px");
+  });
+
   // CAM-258: bottom row shown on tablet/mobile (<1024) via CSS
   it("HUD_CSS shows .hud-signposts-bottom at max-width:1023px", () => {
     expect(overly).toContain(".hud-signposts-bottom");

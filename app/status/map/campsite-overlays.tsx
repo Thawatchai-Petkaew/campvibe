@@ -552,7 +552,10 @@ export const HUD_CSS = `
   box-shadow:0 18px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(200,255,232,.12);
 }
 .hud-sp-opt{
-  display:block;width:100%;
+  display:block;width:100%;box-sizing:border-box;
+  flex:0 0 auto;min-height:36px;                 /* fixed row size — do NOT let the flex
+                                                    column shrink rows to fit; overflow +
+                                                    scroll instead (CAM-262 2nd report) */
   text-align:left;padding:9px 12px;border-radius:9px;
   font-size:12px;color:rgba(223,234,245,.78);cursor:pointer;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
