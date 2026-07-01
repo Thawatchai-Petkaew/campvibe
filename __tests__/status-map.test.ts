@@ -1989,11 +1989,12 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
     expect(overly).toContain("rect.bottom + 7");
   });
 
-  it("CAM-262: menuStyle() bounds maxHeight to available viewport space so a long list scrolls in-view", () => {
-    // desktop: space below the trigger to the bottom edge (minus margin), floored at 160.
-    expect(overly).toContain("window.innerHeight - (rect.bottom + 7) - 8");
-    // mobile drop-up: space above the trigger, floored at 160.
-    expect(overly).toContain("rect.top - 7 - 8");
+  it("CAM-262: menuStyle() caps maxHeight to a modest fixed size (not viewport-tall) and scrolls a long list", () => {
+    // A modest FIXED cap (~9 rows) so a long list is a normal-sized dropdown, not a
+    // viewport-tall menu; still shrinks to available space on short screens (floored 160).
+    expect(overly).toContain("MENU_MAX_H = 340");
+    expect(overly).toContain("Math.min(MENU_MAX_H, window.innerHeight - (rect.bottom + 7) - 8)");
+    expect(overly).toContain("Math.min(MENU_MAX_H, rect.top - 7 - 8)");
     expect(overly).toContain("Math.max(160,");
     // the menu keeps internal scrolling for the overflow.
     expect(overly).toContain("overflow-y:auto");
