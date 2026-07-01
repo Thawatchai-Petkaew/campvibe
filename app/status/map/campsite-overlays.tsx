@@ -2159,14 +2159,15 @@ export function FilterSignposts({ personas, features, epics, persona, feature, e
     function onViewportChange() { setOpen(null); }
     window.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey, true);
-    // capture:true so scroll inside the portaled menu itself doesn't close it
+    // Close on window resize only. Do NOT listen for `scroll`: the /status/map canvas is
+    // position:fixed and the page never scrolls, so the only scroll is INSIDE the portaled
+    // menu — a scroll listener (even capture) fired on that and closed the menu, making the
+    // dropdown impossible to scroll (CAM-262 regression from the crop fix).
     window.addEventListener("resize", onViewportChange);
-    window.addEventListener("scroll", onViewportChange, { capture: true });
     return () => {
       window.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onViewportChange);
-      window.removeEventListener("scroll", onViewportChange, { capture: true });
     };
   // btnRefs + menuRef are stable refs; only `open` drives this effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps

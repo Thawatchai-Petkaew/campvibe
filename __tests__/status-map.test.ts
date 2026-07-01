@@ -2490,11 +2490,12 @@ describe("CAM-262 — FilterSignposts: desktop dropdown clipping fix (portal)", 
     expect(overly).toContain("menuRef.current?.contains(e.target as Node)");
   });
 
-  it("resize and scroll (capture) listeners close the menu while it is open", () => {
-    // Stale rects after viewport change: simplest fix is to close.
+  it("closes the menu on resize but NOT on scroll (a scroll listener would close it when scrolling inside — CAM-262)", () => {
     expect(overly).toContain('"resize"');
-    expect(overly).toContain('"scroll"');
-    expect(overly).toContain("capture: true");
+    // The scroll listener was removed: it fired on the menu's own internal scroll and
+    // closed it, making the dropdown impossible to scroll.
+    const effect = overly.slice(overly.indexOf("function onViewportChange"), overly.indexOf("function onViewportChange") + 400);
+    expect(effect).not.toContain('addEventListener("scroll"');
   });
 
   it(".hud-signpost-menu CSS no longer sets position:absolute or top:calc(100% + 7px)", () => {
