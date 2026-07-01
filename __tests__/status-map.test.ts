@@ -1571,9 +1571,17 @@ describe("campsite-scene.tsx — SMUX-3: agent focus ring", () => {
     expect(src).toContain("rgba(91,233,176");
   });
 
-  it("scout--focused animation is gated by prefers-reduced-motion: no-preference", () => {
-    // Must not animate under reduce — check the guard exists in SCENE_CSS context
-    expect(src).toContain("smux3-agent-pulse");
+  it("scout--focused selection is a GROUND ring (::after ellipse), not a rectangular sprite outline (CAM-263)", () => {
+    // The selection is drawn as a ground ellipse aligned with .aura-ring, not an outline on .body.
+    expect(src).toContain(".scout--focused::after");
+    expect(src).toContain("border-radius:50%");
+    // The old rectangular outline on the sprite body must be gone.
+    expect(src).not.toContain("outline: 3px solid rgba(91,233,176,.9)");
+  });
+
+  it("scout--focused ground-ring pulse is gated by prefers-reduced-motion: no-preference", () => {
+    // Must not animate under reduce — only the pulse keyframe is inside the no-preference block.
+    expect(src).toContain("smux3-ground-pulse");
   });
 
   it("AgentScout receives focused prop and applies scout--focused class when true", () => {
