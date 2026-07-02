@@ -25,7 +25,8 @@
  *   AC-5  InfiniteScrollGrid: no Loader2, no animate-spin, imports CampgroundSkeleton,
  *         aria-live="polite" still present.
  *
- *   AC-6  loading.tsx uses CampgroundGridSkeleton, NOT LoadingSpinner fullScreen.
+ *   AC-6  loading.tsx uses a delayed centered LoadingSpinner (LOAD-5, CAM-273),
+ *         NOT RootShellSkeleton/CampgroundGridSkeleton.
  *
  *   AC-7  EmptyState two-img dark-mode pair
  *         Two <img>: /camping-empty.svg with dark:hidden; /camping-empty-dark.svg with
@@ -97,9 +98,10 @@
  *   AC-5: animate-spin test FAILS if an animate-spin class is added to the file.
  *   AC-5: CampgroundSkeleton import test FAILS if that import is removed.
  *   AC-5: aria-live test FAILS if aria-live="polite" is removed.
- *   AC-6: CampgroundGridSkeleton import test FAILS if removed from loading.tsx.
- *   AC-6: LoadingSpinner test FAILS if LoadingSpinner is added back to loading.tsx.
- *   AC-6: fullScreen test FAILS if a fullScreen prop usage is added.
+ *   AC-6: LoadingSpinner import test FAILS if removed from loading.tsx.
+ *   AC-6: RootShellSkeleton/CampgroundGridSkeleton test FAILS if either is added back
+ *         to loading.tsx.
+ *   AC-6: skeleton-delay-show test FAILS if the anti-flicker wrapper class is removed.
  *   AC-7: dark:hidden test FAILS if the light-mode img loses the dark:hidden class.
  *   AC-7: hidden dark:block test FAILS if the dark-mode img loses that class pair.
  *   AC-7: width/height on light img test FAILS if those attrs are removed.
@@ -125,7 +127,9 @@
  *     (cases 2–5: key change → Suspense fallback before data arrives).
  *   - AC-3 live: Skeleton card layout matches real CampgroundCard layout — no CLS.
  *   - AC-5 live: Infinite-scroll loading state shows skeleton cards, not a Loader2 spinner.
- *   - AC-6 live: Hard-navigating to / shows skeleton grid, not the full-screen spinner.
+ *   - AC-6 live: Hard-navigating to / never flashes app/loading.tsx's spinner on a
+ *     fast load (< ~300ms delay); the page's own CampgroundGridSkeleton (AC-1/AC-2)
+ *     still shows on filter/category/sort changes — that boundary is independent.
  *
  * AC → test-id matrix (per .claude/rules/qa.md §4 convention):
  *   AC-1  section--catalog-results-server-component (source-inspect)
@@ -133,7 +137,7 @@
  *   AC-3  section--campground-skeleton-canonical (source-inspect)
  *   AC-4  section--skeleton-ui-reduced-motion (source-inspect)
  *   AC-5  section--infinite-scroll-no-loader2 (source-inspect)
- *   AC-6  section--loading-uses-skeleton (source-inspect)
+ *   AC-6  shell--root-spinner (source-inspect)
  *   AC-7  section--empty-state-two-img (source-inspect)
  *   AC-8  section--i18n-catalog-loading (source-inspect)
  *   AC-9  section--assets-svg-existence (source-inspect)
@@ -478,46 +482,50 @@ describe('AC-5 — InfiniteScrollGrid no longer uses Loader2 (components/Infinit
 });
 
 // ===========================================================================
-// AC-6 — loading.tsx uses RootShellSkeleton (neutral shell), NOT CampgroundGridSkeleton
-//         Updated by LOAD-2 (CAM-246): root loading is now a neutral shell so that
-//         non-catalog routes (profile, host, detail) no longer flash a camp-grid.
+// AC-6 — loading.tsx uses a delayed centered LoadingSpinner, NOT a skeleton
+//         Updated by LOAD-5 (CAM-273): root loading is now a delayed spinner per the
+//         loading-ui-standard decision matrix ("unknown layout → delayed spinner ~300ms").
+//         Supersedes LOAD-2's (CAM-246) RootShellSkeleton, which caused a generic
+//         skeleton flash before route-level skeletons took over.
 //         Home's grid skeleton is unaffected — it comes from the <Suspense> fallback
 //         in app/page.tsx (CampgroundGridSkeleton), which is independent of this file.
-//         section--loading-uses-root-shell
+//         shell--root-spinner
 // ===========================================================================
 
-describe('AC-6 — loading.tsx uses RootShellSkeleton neutral shell (app/loading.tsx) [LOAD-2 CAM-246]', () => {
+describe('AC-6 — loading.tsx uses a delayed LoadingSpinner (app/loading.tsx) [LOAD-5 CAM-273]', () => {
 
-  // Prove-It: FAILS if RootShellSkeleton import is removed from loading.tsx
-  it('[import] imports RootShellSkeleton from components/ui/root-shell-skeleton', () => {
-    expect(loadingSrc).toContain('RootShellSkeleton');
-    expect(loadingSrc).toContain('root-shell-skeleton');
+  // Prove-It: FAILS if LoadingSpinner import is removed from loading.tsx
+  it('[import] imports LoadingSpinner from components/ui/loading-spinner', () => {
+    expect(loadingSrc).toContain('LoadingSpinner');
+    expect(loadingSrc).toContain('loading-spinner');
   });
 
-  // Prove-It: FAILS if the render is changed away from RootShellSkeleton
-  it('[render] renders <RootShellSkeleton />', () => {
-    expect(loadingSrc).toContain('<RootShellSkeleton');
+  // Prove-It: FAILS if the render is changed away from LoadingSpinner
+  it('[render] renders <LoadingSpinner', () => {
+    expect(loadingSrc).toContain('<LoadingSpinner');
   });
 
-  // Prove-It: FAILS if CampgroundGridSkeleton is re-added as code (camp-grid must NOT flash on non-catalog routes).
-  // Comments mentioning the old component are allowed — only executable code is checked.
-  it('[removed] does NOT import or render CampgroundGridSkeleton (camp-grid removed from root loading)', () => {
+  // Prove-It: FAILS if the fullScreen prop is dropped (spinner must fill the viewport)
+  it('[render] passes fullScreen to LoadingSpinner', () => {
+    expect(loadingSrc).toContain('fullScreen');
+  });
+
+  // Prove-It: FAILS if the anti-flicker delay wrapper class is removed
+  it('[anti-flicker] wraps the spinner in the skeleton-delay-show class (~300ms delay-before-show)', () => {
+    expect(loadingSrc).toContain('skeleton-delay-show');
+  });
+
+  // Prove-It: FAILS if RootShellSkeleton or CampgroundGridSkeleton is re-added as code
+  // (a skeleton must NOT come back as the root fallback). Comments mentioning the old
+  // component are allowed — only executable code is checked.
+  it('[removed] does NOT import or render RootShellSkeleton or CampgroundGridSkeleton', () => {
     // Strip single-line and block comments before checking so historical references don't trigger
     const noComments = loadingSrc
       .replace(/\/\/[^\n]*/g, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(noComments).not.toContain('RootShellSkeleton');
     expect(noComments).not.toContain('CampgroundGridSkeleton');
     expect(noComments).not.toContain('CampgroundSkeleton');
-  });
-
-  // Prove-It: FAILS if LoadingSpinner is re-added
-  it('[removed] does NOT import or use LoadingSpinner', () => {
-    expect(loadingSrc).not.toContain('LoadingSpinner');
-  });
-
-  // Prove-It: FAILS if a fullScreen prop usage is added back
-  it('[removed] does NOT use a fullScreen prop (full-screen spinner pattern gone)', () => {
-    expect(loadingSrc).not.toContain('fullScreen');
   });
 
   // loading.tsx should remain a Server Component (no interactive need)
