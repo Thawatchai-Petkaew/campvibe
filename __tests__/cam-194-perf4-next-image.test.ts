@@ -16,7 +16,9 @@
  *         isFixedMode gate: typeof width === "number" && typeof height === "number";
  *         fill branch present (no width/height); fixed branch uses width={width} height={height}.
  *         LogoUpload passes width={128} height={128} → exercises fixed mode.
- *         ImageGallery/CampgroundDetailClient do NOT pass width/height → fill mode.
+ *         CampgroundDetailClient does NOT pass width/height → fill mode.
+ *         ImageGallery: main (lightbox) image passes width={1600} height={1200} → fixed
+ *         mode (CAM-274 fix); thumbnails do NOT pass width/height → fill mode (unchanged).
  *
  *   AC-4  priority on detail hero + first-N catalog cards (CAM-199)
  *         CampgroundDetailClient: hero image (every 1/2/3/4/5+ branch) carries `priority`.
@@ -226,9 +228,24 @@ describe('AC-3 — fill mode (default) vs fixed mode (width+height both provided
     expect(codeLines).not.toMatch(/ImageWithFallback[\s\S]{0,200}height=\{/);
   });
 
-  it('[consumer-fill] ImageGallery does NOT pass width or height to ImageWithFallback', () => {
-    expect(gallerySrc).not.toMatch(/ImageWithFallback[\s\S]{0,200}width=\{/);
-    expect(gallerySrc).not.toMatch(/ImageWithFallback[\s\S]{0,200}height=\{/);
+  it('[consumer-fixed] ImageGallery main (lightbox) image uses Mode B (width+height) — CAM-274', () => {
+    // CAM-274: the lightbox main image was fill-mode with an unsized wrapper (0x0 collapse
+    // bug). Fixed by switching to Mode B (width/height as intrinsic hints) so the wrapper
+    // shrink-wraps the img at its natural aspect ratio. See ir2-lightbox-image.test.ts for
+    // the full guard on this fix.
+    const mainImageBlock = gallerySrc.slice(
+      gallerySrc.indexOf('{/* Main Image */}'),
+      gallerySrc.indexOf('{/* Next Button */}'),
+    );
+    expect(mainImageBlock).toContain('width={1600}');
+    expect(mainImageBlock).toContain('height={1200}');
+  });
+
+  it('[consumer-fill] ImageGallery thumbnails do NOT pass width or height (stay fill mode)', () => {
+    // Thumbnails sit in a fixed w-20 h-20 button, so fill mode is correct there — untouched by CAM-274.
+    const thumbnailBlock = gallerySrc.slice(gallerySrc.indexOf('{/* Thumbnail Strip */}'));
+    expect(thumbnailBlock).not.toMatch(/ImageWithFallback[\s\S]{0,200}width=\{/);
+    expect(thumbnailBlock).not.toMatch(/ImageWithFallback[\s\S]{0,200}height=\{/);
   });
 });
 
