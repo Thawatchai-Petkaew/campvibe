@@ -93,13 +93,18 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
             </button>
 
             {/* Main Image */}
-            <div className="relative w-full h-full flex items-center justify-center p-20">
+            <div className="relative w-full h-full flex items-center justify-center p-4 md:p-20">
+                {/* CAM-274: Mode B (width/height as intrinsic hints, not fill) — a fill-mode
+                    wrapper with no explicit height collapses to 0x0. Mode B lets the wrapper
+                    shrink-wrap the img at its natural aspect ratio within the viewport,
+                    so rounded-3xl hugs the real photo edges instead of an invisible box. */}
                 <ImageWithFallback
                     src={images[currentIndex]}
                     alt={imageOfLabel}
-                    className="max-w-full max-h-full"
-                    imgClassName="object-contain max-w-full max-h-full"
-                    sizes="(max-width: 1024px) 100vw, 80vw"
+                    width={1600}
+                    height={1200}
+                    className="max-w-full max-h-full rounded-3xl bg-transparent"
+                    imgClassName="w-auto h-auto max-w-[calc(100vw-6rem)] max-h-[calc(100vh-11rem)] object-contain"
                 />
             </div>
 
