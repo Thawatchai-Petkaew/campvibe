@@ -1,16 +1,20 @@
 /**
- * cam-246-loading-foundation.test.ts — LOAD-2 / CAM-246
+ * cam-246-loading-foundation.test.ts — LOAD-2 / CAM-246, updated by LOAD-5 / CAM-273
  *
  * Covers the two deliverables of the loading-renovation FOUNDATION:
  *
- *   A. app/loading.tsx → RootShellSkeleton (neutral shell)
- *      AC-A1  loading.tsx renders RootShellSkeleton (NOT CampgroundGridSkeleton).
- *      AC-A2  RootShellSkeleton has role="status" + aria-busy="true" + aria-live="polite".
- *      AC-A3  RootShellSkeleton has an sr-only Thai label (กำลังโหลด…) from i18n.
- *      AC-A4  RootShellSkeleton is token-only (no hardcoded hex/px/shadow).
+ *   A. app/loading.tsx → delayed centered spinner (LOAD-5, CAM-273)
+ *      Root fallback per the loading-ui-standard decision matrix: unknown layout →
+ *      delayed spinner (~300ms), not a skeleton. Supersedes LOAD-2's RootShellSkeleton,
+ *      which caused a generic-skeleton flash before route-level skeletons took over.
+ *      AC-A1  loading.tsx renders LoadingSpinner (NOT RootShellSkeleton, NOT CampgroundGridSkeleton).
+ *      AC-A2  loading.tsx has role="status" + aria-busy="true" + aria-live="polite".
+ *      AC-A3  loading.tsx has an sr-only Thai label (กำลังโหลด…) from i18n.
+ *      AC-A4  loading.tsx applies the skeleton-delay-show anti-flicker wrapper class (~300ms delay).
  *      AC-A5  Home's catalog <Suspense> fallback still uses CampgroundGridSkeleton
  *             (independent of app/loading.tsx — no regression).
  *      AC-A6  common.loading_sr i18n key exists in both locales (TH verbatim กำลังโหลด…).
+ *      AC-A7  components/ui/root-shell-skeleton.tsx no longer exists (dead code removed).
  *
  *   B. lib/hooks/use-minimum-loading.ts — anti-flicker hook
  *      AC-B1  isLoading true < delay then false → showSkeleton never becomes true.
@@ -27,12 +31,14 @@
  *   AC-B5–B6 — source-inspect.
  *
  * Prove-It notes:
- *   AC-A1: FAILS if loading.tsx stops importing RootShellSkeleton.
- *   AC-A2: FAILS if role/aria-busy/aria-live are removed from RootShellSkeleton.
+ *   AC-A1: FAILS if loading.tsx stops importing LoadingSpinner, or re-imports
+ *          RootShellSkeleton/CampgroundGridSkeleton.
+ *   AC-A2: FAILS if role/aria-busy/aria-live are removed from loading.tsx.
  *   AC-A3: FAILS if the sr-only span or common.loading_sr reference is removed.
- *   AC-A4: FAILS if a hardcoded hex/raw px (non-Tailwind arbitrary) is introduced.
+ *   AC-A4: FAILS if the skeleton-delay-show wrapper class is removed.
  *   AC-A5: FAILS if CampgroundGridSkeleton fallback is removed from app/page.tsx.
  *   AC-A6: FAILS if common.loading_sr is removed from either locale.
+ *   AC-A7: FAILS if components/ui/root-shell-skeleton.tsx is re-added.
  *   AC-B1: FAILS if the delay guard is removed from the hook.
  *   AC-B2: FAILS if the delay timer is never scheduled.
  *   AC-B3: FAILS if minDisplay is not enforced after show.
@@ -42,7 +48,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 
 // ---------------------------------------------------------------------------
@@ -56,9 +62,10 @@ function src(relPath: string): string {
 }
 
 const loadingSrc          = src('app/loading.tsx');
-const rootShellSrc        = src('components/ui/root-shell-skeleton.tsx');
+const spinnerSrc          = src('components/ui/loading-spinner.tsx');
 const pageSrc             = src('app/page.tsx');
 const hookSrc             = src('lib/hooks/use-minimum-loading.ts');
+const rootShellSkeletonPath = path.join(root, 'components/ui/root-shell-skeleton.tsx');
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const translations = require('../locales/translations.json') as {
@@ -67,28 +74,30 @@ const translations = require('../locales/translations.json') as {
 };
 
 // ===========================================================================
-// AC-A — app/loading.tsx → RootShellSkeleton
+// AC-A — app/loading.tsx → delayed centered spinner (LOAD-5, CAM-273)
 // ===========================================================================
 
-describe('AC-A1 — loading.tsx renders RootShellSkeleton', () => {
-  // Prove-It: FAILS if RootShellSkeleton import is removed
-  it('[import] loading.tsx imports RootShellSkeleton from components/ui/root-shell-skeleton', () => {
-    expect(loadingSrc).toContain('RootShellSkeleton');
-    expect(loadingSrc).toContain('root-shell-skeleton');
+describe('AC-A1 — loading.tsx renders LoadingSpinner (not RootShellSkeleton/CampgroundGridSkeleton)', () => {
+  // Prove-It: FAILS if LoadingSpinner import is removed
+  it('[import] loading.tsx imports LoadingSpinner from components/ui/loading-spinner', () => {
+    expect(loadingSrc).toContain('LoadingSpinner');
+    expect(loadingSrc).toContain('loading-spinner');
   });
 
   // Prove-It: FAILS if the render is changed
-  it('[render] loading.tsx renders <RootShellSkeleton />', () => {
-    expect(loadingSrc).toContain('<RootShellSkeleton');
+  it('[render] loading.tsx renders <LoadingSpinner', () => {
+    expect(loadingSrc).toContain('<LoadingSpinner');
   });
 
-  // Prove-It: FAILS if CampgroundGridSkeleton is re-added as an import or JSX render.
-  // Comments mentioning the old component (historical context) are allowed; only code is checked.
-  it('[regression] loading.tsx does NOT import or render CampgroundGridSkeleton (camp-grid no longer root fallback)', () => {
+  // Prove-It: FAILS if RootShellSkeleton or CampgroundGridSkeleton is re-added as an
+  // import or JSX render. Comments mentioning the old components (historical context)
+  // are allowed; only code is checked.
+  it('[regression] loading.tsx does NOT import or render RootShellSkeleton or CampgroundGridSkeleton', () => {
     // Strip single-line and block comments before checking
     const noComments = loadingSrc
       .replace(/\/\/[^\n]*/g, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(noComments).not.toContain('RootShellSkeleton');
     expect(noComments).not.toContain('CampgroundGridSkeleton');
   });
 
@@ -100,65 +109,60 @@ describe('AC-A1 — loading.tsx renders RootShellSkeleton', () => {
   });
 });
 
-describe('AC-A2 — RootShellSkeleton a11y attributes', () => {
+describe('AC-A2 — loading.tsx a11y attributes', () => {
   // Prove-It: FAILS if role="status" is removed
   it('[a11y] has role="status"', () => {
-    expect(rootShellSrc).toContain('role="status"');
+    expect(loadingSrc).toContain('role="status"');
   });
 
   // Prove-It: FAILS if aria-busy="true" is removed
   it('[a11y] has aria-busy="true"', () => {
-    expect(rootShellSrc).toContain('aria-busy="true"');
+    expect(loadingSrc).toContain('aria-busy="true"');
   });
 
   // Prove-It: FAILS if aria-live="polite" is removed
   it('[a11y] has aria-live="polite"', () => {
-    expect(rootShellSrc).toContain('aria-live="polite"');
+    expect(loadingSrc).toContain('aria-live="polite"');
   });
 
-  // Prove-It: FAILS if decorative shapes lose aria-hidden
-  it('[a11y] decorative containers have aria-hidden="true"', () => {
-    expect(rootShellSrc).toContain('aria-hidden="true"');
+  // Prove-It: FAILS if the decorative spinner wrapper loses aria-hidden
+  it('[a11y] decorative spinner wrapper has aria-hidden="true"', () => {
+    expect(loadingSrc).toContain('aria-hidden="true"');
   });
 });
 
-describe('AC-A3 — RootShellSkeleton sr-only label from i18n', () => {
+describe('AC-A3 — loading.tsx sr-only label from i18n', () => {
   // Prove-It: FAILS if sr-only is removed from the live-region span
   it('[a11y] has an sr-only element for the screen-reader label', () => {
-    expect(rootShellSrc).toContain('sr-only');
+    expect(loadingSrc).toContain('sr-only');
   });
 
   // Prove-It: FAILS if the common.loading_sr reference is removed (i18n, not hardcoded)
   it('[i18n] reads SR_LABEL from translations.th.common.loading_sr (not hardcoded)', () => {
-    expect(rootShellSrc).toContain('translations.th.common.loading_sr');
+    expect(loadingSrc).toContain('translations.th.common.loading_sr');
   });
 
   // Prove-It: FAILS if SR_LABEL is no longer exposed in the render (disconnected from live-region)
   it('[render] renders SR_LABEL inside the live-region span', () => {
-    expect(rootShellSrc).toContain('{SR_LABEL}');
+    expect(loadingSrc).toContain('{SR_LABEL}');
   });
 });
 
-describe('AC-A4 — RootShellSkeleton token-only (no hardcoded values)', () => {
-  // Prove-It: FAILS if a hardcoded hex color is introduced
-  it('[tokens] does NOT contain a hardcoded hex color (no #xxxxxx)', () => {
-    expect(rootShellSrc).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-  });
-
-  // Prove-It: FAILS if a hardcoded arbitrary px value (Tailwind arbitrary [Npx]) is introduced
-  it('[tokens] does NOT contain arbitrary px values (no [Npx] Tailwind class)', () => {
-    expect(rootShellSrc).not.toMatch(/\[\d+px\]/);
-  });
-
-  // Prove-It: FAILS if Skeleton primitive is removed (must use the system primitive)
-  it('[primitive] uses <Skeleton> from components/ui/skeleton (system primitive)', () => {
-    expect(rootShellSrc).toContain('@/components/ui/skeleton');
-    expect(rootShellSrc).toContain('<Skeleton');
+describe('AC-A4 — loading.tsx anti-flicker delay wrapper', () => {
+  // Prove-It: FAILS if the skeleton-delay-show wrapper class is removed
+  it('[anti-flicker] wrapper has the skeleton-delay-show class (~300ms delay-before-show)', () => {
+    expect(loadingSrc).toContain('skeleton-delay-show');
   });
 
   // Prove-It: FAILS if data-testid is removed
-  it('[testid] has data-testid="shell--root-skeleton"', () => {
-    expect(rootShellSrc).toContain('data-testid="shell--root-skeleton"');
+  it('[testid] has data-testid="shell--root-spinner"', () => {
+    expect(loadingSrc).toContain('data-testid="shell--root-spinner"');
+  });
+
+  // Prove-It: FAILS if motion-reduce:animate-none is removed from the spinner (a11y: no
+  // rotation under prefers-reduced-motion)
+  it('[a11y] LoadingSpinner disables the spin animation under prefers-reduced-motion', () => {
+    expect(spinnerSrc).toContain('motion-reduce:animate-none');
   });
 });
 
@@ -193,6 +197,14 @@ describe('AC-A6 — common.loading_sr i18n key in both locales', () => {
   // Prove-It: FAILS if EN value is changed
   it('[i18n] EN common.loading_sr is "Loading…"', () => {
     expect(translations.en.common['loading_sr']).toBe('Loading…');
+  });
+});
+
+describe('AC-A7 — components/ui/root-shell-skeleton.tsx is removed (dead code, superseded by LOAD-5)', () => {
+  // Prove-It: FAILS if root-shell-skeleton.tsx is re-added (it is unused now that
+  // app/loading.tsx renders a spinner instead of a skeleton)
+  it('[dead-code] root-shell-skeleton.tsx does not exist on disk', () => {
+    expect(existsSync(rootShellSkeletonPath)).toBe(false);
   });
 });
 
