@@ -1,10 +1,12 @@
 /* CampVibe — Live Delivery dashboard. Server-rendered from Linear, refreshed every 60s.
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
- * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
+ * Protected by STATUS_TOKEN via the shared default-deny gate (lib/status-auth.ts — CAM-275;
+ * visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
  * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
+import { isStatusAuthorized } from "@/lib/status-auth";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
 import { boardColumnOf, buildTrail, epicBucket, regressionRound, canonRole, type EnvLane } from "@/lib/status-derive";
 import { buildModel, type Model, type EpicNode, epicOf, isActive, isDone, hasAwait, personaOf, featureOf } from "@/lib/status-model";
@@ -381,8 +383,10 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
 
-  if (required && sp.token !== required) {
-    const body = SCENE + `<div class="gatebox glass" style="padding:26px"><h2>🔒 Protected dashboard</h2><p style="color:var(--muted)">เพิ่ม access token ใน URL:<br><code>/status?token=YOUR_TOKEN</code></p></div>`;
+  // CAM-275: symmetric, default-deny gate (lib/status-auth.ts) — same rule the API routes
+  // enforce, so an unset STATUS_TOKEN never renders a dashboard whose actions then 401.
+  if (!isStatusAuthorized(sp.token)) {
+    const body = SCENE + `<div class="gatebox glass" style="padding:26px"><h2>ลิงก์ไม่ถูกต้อง</h2><p style="color:var(--muted)">เปิดหน้านี้ผ่านลิงก์จาก Telegram หรือใส่รหัสให้ถูกต้อง</p></div>`;
     return (<><style dangerouslySetInnerHTML={{ __html: CSS }} /><div dangerouslySetInnerHTML={{ __html: body }} /></>);
   }
 

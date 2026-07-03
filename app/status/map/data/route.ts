@@ -1,7 +1,7 @@
 // GET /status/map/data — returns the same MapModel JSON that /status/map renders.
 //
-// Token gate: identical parity check to /api/status/stream/route.ts
-//   — STATUS_TOKEN env var (absent = open; present = token param must match).
+// Token gate: shared default-deny gate (lib/status-auth.ts — CAM-275), the same rule
+//   every other /status surface enforces. STATUS_TOKEN unset → 401 (no open fallback).
 //
 // Cache: the existing 60s pulse-keyed unstable_cache inside fetchStatusIssues
 //   is reused automatically here — no extra Linear load from the reconcile fetch.
@@ -13,18 +13,13 @@
 import { fetchStatusIssues } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
 import { buildMapModel } from "@/lib/status-map-model";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return true; // parity with /status page and stream route
-  return new URL(req.url).searchParams.get("token") === required;
-}
-
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) {
+  if (!isStatusRequestAuthorized(req)) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

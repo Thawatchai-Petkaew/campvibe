@@ -13,26 +13,18 @@
 import { NextResponse } from "next/server";
 import { removeAwaitingYou } from "@/lib/linear-actions";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** Reuse the STATUS_TOKEN gate: ?token= query param OR x-status-token header.
- * SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  const url = new URL(req.url);
-  const query = url.searchParams.get("token");
-  const header = req.headers.get("x-status-token");
-  return query === required || header === required;
-}
 
 /** Linear issue identifier, e.g. CAM-184 or CAM-10. */
 const ID_RE = /^[A-Z]+-\d+$/;
 
 export async function POST(req: Request) {
-  if (!authorized(req)) {
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): ?token= query param OR
+  // x-status-token header; default-deny — missing STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -4,20 +4,15 @@
 // browser's EventSource reconnects cleanly (tolerates the Vercel function-duration cap).
 import { readPulse } from "@/lib/status-pulse";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  // RISK-7: STATUS_TOKEN is now required — missing/invalid token → 401.
-  // Removed the `if (!required) return true` public fallback.
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  return new URL(req.url).searchParams.get("token") === required;
-}
-
 export async function GET(req: Request) {
-  if (!authorized(req)) return new Response("unauthorized", { status: 401 });
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): default-deny — missing
+  // STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) return new Response("unauthorized", { status: 401 });
 
   // RISK-7: IP connection rate-limit (5 connections / 1 min).
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";

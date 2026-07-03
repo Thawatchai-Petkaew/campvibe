@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import { addComment, addLabel, removeAwaitingYou } from "@/lib/linear-actions";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,18 +28,10 @@ const DEFAULT_REASON = "ส่งกลับให้แก้ไขจาก /
 const MAX_REASON_LEN = 2000;
 const ID_RE = /^[A-Z]+-\d+$/;
 
-/** SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  const url = new URL(req.url);
-  const query = url.searchParams.get("token");
-  const header = req.headers.get("x-status-token");
-  return query === required || header === required;
-}
-
 export async function POST(req: Request) {
-  if (!authorized(req)) {
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): default-deny — missing
+  // STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

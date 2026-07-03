@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// lib/status-auth.ts (CAM-275) declares `import "server-only"` — stub it so the route's
+// transitive import resolves under plain Node/vitest.
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/status-pulse", () => ({ bumpPulse: vi.fn(async () => {}) }));
 
 import { POST } from "@/app/api/status/pulse/route";

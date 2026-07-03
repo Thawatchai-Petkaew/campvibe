@@ -1,9 +1,11 @@
 /* CampVibe — Campsite delivery map. Server-rendered shell, client scene mounted lazily.
- * Protected by STATUS_TOKEN (same gate as /status). Data from lib/linear.ts + status-model.ts.
+ * Protected by STATUS_TOKEN via the shared default-deny gate (lib/status-auth.ts — CAM-275;
+ * same gate as /status). Data from lib/linear.ts + status-model.ts.
  * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
+import { isStatusAuthorized } from "@/lib/status-auth";
 import { buildModel } from "@/lib/status-model";
 import { toMapModel } from "@/lib/status-map-model";
 import { CSS, SCENE } from "./campsite-assets";
@@ -25,7 +27,6 @@ export default async function StatusMapPage({
   }>;
 }) {
   const sp = await searchParams;
-  const required = process.env.STATUS_TOKEN;
 
   // S5: Read and sanitize URL params — these are passed to the client as initial state.
   const initialScope    = sp.scope === "epic" ? "epic" : "all" as "all" | "epic";
@@ -38,10 +39,12 @@ export default async function StatusMapPage({
   // Absent in normal view — no grid param = false.
   const debugGrid = sp.grid === "1";
 
-  if (required && sp.token !== required) {
+  // CAM-275: symmetric, default-deny gate (lib/status-auth.ts) — same rule the API routes
+  // enforce, so an unset STATUS_TOKEN never renders a map whose approve/reject actions 401.
+  if (!isStatusAuthorized(sp.token)) {
     const body =
       SCENE +
-      `<div class="gatebox"><h2>Protected dashboard</h2><p style="color:var(--muted)">เพิ่ม access token ใน URL:<br><code>/status/map?token=YOUR_TOKEN</code></p></div>`;
+      `<div class="gatebox"><h2>ลิงก์ไม่ถูกต้อง</h2><p style="color:var(--muted)">เปิดหน้านี้ผ่านลิงก์จาก Telegram หรือใส่รหัสให้ถูกต้อง</p></div>`;
     return (
       <>
         <style dangerouslySetInnerHTML={{ __html: CSS }} />
