@@ -112,6 +112,88 @@ export async function getCampSiteDailyAvailability(
 }
 
 /**
+ * Result shape for getRemainingCapacity — CAM-267 PREP-1.
+ */
+export interface RemainingCapacityResult {
+  /** CampSite.maxGuestsPerDay. null = no explicit capacity set (unbounded — never rendered as a number). */
+  capacity: number | null;
+  /** Highest guests booked (non-CANCELLED) on any single night in the range — the bottleneck night. */
+  bookedGuests: number;
+  /**
+   * capacity - bookedGuests, floored at 0 (CAM-267 AC-2). null when capacity is
+   * null (unbounded, nothing to subtract from) AND the range is not host-blocked.
+   * Forced to 0 whenever blockedByHost is true — a whole-site BlockedDate makes
+   * the site unavailable for the range regardless of the numeric capacity.
+   */
+  remaining: number | null;
+  /** true when ANY night in [startDate, endDate) is covered by a whole-camp BlockedDate (spotId: null). */
+  blockedByHost: boolean;
+}
+
+/**
+ * CAM-267 PREP-1: the single shared implementation for "remaining capacity" over
+ * a requested stay [startDate, endDate) — nights only; the checkout day itself is
+ * excluded, mirroring the booking write-path's per-night loop (app/api/bookings/
+ * route.ts, Check 2: `while (capacityDate < checkOut)`).
+ *
+ * Built ONLY on top of getCampSiteDailyAvailability (the single source of truth
+ * for bookedGuests + blockedByHost per day, CAM-190/ADR-006) — this function does
+ * NOT run a second booking/blockedDate query, so it can never disagree with the
+ * booking page's own math (checkDateAvailability / checkDateAvailabilityInTx read
+ * the exact same per-day map).
+ *
+ * The bottleneck night (max bookedGuests across the stay) drives `remaining`; ANY
+ * blocked night makes `blockedByHost` true and forces `remaining` to 0 (BR:
+ * "BlockedDate covering a day ⇒ that day remaining=0 — whole-site block").
+ *
+ * PRIVACY (CAM-190 owner-delegated decision): BlockedDate.reason is never read or
+ * returned here — callers get only the boolean blockedByHost flag.
+ */
+export async function getRemainingCapacity(
+  campSiteId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<RemainingCapacityResult> {
+  const campSite = await prisma.campSite.findUnique({
+    where: { id: campSiteId },
+    select: { maxGuestsPerDay: true },
+  });
+
+  if (!campSite) {
+    return { capacity: null, bookedGuests: 0, remaining: null, blockedByHost: false };
+  }
+
+  const capacity = campSite.maxGuestsPerDay;
+
+  // Nights only: exclude the checkout day (a guest departing that day frees the
+  // spot for a same-day arrival). A same-day / inverted range has no night to
+  // check — treat as fully open; the API boundary rejects checkOut <= checkIn
+  // before a real booking attempt ever reaches this function.
+  const lastNight = new Date(endDate);
+  lastNight.setDate(lastNight.getDate() - 1);
+  if (lastNight < startDate) {
+    return { capacity, bookedGuests: 0, remaining: capacity, blockedByHost: false };
+  }
+
+  const daily = await getCampSiteDailyAvailability(campSiteId, startDate, lastNight);
+
+  let bookedGuests = 0;
+  let blockedByHost = false;
+  for (const day of Object.values(daily)) {
+    if (day.bookedGuests > bookedGuests) bookedGuests = day.bookedGuests;
+    if (day.blockedByHost) blockedByHost = true;
+  }
+
+  const remaining = blockedByHost
+    ? 0
+    : capacity !== null
+      ? Math.max(0, capacity - bookedGuests)
+      : null;
+
+  return { capacity, bookedGuests, remaining, blockedByHost };
+}
+
+/**
  * Check if a date is available for booking
  */
 export async function checkDateAvailability(
