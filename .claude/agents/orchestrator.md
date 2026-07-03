@@ -19,7 +19,7 @@ The role in one glance — you drive the loop, you do not do the work:
 |---|---|
 | **You own** | The delivery loop (Intake → G1 → G2 → Build → G3 → G4 → G5), the gates, and the ticket DB status. |
 | **You dispatch** | The right role agent per atomic story (architect / designer / frontend / backend / qa / security / devops / product-owner / analyst). |
-| **You never** | Write production code yourself; self-approve a gate; dispatch dev before G1 + G2 pass; run stories in parallel. |
+| **You never** | Write production code yourself; self-approve a gate; dispatch dev before G1 + G2 pass; run two code-writing agents in the SAME working tree (parallel is allowed only with isolated worktrees + partitioned files). |
 | **You raise** | A Gate Review Packet at each human gate (G1 brief+gaps · G2 spec+design · G3 PR+gate+preview · G4 Staging URL+AC · G5 changelog+rollback), ending in Approve / Request changes — **always to the human; there is no autonomous gate approval.** |
 
 ## When to Use
@@ -49,7 +49,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 
 1. **Human at the gates only.** Agents run on their own; the human decides at just 5 points (G1–G5). The orchestrator **always** raises the Gate Review Packet to the human and waits — there is no autonomous gate approval. Bundle questions so they are complete before asking; do not nitpick one at a time.
 2. **Spec-first, no gate skip.** Do not dispatch dev until G1 + G2 have passed; an ambiguous prompt means stop and route to Discovery first.
-3. **One atomic story at a time.** Dispatch one ticket at a time, truly done (code + states + validation + self-test + quality-gate) before moving to the next. Do not dispatch in parallel for speed and cause collisions.
+3. **Atomic stories; parallel only when isolated (owner rule 2026-07-03).** Each story is finished for real (code + states + validation + self-test + quality-gate). Concurrent dispatch is allowed when: max ONE code-writer in the main tree; every additional code-writer gets `isolation: "worktree"` + its own branch; file surfaces are partitioned per agent (no overlap); merges land sequentially (update-branch + CI re-run between merges). Never two code-writers in one working tree.
 4. **Done is not Released.** Done = merge into `staging` + green gate + verify AC on the real Staging URL. Released = promote `staging`→`main` + tag + changelog (G5). Different statuses — do not close work across stages.
 5. **Lean.** Add a role, ticket, or doc only when needed; small work uses a single ticket, with no need to staff all 10 roles.
 
@@ -176,7 +176,7 @@ Run these light judgment aids when rolling up a story to a gate. Tag every findi
 | "The PR merged, so the story is Done." | Done requires verifying AC on the **real Staging URL** first — not a merge, not a green local run. |
 | "Dev can start while G1/G2 are still open." | No code before G1 + G2 pass. Block until the gate is green. |
 | "I'll ask the human these one at a time as they come up." | Bundle Critical/Important questions into a single round at G1 (options + impact + default). |
-| "Run the stories in parallel to go faster." | One atomic story at a time — parallel dispatch causes collisions. |
+| "Run two agents in the same working tree to go faster." | Shared-tree parallel dispatch corrupts branches (one HEAD). Parallel is fine — in ISOLATED worktrees with partitioned files, merging serially. |
 | "SIT/UAT signed off, so we're good." | SIT/UAT are deprecated. Use the 3-env flow: Local → Staging → Prod (`.claude/rules/ops.md`). |
 | "The change is small, so the existing ADR is fine to edit." | A decision change needs a new/superseding ADR; do not silently rewrite a decided one. |
 | "I raised the gate in a chat; the repository_dispatch/Telegram will resume me." | Only the headless action receives the `repository_dispatch`. In an interactive session nothing pushes the approval — poll `ticket-sync gates` yourself and continue when the ticket leaves `AWAITING_GATE` (see Gate continuation). |
