@@ -27,7 +27,7 @@ Run in order (real commands; replace the placeholders with your `<type>`/`<kebab
 
 Use when a story is finished and ready to send for review/merge toward Done:
 
-- A referenceable ticket/story exists (Linear issue at story level, with `## Story` + `## AC`). No spec → stop, write the spec first.
+- A referenceable ticket/story exists (a delivery ticket at story level, with `## Story` + `## AC`). No spec → stop, write the spec first.
 - The code is actually complete for one atomic story — code + states + validation + self-test — with no dead code and no future-proofing.
 - The quality gate is fully green (lint · typecheck · test + coverage ≥80% · build · audit · design gate if UI). Run `/quality-gate` first if unsure.
 - `gh` is authenticated and you are on a `feature/*` branch (never commit directly into `staging`/`main`).
@@ -40,7 +40,7 @@ Use when a story is finished and ready to send for review/merge toward Done:
 ## Prerequisites
 
 - The quality gate is green first — run the `quality-gate` skill (lint · typecheck · test + coverage ≥80% · build · audit · design gate if UI). A red gate is not ready for a PR.
-- You know the branch type (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) and have the ticket/story (Linear issue with `## Story` + `## AC`) to reference.
+- You know the branch type (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) and have the ticket/story (delivery ticket with `## Story` + `## AC`) to reference.
 - `gh` is authenticated and you are off `staging`/`main` on a `<type>/<kebab>` branch.
 
 ## Workflow
@@ -68,7 +68,7 @@ Use when a story is finished and ready to send for review/merge toward Done:
 
 ## Next Steps
 
-- After merge: auto deploy → Staging + smoke → verify the AC on the real Staging URL → Linear state `Done`. A merge into `staging` alone is not Done.
+- After merge: auto deploy → Staging + smoke → verify the AC on the real Staging URL → ticket state `Done`. A merge into `staging` alone is not Done.
 - Later, batch the Done stories and promote `staging`→`main` to prod via `promote-release --to prod` (G5 go-live) = Released.
 
 ## Standards
@@ -97,5 +97,5 @@ Use when a story is finished and ready to send for review/merge toward Done:
 - [ ] Diff ≤ ~400 lines, one atomic story.
 - [ ] No secret in the diff or any commit message.
 - [ ] Commits are atomic with Conventional Commit subjects; refactors are separate from feature changes.
-- [ ] `node scripts/linear-sync.mjs audit` passes (ticket has `## Story` + `## AC`).
-- [ ] After merge: auto deploy → Staging + smoke → AC verified on the Staging URL → Linear state `Done`.
+- [ ] `node scripts/ticket-sync.mjs audit` passes (ticket has `## Story` + `## AC`).
+- [ ] After merge: auto deploy → Staging + smoke → AC verified on the Staging URL → ticket state `Done`.

@@ -7,13 +7,13 @@ description: Run the Discovery & gap-closure loop — research the codebase + ga
 
 ## Overview
 
-Turn a raw, possibly-ambiguous requirement into a buildable spec without guessing. Research the real codebase + Linear first, build a gap list across all 6 dimensions, batch the open questions to the human in a single consolidated round, and only produce the ticket once no blocking gap remains. G1 (Scope) is the one point where scope changes for free — every gap left open here gets expensive later.
+Turn a raw, possibly-ambiguous requirement into a buildable spec without guessing. Research the real codebase + the delivery ticket DB first, build a gap list across all 6 dimensions, batch the open questions to the human in a single consolidated round, and only produce the ticket once no blocking gap remains. G1 (Scope) is the one point where scope changes for free — every gap left open here gets expensive later.
 
 ## Quick Reference
 
 The discovery loop, as a numbered TL;DR:
 
-1. **Research** the real thing — `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, plus existing/duplicate/conflicting issues in Linear (team Campvibe). Reduce gaps from evidence, not assumption.
+1. **Research** the real thing — `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, plus existing/duplicate/conflicting tickets in the delivery ticket DB (`node scripts/ticket-sync.mjs list`, team `CAM`). Reduce gaps from evidence, not assumption.
 2. **Build the 6-dimension gap list** — Business · Functional · Technical · UX · Security/Data · Risk — tagging each gap:
    - 🟢 closed — has an answer/evidence
    - 🟡 assumed — needs confirmation; **must carry the default** you will use if unanswered
@@ -23,7 +23,7 @@ The discovery loop, as a numbered TL;DR:
 4. **Write the story ticket** from `.claude/templates/story.md` once no 🔴 remains (full story + AC on the story-level issue; role-task = sub-issue).
 5. **Propose G1** with a summary of gaps closed + assumptions used.
 
-**Gate to pass:** no 🔴 open · every 🟡 carries a default the human accepts · `node scripts/linear-sync.mjs audit` passes (issue has at least `## Story` + `## AC`) → then tag `awaiting-you` for G1 Scope.
+**Gate to pass:** no 🔴 open · every 🟡 carries a default the human accepts · `node scripts/ticket-sync.mjs audit` passes (ticket has at least `## Story` + `## AC`) → then tag `awaiting-you` for G1 Scope.
 
 ## When to Use
 
@@ -49,15 +49,15 @@ Read first:
 
 ## Workflow
 
-1. **Research the real thing before guessing.** Read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and review existing work/duplicate/conflicting issues in Linear (team Campvibe). Reduce 🔴 gaps from evidence, not assumption.
+1. **Research the real thing before guessing.** Read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and review existing work/duplicate/conflicting tickets in the delivery ticket DB (team `CAM`). Reduce 🔴 gaps from evidence, not assumption.
 2. **Build a gap list across all 6 dimensions:** Business · Functional · Technical · UX · Security/Data · Risk. Tag each gap with a status:
    - 🟢 closed — has an answer/evidence
    - 🟡 assumed — needs confirmation; must carry the default you will use if unanswered
    - 🔴 must ask — blocker
    - ⚪ N/A
 3. **Batch the questions.** Collect the 🔴/🟡 items and ask the human in a **single consolidated round** — never nitpick one question at a time. Each item carries: options + impact of each path + "if unanswered, default = …".
-4. **Produce the ticket once fully closed (no 🔴).** Write it from `.claude/templates/story.md` (full story + AC, filed on the story-level issue; role-task = sub-issue), then propose G1 with a summary of gaps/assumptions used.
-5. **Persist the artifacts.** Run `node scripts/linear-sync.mjs scaffold <CAM-id>`, then (as PO) fill **`story.md` + `feature.md` + `epic.md`** — scaffold only *stubs* feature/epic with `<placeholder>`. Fill `feature.md` (overview + architecture/design overview + the epic→story rollup) and `epic.md` (why/scope + story rollup) when they are new or still a stub, and number AC `AC-1…` + rules `BR-1…` in `story.md`. Files = durable content under `docs/delivery/` (see the `delivery-artifacts` skill).
+4. **Produce the ticket once fully closed (no 🔴).** Write it from `.claude/templates/story.md` (full story + AC), file it as a story-level ticket (`node scripts/ticket-sync.mjs create --type story --epic <epic-CAM-id> --title "..." --description-file <path>`; role-task = a `--type task` ticket with `--epic <this story's CAM-id>`), then propose G1 with a summary of gaps/assumptions used.
+5. **Persist the artifacts.** Run `node scripts/ticket-sync.mjs scaffold <CAM-id>`, then (as PO) fill **`story.md` + `feature.md` + `epic.md`** — scaffold only *stubs* feature/epic with `<placeholder>`. Fill `feature.md` (overview + architecture/design overview + the epic→story rollup) and `epic.md` (why/scope + story rollup) when they are new or still a stub, and number AC `AC-1…` + rules `BR-1…` in `story.md`. Files = durable content under `docs/delivery/` (see the `delivery-artifacts` skill).
 
 ## Examples
 
@@ -95,7 +95,7 @@ Read first:
 4. **Thai copy hygiene.** In AC, no em-dash (`—`) as a separator and no technical jargon (`API`, `webhook`, `endpoint`) in user-facing text.
 5. **Slice atomic.** 1 atomic story = 1 small PR (≤ ~400 lines). A large gap splits into multiple stories — do not cram into one ticket. Small work uses a single ticket; add spec/tech/test only when genuinely complex.
 6. **Verifiable on real Staging.** Write AC so it can be verified on the live Staging URL. Done = merge into `staging` + verify AC on Staging URL; Released = promote `staging`→`main`. Discovery does not touch that flow, but the AC must survive it.
-7. **File and audit in Linear.** Story + AC go on the **story-level** issue (role-task = sub-issue). Validate against the template with `node scripts/linear-sync.mjs audit`.
+7. **File and audit in the delivery ticket DB.** Story + AC go on the **story-level** ticket (role-task = a `--type task` ticket with `--epic <this story's CAM-id>`). Validate against the template with `node scripts/ticket-sync.mjs audit`.
 
 ## Common Rationalizations
 
@@ -106,15 +106,15 @@ Read first:
 | "'System works correctly' covers it." | Vague AC is untestable. Make it granular, with Thai copy verbatim + the concrete data result. |
 | "Adding the testid/event-code to AC is more precise." | It pollutes user-facing AC. Those live in the technical spec only. |
 | "It's one big feature, one ticket is fine." | Multiple concerns ≠ atomic. Split into 1-PR stories; cramming hides scope and blocks review. |
-| "I already know the codebase, skip the Linear check." | You may duplicate or conflict with existing work. Research first. |
+| "I already know the codebase, skip the ticket-DB check." | You may duplicate or conflict with existing work. Research first. |
 | "A 🟡 assumption is good enough to proceed." | Only if it carries the default the human accepts. Otherwise it is a 🔴. |
 
 ## Verify (exit criteria)
 
-- [ ] Researched codebase + Linear (not guessed).
+- [ ] Researched codebase + the delivery ticket DB (not guessed).
 - [ ] Gap list covers all 6 dimensions · no 🔴 outstanding · every 🟡 carries a default the human accepts.
-- [ ] Story-level issue has full DoR: User Story + testable AC + NFR (perf/a11y/i18n/security) + clear out-of-scope.
+- [ ] Story-level ticket has full DoR: User Story + testable AC + NFR (perf/a11y/i18n/security) + clear out-of-scope.
 - [ ] Each AC is testable and already split into atomic stories (1 small PR).
-- [ ] Ticket matches the template and `node scripts/linear-sync.mjs audit` passes (issue must have at least `## Story` + `## AC`).
+- [ ] Ticket matches the template and `node scripts/ticket-sync.mjs audit` passes (ticket must have at least `## Story` + `## AC`).
 - [ ] Story folder scaffolded (`scaffold <CAM-id>`) + `story.md` filled (numbered `AC-n`/`BR-n`) **and `feature.md` + `epic.md` filled by the PO — not left as scaffold `<placeholder>` stubs** (`epic.md` carries the story rollup).
 - [ ] Status: awaiting human approval for G1 Scope (tagged with label `awaiting-you`).

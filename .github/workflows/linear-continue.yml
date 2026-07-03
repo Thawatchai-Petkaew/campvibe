@@ -70,10 +70,10 @@ jobs:
           set -o pipefail
           npm i -g @anthropic-ai/claude-code
           claude -p "บทบาท: orchestrator ของ CampVibe (อ่าน CLAUDE.md + .claude/SYNC-ARCHITECTURE.md ก่อน).
-          มี gate ถูก approve ใน Linear แล้ว (issue $TRIGGER_ISSUE, epic '$TRIGGER_EPIC'; npm run status:gates คืน CLEARED).
+          มี gate ถูก approve แล้วในระบบ delivery ticket ของเราเอง (issue $TRIGGER_ISSUE, epic '$TRIGGER_EPIC'; npm run status:gates คืน CLEARED).
           งานของคุณ: เดิน stage ถัดไปของ epic นั้นต่อ ตามลำดับ orchestrator.
           กฎเหล็ก: ทำงานบน branch ใหม่เท่านั้น ห้ามแตะ main · ถ้ามีโค้ดให้เปิด **draft PR** (ห้าม merge) ·
-          อัปเดตสถานะทุก transition ด้วย 'node scripts/linear-sync.mjs set <id> --state <state>' ·
+          อัปเดตสถานะทุก transition ด้วย 'node scripts/ticket-sync.mjs set <id> --state <state>' ·
           ปิดท้ายด้วยบรรทัดเดียวขึ้นต้น 'SUMMARY:' — สรุปสั้น ๆ + ลิงก์ PR." \
             --model claude-sonnet-4-6 --max-turns 40 \
             --dangerously-skip-permissions 2>&1 | tee "$RUNNER_TEMP/claude-out.txt"

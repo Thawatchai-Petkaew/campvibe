@@ -22,7 +22,7 @@ Run in order, at the repo root, on the `feature/*` branch. Stop on the first fai
 5. `npm audit --omit=dev` → 0 high/critical.
 6. Five-Axis review (correctness · readability · architecture · security · perf) → clean.
 7. **(UI only)** design gate → token-only + a11y WCAG AA + anti-slop + screenshot vs Brief.
-8. `node scripts/linear-sync.mjs audit` → artifact↔Linear consistency (exit non-zero on an incomplete or status-stale scaffolded story).
+8. `node scripts/ticket-sync.mjs audit` → artifact↔ticket-DB consistency (exit non-zero on an incomplete or status-stale scaffolded story).
 9. Summarize as a pass/fail table.
 
 | Step | Command / check | Pass condition | Result |
@@ -34,7 +34,7 @@ Run in order, at the repo root, on the `feature/*` branch. Stop on the first fai
 | 5 | `npm audit --omit=dev` | 0 high/critical | ☐ |
 | 6 | Five-Axis review | clean on all five axes | ☐ |
 | 7 | design gate (UI only) | pass, or `N/A — no UI work` | ☐ |
-| 8 | `node scripts/linear-sync.mjs audit` | artifact↔Linear consistent (exit 0) | ☐ |
+| 8 | `node scripts/ticket-sync.mjs audit` | artifact↔ticket-DB consistent (exit 0) | ☐ |
 
 ## When to Use
 
@@ -77,7 +77,7 @@ Run in order. Stop immediately on the first fail.
    - **Perf** — no N+1 Prisma queries, no needless re-renders, payloads bounded (see `.claude/rules/api.md`).
 
 7. **(UI work only)** design gate: token-only (no hardcoded colors/spacing/shadows) + a11y WCAG AA (contrast, `aria-label`, focus, tap target ≥ 44px) + anti-slop audit + compare screenshots against the Design Brief.
-8. `node scripts/linear-sync.mjs audit` → artifact↔Linear consistency (exit non-zero on an incomplete or status-stale scaffolded story; keeps the `docs/delivery/` files aligned with reality — see the `delivery-artifacts` skill).
+8. `node scripts/ticket-sync.mjs audit` → artifact↔ticket-DB consistency (exit non-zero on an incomplete or status-stale scaffolded story; keeps the `docs/delivery/` files aligned with reality — see the `delivery-artifacts` skill).
 9. Summarize every step as a pass/fail table.
 
 ## Planned automated gates (candidates)
@@ -103,7 +103,7 @@ These are not yet enforced. List them in the summary as "planned" so reviewers k
 | 6 | Five-Axis review | clean | ⏸ not run |
 | 7 | design gate (UI) | pass | ⏸ not run |
 
-Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod observability. Step 3 is red → **stop**, open a Linear defect (repro + the failed criterion: coverage 71% < 80%, 2 tests failing), block the merge. The story does not move.
+Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod observability. Step 3 is red → **stop**, open a defect ticket in the delivery ticket DB (repro + the failed criterion: coverage 71% < 80%, 2 tests failing), block the merge. The story does not move.
 
 ❌ **Wrong — "lint passed so merge."** Treating one green step as a pass, skipping typecheck/test/build/audit/Five-Axis, and merging into `staging`. Lint is not review; a green gate requires every step above, and "Done" still needs the Staging URL verified.
 
@@ -114,7 +114,7 @@ Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod ob
 - `.claude/rules/api.md` — the Perf axis: no N+1 Prisma queries, bounded payloads (step 6).
 - `.claude/rules/architecture.md` — the Architecture axis: layering, concern boundaries, reuse over duplication (step 6).
 - `.claude/rules/observability.md` — the planned pre-prod observability gate (logging/tracing/alerts).
-- `delivery-artifacts` skill — owns the `audit` step (artifact↔Linear consistency under `docs/delivery/`).
+- `delivery-artifacts` skill — owns the `audit` step (artifact↔ticket-DB consistency under `docs/delivery/`).
 - Sibling skills: `open-pr` (run after the gate is green) · `promote-release` (staging→prod, separate from this gate).
 
 The Five-Axis review content is kept inline in the Workflow above — no `references/` directory.
@@ -122,7 +122,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 ## Next Steps
 
 - All green → run the `open-pr` skill to open the PR into `staging`.
-- Do NOT set the Linear state to `Done` until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`).
+- Do NOT set the ticket state to `Done` until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`).
 - Released is separate — promote `staging`→`main` via the `promote-release` skill (`/promote-release --to prod`), which handles smoke/tag/changelog.
 
 ## Common Rationalizations
@@ -132,7 +132,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 | "Lint/type pass, that's enough to merge." | A green gate is not yet "Done" — Done also requires merging into `staging` + a successful migration on staging + verifying the AC on the real Staging URL (see `.claude/rules/ops.md`). |
 | "Coverage is over 80% on the whole repo." | Coverage measures new code, not the whole repo. Tests must assert for real — not flaky, not over-mocked. |
 | "No UI changed, skip the design gate silently." | Step 7 may be skipped for non-UI work, but mark it in the table as "N/A — no UI work" and confirm there is no diff in `app/`/`components/`. |
-| "One step failed but the rest are green, I'll patch later." | Any fail → stop immediately, open a Linear ticket (defect, repro + the failed criterion), block the merge. Never merge while red. |
+| "One step failed but the rest are green, I'll patch later." | Any fail → stop immediately, open a ticket in the delivery ticket DB (defect, repro + the failed criterion), block the merge. Never merge while red. |
 | "It passed locally, CI is just a formality." | This gate runs locally before push; CI (`.github/workflows/ci.yml`) re-runs it server-side on every PR based on `staging`/`main` — results must match. |
 | "Lint passed, so the code is fine." | Lint is not review. The Five-Axis pass (correctness/readability/architecture/security/perf) is a separate, required step. |
 
@@ -142,7 +142,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 - [ ] Every row reflects a real result from the command that was run — no guessing, no skipping.
 - [ ] No item left "skipped" without a reason; UI work that skips step 7 confirms there is no diff in `app/`/`components/`.
 - [ ] Five-Axis pass is clean across all five axes (correctness, readability, architecture, security, perf).
-- [ ] `node scripts/linear-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/delivery/`).
-- [ ] All green → ready for `/open-pr` into `staging`; do NOT change Linear state to `Done` until the Staging URL is verified.
+- [ ] `node scripts/ticket-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/delivery/`).
+- [ ] All green → ready for `/open-pr` into `staging`; do NOT change the ticket state to `Done` until the Staging URL is verified.
 - [ ] Red → defect ticket opened + merge blocked; the story does not move.
-- [ ] Before handoff: story ticket passes `node scripts/linear-sync.mjs audit` (has `## Story` + `## AC`).
+- [ ] Before handoff: story ticket passes `node scripts/ticket-sync.mjs audit` (has `## Story` + `## AC`).

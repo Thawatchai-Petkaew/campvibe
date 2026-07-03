@@ -50,28 +50,28 @@ Read first:
 1. **Promote is not a fresh deploy** — going to prod means moving the artifact that already passed Staging; do not rebuild and do not edit code during promote.
 2. **Reversible before forward** — every migration/release answers how it rolls back before it goes forward; no rollback plan = no promote.
 3. **3-env is a single line, no skipping** — Local Dev → Staging (auto + smoke) → Production (G5); prod must always pass Staging + G4 sign-off.
-4. **Fail = stop + open ticket** — a failure at any env stops promote immediately and auto-opens a Linear ticket; never silently patch and push on.
+4. **Fail = stop + open ticket** — a failure at any env stops promote immediately and auto-opens a ticket in the delivery ticket DB; never silently patch and push on.
 5. **Lean** — a new step or tool must genuinely reduce release risk, otherwise cut it.
 
 ## Workflow
 
 1. Confirm the gate: work has reached G3 (merged into `staging`) and CI is green on the PR base (`staging`/`main`).
-2. **Staging:** merge into `staging` → auto deploy + run `prisma migrate deploy` (staging DB) → smoke/health → verify AC on the real Staging URL = **Done** (Linear state `Done`).
+2. **Staging:** merge into `staging` → auto deploy + run `prisma migrate deploy` (staging DB) → smoke/health → verify AC on the real Staging URL = **Done** (ticket state `Done`).
 3. Wait for **G4 sign-off** before promoting to prod — do not promote on your own.
 4. **Production (G5):** use the `promote-release` skill to promote `staging`→`main` → migrate (prod DB, reversible) → Production deploy → smoke green → `git tag` + changelog + rollback plan = **Released** (label `released`).
 5. **After deploy:** watch errors (Sentry) for the agreed window → an error spike = auto-rollback + notify; a real error → open a bug ticket into the loop.
-6. Use the `git` + `gh` CLI throughout; every state change → update Linear (verify with `node scripts/linear-sync.mjs audit`).
+6. Use the `git` + `gh` CLI throughout; every state change → update the delivery ticket DB (verify with `node scripts/ticket-sync.mjs audit`).
 
 ## Examples
 
 A promote checklist run — story already at **Done** on Staging, G4 sign-off received:
 
-1. **Verify AC on the Staging URL** — open the real Staging URL (`campvibe-staging.vercel.app`), re-check each AC against the spec. All pass → proceed; any fail → stop, open a Linear ticket, do not promote.
+1. **Verify AC on the Staging URL** — open the real Staging URL (`campvibe-staging.vercel.app`), re-check each AC against the spec. All pass → proceed; any fail → stop, open a ticket in the delivery ticket DB, do not promote.
 2. **Promote** — invoke the `promote-release` skill to move `staging`→`main` (the artifact that passed Staging; no rebuild, no code edit).
 3. **Migrate** — `npx prisma migrate deploy` against the prod DB (reversible; up/down already tested on Staging) → Production deploy.
 4. **Smoke** — health/smoke green on the real Production URL; verify AC on prod.
 5. **Tag + changelog** — `git tag` the release + append the changelog entry (format + last entry from the existing changelog).
-6. **Watch + label** — start the Sentry error-watch window against the rollback thresholds; on clear, set label `released` and sync Linear (`node scripts/linear-sync.mjs audit`). A spike vs threshold → auto-rollback + notify.
+6. **Watch + label** — start the Sentry error-watch window against the rollback thresholds; on clear, run `node scripts/ticket-sync.mjs release <CAM-id>` (stamps `releasedAt`) and sync the delivery ticket DB (`node scripts/ticket-sync.mjs audit`). A spike vs threshold → auto-rollback + notify.
 
 ## Reference Files
 
@@ -85,7 +85,7 @@ A promote checklist run — story already at **Done** on Staging, G4 sign-off re
 ## Quality bar (self-verify before handoff)
 
 - [ ] **Pre-prod observability gate** — logs, metrics, and alerts are live and confirmed before prod per `.claude/rules/observability.md`: structured logs flowing (no secrets/PII), key metrics emitting, and at least one alert wired to a real channel. Do not promote to prod with observability dark.
-- [ ] **8-domain pre-launch checklist** passes, each marked pass/fail with the real result: (1) build + migration on the target env, (2) env vars / secrets present per env (no cross-env `DATABASE_URL`), (3) smoke/health green on the real URL, (4) AC verified on the real Staging/Prod URL, (5) rollback plan with the actual commands, (6) observability gate live, (7) tag + changelog (prod), (8) Linear state synced.
+- [ ] **8-domain pre-launch checklist** passes, each marked pass/fail with the real result: (1) build + migration on the target env, (2) env vars / secrets present per env (no cross-env `DATABASE_URL`), (3) smoke/health green on the real URL, (4) AC verified on the real Staging/Prod URL, (5) rollback plan with the actual commands, (6) observability gate live, (7) tag + changelog (prod), (8) ticket state synced.
 - [ ] **Graduated rollout** — prod ships at a controlled percentage (e.g. start at 10%) before full traffic, not 100% at once where the platform supports it; the ramp steps are stated.
 - [ ] **Rollback thresholds defined and watched** — auto-rollback triggers are explicit and measured during the watch window (e.g. error rate ≥ 2x the pre-deploy baseline, or > 10% of requests erroring); a breach = rollback + notify, not "wait and see".
 - [ ] **Feature-flag lifecycle** is tracked — any flag used to gate the release has an owner, a default, and a removal/cleanup ticket once fully rolled out; no orphan flags left permanently on.
@@ -93,7 +93,7 @@ A promote checklist run — story already at **Done** on Staging, G4 sign-off re
 - [ ] `npm run build` succeeds; `npx prisma migrate deploy` succeeds against the correct env DB.
 - [ ] **Promote moved the existing artifact** — no rebuild, no code edit during promote; the prod artifact is the one that passed Staging.
 - [ ] Never fabricate a metric (error rate, latency, rollout %, watch-window result). Report measured numbers; mark anything unmeasured as "not measured".
-- [ ] **Delivery artifact authored** — `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback record) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the Linear state.
+- [ ] **Delivery artifact authored** — `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback record) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the ticket state.
 
 Flag findings with a shared severity: **Critical** (prod broken, data loss, irreversible migration, secret in logs, observability dark on prod) · **Important** (missing rollback plan, untested migration, cross-env DB risk, rollout at 100% with no ramp) · **Suggestion** (tighten alert thresholds, flag cleanup) · **Info** (context, follow-up).
 
@@ -109,7 +109,7 @@ Flag findings with a shared severity: **Critical** (prod broken, data loss, irre
 | "Deploy succeeded, so the work is done." | Deploy is not done. Watch the error window against the rollback thresholds before closing. |
 | "Ship to 100% — the change is small." | Small changes still regress. Ramp the rollout (e.g. 10% first) and watch the thresholds before full traffic. |
 | "The flag works; I'll leave it on and clean up later." | Orphan flags rot. Every flag has an owner, default, and a removal ticket once fully rolled out. |
-| "It failed once; I'll just retry quietly." | Silent retry hides risk. A failure at any env stops promote and auto-opens a Linear ticket. |
+| "It failed once; I'll just retry quietly." | Silent retry hides risk. A failure at any env stops promote and auto-opens a ticket in the delivery ticket DB. |
 | "Error rate looks about the same to me." | Never eyeball a metric. Measure against the baseline (≥ 2x / > 10%); breach = rollback + notify, or mark "not measured". |
 
 ## Output (handoff contract)
@@ -119,7 +119,7 @@ Return the team shape: `{ticket, status, artifacts, checks, summary, next}`.
 - **status**: `Done` (Staging verify passed) or `Released` (prod + tag).
 - **artifacts**: Staging/Prod URL, git tag, changelog entry, rollback plan (the actual rollback commands), the migration that was run, any feature flag + its cleanup ticket.
 - **checks**: smoke/health result, migrate result per env, AC verify on the real URL, observability gate (live/dark), rollout ramp, error-watch window result (cleared / spike vs threshold).
-- **delivery artifact**: author `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
+- **delivery artifact**: author `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - **next**: if pending G4/G5 → attach the `awaiting-you` label; if fail → the ticket that was opened.
 
 ## Verify / Definition of Done
@@ -132,4 +132,4 @@ Before handoff, run the real commands — they must pass:
 - [ ] Pre-prod observability gate live (logs/metrics/alerts) per `.claude/rules/observability.md`.
 - [ ] (prod) `git tag` + changelog + rollback plan all complete; graduated rollout + rollback thresholds stated.
 - [ ] Error-watch (Sentry) window passed against the thresholds, no spike before closing the work.
-- [ ] Linear state sync: `Done` (Staging) or label `released` (prod); any fail → ticket opened (verify with `node scripts/linear-sync.mjs audit`).
+- [ ] Ticket state sync: `Done` (Staging) or `release <CAM-id>` run (prod, stamps `releasedAt`); any fail → ticket opened (verify with `node scripts/ticket-sync.mjs audit`).

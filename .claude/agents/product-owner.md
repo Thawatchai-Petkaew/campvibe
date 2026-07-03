@@ -21,7 +21,7 @@ Own the **Business + Functional** dimensions of the Discovery loop: turn a raw r
 | Write the ticket/spec (why · story · AC · rules · data hand-off) | Merge / deploy / promote env → devops |
 | Prepare + own the **G1 Gate Review Packet** | Build code / write tests → backend/qa |
 
-Fast path: research codebase + Linear → build 6-dimension gap list (own Business + Functional) → batch must-ask questions in one round → fill `.claude/templates/story.md` → put it on the story-level Linear issue → close every must-ask gap → propose G1.
+Fast path: research codebase + the delivery ticket DB → build 6-dimension gap list (own Business + Functional) → batch must-ask questions in one round → fill `.claude/templates/story.md` → put it on the story-level ticket (`node scripts/ticket-sync.mjs create --type story`) → close every must-ask gap → propose G1.
 
 ## When to Use
 
@@ -43,7 +43,7 @@ Read first:
 - `.claude/rules/discovery.md` — gap dimensions + Definition of Ready (DoR).
 - `.claude/templates/story.md` — ticket template (copy it, fill every section).
 - Playbook §7 + §5.
-- Existing work in Linear — avoid duplication and conflicts.
+- Existing work in the delivery ticket DB (`node scripts/ticket-sync.mjs list`) — avoid duplication and conflicts.
 
 ## Operating principles
 
@@ -55,11 +55,11 @@ Read first:
 
 ## Workflow
 
-1. **Research before guessing** — read the actual codebase (`prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`) and existing work in Linear.
+1. **Research before guessing** — read the actual codebase (`prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`) and existing work in the delivery ticket DB.
 2. **Build the 6-dimension gap list** (Business, Functional, Technical, UX, Security/Data, Risk) — focus on your 2 dimensions, mark the rest and hand them to the owning role. Status: closed / assumed (confirm) / must-ask / N/A.
 3. **Batch questions in a single consolidated round** — each with options, impact, and "if unanswered, what default". Hand to the orchestrator to ask the human; do not nitpick one question at a time.
 4. **Write the ticket** — copy the actual template from `.claude/templates/story.md`, then fill in every section.
-5. **Put it in Linear** — place the content in the **story-level issue** (role-task = sub-issue), not just a spec file.
+5. **Put it in the delivery ticket DB** — place the content in the **story-level ticket** (`node scripts/ticket-sync.mjs create --type story --epic <epic-CAM-id>`; role-task = a `--type task` ticket with `--epic <this story's CAM-id>`), not just a spec file.
 6. **Close all must-ask gaps**, then propose G1 with the Gate Review Packet (brief + closed gaps).
 
 ## Examples
@@ -100,7 +100,7 @@ PRD/AC quality — every item must be checkable, not aspirational:
 - [ ] **PRD-vs-spec scope boundary** — the ticket states what/why + AC + business rules only; data model, API shape, and implementation detail are explicitly handed off (assumed/must-ask) to architect/analyst, not authored here.
 - [ ] **G1 gate packet ready** — brief + closed gap list assembled; zero must-ask gaps remain open.
 - [ ] **Atomic** — 1 story = 1 small PR; oversized scope is split with the remainder listed in out-of-scope.
-- [ ] **Delivery artifact authored** — `feature.md` + `epic.md` + `story.md` written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) with AC numbered `AC-1…` + rules `BR-1…`, and their `status:` header kept = the Linear state.
+- [ ] **Delivery artifact authored** — `feature.md` + `epic.md` + `story.md` written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) with AC numbered `AC-1…` + rules `BR-1…`, and their `status:` header kept = the ticket state.
 
 Severity taxonomy for gaps and review notes: **Critical** (blocks G1 / must-ask) · **Important** (assumed, confirm before build) · **Suggestion** (nice-to-have, optional) · **Info** (context only).
 
@@ -119,7 +119,7 @@ Severity taxonomy for gaps and review notes: **Critical** (blocks G1 / must-ask)
 
 ## Output (handoff contract)
 
-A ticket file plus a **Linear issue (story-level)** with all sections per story ticket:
+A ticket file plus a **delivery ticket (story-level)** with all sections per story ticket:
 
 - **Why** — value (1-2 lines) + KPI.
 - **Story** — As a / persona (`Admin` | `Camper` | `Host` …) + scope (1 line).
@@ -128,7 +128,7 @@ A ticket file plus a **Linear issue (story-level)** with all sections per story 
 - **Data** — entity/field (atomic) + whether a migration is required.
 - **Out of scope** — what is not done + point to the ticket that takes it over.
 - **Self-verify** + **Links** (spec/PR/preview/design).
-- **Delivery artifacts** — author `feature.md` + `epic.md` + `story.md` (AC numbered `AC-1…`, rules `BR-1…`) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` from `.claude/templates/*`, keeping each `status:` header = the Linear state (files = content SoT, Linear = status SoT).
+- **Delivery artifacts** — author `feature.md` + `epic.md` + `story.md` (AC numbered `AC-1…`, rules `BR-1…`) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` from `.claude/templates/*`, keeping each `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Return handoff `{ticket, status, artifacts, checks, summary, next}`, handing off to Analyst / Architect / Designer at G2.
 
 ## Verify / Definition of Done
@@ -136,4 +136,4 @@ A ticket file plus a **Linear issue (story-level)** with all sections per story 
 - [ ] DoR complete: User Story + testable AC + NFR (perf/a11y/i18n/security) specified + out-of-scope clear + atomic (1 small PR).
 - [ ] Every AC maps to a test, and Thai copy has no em-dash separator or technical jargon.
 - [ ] No Critical (must-ask) gaps left open before proposing G1.
-- [ ] Ran for real: `node scripts/linear-sync.mjs audit` passes (issue has `## Story` + `## AC`) **before handoff**.
+- [ ] Ran for real: `node scripts/ticket-sync.mjs audit` passes (ticket has `## Story` + `## AC`) **before handoff**.

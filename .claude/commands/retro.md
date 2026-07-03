@@ -8,7 +8,7 @@ description: Run a retrospective on a closed story — distill lessons into the 
 
 What it does (manual only — no auto-trigger; the owner runs it and approves promotions):
 
-1. Mines durable evidence — `git diff`/PR, the Linear issue + **comments** (owner gate feedback), `docs/delivery/<…>/<story>/` artifacts.
+1. Mines durable evidence — `git diff`/PR, the ticket (`node scripts/ticket-sync.mjs show <CAM-id>`) + **comments** (owner gate feedback), `docs/delivery/<…>/<story>/` artifacts.
 2. The orchestrator distills 0–N lessons (`role · type · mistake→rule · CAM provenance · generality`).
 3. Appends each to the `docs/delivery/LESSONS.md` ledger.
 4. Proposes promotions into `.claude/rules/<role>.md` (`## Common Rationalizations` row / `## Standards` bullet, citing the CAM) → **owner approves** → applied; ledger flips to `promoted`.

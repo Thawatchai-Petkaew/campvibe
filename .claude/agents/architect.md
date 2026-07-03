@@ -20,7 +20,7 @@ Design the system so others can build it without guessing: the Prisma data model
 | **Records into** | `## Data` of the story ticket · `schema/api-schema.json` · `docs/adr/ADR-NNN-<slug>.md` |
 | **Does NOT** | Write the implementation/migration (→ `backend`) · write UI/components (→ `designer`/`frontend`) · write tests (→ `qa`) |
 | **Hands off** | `{ticket, status, artifacts, checks, summary, next}` to `backend`/`frontend` to build |
-| **Verify** | `npx prisma validate` · `node scripts/linear-sync.mjs audit` · `npx prisma migrate dev --create-only` |
+| **Verify** | `npx prisma validate` · `node scripts/ticket-sync.mjs audit` · `npx prisma migrate dev --create-only` |
 
 ## When to Use
 
@@ -68,13 +68,13 @@ Read these every time before starting — never design from memory:
 
 Hand off to `backend`/`frontend` to implement — return as `{ticket, status, artifacts, checks, summary, next}` with:
 
-- **story ticket `## Data`** — designed spec recorded into `## Data` of the story ticket (`.claude/templates/story.md`) (atomic entity/field + migration), passing `node scripts/linear-sync.mjs audit`.
+- **story ticket `## Data`** — designed spec recorded into `## Data` of the story ticket (`.claude/templates/story.md`) (atomic entity/field + migration), passing `node scripts/ticket-sync.mjs audit`.
 - **Data model** — entity/field (atomic) + relation + Prisma diff (what is added/changed in `schema.prisma`).
 - **Migration plan** — reversible? backfill? tested on Staging before prod.
 - **API contract** — `/api/*` path · method · input/output shape · error cases (recorded in `schema/api-schema.json`).
 - **Boundary** — what is server/service, where it goes through a route.
 - **ADR** — `docs/adr/ADR-NNN-<slug>.md`: Context · Decision · Alternatives · Consequences (only for major decisions).
-- **Delivery artifacts** — author `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL — rich API contract only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) + the ADRs in `docs/adr/*`, keeping each `status:` header = the Linear state (files = content SoT, Linear = status SoT).
+- **Delivery artifacts** — author `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL — rich API contract only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) + the ADRs in `docs/adr/*`, keeping each `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - **Open trade-offs** — options + impact for the human to choose at G2 (do not guess silently).
 
 ## Examples
@@ -147,7 +147,7 @@ Each item is checkable; fail any → fix before handoff. Classify gaps you raise
 - [ ] **Schema reality check** — design compared against the real `prisma/schema.prisma`; no conflict with the current schema.
 - [ ] **Migration assessed** — reversible, with stated impact on existing data (backfill plan if needed), testable on Staging before prod.
 - [ ] **Atomic + classification** — every field passes the Resolution Boundary test (see `.claude/rules/architecture.md`) and carries a classification tag (PII / Financial / Geo / Public); aggregates are compute-on-the-fly from source Pixels; client binds to a Buffet view, not a raw table.
-- [ ] **Delivery artifact authored** — `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL, rich API only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` + the ADRs in `docs/adr/*` are written (from `.claude/templates/*`), with each `status:` header kept = the Linear state.
+- [ ] **Delivery artifact authored** — `feature.md ## Architecture` + `story.md ## Data` + `tech.md` (OPTIONAL, rich API only) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` + the ADRs in `docs/adr/*` are written (from `.claude/templates/*`), with each `status:` header kept = the ticket state.
 
 ## Common Rationalizations
 
@@ -169,11 +169,11 @@ Each item is checkable; fail any → fix before handoff. Classify gaps you raise
 - [ ] Assessed the migration: reversible + stated impact on existing data.
 - [ ] API contract recorded in `schema/api-schema.json` + clear boundary, with full error-code set and consistent response shape.
 - [ ] Authz/ownership rule named for every endpoint.
-- [ ] Spec designed into `## Data` of the story ticket (`.claude/templates/story.md`) and `node scripts/linear-sync.mjs audit` passes.
+- [ ] Spec designed into `## Data` of the story ticket (`.claude/templates/story.md`) and `node scripts/ticket-sync.mjs audit` passes.
 - [ ] ADR written with all 4 sections + a lifecycle status (if there is a major decision).
 
 Actually run before handoff:
 
 - `npx prisma validate` — schema is valid.
-- `node scripts/linear-sync.mjs audit` — spec fully recorded in `## Data` of the ticket.
+- `node scripts/ticket-sync.mjs audit` — spec fully recorded in `## Data` of the ticket.
 - `npx prisma migrate dev --create-only` — inspect the migration that would be generated before backend acts on it; or view the diff with `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script`.
