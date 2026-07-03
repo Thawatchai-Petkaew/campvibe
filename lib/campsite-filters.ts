@@ -116,18 +116,38 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
 
   // 7. Availability Filter (used only when dates are provided)
   if (startDate && endDate) {
+    const rangeStart = new Date(startDate);
+    const rangeEnd = new Date(endDate);
+
     where.spots = {
       some: {
         bookings: {
           none: {
             OR: [
               {
-                checkInDate: { lte: new Date(endDate) },
-                checkOutDate: { gte: new Date(startDate) },
+                checkInDate: { lte: rangeEnd },
+                checkOutDate: { gte: rangeStart },
               },
             ],
             status: { not: "CANCELLED" },
           },
+        },
+      },
+    };
+
+    // PREP-1 (CAM-267): exclude campsites with a whole-camp BlockedDate covering
+    // ANY day of the requested range. Predicate is IDENTICAL to
+    // getBlockedDatesForRange's overlap semantics (lib/campsite-availability.ts,
+    // the booking page's source of truth) — campsite-level blocks only
+    // (spotId: null); a spot-level block does not remove the whole campsite from
+    // search results (a different spot may still be bookable).
+    where.NOT = {
+      blockedDates: {
+        some: {
+          spotId: null,
+          deletedAt: null,
+          startDate: { lte: rangeEnd },
+          endDate: { gte: rangeStart },
         },
       },
     };

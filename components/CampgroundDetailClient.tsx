@@ -77,6 +77,12 @@ export default function CampgroundDetailClient({
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
     const [loadingAvailability, setLoadingAvailability] = useState(false);
 
+    // CAM-267 PREP-1: remaining capacity for the exact selected stay (เหลือ X ที่ / เต็มแล้ว).
+    // null = no selection yet, or capacity is unbounded (maxGuestsPerDay not set) and the
+    // stay is not host-blocked — nothing to show in either case.
+    const [remainingCapacity, setRemainingCapacity] = useState<{ remaining: number | null; blockedByHost: boolean } | null>(null);
+    const [loadingRemaining, setLoadingRemaining] = useState(false);
+
     // Calculate nights using date-fns
     const nights = (checkIn && checkOut && checkOut > checkIn)
         ? differenceInCalendarDays(checkOut, checkIn)
@@ -146,6 +152,64 @@ export default function CampgroundDetailClient({
 
         fetchAvailability();
     }, [campground.id]);
+
+    // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
+    // picked (server-authoritative — reuses getRemainingCapacity, the same math the
+    // booking write path checks). Cleared whenever the selection is incomplete/invalid.
+    useEffect(() => {
+        if (!campground.id || !checkIn || !checkOut || checkOut <= checkIn) {
+            setRemainingCapacity(null);
+            return;
+        }
+
+        let cancelled = false;
+        const fetchRemaining = async () => {
+            setLoadingRemaining(true);
+            try {
+                const response = await fetch(
+                    `/api/campsites/${campground.id}/remaining-capacity?startDate=${format(checkIn, 'yyyy-MM-dd')}&endDate=${format(checkOut, 'yyyy-MM-dd')}`
+                );
+                const payload = await response.json().catch(() => null);
+
+                if (cancelled) return;
+
+                if (!response.ok) {
+                    console.error("Remaining capacity API error:", {
+                        status: response.status,
+                        statusText: response.statusText,
+                        payload,
+                    });
+                    setRemainingCapacity(null);
+                    return;
+                }
+
+                const data = payload?.data ?? payload;
+                setRemainingCapacity({
+                    remaining: data?.remaining ?? null,
+                    blockedByHost: !!data?.blockedByHost,
+                });
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to fetch remaining capacity:', error);
+                    setRemainingCapacity(null);
+                }
+            } finally {
+                if (!cancelled) setLoadingRemaining(false);
+            }
+        };
+
+        fetchRemaining();
+        return () => { cancelled = true; };
+    }, [campground.id, checkIn, checkOut]);
+
+    // CAM-267 PREP-1: derive the display state — เต็มแล้ว takes priority (whole-site
+    // block OR numeric capacity hit 0); เหลือ N ที่ shows only while a real number
+    // exists; unbounded capacity (no maxGuestsPerDay) with no block renders nothing.
+    const isFullyBooked = !!remainingCapacity
+        && (remainingCapacity.blockedByHost || remainingCapacity.remaining === 0);
+    const showRemainingCount = !!remainingCapacity
+        && !isFullyBooked
+        && remainingCapacity.remaining !== null;
 
     // Check if date is disabled (full or past)
     const isDateDisabled = (date: Date) => {
@@ -1010,6 +1074,22 @@ export default function CampgroundDetailClient({
                                     </Select>
                                 </div>
                             </div>
+
+                            {/* CAM-267 PREP-1: live remaining capacity for the selected stay — เหลือ X ที่ / เต็มแล้ว. */}
+                            {!loadingRemaining && (showRemainingCount || isFullyBooked) && (
+                                <p
+                                    className={cn(
+                                        "text-xs text-center mb-3",
+                                        isFullyBooked ? "text-destructive font-semibold" : "text-muted-foreground"
+                                    )}
+                                    data-testid="row--booking-remaining-capacity"
+                                    aria-live="polite"
+                                >
+                                    {isFullyBooked
+                                        ? t.booking.fullyBooked
+                                        : t.booking.remainingSpots.replace('{n}', String(remainingCapacity?.remaining))}
+                                </p>
+                            )}
 
                             <Button
                                 onClick={handleReserve}
