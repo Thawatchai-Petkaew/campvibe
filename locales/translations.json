@@ -161,7 +161,9 @@
             "nights": "nights",
             "fees": "Fees",
             "total": "Total",
-            "selectDatesFirst": "Please choose your check-in and check-out dates first."
+            "selectDatesFirst": "Please choose your check-in and check-out dates first.",
+            "remainingSpots": "{n} spots left",
+            "fullyBooked": "Fully booked"
         },
         "profile": {
             "title": "My Profile",
@@ -905,7 +907,9 @@
             "nights": "คืน",
             "fees": "ค่าธรรมเนียม",
             "total": "ยอดรวม",
-            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน"
+            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
+            "remainingSpots": "เหลือ {n} ที่",
+            "fullyBooked": "เต็มแล้ว"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
