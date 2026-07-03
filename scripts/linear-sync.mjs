@@ -1,10 +1,23 @@
 #!/usr/bin/env node
 /**
- * linear-sync — deterministic Linear writer for the CampVibe AI delivery team.
+ * ══════════════════════════════════════════════════════════════════════════════════════
+ * DEPRECATED (CAM-281 T-5b) — use scripts/ticket-sync.mjs instead.
  *
- * Linear is the SINGLE SOURCE OF TRUTH for delivery status. The /status dashboard
- * reads it live; the orchestrator + CI + hooks WRITE to it through this CLI so that
- * "agent finished / gate moved" actually lands in Linear without an in-session MCP.
+ * Linear is no longer the delivery-status writer. lib/delivery/tickets.ts is the single
+ * mutation path (ADR-010); the /status dashboard + /status/map read the self-hosted
+ * delivery database by default (TICKETS_SOURCE unset/anything but "linear" — see
+ * lib/linear.ts). This file is kept ONE release cycle as a historical/rollback tool only
+ * (LINEAR_API_KEY is read-only/archive-import scope going forward — see
+ * docs/SETUP-ENVS.md) and will be removed next cycle. Prefer scripts/ticket-sync.mjs for
+ * every command below (`list`/`set`/`gates`/`release`/`audit`/`pull` all have a
+ * ticket-sync.mjs equivalent against the delivery DB).
+ * ══════════════════════════════════════════════════════════════════════════════════════
+ *
+ * linear-sync — deterministic Linear writer for the CampVibe AI delivery team (legacy).
+ *
+ * Linear used to be the single source of truth for delivery status; the orchestrator +
+ * CI + hooks wrote to it through this CLI so that "agent finished / gate moved" landed in
+ * Linear without an in-session MCP.
  *
  * Reads LINEAR_API_KEY + LINEAR_TEAM_KEY from .env (no extra deps).
  *
@@ -22,6 +35,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const API = "https://api.linear.app/graphql";
+
+console.error("⚠ DEPRECATED — scripts/linear-sync.mjs is retired (CAM-281 T-5b); use scripts/ticket-sync.mjs instead.");
 
 function loadEnv() {
   const out = {};

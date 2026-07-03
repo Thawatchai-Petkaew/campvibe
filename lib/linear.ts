@@ -3,9 +3,9 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 // Defined seam (ADR-010): the ONLY place a product file imports lib/delivery/* directly
-// (the other is app/api/tickets/*). TICKETS_SOURCE gates it — default (unset/anything but
-// "db") keeps this file's own Linear path fully independent, so a broken delivery adapter
-// never breaks the default dashboard (rollback = flip the env var, no redeploy).
+// (the other is app/api/tickets/*). TICKETS_SOURCE gates it — CAM-281 T-5b flipped the
+// default to "db" (the delivery database is now the live source); "linear" is the one-cycle
+// rollback lever kept for CAM-281 T-5b (remove next cycle per the retirement plan).
 import { fetchTicketsFromDb } from "@/lib/delivery/status-adapter";
 
 const LINEAR_API = "https://api.linear.app/graphql";
@@ -116,10 +116,11 @@ const cachedStatusIssues = unstable_cache(
 
 /** Dashboard issues, freshness keyed on the pulse version (0 = time-based 60s cache only). */
 export function fetchStatusIssues(pulse = 0): Promise<StatusIssue[]> {
-  // ADR-010 rollback flag: "db" reads the self-hosted delivery Ticket table instead of
-  // Linear. Default (unset or any other value) is the original Linear path, unchanged.
-  if (process.env.TICKETS_SOURCE === "db") {
-    return fetchTicketsFromDb();
+  // ADR-010 rollback flag (CAM-281 T-5b): "linear" reads the original Linear API path — the
+  // one-cycle rollback lever, retained on purpose and removed next cycle. Default (unset or
+  // any other value) now reads the self-hosted delivery Ticket table — the live source.
+  if (process.env.TICKETS_SOURCE === "linear") {
+    return cachedStatusIssues(pulse);
   }
-  return cachedStatusIssues(pulse);
+  return fetchTicketsFromDb();
 }

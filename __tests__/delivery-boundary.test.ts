@@ -6,10 +6,11 @@
  *      product component/page under @/components or @/app).
  *   2. No product file imports lib/delivery/* except the DEFINED seams:
  *      lib/linear.ts (the TICKETS_SOURCE switch, list read), app/api/tickets/* (the route
- *      seam), and — as of CAM-281 (T-5) — the four dual-mode legacy mutation routes
+ *      seam), and — as of CAM-281 (T-5) — the four mutation/detail routes
  *      (app/api/status/approve, app/api/status/reject, app/api/status/issue/[id],
- *      app/api/telegram-webhook) that now call the delivery service directly in their
- *      TICKETS_SOURCE=db branch, alongside their still-present legacy Linear calls.
+ *      app/api/telegram-webhook) that call the delivery service directly. CAM-281 (T-5b)
+ *      retired the legacy Linear branches those four routes carried during the T-5a
+ *      dual-mode cutover — the delivery service is now their ONLY path.
  *   3. The product schema (prisma/schema.prisma) carries none of the delivery-only model
  *      names — a structural drift guard against the two schemas merging back together.
  *
@@ -79,10 +80,10 @@ describe("ADR-010 module boundary — product files", () => {
   it("no product file imports lib/delivery/* except the defined seams", () => {
     const seamFile = path.join(ROOT, "lib", "linear.ts");
     const seamDir = path.join(ROOT, "app", "api", "tickets");
-    // CAM-281 (T-5) intentionally widens the seam list: the legacy /status + Telegram
-    // mutation routes are now dual-mode (ADR-010 TICKETS_SOURCE flag) and call
-    // lib/delivery/tickets.ts's verbs / lib/delivery/status-adapter.ts directly in the
-    // "db" branch, alongside the still-present legacy lib/linear-actions calls.
+    // CAM-281 (T-5) widened the seam list: the /status + Telegram mutation/detail routes
+    // call lib/delivery/tickets.ts's verbs / lib/delivery/status-adapter.ts directly.
+    // CAM-281 (T-5b) retired the legacy lib/linear-actions calls those routes carried
+    // during the dual-mode cutover — the delivery service is now their ONLY path.
     const seamFiles = [
       seamFile,
       path.join(ROOT, "app", "api", "status", "approve", "route.ts"),
