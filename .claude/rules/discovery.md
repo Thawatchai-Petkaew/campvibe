@@ -13,18 +13,18 @@ Discovery turns a raw requirement into a spec you can build without guessing. G1
 
 Fast path from raw requirement to G1:
 
-1. **Research first** — read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*` + check Linear (team Campvibe) for existing/duplicate work.
+1. **Research first** — read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*` + check the ticket DB (`node scripts/ticket-sync.mjs list`/`show`) for existing/duplicate work.
 2. **Build the 6-dimension gap list** — Business · Functional · Technical · UX · Security/Data · Risk — tag each gap 🟢 closed / 🟡 assumed (state the default) / 🔴 must-ask / ⚪ N/A.
 3. **Batch the questions in one round** — collect every 🔴/🟡 into a single ask; each item carries options + impact + "if no answer, default = …".
 4. **Write the ticket** — from `.claude/templates/story.md`, 1 atomic story (PR ≤ ~400 lines), AC with Thai copy verbatim, DoR met.
-5. **Propose G1** — gate passes when **no 🔴 remains** and `node scripts/linear-sync.mjs audit` confirms the ticket (`## Story` + `## AC`).
+5. **Propose G1** — gate passes when **no 🔴 remains** and `node scripts/ticket-sync.mjs audit` confirms the ticket (`## Story` + `## AC`).
 
 ## When to Use
 
 - Starting any feature from a new or ambiguous requirement, before touching code
 - Building the 6-dimension gap list and batching questions to the human in rounds
 - Authoring a story ticket (User Story + AC + Rules + Data) and checking Definition of Ready
-- Verifying a ticket matches the template via `node scripts/linear-sync.mjs audit`
+- Verifying a ticket matches the template via `node scripts/ticket-sync.mjs audit`
 
 **NOT for:**
 
@@ -36,12 +36,12 @@ Fast path from raw requirement to G1:
 
 ## Prerequisites
 
-Read before starting: this file · `DESIGN.md` (for any UI-facing requirement) · `CLAUDE.md` (iron rules + gates). Have on hand: the raw requirement, access to the codebase (`prisma/schema.prisma`, `app/`, `lib/`, `components/`), Linear (team Campvibe), and the template `.claude/templates/story.md`. Know which dimensions hand off to siblings — `.claude/rules/architecture.md`, `.claude/rules/qa.md`, `.claude/rules/ux.md`, `.claude/rules/performance.md`.
+Read before starting: this file · `DESIGN.md` (for any UI-facing requirement) · `CLAUDE.md` (iron rules + gates). Have on hand: the raw requirement, access to the codebase (`prisma/schema.prisma`, `app/`, `lib/`, `components/`), the ticket DB (`node scripts/ticket-sync.mjs list`/`show`), and the template `.claude/templates/story.md`. Know which dimensions hand off to siblings — `.claude/rules/architecture.md`, `.claude/rules/qa.md`, `.claude/rules/ux.md`, `.claude/rules/performance.md`.
 
 ## Principles
 
 - **Spec-first** — do not close Discovery while any 🔴 gap is open; every AC must trace back to the requirement. G1 is the only place scope changes for free; after it, change is expensive.
-- **Research before guessing** — look at the real code/Linear before forming an assumption; cut 🔴 gaps from the start.
+- **Research before guessing** — look at the real code / ticket DB before forming an assumption; cut 🔴 gaps from the start.
 - **Batch questions, don't nitpick** — the human is the bottleneck. Collect questions into a single round; each item carries options + impact + default.
 - **No silent guessing** — don't know = raise 🔴 and ask, not fill in a value silently.
 
@@ -66,7 +66,7 @@ Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be
 
 ### 3. The loop
 
-1. Real research: read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and check Linear (team Campvibe) for existing/duplicate work.
+1. Real research: read `prisma/schema.prisma`, `app/api/*`, `lib/*`, `components/*`, and check the ticket DB (`node scripts/ticket-sync.mjs list`/`show`) for existing/duplicate work.
 2. Build the gap list per dimension → tag each 🟢/🟡/🔴/⚪.
 3. Batch the 🔴/🟡 questions → ask the human in a **single round**; each item has: options + impact of each path + "if no answer, default = …".
 4. All closed (no 🔴) → write the ticket from `.claude/templates/story.md` → propose G1.
@@ -75,7 +75,7 @@ Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be
 
 Use the template exactly — `## Why` (+KPI) · `## Story` (ในฐานะ…ฉันต้องการ…เพื่อ…+ขอบเขต) · `## AC` (GFM table: Given | When | ผลที่ผู้ใช้เห็น + Thai copy verbatim | ผลเชิงข้อมูล) · `## Rules` (values/bounds + real error) · `## Data` (atomic fields + migration) · `## Out of scope` (+ point to the follow-up ticket) · `## Self-verify` · `## Links`.
 
-- The story body + AC go into the **story-level issue** in Linear (role-task = sub-issue). Check template conformance with `node scripts/linear-sync.mjs audit` (must contain `## Story` + `## AC`).
+- The story body + AC go into the **story-level ticket** in the ticket DB (created via `node scripts/ticket-sync.mjs create`; role-task = sub-ticket). Check template conformance with `node scripts/ticket-sync.mjs audit` (must contain `## Story` + `## AC`).
 - **persona** = Admin | Camper | Host. AC left side = "what the user sees" (real Thai copy); AC right side = "what the system stores/changes" (plain language).
 
 ### 5. Definition of Ready (DoR — "ready to build")
@@ -96,7 +96,7 @@ Use the template exactly — `## Why` (+KPI) · `## Story` (ในฐานะ�
 
 ### 7. On a requirement change — re-run Discovery + artifact cascade
 
-A changed or added requirement re-enters Discovery (close the new gaps), then run the artifact cascade so `docs/delivery/` stays the latest version: update `story.md` (bump `version` + add a `## Changelog` line) → cascade `design.md`/`tech.md`/`test.md` → refresh the `epic.md` rollup → if scope shifts, update `docs/project/product-plan.md`/`master-plan.md` → sync Linear → `node scripts/linear-sync.mjs index`. Files = content SoT, Linear = live status.
+A changed or added requirement re-enters Discovery (close the new gaps), then run the artifact cascade so `docs/delivery/` stays the latest version: update `story.md` (bump `version` + add a `## Changelog` line) → cascade `design.md`/`tech.md`/`test.md` → refresh the `epic.md` rollup → if scope shifts, update `docs/project/product-plan.md`/`master-plan.md` → sync the ticket DB → `node scripts/ticket-sync.mjs index`. Files = content SoT, ticket DB = live status.
 
 ## Examples
 
@@ -125,7 +125,7 @@ A changed or added requirement re-enters Discovery (close the new gaps), then ru
 
 ## Next Steps
 
-Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `node scripts/linear-sync.mjs audit` → **propose G1 (Scope)** with a summary of gaps and assumptions used. On G1 approval, hand off to the architect (data model / API contract) and the designer (flow / states / Design Brief) for G2 (Design) before any build.
+Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `node scripts/ticket-sync.mjs audit` → **propose G1 (Scope)** with a summary of gaps and assumptions used. On G1 approval, hand off to the architect (data model / API contract) and the designer (flow / states / Design Brief) for G2 (Design) before any build.
 
 ## Common Rationalizations
 
@@ -137,15 +137,15 @@ Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `n
 | "Put the event-code/class name/variable/testid in the AC." | Those live only in the technical spec. |
 | "An em-dash (—) is fine to separate Thai copy; jargon (API, webhook, endpoint) is fine in user copy." | Use plain language. |
 | "One big chunk across many concerns ships faster." | Split atomic; small work uses one ticket, add spec/tech/test only when genuinely complex. |
-| "Every task gets a Linear story card." | Card only deliverable work (feature/fix/perf/security with AC, tracked on /status, behind gates). Tooling/docs/config/process — a skill, the lessons ledger, a baseline doc — is a plain PR with no card; CAM-205/206 over-carded internal tooling. |
+| "Every task gets a ticket." | Card only deliverable work (feature/fix/perf/security with AC, tracked on /status, behind gates). Tooling/docs/config/process — a skill, the lessons ledger, a baseline doc — is a plain PR with no card; CAM-205/206 over-carded internal tooling. |
 | "A quick hotfix / one-off issue doesn't need a project." | Every tracked issue gets a project (+ a parent epic for a story) AT CREATION, or it orphans on /status and must be retro-grouped later (CAM-191 hotfix + the CAM-96..104 Atomic Schema epic both slipped). |
-| "Skip Linear and just build." | Research first, or you duplicate/conflict with existing work. |
+| "Skip the ticket DB and just build." | Research first, or you duplicate/conflict with existing work. |
 
 ## Verify (exit criteria)
 
-- [ ] Researched the codebase + Linear (not guessing)
+- [ ] Researched the codebase + the ticket DB (not guessing)
 - [ ] Gap list covers all 6 dimensions · no 🔴 open · every 🟡 has a default
 - [ ] User Story + testable AC + NFR + out-of-scope complete (DoR)
 - [ ] Broken into an atomic story (1 small PR)
-- [ ] Ticket matches the template + `node scripts/linear-sync.mjs audit` passes
+- [ ] Ticket matches the template + `node scripts/ticket-sync.mjs audit` passes
 - [ ] Propose G1 with a summary of gaps/assumptions used

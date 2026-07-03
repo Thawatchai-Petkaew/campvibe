@@ -1,10 +1,10 @@
 <!--
-story template — copy the block below into a Linear issue to create ONE atomic story.
+story template — copy the block below into a ticket DB story (`node scripts/ticket-sync.mjs create`) to create ONE atomic story.
 AC rule: "What the user sees" column = what the user perceives on screen + the verbatim Thai copy in quotes ·
          "Data/system effect" column = what the system stores/changes (plain language, no jargon).
 Do NOT put event-codes / class names / variables / testids in the AC — those belong in the technical spec (tech).
 Number every acceptance criterion AC-1, AC-2… and every rule BR-1, BR-2… — design/test/review reference these IDs.
-Check template conformance: node scripts/linear-sync.mjs audit  (requires at least ## Story + ## AC).
+Check template conformance: node scripts/ticket-sync.mjs audit  (requires at least ## Story + ## AC).
 -->
 
 ## Why

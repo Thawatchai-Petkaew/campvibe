@@ -101,7 +101,7 @@ For important/hard-to-reverse decisions, write `docs/adr/ADR-NNN-<slug>.md` = Co
 
 ### 8. Spec into the ticket
 
-Put the designed data/contract into the `## Data` section (atomic entity/field + migration) of the story ticket (`.claude/templates/story.md`); validate the template with `node scripts/linear-sync.mjs audit`.
+Put the designed data/contract into the `## Data` section (atomic entity/field + migration) of the story ticket (`.claude/templates/story.md`); validate the template with `node scripts/ticket-sync.mjs audit`.
 
 ## Atomic Data Framework (Pixel · Set · Buffet)
 
@@ -217,4 +217,4 @@ Architect designs the data model + API contract → Backend implements the migra
 - [ ] Every field passes the Resolution Boundary test + carries a classification tag (PII/Financial/Geo/Public); aggregates are compute-on-the-fly; client binds to the Buffet, not a raw table
 - [ ] No anti-pattern present (N+1, over-engineering, premature abstraction, boundary leak, UI-shaped column, cached-aggregate-as-source)
 - [ ] ADR written for hard-to-reverse decisions; trade-off escalated to G2
-- [ ] Spec into the ticket's `## Data` + passes `linear-sync.mjs audit`
+- [ ] Spec into the ticket's `## Data` + passes `ticket-sync.mjs audit`
