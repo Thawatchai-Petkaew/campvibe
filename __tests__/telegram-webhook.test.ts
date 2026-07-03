@@ -1,12 +1,21 @@
+/**
+ * app/api/telegram-webhook/route.ts — single mutation path (CAM-281 T-5b retired the
+ * legacy Linear branch; the delivery service — lib/delivery/tickets.ts — is now the ONLY
+ * path). See __tests__/cam-281-dual-mode-writes.test.ts for the fuller behavioral +
+ * error-mapping + source-inspection coverage of this route; this file keeps the original
+ * CAM-136/CAM-1xx contract cases (auth, bad json, unknown action, malformed id, emoji-free
+ * copy) updated for the single path.
+ */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/notify", () => ({
   sendTelegram: vi.fn(async () => ({ ok: true })),
   answerCallback: vi.fn(async () => {}),
 }));
-vi.mock("@/lib/linear-actions", () => ({
-  removeAwaitingYou: vi.fn(async () => true),
-  addComment: vi.fn(async () => true),
+vi.mock("@/lib/delivery/tickets", () => ({
+  approve: vi.fn(async () => ({ identifier: "CAM-11", state: "IN_PROGRESS" })),
+  reject: vi.fn(async () => ({ identifier: "CAM-11", state: "IN_PROGRESS" })),
+  addComment: vi.fn(async () => ({ id: "comment_1" })),
 }));
 vi.mock("@/lib/github-dispatch", () => ({
   fireRepositoryDispatch: vi.fn(async () => ({ dispatched: true })),
@@ -15,7 +24,7 @@ vi.mock("server-only", () => ({}));
 
 import { POST } from "@/app/api/telegram-webhook/route";
 import * as notify from "@/lib/notify";
-import * as linear from "@/lib/linear-actions";
+import * as ticketsService from "@/lib/delivery/tickets";
 import * as dispatch from "@/lib/github-dispatch";
 
 const SECRET = "test-secret";
@@ -34,6 +43,9 @@ function req(body: unknown, secret?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.TELEGRAM_WEBHOOK_SECRET = SECRET;
+  vi.mocked(ticketsService.approve).mockResolvedValue({ identifier: "CAM-11", state: "IN_PROGRESS" } as never);
+  vi.mocked(ticketsService.reject).mockResolvedValue({ identifier: "CAM-11", state: "IN_PROGRESS" } as never);
+  vi.mocked(ticketsService.addComment).mockResolvedValue({ id: "comment_1" } as never);
 });
 
 describe("telegram-webhook", () => {
@@ -49,13 +61,13 @@ describe("telegram-webhook", () => {
     expect((await POST(req("{not json", SECRET))).status).toBe(400);
   });
 
-  it("approve callback removes awaiting-you + acks only — webhook is the single 'Approved' source", async () => {
+  it("approve callback calls the delivery approve() verb + acks only — the service is the single 'Approved' source", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "approve:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "approve", id: "CAM-11", changed: true });
-    expect(linear.removeAwaitingYou).toHaveBeenCalledWith("CAM-11");
+    expect(ticketsService.approve).toHaveBeenCalledWith("CAM-11", expect.any(String));
     expect(notify.answerCallback).toHaveBeenCalled();
-    // Removing awaiting-you triggers the Linear webhook, which is the SINGLE source of the
-    // "Approved" notification (covers this tap AND a Linear-UI approval). The tap must NOT send it.
+    // approve() (mocked here) owns the "approved" Telegram notification in the same call —
+    // the tap must NOT send one itself.
     expect(notify.sendTelegram).not.toHaveBeenCalled();
   });
 
@@ -68,17 +80,16 @@ describe("telegram-webhook", () => {
     }
   });
 
-  it("reject callback comments + does NOT remove the label + sends rejected message (English, no emoji)", async () => {
+  it("reject callback calls the delivery reject() verb with the fixed note + acks only, never double-notifies", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "reject:CAM-11" } }, SECRET));
     expect(await res.json()).toMatchObject({ action: "reject", id: "CAM-11" });
-    expect(linear.addComment).toHaveBeenCalledWith("CAM-11", expect.stringContaining("Rejected"));
-    expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
-    // Should send the rejected message
-    expect(notify.sendTelegram).toHaveBeenCalledTimes(1);
-    const [text] = vi.mocked(notify.sendTelegram).mock.calls[0];
-    expect(text as string).toContain("Sent back for changes");
-    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
-    expect(EMOJI_RE.test(text as string)).toBe(false);
+    expect(ticketsService.reject).toHaveBeenCalledWith(
+      "CAM-11",
+      expect.any(String),
+      "Rejected via Telegram — needs changes before continuing"
+    );
+    // reject() (mocked here) owns the "rejected" notification in the same call.
+    expect(notify.sendTelegram).not.toHaveBeenCalled();
   });
 
   it("reject callback toast is English and emoji-free", async () => {
@@ -90,12 +101,12 @@ describe("telegram-webhook", () => {
     }
   });
 
-  it("free-text reply to a gate message → posts a comment on that issue (no emoji in ack)", async () => {
+  it("free-text reply to a gate message → posts a comment via the delivery service (no emoji in ack)", async () => {
     const res = await POST(
       req({ message: { text: "ทำต่อได้", reply_to_message: { text: "CAM-11 Waiting for your approval" } } }, SECRET)
     );
     expect(await res.json()).toMatchObject({ comment: "CAM-11" });
-    expect(linear.addComment).toHaveBeenCalledWith("CAM-11", expect.stringContaining("ทำต่อได้"));
+    expect(ticketsService.addComment).toHaveBeenCalledWith("CAM-11", expect.any(String), expect.stringContaining("ทำต่อได้"));
     const [ackText] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
     const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
     expect(EMOJI_RE.test(ackText)).toBe(false);
@@ -105,7 +116,7 @@ describe("telegram-webhook", () => {
     const res = await POST(req({ message: { text: "เพิ่มฟีเจอร์ค้นแคมป์" } }, SECRET));
     expect(await res.json()).toMatchObject({ adhoc: true });
     expect(dispatch.fireRepositoryDispatch).toHaveBeenCalledWith("camper-adhoc", { text: "เพิ่มฟีเจอร์ค้นแคมป์" });
-    expect(linear.addComment).not.toHaveBeenCalled();
+    expect(ticketsService.addComment).not.toHaveBeenCalled();
     const [ackText] = vi.mocked(notify.sendTelegram).mock.calls[0] as [string];
     const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}]/u;
     expect(EMOJI_RE.test(ackText)).toBe(false);
@@ -115,15 +126,15 @@ describe("telegram-webhook", () => {
     const res = await POST(req({ callback_query: { id: "1", data: "weird:CAM-9" } }, SECRET));
     expect(await res.json()).toMatchObject({ ignored: "weird:CAM-9" });
     expect(notify.answerCallback).toHaveBeenCalled();
-    expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
+    expect(ticketsService.approve).not.toHaveBeenCalled();
     expect(dispatch.fireRepositoryDispatch).not.toHaveBeenCalled();
   });
 
-  it("malformed callback id → acked + rejected as bad id, no Linear call", async () => {
+  it("malformed callback id → acked + rejected as bad id, no delivery-service call", async () => {
     const res = await POST(req({ callback_query: { id: "1", data: "approve:x" } }, SECRET));
     expect(await res.json()).toMatchObject({ ignored: "bad id" });
     expect(notify.answerCallback).toHaveBeenCalled();
-    expect(linear.removeAwaitingYou).not.toHaveBeenCalled();
+    expect(ticketsService.approve).not.toHaveBeenCalled();
   });
 
   it("update with neither callback nor text → ignored", async () => {

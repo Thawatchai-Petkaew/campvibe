@@ -1,12 +1,10 @@
 /**
  * notify-messages — single source of copy for delivery-team Telegram notifications.
  *
- * All event messages are built here. The Linear webhook (app/api/linear-webhook/route.ts)
- * is the SINGLE source of Telegram event notifications — it fires for any actor
- * (the linear-sync.mjs CLI, the Linear MCP, or a manual edit in the Linear UI).
- *
- * scripts/linear-sync.mjs no longer sends event messages; it only sets state/labels/title
- * whose changes trigger the webhook, which notifies here.
+ * All event messages are built here. lib/delivery/tickets.ts is the SINGLE mutation path
+ * (ADR-010 "single mutation path, no webhook" — CAM-281 T-5b retired the Linear event
+ * webhook this copy used to be driven by) — every ticket verb (approve/reject/handoff/...)
+ * calls buildEventMessage() directly at mutation time and sends the result itself.
  *
  * Copy rules: English, no emoji, no Thai in event messages.
  */

@@ -1,10 +1,13 @@
 /**
  * POST /api/status/pulse — manually bump the live /status + /map refresh pulse.
  *
- * This is a SECONDARY pulse trigger. The Linear webhook (app/api/linear-webhook/route.ts) is the
- * primary one — it bumps the pulse on every Issue change. But if that webhook is down or not yet
- * registered for this environment, no transition refreshes the board. scripts/linear-sync.mjs
- * calls this endpoint (best-effort) after every write so the dashboards stay fresh regardless.
+ * Legacy pulse trigger for the Linear-sourced read path only (TICKETS_SOURCE=linear —
+ * lib/linear.ts's cachedStatusIssues, keyed on this pulse). CAM-281 (T-5b) retired the
+ * Linear event webhook that used to bump this pulse automatically on every Issue change;
+ * the deprecated scripts/linear-sync.mjs still calls this endpoint (best-effort) after a
+ * write so the Linear-sourced dashboards stay fresh regardless. The default delivery-DB
+ * read path (TICKETS_SOURCE unset/"db") has its own pulse — lib/delivery/pulse.ts, bumped
+ * in-process by every lib/delivery/tickets.ts mutation — and does not need this endpoint.
  *
  * Guard: STATUS_TOKEN (the same gate as /status). Must always be set; token is required — a
  * missing STATUS_TOKEN returns 401 (no open fallback). The request must carry it via
