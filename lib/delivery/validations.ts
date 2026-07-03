@@ -38,12 +38,12 @@ export const createTicketBodySchema = z.object({
   title: z.string().trim().min(1).max(300),
   type: ticketTypeSchema,
   description: z.string().max(20000).optional(),
-  epicId: z.string().min(1).optional(),
+  epicId: z.string().min(1).max(30).optional(),
   persona: personaSchema.optional(),
   featureName: z.string().max(200).optional(),
   priority: z.number().int().min(0).max(4).optional(),
   currentRole: deliveryRoleSchema.optional(),
-  legacyUrl: z.string().url().optional(),
+  legacyUrl: z.string().url().refine((u) => /^https?:\/\//.test(u), "legacyUrl must be http(s)").optional(),
   legacyLabels: z.array(z.string().max(100)).max(50).optional(),
 });
 export type CreateTicketBody = z.infer<typeof createTicketBodySchema>;
@@ -52,7 +52,7 @@ export type CreateTicketBody = z.infer<typeof createTicketBodySchema>;
 
 export const listTicketsQuerySchema = z.object({
   state: ticketStateSchema.optional(),
-  epicId: z.string().min(1).optional(),
+  epicId: z.string().min(1).max(30).optional(),
   archived: z
     .enum(["true", "false"])
     .optional()
