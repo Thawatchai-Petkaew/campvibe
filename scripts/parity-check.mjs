@@ -187,7 +187,8 @@ async function fetchDbStatusIssues() {
   if (!TOKEN) return { ok: false, status: 0, body: "STATUS_TOKEN not set locally" };
   let res;
   try {
-    res = await fetch(`${BASE}/api/tickets`, { headers: { "x-status-token": TOKEN } });
+    // archived=false: match lib/linear.ts semantics (its GraphQL query never requests archived issues)
+    res = await fetch(`${BASE}/api/tickets?archived=false`, { headers: { "x-status-token": TOKEN } });
   } catch (e) {
     return { ok: false, status: 0, body: e.message };
   }
@@ -201,9 +202,9 @@ async function fetchDbStatusIssues() {
 
   const tickets = body.tickets ?? [];
   const idToTicket = new Map(tickets.map((t) => [t.id, t]));
-  const issues = tickets
-    .filter((t) => t.type !== "EPIC") // parity target = /status work items, not the epic containers
-    .map((t) => dbTicketToStatusIssueLike(t, idToTicket));
+  // include EPIC rows too — the Linear side's raw issue list includes epic-container issues,
+  // so filtering them here compared apples to oranges (buildModel does its own classification).
+  const issues = tickets.map((t) => dbTicketToStatusIssueLike(t, idToTicket));
   return { ok: true, issues };
 }
 
