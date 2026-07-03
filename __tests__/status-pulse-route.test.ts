@@ -4,13 +4,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // transitive import resolves under plain Node/vitest.
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/lib/status-pulse", () => ({ bumpPulse: vi.fn(async () => {}) }));
+// CAM-287: the route now bumps lib/delivery/pulse.ts's DeliveryPulse (the same counter
+// app/api/status/stream/route.ts's SSE loop polls), not the legacy lib/status-pulse.ts
+// StatusPulse.
+vi.mock("@/lib/delivery/pulse", () => ({ bumpDeliveryPulse: vi.fn(async () => {}) }));
 
 import { POST } from "@/app/api/status/pulse/route";
-import { bumpPulse } from "@/lib/status-pulse";
+import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { _store as rateLimitStore } from "@/lib/rate-limit";
 
-const bump = vi.mocked(bumpPulse);
+const bump = vi.mocked(bumpDeliveryPulse);
 
 const TEST_TOKEN = "test-secret";
 

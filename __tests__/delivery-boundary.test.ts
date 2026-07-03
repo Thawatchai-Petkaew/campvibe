@@ -6,11 +6,14 @@
  *      product component/page under @/components or @/app).
  *   2. No product file imports lib/delivery/* except the DEFINED seams:
  *      lib/linear.ts (the TICKETS_SOURCE switch, list read), app/api/tickets/* (the route
- *      seam), and — as of CAM-281 (T-5) — the four mutation/detail routes
+ *      seam), — as of CAM-281 (T-5) — the four mutation/detail routes
  *      (app/api/status/approve, app/api/status/reject, app/api/status/issue/[id],
- *      app/api/telegram-webhook) that call the delivery service directly. CAM-281 (T-5b)
+ *      app/api/telegram-webhook) that call the delivery service directly (CAM-281 (T-5b)
  *      retired the legacy Linear branches those four routes carried during the T-5a
- *      dual-mode cutover — the delivery service is now their ONLY path.
+ *      dual-mode cutover — the delivery service is now their ONLY path), and — as of
+ *      CAM-287 — app/api/status/stream/route.ts + app/api/status/pulse/route.ts, which
+ *      read/bump lib/delivery/pulse.ts's DeliveryPulse (the pulse real ticket mutations
+ *      actually bump) instead of the legacy lib/status-pulse.ts StatusPulse.
  *   3. The product schema (prisma/schema.prisma) carries none of the delivery-only model
  *      names — a structural drift guard against the two schemas merging back together.
  *
@@ -84,12 +87,16 @@ describe("ADR-010 module boundary — product files", () => {
     // call lib/delivery/tickets.ts's verbs / lib/delivery/status-adapter.ts directly.
     // CAM-281 (T-5b) retired the legacy lib/linear-actions calls those routes carried
     // during the dual-mode cutover — the delivery service is now their ONLY path.
+    // CAM-287 adds the SSE stream + manual-bump routes, which now read/bump
+    // lib/delivery/pulse.ts's DeliveryPulse instead of the legacy StatusPulse.
     const seamFiles = [
       seamFile,
       path.join(ROOT, "app", "api", "status", "approve", "route.ts"),
       path.join(ROOT, "app", "api", "status", "reject", "route.ts"),
       path.join(ROOT, "app", "api", "status", "issue", "[id]", "route.ts"),
       path.join(ROOT, "app", "api", "telegram-webhook", "route.ts"),
+      path.join(ROOT, "app", "api", "status", "stream", "route.ts"),
+      path.join(ROOT, "app", "api", "status", "pulse", "route.ts"),
     ];
 
     const scanRoots = ["app", "lib", "components"].map((d) => path.join(ROOT, d));

@@ -4,13 +4,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // transitive import resolves under plain Node/vitest.
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/lib/status-pulse", () => ({ readPulse: vi.fn(async () => 0) }));
+// CAM-287: the route now reads lib/delivery/pulse.ts's DeliveryPulse (the pulse real
+// ticket mutations bump), not the legacy lib/status-pulse.ts StatusPulse.
+vi.mock("@/lib/delivery/pulse", () => ({ readDeliveryPulse: vi.fn(async () => 0) }));
 
 import { GET } from "@/app/api/status/stream/route";
-import { readPulse } from "@/lib/status-pulse";
+import { readDeliveryPulse } from "@/lib/delivery/pulse";
 import { _store as rateLimitStore } from "@/lib/rate-limit";
 
-const rp = vi.mocked(readPulse);
+const rp = vi.mocked(readDeliveryPulse);
 
 const TEST_TOKEN = "test-secret";
 

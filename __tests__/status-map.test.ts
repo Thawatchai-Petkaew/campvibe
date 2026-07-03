@@ -416,41 +416,11 @@ describe("app/status/map/map-progress.tsx — S7 AC4: loading state", () => {
 });
 
 // ---------- S7 AC5: overlay empty states are present ----------
-describe("campsite-overlays.tsx — S7 AC5: empty states", () => {
-  const src = read("../app/status/map/campsite-overlays.tsx");
-
-  it("DeliveryPanel empty: ยังไม่มีสตอรีในโปรเจกต์", () => {
-    expect(src).toContain("ยังไม่มีสตอรีในโปรเจกต์");
-  });
-
-  it("BacklogPanel empty: ไม่มี story ใน backlog", () => {
-    expect(src).toContain("ไม่มี story ใน backlog");
-  });
-
-  it("GatesPanel empty: ไม่มีงานรออนุมัติจากคุณตอนนี้", () => {
-    expect(src).toContain("ไม่มีงานรออนุมัติจากคุณตอนนี้");
-  });
-
-  it("EpicProgressPanel empty: ยังไม่มีสตอรีใน epic นี้", () => {
-    expect(src).toContain("ยังไม่มีสตอรีใน epic นี้");
-  });
-
-  it("EpicUpNextPanel empty: คิวว่าง", () => {
-    expect(src).toContain("คิวว่าง");
-  });
-
-  it("EpicBoardPanel empty: ยังไม่มีสตอรีใน epic นี้", () => {
-    expect(src).toContain("ยังไม่มีสตอรีใน epic นี้");
-  });
-
-  it("ScopeSwitcherPanel empty: ยังไม่มี epic ในโปรเจกต์", () => {
-    expect(src).toContain("ยังไม่มี epic ในโปรเจกต์");
-  });
-
-  it("ScopeSwitcherPanel filtered empty: ไม่มี epic ที่ตรงกับตัวกรอง", () => {
-    expect(src).toContain("ไม่มี epic ที่ตรงกับตัวกรอง");
-  });
-});
+// CAM-287: this block formerly asserted on the CAM-159 dock-family panels
+// (DeliveryPanel/BacklogPanel/GatesPanel/EpicProgressPanel/EpicUpNextPanel/
+// ScopeSwitcherPanel) — removed as dead code (never mounted by campsite-scene.tsx,
+// see CAM-286 report). The Kanban board's own empty state is covered by
+// "KanbanModal empty state" below (CAM-159 AC3).
 
 // ---------- S7 AC7: deep-link scope fix — engineReady in scope effect deps ----------
 describe("campsite-scene.tsx — S7 AC7: deep-link scope fix", () => {
@@ -475,70 +445,10 @@ describe("campsite-scene.tsx — S7 AC7: deep-link scope fix", () => {
 
 // ============================================================
 // CAM-159 — HUD redesign: command dock + expand-panel + Kanban modal
+// CAM-287: the single-bottom-command-dock + <ExpandPanel> + <MapOverlays> family (AC1/AC2/
+// AC4 below) was removed as dead code — exported but never mounted by campsite-scene.tsx
+// (see CAM-286 report). AC3/AC5 (KanbanModal / ViewToggle) stay live and are still tested.
 // ============================================================
-
-// ---------- CAM-159 AC1: single bottom dock replaces corner chips ----------
-describe("campsite-overlays.tsx — CAM-159 AC1: single bottom command dock", () => {
-  const src = read("../app/status/map/campsite-overlays.tsx");
-
-  it("exports MapOverlays (root component) + ViewToggle (top-center toggle)", () => {
-    expect(src).toContain("export function MapOverlays");
-    expect(src).toContain("export function ViewToggle");
-  });
-
-  it("renders dock with data-testid dock--hud-overview (Overview) and dock--hud-epic (Epic)", () => {
-    expect(src).toContain('data-testid="dock--hud-overview"');
-    expect(src).toContain('data-testid="dock--hud-epic"');
-  });
-
-  it("dock has role='toolbar' for a11y (grouped controls)", () => {
-    expect(src).toContain('role="toolbar"');
-  });
-
-  it("no corner chip positions in the new overlay: top-left/top-right/bottom-left/bottom-right removed", () => {
-    // The old CHIP_POSITIONS / Overlay primitive is gone
-    expect(src).not.toContain("CHIP_POSITIONS");
-    expect(src).not.toContain('"top-left"');
-    expect(src).not.toContain('"bottom-right"');
-    expect(src).not.toContain('"bottom-left"');
-  });
-
-  it("dock segments are real <button> elements with aria-expanded", () => {
-    expect(src).toContain('aria-expanded={openOverlay === "switcher"}');
-    expect(src).toContain('aria-expanded={openOverlay === "delivery"}');
-    expect(src).toContain('aria-expanded={openOverlay === "crew"}');
-  });
-
-  it("dock is centered bottom (hud-dock class, bottom 18px, translateX -50%)", () => {
-    expect(src).toContain(".hud-dock");
-    expect(src).toContain("bottom:18px");
-    expect(src).toContain("translateX(-50%)");
-  });
-});
-
-// ---------- CAM-159 AC2: expand panels rise above dock ----------
-describe("campsite-overlays.tsx — CAM-159 AC2: expand panels", () => {
-  const src = read("../app/status/map/campsite-overlays.tsx");
-
-  it("ExpandPanel renders with role='dialog' aria-modal", () => {
-    expect(src).toContain('role="dialog"');
-    expect(src).toContain('aria-modal="true"');
-  });
-
-  it("hud-panel CSS has bottom:80px (rises above dock)", () => {
-    expect(src).toContain("bottom:80px");
-  });
-
-  it("panel CSS has panelRise animation wrapped in prefers-reduced-motion:no-preference", () => {
-    expect(src).toContain("panelRise");
-    expect(src).toContain("prefers-reduced-motion:no-preference");
-  });
-
-  it("focus trap implemented via FOCUSABLE selector + Escape handler", () => {
-    expect(src).toContain("FOCUSABLE");
-    expect(src).toContain('e.key === "Escape"');
-  });
-});
 
 // ---------- CAM-159 AC3: Kanban modal for heavy data ----------
 describe("campsite-overlays.tsx — CAM-159 AC3: Kanban modal", () => {
@@ -575,28 +485,6 @@ describe("campsite-overlays.tsx — CAM-159 AC3: Kanban modal", () => {
 
   it("board testid follows doc convention: board--hud-{epicLabel}", () => {
     expect(src).toContain("`board--hud-${epicLabel}`");
-  });
-});
-
-// ---------- CAM-159 AC4: Epic scope — no overlapping surfaces ----------
-describe("campsite-overlays.tsx — CAM-159 AC4: Epic scope dock structure", () => {
-  const src = read("../app/status/map/campsite-overlays.tsx");
-
-  it("Epic dock has seg--hud-epic-progress segment (no duplicate position='right')", () => {
-    expect(src).toContain('data-testid="seg--hud-epic-progress"');
-  });
-
-  it("Epic dock has seg--hud-upnext (Up Next segment — no longer at position='right')", () => {
-    expect(src).toContain('data-testid="seg--hud-upnext"');
-  });
-
-  it("Epic dock has hud-board-btn (prominent open-board CTA)", () => {
-    expect(src).toContain("hud-board-btn");
-    expect(src).toContain("เปิดบอร์ด");
-  });
-
-  it("back-to-overview button present in Epic scope dock", () => {
-    expect(src).toContain('data-testid="btn--scope-back-overview"');
   });
 });
 
@@ -640,24 +528,19 @@ describe("campsite-scene.tsx — CAM-159 AC6: setScope non-blank fix", () => {
 });
 
 // ---------- CAM-159 AC7: reduced-motion — all transitions gated ----------
+// CAM-287: the panelRise (ExpandPanel) and .hud-prog-fill (dead dock mini-bar) assertions
+// were removed with the CAM-159 dock family (see above). modalIn/bdFade still gate the
+// live KanbanModal/GateDetailModal/TicketDetailModal modal + backdrop animations.
 describe("campsite-overlays.tsx — CAM-159 AC7: reduced-motion compliance", () => {
   const src = read("../app/status/map/campsite-overlays.tsx");
 
-  it("panelRise animation inside prefers-reduced-motion:no-preference block", () => {
-    expect(src).toContain("prefers-reduced-motion:no-preference");
-    expect(src).toContain("panelRise");
-  });
-
   it("modalIn animation inside prefers-reduced-motion:no-preference block", () => {
+    expect(src).toContain("prefers-reduced-motion:no-preference");
     expect(src).toContain("modalIn");
   });
 
   it("bdFade backdrop animation inside prefers-reduced-motion:no-preference block", () => {
     expect(src).toContain("bdFade");
-  });
-
-  it("progress fill transition inside prefers-reduced-motion:no-preference block", () => {
-    expect(src).toContain(".hud-prog-fill");
   });
 });
 
