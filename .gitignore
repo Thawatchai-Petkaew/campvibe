@@ -76,6 +76,8 @@ next-env.d.ts
 !/scripts/check-ds.mjs
 !/scripts/load-mock-staging.mjs
 !/scripts/reconcile-ratings.mjs
+!/scripts/import-linear.mjs
+!/scripts/parity-check.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
