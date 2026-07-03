@@ -5,6 +5,11 @@ vi.mock("@/lib/notify", () => ({
   sendTelegram: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/status-pulse", () => ({ bumpPulse: vi.fn(async () => {}) }));
+// CAM-275b: the route resolves the real `awaiting-you` label id to detect a removal
+// (see removedIds in route.ts). Stub it so tests never hit the real Linear API.
+vi.mock("@/lib/linear-actions", () => ({
+  getLabelIdByName: vi.fn(async (name: string) => (name === "awaiting-you" ? "aw" : null)),
+}));
 vi.mock("server-only", () => ({}));
 
 import { POST } from "@/app/api/linear-webhook/route";

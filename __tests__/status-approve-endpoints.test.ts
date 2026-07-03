@@ -24,6 +24,9 @@ vi.mock("@/lib/linear-actions", () => ({
   removeAwaitingYou: vi.fn(async () => true),
   addComment: vi.fn(async () => true),
   addLabel: vi.fn(async () => true),
+  // CAM-275b: the linear-webhook route resolves the real `awaiting-you` label id to
+  // detect a removal (see removedIds); the fixtures below use "aw" as its id.
+  getLabelIdByName: vi.fn(async (name: string) => (name === "awaiting-you" ? "aw" : null)),
 }));
 
 vi.mock("@/lib/linear", () => ({

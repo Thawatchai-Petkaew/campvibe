@@ -64,6 +64,29 @@ export async function addComment(identifier: string, body: string): Promise<bool
 }
 
 /**
+ * Resolve a team label's Linear id by its name (case-insensitive).
+ *
+ * Shared by addLabel() below (to find the label to attach) and by the
+ * linear-webhook route (CAM-275b) to detect whether a REMOVED label id was
+ * `awaiting-you` — Linear's webhook payload only carries ids in
+ * `updatedFrom.labelIds` (never the name), so the caller must resolve the
+ * name→id itself to check membership.
+ *
+ * Returns null if the team has no label with this name.
+ */
+export async function getLabelIdByName(labelName: string): Promise<string | null> {
+  const data = await gql<{
+    teams: { nodes: { labels: { nodes: { id: string; name: string }[] } }[] };
+  }>(
+    `query($k:String!){ teams(filter:{key:{eq:$k}}){ nodes{ labels{ nodes{ id name } } } } }`,
+    { k: TEAM_KEY }
+  );
+  const teamLabels = data.teams?.nodes?.[0]?.labels?.nodes ?? [];
+  const target = teamLabels.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
+  return target?.id ?? null;
+}
+
+/**
  * Add a label (by name) to an issue. Idempotent — does nothing if the label is
  * already present. Looks up the label id in the team's label list by name.
  * Returns true if the label was added (or already present), false if the issue
@@ -77,18 +100,10 @@ export async function addLabel(identifier: string, labelName: string): Promise<b
   const alreadyPresent = issue.labels.some((l) => l.name.toLowerCase() === labelName.toLowerCase());
   if (alreadyPresent) return true;
 
-  // Fetch team labels to find the target label id.
-  const data = await gql<{
-    teams: { nodes: { labels: { nodes: { id: string; name: string }[] } }[] };
-  }>(
-    `query($k:String!){ teams(filter:{key:{eq:$k}}){ nodes{ labels{ nodes{ id name } } } } }`,
-    { k: TEAM_KEY }
-  );
-  const teamLabels = data.teams?.nodes?.[0]?.labels?.nodes ?? [];
-  const target = teamLabels.find((l) => l.name.toLowerCase() === labelName.toLowerCase());
-  if (!target) return false;
+  const targetId = await getLabelIdByName(labelName);
+  if (!targetId) return false;
 
-  const next = [...issue.labels.map((l) => l.id), target.id];
+  const next = [...issue.labels.map((l) => l.id), targetId];
   await gql(
     `mutation($id:String!,$input:IssueUpdateInput!){ issueUpdate(id:$id,input:$input){ success } }`,
     { id: issue.id, input: { labelIds: next } }

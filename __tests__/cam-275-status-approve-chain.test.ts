@@ -204,3 +204,60 @@ describe("CAM-275 — observable gate-dispatch + Telegram failures", () => {
     expect(src).not.toContain('reason: token');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. CAM-275 part 2 — awaiting-you REMOVAL detection (the gate-approval bug)
+//
+// Ground truth: currentLabels/labelNames reflect the label set AFTER the
+// update, so a removed label can never be found there. The fix diffs
+// prevLabelIds against the current id set to get `removedIds`, resolves the
+// real `awaiting-you` label id via the shared lib/linear-actions helper, and
+// checks membership — only looksApproved on that, not the old (unreachable)
+// "check prior ids against current labels" approach.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("CAM-275 part 2 — the route detects an awaiting-you REMOVAL (not just an add)", () => {
+  it("route.ts computes removedIds by diffing prevLabelIds against the current id set", () => {
+    const src = read("../app/api/linear-webhook/route.ts");
+    expect(src).toContain("removedIds");
+    expect(src).toContain("currentIds");
+    // Must diff prevLabelIds against currentIds — not check prevLabelIds against currentLabels
+    // (the part-1 bug: checking OLD ids against the post-update label list can never match a
+    // label that was just removed, since it's by definition absent from that list).
+    expect(src).toMatch(/prevLabelIds\s*\?\s*prevLabelIds\.filter/);
+  });
+
+  it("route.ts resolves the awaiting-you label id via the shared lib/linear-actions helper (no duplicated query)", () => {
+    const src = read("../app/api/linear-webhook/route.ts");
+    expect(src).toContain('import { getLabelIdByName } from "@/lib/linear-actions"');
+    expect(src).toContain('getLabelIdByName("awaiting-you")');
+  });
+
+  it("route.ts only calls the label-id lookup when something was actually removed (removedIds.length > 0)", () => {
+    const src = read("../app/api/linear-webhook/route.ts");
+    expect(src).toMatch(/if\s*\(\s*removedIds\.length\s*>\s*0\s*\)/);
+  });
+
+  it("route.ts wraps the lookup in try/catch and logs gate_detect_label_lookup_failed (never throws — must stay 200 for Linear)", () => {
+    const src = read("../app/api/linear-webhook/route.ts");
+    expect(src).toContain("gate_detect_label_lookup_failed");
+    expect(src).toMatch(/try\s*{[\s\S]*getLabelIdByName[\s\S]*}\s*catch/);
+  });
+
+  it("looksApproved is driven by awaitingRemoved, not the old unreachable prior-ids-vs-current-labels check", () => {
+    const src = read("../app/api/linear-webhook/route.ts");
+    expect(src).toContain("const looksApproved = awaitingRemoved && !hasChangesRequested");
+    // The old, mathematically-unreachable-on-removal check must be gone.
+    expect(src).not.toMatch(/currentLabels\.some\(\s*\(cl\)\s*=>\s*cl\.id === lid && cl\.name === "awaiting-you"/);
+    expect(src).not.toContain("stillAwaiting");
+  });
+
+  it("lib/linear-actions.ts exports getLabelIdByName and addLabel reuses it (no duplicated team-labels query)", () => {
+    const src = read("../lib/linear-actions.ts");
+    expect(src).toContain("export async function getLabelIdByName");
+    // addLabel must call the shared helper rather than re-running its own team-labels query.
+    const addLabelBody = src.slice(src.indexOf("export async function addLabel"));
+    expect(addLabelBody).toContain("getLabelIdByName(labelName)");
+    expect(addLabelBody).not.toContain("teams(filter:");
+  });
+});
