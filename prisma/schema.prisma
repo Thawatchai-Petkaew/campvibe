@@ -434,6 +434,18 @@ model Review {
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
 
+  // CAM-269 (PREP-3): verified-stay gate. bookingId links the review to the exact
+  // completed Booking that qualified the author to post it — @unique enforces
+  // one review per booking (409 on a second attempt). Nullable because rows created
+  // before this migration have no known qualifying booking (see migration comment);
+  // verified defaults false so those legacy rows are excluded from `verified`-filtered
+  // reads until a real, gated review replaces them. The seam is `canReview()` in
+  // lib/validations/review.ts — a future ManualStay/Booking(source=MANUAL) source
+  // (ADR-012, pending) can extend that single function without touching callers.
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+  verified  Boolean  @default(false)
+
   images Image[] // S4b: review photos (replaces mediaUrls CSV)
 
   createdAt DateTime  @default(now())
@@ -442,6 +454,7 @@ model Review {
   version   Int       @default(1)
 
   @@index([campSiteId])
+  @@index([campSiteId, verified])
   @@index([authorId])
   @@index([rating])
 }
@@ -484,6 +497,10 @@ model Booking {
   spot   Spot?   @relation(fields: [spotId], references: [id])
 
   payments Payment[] // Payment ledger for this booking (S7)
+
+  // CAM-269 (PREP-3): reverse side of Review.bookingId (optional 1:1 — a booking
+  // has at most one review since Review.bookingId is @unique).
+  review Review?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

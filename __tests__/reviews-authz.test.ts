@@ -92,23 +92,42 @@ describe('reviewBodySchema', () => {
 
 // ---------------------------------------------------------------------------
 // canReview — verified-stay decision (pure, no DB)
+//
+// CAM-269 (PREP-3): renamed hasConfirmedBooking → hasQualifyingBooking. The
+// caller now qualifies a booking by BOTH status (COMPLETED) AND checkInDate
+// having passed (see VERIFIED_STAY_STATUSES + hasStayOccurred below and the
+// query in app/api/reviews/route.ts) — canReview itself stays a pure,
+// single-input decision so a future ManualStay source (ADR-012) can extend
+// the input without touching this function's contract.
 // ---------------------------------------------------------------------------
 describe('canReview', () => {
-    it('returns false when user has no confirmed booking', () => {
-        expect(canReview({ hasConfirmedBooking: false })).toBe(false);
+    it('returns false when user has no qualifying booking', () => {
+        expect(canReview({ hasQualifyingBooking: false })).toBe(false);
     });
 
-    it('returns true when user has a confirmed booking', () => {
-        expect(canReview({ hasConfirmedBooking: true })).toBe(true);
+    it('returns true when user has a qualifying booking', () => {
+        expect(canReview({ hasQualifyingBooking: true })).toBe(true);
     });
 });
 
 // ---------------------------------------------------------------------------
 // VERIFIED_STAY_STATUSES — documents which statuses the DB query uses
+//
+// CAM-269: only COMPLETED counts. A CONFIRMED/PAID booking is a reservation
+// that hasn't happened yet — it must NOT let the user post a review, even
+// though it was the (incomplete) rule before this story.
 // ---------------------------------------------------------------------------
 describe('VERIFIED_STAY_STATUSES', () => {
-    it('includes CONFIRMED', () => {
-        expect(VERIFIED_STAY_STATUSES).toContain('CONFIRMED');
+    it('includes COMPLETED', () => {
+        expect(VERIFIED_STAY_STATUSES).toContain('COMPLETED');
+    });
+
+    it('does not include CONFIRMED (a reservation is not yet a completed stay)', () => {
+        expect(VERIFIED_STAY_STATUSES).not.toContain('CONFIRMED');
+    });
+
+    it('does not include PAID', () => {
+        expect(VERIFIED_STAY_STATUSES).not.toContain('PAID');
     });
 
     it('does not include CANCELLED', () => {
@@ -117,5 +136,9 @@ describe('VERIFIED_STAY_STATUSES', () => {
 
     it('does not include PENDING', () => {
         expect(VERIFIED_STAY_STATUSES).not.toContain('PENDING');
+    });
+
+    it('is exactly the single-value set [COMPLETED] (no accidental extra status)', () => {
+        expect([...VERIFIED_STAY_STATUSES]).toEqual(['COMPLETED']);
     });
 });

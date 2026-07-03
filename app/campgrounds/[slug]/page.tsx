@@ -68,14 +68,17 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
 
     try {
         const campSiteId = campSite.id;
+        // CAM-269 (PREP-3) AC-3: the review list (and its rating summary) shows only
+        // verified-stay reviews — filter both queries by `verified: true` so the count
+        // shown next to the stars always matches the number of review cards rendered.
         const [agg, latest] = await Promise.all([
             prisma.review.aggregate({
-                where: { campSiteId, deletedAt: null },
+                where: { campSiteId, deletedAt: null, verified: true },
                 _avg: { rating: true },
                 _count: { rating: true },
             }),
             prisma.review.findMany({
-                where: { campSiteId, deletedAt: null },
+                where: { campSiteId, deletedAt: null, verified: true },
                 include: { author: { select: { name: true } } },
                 orderBy: { createdAt: 'desc' },
                 take: 10,
