@@ -12,7 +12,12 @@
  *      this comparison is "does the delivery-DB-backed dashboard match what /status shows
  *      TODAY", and lib/linear.ts is what /status shows today — reproducing its known cap
  *      faithfully (rather than "fixing" it here) keeps the comparison meaningful. See the
- *      FLAG below: this cap is now a real, confirmed bug (team CAM has 282 issues > 250).
+ *      FLAG below: team CAM has 282 issues total, but lib/linear.ts's query does not pass
+ *      includeArchived, so its real live exposure is the NON-archived count (223, confirmed
+ *      live during T-4 research) — under the 250 cap today, but only 27 away from it, and the
+ *      cap will start silently truncating the OLDEST issues the moment non-archived issues
+ *      cross 250. Not conflating the two numbers matters: this script's own FLAG below only
+ *      fires once the live (non-archived) fetch itself hits >= 250, not off the 282 total.
  *
  *   2. DB side — going through `lib/delivery/status-adapter.ts`'s `toStatusIssue()` directly
  *      was considered and rejected: that module is `server-only` + typed against the generated
@@ -308,11 +313,15 @@ async function main() {
   console.log(
     `linear: fetched ${linearIssues.length} issue(s) (first:250 cap, no includeArchived — mirrors lib/linear.ts today)` +
       (linearIssues.length >= 250
-        ? "\n⚠ FLAG: hit (or exceeded) the 250-issue cap — lib/linear.ts's /status dashboard is " +
-          "TODAY silently truncating older issues in the live team (confirmed 282 real issues " +
-          "during T-4 research > 250). This is a pre-existing bug, out of scope for this story " +
-          "— flagged for a follow-up ticket, not fixed here."
-        : "")
+        ? `\n⚠ FLAG: this fetch hit the 250-issue cap (${linearIssues.length} returned) — ` +
+          "lib/linear.ts's /status dashboard is silently truncating older issues right now. " +
+          "This is a pre-existing bug, out of scope for this story — flagged for a follow-up " +
+          "ticket, not fixed here."
+        : linearIssues.length >= 220
+          ? `\n⚠ NOTE: ${linearIssues.length}/250 of the cap already used (team CAM has 282 ` +
+            "issues total incl. archived, which lib/linear.ts's query does not request) — " +
+            "close to the ceiling; will start silently truncating soon."
+          : "")
   );
 
   const dbResult = await fetchDbStatusIssues();
