@@ -2,6 +2,11 @@
 // Uses LINEAR_API_KEY (personal API key) — must stay server-side, never expose to client.
 import "server-only";
 import { unstable_cache } from "next/cache";
+// Defined seam (ADR-010): the ONLY place a product file imports lib/delivery/* directly
+// (the other is app/api/tickets/*). TICKETS_SOURCE gates it — default (unset/anything but
+// "db") keeps this file's own Linear path fully independent, so a broken delivery adapter
+// never breaks the default dashboard (rollback = flip the env var, no redeploy).
+import { fetchTicketsFromDb } from "@/lib/delivery/status-adapter";
 
 const LINEAR_API = "https://api.linear.app/graphql";
 const PRIORITY = ["No priority", "Urgent", "High", "Medium", "Low"] as const;
@@ -111,5 +116,10 @@ const cachedStatusIssues = unstable_cache(
 
 /** Dashboard issues, freshness keyed on the pulse version (0 = time-based 60s cache only). */
 export function fetchStatusIssues(pulse = 0): Promise<StatusIssue[]> {
+  // ADR-010 rollback flag: "db" reads the self-hosted delivery Ticket table instead of
+  // Linear. Default (unset or any other value) is the original Linear path, unchanged.
+  if (process.env.TICKETS_SOURCE === "db") {
+    return fetchTicketsFromDb();
+  }
   return cachedStatusIssues(pulse);
 }
