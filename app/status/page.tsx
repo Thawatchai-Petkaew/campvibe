@@ -228,7 +228,7 @@ function renderOverview(m: Model, tq: string, group: string, envOpen: boolean, e
   if (m.gates.length) {
     m.gates.forEach((i) => {
       const g = gateOf(i.title);
-      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><button type="button" class="gr-btn" data-act="open-ticket" data-arg="${esc(i.id)}">Review →</button></div>`;
+      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><button type="button" class="gr-btn" data-act="open-ticket" data-arg="${esc(i.id)}">View Detail →</button></div>`;
     });
   } else h += `<div class="none-row">✓ ไม่มีงานรออนุมัติจากคุณตอนนี้</div>`;
   h += `</section>`;
@@ -332,7 +332,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   // action card
   if (needs.length) {
     const g = needs[0], gl = gateOf(g.title);
-    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><button type="button" class="approve" data-act="open-ticket" data-arg="${esc(g.id)}">Review &amp; Approve <span aria-hidden="true">→</span></button></section>`;
+    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><button type="button" class="approve" data-act="open-ticket" data-arg="${esc(g.id)}">View Detail <span aria-hidden="true">→</span></button></section>`;
   }
 
   // live now + up next

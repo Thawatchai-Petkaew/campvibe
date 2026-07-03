@@ -23,6 +23,12 @@ vi.mock("@/lib/status-pulse", () => ({
   bumpPulse: vi.fn(async () => {}),
 }));
 
+// CAM-287: app/api/status/pulse/route.ts now bumps lib/delivery/pulse.ts's DeliveryPulse.
+vi.mock("@/lib/delivery/pulse", () => ({
+  readDeliveryPulse: vi.fn(async () => 0),
+  bumpDeliveryPulse: vi.fn(async () => {}),
+}));
+
 vi.mock("server-only", () => ({}));
 
 // ── Imports ───────────────────────────────────────────────────────────────────
