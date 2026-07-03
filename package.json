@@ -24,7 +24,10 @@
     "check:ds": "node scripts/check-ds.mjs",
     "reconcile:ratings": "node scripts/reconcile-ratings.mjs",
     "delivery:generate": "prisma generate --schema prisma/delivery/schema.prisma",
-    "delivery:migrate": "prisma migrate dev --schema prisma/delivery/schema.prisma --skip-seed"
+    "delivery:migrate": "prisma migrate dev --schema prisma/delivery/schema.prisma --skip-seed",
+    "delivery:import": "node scripts/import-linear.mjs",
+    "delivery:import:dry": "node scripts/import-linear.mjs --dry-run",
+    "delivery:parity": "node scripts/parity-check.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
