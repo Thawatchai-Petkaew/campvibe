@@ -22,6 +22,8 @@ const eslintConfig = [
       "node_modules/**",
       "prisma/migrations/**",
       "prisma/generated/**",
+      "prisma/delivery/migrations/**",
+      "prisma/delivery/generated/**",
     ],
   },
   // Baseline overrides for pre-existing widespread violations.
