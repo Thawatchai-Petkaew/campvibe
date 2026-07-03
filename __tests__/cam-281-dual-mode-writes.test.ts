@@ -16,8 +16,10 @@
  *   2. Source-inspection: none of the four routes reference `TICKETS_SOURCE` or import
  *      `@/lib/linear-actions` any longer (guards against a stray dual-mode leftover).
  *   3. The `linear-continue.yml` CI workflow always runs the ticket-sync.mjs gates check
- *      (no TICKETS_SOURCE conditional, no LINEAR_* env) and `camper-adhoc.yml` is untouched
- *      by this story (kept for parity — its own repointing is a later story).
+ *      (no TICKETS_SOURCE conditional, no LINEAR_* env); `camper-adhoc.yml` was repointed in
+ *      CAM-282 (T-6, the conventions-rewrite story) — its LINEAR_API_KEY/LINEAR_TEAM_KEY/
+ *      TICKETS_SOURCE env lines are gone and its prompt/notify text now uses
+ *      `scripts/ticket-sync.mjs` too, mirroring linear-continue.yml.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "node:fs";
@@ -405,9 +407,15 @@ describe("CAM-281 (T-5b) — CI workflows", () => {
     expect(yml).not.toContain("linear-sync.mjs notify");
   });
 
-  it("camper-adhoc.yml provisions TICKETS_SOURCE for parity (unchanged — its own repointing is a later story)", () => {
+  it("camper-adhoc.yml (CAM-282 T-6) no longer provisions LINEAR_*/TICKETS_SOURCE env and reports via ticket-sync.mjs notify", () => {
     const yml = read(".github/workflows/camper-adhoc.yml");
-    expect(yml).toContain("TICKETS_SOURCE=%s");
-    expect(yml).toContain("vars.TICKETS_SOURCE || 'linear'");
+    expect(yml).not.toContain("TICKETS_SOURCE");
+    expect(yml).not.toContain("LINEAR_API_KEY");
+    expect(yml).not.toContain("LINEAR_TEAM_KEY");
+    expect(yml).toContain("STATUS_TOKEN=%s");
+    expect(yml).toContain("APP_BASE_URL=%s");
+    expect(yml).toContain("node scripts/ticket-sync.mjs notify");
+    expect(yml).not.toContain("linear-sync.mjs notify");
+    expect(yml).not.toContain("linear-sync.mjs set");
   });
 });
