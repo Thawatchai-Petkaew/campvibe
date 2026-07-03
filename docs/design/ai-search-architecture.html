@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe AI Camping Assistant — Discovery &amp; Architecture</title>
+<style>
+  :root{
+    --bg:#070d1c; --panel:rgba(11,30,24,.55); --panel2:rgba(11,30,24,.8);
+    --line:rgba(150,240,195,.16); --line2:rgba(150,240,195,.28);
+    --teal:#5BE9B0; --amber:#FFB454; --violet:#B7A6FF; --blue:#8FB8F0; --faintr:#e88;
+    --text:#dfeaf5; --muted:rgba(223,234,245,.62); --faint:rgba(223,234,245,.4);
+    --blur:saturate(180%) blur(26px);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Sarabun",Roboto,sans-serif;color:var(--text);line-height:1.5;
+    background:radial-gradient(1200px 700px at 80% -8%,rgba(91,233,176,.10),transparent 60%),radial-gradient(900px 600px at 10% 108%,rgba(255,180,84,.08),transparent 55%),var(--bg);
+    min-height:100vh;padding:34px 20px 80px}
+  .wrap{max-width:1140px;margin:0 auto}
+  .badge{display:inline-flex;gap:7px;font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;border:1px solid var(--line2);background:rgba(91,233,176,.08);color:var(--teal)}
+  h1{font-size:29px;margin:14px 0 4px;letter-spacing:-.4px}
+  h1 .sub{display:block;font-size:15px;font-weight:500;color:var(--muted);margin-top:6px}
+  h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:9px}
+  h2 .n{width:26px;height:26px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--bg);background:var(--teal)}
+  .lead{color:var(--muted);font-size:14px;margin:2px 0 16px}
+  section.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin:18px 0;
+    backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);box-shadow:0 18px 44px rgba(0,0,0,.35),inset 0 1px 0 rgba(200,255,232,.06)}
+  p{margin:8px 0} code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#c9f5e2}
+  .muted{color:var(--muted)} .teal{color:var(--teal)} .amber{color:var(--amber)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .mini{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:14px 16px}
+  .mini h3{margin:0 0 8px;font-size:14px}
+  ul.clean{list-style:none;margin:6px 0 0;padding:0} ul.clean li{font-size:13.5px;margin:7px 0;padding-left:20px;position:relative;color:var(--muted)}
+  ul.clean li::before{content:"▹";position:absolute;left:2px;color:var(--teal)}
+  /* chips */
+  .chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .c-mvp{color:var(--bg);background:var(--teal)} .c-15{color:var(--amber);background:rgba(255,180,84,.14);border:1px solid rgba(255,180,84,.35)}
+  .c-p2{color:var(--violet);background:rgba(183,166,255,.12);border:1px solid rgba(183,166,255,.3)} .c-p3{color:var(--faint);border:1px solid var(--line)}
+  /* feature clusters */
+  .cluster{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:10px 0;background:var(--panel2)}
+  .cluster.v1{border-color:var(--line2);background:linear-gradient(180deg,rgba(91,233,176,.09),rgba(91,233,176,.02));box-shadow:0 0 0 1px rgba(91,233,176,.12)}
+  .cluster .ch{font-weight:700;font-size:14.5px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .cluster .ch .v1tag{font-size:10px;font-weight:700;color:var(--bg);background:var(--teal);padding:2px 8px;border-radius:999px}
+  .feat{font-size:13px;margin:6px 0;color:var(--muted)} .feat b{color:var(--text)}
+  .gap{color:var(--amber);font-size:11.5px}
+  /* flow */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+  .fbox{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:9px 12px;font-size:12.5px;flex:none}
+  .fbox b{color:var(--teal)} .arr{color:var(--faint);font-size:16px}
+  .fbox.reuse{border-color:var(--line2)} .fbox.new{border-color:rgba(255,180,84,.3)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px} th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .verdict{border-left:3px solid var(--teal);background:rgba(91,233,176,.06);border-radius:0 12px 12px 0;padding:14px 16px;margin:8px 0;font-size:14px}
+  .verdict b{color:var(--teal)}
+  .decision{border-left:3px solid var(--amber);background:rgba(255,180,84,.06);border-radius:0 11px 11px 0;padding:10px 14px;margin:8px 0;font-size:13.5px}
+  .story{display:flex;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:9px 13px;margin:7px 0}
+  .story .id{flex:none;font-weight:700;font-size:11.5px;color:var(--teal);width:88px} .story .x{flex:1;font-size:13px} .story .p{flex:none;font-size:10px;color:var(--faint)}
+  .prep .id{color:var(--amber)}
+  .foot{margin-top:26px;font-size:12px;color:var(--faint);text-align:center} a{color:var(--teal);text-decoration:none} a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="badge">● Discovery + Architecture · design-only · ยังไม่ spend / ไม่แตะแอป</span>
+  <h1>CampVibe · AI Camping Assistant
+    <span class="sub">แชทตอบทุกเรื่องแคมป์จากข้อมูลในแพลตฟอร์ม → การ์ดในแชท → จองต่อ · Use-case → Feature List → Architecture</span>
+  </h1>
+  <p class="muted" style="font-size:13.5px">หลักการ <b class="teal">augment ก่อน disrupt</b> — แชทเป็นชั้นสนทนาที่เสริม search/booking เดิม, ทำสิ่งที่ search เดิมทำไม่ได้ (ภาษาคน/compound/ถามต่อ/วางแผน), ไม่รื้อของเดิม</p>
+
+  <!-- ARCHITECT ANSWER -->
+  <section class="card">
+    <h2><span class="n">?</span> คำถาม Architect: ต้อง merge/ปรับสถาปัตยกรรมข้อมูลไหม</h2>
+    <div class="verdict"><b>ไม่ต้อง merge / ไม่ denormalize / ไม่ warehouse.</b> ตาราง normalized คือ source of truth ที่ถูก (booking/availability = transactional). สิ่งที่ขาดคือ <b>"ชั้น query/tool" ที่ประกอบตารางตอนถาม</b> — AI ไม่ query DB ตรง แต่เรียก typed tools ที่ JOIN ตารางเดิมให้ตามคำถาม.</div>
+    <div class="flow">
+      <span class="fbox">📚 Normalized tables<br><span class="muted" style="font-size:11px">CampSite · Booking · BlockedDate · Review · Location</span></span>
+      <span class="arr">→</span>
+      <span class="fbox reuse"><b>Tool layer</b> (JOIN ตอนถาม)<br><span class="muted" style="font-size:11px">buildCampSiteWhere · availability · campCardSelect</span></span>
+      <span class="arr">→</span>
+      <span class="fbox new"><b>AI agent</b> (tool-use)</span>
+      <span class="arr">→</span>
+      <span class="fbox">💬 Chat + 🧩 Cards</span>
+    </div>
+    <ul class="clean">
+      <li><b>"วันนี้ลานนี้ว่างไหม" = query สดเสมอ</b> (Booking+BlockedDate+Spot) — ห้าม cache/embed (กัน double-booking)</li>
+      <li><b>embeddings/pgvector = เลื่อน + เฉพาะ content</b> (vibe/รีวิว) ไม่ใช่ availability/price · <b>ไม่ต้อง data warehouse</b> (เกินตัวที่ N ~ร้อย)</li>
+      <li>web + practice ยืนยัน: structured+live → <b>function-calling ชนะ embeddings-RAG / text-to-SQL</b></li>
+    </ul>
+  </section>
+
+  <!-- FEATURE LIST -->
+  <section class="card">
+    <h2><span class="n">≡</span> Feature list ตาม journey (จาก use case จริง + gap ในโค้ด)</h2>
+    <p class="lead">chip = ลำดับ: <span class="chip c-mvp">MVP v1</span> <span class="chip c-15">v1.5</span> <span class="chip c-p2">Phase 2</span> <span class="chip c-p3">later</span> · กล่องเรืองแสง = <b class="teal">scope v1 ที่เคาะแล้ว</b></p>
+
+    <div class="cluster v1">
+      <div class="ch">A · Discover / Search <span class="v1tag">v1</span></div>
+      <div class="feat"><b>A1 NL compound search</b> — "หมาได้ ใกล้กรุงเทพ ≤2ชม งบ&lt;1000 เสาร์นี้ว่าง" → การ์ด <span class="chip c-mvp">MVP</span></div>
+      <div class="feat"><b>A2 Geo / near-me</b> — "ลานใกล้เชียงใหม่ ขับ 2ชม" (lat/lng) <span class="chip c-mvp">MVP</span></div>
+      <div class="feat"><b>A3 Availability transparency</b> — "เหลือกี่ที่ช่วงนี้" <span class="gap">⚠ gap: ต้องเช็ค BlockedDate + partial capacity</span> <span class="chip c-mvp">MVP</span></div>
+      <div class="feat"><b>A4 "วันนี้ลานนี้ว่างไหม"</b> — live per-spot <span class="chip c-mvp">MVP</span></div>
+    </div>
+
+    <div class="cluster v1">
+      <div class="ch">C · Book / Handoff <span class="v1tag">v1</span></div>
+      <div class="feat"><b>C1 การ์ดในแชท → กดจอง</b> เข้า booking flow เดิม <span class="chip c-mvp">MVP</span></div>
+      <div class="feat"><b>C2 Booking prep</b> — เก็บ date/guests → re-check → deep-link prefill (ไม่มี write tool) <span class="chip c-mvp">MVP</span></div>
+    </div>
+
+    <div class="cluster">
+      <div class="ch">B · Decide / Compare</div>
+      <div class="feat"><b>B1 เทียบ A vs B</b> <span class="chip c-15">v1.5</span> · <b>B2 AI review summary</b> <span class="chip c-15">v1.5</span> · <b>B3 ถามราคา/ยกเลิก</b> <span class="gap">⚠ fee ไม่ตรง + ไม่มี cancellation field</span> <span class="chip c-15">v1.5</span></div>
+    </div>
+
+    <div class="cluster">
+      <div class="ch">D · Plan / Trip <span class="muted" style="font-size:11px">(ไอเดีย owner — ปลายทาง)</span></div>
+      <div class="feat"><b>D1 Trip/route planner</b> — 2-3 ลานเป็น route + ระยะขับ + งบรวม <span class="gap">⚠ ต้องเพิ่ม data model: trip/itinerary/distance</span> <span class="chip c-p2">Phase 2</span></div>
+      <div class="feat"><b>D2 Packing list</b> <span class="chip c-15">v1.5</span> · <b>D3 Weather / นำทาง Google Maps</b> <span class="chip c-15">v1.5</span></div>
+    </div>
+
+    <div class="cluster">
+      <div class="ch">Host / Platform</div>
+      <div class="feat"><b>AI listing builder</b> (FB/รูป→ร่าง) <span class="chip c-p2">P2</span> · <b>FAQ auto-reply</b> <span class="chip c-p2">P2</span> · <b>fake-review / KYC check</b> <span class="chip c-p3">P3</span></div>
+    </div>
+  </section>
+
+  <!-- CHAT FLOW -->
+  <section class="card">
+    <h2><span class="n">💬</span> Chat data-flow (tool-use agent) — v1</h2>
+    <div class="flow">
+      <span class="fbox new">CampChat (client)</span><span class="arr">→</span>
+      <span class="fbox new">/api/ai-chat (SSE)<br><span class="muted" style="font-size:11px">validate · gate · rate-limit</span></span><span class="arr">→</span>
+      <span class="fbox new">agent loop (OpenRouter, cap 4)</span>
+    </div>
+    <div class="flow">
+      <span class="arr">↳ tools →</span>
+      <span class="fbox reuse">searchCampsites<br><span class="muted" style="font-size:11px">buildCampSiteWhere</span></span>
+      <span class="fbox reuse">checkAvailability<br><span class="muted" style="font-size:11px">campsite-availability (สด)</span></span>
+      <span class="fbox reuse">getCampDetail</span>
+    </div>
+    <div class="flow">
+      <span class="arr">→</span><span class="fbox">reply = text + <b>cards</b> (render CampgroundCard เดิม)</span><span class="arr">→</span>
+      <span class="fbox">กดการ์ด/deep-link → <b>booking flow เดิม</b></span>
+    </div>
+    <p class="muted" style="font-size:12.5px">tools = read-only, zod-validate args, บังคับ public gate · ไม่มี write/booking tool · การ์ดไม่กิน token (server ยิง card block) · fallback keyword เมื่อ error</p>
+  </section>
+
+  <!-- PREP FIRST + STORIES -->
+  <section class="card">
+    <h2><span class="n">1</span> ทำก่อน: story เตรียมข้อมูล (ไม่ใช่ AI · ไม่ spend)</h2>
+    <p class="lead">ปิด gap ที่ทำให้แชทตอบผิด/เสีย trust ก่อนต่อ AI — เพราะ AI ตอบดีได้แค่เท่าข้อมูลที่มี</p>
+    <div class="story prep"><span class="id">PREP-1</span><span class="x">availability เช็ค <b>BlockedDate</b> + คืน <b>partial capacity</b> ("เหลือ 2/5")</span><span class="p">A3/A4</span></div>
+    <div class="story prep"><span class="id">PREP-2</span><span class="x">price/fee ตรง total (C-3.4) + เพิ่ม <b>cancellation policy</b> field</span><span class="p">B3</span></div>
+    <div class="story prep"><span class="id">PREP-3</span><span class="x"><b>verified-stay gate</b> ของรีวิว (F-4.3) — กันรีวิวปลอม</span><span class="p">trust</span></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">2</span> Chat stories (cost-gated · off จนกว่า owner เปิด)</h2>
+    <div class="story"><span class="id">CAM-AI-1</span><span class="x">tool registry + <code>searchCampsites</code> + OpenRouter client (single-turn, ยังไม่ stream)</span><span class="p">= extraction เดิม</span></div>
+    <div class="story"><span class="id">CAM-AI-2</span><span class="x">agent loop + streaming + <code>checkAvailability</code> + <code>getCampDetail</code></span><span class="p">build</span></div>
+    <div class="story"><span class="id">CAM-AI-3</span><span class="x">Chat UI + การ์ดในแชท (CampgroundCard) + booking handoff</span><span class="p">build</span></div>
+    <p class="muted" style="font-size:12.5px;margin-top:10px">ต่อไป (รอบถัดไป): B decide · D trip planner (Phase 2, +data model) · host tools</p>
+  </section>
+
+  <!-- COST + SECURITY -->
+  <div class="cols">
+    <section class="card" style="margin:18px 0">
+      <h2><span class="n">$</span> Cost</h2>
+      <ul class="clean">
+        <li>chat ~$0.005–0.15 / บทสนทนา (แล้วแต่โมเดล) · key = <b>OpenRouter เดิม</b></li>
+        <li>คุม: owner-gate flag (off default) · cheap pinned model · history truncate · per-user/day cap · iteration cap 4</li>
+        <li><b>ยิง API จริง = หลัง owner อนุมัติ spend (G2)</b></li>
+      </ul>
+    </section>
+    <section class="card" style="margin:18px 0">
+      <h2><span class="n">🛡</span> Security</h2>
+      <ul class="clean">
+        <li>query = data ไม่ใช่ instruction · zod ก่อน Prisma</li>
+        <li>tools บังคับ public gate (isActive/isPublished/deletedAt) · ไม่มี PII · <b>ไม่มี write tool</b></li>
+        <li>key server-only · rate-limit + spend cap · log ไม่มี prompt/PII</li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- LOCKED -->
+  <section class="card">
+    <h2><span class="n">✓</span> Scope ที่เคาะแล้ว</h2>
+    <div class="decision"><b>chat v1 = A Discover + C Book</b> (ถาม→ค้น NL/geo/availability สด→การ์ด→จองต่อ). B/D/host = รอบถัดไป.</div>
+    <div class="decision"><b>ทำ PREP-1..3 ก่อน</b> ฟีเจอร์ AI (availability/price/verified-review).</div>
+    <div class="decision"><b>trip/route planner (D1)</b> = Phase 2 — ต้องเพิ่ม trip/itinerary/distance data; ต่อยอดเมื่อ chat พิสูจน์ demand.</div>
+    <div class="decision">รอเคาะ: OpenRouter โมเดล primary + เพดาน spend/วัน (ตอน G2 ก่อน CAM-AI-1 ยิง API).</div>
+  </section>
+
+  <div class="foot">CampVibe AI Camping Assistant — discovery + architecture (no spend, no app change) ·
+    <span style="color:var(--faint)">grounded: docs/project/product-plan.md · user-research.md · lib/campsite-filters.ts · prisma/schema.prisma · domain: Mindtrip/AdventureGenie</span>
+  </div>
+</div>
+</body>
+</html>
