@@ -293,8 +293,10 @@ export const HUD_CSS = `
   background:rgba(91,233,176,.05);
   border:1px solid rgba(150,240,195,.13);
   border-radius:12px;padding:10px 11px;margin-bottom:8px;
+  width:100%;text-align:left;cursor:pointer;font:inherit;
 }
 .hud-card:last-child{margin-bottom:0}
+.hud-card:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 @keyframes hud-card-glow{
   0%,100%{box-shadow:none;border-color:rgba(91,233,176,.22)}
   50%{box-shadow:0 0 12px rgba(91,233,176,.2),0 0 4px rgba(91,233,176,.1);border-color:rgba(91,233,176,.6)}
@@ -941,6 +943,44 @@ export const HUD_CSS = `
 .hud-gate-link-linear:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 .hud-gate-modal-action-error{font-size:11.5px;color:rgba(255,100,80,.8);margin-top:8px;width:100%}
 
+/* ---- Ticket detail modal (CAM-286, read-only) — neutral scene-glass, NOT the amber
+   approve accent (that stays exclusive to .hud-gate-modal-*). Shares the .hud-modal-box
+   sizing convention but at gate-modal width since it shows one ticket, not a whole board. */
+.hud-ticket-modal-box{
+  width:min(520px,94vw);max-height:86vh;overflow-y:auto;
+  background:rgba(11,30,24,.68);
+  backdrop-filter:saturate(195%) blur(34px);-webkit-backdrop-filter:saturate(195%) blur(34px);
+  border:1px solid rgba(150,240,195,.16);border-radius:22px;
+  box-shadow:0 32px 72px rgba(0,0,0,.64),inset 0 1px 0 rgba(200,255,232,.14);
+  padding:22px 24px 26px;color:rgba(223,234,245,.9);
+}
+@media (prefers-reduced-motion:no-preference){
+  .hud-ticket-modal-box{animation:modalIn 200ms cubic-bezier(0.23,1,0.32,1) both}
+}
+.hud-ticket-modal-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.hud-ticket-modal-icon{
+  width:40px;height:40px;border-radius:10px;flex:none;
+  background:rgba(91,233,176,.14);border:1px solid rgba(150,240,195,.22);
+  display:flex;align-items:center;justify-content:center;color:#5BE9B0;
+}
+.hud-ticket-modal-titles{flex:1;min-width:0}
+.hud-ticket-modal-key{
+  font-family:var(--mono,'JetBrains Mono','Fira Mono','Consolas',monospace);
+  font-size:11px;color:#5BE9B0;font-weight:700;letter-spacing:.04em;margin-bottom:3px;display:block;
+}
+.hud-ticket-modal-title{font-family:'Outfit','Anuphan',system-ui,sans-serif;font-size:15px;font-weight:700;color:#F1F6FB;line-height:1.3}
+.hud-ticket-modal-meta{font-size:11.5px;color:rgba(223,234,245,.55);display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
+.hud-ticket-modal-meta-val{color:rgba(223,234,245,.8)}
+.hud-ticket-modal-sep{height:1px;background:rgba(150,240,195,.14);margin:12px 0}
+.hud-ticket-modal-link{
+  display:inline-flex;align-items:center;gap:5px;margin-top:16px;
+  font-size:11.5px;font-weight:600;color:rgba(223,234,245,.45);text-decoration:none;
+  padding:6px 10px;border-radius:8px;min-height:44px;
+  transition:color 120ms,background 120ms;
+}
+.hud-ticket-modal-link:hover{color:rgba(91,233,176,.8);background:rgba(91,233,176,.07)}
+.hud-ticket-modal-link:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+
 /* Epic open board button inside dock */
 .hud-board-btn {
   display:inline-flex;align-items:center;gap:6px;
@@ -1011,8 +1051,10 @@ export const HUD_CSS = `
   border:1px solid rgba(150,240,195,.13);
   background:rgba(91,233,176,.05);
   display:block;min-width:0;text-decoration:none;color:inherit;
+  width:100%;text-align:left;cursor:pointer;font:inherit;
 }
 .hud-kc:last-child{margin-bottom:0}
+.hud-kc:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
 @keyframes hud-kc-glow{
   0%,100%{box-shadow:none;border-color:rgba(91,233,176,.28)}
   50%{box-shadow:0 0 14px rgba(91,233,176,.22),0 0 4px rgba(91,233,176,.12);border-color:rgba(91,233,176,.7)}
@@ -1429,6 +1471,9 @@ interface KanbanModalProps {
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   isOpen: boolean;
   onClose: () => void;
+  /** CAM-286: needed to fetch a card's read-only ticket detail. Optional so the (unused,
+   * legacy) MapOverlays call site doesn't need updating just to satisfy this prop. */
+  token?: string;
 }
 
 const BOARD_COLS: [string, string][] = [
@@ -1439,9 +1484,14 @@ const BOARD_COLS: [string, string][] = [
   ["Done",        "เสร็จ"],
 ];
 
-export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose }: KanbanModalProps) {
+export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, onClose, token = "" }: KanbanModalProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   useFocusTrap(boxRef as React.RefObject<HTMLElement | null>, triggerRef as React.RefObject<HTMLElement | null>, isOpen, onClose);
+
+  // CAM-286: read-only ticket detail modal — replaces the card's old direct linear.app link.
+  const [ticketId, setTicketId] = useState<string>("");
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const ticketTriggerRef = useRef<HTMLElement | null>(null);
 
   if (!isOpen) return null;
 
@@ -1549,14 +1599,17 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
                         const cardCls = isActive ? "active" : hasAwait ? "awaiting" : "";
                         const laneText = isActive ? "กำลังทำ" : hasAwait ? "รอคุณ" : colLabel;
                         return (
-                          <a
+                          <button
                             key={s.id}
-                            href={s.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            type="button"
                             className={`hud-card ${cardCls}`}
                             data-testid={`card--hud-board-${s.id}`}
-                            aria-label={`เปิด ${s.id} ใน Linear`}
+                            aria-label={`ดูรายละเอียด ${s.id}`}
+                            onClick={(e) => {
+                              ticketTriggerRef.current = e.currentTarget;
+                              setTicketId(s.id);
+                              setTicketOpen(true);
+                            }}
                           >
                             <div className="hud-card-lane">{laneText}</div>
                             <div className="hud-card-id">{s.id}</div>
@@ -1569,7 +1622,7 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
                                 <span className="hud-you-badge">รอคุณ</span>
                               )}
                             </div>
-                          </a>
+                          </button>
                         );
                       })
                     )}
@@ -1592,6 +1645,15 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
           )}
         </div>
       </div>
+      {ticketOpen && ticketId && (
+        <TicketDetailModal
+          ticketId={ticketId}
+          token={token}
+          triggerRef={ticketTriggerRef}
+          isOpen={ticketOpen}
+          onClose={() => setTicketOpen(false)}
+        />
+      )}
     </>,
     document.body
   );
@@ -2581,6 +2643,143 @@ export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, on
   );
 }
 
+// ── TicketDetailModal (CAM-286) ───────────────────────────────────────────────
+// Read-only detail modal for ordinary work cards (kanban board cards, epic story rows)
+// that used to link straight out to linear.app. Same shell/fetch/focus-trap pattern as
+// GateDetailModal above (reuses fetchGateDetail — the endpoint is source-agnostic) but
+// scene-glass NEUTRAL styling (.hud-ticket-modal-*), never the amber approve accent —
+// the approve/reject flow stays exclusively on GateDetailModal, untouched by this story.
+// Legacy imported tickets carry a `legacyUrl` in `detail.url`; new self-hosted tickets
+// have none, so the footer "เปิด Linear (ประวัติ)" link only renders when it's present.
+
+interface TicketDetailModalProps {
+  ticketId: string;
+  token: string;
+  triggerRef: React.RefObject<HTMLElement | null>;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function TicketDetailModal({ ticketId, token, triggerRef, isOpen, onClose }: TicketDetailModalProps) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(boxRef as React.RefObject<HTMLElement | null>, triggerRef, isOpen, onClose);
+
+  const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [detail, setDetail] = useState<IssueDetail | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFetchState("loading");
+    setDetail(null);
+    fetchGateDetail(ticketId, token)
+      .then((d) => { setDetail(d); setFetchState("loaded"); })
+      .catch(() => setFetchState("error"));
+  }, [isOpen, ticketId, token]);
+
+  if (!isOpen) return null;
+  if (typeof document === "undefined") return null;
+
+  function handleRetry() {
+    setFetchState("loading");
+    fetchGateDetail(ticketId, token)
+      .then((d) => { setDetail(d); setFetchState("loaded"); })
+      .catch(() => setFetchState("error"));
+  }
+
+  const displayTitle = detail ? decodeHtmlEntities(detail.title) : ticketId;
+
+  return createPortal(
+    <>
+      <div className="hud-modal-backdrop" aria-hidden="true" onClick={onClose} />
+      <div className="hud-modal" data-testid="modal--map-ticket-detail">
+        <div
+          ref={boxRef}
+          className="hud-ticket-modal-box"
+          role="dialog"
+          aria-modal="true"
+          aria-label="รายละเอียดงาน"
+          tabIndex={-1}
+          data-testid="box--ticket-detail-modal"
+        >
+          {/* Header */}
+          <div className="hud-ticket-modal-head">
+            <div className="hud-ticket-modal-icon" aria-hidden="true">
+              <FileText size={18} strokeWidth={1.8} />
+            </div>
+            <div className="hud-ticket-modal-titles">
+              <span className="hud-ticket-modal-key">{ticketId}</span>
+              <div className="hud-ticket-modal-title">{displayTitle}</div>
+            </div>
+            <button
+              type="button"
+              className="hud-modal-close"
+              aria-label="ปิด"
+              onClick={() => { onClose(); triggerRef.current?.focus(); }}
+              data-testid="btn--ticket-modal-close"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          {/* Meta row */}
+          {detail && (
+            <div className="hud-ticket-modal-meta">
+              <span>สถานะ:<span className="hud-ticket-modal-meta-val"> {detail.status}</span></span>
+              <span aria-hidden="true">·</span>
+              <span>บทบาท:<span className="hud-ticket-modal-meta-val"> {detail.role ?? "—"}</span></span>
+            </div>
+          )}
+
+          {/* Separator */}
+          <div className="hud-ticket-modal-sep" aria-hidden="true" />
+
+          {/* Description */}
+          {fetchState === "loading" && (
+            <div aria-busy="true" role="status" aria-live="polite">
+              <span className="sr-only">กำลังโหลด…</span>
+              <div className="hud-gate-modal-skel" style={{ width: "90%" }} aria-hidden="true" />
+              <div className="hud-gate-modal-skel" style={{ width: "70%" }} aria-hidden="true" />
+            </div>
+          )}
+          {fetchState === "error" && (
+            <div className="hud-gate-modal-desc-error" role="alert" data-testid="error--ticket-detail-fetch">
+              ดึงข้อมูลไม่ได้ กรุณาลองใหม่
+              <button type="button" className="hud-gate-modal-retry" onClick={handleRetry}>ลองใหม่</button>
+            </div>
+          )}
+          {fetchState === "loaded" && (
+            detail?.description ? (
+              <div className="hud-gate-modal-desc" data-testid="desc--ticket-detail">
+                {detail.description}
+              </div>
+            ) : (
+              <div className="hud-gate-modal-desc-empty" data-testid="empty--ticket-detail-desc">
+                ไม่มีคำอธิบาย
+              </div>
+            )
+          )}
+
+          {/* Legacy-only "opened in Linear" history link — never shown for new self-hosted tickets */}
+          {detail?.url && (
+            <a
+              href={detail.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hud-ticket-modal-link"
+              aria-label="เปิด Linear ประวัติ (เปิดแท็บใหม่)"
+              data-testid="link--ticket-modal-legacy"
+            >
+              <ExternalLink size={13} aria-hidden="true" />
+              เปิด Linear (ประวัติ)
+            </a>
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
 // ── Summary Card (Step 3) ────────────────────────────────────────────────────
 
 function GaugeRing({ pct }: { pct: number }) {
@@ -3119,11 +3318,17 @@ export interface StatusBoardProps {
   focusedTaskId?: string;
   /** SMUX-3: called when the user activates a card (click/Enter/Space) → focuses the matching agent on the map. */
   onCardActivate?: (storyId: string) => void;
+  /** CAM-286: needed to fetch a card's read-only ticket detail. */
+  token?: string;
 }
 
-export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedTaskId = "", onCardActivate }: StatusBoardProps) {
+export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedTaskId = "", onCardActivate, token = "" }: StatusBoardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const modalTriggerRef = useRef<HTMLButtonElement>(null);
+  // CAM-286: read-only ticket detail modal — replaces the mini card's old direct linear.app link.
+  const [ticketId, setTicketId] = useState<string>("");
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const ticketTriggerRef = useRef<HTMLElement | null>(null);
   // SMUX-3: ref map for scroll-into-view on focus change.
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
   useEffect(() => {
@@ -3197,16 +3402,19 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedT
                 const roleKey = s.role ?? "";
                 const roleStr = ROLE_LABEL_SB[roleKey] ?? roleKey ?? "team";
                 return (
-                  <a
+                  <button
                     key={s.id}
+                    type="button"
                     ref={(el) => { cardRefs.current[s.id] = el; }}
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className={`hud-kc${isActive ? " prog" : ""}${isAwaiting ? " gate" : ""}${focusedTaskId === s.id ? " smux3-focused" : ""}`}
-                    aria-label={`เปิด ${s.id} ใน Linear`}
+                    aria-label={`ดูรายละเอียด ${s.id}`}
                     data-testid={`card--board-${s.id}`}
-                    onClick={() => onCardActivate?.(s.id)}
+                    onClick={(e) => {
+                      onCardActivate?.(s.id);
+                      ticketTriggerRef.current = e.currentTarget;
+                      setTicketId(s.id);
+                      setTicketOpen(true);
+                    }}
                   >
                     <div className="hud-kt">
                       <RoleIconSB role={roleKey} />
@@ -3216,7 +3424,7 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedT
                       <span className="hud-kr">{isActive && <span style={{ marginRight: 4 }}>●</span>}{isAwaiting ? "รอคุณ" : roleStr}</span>
                       <span className="hud-tk">{s.id}</span>
                     </div>
-                  </a>
+                  </button>
                 );
               })}
               {extra > 0 && <div className="hud-sb-more">+{extra} อื่นๆ</div>}
@@ -3234,7 +3442,17 @@ export function StatusBoard({ stories, label, pct, collapsed, onToggle, focusedT
         triggerRef={modalTriggerRef}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
+        token={token}
       />
+      {ticketOpen && ticketId && (
+        <TicketDetailModal
+          ticketId={ticketId}
+          token={token}
+          triggerRef={ticketTriggerRef}
+          isOpen={ticketOpen}
+          onClose={() => setTicketOpen(false)}
+        />
+      )}
     </div>
   );
 }

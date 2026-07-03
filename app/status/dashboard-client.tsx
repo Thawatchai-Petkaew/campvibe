@@ -1,6 +1,7 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ExternalLink, X } from "lucide-react";
 
 /* Client-side behaviour for /status. A raw <script> tag inside a React tree is NOT executed
  * on the client, so the interactivity lives here in an effect instead:
@@ -8,8 +9,82 @@ import { useRouter } from "next/navigation";
  *  - starfield        → populated once (lives in the constant SCENE div, survives router.refresh)
  *  - clock            → re-queries #clock each tick so it keeps working after a refresh
  *  - live refresh     → router.refresh() every N seconds (no full-page reload / white flash) */
+// CAM-286: ticket detail (fetched from the same read-only endpoint the map uses).
+interface TicketDetail {
+  id: string;
+  title: string;
+  status: string;
+  role?: string;
+  description?: string;
+  url?: string;
+}
+type TicketFetchState = "loading" | "loaded" | "error";
+
+const ROLE_LABEL_TD: Record<string, string> = {
+  architect: "Architect", "ux-designer": "Designer", "frontend-engineer": "Frontend", "backend-engineer": "Backend",
+  "qa-engineer": "QA", "security-reviewer": "Security", "devops-release": "DevOps", "product-owner": "Product Owner",
+  analyst: "Analyst", orchestrator: "Orchestrator", human: "You",
+};
+
+async function fetchTicketDetail(id: string, token: string): Promise<TicketDetail> {
+  const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`/api/status/issue/${encodeURIComponent(id)}${qs}`);
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json() as Promise<TicketDetail>;
+}
+
 export default function StatusClient({ refreshSeconds = 60, token = "" }: { refreshSeconds?: number; token?: string }) {
   const router = useRouter();
+
+  // CAM-286: read-only ticket detail modal — replaces the dashboard cards' old direct
+  // linear.app links. Delegated open via data-act="open-ticket" (see onDelegatedClick).
+  const [ticketId, setTicketId] = useState<string>("");
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [ticketDetail, setTicketDetail] = useState<TicketDetail | null>(null);
+  const [ticketFetchState, setTicketFetchState] = useState<TicketFetchState>("loading");
+  const ticketTriggerRef = useRef<HTMLElement | null>(null);
+  const ticketPanelRef = useRef<HTMLDivElement | null>(null);
+
+  const loadTicket = (id: string) => {
+    setTicketFetchState("loading");
+    fetchTicketDetail(id, token)
+      .then((d) => { setTicketDetail(d); setTicketFetchState("loaded"); })
+      .catch(() => setTicketFetchState("error"));
+  };
+
+  // Fetch on open (and refetch if the id changes while open).
+  useEffect(() => {
+    if (!ticketOpen || !ticketId) return;
+    setTicketDetail(null);
+    loadTicket(ticketId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketOpen, ticketId]);
+
+  // Focus-trap + Esc + return-focus while the ticket modal is open.
+  useEffect(() => {
+    if (!ticketOpen) return;
+    const panel = ticketPanelRef.current;
+    const FOCUSABLE = 'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    const focusables = panel ? Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)) : [];
+    (focusables[0] ?? panel)?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setTicketOpen(false);
+        ticketTriggerRef.current?.focus();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const els = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (els.length === 0) return;
+      const first = els[0], last = els[els.length - 1];
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
+    }
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [ticketOpen]);
 
   useEffect(() => {
     type StatusWindow = Window & {
@@ -20,6 +95,7 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       filterSwitcher?: (p: string) => void;
       toggleEnv?: () => void;
       filterEpics?: (f: string) => void;
+      "open-ticket"?: (id: string) => void;
     };
     const w = window as StatusWindow;
     // Persist a view param into the URL (no navigation) so router.refresh() re-renders the SAME view.
@@ -83,12 +159,16 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
       document.querySelectorAll(".efbtn").forEach((b) => b.classList.toggle("active", b.getAttribute("data-f") === f));
       syncUrl("efilter", f);
     };
+    // CAM-286: card/"Review →"-style link → read-only ticket detail modal (React-rendered
+    // below, not string HTML — needs live fetch state, so it lives in component state).
+    w["open-ticket"] = (id: string) => { setTicketId(id); setTicketOpen(true); };
 
     const onDelegatedClick = (e: MouseEvent) => {
       const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-act]");
       if (!el) return;
       const act = el.getAttribute("data-act") || "";
       const arg = el.getAttribute("data-arg") ?? "";
+      if (act === "open-ticket") ticketTriggerRef.current = el;
       const fn = (w as unknown as Record<string, unknown>)[act];
       if (typeof fn === "function") (fn as (a: string) => void)(arg);
     };
@@ -161,5 +241,87 @@ export default function StatusClient({ refreshSeconds = 60, token = "" }: { refr
     };
   }, [router, refreshSeconds, token]);
 
-  return null;
+  if (!ticketOpen || !ticketId) return null;
+
+  const displayTitle = ticketDetail?.title ?? ticketId;
+  const roleLabel = ticketDetail?.role ? (ROLE_LABEL_TD[ticketDetail.role] ?? ticketDetail.role) : "";
+
+  return (
+    <div className="td-overlay" data-testid="modal--dashboard-ticket-detail">
+      <div className="td-backdrop" aria-hidden="true" onClick={() => setTicketOpen(false)} />
+      <div
+        ref={ticketPanelRef}
+        className="td-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="รายละเอียดงาน"
+        tabIndex={-1}
+        data-testid="panel--dashboard-ticket-detail"
+      >
+        <div className="td-head">
+          <div className="td-titles">
+            <span className="td-key">{ticketId}</span>
+            <div className="td-title">{displayTitle}</div>
+          </div>
+          <button
+            type="button"
+            className="td-close"
+            aria-label="ปิด"
+            onClick={() => { setTicketOpen(false); ticketTriggerRef.current?.focus(); }}
+            data-testid="btn--dashboard-ticket-close"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        {ticketDetail && (
+          <div className="td-meta">
+            <span>สถานะ:<b> {ticketDetail.status}</b></span>
+            <span aria-hidden="true">·</span>
+            <span>บทบาท:<b> {roleLabel || "—"}</b></span>
+          </div>
+        )}
+
+        <div className="td-sep" aria-hidden="true" />
+
+        <div className="td-body">
+          {ticketFetchState === "loading" && (
+            <div aria-busy="true" role="status" aria-live="polite">
+              <span className="sr-only">กำลังโหลด…</span>
+              <div className="td-skel" style={{ width: "90%" }} aria-hidden="true" />
+              <div className="td-skel" style={{ width: "70%" }} aria-hidden="true" />
+            </div>
+          )}
+          {ticketFetchState === "error" && (
+            <div className="td-desc-error" role="alert" data-testid="error--dashboard-ticket-fetch">
+              ดึงข้อมูลไม่ได้ กรุณาลองใหม่
+              <button type="button" className="td-retry" onClick={() => loadTicket(ticketId)}>ลองใหม่</button>
+            </div>
+          )}
+          {ticketFetchState === "loaded" && (
+            ticketDetail?.description ? (
+              <div className="td-desc" data-testid="desc--dashboard-ticket">{ticketDetail.description}</div>
+            ) : (
+              <div className="td-desc-empty" data-testid="empty--dashboard-ticket-desc">ไม่มีคำอธิบาย</div>
+            )
+          )}
+        </div>
+
+        {/* Legacy-only "opened in Linear" history link — never shown for new self-hosted tickets */}
+        {ticketDetail?.url && (
+          <a
+            href={ticketDetail.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="td-link"
+            aria-label="เปิด Linear ประวัติ (เปิดแท็บใหม่)"
+            data-testid="link--dashboard-ticket-legacy"
+          >
+            <ExternalLink size={13} aria-hidden="true" />
+            เปิด Linear (ประวัติ)
+          </a>
+        )}
+      </div>
+    </div>
+  );
 }
