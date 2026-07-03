@@ -4,8 +4,12 @@
  * Source-inspection (no runtime imports): walks the real file tree and asserts
  *   1. lib/delivery/* never imports a product module (@/lib/prisma, @/lib/auth, a
  *      product component/page under @/components or @/app).
- *   2. No product file imports lib/delivery/* except the two DEFINED seams:
- *      lib/linear.ts (the TICKETS_SOURCE switch) and app/api/tickets/* (the route seam).
+ *   2. No product file imports lib/delivery/* except the DEFINED seams:
+ *      lib/linear.ts (the TICKETS_SOURCE switch, list read), app/api/tickets/* (the route
+ *      seam), and — as of CAM-281 (T-5) — the four dual-mode legacy mutation routes
+ *      (app/api/status/approve, app/api/status/reject, app/api/status/issue/[id],
+ *      app/api/telegram-webhook) that now call the delivery service directly in their
+ *      TICKETS_SOURCE=db branch, alongside their still-present legacy Linear calls.
  *   3. The product schema (prisma/schema.prisma) carries none of the delivery-only model
  *      names — a structural drift guard against the two schemas merging back together.
  *
@@ -72,16 +76,27 @@ describe("ADR-010 module boundary — lib/delivery/*", () => {
 });
 
 describe("ADR-010 module boundary — product files", () => {
-  it("no product file imports lib/delivery/* except the two defined seams", () => {
+  it("no product file imports lib/delivery/* except the defined seams", () => {
     const seamFile = path.join(ROOT, "lib", "linear.ts");
     const seamDir = path.join(ROOT, "app", "api", "tickets");
+    // CAM-281 (T-5) intentionally widens the seam list: the legacy /status + Telegram
+    // mutation routes are now dual-mode (ADR-010 TICKETS_SOURCE flag) and call
+    // lib/delivery/tickets.ts's verbs / lib/delivery/status-adapter.ts directly in the
+    // "db" branch, alongside the still-present legacy lib/linear-actions calls.
+    const seamFiles = [
+      seamFile,
+      path.join(ROOT, "app", "api", "status", "approve", "route.ts"),
+      path.join(ROOT, "app", "api", "status", "reject", "route.ts"),
+      path.join(ROOT, "app", "api", "status", "issue", "[id]", "route.ts"),
+      path.join(ROOT, "app", "api", "telegram-webhook", "route.ts"),
+    ];
 
     const scanRoots = ["app", "lib", "components"].map((d) => path.join(ROOT, d));
     const offenders: string[] = [];
     for (const dir of scanRoots) {
       for (const file of listSourceFiles(dir)) {
         if (file.startsWith(DELIVERY_DIR)) continue; // lib/delivery importing itself is fine
-        if (file === seamFile) continue;
+        if (seamFiles.includes(file)) continue;
         if (file.startsWith(seamDir)) continue;
         for (const spec of importSpecifiers(file)) {
           if (spec.startsWith("@/lib/delivery")) {

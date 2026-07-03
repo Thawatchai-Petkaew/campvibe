@@ -51,6 +51,13 @@ jobs:
             printf 'TELEGRAM_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_CHAT_ID }}"
             printf 'STATUS_TOKEN=%s\n' "${{ secrets.STATUS_TOKEN }}"
             printf 'APP_BASE_URL=%s\n' "${{ vars.APP_BASE_URL || 'https://campvibe-staging.vercel.app' }}"
+            # ADR-010 cutover flag (CAM-281 T-5) — this workflow has no gates-confirm step of
+            # its own (the orchestrator prompt below still tells the ad-hoc agent to run
+            # `linear-sync.mjs set`; repointing that free-text instruction at ticket-sync is
+            # part of the later retirement story, not this env pass-through). Provisioned
+            # here only for parity with linear-continue.yml + so a future headless step in
+            # this workflow can read the mode without another wiring change.
+            printf 'TICKETS_SOURCE=%s\n' "${{ vars.TICKETS_SOURCE || 'linear' }}"
           } > .env
 
       - name: Run the orchestrator on the request

@@ -95,6 +95,23 @@ async function fetchTicketsFromDbRaw(): Promise<StatusIssue[]> {
   return tickets.map(toStatusIssue);
 }
 
+/**
+ * Single-ticket detail for GET /api/status/issue/[id] (TICKETS_SOURCE=db — CAM-281 T-5).
+ * Reuses toStatusIssue() so the gate-detail modal gets byte-for-byte the same StatusIssue
+ * shape it already gets from the Linear-sourced path — no new response contract to maintain.
+ * Not cached (unlike fetchTicketsFromDb above): this is a single-row lookup triggered by a
+ * user opening one modal, not the 60s-shared dashboard list read.
+ */
+export async function fetchTicketFromDb(identifier: string): Promise<StatusIssue | null> {
+  const db = getDeliveryClient();
+  const ticket = await db.ticket.findUnique({
+    where: { identifier: identifier.toUpperCase() },
+    include: { epic: { select: { id: true, title: true } } },
+  });
+  if (!ticket) return null;
+  return toStatusIssue(ticket);
+}
+
 /* Cached for 60s, keyed on DeliveryPulse.version — the same pattern lib/linear.ts uses keyed
  * on the Linear-webhook-relayed StatusPulse. Here the pulse is bumped in-process by
  * lib/delivery/tickets.ts (no webhook to relay from — ADR-010), so freshness is bounded only

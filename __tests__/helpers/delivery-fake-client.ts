@@ -78,13 +78,29 @@ export function createFakeDeliveryClient() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client: any = {
     ticket: {
-      findUnique: vi.fn(async ({ where }: { where: { identifier?: string; id?: string } }) => {
-        if (where.identifier) {
-          return [...tickets.values()].find((t) => t.identifier === where.identifier) ?? null;
+      findUnique: vi.fn(
+        async ({
+          where,
+          include,
+        }: { where: { identifier?: string; id?: string }; include?: { epic?: unknown } }) => {
+          let row: FakeTicketRow | null = null;
+          if (where.identifier) {
+            row = [...tickets.values()].find((t) => t.identifier === where.identifier) ?? null;
+          } else if (where.id) {
+            row = tickets.get(where.id) ?? null;
+          }
+          if (!row) return null;
+          // Mirrors findMany's epic join below — only attached when the caller actually
+          // requests `include: { epic: ... }`, same as real Prisma.
+          if (include?.epic) {
+            return {
+              ...row,
+              epic: row.epicId && tickets.get(row.epicId) ? { id: row.epicId, title: tickets.get(row.epicId)!.title } : null,
+            };
+          }
+          return row;
         }
-        if (where.id) return tickets.get(where.id) ?? null;
-        return null;
-      }),
+      ),
       findMany: vi.fn(
         async ({
           where,
