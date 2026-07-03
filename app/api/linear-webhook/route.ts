@@ -29,6 +29,7 @@ import { sendTelegram } from "@/lib/notify";
 import { bumpPulse } from "@/lib/status-pulse";
 import { buildEventMessage, roleFromTitle } from "@/lib/notify-messages";
 import { stageRank, regressionRound, ROLE_STAGE } from "@/lib/status-derive";
+import { getLabelIdByName } from "@/lib/linear-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -218,8 +219,16 @@ export async function POST(req: Request) {
   // ── Gate approval vs rejection detection ──────────────────────────────────────────────────────
   //
   // The gate decision is signalled by a combination of label changes:
-  //   APPROVED  = awaiting-you removed AND changes-requested is NOT present (clean approval)
+  //   APPROVED  = `awaiting-you` was REMOVED in this update AND changes-requested is NOT present
   //   REJECTED  = changes-requested added (the reject endpoint sets this before removing awaiting-you)
+  //
+  // CAM-275 part 2: a REMOVAL only ever appears in `updatedFrom.labelIds` (the PRIOR id set) —
+  // by the time this webhook fires, `data.labels` (current) has ALREADY dropped the removed
+  // label, so it can never be found by checking prior ids against the CURRENT label list (that
+  // was the part-1 bug: the removed label is by definition absent from currentLabels, so the
+  // membership check was mathematically unreachable). Detecting a removal instead requires
+  // diffing prevLabelIds against the current id set to get `removedIds`, then resolving the
+  // `awaiting-you` label's real id and checking membership in that diff.
   //
   // A plain map-approval via POST /api/status/approve uses removeAwaitingYou() only →
   // no changes-requested → looksApproved = true.
@@ -229,18 +238,35 @@ export async function POST(req: Request) {
   // is already in labelNames → looksApproved = false; looksRejected = true.
   //
   // (Coarse on purpose — the GitHub Action re-confirms with `status:gates` before acting.)
-  const isGate =
-    /Gate\s*G\d/i.test(title) ||
-    labelNames.includes("awaiting-you") ||
-    (Array.isArray(updatedFrom.labelIds) &&
-      (updatedFrom.labelIds as string[]).some(
-        (lid) => currentLabels.some((cl) => cl.id === lid && cl.name === "awaiting-you")
-      ));
-  const stillAwaiting = labelNames.includes("awaiting-you");
+  const currentIds = currentLabels.map((l) => l.id).filter(Boolean) as string[];
+  const removedIds = prevLabelIds ? prevLabelIds.filter((lid) => !currentIds.includes(lid)) : [];
+
+  // Only resolve the `awaiting-you` label id when something was actually removed — avoids
+  // spending a Linear API call on every webhook event (most carry no removal at all).
+  // A lookup failure (missing LINEAR_API_KEY / API error) must never crash the route — Linear
+  // expects a 200 back — so it's logged structurally and this event is simply not detected as
+  // an approval (the rest of the notification logic above is unaffected).
+  let awaitingRemoved = false;
+  if (removedIds.length > 0) {
+    try {
+      const awaitingYouId = await getLabelIdByName("awaiting-you");
+      awaitingRemoved = Boolean(awaitingYouId && removedIds.includes(awaitingYouId));
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          event: "gate_detect_label_lookup_failed",
+          identifier: id,
+          reason: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+  }
+
+  const isGate = /Gate\s*G\d/i.test(title) || labelNames.includes("awaiting-you") || awaitingRemoved;
   const hasChangesRequested = labelNames.includes("changes-requested");
 
-  // APPROVED: awaiting-you removed AND changes-requested is NOT present.
-  const looksApproved = isGate && labelChanged && !stillAwaiting && !hasChangesRequested;
+  // APPROVED: awaiting-you was removed in this update AND changes-requested is NOT present.
+  const looksApproved = awaitingRemoved && !hasChangesRequested;
 
   // REJECTED: changes-requested was just added (the reject endpoint adds it first).
   const looksRejected = isGate && labelChanged && addedNames.includes("changes-requested");
