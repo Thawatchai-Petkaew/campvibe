@@ -18,7 +18,12 @@ export async function sendTelegram(
 ): Promise<{ ok: boolean; reason?: string }> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = opts.chatId ?? process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return { ok: false, reason: "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set" };
+  if (!token || !chatId) {
+    // CAM-275: this used to silently return — an approval/rejection notification could
+    // vanish with no trace. Log structurally (never log the token/chatId values).
+    console.error(JSON.stringify({ event: "telegram_send_skipped", reason: "env missing" }));
+    return { ok: false, reason: "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set" };
+  }
   try {
     const res = await fetch(api(token, "sendMessage"), {
       method: "POST",

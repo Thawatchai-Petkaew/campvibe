@@ -260,6 +260,18 @@ export async function POST(req: Request) {
       title,
       epic: title.split("·")[0]?.trim() ?? "",
     });
+    // CAM-275: a silent dispatch failure meant an approval looked successful in the UI
+    // but never continued the orchestrator. Log it structurally (never log secrets/tokens).
+    if (!dispatch.dispatched) {
+      console.error(
+        JSON.stringify({
+          event: "gate_dispatch_failed",
+          identifier: id,
+          reason: dispatch.reason ?? null,
+          status: dispatch.status ?? null,
+        })
+      );
+    }
   }
 
   if (looksRejected && !looksApproved) {
