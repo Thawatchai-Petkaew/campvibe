@@ -79,7 +79,14 @@ export function statusUrl(): string {
   return `${base}/status${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
 
-/** Inline-keyboard button that opens the Linear issue (or any URL). */
+/** Link to the live /status/map board (token-gated) — the "More Detail" target for every ticket. */
+export function statusMapUrl(): string {
+  const base = process.env.APP_BASE_URL || "https://campvibe-staging.vercel.app";
+  const token = process.env.STATUS_TOKEN;
+  return `${base}/status/map${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+
+/** Inline-keyboard button that opens the board detail (or any URL). Never log the token embedded in url. */
 export function moreDetailBtn(url: string): { text: string; url: string } {
   return { text: "More Detail", url };
 }
@@ -91,11 +98,11 @@ export function liveStatusBtn(): { text: string; url: string } {
 
 // ── Message context ───────────────────────────────────────────────────────────────────────────
 export interface EventCtx {
-  /** Linear identifier, e.g. "CAM-9". */
+  /** Ticket identifier, e.g. "CAM-9". */
   id: string;
   /** Issue title (may start with a [role] tag). */
   title?: string;
-  /** Direct URL to the Linear issue. */
+  /** Board detail URL (the live /status/map board, token-gated — see statusMapUrl()). */
   url?: string;
   /** Role slug for handoff/regression/reverify events, e.g. "backend-engineer". */
   role?: string;

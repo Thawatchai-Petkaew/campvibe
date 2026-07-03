@@ -35,7 +35,7 @@ import {
   SheetTitle,
   SheetClose,
 } from "@/components/ui/sheet";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, TicketDetailModal, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
 import { payloadChanged, deriveCapsuleStats } from "@/lib/status-map-model";
@@ -1326,6 +1326,11 @@ export default function CampsiteScene({
   const [gateDetailId, setGateDetailId] = useState<string>("");
   const [gateDetailOpen, setGateDetailOpen] = useState(false);
   const gateDetailTriggerRef = useRef<HTMLElement | null>(null);
+  // CAM-286: read-only TicketDetailModal state — for the mobile "Board Sheet" cards below,
+  // which used to link straight out to linear.app.
+  const [ticketDetailId, setTicketDetailId] = useState<string>("");
+  const [ticketDetailOpen, setTicketDetailOpen] = useState(false);
+  const ticketDetailTriggerRef = useRef<HTMLElement | null>(null);
   // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
   // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
   // the very first poll of an unchanged board is already a no-op.
@@ -2242,15 +2247,19 @@ export default function CampsiteScene({
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <p style={{ fontSize: 11, color: "rgba(223,234,245,.45)", marginBottom: 4 }}>{boardLabel}</p>
                 {boardStories.map((s) => (
-                  <a
+                  <button
                     key={s.id}
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
                     className={`hud-kc${focusedTaskId === s.id ? " smux3-focused" : ""}`}
-                    style={{ display: "block", textDecoration: "none" }}
+                    style={{ display: "block" }}
+                    aria-label={`ดูรายละเอียด ${s.id}`}
                     data-testid={`card--sheet-board-${s.id}`}
-                    onClick={() => handleBoardCardActivate(s.id)}
+                    onClick={(e) => {
+                      handleBoardCardActivate(s.id);
+                      ticketDetailTriggerRef.current = e.currentTarget;
+                      setTicketDetailId(s.id);
+                      setTicketDetailOpen(true);
+                    }}
                   >
                     <div className="hud-kt">
                       <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: "rgba(223,234,245,.88)" }}>
@@ -2260,7 +2269,7 @@ export default function CampsiteScene({
                     <div className="hud-kb" style={{ marginTop: 5 }}>
                       <span className="hud-kr" style={{ fontSize: 10 }}>{s.role}</span>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </div>
             )}
@@ -2325,6 +2334,7 @@ export default function CampsiteScene({
             pct={summaryStats.pct}
             collapsed={boardCollapsed}
             onToggle={() => setBoardCollapsed((v) => !v)}
+            token={token}
           />
         ) : (
           <StatusBoardHint />
@@ -2343,6 +2353,17 @@ export default function CampsiteScene({
           onApproved={() => {
             setGateDetailOpen(false);
           }}
+        />
+      )}
+
+      {/* CAM-286: read-only ticket detail modal for the mobile "Board Sheet" cards */}
+      {ticketDetailOpen && ticketDetailId && (
+        <TicketDetailModal
+          ticketId={ticketDetailId}
+          token={token}
+          triggerRef={ticketDetailTriggerRef}
+          isOpen={ticketDetailOpen}
+          onClose={() => setTicketDetailOpen(false)}
         />
       )}
 

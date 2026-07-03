@@ -456,6 +456,60 @@ describe("start(role) — notify semantics", () => {
   });
 });
 
+// ── ticketCtx — "More Detail" button target (CAM-285) ───────────────────────────────────
+// Telegram's "More Detail" button must open OUR board (/status/map), never the legacy
+// Linear URL — for imported tickets (legacyUrl set) AND for brand-new tickets (legacyUrl
+// null), which previously got no button at all.
+
+type TgButton = { text: string; url?: string; callback_data?: string };
+
+function moreDetailButtonFrom(callIndex = 0): TgButton | undefined {
+  const [, options] = tg.mock.calls[callIndex] as [string, { buttons: TgButton[][] }];
+  return options.buttons.flat().find((b) => b.text === "More Detail");
+}
+
+describe("ticketCtx — More Detail button always targets /status/map (CAM-285)", () => {
+  it("[notify] an imported ticket with a legacyUrl still gets the board URL, not legacyUrl", async () => {
+    const row = seed({
+      state: "IN_PROGRESS",
+      currentRole: "BACKEND_ENGINEER",
+      legacyUrl: "https://linear.app/campvibe/issue/CAM-1",
+    });
+    await tickets.raiseGate(row.identifier, "backend-engineer");
+    const btn = moreDetailButtonFrom();
+    expect(btn).toBeDefined();
+    expect(btn!.url).toContain("/status/map");
+    expect(btn!.url).not.toBe(row.legacyUrl);
+    expect(btn!.url).not.toContain("linear.app");
+  });
+
+  it("[notify] a brand-new ticket (no legacyUrl) still gets a More Detail button", async () => {
+    const row = seed({ state: "BACKLOG", currentRole: null, legacyUrl: null });
+    await tickets.start(row.identifier, "human", "ARCHITECT");
+    const btn = moreDetailButtonFrom();
+    expect(btn).toBeDefined();
+    expect(btn!.url).toContain("/status/map");
+  });
+
+  it("[notify] the board URL never leaks the STATUS_TOKEN into a log line (button url only)", async () => {
+    const saved = process.env.STATUS_TOKEN;
+    process.env.STATUS_TOKEN = "super-secret-token";
+    try {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "BACKEND_ENGINEER" });
+      const consoleErr = vi.spyOn(console, "error").mockImplementation(() => {});
+      await tickets.raiseGate(row.identifier, "backend-engineer");
+      const btn = moreDetailButtonFrom();
+      expect(btn!.url).toContain("super-secret-token"); // token belongs in the button url…
+      consoleErr.mock.calls.forEach((call) => {
+        expect(JSON.stringify(call)).not.toContain("super-secret-token"); // …never in a log line
+      });
+      consoleErr.mockRestore();
+    } finally {
+      process.env.STATUS_TOKEN = saved;
+    }
+  });
+});
+
 // ── blocked / archive / unarchive (orthogonal flags) ────────────────────────────────────
 
 describe("setBlocked — orthogonal flag", () => {
