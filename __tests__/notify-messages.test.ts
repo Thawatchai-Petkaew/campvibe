@@ -9,7 +9,7 @@
  * - NO emoji in text or button labels
  * - NOTIFY_EVENTS gating: disabled kind → null
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 // server-only guard: stub the import before importing the module
 vi.mock("server-only", () => ({}));
@@ -21,6 +21,7 @@ import {
   esc,
   cleanTitle,
   roleFromTitle,
+  statusMapUrl,
 } from "@/lib/notify-messages";
 
 // Emoji detection regex: covers main Unicode emoji ranges
@@ -34,7 +35,7 @@ function assertNoEmoji(value: string, location: string) {
   expect(EMOJI_RE.test(value), `emoji found in ${location}: ${value}`).toBe(false);
 }
 
-const BASE_CTX = { id: "CAM-9", title: "Some story title", url: "https://linear.app/x" };
+const BASE_CTX = { id: "CAM-9", title: "Some story title", url: "https://campvibe-staging.vercel.app/status/map?token=x" };
 
 describe("ROLE_LABEL", () => {
   it("contains expected role mappings", () => {
@@ -374,7 +375,7 @@ describe("[role] tag stripping in description", () => {
     const msg = buildEventMessage("done", {
       id: "CAM-9",
       title: "[backend-engineer] Implement the API",
-      url: "https://linear.app/x",
+      url: "https://campvibe-staging.vercel.app/status/map?token=x",
     });
     expect(msg!.text).not.toContain("[backend-engineer]");
     expect(msg!.text).toContain("Implement the API");
@@ -384,7 +385,7 @@ describe("[role] tag stripping in description", () => {
     const msg = buildEventMessage("gate", {
       id: "CAM-5",
       title: "[qa-engineer] Gate G3 · QA sign-off",
-      url: "https://linear.app/x",
+      url: "https://campvibe-staging.vercel.app/status/map?token=x",
     });
     expect(msg!.text).not.toContain("[qa-engineer]");
     expect(msg!.text).toContain("Gate G3");
@@ -501,5 +502,42 @@ describe("buildEventMessage — reverify", () => {
     (NOTIFY_EVENTS as Record<string, boolean>).reverify = false;
     expect(buildEventMessage("reverify", rvCtx)).toBeNull();
     (NOTIFY_EVENTS as Record<string, boolean>).reverify = saved;
+  });
+});
+
+// ── statusMapUrl (CAM-285) ───────────────────────────────────────────────────────────────
+// The board-detail link every "More Detail" button opens (never the legacy Linear URL).
+
+describe("statusMapUrl", () => {
+  const savedBase = process.env.APP_BASE_URL;
+  const savedToken = process.env.STATUS_TOKEN;
+
+  afterEach(() => {
+    if (savedBase === undefined) delete process.env.APP_BASE_URL;
+    else process.env.APP_BASE_URL = savedBase;
+    if (savedToken === undefined) delete process.env.STATUS_TOKEN;
+    else process.env.STATUS_TOKEN = savedToken;
+  });
+
+  it("builds the /status/map path off APP_BASE_URL with the token as a query param", () => {
+    process.env.APP_BASE_URL = "https://example.test";
+    process.env.STATUS_TOKEN = "tok123";
+    expect(statusMapUrl()).toBe("https://example.test/status/map?token=tok123");
+  });
+
+  it("omits the query string entirely when STATUS_TOKEN is unset", () => {
+    process.env.APP_BASE_URL = "https://example.test";
+    delete process.env.STATUS_TOKEN;
+    expect(statusMapUrl()).toBe("https://example.test/status/map");
+  });
+
+  it("falls back to the staging base when APP_BASE_URL is unset", () => {
+    delete process.env.APP_BASE_URL;
+    delete process.env.STATUS_TOKEN;
+    expect(statusMapUrl()).toBe("https://campvibe-staging.vercel.app/status/map");
+  });
+
+  it("never returns a linear.app URL", () => {
+    expect(statusMapUrl()).not.toContain("linear.app");
   });
 });

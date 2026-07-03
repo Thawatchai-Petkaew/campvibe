@@ -21,7 +21,7 @@ Promote `staging`→`main` (= Released, G5):
 4. **Tag + changelog + rollback plan** — all three, every prod release.
 5. **Smoke test** on the real Production URL.
 6. **Watch errors** (Sentry) for N minutes → spike = auto-rollback + alert; real error = open a bug ticket.
-7. Label the story `released` (a label, not a state); sync Linear (`linear-sync.mjs audit`).
+7. Label the story `released` (a label, not a state); sync the ticket DB (`ticket-sync.mjs audit`).
 
 Rollout (if flagged): internal → 5% → 25% → 50% → 100% · errors **+10% over baseline = investigate · ≥2× = rollback**.
 
@@ -94,7 +94,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 ### 6. After deploy (observability)
 
 - Watch errors (Sentry) for N minutes after deploy → error spike = **auto-rollback + alert**; a real error → open a bug ticket into the loop.
-- Linear-side tickets are checked against the story ticket template via `node scripts/linear-sync.mjs audit`.
+- Ticket-DB tickets are checked against the story ticket template via `node scripts/ticket-sync.mjs audit`.
 
 ### 7. Pre-launch + rollout (before prod)
 
@@ -144,4 +144,4 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 - [ ] AC verified on the **real URL** (Staging→Done / Production→smoke green)
 - [ ] (prod) tag + changelog + rollback plan complete + G5 passed
 - [ ] errors watched after deploy; spike → auto-rollback; real error → open a bug ticket
-- [ ] Linear status synced (`linear-sync.mjs audit` passes) before closing the story
+- [ ] Ticket DB status synced (`ticket-sync.mjs audit` passes) before closing the story

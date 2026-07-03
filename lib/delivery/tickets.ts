@@ -28,7 +28,7 @@ import { getDeliveryClient } from "@/lib/delivery/client";
 import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
-import { buildEventMessage, type EventCtx, type EventKind } from "@/lib/notify-messages";
+import { buildEventMessage, statusMapUrl, type EventCtx, type EventKind } from "@/lib/notify-messages";
 import { sendTelegram } from "@/lib/notify";
 import { fireRepositoryDispatch } from "@/lib/github-dispatch";
 import { stageRank, ROLE_STAGE } from "@/lib/status-derive";
@@ -106,8 +106,12 @@ function computeRoleChange(ticket: Ticket, newRole: DeliveryRole): RoleChange {
   return { changed, fromRole: ticket.currentRole, nextRoleHistory };
 }
 
+// CAM-285: the "More Detail" button always opens OUR board (/status/map), never legacyUrl —
+// legacyUrl is a historical archive pointer (imported tickets only) surfaced in the map modal's
+// archive link (lib/delivery/status-adapter.ts), not a live notification target. Every ticket,
+// imported or newly created, gets the same board deep link here.
 function ticketCtx(t: Ticket): EventCtx {
-  return { id: t.identifier, title: t.title, url: t.legacyUrl ?? undefined };
+  return { id: t.identifier, title: t.title, url: statusMapUrl() };
 }
 
 /** Send a Telegram notification; never throws, never fails the calling mutation. */
@@ -136,7 +140,7 @@ async function notifySafe(kind: EventKind, ctx: EventCtx): Promise<void> {
 /**
  * Fire the gate-approved repository_dispatch that continues the orchestrator.
  * event_type stays "linear-gate-approved" for CI/workflow compatibility with the existing
- * .github/workflows/linear-continue.yml trigger — it will be renamed in a later story (T-5)
+ * .github/workflows/linear-continue.yml trigger — renaming it is deferred post-cutover cleanup
  * once the workflow itself is repointed at the delivery ticket source.
  */
 async function dispatchApproved(ticket: Ticket): Promise<void> {
