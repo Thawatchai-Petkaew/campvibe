@@ -59,6 +59,10 @@ next-env.d.ts
 
 /app/generated/prisma
 
+# delivery-ticket schema (CAM-277 / ADR-010) — generated client only; the schema + future
+# prisma/delivery/migrations/ ARE tracked
+/prisma/delivery/generated/
+
 # local uploads
 /public/uploads*
 
