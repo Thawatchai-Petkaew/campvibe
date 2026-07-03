@@ -3,7 +3,8 @@
 > **เอกสารมีชีวิต (living doc) — Source of Truth.** รวม requirement AI ทั้งหมด (chat A–E + Host + video/social proof F + infra) พร้อม feasibility, effort/timeline, dependency, spend และลำดับ release train. Requirement ใหม่เข้ามา → เติมลงตาราง → จัด train.
 >
 > **สถานะ:** planning artifact — docs เท่านั้น ยังไม่ build/ไม่ spend. Epic Linear = **CAM-266**. Visual คู่กัน: `docs/design/ai-product-roadmap.html`.
-> **อัปเดตล่าสุด:** 2026-07-01
+> หมายเหตุ: `docs/design/ai-product-roadmap.html` ยังเป็นเวอร์ชันก่อน pivot (stale) — regen เป็น story แยก
+> **อัปเดตล่าสุด:** 2026-07-04 (Blueprint v6 pivot — ADR-011, PR #302)
 
 ---
 
@@ -33,26 +34,33 @@
 ### AI core / infra (ฐานของทุกอย่าง)
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
 |---|---|---|---|---|---|---|---|
-| PREP-1 | availability เช็ค BlockedDate + partial capacity | 🟢 | S (~1wk) | — | no | R1 | CAM-267 backlog |
-| PREP-2 | price/fee ตรง total + cancellation field | 🟢 | M (~1–1.5wk) | — | no | R1 | CAM-268 backlog |
-| PREP-3 | verified-stay gate ของรีวิว | 🟢 | S–M (~1wk) | — | no | R1 | CAM-269 backlog |
-| AI-1 | tool registry + searchCampsites + OpenRouter client | 🟡 | M (~1.5wk) | PREP-1 | **yes (G2)** | R1 | CAM-270 backlog |
-| AI-2 | agent loop + streaming + checkAvailability + getCampDetail | 🟡 | M–L (~2wk) | AI-1 | **yes** | R1 | CAM-271 backlog |
-| AI-3 | chat UI + การ์ดในแชท + booking handoff | 🟢 | M (~1.5–2wk) | AI-2 | no | R1 | CAM-272 backlog |
+| PREP-1 | availability เช็ค BlockedDate + partial capacity | 🟢 | S (~1wk) | — | no | M1 | **Done** — merged staging 2026-07-04 (CAM-267) |
+| PREP-2 | price/fee ตรง total + cancellation field | 🟢 | M (~1–1.5wk) | — | no | M1 | CAM-268 backlog |
+| PREP-3 | verified-stay gate ของรีวิว | 🟢 | S–M (~1wk) | — | no | M1 | CAM-269 backlog |
+| AI-1 | tool registry + searchCampsites + OpenRouter client | 🟡 | M (~1.5wk) | PREP-1 | **yes (G2)** | M2 | CAM-270 backlog |
+| AI-2 | agent loop + streaming + checkAvailability + getCampDetail | 🟡 | M–L (~2wk) | AI-1 | **yes** | M2 | CAM-271 backlog |
+| AI-3 | chat UI + การ์ดในแชท + ส่งต่อเข้า inquiry (สร้าง HostLead) | 🟢 | M (~1.5–2wk) | AI-2 | no | M2 | CAM-272 backlog |
+
+### HostOS AI (M1.2)
+| ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
+|---|---|---|---|---|---|---|---|
+| AI-PARSE | แปลงข้อความ LINE/FB เป็น structured lead (OS2) | 🟡 | M (~1.5wk) | HostOS lead inbox (HS-1, M1.2) | **yes (OpenRouter, G2 ก่อนยิงจริง)** | M1.2 | planned |
+
+> หมายเหตุ: lead inbox ทำงานด้วย **manual entry ได้ก่อน** parser — AI-PARSE เป็น enhancement เสริมทีหลัง ไม่ใช่ blocker ของ M1.2 (เข้าคู่กับ platform-blueprint.md §3 "AI lead parser เป็นรายการสุดท้ายและ spend-gated").
 
 ### A · Discover (v1)
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
 |---|---|---|---|---|---|---|---|
-| A1 | NL compound search → การ์ด | 🟢 | S (incremental) | AI-1 | yes | R1 | planned |
-| A2 | geo / near-me (ระยะขับ) | 🟡 distance calc | S–M | AI-1, lat/lng | yes | R1 | planned |
-| A3 | availability transparency ("เหลือ 2/5") | 🟡 | S | PREP-1, AI-2 | yes | R1 | planned |
-| A4 | "วันนี้ลานนี้ว่างไหม" (สด) | 🟢 | S | AI-2 | yes | R1 | planned |
+| A1 | NL compound search → การ์ด | 🟢 | S (incremental) | AI-1 | yes | M2 | planned |
+| A2 | geo / near-me (ระยะขับ) | 🟡 distance calc | S–M | AI-1, lat/lng | yes | M2 | planned |
+| A3 | availability transparency ("เหลือ 2/5") | 🟡 | S | PREP-1, AI-2 | yes | M2 | planned |
+| A4 | "วันนี้ลานนี้ว่างไหม" (สด) | 🟢 | S | AI-2 | yes | M2 | planned |
 
-### C · Book (v1)
+### C · Inquiry (v1)
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
 |---|---|---|---|---|---|---|---|
-| C1 | การ์ด → กดจอง (เข้า `/campgrounds/[slug]`) | 🟢 | S | AI-3 | no | R1 | planned |
-| C2 | booking prep (deep-link prefill widget) | 🟡 | M | AI-2, AI-3 | yes | R1 | planned |
+| C1 | การ์ด → สอบถาม/ขอราคา (inquiry form prefill → สร้าง HostLead) | 🟢 | S | AI-3, HostOS lead inbox (HS-1, M1.2) | no | M2 | planned |
+| C2 | inquiry prep (date/guests/needs prefill เข้า lead) | 🟡 | M | AI-2, AI-3, HostOS lead inbox (HS-1, M1.2) | yes | M2 | planned |
 
 ### B · Decide + F · Social proof / video (v1.5 → R2)
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
@@ -84,18 +92,22 @@
 | H3 | listing optimizer (แนะนำรูป/ราคา) | 🟡 | M | analytics | **yes** | R4 | planned |
 
 ## 4. Release trains (ลำดับแนะนำ)
+> **Blueprint v6 (2026-07-04, ADR-011):** re-anchor เข้า milestone ladder ของ `docs/project/platform-blueprint.md`. R1 เดิมแตกเป็น 3 train (M1 → M1.2 → M2); R2/R3/R4 คงเนื้อหาเดิม เพิ่ม milestone tag ต่อท้ายชื่อ train.
+
 | Train | ธีม | Items | Effort รวม (~) | Gate สำคัญ |
 |---|---|---|---|---|
-| **R1** ← ทำก่อน | Chat core (v1) | PREP-1/2/3 → AI-1/2/3 + A1–A4 + C1–C2 | **~8–10 สัปดาห์** | G1 scope · **G2 spend (OpenRouter)** ก่อน AI-1 ยิงจริง |
-| **R2** | Decide + Social proof / video | B1/B2(F1)/B3 + VID-1/2/3/4 (F2 link-out, F3 embed) | **~7–9 สัปดาห์** | G2 spend (scraper ถ้าใช้ 3rd-party) · CSP review · ADR-010 |
-| **R3** | Plan / Trip | D2, D3, E2, **D1 trip planner (XL)** | **~8–10 สัปดาห์** | data model ใหม่ (trip/itinerary) · G2 (weather/maps API) |
-| **R4** | Post-trip + Host tools | E1, H1, H2, H3 | **~7–9 สัปดาห์** | G2 (POI API + AI generation) |
+| **M1** ← ทำก่อน (Data & Trust) | ปูฐานข้อมูล/ความน่าเชื่อถือ (availability/price/review) ก่อนแตะ AI | PREP-1 (**Done** — CAM-267) + PREP-2/3 | ~2–2.5 สัปดาห์ (เหลือ PREP-2/3; ประมาณการหยาบ) | G1 scope (ปิดแล้ว — มี story CAM-268/269) |
+| **M1.2** — HostOS-AI | parser ข้อความ LINE/FB → structured lead เสริม lead inbox ของ HostOS (manual entry ทำงานได้ก่อนอยู่แล้ว) | AI-PARSE | ~1.5 สัปดาห์ (ประมาณการหยาบ) | **G2 spend (OpenRouter)** ก่อน AI-PARSE ยิงจริง — **จุด spend แรกของ roadmap นี้** (ย้ายจาก AI-1 เดิม) |
+| **M2** — AI Discover→Inquiry | Chat core (v1): ค้นหา/ถามตอบสด → ส่งต่อเป็น inquiry (สร้าง HostLead, ไม่ใช่ booking) | AI-1/2/3 + A1–A4 + C1–C2 | ~6–8 สัปดาห์ (คงเหลือหลัง PREP ย้ายไป M1; ประมาณการหยาบ) | เข้า: M1 **และ** M1.2 เสร็จ (ต่อ platform-blueprint.md §3) · G1 scope · spend อนุมัติแล้วที่ M1.2 (reuse OpenRouter integration เดิม) |
+| **R2** (M2.x) | Decide + Social proof / video | B1/B2(F1)/B3 + VID-1/2/3/4 (F2 link-out, F3 embed) | **~7–9 สัปดาห์** | G2 spend (scraper ถ้าใช้ 3rd-party) · CSP review · future ADR (เลขจะออกตอนเริ่ม R2) |
+| **R3** (M3) | Plan / Trip | D2, D3, E2, **D1 trip planner (XL)** | **~8–10 สัปดาห์** | data model ใหม่ (trip/itinerary) · G2 (weather/maps API) |
+| **R4** (M6-ish) | Post-trip + Host tools | E1, H1, H2, H3 | **~7–9 สัปดาห์** | G2 (POI API + AI generation) |
 
-> ลำดับยึด **feasibility + คุณค่า**: R1 = ฐาน chat ที่พิสูจน์ demand ก่อน; R2 = social proof/รีวิว (แรงจูงใจจอง) พร้อม video; R3 = trip planner (ของใหญ่ ต้องมี data ใหม่) ทำเมื่อ chat พิสูจน์แล้ว; R4 = ต่อยอด host.
+> ลำดับยึด **feasibility + คุณค่า** ผูกกับ milestone ladder: **M1** ปูฐานข้อมูล/ความน่าเชื่อถือก่อน; **M1.2** เปิด HostOS AI parser เป็นจุด spend แรก (parser เป็นรายการสุดท้ายของ M1.2 ต่อ platform-blueprint.md — manual entry ใช้งานได้ก่อนอยู่แล้ว); **M2** ต่อยอด chat ให้ discover→inquiry (ไม่ใช่ booking); **R2 (M2.x)** = social proof/รีวิว พร้อม video; **R3 (M3)** = trip planner (ของใหญ่ ต้องมี data ใหม่) ทำเมื่อ chat พิสูจน์แล้ว; **R4 (M6-ish)** = ต่อยอด host/affiliate. Milestone tag บนแถว R2/R3/R4 เป็นการจัดวางเบื้องต้น (approximate) — ยึด `docs/project/platform-blueprint.md` เป็น SoT ถ้าขัดแย้งกัน.
 
 ## 5. Risks / constraints (ไม่กลบเกลื่อน)
 - **Availability ต้องแม่นก่อน AI** — PREP-1 (BlockedDate + partial capacity) ต้องเสร็จก่อน A3/A4 ไม่งั้นแชทตอบ "ว่าง" ผิด → double-booking.
-- **Video harvested (F2/VID-3) ยังขัด ToS TikTok/FB เชิงเทคนิค** + thumbnail เป็นลิขสิทธิ์ครีเอเตอร์. ลดความเสี่ยง: allow-list แหล่งที่เลือกเอง · **link-out ไม่ rehost** · เครดิต+ลิงก์กลับ · takedown · batch ความถี่ต่ำ. Owner รับความเสี่ยงระดับนี้แล้ว. กลไก scrape (self-host vs 3rd-party = spend) เคาะที่ G2 (ADR-010).
+- **Video harvested (F2/VID-3) ยังขัด ToS TikTok/FB เชิงเทคนิค** + thumbnail เป็นลิขสิทธิ์ครีเอเตอร์. ลดความเสี่ยง: allow-list แหล่งที่เลือกเอง · **link-out ไม่ rehost** · เครดิต+ลิงก์กลับ · takedown · batch ความถี่ต่ำ. Owner รับความเสี่ยงระดับนี้แล้ว. กลไก scrape (self-host vs 3rd-party = spend) เคาะที่ G2 (future ADR, เลขจะออกตอนเริ่ม R2).
 - **Embeddings deferred** (ADR-009) — v1 ใช้ tool-use/keyword; query แนว "ฟีลดิบ เงียบ ๆ" อาจอ่อนจนกว่าจะเติม vector (content-only).
 - **External API + spend** — D3 weather, E1 POI, D1 maps/routing, H1–H3 AI generation, F2 scraper (ถ้า 3rd-party) = มีค่าใช้จ่าย ต้องอนุมัติ G2.
 - **CSP** — ฝัง owned video (F3/VID-2) ต้องเพิ่ม `frame-src`/`script-src` โดเมน player ใน `proxy.ts` (strict nonce CSP ปัจจุบัน).
@@ -106,11 +118,12 @@
 - **2026-07-01** — architecture (ADR-009): **ไม่ merge data**, typed tool layer over normalized DB, availability = live query, embeddings deferred (content-only).
 - **2026-07-01** — video reviews **2 ชั้น**: owned (host/admin) = ฝัง+เล่นในแชท; harvested (จาก allow-list ที่เราติดตาม) = การ์ด thumbnail กด→เปิดของจริง (link-out). Harvest แบบ **batch รายเดือน** เก็บ metadata ลง DB. Owner รับความเสี่ยง ToS/link-out.
 - **2026-07-01** — roadmap นี้เป็น SoT; ประเมินด้วย **S/M/L + สัปดาห์ + release train**; visual คู่ที่ `docs/design/ai-product-roadmap.html`.
+- **2026-07-04** — Blueprint v6 pivot รับเข้า (ADR-011): cluster **C เปลี่ยนชื่อ Book → Inquiry** (การ์ดส่งต่อเข้า `HostLead` ไม่ใช่ `Booking`); release train re-anchor เข้า milestone ladder (M1 → M1.2 → M2 → R2/R3/R4); จุด spend แรกของ roadmap ย้ายจาก AI-1 ไป **AI-PARSE** (ปลาย M1.2). อ้างอิง: `docs/adr/ADR-011-strategy-pivot-hostos-first.md` · ladder SoT: `docs/project/platform-blueprint.md` (PR #302).
 
 ## 7. Linear
 - Epic: **CAM-266** "AI Camping Assistant" (project เดียวกัน).
-- Stories ที่มีแล้ว: CAM-267/268/269 (PREP-1/2/3), CAM-270/271/272 (AI-1/2/3) — R1.
-- R2+ stories (B*, VID-*, D*, E*, H*) = สร้าง **เมื่อจะเริ่ม train นั้น** (ไม่ pre-create backlog ทั้งหมด). ADR-010 (video) + cluster-F wireframe = ทำตอนถึง R2.
+- Stories ที่มีแล้ว: CAM-267 (PREP-1) **Done** — merged staging 2026-07-04; CAM-268/269 (PREP-2/3) — M1; CAM-270/271/272 (AI-1/2/3) — M2.
+- R2+ stories (B*, VID-*, D*, E*, H*) = สร้าง **เมื่อจะเริ่ม train นั้น** (ไม่ pre-create backlog ทั้งหมด). future ADR (เลขจะออกตอนเริ่ม R2) + cluster-F wireframe = ทำตอนถึง R2.
 
 ## 8. Related artifacts
 - `docs/adr/ADR-009-ai-assistant-data-architecture.md` — data-arch decision.
