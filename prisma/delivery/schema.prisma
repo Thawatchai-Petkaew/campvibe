@@ -1,0 +1,174 @@
+// Self-hosted delivery-ticket schema (CAM-277 / ADR-010).
+//
+// STRICT SEPARATION FROM THE PRODUCT SCHEMA (prisma/schema.prisma):
+//   - own datasource (DELIVERY_DATABASE_URL, a different Postgres database)
+//   - own generated client (see generator block) — never imports/collides with @prisma/client
+//   - own migrations history at prisma/delivery/migrations/ (this file lives in its own
+//     folder, NOT prisma/delivery.prisma, specifically so its migration folder cannot merge
+//     with prisma/migrations/ — see ADR-010 "Deviation from the requested flat path")
+//   - consumed only through lib/delivery/* (module boundary) — app/api/* delivery routes never
+//     import prisma/schema.prisma's PrismaClient and vice versa
+//
+// Do NOT run `prisma migrate` against a real database from this story (T-1). DELIVERY_DATABASE_URL
+// does not exist yet — the owner creates the "delivery" database at G2 (see ADR-010 §Config step).
+// T-2 runs the first `npm run delivery:migrate` once the env var is set.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/delivery-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DELIVERY_DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────
+
+// Ticket workflow state — atomic replacement for Linear's loosely-applied state +
+// label combo. Full transition table (from → to → verb → side effects): ADR-010.
+enum TicketState {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  AWAITING_GATE
+  DONE
+  CANCELED
+}
+
+// EPIC/STORY hierarchy mirrors feature→epic→story (Req #1). TASK is reserved for a future
+// finer-grained sub-story checklist item — v1 (T-1..T-4) creates only EPIC + STORY rows.
+enum TicketType {
+  EPIC
+  STORY
+  TASK
+}
+
+// The 9 delivery-pipeline roles (mirrors lib/status-derive.ts KNOWN_ROLES/ROLE_STAGE).
+// Deliberately excludes "orchestrator"/"human" — those are process actors, not a role a
+// ticket is ever "held by"; the human's turn is represented by TicketState.AWAITING_GATE
+// + gateRaisedAt instead (see ADR-010).
+enum DeliveryRole {
+  PRODUCT_OWNER
+  ANALYST
+  ARCHITECT
+  UX_DESIGNER
+  FRONTEND_ENGINEER
+  BACKEND_ENGINEER
+  QA_ENGINEER
+  SECURITY_REVIEWER
+  DEVOPS_RELEASE
+}
+
+// Matches the existing PERSONAS constant (lib/status-model.ts) — kept as a closed enum
+// (ADR-003 convention: closed set, small + stable, no case-by-case growth expected).
+enum Persona {
+  HOST
+  CAMPER
+  ADMIN
+  PLATFORM
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────────────────────────────────
+
+// The atomic unit of tracked work (epic/story/task). One row per legacy Linear issue
+// (imported in T-4) or per newly created ticket. State machine: ADR-010.
+model Ticket {
+  id         String @id @default(cuid())
+  number     Int    @unique // [Public] numeric part of identifier (e.g. 277 in CAM-277); v1 = single global sequence (Req #1 "single-project v1" — see ADR-010 projectKey note for multi-project)
+  identifier String @unique // [Public] stable display key "CAM-{number}"; preserved 1:1 from Linear on import (Req #3) — @unique already creates the lookup index, so no separate @@index is added for it (would be a redundant duplicate index)
+
+  title       String // [Public] short summary
+  description String? @db.Text // [Public] long-form spec body (Story/AC/Rules/Data markdown — story.md template)
+
+  state    TicketState @default(BACKLOG) // [Public] workflow state — ADR-010 transition table
+  priority Int         @default(0) // [Public] 0..4 ordinal, same scale as legacy StatusIssue.priority (0=No priority..4=Low); display string is composed by the Buffet/read-adapter, never stored (no UI-shaped column)
+  type     TicketType // [Public] EPIC | STORY | TASK
+
+  currentRole DeliveryRole? // [Public] role presently holding the ticket; set on `start`, moved on `approve` (handoff); NEVER auto-cleared by raiseGate/reject/complete/cancel — always shows "who last held it" (see ADR-010, parity with legacy [role]-tag persisting through the gate wait)
+  persona     Persona? // [Public] Host | Camper | Admin | Platform — replaces the free-text persona label
+
+  epicId  String? // [Public] self-relation FK — replaces the "·"-prefixed title convention (Req #1). Application-level invariant (not enforceable by Prisma): the referenced Ticket should have type = EPIC — service layer validates this, schema cannot.
+  epic    Ticket?  @relation("EpicStories", fields: [epicId], references: [id], onDelete: SetNull)
+  stories Ticket[] @relation("EpicStories")
+
+  featureName String? // [Public] Linear-Project-equivalent grouping label; no separate Feature table in v1 (lean — ADR-010 Alternatives)
+
+  gateRaisedAt     DateTime? // [Public] timestamp the current role raised a gate for human review; null once approved/rejected/completed — replaces the "awaiting-you" label
+  changesRequested Boolean   @default(false) // [Public] true after a gate `reject`; cleared by the next `raiseGate` (well, by `approve`/`complete`/`reject` itself — see ADR-010)
+  regressionRound  Int       @default(0) // [Public] cumulative count of `reject` cycles across the ticket's life; never reset (even on reopen) — replaces summed `regression:<role>:<n>` labels
+
+  releasedAt DateTime? // [Public] promote-to-prod timestamp (Done ≠ Released — ops.md). NOT a state; set once by the `release` verb on an already-DONE ticket. Idempotent-guarded: cannot be set twice (preserves the true first-release audit timestamp).
+  blocked    Boolean   @default(false) // [Public] orthogonal stall flag (waiting on an external dependency); does not gate state-machine transitions — toggled outside the 9 verbs (ADR-010 "orthogonal flags")
+
+  roleHistory String[] @default([]) // [Public] ordered list of DeliveryRole slugs that have ever held this ticket — replaces the accumulated `role:*` label list read by lib/status-derive.ts buildWorkload/rolesOf
+
+  assigneeName String? // [PII] free-text human name (only ever set for a real person, e.g. the owner); AI-role attribution lives in currentRole/roleHistory instead, never here
+
+  legacyUrl    String? // [Public] original linear.app issue URL — import trace only (Req #3)
+  legacyLabels String[] @default([]) // [Public] raw Linear labels preserved verbatim at import — safety net for any label semantics the T-4 import can't map atomically yet
+
+  archivedAt DateTime? // [Public] soft-hide from active views/board; distinct from CANCELED (a business outcome) — e.g. legacy-import housekeeping. Toggled outside the 9 verbs (ADR-010 "orthogonal flags")
+
+  startedAt   DateTime? // [Public] first entry into IN_PROGRESS (set once; not overwritten by later start/reject cycles)
+  completedAt DateTime? // [Public] entry into DONE
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments TicketComment[]
+  events   TicketEvent[]
+
+  @@index([state])
+  @@index([epicId])
+  @@index([archivedAt])
+}
+
+// Free-form discussion thread on a ticket (not an audit event — see TicketEvent for the
+// mutation ledger).
+model TicketComment {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  body       String @db.Text // [Public] comment text
+  authorName String // [PII] free-text human or role name
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+// Append-only audit trail — one row per mutation. This is the ledger that roleHistory /
+// regressionRound / changesRequested are derived summaries OF; TicketEvent is the source
+// of truth for "who did what, when" (replaces Linear's implicit activity feed).
+model TicketEvent {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  kind      String // [Public] state_change | handoff | gate_raised | approved | rejected | released | blocked | comment | created | archived — ADR-010; plain String (not an enum) so a new kind can be added without a migration
+  fromValue String? // [Public] prior value (state/role/bool/timestamp as string); null on `created`
+  toValue   String? // [Public] new value
+  actor     String // [PII] who/what performed the mutation — a DeliveryRole slug, "human", or a real name
+  note      String? @db.Text // [Public] optional free-text context (e.g. which gate — "G2"); reject carries no reason field, per CAM-275c (reject-reason UI removed)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// Singleton real-time refresh signal for the /status dashboard — the delivery-module
+// equivalent of the product's StatusPulse (prisma/schema.prisma). Bumped by the mutation
+// service directly, in the same call that changes a Ticket, since every mutation now goes
+// through our own service layer — there is no external webhook to relay from (ADR-010,
+// "single mutation path... no webhook"). No business data — a refresh trigger only.
+model DeliveryPulse {
+  id        String   @id @default("singleton")
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
