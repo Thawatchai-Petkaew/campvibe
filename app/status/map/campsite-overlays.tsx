@@ -901,18 +901,6 @@ export const HUD_CSS = `
 @media (prefers-reduced-motion:no-preference){
   .hud-gate-modal-skel{animation:hud-shimmer 1.4s linear infinite}
 }
-.hud-gate-modal-reason-label{
-  font-size:11px;font-weight:600;color:rgba(223,234,245,.55);margin-bottom:6px;display:block;
-}
-.hud-gate-modal-textarea{
-  width:100%;border-radius:10px;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,190,80,.22);
-  color:rgba(223,234,245,.88);font-size:12.5px;line-height:1.5;
-  padding:9px 11px;resize:vertical;min-height:64px;max-height:140px;
-  outline:none;font-family:inherit;transition:border-color 120ms;box-sizing:border-box;
-}
-.hud-gate-modal-textarea:focus{border-color:rgba(255,190,80,.5);box-shadow:0 0 0 2px rgba(255,190,80,.12)}
-.hud-gate-modal-textarea::placeholder{color:rgba(223,234,245,.3)}
 .hud-gate-modal-actions{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
 .hud-gate-btn-approve{
   display:inline-flex;align-items:center;gap:7px;
@@ -2376,7 +2364,6 @@ export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, on
 
   const [fetchState, setFetchState] = useState<FetchState>("loading");
   const [detail, setDetail] = useState<IssueDetail | null>(null);
-  const [reason, setReason] = useState("");
   const [approveState, setApproveState] = useState<ApproveState>("idle");
   const [rejectState, setRejectState] = useState<RejectState>("idle");
   const [actionError, setActionError] = useState<string>("");
@@ -2390,7 +2377,6 @@ export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, on
     setApproveState("idle");
     setRejectState("idle");
     setActionError("");
-    setReason("");
     fetchGateDetail(gateId, token)
       .then((d) => { setDetail(d); setFetchState("loaded"); })
       .catch(() => setFetchState("error"));
@@ -2430,7 +2416,7 @@ export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, on
   function handleRejectClick() {
     setRejectState("submitting");
     setActionError("");
-    rejectGate(gateId, reason, token)
+    rejectGate(gateId, "", token)
       .then(() => { onClose(); onApproved(); })
       .catch(() => {
         setRejectState("error");
@@ -2535,21 +2521,6 @@ export function GateDetailModal({ gateId, gateUrl, token, triggerRef, isOpen, on
 
           {/* Separator */}
           <div className="hud-gate-modal-sep" aria-hidden="true" />
-
-          {/* Reason textarea */}
-          <label className="hud-gate-modal-reason-label" htmlFor="gate-detail-reason">
-            เหตุผล (ถ้าจะส่งกลับ)
-          </label>
-          <textarea
-            id="gate-detail-reason"
-            className="hud-gate-modal-textarea"
-            aria-label="เหตุผลในการส่งกลับ"
-            placeholder="เพิ่มเหตุผล (ไม่บังคับ)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            readOnly={submitting}
-            data-testid="textarea--gate-reason"
-          />
 
           {/* Actions */}
           <div className="hud-gate-modal-actions">
