@@ -45,6 +45,12 @@ jobs:
             printf 'TELEGRAM_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_CHAT_ID }}"
             printf 'STATUS_TOKEN=%s\n' "${{ secrets.STATUS_TOKEN }}"
             printf 'APP_BASE_URL=%s\n' "${{ vars.APP_BASE_URL || 'https://campvibe-staging.vercel.app' }}"
+            # ADR-010 cutover flag (CAM-281 T-5) — "linear" (default) keeps this workflow on
+            # scripts/linear-sync.mjs below; "db" switches it to scripts/ticket-sync.mjs
+            # against /api/tickets/* (same STATUS_TOKEN + APP_BASE_URL above). OWNER ACTION
+            # before flipping: set the `TICKETS_SOURCE` repo variable to "db" here AND the
+            # matching Vercel env var on the target deploy — both must flip together.
+            printf 'TICKETS_SOURCE=%s\n' "${{ vars.TICKETS_SOURCE || 'linear' }}"
           } > .env
 
       - name: Confirm a gate is actually cleared
@@ -52,7 +58,15 @@ jobs:
         run: |
           # `gates` exits 10 on purpose when a gate is cleared. Capture it WITHOUT letting
           # bash -e abort before we read $? (the bug that used to skip continuation).
-          node scripts/linear-sync.mjs gates && code=0 || code=$?
+          # TICKETS_SOURCE=db (CAM-281 T-5) repoints this at the self-hosted ticket-sync CLI
+          # (scripts/ticket-sync.mjs — an HTTP client over /api/tickets/*); legacy mode keeps
+          # using scripts/linear-sync.mjs against the Linear API. Same exit-10-means-cleared
+          # contract on both.
+          if grep -q '^TICKETS_SOURCE=db$' .env; then
+            node scripts/ticket-sync.mjs gates && code=0 || code=$?
+          else
+            node scripts/linear-sync.mjs gates && code=0 || code=$?
+          fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
       - name: No cleared gate → stop
