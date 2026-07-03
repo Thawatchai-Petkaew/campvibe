@@ -118,7 +118,7 @@ function renderEnvPane(m: Model, open: boolean): string {
     items.forEach((i) => {
       const r = regressionRound(i.labels);
       const rChip = r > 0 ? `<span class="chip regression">↩${r}</span>` : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      h += `<button type="button" class="kc ${isActive(i) ? "prog" : ""}" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></button>`;
     });
     h += `</div>`;
   }
@@ -209,7 +209,7 @@ function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: strin
     h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${items.length}</span></div>`;
     items.forEach((i) => {
       const chip = chipMode === "persona" ? personaChip(personaOf(i)) : featChip(featureOf(i));
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></a>`;
+      h += `<button type="button" class="qrow" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></button>`;
     });
     h += `</div>`;
   }
@@ -228,7 +228,7 @@ function renderOverview(m: Model, tq: string, group: string, envOpen: boolean, e
   if (m.gates.length) {
     m.gates.forEach((i) => {
       const g = gateOf(i.title);
-      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><a class="gr-btn" href="${esc(i.url)}" target="_blank" rel="noopener">Review →</a></div>`;
+      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><button type="button" class="gr-btn" data-act="open-ticket" data-arg="${esc(i.id)}">Review →</button></div>`;
     });
   } else h += `<div class="none-row">✓ ไม่มีงานรออนุมัติจากคุณตอนนี้</div>`;
   h += `</section>`;
@@ -332,7 +332,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   // action card
   if (needs.length) {
     const g = needs[0], gl = gateOf(g.title);
-    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><a class="approve" href="${esc(g.url)}" target="_blank" rel="noopener">Review &amp; Approve <span aria-hidden="true">→</span></a></section>`;
+    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><button type="button" class="approve" data-act="open-ticket" data-arg="${esc(g.id)}">Review &amp; Approve <span aria-hidden="true">→</span></button></section>`;
   }
 
   // live now + up next
@@ -350,7 +350,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   if (queued.length) {
     queued.forEach((i) => {
       const cls = i.status === "Backlog" ? "bl" : "td";
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></a>`;
+      h += `<button type="button" class="qrow" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></button>`;
     });
   } else h += `<div class="none-row" style="color:var(--muted)">— คิวว่าง</div>`;
   h += `</section></div>`;
@@ -366,7 +366,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
       const live = isActive(i) ? '<span class="dot live" style="margin-right:5px"></span>' : "";
       const rb = regressionRound(i.labels);
       const rChip = rb > 0 ? `<span class="chip regression">↩${rb}</span>` : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      h += `<button type="button" class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></button>`;
     });
     h += `</div>`;
   });
