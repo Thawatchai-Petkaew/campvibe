@@ -87,3 +87,11 @@ Flatten the tables into one wide "campsite search document" (or a warehouse) tha
 - Visual: `docs/design/ai-search-architecture.html`.
 - Reuse points: `lib/campsite-filters.ts`, `lib/campsite-availability.ts`, `lib/read-models/camp-card.ts`, `components/CampgroundCard.tsx`.
 - Security posture: `.claude/rules/security.md` (AI/agent-layer: untrusted input, no exec of model output, scoped tokens + spend cap).
+
+## Amendment 2026-07 (ADR-011)
+
+Superseded in part by the Blueprint v6 pivot (`docs/adr/ADR-011-strategy-pivot-hostos-first.md`): **chat v1 scope is now A (Discover) + C (Inquiry)** — cluster C is no longer "Book handoff." A card's click-through now hands off into an **inquiry form that creates a `HostLead`**, never a `Booking`. This changes the destination of the C-cluster handoff described in this ADR's Context and Decision sections; everything else in this ADR is unchanged and still correct:
+
+- The typed tool layer (`searchCampsites`, `checkAvailability`, `getCampDetail`), the no-merge/no-warehouse decision, and the deferred-embeddings stance are unaffected — retrieval still reads the same normalized tables the same way.
+- **New dependency:** the HostOS lead inbox (M1.2, `docs/project/platform-blueprint.md` §3) must exist and accept leads before the C-cluster ships — chat cannot hand off to an inbox that does not yet exist. This reorders `ai-product-roadmap.md`'s AI-1..AI-3 / C1/C2 rows against the new milestone ladder (tracked as a follow-up re-sequencing PR).
+- Guardrail: the inquiry handoff is still a **read-only AI path into a write the user/host confirms** — the AI never creates the `HostLead` write itself without the surrounding form/confirmation step, consistent with `.claude/rules/security.md`'s AI-layer rule (model output is data, never auto-executed).
