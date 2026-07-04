@@ -2,36 +2,40 @@
  * cam-305-listing-completeness-card.test.ts — source-inspection tests for the
  * CAM-305 host dashboard listing-completeness card + its dashboard wiring.
  *
+ * Updated for CAM-350 (weight-segmented progress bar + payoff-annotated
+ * remaining-jobs list): the card's rendered BODY changed (score pill +
+ * <SegmentedProgress> + jobs list with `+N%`), but the fetch / loading /
+ * error / retry plumbing and the CAM-305 BR-1 (verbatim labels) / BR-2 (link
+ * map) contracts are unchanged and re-asserted here against the new source.
+ * CAM-350-specific coverage (segment math, weights-single-source, the
+ * unknown-key EC-5 payoff omission, container-query strip) lives in
+ * __tests__/cam-350-segmented-progress.test.ts.
+ *
  * The repo's vitest config runs in the `node` environment with no jsdom/
  * @testing-library/react (see vitest.config.ts), so a real component-render
  * test is not available here. This follows the same source-inspection
  * pattern established by __tests__/cam-56-blocked-dates-availability-page.test.ts
  * and the CAM-302/303/304 suites to give structural coverage of the AC/BR/EC
- * contract without adding new test infra (out of scope for this atomic story).
+ * contract without adding new test infra.
  *
  * AC -> test matrix
  * ─────────────────────────────────────────────────────────────────────────────
- * AC-1  header renders `ครบ {N}%` with the API score; missing[] maps to one
- *       row per item rendering the verbatim API label (never merged).
+ * AC-1  score pill renders `ครบ {N}%` with the API score (never a re-sum);
+ *       missing[] maps to one row per item rendering the verbatim API label.
  * AC-2  each missing item links to `/dashboard/campsites/{id}/edit#{anchor}`
- *       per the BR-2 table, derived from `key` (never from `label`).
- * AC-3  score===100 && missing empty -> renders the complete affirmation +
+ *       per the BR-2 (CAM-305) table, derived from `key` (never from `label`).
+ * AC-4  score===100 && missing empty -> renders the complete affirmation +
  *       success badge, no missing-item list (EC-4).
- * AC-4  uses useMinimumLoading; skeleton mirrors the card shape; a11y wiring
+ * AC-5  uses useMinimumLoading; skeleton mirrors the new layout; a11y wiring
  *       (aria-busy, role=status, aria-live=polite, กำลังโหลด… via t.common).
- * AC-5  error branch renders ErrorBanner + retry button; retry re-fetches
- *       only this card (attempt state re-triggers the effect) (EC-1).
- * AC-6  dashboard: zero campSites -> the completeness section is not
+ * AC-6  error branch renders ErrorBanner + retry button; retry re-fetches
+ *       only this card (EC-1).
+ * AC-7  dashboard: zero campSites -> the completeness section is not
  *       rendered at all (EC-2).
- * AC-7  dashboard: maps over data.campSites -> one card per campsite, never
- *       aggregated; title = campsite name from the dashboard payload.
- * BR-1  no hardcoded Thai missing-item label literal anywhere in the card.
- * BR-2  link map covers all six keys + the unknown-key fallback (EC-5); a
- *       not-yet-built field (cancellationPolicy/extraFee) still links + is
- *       clickable (EC-6).
- * BR-5  client-fetch anti-flicker (useMinimumLoading) + a11y.
- * BR-6  one card's error state never blanks another card (separate fetch
- *       per instance, no shared/module-level error state).
+ * BR-1 (CAM-305) no hardcoded Thai missing-item label literal anywhere in the card.
+ * BR-2 (CAM-305) link map covers all six keys + the unknown-key fallback (EC-5).
+ * BR-7 (CAM-350) client-fetch anti-flicker (useMinimumLoading) + a11y; one
+ *       card's error state never blanks another card.
  * Story-specific: read-only (GET-only, no write path).
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -55,7 +59,7 @@ const dashboardSrc = fs.readFileSync(
 );
 
 // ===========================================================================
-// BR-1 — labels verbatim from the API, never hardcoded in the card
+// BR-1 (CAM-305) — labels verbatim from the API, never hardcoded in the card
 // ===========================================================================
 
 describe('CAM-305 card — BR-1: no hardcoded Thai missing-item label', () => {
@@ -84,24 +88,28 @@ describe('CAM-305 card — BR-1: no hardcoded Thai missing-item label', () => {
 });
 
 // ===========================================================================
-// AC-1/BR-3 — score header
+// AC-1 — score pill (CAM-350: replaces the CAM-305 plain score line)
 // ===========================================================================
 
-describe('CAM-305 card — AC-1/BR-3: score header', () => {
-  it('renders the header with the API score substituted for {N}', () => {
-    expect(cardSrc).toContain('copy.header.replace("{N}", String(result.score))');
+describe('CAM-305/CAM-350 card — AC-1: score pill', () => {
+  it('renders the score pill with the API score substituted for {N} (never a re-sum of segments)', () => {
+    expect(cardSrc).toContain('copy.scorePercent.replace("{N}", String(result.score))');
   });
 
-  it('pulls the header copy from the i18n listingCompleteness namespace, not hardcoded', () => {
+  it('pulls all copy from the i18n listingCompleteness namespace, not hardcoded', () => {
     expect(cardSrc).toContain('const copy = t.listingCompleteness');
+  });
+
+  it('renders the score pill as a Badge with variant="muted" (color via variant, never bg-* in className)', () => {
+    expect(cardSrc).toContain('data-testid="badge--listing-completeness-score"');
   });
 });
 
 // ===========================================================================
-// AC-2/BR-2 — link map (all six keys + unknown fallback)
+// AC-2/AC-3 — link map (all six keys + unknown fallback), unchanged from CAM-305
 // ===========================================================================
 
-describe('CAM-305 card — AC-2/BR-2: link map derived from key, not label', () => {
+describe('CAM-305 card — AC-2/AC-3/BR-2: link map derived from key, not label', () => {
   const EXPECTED_ANCHORS: Record<ListingCompletenessKey, string> = {
     photos: 'photos',
     price: 'price',
@@ -138,51 +146,60 @@ describe('CAM-305 card — AC-2/BR-2: link map derived from key, not label', () 
     expect(cardSrc).toContain('href={fixLinkFor(campSiteId, item.key)}');
   });
 
-  it('[EC-6] cancellationPolicy and extraFee (fields not built yet, CAM-341) still have a real anchor, not omitted', () => {
+  it('[EC-6] cancellationPolicy and extraFee still resolve to a real anchor (CAM-341 built the edit sections)', () => {
     expect(cardSrc).toContain('cancellationPolicy: "cancellation-policy"');
     expect(cardSrc).toContain('extraFee: "extra-fee"');
   });
 });
 
 // ===========================================================================
-// AC-3/EC-4 — complete state
+// AC-4/EC-4 — complete state
 // ===========================================================================
 
-describe('CAM-305 card — AC-3/EC-4: complete state (score=100, missing empty)', () => {
+describe('CAM-305/CAM-350 card — AC-4/EC-4: complete state (score=100, missing empty)', () => {
   it('computes isComplete from score===100 AND an empty missing array', () => {
     expect(cardSrc).toContain(
       'const isComplete = result != null && result.score === 100 && result.missing.length === 0;'
     );
   });
 
-  it('renders the complete affirmation copy + a success badge (color+icon+text, never color-only)', () => {
-    expect(cardSrc).toContain('isComplete ? (');
+  it('renders the fully-filled bar + the complete affirmation + a success badge (color+icon+text, never color-only)', () => {
+    expect(cardSrc).toContain('result && isComplete ? (');
     expect(cardSrc).toContain('<Badge variant="success" data-testid="badge--listing-completeness-complete">');
     expect(cardSrc).toContain('<CheckCircle2 aria-hidden="true" />');
     expect(cardSrc).toContain('{copy.complete}');
   });
 
-  it('renders no missing-item list in the complete branch (badge is a sibling branch to the list branch)', () => {
-    const completeBranchStart = cardSrc.indexOf('isComplete ? (');
+  it('renders no missing-item list and no count line in the complete branch (sibling branch to the jobs-list branch)', () => {
+    const completeBranchStart = cardSrc.indexOf('result && isComplete ? (');
     const nextBranchStart = cardSrc.indexOf(') : result ? (');
     const completeBranch = cardSrc.slice(completeBranchStart, nextBranchStart);
     expect(completeBranch).not.toContain('section--listing-completeness-missing');
+    expect(completeBranch).not.toContain('text--listing-completeness-remaining');
   });
 });
 
 // ===========================================================================
-// AC-4/BR-5 — loading state + a11y
+// AC-5/BR-7 — loading state + a11y (skeleton mirrors the NEW layout)
 // ===========================================================================
 
-describe('CAM-305 card — AC-4/BR-5: loading state (skeleton + anti-flicker + a11y)', () => {
+describe('CAM-305/CAM-350 card — AC-5: loading state (skeleton + anti-flicker + a11y)', () => {
   it('uses the client-fetch anti-flicker hook useMinimumLoading', () => {
     expect(cardSrc).toContain('useMinimumLoading(isLoading)');
   });
 
-  it('renders a skeleton (not blank/spinner) that mirrors the card shape while showSkeleton is true', () => {
+  it('renders a skeleton (not blank/spinner) that mirrors the NEW layout (score-pill block + bar block + count-line block + job-row blocks)', () => {
     expect(cardSrc).toContain('showSkeleton ? (');
     expect(cardSrc).toContain('data-testid="skeleton--listing-completeness"');
-    expect(cardSrc).toContain('<Skeleton');
+    // score-pill placeholder (pill-shaped) sitting beside the title placeholder
+    expect(cardSrc).toContain('<Skeleton className="h-5 w-14 shrink-0 rounded-full" />');
+    // the bar placeholder matches the real SegmentedProgress track height/radius exactly (h-2.5 rounded-full)
+    expect(cardSrc).toContain('<Skeleton className="h-2.5 w-full rounded-full" />');
+    // count-line placeholder
+    expect(cardSrc).toContain('<Skeleton className="h-4 w-1/3" />');
+    // 1-2 job-row placeholders
+    const jobRowSkeletons = cardSrc.match(/<Skeleton className="h-9 w-full rounded-xl" \/>/g) ?? [];
+    expect(jobRowSkeletons.length).toBeGreaterThanOrEqual(1);
   });
 
   it('marks the skeleton region aria-hidden (decorative shapes, meaning carried by the live region)', () => {
@@ -200,10 +217,10 @@ describe('CAM-305 card — AC-4/BR-5: loading state (skeleton + anti-flicker + a
 });
 
 // ===========================================================================
-// AC-5/BR-6/EC-1 — error state + isolated retry
+// AC-6/EC-1 — error state + isolated retry (unchanged from CAM-305)
 // ===========================================================================
 
-describe('CAM-305 card — AC-5/BR-6/EC-1: error state + per-card retry', () => {
+describe('CAM-305 card — AC-6/EC-1: error state + per-card retry', () => {
   it('renders ErrorBanner with the loadError copy on a failed fetch', () => {
     expect(cardSrc).toContain('hasError ? (');
     expect(cardSrc).toContain('message={copy.loadError}');
@@ -216,13 +233,28 @@ describe('CAM-305 card — AC-5/BR-6/EC-1: error state + per-card retry', () => 
     expect(cardSrc).toContain('const handleRetry = () => setAttempt((n) => n + 1);');
   });
 
-  it('the fetch effect depends on [campSiteId, attempt] — retry re-fetches without touching other cards\' state (BR-6)', () => {
+  it('the fetch effect depends on [campSiteId, attempt] — retry re-fetches without touching other cards\' state', () => {
     expect(cardSrc).toContain('}, [campSiteId, attempt]);');
   });
 
   it('treats any non-ok response (network / 5xx / defensive 403 / 404) as the same error branch', () => {
     expect(cardSrc).toContain('if (!res.ok) throw new Error');
     expect(cardSrc).toContain('.catch(() => {');
+  });
+});
+
+// ===========================================================================
+// CAM-350 — icon swap (ArrowUpRight replaces ChevronRight, DESIGN.md §7)
+// ===========================================================================
+
+describe('CAM-350 card — icon policy: lucide-react only, ArrowUpRight replaces ChevronRight', () => {
+  it('imports ArrowUpRight (deep-link cue) and no longer imports ChevronRight', () => {
+    expect(cardSrc).toContain('ArrowUpRight');
+    expect(cardSrc).not.toContain('ChevronRight');
+  });
+
+  it('imports only from lucide-react (no @tabler/icons-react)', () => {
+    expect(cardSrc).not.toContain('@tabler/icons-react');
   });
 });
 
@@ -242,10 +274,10 @@ describe('CAM-305 card — read-only guarantee (no write path)', () => {
 });
 
 // ===========================================================================
-// AC-6/AC-7/BR-4/BR-7 — dashboard wiring
+// AC-7/BR-4/BR-7 — dashboard wiring (unchanged by CAM-350; card body only)
 // ===========================================================================
 
-describe('CAM-305 dashboard — AC-7/BR-4: one card per owned campsite (never aggregated)', () => {
+describe('CAM-305 dashboard — one card per owned campsite (never aggregated)', () => {
   it('imports ListingCompletenessCard', () => {
     expect(dashboardSrc).toContain(
       'import { ListingCompletenessCard } from "@/components/ListingCompletenessCard";'
@@ -273,7 +305,7 @@ describe('CAM-305 dashboard — AC-7/BR-4: one card per owned campsite (never ag
   });
 });
 
-describe('CAM-305 dashboard — AC-6/BR-7/EC-2: zero campsites -> no section at all', () => {
+describe('CAM-305 dashboard — AC-7/EC-2: zero campsites -> no section at all', () => {
   it('gates the entire section on campSites.length > 0 (not an empty-card fallback)', () => {
     expect(dashboardSrc).toContain(
       'data.campSites && data.campSites.length > 0 && ('
