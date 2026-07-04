@@ -39,12 +39,33 @@ Own the business rules (BR), validation, and user flows that connect each requir
 
 ## Prerequisites
 
-Read every time before starting:
+**Tier 1 (always):** Quick Reference of `.claude/rules/discovery.md` + `.claude/rules/architecture.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `.claude/rules/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
-- `.claude/rules/architecture.md` — data atomicity principles (what "independently queryable" means).
-- The spec/ticket for the work in scope.
-- `.claude/templates/story.md` — Story / AC / Rules format.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/architecture.md` | a field's atomicity/schema shape is in doubt before handing it to the architect |
+| `.claude/rules/discovery.md` | a Critical gap must be raised back to Discovery |
+| `.claude/rules/ux.md` | the flow touches PII/consent |
+
+Also always: the spec/ticket for the work in scope · `.claude/templates/story.md` (Story/AC/Rules format).
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 

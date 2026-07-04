@@ -40,14 +40,33 @@ DB change → reversible migration (up/down), tested on Staging before prod. 1 P
 
 ## Prerequisites
 
-Read first, every time:
+**Tier 1 (always):** Quick Reference of `.claude/rules/api.md` + `.claude/rules/code.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `.claude/rules/api.md` — API/backend standard (validation, authz, response shape, migration rules).
-- `.claude/rules/security.md` — authz, secret handling, injection (read alongside `api.md` always).
-- `.claude/rules/code.md` — TS strict, no unjustified `any`, PR size.
-- `.claude/rules/observability.md` — structured logging shape; no secrets/PII in logs.
-- The ticket's spec/tech — API contract + DB + audit event-code from the Architect. Read before writing any code.
-- The story's delivery artifacts — `docs/specs/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n` + `## Data`) + `tech.md` (API contract, if present). Implement to these; do not guess.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/security.md` | the endpoint touches auth, money, or PII |
+| `.claude/rules/architecture.md` | a new model or contract shape is introduced |
+| `.claude/rules/observability.md` | a new log/metric surface is added |
+
+Also always: the ticket's spec/tech (API contract + DB + audit event-code from the Architect) · the story's delivery artifacts — `docs/specs/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n` + `## Data`) + `tech.md` (API contract, if present). Implement to these; do not guess.
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 

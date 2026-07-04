@@ -45,6 +45,8 @@ Read these every run before planning or dispatching — sub-agents read their ow
 - `docs/specs/<feature>/` — the artifact store for the work (durable content per Feature→Epic→Story; files = content SoT, the delivery ticket DB = live-status SoT).
 - The spec/ticket for that work (if any).
 
+Reading discipline note: Iron Rule #4 is unchanged (every agent still reads its own `.claude/rules/<role>.md` before working) — what changed is HOW each role agent reads it: Tier 1 (its rule file's Quick Reference) always, Tier 2 (the full file) only on a stated trigger. See each role agent's own `## Prerequisites` for its trigger table.
+
 ## Operating principles
 
 1. **Human at the gates only.** Agents run on their own; the human decides at just 5 points (G1–G5). The orchestrator **always** raises the Gate Review Packet to the human and waits — there is no autonomous gate approval. Bundle questions so they are complete before asking; do not nitpick one at a time.
@@ -109,6 +111,39 @@ A gate decision is a real state-machine transition on the ticket (ADR-010), not 
 4. Resume polling for the next decision.
 
 Either way you still **never self-approve** — you only *detect* the human's decision and continue. If the poll never clears, the gate is still pending: keep waiting, never proceed.
+
+## Dispatch contract (pointer + delta discipline)
+
+Every `.claude/agents/<role>.md` now carries its own `## Dispatch contract` (git mechanics, self-verify, STOP RULES, ship ritual) — read once by that role, applying to every dispatch. Your dispatch prompt is therefore a **pointer + delta only**: ticket id, spec file path, allowed file surface, and story-specific notes. Do not re-paste git/self-verify/STOP-RULE boilerplate into the prompt — the agent file already carries it.
+
+**Frozen-prefix cadence:** when editing a shared/invariant section across multiple agent files (e.g. a Dispatch contract update), batch all the file edits in one pass before dispatching any agent that reads them — never edit an agent file mid-flight while a dispatch against it is in progress; a partial edit mid-dispatch is an inconsistent contract.
+
+## Stall watchdog
+
+A code-writing dispatch that goes silent — no completion notification **and** no new commits/file mtimes — past ~15 min (build work) or ~25 min (research) is presumed stalled, not just slow.
+
+1. Run a ground-truth check: `git log`/`git status` on the dispatch's branch, file mtimes, and `node scripts/ticket-sync.mjs show <CAM-id>` (event history) — confirm no progress landed.
+2. If dead/stalled: kill the dispatch (TaskStop) — **never** let it run indefinitely.
+3. **Re-dispatch resuming from artifacts** — hand the next attempt the existing branch + partial work already on disk; never restart the story from scratch. Cite the artifacts explicitly in the re-dispatch prompt (branch name, files already touched, commits so far).
+
+Provenance: the CAM-268 silent-death incident (a dispatch died with no notification and no commits; the story sat invisible until a manual check).
+
+## Circuit breaker (Shape Up adaptation)
+
+**2 gate rejections on the same story = STOP rework.** A third rework attempt on the same spec is a shaping defect, not an execution defect — the story re-enters Discovery to re-shape the spec (tighter AC, a narrower scope, or a corrected assumption) rather than a third blind retry.
+
+- The ticket DB's `regressionRound` column is the counter — read it before re-dispatching a rejected story; at `regressionRound >= 2`, route to Discovery (product-owner) instead of the build role.
+- Report the circuit-break to the human as part of the next Gate Review Packet — do not silently loop a third time.
+
+## Oracle-first QA
+
+For any story with non-trivial AC (branches, edge cases, negative paths), dispatch QA to derive failing test skeletons **from the spec's AC/EC before or in parallel with build** — the build role then implements against oracles that already exist, rather than QA reverse-engineering tests after the fact.
+
+Evidence: spec-derived test oracles catch 94.3% of the intended behavior vs 68% for agent-authored post-hoc tests (internal measurement, cited in the PR-2 research program). Sequencing: Discovery closes gaps → QA drafts oracle tests (red) → build role implements against them (green) → QA extends coverage/edge cases.
+
+## Per-dispatch caps
+
+Track max-turn / spend awareness per dispatch; note the actual $/story figure in the Gate Review Packet (alongside the existing checks) so the human can see cost trend across stories, not just pass/fail. A dispatch that is burning far outside its expected turn/spend budget is itself a stall-watchdog signal — check ground truth per the section above rather than letting it run unbounded.
 
 ## Scout Retro (continuous learning)
 

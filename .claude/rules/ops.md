@@ -102,6 +102,23 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 - **Graduated rollout** (if using flag/canary) — internal → 5% → 25% → 50% → 100%; **errors above baseline +10% = investigate · ≥2× = rollback**.
 - **Feature flag lifecycle** — deploy off → enable one step at a time → **remove the flag within ~2 weeks** (no stale/leftover flags, no nested flags).
 
+## Gate policy v2 (2026-07-04)
+
+Owner-approved package: all gates remain owner-approved in principle. The owner authors this policy once, spot-audits it, and can revoke any pre-authorized class anytime — this is calibrated trust, not autopilot.
+
+- **G1 Scope** — unchanged: always human, full attention. Spec-time is the highest-leverage checkpoint; no shortcut here.
+- **G2 Design — pre-authorized standard class.** A story qualifies as **standard change** when ALL hold: reuses existing tokens/components/flows per `DESIGN.md` · no new screen/flow/token · `check:ds` + `check:palette` green. A standard-class story skips the separate G2 tap; the G3 packet carries one line — `G2: standard class (criteria met)`. Any novel UI/flow/token routes to full human G2, as before.
+- **G3 Merge — exception-first packet.** An adversarial fresh-context reviewer agent (correctness-scoped) plus the quality-gate CI run together serve as the peer review. The packet the owner sees leads with: verdict · exceptions/risks · $/story · the one-line G2 class note. The owner approves on the packet (target: sub-minute) and reads diffs only when an exception is flagged. Approval rubric = the Google standard: "approve when it definitely improves the system, not when it is perfect." The owner may approve-with-nits — the agent fixes the nit without a second tap.
+- **G4 Staging — batched daily sitting.** Gate requests queue on `/status`; the owner clears them in ONE sitting per day (SLA: 1 business day). Packets stay atomic per story even when cleared in a batch — no bundling multiple stories' AC into one verify.
+- **G5 Go-live** — unchanged: release train, tag/changelog/rollback, Sentry watch window = this policy's execution, not a separate track.
+
+**Anti-rubber-stamp (mandatory companions — these are not optional extras):**
+
+- Every retro (`/retro`) replays **all** gate rejections plus at least one real failure to the owner — automation-bias research shows ~41% of issues get silently omitted from a summary when the reviewer isn't shown the failure directly; replay the failure itself, not a paraphrase.
+- The owner spot-audits a random standard-class G2 pass periodically (not every one — that would defeat the point of pre-authorization).
+- A **graduated-autonomy ledger** records per-class approve/reject counts. Any NEW pre-authorized class requires ~20 clean approvals AND explicit owner ratification before it goes live.
+- **Any miss demotes the class back to full-tap** — a single wrong pre-authorized pass reverts that whole class to mandatory human review until re-ratified; this is the safety valve, not a one-off exception.
+
 ## Examples
 
 ✅ **Promote to prod the right way.** Story is merged to `staging`, quality-gate green, migration reversible + already run on staging DB, and AC verified on the real Staging URL → G4 signed off. Run `/promote-release --to prod`; `prisma migrate deploy` succeeds on prod; cut a git tag + changelog entry + note the rollback plan; smoke-test the Production URL; watch Sentry for N minutes (no spike); label the story `released`. Three earlier Done stories ship together in this one release train.

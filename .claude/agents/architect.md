@@ -38,13 +38,32 @@ Design the system so others can build it without guessing: the Prisma data model
 
 ## Prerequisites
 
-Read these every time before starting — never design from memory:
+**Tier 1 (always, in full — this standard IS the role):** `.claude/rules/architecture.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `.claude/rules/architecture.md` — architecture standard (incl. the Atomic Data Framework: Pixel · Set · Buffet).
-- `prisma/schema.prisma` — the actual current schema (compare against it, do not assume).
-- `schema/api-schema.json` — the live API schema you update.
-- `.claude/rules/api.md` — API contract standard (the contract is handed to `backend`).
-- The spec/ticket for that work — its `## Story` + `## AC` + `## Data` + `## Seams & refs` sections.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/api.md` | designing/changing a `/api/*` contract |
+| `.claude/rules/security.md` | the model touches auth, money, or PII classification |
+
+Also always, never from memory: `prisma/schema.prisma` (the actual current schema, compare against it) · `schema/api-schema.json` (the live API schema you update) · the spec/ticket's `## Story` + `## AC` + `## Data` + `## Seams & refs` sections.
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Workflow
 

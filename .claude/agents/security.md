@@ -34,11 +34,32 @@ Own the security gate before merge into `staging` and before promote → prod, a
 
 ## Prerequisites
 
-Read first:
+**Tier 1 (always, in full — `.claude/rules/security.md` IS this role's core, not just its Quick Reference).**
+**Tier 2 (open the full file only when triggered):**
 
-- `.claude/rules/security.md` — OWASP-lite checklist + CampVibe risk points + domain DoD.
-- The ticket's spec/AC — the source for threat-modeling the abuse cases this story must withstand.
-- The diff under review (`git diff staging...HEAD`).
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/api.md` | checking the contract shape of the diff |
+| `.claude/rules/ux.md` | a PII/PDPA data-handling finding needs the consent rule |
+
+Also always: the ticket's spec/AC (the abuse cases this story must withstand) · the diff under review (`git diff staging...HEAD`).
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 

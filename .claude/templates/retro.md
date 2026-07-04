@@ -2,6 +2,7 @@
 
 Per-story retrospective produced by the `retro` skill. Optional artifact: lands at `docs/specs/<feature>/<epic>/<story>/retro.md` and feeds `docs/specs/LESSONS.md`. Keep it short — it is a distillation, not a report.
 
+- **Trigger:** <which criterion warranted this retro — gate rejection / stall-kill / spend-cap exceeded / prod error in watch window / ≥2 rework rounds / owner request>
 - **Story / outcome:** <one line — what shipped, Done date, PR #>
 - **Evidence read:** <git diff / PR / Linear comments / artifacts that were mined>
 
@@ -23,9 +24,18 @@ One row per lesson. Drop one-offs and anything already in the ledger.
 - **To orchestrator memory / docs/context / DESIGN / skill:** <list, or `none`>
 - **Ledger:** <N rows appended to `docs/specs/LESSONS.md`>
 
+## Action items
+
+Every action item is a **tracker entry with an owner**, not prose — no bare bullet like "should improve X" with no ticket and no name attached.
+
+| # | Action | Owner | Tracker entry |
+|---|---|---|---|
+| 1 | | | <CAM-id created via `ticket-sync.mjs create`, or `n/a` — say why> |
+
 ## Self-verify
 
 - [ ] Lessons mined from durable sources (git/PR/Linear/artifacts), not the live session
 - [ ] Each kept lesson has role · type · mistake→rule · CAM provenance · generality
 - [ ] Deduped against the ledger (strengthened an existing row instead of twinning where possible)
 - [ ] Rule promotions raised to the owner as a diff; ledger statuses set (`proposed`/`promoted`)
+- [ ] Every action item is a tracker entry with a named owner — no prose-only action item left unticketed
