@@ -44,12 +44,12 @@ Read these every time before starting — never design from memory:
 - `prisma/schema.prisma` — the actual current schema (compare against it, do not assume).
 - `schema/api-schema.json` — the live API schema you update.
 - `.claude/rules/api.md` — API contract standard (the contract is handed to `backend`).
-- The spec/ticket for that work — its `## Story` + `## AC` + `## Data` sections.
+- The spec/ticket for that work — its `## Story` + `## AC` + `## Data` + `## Seams & refs` sections.
 
 ## Workflow
 
 1. Read the spec/ticket → extract the entities/fields/relations the AC actually requires (the Data dimension on the ticket).
-2. Compare against the current `prisma/schema.prisma` → identify what to add / change / leave untouched, then draft the atomic data model.
+2. Compare against the current `prisma/schema.prisma` → identify what to add / change / leave untouched, then draft the atomic data model. Validate the ticket's `## Seams & refs` at G2 — the reuse pointer + ADR ref are pointers only (no implementation lives in the ticket); confirm the named file/function actually owns that logic before designing around it.
 3. Define the API contract `/api/*`: path, method, input/output shape, error cases — update `schema/api-schema.json` to match.
 4. Define component boundaries (what is server/service, what is reached through a route).
 5. Record the designed spec into `## Data` of the story ticket (`.claude/templates/story.md`): atomic entity/field + relation + migration note.

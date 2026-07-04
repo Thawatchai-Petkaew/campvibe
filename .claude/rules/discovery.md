@@ -73,10 +73,10 @@ Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be
 
 ### 4. Ticket = 1 atomic story
 
-Use the template exactly — `## Why` (+KPI) · `## Story` (ในฐานะ…ฉันต้องการ…เพื่อ…+ขอบเขต) · `## AC` (GFM table: Given | When | ผลที่ผู้ใช้เห็น + Thai copy verbatim | ผลเชิงข้อมูล) · `## Rules` (values/bounds + real error) · `## Data` (atomic fields + migration) · `## Out of scope` (+ point to the follow-up ticket) · `## Self-verify` · `## Links`.
+Use the template exactly (v2, English framework — story.md §"story v2") — `## Story` (As a **persona**, I want capability, so that outcome + Scope + `Depends on:`; value lives in the "so that" clause, no separate `## Why`; a one-line `Why: <reason>` inside `## Story` is allowed only when the reason isn't obvious — incident lesson, external constraint) · `## AC` (GFM 6-column table: `# | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge`) · `## Rules` (BR-n: values/bounds/transitions/defaults + real error) · `## Edge cases` (EC-n: invalid/empty/concurrent/permission/boundary, EARS `IF <condition> THEN <response>`) · `## Data` (atomic fields + migration) · `## Seams & refs` (reuse pointer + ADR ref, no implementation) · `## Out of scope` (+ point to the follow-up ticket) · `## Self-verify`. Phrase AC/EC in EARS form (Given = state, When = ONE trigger, failure = "IF…THEN…") and ban vague adverbs (fast/easy/robust) — use numbers.
 
 - The story body + AC go into the **story-level ticket** in the ticket DB (created via `node scripts/ticket-sync.mjs create`; role-task = sub-ticket). Check template conformance with `node scripts/ticket-sync.mjs audit` (must contain `## Story` + `## AC`).
-- **persona** = Admin | Camper | Host. AC left side = "what the user sees" (real Thai copy); AC right side = "what the system stores/changes" (plain language).
+- **persona** = Admin | Camper | Host. Framework (Given/When/Then/headings) is English; AC's "Then" column = "what the user sees" (verbatim Thai copy, char-for-char incl. `{N}`); "System effect" column = what the system stores/changes (plain language); "Neg/edge" column names the failure twin (EC-n or AC-n) — a `—` needs a stated reason.
 
 ### 5. Definition of Ready (DoR — "ready to build")
 
@@ -92,7 +92,7 @@ Use the template exactly — `## Why` (+KPI) · `## Story` (ในฐานะ�
 - **Surface assumptions early** — list the assumed tech/architecture/constraints where the human can see them (as a 🟡 with a default); don't keep them in your head.
 - **Measurable AC** — convert vague words ("faster") into a real target (e.g. LCP ≤ 2.5s) per `.claude/rules/performance.md`.
 - **Vertical slice + work size** — break into slices that ship end-to-end (not all-DB → all-API → all-UI); work larger than ~5–8 files = split further.
-- **AC verification rigor** (embedded in story ticket): cover states on responsive/mobile (as words the user sees, not class names) · Thai copy verbatim, exact glyphs including the `{N}` placeholder · every editable input has full rules (required/format/bounds/when-to-warn/real message) = QA's negative test cases.
+- **AC verification rigor** (embedded in story ticket): cover states on responsive/mobile (as words the user sees, not class names) · Thai copy verbatim, exact glyphs including the `{N}` placeholder · every editable input has full rules (required/format/bounds/when-to-warn/real message) = QA's negative test cases · every happy AC row names its Neg/edge twin (EC-n) or carries `—` with a stated reason.
 
 ### 7. On a requirement change — re-run Discovery + artifact cascade
 
@@ -109,11 +109,11 @@ A changed or added requirement re-enters Discovery (close the new gaps), then ru
 
 - ✅
 
-  | Given | When | ผลที่ผู้ใช้เห็น | ผลเชิงข้อมูล |
-  |---|---|---|---|
-  | แคมป์ปิดรับจอง | กดปุ่มจอง | ปุ่มเป็นสีเทากดไม่ได้ + ข้อความ `แคมป์นี้เต็มแล้ว` | ไม่สร้าง Booking; ไม่เปลี่ยน availability |
+  | # | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge |
+  |---|---|---|---|---|---|
+  | AC-1 | Camp is closed for booking | User taps the book button | Button is greyed out (unclickable) + `แคมป์นี้เต็มแล้ว` | No Booking created; availability unchanged | EC-1 |
 
-- ❌ `Given a camp · When booking · Then the system works correctly` — untestable, no Thai copy, no data result, gives QA nothing to write a negative case against.
+- ❌ `Given a camp · When booking · Then the system works correctly` — untestable, no Thai copy, no data result, no Neg/edge twin, gives QA nothing to write a negative case against.
 
 ## Reference Files
 
@@ -140,6 +140,7 @@ Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `n
 | "Every task gets a ticket." | Card only deliverable work (feature/fix/perf/security with AC, tracked on /status, behind gates). Tooling/docs/config/process — a skill, the lessons ledger, a baseline doc — is a plain PR with no card; CAM-205/206 over-carded internal tooling. |
 | "A quick hotfix / one-off issue doesn't need a project." | Every tracked issue gets a project (+ a parent epic for a story) AT CREATION, or it orphans on /status and must be retro-grouped later (CAM-191 hotfix + the CAM-96..104 Atomic Schema epic both slipped). |
 | "Skip the ticket DB and just build." | Research first, or you duplicate/conflict with existing work. |
+| "เขียนว่า 'ระบบทำงานถูกต้อง/รวดเร็ว' ใน AC ก็พอ" | Vague adverbs are untestable (NASA SE Handbook ban-list); use numbers and exact copy. |
 
 ## Verify (exit criteria)
 

@@ -429,7 +429,7 @@ async function cmdAudit() {
   const all = await getAllTickets();
   const byId = buildEpicIndex(all);
   const REQ = ["## Story", "## AC"];
-  const NICE = ["## Why", "## Rules", "## Data", "## Out of scope", "## Self-verify"];
+  const NICE = ["## Rules", "## Edge cases", "## Data", "## Seams & refs", "## Out of scope", "## Self-verify"];
   // Parity with legacy: "active" excludes only DONE (the sole `completed`-typed state) —
   // CANCELED tickets are still audited, matching linear-sync's `state.type !== "completed"`.
   const stories = all.filter((t) => isWorkTicket(t) && t.state !== "DONE").sort(sortByIdentifier);
