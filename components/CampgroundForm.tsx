@@ -363,11 +363,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 tags: formData.tags,
                 priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
                 priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
-                // Extra fee + cancellation policy (CAM-341, BR-6): blank clears via
-                // `|| undefined`, mirroring priceLow's blank-to-undefined handling.
-                extraFeeAmount: formData.extraFeeAmount === "" ? undefined : Number(formData.extraFeeAmount),
-                extraFeeLabel: formData.extraFeeLabel || undefined,
-                cancellationPolicy: formData.cancellationPolicy || undefined,
+                // Extra fee + cancellation policy (CAM-341, BR-6 v1.1): blank sends
+                // an EXPLICIT null (not undefined) - undefined is dropped by
+                // JSON.stringify and the PUT then skips the field (partial-update
+                // semantics), which can never clear an existing value. null is
+                // sent over the wire and the PUT/zod now accept it as "clear".
+                extraFeeAmount: formData.extraFeeAmount === "" ? null : Number(formData.extraFeeAmount),
+                extraFeeLabel: formData.extraFeeLabel === "" ? null : formData.extraFeeLabel,
+                cancellationPolicy: formData.cancellationPolicy === "" ? null : formData.cancellationPolicy,
                 minimumAge: formData.minimumAge === "" ? undefined : formData.minimumAge,
                 latitude: formData.latitude === "" ? 0 : formData.latitude,
                 longitude: formData.longitude === "" ? 0 : formData.longitude,
