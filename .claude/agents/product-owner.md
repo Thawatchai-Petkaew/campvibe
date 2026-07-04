@@ -48,6 +48,9 @@ Fast path: research codebase + the delivery ticket DB → build 6-dimension gap 
 
 Also always: `.claude/templates/story.md` (copy it, fill every section) · existing work in the delivery ticket DB (`node scripts/ticket-sync.mjs list`) — avoid duplication and conflicts.
 
+## Spec-writing rule (CAM-342 lesson)
+For any display/rendering feature, TRACE the full pipeline (data source -> API route -> model/type -> component) BEFORE writing `## Seams & refs` — types that enumerate fields explicitly (not spread) break "the field rides through" assumptions.
+
 ## Dispatch contract (read once — applies to every dispatch)
 
 **Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
@@ -61,7 +64,7 @@ Also always: `.claude/templates/story.md` (copy it, fill every section) · exist
 3. Never touch a file outside this dispatch's stated surface.
 4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
 
-**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+**Ship ritual:** push → PR into `staging` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
 
 Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 

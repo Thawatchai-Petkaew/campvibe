@@ -58,6 +58,9 @@ Depends on: ADR-010 (self-hosted delivery ticket schema + adapter parity, CAM-27
   - `__tests__/delivery-tickets-service.test.ts` · `__tests__/delivery-tickets-api.test.ts` · `__tests__/delivery-status-adapter.test.ts` + `__tests__/helpers/delivery-fake-client.ts` (`makeTicketRow` gains `agentModel: null`).
 - Refs: ADR-010 (delivery ticket schema + StatusIssue parity)
 
+### Seams correction (post-build, PR #324)
+Render pipeline required 4 files beyond the original list — `lib/status-map-model.ts` (buildEpicStories enumerates fields explicitly), `app/status/map/campsite-scene.tsx` (MapEpicStory type), `app/api/status/issue/[id]/route.ts` (shapeIssueDetail — sole modal source), `app/api/tickets/[id]/route.ts` (handoff PATCH destructuring). Lesson: display-feature specs must trace source → API → model → component before writing Seams.
+
 ## Out of scope
 - The `/status` board page columns / any surface other than `/status/map` (card + modal) → follow-up CAM if the trial needs it.
 - A per-dispatch model history / stamped-tier timeline (only the latest value is stored) → future CAM if the scorecard needs per-hop attribution.
@@ -76,4 +79,5 @@ Depends on: ADR-010 (self-hosted delivery ticket schema + adapter parity, CAM-27
 - Gate = /quality-gate · Done = every AC verified on the real Staging URL (`campvibe-staging.vercel.app/status/map`: chip on an active stamped card + `โมเดล: —` in a legacy ticket's modal).
 
 ## Changelog
+- v3 (2026-07-04) — Seams corrected post-build (4 pipeline files)
 - v1 (2026-07-04) — created

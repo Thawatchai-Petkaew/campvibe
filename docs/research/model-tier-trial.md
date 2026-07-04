@@ -36,7 +36,7 @@
 
 | Story | Tier map | Build time | Tokens/tier | CI 1st pass | Rework | Findings | Catches | Taps | Escaped defects | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | | |
+| CAM-342 model tier on map | spec=opus · build=sonnet · orch=fable | spec ~5 min · build ~23 min · G1→Done same day | opus 133k · sonnet 279k · total ~412k | ✓ all checks | 0 | 0 blocking | **1 major** (spec Seams missed 4 pipeline files — builder traced render path, extended additively, disclosed) | 3 (G1 · G3 packet · staging visual) | 0 (7-day window open) | first run of full new machinery: files-as-SoT spec PR, pointer dispatch, G3 exception-first packet, standard-class G2 fold-in. Process bug found: agents lack STATUS_TOKEN for gate-raise → moved to orchestrator |
 
 ## Decision criteria (compare trial vs baseline)
 
