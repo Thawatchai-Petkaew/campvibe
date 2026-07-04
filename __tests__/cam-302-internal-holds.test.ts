@@ -556,9 +556,28 @@ describe('POST /api/campsites/[id]/holds — authz + contract', () => {
 
     expect(res.status).toBe(404);
     expect(prisma.spot.findFirst).toHaveBeenCalledWith({
-      where: { id: SPOT_ID, campSiteId: CAMPSITE_ID },
+      where: { id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null },
       select: { id: true },
     });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // CAM-352 G3 fix (Info item 6): a soft-deleted spot can no longer have a
+  // NEW hold attached — the IDOR guard's deletedAt: null scoping means a real
+  // Postgres query would never return the deleted row, so findFirst resolves
+  // null exactly as the cross-campsite case does.
+  it('404 — spotId belongs to this campsite but is soft-deleted (BR-1/CAM-352)', async () => {
+    mockAllowed();
+    (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const res = await holdsPOST(
+      postReq({ ...validRange(), spotId: SPOT_ID }),
+      makeCollectionParams(CAMPSITE_ID)
+    );
+
+    expect(res.status).toBe(404);
+    const call = (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 

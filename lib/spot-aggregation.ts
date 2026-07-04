@@ -5,8 +5,11 @@ import { prisma } from '@/lib/prisma';
  * Returns aggregated data: total spots, max guests, max tents, and ground type breakdown
  */
 export async function calculateSpotCapacity(campSiteId: string) {
+  // CAM-352 BR-1/EC-4: a soft-deleted spot must not count toward the derived
+  // capacity — otherwise the camper-facing detail page overstates
+  // maxGuestsPerDay/maxTentsPerDay after a host deletes a spot.
   const spots = await prisma.spot.findMany({
-    where: { campSiteId },
+    where: { campSiteId, deletedAt: null },
     select: {
       maxCampers: true,
       maxTents: true,
@@ -43,7 +46,9 @@ export async function getCampSiteWithCapacity(campSiteId: string) {
   const campSite = await prisma.campSite.findUnique({
     where: { id: campSiteId },
     include: {
-      spots: true,
+      // CAM-352 BR-1/EC-4: exclude soft-deleted spots from the detail payload's
+      // own spots array too (keeps it consistent with the list/aggregation).
+      spots: { where: { deletedAt: null } },
       options: true,
       images: { orderBy: { sortOrder: 'asc' } },
       location: {

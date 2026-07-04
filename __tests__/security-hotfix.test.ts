@@ -296,6 +296,18 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
       );
     });
 
+    // CAM-352 G3 fix (Info item 5): GET one now matches PUT/DELETE — a
+    // soft-deleted spot 404s here too, not just on write.
+    it('findFirst for GET is scoped deletedAt: null (a soft-deleted spot 404s, matching PUT/DELETE)', async () => {
+      (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const req = new NextRequest(`http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`);
+      await spotGET(req, makeParams(CAMPSITE_ID, SPOT_ID));
+
+      const call = (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(call.where).toEqual({ id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null });
+    });
+
     it('returns 200 when spot belongs to the requested campsite', async () => {
       const ownedSpot = { id: SPOT_ID, campSiteId: CAMPSITE_ID, name: 'Spot A', campSite: {} };
       (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(ownedSpot);

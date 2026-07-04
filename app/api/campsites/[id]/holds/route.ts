@@ -171,9 +171,11 @@ export async function POST(
 
     // IDOR guard (BR-6/EC-6): a spot-level hold must reference a spot that
     // belongs to THIS campsite (mirrors CAM-56 blocked-dates exactly).
+    // CAM-352 BR-1: also excludes a soft-deleted spot — a deleted spot can no
+    // longer have a NEW hold attached to it.
     if (data.spotId) {
       const spot = await prisma.spot.findFirst({
-        where: { id: data.spotId, campSiteId: id },
+        where: { id: data.spotId, campSiteId: id, deletedAt: null },
         select: { id: true },
       });
       if (!spot) {

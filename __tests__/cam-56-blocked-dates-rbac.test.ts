@@ -248,10 +248,29 @@ describe('POST /api/campsites/[id]/blocked-dates — RBAC + contract', () => {
     expect(res.status).toBe(404);
     expect(prisma.blockedDate.create).not.toHaveBeenCalled();
     expect(prisma.spot.findFirst).toHaveBeenCalledWith({
-      where: { id: SPOT_ID, campSiteId: CAMPSITE_ID },
+      where: { id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null },
       select: { id: true },
     });
     expect('details' in body).toBe(false);
+  });
+
+  // CAM-352 G3 fix (Info item 6): a soft-deleted spot can no longer have a
+  // NEW block attached — the IDOR guard's deletedAt: null scoping means a
+  // real Postgres query would never return the deleted row, so findFirst
+  // resolves null exactly as the cross-campsite case does.
+  it('404 — spotId belongs to this campsite but is soft-deleted (BR-1/CAM-352)', async () => {
+    mockAllowed();
+    (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const res = await blockedDatesPOST(
+      postReq({ ...validRange(), spotId: SPOT_ID }),
+      makeCollectionParams(CAMPSITE_ID)
+    );
+
+    expect(res.status).toBe(404);
+    expect(prisma.blockedDate.create).not.toHaveBeenCalled();
+    const call = (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null });
   });
 
   it('201 — creates a whole-camp block (spotId omitted) with no overlapping bookings', async () => {

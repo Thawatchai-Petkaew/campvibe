@@ -33,8 +33,10 @@ export async function GET(
     }
 
     // Scope by campSiteId so a spot can only be read under its own campsite (no cross-campsite IDOR).
+    // BR-1 (CAM-352): a soft-deleted spot 404s here too, matching the list GET,
+    // the PUT/DELETE ownership lookups, and the aggregation Buffet.
     const spot = await prisma.spot.findFirst({
-      where: { id: spotId, campSiteId: id },
+      where: { id: spotId, campSiteId: id, deletedAt: null },
       include: { campSite: true, images: { orderBy: { sortOrder: 'asc' } } }
     });
 
@@ -121,7 +123,12 @@ export async function DELETE(
     // BR-2 (CAM-352): soft-delete — a spot may have Booking/InternalHold/BlockedDate
     // rows; a hard delete either fails on the FK or orphans booking history.
     // Setting deletedAt preserves those rows and matches every other soft-deleted
-    // model in the schema; BR-1's list filter then hides it everywhere it's read.
+    // model in the schema. BR-1 is enforced independently at each consumer, not
+    // by one shared filter: the spots list GET (`deletedAt: null` where-clause),
+    // this route's own PUT/DELETE ownership lookups (above), the spot-aggregation
+    // Buffet (`lib/spot-aggregation.ts` — calculateSpotCapacity + the
+    // getCampSiteWithCapacity `spots` include), and the holds/blocked-dates
+    // spot-IDOR guards all filter `deletedAt: null` explicitly.
     await prisma.spot.update({
       where: { id: spotId },
       data: { deletedAt: new Date() },
