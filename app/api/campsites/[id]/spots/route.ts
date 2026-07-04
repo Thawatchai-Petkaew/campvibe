@@ -31,8 +31,11 @@ export async function GET(
       }
     }
 
+    // BR-1 (CAM-352): exclude soft-deleted spots so a deleted spot never
+    // resurfaces in this list, the availability spot selector, or the
+    // CAM-351 derived capacity total (EC-4) — all three consume this endpoint.
     const spots = await prisma.spot.findMany({
-      where: { campSiteId: id },
+      where: { campSiteId: id, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: { images: { orderBy: { sortOrder: 'asc' } } }
     });
