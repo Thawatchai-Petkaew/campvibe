@@ -1,6 +1,6 @@
 # ADR-011 — Strategy pivot: HostOS-first, public booking/payment deferred
 
-**Status:** PROPOSED — ratified when this PR merges (G1) · **Epic:** Platform Blueprint v6 pivot · **Date:** 2026-07-04
+**Status:** ACCEPTED — owner approved 2026-07-04 (G1, PR #302 batch) · **Epic:** Platform Blueprint v6 pivot · **Date:** 2026-07-04
 
 ## Context
 

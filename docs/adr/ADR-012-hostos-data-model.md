@@ -1,6 +1,6 @@
 # ADR-012 — HostOS core data model: lead → quote → hold → deposit → manual stay
 
-**Status:** Proposed — pending G2 · **Epic:** HostOS core (M1.2) · **Date:** 2026-07-04
+**Status:** Accepted — owner approved 2026-07-04 (G2, PR #306) · **Epic:** HostOS core (M1.2) · **Date:** 2026-07-04
 
 ## Context
 

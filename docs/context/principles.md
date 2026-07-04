@@ -6,7 +6,7 @@
 ## Product principles
 
 1. **Trust before growth** — real reviews (verified-stay), verified badge, tight ownership/authz, PDPA; never grow on fakes or leaked data.
-2. **Reduce friction in the core loop** — search → view → book → return (wishlist); every feature must help this loop.
+2. **Reduce friction in the core loops** — Host: lead → quote → hold/มัดจำ → เข้าพัก → ปิดยอดรายวัน · Camper: ค้นหา → สอบถาม → เข้าพัก → รีวิว/กลับมาใช้ซ้ำ; every feature must serve one of these loops. *(wording owner-approved in chat 2026-07-04, Blueprint v6 / ADR-011)*
 3. **Lean** — anything you add must answer how it serves the north-star / persona, or it's cut (Iron Rule §6, `CLAUDE.md`).
 4. **Supply–demand balance** — don't push demand past the camps available, or list camps with no demand.
 5. **Thailand-first** — copy / UX / PII designed for Thai users (see `.claude/rules/ux.md`, `DESIGN.md`).
