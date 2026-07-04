@@ -45,7 +45,7 @@ actual file tree (not guessed).
 ### What NOT to copy
 
 - `scripts/linear-sync.mjs`, `scripts/import-linear.mjs`, `scripts/parity-check.mjs` — one-time Linear-migration tooling for CampVibe's own cutover. A brand-new project starting fresh on this system has nothing to import.
-- `docs/delivery/self-hosted-delivery-tickets/parity-report-2026-07-03.md` — CampVibe's own migration evidence, not a template.
+- `docs/specs/self-hosted-delivery-tickets/parity-report-2026-07-03.md` — CampVibe's own migration evidence, not a template.
 
 ## 2. Env vars needed
 

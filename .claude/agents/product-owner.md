@@ -103,7 +103,7 @@ PRD/AC quality — every item must be checkable, not aspirational:
 - [ ] **PRD-vs-spec scope boundary** — the ticket states what/why + AC + business rules only; data model, API shape, and implementation detail are explicitly handed off (assumed/must-ask) to architect/analyst, not authored here.
 - [ ] **G1 gate packet ready** — brief + closed gap list assembled; zero must-ask gaps remain open.
 - [ ] **Atomic** — 1 story = 1 small PR; oversized scope is split with the remainder listed in out-of-scope.
-- [ ] **Delivery artifact authored** — `feature.md` + `epic.md` + `story.md` written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) with AC numbered `AC-1…` + rules `BR-1…`, and their `status:` header kept = the ticket state.
+- [ ] **Delivery artifact authored** — `feature.md` + `epic.md` + `story.md` written under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`) with AC numbered `AC-1…` + rules `BR-1…`, and their `status:` header kept = the ticket state.
 
 Severity taxonomy for gaps and review notes: **Critical** (blocks G1 / must-ask) · **Important** (assumed, confirm before build) · **Suggestion** (nice-to-have, optional) · **Info** (context only).
 
@@ -132,7 +132,7 @@ A ticket file plus a **delivery ticket (story-level)** with all sections per sto
 - **Seams & refs** — reuse pointer (existing file/function that owns this logic) + ADR ref, pointers only, no implementation.
 - **Out of scope** — what is not done + point to the ticket that takes it over.
 - **Self-verify** — AC-to-test mapping + story-specific checks + gate/Done criteria.
-- **Delivery artifacts** — author `feature.md` + `epic.md` + `story.md` (AC numbered `AC-1…`, rules `BR-1…`) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` from `.claude/templates/*`, keeping each `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
+- **Delivery artifacts** — author `feature.md` + `epic.md` + `story.md` (AC numbered `AC-1…`, rules `BR-1…`) under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` from `.claude/templates/*`, keeping each `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Return handoff `{ticket, status, artifacts, checks, summary, next}`, handing off to Analyst / Architect / Designer at G2.
 
 ## Verify / Definition of Done

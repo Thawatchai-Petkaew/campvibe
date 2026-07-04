@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Run a story retrospective that distills lessons from closed work and feeds them back into the team's memory — appends to the `docs/delivery/LESSONS.md` ledger and proposes promotions into `.claude/rules/<role>.md` for owner approval. Use when a story is Done (merged + verified) and you want the Scout sub-agents to actually get smarter, or to re-run learning on any past CAM ticket. Do NOT use it to run the pre-merge checks (that is `quality-gate`), to write the spec (`discover`), or to change ticket status (`update-status`).
+description: Run a story retrospective that distills lessons from closed work and feeds them back into the team's memory — appends to the `docs/specs/LESSONS.md` ledger and proposes promotions into `.claude/rules/<role>.md` for owner approval. Use when a story is Done (merged + verified) and you want the Scout sub-agents to actually get smarter, or to re-run learning on any past CAM ticket. Do NOT use it to run the pre-merge checks (that is `quality-gate`), to write the spec (`discover`), or to change ticket status (`update-status`).
 ---
 
 # retro
@@ -16,10 +16,10 @@ Read first: `CLAUDE.md` (Iron Rule #4 + gates) · `.claude/SKILL-AUTHORING.md` (
 Manual only — owner runs it; there is no auto-trigger at close.
 
 1. Invoke: `/retro <CAM-###>` (one story) · `/retro <CAM-###> <CAM-###>` (batch) · `/retro` (stories closed since the last ledger entry). Also reachable via `/camper "retro <CAM-###>"`.
-2. **Gather** durable evidence (works months later): `git log`/`git diff` for the story's PR, the ticket + **comments** (owner gate feedback) via `node scripts/ticket-sync.mjs show <CAM-id>`, `gh pr view`, the `docs/delivery/<…>/<story>/` artifacts.
+2. **Gather** durable evidence (works months later): `git log`/`git diff` for the story's PR, the ticket + **comments** (owner gate feedback) via `node scripts/ticket-sync.mjs show <CAM-id>`, `gh pr view`, the `docs/specs/<…>/<story>/` artifacts.
 3. **Distill** 0–N lessons. Each: `{role(s), type, mistake → better rule, provenance CAM-###, generality}`. Drop anything that is a one-off or already covered.
 4. **Route** each by generality (see Workflow §4).
-5. **Append** every kept lesson to `docs/delivery/LESSONS.md` (status `proposed`).
+5. **Append** every kept lesson to `docs/specs/LESSONS.md` (status `proposed`).
 6. **Propose** rule promotions as a concrete diff → raise to the owner. On approval: apply the row, flip the ledger status to `promoted`.
 
 ## When to Use
@@ -37,15 +37,15 @@ Manual only — owner runs it; there is no auto-trigger at close.
 
 ## Prerequisites
 
-Read first: this file · `.claude/SKILL-AUTHORING.md` (so a promoted row matches house style) · `docs/delivery/LESSONS.md` (so you dedupe against what is already captured) · the specific `.claude/rules/<role>.md` you intend to edit. Have: the closed story's CAM id(s), repo + `gh` access, `scripts/ticket-sync.mjs` access (`APP_BASE_URL`/`STATUS_TOKEN`, for ticket comments/events).
+Read first: this file · `.claude/SKILL-AUTHORING.md` (so a promoted row matches house style) · `docs/specs/LESSONS.md` (so you dedupe against what is already captured) · the specific `.claude/rules/<role>.md` you intend to edit. Have: the closed story's CAM id(s), repo + `gh` access, `scripts/ticket-sync.mjs` access (`APP_BASE_URL`/`STATUS_TOKEN`, for ticket comments/events).
 
 ## Workflow
 
-1. **Resolve the story set.** From the arg(s): a CAM id, several ids, or `/retro` with none → the stories Done since the last `docs/delivery/LESSONS.md` entry. Confirm each is actually closed (merged); a still-open story has no settled lesson yet.
+1. **Resolve the story set.** From the arg(s): a CAM id, several ids, or `/retro` with none → the stories Done since the last `docs/specs/LESSONS.md` entry. Confirm each is actually closed (merged); a still-open story has no settled lesson yet.
 2. **Gather durable evidence** (never depend on the live session — it must work months later):
    - `gh pr view <#> --json title,body,files` + `git diff <base>...<head>` for what actually changed and why.
    - The ticket via `node scripts/ticket-sync.mjs show <CAM-id>` — returns the description, **comments**, and the full `TicketEvent` history; the owner's gate-rejection comments are the richest signal.
-   - `docs/delivery/<feature>/<epic>/<story>/` artifacts (story/design/tech/test/review/delivery) for the intended vs actual.
+   - `docs/specs/<feature>/<epic>/<story>/` artifacts (story/design/tech/test/review/release) for the intended vs actual.
 3. **Distill lessons (orchestrator does this — not the agent that erred, to avoid reinforcing its own assumptions).** For each candidate write: `role(s)` affected · `type` (data | perf | image | writing | security | a11y | process) · the **mistake → the better rule** in one line · `provenance` CAM-### · `generality` (reusable-role-general | one-off | worldview | visual | process-gap). Keep only what changes how a role works next time.
 4. **Route by generality:**
    - **reusable + role-general →** propose a row in `.claude/rules/<role>.md`: a `## Common Rationalizations` row (a "we did X, should do Y" trap) or a `## Standards` bullet (a new positive rule). Always cite the CAM-### as the WHY. Owner approves (§ governance).
@@ -53,7 +53,7 @@ Read first: this file · `.claude/SKILL-AUTHORING.md` (so a promoted row matches
    - **cross-cutting principle / owner worldview →** `docs/context/` (Second Brain) — flag for the owner.
    - **visual / token →** `DESIGN.md`.
    - **process / step gap →** the relevant `.claude/skills/<skill>` body.
-5. **Ledger (always).** Append one row per kept lesson to `docs/delivery/LESSONS.md`: `date · CAM · role · lesson(one line) · type · destination · status`. The ledger is the audit trail, the dedupe source, and the prune driver.
+5. **Ledger (always).** Append one row per kept lesson to `docs/specs/LESSONS.md`: `date · CAM · role · lesson(one line) · type · destination · status`. The ledger is the audit trail, the dedupe source, and the prune driver.
 6. **Promote (owner-gated).** Present the proposed rule diff(s) to the owner as a glanceable change. On approval, apply the row(s) and flip the ledger status `proposed → promoted`. Rule files are the brain that steers the whole team, so a human approves every rule change (consistent with owner-approves-all-gates).
 7. **Govern (every run, before adding a row):** check the ledger + the target section for a near-duplicate → **strengthen/merge an existing row, do not append a twin**. Run a prune pass when a rule file nears the SKILL-AUTHORING size ceiling.
 
@@ -61,7 +61,7 @@ Read first: this file · `.claude/SKILL-AUTHORING.md` (so a promoted row matches
 
 `/retro CAM-201` (this session's flicker fix) produced:
 
-- **Ledger rows** in `docs/delivery/LESSONS.md`:
+- **Ledger rows** in `docs/specs/LESSONS.md`:
   - `2026-06-27 · CAM-201 · code · deployed-only bug ("works local, breaks on Staging/Prod") → suspect env/cache-header/case-sensitivity before app logic · process · rules/code.md · promoted`
   - `2026-06-27 · CAM-201 · performance · static assets swapped at runtime need immutable Cache-Control; the default max-age=0,must-revalidate causes a per-frame revalidation flash · perf · rules/performance.md · promoted`
 - **Promoted rule rows** (owner-approved): a `## Common Rationalizations` row in `.claude/rules/code.md` (the deployed-only-bug triage) and one in `.claude/rules/performance.md` (immutable cache for runtime-swapped assets), each citing CAM-201.
@@ -72,8 +72,8 @@ Read first: this file · `.claude/SKILL-AUTHORING.md` (so a promoted row matches
 
 ## Reference Files
 
-- `docs/delivery/LESSONS.md` — the append-only ledger this skill writes.
-- `.claude/templates/retro.md` — the optional per-story retro artifact (`docs/delivery/<…>/<story>/retro.md`).
+- `docs/specs/LESSONS.md` — the append-only ledger this skill writes.
+- `.claude/templates/retro.md` — the optional per-story retro artifact (`docs/specs/<…>/<story>/retro.md`).
 - `.claude/rules/*.md` — promotion targets (the `## Common Rationalizations` / `## Standards` sections).
 - `.claude/SKILL-AUTHORING.md` — house style + anti-bloat the promoted rows must match.
 - the `update-status` skill + `scripts/ticket-sync.mjs` — ticket state (separate concern).
@@ -106,6 +106,6 @@ After the owner approves the promotions, the loop is closed by Iron Rule #4: the
 
 - [ ] Ran only on closed (merged) stories; evidence pulled from git/PR/ticket/artifacts, not the live session.
 - [ ] Each kept lesson has `role · type · mistake→rule · CAM provenance · generality`; one-offs routed to memory, not rules.
-- [ ] Every kept lesson appended to `docs/delivery/LESSONS.md` with a `proposed`/`promoted` status.
+- [ ] Every kept lesson appended to `docs/specs/LESSONS.md` with a `proposed`/`promoted` status.
 - [ ] Rule promotions presented as a diff and **approved by the owner** before any `.claude/rules/*.md` edit; ledger flipped to `promoted` on apply.
 - [ ] Deduped against the ledger + target section (merged, not twinned); touched rule files stay under the SKILL-AUTHORING ceiling.

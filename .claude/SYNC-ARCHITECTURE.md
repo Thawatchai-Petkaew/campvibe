@@ -10,7 +10,7 @@
 - **Dashboard `/status`** = อ่านจาก `/api/tickets` (ผ่าน `lib/delivery/status-adapter.ts`) สด ทุก 60s (read-only, cache คีย์ด้วย `DeliveryPulse.version` — ไม่ใช่ fixed-time cache ธรรมดา จึงได้ข้อมูลใหม่ทันทีที่ pulse ขยับ ไม่ต้องรอ webhook) ✅
 - **`.claude/linear-snapshot.json`** = snapshot ที่ generate จาก ticket DB (`npm run tickets:pull` = `node scripts/ticket-sync.mjs pull`) — ไม่ใช่แหล่งคู่ขนาน, ห้ามแก้มือ
 - **`docs/project/product-plan.md`** = เอกสาร spec/กลยุทธ์ (ไม่ใช่ live status)
-- **`docs/delivery/`** = durable **content** (spec/design/test/review/ship) ต่อ Feature→Epic→Story (ไฟล์) ส่วน ticket DB ถือ **live status**; `INDEX.md` generate ด้วย `node scripts/ticket-sync.mjs index`
+- **`docs/specs/`** = durable **content** (spec/design/test/review/ship) ต่อ Feature→Epic→Story (ไฟล์) ส่วน ticket DB ถือ **live status**; `INDEX.md` generate ด้วย `node scripts/ticket-sync.mjs index`
 - **Linear (ของเดิม)** = เก็บไว้เป็น **read-only archive** เท่านั้น (275 ใบเก่า + `.mcp.json`'s Linear MCP server ยังต่ออยู่แต่ใช้อ่านประวัติเท่านั้น) — ห้ามเขียน/สร้าง issue ใหม่ผ่าน MCP อีกต่อไป
 
 ## State machine (ADR-010) — แทนที่ state+label คู่ขนานแบบ Linear เดิม
@@ -145,7 +145,7 @@ GitHub Action .github/workflows/linear-continue.yml
 ## Import / parity tooling (บันทึกการย้ายข้อมูล)
 
 - **`scripts/import-linear.mjs`** (T-4, CAM-280) — นำเข้า 275+ Linear issue เดิมเข้า delivery ticket DB ครั้งเดียว (idempotent, ปลอดภัยรันซ้ำ); map field ทุกตัวตาม ADR-010 "StatusIssue coverage" table; ของที่ map ไม่ได้ (label แปลก ๆ) เก็บลง `legacyLabels[]`/`legacyUrl` ไม่ทิ้ง
-- **`scripts/parity-check.mjs`** (T-4) — เทียบจำนวน/สถานะ Linear vs delivery DB หลัง import (ดู `docs/delivery/self-hosted-delivery-tickets/parity-report-2026-07-03.md` — 223/223 ตรงกัน, benign delta มีบันทึกไว้)
+- **`scripts/parity-check.mjs`** (T-4) — เทียบจำนวน/สถานะ Linear vs delivery DB หลัง import (ดู `docs/specs/self-hosted-delivery-tickets/parity-report-2026-07-03.md` — 223/223 ตรงกัน, benign delta มีบันทึกไว้)
 - ทั้งสองไฟล์เป็น **บันทึกการย้ายข้อมูล (migration record)** เก็บไว้เพื่อ reproducibility/audit ไม่ใช่เครื่องมือที่ใช้ประจำวันอีกต่อไป (ใช้ครั้งเดียวตอน T-4)
 
 ## วินัย orchestrator (กฎตายตัว — กัน "ลืม sync")
@@ -174,4 +174,4 @@ GitHub Action .github/workflows/linear-continue.yml
 - `lib/delivery/PORTABILITY.md` — manifest ก็อปปี้ระบบนี้ไปโปรเจกต์ใหม่
 - `scripts/ticket-sync.mjs` (usage header) + `scripts/lib/ticket-sync-mapping.mjs` (ตาราง legacy→verb เต็ม)
 - `.claude/commands/camper.md` — Ticket delivery convention (epic/story/role/persona) เต็ม ๆ
-- `docs/delivery/self-hosted-delivery-tickets/` — feature/epic rollup ของ epic นี้ทั้งหมด (T-0..T-6)
+- `docs/specs/self-hosted-delivery-tickets/` — feature/epic rollup ของ epic นี้ทั้งหมด (T-0..T-6)

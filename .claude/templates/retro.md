@@ -1,6 +1,6 @@
 # Retro — <CAM-###> <story title>
 
-Per-story retrospective produced by the `retro` skill. Optional artifact: lands at `docs/delivery/<feature>/<epic>/<story>/retro.md` and feeds `docs/delivery/LESSONS.md`. Keep it short — it is a distillation, not a report.
+Per-story retrospective produced by the `retro` skill. Optional artifact: lands at `docs/specs/<feature>/<epic>/<story>/retro.md` and feeds `docs/specs/LESSONS.md`. Keep it short — it is a distillation, not a report.
 
 - **Story / outcome:** <one line — what shipped, Done date, PR #>
 - **Evidence read:** <git diff / PR / Linear comments / artifacts that were mined>
@@ -21,7 +21,7 @@ One row per lesson. Drop one-offs and anything already in the ledger.
 
 - **Promoted to rules (owner-approved):** <`.claude/rules/<role>.md` rows added, each citing CAM-###, or `none`>
 - **To orchestrator memory / docs/context / DESIGN / skill:** <list, or `none`>
-- **Ledger:** <N rows appended to `docs/delivery/LESSONS.md`>
+- **Ledger:** <N rows appended to `docs/specs/LESSONS.md`>
 
 ## Self-verify
 

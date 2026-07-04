@@ -202,7 +202,7 @@ function cleanTitle(t) { return t.replace(/\[[a-z-]+\]\s*/g, "").trim(); }
 function isGateIssue(i) { return /Gate\s*G\d/i.test(i.title); }
 function isWorkStory(i) { return !isGateIssue(i) && (!!i.parent || i.title.includes("·")); }
 
-// ── Delivery artifact store: docs/delivery/<feature>/<epic>/<CAM-id>-<story>/ ──
+// ── Delivery artifact store: docs/specs/<feature>/<epic>/<CAM-id>-<story>/ ──
 // feature = Linear project · epic = parent issue (fallback: the "·" title prefix) · persona = label.
 const PERSONAS = ["host", "camper", "admin", "platform"];
 function slug(s) {
@@ -218,7 +218,7 @@ function epicName(issue) { return issue.parent?.title || epicOf(issue.title); }
 function storyName(issue) { return cleanTitle(issue.title.replace(/^[^·]*·\s*/, "")); }
 function deliveryDirs(issue) {
   const fSlug = slug(featureName(issue)), eSlug = slug(epicName(issue));
-  const fdir = path.join("docs", "delivery", fSlug);
+  const fdir = path.join("docs", "specs", fSlug);
   // collapse the epic level when feature == epic (legacy "·" issues with no Linear project + no parent)
   const edir = eSlug === fSlug ? fdir : path.join(fdir, eSlug);
   const sdir = path.join(edir, `${issue.identifier}-${slug(storyName(issue))}`);
@@ -363,12 +363,12 @@ async function cmdAudit() {
   }
   if (noHandoff) { console.log(`handoff: ${noHandoff} active story(ies) changed [role] without a handoff call`); process.exitCode = 11; }
 
-  // ── Delivery artifact-store consistency (docs/delivery/) — ON-DEMAND / role-driven ──
+  // ── Delivery artifact-store consistency (docs/specs/) — ON-DEMAND / role-driven ──
   // story.md always; a role artifact is expected ONLY when the matching role:* label proves
   // that role acted. Checks ACTIVE stories INCL. parented children (CAM-129 — was parentless-only,
   // so child stories like CAM-127 went unchecked); completed stories are exempt. Also flags
   // feature.md/epic.md left as scaffold <placeholder> stubs — the PO must fill them (CAM-127 gap).
-  const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "delivery.md"]];
+  const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "release.md"]];
   const STUB_RE = /<[a-zA-Z][^>\n]{2,}>/; // an unfilled angle-bracket placeholder from the scaffold
   const artStories = team.issues.nodes.filter((i) => isWorkStory(i) && i.state.type !== "completed");
   let notYet = 0, broken = 0, stale = 0, stub = 0;
@@ -542,10 +542,10 @@ async function cmdScaffold(id) {
   // keeps the folder to what the work actually has (no forced N/A files).
   console.log(`✓ scaffold ${issue.identifier} → ${sdir}`);
   console.log(`  created: ${made.join(", ") || "(story.md + containers already existed)"}`);
-  console.log("  role artifacts on-demand: design (UI) · tech (rich API) · test (qa) · review (security) · delivery (devops)");
+  console.log("  role artifacts on-demand: design (UI) · tech (rich API) · test (qa) · review (security) · release (devops)");
 }
 
-// index — regenerate docs/delivery/INDEX.md from Linear (feature→epic→story tree + by-persona view).
+// index — regenerate docs/specs/INDEX.md from Linear (feature→epic→story tree + by-persona view).
 async function cmdIndex() {
   const team = await ctx();
   const work = team.issues.nodes.filter(isWorkStory);
@@ -578,7 +578,7 @@ async function cmdIndex() {
     for (const i of items) L.push(`- ${i.state.name} · ${esc(featureName(i))} · ${artLink(i)} — ${esc(storyName(i)).slice(0, 50)}`);
     L.push("");
   }
-  const out = path.join("docs", "delivery", "INDEX.md");
+  const out = path.join("docs", "specs", "INDEX.md");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, L.join("\n") + "\n");
   console.log(`✓ index → ${out} (${work.length} stories · ${Object.keys(feats).length} features)`);
