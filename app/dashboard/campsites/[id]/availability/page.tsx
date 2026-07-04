@@ -1,10 +1,15 @@
 "use client";
 
 // CAM-56 — Host-managed BlockedDate page (list + create + cancel).
-// Scope: camp-wide + per-spot date blocks. The calendar-grid VISUALIZATION
-// (colored days on a month view) is explicitly out of scope here — see H-3.2.
-// This page is the list+form management surface the ticket's Story calls for
-// as an alternative to the (out-of-scope) calendar UI: "...or a separate page".
+// Scope: camp-wide + per-spot date blocks. This page is the list+form
+// management surface the ticket's Story calls for as an alternative to a
+// calendar UI: "...or a separate page" — it remains the only write path.
+//
+// CAM-55 adds the read-only month calendar overview (bookings, blocks,
+// remaining capacity per day) that CAM-56 deferred — see
+// components/availability-calendar.tsx. It reuses the same permission gate
+// this page already establishes (the `forbidden` check below): the calendar
+// only mounts once that check has passed, so no new authz path is introduced.
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -18,6 +23,7 @@ import {
   createBlockedDateSchema,
   BLOCKED_DATE_REASON_MAX_LENGTH,
 } from "@/lib/validations/blocked-dates";
+import { AvailabilityCalendar } from "@/components/availability-calendar";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -262,6 +268,11 @@ export default function CampSiteAvailabilityPage() {
           {copy.addButton}
         </Button>
       </div>
+
+      {/* CAM-55 — host month calendar (read-only overview: bookings, blocks,
+          remaining capacity per day). Sits above the CAM-56 manage list/form,
+          which remains the only write path. */}
+      <AvailabilityCalendar campSiteId={campSiteId} />
 
       {formOpen && (
         <div

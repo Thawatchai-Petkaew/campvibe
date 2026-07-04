@@ -785,6 +785,14 @@
             "reasonColumn": "Reason",
             "scopeColumn": "Scope",
             "datesColumn": "Dates"
+        },
+        "availabilityCalendar": {
+            "calendarTitle": "Month calendar",
+            "prevMonthAriaLabel": "Previous month",
+            "nextMonthAriaLabel": "Next month",
+            "bookedCount": "{n} booked",
+            "blockedMarker": "Closed",
+            "loadFailed": "Failed to load the calendar"
         }
     },
     "th": {
@@ -1574,6 +1582,14 @@
             "reasonColumn": "เหตุผล",
             "scopeColumn": "ขอบเขต",
             "datesColumn": "ช่วงวันที่"
+        },
+        "availabilityCalendar": {
+            "calendarTitle": "ปฏิทินรายเดือน",
+            "prevMonthAriaLabel": "เดือนก่อนหน้า",
+            "nextMonthAriaLabel": "เดือนถัดไป",
+            "bookedCount": "จองแล้ว {n} คน",
+            "blockedMarker": "ปิดรับ",
+            "loadFailed": "โหลดปฏิทินไม่สำเร็จ"
         }
     }
 }
