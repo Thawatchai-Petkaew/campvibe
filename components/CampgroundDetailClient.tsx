@@ -21,6 +21,7 @@ import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
+import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
 
@@ -95,10 +96,15 @@ export default function CampgroundDetailClient({
         campSitePriceLow: campground.priceLow != null ? Number(campground.priceLow) : null,
         spotPricePerNight: null,
     });
-    const { totalAmount, subtotalAmount } = computeBookingPrice({
+    // CAM-268 (PREP-2, AC-1): the camp's atomic one-time fee, via the same single
+    // pricing source the real booking-creation API uses — so this preview's total
+    // always equals what actually gets recorded.
+    const campExtraFeeAmount = campground.extraFeeAmount != null ? Number(campground.extraFeeAmount) : 0;
+    const { totalAmount, subtotalAmount, extraFeeAmount } = computeBookingPrice({
         unitPrice,
         nights: displayNights || 1,
         vatRate: 0,
+        extraFeeAmount: campExtraFeeAmount,
     });
 
     // Fetch availability data
@@ -1119,6 +1125,14 @@ export default function CampgroundDetailClient({
                                     <span className="underline">{formatCurrency(unitPrice)} x {displayNights} {t.booking.nights}</span>
                                     <span>{formatCurrency(subtotalAmount)}</span>
                                 </div>
+                                {/* CAM-268 (PREP-2, AC-1): itemized breakdown — only rendered when the
+                                    camp actually has an atomic extra fee, so total always = base + this row. */}
+                                {extraFeeAmount > 0 && (
+                                    <div className="flex justify-between" data-testid="row--booking-extra-fee">
+                                        <span>{campground.extraFeeLabel || t.booking.fees}</span>
+                                        <span>{formatCurrency(extraFeeAmount)}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-4 pt-4 border-t border-border/60 flex justify-between font-bold text-foreground" data-testid="row--booking-total">
@@ -1148,14 +1162,31 @@ export default function CampgroundDetailClient({
                                     </div>
                                 )}
 
-                                {(campground.feeInfo || campground.priceLow !== null) && (
-                                    <div className="py-2 border-b border-border/60">
+                                {/* CAM-268 (PREP-2, AC-1): show the real, atomic fee (label + amount, the
+                                    same one included in the total above) when the host has set one — never
+                                    a vague "fees may apply" implying a charge that isn't actually counted. */}
+                                {(campground.extraFeeAmount != null || campground.feeInfo) && (
+                                    <div className="py-2 border-b border-border/60" data-testid="row--campground-fees">
                                         <span className="block text-muted-foreground mb-1">{t.campground.fees || "Fees"}</span>
                                         <span className="font-medium text-foreground">
-                                            {campground.feeInfo || `Entry fees may apply (starts at ${formatCurrency(campground.priceLow || 0)})`}
+                                            {campground.extraFeeAmount != null
+                                                ? `${campground.extraFeeLabel || t.booking.fees}: ${formatCurrency(Number(campground.extraFeeAmount))}`
+                                                : campground.feeInfo}
                                         </span>
+                                        {campground.extraFeeAmount != null && campground.feeInfo && (
+                                            <span className="block text-muted-foreground mt-1">{campground.feeInfo}</span>
+                                        )}
                                     </div>
                                 )}
+
+                                {/* CAM-268 (PREP-2, AC-2/AC-3): cancellation policy — always shown, with
+                                    an explicit "not set" copy when the host hasn't configured one yet. */}
+                                <div className="py-2 border-b border-border/60" data-testid="row--campground-cancellation-policy">
+                                    <span className="block text-muted-foreground mb-1">{t.campground.cancellationPolicy.title}</span>
+                                    <span className="font-medium text-foreground">
+                                        {resolveCancellationPolicyCopy(campground.cancellationPolicy, t.campground.cancellationPolicy)}
+                                    </span>
+                                </div>
 
                                 {campground.toiletInfo && (
                                     <div className="py-2 border-b border-border/60">

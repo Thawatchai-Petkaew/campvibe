@@ -146,7 +146,15 @@
             "walkInDesc": "Park and walk to your site",
             "boatAccessDesc": "Accessible by boat only",
             "rvAccessDesc": "RV accessible site",
-            "noImageAlt": "No camp photo available"
+            "noImageAlt": "No camp photo available",
+            "cancellationPolicy": {
+                "title": "Cancellation Policy",
+                "notSet": "Cancellation policy not specified",
+                "FLEXIBLE": "Free cancellation up to 24 hours before check-in",
+                "MODERATE": "Free cancellation up to 7 days before check-in",
+                "STRICT": "Free cancellation up to 14 days before check-in only",
+                "NON_REFUNDABLE": "This stay is non-refundable"
+            }
         },
         "booking": {
             "checkIn": "Check-in",
@@ -892,7 +900,15 @@
             "walkInDesc": "จอดรถและเดินไปยังจุดกางเต็นท์",
             "boatAccessDesc": "เข้าถึงได้ทางเรือเท่านั้น",
             "rvAccessDesc": "รองรับรถบ้าน",
-            "noImageAlt": "ไม่มีรูปภาพแคมป์"
+            "noImageAlt": "ไม่มีรูปภาพแคมป์",
+            "cancellationPolicy": {
+                "title": "นโยบายการยกเลิก",
+                "notSet": "ยังไม่ระบุนโยบายการยกเลิก",
+                "FLEXIBLE": "ยกเลิกฟรีก่อนเข้าพัก 24 ชั่วโมง",
+                "MODERATE": "ยกเลิกฟรีก่อนเข้าพัก 7 วัน",
+                "STRICT": "ยกเลิกฟรีก่อนเข้าพัก 14 วันเท่านั้น",
+                "NON_REFUNDABLE": "การจองนี้ไม่สามารถขอคืนเงินได้ทุกกรณี"
+            }
         },
         "booking": {
             "checkIn": "เช็คอิน",

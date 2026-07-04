@@ -67,6 +67,7 @@ Trigger/timing follows the form pattern in `DESIGN.md`; copy is verbatim.
 | OTP `otp` | 6 numeric digits, ≤5 attempts/session, block 300 seconds | `รหัส OTP ไม่ถูกต้อง` |
 | Camp name `campName` | `^[a-zA-Z0-9ก-๙\s]+$` max 100 (no special characters) | `ชื่อแคมป์ไม่รองรับอักขระพิเศษ` |
 | Price/night `pricePerNight` | positive integer 0–100,000 THB | `ราคาต้องอยู่ระหว่าง 0–100,000 บาท` |
+| Extra fee amount `extraFeeAmount` (CAM-268) | 0–100,000 THB, one-time per stay (not per night) | `ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท` |
 | Guests/capacity `capacity` | integer ≥1 | `จำนวนผู้เข้าพักต้องมากกว่า 0` |
 | Booking date range `checkIn`/`checkOut` | check-out > check-in, no past dates (≥ today) | `วันเช็คเอาท์ต้องหลังวันเช็คอิน` |
 | Province `provinceId` | select from master list (required) | `กรุณาเลือกจังหวัด` |

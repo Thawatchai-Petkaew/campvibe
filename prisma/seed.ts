@@ -247,6 +247,10 @@ async function main() {
             bookingMethod: 'ONLI',
             priceLow: 300,
             priceHigh: 800,
+            // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy (seed default).
+            extraFeeAmount: 20,
+            extraFeeLabel: 'ค่าเข้าลาน',
+            cancellationPolicy: 'MODERATE',
             isVerified: true,
             isActive: true,
             isPublished: true,
@@ -280,6 +284,10 @@ async function main() {
             bookingMethod: 'ONLI',
             priceLow: 250,
             priceHigh: 600,
+            // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy (seed default).
+            extraFeeAmount: 40,
+            extraFeeLabel: 'ค่าเข้าอุทยาน',
+            cancellationPolicy: 'FLEXIBLE',
             isVerified: true,
             isActive: true,
             isPublished: true,
@@ -313,6 +321,9 @@ async function main() {
             bookingMethod: 'ONLI',
             priceLow: 400,
             priceHigh: 1000,
+            // PREP-2 (CAM-268): no extra fee here (AC-1 "no fee" case) — cancellation
+            // policy only, seed default.
+            cancellationPolicy: 'STRICT',
             isVerified: true,
             isActive: true,
             isPublished: true,
@@ -346,6 +357,10 @@ async function main() {
             bookingMethod: 'ONLI',
             priceLow: 350,
             priceHigh: 900,
+            // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy (seed default).
+            extraFeeAmount: 20,
+            extraFeeLabel: 'ค่าเข้าพื้นที่',
+            cancellationPolicy: 'NON_REFUNDABLE',
             isVerified: true,
             isActive: true,
             isPublished: true,

@@ -8,6 +8,8 @@ export type FacilityCode = 'TOIL' | 'SHOW' | 'WIFI' | 'KITC' | 'PARK' | 'FIRE' |
 export type BookingMethod = 'ONLI' | 'ONCA' | 'ONST';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'CAMPER';
+// PREP-2 (CAM-268): closed set, see lib/cancellation-policy.ts for the Thai/EN copy.
+export type CancellationPolicy = 'FLEXIBLE' | 'MODERATE' | 'STRICT' | 'NON_REFUNDABLE';
 
 // API Request/Response Types
 // Legacy CampgroundDTO (for backward compatibility)
@@ -53,6 +55,10 @@ export interface CampSiteDTO {
     bookingMethod: BookingMethod;
     priceLow?: number;
     priceHigh?: number;
+    // PREP-2 (CAM-268): additive — atomic one-time fee + closed cancellation policy.
+    extraFeeAmount?: number | null;
+    extraFeeLabel?: string | null;
+    cancellationPolicy?: CancellationPolicy | null;
     isVerified: boolean;
     isActive: boolean;
     isPublished: boolean;

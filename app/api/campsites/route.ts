@@ -188,6 +188,11 @@ export async function POST(request: NextRequest) {
         minimumAge: data.minimumAge,
         tags: arrayToCsv(data.tags || []),
 
+        // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy.
+        extraFeeAmount: data.extraFeeAmount,
+        extraFeeLabel: data.extraFeeLabel,
+        cancellationPolicy: data.cancellationPolicy || undefined,
+
         latitude: data.latitude,
         longitude: data.longitude,
         checkInTime: data.checkInTime,

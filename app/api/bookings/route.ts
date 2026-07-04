@@ -142,8 +142,12 @@ async function withBookingTransaction(
         const country = campSite.location?.countryRel;
         const vatRate = country ? Number(country.vatRate) : 0;
         const timezone = country?.timezone ?? 'Asia/Bangkok';
+        // CAM-268 (PREP-2): the camp's atomic one-time fee — same single source
+        // (computeBookingPrice) the detail-page preview uses, so the recorded total
+        // never diverges from what was shown before the guest reserved.
+        const extraFeeAmount = campSite.extraFeeAmount !== null ? Number(campSite.extraFeeAmount) : 0;
 
-        const pricing = computeBookingPrice({ unitPrice, nights, vatRate });
+        const pricing = computeBookingPrice({ unitPrice, nights, vatRate, extraFeeAmount });
         const { subtotalAmount, taxAmount, vatInclusive, totalAmount } = pricing;
         const totalPrice = totalAmount;
 
@@ -166,6 +170,7 @@ async function withBookingTransaction(
             snapshotSpotName: bookedSpot?.name ?? null,
             snapshotUnitAmount: unitPrice,
             snapshotSubtotalAmount: subtotalAmount,
+            snapshotExtraFeeAmount: pricing.extraFeeAmount, // CAM-268: frozen fee at booking time
             snapshotTaxRate: vatRate, // S5: regional VAT from the camp's Country.vatRate
             snapshotTaxAmount: taxAmount,
             snapshotVatInclusive: vatInclusive,
