@@ -37,12 +37,33 @@ Fast path: read `DESIGN.md` + the AC → draft flow → specify all 8 states →
 
 ## Prerequisites
 
-Read these every time before doing UI work:
+**Tier 1 (always, in full — you guard this system):** `DESIGN.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `DESIGN.md` — design system, tokens, anti-slop tone.
-- `components/ui/form-patterns.md` — ErrorBanner / inline-error patterns.
-- The work's spec/ticket — `## Story` + `## AC`.
-- `.claude/rules/code.md` — i18n rule: copy lives in `locales/`, never in component files.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/loading.md` | the story has an async/loading surface |
+| `.claude/rules/ux.md` | the flow collects/shows PII or needs PDPA consent |
+| `.claude/rules/seo.md` | the screen is a new public route |
+
+Also always: `components/ui/form-patterns.md` (ErrorBanner / inline-error patterns) · the work's spec/ticket (`## Story` + `## AC`) · `.claude/rules/code.md` §i18n (copy lives in `locales/`, never in component files).
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 
@@ -98,7 +119,7 @@ Read these every time before doing UI work:
 - [ ] **Token sync** — any changed token is in sync across `DESIGN.md` + `app/globals.css` (OKLCH + dark mode complete).
 - [ ] **Screenshot vs Brief** — the rendered screen matches what the Design Brief specified.
 - [ ] **Code green** — `npm run lint` and `npm run typecheck` pass for UI work that touched code/tokens.
-- [ ] **Delivery artifact authored** — when the story has UI, author `design.md` from the template under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the ticket state.
+- [ ] **Delivery artifact authored** — when the story has UI, author `design.md` from the template under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the ticket state.
 
 ## Common Rationalizations
 
@@ -124,7 +145,7 @@ Hand off to **Frontend** a Design Brief per screen:
 - **Copy** — keys + TH/EN text in `locales/`, per the Thai copy rules.
 - **Error pattern** — inline below the field, or ErrorBanner at the top (per `form-patterns.md`).
 - **1 reference** + the anti-slop criteria that must pass.
-- **Delivery artifact** — when the story has UI, author `design.md` from the template under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
+- **Delivery artifact** — when the story has UI, author `design.md` from the template under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 
 Return per the shared handoff: `{ticket, status, artifacts, checks, summary, next}`.
 

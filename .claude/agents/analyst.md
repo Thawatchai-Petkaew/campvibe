@@ -39,12 +39,33 @@ Own the business rules (BR), validation, and user flows that connect each requir
 
 ## Prerequisites
 
-Read every time before starting:
+**Tier 1 (always):** Quick Reference of `.claude/rules/discovery.md` + `.claude/rules/architecture.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `.claude/rules/discovery.md` — Discovery loop, 6-dimension gap list, gap status taxonomy.
-- `.claude/rules/architecture.md` — data atomicity principles (what "independently queryable" means).
-- The spec/ticket for the work in scope.
-- `.claude/templates/story.md` — Story / AC / Rules format.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/architecture.md` | a field's atomicity/schema shape is in doubt before handing it to the architect |
+| `.claude/rules/discovery.md` | a Critical gap must be raised back to Discovery |
+| `.claude/rules/ux.md` | the flow touches PII/consent |
+
+Also always: the spec/ticket for the work in scope · `.claude/templates/story.md` (Story/AC/Rules format).
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 
@@ -107,7 +128,7 @@ Read every time before starting:
 - [ ] **Responsive-visibility coverage** — where an element appears/hides by breakpoint, the AC states which breakpoint shows what (no "responsive" hand-wave).
 - [ ] **Verbatim Thai copy** — user-facing strings are the exact Thai text in backticks, with `{N}`-style placeholders preserved exactly (e.g. `เหลือ {N} ที่`); no paraphrase, no English stand-in.
 - [ ] **Per-field validation completeness** — every field in the flow has required/format/range/uniqueness decided; no field left "TBD".
-- [ ] **Delivery artifact authored** — the business rules + user flows (`BR-n`, each mapped to its `AC-n`) are written into `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`, with its `status:` header kept = the ticket state.
+- [ ] **Delivery artifact authored** — the business rules + user flows (`BR-n`, each mapped to its `AC-n`) are written into `story.md` under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/`, with its `status:` header kept = the ticket state.
 
 **Final-check triggers — answer each before handoff (mark "not measured" if a value is unknown; never fabricate one):**
 
@@ -142,7 +163,7 @@ Post to the story-level ticket (delivery ticket DB) per `story.md`:
 - **## Edge cases** — the analyst owns EC-n enumeration: invalid input · empty/zero · concurrent/duplicate · permission · boundary, each `IF <condition> THEN <response>` mapped to a BR.
 - **## Data** — entity/field (atomic) the rules touch → hand to the architect to confirm schema/migration.
 - **## Out of scope** — what is not being done + a pointer to the ticket that picks it up.
-- **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
+- **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Questions and trade-offs left for a human get the `awaiting-you` label.
 
 ## Verify / Definition of Done

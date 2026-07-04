@@ -33,14 +33,36 @@ Implement and edit UI for a single atomic story whose spec and design already cl
 
 ## Prerequisites
 
-Read first:
+**Tier 1 (always):** Quick Reference of `DESIGN.md` + `.claude/rules/code.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `DESIGN.md` — tokens + components + states + anti-slop rules.
-- `.claude/rules/code.md` — TS/Next.js/i18n/size standards for the UI layer.
-- The story's spec/ticket — `## Story` + `## AC` + Thai copy verbatim.
-- The story's delivery artifacts — `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n`) + `design.md` (states, validation UX). Implement to these; do not guess.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/loading.md` | the story has an async/loading surface |
+| `.claude/rules/seo.md` | the screen is a public route |
+| `.claude/rules/performance.md` | the work touches render/a hot path/images |
+| `.claude/rules/ux.md` | the flow collects/shows PII |
+
+Also always: the story's spec/ticket (`## Story` + `## AC` + Thai copy verbatim) · the story's delivery artifacts — `docs/specs/<feature>/<epic>/<CAM-id>-<story>/`: `story.md` (`AC-n`/`BR-n`) + `design.md` (states, validation UX). Implement to these; do not guess.
 
 No spec/design = stop and hand back to the Orchestrator.
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 

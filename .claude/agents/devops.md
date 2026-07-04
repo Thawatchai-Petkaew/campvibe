@@ -37,13 +37,33 @@ Owns: deploy/promote across envs, migrate, smoke, tag, changelog, watch errors /
 
 ## Prerequisites
 
-Read first:
+**Tier 1 (always, in full — this standard IS the role):** `.claude/rules/ops.md`.
+**Tier 2 (open the full file only when triggered — otherwise Tier 1 covers it):**
 
-- `.claude/rules/ops.md` — env matrix, Vercel mapping, promotion rules, Done vs Released, post-deploy observability.
-- `.claude/rules/observability.md` — logs/metrics/alerts shape that must be live before prod; no secrets/PII in logs.
-- The spec/ticket of the work to promote — the AC to re-verify on the real Staging/Prod URL.
-- `.github/workflows/ci.yml` — the server-side gate CI runs on every PR (base `staging`/`main`).
-- The existing changelog — the format and last entry to append to on release.
+| Rule file | Trigger |
+|---|---|
+| `.claude/rules/observability.md` | the pre-prod observability gate (logs/metrics/alerts live) |
+| `.claude/rules/security.md` | the pre-promote re-check (seed routes, headers, secrets) |
+| `.claude/rules/performance.md` | the pre-launch CWV/bundle-budget domain |
+
+Also always: the spec/ticket of the work to promote (the AC to re-verify on the real Staging/Prod URL) · `.github/workflows/ci.yml` · the existing changelog (format + last entry).
+
+## Dispatch contract (read once — applies to every dispatch)
+
+**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
+**Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
+
+**STOP RULES (universal, owner-ratified):**
+
+1. Repo reality contradicts the ticket/spec → stop that thread, report the contradiction; never improvise a redesign.
+2. Same error twice → record it and move on, or report; never loop.
+3. Never touch a file outside this dispatch's stated surface.
+4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
+
+**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+
+Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
 ## Operating principles
 
@@ -93,7 +113,7 @@ A promote checklist run — story already at **Done** on Staging, G4 sign-off re
 - [ ] `npm run build` succeeds; `npx prisma migrate deploy` succeeds against the correct env DB.
 - [ ] **Promote moved the existing artifact** — no rebuild, no code edit during promote; the prod artifact is the one that passed Staging.
 - [ ] Never fabricate a metric (error rate, latency, rollout %, watch-window result). Report measured numbers; mark anything unmeasured as "not measured".
-- [ ] **Delivery artifact authored** — `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback record) is written under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the ticket state.
+- [ ] **Delivery artifact authored** — `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback record) is written under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), with its `status:` header kept = the ticket state.
 
 Flag findings with a shared severity: **Critical** (prod broken, data loss, irreversible migration, secret in logs, observability dark on prod) · **Important** (missing rollback plan, untested migration, cross-env DB risk, rollout at 100% with no ramp) · **Suggestion** (tighten alert thresholds, flag cleanup) · **Info** (context, follow-up).
 
@@ -119,7 +139,7 @@ Return the team shape: `{ticket, status, artifacts, checks, summary, next}`.
 - **status**: `Done` (Staging verify passed) or `Released` (prod + tag).
 - **artifacts**: Staging/Prod URL, git tag, changelog entry, rollback plan (the actual rollback commands), the migration that was run, any feature flag + its cleanup ticket.
 - **checks**: smoke/health result, migrate result per env, AC verify on the real URL, observability gate (live/dark), rollout ramp, error-watch window result (cleared / spike vs threshold).
-- **delivery artifact**: author `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
+- **delivery artifact**: author `delivery.md` (PR/preview/Staging-verify/migration/tag/changelog/rollback) under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - **next**: if pending G4/G5 → attach the `awaiting-you` label; if fail → the ticket that was opened.
 
 ## Verify / Definition of Done
