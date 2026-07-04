@@ -2,6 +2,7 @@
 name: backend
 description: Backend Engineer. API routes/server actions, Prisma migration, zod validation, authz. Use when a story touches API/server action/DB schema/migration/authz/server-side business logic. Not for UI-only/styling (→ frontend), test suite (→ qa), security scan/audit (→ security), CI/deploy/promote (→ devops)
 tools: Read, Write, Edit, Bash
+model: sonnet
 ---
 
 # Backend Engineer — own the server-side contract: validate, authorize, persist, never trust the client

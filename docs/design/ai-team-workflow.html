@@ -136,7 +136,7 @@
     <div class="stat-grid">
       <div class="stat"><b>1</b><span>owner — อนุมัติทุก gate + ทุก spend</span></div>
       <div class="stat"><b>1</b><span>orchestrator (Fable 5) — dispatch เท่านั้น ไม่เขียนโค้ดเอง</span></div>
-      <div class="stat"><b>9</b><span>role agent (Fable 5 สืบทอดจาก session) — product-owner…devops</span></div>
+      <div class="stat"><b>9</b><span>role agent (Opus/Sonnet ตามชั้นงาน — trial) — product-owner…devops</span></div>
       <div class="stat"><b>5</b><span>gate มนุษย์ G1–G5</span></div>
       <div class="stat"><b>12</b><span>มาตรฐาน <code>.claude/rules/*.md</code></span></div>
       <div class="stat"><b>9</b><span>template <code>.claude/templates/*.md</code></span></div>
@@ -159,9 +159,11 @@
     <table>
       <tr><th>ตำแหน่ง</th><th>frontmatter <code>model:</code> จริงวันนี้</th><th>หมายเหตุ</th></tr>
       <tr><td>Orchestrator</td><td><code>claude-fable-5</code></td><td>วางแผน + dispatch + คุม gate — งานตัดสินใจซับซ้อนข้ามบทบาท</td></tr>
-      <tr><td>9 role agent (product-owner, analyst, architect, designer, frontend, backend, qa, security, devops)</td><td><code>claude-fable-5</code> (สืบทอด — ไม่มี override ใน frontmatter)</td><td>งานสร้าง/ตรวจต่อ atomic story — เท่ากันทั้งหมด ไม่มี tiering ถูก/แพงต่อ role</td></tr>
+      <tr><td>product-owner · analyst · architect · designer · security (spec/G2/review/G3-reviewer)</td><td><code>opus</code></td><td>judgment หนักแต่ขอบเขตจำกัด — ผู้ตรวจอิสระต้อง ≥ ผู้สร้าง (PatchDiff ~30% ของ patch ที่ดูผ่านผิดจริง)</td></tr>
+      <tr><td>frontend · backend · qa · devops (build executors)</td><td><code>sonnet</code></td><td>track record จริงทั้งโปรเจกต์: CI เขียวรอบแรกตลอด ภายใต้ spec v2 + verify แน่นปลายทาง</td></tr>
+      <tr><td>งานกลไกล้วน (log scan, inventory, format sweep)</td><td><code>haiku</code> (ระบุราย dispatch)</td><td>ช่องแคบโดยเจตนา — งานกลไกส่วนใหญ่เป็น script ไม่ใช้โมเดล</td></tr>
     </table>
-    <p class="lead"><b>บันทึกการตัดสินใจ:</b> เจ้าของเลือก <b>quality-first ทั้งทีม — Claude Fable 5 ทุกตำแหน่ง</b> (2026-07-04) แทนการแบ่งชั้นโมเดลถูก/แพงต่อ role สอดคล้องหลักฐานงานวิจัย multi-agent ของ Anthropic: "upgrading the model beats doubling the token budget" — การประหยัด token ทำผ่านกระบวนการ (§7) ไม่ใช่ลดคุณภาพโมเดล</p>
+    <p class="lead"><b>บันทึกการตัดสินใจ:</b> เจ้าของเคาะ <b>4 ชั้นตามความจำเป็นของงาน แบบ trial 2-3 story</b> (2026-07-04) — เก็บ scorecard หลายมิติ (token · ความไว · คุณภาพผลลัพธ์ · คุณภาพ judgment · ภาระ owner) เทียบ baseline ยุคก่อน trial แล้วจึงล็อก/ปรับ/ถอย · escalation ladder: story ที่ชน circuit breaker หรือ spec ไม่แน่น เลื่อนชั้น build ขึ้นหนึ่งขั้น · รายละเอียด: <code>docs/research/model-tier-trial.md</code></p>
     <div class="risk"><b>ประวัติที่รายงานตรงไปตรงมา:</b> ก่อน 2026-07-04 frontmatter ของ role agent ระบุ <code>model: sonnet</code> (orchestrator = <code>opus</code>) ค้างจากยุคตั้งทีม — งานที่ส่งมอบก่อนหน้านั้นส่วนใหญ่จึงสร้างโดย Sonnet ภายใต้ spec แน่น (คุณภาพผ่านทุก gate) ตัว override ถูกถอดออกทั้งหมดใน PR เดียวกับเอกสารนี้ ทุก agent จึงสืบทอดโมเดลของ session (= Fable 5) ตามคำตัดสินของเจ้าของ</div>
     <div class="two-col" style="margin-top:10px">
       <div>
@@ -170,7 +172,7 @@
       </div>
       <div>
         <h3>หลัง — สิ่งที่เลือกจริง (2026-07-04)</h3>
-        <p class="lead" style="margin:0">Quality-first ทั้งทีม: ทุก agent สืบทอด Claude Fable 5 จาก session เดียวกัน — ประหยัด token ผ่าน<b>กระบวนการ</b>แทน (ดู §7) ไม่ใช่ผ่านการลดคุณภาพโมเดล</p>
+        <p class="lead" style="margin:0">แบ่งชั้นโมเดลตามความจำเป็นของงาน (trial): Fable = judgment ไร้ตัวตรวจ · Opus = spec/review · Sonnet = build ที่ verify แน่น · Haiku = กลไกล้วน — ควบคู่การประหยัดผ่านกระบวนการ (ดู §7)</p>
       </div>
     </div>
     <p class="lead" style="margin-top:8px">รายละเอียดกลไกประหยัด token ทั้งหมด (dispatch pointer+delta, QR-first, JIT skills, prompt caching, files-as-SoT) อยู่ที่ §7 — ไม่ทวนซ้ำที่นี่</p>
@@ -473,7 +475,7 @@
     <div class="risk"><b>Sign-off chain หลายชั้น</b> — 5 gate ที่ owner คุมเองครบอยู่แล้ว; ชั้น approval เพิ่มคือ bureaucracy ไม่ใช่ safety</div>
     <div class="risk"><b>Story points / velocity tracking</b> — ทีมนี้ atomic story ≤400 บรรทัดต่อ PR อยู่แล้ว ไม่ต้องประเมิน point แยก</div>
     <div class="risk"><b>Backlog grooming เป็นพิธีกรรม</b> — การ์ดเฉพาะงาน deliverable จริงเท่านั้น (ดู §7); grooming ทุก task เล็กคือ overhead</div>
-    <div class="risk"><b>Model tiering ถูก/แพงต่อ role</b> — เลือก quality-first ทั้งทีมแทน (ดู §2) หลัง Sonnet pilot สำเร็จ</div>
+    <div class="risk"><b>Model tiering แบบถาวรโดยไม่มีข้อมูล</b> — ใช้เป็น trial มีเกณฑ์วัด/เกณฑ์ demote ชัด (ดู §2 + docs/research/model-tier-trial.md) ไม่ล็อกจนกว่า scorecard จะพิสูจน์</div>
     <div class="risk"><b>Autonomous gate approval</b> — ไม่มีที่ไหนในระบบที่ AI อนุมัติ gate ให้ตัวเอง — เจ้าของกดทุกบานเสมอ (ผ่อนเป็น batched/exception-first ใน Gate policy v2 แต่ไม่เคยข้ามมนุษย์)</div>
   </section>
 

@@ -2,6 +2,7 @@
 name: designer
 description: UX + Design System Guardian. Flow, states, design tokens, anti-slop, a11y, i18n. Has authority to block PRs that violate DESIGN.md. Use when designing a new flow/screen, defining states/Design Brief before Frontend starts, changing/adding a design token, or running the design gate before merging UI work. Do NOT use when writing actual component code (Frontend), defining a data/API contract (Architect), or writing tests (QA).
 tools: Read, Write, Edit, Bash
+model: opus
 ---
 
 # Designer — UX + Design-System Guardian for CampVibe

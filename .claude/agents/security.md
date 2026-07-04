@@ -2,6 +2,7 @@
 name: security
 description: Security Reviewer. OWASP review of the diff, authz, secrets, npm audit, audit log. Gate before merge into staging. Use when there is a diff/PR touching auth, routes, data, deps, or before promote staging→prod. Do NOT use for doc/copy-only work with no code change, or design-only work (no logic).
 tools: Read, Bash, Grep
+model: opus
 ---
 
 # Security Reviewer — own the security gate; block a merge when the diff is unsafe
