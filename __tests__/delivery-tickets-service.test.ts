@@ -140,6 +140,42 @@ describe("transition matrix — start()/start(role)", () => {
   it("start() on an unknown identifier throws TicketNotFoundError", async () => {
     await expect(tickets.start("CAM-9999", "human")).rejects.toThrow(TicketNotFoundError);
   });
+
+  // trial-2 feedback (CAM-342 follow-up) — the `start` verb also stamps agentModel now
+  describe("agentModel stamp via start() (trial-2 feedback)", () => {
+    it("[unit] start(role, agentModel) stamps agentModel when provided", async () => {
+      const row = seed({ state: "BACKLOG", agentModel: null });
+      const t = await tickets.start(row.identifier, "human", "BACKEND_ENGINEER", "sonnet");
+      expect(t.state).toBe("IN_PROGRESS");
+      expect(t.agentModel).toBe("sonnet");
+    });
+
+    it("[unit/EC-4] start(role) without agentModel leaves the existing value unchanged", async () => {
+      const row = seed({ state: "BACKLOG", agentModel: null });
+      const t = await tickets.start(row.identifier, "human", "BACKEND_ENGINEER");
+      expect(t.agentModel).toBeNull();
+    });
+
+    it("[unit] latest stamp wins — overwrites a prior tier (sonnet -> opus)", async () => {
+      const row = seed({ state: "TODO", agentModel: "sonnet" });
+      const t = await tickets.start(row.identifier, "human", "BACKEND_ENGINEER", "opus");
+      expect(t.agentModel).toBe("opus");
+    });
+
+    it("[unit] start() with no role also stamps agentModel when provided", async () => {
+      const row = seed({ state: "BACKLOG", agentModel: null });
+      const t = await tickets.start(row.identifier, "human", undefined, "opus");
+      expect(t.state).toBe("TODO");
+      expect(t.agentModel).toBe("opus");
+    });
+
+    it("[unit] no per-dispatch history is kept — no extra TicketEvent kind for the model stamp", async () => {
+      const row = seed({ state: "BACKLOG", agentModel: null });
+      await tickets.start(row.identifier, "human", "BACKEND_ENGINEER", "sonnet");
+      const events = fake.store.events.filter((e) => e.ticketId === row.id);
+      expect(events.every((e) => e.kind === "state_change" || e.kind === "handoff")).toBe(true);
+    });
+  });
 });
 
 describe("transition matrix — raiseGate", () => {

@@ -12,7 +12,7 @@ function valueOf(args, i, flag) {
   return args[i + 1];
 }
 
-/** `set <id> [--state S] [--add-label L]* [--remove-label L]* [--note N] [--actor A]` */
+/** `set <id> [--state S] [--add-label L]* [--remove-label L]* [--model M] [--note N] [--actor A]` */
 export function parseSetFlags(args) {
   const f = { add: [], remove: [] };
   for (let i = 0; i < args.length; i++) {
@@ -20,6 +20,9 @@ export function parseSetFlags(args) {
     if (a === "--state") { f.state = valueOf(args, i, a); i++; }
     else if (a === "--add-label" || a === "--add") { f.add.push(valueOf(args, i, a)); i++; }
     else if (a === "--remove-label" || a === "--remove") { f.remove.push(valueOf(args, i, a)); i++; }
+    // trial-2 feedback (CAM-342 follow-up): model-tier stamp -- only meaningful when
+    // --state maps onto the `start` verb (see cmdSet); passed through, never defaulted.
+    else if (a === "--model") { f.model = valueOf(args, i, a); i++; }
     else if (a === "--note") { f.note = valueOf(args, i, a); i++; }
     else if (a === "--actor") { f.actor = valueOf(args, i, a); i++; }
     else throw new Error(`unknown flag "${a}"`);

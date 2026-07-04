@@ -71,7 +71,15 @@ export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;
 const noteMaxLen = 4000;
 
 export const patchTicketBodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("start"), actor: actorSchema, role: deliveryRoleSchema.optional() }),
+  z.object({
+    action: z.literal("start"),
+    actor: actorSchema,
+    role: deliveryRoleSchema.optional(),
+    // trial-2 feedback (CAM-342 follow-up): the `start` verb can also carry the model-tier
+    // stamp -- omitted leaves Ticket.agentModel unchanged (BR-3); a value outside
+    // AGENT_MODEL_TIERS fails here with 400 (BR-1, EC-3), same as handoff/updateFields.
+    agentModel: agentModelSchema.optional(),
+  }),
   z.object({ action: z.literal("raiseGate"), actor: actorSchema, note: z.string().max(noteMaxLen).optional() }),
   z.object({
     action: z.literal("approve"),

@@ -37,6 +37,19 @@ describe("parseSetFlags", () => {
   it("throws on an unknown flag", () => {
     expect(() => parseSetFlags(["--bogus", "x"])).toThrow(/unknown flag/);
   });
+
+  // trial-2 feedback (CAM-342 follow-up) — `set --state ... --model ...` maps onto `start` too
+  it("parses --model alongside --state", () => {
+    expect(parseSetFlags(["--state", "In Progress", "--model", "sonnet"])).toEqual({
+      state: "In Progress",
+      model: "sonnet",
+      add: [],
+      remove: [],
+    });
+  });
+  it("--model is omitted when not passed (never defaulted)", () => {
+    expect(parseSetFlags(["--state", "Todo"])).not.toHaveProperty("model");
+  });
 });
 
 describe("parseHandoffFlags", () => {
