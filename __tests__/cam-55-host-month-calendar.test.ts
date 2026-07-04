@@ -39,6 +39,12 @@ vi.mock('@/lib/prisma', () => ({
     blockedDate: {
       findMany: vi.fn(),
     },
+    // CAM-302: getCampSiteDailyAvailability now also reads ACTIVE non-expired
+    // InternalHold rows (heldGuests leg) — mocked so this file's existing
+    // per-day mapping tests keep exercising the real function unmodified.
+    internalHold: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -54,9 +60,10 @@ function d(iso: string): Date {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: no bookings, no blocked dates (AC-4 / EC-2 baseline)
+  // Default: no bookings, no blocked dates, no holds (AC-4 / EC-2 baseline)
   (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -67,7 +74,7 @@ beforeEach(() => {
 describe('CAM-55 AC-4/EC-2 — per-day mapping: no bookings + no blocks', () => {
   it('[unit] a day with zero bookings and zero blocks reports bookedGuests=0, blockedByHost=false (full remaining capacity is derivable)', async () => {
     const result = await getCampSiteDailyAvailability(CAMP_ID, d('2026-08-01'), d('2026-08-01'));
-    expect(result['2026-08-01']).toEqual({ bookedGuests: 0, bookedTents: 0, blockedByHost: false });
+    expect(result['2026-08-01']).toEqual({ bookedGuests: 0, bookedTents: 0, blockedByHost: false, heldGuests: 0 });
   });
 
   it('[unit] a whole month range with zero data still returns an entry for every day (no gap, no crash)', async () => {
@@ -112,7 +119,7 @@ describe('CAM-55 AC-3 — per-day mapping: whole-camp BlockedDate', () => {
       { startDate: d('2026-08-15'), endDate: d('2026-08-15') },
     ]);
     const result = await getCampSiteDailyAvailability(CAMP_ID, d('2026-08-15'), d('2026-08-15'));
-    expect(result['2026-08-15']).toEqual({ bookedGuests: 2, bookedTents: 1, blockedByHost: true });
+    expect(result['2026-08-15']).toEqual({ bookedGuests: 2, bookedTents: 1, blockedByHost: true, heldGuests: 0 });
   });
 });
 
@@ -130,9 +137,9 @@ describe('CAM-55 BR-1 — the consumed endpoint computes from getCampSiteDailyAv
     expect(routeSrc).toContain('getCampSiteDailyAvailability(id, start, end)');
   });
 
-  it('remainingGuests is derived from maxGuestsPerDay - bookedGuests (one formula, not re-derived by this story)', () => {
+  it('remainingGuests is derived from maxGuestsPerDay - (bookedGuests + heldGuests) — CAM-302 threads holds into the same one formula', () => {
     expect(routeSrc).toContain(
-      'remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - data.bookedGuests : null'
+      'remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
     );
   });
 

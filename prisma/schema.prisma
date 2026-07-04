@@ -150,6 +150,7 @@ model User {
   payouts         Payout[] // Operator payouts (S7)
   notifications   Notification[] // User notifications (S7)
   auditLogs       AuditLog[] // Audit events where this user is the actor (S7)
+  createdHolds    InternalHold[]       @relation("HoldCreatedBy") // CAM-302: holds this user created (HostOS M1.2)
 
   @@index([email])
   @@index([kycStatus])
@@ -348,7 +349,7 @@ model CampSite {
   //   reviewCount = COUNT of non-deleted Review rows for this camp
   // Source: lib/review-summary.ts:roundAvgRating + lib/sort-utils.ts:computeAvgRating
   avgRating   Decimal? @db.Decimal(2, 1) // [Public] null when reviewCount = 0
-  reviewCount Int      @default(0)       // [Public]
+  reviewCount Int      @default(0) // [Public]
 
   // Relations
   locationId String
@@ -364,6 +365,7 @@ model CampSite {
   wishlists    Wishlist[] // Users who wishlisted this camp site
   blockedDates BlockedDate[] // Operator-blocked availability (S7)
   images       Image[] // S4b: media gallery (replaces images CSV)
+  holds        InternalHold[] // CAM-302: temporary spot holds (HostOS M1.2, ADR-012 §4)
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
@@ -435,10 +437,11 @@ model Spot {
   nearFacilities String? // CSV of Internal Facility codes
 
   campSiteId   String
-  campSite     CampSite      @relation(fields: [campSiteId], references: [id])
+  campSite     CampSite       @relation(fields: [campSiteId], references: [id])
   bookings     Booking[]
   blockedDates BlockedDate[] // spot-level availability blocks (S7)
   images       Image[] // S4b: spot media gallery
+  holds        InternalHold[] // CAM-302: spot-level temporary holds (HostOS M1.2, ADR-012 §4)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -750,4 +753,53 @@ model Image {
   @@index([campSiteId])
   @@index([spotId])
   @@index([reviewId])
+}
+
+// ============================================================================
+// HostOS core (M1.2) — CAM-302: InternalHold, the reduced M1 slice of
+// ADR-012 §4 (Accepted). A temporary hold on a date range with an automatic
+// (lazy) expiry so a host can reserve inventory mid-negotiation (LINE/FB/
+// phone) without it being double-sold. Counted ONLY through the shared
+// availability functions (lib/campsite-availability.ts) — no parallel math.
+//
+// Reduced slice: deliberately NO leadId/quoteId/bookingId FK yet — their
+// target tables (HostLead, Quote, the ManualStay Booking extension) do not
+// exist yet. They land as additive nullable FK columns in CAM-311 (HostOS
+// lead/quote) without altering anything this migration ships.
+// ============================================================================
+
+enum HoldStatus {
+  ACTIVE
+  RELEASED
+  CONVERTED // defined per ADR-012 §4; not reachable until the ManualStay story ships (BR-5)
+}
+
+// Business set, append-only (no deletedAt — RELEASED already captures
+// "no longer active" without deleting the audit-trail row, ADR-012 §4).
+model InternalHold {
+  id String @id @default(uuid())
+
+  campSiteId String
+  campSite   CampSite @relation(fields: [campSiteId], references: [id])
+  spotId     String? // null = whole-camp hold; mirrors Booking/BlockedDate camp-or-spot duality
+  spot       Spot?    @relation(fields: [spotId], references: [id])
+
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date // EXCLUSIVE checkout day — identical semantics to Booking.checkOutDate; do not reinterpret as inclusive
+  guests    Int      @default(1) // reserved capacity, summed into availability math exactly like Booking.guests
+
+  note String? // free text (host's own negotiation note)
+
+  status    HoldStatus @default(ACTIVE)
+  expiresAt DateTime // lazily compared at read time (status = ACTIVE AND expiresAt > now); no cron ever flips this row (ADR-012 §4)
+
+  createdById String
+  createdBy   User   @relation("HoldCreatedBy", fields: [createdById], references: [id]) // always a real host session — this route is never public
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campSiteId, startDate, endDate])
+  @@index([spotId])
+  @@index([status])
 }

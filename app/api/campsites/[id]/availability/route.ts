@@ -59,19 +59,25 @@ export async function GET(
 
     // Format response with availability status
     // available = false when capacity-exceeded OR blocked by host (CAM-190 AVAIL-1).
+    // CAM-302 (ADR-012 §4): this route re-derives every field by explicit
+    // enumeration rather than spreading the daily-availability object, so
+    // heldGuests must be threaded through here explicitly or an ACTIVE hold
+    // would silently never reduce "เหลือ {n} ที่" on the calendar (the story's
+    // Seams & refs "CAM-342 trap" — see lib/campsite-availability.ts).
     const formatted = Object.entries(availability).map(([date, data]) => {
       const isCapacityFull =
-        (campSite.maxGuestsPerDay && data.bookedGuests >= campSite.maxGuestsPerDay) ||
+        (campSite.maxGuestsPerDay && (data.bookedGuests + data.heldGuests) >= campSite.maxGuestsPerDay) ||
         (campSite.maxTentsPerDay && data.bookedTents >= campSite.maxTentsPerDay);
 
       return {
         date,
         bookedGuests: data.bookedGuests,
+        heldGuests: data.heldGuests,
         bookedTents: data.bookedTents,
         maxGuests: campSite.maxGuestsPerDay,
         maxTents: campSite.maxTentsPerDay,
         available: !isCapacityFull && !data.blockedByHost,
-        remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - data.bookedGuests : null,
+        remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null,
         remainingTents: campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null,
         blockedByHost: data.blockedByHost,
       };
