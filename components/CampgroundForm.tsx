@@ -57,6 +57,22 @@ interface CampgroundFormProps {
     isEditing?: boolean;
 }
 
+// CAM-348: GET /api/campsites/[id] returns `images` as an Image[] relation
+// (S4b) while the pre-S4b payload carried a CSV string — normalize both to
+// the url-string list the form state and the PUT contract expect. Exported
+// for behavioral tests (no jsdom in this repo).
+export function toImageUrlList(images: unknown): string[] {
+    if (Array.isArray(images)) {
+        return images
+            .map((img) => (typeof img === "string" ? img : (img as { url?: string } | null)?.url ?? ""))
+            .filter(Boolean);
+    }
+    if (typeof images === "string") {
+        return images.split(",").filter(Boolean);
+    }
+    return [];
+}
+
 export function CampgroundForm({ initialData, isEditing = false }: CampgroundFormProps) {
     const router = useRouter();
     const { t, language } = useLanguage();
@@ -213,7 +229,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 extraFeeLabel: initialData.extraFeeLabel || "",
                 cancellationPolicy: initialData.cancellationPolicy || "",
 
-                images: initialData.images ? initialData.images.split(',').filter(Boolean) : [],
+                images: toImageUrlList(initialData.images),
                 locationId: initialData.locationId || "",
                 thaiLocationId: initialData.location?.thaiLocationId || "",
                 isVerified: initialData.isVerified ?? false,
