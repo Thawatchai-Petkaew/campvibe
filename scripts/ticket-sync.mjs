@@ -233,7 +233,7 @@ function writeIfAbsent(file, content) {
 }
 const TPL = (name) => path.join(".claude", "templates", `${name}.md`);
 
-// ── ticket classification + delivery-artifact-store paths (docs/delivery/<feature>/<epic>/<id-title>/) ──
+// ── ticket classification + delivery-artifact-store paths (docs/specs/<feature>/<epic>/<id-title>/) ──
 
 function isGateTicket(t) { return /Gate\s*G\d/i.test(t.title); }
 /** A trackable work ticket = STORY or TASK (excludes the EPIC grouping container + any legacy-imported Gate-title row). */
@@ -250,7 +250,7 @@ function personaOf(t) { return t.persona ? t.persona.toLowerCase() : ""; }
 function deliveryDirsFor(t, byId) {
   const fSlug = slug(featureNameOf(t, byId));
   const eSlug = slug(epicNameOf(t, byId));
-  const fdir = path.join("docs", "delivery", fSlug);
+  const fdir = path.join("docs", "specs", fSlug);
   const edir = eSlug === fSlug ? fdir : path.join(fdir, eSlug);
   const sdir = path.join(edir, `${t.identifier}-${slug(t.title)}`);
   return { fdir, edir, sdir };
@@ -439,9 +439,15 @@ async function cmdAudit() {
     return;
   }
 
+  // Files = SoT for story content: check docs/specs/<...>/story.md FIRST when it exists
+  // (scaffold no longer copies ticket.description — it writes the story template skeleton for
+  // the PO to fill, so the file is the real content). Fall back to the ticket description only
+  // for a legacy ticket with no story file yet (pre-scaffold, or scaffolded before this change).
   let bad = 0;
   for (const s of stories) {
-    const d = s.description || "";
+    const { sdir } = deliveryDirsFor(s, byId);
+    const storyFile = path.join(sdir, "story.md");
+    const d = fs.existsSync(storyFile) ? fs.readFileSync(storyFile, "utf8") : (s.description || "");
     const miss = REQ.filter((h) => !d.includes(h));
     const warn = NICE.filter((h) => !d.includes(h));
     if (miss.length) bad++;
@@ -472,9 +478,9 @@ async function cmdAudit() {
     console.log(`handoff: ${noHandoff} active ticket(s) with a currentRole/roleHistory mismatch (warning — self-heals on next handoff)`);
   }
 
-  // Delivery artifact-store consistency (docs/delivery/) — filesystem checks unchanged,
+  // Delivery artifact-store consistency (docs/specs/) — filesystem checks unchanged,
   // sourced from the API's tickets instead of Linear's issues.
-  const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "delivery.md"]];
+  const ROLE_ART = [["designer", "design.md"], ["qa", "test.md"], ["security", "review.md"], ["devops", "release.md"]];
   const STUB_RE = /<[a-zA-Z][^>\n]{2,}>/;
   let notYet = 0, broken = 0, stale = 0, stub = 0;
   const stubSeen = new Set();
@@ -567,7 +573,7 @@ async function cmdIndex() {
     for (const t of items) L.push(`- ${STATE_LABEL[t.state] || t.state} · ${esc(featureNameOf(t, byId))} · ${artLink(t)} — ${esc(t.title).slice(0, 50)}`);
     L.push("");
   }
-  const out = path.join("docs", "delivery", "INDEX.md");
+  const out = path.join("docs", "specs", "INDEX.md");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, L.join("\n") + "\n");
   console.log(`✓ index → ${out} (${work.length} tickets · ${Object.keys(feats).length} features)`);
@@ -601,13 +607,15 @@ async function cmdScaffold(id) {
     "---\nlinear: {{linear}}\nfeature: {{feature}}\nepic: {{epic}} ({{epicId}})\npersona: {{persona}}\nartifact: story\nowner: product-owner\nstatus: {{status}}\nversion: v1\nupdated: {{date}}\n---\n# {{title}} ({{linear}})\n\n",
     vars
   );
-  const desc = (ticket.description || "").trim();
-  const body = desc || fs.readFileSync(TPL("story"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
+  // Files = SoT for story content: always write the story TEMPLATE skeleton for the PO to fill
+  // — never copy ticket.description in (the ticket's description is status/summary + a pointer
+  // back to this file, not the durable spec content).
+  const body = fs.readFileSync(TPL("story"), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "");
   if (writeIfAbsent(path.join(sdir, "story.md"), header + body + "\n")) made.push("story.md");
 
   console.log(`✓ scaffold ${ticket.identifier} → ${sdir}`);
   console.log(`  created: ${made.join(", ") || "(story.md + containers already existed)"}`);
-  console.log("  role artifacts on-demand: design (UI) · tech (rich API) · test (qa) · review (security) · delivery (devops)");
+  console.log("  role artifacts on-demand: design (UI) · tech (rich API) · test (qa) · review (security) · release (devops)");
 }
 
 async function cmdNotify(text) {

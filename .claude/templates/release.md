@@ -3,13 +3,13 @@ linear: {{linear}}
 feature: {{feature}}
 epic: {{epic}}
 persona: {{persona}}
-artifact: delivery
+artifact: release
 owner: devops-release
 status: {{status}}
 version: v1
 updated: {{date}}
 ---
-# Delivery — {{title}} ({{linear}})
+# Release — {{title}} ({{linear}})
 
 ## PR & preview
 <PR # · Vercel preview URL>

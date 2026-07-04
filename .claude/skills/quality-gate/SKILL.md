@@ -77,7 +77,7 @@ Run in order. Stop immediately on the first fail.
    - **Perf** — no N+1 Prisma queries, no needless re-renders, payloads bounded (see `.claude/rules/api.md`).
 
 7. **(UI work only)** design gate: token-only (no hardcoded colors/spacing/shadows) + a11y WCAG AA (contrast, `aria-label`, focus, tap target ≥ 44px) + anti-slop audit + compare screenshots against the Design Brief.
-8. `node scripts/ticket-sync.mjs audit` → artifact↔ticket-DB consistency (exit non-zero on an incomplete or status-stale scaffolded story; keeps the `docs/delivery/` files aligned with reality — see the `delivery-artifacts` skill).
+8. `node scripts/ticket-sync.mjs audit` → artifact↔ticket-DB consistency (exit non-zero on an incomplete or status-stale scaffolded story; keeps the `docs/specs/` files aligned with reality — see the `delivery-artifacts` skill).
 9. Summarize every step as a pass/fail table.
 
 ## Planned automated gates (candidates)
@@ -114,7 +114,7 @@ Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod ob
 - `.claude/rules/api.md` — the Perf axis: no N+1 Prisma queries, bounded payloads (step 6).
 - `.claude/rules/architecture.md` — the Architecture axis: layering, concern boundaries, reuse over duplication (step 6).
 - `.claude/rules/observability.md` — the planned pre-prod observability gate (logging/tracing/alerts).
-- `delivery-artifacts` skill — owns the `audit` step (artifact↔ticket-DB consistency under `docs/delivery/`).
+- `delivery-artifacts` skill — owns the `audit` step (artifact↔ticket-DB consistency under `docs/specs/`).
 - Sibling skills: `open-pr` (run after the gate is green) · `promote-release` (staging→prod, separate from this gate).
 
 The Five-Axis review content is kept inline in the Workflow above — no `references/` directory.
@@ -142,7 +142,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 - [ ] Every row reflects a real result from the command that was run — no guessing, no skipping.
 - [ ] No item left "skipped" without a reason; UI work that skips step 7 confirms there is no diff in `app/`/`components/`.
 - [ ] Five-Axis pass is clean across all five axes (correctness, readability, architecture, security, perf).
-- [ ] `node scripts/ticket-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/delivery/`).
+- [ ] `node scripts/ticket-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/specs/`).
 - [ ] All green → ready for `/open-pr` into `staging`; do NOT change the ticket state to `Done` until the Staging URL is verified.
 - [ ] Red → defect ticket opened + merge blocked; the story does not move.
 - [ ] Before handoff: story ticket passes `node scripts/ticket-sync.mjs audit` (has `## Story` + `## AC`).

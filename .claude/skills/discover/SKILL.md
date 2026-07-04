@@ -57,7 +57,7 @@ Read first:
    - ⚪ N/A
 3. **Batch the questions.** Collect the 🔴/🟡 items and ask the human in a **single consolidated round** — never nitpick one question at a time. Each item carries: options + impact of each path + "if unanswered, default = …".
 4. **Produce the ticket once fully closed (no 🔴).** Write it from `.claude/templates/story.md` (full story + AC), file it as a story-level ticket (`node scripts/ticket-sync.mjs create --type story --epic <epic-CAM-id> --title "..." --description-file <path>`; role-task = a `--type task` ticket with `--epic <this story's CAM-id>`), then propose G1 with a summary of gaps/assumptions used.
-5. **Persist the artifacts.** Run `node scripts/ticket-sync.mjs scaffold <CAM-id>`, then (as PO) fill **`story.md` + `feature.md` + `epic.md`** — scaffold only *stubs* feature/epic with `<placeholder>`. Fill `feature.md` (overview + architecture/design overview + the epic→story rollup) and `epic.md` (why/scope + story rollup) when they are new or still a stub, and number AC `AC-1…` + rules `BR-1…` in `story.md`. Files = durable content under `docs/delivery/` (see the `delivery-artifacts` skill).
+5. **Persist the artifacts.** Run `node scripts/ticket-sync.mjs scaffold <CAM-id>`, then (as PO) fill **`story.md` + `feature.md` + `epic.md`** — scaffold only *stubs* feature/epic with `<placeholder>`. Fill `feature.md` (overview + architecture/design overview + the epic→story rollup) and `epic.md` (why/scope + story rollup) when they are new or still a stub, and number AC `AC-1…` + rules `BR-1…` in `story.md`. Files = durable content under `docs/specs/` (see the `delivery-artifacts` skill).
 
 ## Examples
 
@@ -78,7 +78,7 @@ Read first:
 
 - `.claude/rules/discovery.md` — full DoR, 6 spec components, vertical-slice rule, 4-layer audit.
 - `.claude/templates/story.md` — the ticket template the story + AC are written from.
-- `delivery-artifacts` skill + `docs/delivery/` — persist the ticket as `story.md` (AC-n/BR-n) under the story folder; files = content SoT.
+- `delivery-artifacts` skill + `docs/specs/` — persist the ticket as `story.md` (AC-n/BR-n) under the story folder; files = content SoT.
 - Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `staging`).
 
 ## Next Steps

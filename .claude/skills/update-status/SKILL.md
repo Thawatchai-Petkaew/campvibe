@@ -57,7 +57,7 @@ Pick the transition, then run the real command.
 6. **Hand off to the next role** → `node scripts/ticket-sync.mjs handoff <CAM-id> --role <role>` — sets `currentRole` (so `/status` renders the `[role]` tag), pushes onto `roleHistory`, and fires a Telegram notice in the same call; never rename the title by hand.
 7. **Check whether the human has approved yet** → `node scripts/ticket-sync.mjs gates` (a ticket still `AWAITING_GATE` = waiting; a ticket with `changesRequested=true` = rejected and ready to resume, **exit 10**).
 8. **Human approves** — the generic Approve path (Telegram tap / `/status` / `/status/map`) always fires the `approve()` verb, which returns the ticket to `IN_PROGRESS` with `changesRequested=false` — correct for an intermediate gate (G1–G3): dispatch the next role/stage. **G4 (Staging sign-off) is different**: it is the terminal gate, reached by `complete()`, not `approve()` — the generic Approve tap cannot reach `Done`. Once the human confirms sign-off, run step 3's `set <CAM-id> --state Done` directly **while the ticket is still `AWAITING_GATE`** (before any generic Approve tap fires) to actually land it on `Done`.
-9. **Sync the artifact header.** Besides moving the ticket state, update the artifact's `status:` header in the story's `docs/delivery/` files to match (the delivery ticket DB = status SoT, but the files stay in sync — see the `delivery-artifacts` skill).
+9. **Sync the artifact header.** Besides moving the ticket state, update the artifact's `status:` header in the story's `docs/specs/` files to match (the delivery ticket DB = status SoT, but the files stay in sync — see the `delivery-artifacts` skill).
 10. **Gate fail / post-deploy bug** → open a new ticket (`node scripts/ticket-sync.mjs create --type task --title "..." --epic <CAM-id>`) + link back to the original ticket (re-enter the loop).
 
 ## Examples
@@ -73,7 +73,7 @@ A role handoff at a stage boundary:
 - `.claude/SYNC-ARCHITECTURE.md` + `.claude/templates/` — the Epic → Story → role convention + templates the transitions assume.
 - `.claude/rules/ops.md` — Done(staging) vs Released(prod) + the 3-env flow.
 - `.claude/commands/camper.md` — the `/camper` command + the full ticket delivery convention this skill obeys.
-- `delivery-artifacts` skill — keep the artifact's `status:` header in `docs/delivery/` aligned with the ticket state moved here.
+- `delivery-artifacts` skill — keep the artifact's `status:` header in `docs/specs/` aligned with the ticket state moved here.
 - Sibling skills: `open-pr` (G3, opens the PR that moves the board lane to "In Review") · `promote-release` (the `staging`→`main` step behind the `release` transition).
 
 ## Next Steps
@@ -104,7 +104,7 @@ Postconditions:
 | "The human said yes in chat, so spawn the next stage." | Approval = the `approve` verb fired (ticket left `AWAITING_GATE` with `changesRequested=false`), confirmed by `ticket-sync gates`. Never proceed on chat alone. |
 | "I'll just fix `.claude/linear-snapshot.json` directly to reflect the new state." | That file is a snapshot from `tickets:pull`. Hand-editing breaks the closed loop — push the change through the ticket DB. |
 | "It's merged into `staging`, so it's Done." | Done also requires quality-gate green + staging migration passed + AC verified on the real Staging URL. |
-| "I moved the ticket state, the file header can lag." | After moving the state, update the artifact's `status:` header in `docs/delivery/` to match — the audit flags a stale scaffolded story. |
+| "I moved the ticket state, the file header can lag." | After moving the state, update the artifact's `status:` header in `docs/specs/` to match — the audit flags a stale scaffolded story. |
 
 ## Verify (exit criteria)
 
