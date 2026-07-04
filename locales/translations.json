@@ -255,6 +255,19 @@
         "listingCompleteness": {
             "sectionTitle": "Listing completeness",
             "header": "Your listing is {N}% complete",
+            "scorePercent": "{N}% complete",
+            "remainingJobs": "{N} tasks left",
+            "payoff": "+{N}%",
+            "barSummary": "Listing completeness {N}%",
+            "segmentMissing": "{N}% missing",
+            "segment": {
+                "photos": "Photos",
+                "price": "Price",
+                "cancellationPolicy": "Cancellation policy",
+                "extraFee": "Extra fee",
+                "zones": "Zones",
+                "amenities": "Amenities"
+            },
             "complete": "Your listing information is fully complete",
             "loadError": "Failed to load. Please try again.",
             "retry": "Retry"
@@ -1112,6 +1125,19 @@
         "listingCompleteness": {
             "sectionTitle": "ความครบถ้วนของข้อมูลลาน",
             "header": "ข้อมูลลานของคุณครบ {N}%",
+            "scorePercent": "ครบ {N}%",
+            "remainingJobs": "งานที่เหลือ {N} รายการ",
+            "payoff": "+{N}%",
+            "barSummary": "ความครบถ้วนของข้อมูลลาน {N}%",
+            "segmentMissing": "ขาด {N}%",
+            "segment": {
+                "photos": "รูปภาพ",
+                "price": "ราคา",
+                "cancellationPolicy": "นโยบายยกเลิก",
+                "extraFee": "ค่าธรรมเนียม",
+                "zones": "โซน",
+                "amenities": "สิ่งอำนวยความสะดวก"
+            },
             "complete": "ข้อมูลลานของคุณครบถ้วนแล้ว",
             "loadError": "โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง",
             "retry": "ลองใหม่"
