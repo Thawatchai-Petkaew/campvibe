@@ -252,6 +252,13 @@
             "sortPriceLow": "Price: Low to High",
             "sortPriceHigh": "Price: High to Low"
         },
+        "listingCompleteness": {
+            "sectionTitle": "Listing completeness",
+            "header": "Your listing is {N}% complete",
+            "complete": "Your listing information is fully complete",
+            "loadError": "Failed to load. Please try again.",
+            "retry": "Retry"
+        },
         "newCampground": {
             "title": "Create New Campground",
             "subtitle": "Add your campsite to the world",
@@ -1050,6 +1057,13 @@
             "sortOldest": "เก่าสุดก่อน",
             "sortPriceLow": "ราคา: น้อยไปมาก",
             "sortPriceHigh": "ราคา: มากไปน้อย"
+        },
+        "listingCompleteness": {
+            "sectionTitle": "ความครบถ้วนของข้อมูลลาน",
+            "header": "ข้อมูลลานของคุณครบ {N}%",
+            "complete": "ข้อมูลลานของคุณครบถ้วนแล้ว",
+            "loadError": "โหลดข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง",
+            "retry": "ลองใหม่"
         },
         "newCampground": {
             "title": "สร้างแคมป์กราวด์ใหม่",
