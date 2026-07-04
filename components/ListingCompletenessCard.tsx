@@ -84,7 +84,7 @@ export function ListingCompletenessCard({ campSiteId, campSiteName }: ListingCom
       .then((body: unknown) => {
         if (cancelled) return;
         // Guard the contract shape so upstream drift falls to the error state
-        // (BR-6) instead of crashing the render (G3 review nit, PR #341).
+        // (BR-6) instead of crashing the render (G3 review nit, PR 341).
         const data = body as ListingCompletenessResult;
         if (typeof data?.score !== 'number' || !Array.isArray(data?.missing)) {
           throw new Error('completeness payload off-contract');
