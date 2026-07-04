@@ -135,8 +135,8 @@
     </h1>
     <div class="stat-grid">
       <div class="stat"><b>1</b><span>owner — อนุมัติทุก gate + ทุก spend</span></div>
-      <div class="stat"><b>1</b><span>orchestrator (Opus) — dispatch เท่านั้น ไม่เขียนโค้ดเอง</span></div>
-      <div class="stat"><b>9</b><span>role agent (Sonnet) — product-owner…devops</span></div>
+      <div class="stat"><b>1</b><span>orchestrator (Fable 5) — dispatch เท่านั้น ไม่เขียนโค้ดเอง</span></div>
+      <div class="stat"><b>9</b><span>role agent (Fable 5 สืบทอดจาก session) — product-owner…devops</span></div>
       <div class="stat"><b>5</b><span>gate มนุษย์ G1–G5</span></div>
       <div class="stat"><b>12</b><span>มาตรฐาน <code>.claude/rules/*.md</code></span></div>
       <div class="stat"><b>9</b><span>template <code>.claude/templates/*.md</code></span></div>
@@ -158,11 +158,11 @@
     <p class="lead">ทุกตำแหน่งในทีมนี้รันบนแบรนด์เดียวกันที่ปรากฏในทุก commit ของ AI ตัวนี้ — <code>Co-Authored-By: Claude Fable 5 &lt;noreply@anthropic.com&gt;</code> (ดูใน trailer ของทุก dispatch contract ใน <code>.claude/agents/*.md</code> และ <code>AGENTS.md</code>)</p>
     <table>
       <tr><th>ตำแหน่ง</th><th>frontmatter <code>model:</code> จริงวันนี้</th><th>หมายเหตุ</th></tr>
-      <tr><td>Orchestrator</td><td><code>opus</code></td><td>วางแผน + dispatch + คุม gate — งานตัดสินใจซับซ้อนข้ามบทบาท</td></tr>
-      <tr><td>9 role agent (product-owner, analyst, architect, designer, frontend, backend, qa, security, devops)</td><td><code>sonnet</code></td><td>งานสร้าง/ตรวจต่อ atomic story — เท่ากันทั้งหมด ไม่มี tiering ถูก/แพงต่อ role</td></tr>
+      <tr><td>Orchestrator</td><td><code>claude-fable-5</code></td><td>วางแผน + dispatch + คุม gate — งานตัดสินใจซับซ้อนข้ามบทบาท</td></tr>
+      <tr><td>9 role agent (product-owner, analyst, architect, designer, frontend, backend, qa, security, devops)</td><td><code>claude-fable-5</code> (สืบทอด — ไม่มี override ใน frontmatter)</td><td>งานสร้าง/ตรวจต่อ atomic story — เท่ากันทั้งหมด ไม่มี tiering ถูก/แพงต่อ role</td></tr>
     </table>
-    <p class="lead"><b>บันทึกการตัดสินใจ:</b> Sonnet pilot (CAM-55, host month calendar) รันจนจบสำเร็จ — จากนั้นเจ้าของเลือก <b>quality-first ทั้งทีม</b> (2026-07-04) แทนการแบ่งชั้นโมเดลถูก/แพงต่อ role คู่กับหลักฐานงานวิจัย multi-agent ของ Anthropic ที่ว่า "upgrading the model beats doubling the token budget" — คือเหตุผลที่ orchestrator ยังคงคุณภาพสูงสุด (Opus) แทนที่จะลดชั้นเพื่อประหยัด</p>
-    <div class="risk"><b>ความคลาดเคลื่อนที่พบจริง (ไม่ปิดบัง):</b> frontmatter ของ <code>.claude/agents/orchestrator.md</code> วันนี้ยังระบุ <code>model: opus</code> ไม่ใช่ <code>sonnet</code> — นั่นคือ orchestrator แพงกว่า role agent ทุกตัวโดยตั้งใจ (งาน coordination/judgment ข้าม-role) ไม่ใช่ "ทุกตำแหน่งโมเดลเดียวกันเป๊ะ"; สอดคล้องกับ quality-first แต่ไม่ใช่ uniformity ทางเทคนิค 100% — เอกสารนี้รายงานตามไฟล์จริง</div>
+    <p class="lead"><b>บันทึกการตัดสินใจ:</b> เจ้าของเลือก <b>quality-first ทั้งทีม — Claude Fable 5 ทุกตำแหน่ง</b> (2026-07-04) แทนการแบ่งชั้นโมเดลถูก/แพงต่อ role สอดคล้องหลักฐานงานวิจัย multi-agent ของ Anthropic: "upgrading the model beats doubling the token budget" — การประหยัด token ทำผ่านกระบวนการ (§7) ไม่ใช่ลดคุณภาพโมเดล</p>
+    <div class="risk"><b>ประวัติที่รายงานตรงไปตรงมา:</b> ก่อน 2026-07-04 frontmatter ของ role agent ระบุ <code>model: sonnet</code> (orchestrator = <code>opus</code>) ค้างจากยุคตั้งทีม — งานที่ส่งมอบก่อนหน้านั้นส่วนใหญ่จึงสร้างโดย Sonnet ภายใต้ spec แน่น (คุณภาพผ่านทุก gate) ตัว override ถูกถอดออกทั้งหมดใน PR เดียวกับเอกสารนี้ ทุก agent จึงสืบทอดโมเดลของ session (= Fable 5) ตามคำตัดสินของเจ้าของ</div>
     <div class="two-col" style="margin-top:10px">
       <div>
         <h3>ก่อน — ทางเลือกที่ไม่เลือก</h3>
@@ -170,7 +170,7 @@
       </div>
       <div>
         <h3>หลัง — สิ่งที่เลือกจริง (2026-07-04)</h3>
-        <p class="lead" style="margin:0">Quality-first ทั้งทีม: role agent ทุกตัวใช้ sonnet เท่ากัน, orchestrator ใช้ opus (งาน coordination ข้าม-role) — ประหยัด token ผ่าน<b>กระบวนการ</b>แทน (ดู §7) ไม่ใช่ผ่านการลดคุณภาพโมเดล</p>
+        <p class="lead" style="margin:0">Quality-first ทั้งทีม: ทุก agent สืบทอด Claude Fable 5 จาก session เดียวกัน — ประหยัด token ผ่าน<b>กระบวนการ</b>แทน (ดู §7) ไม่ใช่ผ่านการลดคุณภาพโมเดล</p>
       </div>
     </div>
     <p class="lead" style="margin-top:8px">รายละเอียดกลไกประหยัด token ทั้งหมด (dispatch pointer+delta, QR-first, JIT skills, prompt caching, files-as-SoT) อยู่ที่ §7 — ไม่ทวนซ้ำที่นี่</p>
@@ -183,7 +183,7 @@
     <div class="org">
       <div class="node owner"><b>เจ้าของ (Owner)</b><span>อนุมัติทุก gate G1–G5 + ทุกค่าใช้จ่ายจริง (spend) เอง — ไม่มี autonomous approval</span></div>
       <div class="down">↓</div>
-      <div class="node orch"><b>Orchestrator (Opus)</b><span>วางแผน · dispatch · คุมสถานะ ticket DB · ไม่เขียน production code เอง · ไม่ approve gate เอง</span></div>
+      <div class="node orch"><b>Orchestrator (Fable 5)</b><span>วางแผน · dispatch · คุมสถานะ ticket DB · ไม่เขียน production code เอง · ไม่ approve gate เอง</span></div>
       <div class="down">↓ dispatch ทีละ atomic story</div>
       <div class="lvl">
         <div class="node"><b>Explore / Plan</b><span>utility agent read-only ระดับ framework (Claude Code) — ค้นโค้ด/วางแผนก่อน dispatch จริง ไม่ใช่ custom role file</span></div>

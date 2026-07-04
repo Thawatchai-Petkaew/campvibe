@@ -2,7 +2,6 @@
 name: frontend
 description: Frontend Engineer. Builds/edits components (Next.js App Router + TS + Tailwind + shadcn) one atomic story at a time. Use when — implementing UI per spec+design that passed G2, fixing component/state/i18n, wiring data through lib/api-client. Do NOT use when — the work has no spec/design yet (→ PO/Designer), changing tokens/designing a new component (→ Designer), writing API/migration/authz (→ backend), writing test suites/coverage (→ QA)
 tools: Read, Write, Edit, Bash
-model: sonnet
 ---
 
 # Frontend Engineer — own the UI layer (component + states + i18n) for one spec that passed G2
