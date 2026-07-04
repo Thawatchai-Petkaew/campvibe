@@ -326,7 +326,9 @@ describe('CAM-55 AC-2 — the availability page embeds the month calendar', () =
   });
 
   it('renders it with the page campSiteId', () => {
-    expect(pageSrc).toContain('<AvailabilityCalendar campSiteId={campSiteId} />');
+    // CAM-343 BR-7: the calendar now also receives refreshKey so a hold
+    // create/release forces a refetch (see cam-343 test suite for that wiring).
+    expect(pageSrc).toContain('<AvailabilityCalendar campSiteId={campSiteId} refreshKey={holdsRefreshKey} />');
   });
 });
 

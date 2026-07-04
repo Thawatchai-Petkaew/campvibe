@@ -60,9 +60,11 @@ interface AvailabilityApiResponse {
 
 interface AvailabilityCalendarProps {
   campSiteId: string;
+  /** CAM-343 BR-7: bump this (e.g. on a hold create/release) to force a refetch of the open month. */
+  refreshKey?: number;
 }
 
-export function AvailabilityCalendar({ campSiteId }: AvailabilityCalendarProps) {
+export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCalendarProps) {
   const { t, language } = useLanguage();
   const copy = t.availabilityCalendar;
   const locale = language === "th" ? "th-TH" : "en-US";
@@ -109,7 +111,9 @@ export function AvailabilityCalendar({ campSiteId }: AvailabilityCalendarProps) 
 
   useEffect(() => {
     loadMonth(month);
-  }, [month, loadMonth]);
+    // refreshKey is intentionally in the deps only to force a refetch (CAM-343
+    // BR-7) — its value itself is never read inside loadMonth.
+  }, [month, loadMonth, refreshKey]);
 
   const atMinBound = !isAfter(month, minMonth);
   const atMaxBound = !isBefore(month, maxMonth);

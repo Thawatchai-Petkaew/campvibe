@@ -24,6 +24,7 @@ import {
   BLOCKED_DATE_REASON_MAX_LENGTH,
 } from "@/lib/validations/blocked-dates";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { HostHoldsSection } from "@/components/host-holds-section";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,10 @@ export default function CampSiteAvailabilityPage() {
   const [forbidden, setForbidden] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const showSkeleton = useMinimumLoading(loading, { delay: 300, minDisplay: 400 });
+
+  // CAM-343 BR-7: bumped after a hold create/release so the month calendar
+  // refetches (no optimistic update, matching the blocked-dates precedent).
+  const [holdsRefreshKey, setHoldsRefreshKey] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
@@ -272,7 +277,18 @@ export default function CampSiteAvailabilityPage() {
       {/* CAM-55 — host month calendar (read-only overview: bookings, blocks,
           remaining capacity per day). Sits above the CAM-56 manage list/form,
           which remains the only write path. */}
-      <AvailabilityCalendar campSiteId={campSiteId} />
+      <AvailabilityCalendar campSiteId={campSiteId} refreshKey={holdsRefreshKey} />
+
+      {/* CAM-343 — host hold create/list/release, sibling to the CAM-55
+          calendar above and the CAM-56 blocked-dates manager below. Reuses
+          the SAME permission gate as this page (the `forbidden` check above
+          already covers it — the holds API requires the identical
+          BOOKING_UPDATE permission the blocked-dates API requires). */}
+      <HostHoldsSection
+        campSiteId={campSiteId}
+        spots={spots}
+        onHoldsChanged={() => setHoldsRefreshKey((key) => key + 1)}
+      />
 
       {formOpen && (
         <div
