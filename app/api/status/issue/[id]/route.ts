@@ -20,7 +20,8 @@
  * Errors: 400 bad id · 401 unauthorized · 404 not found · 500 internal (no stack).
  *
  * Response shape (200):
- *   { id, title, status, statusType, role, description, url, assignee, project, labels }
+ *   { id, title, status, statusType, role, description, url, assignee, project, labels, model }
+ *   (model = CAM-342 model-tier trial instrumentation, added additively)
  *
  * Note: the underlying delivery service also exposes comments/events for a ticket
  * (GET /api/tickets/[id]), but the modal's IssueDetail contract (app/status/map/
@@ -53,6 +54,9 @@ function shapeIssueDetail(issue: StatusIssue) {
     assignee: issue.assignee,
     project: issue.project,
     labels: issue.labels,
+    // CAM-342: model-tier trial instrumentation, pass-through (BR-2 -- the modal decides
+    // no-value display, "—", not this shaping function).
+    model: issue.agentModel ?? null,
   };
 }
 

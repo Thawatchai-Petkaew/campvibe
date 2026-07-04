@@ -27,13 +27,16 @@ export function parseSetFlags(args) {
   return f;
 }
 
-/** `handoff <id> --role R [--state S] [--note N] [--actor A]` */
+/** `handoff <id> --role R [--state S] [--model M] [--note N] [--actor A]` */
 export function parseHandoffFlags(args) {
   const f = {};
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--role") { f.role = valueOf(args, i, a); i++; }
     else if (a === "--state") { f.state = valueOf(args, i, a); i++; }
+    // CAM-342: model-tier trial stamp -- passed through to the handoff API verb; omitted
+    // leaves Ticket.agentModel unchanged (BR-3).
+    else if (a === "--model") { f.model = valueOf(args, i, a); i++; }
     else if (a === "--note") { f.note = valueOf(args, i, a); i++; }
     else if (a === "--actor") { f.actor = valueOf(args, i, a); i++; }
     else throw new Error(`unknown flag "${a}"`);

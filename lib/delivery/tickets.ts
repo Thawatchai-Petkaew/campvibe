@@ -28,7 +28,7 @@ import { getDeliveryClient } from "@/lib/delivery/client";
 import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
-import { TICKET_ID_RE } from "@/lib/delivery/validations";
+import { TICKET_ID_RE, type AgentModelTier } from "@/lib/delivery/validations";
 import { buildEventMessage, statusMapUrl, type EventCtx, type EventKind } from "@/lib/notify-messages";
 import { sendTelegram } from "@/lib/notify";
 import { fireRepositoryDispatch } from "@/lib/github-dispatch";
@@ -61,6 +61,8 @@ export interface UpdateTicketFieldsInput {
   featureName?: string | null;
   /** CAM identifier or internal id of the target EPIC; null detaches (CAM-300). */
   epicId?: string | null;
+  /** CAM-342: model-tier trial stamp -- omitted leaves the existing value unchanged (BR-3). */
+  agentModel?: AgentModelTier;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────────────
@@ -442,7 +444,13 @@ export async function reopen(id: string, actor: string, note: string): Promise<T
 //    the Build stage). regressionRound bumps on a backward stage move, exactly mirroring
 //    the legacy webhook's stageRank(newRole) < stageRank(oldRole) classification. ────────
 
-export async function handoff(id: string, actor: string, role: DeliveryRole, note?: string): Promise<Ticket> {
+export async function handoff(
+  id: string,
+  actor: string,
+  role: DeliveryRole,
+  note?: string,
+  agentModel?: AgentModelTier
+): Promise<Ticket> {
   const db = getDeliveryClient();
   const ticket = await getTicketOr404(db, id);
   assertState(ticket, ["IN_PROGRESS"], "handoff");
@@ -460,6 +468,9 @@ export async function handoff(id: string, actor: string, role: DeliveryRole, not
         currentRole: role,
         roleHistory: roleChange.nextRoleHistory,
         ...(isBackward ? { regressionRound: ticket.regressionRound + 1 } : {}),
+        // CAM-342: latest stamp wins, omitted = unchanged (BR-3); no TicketEvent kind is
+        // added for this -- the AC explicitly keeps no per-dispatch model history (AC-5).
+        ...(agentModel ? { agentModel } : {}),
       },
     });
     if (roleChange.changed) {

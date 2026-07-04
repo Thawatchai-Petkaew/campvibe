@@ -51,6 +51,16 @@ describe("parseHandoffFlags", () => {
   it("throws on an unknown flag", () => {
     expect(() => parseHandoffFlags(["--owner", "x"])).toThrow(/unknown flag/);
   });
+
+  // CAM-342 — model-tier trial instrumentation (AC-5's unit coverage: "parseHandoffFlags parses --model")
+  it("parses --model alongside --role/--note", () => {
+    expect(
+      parseHandoffFlags(["--role", "backend-engineer", "--model", "sonnet", "--note", "go"])
+    ).toEqual({ role: "backend-engineer", model: "sonnet", note: "go" });
+  });
+  it("--model is omitted when not passed (never defaulted)", () => {
+    expect(parseHandoffFlags(["--role", "qa-engineer"])).not.toHaveProperty("model");
+  });
 });
 
 describe("parseCreateFlags", () => {

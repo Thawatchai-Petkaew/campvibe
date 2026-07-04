@@ -109,6 +109,8 @@ model Ticket {
 
   assigneeName String? // [PII] free-text human name (only ever set for a real person, e.g. the owner); AI-role attribution lives in currentRole/roleHistory instead, never here
 
+  agentModel String? // [Public] model-tier trial instrumentation (CAM-342) — the model tier (fable|opus|sonnet|haiku, lowercase) the orchestrator stamped at the last handoff/updateFields call; nullable, default null (no tier attributed yet). Enforced at the app boundary (zod enum in lib/delivery/validations.ts), NOT a Prisma enum — keeps that module free of a generated-client dependency (matches the hand-written enum-tuple convention already used for TICKET_TYPES/DELIVERY_ROLES/PERSONAS). Latest stamp wins; no per-dispatch history is kept (that lives only in the read-only trial doc, docs/research/model-tier-trial.md, not this column).
+
   legacyUrl    String? // [Public] original linear.app issue URL — import trace only (Req #3)
   legacyLabels String[] @default([]) // [Public] raw Linear labels preserved verbatim at import — safety net for any label semantics the T-4 import can't map atomically yet
 

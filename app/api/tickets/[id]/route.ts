@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         ticket = await reopen(id, p.actor, p.note);
         break;
       case "handoff":
-        ticket = await handoff(id, p.actor, p.role, p.note);
+        ticket = await handoff(id, p.actor, p.role, p.note, p.agentModel);
         break;
       case "archive":
         ticket = await archiveTicket(id, p.actor);

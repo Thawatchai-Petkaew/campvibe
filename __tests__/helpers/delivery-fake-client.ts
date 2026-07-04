@@ -55,6 +55,7 @@ export function makeTicketRow(overrides: Partial<FakeTicketRow> & { number: numb
     blocked: false,
     roleHistory: [],
     assigneeName: null,
+    agentModel: null,
     legacyUrl: null,
     legacyLabels: [],
     archivedAt: null,

@@ -50,7 +50,7 @@ import { POST as commentRoute } from "@/app/api/tickets/[id]/comments/route";
 import * as ticketsService from "@/lib/delivery/tickets";
 import * as rateLimit from "@/lib/rate-limit";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
-import { TICKET_TYPES, DELIVERY_ROLES, PERSONAS } from "@/lib/delivery/validations";
+import { TICKET_TYPES, DELIVERY_ROLES, PERSONAS, AGENT_MODEL_TIERS } from "@/lib/delivery/validations";
 import { TicketType, DeliveryRole, Persona } from "@/prisma/delivery/generated/delivery-client";
 
 const svc = ticketsService as unknown as Record<string, ReturnType<typeof vi.fn>>;
@@ -89,6 +89,12 @@ describe("lib/delivery/validations enum lists stay in lockstep with the Prisma s
   });
   it("PERSONAS matches the generated Persona enum", () => {
     expect([...PERSONAS].sort()).toEqual(Object.values(Persona).sort());
+  });
+  // CAM-342: agentModel is deliberately NOT a Prisma enum (schema.prisma keeps it a plain
+  // String? column -- see prisma/delivery/schema.prisma comment); this guard instead pins
+  // the literal tuple to BR-1's exact allowed set so a future edit can't silently drift.
+  it("AGENT_MODEL_TIERS is exactly BR-1's allowed set, lowercase", () => {
+    expect([...AGENT_MODEL_TIERS]).toEqual(["fable", "opus", "sonnet", "haiku"]);
   });
 });
 
@@ -299,7 +305,13 @@ describe("PATCH /api/tickets/[id]", () => {
     {
       body: { action: "handoff", actor: "human", role: "BACKEND_ENGINEER", note: "go" },
       fn: "handoff",
-      args: ["CAM-1", "human", "BACKEND_ENGINEER", "go"],
+      args: ["CAM-1", "human", "BACKEND_ENGINEER", "go", undefined],
+    },
+    // CAM-342 — model-tier stamp threaded through the handoff verb (AC-5)
+    {
+      body: { action: "handoff", actor: "human", role: "BACKEND_ENGINEER", note: "go", agentModel: "sonnet" },
+      fn: "handoff",
+      args: ["CAM-1", "human", "BACKEND_ENGINEER", "go", "sonnet"],
     },
     { body: { action: "archive", actor: "human" }, fn: "archiveTicket", args: ["CAM-1", "human"] },
     { body: { action: "unarchive", actor: "human" }, fn: "unarchiveTicket", args: ["CAM-1", "human"] },
@@ -313,6 +325,12 @@ describe("PATCH /api/tickets/[id]", () => {
       fn: "updateFields",
       args: ["CAM-1", "human", { title: "New title" }],
     },
+    // CAM-342 — model-tier stamp threaded through the updateFields verb (AC-5)
+    {
+      body: { action: "updateFields", actor: "human", agentModel: "opus" },
+      fn: "updateFields",
+      args: ["CAM-1", "human", { agentModel: "opus" }],
+    },
   ];
 
   it.each(dispatchCases)("action=$body.action dispatches to $fn with the right args", async ({ body, fn, args }) => {
@@ -325,6 +343,38 @@ describe("PATCH /api/tickets/[id]", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ticket: SAMPLE_TICKET });
     expect(svc[fn]).toHaveBeenCalledWith(...args);
+  });
+
+  // CAM-342 — EC-3: a stamp value outside fable|opus|sonnet|haiku is rejected at the
+  // boundary (400) and never reaches the service layer (never stored).
+  describe("agentModel outside the allowed set (EC-3)", () => {
+    it("400 on handoff with an out-of-set agentModel; handoff is never called", async () => {
+      process.env.STATUS_TOKEN = "secret";
+      const res = await patchRoute(
+        req("/api/tickets/CAM-1", {
+          method: "PATCH",
+          body: { action: "handoff", actor: "human", role: "BACKEND_ENGINEER", agentModel: "gpt5" },
+          token: "secret",
+        }),
+        params("CAM-1")
+      );
+      expect(res.status).toBe(400);
+      expect(svc.handoff).not.toHaveBeenCalled();
+    });
+
+    it("400 on updateFields with an out-of-set agentModel; updateFields is never called", async () => {
+      process.env.STATUS_TOKEN = "secret";
+      const res = await patchRoute(
+        req("/api/tickets/CAM-1", {
+          method: "PATCH",
+          body: { action: "updateFields", actor: "human", agentModel: "GPT5" }, // wrong case too
+          token: "secret",
+        }),
+        params("CAM-1")
+      );
+      expect(res.status).toBe(400);
+      expect(svc.updateFields).not.toHaveBeenCalled();
+    });
   });
 
   it("maps a TicketTransitionError to 400 with { error: code, message }", async () => {

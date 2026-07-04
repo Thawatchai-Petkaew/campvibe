@@ -247,6 +247,9 @@ describe("GET /api/status/issue/[id]", () => {
       assignee: { name: "Owner", displayName: "Owner", avatarUrl: null },
       project: null,
       labels: ["awaiting-you"],
+      // CAM-342 (additive): model-tier trial instrumentation; SAMPLE_ISSUE carries no
+      // agentModel, so it shapes to null (parity with the legacy-path absence).
+      model: null,
     });
     expect(fetchTicketFromDb).toHaveBeenCalledWith("CAM-9");
   });

@@ -21,6 +21,7 @@
  *   node scripts/ticket-sync.mjs set CAM-11 --add-label awaiting-you
  *   node scripts/ticket-sync.mjs set CAM-7 --state Done --remove-label awaiting-you
  *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --state "In Progress"
+ *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --model sonnet   # CAM-342 model-tier stamp (fable|opus|sonnet|haiku)
  *   node scripts/ticket-sync.mjs release CAM-7
  *   node scripts/ticket-sync.mjs gates                      # exit 10 when a gate is "cleared"
  *   node scripts/ticket-sync.mjs audit                       # exit 11 on template/artifact drift
@@ -192,6 +193,10 @@ function roleSlug(roleEnum) {
 const PERSONA_ENUMS = ["HOST", "CAMPER", "ADMIN", "PLATFORM"];
 const PERSONAS_LC = PERSONA_ENUMS.map((p) => p.toLowerCase());
 
+// CAM-342: model-tier trial instrumentation (mirrors lib/delivery/validations.ts's
+// AGENT_MODEL_TIERS -- duplicated for the same zero-dep reason as DELIVERY_ROLES above).
+const AGENT_MODEL_TIERS = ["fable", "opus", "sonnet", "haiku"];
+
 const STATE_LABEL = {
   BACKLOG: "Backlog", TODO: "Todo", IN_PROGRESS: "In Progress",
   AWAITING_GATE: "Awaiting Gate", DONE: "Done", CANCELED: "Canceled",
@@ -357,13 +362,22 @@ async function cmdSet(id, args) {
 }
 
 async function cmdHandoff(id, args) {
-  if (!id) usage('handoff <CAM-id> --role <role> [--state "In Progress"] [--note "..."] [--actor <actor>]');
+  const USAGE = 'handoff <CAM-id> --role <role> [--state "In Progress"] [--model <tier>] [--note "..."] [--actor <actor>]';
+  if (!id) usage(USAGE);
   let flags;
   try { flags = parseHandoffFlags(args); } catch (e) { usageErr(e.message); return; }
-  if (!flags.role) usage('handoff <CAM-id> --role <role> [--state "In Progress"] [--note "..."] [--actor <actor>]');
+  if (!flags.role) usage(USAGE);
 
   const roleEnum = roleSlugToEnum(flags.role);
   if (!roleEnum) { usageErr(`unknown role "${flags.role}". Use one of: ${ROLE_SLUGS.join(", ")}`); return; }
+
+  // CAM-342: validated client-side too (same pattern as the role check above) so a typo
+  // fails fast without a network round trip; the API's zod enum (BR-1/EC-3) is still the
+  // authoritative boundary check.
+  if (flags.model && !AGENT_MODEL_TIERS.includes(flags.model)) {
+    usageErr(`unknown model tier "${flags.model}". Use one of: ${AGENT_MODEL_TIERS.join(", ")}`);
+    return;
+  }
 
   const actor = flags.actor || DEFAULT_ACTOR;
   const { ticket } = await getTicketDetail(id);
@@ -374,14 +388,26 @@ async function cmdHandoff(id, args) {
     // Not started yet: start(role) both begins the ticket AND assigns the role in one call —
     // a following `handoff` would be a same-role no-op (handoff also requires IN_PROGRESS,
     // which start() just entered), so we call start() instead of handoff() here.
+    // CAM-342: the model tier is stamped ONLY via the handoff/updateFields verbs (BR-3) —
+    // `start` never accepts it, so re-run `handoff --model` once the ticket is In Progress.
     verb = "start";
     updated = await patchTicket(id, "start", { role: roleEnum }, actor);
+    if (updated && flags.model) {
+      console.log(`(note: --model is not stamped by a first "start" — re-run "handoff CAM-id --model ${flags.model}" now that it's In Progress)`);
+    }
   } else {
     verb = "handoff";
-    updated = await patchTicket(id, "handoff", { role: roleEnum, ...(flags.note ? { note: flags.note } : {}) }, actor);
+    updated = await patchTicket(
+      id,
+      "handoff",
+      { role: roleEnum, ...(flags.note ? { note: flags.note } : {}), ...(flags.model ? { agentModel: flags.model } : {}) },
+      actor
+    );
   }
   if (updated) {
-    console.log(`✓ ${id} handoff: role→${flags.role} (${verb})${flags.state ? ` state→"${flags.state}"` : ""}`);
+    console.log(
+      `✓ ${id} handoff: role→${flags.role} (${verb})${flags.state ? ` state→"${flags.state}"` : ""}${flags.model && verb === "handoff" ? ` model→${flags.model}` : ""}`
+    );
   }
 }
 
@@ -720,7 +746,7 @@ async function cmdShow(id) {
 const USAGE =
   "usage: ticket-sync <list | gates | audit | pull [outfile] | index | show <CAM-id> | " +
   "set <CAM-id> [--state S] [--add-label L] [--remove-label L] [--note N] [--actor A] | " +
-  "handoff <CAM-id> --role <role> [--state S] [--note N] [--actor A] | " +
+  "handoff <CAM-id> --role <role> [--state S] [--model fable|opus|sonnet|haiku] [--note N] [--actor A] | " +
   "release <CAM-id> [--actor A] | scaffold <CAM-id> | notify <text> | " +
   "create --type epic|story|task --title T [--epic E] [--role R] [--persona P] [--feature F] " +
   "[--priority N] [--description-file F | --description D] [--actor A] | " +
