@@ -42,7 +42,7 @@ Read these every run before planning or dispatching — sub-agents read their ow
 - `.claude/rules/discovery.md`
 - `.claude/rules/ops.md`
 - `docs/project/*` + `docs/context/*` — project context (why / for-whom / worth-it) + the owner's stable Second Brain, read before planning or before raising a gate.
-- `docs/delivery/<feature>/` — the artifact store for the work (durable content per Feature→Epic→Story; files = content SoT, the delivery ticket DB = live-status SoT).
+- `docs/specs/<feature>/` — the artifact store for the work (durable content per Feature→Epic→Story; files = content SoT, the delivery ticket DB = live-status SoT).
 - The spec/ticket for that work (if any).
 
 ## Operating principles
@@ -64,7 +64,7 @@ Do not alter this loop. Each step rolls into the next; gates block progression.
 5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
 6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
-8. **Every transition** — call skill `update-status` (sync the ticket DB) and raise the gate with `node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/ticket-sync.mjs index`) so `docs/delivery/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve — see **Gate continuation** below for how you detect that approval (in a chat you must poll `ticket-sync gates` yourself; the repository_dispatch only resumes the headless action). There is no autonomous gate approval.
+8. **Every transition** — call skill `update-status` (sync the ticket DB) and raise the gate with `node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/ticket-sync.mjs index`) so `docs/specs/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve — see **Gate continuation** below for how you detect that approval (in a chat you must poll `ticket-sync gates` yourself; the repository_dispatch only resumes the headless action). There is no autonomous gate approval.
 9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/product-plan.md`/`master-plan.md` if scope shifts → sync the ticket DB → regenerate the index.
 
 ## Board lane semantics + create rule
@@ -115,9 +115,9 @@ Either way you still **never self-approve** — you only *detect* the human's de
 The Scout sub-agents only get smarter if lessons from closed work flow back into the `.claude/rules/<role>.md` they read before working (Iron Rule #4). You own that loop — run it via the `retro` skill.
 
 - **Manual, owner-controlled.** Run **only** when the owner invokes `/retro <CAM-###>` (or `/camper "retro ..."`). There is **no auto-trigger** at Done — do not run a retro unprompted.
-- **You distill, not the sub-agent that did the work** (avoids reinforcing its own blind spot). Mine durable sources — `git diff`/PR, the ticket (`node scripts/ticket-sync.mjs show <CAM-id>`, which returns comments + the full `TicketEvent` history — the owner's gate-rejection comments are the richest signal), the `docs/delivery/<…>/<story>/` artifacts — never the live session.
+- **You distill, not the sub-agent that did the work** (avoids reinforcing its own blind spot). Mine durable sources — `git diff`/PR, the ticket (`node scripts/ticket-sync.mjs show <CAM-id>`, which returns comments + the full `TicketEvent` history — the owner's gate-rejection comments are the richest signal), the `docs/specs/<…>/<story>/` artifacts — never the live session.
 - **Route by generality:** reusable + role-general → propose a `## Common Rationalizations` row or `## Standards` bullet in the role rule (cite the CAM as the WHY); one-off / project-status → your own memory; worldview → `docs/context/`; visual → `DESIGN.md`; step gap → the skill.
-- **Ledger always, promote on approval.** Append every kept lesson to `docs/delivery/LESSONS.md` (`proposed`); a rule edit is a change to the team's brain, so present the diff and let the **owner approve** before editing any `.claude/rules/*.md`, then flip the ledger to `promoted`.
+- **Ledger always, promote on approval.** Append every kept lesson to `docs/specs/LESSONS.md` (`proposed`); a rule edit is a change to the team's brain, so present the diff and let the **owner approve** before editing any `.claude/rules/*.md`, then flip the ledger to `promoted`.
 - **Anti-bloat:** dedupe against the ledger + the target section — strengthen an existing row, don't append a twin; prune on a cadence so rule files stay under the SKILL-AUTHORING ceiling.
 
 Full procedure: the `retro` skill (`.claude/skills/retro/SKILL.md`).

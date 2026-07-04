@@ -171,5 +171,5 @@ None are Critical. Ranked roughly by attention:
 
 - `.claude/rules/security.md` — the security **standard** (6-area audit, STRIDE, OWASP rules) every story is graded against.
 - `.claude/rules/api.md` — the per-endpoint **contract** checklist (validate → authz → query → shape → errors).
-- `docs/delivery/LESSONS.md` — promoted security lessons (CAM-202/203/208/209/211/213).
+- `docs/specs/LESSONS.md` — promoted security lessons (CAM-202/203/208/209/211/213).
 - Epic **CAM-208** (Trust, Security & Platform) — the abuse/cost-hardening work that established most of the rate-limits + the self-host image posture.

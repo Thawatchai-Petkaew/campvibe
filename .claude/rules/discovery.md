@@ -96,7 +96,7 @@ Use the template exactly (v2, English framework — story.md §"story v2") — `
 
 ### 7. On a requirement change — re-run Discovery + artifact cascade
 
-A changed or added requirement re-enters Discovery (close the new gaps), then run the artifact cascade so `docs/delivery/` stays the latest version: update `story.md` (bump `version` + add a `## Changelog` line) → cascade `design.md`/`tech.md`/`test.md` → refresh the `epic.md` rollup → if scope shifts, update `docs/project/product-plan.md`/`master-plan.md` → sync the ticket DB → `node scripts/ticket-sync.mjs index`. Files = content SoT, ticket DB = live status.
+A changed or added requirement re-enters Discovery (close the new gaps), then run the artifact cascade so `docs/specs/` stays the latest version: update `story.md` (bump `version` + add a `## Changelog` line) → cascade `design.md`/`tech.md`/`test.md` → refresh the `epic.md` rollup → if scope shifts, update `docs/project/product-plan.md`/`master-plan.md` → sync the ticket DB → `node scripts/ticket-sync.mjs index`. Files = content SoT, ticket DB = live status.
 
 ## Examples
 
