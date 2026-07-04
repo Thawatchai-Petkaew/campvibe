@@ -35,6 +35,12 @@ vi.mock('@/lib/prisma', () => ({
     blockedDate: {
       findMany: vi.fn(),
     },
+    // CAM-302: getCampSiteDailyAvailability now also reads ACTIVE non-expired
+    // InternalHold rows (heldGuests leg) — mocked so this file's existing
+    // tests keep exercising the real (unmodified for THEM) blockedByHost path.
+    internalHold: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -57,9 +63,10 @@ function d(iso: string): Date {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: no bookings, no blocked dates
+  // Default: no bookings, no blocked dates, no holds
   (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 // ===========================================================================
@@ -304,13 +311,16 @@ describe('getCampSiteDailyAvailability — blockedByHost merge (AC-1)', () => {
   // Exactly 2 prisma queries per request (booking + blockedDate) — no N+1
   // Prove-It: if a per-day query loop were used, findMany would be called N times.
   // ─────────────────────────────────────────────────────────────────────────
-  it('[no-n+1] exactly 1 booking query + 1 blockedDate query per call (no N+1)', async () => {
+  it('[no-n+1] exactly 1 booking query + 1 blockedDate query + 1 internalHold query per call (no N+1)', async () => {
     (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     await getCampSiteDailyAvailability(CAMP_ID, d('2026-09-01'), d('2026-09-30'));
 
     expect(prisma.booking.findMany).toHaveBeenCalledOnce();
     expect(prisma.blockedDate.findMany).toHaveBeenCalledOnce();
+    // CAM-302: the InternalHold leg rides on the SAME one-query-per-range
+    // pattern — no N+1 introduced by the new heldGuests source.
+    expect(prisma.internalHold.findMany).toHaveBeenCalledOnce();
   });
 });
 

@@ -46,6 +46,12 @@ vi.mock('@/lib/prisma', () => ({
     campSite: {
       findUnique: vi.fn(),
     },
+    // CAM-302: getCampSiteDailyAvailability now also reads ACTIVE non-expired
+    // InternalHold rows (heldGuests leg) — mocked here so every existing test
+    // in this file continues to exercise the real function unmodified.
+    internalHold: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -69,6 +75,7 @@ beforeEach(() => {
   (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ maxGuestsPerDay: 5 });
+  (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 // ===========================================================================
@@ -250,7 +257,7 @@ describe('getRemainingCapacity — remaining math (AC-2/AC-3)', () => {
 
     const result = await getRemainingCapacity(CAMP_ID, d('2026-09-10'), d('2026-09-11'));
 
-    expect(result).toEqual({ capacity: null, bookedGuests: 0, remaining: null, blockedByHost: false });
+    expect(result).toEqual({ capacity: null, bookedGuests: 0, heldGuests: 0, remaining: null, blockedByHost: false });
   });
 
   it('[null/empty] no explicit capacity (maxGuestsPerDay null) and not blocked → remaining is null (unbounded, not shown)', async () => {
@@ -266,7 +273,7 @@ describe('getRemainingCapacity — remaining math (AC-2/AC-3)', () => {
     expect(result.blockedByHost).toBe(false);
   });
 
-  it('[no-n+1] getCampSiteDailyAvailability is reused (exactly 1 booking + 1 blockedDate query), no forked query', async () => {
+  it('[no-n+1] getCampSiteDailyAvailability is reused (exactly 1 booking + 1 blockedDate + 1 internalHold query), no forked query', async () => {
     (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ maxGuestsPerDay: 5 });
 
     await getRemainingCapacity(CAMP_ID, d('2026-09-10'), d('2026-09-13'));
@@ -274,6 +281,9 @@ describe('getRemainingCapacity — remaining math (AC-2/AC-3)', () => {
     expect(prisma.campSite.findUnique).toHaveBeenCalledOnce();
     expect(prisma.booking.findMany).toHaveBeenCalledOnce();
     expect(prisma.blockedDate.findMany).toHaveBeenCalledOnce();
+    // CAM-302: the InternalHold leg rides on the SAME one-query-per-range
+    // pattern as bookings/blockedDate — no N+1 introduced by the new source.
+    expect(prisma.internalHold.findMany).toHaveBeenCalledOnce();
   });
 });
 
@@ -363,7 +373,7 @@ describe('privacy — BlockedDate.reason never leaves the server on any touched 
     'utf-8'
   );
 
-  it('[privacy] getRemainingCapacity returns exactly capacity/bookedGuests/remaining/blockedByHost — no reason key', async () => {
+  it('[privacy] getRemainingCapacity returns exactly capacity/bookedGuests/heldGuests/remaining/blockedByHost — no reason key', async () => {
     (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ maxGuestsPerDay: 5 });
     (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -372,7 +382,7 @@ describe('privacy — BlockedDate.reason never leaves the server on any touched 
 
     const result = await getRemainingCapacity(CAMP_ID, d('2026-09-10'), d('2026-09-11'));
 
-    expect(Object.keys(result).sort()).toEqual(['blockedByHost', 'bookedGuests', 'capacity', 'remaining']);
+    expect(Object.keys(result).sort()).toEqual(['blockedByHost', 'bookedGuests', 'capacity', 'heldGuests', 'remaining']);
     expect(result).not.toHaveProperty('reason');
   });
 

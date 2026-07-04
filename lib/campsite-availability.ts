@@ -37,8 +37,42 @@ export async function getBlockedDatesForRange(
 }
 
 /**
+ * CAM-302 (ADR-012 §4) — returns ACTIVE, non-expired InternalHold rows that
+ * overlap [startDate, endDate] for the given campSiteId. Predicate mirrors
+ * getBlockedDatesForRange exactly (same lte/gte overlap shape); the ONLY
+ * addition is the lazy-expiry filter (status = ACTIVE AND expiresAt > now) —
+ * an expired hold silently drops out of every read here, no cron, no row
+ * rewrite (ADR-012 §4 "lazy vs cron expiry", BR-2).
+ *
+ * spotId is NOT filtered here (unlike getBlockedDatesForRange) — a spot-level
+ * hold still counts against the camp-wide capacity bottleneck exactly like a
+ * spot-level Booking already does (BR-3); there is no separate per-spot
+ * capacity concept in this schema.
+ */
+export async function getActiveHoldsForRange(
+  campSiteId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<{ startDate: Date; endDate: Date; guests: number }[]> {
+  return prisma.internalHold.findMany({
+    where: {
+      campSiteId,
+      status: 'ACTIVE',
+      expiresAt: { gt: new Date() },
+      AND: [
+        { startDate: { lte: endDate } },
+        { endDate: { gte: startDate } },
+      ],
+    },
+    select: { startDate: true, endDate: true, guests: true },
+  });
+}
+
+/**
  * Get daily availability for a camp site
- * Returns guests and tents booked for each date, plus host BlockedDate coverage.
+ * Returns guests and tents booked for each date, plus host BlockedDate coverage
+ * and held (InternalHold) guests — CAM-302, kept separate from bookedGuests
+ * (ADR-012 §4: a host dashboard legitimately wants both numbers).
  */
 export async function getCampSiteDailyAvailability(
   campSiteId: string,
@@ -63,13 +97,13 @@ export async function getCampSiteDailyAvailability(
   });
 
   // Group by date
-  const availability: Record<string, { bookedGuests: number; bookedTents: number; blockedByHost: boolean }> = {};
+  const availability: Record<string, { bookedGuests: number; bookedTents: number; blockedByHost: boolean; heldGuests: number }> = {};
 
   // Initialize all dates in range
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     const dateKey = currentDate.toISOString().split('T')[0];
-    availability[dateKey] = { bookedGuests: 0, bookedTents: 0, blockedByHost: false };
+    availability[dateKey] = { bookedGuests: 0, bookedTents: 0, blockedByHost: false, heldGuests: 0 };
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
@@ -108,22 +142,49 @@ export async function getCampSiteDailyAvailability(
     }
   }
 
+  // CAM-302 (ADR-012 §4): fold ACTIVE non-expired holds in — one query for the
+  // whole range (no N+1), same shape as the booking/blockedDate loops above.
+  // endDate is the EXCLUSIVE checkout day (BR-2) — identical loop shape to the
+  // booking loop above (`while (date < checkOut)`), NOT the inclusive BlockedDate
+  // loop shape.
+  const holds = await getActiveHoldsForRange(campSiteId, startDate, endDate);
+
+  for (const hold of holds) {
+    const date = new Date(hold.startDate);
+    const holdEnd = new Date(hold.endDate);
+    while (date < holdEnd) {
+      const dateKey = date.toISOString().split('T')[0];
+      if (availability[dateKey]) {
+        availability[dateKey].heldGuests += hold.guests;
+      }
+      date.setDate(date.getDate() + 1);
+    }
+  }
+
   return availability;
 }
 
 /**
- * Result shape for getRemainingCapacity — CAM-267 PREP-1.
+ * Result shape for getRemainingCapacity — CAM-267 PREP-1 (+ CAM-302 heldGuests).
  */
 export interface RemainingCapacityResult {
   /** CampSite.maxGuestsPerDay. null = no explicit capacity set (unbounded — never rendered as a number). */
   capacity: number | null;
-  /** Highest guests booked (non-CANCELLED) on any single night in the range — the bottleneck night. */
+  /** Booked (non-CANCELLED) guests on the bottleneck night — the night with the highest bookedGuests + heldGuests. */
   bookedGuests: number;
   /**
-   * capacity - bookedGuests, floored at 0 (CAM-267 AC-2). null when capacity is
-   * null (unbounded, nothing to subtract from) AND the range is not host-blocked.
-   * Forced to 0 whenever blockedByHost is true — a whole-site BlockedDate makes
-   * the site unavailable for the range regardless of the numeric capacity.
+   * CAM-302 (ADR-012 §4): ACTIVE, non-expired InternalHold guests on that SAME
+   * bottleneck night. Kept as its own labeled number, never merged into
+   * bookedGuests — a host dashboard legitimately wants "X confirmed + Y on hold"
+   * as two numbers, same reasoning that already keeps blockedByHost separate.
+   */
+  heldGuests: number;
+  /**
+   * capacity - (bookedGuests + heldGuests), floored at 0 (CAM-267 AC-2, extended
+   * by CAM-302 to also subtract holds). null when capacity is null (unbounded,
+   * nothing to subtract from) AND the range is not host-blocked. Forced to 0
+   * whenever blockedByHost is true — a whole-site BlockedDate makes the site
+   * unavailable for the range regardless of the numeric capacity.
    */
   remaining: number | null;
   /** true when ANY night in [startDate, endDate) is covered by a whole-camp BlockedDate (spotId: null). */
@@ -160,7 +221,7 @@ export async function getRemainingCapacity(
   });
 
   if (!campSite) {
-    return { capacity: null, bookedGuests: 0, remaining: null, blockedByHost: false };
+    return { capacity: null, bookedGuests: 0, heldGuests: 0, remaining: null, blockedByHost: false };
   }
 
   const capacity = campSite.maxGuestsPerDay;
@@ -172,25 +233,37 @@ export async function getRemainingCapacity(
   const lastNight = new Date(endDate);
   lastNight.setDate(lastNight.getDate() - 1);
   if (lastNight < startDate) {
-    return { capacity, bookedGuests: 0, remaining: capacity, blockedByHost: false };
+    return { capacity, bookedGuests: 0, heldGuests: 0, remaining: capacity, blockedByHost: false };
   }
 
   const daily = await getCampSiteDailyAvailability(campSiteId, startDate, lastNight);
 
+  // CAM-302: the bottleneck night is now the night with the highest COMBINED
+  // (bookedGuests + heldGuests) — a hold-heavy night can be the true bottleneck
+  // even when its bookedGuests alone is lower than another night's. Both counts
+  // reported are the ones from that same bottleneck night (kept separately
+  // labeled per ADR-012 §4, never merged into one number).
   let bookedGuests = 0;
+  let heldGuests = 0;
   let blockedByHost = false;
+  let maxCombined = -1;
   for (const day of Object.values(daily)) {
-    if (day.bookedGuests > bookedGuests) bookedGuests = day.bookedGuests;
+    const combined = day.bookedGuests + day.heldGuests;
+    if (combined > maxCombined) {
+      maxCombined = combined;
+      bookedGuests = day.bookedGuests;
+      heldGuests = day.heldGuests;
+    }
     if (day.blockedByHost) blockedByHost = true;
   }
 
   const remaining = blockedByHost
     ? 0
     : capacity !== null
-      ? Math.max(0, capacity - bookedGuests)
+      ? Math.max(0, capacity - (bookedGuests + heldGuests))
       : null;
 
-  return { capacity, bookedGuests, remaining, blockedByHost };
+  return { capacity, bookedGuests, heldGuests, remaining, blockedByHost };
 }
 
 /**
@@ -272,6 +345,15 @@ export async function checkDateAvailability(
  *
  * The existing `checkDateAvailability` and `getCampSiteDailyAvailability` exports
  * are NOT changed — GET-availability callers are unaffected.
+ *
+ * CAM-302 (ADR-012 §4, BR-2/BR-3): also reads ACTIVE, non-expired InternalHold
+ * rows overlapping this date INSIDE the same transaction boundary — this is the
+ * SAME seam the booking write path already loops per night
+ * (app/api/bookings/route.ts `withBookingTransaction`), so a guest booking over
+ * a hold that fills capacity auto-rejects with NO change to the booking route
+ * (the story's KPI seam, AC-4), and a hold create reusing this same function
+ * gets the identical serializable double-hold-prevention lock ADR-006 already
+ * gives Booking (AC-5, EC-1, EC-5) — no parallel capacity math anywhere.
  */
 export async function checkDateAvailabilityInTx(
   tx: Prisma.TransactionClient,
@@ -318,7 +400,26 @@ export async function checkDateAvailabilityInTx(
     }
   }
 
-  if (campSite.maxGuestsPerDay && bookedGuests + requestedGuests > campSite.maxGuestsPerDay) {
+  // CAM-302: ACTIVE, non-expired holds overlapping this exact date, read inside
+  // the SAME transaction boundary as the bookings above (lazy expiry, BR-2).
+  const holds = await tx.internalHold.findMany({
+    where: {
+      campSiteId,
+      status: 'ACTIVE',
+      expiresAt: { gt: new Date() },
+      AND: [
+        { startDate: { lte: date } },
+        { endDate: { gt: date } },
+      ],
+    },
+    select: { guests: true },
+  });
+  const heldGuests = holds.reduce((sum, h) => sum + h.guests, 0);
+
+  if (
+    campSite.maxGuestsPerDay &&
+    bookedGuests + heldGuests + requestedGuests > campSite.maxGuestsPerDay
+  ) {
     return {
       available: false,
       reason: `Exceeds maximum guests per day (${campSite.maxGuestsPerDay})`,

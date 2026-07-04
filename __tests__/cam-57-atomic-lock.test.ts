@@ -276,6 +276,12 @@ describe('checkDateAvailabilityInTx — capacity logic (AC#2, AC#3)', () => {
       booking: {
         findMany: vi.fn().mockResolvedValue(bookings),
       },
+      // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+      // InternalHold rows inside the same tx — default to none so every
+      // existing capacity-math test here is unaffected by the new leg.
+      internalHold: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     } as unknown as Prisma.TransactionClient;
   }
 
@@ -500,6 +506,9 @@ describe('POST /api/bookings — 409 detail strings byte-identical to pre-CAM-57
         },
         campSite: { findUnique: vi.fn() },
         blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for these pre-existing tests.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
@@ -540,6 +549,9 @@ describe('POST /api/bookings — 409 detail strings byte-identical to pre-CAM-57
           }),
         },
         blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for these pre-existing tests.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
@@ -576,6 +588,9 @@ describe('POST /api/bookings — 409 detail strings byte-identical to pre-CAM-57
           // BlockedDate exists → conflict
           findFirst: vi.fn().mockResolvedValue({ id: 'blocked-date-001' }),
         },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for this pre-existing test.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
@@ -644,6 +659,9 @@ describe('POST /api/bookings — success path returns 201 with same body shape (
           }),
         },
         blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for these pre-existing tests.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
@@ -694,6 +712,9 @@ describe('POST /api/bookings — success path returns 201 with same body shape (
           }),
         },
         blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for these pre-existing tests.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
@@ -796,6 +817,9 @@ describe('POST /api/bookings — HTTP error codes (AC#5)', () => {
           }),
         },
         blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+        // CAM-302: checkDateAvailabilityInTx now also reads ACTIVE non-expired
+        // InternalHold rows inside the tx — default none for these pre-existing tests.
+        internalHold: { findMany: vi.fn().mockResolvedValue([]) },
       });
     });
 
