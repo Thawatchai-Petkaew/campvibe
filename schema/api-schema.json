@@ -359,35 +359,6 @@
             "availabilityMergeRule": "available=false when (maxGuestsPerDay && bookedGuests >= maxGuestsPerDay) OR (maxTentsPerDay && bookedTents >= maxTentsPerDay) OR blockedByHost===true",
             "blockedDatePredicate": "campSiteId + deletedAt:null + OR[spotId:null, spotId:spotId(if provided)] + AND[startDate:{lte:endDate}, endDate:{gte:startDate}] — mirrors app/api/bookings/route.ts lines 93-104"
         },
-        "GET /api/campgrounds/[id]/availability": {
-            "story": "CAM-190 (AVAIL-1)",
-            "note": "Structurally identical to GET /api/campsites/[id]/availability above; output key is 'campgroundId' instead of 'campSiteId'",
-            "auth": "same visibility gate as campsites route",
-            "cacheDirective": "Cache-Control: no-store + export const dynamic = 'force-dynamic'",
-            "input": {
-                "id": "string (path param) — campSiteId",
-                "startDate": "ISO date string (query)",
-                "endDate": "ISO date string (query)"
-            },
-            "output": {
-                "campgroundId": "string",
-                "availability": "AvailabilityDay[] — same shape as campsites route",
-                "limits": {
-                    "maxGuestsPerDay": "number | null",
-                    "maxTentsPerDay": "number | null"
-                }
-            },
-            "errors": {
-                "400": "missing or invalid startDate / endDate",
-                "401": "N/A",
-                "403": "N/A",
-                "404": "campground not found or not visible",
-                "409": "N/A",
-                "500": "internal"
-            },
-            "errorShape": "{ error: string }",
-            "queryStrategy": "same as campsites route — 3 queries, no N+1"
-        },
         "POST /api/vitals": {
             "story": "CAM-187 (MEAS-1)",
             "auth": "unauthenticated (public telemetry — browser sendBeacon, no session required)",
