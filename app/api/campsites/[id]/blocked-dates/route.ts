@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { createBlockedDateSchema } from '@/lib/validations/blocked-dates';
@@ -19,13 +19,20 @@ import { apiError, apiSuccess } from '@/lib/api-utils';
  * lib/campsite-availability.ts (CAM-267/CAM-190) and the BlockedDate check inside
  * app/api/bookings/route.ts (CAM-57) — neither is touched by this story.
  *
- * Overlap-with-booking behavior (Blueprint v6 re-scope comment on CAM-56, read
- * 2026-07-04): creating a block that overlaps an existing CONFIRMED/PENDING booking
- * is ALLOWED (a host may need to close dates for an emergency) but the response
- * carries a `warning` payload listing the affected bookings so the host can act
- * (e.g. contact the guest). This deliberately supersedes the older ticket AC-6 text
- * ("ไม่สามารถบล็อกวันนี้ได้ เนื่องจากมีการจองอยู่แล้ว" / hard reject) — see the PR
- * description for the reconciliation note.
+ * Overlap-with-booking behavior (AC-6, owner decision reaffirmed 2026-07-04 on
+ * the pull request GATE-REWORK): creating a block whose range overlaps an existing
+ * ACTIVE booking (CONFIRMED or PENDING) in the same scope is a HARD REJECT —
+ * 409 + the Thai copy "ไม่สามารถบล็อกวันนี้ได้ เนื่องจากมีการจองอยู่แล้ว" + the
+ * list of conflicting bookings in the payload. No BlockedDate row is created.
+ * An earlier revision of this route shipped a warn-but-allow variant (create
+ * anyway, carry a `warning` payload); the owner explicitly rejected that in
+ * favor of the ticket's original AC-6 text — do not reintroduce warn-but-allow
+ * without a new owner decision.
+ *
+ * Scope of the overlap check: camp-wide blocks (spotId null) conflict with ANY
+ * active booking on the camp; spot-level blocks conflict only with bookings
+ * tied to that exact spot — same scoping lib/campsite-availability.ts and the
+ * booking write path (app/api/bookings/route.ts, CAM-57) already use.
  */
 
 export async function GET(
@@ -81,19 +88,14 @@ export async function POST(
       }
     }
 
-    const blockedDate = await prisma.blockedDate.create({
-      data: {
-        campSiteId: id,
-        spotId: data.spotId ?? null,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        reason: data.reason || null,
-      },
-    });
-
-    // Warn (never reject) when the new block overlaps an existing active booking —
-    // whole-camp blocks (spotId null) affect every booking on the camp; spot-level
-    // blocks only affect bookings tied to that exact spot.
+    // AC-6 (owner decision, hard reject): a block overlapping an active booking
+    // (CONFIRMED/PENDING) in scope must FAIL before any BlockedDate row is
+    // written — check BEFORE create, not after. Whole-camp blocks (spotId null)
+    // conflict with ANY active booking on the camp; spot-level blocks conflict
+    // only with bookings tied to that exact spot. Predicate mirrors the booking
+    // write path's BlockedDate check (app/api/bookings/route.ts, CAM-57) so a
+    // block can never be created where a live booking would already have been
+    // rejected, and vice versa.
     const bookingWhere: Prisma.BookingWhereInput = {
       campSiteId: id,
       status: { in: ['CONFIRMED', 'PENDING'] },
@@ -112,18 +114,38 @@ export async function POST(
       orderBy: { checkInDate: 'asc' },
     });
 
-    const payload =
-      overlappingBookings.length > 0
-        ? {
-            blockedDate,
-            warning: {
-              overlappingBookingsCount: overlappingBookings.length,
-              overlappingBookings,
-            },
-          }
-        : { blockedDate };
+    if (overlappingBookings.length > 0) {
+      // Structured log (internal only — never sent to the client): a rejected
+      // write attempt is expected operator behavior, not a system error, so it
+      // logs at warn rather than through apiError's error-level path. No PII —
+      // booking ids + date range only (security.md / observability.md).
+      console.warn('[API Conflict 409] blocked_date_overlaps_booking', {
+        campSiteId: id,
+        spotId: data.spotId ?? null,
+        conflictCount: overlappingBookings.length,
+      });
 
-    return apiSuccess(payload, 201);
+      return NextResponse.json(
+        {
+          error: 'blocked_date_overlaps_booking',
+          message: 'ไม่สามารถบล็อกวันนี้ได้ เนื่องจากมีการจองอยู่แล้ว',
+          conflicts: overlappingBookings,
+        },
+        { status: 409 }
+      );
+    }
+
+    const blockedDate = await prisma.blockedDate.create({
+      data: {
+        campSiteId: id,
+        spotId: data.spotId ?? null,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason || null,
+      },
+    });
+
+    return apiSuccess({ blockedDate }, 201);
   } catch (error) {
     return apiError('Failed to create blocked date', 500, error);
   }

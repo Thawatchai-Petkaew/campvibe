@@ -15,8 +15,10 @@
  * AC coverage:
  *   AC-2  201 create → BlockedDate row persisted (campSiteId/spotId/startDate/endDate/reason)
  *   AC-5  200 delete → soft-delete (deletedAt set, not a hard prisma.delete)
- *   AC-6  overlap re-scope (Blueprint v6): overlapping CONFIRMED/PENDING bookings do NOT
- *         block creation — response carries a `warning` payload instead (see route header)
+ *   AC-6  409 HARD REJECT (owner decision, 2026-07-04, the pull request GATE-REWORK): a block
+ *         overlapping an active (CONFIRMED/PENDING) booking in scope FAILS with 409 +
+ *         the ticket's exact Thai copy + the conflicting bookings — no BlockedDate row
+ *         is created. Supersedes the earlier warn-but-allow revision (see route header).
  *   AC-7  403 for a caller without BOOKING_UPDATE / not the owner
  *   AC-8  400 for a past startDate (covered at the zod layer — see the validation test file;
  *         this file proves the route returns 400 + never calls prisma.blockedDate.create)
@@ -298,16 +300,9 @@ describe('POST /api/campsites/[id]/blocked-dates — RBAC + contract', () => {
     expect(createArgs.data.reason).toBe('ปิดซ่อมแซม');
   });
 
-  it('201 with warning — overlapping CONFIRMED booking does NOT block creation (Blueprint v6 re-scope)', async () => {
+  it('409 — overlapping CONFIRMED booking HARD REJECTS creation (AC-6, owner decision)', async () => {
     mockAllowed();
     const range = validRange();
-    (prisma.blockedDate.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: BLOCK_ID,
-      campSiteId: CAMPSITE_ID,
-      spotId: null,
-      ...range,
-      reason: null,
-    });
     (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         id: 'booking-1',
@@ -321,14 +316,39 @@ describe('POST /api/campsites/[id]/blocked-dates — RBAC + contract', () => {
     const res = await blockedDatesPOST(postReq(range), makeCollectionParams(CAMPSITE_ID));
     const body = await res.json();
 
-    // Creation still succeeds (201) — a host may close dates for an emergency.
-    expect(res.status).toBe(201);
-    expect(prisma.blockedDate.create).toHaveBeenCalledOnce();
-    // Warning payload lists the affected booking(s).
-    expect(body.warning).toBeDefined();
-    expect(body.warning.overlappingBookingsCount).toBe(1);
-    expect(body.warning.overlappingBookings).toHaveLength(1);
-    expect(body.warning.overlappingBookings[0].id).toBe('booking-1');
+    // AC-6 hard reject: 409, no BlockedDate row created, conflicting bookings listed.
+    expect(res.status).toBe(409);
+    expect(prisma.blockedDate.create).not.toHaveBeenCalled();
+    expect(body.error).toBe('blocked_date_overlaps_booking');
+    // Ticket AC-6 exact Thai copy — asserted verbatim (qa.md #2).
+    expect(body.message).toBe('ไม่สามารถบล็อกวันนี้ได้ เนื่องจากมีการจองอยู่แล้ว');
+    expect(body.conflicts).toHaveLength(1);
+    expect(body.conflicts[0].id).toBe('booking-1');
+  });
+
+  it('409 — overlapping PENDING booking on a spot-level block also HARD REJECTS (AC-6 scope)', async () => {
+    mockAllowed();
+    const range = validRange();
+    (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
+    (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 'booking-2',
+        checkInDate: range.startDate,
+        checkOutDate: range.endDate,
+        guests: 4,
+        spotId: SPOT_ID,
+      },
+    ]);
+
+    const res = await blockedDatesPOST(
+      postReq({ ...range, spotId: SPOT_ID }),
+      makeCollectionParams(CAMPSITE_ID)
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(prisma.blockedDate.create).not.toHaveBeenCalled();
+    expect(body.conflicts[0].id).toBe('booking-2');
   });
 
   it('booking overlap query is scoped to the campsite AND to CONFIRMED/PENDING statuses only', async () => {

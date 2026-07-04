@@ -11,7 +11,10 @@
  * the 8-state / i18n / a11y contract without that new infra.
  *
  * AC coverage: AC-1/2 (create form fields + buttons), AC-4/5 (cancel confirm),
- * AC-7 (403 forbidden state), loading-ui-standard §5 (a11y wiring).
+ * AC-6 (409 hard reject — owner decision, the pull request GATE-REWORK: the form surfaces
+ * the server's 409 conflict inline, listing the conflicting bookings, instead of
+ * treating creation as successful), AC-7 (403 forbidden state),
+ * loading-ui-standard §5 (a11y wiring).
  */
 
 import * as fs from 'fs';
@@ -98,6 +101,40 @@ describe('CAM-56 availability page — data-testid convention (<type>--<module>-
 
   it.each(REQUIRED_TESTIDS)('includes the %s test id', (testId) => {
     expect(pageSrc).toContain(`data-testid="${testId}"`);
+  });
+});
+
+describe('CAM-56 availability page — AC-6 409 hard reject (owner decision, the pull request GATE-REWORK)', () => {
+  it('checks the 409 + machine error code before treating the response as success', () => {
+    expect(pageSrc).toContain('res.status === 409 && payload?.error === "blocked_date_overlaps_booking"');
+  });
+
+  it('shows the AC-6 Thai copy inline (via i18n, not a hardcoded string) on conflict', () => {
+    expect(pageSrc).toContain('setDateError(copy.overlapRejected)');
+  });
+
+  it('stores the conflicting bookings from the server payload for display', () => {
+    expect(pageSrc).toContain('setConflicts(Array.isArray(payload.conflicts) ? payload.conflicts : [])');
+  });
+
+  it('renders the conflict list section (no re-implementation of a raw string dump)', () => {
+    expect(pageSrc).toContain('data-testid="section--availability-conflicts"');
+    expect(pageSrc).toContain('copy.overlapConflictListLabel');
+  });
+
+  it('never treats a 409 conflict as success (does not close the form or toast success on conflict)', () => {
+    // The 409 branch returns before reaching the success toast/close-form lines.
+    const conflictBranch = pageSrc.slice(
+      pageSrc.indexOf('res.status === 409'),
+      pageSrc.indexOf('if (!res.ok)')
+    );
+    expect(conflictBranch).toContain('return;');
+    expect(conflictBranch).not.toContain('toast.success');
+  });
+
+  it('does NOT reintroduce the removed warn-but-allow overlapWarning copy', () => {
+    expect(pageSrc).not.toContain('overlapWarning');
+    expect(pageSrc).not.toContain('payload?.warning');
   });
 });
 

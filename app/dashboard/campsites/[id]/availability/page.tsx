@@ -51,6 +51,16 @@ interface BlockedDateItem {
   reason: string | null;
 }
 
+// AC-6 (owner decision, hard reject): the 409 conflict payload's shape, matching
+// app/api/campsites/[id]/blocked-dates/route.ts — { error, message, conflicts }.
+interface ConflictingBooking {
+  id: string;
+  checkInDate: string;
+  checkOutDate: string;
+  guests: number;
+  spotId: string | null;
+}
+
 function formatDate(value: string, language: "th" | "en"): string {
   return new Date(value).toLocaleDateString(language === "th" ? "th-TH" : "en-US", {
     day: "numeric",
@@ -78,6 +88,7 @@ export default function CampSiteAvailabilityPage() {
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<ConflictingBooking[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<BlockedDateItem | null>(null);
@@ -128,6 +139,7 @@ export default function CampSiteAvailabilityPage() {
     setReason("");
     setReasonError(null);
     setDateError(null);
+    setConflicts([]);
     setFormOpen(true);
   };
 
@@ -168,6 +180,7 @@ export default function CampSiteAvailabilityPage() {
       return;
     }
     setDateError(null);
+    setConflicts([]);
 
     setSubmitting(true);
     try {
@@ -178,16 +191,22 @@ export default function CampSiteAvailabilityPage() {
       });
       const payload = await res.json().catch(() => null);
 
+      // AC-6 (owner decision, hard reject): the server returns 409 + the ticket's
+      // exact Thai copy + the conflicting bookings when the range overlaps an
+      // active booking. Show it inline (form stays open) rather than a toast —
+      // this is the primary reason submission failed, not a background notice.
+      if (res.status === 409 && payload?.error === "blocked_date_overlaps_booking") {
+        setDateError(copy.overlapRejected);
+        setConflicts(Array.isArray(payload.conflicts) ? payload.conflicts : []);
+        return;
+      }
+
       if (!res.ok) {
         toast.error(copy.createFailed);
         return;
       }
 
       toast.success(copy.createSuccess);
-      const overlapCount = payload?.warning?.overlappingBookingsCount;
-      if (typeof overlapCount === "number" && overlapCount > 0) {
-        toast.warning(copy.overlapWarning.replace("{N}", String(overlapCount)));
-      }
       setFormOpen(false);
       await loadData();
     } catch (err) {
@@ -260,6 +279,7 @@ export default function CampSiteAvailabilityPage() {
               setDate={(next) => {
                 setRange(next);
                 setDateError(null);
+                setConflicts([]);
               }}
               placeholder={copy.dateRangePlaceholder}
             />
@@ -308,6 +328,28 @@ export default function CampSiteAvailabilityPage() {
 
           {dateError && (
             <ErrorBanner message={dateError} data-testid="alert--availability-date-error" />
+          )}
+
+          {conflicts.length > 0 && (
+            <div
+              className="rounded-2xl border border-border bg-muted/40 p-3 space-y-2"
+              data-testid="section--availability-conflicts"
+            >
+              <p className="text-sm font-medium text-foreground">
+                {copy.overlapConflictListLabel}
+              </p>
+              <ul className="space-y-1">
+                {conflicts.map((conflict) => (
+                  <li
+                    key={conflict.id}
+                    className="text-sm text-muted-foreground"
+                    data-testid={`row--availability-conflict-${conflict.id}`}
+                  >
+                    {formatDate(conflict.checkInDate, language)} - {formatDate(conflict.checkOutDate, language)}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
