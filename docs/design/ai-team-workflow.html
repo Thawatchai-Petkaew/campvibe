@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe · AI Delivery Team Workflow</title>
+<style>
+  :root{
+    --bg:#f0f4f3; --surface:#fff; --card:#fff; --card-alt:#e8f4f2; --line:#d8e8e6; --line-strong:#b8d4d0;
+    --fg:#1a2c2e; --muted:#4e6e6b; --muted-lt:#7a9896;
+    --primary:#14b8a6; --primary-dim:#0d9488; --primary-10:rgba(20,184,166,.10); --primary-20:rgba(20,184,166,.20);
+    --green:#16a34a; --green-10:rgba(22,163,74,.10); --amber:#d97706; --amber-10:rgba(217,119,6,.10);
+    --red:#dc2626; --red-10:rgba(220,38,38,.10);
+    --r-card:22px; --r-ctrl:999px; --r-in:14px; --r-pop:18px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth} html,body{margin:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    color:var(--fg);line-height:1.6;font-size:14.5px;background:var(--bg);padding:0 20px 70px}
+  .wrap{max-width:1220px;margin:0 auto}
+  h1{font-size:29px;margin:14px 0 4px;letter-spacing:-.3px}
+  h1 .sub{display:block;font-size:14.5px;font-weight:500;color:var(--muted);margin-top:8px;max-width:900px}
+  h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:9px;scroll-margin-top:64px}
+  h2 .n{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff;background:var(--primary)}
+  h3{font-size:15px;margin:0 0 6px}
+  .lead{color:var(--muted);font-size:13px;margin:2px 0 14px}
+  section.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:22px 24px;margin:16px 0;scroll-margin-top:64px}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--card-alt);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--primary-dim)}
+  .muted{color:var(--muted)} .muted-lt{color:var(--muted-lt)}
+  a{color:var(--primary-dim)}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted-lt);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+
+  /* top jump nav */
+  .jump{position:sticky;top:0;z-index:20;background:rgba(240,244,243,.94);backdrop-filter:blur(6px);
+    display:flex;flex-wrap:wrap;gap:6px;padding:10px 0;margin-bottom:6px;border-bottom:1px solid var(--line)}
+  .jump a{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-ctrl);padding:5px 12px;text-decoration:none;white-space:nowrap}
+  .jump a:hover{color:var(--primary-dim);border-color:var(--line-strong)}
+
+  /* badge / chip / pill */
+  .badge{display:inline-flex;gap:7px;align-items:center;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:var(--r-ctrl);
+    border:1px solid var(--line-strong);background:var(--card-alt);color:var(--primary-dim);margin-top:16px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+  .chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:var(--r-ctrl);white-space:nowrap}
+  .chip-done{color:#fff;background:var(--green)}
+  .chip-active{color:#fff;background:var(--primary)}
+  .chip-next{color:var(--amber);background:var(--amber-10);border:1px solid rgba(217,119,6,.3)}
+  .chip-later{color:var(--muted-lt);background:#fff;border:1px solid var(--line-strong)}
+  .chip-gated{color:var(--red);background:var(--red-10);border:1px dashed rgba(220,38,38,.4)}
+  .chip-proposed{color:var(--amber);background:var(--amber-10);border:1px solid rgba(217,119,6,.3);font-weight:700}
+
+  /* hero stat grid */
+  .stat-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-top:14px}
+  @media(max-width:980px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:620px){.stat-grid{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--card-alt);border:1px solid var(--line);border-radius:var(--r-in);padding:12px 13px}
+  .stat b{display:block;font-size:20px;color:var(--fg)} .stat span{font-size:10.5px;color:var(--muted)}
+
+  /* org chart */
+  .org{display:flex;flex-direction:column;align-items:center;gap:8px;margin:14px 0}
+  .org .lvl{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%}
+  .org .node{border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:var(--surface);font-size:12px;text-align:center;min-width:150px}
+  .org .node.owner{border-color:var(--primary);background:linear-gradient(180deg,var(--primary-10),transparent 70%);font-weight:800}
+  .org .node.orch{border-color:var(--amber);background:var(--amber-10);font-weight:700}
+  .org .node b{display:block;font-size:12.5px} .org .node span{display:block;font-size:10.5px;color:var(--muted-lt);margin-top:2px}
+  .org .down{color:var(--primary);font-size:16px}
+  .role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+  @media(max-width:860px){.role-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.role-grid{grid-template-columns:1fr}}
+  .role-card{border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:var(--surface)}
+  .role-card .rh{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
+  .role-card b{font-size:12.5px} .role-card p{margin:2px 0 0;font-size:11.5px;color:var(--muted)}
+  .stage-tag{font-size:9.5px;font-weight:800;letter-spacing:.03em;color:var(--primary-dim);background:var(--primary-10);border-radius:999px;padding:2px 8px}
+
+  /* flow / delivery loop */
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:14px 0}
+  .flow .node{flex:1;min-width:128px;border-radius:14px;padding:11px 11px;font-size:11.5px;text-align:center;border:1px solid var(--line);background:var(--card-alt)}
+  .flow .node b{display:block;font-size:12px;margin-bottom:3px;color:var(--fg)}
+  .flow .node span.sub{display:block;font-size:10px;color:var(--muted-lt);margin-top:3px}
+  .flow .node.gate{border-color:var(--amber);background:var(--amber-10);font-weight:700}
+  .flow .node.done{border-color:var(--green);background:var(--green-10)}
+  .flow .arrow{align-self:center;color:var(--primary);font-size:17px;flex:none}
+
+  /* gate chip row */
+  .gate-chip-row{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .gate-chip{flex:1;min-width:150px;border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:var(--surface)}
+  .gate-chip .gid{font-weight:800;color:var(--primary-dim);font-size:13px}
+  .gate-chip .gd{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+  .risk{border-left:3px solid var(--amber);background:var(--amber-10);border-radius:0 var(--r-in) var(--r-in) 0;padding:9px 13px;margin:7px 0;font-size:12.5px}
+  .risk b{color:var(--fg)}
+  .ok-box{border-left:3px solid var(--green);background:var(--green-10);border-radius:0 var(--r-in) var(--r-in) 0;padding:9px 13px;margin:7px 0;font-size:12.5px}
+  pre.ex{background:var(--fg);color:#e8f4f2;border-radius:14px;padding:14px 16px;font-size:11.5px;overflow-x:auto;margin:10px 0;line-height:1.55}
+  pre.ex code{background:none;border:none;color:inherit;padding:0;font-size:inherit}
+  .exit-box{border-left:3px solid var(--primary);background:var(--primary-10);border-radius:0 12px 12px 0;padding:9px 13px;margin-top:8px;font-size:12.5px}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.two-col{grid-template-columns:1fr}}
+
+  .foot{margin-top:26px;font-size:12px;color:var(--muted-lt);text-align:center}
+  .foot .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;text-align:left;max-width:1040px;margin:14px auto 0}
+  @media(max-width:900px){.foot .fgrid{grid-template-columns:repeat(2,1fr)}}
+  .foot .fbox{background:var(--card-alt);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:11.5px;color:var(--muted)}
+  .foot .fbox b{color:var(--fg);display:block;margin-bottom:4px;font-size:12px}
+
+  @media print{
+    .jump{display:none}
+    body{padding:0 8px 30px;background:#fff}
+    section.box{break-inside:avoid;border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="jump">
+    <a href="#hero">1 · ทีมนี้คืออะไร</a>
+    <a href="#model">2 · โมเดลที่ใช้</a>
+    <a href="#org">3 · โครงทีม</a>
+    <a href="#loop">4 · Delivery loop</a>
+    <a href="#gates">5 · Gate policy v2</a>
+    <a href="#tickets">6 · Ticket + บอร์ด</a>
+    <a href="#token">7 · วินัย token</a>
+    <a href="#learn">8 · Learning loop</a>
+    <a href="#artifacts">9 · แผนผัง artifacts</a>
+    <a href="#rejected">10 · ปฏิเสธโดยเจตนา</a>
+  </nav>
+
+  <!-- ============ 1. HERO ============ -->
+  <section class="box" id="hero">
+    <span class="badge"><span class="dot"></span> Living reference · visual twin · SoT = CLAUDE.md + AGENTS.md + .claude/* + docs/adr/*</span>
+    <h1>CampVibe AI Delivery Team
+      <span class="sub">โซโล่โอเนอร์คนเดียว + <b>orchestrator</b> 1 ตัว + <b>role agent</b> 9 ตำแหน่ง ส่งงานทุกชิ้นผ่าน gate ที่มนุษย์คุมเองทุกบาน (G1–G5) — ไม่มี autonomous approval ที่ไหนเลยในระบบ นี่คือ visual twin ของสิ่งที่วิ่งจริงหลัง 4 PR ปรับปรุงกระบวนการวันนี้ (#317–#320): specs ย้ายมาที่ <code>docs/specs/</code>, ticket-DB convention v2, <code>AGENTS.md</code> cross-vendor entry, template v2 + ADR hygiene</span>
+    </h1>
+    <div class="stat-grid">
+      <div class="stat"><b>1</b><span>owner — อนุมัติทุก gate + ทุก spend</span></div>
+      <div class="stat"><b>1</b><span>orchestrator (Fable 5) — dispatch เท่านั้น ไม่เขียนโค้ดเอง</span></div>
+      <div class="stat"><b>9</b><span>role agent (Opus/Sonnet ตามชั้นงาน — trial) — product-owner…devops</span></div>
+      <div class="stat"><b>5</b><span>gate มนุษย์ G1–G5</span></div>
+      <div class="stat"><b>12</b><span>มาตรฐาน <code>.claude/rules/*.md</code></span></div>
+      <div class="stat"><b>9</b><span>template <code>.claude/templates/*.md</code></span></div>
+      <div class="stat"><b>10</b><span>skill <code>.claude/skills/*</code></span></div>
+    </div>
+    <p class="lead" style="margin-top:10px">หมายเหตุความถูกต้องของตัวเลข: นับจากไฟล์จริงในโค้ดวันนี้ — role agent = 9 ไฟล์ใน <code>.claude/agents/</code> ไม่รวม orchestrator (รวมเป็น 10 ไฟล์ agent ทั้งหมด); skill = 10 โฟลเดอร์ใน <code>.claude/skills/</code> (รวม <code>skill-builder</code> ที่เพิ่งเพิ่ม)</p>
+    <table style="margin-top:12px">
+      <tr><th>PR</th><th>Branch</th><th>สิ่งที่เปลี่ยน</th></tr>
+      <tr><td>#317</td><td><code>feat/design-lookup-skill</code></td><td>เพิ่ม skill ที่ 10: <code>design-lookup</code> — JIT UX-knowledge search (BM25 บน CSV curated) แทนการยัดความรู้ design เข้า context ทุก session</td></tr>
+      <tr><td>#318</td><td><code>refactor/specs-structure-sot</code></td><td>ย้าย delivery artifact store มาที่ <code>docs/specs/&lt;feature&gt;/&lt;epic&gt;/&lt;CAM-id&gt;-&lt;story&gt;/</code> ให้ตรงกับ path ที่ทุก rule/skill อ้างจริง</td></tr>
+      <tr><td>#319</td><td><code>docs/team-conventions-v2</code></td><td><code>AGENTS.md</code> ใหม่ (cross-vendor entry) + convention v2 ใน <code>camper.md</code> (ticket body = files-as-SoT, Gate policy v2, naming ภาษาอังกฤษ, <code>[NEEDS CLARIFICATION]</code> marker)</td></tr>
+      <tr><td>#320</td><td><code>docs/template-upgrades-v2</code></td><td>template v2 ทั้งชุด (research-backed) + ADR hygiene pass — story.md ตัด <code>## Why</code> ออก, เพิ่ม EARS AC 6 คอลัมน์ + Edge cases + Seams &amp; refs</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 2. MODEL ============ -->
+  <section class="box" id="model">
+    <h2><span class="n">2</span> โมเดลที่ใช้</h2>
+    <p class="lead">ทุกตำแหน่งในทีมนี้รันบนแบรนด์เดียวกันที่ปรากฏในทุก commit ของ AI ตัวนี้ — <code>Co-Authored-By: Claude Fable 5 &lt;noreply@anthropic.com&gt;</code> (ดูใน trailer ของทุก dispatch contract ใน <code>.claude/agents/*.md</code> และ <code>AGENTS.md</code>)</p>
+    <table>
+      <tr><th>ตำแหน่ง</th><th>frontmatter <code>model:</code> จริงวันนี้</th><th>หมายเหตุ</th></tr>
+      <tr><td>Orchestrator</td><td><code>claude-fable-5</code></td><td>วางแผน + dispatch + คุม gate — งานตัดสินใจซับซ้อนข้ามบทบาท</td></tr>
+      <tr><td>product-owner · analyst · architect · designer · security (spec/G2/review/G3-reviewer)</td><td><code>opus</code></td><td>judgment หนักแต่ขอบเขตจำกัด — ผู้ตรวจอิสระต้อง ≥ ผู้สร้าง (PatchDiff ~30% ของ patch ที่ดูผ่านผิดจริง)</td></tr>
+      <tr><td>frontend · backend · qa · devops (build executors)</td><td><code>sonnet</code></td><td>track record จริงทั้งโปรเจกต์: CI เขียวรอบแรกตลอด ภายใต้ spec v2 + verify แน่นปลายทาง</td></tr>
+      <tr><td>งานกลไกล้วน (log scan, inventory, format sweep)</td><td><code>haiku</code> (ระบุราย dispatch)</td><td>ช่องแคบโดยเจตนา — งานกลไกส่วนใหญ่เป็น script ไม่ใช้โมเดล</td></tr>
+    </table>
+    <p class="lead"><b>บันทึกการตัดสินใจ:</b> เจ้าของเคาะ <b>4 ชั้นตามความจำเป็นของงาน แบบ trial 2-3 story</b> (2026-07-04) — เก็บ scorecard หลายมิติ (token · ความไว · คุณภาพผลลัพธ์ · คุณภาพ judgment · ภาระ owner) เทียบ baseline ยุคก่อน trial แล้วจึงล็อก/ปรับ/ถอย · escalation ladder: story ที่ชน circuit breaker หรือ spec ไม่แน่น เลื่อนชั้น build ขึ้นหนึ่งขั้น · รายละเอียด: <code>docs/research/model-tier-trial.md</code></p>
+    <div class="risk"><b>ประวัติที่รายงานตรงไปตรงมา:</b> ก่อน 2026-07-04 frontmatter ของ role agent ระบุ <code>model: sonnet</code> (orchestrator = <code>opus</code>) ค้างจากยุคตั้งทีม — งานที่ส่งมอบก่อนหน้านั้นส่วนใหญ่จึงสร้างโดย Sonnet ภายใต้ spec แน่น (คุณภาพผ่านทุก gate) ตัว override ถูกถอดออกทั้งหมดใน PR เดียวกับเอกสารนี้ ทุก agent จึงสืบทอดโมเดลของ session (= Fable 5) ตามคำตัดสินของเจ้าของ</div>
+    <div class="two-col" style="margin-top:10px">
+      <div>
+        <h3>ก่อน — ทางเลือกที่ไม่เลือก</h3>
+        <p class="lead" style="margin:0">แบ่งชั้นโมเดล (model tiering): role งานง่ายใช้โมเดลถูก, role งานยากใช้โมเดลแพง — ประหยัด token ต่อ call ได้จริง แต่แลกด้วยคุณภาพที่ไม่แน่นอนและความซับซ้อนของการดูแล "ใครใช้ชั้นไหน"</p>
+      </div>
+      <div>
+        <h3>หลัง — สิ่งที่เลือกจริง (2026-07-04)</h3>
+        <p class="lead" style="margin:0">แบ่งชั้นโมเดลตามความจำเป็นของงาน (trial): Fable = judgment ไร้ตัวตรวจ · Opus = spec/review · Sonnet = build ที่ verify แน่น · Haiku = กลไกล้วน — ควบคู่การประหยัดผ่านกระบวนการ (ดู §7)</p>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:8px">รายละเอียดกลไกประหยัด token ทั้งหมด (dispatch pointer+delta, QR-first, JIT skills, prompt caching, files-as-SoT) อยู่ที่ §7 — ไม่ทวนซ้ำที่นี่</p>
+  </section>
+
+  <!-- ============ 3. ORG CHART ============ -->
+  <section class="box" id="org">
+    <h2><span class="n">3</span> โครงทีม</h2>
+    <p class="lead">มนุษย์คุมทุก gate + ทุก spend อยู่บนสุด — orchestrator เป็นตัวกลาง dispatch เท่านั้น ไม่เคยเขียนโค้ดหรืออนุมัติ gate เอง</p>
+    <div class="org">
+      <div class="node owner"><b>เจ้าของ (Owner)</b><span>อนุมัติทุก gate G1–G5 + ทุกค่าใช้จ่ายจริง (spend) เอง — ไม่มี autonomous approval</span></div>
+      <div class="down">↓</div>
+      <div class="node orch"><b>Orchestrator (Fable 5)</b><span>วางแผน · dispatch · คุมสถานะ ticket DB · ไม่เขียน production code เอง · ไม่ approve gate เอง</span></div>
+      <div class="down">↓ dispatch ทีละ atomic story</div>
+      <div class="lvl">
+        <div class="node"><b>Explore / Plan</b><span>utility agent read-only ระดับ framework (Claude Code) — ค้นโค้ด/วางแผนก่อน dispatch จริง ไม่ใช่ custom role file</span></div>
+      </div>
+    </div>
+    <div class="role-grid">
+      <div class="role-card"><div class="rh"><b>product-owner</b><span class="stage-tag">Design</span></div><p>เขียน story + AC ที่ testable ปิด gap มิติ Business/Functional เตรียม G1</p></div>
+      <div class="role-card"><div class="rh"><b>analyst</b><span class="stage-tag">Design</span></div><p>แปล requirement เป็น business rule/data flow/user flow ก่อน G2</p></div>
+      <div class="role-card"><div class="rh"><b>architect</b><span class="stage-tag">Design</span></div><p>ออกแบบ Prisma data model + API contract + ADR ที่ G2</p></div>
+      <div class="role-card"><div class="rh"><b>ux-designer (designer.md)</b><span class="stage-tag">Design</span></div><p>flow/states/token ตาม DESIGN.md มีอำนาจ block PR ที่ผิด design gate</p></div>
+      <div class="role-card"><div class="rh"><b>frontend</b><span class="stage-tag">Build</span></div><p>สร้าง component ทีละ atomic story ตาม spec+design ที่ผ่าน G2</p></div>
+      <div class="role-card"><div class="rh"><b>backend</b><span class="stage-tag">Build</span></div><p>API route/server action/zod/authz/migration — server เป็น source of truth</p></div>
+      <div class="role-card"><div class="rh"><b>qa</b><span class="stage-tag">Verify</span></div><p>เขียน/รัน test ครอบทุก AC coverage ≥80% — oracle-first (ก่อน/คู่ build)</p></div>
+      <div class="role-card"><div class="rh"><b>security</b><span class="stage-tag">Verify</span></div><p>OWASP review diff, read-only (<code>tools: Read, Bash, Grep</code>) — block merge ถ้าไม่ปลอดภัย</p></div>
+      <div class="role-card"><div class="rh"><b>devops</b><span class="stage-tag">Ship</span></div><p>promote ข้าม env, migration deploy, changelog/rollback/error watch</p></div>
+    </div>
+    <p class="lead">Stage mapping: <b>Design</b> (product-owner · analyst · architect · ux-designer) → <b>Build</b> (frontend · backend) → <b>Verify</b> (qa · security) → <b>Ship</b> (devops) — role slug ยาวนี้คือของจริงที่ใช้ใน <code>ticket-sync handoff --role</code> (ตรงกับ icon บน <code>/status</code>)</p>
+    <h3 style="margin-top:14px">Tools ต่อ agent (จาก frontmatter จริง)</h3>
+    <table>
+      <tr><th>Agent</th><th><code>tools:</code></th><th>ความหมาย</th></tr>
+      <tr><td>orchestrator</td><td><code>Task, Read, Write, Edit, Bash</code></td><td>มี Write/Edit เชิง tool แต่ถูกจำกัดด้วย <b>นโยบาย</b> — แก้ได้แค่ ticket/spec/playbook ห้ามเขียน production code เอง (policy gate ไม่ใช่ tool gate)</td></tr>
+      <tr><td>9 role agent (product-owner…devops)</td><td><code>Read, Write, Edit, Bash</code></td><td>เท่ากันหมดยกเว้น security</td></tr>
+      <tr><td>security</td><td><code>Read, Bash, Grep</code> (ไม่มี Write/Edit)</td><td>read-only จริงระดับ tool — review/scan/block เท่านั้น เขียนไฟล์ไม่ได้แม้ต้องการ</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 4. DELIVERY LOOP ============ -->
+  <section class="box" id="loop">
+    <h2><span class="n">4</span> Delivery loop — จาก requirement ถึง Released</h2>
+    <p class="lead">ลูปเดียวที่ทุก feature เดินผ่าน ไม่มีทางลัด — <code>.claude/rules/discovery.md</code> + <code>orchestrator.md</code> §Workflow + <code>.claude/rules/ops.md</code></p>
+    <table>
+      <tr><th>Discovery — 6 มิติ gap</th><th>สถานะ (tag ทุก gap)</th></tr>
+      <tr><td>Business · Functional · Technical · UX · Security/Data · Risk</td><td>🟢 closed · 🟡 assumed (ระบุ default) · 🔴 must-ask (blocker) · ⚪ N/A — ผ่าน G1 ได้เมื่อไม่มี 🔴 เหลือเลย</td></tr>
+    </table>
+    <p class="lead" style="margin:2px 0 10px">Definition of Ready ก่อนเข้า build: User Story + testable AC · NFR ชัด (perf/a11y/i18n/security) · out-of-scope ระบุชัด · atomic (1 PR เล็ก) · AC verify ได้บน Staging URL จริง</p>
+    <div class="flow">
+      <div class="node"><b>Requirement</b><span class="sub">/camper หรือ /new-feature</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Discovery</b><span class="sub">6-dimension gap · batch questions · <code>[NEEDS CLARIFICATION]</code> marker · DoR = audit</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>G1 · Scope</b><span class="sub">มนุษย์ full attention เสมอ</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Spec = ไฟล์</b><span class="sub"><code>docs/specs/.../story.md</code> (template v2: EARS AC 6 คอลัมน์ + Edge cases + Seams) — แก้ผ่าน PR</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Dispatch</b><span class="sub">pointer + delta — contract อยู่ในไฟล์ agent แล้ว</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Build</b><span class="sub">writer เดียวใน main tree / worktree แยก · oracle-first QA · STOP RULES 4 ข้อ · stall watchdog</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Self-verify</b><span class="sub">lint · typecheck · test · build · design-gate</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>PR → CI</b><span class="sub">quality-gate + adversarial reviewer agent</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>G3 · Merge</b><span class="sub">exception-first packet</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Merge → Staging</b><span class="sub">serial (update-branch) · auto deploy + smoke</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>G4 · Staging sign-off</b><span class="sub">verify AC บน URL จริง</span></div>
+      <div class="arrow">→</div>
+      <div class="node done"><b>Done</b><span class="sub">release train</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>G5 · Go-live</b><span class="sub">promote → prod</span></div>
+      <div class="arrow">→</div>
+      <div class="node done"><b>Released</b><span class="sub">tag + changelog + rollback + Sentry watch</span></div>
+    </div>
+    <p class="lead"><b>G2</b> (Design/spend) อยู่ระหว่าง spec-ไฟล์ กับ dispatch — architect ออก data/API contract + designer ออก flow/states คู่กัน; ภายใต้ Gate policy v2 เคส "standard class" (reuse token/component เดิม ไม่มี screen/flow/token ใหม่) จะข้าม tap แยกและพับเข้า G3 packet บรรทัดเดียวแทน (ดู §5)</p>
+
+    <h3 style="margin-top:14px">Quality gate (mandatory ก่อน merge ทุก PR — <code>/quality-gate</code>)</h3>
+    <table>
+      <tr><th>เช็ค</th><th>เกณฑ์ผ่าน</th></tr>
+      <tr><td><code>npm run lint</code></td><td>0 error</td></tr>
+      <tr><td><code>npm run typecheck</code></td><td>TS strict ผ่านหมด</td></tr>
+      <tr><td><code>npm test</code></td><td>coverage ≥80% บนโค้ดใหม่ (ยกเว้น <code>__tests__/delivery-client.test.ts</code> ที่ env-dependent รู้อยู่แล้ว — บันทึกใน PR ไม่ต้องไล่แก้)</td></tr>
+      <tr><td><code>npm run build</code></td><td>ผ่าน เมื่อมีการแก้โค้ด</td></tr>
+      <tr><td><code>npm audit --omit=dev</code></td><td>0 high/critical</td></tr>
+      <tr><td>design gate</td><td>เขียว เมื่อ diff แตะ UI (token/a11y/8-states ตาม <code>DESIGN.md</code>)</td></tr>
+    </table>
+    <h3 style="margin-top:14px">3-env + Done ≠ Released (<code>.claude/rules/ops.md</code>)</h3>
+    <table>
+      <tr><th>Env</th><th>Deploy เมื่อ</th><th>สถานะที่ได้</th></tr>
+      <tr><td>Local Dev</td><td>—</td><td>develop + self-verify</td></tr>
+      <tr><td>Staging</td><td>auto บน merge เข้า <code>staging</code></td><td><b>Done</b> — quality-gate เขียว + AC verify บน Staging URL จริง + G4 sign-off</td></tr>
+      <tr><td>Production</td><td>promote <code>staging</code>→<code>main</code> + tag</td><td><b>Released</b> — label ไม่ใช่ state, promote + smoke + tag + changelog + rollback + G5</td></tr>
+    </table>
+
+    <h3 style="margin-top:14px">Story template v2 — โครง 9 section ที่ product-owner เติมเสมอ</h3>
+    <table>
+      <tr><th>Section</th><th>เนื้อหา</th></tr>
+      <tr><td><code>## Story</code></td><td>As a &lt;Admin|Camper|Host&gt;, I want …, so that &lt;outcome จริงวัดได้&gt; + Scope 1 บรรทัด + Depends on — ไม่มี <code>## Why</code> แยก คุณค่าอยู่ใน so-that clause แล้ว</td></tr>
+      <tr><td><code>## AC</code></td><td>ตาราง GFM 6 คอลัมน์: <code># | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge</code> — EARS form, ห้าม event-code/testid/class name</td></tr>
+      <tr><td><code>## Rules</code> (BR-n)</td><td>ค่า/ขอบเขต/transition ที่แน่นอน + ข้อความ error ภาษาไทยจริง</td></tr>
+      <tr><td><code>## Edge cases</code> (EC-n)</td><td>failure twin แบบ EARS: <code>IF &lt;condition&gt; THEN &lt;response&gt;</code> — ครอบ invalid/empty/concurrent/permission/boundary</td></tr>
+      <tr><td><code>## Data</code> / <code>## Seams &amp; refs</code></td><td>entity/field ที่แตะ + ต้อง migration ไหม · pointer ไปไฟล์/ADR ที่เป็นเจ้าของ logic เดิม (ไม่ implementation)</td></tr>
+      <tr><td><code>## Out of scope</code> / <code>## Self-verify</code> / <code>## Changelog</code></td><td>สิ่งที่ไม่ทำ + ticket ที่รับต่อ · AC→test mapping · เวอร์ชัน+วันที่แก้</td></tr>
+    </table>
+    <p class="lead">Marker <code>[NEEDS CLARIFICATION: …]</code> ใส่ตรงจุดที่สงสัยแทนการเดา — <code>ticket-sync.mjs audit</code> จับ marker นี้และ fail ทันที (exit 11) ถ้ายังไม่ปิด ก่อนเสนอ G1</p>
+
+    <h3 style="margin-top:14px">Dispatch contract — เหมือนกันทุก role file (frozen prefix)</h3>
+    <table>
+      <tr><th>ส่วน</th><th>เนื้อหา</th></tr>
+      <tr><td>Git mechanics</td><td>branch <code>&lt;type&gt;/&lt;kebab&gt;</code> off <code>origin/staging</code> · pre-flight <code>git status</code> ก่อน branch (ห้าม <code>git add -A</code>) · commit trailer <code>Co-Authored-By: Claude Fable 5</code></td></tr>
+      <tr><td>Self-verify</td><td><code>npm run lint</code> (0 error) · <code>npm run typecheck</code> · <code>npm test</code> (coverage ≥80% โค้ดใหม่) · <code>npm run build</code> เมื่อแก้โค้ด · design-gate เมื่อแตะ UI</td></tr>
+      <tr><td>Ship ritual</td><td>push → PR เข้า <code>staging</code> → <code>ticket-sync.mjs set &lt;CAM-id&gt; --add-label awaiting-you</code> → ส่งรายงาน (PR#, AC coverage, evidence, deviations — พูด "none" ชัดถ้าไม่มี)</td></tr>
+    </table>
+
+    <div class="two-col" style="margin-top:10px">
+      <div>
+        <h3>STOP RULES (universal — ทุก agent ทุก dispatch)</h3>
+        <ol style="margin:0 0 0 16px;padding:0;font-size:12.5px">
+          <li>Repo reality ขัดกับ ticket/spec → หยุดเธรดนั้น รายงาน conflict ห้ามด้นสด redesign เอง</li>
+          <li>Error ซ้ำสอง → บันทึกแล้วข้าม หรือรายงาน ห้าม loop</li>
+          <li>ห้ามแตะไฟล์นอก file surface ที่ dispatch ระบุ</li>
+          <li>ห้ามเพิ่ม dependency/endpoint/schema ใหม่นอกเหนือ ticket → ถ้าจำเป็นให้หยุดแล้วรายงาน</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Stall watchdog + circuit breaker (build phase)</h3>
+        <p class="lead" style="margin:0 0 6px">Dispatch เงียบ (ไม่มี commit/mtime ใหม่) เกิน ~15 นาที (build) หรือ ~25 นาที (research) = presumed stalled: ตรวจ ground-truth (<code>git log</code>/<code>ticket-sync show</code>) → kill dispatch (ไม่ปล่อยรันไม่จำกัด) → re-dispatch โดย resume จาก artifact เดิม (branch/ไฟล์/commit ที่มีอยู่) ไม่เริ่มใหม่ (ที่มา: CAM-268 silent-death incident)</p>
+        <p class="lead" style="margin:0">Circuit breaker (Shape Up adaptation) อยู่ที่ระดับ gate ไม่ใช่ dispatch เดี่ยว — ดู §5</p>
+      </div>
+    </div>
+    <p class="lead"><b>Parallel dispatch (owner rule 2026-07-03):</b> อนุญาตให้รันหลาย agent พร้อมกัน โดย main working tree มี code-writer ได้สูงสุด <b>1</b> ตัว; ตัวเพิ่มเติมทุกตัวต้องรันใน <code>isolation: "worktree"</code> บน branch แยก + partition file surface ไม่ให้ทับกัน; agent read-only (Explore/Plan/security review) รันขนานได้ไม่จำกัด; merge ยังคง serial เสมอ (<code>gh pr update-branch</code> + CI re-run ระหว่างแต่ละ merge)</p>
+  </section>
+
+  <!-- ============ 5. GATE POLICY V2 ============ -->
+  <section class="box" id="gates">
+    <h2><span class="n">5</span> Gate policy v2 (2026-07-04, owner-approved)</h2>
+    <p class="lead">ยังคงเป็น "owner-approved ทุก gate ในหลักการ" — เจ้าของเขียน policy นี้เอง, spot-audit เอง, และเพิกถอน pre-authorized class ได้ทุกเมื่อ = calibrated trust ไม่ใช่ autopilot (<code>.claude/rules/ops.md</code> §Gate policy v2)</p>
+    <div class="gate-chip-row">
+      <div class="gate-chip"><div class="gid">G1 · Scope</div><div class="gd">ไม่เปลี่ยน — มนุษย์เต็มรูปแบบเสมอ จุดตัดสินใจ leverage สูงสุด</div></div>
+      <div class="gate-chip"><div class="gid">G2 · Design</div><div class="gd"><b>standard class</b> ถ้าครบ 3 ข้อ: reuse token/component/flow เดิม · ไม่มี screen/flow/token ใหม่ · <code>check:ds</code>+<code>check:palette</code> เขียว → ข้าม tap แยก พับเป็น 1 บรรทัดใน G3 packet; UI/flow ใหม่ = full G2 เหมือนเดิม</div></div>
+      <div class="gate-chip"><div class="gid">G3 · Merge</div><div class="gd"><b>exception-first packet</b> — verdict · exceptions/risks · $/story · G2-class note นำหน้า; เจ้าของ approve บน packet (เป้า sub-minute) เปิด diff เฉพาะเมื่อมี exception ถูกชี้; approve-with-nits ได้โดยไม่ต้อง tap รอบสอง</div></div>
+      <div class="gate-chip"><div class="gid">G4 · Staging</div><div class="gd">รวมกดวันละ 1 รอบ (SLA 1 business day) — packet ยังคง atomic ต่อ story แม้เคลียร์เป็น batch</div></div>
+      <div class="gate-chip"><div class="gid">G5 · Go-live</div><div class="gd">ไม่เปลี่ยน — release train, tag/changelog/rollback, Sentry watch window</div></div>
+    </div>
+    <h3 style="margin-top:14px">Severity taxonomy — ใช้ทุก gap/review ทั่วทั้งทีม</h3>
+    <table>
+      <tr><th>ระดับ</th><th>ความหมาย</th></tr>
+      <tr><td><b>Critical</b></td><td>block gate ทันที — ต้องแก้ก่อนไปต่อ (auth bypass, data loss, secret leak, injection, gap 🔴 must-ask)</td></tr>
+      <tr><td><b>Important</b></td><td>ต้องแก้ก่อน gate ถัดไป — ไม่ block ตอนนี้แต่ต้องปิดก่อนถึงจุดต่อไป (missing ownership check, cross-cutting impact ที่ยังไม่ flag)</td></tr>
+      <tr><td><b>Suggestion</b></td><td>ปรับถ้าราคาถูก — ไม่บังคับ</td></tr>
+      <tr><td><b>Info</b></td><td>บริบทเฉยๆ ไม่ต้องกระทำ</td></tr>
+    </table>
+    <h3 style="margin-top:14px">กันสนิม (anti-rubber-stamp — ไม่ใช่ตัวเลือกเสริม)</h3>
+    <div class="risk"><b>Retro replay</b> — ทุก <code>/retro</code> เล่นซ้ำ gate rejection ทั้งหมด + ความล้มเหลวจริงอย่างน้อย 1 เคสให้เจ้าของดู (งานวิจัย automation-bias: ~41% ของปัญหาหายไปจาก summary ถ้าไม่โชว์ failure ตรงๆ)</div>
+    <div class="risk"><b>Spot-audit</b> — เจ้าของสุ่มตรวจ standard-class G2 pass เป็นระยะ (ไม่ใช่ทุกอัน — ไม่งั้นเสียจุดประสงค์ pre-authorization)</div>
+    <div class="risk"><b>Graduated-autonomy ledger</b> — class ใหม่ต้องมี ~20 clean approval + owner ให้สัตยาบันชัดเจนก่อนใช้จริง</div>
+    <div class="ok-box"><b>Circuit breaker</b> — reject 2 ครั้งบน story เดียวกัน = หยุด rework ทันที กลับเข้า Discovery ให้ re-shape spec (AC แคบลง/scope แคบลง/แก้ assumption) แทนการลองครั้งที่ 3 แบบสุ่ม; miss ใดๆ ของ pre-authorized class = demote class นั้นกลับ full-tap ทันที (safety valve ไม่ใช่ exception ครั้งเดียว)</div>
+
+    <h3 style="margin-top:14px">ตัวอย่าง G3 Gate Review Packet จริง (รูปแบบที่ orchestrator ส่งให้เจ้าของ)</h3>
+    <pre class="ex"><code>{
+  ticket: "CAM-128 — เพิ่มปุ่ม `จองเลย` บนการ์ดแคมป์",
+  gate: "G3 Merge→staging",
+  artifacts: ["PR #57 → staging (+148/−12, 6 files)", "preview: campvibe-staging.vercel.app"],
+  checks: {
+    "quality-gate": "green — lint/typecheck/test 87%/build/npm-audit ✓",
+    "design-gate": "green — G2 note: standard class (criteria met)",
+    "change-impact": "shared UI (camp card) — Important, flagged",
+    "BR-conflict": "none"
+  },
+  summary: "ปุ่ม `จองเลย` ไปหน้าจอง; states ครบ, i18n TH/EN ผ่าน",
+  next: "Approve → merge+deploy+smoke, then G4 · Request changes → กลับ frontend"
+}</code></pre>
+    <p class="lead">จบทุก packet ด้วยคำถามเดียว: <b>Approve / Request changes</b> — ไม่มีทาง "auto-pass" ใดๆ</p>
+
+    <h3 style="margin-top:14px">Gate continuation — orchestrator รู้ผลอนุมัติได้อย่างไร</h3>
+    <table>
+      <tr><th>Run mode</th><th>วิธีรู้ผล</th></tr>
+      <tr><td>Headless (GitHub Action <code>linear-continue</code>/<code>camper-adhoc</code>)</td><td><code>repository_dispatch</code> resume อัตโนมัติเมื่อ <b>approve</b> เท่านั้น; ตอน <b>reject</b> ไม่มี dispatch ยิง — session ถัดไปต้องเช็ค <code>ticket-sync.mjs gates</code> เอง</td></tr>
+      <tr><td>Interactive (รันในแชท)</td><td>ไม่มีอะไรผลักผลมาหา orchestrator เอง — ต้อง poll <code>node scripts/ticket-sync.mjs gates</code> เป็นระยะ (exit code 10 = มี ticket <code>changesRequested</code> พร้อม resume) รันเป็น background ไม่ถามซ้ำ</td></tr>
+    </table>
+    <p class="lead">G4 มีข้อยกเว้น: generic Approve tap พาแค่กลับ <code>IN_PROGRESS</code> (ใช้ได้กับ G1–G3) — G4 เป็น terminal gate ต้องใช้ <code>ticket-sync.mjs set &lt;CAM-id&gt; --state Done</code> โดยตรงตอนยัง <code>AWAITING_GATE</code> ก่อน generic Approve มาทับ</p>
+  </section>
+
+  <!-- ============ 6. TICKET SYSTEM + BOARD ============ -->
+  <section class="box" id="tickets">
+    <h2><span class="n">6</span> Ticket system + บอร์ด</h2>
+    <p class="lead">Self-hosted delivery ticket DB (ADR-010) — เลิกพึ่ง Linear ตั้งแต่ CAM-276 (cap 275 issue ฟรีชนแล้ว) โดยยังคง identifier <code>CAM-###</code> เดิม</p>
+    <div class="flow">
+      <div class="node"><b>BACKLOG</b><span class="sub">create</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>TODO</b><span class="sub">start() ไม่มี role — scoped ผ่าน G1 แล้ว รอคิว</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>IN_PROGRESS</b><span class="sub">start(role) — build role active</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>AWAITING_GATE</b><span class="sub">raiseGate — รอมนุษย์</span></div>
+      <div class="arrow">→</div>
+      <div class="node done"><b>DONE</b><span class="sub">complete() — terminal; releasedAt แยกประทับทีหลัง</span></div>
+    </div>
+    <p class="lead">นอกลูป: <code>CANCELED</code> (จาก 4 state แรก, reopen กลับ BACKLOG) · <code>blocked</code>/<code>archivedAt</code> เป็น flag คู่ขนาน ไม่ใช่ state</p>
+    <table>
+      <tr><th>ช่องทาง</th><th>รายละเอียด</th></tr>
+      <tr><td>13 เลน capability</td><td>บน <code>/status</code> + <code>/status/map</code> — ชื่อ capability ล้วน (owner directive 2026-07-04), ไม่ใช้โค้ด M</td></tr>
+      <tr><td>Telegram gate</td><td>ทุก mutation ที่ raiseGate ส่งข้อความ + ปุ่ม approve/send-back ให้เจ้าของ — ยิงใน-process ที่จุด mutation เดียว ไม่มี webhook คั่น (ADR-010 "single mutation path, no webhook")</td></tr>
+      <tr><td>Files = SoT</td><td>สเปกจริง (<code>story.md</code> ฯลฯ) อยู่ใน git ที่ <code>docs/specs/&lt;feature&gt;/&lt;epic&gt;/&lt;CAM-id&gt;-&lt;story&gt;/</code>; ticket ในฐานข้อมูลเก็บแค่สถานะ + pointer path ไปไฟล์นั้น</td></tr>
+      <tr><td><code>ticket-sync.mjs audit</code></td><td>ตรวจ DoR/DoD แบบ machine-check: ไฟล์ก่อน (ถ้ามี story.md ที่ scaffold ไว้) แล้วค่อย fallback ไป ticket description; ticket ที่ยังมี marker <code>[NEEDS CLARIFICATION: …]</code> เหลืออยู่ = fail ทันที (exit 11) ไม่ปล่อยผ่านเป็น ready</td></tr>
+      <tr><td>Naming (owner rule 2026-07-04)</td><td>ชื่อเลน/epic/story เป็น<b>ภาษาอังกฤษ สื่อความเอง</b> (บอร์ดอ่านรู้เรื่องไม่ต้องเปิดเอกสาร) — โค้ด blueprint (OS1, HM3, G1…) ใส่วงเล็บท้ายชื่อ; โค้ด milestone (M0/M1.2…) ห้ามขึ้นบอร์ดเลย อยู่แค่ใน <code>platform-blueprint.md</code>; ตัว ticket body ยังเป็นไทยตาม template (AC copy verbatim)</td></tr>
+      <tr><td>persona / feature flag</td><td><code>--persona host\|camper\|admin\|platform</code> ขับ persona grouping · <code>--feature "&lt;name&gt;"</code> free text ตรงกับ <code>featureName</code> ของ epic</td></tr>
+      <tr><td>Role handoff</td><td><code>ticket-sync handoff &lt;CAM-id&gt; --role &lt;role&gt;</code> เท่านั้น (ห้าม hand-edit title ปลอมบทบาท) — set <code>currentRole</code> + push <code>roleHistory</code> (append-only) + ยิง Telegram ในคำสั่งเดียว; audit จับ mismatch <code>currentRole</code>/<code>roleHistory</code> เป็น data-integrity gap</td></tr>
+    </table>
+    <h3 style="margin-top:14px">Board lane semantics (<code>boardColumnOf()</code> ใน <code>lib/status-derive.ts</code>)</h3>
+    <table>
+      <tr><th>เลน</th><th>ความหมาย</th></tr>
+      <tr><td><b>Backlog</b></td><td>ไอเดียยังไม่ scope — ยังไม่ผ่าน G1</td></tr>
+      <tr><td><b>To Do</b></td><td>scope แล้ว (ผ่าน G1) เข้าคิวรอ ยังไม่มีใครเริ่ม</td></tr>
+      <tr><td><b>In Progress</b></td><td>build role (frontend/backend/devops) กำลังทำอยู่จริง</td></tr>
+      <tr><td><b>In Review</b></td><td>QA/Security กำลังทำงาน หรือมี gate <code>awaiting-you</code> เปิดรอมนุษย์</td></tr>
+      <tr><td><b>Done</b></td><td>merge เข้า staging แล้ว + quality-gate เขียว + AC verified บน staging URL จริง</td></tr>
+    </table>
+    <h3 style="margin-top:14px">Telegram notify event matrix (<code>lib/notify-messages.ts</code> — ยิง in-process ที่จุด mutation เดียว)</h3>
+    <p class="lead">เปิดเป็นค่าเริ่มต้น: <code>started</code> · <code>handoff</code> · <code>gate</code> · <code>approved</code> · <code>rejected</code> · <code>blocked</code> · <code>done</code> · <code>released</code> — ปิดเป็นค่าเริ่มต้น (กันสแปม): <code>created</code>, <code>defect</code>. อนุมัติผ่าน 3 ทาง (Telegram tap / <code>/status</code> Approve / <code>/status/map</code> Approve) ล้วน converge ที่ verb <code>approve</code>; ปฏิเสธผ่าน 2 ทาง (Telegram Send-Back / <code>/status/map</code> Reject) converge ที่ verb <code>reject</code></p>
+  </section>
+
+  <!-- ============ 7. TOKEN DISCIPLINE ============ -->
+  <section class="box" id="token">
+    <h2><span class="n">7</span> วินัย token</h2>
+    <p class="lead">ประหยัดผ่านกระบวนการ ไม่ใช่ผ่านการลดคุณภาพโมเดล (ต่อจาก §2)</p>
+    <table>
+      <tr><th>กลไก</th><th>ผล</th></tr>
+      <tr><td>Dispatch prompt = pointer + delta only</td><td>ticket id / spec path / file surface / note เท่านั้น — ไม่ paste ซ้ำ git/self-verify/STOP-RULE boilerplate (คงที่ในไฟล์ agent อยู่แล้ว) → ลด ~90–95% ต่อ dispatch</td></tr>
+      <tr><td>Quick-Reference-first + trigger table</td><td>อ่าน Tier 1 (QR) เสมอ; เปิด Tier 2 (ไฟล์เต็ม) เฉพาะเมื่อ trigger ที่ระบุไว้ตรงกับงานจริง</td></tr>
+      <tr><td>JIT skills</td><td><code>design-lookup</code> โหลด dataset เฉพาะตอนมีคำถาม UX — ไม่ preload ทุก session</td></tr>
+      <tr><td>Prompt-prefix caching</td><td>ไฟล์ agent (frozen `## Dispatch contract`) เป็น prefix นิ่งข้าม dispatch — แก้ต้องแบตช์ก่อน dispatch ตัวถัดไป (ห้ามแก้กลางคัน)</td></tr>
+      <tr><td>Template ภาษาอังกฤษ</td><td>framework ของ story/epic/feature เป็นอังกฤษ; Thai copy เฉพาะที่ผู้ใช้เห็นจริง (verbatim ใน backtick) — ลด token ของ boilerplate ที่ไม่ต้องแปล</td></tr>
+      <tr><td>No backlog grooming</td><td>การ์ดเฉพาะงาน deliverable จริง (feature/fix/perf/security ที่มี AC) — ไม่การ์ดทุก task เล็กๆ ที่เป็นแค่ tooling/docs/config</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 8. LEARNING LOOP ============ -->
+  <section class="box" id="learn">
+    <h2><span class="n">8</span> Learning loop</h2>
+    <p class="lead"><code>retro</code> skill (manual, owner-invoked เท่านั้น — ไม่มี auto-trigger ตอน Done) → <code>docs/specs/LESSONS.md</code> (ledger, append-only) → rule promotion (ต้อง owner approve ก่อนแก้ <code>.claude/rules/*.md</code> จริง)</p>
+    <p class="lead"><b>6 เงื่อนไข trigger</b> (ทุก retro ต้องระบุว่าเข้าเงื่อนไขไหน — ไม่ใช่ optional): gate rejection · stall-kill (ตาม stall watchdog §4) · spend-cap เกิน · prod error โผล่ในช่วง watch window หลัง deploy · rework ≥2 รอบบน story เดียว (threshold เดียวกับ circuit breaker §5) · หรือ owner ขอตรงๆ</p>
+    <div class="flow">
+      <div class="node"><b>Retro trigger</b><span class="sub">manual · /retro &lt;CAM-###&gt;</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Mine durable sources</b><span class="sub">git diff/PR · ticket comments+TicketEvent · docs/specs artifacts — ไม่ใช้ live session</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>LESSONS.md ledger</b><span class="sub">status: proposed</span></div>
+      <div class="arrow">→</div>
+      <div class="node gate"><b>Owner approve</b><span class="sub">diff ของ rule ก่อนแก้จริง</span></div>
+      <div class="arrow">→</div>
+      <div class="node done"><b>Rule promoted</b><span class="sub">status: promoted — role agent อ่านครั้งถัดไป</span></div>
+    </div>
+    <p class="lead">ทุกแถวใน <code>## Common Rationalizations</code> ของแต่ละ rule file อ้าง CAM provenance ชัดเจน (เช่น CAM-203/CAM-221/CAM-240) — ผู้อ่านรู้ว่าทำไมกฎนี้ถึงมีอยู่ ไม่ใช่กฎลอยๆ; orchestrator เองก็มี memory ข้ามเซสชัน (<code>MEMORY.md</code>) แยกจากท่อ retro นี้</p>
+    <table>
+      <tr><th>วินัย</th><th>รายละเอียด</th></tr>
+      <tr><td>ใครกลั่นบทเรียน</td><td>orchestrator เป็นคน distill ไม่ใช่ sub-agent ที่ทำงานนั้นเอง (กันเสริม blind spot ของตัวเอง)</td></tr>
+      <tr><td>Route ตาม generality</td><td>reusable + role-general → <code>## Common Rationalizations</code>/<code>## Standards</code> ใน rule file · one-off/project-status → memory ของ orchestrator เอง · worldview → <code>docs/context/</code> · visual → <code>DESIGN.md</code> · step gap → skill</td></tr>
+      <tr><td>Anti-bloat</td><td>เช็ค dedupe กับ ledger + section ปลายทางก่อนเสมอ — เสริมแถวเดิมแทนเพิ่มแถวแฝด; prune เป็นรอบให้ rule file อยู่ใต้เพดานของ SKILL-AUTHORING</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 9. ARTIFACTS MAP ============ -->
+  <section class="box" id="artifacts">
+    <h2><span class="n">9</span> แผนผัง artifacts — ไฟล์ไหนคุมอะไร</h2>
+    <table>
+      <tr><th>ไฟล์/โฟลเดอร์</th><th>คุมอะไร</th></tr>
+      <tr><td><code>CLAUDE.md</code></td><td>Iron Rules (6 ข้อ) — spec-first, atomic story, self-verify, read-memory, ห้าม skip gate, lean — override ทุกอย่างที่เหลือ</td></tr>
+      <tr><td><code>AGENTS.md</code></td><td>Cross-vendor entry point (agents.md convention) — บาง จงใจ ชี้ทุก standard ไปที่เดียว ไม่ copy ซ้ำ; setup/build-test-lint/repo etiquette/STOP RULES</td></tr>
+      <tr><td><code>.claude/rules/*.md</code> (12)</td><td>มาตรฐานต่อโดเมน — code · api · security · qa · architecture · discovery · ops · observability · performance · seo · ux · loading</td></tr>
+      <tr><td><code>.claude/agents/*.md</code> (10)</td><td>orchestrator + 9 role playbook — แต่ละไฟล์มี <code>## Dispatch contract</code> ของตัวเอง อ่านครั้งเดียวใช้ทุก dispatch</td></tr>
+      <tr><td><code>.claude/templates/*.md</code> (9)</td><td>feature · epic · story (v2) · design · tech · test · review · release · retro — ต้นแบบที่ copy มาเติมทุกครั้ง</td></tr>
+      <tr><td><code>.claude/skills/*</code> (10)</td><td>discover · quality-gate · open-pr · promote-release · update-status · delivery-artifacts · retro · seo · design-lookup · skill-builder</td></tr>
+      <tr><td><code>docs/specs/</code></td><td>Spec SoT จริง ต่อ Feature→Epic→Story + <code>INDEX.md</code> (generated) + <code>LESSONS.md</code> (ledger) — ย้ายมาที่นี่จาก path เดิมใน PR ปรับปรุงวันนี้</td></tr>
+      <tr><td><code>docs/adr/</code> (12 ADR + index)</td><td>การตัดสินใจสถาปัตยกรรมที่กลับยากหรือ trade-off สำคัญ (Context · Decision · Alternatives · Consequences) — ADR ใหม่ควรมีฟิลด์ <code>Confirmation:</code> สไตล์ MADR (CI check/test ที่ fail ถ้าละเมิดการตัดสินใจ); ล่าสุด ADR-011 (pivot HostOS-first) + ADR-012 (HostOS data model) ผ่าน G1/G2 วันนี้</td></tr>
+      <tr><td><code>docs/project/</code> + <code>docs/context/</code></td><td>ทำไม/เพื่อใคร/คุ้มไหม (business/market/strategy) + Second Brain ที่นิ่งของเจ้าของ — <code>principles.md</code> · <code>non-negotiables.md</code> · <code>decision-heuristics.md</code> (orchestrator/เจ้าของอ่านก่อนวางแผนหรือก่อน raise gate)</td></tr>
+      <tr><td><code>DESIGN.md</code></td><td>ระบบ design tokens/component/8 states/Design Gate — บังคับอ่านก่อนงาน UI ทุกครั้ง; designer มีอำนาจ block PR ที่ผิด</td></tr>
+      <tr><td><code>.claude/commands/*.md</code> (5)</td><td>front door ของมนุษย์เข้าสู่ทีม — <code>camper</code> (free-form ad-hoc) · <code>new-feature</code> · <code>status</code> · <code>release</code> · <code>retro</code> — แต่ละคำสั่งชี้กลับไปที่ orchestrator/skill ที่ถูกต้อง ไม่ implement logic ซ้ำ</td></tr>
+      <tr><td><code>scripts/ticket-sync.mjs</code></td><td>CLI ตัวเดียวที่ mutate ticket DB จริง — ทุก agent เรียกผ่านนี้ ไม่มี MCP Linear ในเส้นทางเขียนอีกต่อไป (Linear MCP เหลือไว้ read-only เพื่อประวัติ 275 issue เก่าเท่านั้น)</td></tr>
+    </table>
+    <table style="margin-top:6px">
+      <tr><th>Verb</th><th>ใช้เมื่อ</th></tr>
+      <tr><td><code>create --type epic|story|task</code></td><td>เปิด ticket ใหม่ (epic ต้องมี <code>--feature</code>, story ต้องมี <code>--epic &lt;CAM-id&gt;</code>)</td></tr>
+      <tr><td><code>set &lt;CAM-id&gt; --state/--add-label</code></td><td>ย้าย state หรือ raise gate (<code>--add-label awaiting-you</code>)</td></tr>
+      <tr><td><code>handoff &lt;CAM-id&gt; --role</code></td><td>เปลี่ยนบทบาทปัจจุบัน — set <code>currentRole</code> + push <code>roleHistory</code> + ยิง Telegram พร้อมกัน</td></tr>
+      <tr><td><code>release &lt;CAM-id&gt;</code></td><td>ประทับ <code>releasedAt</code> หลัง G5 (ticket ต้องเป็น DONE อยู่แล้ว)</td></tr>
+      <tr><td><code>audit</code></td><td>ตรวจ template conformance (<code>## Story</code>+<code>## AC</code>) + marker <code>[NEEDS CLARIFICATION]</code> ค้าง</td></tr>
+      <tr><td><code>index</code></td><td>regenerate <code>docs/specs/INDEX.md</code> จากสถานะสด</td></tr>
+      <tr><td><code>gates</code></td><td>poll หา ticket ที่ออกจาก <code>AWAITING_GATE</code> แล้ว (exit 10 = มีผลลัพธ์ที่ resume ได้) — ใช้ตอนรันแบบ interactive</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 10. INTENTIONALLY REJECTED ============ -->
+  <section class="box" id="rejected">
+    <h2><span class="n">10</span> สิ่งที่ปฏิเสธโดยเจตนา</h2>
+    <div class="risk"><b>RACI matrix แยกไฟล์</b> — Dispatch contract ต่อ role + org chart นี้ครอบคลุมอยู่แล้ว เพิ่มอีกชั้นคือซ้ำ ไม่ lean</div>
+    <div class="risk"><b>Sign-off chain หลายชั้น</b> — 5 gate ที่ owner คุมเองครบอยู่แล้ว; ชั้น approval เพิ่มคือ bureaucracy ไม่ใช่ safety</div>
+    <div class="risk"><b>Story points / velocity tracking</b> — ทีมนี้ atomic story ≤400 บรรทัดต่อ PR อยู่แล้ว ไม่ต้องประเมิน point แยก</div>
+    <div class="risk"><b>Backlog grooming เป็นพิธีกรรม</b> — การ์ดเฉพาะงาน deliverable จริงเท่านั้น (ดู §7); grooming ทุก task เล็กคือ overhead</div>
+    <div class="risk"><b>Model tiering แบบถาวรโดยไม่มีข้อมูล</b> — ใช้เป็น trial มีเกณฑ์วัด/เกณฑ์ demote ชัด (ดู §2 + docs/research/model-tier-trial.md) ไม่ล็อกจนกว่า scorecard จะพิสูจน์</div>
+    <div class="risk"><b>Autonomous gate approval</b> — ไม่มีที่ไหนในระบบที่ AI อนุมัติ gate ให้ตัวเอง — เจ้าของกดทุกบานเสมอ (ผ่อนเป็น batched/exception-first ใน Gate policy v2 แต่ไม่เคยข้ามมนุษย์)</div>
+  </section>
+
+  <div class="foot">
+    <div>Generated 2026-07-04 (Asia/Bangkok) · เอกสารนี้เป็น <b>visual twin</b> — SoT คือไฟล์ markdown ที่อ้างในเอกสารนี้ (<code>CLAUDE.md</code> · <code>AGENTS.md</code> · <code>.claude/*</code> · <code>docs/adr/*</code>) ไม่ใช่ไฟล์ HTML นี้</div>
+    <div class="fgrid">
+      <div class="fbox"><b>Iron rules + gates</b><a href="../../CLAUDE.md">CLAUDE.md</a></div>
+      <div class="fbox"><b>Cross-vendor entry</b><a href="../../AGENTS.md">AGENTS.md</a></div>
+      <div class="fbox"><b>Orchestrator + role playbooks</b><code>.claude/agents/*.md</code></div>
+      <div class="fbox"><b>Gate policy v2 + 3-env</b><a href="../../.claude/rules/ops.md">.claude/rules/ops.md</a></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

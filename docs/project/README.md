@@ -19,6 +19,7 @@
 | [product-strategy.md](product-strategy.md) | จะทำ/ไม่ทำอะไร + วัดผลยังไง — priorities, principles, success metrics, **เกณฑ์เชิงธุรกิจที่ใช้ประกอบการตัดสิน gate** |
 | [product-plan.md](product-plan.md) | แผนฟีเจอร์ราย persona + สถานะจริงในโค้ด + epic-backlog + AI rollup (audit 06-20) — inventory เดียว (รวม FEATURE-BACKLOG เดิม); ทุก item ที่เลือกทำ → TICKET ที่ Linear |
 | [platform-master-plan.html](../design/platform-master-plan.html) | visual twin ของ master-plan + platform-blueprint — milestone timeline M0–M8, สถานะปัจจุบัน, release plan, KPI/revenue, number-alignment table รวมเป็นเรื่องเดียว (ไม่ใช่ SoT — markdown ด้านบนคือ SoT) |
+| [ai-team-workflow.html](../design/ai-team-workflow.html) | visual twin ของทีม AI delivery เอง — โมเดลที่ใช้, โครงทีม (orchestrator + 9 role agent), delivery loop G1–G5, Gate policy v2, ticket system, วินัย token, learning loop (ไม่ใช่ SoT — `CLAUDE.md`/`AGENTS.md`/`.claude/*`/`docs/adr/*` คือ SoT) |
 
 ## orchestrator + เจ้าของ ใช้ไฟล์นี้อย่างไร
 เมื่อต้องตัดสิน gate ที่มีมิติธุรกิจ (เช่น "feature นี้คุ้มไหม", "scope นี้ตรง strategy ไหม", G5 go-live) — orchestrator อ่านเพื่อ raise packet, เจ้าของอ่านเพื่อตัดสิน:

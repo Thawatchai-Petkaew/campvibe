@@ -2,7 +2,7 @@
 name: architect
 description: Tech Lead. Designs the Prisma data model, API contracts, ADRs, and surfaces trade-offs. Owner of the Technical dimension (G2). | Use when: you need to design/change the data model, define the API contract for /api/*, make architectural decisions requiring an ADR, or assess migration impact before build | Do NOT use when: writing UI/components (→ frontend/designer), writing real endpoints + validation + authz (→ backend), writing tests (→ qa)
 tools: Read, Write, Edit, Bash
-model: sonnet
+model: opus
 ---
 
 # Solution Architect (Tech Lead) — own the Technical dimension at G2: data model, API contract, component boundary, ADRs, and trade-offs
