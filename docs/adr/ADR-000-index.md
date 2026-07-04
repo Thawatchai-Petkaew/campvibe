@@ -6,7 +6,7 @@ These ADRs were originally raised as the **G2 design artifact** for the epic *"A
 
 | ADR | Decision | Status |
 |---|---|---|
-| [ADR-001](ADR-001-i18n-storage.md) | Localized content storage (Translation table) | Proposed (G2) — verified NOT shipped, see file note |
+| [ADR-001](ADR-001-i18n-storage.md) | Localized content storage (Translation table) | Superseded (paired nameTh/nameEn columns are the standing pattern) |
 | [ADR-002](ADR-002-money-decimal-currency.md) | Money = Decimal + ISO-4217 currency; FX read-time | Accepted |
 | [ADR-003](ADR-003-enum-vs-masterdata.md) | Closed Prisma enum vs open MasterData boundary | Accepted |
 | [ADR-004](ADR-004-multi-region-location.md) | Multi-country location: Country + AdminArea tree | Accepted |
