@@ -68,8 +68,6 @@
   .ms-card .tag{font-size:10px;font-weight:800;color:var(--muted-lt);letter-spacing:.03em}
   .ms-card .nm{font-weight:700;font-size:13px;margin:3px 0 6px;min-height:34px}
   .ms-card .dur{font-size:10.5px;color:var(--muted-lt);margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
-  .ms-card .gap-note{font-size:10px;color:var(--red);margin-top:4px;font-weight:700}
-
   /* delivered grid */
   .deliv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
   @media(max-width:980px){.deliv-grid{grid-template-columns:1fr 1fr}}
@@ -161,9 +159,9 @@
 
   <section class="box">
     <div class="stat-grid">
-      <div class="stat"><b>12</b><span>เลนบนบอร์ด (/status)</span></div>
-      <div class="stat"><b>23</b><span>epics เปิดอยู่ (30 canceled มี pointer note, 0 orphan)</span></div>
-      <div class="stat"><b>M1</b><span>กำลังวิ่ง — CAM-268 (price/fee/cancellation) กำลัง build</span></div>
+      <div class="stat"><b>13</b><span>เลนบนบอร์ด (/status) — ชื่อ capability ล้วน, M-code เป็นแค่ sequence tag ในเอกสารนี้</span></div>
+      <div class="stat"><b>24</b><span>epics เปิดอยู่ (30 canceled มี pointer note, 0 orphan) — รวม CAM-340 ที่เพิ่งเปิดปิด gap M7</span></div>
+      <div class="stat"><b>Data &amp; Trust</b><span>lane กำลังวิ่ง (M1) — CAM-268 final price/fees/cancellation กำลัง build</span></div>
       <div class="stat"><b>Coming Soon</b><span>prod = v0.11.0 (COMING_SOON gate) · staging = product จริงที่ล้ำหน้ากว่ามาก</span></div>
     </div>
   </section>
@@ -175,19 +173,20 @@
     <div class="ms-strip">
       <div class="ms-card done"><span class="tag">M0</span><div class="nm">Platform Core</div><span class="chip chip-done">ส่งมอบแล้ว</span><div class="dur">baseline เสร็จแล้ว</div></div>
       <div class="ms-card active"><span class="tag">M1</span><div class="nm">Data &amp; Trust</div><span class="chip chip-active">กำลังทำ</span><div class="dur">~2–4 สัปดาห์</div></div>
-      <div class="ms-card next"><span class="tag">M1.2</span><div class="nm">HostOS core</div><span class="chip chip-next">ถัดไป</span><div class="dur">~4–6 สัปดาห์</div></div>
-      <div class="ms-card later"><span class="tag">M1.5</span><div class="nm">Host Map</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์</div></div>
-      <div class="ms-card later"><span class="tag">M2</span><div class="nm">AI Discover→Inquiry</div><span class="chip chip-later">later</span><div class="dur">~6–10 สัปดาห์</div></div>
+      <div class="ms-card next"><span class="tag">M1.2</span><div class="nm">HostOS</div><span class="chip chip-next">ถัดไป</span><div class="dur">~4–6 สัปดาห์</div></div>
+      <div class="ms-card later"><span class="tag">M1.5</span><div class="nm">Camp Map &amp; Host Onboarding</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์</div></div>
+      <div class="ms-card later"><span class="tag">M2</span><div class="nm">AI Assistant</div><span class="chip chip-later">later</span><div class="dur">~6–10 สัปดาห์</div></div>
       <div class="ms-card later"><span class="tag">M3</span><div class="nm">Trip OS</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์*</div></div>
-      <div class="ms-card later"><span class="tag">M4</span><div class="nm">Gear Identity</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
-      <div class="ms-card later"><span class="tag">M5</span><div class="nm">Setup Community</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M4</span><div class="nm">Gear Locker</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M5</span><div class="nm">Community</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
       <div class="ms-card later"><span class="tag">M6</span><div class="nm">Affiliate Hub</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์*</div></div>
-      <div class="ms-card later"><span class="tag">M7</span><div class="nm">2.5D Showcase</div><span class="chip chip-later">later</span><div class="dur">~8–12 สัปดาห์*</div><div class="gap-note">ยังไม่มี epic บนบอร์ด</div></div>
-      <div class="ms-card gated"><span class="tag">M7.5</span><div class="nm">Booking Engine (OPTIONAL)</div><span class="chip chip-gated">readiness-gated</span><div class="dur">ไม่ตั้งเวลาตายตัว</div></div>
-      <div class="ms-card later"><span class="tag">M8</span><div class="nm">Secondhand Marketplace</div><span class="chip chip-later">later</span><div class="dur">readiness-gated, ไม่ตั้งเวลา</div></div>
+      <div class="ms-card later"><span class="tag">M7</span><div class="nm">Setup Showcase (Future)</div><span class="chip chip-later">later</span><div class="dur">~8–12 สัปดาห์*</div></div>
+      <div class="ms-card gated"><span class="tag">M7.5</span><div class="nm">Booking Engine (Gated)</div><span class="chip chip-gated">readiness-gated</span><div class="dur">ไม่ตั้งเวลาตายตัว</div></div>
+      <div class="ms-card later"><span class="tag">M8</span><div class="nm">Secondhand Marketplace (Future)</div><span class="chip chip-later">later</span><div class="dur">readiness-gated, ไม่ตั้งเวลา</div></div>
     </div>
     <p class="lead" style="margin-top:2px">* ตัวเลขสัปดาห์ของ M3–M7 เป็น<b>ประมาณการหยาบ</b>จากเซสชันวางแผนนี้ — <code>platform-blueprint.md</code> ฉบับปัจจุบันยังระบุ exit criteria ของ M3–M8 ว่า "TBD / not measured" (ยังไม่ discover ละเอียด) ดังนั้นถือเป็นตัวเลขจัดลำดับ ไม่ใช่คำมั่นจนกว่าจะ discover milestone นั้นจริง</p>
-    <p class="lead">นอกจาก 11 milestone ในเส้นเวลานี้ บอร์ดยังมีเลนที่ 12 คือ <b>Trust &amp; Admin (CAM-39)</b> ซึ่งเป็น cross-cutting lane (ไม่ผูกกับลำดับ M ใด milestone หนึ่งโดยตรง) — รวมแล้ว = 12 เลนบนบอร์ดตามสถิติด้านบน (11 milestone + 1 cross-cutting; M7 ยังไม่มี epic จึงไม่ใช่เลนที่ 12 บนบอร์ดจริงในวันนี้ — ดูหมายเหตุ gap ที่การ์ด M7)</p>
+    <p class="lead">ทั้ง 12 milestone ในเส้นเวลานี้ (นับ M1.2 / M1.5 / M7.5 แยกจาก M0–M8) มี epic บนบอร์ดครบแล้วทุกตัว (M7 เพิ่งปิด gap ด้วย CAM-340 วันนี้) บวกเลนที่ 13 คือ <b>Trust &amp; Admin (CAM-39)</b> ซึ่งเป็น cross-cutting lane (ไม่ผูกกับลำดับ M ใด milestone หนึ่งโดยตรง) — รวม = 13 เลนบนบอร์ดตามสถิติด้านบน</p>
+    <p class="lead"><b>หมายเหตุการตั้งชื่อ:</b> บอร์ดจริงใช้ชื่อ capability ล้วน (ไม่ใช้โค้ด M) ตาม owner directive 2026-07-04 — เลข M ใน strip นี้เป็นแค่ sequence tag ที่ยังใช้ในเอกสารชุดนี้เท่านั้น รายละเอียดเต็มดู §8</p>
   </section>
 
   <!-- ============ 2. DELIVERED M0 ============ -->
@@ -252,49 +251,49 @@
       </ul>
       <div class="epics">
         <span class="epic-chip">CAM-22 · Availability</span>
-        <span class="epic-chip">CAM-288 · Listing truth</span>
-        <span class="epic-chip">CAM-35 · Review trust</span>
+        <span class="epic-chip">CAM-288 · Listing Truth — ราคา/ค่าธรรมเนียม/นโยบายยกเลิก + quality score</span>
+        <span class="epic-chip">CAM-35 · Review Trust</span>
       </div>
-      <p class="lead" style="margin:4px 0">Key stories (wave-1): <span class="story-chip">CAM-269 Done (review trust)</span> <span class="story-chip">CAM-268 กำลัง build (price/fee/cancellation)</span> <span class="story-chip">CAM-56 ถัดไป (BlockedDate write UI)</span> <span class="story-chip">CAM-55 ใบสุดท้ายก่อน HOLD (ปฏิทินโฮสต์)</span> <span class="story-chip">CAM-302 InternalHold</span> <span class="story-chip">CAM-303 availability service</span> <span class="story-chip">CAM-304/305 quality score+checklist</span></p>
+      <p class="lead" style="margin:4px 0">Key stories (wave-1): <span class="story-chip">CAM-269 Done · reviews require a verified stay</span> <span class="story-chip">CAM-268 building · final price, fees and cancellation policy as structured fields (PREP-2)</span> <span class="story-chip">CAM-56 next · hosts block their own dates</span> <span class="story-chip">CAM-55 last before HOLD · host month calendar</span> <span class="story-chip">CAM-302 temporary spot holds with expiry</span> <span class="story-chip">CAM-303 one availability read service</span> <span class="story-chip">CAM-304/305 listing quality score + missing-data checklist</span></p>
       <div class="exit-box"><b>ออก (exit):</b> ทั้ง 4 รายการผ่าน AC/QA · <b>เข้า (entry):</b> M0 พร้อม (ผ่านแล้ว)</div>
     </div>
 
     <!-- M1.2 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M1.2</span><span class="mname">HostOS core</span>
+      <div class="mh"><span class="mid">M1.2</span><span class="mname">HostOS</span>
         <span class="mmeta"><span class="chip chip-next">ถัดไป</span><span>~4–6 สัปดาห์</span></span></div>
       <ul>
         <li>Lead inbox (manual-first) → quote builder → hold &amp; deposit ledger → manual stay → POS lite → rental lite → daily close</li>
         <li>AI lead parser เป็นรายการ<b>สุดท้าย</b>ของ wave นี้และ <b>spend-gated</b> (ไม่ block ส่วนอื่นของ M1.2)</li>
       </ul>
       <div class="epics">
-        <span class="epic-chip">CAM-289 · Leads &amp; Quotes</span>
-        <span class="epic-chip">CAM-290 · Ops &amp; Stays</span>
-        <span class="epic-chip">CAM-291 · POS &amp; Rental</span>
-        <span class="epic-chip">CAM-292 · Back Office</span>
+        <span class="epic-chip">CAM-289 · HostOS · Leads &amp; Quotes (OS1-OS5, OS17)</span>
+        <span class="epic-chip">CAM-290 · HostOS · Ops &amp; Stays</span>
+        <span class="epic-chip">CAM-291 · HostOS · POS &amp; Rental</span>
+        <span class="epic-chip">CAM-292 · HostOS · Back Office</span>
       </div>
-      <p class="lead" style="margin:4px 0">Key stories (wave-2): <span class="story-chip">CAM-306 lead inbox</span> <span class="story-chip">CAM-307 lead detail</span> <span class="story-chip">CAM-308 inquiry CTA flip</span> <span class="story-chip">CAM-309 quote</span> <span class="story-chip">CAM-310 hold link</span> <span class="story-chip">CAM-311 deposit</span> <span class="story-chip">CAM-312 manual stay</span> <span class="story-chip">CAM-313 stay detail/checkin</span> + stub <span class="story-chip">CAM-315..325</span> (POS/rental/back-office/daily-close — รายละเอียดยังเป็น stub)</p>
+      <p class="lead" style="margin:4px 0">Key stories (wave-2): <span class="story-chip">CAM-306 host lead inbox — leads from every channel in one place (OS1)</span> <span class="story-chip">CAM-307 lead detail view</span> <span class="story-chip">CAM-308 public 'ask availability' form creates a host lead (OS17)</span> <span class="story-chip">CAM-309 quote builder</span> <span class="story-chip">CAM-310 convert an accepted quote into a hold</span> <span class="story-chip">CAM-311 record a deposit against a hold</span> <span class="story-chip">CAM-312 convert a hold into a manual stay</span> <span class="story-chip">CAM-313 manual stay detail &amp; check-in</span> + stub <span class="story-chip">CAM-315..325</span> (POS/rental/back-office/daily-close — รายละเอียดยังเป็น stub)</p>
       <div class="gate-box"><b>จุด G2 spend แรกของทั้งโปรเจกต์ = CAM-314 AI Lead Parser</b> (อยู่ท้าย wave-2) — ถ้า owner ไม่อนุมัติ spend ก็ยังปิด M1.2 ได้สมบูรณ์ด้วย manual entry อย่างเดียว ไม่ใช่ blocker</div>
       <div class="exit-box"><b>ออก:</b> host ปิด lead→stay→daily close ครบ loop โดยไม่ต้องใช้ AI parser · <b>เข้า:</b> M1 เสร็จ</div>
     </div>
 
     <!-- M1.5 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M1.5</span><span class="mname">Host Map</span>
+      <div class="mh"><span class="mid">M1.5</span><span class="mname">Camp Map &amp; Host Onboarding</span>
         <span class="mmeta"><span class="chip chip-later">later</span><span>~4–6 สัปดาห์</span></span></div>
       <ul>
         <li>Model <code>CampZone</code>/<code>CampMap</code></li>
         <li>2D SVG canvas builder + zone/pitch editors + facility matrix</li>
         <li>Guest interactive map → inquiry CTA</li>
       </ul>
-      <div class="epics"><span class="epic-chip">CAM-293 · Map builder</span><span class="epic-chip">CAM-21 · Onboarding + AI listing</span></div>
+      <div class="epics"><span class="epic-chip">CAM-293 · Camp Map Builder</span><span class="epic-chip">CAM-21 · Host Onboarding &amp; AI Listing</span></div>
       <p class="lead" style="margin:4px 0">Key stories: <span class="story-chip">CAM-326..330</span></p>
       <div class="exit-box"><b>ออก:</b> host วาดแผนที่ตัวเองได้ + guest เห็นแผนที่ + กด CTA สอบถามได้ · <b>เข้า:</b> M1.2 core ใช้งานได้</div>
     </div>
 
     <!-- M2 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M2</span><span class="mname">AI Discover→Inquiry</span>
+      <div class="mh"><span class="mid">M2</span><span class="mname">AI Assistant</span>
         <span class="mmeta"><span class="chip chip-later">later</span><span>~6–10 สัปดาห์</span></span></div>
       <ul>
         <li>NL search + live availability Q&amp;A + การ์ดในแชท</li>
@@ -302,7 +301,7 @@
         <li>Runtime = OpenRouter</li>
       </ul>
       <div class="epics"><span class="epic-chip">CAM-266 · AI Camping Assistant</span><span class="epic-chip">CAM-33</span></div>
-      <p class="lead" style="margin:4px 0">Key stories: <span class="story-chip">CAM-270 tool registry+OpenRouter client</span> <span class="story-chip">CAM-271 agent loop+streaming</span> <span class="story-chip">CAM-272 chat UI+cards+inquiry handoff</span> — item A1-A4/C1-C2 (<code>ai-product-roadmap.md</code>) ยังไม่แปลงเป็น ticket จนกว่าจะเริ่ม train นี้จริง</p>
+      <p class="lead" style="margin:4px 0">Key stories: <span class="story-chip">CAM-270 tool registry &amp; OpenRouter client</span> <span class="story-chip">CAM-271 agent loop with streaming responses</span> <span class="story-chip">CAM-272 chat UI with camp cards, hands off to inquiry</span> — item A1-A4/C1-C2 (<code>ai-product-roadmap.md</code>) ยังไม่แปลงเป็น ticket จนกว่าจะเริ่ม train นี้จริง</p>
       <div class="gate-box">gate: G2 spend (OpenRouter — reuse การอนุมัติเดิมจาก M1.2 AI-PARSE)</div>
       <div class="exit-box"><b>ออก:</b> assistant ส่ง inquiry เข้า lead inbox จริงบน staging · <b>เข้า:</b> ต้องมีทั้ง M1 <b>และ</b> M1.2 เสร็จ</div>
     </div>
@@ -320,7 +319,7 @@
 
     <!-- M4 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M4</span><span class="mname">Gear Identity</span>
+      <div class="mh"><span class="mid">M4</span><span class="mname">Gear Locker</span>
         <span class="mmeta"><span class="chip chip-later">later</span><span>~6–8 สัปดาห์*</span></span></div>
       <ul><li>ข้อมูลอุปกรณ์แคมป์ของผู้ใช้</li></ul>
       <div class="epics"><span class="epic-chip">CAM-295</span></div>
@@ -331,7 +330,7 @@
 
     <!-- M5 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M5</span><span class="mname">Setup Community</span>
+      <div class="mh"><span class="mid">M5</span><span class="mname">Community</span>
         <span class="mmeta"><span class="chip chip-later">later</span><span>~6–8 สัปดาห์*</span></span></div>
       <ul><li>โชว์/แชร์ setup การกางเต็นท์</li></ul>
       <div class="epics"><span class="epic-chip">CAM-296</span></div>
@@ -353,23 +352,26 @@
 
     <!-- M7 -->
     <div class="mile">
-      <div class="mh"><span class="mid">M7</span><span class="mname">2.5D Showcase</span>
+      <div class="mh"><span class="mid">M7</span><span class="mname">Setup Showcase (Future)</span>
         <span class="mmeta"><span class="chip chip-later">later</span><span>~8–12 สัปดาห์*</span></span></div>
-      <ul><li>ยกระดับภาพ/ผังแคมป์เป็น 2.5D</li></ul>
-      <div class="epics"><span class="story-chip" style="border-color:var(--red);color:var(--red)">ยังไม่มี epic บนบอร์ด — gap ที่ต้องเปิดเมื่อถึงคิว</span></div>
+      <ul>
+        <li>ยกระดับภาพ/ผังแคมป์เป็น 2.5D</li>
+        <li>Persona: camper</li>
+      </ul>
+      <div class="epics"><span class="epic-chip">CAM-340 · 2.5D Setup Showcase (J3-J5)</span></div>
       <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M6 เสร็จ</div>
-      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured"; ไม่มี epic ในบอร์ด 12 เลนวันนี้ (11 milestone + Trust&amp;Admin แทนที่ M7 ในการนับ 12 เลนจริง)</p>
+      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured" · epic เพิ่งเปิด (CAM-340) วันนี้ ปิด gap เดิม</p>
     </div>
 
     <!-- M7.5 -->
     <div class="mile gated">
-      <div class="mh"><span class="mid">M7.5</span><span class="mname">Booking Engine (OPTIONAL)</span>
+      <div class="mh"><span class="mid">M7.5</span><span class="mname">Booking Engine (Gated)</span>
         <span class="mmeta"><span class="chip chip-gated">readiness-gated</span><span>ไม่ตั้งเวลาตายตัว</span></span></div>
       <ul>
         <li>เปิด public booking/payment กลับมา — <b>readiness-gated ต่อ campsite</b> ไม่ใช่ทั้งแพลตฟอร์มพร้อมกันครั้งเดียว</li>
         <li>Defer pile ของเดิม (payment/KYC): CAM-62 / CAM-65 / CAM-66 / CAM-67 / CAM-68 — ไม่ถูกลบ แค่ย้ายมารอที่นี่</li>
       </ul>
-      <div class="epics"><span class="epic-chip">CAM-298 · Booking Engine</span></div>
+      <div class="epics"><span class="epic-chip">CAM-298 · Booking Engine (BookingReadinessGate)</span></div>
       <div class="gate-box">
         <b>BookingReadinessGate (ทั้ง 5 ข้อ ต่อ campsite เจ้าของตัดสินใจเอง):</b>
         <ol style="margin:6px 0 0 16px;padding:0">
@@ -385,10 +387,10 @@
 
     <!-- M8 -->
     <div class="mile gated">
-      <div class="mh"><span class="mid">M8</span><span class="mname">Secondhand Marketplace</span>
+      <div class="mh"><span class="mid">M8</span><span class="mname">Secondhand Marketplace (Future)</span>
         <span class="mmeta"><span class="chip chip-gated">readiness-gated</span><span>ไม่ตั้งเวลาตายตัว</span></span></div>
       <ul><li>ซื้อขายอุปกรณ์มือสอง — ลำดับสุดท้ายตาม blueprint</li></ul>
-      <div class="epics"><span class="epic-chip">CAM-299</span></div>
+      <div class="epics"><span class="epic-chip">CAM-299 · Secondhand Marketplace (L1-L4)</span></div>
       <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M7 เสร็จ</div>
     </div>
   </section>
@@ -422,19 +424,19 @@
   <!-- ============ 5. STATUS + HOLD ============ -->
   <section class="box" id="status">
     <h2><span class="n">5</span> สถานะปัจจุบัน + จุด HOLD</h2>
-    <p class="lead">Wave-1 (M1) กำลังวิ่งอยู่จริงวันนี้ — ลำดับ: verified-stay gate → price/fee atomic → BlockedDate write → ปฏิทินโฮสต์ → <b>HOLD</b> (เอกสารนี้เป็นส่วนหนึ่งของการทบทวนแผนที่ owner สั่งหยุด)</p>
+    <p class="lead">Wave-1 (M1) กำลังวิ่งอยู่จริงวันนี้ — ลำดับ: reviews require a verified stay → final price/fees/cancellation → hosts block their own dates → host month calendar → <b>HOLD</b> (เอกสารนี้เป็นส่วนหนึ่งของการทบทวนแผนที่ owner สั่งหยุด)</p>
     <div class="flow">
-      <div class="node done"><b>CAM-269</b>verified-stay gate<span class="sub">Done — merged staging วันนี้</span></div>
+      <div class="node done"><b>CAM-269</b>reviews require a verified stay<span class="sub">Done — merged staging วันนี้</span></div>
       <div class="arrow">→</div>
-      <div class="node active"><b>CAM-268</b>price/fee/cancellation atomic<span class="sub">กำลัง build ตอนนี้</span></div>
+      <div class="node active"><b>CAM-268</b>final price, fees &amp; cancellation policy as structured fields (PREP-2)<span class="sub">กำลัง build ตอนนี้</span></div>
       <div class="arrow">→</div>
-      <div class="node queued"><b>CAM-56</b>BlockedDate write UI<span class="sub">ถัดไป</span></div>
+      <div class="node queued"><b>CAM-56</b>hosts block their own dates<span class="sub">ถัดไป</span></div>
       <div class="arrow">→</div>
-      <div class="node queued"><b>CAM-55</b>ปฏิทินโฮสต์<span class="sub">ใบสุดท้ายก่อน HOLD</span></div>
+      <div class="node queued"><b>CAM-55</b>host month calendar<span class="sub">ใบสุดท้ายก่อน HOLD</span></div>
       <div class="arrow">→</div>
       <div class="node hold"><b>HOLD</b>ทบทวนแผน<span class="sub">owner สั่งหยุดหลัง CAM-55 — เอกสารนี้คือส่วนหนึ่งของ HOLD</span></div>
     </div>
-    <p class="lead">เหลือใน M1 หลัง HOLD คลาย: <span class="story-chip">CAM-302 InternalHold</span> <span class="story-chip">CAM-303 availability service</span> <span class="story-chip">CAM-304/305 quality score+checklist</span></p>
+    <p class="lead">เหลือใน M1 หลัง HOLD คลาย: <span class="story-chip">CAM-302 temporary spot holds with expiry</span> <span class="story-chip">CAM-303 one availability read service</span> <span class="story-chip">CAM-304/305 listing quality score + missing-data checklist</span></p>
     <p class="lead">Wave-2 (M1.2) รอคิวถัดจาก M1: <span class="story-chip">CAM-306..313</span> (lead inbox → lead detail → CTA flip → quote → hold link → deposit → manual stay → stay detail/checkin) + stub <span class="story-chip">CAM-314..325</span> — จุด G2 spend แรกของโปรเจกต์ = <b>CAM-314 AI Lead Parser</b> (ท้าย wave-2)</p>
   </section>
 
@@ -490,18 +492,19 @@
       <tr><th>M (canonical)</th><th>R เก่า (research doc)</th><th>CAM epic(s)</th><th>สถานะ</th></tr>
       <tr><td><b>M0</b> Platform Core</td><td>R0</td><td>CAM-31, 46, 148, 233, 243</td><td>ส่งมอบแล้ว (บางส่วน released, ที่เหลืออยู่บน staging)</td></tr>
       <tr><td><b>M1</b> Data &amp; Trust</td><td>— (ใหม่ใน Blueprint v6 ไม่อยู่ใน numbering เดิม)</td><td>CAM-22, 288, 35</td><td>กำลังทำ (wave-1 วิ่งอยู่)</td></tr>
-      <tr><td><b>M1.2</b> HostOS core</td><td>R0.5</td><td>CAM-289, 290, 291, 292</td><td>ถัดไป (wave-2 รอคิว)</td></tr>
-      <tr><td><b>M1.5</b> Host &amp; Map</td><td>R1A</td><td>CAM-293, 21</td><td>later</td></tr>
+      <tr><td><b>M1.2</b> HostOS</td><td>R0.5</td><td>CAM-289, 290, 291, 292</td><td>ถัดไป (wave-2 รอคิว)</td></tr>
+      <tr><td><b>M1.5</b> Camp Map &amp; Host Onboarding</td><td>R1A</td><td>CAM-293, 21</td><td>later</td></tr>
       <tr><td><b>M2</b> AI Assistant</td><td>R1</td><td>CAM-266, 33</td><td>later (ต้องรอทั้ง M1 + M1.2)</td></tr>
       <tr><td><b>M3</b> Trip OS</td><td>R3 <span class="muted-lt">(ai-roadmap.md ภายในเองเรียก R2/M2.x สำหรับ decide+video ก่อนถึง R3=trip)</span></td><td>CAM-294</td><td>later</td></tr>
-      <tr><td><b>M4</b> Gear Identity</td><td>— (ไม่อยู่ใน numbering เดิมชัดเจน)</td><td>CAM-295</td><td>later</td></tr>
-      <tr><td><b>M5</b> Setup Community</td><td>R4 ("M5-ish" ในเอกสารเดิม)</td><td>CAM-296</td><td>later</td></tr>
+      <tr><td><b>M4</b> Gear Locker</td><td>— (ไม่อยู่ใน numbering เดิมชัดเจน)</td><td>CAM-295</td><td>later</td></tr>
+      <tr><td><b>M5</b> Community</td><td>R4 ("M5-ish" ในเอกสารเดิม)</td><td>CAM-296</td><td>later</td></tr>
       <tr><td><b>M6</b> Affiliate Hub</td><td>R5</td><td>CAM-297</td><td>later</td></tr>
-      <tr><td><b>M7</b> 2.5D Showcase</td><td>R6</td><td>— ยังไม่มี epic</td><td>later (gap — ต้องเปิด epic เมื่อถึงคิว)</td></tr>
-      <tr><td><b>M7.5</b> Booking Engine</td><td>R6.5</td><td>CAM-298 (+ defer pile CAM-62/65/66/67/68)</td><td>readiness-gated, ไม่ตั้งเวลา</td></tr>
-      <tr><td><b>M8</b> Secondhand Marketplace</td><td>R7 / R8</td><td>CAM-299</td><td>readiness-gated, ลำดับสุดท้าย</td></tr>
+      <tr><td><b>M7</b> Setup Showcase (Future)</td><td>R6</td><td>CAM-340</td><td>later (gap ปิดแล้ว — epic เปิดวันนี้)</td></tr>
+      <tr><td><b>M7.5</b> Booking Engine (Gated)</td><td>R6.5</td><td>CAM-298 (+ defer pile CAM-62/65/66/67/68)</td><td>readiness-gated, ไม่ตั้งเวลา</td></tr>
+      <tr><td><b>M8</b> Secondhand Marketplace (Future)</td><td>R7 / R8</td><td>CAM-299</td><td>readiness-gated, ลำดับสุดท้าย</td></tr>
       <tr><td><b>Trust &amp; Admin</b> <span class="muted-lt">(cross-cutting, ไม่อยู่ใน ladder M0–M8)</span></td><td>—</td><td>CAM-39</td><td>ongoing lane แยกบนบอร์ด</td></tr>
     </table>
+    <p class="lead"><b>บนบอร์ดใช้ชื่อ capability ล้วน (owner directive 2026-07-04); เลข M คงอยู่ในเอกสารเป็นตัวบอกลำดับเท่านั้น.</b></p>
     <p class="lead">หมายเหตุ: mapping ของ R0–R8 อ้างอิงจากบันทึกของเซสชันวางแผนนี้ (owner's original Platform Blueprint v6 research) — ไม่พบเอกสาร R0–R8 ตัวเต็มใน repo วันนี้ (มีแต่ <code>ai-product-roadmap.md</code>'s R1–R4 sub-train ซึ่งคนละสเกลกัน) จึงไม่สามารถ cross-verify ทุกแถวได้อิสระ 100% — ใช้เพื่อความต่อเนื่องของการสื่อสาร ไม่ใช่ตัวเลขที่ deterministic-check ครอบ</p>
   </section>
 
