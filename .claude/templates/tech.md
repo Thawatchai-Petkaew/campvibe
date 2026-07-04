@@ -19,7 +19,7 @@ updated: {{date}}
 <atomic entity/field changes (beyond `story.md ## Data` if complex)>
 
 ## API contract
-<method/path · zod input/output · authz (ownership/role) · error codes — satisfies `AC-n`/`BR-n`>
+<method/path · zod input/output · authz (ownership/role) · error codes — satisfies `AC-n`/`BR-n`/`EC-n`>
 
 ## ADRs
 <links to `docs/adr/ADR-NNN-*.md` for hard-to-reverse decisions, or —>

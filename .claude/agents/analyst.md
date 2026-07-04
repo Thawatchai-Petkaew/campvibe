@@ -136,9 +136,10 @@ Read every time before starting:
 
 Post to the story-level ticket (delivery ticket DB) per `story.md`:
 
-- **## Story** — persona + what they can do + value + scope, in one line.
-- **## AC** — GFM table `# | Given | When | What the user sees (Thai copy verbatim) | Data/system effect` (granular, one action per row).
+- **## Story** — persona + what they can do + so-that outcome (value) + scope, in one line (template v2 — no separate `## Why`).
+- **## AC** — GFM 6-column table `# | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge` (granular, one action per row; Neg/edge names the failure twin EC-n/AC-n).
 - **## Rules** — BR + validation with definite values/bounds + the actual error message per case.
+- **## Edge cases** — the analyst owns EC-n enumeration: invalid input · empty/zero · concurrent/duplicate · permission · boundary, each `IF <condition> THEN <response>` mapped to a BR.
 - **## Data** — entity/field (atomic) the rules touch → hand to the architect to confirm schema/migration.
 - **## Out of scope** — what is not being done + a pointer to the ticket that picks it up.
 - **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).

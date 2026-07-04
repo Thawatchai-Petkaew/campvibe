@@ -64,18 +64,21 @@ Read first:
 
 ## Examples
 
-A story ticket fragment (copied from `.claude/templates/story.md`, filled). User-side copy stays verbatim Thai in backticks:
+A story ticket fragment (template v2 — copied from `.claude/templates/story.md`, filled). Framework in English; user-side copy stays verbatim Thai in backticks. No `## Why` section — value lives in the Story's "so that" clause (KPI lives at epic level; `not measured` if it isn't measured yet):
 
 ```markdown
-## Why
+## Story
+As a **Camper**, I want to see my booking status after paying, so that I can confirm the booking succeeded without calling admin (cuts inbound support ~30%, not measured).
+Scope: booking-status badge on "My Bookings" only; does not touch the payment flow itself.
+Depends on: —
 
-ผู้จองที่จ่ายเงินแล้วไม่เห็นสถานะการจอง ทำให้โทรถามแอดมินซ้ำ. ลด inbound support ~30% (not measured).
+## AC
+| # | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge |
+|---|---|---|---|---|---|
+| AC-1 | Payment succeeded | User opens "การจองของฉัน" | Sees status badge `ยืนยันการจองแล้ว` | booking.status = CONFIRMED | EC-1 |
 
-## Story (ในฐานะ Camper ฉันต้องการเห็นสถานะการจองหลังชำระเงิน เพื่อ ยืนยันว่าจองสำเร็จโดยไม่ต้องติดต่อแอดมิน)
-
-| # | Given | When | What the user sees (verbatim Thai copy) | Data/system effect |
-| --- | --- | --- | --- | --- |
-| AC-1 | ผู้ใช้ชำระเงินสำเร็จ | เปิดหน้า "การจองของฉัน" | เห็นป้ายสถานะ `ยืนยันการจองแล้ว` | booking.status = CONFIRMED |
+## Edge cases
+- EC-1 IF payment is still processing THEN show `กำลังตรวจสอบการชำระเงิน` (no CONFIRMED badge) (BR-1)
 ```
 
 The data model behind `booking.status` and the API shape are NOT authored here — they are handed off (assumed/must-ask) to the architect at G2.
@@ -92,7 +95,7 @@ The data model behind `booking.status` and the API shape are NOT authored here �
 
 PRD/AC quality — every item must be checkable, not aspirational:
 
-- [ ] **Measurable success criteria** — the "why" states a KPI with a number or a clear before/after; no "improve experience" without a metric. If a metric cannot be measured yet, write `not measured` — never fabricate a number.
+- [ ] **Measurable success criteria** — the Story's "so that" clause states an outcome tied to a KPI (number or clear before/after; KPI detail can live at epic level); no "improve experience" without a metric. If a metric cannot be measured yet, write `not measured` — never fabricate a number.
 - [ ] **Active voice, plain language** — AC and copy use active voice; no passive "the system should work correctly". No technical jargon (API/webhook/User ID/endpoint) in user-facing copy.
 - [ ] **Testable AC** — every AC row maps to at least one test, expressed as Given / When / observed outcome (verbatim Thai copy) + data/system outcome. No event-code, class names, variables, or testid in AC (those live in the tech spec).
 - [ ] **All states covered** — empty / loading / error / forbidden each have an AC row, so designer/frontend can continue without guessing.
@@ -119,15 +122,16 @@ Severity taxonomy for gaps and review notes: **Critical** (blocks G1 / must-ask)
 
 ## Output (handoff contract)
 
-A ticket file plus a **delivery ticket (story-level)** with all sections per story ticket:
+A ticket file plus a **delivery ticket (story-level)** with all sections per story ticket (template v2 — no separate `## Why`; value lives in the Story's "so that" clause):
 
-- **Why** — value (1-2 lines) + KPI.
-- **Story** — As a / persona (`Admin` | `Camper` | `Host` …) + scope (1 line).
-- **AC** — GFM table: `# | Given | When | Outcome the user sees (verbatim Thai copy) | Data/system outcome`.
-- **Rules** — business rules + validation (exact value/bounds + the actual error message).
+- **Story** — As a / persona (`Admin` | `Camper` | `Host` …) + capability + so-that outcome (value) + scope (1 line) + `Depends on:`.
+- **AC** — GFM 6-column table: `# | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge`.
+- **Rules** — business rules + validation (exact value/bounds + the actual error message), numbered `BR-1…`.
+- **Edge cases** — EARS-form failure twins (`IF <condition> THEN <response>`), numbered `EC-1…`, referenced from the AC table's Neg/edge column.
 - **Data** — entity/field (atomic) + whether a migration is required.
+- **Seams & refs** — reuse pointer (existing file/function that owns this logic) + ADR ref, pointers only, no implementation.
 - **Out of scope** — what is not done + point to the ticket that takes it over.
-- **Self-verify** + **Links** (spec/PR/preview/design).
+- **Self-verify** — AC-to-test mapping + story-specific checks + gate/Done criteria.
 - **Delivery artifacts** — author `feature.md` + `epic.md` + `story.md` (AC numbered `AC-1…`, rules `BR-1…`) under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` from `.claude/templates/*`, keeping each `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Return handoff `{ticket, status, artifacts, checks, summary, next}`, handing off to Analyst / Architect / Designer at G2.
 

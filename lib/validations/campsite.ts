@@ -38,6 +38,15 @@ export const OwnershipTypeEnum = z.enum([
   "NATIONAL_PARK", // อุทยานแห่งชาติ
 ]);
 
+// PREP-2 (CAM-268): closed cancellation-policy set (ADR-003) — see
+// lib/cancellation-policy.ts for the Thai/EN copy per value.
+export const CancellationPolicyEnum = z.enum([
+  "FLEXIBLE",
+  "MODERATE",
+  "STRICT",
+  "NON_REFUNDABLE",
+]);
+
 export const campSiteSchema = z.object({
   nameTh: z.string().min(1, "Name (TH) is required"),
   nameEn: z.string().optional(),
@@ -83,6 +92,16 @@ export const campSiteSchema = z.object({
   feeInfo: z.string().optional(),
   toiletInfo: z.string().optional(),
   minimumAge: z.number().int().min(0).optional(),
+
+  // PREP-2 (CAM-268): atomic one-time additive fee + closed cancellation policy.
+  // Bound mirrors the existing pricePerNight catalog row (.claude/rules/ux.md §2).
+  extraFeeAmount: z
+    .number()
+    .min(0, "ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท")
+    .max(100000, "ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท")
+    .optional(),
+  extraFeeLabel: z.string().max(100, "ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร").optional(),
+  cancellationPolicy: CancellationPolicyEnum.optional(),
 
   partner: z.string().optional(),
   nationalPark: z.string().optional(),

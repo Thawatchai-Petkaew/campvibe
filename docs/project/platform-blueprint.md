@@ -50,6 +50,26 @@ Discover → Inquiry/Quote → Host Lead Inbox → Quote → Manual Hold → Dep
 
 จนกว่า campsite หนึ่งจะผ่าน gate: ทุก CTA ที่ดูเหมือน "จอง" ต้องใช้คำ **สอบถาม / ขอราคา / ส่งคำขอ** แทน (ดู §4 ข้อ 4)
 
+### 3.1 ชื่อบนบอร์ด /status (owner rule 2026-07-04)
+
+รหัส milestone (M0/M1/…) เป็น**ตัวบอกลำดับในเอกสารนี้เท่านั้น** — บนบอร์ดทุกชื่อ (เลน/epic/story) เป็นภาษาอังกฤษที่สื่อสารด้วยตัวเองโดยไม่ต้องเปิดเอกสาร รหัส blueprint (OS1, HM3, …) อยู่ในวงเล็บท้ายชื่อ (convention เต็ม: `.claude/commands/camper.md`)
+
+| Milestone | เลนบนบอร์ด (featureName) |
+|---|---|
+| M0 | Platform Core |
+| M1 | Data & Trust |
+| M1.2 | HostOS |
+| M1.5 | Camp Map & Host Onboarding |
+| M2 | AI Assistant |
+| M3 | Trip OS |
+| M4 | Gear Locker |
+| M5 | Community |
+| M6 | Affiliate Hub |
+| M7 | Setup Showcase (Future) |
+| M7.5 | Booking Engine (Gated) |
+| M8 | Secondhand Marketplace (Future) |
+| ข้ามชั้น | Trust & Admin |
+
 ## 4. Guardrails (4 ข้อ — บังคับทุก milestone)
 
 1. **AI ไม่ auto-publish แผนที่** — ทุก draft ที่ AI สร้าง (แผนที่/โซน/ข้อมูล) ต้องให้ host ยืนยันก่อนเผยแพร่เสมอ

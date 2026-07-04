@@ -1,8 +1,15 @@
 /**
- * booking-pricing.test.ts — unit tests for lib/booking-pricing.ts (CAM-58)
+ * booking-pricing.test.ts — unit tests for lib/booking-pricing.ts (CAM-58, extended CAM-268)
+ *
+ * CAM-268 (PREP-2) added `extraFeeAmount` — a single atomic, host-set, one-time-per-stay
+ * fee. Every pre-existing test below still passes unmodified: `extraFeeAmount` defaults
+ * to 0, so any caller that omits it keeps the exact CAM-58 "no fee" totals (additive,
+ * backward-compatible per .claude/rules/api.md #12). New cases below cover the
+ * fee-inclusive path (AC-1: total = base + fee ที่คิดจริง).
  *
  * Coverage matrix per .claude/rules/qa.md:
- *   normal · null/empty · boundary (min/max/0) · error/validation · no-fee invariant
+ *   normal · null/empty · boundary (min/max/0) · error/validation · no-fee invariant ·
+ *   fee-inclusive invariant (CAM-268)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -162,5 +169,67 @@ describe('computeBookingPrice', () => {
     const result = computeBookingPrice({ unitPrice: 1000, nights: 1, vatRate: 0.07 });
     expect(result.totalAmount).toBe(result.subtotalAmount);
     expect(result.totalAmount).not.toBe(result.subtotalAmount + result.taxAmount);
+  });
+
+  // -------------------------------------------------------------------------
+  // extraFeeAmount (CAM-268 / PREP-2 / AC-1)
+  // -------------------------------------------------------------------------
+  describe('extraFeeAmount (CAM-268)', () => {
+    it('[normal] totalAmount = subtotalAmount + extraFeeAmount when a fee is set', () => {
+      const result = computeBookingPrice({ unitPrice: 500, nights: 2, vatRate: 0, extraFeeAmount: 40 });
+      expect(result.subtotalAmount).toBe(1000);
+      expect(result.extraFeeAmount).toBe(40);
+      expect(result.totalAmount).toBe(1040);
+    });
+
+    it('[normal] the fee is charged once per stay, never multiplied by nights', () => {
+      const oneNight = computeBookingPrice({ unitPrice: 500, nights: 1, vatRate: 0, extraFeeAmount: 40 });
+      const fiveNights = computeBookingPrice({ unitPrice: 500, nights: 5, vatRate: 0, extraFeeAmount: 40 });
+      expect(oneNight.extraFeeAmount).toBe(40);
+      expect(fiveNights.extraFeeAmount).toBe(40); // same fee, not 40 × 5
+    });
+
+    it('[normal] fee combines with VAT-inclusive pricing without altering taxAmount', () => {
+      const subtotal = 800 * 2;
+      const expectedTax = Math.round((subtotal - subtotal / 1.07) * 100) / 100;
+      const result = computeBookingPrice({ unitPrice: 800, nights: 2, vatRate: 0.07, extraFeeAmount: 50 });
+      expect(result.taxAmount).toBe(expectedTax); // fee is not itself taxed by this module
+      expect(result.totalAmount).toBe(subtotal + 50);
+    });
+
+    it('[null/empty] omitted extraFeeAmount defaults to 0 — total unchanged from CAM-58 behavior', () => {
+      const result = computeBookingPrice({ unitPrice: 500, nights: 2, vatRate: 0 });
+      expect(result.extraFeeAmount).toBe(0);
+      expect(result.totalAmount).toBe(result.subtotalAmount);
+    });
+
+    it('[null/empty] extraFeeAmount: 0 explicitly behaves the same as omitted', () => {
+      const result = computeBookingPrice({ unitPrice: 500, nights: 2, vatRate: 0, extraFeeAmount: 0 });
+      expect(result.totalAmount).toBe(result.subtotalAmount);
+    });
+
+    it('[boundary] a negative extraFeeAmount is clamped to 0 (defense-in-depth)', () => {
+      const result = computeBookingPrice({ unitPrice: 500, nights: 1, vatRate: 0, extraFeeAmount: -20 });
+      expect(result.extraFeeAmount).toBe(0);
+      expect(result.totalAmount).toBe(result.subtotalAmount);
+    });
+
+    it('[boundary] a large extraFeeAmount is added in full', () => {
+      const result = computeBookingPrice({ unitPrice: 100, nights: 1, vatRate: 0, extraFeeAmount: 100000 });
+      expect(result.totalAmount).toBe(100100);
+    });
+
+    it('[invariant] totalAmount === subtotalAmount + extraFeeAmount for every combination', () => {
+      const cases: ComputeBookingPriceInput[] = [
+        { unitPrice: 0, nights: 0, vatRate: 0, extraFeeAmount: 0 },
+        { unitPrice: 500, nights: 3, vatRate: 0, extraFeeAmount: 30 },
+        { unitPrice: 800, nights: 5, vatRate: 0.07, extraFeeAmount: 100 },
+        { unitPrice: 1500, nights: 10, vatRate: 0.1 }, // omitted → 0
+      ];
+      for (const c of cases) {
+        const r = computeBookingPrice(c);
+        expect(r.totalAmount).toBe(r.subtotalAmount + r.extraFeeAmount);
+      }
+    });
   });
 });
