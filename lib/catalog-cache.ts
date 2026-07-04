@@ -69,7 +69,15 @@ export const getCampBySlug = unstable_cache(
       include: {
         location: true,
         operator: { select: { id: true, name: true, image: true, createdAt: true } },
-        spots: true,
+        // CAM-353 BR-2: extend from `spots: true` to carry live spots' own photos.
+        // Full `include: { images }` (NOT an enumerating `select`) so `Image.kind`
+        // (the PANORAMA marker) rides through at runtime — the CAM-342 trap.
+        // `where: { deletedAt: null }` excludes soft-deleted spots (EC-3); same
+        // single query, richer include — no N+1, no extra round-trip.
+        spots: {
+          where: { deletedAt: null },
+          include: { images: { orderBy: { sortOrder: 'asc' } } },
+        },
         options: true,
         images: { orderBy: { sortOrder: 'asc' } },
       },

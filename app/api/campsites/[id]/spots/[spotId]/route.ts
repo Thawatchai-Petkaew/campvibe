@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, imageReplaceNested } from '@/lib/api-utils';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
+import { campTag, campSlugTag } from '@/lib/catalog-cache';
 
 export async function GET(
   request: NextRequest,
@@ -58,7 +60,7 @@ export async function PUT(
 
   // Check permission: updating a spot modifies the campsite composition.
   // CAMPSITE_UPDATE is required — mirrors the campsite PUT handler.
-  const { error: authError } = await requireCampSitePermission(id, 'CAMPSITE_UPDATE');
+  const { error: authError, campSite } = await requireCampSitePermission(id, 'CAMPSITE_UPDATE');
   if (authError) return authError;
 
   try {
@@ -94,6 +96,15 @@ export async function PUT(
       }
     });
 
+    // CAM-353 BR-8: bust the cached camp-detail read (lib/catalog-cache.ts
+    // getCampBySlug) so an edited spot/photo surfaces on the public detail
+    // page without waiting on the 5-min TTL.
+    revalidateTag(campTag(id), {});
+    if (campSite) {
+      revalidateTag(campSlugTag(campSite.nameThSlug), {});
+      revalidateTag(campSlugTag(campSite.nameEnSlug), {});
+    }
+
     return apiSuccess(updated);
   } catch (error) {
     return apiError('Failed to update spot', 500, error);
@@ -108,7 +119,7 @@ export async function DELETE(
 
   // Check permission: deleting a spot is a destructive campsite operation.
   // CAMPSITE_DELETE is required — mirrors the campsite DELETE handler.
-  const { error: authError } = await requireCampSitePermission(id, 'CAMPSITE_DELETE');
+  const { error: authError, campSite } = await requireCampSitePermission(id, 'CAMPSITE_DELETE');
   if (authError) return authError;
 
   try {
@@ -133,6 +144,15 @@ export async function DELETE(
       where: { id: spotId },
       data: { deletedAt: new Date() },
     });
+
+    // CAM-353 BR-8: bust the cached camp-detail read (lib/catalog-cache.ts
+    // getCampBySlug) so a deleted spot/photo disappears from the public
+    // detail page without waiting on the 5-min TTL.
+    revalidateTag(campTag(id), {});
+    if (campSite) {
+      revalidateTag(campSlugTag(campSite.nameThSlug), {});
+      revalidateTag(campSlugTag(campSite.nameEnSlug), {});
+    }
 
     return apiSuccess({ success: true });
   } catch (error) {

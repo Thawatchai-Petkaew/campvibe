@@ -150,6 +150,8 @@
             "boatAccessDesc": "Accessible by boat only",
             "rvAccessDesc": "RV accessible site",
             "noImageAlt": "No camp photo available",
+            "spotsHeading": "Camping spots at this camp",
+            "spotCapacityLabel": "Fits {N} campers",
             "cancellationPolicy": {
                 "title": "Cancellation Policy",
                 "notSet": "Cancellation policy not specified",
@@ -1072,6 +1074,8 @@
             "boatAccessDesc": "เข้าถึงได้ทางเรือเท่านั้น",
             "rvAccessDesc": "รองรับรถบ้าน",
             "noImageAlt": "ไม่มีรูปภาพแคมป์",
+            "spotsHeading": "จุดกางเต็นท์ในแคมป์นี้",
+            "spotCapacityLabel": "รองรับได้ {N} คน",
             "cancellationPolicy": {
                 "title": "นโยบายการยกเลิก",
                 "notSet": "ยังไม่ระบุนโยบายการยกเลิก",

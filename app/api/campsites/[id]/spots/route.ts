@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, imageCreateNested } from '@/lib/api-utils';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
+import { campTag, campSlugTag } from '@/lib/catalog-cache';
 
 export async function GET(
   request: NextRequest,
@@ -54,7 +56,7 @@ export async function POST(
 
   // Check permission: creating a spot modifies the campsite composition.
   // CAMPSITE_UPDATE is required — mirrors the campsite PUT handler.
-  const { error: authError } = await requireCampSitePermission(id, 'CAMPSITE_UPDATE');
+  const { error: authError, campSite } = await requireCampSitePermission(id, 'CAMPSITE_UPDATE');
   if (authError) return authError;
 
   try {
@@ -83,6 +85,15 @@ export async function POST(
         campSiteId: id,
       },
     });
+
+    // CAM-353 BR-8: bust the cached camp-detail read (lib/catalog-cache.ts
+    // getCampBySlug) so a new spot + its photos surface on the public detail
+    // page without waiting on the 5-min TTL.
+    revalidateTag(campTag(id), {});
+    if (campSite) {
+      revalidateTag(campSlugTag(campSite.nameThSlug), {});
+      revalidateTag(campSlugTag(campSite.nameEnSlug), {});
+    }
 
     return apiSuccess(spot, 201);
   } catch (error) {
