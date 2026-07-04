@@ -130,6 +130,7 @@ export function PreviewClient() {
                     {COLOR_SWATCHES.map(({ label, bg, text }) => (
                         <div key={label} className="flex flex-col gap-1">
                             <div
+                                role="img"
                                 className={`${bg} ${text} rounded-xl h-14 flex items-center justify-center border border-border`}
                                 aria-label={label}
                             />
@@ -353,7 +354,7 @@ export function PreviewClient() {
                         <p className="text-sm text-muted-foreground mb-3">Select — default / sm / disabled</p>
                         <div className="flex flex-wrap items-center gap-4">
                             <Select defaultValue="option1">
-                                <SelectTrigger className="w-[180px]" data-testid="select--preview-default">
+                                <SelectTrigger className="w-[180px]" aria-label={t.preview.selectDefaultLabel} data-testid="select--preview-default">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -363,7 +364,7 @@ export function PreviewClient() {
                                 </SelectContent>
                             </Select>
                             <Select defaultValue="option1">
-                                <SelectTrigger size="sm" className="w-[160px]" data-testid="select--preview-sm">
+                                <SelectTrigger size="sm" className="w-[160px]" aria-label={t.preview.selectSmLabel} data-testid="select--preview-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -372,7 +373,7 @@ export function PreviewClient() {
                                 </SelectContent>
                             </Select>
                             <Select disabled defaultValue="option1">
-                                <SelectTrigger className="w-[180px]" data-testid="select--preview-disabled">
+                                <SelectTrigger className="w-[180px]" aria-label={t.preview.selectDisabledLabel} data-testid="select--preview-disabled">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -548,7 +549,10 @@ export function PreviewClient() {
 
                 {/* Modal shell note */}
                 <div className="mb-8 p-4 rounded-2xl border border-border bg-muted/30">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Modal shell grammar (DS-3)</p>
+                    {/* CAM-261: text-foreground (was text-muted-foreground) — nested inside
+                        a bg-muted/30 wrapper, muted-foreground only reached 4.46:1 in light
+                        mode (measured), below the 4.5:1 AA floor for text-xs. */}
+                    <p className="text-xs text-foreground uppercase tracking-wide mb-2">Modal shell grammar (DS-3)</p>
                     <ul className="text-sm text-foreground space-y-1">
                         <li>DialogContent — primitive rounded-3xl (no consumer override)</li>
                         <li>AlertDialogContent — primitive rounded-3xl</li>
