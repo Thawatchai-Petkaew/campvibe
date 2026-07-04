@@ -1,0 +1,83 @@
+---
+linear: CAM-341
+feature: m1-data-trust
+epic: m1-listing-truth-ราคา-ค่าธรรมเนียม-นโยบายยกเลิก-qu (CAM-288)
+persona: host
+artifact: story
+owner: product-owner
+status: In Progress
+version: v1
+updated: 2026-07-04
+---
+# โฮสต์ตั้งค่าธรรมเนียมเพิ่มเติมและนโยบายยกเลิกในฟอร์มแคมป์ (CAM-341)
+
+## Story
+As a **Host**, I want to enter my campsite's extra fee (amount + label) and pick a cancellation policy directly in the campsite edit form, so that those two facts actually appear on my public listing instead of staying blank forever (closes the two most-flagged gaps on the M1 completeness card; not measured, baseline set after ship).
+Why: CAM-268 shipped the columns, the API, and the public-detail render for `extraFeeAmount` / `extraFeeLabel` / `cancellationPolicy`, but the host edit form was never given inputs for them — so a host literally cannot set them, and the CAM-305 completeness card flags them with no way to fix. This is the honestly-split edit-UI half of CAM-268.
+Scope: add two sections to the single campsite edit form (`components/CampgroundForm.tsx`, route `/dashboard/campsites/[id]/edit`) — an Extra Fee section (amount + label) and a Cancellation Policy select — plus the form-state wiring (state, prefill, submit payload) and the section anchors CAM-305 deep-links to. The server side (zod schema + PUT whitelist) already accepts all three fields — this story adds NO schema, NO migration, and NO new API contract.
+Depends on: CAM-268 (columns + zod + PUT whitelist + detail render — MERGED) · CAM-305 (completeness card that deep-links here — MERGED)
+
+## AC
+| # | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge |
+|---|---|---|---|---|---|
+| AC-1 | The host is on the edit form of their own camp, the Extra Fee section empty | The host enters an amount (e.g. `250`) and a label (e.g. `ค่าเข้าอุทยาน`) and taps save (`อัปเดต`) | The camp's public detail page now shows the extra-fee row with the host's label and amount (e.g. `ค่าเข้าอุทยาน: ฿250`) | `campSite.extraFeeAmount` and `extraFeeLabel` are saved via the existing PUT | EC-1 |
+| AC-2 | The host is on the edit form, the policy select on the "not set" option | The host selects `ยกเลิกฟรีก่อนเข้าพัก 7 วัน` and saves | The camp's detail page cancellation-policy line shows `ยกเลิกฟรีก่อนเข้าพัก 7 วัน` | `campSite.cancellationPolicy` = MODERATE | EC-5 |
+| AC-3 | The camp already has a cancellation policy set | The host picks the `ยังไม่ระบุนโยบายการยกเลิก` option and saves | The camp's detail page shows `ยังไม่ระบุนโยบายการยกเลิก` | `campSite.cancellationPolicy` is set to null (cleared) | — (clearing to null is the valid empty state itself) |
+| AC-4 | The host has filled the fee amount but left the label empty (or vice versa) | The host leaves the other field empty | An inline hint appears under the section, `กรอกทั้งจำนวนเงินและชื่อค่าธรรมเนียมเพื่อให้ข้อมูลครบถ้วน`, and save is NOT blocked | Only the filled field persists; the CAM-304 completeness still lists `ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ` | EC-3 |
+| AC-5 | The CAM-305 completeness card shows the `ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ` item and the host clicks it | The edit form (`/dashboard/campsites/{id}/edit#extra-fee`) finishes loading | The host lands on / scrolls to the Extra Fee section (heading `ค่าธรรมเนียมเพิ่มเติม`), no longer an inert link | Navigation only; no write | EC-6 |
+| AC-6 | The host taps save with valid fee + policy | The save request is in flight | The save button reads `กำลังบันทึก...` and is disabled; IF the save fails, the existing server-error banner shows the returned message | On success the fields persist and the host returns to the campsite list | EC-7 |
+| AC-7 | The host is creating a new listing (not editing) | The form first renders | The Extra Fee amount and label are empty and the policy select sits on `ยังไม่ระบุนโยบายการยกเลิก` (nothing pre-filled, no fee implied) | No write until save; a new camp defaults to no fee + no policy | — (default/empty state; no failure twin) |
+
+## Rules
+- BR-1 Extra fee amount — `extraFeeAmount` is a one-time-per-stay additive fee (NOT per night), range 0–100,000 THB. Reuse the shared zod bound + the `.claude/rules/ux.md` §2 catalog copy verbatim: out of range → `ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท`. Field helper reads `เก็บครั้งเดียวต่อการเข้าพัก ไม่ใช่ต่อคืน` (plain language, so hosts don't confuse it with the nightly price). Stored as `Decimal(12,2)` [Financial]. (proves AC-1, EC-1)
+- BR-2 Extra fee label — `extraFeeLabel` max 100 characters; reuse the existing zod error string verbatim: `ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร`. Placeholder `เช่น ค่าเข้าอุทยาน` (mirrors the schema example). Stored as `VarChar(100)` [Public]. (proves AC-1, EC-2)
+- BR-3 Cancellation policy select — the input is a `<Select>` over the four closed enum values, rendering the SAME Thai labels the detail page uses (via `lib/cancellation-policy.ts` + `t.campground.cancellationPolicy.*`), never re-derived: `FLEXIBLE` → `ยกเลิกฟรีก่อนเข้าพัก 24 ชั่วโมง` · `MODERATE` → `ยกเลิกฟรีก่อนเข้าพัก 7 วัน` · `STRICT` → `ยกเลิกฟรีก่อนเข้าพัก 14 วันเท่านั้น` · `NON_REFUNDABLE` → `การจองนี้ไม่สามารถขอคืนเงินได้ทุกกรณี`. The column is nullable, so the select also carries a "not set" option labelled `ยังไม่ระบุนโยบายการยกเลิก` (reuses `campground.cancellationPolicy.notSet`); choosing it clears the policy to null, which the detail page renders as that same `notSet` copy. (proves AC-2, AC-3, EC-5)
+- BR-4 Transparency nudge (CAM-304 BR-5 alignment) — the fee is "complete" only when BOTH amount and label are present, or BOTH empty (valid "no fee"). On a partial fill (one set, the other empty) the form shows the non-blocking inline hint `กรอกทั้งจำนวนเงินและชื่อค่าธรรมเนียมเพื่อให้ข้อมูลครบถ้วน`. It NUDGES only: save is not disabled and the server does not reject a partial fill (verified: the PUT accepts each field independently). The CAM-304 completeness score independently keeps listing `ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ` until both are filled. (proves AC-4, EC-3)
+- BR-5 Section anchors — the two owned sections carry `id="extra-fee"` and `id="cancellation-policy"` so the CAM-305 BR-2 deep-links resolve to real targets. In the same file (near-zero diff, lean) the four pre-existing sections also gain their one-line anchor ids to complete CAM-305's inert link map: `id="photos"` on the Media card, `id="price"` on the Pricing card, `id="zones"` on the Capacity card, `id="amenities"` on the Amenities & Features card. All are plain `id` attributes (native hash target); no scroll-behavior JS is invented here. (proves AC-5, EC-6)
+- BR-6 Persistence + defaults — the three fields ride the EXISTING PUT payload (already whitelisted, see Seams). New-listing default: amount empty, label empty, policy = not-set (no fee, no policy). Editing prefills all three from `initialData` (the edit GET returns every scalar column). `extraFeeAmount` arrives as a serialized `Decimal` → coerce with `Number()` for the input value and send a number in the payload (mirror the existing `priceLow` handling: empty string → `undefined`). Clearing the label or policy sends an empty value → the PUT's `|| undefined` sets the column to null. (proves AC-1, AC-2, AC-3, AC-7)
+- BR-7 Authz + integrity (existing, unchanged) — save goes through the owner-scoped PUT (`requireCampSitePermission(id, "CAMPSITE_UPDATE")`): a non-owner → `403`/`404`, nothing written. An unknown `cancellationPolicy` value is rejected by the zod `CancellationPolicyEnum` → `400`. Two overlapping edits to the same camp = last-write-wins (the PUT is a plain `update` by id with no version lock). (proves AC-6, EC-4, EC-5, EC-7)
+
+## Edge cases
+- EC-1 IF `extraFeeAmount` is below 0 or above 100,000 THEN the inline error `ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท` shows and the invalid value is not persisted (server rejects with `400` defensively) (BR-1)
+- EC-2 IF `extraFeeLabel` exceeds 100 characters THEN the inline error `ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร` shows and it is not persisted (BR-2)
+- EC-3 IF both the amount and the label are empty THEN no extra fee is saved (a valid, truthful "no fee" state), no transparency hint shows, and the CAM-304 `extraFee` criterion is satisfied (BR-4)
+- EC-4 IF two edits to the same camp overlap THEN the last write wins — no version-conflict error is raised (existing PUT behavior, not changed by this story) (BR-7)
+- EC-5 IF a request carries a `cancellationPolicy` value outside {FLEXIBLE, MODERATE, STRICT, NON_REFUNDABLE} THEN the server rejects it with `400` and no policy is saved (BR-3, BR-7)
+- EC-6 IF the edit form is still fetching `initialData` when a `#extra-fee` / `#cancellation-policy` deep-link opens THEN the section is not yet in the DOM; the builder resolves the hash target after the form mounts so the link is not inert (native hash landing + a post-load scroll/focus) (BR-5)
+- EC-7 IF a non-owner submits the edit THEN the existing owner check returns `403`/`404` and nothing is written (BR-7)
+- EC-8 IF non-numeric text reaches `extraFeeAmount` THEN it is treated as empty / NaN, the range error shows, and no NaN is submitted (mirrors the existing `priceLow` handling) (BR-1)
+
+## Data
+- `extraFeeAmount` `Decimal(12,2)` [Financial] — one-time additive fee per stay · `extraFeeLabel` `VarChar(100)` [Public] — short label for the fee · `cancellationPolicy` enum `CancellationPolicy?` [Public], nullable — closed set {FLEXIBLE, MODERATE, STRICT, NON_REFUNDABLE}. All three columns already exist (CAM-268). · migration: none — no schema change, no new column, no new enum. The form reads/writes existing columns through the existing PUT + zod schema (both already accept them).
+
+## Seams & refs
+- Extend: `components/CampgroundForm.tsx` — add the Extra Fee section then the Cancellation Policy section in the sidebar column immediately after the existing Pricing card (`t.newCampground.pricing`, ~lines 909–972), so money + policy sit together; wire the three fields into `formData` (state), the `initialData` prefill block, and the `campPayload` submit object (mirror `priceLow`: `=== "" ? undefined`). Add the four one-line anchor ids to the Media / Pricing / Capacity / Amenities cards.
+- Reuse (no parallel logic): `lib/cancellation-policy.ts` (`CANCELLATION_POLICY_VALUES` + `resolveCancellationPolicyCopy`) and `t.campground.cancellationPolicy.*` for policy option copy · `lib/validations/campsite.ts:campSiteSchema` (already carries `extraFeeAmount` bound, `extraFeeLabel` bound + error, `cancellationPolicy` enum) · `components/ui/select.tsx` (already imported in the form) + `components/ui/input-field.tsx` (`error=` inline) + the `Card`/`CardHeader`/`CardContent` section pattern · the form's existing Save / `isLoading` / `aria-busy` / `ErrorBanner` submit states. New labels/helpers/hint go in `locales/translations.json` (`newCampground.*`, TH + EN), never hardcoded.
+- Server already accepts these fields — NO route/schema change here: `PUT app/api/campsites/[id]/route.ts` (lines 109–112 whitelist all three, clearing label/policy via `|| undefined`) + `campSiteSchema` (lines 96–104). This is the premise correction: the fields are already wired server-side, so this story is form-UI + wiring only.
+- Field-rides-through trace (CAM-342 lesson): the edit GET uses `getCampSiteWithCapacity` (`prisma.findUnique` with `include`, NOT a field-enumerating `select`), so `initialData` carries all three columns for prefill; `components/CampgroundDetailClient.tsx` already renders the fee (`extraFeeLabel` + amount) and policy (`resolveCancellationPolicyCopy`), proving the write surfaces on the public page.
+- Refs: CAM-268 (columns / zod / PUT / detail render) · CAM-304 BR-5 (extra-fee transparency semantics) · CAM-305 BR-2 (anchor link map) · ADR-003 (closed cancellation-policy enum) · Atomic Data Framework §11 (Financial classification) · `.claude/rules/ux.md` §2 (`extraFeeAmount` catalog row).
+- Info (out of this PR's file surface): the `extraFeeLabel` max-100 error copy currently lives inline in the zod schema, not in `.claude/rules/ux.md` §2 nor `locales/`. Reuse it as-is; a follow-up (a rules/locale edit, not a story spec PR) may add an `extraFeeLabel` catalog row and move the string into `locales/`.
+
+## Out of scope
+- Adding an `extraFeeLabel` row to `.claude/rules/ux.md` §2 / moving its error copy into `locales/` → follow-up (a rules edit is outside a story spec PR's file surface).
+- The completeness score + dashboard card → CAM-304 / CAM-305 already own scoring and display; this story only makes their flagged fields editable.
+- Applying the extra fee at booking time (snapshot / booking-pricing) → CAM-268 / booking scope.
+- The legacy free-text `feeInfo` textarea → unchanged; the atomic `extraFeeAmount` / `extraFeeLabel` is the structured truth, `feeInfo` stays as descriptive detail.
+- Optimistic-locking / version-conflict handling for concurrent edits → not this story (last-write-wins is the existing form behavior).
+
+## Self-verify
+- AC-1 → integration (PUT persists `extraFeeAmount` + `extraFeeLabel`; detail renders `{label}: ฿{amount}`) + unit (form wiring adds the fields to `campPayload`)
+- AC-2 → integration (policy MODERATE persists; detail shows `ยกเลิกฟรีก่อนเข้าพัก 7 วัน`)
+- AC-3 → integration (not-set option → `cancellationPolicy` null; detail shows `ยังไม่ระบุนโยบายการยกเลิก`)
+- AC-4 → unit (partial fill → hint renders + Save not disabled) + integration (partial persists; CAM-304 still lists `ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ`)
+- AC-5 → owner-verify (deep-link `#extra-fee` scrolls to the Extra Fee section once the form loads)
+- AC-6 → unit (save shows `กำลังบันทึก...` + `aria-busy`; server error → existing `ErrorBanner`)
+- AC-7 → unit (new listing → empty amount/label + policy select on `ยังไม่ระบุนโยบายการยกเลิก`)
+- EC-1 / EC-2 / EC-8 → unit (client inline errors) + integration (server `400` on out-of-range / oversize / NaN)
+- EC-3 → unit (both empty → no hint, no write) · EC-5 → integration (bad enum → `400`) · EC-7 → integration (non-owner → `403`/`404`)
+- EC-4 → owner-verify (two overlapping saves → last wins) · EC-6 → owner-verify (deep-link during load resolves after mount)
+- Story-specific: the four extra anchors (`#photos` `#price` `#zones` `#amenities`) present on their sections · the form reads policy copy from `t.campground.cancellationPolicy.*` (no parallel Thai policy map) · clear-to-null path for label + policy
+- Gate = /quality-gate (`check:ds` + `check:palette` green). **G2 = standard class** (reuses existing `Card` / `Select` / `InputField` patterns + existing submit states; no new screen / flow / token). Done = every AC verified on the real Staging URL: as a host, set a fee + policy and confirm the detail page shows them; clear the policy → `ยังไม่ระบุนโยบายการยกเลิก`; partial fee → hint + the completeness card still flags it; a completeness deep-link lands on the section.
+
+## Changelog
+- v1 (2026-07-04) — created at G1. Premise refinement from ground truth: the server ALREADY accepts all three fields — `campSiteSchema` (zod, lines 96–104) and the PUT whitelist (`app/api/campsites/[id]/route.ts`, lines 109–112) both shipped with CAM-268 — so this story is form-UI + wiring only, with NO schema/migration/whitelist/zod work (this shrinks scope, not grows it). Decisions recorded: policy input = `<Select>` reusing `lib/cancellation-policy.ts` + `t.campground.cancellationPolicy.*` copy verbatim (incl. the `notSet` option to clear to null); extra-fee amount reuses the `.claude/rules/ux.md` §2 catalog bound/copy and the label reuses the existing zod bound/copy; transparency nudge is non-blocking per CAM-304 BR-5; adds all six CAM-305 section anchors (two owned + four one-line ids). Size = one M story, single vertical slice, one PR (est. ~250–350 lines incl. tests).
