@@ -23,22 +23,40 @@ function req(token?: string) {
   return new Request(`http://localhost/api/status/stream${qs}`);
 }
 
-// Drain the SSE stream for up to `ms`, returning all text seen. Bounded so it never hangs
-// (the route also self-closes at MAX_MS). Reads against a per-read timeout to stay responsive.
 // Drain the SSE stream up to `ms`. If `until` is given, return early as soon as that
 // substring is seen — so a happy-path assertion waits on the real event instead of a
 // fixed window that flakes under CI load. The stream self-closes at STATUS_STREAM_MAX_MS,
 // so a route that never emits still ends the loop (done) and the assertion fails — teeth intact.
+//
+// CAM-346: keep exactly ONE `reader.read()` in flight at a time (`pending`). The earlier
+// version called `reader.read()` fresh on every loop iteration and raced it against a
+// 40ms per-iteration timeout; when the timeout won, that read() call was NOT cancelled —
+// it stayed pending in the background while the loop issued a brand-new read() next
+// iteration. A stream reader resolves pending read() requests in FIFO order, so when the
+// real chunk arrived just after a 40ms window elapsed (routinely, under CI CPU
+// contention), it resolved the ABANDONED prior read() — whose outer Promise.race had
+// already settled via timeout — and the loop's *current* read() kept waiting for a chunk
+// that was already silently consumed. The data event vanished with no error (matches the
+// PR #325 CI failure: only `retry`+`connected` observed). Reusing the single pending
+// promise across iterations (re-checking it, never re-issuing while unresolved) removes
+// the orphaned-read window entirely — a chunk can now only ever be seen by the read()
+// call that is actually waiting for it. Reproduced deterministically + fix verified in
+// isolation (10/10 old=drops the late chunk, new=keeps it); see CAM-346 QA notes.
 async function drain(res: Response, ms: number, until?: string): Promise<string> {
   const reader = res.body!.getReader();
   const dec = new TextDecoder();
   let out = "";
   const deadline = Date.now() + ms;
+  const TIMEOUT = Symbol("drain-timeout");
+  let pending: Promise<{ value?: Uint8Array; done: boolean }> | null = null;
   while (Date.now() < deadline) {
-    const step = (await Promise.race([
-      reader.read(),
-      new Promise((r) => setTimeout(() => r({ value: undefined, done: false }), 40)),
-    ])) as { value?: Uint8Array; done: boolean };
+    if (!pending) pending = reader.read();
+    const step = await Promise.race([
+      pending,
+      new Promise<typeof TIMEOUT>((r) => setTimeout(() => r(TIMEOUT), 40)),
+    ]);
+    if (step === TIMEOUT) continue; // still the same pending read — keep waiting on it, don't reissue
+    pending = null; // this read settled; the next iteration (if any) starts a fresh one
     if (step.done) break;
     if (step.value) out += dec.decode(step.value);
     if (until && out.includes(until)) break;
