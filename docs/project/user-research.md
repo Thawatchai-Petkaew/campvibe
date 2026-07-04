@@ -35,5 +35,22 @@
 - [ ] อุปสรรคหลักที่ทำให้ camper ไม่จองจบในแอป
 - [ ] ขนาด/ความถี่การไปแคมป์ของกลุ่มเป้าหมาย
 
+## Addendum 2026-07 — HostOS pivot (host เป็น primary user)
+> เพิ่มเติมจาก personas เดิมด้านบน (ไม่แก้ไขของเดิม) — สะท้อน Blueprint v6 pivot (ADR-011, PR #302): HostOS-first, public booking/payment deferred หลัง BookingReadinessGate (M7.5). Ladder SoT: `docs/project/platform-blueprint.md`.
+
+**Host JTBD ใหม่ (hypothesis — > TODO(you): ยืนยันด้วย research):**
+- "เมื่อมี lead เข้าจากหลายช่องทาง (LINE/FB/โทร/walk-in) ฉันอยาก _รวม lead-ใบเสนอราคา-มัดจำ-ขายหน้าลาน ไว้ระบบเดียว_ เพื่อ _ไม่หลุดลูกค้าและปิดยอดแต่ละวันได้ถูกต้อง_"
+
+**Camper JTBD — หมายเหตุปรับถ้อยคำ (ไม่แก้ของเดิมด้านบน โปรดอ่านคู่กัน):**
+- ส่วนที่เคยเขียนว่า "...และมั่นใจว่าจองได้จริง..." ให้เข้าใจในบริบทใหม่ว่า "...**ได้คำตอบ/ราคาเร็วและเชื่อถือได้ แม้ยังไม่จ่ายออนไลน์**..." (เหตุผล: v1 ของแอปคือ inquiry ไม่ใช่ online booking; camper สอบถาม/ขอราคาแล้วรอ host ตอบ ไม่ใช่กดจ่ายจบในแอป)
+
+**คำถาม validate ใหม่ (เพิ่มเติมจากชุดเดิมด้านบน ของเดิมยังไม่ลบ):**
+> TODO(you): host ยอมจ่าย SaaS/POS/AI-credit เท่าไร (แทนคำถาม commission เดิมที่ตั้งไว้ตอนยังเป็น booking-marketplace)
+> TODO(you): สัดส่วนรายได้ของ host ที่มาจากมัดจำ (deposit) เทียบกับยอดขายรวม
+> TODO(you): วันนี้ host ใช้อะไรจัดการ lead (LINE + สมุด + Excel?)
+> TODO(you): ช่องทาง lead หลักของ host (LINE / FB / โทร / walk-in / อื่น ๆ) สัดส่วนเท่าไรต่อช่องทาง
+> TODO(you): การสอบถามแบบไม่จ่ายออนไลน์ (inquiry-only) ทำให้ camper หลุดไหม เทียบกับการทักแชตปกติที่ทำอยู่แล้ว
+> TODO(you): ปริมาณขายหน้าลาน/เช่าอุปกรณ์ (POS/rental) ต่อวัน/เดือน โดยประมาณ
+
 ## เกี่ยวข้อง
 [market-size.md](market-size.md) · [product-strategy.md](product-strategy.md) · `.claude/rules/discovery.md` (เขียน AC อ้าง persona เหล่านี้)
