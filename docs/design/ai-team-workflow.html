@@ -353,7 +353,7 @@
     <h3 style="margin-top:14px">Gate continuation — orchestrator รู้ผลอนุมัติได้อย่างไร</h3>
     <table>
       <tr><th>Run mode</th><th>วิธีรู้ผล</th></tr>
-      <tr><td>Headless (GitHub Action <code>linear-continue</code>/<code>camper-adhoc</code>)</td><td><code>repository_dispatch</code> resume อัตโนมัติเมื่อ <b>approve</b> เท่านั้น; ตอน <b>reject</b> ไม่มี dispatch ยิง — session ถัดไปต้องเช็ค <code>ticket-sync.mjs gates</code> เอง</td></tr>
+      <tr><td>Headless (GitHub Action <code>gate-continue</code>/<code>camper-adhoc</code>)</td><td><code>repository_dispatch</code> resume อัตโนมัติเมื่อ <b>approve</b> เท่านั้น; ตอน <b>reject</b> ไม่มี dispatch ยิง — session ถัดไปต้องเช็ค <code>ticket-sync.mjs gates</code> เอง</td></tr>
       <tr><td>Interactive (รันในแชท)</td><td>ไม่มีอะไรผลักผลมาหา orchestrator เอง — ต้อง poll <code>node scripts/ticket-sync.mjs gates</code> เป็นระยะ (exit code 10 = มี ticket <code>changesRequested</code> พร้อม resume) รันเป็น background ไม่ถามซ้ำ</td></tr>
     </table>
     <p class="lead">G4 มีข้อยกเว้น: generic Approve tap พาแค่กลับ <code>IN_PROGRESS</code> (ใช้ได้กับ G1–G3) — G4 เป็น terminal gate ต้องใช้ <code>ticket-sync.mjs set &lt;CAM-id&gt; --state Done</code> โดยตรงตอนยัง <code>AWAITING_GATE</code> ก่อน generic Approve มาทับ</p>

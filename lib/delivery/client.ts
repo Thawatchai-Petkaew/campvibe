@@ -7,9 +7,8 @@
 // Lazy on purpose: `prisma generate --schema prisma/delivery/schema.prisma` (npm run
 // delivery:generate) needs NO live database connection — only DELIVERY_DATABASE_URL being
 // set requires an actual connection, and that only happens the first time a delivery query
-// runs. This keeps CI/typecheck/build green with no DELIVERY_DATABASE_URL configured
-// anywhere (see ADR-010 "TICKETS_SOURCE" rollback flag — the env can be entirely absent on
-// an environment and nothing breaks until someone flips TICKETS_SOURCE=db there).
+// actually runs (e.g. a /status or /api/tickets request lands). This keeps CI/typecheck/build
+// green with no DELIVERY_DATABASE_URL configured anywhere.
 import "server-only";
 import { PrismaClient } from "@/prisma/delivery/generated/delivery-client";
 

@@ -26,7 +26,7 @@
 | `DATABASE_URL` | local PG | staging DB | prod DB | 🔴 **ต่างทุก env** (สำคัญสุด) |
 | `AUTH_SECRET` | set | set | set | ต้อง set ทุก env (`openssl rand -base64 32`; แยกค่าดีกว่า) |
 | `NEXTAUTH_URL` | `localhost:3000` | — | — | local เท่านั้น (Vercel/NextAuth v5 infer host เอง) |
-| `LINEAR_API_KEY` · `LINEAR_TEAM_KEY=CAM` | ใช้ร่วม | ใช้ร่วม | ใช้ร่วม | 🟡 **read-only** (CAM-281 T-5b: Linear ไม่ใช่ write path แล้ว — เหลือแค่ historical archive + `scripts/import-linear.mjs` / `scripts/linear-sync.mjs` rollback tool ไม่บังคับต้องตั้ง) |
+| `LINEAR_API_KEY` · `LINEAR_TEAM_KEY=CAM` | ใช้ร่วม | ใช้ร่วม | ใช้ร่วม | 🟡 **read-only** (CAM-281 T-5b: Linear ไม่ใช่ write path แล้ว — เหลือแค่ historical archive + one-time migration tooling `scripts/import-linear.mjs`/`scripts/parity-check.mjs`; ไม่บังคับต้องตั้ง. `scripts/linear-sync.mjs` ถูกลบแล้ว) |
 | `STATUS_TOKEN` · `BLOB_READ_WRITE_TOKEN` | ใช้ร่วม | ใช้ร่วม | ใช้ร่วม | 🟢 shared ได้ |
 | `GH_DISPATCH_TOKEN` · `GITHUB_REPO` | — | — | set | 🟡 **prod เท่านั้น** (gate-approved `repository_dispatch` — ยิงจาก `lib/delivery/tickets.ts` โดยตรง ไม่ใช่ webhook แล้ว) |
 | `LINEAR_WEBHOOK_SECRET` | — | — | ลบได้ | ⚪ **removable** (CAM-281 T-5b: `app/api/linear-webhook/route.ts` ถูกลบแล้ว — ไม่มี route ไหนอ่านตัวนี้อีก) |

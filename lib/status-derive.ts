@@ -212,7 +212,7 @@ export function buildTrail(stories: StatusIssue[]): Trail {
 /**
  * Return the numeric rank of a role's pipeline stage.
  * Design=0, Gate=1, Build=2, Verify=3, Ship=4. Unknown roles → 0.
- * Used by both the webhook (classification) and scripts/linear-sync.mjs (keep in sync).
+ * Used by lib/delivery/tickets.ts's handoff classification (isBackward).
  */
 export function stageRank(role: string): number {
   const stage = ROLE_STAGE[role] ?? "Design";

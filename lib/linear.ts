@@ -1,15 +1,11 @@
-// Server-only Linear client for the public /status dashboard.
-// Uses LINEAR_API_KEY (personal API key) — must stay server-side, never expose to client.
-import "server-only";
-import { unstable_cache } from "next/cache";
+// Server-only seam for the public /status dashboard's StatusIssue shape.
 // Defined seam (ADR-010): the ONLY place a product file imports lib/delivery/* directly
-// (the other is app/api/tickets/*). TICKETS_SOURCE gates it — CAM-281 T-5b flipped the
-// default to "db" (the delivery database is now the live source); "linear" is the one-cycle
-// rollback lever kept for CAM-281 T-5b (remove next cycle per the retirement plan).
+// (the other is app/api/tickets/*). The self-hosted delivery ticket DB
+// (lib/delivery/status-adapter.ts) is the unconditional, live source — the historical
+// TICKETS_SOURCE=linear rollback lever (+ the raw Linear GraphQL fetch it guarded) was
+// retired one cycle after the CAM-281 T-5b cutover (see chore/retire-linear-sync).
+import "server-only";
 import { fetchTicketsFromDb } from "@/lib/delivery/status-adapter";
-
-const LINEAR_API = "https://api.linear.app/graphql";
-const PRIORITY = ["No priority", "Urgent", "High", "Medium", "Low"] as const;
 
 export interface StatusIssue {
   id: string;          // identifier e.g. CAM-5
@@ -26,107 +22,18 @@ export interface StatusIssue {
   assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
   project: { id: string; name: string } | null;  // Linear Project = "feature"
   parent: { id: string; title: string } | null;  // parent issue = "epic" (title is the stable link key)
-  // CAM-342 (additive, backward-compatible): model-tier trial instrumentation. Absent/undefined
-  // for the legacy Linear-sourced path (Linear carries no such field); populated from
-  // Ticket.agentModel by lib/delivery/status-adapter.ts's toStatusIssue() on the delivery-DB
-  // path. Existing consumers (lib/status-model.ts, lib/status-derive.ts) never enumerate
-  // StatusIssue's fields explicitly, so this rides through them unmodified.
+  // CAM-342 (additive, backward-compatible): model-tier trial instrumentation. Populated
+  // from Ticket.agentModel by lib/delivery/status-adapter.ts's toStatusIssue().
   agentModel?: string | null;
 }
 
-const TEAM_KEY = process.env.LINEAR_TEAM_KEY || "CAM";
-
-async function fetchStatusIssuesRaw(): Promise<StatusIssue[]> {
-  const key = process.env.LINEAR_API_KEY;
-  if (!key) throw new Error("LINEAR_API_KEY is not set");
-
-  const query = `query Issues($key: String!) {
-    issues(filter: { team: { key: { eq: $key } } }, first: 250) {
-      nodes {
-        identifier
-        title
-        priority
-        url
-        description
-        startedAt
-        updatedAt
-        completedAt
-        state { name type }
-        labels { nodes { name } }
-        assignee { name displayName avatarUrl }
-        project { id name }
-        parent { id title }
-      }
-    }
-  }`;
-
-  const res = await fetch(LINEAR_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: key },
-    body: JSON.stringify({ query, variables: { key: TEAM_KEY } }),
-    cache: "no-store",
-  });
-
-  if (!res.ok) throw new Error(`Linear API error ${res.status}`);
-  const json = await res.json();
-  if (json.errors) throw new Error(json.errors[0]?.message || "Linear query failed");
-
-  const nodes = json?.data?.issues?.nodes ?? [];
-  return nodes.map(
-    (n: {
-      identifier: string;
-      title: string;
-      priority: number;
-      url: string;
-      description: string | null;
-      startedAt: string | null;
-      updatedAt: string | null;
-      completedAt: string | null;
-      state: { name: string; type: string } | null;
-      labels: { nodes: { name: string }[] } | null;
-      assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
-      project: { id: string; name: string } | null;
-      parent: { id: string; title: string } | null;
-    }): StatusIssue => ({
-      id: n.identifier,
-      title: n.title,
-      status: n.state?.name ?? "",
-      statusType: n.state?.type ?? "",
-      priority: PRIORITY[n.priority ?? 0] ?? "No priority",
-      labels: (n.labels?.nodes ?? []).map((l) => l.name),
-      url: n.url,
-      description: n.description ?? "",
-      startedAt: n.startedAt ?? null,
-      updatedAt: n.updatedAt ?? new Date(0).toISOString(),
-      completedAt: n.completedAt ?? null,
-      assignee: n.assignee
-        ? { name: n.assignee.name, displayName: n.assignee.displayName, avatarUrl: n.assignee.avatarUrl ?? null }
-        : null,
-      project: n.project ? { id: n.project.id, name: n.project.name } : null,
-      parent: n.parent ? { id: n.parent.id, title: n.parent.title } : null,
-    })
-  );
-}
-
-/* Cached for 60s so every viewer + the 60s auto-refresh share ONE Linear fetch per minute,
- * regardless of how many people watch /status. Caps Linear API usage at ~60 requests/hour
- * (well under Linear's ~1,500 req/hour limit) instead of scaling with viewers × tabs. */
-// Cache key includes the pulse version: when the Linear webhook bumps the pulse, the next
-// render passes a new pulse → cache miss → fresh fetch (real-time). Within one pulse the result
-// stays cached for up to 60s so concurrent viewers + the fallback poll share a single Linear call.
-const cachedStatusIssues = unstable_cache(
-  async (_pulse: number) => fetchStatusIssuesRaw(),
-  ["linear-status-issues"],
-  { revalidate: 60 }
-);
-
-/** Dashboard issues, freshness keyed on the pulse version (0 = time-based 60s cache only). */
-export function fetchStatusIssues(pulse = 0): Promise<StatusIssue[]> {
-  // ADR-010 rollback flag (CAM-281 T-5b): "linear" reads the original Linear API path — the
-  // one-cycle rollback lever, retained on purpose and removed next cycle. Default (unset or
-  // any other value) now reads the self-hosted delivery Ticket table — the live source.
-  if (process.env.TICKETS_SOURCE === "linear") {
-    return cachedStatusIssues(pulse);
-  }
+/**
+ * Dashboard issues, sourced unconditionally from the self-hosted delivery ticket DB.
+ * `pulse` is accepted (not used here) only for call-site compatibility with existing
+ * callers (app/status/page.tsx, app/status/map/page.tsx, app/status/map/data/route.ts)
+ * that still key their own legacy StatusPulse read before calling this — the DB path
+ * freshness is governed by lib/delivery/status-adapter.ts's own DeliveryPulse-keyed cache.
+ */
+export function fetchStatusIssues(_pulse = 0): Promise<StatusIssue[]> {
   return fetchTicketsFromDb();
 }

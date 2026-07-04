@@ -5,7 +5,8 @@
  *   1. lib/delivery/* never imports a product module (@/lib/prisma, @/lib/auth, a
  *      product component/page under @/components or @/app).
  *   2. No product file imports lib/delivery/* except the DEFINED seams:
- *      lib/linear.ts (the TICKETS_SOURCE switch, list read), app/api/tickets/* (the route
+ *      lib/linear.ts (the StatusIssue list-read seam — the historical TICKETS_SOURCE switch
+ *      it used to guard was retired in chore/retire-linear-sync), app/api/tickets/* (the route
  *      seam), — as of CAM-281 (T-5) — the four mutation/detail routes
  *      (app/api/status/approve, app/api/status/reject, app/api/status/issue/[id],
  *      app/api/telegram-webhook) that call the delivery service directly (CAM-281 (T-5b)
