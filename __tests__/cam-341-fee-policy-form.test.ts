@@ -545,8 +545,11 @@ describe("i18n: newCampground extra-fee/cancellation keys (both locales)", () =>
 // ---------------------------------------------------------------------------
 describe("reuse-first: Extra Fee + Cancellation Policy sections compose existing primitives", () => {
   it("uses the existing Card/CardHeader/CardContent/CardTitle pattern (no new wrapper)", () => {
-    expect(formSrc).toContain('<Card id="extra-fee" className="border-border shadow-sm">');
-    expect(formSrc).toContain('<Card id="cancellation-policy" className="border-border shadow-sm">');
+    // CAM-356 added tabIndex={-1} + a focus-ring class to every section Card so
+    // submit-fail can scroll/focus the section with the first failing field;
+    // the Card/CardHeader/CardContent/CardTitle composition itself is unchanged.
+    expect(formSrc).toContain('<Card id="extra-fee" tabIndex={-1} className="border-border shadow-sm');
+    expect(formSrc).toContain('<Card id="cancellation-policy" tabIndex={-1} className="border-border shadow-sm');
   });
 
   it("uses the existing InputField primitive for amount + label (no hand-rolled input)", () => {

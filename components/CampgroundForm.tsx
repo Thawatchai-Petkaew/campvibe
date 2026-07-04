@@ -46,6 +46,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
+import { campSiteSchema } from "@/lib/validations/campsite";
+import type { TranslationType } from "@/locales/translations";
 import * as LucideIcons from "lucide-react";
 
 // CAM-341: Radix Select forbids an empty-string item value, so the "not set"
@@ -73,6 +75,125 @@ export function toImageUrlList(images: unknown): string[] {
     return [];
 }
 
+// CAM-356: the PUT/POST routes forward the zod field details from
+// `validation.error.format()` on a 400 (see lib/api-utils.ts apiError) but the
+// old submit handler only read `err.error` (the flat "Validation Error"
+// string) and discarded `err.details`. This walks the format() tree (any
+// depth) and groups every message under its TOP-LEVEL field key so any field
+// - current or future - can be mapped to its input/label generically, not
+// just the ones known today. Exported for unit tests.
+export function flattenZodFieldErrors(formatted: unknown): Record<string, string[]> {
+    const result: Record<string, string[]> = {};
+
+    function walk(node: unknown, rootKey: string | null) {
+        if (!node || typeof node !== "object") return;
+        const obj = node as Record<string, unknown>;
+        const errors = (obj as { _errors?: unknown })._errors;
+        if (Array.isArray(errors) && errors.length > 0 && rootKey) {
+            result[rootKey] = [...(result[rootKey] ?? []), ...(errors as string[])];
+        }
+        for (const key of Object.keys(obj)) {
+            if (key === "_errors") continue;
+            walk(obj[key], rootKey ?? key);
+        }
+    }
+
+    walk(formatted, null);
+    return result;
+}
+
+// Maps a campSiteSchema field name to the Thai/EN label already shown next to
+// its input, pulled from the SAME locale keys the form renders (never a new
+// hardcoded string). EC (CAM-356): a field with no mapping (future schema
+// drift) falls back to the raw field name rather than crashing.
+const FIELD_LABEL_RESOLVERS: Record<string, (t: TranslationType) => string> = {
+    nameTh: (t) => t.newCampground.nameTh,
+    nameEn: (t) => t.newCampground.nameEn,
+    description: (t) => t.newCampground.description,
+    campSiteType: (t) => t.filter["Campground type"],
+    accessTypes: (t) => t.filter["Access type"],
+    accommodationTypes: (t) => t.filter["Accommodation type"],
+    facilities: (t) => t.filter["Internal facility"],
+    externalFacilities: (t) => t.filter["External facility"],
+    equipment: (t) => t.filter["Equipment for rent"],
+    activities: (t) => t.filter["Activity"],
+    terrain: (t) => t.filter["Terrain"],
+    latitude: (t) => t.newCampground.latitude,
+    longitude: (t) => t.newCampground.longitude,
+    checkInTime: (t) => t.newCampground.checkIn,
+    checkOutTime: (t) => t.newCampground.checkOut,
+    priceLow: (t) => t.newCampground.minPrice,
+    priceHigh: (t) => t.newCampground.maxPrice,
+    locationId: (t) => t.newCampground.location,
+    address: (t) => t.newCampground.address,
+    directions: (t) => t.newCampground.directions,
+    videoUrl: (t) => t.newCampground.videoUrl,
+    phone: (t) => t.newCampground.phoneNumber,
+    lineId: (t) => t.newCampground.lineId,
+    facebookUrl: (t) => t.newCampground.facebookUrl,
+    facebookMessageUrl: (t) => t.newCampground.facebookMessageUrl,
+    tiktokUrl: (t) => t.newCampground.tiktokUrl,
+    feeInfo: (t) => t.newCampground.feeInfo,
+    toiletInfo: (t) => t.campground.restrooms,
+    minimumAge: (t) => t.campground.minimumAge,
+    extraFeeAmount: (t) => t.newCampground.extraFeeAmountLabel,
+    extraFeeLabel: (t) => t.newCampground.extraFeeLabelField,
+    cancellationPolicy: (t) => t.campground.cancellationPolicy.title,
+    partner: (t) => t.newCampground.partner,
+    nationalPark: (t) => t.newCampground.nationalPark,
+    logo: (t) => t.newCampground.uploadLogo,
+    images: (t) => t.newCampground.photos,
+    tags: (t) => t.newCampground.tags,
+    isVerified: (t) => t.newCampground.verified,
+    isActive: (t) => t.newCampground.active,
+    isPublished: (t) => t.newCampground.published,
+    maxGuestsPerDay: (t) => t.newCampground.maxGuestsPerDay,
+    maxTentsPerDay: (t) => t.newCampground.maxTentsPerDay,
+    groundType: (t) => t.newCampground.groundType,
+    ownershipType: (t) => t.newCampground.ownershipType,
+    isFree: (t) => t.newCampground.isFree,
+    petFriendly: (t) => t.newCampground.petFriendly,
+    useSpotView: (t) => t.newCampground.useSpotView,
+};
+
+// EC (CAM-356): an unmapped/future field name lists the raw path once instead
+// of crashing or silently dropping the field from the banner.
+export function getFieldLabel(t: TranslationType, field: string): string {
+    return FIELD_LABEL_RESOLVERS[field]?.(t) ?? field;
+}
+
+// Maps a field name to the Card section id it's rendered in, so submit-fail
+// can scroll/focus the section containing the first failing field.
+const FIELD_SECTION_ID: Record<string, string> = {
+    nameTh: "basic-info", nameEn: "basic-info", description: "basic-info",
+    videoUrl: "photos", logo: "photos", images: "photos",
+    address: "location", directions: "location", latitude: "location",
+    longitude: "location", locationId: "location",
+    phone: "contact-info", lineId: "contact-info", facebookUrl: "contact-info",
+    facebookMessageUrl: "contact-info", tiktokUrl: "contact-info",
+    minimumAge: "additional-info", feeInfo: "additional-info", toiletInfo: "additional-info",
+    partner: "additional-info", nationalPark: "additional-info", tags: "additional-info",
+    facilities: "amenities", externalFacilities: "amenities", equipment: "amenities",
+    accessTypes: "amenities", accommodationTypes: "amenities", activities: "amenities", terrain: "amenities",
+    campSiteType: "campground-type",
+    ownershipType: "ownership",
+    priceLow: "price", priceHigh: "price", isFree: "price",
+    extraFeeAmount: "extra-fee", extraFeeLabel: "extra-fee",
+    cancellationPolicy: "cancellation-policy",
+    maxGuestsPerDay: "zones", maxTentsPerDay: "zones", groundType: "zones", useSpotView: "zones",
+    checkInTime: "operations", checkOutTime: "operations",
+    isVerified: "status-visibility", isActive: "status-visibility",
+    isPublished: "status-visibility", petFriendly: "status-visibility",
+};
+
+// Composes the banner copy from locale labels only (no raw field key / jargon
+// in the normal path - EC fallback is the raw path, see getFieldLabel).
+export function buildValidationBannerMessage(t: TranslationType, fieldKeys: string[]): string {
+    if (fieldKeys.length === 0) return t.newCampground.validationErrorGeneric;
+    const labels = fieldKeys.map((key) => getFieldLabel(t, key));
+    return t.newCampground.validationErrorBanner.replace("{fields}", labels.join(", "));
+}
+
 export function CampgroundForm({ initialData, isEditing = false }: CampgroundFormProps) {
     const router = useRouter();
     const { t, language } = useLanguage();
@@ -81,6 +202,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     const [masterOptions, setMasterOptions] = useState<Record<string, any[]>>({});
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [serverError, setServerError] = useState<string | null>(null);
+    // CAM-356: per-field zod messages (client pre-check or the server's 400
+    // `details`), keyed by the top-level campSiteSchema field name.
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [logoError, setLogoError] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -338,10 +462,25 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         );
     };
 
+    // First message for a field, if any (client pre-check or server 400 details).
+    const zErr = (field: string): string | undefined => fieldErrors[field]?.[0];
+
+    // Scrolls + moves a11y focus to the Card section holding the first failing
+    // field (Cards carry tabIndex={-1} so they're programmatically focusable).
+    const scrollToFirstErrorField = (topLevelFields: string[]) => {
+        const firstField = topLevelFields[0];
+        const sectionId = firstField ? FIELD_SECTION_ID[firstField] : undefined;
+        if (!sectionId || typeof document === "undefined") return;
+        const section = document.getElementById(sectionId);
+        section?.scrollIntoView({ behavior: "smooth", block: "start" });
+        section?.focus({ preventScroll: true });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setHasSubmitted(true);
         setIsLoading(true);
+        setFieldErrors({});
 
         try {
             let locationId = formData.locationId;
@@ -402,8 +541,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 // Capacity & Ground Type
                 maxGuestsPerDay: formData.maxGuestsPerDay === "" ? undefined : formData.maxGuestsPerDay,
                 maxTentsPerDay: formData.maxTentsPerDay === "" ? undefined : formData.maxTentsPerDay,
-                groundType: Object.keys(formData.groundType).length > 0 ? JSON.stringify(formData.groundType) : undefined,
-                
+                // CAM-356: campSiteSchema.groundType is z.record(string, number) - an
+                // OBJECT, not a JSON string. Sending JSON.stringify(...) here always
+                // failed that shape check once a camp had any ground type set (the
+                // repro camp's WOOD:6, set before this form ever validated it),
+                // surfacing only as the bare "Validation Error" banner. Send the
+                // object as-is; the PUT/POST routes already stringify it for storage
+                // (`typeof data.groundType === 'string' ? ... : JSON.stringify(...)`).
+                groundType: Object.keys(formData.groundType).length > 0 ? formData.groundType : undefined,
+
                 // Ownership & Pricing
                 ownershipType: formData.ownershipType || undefined,
                 isFree: formData.isFree,
@@ -418,6 +564,19 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 campPayload.nameEnSlug = `${finalSlug}-en`;
             }
 
+            // AC-2 (CAM-356): client-side pre-check with the SAME shared schema the
+            // server enforces - UX only (saves a round trip); the server stays
+            // authoritative and re-validates on every request regardless.
+            const clientCheck = campSiteSchema.partial().safeParse(campPayload);
+            if (!clientCheck.success) {
+                const errors = flattenZodFieldErrors(clientCheck.error.format());
+                const topFields = Object.keys(errors);
+                setFieldErrors(errors);
+                setServerError(buildValidationBannerMessage(t, topFields));
+                scrollToFirstErrorField(topFields);
+                return;
+            }
+
             const url = isEditing ? `/api/campsites/${initialData.id}` : '/api/campsites';
             const method = isEditing ? 'PUT' : 'POST';
 
@@ -430,15 +589,24 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             if (res.ok) {
                 setHasSubmitted(false);
                 setServerError(null);
+                setFieldErrors({});
                 router.push("/dashboard/campsites");
                 router.refresh();
             } else {
                 const err = await res.json();
-                setServerError(err.error || "Failed to save");
+                // AC-1 (CAM-356): surface the zod field details from the 400 body
+                // (see lib/api-utils.ts apiError) instead of the bare "Validation
+                // Error" string - inline per-field text + a banner naming the
+                // failing fields by their real label, generic for ANY field.
+                const errors = flattenZodFieldErrors(err.details);
+                const topFields = Object.keys(errors);
+                setFieldErrors(errors);
+                setServerError(topFields.length > 0 ? buildValidationBannerMessage(t, topFields) : (err.error || t.newCampground.errorOccurred));
+                scrollToFirstErrorField(topFields);
             }
         } catch (error) {
             console.error("Save error:", error);
-            setServerError("Something went wrong. Please try again.");
+            setServerError(t.newCampground.errorOccurred);
         } finally {
             setIsLoading(false);
         }
@@ -560,8 +728,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     {/* Main Form Area */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Basic Info */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="basic-info" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Info className="w-5 h-5 text-primary" />
                                     {t.newCampground.basicInfo}
@@ -575,6 +743,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         value={formData.nameTh}
                                         onChange={e => setFormData({ ...formData, nameTh: e.target.value })}
                                         inputSize="lg"
+                                        error={zErr('nameTh')}
                                     />
                                     <InputField
                                         label={t.newCampground.nameEn}
@@ -582,6 +751,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         value={formData.nameEn}
                                         onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
                                         inputSize="lg"
+                                        error={zErr('nameEn')}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -597,8 +767,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Media Upload */}
-                        <Card id="photos" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="photos" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     {t.newCampground.mediaBranding}
                                 </CardTitle>
@@ -625,14 +795,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
                                     inputSize="lg"
                                     placeholder={t.newCampground.videoUrlPlaceholder}
-                                    error={formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl) ? "Invalid URL format" : undefined}
+                                    error={(formData.videoUrl && !/^https?:\/\/.+/.test(formData.videoUrl) ? "Invalid URL format" : undefined) || zErr('videoUrl')}
                                 />
                             </CardContent>
                         </Card>
 
                         {/* Location */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="location" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <MapPin className="w-5 h-5 text-primary" />
                                     {t.newCampground.location}
@@ -677,10 +847,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
                                 <InputField
                                     label={t.newCampground.address}
-                                    value={formData.address} 
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })} 
-                                    inputSize="lg" 
+                                    value={formData.address}
+                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                    inputSize="lg"
                                     placeholder={t.newCampground.addressPlaceholder}
+                                    error={zErr('address')}
                                 />
 
                                 <div className="space-y-2">
@@ -706,7 +877,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             setFormData({ ...formData, latitude: val === "" ? "" : parseFloat(val) });
                                         }}
                                         placeholder="13.7563"
-                                        error={formData.latitude && (isNaN(Number(formData.latitude)) || Number(formData.latitude) < -90 || Number(formData.latitude) > 90) ? "Latitude must be between -90 and 90" : undefined}
+                                        error={(formData.latitude && (isNaN(Number(formData.latitude)) || Number(formData.latitude) < -90 || Number(formData.latitude) > 90) ? "Latitude must be between -90 and 90" : undefined) || zErr('latitude')}
                                     />
                                     <InputField
                                         label={t.newCampground.longitude}
@@ -719,15 +890,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             setFormData({ ...formData, longitude: val === "" ? "" : parseFloat(val) });
                                         }}
                                         placeholder="100.5018"
-                                        error={formData.longitude && (isNaN(Number(formData.longitude)) || Number(formData.longitude) < -180 || Number(formData.longitude) > 180) ? "Longitude must be between -180 and 180" : undefined}
+                                        error={(formData.longitude && (isNaN(Number(formData.longitude)) || Number(formData.longitude) < -180 || Number(formData.longitude) > 180) ? "Longitude must be between -180 and 180" : undefined) || zErr('longitude')}
                                     />
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Contact Information */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="contact-info" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Phone className="w-5 h-5 text-primary" />
                                     {t.newCampground.contactInfo}
@@ -743,52 +914,54 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         inputSize="lg" 
                                         placeholder="081-234-5678"
                                         leftIcon={<Phone className="w-4 h-4" />}
+                                        error={zErr('phone')}
                                     />
                                     <InputField
                                         label={t.newCampground.lineId}
-                                        value={formData.lineId} 
-                                        onChange={e => setFormData({ ...formData, lineId: e.target.value })} 
-                                        inputSize="lg" 
+                                        value={formData.lineId}
+                                        onChange={e => setFormData({ ...formData, lineId: e.target.value })}
+                                        inputSize="lg"
                                         placeholder="@lineid or lineid123"
                                         leftIcon={<MessageCircle className="w-4 h-4" />}
+                                        error={zErr('lineId')}
                                     />
                                 </div>
                                 <InputField
                                     label={t.newCampground.facebookUrl}
                                     type="url"
-                                    value={formData.facebookUrl} 
-                                    onChange={e => setFormData({ ...formData, facebookUrl: e.target.value })} 
-                                    inputSize="lg" 
+                                    value={formData.facebookUrl}
+                                    onChange={e => setFormData({ ...formData, facebookUrl: e.target.value })}
+                                    inputSize="lg"
                                     placeholder="https://facebook.com/yourpage"
                                     leftIcon={<Facebook className="w-4 h-4" />}
-                                    error={formData.facebookUrl && !/^https?:\/\/.+/.test(formData.facebookUrl) ? "Invalid URL format" : undefined}
+                                    error={(formData.facebookUrl && !/^https?:\/\/.+/.test(formData.facebookUrl) ? "Invalid URL format" : undefined) || zErr('facebookUrl')}
                                 />
                                 <InputField
                                     label={t.newCampground.facebookMessageUrl}
                                     type="url"
-                                    value={formData.facebookMessageUrl} 
-                                    onChange={e => setFormData({ ...formData, facebookMessageUrl: e.target.value })} 
-                                    inputSize="lg" 
+                                    value={formData.facebookMessageUrl}
+                                    onChange={e => setFormData({ ...formData, facebookMessageUrl: e.target.value })}
+                                    inputSize="lg"
                                     placeholder="https://m.me/yourpage"
                                     leftIcon={<MessageCircle className="w-4 h-4" />}
-                                    error={formData.facebookMessageUrl && !/^https?:\/\/.+/.test(formData.facebookMessageUrl) ? "Invalid URL format" : undefined}
+                                    error={(formData.facebookMessageUrl && !/^https?:\/\/.+/.test(formData.facebookMessageUrl) ? "Invalid URL format" : undefined) || zErr('facebookMessageUrl')}
                                 />
                                 <InputField
                                     label={t.newCampground.tiktokUrl}
                                     type="url"
-                                    value={formData.tiktokUrl} 
-                                    onChange={e => setFormData({ ...formData, tiktokUrl: e.target.value })} 
-                                    inputSize="lg" 
+                                    value={formData.tiktokUrl}
+                                    onChange={e => setFormData({ ...formData, tiktokUrl: e.target.value })}
+                                    inputSize="lg"
                                     placeholder="https://tiktok.com/@username"
                                     leftIcon={<Video className="w-4 h-4" />}
-                                    error={formData.tiktokUrl && !/^https?:\/\/.+/.test(formData.tiktokUrl) ? "Invalid URL format" : undefined}
+                                    error={(formData.tiktokUrl && !/^https?:\/\/.+/.test(formData.tiktokUrl) ? "Invalid URL format" : undefined) || zErr('tiktokUrl')}
                                 />
                             </CardContent>
                         </Card>
 
                         {/* Additional Info */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="additional-info" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Info className="w-5 h-5 text-primary" />
                                     {t.newCampground.additionalDetails}
@@ -801,7 +974,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     value={formData.minimumAge}
                                     onChange={e => setFormData({ ...formData, minimumAge: e.target.value === "" ? "" : parseInt(e.target.value) })}
                                     inputSize="lg"
-                                    error={formData.minimumAge && (isNaN(Number(formData.minimumAge)) || Number(formData.minimumAge) < 0) ? "Minimum age must be a positive number" : undefined}
+                                    error={(formData.minimumAge && (isNaN(Number(formData.minimumAge)) || Number(formData.minimumAge) < 0) ? "Minimum age must be a positive number" : undefined) || zErr('minimumAge')}
                                 />
                                 <div className="space-y-2">
                                     <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.feeInfo}</Label>
@@ -818,6 +991,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, partner: e.target.value })}
                                         inputSize="lg"
                                         placeholder={t.newCampground.partnerPlaceholder}
+                                        error={zErr('partner')}
                                     />
                                     <InputField
                                         label={t.newCampground.nationalPark}
@@ -825,6 +999,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, nationalPark: e.target.value })}
                                         inputSize="lg"
                                         placeholder={t.newCampground.nationalParkPlaceholder}
+                                        error={zErr('nationalPark')}
                                     />
                                 </div>
                                 <InputField
@@ -833,6 +1008,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     onChange={e => setFormData({ ...formData, tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })}
                                     inputSize="lg"
                                     placeholder={t.newCampground.tagsPlaceholder}
+                                    error={zErr('tags')}
                                 />
                                 {formData.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-2">
@@ -847,8 +1023,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Amenities & Features */}
-                        <Card id="amenities" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="amenities" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Tent className="w-5 h-5 text-primary" />
                                     {t.newCampground.amenitiesFeatures}
@@ -869,8 +1045,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     {/* Sidebar */}
                     <div className="space-y-8">
                         {/* Location */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="campground-type" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.settings}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
@@ -878,6 +1054,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <TruncatedLabel className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4" as="label">
                                         {t.newCampground.type} <span className="text-xs text-muted-foreground">{t.newCampground.multipleSelection}</span>
                                     </TruncatedLabel>
+                                    {zErr('campSiteType') && (
+                                        <p className="text-sm px-4 text-destructive">{zErr('campSiteType')}</p>
+                                    )}
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {masterOptions['Campground type']?.map(opt => {
                                             const isSelected = formData.campSiteType.includes(opt.code);
@@ -911,11 +1090,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Ownership */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="ownership" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.ownershipType}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
+                                {zErr('ownershipType') && (
+                                    <p className="text-sm px-4 text-destructive">{zErr('ownershipType')}</p>
+                                )}
                                 {/* Ownership Type - Private */}
                                 <button
                                     type="button"
@@ -981,8 +1163,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Pricing */}
-                        <Card id="price" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="price" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.pricing}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
@@ -1025,7 +1207,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
                                             inputSize="lg"
                                             placeholder="e.g. 500"
-                                            error={formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.minPriceError : undefined}
+                                            error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.minPriceError : undefined) || zErr('priceLow')}
                                         />
                                         <InputField
                                             label={t.newCampground.maxPrice}
@@ -1038,7 +1220,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
                                             inputSize="lg"
                                             placeholder="e.g. 1200"
-                                            error={formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.maxPriceError : undefined}
+                                            error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.maxPriceError : undefined) || zErr('priceHigh')}
                                         />
                                     </div>
                                 )}
@@ -1046,8 +1228,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Extra Fee (CAM-341) */}
-                        <Card id="extra-fee" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="extra-fee" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.extraFee}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-4">
@@ -1063,7 +1245,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     inputSize="lg"
                                     placeholder={t.newCampground.extraFeeAmountPlaceholder}
                                     helperText={t.newCampground.extraFeeAmountHelper}
-                                    error={extraFeeAmountError}
+                                    error={extraFeeAmountError || zErr('extraFeeAmount')}
                                 />
                                 <InputField
                                     label={t.newCampground.extraFeeLabelField}
@@ -1071,7 +1253,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     onChange={e => setFormData({ ...formData, extraFeeLabel: e.target.value })}
                                     inputSize="lg"
                                     placeholder={t.newCampground.extraFeeLabelPlaceholder}
-                                    error={extraFeeLabelError}
+                                    error={extraFeeLabelError || zErr('extraFeeLabel')}
                                 />
                                 {showExtraFeeHint && (
                                     <p className="text-sm px-4 text-muted-foreground">{t.newCampground.extraFeeHint}</p>
@@ -1080,8 +1262,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Cancellation Policy (CAM-341) */}
-                        <Card id="cancellation-policy" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="cancellation-policy" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.campground.cancellationPolicy.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
@@ -1111,12 +1293,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {zErr('cancellationPolicy') && (
+                                    <p className="text-sm px-4 text-destructive mt-2">{zErr('cancellationPolicy')}</p>
+                                )}
                             </CardContent>
                         </Card>
 
                         {/* Capacity & Ground Type */}
-                        <Card id="zones" className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="zones" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.capacity}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
@@ -1184,7 +1369,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 onChange={e => setFormData({ ...formData, maxGuestsPerDay: e.target.value === "" ? "" : parseInt(e.target.value) })}
                                                 inputSize="lg"
                                                 placeholder="e.g. 50"
-                                                error={formData.maxGuestsPerDay && (isNaN(Number(formData.maxGuestsPerDay)) || Number(formData.maxGuestsPerDay) < 1) ? "Must be at least 1" : undefined}
+                                                error={(formData.maxGuestsPerDay && (isNaN(Number(formData.maxGuestsPerDay)) || Number(formData.maxGuestsPerDay) < 1) ? "Must be at least 1" : undefined) || zErr('maxGuestsPerDay')}
                                             />
                                             <InputField
                                                 label={t.newCampground.maxTentsPerDay}
@@ -1194,12 +1379,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 onChange={e => setFormData({ ...formData, maxTentsPerDay: e.target.value === "" ? "" : parseInt(e.target.value) })}
                                                 inputSize="lg"
                                                 placeholder="e.g. 20"
-                                                error={formData.maxTentsPerDay && (isNaN(Number(formData.maxTentsPerDay)) || Number(formData.maxTentsPerDay) < 1) ? "Must be at least 1" : undefined}
+                                                error={(formData.maxTentsPerDay && (isNaN(Number(formData.maxTentsPerDay)) || Number(formData.maxTentsPerDay) < 1) ? "Must be at least 1" : undefined) || zErr('maxTentsPerDay')}
                                             />
                                         </div>
                                         
                                         <div className="space-y-3">
                                             <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.groundType}</Label>
+                                            {zErr('groundType') && (
+                                                <p className="text-sm px-4 text-destructive">{zErr('groundType')}</p>
+                                            )}
                                             <div className="space-y-3">
                                                 {[
                                                     { code: 'STONE', key: 'groundTypeStone' },
@@ -1242,8 +1430,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Times */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="operations" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.operations}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-4">
@@ -1253,6 +1441,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     value={formData.checkInTime}
                                     onChange={e => setFormData({ ...formData, checkInTime: e.target.value })}
                                     inputSize="lg"
+                                    error={zErr('checkInTime')}
                                 />
                                 <InputField
                                     label={t.newCampground.checkOut}
@@ -1260,13 +1449,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     value={formData.checkOutTime}
                                     onChange={e => setFormData({ ...formData, checkOutTime: e.target.value })}
                                     inputSize="lg"
+                                    error={zErr('checkOutTime')}
                                 />
                             </CardContent>
                         </Card>
 
                         {/* Status & Visibility */}
-                        <Card className="border-border shadow-sm">
-                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                        <Card id="status-visibility" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                            <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.statusVisibility}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
