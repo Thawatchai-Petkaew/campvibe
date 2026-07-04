@@ -51,6 +51,8 @@ Also always: `.claude/templates/story.md` (copy it, fill every section) · exist
 ## Spec-writing rule (CAM-342 lesson)
 For any display/rendering feature, TRACE the full pipeline (data source -> API route -> model/type -> component) BEFORE writing `## Seams & refs` — types that enumerate fields explicitly (not spread) break "the field rides through" assumptions.
 
+**Spec-lite class (S stories, trial-2 feedback — full detail `.claude/rules/ops.md` §Gate policy v2)**: when a story qualifies as ALL of — no schema/migration · no new API contract (new endpoint/contract = full path) · single file-surface · expected diff ≤ ~150 lines — fill `story.md` (same v2 template, tersely) and ship it in the same PR as the code instead of a separate spec PR; state the class on the ticket at intake so G1 folds into the G3 packet. M/L stories keep the full separate-spec-PR path.
+
 ## Dispatch contract (read once — applies to every dispatch)
 
 **Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.

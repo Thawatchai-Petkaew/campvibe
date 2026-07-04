@@ -293,8 +293,18 @@ describe("PATCH /api/tickets/[id]", () => {
   });
 
   const dispatchCases: Array<{ body: Record<string, unknown>; fn: string; args: unknown[] }> = [
-    { body: { action: "start", actor: "human", role: "ARCHITECT" }, fn: "start", args: ["CAM-1", "human", "ARCHITECT"] },
-    { body: { action: "start", actor: "human" }, fn: "start", args: ["CAM-1", "human", undefined] },
+    {
+      body: { action: "start", actor: "human", role: "ARCHITECT" },
+      fn: "start",
+      args: ["CAM-1", "human", "ARCHITECT", undefined],
+    },
+    { body: { action: "start", actor: "human" }, fn: "start", args: ["CAM-1", "human", undefined, undefined] },
+    // trial-2 feedback (CAM-342 follow-up) — model-tier stamp threaded through the start verb too
+    {
+      body: { action: "start", actor: "human", role: "BACKEND_ENGINEER", agentModel: "sonnet" },
+      fn: "start",
+      args: ["CAM-1", "human", "BACKEND_ENGINEER", "sonnet"],
+    },
     { body: { action: "raiseGate", actor: "human", note: "G2" }, fn: "raiseGate", args: ["CAM-1", "human", "G2"] },
     { body: { action: "approve", actor: "human", nextRole: "UX_DESIGNER" }, fn: "approve", args: ["CAM-1", "human", "UX_DESIGNER"] },
     { body: { action: "reject", actor: "human" }, fn: "reject", args: ["CAM-1", "human", undefined] },
@@ -348,6 +358,21 @@ describe("PATCH /api/tickets/[id]", () => {
   // CAM-342 — EC-3: a stamp value outside fable|opus|sonnet|haiku is rejected at the
   // boundary (400) and never reaches the service layer (never stored).
   describe("agentModel outside the allowed set (EC-3)", () => {
+    // trial-2 feedback (CAM-342 follow-up) — same boundary rejection now applies to `start`
+    it("400 on start with an out-of-set agentModel; start is never called", async () => {
+      process.env.STATUS_TOKEN = "secret";
+      const res = await patchRoute(
+        req("/api/tickets/CAM-1", {
+          method: "PATCH",
+          body: { action: "start", actor: "human", role: "BACKEND_ENGINEER", agentModel: "gpt5" },
+          token: "secret",
+        }),
+        params("CAM-1")
+      );
+      expect(res.status).toBe(400);
+      expect(svc.start).not.toHaveBeenCalled();
+    });
+
     it("400 on handoff with an out-of-set agentModel; handoff is never called", async () => {
       process.env.STATUS_TOKEN = "secret";
       const res = await patchRoute(

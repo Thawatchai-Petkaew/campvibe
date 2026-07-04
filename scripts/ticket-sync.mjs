@@ -20,8 +20,9 @@
  *   node scripts/ticket-sync.mjs set CAM-7 --state "In Progress"
  *   node scripts/ticket-sync.mjs set CAM-11 --add-label awaiting-you
  *   node scripts/ticket-sync.mjs set CAM-7 --state Done --remove-label awaiting-you
+ *   node scripts/ticket-sync.mjs set CAM-7 --state "In Progress" --model sonnet   # stamps only when --state maps onto start()
  *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --state "In Progress"
- *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --model sonnet   # CAM-342 model-tier stamp (fable|opus|sonnet|haiku)
+ *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --model sonnet   # CAM-342 model-tier stamp (fable|opus|sonnet|haiku); trial-2 feedback: also stamped when this call maps onto start()
  *   node scripts/ticket-sync.mjs release CAM-7
  *   node scripts/ticket-sync.mjs gates                      # exit 10 when a gate is "cleared"
  *   node scripts/ticket-sync.mjs audit                       # exit 11 on template/artifact drift
@@ -318,6 +319,13 @@ async function cmdList() {
 async function cmdSet(id, args) {
   let flags;
   try { flags = parseSetFlags(args); } catch (e) { usageErr(e.message); return; }
+  // trial-2 feedback (CAM-342 follow-up): validated client-side, same pattern as cmdHandoff
+  // below -- a typo fails fast without a network round trip; the API's zod enum is still
+  // the authoritative boundary check (BR-1/EC-3).
+  if (flags.model && !AGENT_MODEL_TIERS.includes(flags.model)) {
+    usageErr(`unknown model tier "${flags.model}". Use one of: ${AGENT_MODEL_TIERS.join(", ")}`);
+    return;
+  }
   const actor = flags.actor || DEFAULT_ACTOR;
   const changeLines = [];
 
@@ -332,8 +340,15 @@ async function cmdSet(id, args) {
     } else {
       const params = { ...(decision.params || {}) };
       if (flags.note && ACTIONS_ACCEPTING_NOTE.has(decision.action)) params.note = flags.note;
+      // trial-2 feedback: --model is stamped only when this --state maps onto the `start`
+      // verb (the only verb the API accepts an agentModel on besides handoff/updateFields) —
+      // no silent fallback note; it either applies or the flag was simply not relevant here.
+      if (flags.model && decision.action === "start") params.agentModel = flags.model;
       const updated = await patchTicket(id, decision.action, params, actor);
-      if (updated) changeLines.push(`state→"${flags.state}" (${decision.action})`);
+      if (updated) {
+        changeLines.push(`state→"${flags.state}" (${decision.action})`);
+        if (flags.model && decision.action === "start") changeLines.push(`model→${flags.model}`);
+      }
     }
   }
 
@@ -388,13 +403,11 @@ async function cmdHandoff(id, args) {
     // Not started yet: start(role) both begins the ticket AND assigns the role in one call —
     // a following `handoff` would be a same-role no-op (handoff also requires IN_PROGRESS,
     // which start() just entered), so we call start() instead of handoff() here.
-    // CAM-342: the model tier is stamped ONLY via the handoff/updateFields verbs (BR-3) —
-    // `start` never accepts it, so re-run `handoff --model` once the ticket is In Progress.
+    // trial-2 feedback (CAM-342 follow-up): the `start` verb now also accepts the model-tier
+    // stamp (same latest-wins semantics as handoff/updateFields) — pass it straight through,
+    // no more "not stamped yet, re-run" fallback.
     verb = "start";
-    updated = await patchTicket(id, "start", { role: roleEnum }, actor);
-    if (updated && flags.model) {
-      console.log(`(note: --model is not stamped by a first "start" — re-run "handoff CAM-id --model ${flags.model}" now that it's In Progress)`);
-    }
+    updated = await patchTicket(id, "start", { role: roleEnum, ...(flags.model ? { agentModel: flags.model } : {}) }, actor);
   } else {
     verb = "handoff";
     updated = await patchTicket(
@@ -405,8 +418,10 @@ async function cmdHandoff(id, args) {
     );
   }
   if (updated) {
+    // trial-2 feedback: --model now stamps via either verb (start or handoff) — show it
+    // whenever it was actually sent, not just on the handoff branch.
     console.log(
-      `✓ ${id} handoff: role→${flags.role} (${verb})${flags.state ? ` state→"${flags.state}"` : ""}${flags.model && verb === "handoff" ? ` model→${flags.model}` : ""}`
+      `✓ ${id} handoff: role→${flags.role} (${verb})${flags.state ? ` state→"${flags.state}"` : ""}${flags.model ? ` model→${flags.model}` : ""}`
     );
   }
 }
@@ -745,7 +760,7 @@ async function cmdShow(id) {
 
 const USAGE =
   "usage: ticket-sync <list | gates | audit | pull [outfile] | index | show <CAM-id> | " +
-  "set <CAM-id> [--state S] [--add-label L] [--remove-label L] [--note N] [--actor A] | " +
+  "set <CAM-id> [--state S] [--add-label L] [--remove-label L] [--model fable|opus|sonnet|haiku] [--note N] [--actor A] | " +
   "handoff <CAM-id> --role <role> [--state S] [--model fable|opus|sonnet|haiku] [--note N] [--actor A] | " +
   "release <CAM-id> [--actor A] | scaffold <CAM-id> | notify <text> | " +
   "create --type epic|story|task --title T [--epic E] [--role R] [--persona P] [--feature F] " +

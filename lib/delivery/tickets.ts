@@ -211,7 +211,12 @@ export async function createTicket(actor: string, input: CreateTicketInput): Pro
 
 // ── start(role?) — overloaded verb (G2-locked, ADR-010 open trade-off #1) ──────────────
 
-export async function start(id: string, actor: string, role?: DeliveryRole): Promise<Ticket> {
+export async function start(
+  id: string,
+  actor: string,
+  role?: DeliveryRole,
+  agentModel?: AgentModelTier
+): Promise<Ticket> {
   const db = getDeliveryClient();
   const ticket = await getTicketOr404(db, id);
 
@@ -219,7 +224,15 @@ export async function start(id: string, actor: string, role?: DeliveryRole): Pro
     // start() with no role: BACKLOG -> TODO (queue/triage only, no owner yet).
     assertState(ticket, ["BACKLOG"], "start");
     const updated = await db.$transaction(async (tx) => {
-      const u = await tx.ticket.update({ where: { id: ticket.id }, data: { state: "TODO" } });
+      const u = await tx.ticket.update({
+        where: { id: ticket.id },
+        data: {
+          state: "TODO",
+          // trial-2 feedback: latest stamp wins, omitted = unchanged (BR-3); no separate
+          // TicketEvent kind is added for this, same as handoff/updateFields (AC-5).
+          ...(agentModel ? { agentModel } : {}),
+        },
+      });
       await logEvent(tx, u.id, "state_change", ticket.state, "TODO", actor);
       return u;
     });
@@ -238,6 +251,9 @@ export async function start(id: string, actor: string, role?: DeliveryRole): Pro
         startedAt: ticket.startedAt ?? new Date(),
         currentRole: role,
         roleHistory: roleChange.nextRoleHistory,
+        // trial-2 feedback: latest stamp wins, omitted = unchanged (BR-3); no separate
+        // TicketEvent kind is added for this, same as handoff/updateFields (AC-5).
+        ...(agentModel ? { agentModel } : {}),
       },
     });
     await logEvent(tx, u.id, "state_change", ticket.state, "IN_PROGRESS", actor);

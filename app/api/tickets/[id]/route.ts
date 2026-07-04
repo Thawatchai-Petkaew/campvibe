@@ -99,7 +99,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     let ticket;
     switch (p.action) {
       case "start":
-        ticket = await start(id, p.actor, p.role);
+        // trial-2 feedback (CAM-342 follow-up): destructured explicitly (CAM-342 lesson —
+        // this file always destructures the discriminated-union member explicitly).
+        ticket = await start(id, p.actor, p.role, p.agentModel);
         break;
       case "raiseGate":
         ticket = await raiseGate(id, p.actor, p.note);
