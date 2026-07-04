@@ -1,6 +1,6 @@
 # Model-Tier Trial — 4-tier assignment vs single-tier baseline
 
-> Owner decision 2026-07-04: adopt the 4-tier model assignment as a **trial over the next 2-3 stories**, score every story on the dimensions below, then compare against the pre-trial baseline and decide whether to lock, adjust, or revert. Reversal cost = frontmatter lines only.
+> **POLICY LOCKED 2026-07-04 (owner-ratified after trial 3/3: CAM-342, CAM-302, CAM-303).** Trial verdict: CI first-pass 3/3 · rework 0 · proactive catches ~4x baseline · spec-lite path + Auto round both proven. The 4-tier assignment below is now standing policy; demote criteria remain permanently active (any severe escape attributable to a tier -> demote immediately). Escaped-defect windows for the 3 trial stories close 2026-07-11.
 
 ## Tier assignment (in effect from this commit)
 
