@@ -9,6 +9,10 @@
 import { z } from "zod";
 
 export const TICKET_TYPES = ["EPIC", "STORY", "TASK"] as const;
+// CAM-342: model-tier trial instrumentation. Lowercase (BR-1) -- distinct casing convention
+// from the SCREAMING_SNAKE enum tuples above, matching the exact display string stored/shown
+// (the chip/modal render this value verbatim, pass-through -- no relabeling table).
+export const AGENT_MODEL_TIERS = ["fable", "opus", "sonnet", "haiku"] as const;
 export const DELIVERY_ROLES = [
   "PRODUCT_OWNER",
   "ANALYST",
@@ -27,6 +31,8 @@ const ticketTypeSchema = z.enum(TICKET_TYPES);
 const deliveryRoleSchema = z.enum(DELIVERY_ROLES);
 const personaSchema = z.enum(PERSONAS);
 const ticketStateSchema = z.enum(TICKET_STATES);
+const agentModelSchema = z.enum(AGENT_MODEL_TIERS);
+export type AgentModelTier = (typeof AGENT_MODEL_TIERS)[number];
 
 /** Free-text actor (G2-locked — no FK to a User table; see ADR-010 open trade-off #3). */
 const actorSchema = z.string().trim().min(1).max(200);
@@ -88,6 +94,9 @@ export const patchTicketBodySchema = z.discriminatedUnion("action", [
     actor: actorSchema,
     role: deliveryRoleSchema,
     note: z.string().max(noteMaxLen).optional(),
+    // CAM-342: optional model-tier stamp -- omitted leaves Ticket.agentModel unchanged
+    // (BR-3, EC-4); a value outside AGENT_MODEL_TIERS fails here with 400 (BR-1, EC-3).
+    agentModel: agentModelSchema.optional(),
   }),
   z.object({ action: z.literal("archive"), actor: actorSchema }),
   z.object({ action: z.literal("unarchive"), actor: actorSchema }),
@@ -108,6 +117,9 @@ export const patchTicketBodySchema = z.discriminatedUnion("action", [
     // CAM-300: re-parent — accepts a CAM identifier or internal id (resolved + type-checked
     // in the service), or null to detach from its epic.
     epicId: z.string().trim().min(1).max(30).nullable().optional(),
+    // CAM-342: optional model-tier stamp (same rule as handoff's agentModel above) --
+    // no null variant: the tier is only ever added/overwritten, never cleared via the API.
+    agentModel: agentModelSchema.optional(),
   }),
 ]);
 export type PatchTicketBody = z.infer<typeof patchTicketBodySchema>;

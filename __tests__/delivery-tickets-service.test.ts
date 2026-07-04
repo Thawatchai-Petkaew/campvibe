@@ -420,6 +420,41 @@ describe("transition matrix — handoff(role, note?) — orthogonal, outside the
     const [text] = tg.mock.calls[0] as [string];
     expect(text).toContain("Handed over to Designer");
   });
+
+  // CAM-342 — model-tier trial instrumentation (AC-5, EC-4)
+  describe("agentModel stamp (CAM-342)", () => {
+    it("[unit] stamps agentModel when provided", async () => {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "FRONTEND_ENGINEER", agentModel: null });
+      const t = await tickets.handoff(row.identifier, "frontend-engineer", "BACKEND_ENGINEER", undefined, "sonnet");
+      expect(t.agentModel).toBe("sonnet");
+    });
+
+    it("[unit] latest stamp wins — overwrites a prior tier (sonnet -> opus)", async () => {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "BACKEND_ENGINEER", agentModel: "sonnet" });
+      const t = await tickets.handoff(row.identifier, "orchestrator", "QA_ENGINEER", undefined, "opus");
+      expect(t.agentModel).toBe("opus");
+    });
+
+    it("[unit/EC-4] omitting agentModel leaves the existing value unchanged", async () => {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "FRONTEND_ENGINEER", agentModel: "sonnet" });
+      const t = await tickets.handoff(row.identifier, "frontend-engineer", "BACKEND_ENGINEER");
+      expect(t.agentModel).toBe("sonnet");
+    });
+
+    it("[unit] no per-dispatch history is kept — only one TicketEvent (handoff), never a model-change event", async () => {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "FRONTEND_ENGINEER", agentModel: "sonnet" });
+      await tickets.handoff(row.identifier, "frontend-engineer", "BACKEND_ENGINEER", undefined, "opus");
+      const events = fake.store.events.filter((e) => e.ticketId === row.id);
+      expect(events).toHaveLength(1);
+      expect(events[0].kind).toBe("handoff");
+    });
+
+    it("[unit] stamps agentModel even on a same-role handoff (no role change, model still latest-wins)", async () => {
+      const row = seed({ state: "IN_PROGRESS", currentRole: "ARCHITECT", agentModel: "sonnet" });
+      const t = await tickets.handoff(row.identifier, "architect", "ARCHITECT", undefined, "opus");
+      expect(t.agentModel).toBe("opus");
+    });
+  });
 });
 
 // ── start(role) notify semantics (documents the dual-fire design decision) ─────────────
@@ -669,6 +704,29 @@ describe("updateFields — plain edits, no state-machine side effects", () => {
     await expect(
       tickets.updateFields(epic.identifier, "human", { epicId: epic.identifier })
     ).rejects.toThrow(TicketTransitionError);
+  });
+
+  // CAM-342 — model-tier trial instrumentation (AC-5, EC-4) via the updateFields verb
+  describe("agentModel stamp (CAM-342)", () => {
+    it("[unit] stamps agentModel when provided", async () => {
+      const row = seed({ agentModel: null });
+      const t = await tickets.updateFields(row.identifier, "human", { agentModel: "haiku" });
+      expect(t.agentModel).toBe("haiku");
+      const ev = fake.store.events.find((e) => e.kind === "updated" && e.ticketId === row.id);
+      expect(ev?.toValue).toContain("agentModel");
+    });
+
+    it("[unit] latest stamp wins — overwrites a prior tier", async () => {
+      const row = seed({ agentModel: "sonnet" });
+      const t = await tickets.updateFields(row.identifier, "human", { agentModel: "fable" });
+      expect(t.agentModel).toBe("fable");
+    });
+
+    it("[unit/EC-4] omitting agentModel leaves the existing value unchanged", async () => {
+      const row = seed({ agentModel: "sonnet" });
+      const t = await tickets.updateFields(row.identifier, "human", { priority: 3 });
+      expect(t.agentModel).toBe("sonnet");
+    });
   });
 });
 

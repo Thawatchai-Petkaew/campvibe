@@ -1244,6 +1244,15 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
                               <span className="hud-card-role">
                                 {s.role || "—"}
                               </span>
+                              {/* CAM-342: model-tier chip -- ACTIVE card only (BR-4/AC-6); no
+                                  chip element at all when agentModel is empty (BR-2/EC-1), never
+                                  a "—" placeholder. Reuses .hud-card-role (existing chip class,
+                                  no new palette). */}
+                              {isActive && s.agentModel && (
+                                <span className="hud-card-role" data-testid={`chip--hud-model-${s.id}`}>
+                                  {s.agentModel}
+                                </span>
+                              )}
                               {hasAwait && (
                                 <span className="hud-you-badge">รอคุณ</span>
                               )}
@@ -1579,6 +1588,9 @@ interface IssueDetail {
   assignee?: { name: string } | null;
   project?: { id: string; name: string } | null;
   labels?: string[];
+  // CAM-342: model-tier trial instrumentation, pass-through from the API's shapeIssueDetail().
+  // Absent/empty → the modal row renders the empty-value dash (BR-2/EC-2), parity with `role`.
+  model?: string | null;
 }
 
 export async function fetchGateDetail(id: string, token: string): Promise<IssueDetail> {
@@ -1912,6 +1924,9 @@ export function TicketDetailModal({ ticketId, token, triggerRef, isOpen, onClose
               <span>สถานะ:<span className="hud-ticket-modal-meta-val"> {detail.status}</span></span>
               <span aria-hidden="true">·</span>
               <span>บทบาท:<span className="hud-ticket-modal-meta-val"> {detail.role ?? "—"}</span></span>
+              <span aria-hidden="true">·</span>
+              {/* CAM-342: renders for a ticket in any state (BR-4) -- "—" parity with บทบาท above. */}
+              <span>โมเดล:<span className="hud-ticket-modal-meta-val"> {detail.model ?? "—"}</span></span>
             </div>
           )}
 

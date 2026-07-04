@@ -109,6 +109,9 @@ function buildEpicStories(issues: StatusIssue[]): MapEpicStory[] {
     url: i.url,
     startedAt: i.startedAt,
     completedAt: i.completedAt,
+    // CAM-342: "" (not "" ?? "—") -- MapEpicStory's own convention for an absent value
+    // (matches .role above); the render layer decides no-chip vs "—" per BR-2.
+    agentModel: i.agentModel ?? "",
   }));
 }
 

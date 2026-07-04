@@ -210,6 +210,17 @@ describe("toStatusIssue — remaining StatusIssue fields", () => {
   it("description falls back to '' when null", () => {
     expect(toStatusIssue(ticketFixture({ description: null })).description).toBe("");
   });
+
+  // CAM-342: model-tier trial instrumentation — plain pass-through, no display shaping here.
+  it("agentModel passes through the stamped tier verbatim", () => {
+    const issue = toStatusIssue(ticketFixture({ agentModel: "sonnet" }));
+    expect(issue.agentModel).toBe("sonnet");
+  });
+
+  it("agentModel passes through null when never stamped (legacy/default ticket)", () => {
+    const issue = toStatusIssue(ticketFixture({ agentModel: null }));
+    expect(issue.agentModel).toBeNull();
+  });
 });
 
 // ── fetchTicketsFromDb — integration with the fake client ──────────────────────────────

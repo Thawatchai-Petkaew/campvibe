@@ -1,0 +1,16 @@
+-- Down migration for 20260704070246_add_ticket_agent_model (CAM-342).
+-- Prisma Migrate does not auto-generate a down migration; this file is a hand-written,
+-- TESTED rollback path (ops.md "reversible + tested on Staging/the delivery DB before use").
+--
+-- Verified 2026-07-04 against the real delivery DB (DELIVERY_DATABASE_URL, db.prisma.io):
+--   1. `prisma migrate dev` applied the up migration (migration.sql) -- column added.
+--   2. This DROP COLUMN statement was run directly (`prisma db execute --stdin`) -- column
+--      removed cleanly; `prisma db pull --print` confirmed no other column was touched.
+--   3. The up ADD COLUMN statement was re-run -- column restored (round-trip proven).
+--
+-- No backfill needed either direction: the column is nullable with no default other than
+-- NULL, and no other table/column depends on it (trial-only instrumentation, CAM-342).
+-- Not wired into any automated rollback tooling (this delivery DB has no per-env split --
+-- see ADR-010 -- rollback here means running this statement by hand via
+-- `prisma db execute --schema prisma/delivery/schema.prisma --stdin`).
+ALTER TABLE "Ticket" DROP COLUMN "agentModel";

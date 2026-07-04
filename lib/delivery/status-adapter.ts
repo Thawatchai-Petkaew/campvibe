@@ -80,6 +80,9 @@ export function toStatusIssue(t: TicketWithEpic): StatusIssue {
       : null,
     project: t.featureName ? { id: t.featureName, name: t.featureName } : null,
     parent: t.epic ? { id: t.epic.id, title: t.epic.title } : null,
+    // CAM-342: pass-through only, no display shaping here (BR-2 -- the card/modal decide how
+    // to render empty vs stamped).
+    agentModel: t.agentModel,
   };
 }
 

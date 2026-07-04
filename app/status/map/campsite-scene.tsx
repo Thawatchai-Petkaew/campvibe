@@ -95,6 +95,11 @@ export interface MapEpicStory {
   url: string;
   startedAt: string | null;
   completedAt: string | null;
+  // CAM-342 (additive, optional -- backward-compatible with existing MapEpicStory[] fixtures
+  // elsewhere in the test suite): model-tier trial instrumentation, pass-through of
+  // Ticket.agentModel. Absent/"" (not stamped) renders no chip on the active card
+  // (BR-2/EC-1) -- never a placeholder.
+  agentModel?: string;
 }
 
 /** One epic as projected for the map client. */

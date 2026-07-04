@@ -26,6 +26,12 @@ export interface StatusIssue {
   assignee: { name: string; displayName: string; avatarUrl: string | null } | null;
   project: { id: string; name: string } | null;  // Linear Project = "feature"
   parent: { id: string; title: string } | null;  // parent issue = "epic" (title is the stable link key)
+  // CAM-342 (additive, backward-compatible): model-tier trial instrumentation. Absent/undefined
+  // for the legacy Linear-sourced path (Linear carries no such field); populated from
+  // Ticket.agentModel by lib/delivery/status-adapter.ts's toStatusIssue() on the delivery-DB
+  // path. Existing consumers (lib/status-model.ts, lib/status-derive.ts) never enumerate
+  // StatusIssue's fields explicitly, so this rides through them unmodified.
+  agentModel?: string | null;
 }
 
 const TEAM_KEY = process.env.LINEAR_TEAM_KEY || "CAM";
