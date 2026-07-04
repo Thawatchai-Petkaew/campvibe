@@ -65,6 +65,7 @@ Read first: `.claude/rules/qa.md` (this file) · the ticket you will test (its A
 
 - Every row in the ticket's AC table = at least 1 test (happy + boundary + error/validation per the Rules below).
 - Thai copy quoted verbatim in an AC must be asserted **character-for-character** (keep the Thai string exactly as written, e.g. asserting the literal copy from `locales/`).
+- The `Neg/edge` column on each AC row + the ticket's `## Edge cases` section (EC-n) are QA's negative-case inventory — every EC-n gets a test.
 
 ### 3. Coverage ≥ 80% on new code
 
