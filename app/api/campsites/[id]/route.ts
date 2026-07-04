@@ -105,6 +105,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.tiktokUrl !== undefined && { tiktokUrl: data.tiktokUrl || undefined }),
         ...(data.toiletInfo !== undefined && { toiletInfo: data.toiletInfo }),
         ...(data.minimumAge !== undefined && { minimumAge: data.minimumAge }),
+
+        // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy.
+        ...(data.extraFeeAmount !== undefined && { extraFeeAmount: data.extraFeeAmount }),
+        ...(data.extraFeeLabel !== undefined && { extraFeeLabel: data.extraFeeLabel || undefined }),
+        ...(data.cancellationPolicy !== undefined && { cancellationPolicy: data.cancellationPolicy || undefined }),
+
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.checkInTime && { checkInTime: data.checkInTime }),

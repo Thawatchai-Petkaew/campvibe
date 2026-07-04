@@ -3,8 +3,15 @@
  *
  * Pure, framework-agnostic module. Import this on both the server (API route)
  * and the client (UI preview) so the displayed total always equals the recorded
- * total. No fees anywhere — fee model deferred to H-5.5 with a proper atomic
- * config model.
+ * total.
+ *
+ * PREP-2 (CAM-268): `extraFeeAmount` is the ONE atomic, host-set, one-time-per-stay
+ * additive charge on CampSite (e.g. an entrance fee) — added on top of the subtotal
+ * so the displayed price and the recorded booking total never diverge (closes the
+ * C-3.4 "fee shown but not counted" gap). This is deliberately NOT the deferred H-5.5
+ * platform fee-config model (multi-fee-type, admin-managed, VAT-aware per fee type —
+ * see docs/project/product-plan.md H-5.5); this module remains the extension point
+ * for that future work.
  *
  * Money note (ADR-002): DB stores Decimal; callers pass Number here (the API
  * already converts priceLow / pricePerNight via Number() before calling). THB
@@ -44,13 +51,20 @@ export interface ComputeBookingPriceInput {
   nights: number;
   /** vatRate as a decimal fraction, e.g. 0.07 for 7% Thai VAT (0 = no VAT) */
   vatRate: number;
+  /**
+   * PREP-2 (CAM-268): the camp's atomic CampSite.extraFeeAmount, charged ONCE per
+   * stay (never multiplied by nights). Optional; defaults to 0 so every existing
+   * caller that omits it keeps the prior no-fee total unchanged. Negative input is
+   * clamped to 0 (defensive — the zod boundary already rejects negative values).
+   */
+  extraFeeAmount?: number;
 }
 
 /** @public */
 export interface BookingPriceResult {
   /** per-night price used */
   unitAmount: number;
-  /** unitAmount × nights (no fees added) */
+  /** unitAmount × nights */
   subtotalAmount: number;
   nights: number;
   /** vatRate passed in */
@@ -63,9 +77,12 @@ export interface BookingPriceResult {
   taxAmount: number;
   /** true when taxRate > 0 (prices include VAT) */
   vatInclusive: boolean;
+  /** CAM-268: the atomic fee actually applied (0 when none/omitted). */
+  extraFeeAmount: number;
   /**
-   * Total amount owed. Equals subtotalAmount — no platform fees.
-   * (Fees are deferred to H-5.5 with an atomic config model.)
+   * Total amount owed = subtotalAmount + extraFeeAmount. VAT stays inclusive
+   * (extracted from subtotalAmount only, never added on top) — extraFeeAmount is
+   * a flat additive charge, not itself taxed by this module.
    */
   totalAmount: number;
 }
@@ -73,14 +90,15 @@ export interface BookingPriceResult {
 /**
  * computeBookingPrice — calculates all price fields for a booking.
  *
- * Invariant: totalAmount === subtotalAmount (no fees).
+ * Invariant: totalAmount === subtotalAmount + extraFeeAmount.
  * VAT is extracted from the inclusive subtotal exactly as the API did inline
- * (lines 95-97 of the original route.ts).
+ * (lines 95-97 of the original route.ts, pre-CAM-58).
  */
 export function computeBookingPrice({
   unitPrice,
   nights,
   vatRate,
+  extraFeeAmount = 0,
 }: ComputeBookingPriceInput): BookingPriceResult {
   const safeNights = Math.max(0, nights);
   const subtotalAmount = unitPrice * safeNights;
@@ -88,7 +106,8 @@ export function computeBookingPrice({
   const taxAmount = vatInclusive
     ? Math.round((subtotalAmount - subtotalAmount / (1 + vatRate)) * 100) / 100
     : 0;
-  const totalAmount = subtotalAmount; // no fees — invariant: total === subtotal
+  const safeExtraFeeAmount = Math.max(0, extraFeeAmount);
+  const totalAmount = subtotalAmount + safeExtraFeeAmount; // CAM-268: additive atomic fee
 
   return {
     unitAmount: unitPrice,
@@ -97,6 +116,7 @@ export function computeBookingPrice({
     taxRate: vatRate,
     taxAmount,
     vatInclusive,
+    extraFeeAmount: safeExtraFeeAmount,
     totalAmount,
   };
 }

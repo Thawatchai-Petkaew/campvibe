@@ -447,9 +447,20 @@ describe("i18n: gallery.imageOf template placeholders", () => {
 describe("i18n: no em-dash in Thai F3 copy", () => {
     const groups = ["gallery", "newCampground", "booking", "campground"] as const;
 
+    // CAM-268: campground now nests a sub-object (cancellationPolicy) alongside its
+    // flat string keys — collect every string leaf recursively so a nested group is
+    // checked exactly as strictly as a flat one (never skipped).
+    function collectStringLeaves(value: unknown): string[] {
+        if (typeof value === "string") return [value];
+        if (value && typeof value === "object") {
+            return Object.values(value).flatMap(collectStringLeaves);
+        }
+        return [];
+    }
+
     groups.forEach((group) => {
         it(`AC-i18n-5: Thai ${group} values contain no em-dash (—)`, () => {
-            const values = Object.values(translations.th[group]) as string[];
+            const values = collectStringLeaves(translations.th[group]);
             values.forEach((v) => {
                 expect(v).not.toMatch(/—/);
             });

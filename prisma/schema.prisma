@@ -80,6 +80,17 @@ enum OwnershipType {
   NATIONAL_PARK
 }
 
+// PREP-2 (CAM-268): closed set per ADR-003 (small, stable, engineering-owned — a new
+// tier is a code + migration change, not an ops-managed MasterData row). Thai/EN copy
+// per value lives in locales/translations.json (campground.cancellationPolicy.*),
+// resolved via lib/cancellation-policy.ts — never inferred from priceLow/priceHigh.
+enum CancellationPolicy {
+  FLEXIBLE // ยกเลิกฟรีก่อนเข้าพัก 24 ชั่วโมง
+  MODERATE // ยกเลิกฟรีก่อนเข้าพัก 7 วัน
+  STRICT // ยกเลิกฟรีก่อนเข้าพัก 14 วันเท่านั้น
+  NON_REFUNDABLE // ไม่สามารถขอคืนเงินได้ทุกกรณี
+}
+
 enum ViewType {
   GENERAL
   RIVER
@@ -288,6 +299,23 @@ model CampSite {
   priceHigh     Decimal? @db.Decimal(12, 2) // [Financial]
   priceCurrency String   @default("THB") // [Financial] ISO 4217
 
+  // PREP-2 (CAM-268): atomic price/fee/cancellation-policy pixels — additive, so the
+  // AI assistant + detail page always show the FINAL price with no hidden add-ons
+  // (M1 "Listing Truth" exit criterion). extraFeeAmount is a single, host-set,
+  // ONE-TIME-per-stay additive charge (e.g. entrance fee) — charged into the same
+  // computeBookingPrice() single source used by both the detail-page preview and
+  // booking creation (lib/booking-pricing.ts), closing the C-3.4-style "fee shown but
+  // not counted in total" gap. Distinct from feeInfo (free-text context, unchanged)
+  // and from the deferred H-5.5 platform fee-config model (multi-fee-type,
+  // admin-managed — see docs/project/product-plan.md H-5.5; NOT this field).
+  extraFeeAmount Decimal? @db.Decimal(12, 2) // [Financial] one-time additive fee, same priceCurrency
+  extraFeeLabel  String?  @db.VarChar(100) // [Public] short label for what the fee is (e.g. "ค่าเข้าอุทยาน")
+
+  // Cancellation policy as a closed, queryable Pixel (ADR-003: closed value sets →
+  // Prisma enum, owned by engineering). null = host has not set a policy yet (AC-3:
+  // renders "ยังไม่ระบุนโยบายการยกเลิก" — never inferred/guessed).
+  cancellationPolicy CancellationPolicy? // [Public]
+
   // Status & Dates
   isVerified   Boolean   @default(false)
   verifiedDate DateTime?
@@ -475,6 +503,10 @@ model Booking {
   snapshotSpotName       String? // booked spot/unit name at booking time (spot-level bookings)
   snapshotUnitAmount     Decimal? @db.Decimal(12, 2) // [Financial] per-night price charged
   snapshotSubtotalAmount Decimal? @db.Decimal(12, 2) // [Financial]
+  // PREP-2 (CAM-268): the atomic CampSite.extraFeeAmount actually applied at booking
+  // time, frozen so a later host edit/removal of the fee never rewrites this booking's
+  // total (ADR-005 crystallization — every Pixel with financial meaning is snapshotted).
+  snapshotExtraFeeAmount Decimal? @db.Decimal(12, 2) // [Financial]
   snapshotTaxRate        Decimal? @db.Decimal(5, 4) // [Financial] region VAT rate applied
   snapshotTaxAmount      Decimal? @db.Decimal(12, 2) // [Financial]
   snapshotVatInclusive   Boolean? // was the recorded total VAT-inclusive (false until S5 wires Country.vatRate)
