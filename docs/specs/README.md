@@ -38,3 +38,4 @@ docs/specs/
 <!-- deploy-retrigger 2026-07-04: staging-branch Vercel deployments silently stalled after 43f0862; this commit re-fires the push event (see CAM-348) -->
 <!-- deploy-retrigger 2 (rate-limit slot retry) -->
 <!-- deploy-retry 3 -->
+<!-- deploy-retry 4 -->
