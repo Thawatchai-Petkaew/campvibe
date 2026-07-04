@@ -100,10 +100,12 @@ vi.mock('@/lib/auth', () => ({
 import { prisma } from '@/lib/prisma';
 import {
   getAvailabilityStatusForCamps,
+  MAX_STATUS_RANGE_NIGHTS,
   type CampAvailabilityStatus,
 } from '@/lib/campsite-availability';
 import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import { getTranslations } from '@/locales/translations';
+import { catalogQuerySchema } from '@/lib/validations/catalog-cursor';
 import { GET as campsiteGET } from '@/app/api/campsites/route';
 
 /** Build a Date at midnight UTC from an ISO date string. */
@@ -357,6 +359,171 @@ describe('getAvailabilityStatusForCamps — classification', () => {
 });
 
 // ===========================================================================
+// Group A2: DoS guard — event-loop hang / OOM (G3 review finding, Important)
+//
+// GET /api/campsites is public, unauthenticated, and unrate-limited.
+// getAvailabilityStatusForCamps runs a synchronous per-night loop per camp —
+// an absurd span (e.g. startDate=2026-01-01&endDate=9999-12-31) must never
+// reach that loop. The guard is checked BEFORE any Prisma call, so it
+// protects both attach points from one shared choke point.
+// ===========================================================================
+
+describe('getAvailabilityStatusForCamps — DoS guard (MAX_STATUS_RANGE_NIGHTS)', () => {
+  it('MAX_STATUS_RANGE_NIGHTS is exported as 366', () => {
+    expect(MAX_STATUS_RANGE_NIGHTS).toBe(366);
+  });
+
+  it('[dos] a 10-year span returns {} immediately — NO Prisma call, no per-night loop', async () => {
+    const result = await getAvailabilityStatusForCamps(
+      [CAMP_A],
+      d('2026-01-01'),
+      d('2036-01-01'),
+      1
+    );
+
+    expect(result).toEqual({});
+    expect(prisma.campSite.findMany).not.toHaveBeenCalled();
+    expect(prisma.booking.findMany).not.toHaveBeenCalled();
+    expect(prisma.blockedDate.findMany).not.toHaveBeenCalled();
+    expect(prisma.internalHold.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[dos] the exact attack shape from the review (2026-01-01 -> 9999-12-31) returns {} with no DB calls', async () => {
+    const result = await getAvailabilityStatusForCamps(
+      [CAMP_A, CAMP_B, CAMP_C],
+      d('2026-01-01'),
+      new Date('9999-12-31T00:00:00.000Z'),
+      1
+    );
+
+    expect(result).toEqual({});
+    expect(prisma.campSite.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[boundary] exactly MAX_STATUS_RANGE_NIGHTS (366) nights is ALLOWED — runs the real queries', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: CAMP_A, maxGuestsPerDay: 5 },
+    ]);
+
+    // endDate is EXCLUSIVE checkout: 366 nights means endDate = startDate + 366 days.
+    const start = d('2026-01-01');
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + MAX_STATUS_RANGE_NIGHTS);
+
+    const result = await getAvailabilityStatusForCamps([CAMP_A], start, end, 1);
+
+    expect(result[CAMP_A]).toBeUndefined(); // fully available — but it DID compute
+    expect(prisma.campSite.findMany).toHaveBeenCalledOnce();
+    expect(prisma.booking.findMany).toHaveBeenCalledOnce();
+  });
+
+  it('[boundary] MAX_STATUS_RANGE_NIGHTS + 1 (367) nights is REJECTED — no DB calls', async () => {
+    const start = d('2026-01-01');
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + MAX_STATUS_RANGE_NIGHTS + 1);
+
+    const result = await getAvailabilityStatusForCamps([CAMP_A], start, end, 1);
+
+    expect(result).toEqual({});
+    expect(prisma.campSite.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a real 5-night range still classifies normally (guard does not over-trigger)', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: CAMP_A, maxGuestsPerDay: 2 },
+    ]);
+    (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { campSiteId: CAMP_A, checkInDate: d('2026-09-10'), checkOutDate: d('2026-09-15'), guests: 2 },
+    ]);
+
+    const result = await getAvailabilityStatusForCamps([CAMP_A], d('2026-09-10'), d('2026-09-15'), 1);
+
+    expect(result[CAMP_A]).toBe('FULLY_UNAVAILABLE');
+  });
+
+  it('[error/validation] a non-finite (Invalid Date) startDate returns {} with NO Prisma call (no wasted round-trips)', async () => {
+    const result = await getAvailabilityStatusForCamps(
+      [CAMP_A],
+      new Date('not-a-real-date'),
+      d('2026-09-11'),
+      1
+    );
+
+    expect(result).toEqual({});
+    expect(prisma.campSite.findMany).not.toHaveBeenCalled();
+    expect(prisma.booking.findMany).not.toHaveBeenCalled();
+    expect(prisma.blockedDate.findMany).not.toHaveBeenCalled();
+    expect(prisma.internalHold.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[error/validation] a non-finite (Invalid Date) endDate returns {} with NO Prisma call', async () => {
+    const result = await getAvailabilityStatusForCamps(
+      [CAMP_A],
+      d('2026-09-10'),
+      new Date('garbage'),
+      1
+    );
+
+    expect(result).toEqual({});
+    expect(prisma.campSite.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Group A3: schema-layer guard — catalogQuerySchema startDate/endDate (G3 finding)
+// ===========================================================================
+
+describe('catalogQuerySchema — startDate/endDate parseability (G3 review, Info finding)', () => {
+  it('[normal] a valid ISO date string parses through unchanged', () => {
+    const parsed = catalogQuerySchema.safeParse({ startDate: '2026-09-10', endDate: '2026-09-11' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.startDate).toBe('2026-09-10');
+      expect(parsed.data.endDate).toBe('2026-09-11');
+    }
+  });
+
+  it('[error/validation] an unparseable endDate ("garbage") is normalized to undefined — NOT a 400', () => {
+    const parsed = catalogQuerySchema.safeParse({ startDate: '2026-09-10', endDate: 'garbage' });
+    // Chosen behaviour: never fail the whole request over one bad date — the
+    // public catalog GET must keep returning results (treated as undated).
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.endDate).toBeUndefined();
+    }
+  });
+
+  it('[error/validation] an unparseable startDate is normalized to undefined too', () => {
+    const parsed = catalogQuerySchema.safeParse({ startDate: 'not-a-date', endDate: '2026-09-11' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.startDate).toBeUndefined();
+    }
+  });
+
+  it('[null/empty] both dates absent → both stay undefined (undated search, unchanged)', () => {
+    const parsed = catalogQuerySchema.safeParse({});
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.startDate).toBeUndefined();
+      expect(parsed.data.endDate).toBeUndefined();
+    }
+  });
+
+  it('[normal] the schema does NOT cap the SPAN of an otherwise-valid range (span cap lives in the helper, not here)', () => {
+    // Both individually valid dates — a 7973-year span still parses successfully
+    // at the schema layer. The span cap is MAX_STATUS_RANGE_NIGHTS, a single
+    // choke point in lib/campsite-availability.ts shared by both attach points.
+    const parsed = catalogQuerySchema.safeParse({ startDate: '2026-01-01', endDate: '9999-12-31' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.startDate).toBe('2026-01-01');
+      expect(parsed.data.endDate).toBe('9999-12-31');
+    }
+  });
+});
+
+// ===========================================================================
 // Group B: buildCampSiteWhere — step 7 removed (BR-6, AC-1/AC-8/EC-7)
 // ===========================================================================
 
@@ -471,6 +638,45 @@ describe('GET /api/campsites — availabilityStatus attach on the cursor page', 
     expect(body.items).toHaveLength(2); // NOT filtered to empty
     expect(body.items[0].availabilityStatus).toBe('FULLY_UNAVAILABLE');
     expect(body.items[1].availabilityStatus).toBe('FULLY_UNAVAILABLE');
+  });
+
+  it('[dos][g3-finding] the attack shape (startDate=2026-01-01&endDate=9999-12-31) never reaches the per-night loop — 200, no badge, no availability DB calls', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: CAMP_A, nameTh: 'ค่าย A', nameThSlug: 'a', priceLow: 500, createdAt: d('2026-01-01'), avgRating: null, reviewCount: 0 },
+    ]);
+
+    const req = new NextRequest('http://localhost/api/campsites?startDate=2026-01-01&endDate=9999-12-31');
+    const res = await campsiteGET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.items).toHaveLength(1);
+    expect('availabilityStatus' in body.items[0]).toBe(false);
+    // Only the page-listing call ran — the DoS guard returned {} before the
+    // capacity side-select / Booking / BlockedDate / InternalHold queries.
+    expect(prisma.campSite.findMany).toHaveBeenCalledOnce();
+    expect(prisma.booking.findMany).not.toHaveBeenCalled();
+    expect(prisma.blockedDate.findMany).not.toHaveBeenCalled();
+    expect(prisma.internalHold.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[error/validation][g3-finding] endDate=garbage is normalized to undated at the schema layer — 200, no badge, no wasted round-trips', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: CAMP_A, nameTh: 'ค่าย A', nameThSlug: 'a', priceLow: 500, createdAt: d('2026-01-01'), avgRating: null, reviewCount: 0 },
+    ]);
+
+    const req = new NextRequest('http://localhost/api/campsites?startDate=2026-09-10&endDate=garbage');
+    const res = await campsiteGET(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.items).toHaveLength(1);
+    expect('availabilityStatus' in body.items[0]).toBe(false);
+    // Normalized to undefined at the schema boundary → treated as undated →
+    // campSite.findMany is called exactly once (page listing only), no
+    // wasted capacity/Booking/BlockedDate/InternalHold round-trips.
+    expect(prisma.campSite.findMany).toHaveBeenCalledOnce();
+    expect(prisma.booking.findMany).not.toHaveBeenCalled();
   });
 });
 

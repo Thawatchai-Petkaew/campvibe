@@ -280,6 +280,18 @@ export async function getRemainingCapacity(
 export type CampAvailabilityStatus = 'FULLY_UNAVAILABLE' | 'PARTIALLY_UNAVAILABLE';
 
 /**
+ * SECURITY (G3 review finding, event-loop DoS): the widest date span this
+ * helper will ever classify in-memory. `getAvailabilityStatusForCamps` runs a
+ * synchronous per-night loop per camp; the public, unauthenticated,
+ * unrate-limited `GET /api/campsites` endpoint could otherwise be sent an
+ * absurd range (e.g. `startDate=2026-01-01&endDate=9999-12-31`) and hang the
+ * event loop / OOM the process on a single request. 366 nights covers any
+ * real camper search (a full year, inclusive of a leap year) with margin;
+ * beyond that the range fails open (no badge computed) rather than iterate.
+ */
+export const MAX_STATUS_RANGE_NIGHTS = 366;
+
+/**
  * CAM-344 — batched per-camp availability status for a page of dated catalog
  * search results (BR-1/BR-2/BR-3/BR-5, ADR-009 no-forked-data-path).
  *
@@ -307,6 +319,12 @@ export type CampAvailabilityStatus = 'FULLY_UNAVAILABLE' | 'PARTIALLY_UNAVAILABL
  * Returns a map of campId → status. A camp with ZERO unavailable nights is
  * OMITTED from the map entirely (fully available = no badge, BR-3).
  *
+ * DoS guard: a non-finite date (Invalid Date), an inverted/zero-night range,
+ * or a span wider than MAX_STATUS_RANGE_NIGHTS returns {} immediately — no
+ * query, no loop. This is checked BEFORE any Prisma call, so it protects both
+ * attach points (CatalogResults.tsx SSR + app/api/campsites/route.ts cursor
+ * GET) from a single shared choke point.
+ *
  * Fail-open contract (AC-9/EC-8): this function does NOT catch its own
  * Prisma errors — callers (CatalogResults.tsx, app/api/campsites/route.ts)
  * must wrap the call in try/catch and treat a throw as "no status computed"
@@ -320,11 +338,26 @@ export async function getAvailabilityStatusForCamps(
 ): Promise<Record<string, CampAvailabilityStatus>> {
   if (campIds.length === 0) return {};
 
+  // Reject non-finite dates (Invalid Date, e.g. from an unparseable query
+  // string) BEFORE any arithmetic/query — an Invalid Date compares as
+  // neither < nor >= anything, so the lastNight/startDate check below would
+  // silently pass a NaN-backed date straight into 4 Prisma calls that throw.
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
+    return {};
+  }
+
   // Nights only: exclude the checkout day (BR-1, EC-6). A same-day/inverted
   // range has no night to classify — nothing to compute, no badge.
   const lastNight = new Date(endDate);
   lastNight.setDate(lastNight.getDate() - 1);
   if (lastNight < startDate) return {};
+
+  // DoS guard: cap the per-night in-memory loop width (see
+  // MAX_STATUS_RANGE_NIGHTS doc comment above). Computed from whole days —
+  // safe here since startDate/lastNight are always UTC midnight Dates.
+  const nightCount =
+    Math.round((lastNight.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (nightCount > MAX_STATUS_RANGE_NIGHTS) return {};
 
   // BR-2: requestedGuests defaults to 1 when absent/invalid.
   const guests = Number.isFinite(requestedGuests) && requestedGuests > 0 ? requestedGuests : 1;
