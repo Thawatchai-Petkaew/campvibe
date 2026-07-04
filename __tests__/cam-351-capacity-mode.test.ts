@@ -266,14 +266,55 @@ describe('CampgroundForm — AC-3/AC-4/EC-2/EC-5: PER-SPOT derived total vs empt
     expect(formSrc).toContain('{t.newCampground.capacityDerivedEmpty}');
   });
 
-  it('derivedGuestTotal reads the GET payload\'s already-derived sum, gated on useSpotView (BR-3/BR-7)', () => {
+  it('derivedGuestTotal reads the GET payload\'s already-derived sum, gated on the LIVE spot count (BR-3/BR-7, G3 fix)', () => {
     expect(formSrc).toContain(
-      'const derivedGuestTotal: number = initialData?.useSpotView ? (initialData?.maxGuestsPerDay ?? 0) : 0;'
+      'const derivedGuestTotal: number = spotCount > 0 ? (initialData?.maxGuestsPerDay ?? 0) : 0;'
     );
   });
 
   it('spotCount reads spotStats.totalSpots (non-deleted only, per lib/spot-aggregation.ts)', () => {
     expect(formSrc).toContain('const spotCount: number = initialData?.spotStats?.totalSpots ?? 0;');
+  });
+});
+
+// ===========================================================================
+// G3 review fix — AC-4/EC-2/EC-5 regression: a WHOLE-CAMP -> PER-SPOT switch
+// with zero LIVE spots must show the empty state, never the stale stored
+// maxGuestsPerDay (BR-4 keeps that column kept-but-ignored on a mode switch).
+// ===========================================================================
+
+describe('CampgroundForm — G3 fix: zero live spots after a mode switch never displays the stale maxGuestsPerDay', () => {
+  // Mirrors lib/spot-aggregation.ts getCampSiteWithCapacity's real, documented
+  // behavior (covered by __tests__/cam-352-spot-aggregation-soft-delete.test.ts):
+  // for a PER-SPOT camp with zero non-deleted spots, `spotCapacity.maxGuestsPerDay`
+  // is 0 (falsy), so `spotCapacity.maxGuestsPerDay || campSite.maxGuestsPerDay`
+  // falls back to the RAW stored column - the value BR-4 explicitly keeps
+  // (kept-but-ignored) after a WHOLE-CAMP -> PER-SPOT switch.
+  function payloadAfterSwitchWithZeroLiveSpots() {
+    return {
+      useSpotView: true,
+      maxGuestsPerDay: 50, // stale, kept-but-ignored WHOLE-CAMP value (BR-4)
+      spotStats: { totalSpots: 0, groundTypeBreakdown: undefined },
+    };
+  }
+
+  it('[repro] reading useSpotView + maxGuestsPerDay with no live-spot-count gate reproduces the G3-flagged defect (would render 50 คน for 0 spots)', () => {
+    const payload = payloadAfterSwitchWithZeroLiveSpots();
+    const buggyFormula = payload.useSpotView ? (payload.maxGuestsPerDay ?? 0) : 0;
+    expect(buggyFormula).toBe(50); // proves the stale-fallback trap is real
+  });
+
+  it('[fix] gating on the live spot count (spotStats.totalSpots) yields 0 -> the empty state (AC-4/EC-2/EC-5), not "50"', () => {
+    const payload = payloadAfterSwitchWithZeroLiveSpots();
+    const spotCount = payload.spotStats?.totalSpots ?? 0;
+    const fixedFormula = spotCount > 0 ? (payload.maxGuestsPerDay ?? 0) : 0;
+    expect(fixedFormula).toBe(0);
+  });
+
+  it('the shipped derivedGuestTotal line matches the fixed formula exactly (source-inspection)', () => {
+    expect(formSrc).toContain(
+      'const derivedGuestTotal: number = spotCount > 0 ? (initialData?.maxGuestsPerDay ?? 0) : 0;'
+    );
   });
 });
 

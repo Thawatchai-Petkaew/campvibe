@@ -676,10 +676,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     // BR-3/BR-7: non-deleted spot count. getCampSiteWithCapacity only
     // populates spotStats for a PER-SPOT camp (lib/spot-aggregation.ts).
     const spotCount: number = initialData?.spotStats?.totalSpots ?? 0;
-    // BR-3: the derived guest-capacity SUM (not the spot count) - the GET
-    // payload already overrides maxGuestsPerDay with this sum for a
-    // PER-SPOT camp (lib/spot-aggregation.ts getCampSiteWithCapacity).
-    const derivedGuestTotal: number = initialData?.useSpotView ? (initialData?.maxGuestsPerDay ?? 0) : 0;
+    // BR-3/AC-4/EC-2/EC-5 (G3 fix): the derived guest-capacity SUM (not the
+    // spot count) - gated on the LIVE spot count, not on initialData.useSpotView
+    // alone. getCampSiteWithCapacity's `spotCapacity.maxGuestsPerDay || campSite.maxGuestsPerDay`
+    // falls back to the raw stored column when the spot-derived sum is 0 (e.g.
+    // zero live spots after a WHOLE-CAMP -> PER-SPOT switch keeps the old
+    // maxGuestsPerDay per BR-4) - reading maxGuestsPerDay alone would then show
+    // a stale non-zero number instead of the empty state. spotCount === 0 must
+    // always render the empty state (AC-4), regardless of what that column holds.
+    const derivedGuestTotal: number = spotCount > 0 ? (initialData?.maxGuestsPerDay ?? 0) : 0;
     const justSwitchedToPerSpot = formData.useSpotView && !initialModeWasPerSpot;
     const justSwitchedToWholeCamp = !formData.useSpotView && initialModeWasPerSpot;
 
