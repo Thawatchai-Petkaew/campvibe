@@ -12,6 +12,7 @@ import { wishlistAPI } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useTheme } from "next-themes";
+import type { CampAvailabilityStatus } from "@/lib/campsite-availability";
 
 interface CampgroundCardProps {
     campground: CampSite & { location: { province: string }; images?: { url: string }[] };
@@ -25,6 +26,12 @@ interface CampgroundCardProps {
     avgRating?: number | null;
     /** CAM-147: total non-deleted review count. */
     reviewCount?: number;
+    /**
+     * CAM-344: computed, non-persisted availability status for the selected
+     * dated search range. Undefined = no date context (undated search,
+     * wishlist, similar-camps reuse) → no badge rendered (BR-4/BR-7).
+     */
+    availabilityStatus?: CampAvailabilityStatus;
     /**
      * CAM-199 (PERF-IMG-LCP): pass true only for the first N above-the-fold cards.
      * Sets fetchpriority="high" + eager loading on the underlying next/image.
@@ -40,6 +47,7 @@ export function CampgroundCard({
     onGuestHeartClick,
     avgRating,
     reviewCount = 0,
+    availabilityStatus,
     priority = false,
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
@@ -119,6 +127,32 @@ export function CampgroundCard({
                         <div className="absolute top-3 left-3 z-10">
                             <Badge variant="overlay" className="px-2">
                                 {t.common.new}
+                            </Badge>
+                        </div>
+                    )}
+
+                    {/*
+                      CAM-344: dated-search availability badge — overlay on the image,
+                      rendered IFF availabilityStatus is present (undated search,
+                      wishlist, and similar-camps reuses of this card never pass the
+                      field, BR-7 — the card looks identical to today). Placed
+                      bottom-left so it never collides with the top-left "New" badge
+                      or the top-right wishlist heart button; presentational only,
+                      still inside the Link so the whole card stays one tap target
+                      (BR-10). fully-unavailable = destructive (negative), partially-
+                      unavailable = warning (caution) — both existing badge.tsx
+                      variants, no new variant/token introduced.
+                    */}
+                    {availabilityStatus && (
+                        <div className="absolute bottom-3 left-3 z-10">
+                            <Badge
+                                variant={availabilityStatus === "FULLY_UNAVAILABLE" ? "destructive" : "warning"}
+                                className="px-2"
+                                data-testid="badge--availability-status"
+                            >
+                                {availabilityStatus === "FULLY_UNAVAILABLE"
+                                    ? t.catalog.fullyUnavailable
+                                    : t.catalog.partiallyUnavailable}
                             </Badge>
                         </div>
                     )}

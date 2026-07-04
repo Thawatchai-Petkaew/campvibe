@@ -11,6 +11,7 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { withTiming } from '@/lib/route-timing';
 import { campCardSelect } from '@/lib/read-models/camp-card';
 import { CATALOG_TAG } from '@/lib/catalog-cache';
+import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from '@/lib/campsite-availability';
 import {
   decodeCursor,
   buildKeysetWhere,
@@ -101,12 +102,38 @@ export async function GET(request: NextRequest) {
           )
         : null;
 
+    // 7b. CAM-344 (BR-7): compute the dated-search availability badge ONLY
+    // when both check-in and check-out are present — an undated cursor page
+    // is byte-identical to before (no status computed, no badge). Fail-open
+    // (AC-9/EC-8): a thrown/timed-out computation never blocks or empties
+    // the page — caught here and simply yields no badge on any card.
+    let availabilityByCampId: Record<string, CampAvailabilityStatus> = {};
+    if (startDate && endDate && items.length > 0) {
+      try {
+        const guestsNum = guests ? parseInt(guests, 10) : 1;
+        const requestedGuests = Number.isFinite(guestsNum) && guestsNum > 0 ? guestsNum : 1;
+        availabilityByCampId = await getAvailabilityStatusForCamps(
+          items.map((i) => i.id),
+          new Date(startDate),
+          new Date(endDate),
+          requestedGuests
+        );
+      } catch (error) {
+        console.error('[CAM-344] availability status computation failed (fail-open, no badge)', error);
+        availabilityByCampId = {};
+      }
+    }
+
     // 8. Serialise Decimals at the boundary (priceLow/avgRating: Decimal → number).
     const serialisedItems = serializeDecimals(
-      items.map((c) => ({
-        ...c,
-        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-      }))
+      items.map((c) => {
+        const availabilityStatus = availabilityByCampId[c.id];
+        return {
+          ...c,
+          createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+          ...(availabilityStatus ? { availabilityStatus } : {}),
+        };
+      })
     );
 
     // 9. Return contract shape: { items, nextCursor }.

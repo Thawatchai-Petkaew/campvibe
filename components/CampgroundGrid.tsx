@@ -11,6 +11,7 @@ import { CampgroundCard } from "@/components/CampgroundCard";
 import { LoginModal } from "@/components/LoginModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { CampCardPayload } from "@/lib/read-models/camp-card";
+import type { CampAvailabilityStatus } from "@/lib/campsite-availability";
 
 /**
  * Serialised card shape passed from the server component (PERF-5 / CAM-193).
@@ -25,6 +26,16 @@ export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'createdAt' | 
     avgRating: number | null;
     /** PERF-5: stored review count column. */
     reviewCount: number;
+    /**
+     * CAM-344: computed, non-persisted per-camp availability status for the
+     * SELECTED dated search range. Attached ONLY when both check-in and
+     * check-out dates are present in the search (BR-7); absent = fully
+     * available / no date context (undated search, wishlist, similar-camps
+     * reuse of this card) — the card renders no badge (CAM-342 field
+     * enumeration: this field does NOT ride through campCardSelect
+     * automatically, it is attached explicitly on both result surfaces).
+     */
+    availabilityStatus?: CampAvailabilityStatus;
 };
 
 interface CampgroundGridProps {
@@ -57,6 +68,7 @@ export function CampgroundGrid({ camps, savedIds, isLoggedIn }: CampgroundGridPr
                         onGuestHeartClick={() => setIsLoginOpen(true)}
                         avgRating={camp.avgRating}
                         reviewCount={camp.reviewCount}
+                        availabilityStatus={camp.availabilityStatus}
                     />
                 ))}
             </div>

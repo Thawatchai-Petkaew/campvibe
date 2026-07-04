@@ -728,7 +728,9 @@
             "loading": "Loading camps",
             "loading_sr": "Loading…",
             "loading_more": "Loading more camps",
-            "end_of_list": "You've seen all camps"
+            "end_of_list": "You've seen all camps",
+            "fullyUnavailable": "Not available for these dates",
+            "partiallyUnavailable": "Available some days in these dates"
         },
         "errors": {
             "notFound": {
@@ -1535,7 +1537,9 @@
             "loading": "กำลังโหลดลาน",
             "loading_sr": "กำลังโหลด…",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
-            "end_of_list": "ดูลานครบทั้งหมดแล้ว"
+            "end_of_list": "ดูลานครบทั้งหมดแล้ว",
+            "fullyUnavailable": "ไม่ว่างในช่วงที่เลือก",
+            "partiallyUnavailable": "ว่างบางวันในช่วงที่เลือก"
         },
         "errors": {
             "notFound": {
