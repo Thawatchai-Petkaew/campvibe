@@ -20,7 +20,8 @@ import {
     Facebook,
     Video,
     Plus,
-    Grid3x3
+    Grid3x3,
+    TriangleAlert
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -153,7 +154,10 @@ const FIELD_LABEL_RESOLVERS: Record<string, (t: TranslationType) => string> = {
     ownershipType: (t) => t.newCampground.ownershipType,
     isFree: (t) => t.newCampground.isFree,
     petFriendly: (t) => t.newCampground.petFriendly,
-    useSpotView: (t) => t.newCampground.useSpotView,
+    // CAM-351: useSpotView is now the explicit capacity-mode chooser; label
+    // the validation-banner mapping with the mode question copy (the field's
+    // own visible label), not the retired "Use Spot View" jargon key.
+    useSpotView: (t) => t.newCampground.capacityModeQuestion,
 };
 
 // EC (CAM-356): an unmapped/future field name lists the raw path once instead
@@ -483,6 +487,22 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         setFieldErrors({});
 
         try {
+            // CAM-351 BR-2/AC-11: WHOLE-CAMP mode requires maxGuestsPerDay >= 1
+            // to save. The shared campSiteSchema keeps this field optional (a
+            // PER-SPOT save omits it) — this business rule is enforced here
+            // instead of widening that schema, reusing the same
+            // fieldErrors/banner/scroll wiring the server-side 400 path uses.
+            if (!formData.useSpotView) {
+                const guests = formData.maxGuestsPerDay;
+                const guestsInvalid = guests === "" || isNaN(Number(guests)) || Number(guests) < 1;
+                if (guestsInvalid) {
+                    setFieldErrors({ maxGuestsPerDay: [t.newCampground.maxGuestsPerDayError] });
+                    setServerError(buildValidationBannerMessage(t, ["maxGuestsPerDay"]));
+                    scrollToFirstErrorField(["maxGuestsPerDay"]);
+                    return;
+                }
+            }
+
             let locationId = formData.locationId;
             if (!locationId) {
                 const locRes = await fetch('/api/location', {
@@ -645,6 +665,28 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             : undefined;
     const extraFeeLabelError =
         formData.extraFeeLabel.length > 100 ? t.newCampground.extraFeeLabelError : undefined;
+
+    // CAM-351 — capacity-mode derived state for the Capacity card.
+    // BR-1/BR-6: the mode as it was when the form LOADED (not reactive to the
+    // in-session toggle), captured once via a lazy initializer, so a switch
+    // this session can show its own transient copy (AC-5/AC-6) distinct from
+    // the persisted-state copy (AC-3/AC-4). No initialData (create) -> the
+    // WHOLE-CAMP default (AC-1).
+    const [initialModeWasPerSpot] = useState<boolean>(() => initialData?.useSpotView ?? false);
+    // BR-3/BR-7: non-deleted spot count. getCampSiteWithCapacity only
+    // populates spotStats for a PER-SPOT camp (lib/spot-aggregation.ts).
+    const spotCount: number = initialData?.spotStats?.totalSpots ?? 0;
+    // BR-3/AC-4/EC-2/EC-5 (G3 fix): the derived guest-capacity SUM (not the
+    // spot count) - gated on the LIVE spot count, not on initialData.useSpotView
+    // alone. getCampSiteWithCapacity's `spotCapacity.maxGuestsPerDay || campSite.maxGuestsPerDay`
+    // falls back to the raw stored column when the spot-derived sum is 0 (e.g.
+    // zero live spots after a WHOLE-CAMP -> PER-SPOT switch keeps the old
+    // maxGuestsPerDay per BR-4) - reading maxGuestsPerDay alone would then show
+    // a stale non-zero number instead of the empty state. spotCount === 0 must
+    // always render the empty state (AC-4), regardless of what that column holds.
+    const derivedGuestTotal: number = spotCount > 0 ? (initialData?.maxGuestsPerDay ?? 0) : 0;
+    const justSwitchedToPerSpot = formData.useSpotView && !initialModeWasPerSpot;
+    const justSwitchedToWholeCamp = !formData.useSpotView && initialModeWasPerSpot;
 
     if (optionsLoading) {
         return (
@@ -1299,45 +1341,99 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             </CardContent>
                         </Card>
 
-                        {/* Capacity & Ground Type */}
+                        {/* Capacity & Ground Type (CAM-351: explicit mode chooser replaces the buried useSpotView toggle) */}
                         <Card id="zones" tabIndex={-1} className="border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                             <CardHeader className="border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.capacity}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
-                                {/* Use Spot View Toggle */}
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, useSpotView: !formData.useSpotView })}
-                                    aria-pressed={formData.useSpotView}
-                                    className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                        formData.useSpotView
-                                            ? "bg-primary/10 border-primary"
-                                            : "bg-card border-border hover:border-primary/50"
-                                    )}
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <TruncatedLabel className="text-base font-semibold text-foreground flex items-center gap-2" as="div">
-                                            <Grid3x3 className="w-4 h-4 shrink-0" />
-                                            {t.newCampground.useSpotView}
-                                        </TruncatedLabel>
-                                        <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
-                                            {t.newCampground.useSpotViewDesc}
-                                        </TruncatedLabel>
-                                    </div>
-                                    <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.useSpotView ? "bg-primary" : "bg-muted")}>
-                                        {formData.useSpotView && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                                    </div>
-                                </button>
+                                {/* AC-1: explicit upfront capacity-mode chooser — ทั้งลาน is pre-selected by default */}
+                                <div className="space-y-3">
+                                    <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.capacityModeQuestion}</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, useSpotView: false })}
+                                            aria-pressed={!formData.useSpotView}
+                                            data-testid="btn--capacity-mode-whole-camp"
+                                            className={cn(
+                                                "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                                !formData.useSpotView
+                                                    ? "bg-primary/10 border-primary"
+                                                    : "bg-card border-border hover:border-primary/50"
+                                            )}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
+                                                    {t.newCampground.capacityModeWholeCamp}
+                                                </TruncatedLabel>
+                                                <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                                    {t.newCampground.capacityModeWholeCampDesc}
+                                                </TruncatedLabel>
+                                            </div>
+                                            <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                                !formData.useSpotView
+                                                    ? "bg-primary border-primary"
+                                                    : "bg-transparent border-border"
+                                            )}>
+                                                {!formData.useSpotView && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+                                            </div>
+                                        </button>
 
-                                {/* CTA to Create Spots when useSpotView is enabled */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, useSpotView: true })}
+                                            aria-pressed={formData.useSpotView}
+                                            data-testid="btn--capacity-mode-per-spot"
+                                            className={cn(
+                                                "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                                formData.useSpotView
+                                                    ? "bg-primary/10 border-primary"
+                                                    : "bg-card border-border hover:border-primary/50"
+                                            )}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <TruncatedLabel className="text-base font-semibold text-foreground flex items-center gap-2" as="div">
+                                                    <Grid3x3 className="w-4 h-4 shrink-0" />
+                                                    {t.newCampground.capacityModePerSpot}
+                                                </TruncatedLabel>
+                                                <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                                    {t.newCampground.capacityModePerSpotDesc}
+                                                </TruncatedLabel>
+                                            </div>
+                                            <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ml-3",
+                                                formData.useSpotView
+                                                    ? "bg-primary border-primary"
+                                                    : "bg-transparent border-border"
+                                            )}>
+                                                {formData.useSpotView && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* PER-SPOT mode: AC-3/AC-4/AC-6/BR-3/BR-4/BR-8 - derived read-only total, empty state, switch hint, link to spot management */}
                                 {formData.useSpotView && (
-                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                                    <div className="p-4 rounded-xl bg-info/5 border border-info/20" data-testid="section--capacity-per-spot">
                                         <div className="flex items-start gap-3">
+                                            <Info className="w-4 h-4 shrink-0 text-info mt-0.5" aria-hidden="true" />
                                             <div className="flex-1">
-                                                <p className="text-sm font-semibold text-foreground mb-1">{t.newCampground.spotViewEnabled}</p>
-                                                <p className="text-xs text-muted-foreground mb-3">{t.newCampground.createSpotsDesc}</p>
+                                                {justSwitchedToPerSpot ? (
+                                                    <p className="text-sm font-semibold text-foreground mb-1" data-testid="text--capacity-switch-to-per-spot-hint">
+                                                        {t.newCampground.capacitySwitchToPerSpotHint}
+                                                    </p>
+                                                ) : derivedGuestTotal > 0 ? (
+                                                    <>
+                                                        <p className="text-sm font-semibold text-foreground mb-1" data-testid="text--capacity-derived-total">
+                                                            {t.newCampground.capacityDerivedTotal.replace("{N}", String(derivedGuestTotal))}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground mb-3">{t.newCampground.capacityDerivedNote}</p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-sm font-semibold text-foreground mb-3" data-testid="text--capacity-derived-empty">
+                                                        {t.newCampground.capacityDerivedEmpty}
+                                                    </p>
+                                                )}
                                                 <Link href={isEditing ? `/dashboard/campsites/${initialData.id}/spots` : "#"} onClick={(e) => {
                                                     if (!isEditing) {
                                                         e.preventDefault();
@@ -1347,9 +1443,10 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                     <Button
                                                         type="button"
                                                         className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-medium"
+                                                        data-testid="btn--capacity-manage-spots"
                                                     >
                                                         <Plus className="w-4 h-4 mr-2" />
-                                                        {t.newCampground.createSpots}
+                                                        {t.newCampground.manageSpotsButton}
                                                     </Button>
                                                 </Link>
                                             </div>
@@ -1357,9 +1454,20 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     </div>
                                 )}
 
-                                {/* Manual Capacity Input (only show when useSpotView is false) */}
+                                {/* WHOLE-CAMP mode: AC-2/AC-5/AC-11/BR-2/BR-4 - manual inputs + switch-back warning */}
                                 {!formData.useSpotView && (
                                     <>
+                                        {justSwitchedToWholeCamp && spotCount > 0 && (
+                                            <div className="p-4 rounded-xl bg-warning/5 border border-warning/20" data-testid="banner--capacity-switch-to-whole-warning">
+                                                <div className="flex items-start gap-3">
+                                                    <TriangleAlert className="w-4 h-4 shrink-0 text-warning mt-0.5" aria-hidden="true" />
+                                                    <p className="text-sm text-foreground">
+                                                        {t.newCampground.capacitySwitchToWholeWarning.replace("{N}", String(spotCount))}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField
                                                 label={t.newCampground.maxGuestsPerDay}
@@ -1369,7 +1477,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 onChange={e => setFormData({ ...formData, maxGuestsPerDay: e.target.value === "" ? "" : parseInt(e.target.value) })}
                                                 inputSize="lg"
                                                 placeholder="e.g. 50"
-                                                error={(formData.maxGuestsPerDay && (isNaN(Number(formData.maxGuestsPerDay)) || Number(formData.maxGuestsPerDay) < 1) ? "Must be at least 1" : undefined) || zErr('maxGuestsPerDay')}
+                                                error={zErr('maxGuestsPerDay')}
                                             />
                                             <InputField
                                                 label={t.newCampground.maxTentsPerDay}
@@ -1382,7 +1490,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                                 error={(formData.maxTentsPerDay && (isNaN(Number(formData.maxTentsPerDay)) || Number(formData.maxTentsPerDay) < 1) ? "Must be at least 1" : undefined) || zErr('maxTentsPerDay')}
                                             />
                                         </div>
-                                        
+
                                         <div className="space-y-3">
                                             <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.groundType}</Label>
                                             {zErr('groundType') && (

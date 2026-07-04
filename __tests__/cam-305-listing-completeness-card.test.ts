@@ -68,7 +68,11 @@ describe('CAM-305 card — BR-1: no hardcoded Thai missing-item label', () => {
     'ยังไม่ระบุราคา',
     'ยังไม่ระบุนโยบายยกเลิก',
     'ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ',
+    // CAM-351 BR-5: the zones/capacity label was replaced with mode-neutral
+    // copy — keep both the retired string and the current one on this ban
+    // list so neither ever gets hardcoded into the card.
     'ยังไม่มีโซนหรือจุดกางเต็นท์',
+    'ยังไม่ระบุความจุ (จำนวนรวม หรือจุดกางเต็นท์)',
     'ยังไม่ระบุสิ่งอำนวยความสะดวก',
   ];
 

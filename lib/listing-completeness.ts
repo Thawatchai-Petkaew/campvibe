@@ -17,6 +17,14 @@
  * docs/specs/m1-data-trust/m1-listing-truth-ราคา-ค่าธรรมเนียม-นโยบายยกเลิก-qu/
  * CAM-304-คะแนนความครบของ-listing-แบบ-rule-based-พร้อมรายการ/story.md
  * Do not retype the Thai labels anywhere else — import from here.
+ *
+ * CAM-351 (BR-5) — the `zones` criterion (weight unchanged at 10) is now
+ * mode-neutral: a WHOLE-CAMP camp (`useSpotView = false`) with a stated
+ * `maxGuestsPerDay >= 1` also satisfies it, so a camp that legitimately has
+ * no individual spots is no longer permanently penalized. The label changes
+ * to reflect both paths — see docs/specs/data-trust/
+ * availability-correctness-ว่างจริง-blockeddate-part/
+ * CAM-351-choose-capacity-mode-whole-camp-vs-per-spot/story.md.
  */
 
 export type ListingCompletenessKey =
@@ -53,7 +61,10 @@ export const LISTING_COMPLETENESS_WEIGHTS: readonly ListingCompletenessCriterion
   { key: 'price', label: 'ยังไม่ระบุราคา', weight: 20 },
   { key: 'cancellationPolicy', label: 'ยังไม่ระบุนโยบายยกเลิก', weight: 20 },
   { key: 'extraFee', label: 'ค่าธรรมเนียมเพิ่มเติมยังระบุไม่ครบ', weight: 15 },
-  { key: 'zones', label: 'ยังไม่มีโซนหรือจุดกางเต็นท์', weight: 10 },
+  // CAM-351 BR-5: mode-neutral label — replaces the old spot-only wording
+  // 'ยังไม่มีโซนหรือจุดกางเต็นท์' now that a WHOLE-CAMP camp with a stated
+  // capacity also satisfies this criterion (see SATISFIED_WHEN.zones below).
+  { key: 'zones', label: 'ยังไม่ระบุความจุ (จำนวนรวม หรือจุดกางเต็นท์)', weight: 10 },
   { key: 'amenities', label: 'ยังไม่ระบุสิ่งอำนวยความสะดวก', weight: 10 },
 ] as const;
 
@@ -79,6 +90,10 @@ export interface ListingCompletenessInput {
   spotCount: number;
   /** count of MasterData rows connected via CampSite.options. */
   optionsCount: number;
+  /** CAM-351 BR-5: CampSite.useSpotView — false = WHOLE-CAMP, true = PER-SPOT. */
+  useSpotView: boolean;
+  /** CAM-351 BR-5: CampSite.maxGuestsPerDay, or null when unset (WHOLE-CAMP entry). */
+  maxGuestsPerDay: number | null;
 }
 
 export interface ListingCompletenessMissingItem {
@@ -116,7 +131,14 @@ const SATISFIED_WHEN: Record<
   price: (input) => input.priceLow != null || input.isFree === true,
   cancellationPolicy: (input) => input.cancellationPolicy != null,
   extraFee: isExtraFeeSatisfied,
-  zones: (input) => input.spotCount >= 1,
+  // CAM-351 BR-5 — fairness fix: a spot-derived count still satisfies zones
+  // (unchanged CAM-304 path), OR a WHOLE-CAMP camp (`useSpotView === false`)
+  // that has stated a real capacity (`maxGuestsPerDay >= 1`) also satisfies
+  // it — a whole-camp camp with no individual spots is no longer permanently
+  // penalized. A PER-SPOT camp with zero spots stays unsatisfied either way.
+  zones: (input) =>
+    input.spotCount >= 1 ||
+    (input.useSpotView === false && input.maxGuestsPerDay != null && input.maxGuestsPerDay >= 1),
   amenities: (input) => input.optionsCount >= 1,
 };
 

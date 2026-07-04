@@ -86,6 +86,11 @@ function baseCampSite(overrides: Record<string, unknown> = {}) {
     extraFeeAmount: null,
     extraFeeLabel: null,
     cancellationPolicy: null,
+    // CAM-351 BR-5: default fixture is a WHOLE-CAMP camp with no stated
+    // capacity — matches prior (pre-CAM-351) zones behavior for every test
+    // below that doesn't explicitly exercise the new fairness path.
+    useSpotView: false,
+    maxGuestsPerDay: null,
     ...overrides,
   };
 }
@@ -132,6 +137,10 @@ const emptyInput: ListingCompletenessInput = {
   cancellationPolicy: null,
   spotCount: 0,
   optionsCount: 0,
+  // CAM-351 BR-5: WHOLE-CAMP with no stated capacity — zones stays
+  // unsatisfied, same as the pre-CAM-351 behavior for this fixture.
+  useSpotView: false,
+  maxGuestsPerDay: null,
 };
 
 const fullInput: ListingCompletenessInput = {
@@ -143,6 +152,10 @@ const fullInput: ListingCompletenessInput = {
   cancellationPolicy: 'MODERATE',
   spotCount: 2,
   optionsCount: 4,
+  // CAM-351 BR-5: a PER-SPOT camp — zones is already satisfied via
+  // spotCount here regardless of these two fields (unchanged path, AC-8).
+  useSpotView: true,
+  maxGuestsPerDay: null,
 };
 
 // ===========================================================================

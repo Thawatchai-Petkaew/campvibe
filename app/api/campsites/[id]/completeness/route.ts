@@ -67,6 +67,10 @@ export async function GET(
       cancellationPolicy: campSite!.cancellationPolicy ?? null,
       spotCount,
       optionsCount: counts?._count.options ?? 0,
+      // CAM-351 BR-5: the zones/capacity criterion also passes for a
+      // WHOLE-CAMP camp (useSpotView=false) that has stated a real capacity.
+      useSpotView: campSite!.useSpotView,
+      maxGuestsPerDay: campSite!.maxGuestsPerDay ?? null,
     });
 
     const response = apiSuccess(result);
