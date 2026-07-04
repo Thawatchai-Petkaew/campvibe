@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { DashboardOverviewSkeleton } from "@/components/ui/loading-skeleton";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
 import { Badge } from "@/components/ui/badge";
+import { ListingCompletenessCard } from "@/components/ListingCompletenessCard";
 import { toast } from "sonner";
 import { getBookingStatusMeta } from "@/lib/booking-status";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
@@ -346,6 +347,26 @@ export default function OperatorDashboard() {
                                 </table>
                             </div>
                         </div>
+
+                        {/* Listing completeness — one card per owned campsite (BR-4);
+                            zero campsites = no section at all (BR-7/AC-6). Each card
+                            client-fetches its own score/missing independently. */}
+                        {data.campSites && data.campSites.length > 0 && (
+                            <div className="mt-8" data-testid="section--dashboard-listing-completeness">
+                                <h3 className="font-bold text-lg text-foreground mb-4">
+                                    {t.listingCompleteness.sectionTitle}
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {data.campSites.map((camp) => (
+                                        <ListingCompletenessCard
+                                            key={camp.id}
+                                            campSiteId={camp.id}
+                                            campSiteName={language === 'th' ? camp.nameTh : camp.nameEn}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : null}
             </div>
