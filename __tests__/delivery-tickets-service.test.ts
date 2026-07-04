@@ -621,6 +621,55 @@ describe("updateFields — plain edits, no state-machine side effects", () => {
     await tickets.updateFields(row.identifier, "human", { priority: 1 });
     expect(tg).not.toHaveBeenCalled();
   });
+
+  // CAM-300 — epicId re-parenting via updateFields
+  it("re-parents to another epic by CAM identifier and logs the change", async () => {
+    const epicA = seed({ type: "EPIC", title: "Epic A" });
+    const epicB = seed({ type: "EPIC", title: "Epic B" });
+    const row = seed({ epicId: epicA.id });
+    const t = await tickets.updateFields(row.identifier, "human", { epicId: epicB.identifier });
+    expect(t.epicId).toBe(epicB.id);
+    const ev = fake.store.events.find((e) => e.kind === "updated" && e.ticketId === row.id);
+    expect(ev?.toValue).toContain("epicId");
+  });
+
+  it("re-parents by internal id as well", async () => {
+    const epic = seed({ type: "EPIC", title: "Epic C" });
+    const row = seed({});
+    const t = await tickets.updateFields(row.identifier, "human", { epicId: epic.id });
+    expect(t.epicId).toBe(epic.id);
+  });
+
+  it("detaches from its epic when epicId is null", async () => {
+    const epic = seed({ type: "EPIC", title: "Epic D" });
+    const row = seed({ epicId: epic.id });
+    const t = await tickets.updateFields(row.identifier, "human", { epicId: null });
+    expect(t.epicId).toBeNull();
+  });
+
+  it("[error] rejects an epicId target that is not an EPIC", async () => {
+    const story = seed({ type: "STORY" });
+    const row = seed({});
+    await expect(
+      tickets.updateFields(row.identifier, "human", { epicId: story.identifier })
+    ).rejects.toThrow(TicketTransitionError);
+    const after = fake.store.tickets.get(row.id);
+    expect(after?.epicId ?? null).toBeNull();
+  });
+
+  it("[error] rejects an epicId that does not exist", async () => {
+    const row = seed({});
+    await expect(
+      tickets.updateFields(row.identifier, "human", { epicId: "CAM-99999" })
+    ).rejects.toThrow(TicketNotFoundError);
+  });
+
+  it("[error] rejects a ticket set as its own epic", async () => {
+    const epic = seed({ type: "EPIC", title: "Epic E" });
+    await expect(
+      tickets.updateFields(epic.identifier, "human", { epicId: epic.identifier })
+    ).rejects.toThrow(TicketTransitionError);
+  });
 });
 
 // ── reads ────────────────────────────────────────────────────────────────────────────────

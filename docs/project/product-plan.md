@@ -1,5 +1,6 @@
 # CampVibe — Product Plan (RESET, by Persona)
 
+> **ปรับใหญ่ 2026-07 (Blueprint v6 / ADR-011):** pivot เป็น HostOS-first, เลื่อน public booking/payment ไป M7.5 (BookingReadinessGate) · Phase legend ใหม่: Phase 1 = M1+M1.2 · Phase 2 = M1.5+M2 · Phase 3 = M3+ · ladder เต็มอยู่ที่ [`platform-blueprint.md`](platform-blueprint.md)
 > **แผนฟีเจอร์ราย persona** (audit 2026-06-20 โดย product-owner ×3 + Explore) — inventory ละเอียดของ 3 ฝั่งผู้ใช้ + status ตามความจริงในโค้ด · ทิศทาง/กลยุทธ์ที่เป็น source-of-truth = [master-plan.md](master-plan.md) + [product-strategy.md](product-strategy.md)
 > ไฟล์เดียวที่รวม inventory ราย persona + epic-backlog + AI rollup (เดิมแยกที่ FEATURE-BACKLOG.md — ยุบรวมเข้าที่นี่แล้ว 2026-06-22) · ทุก item ที่เลือกทำ → แปลงเป็น TICKET ที่ intake/G1
 > Status: ✅ DONE (ใช้ได้จริง) · 🟡 PARTIAL (มีแต่ไม่ครบ/มีช่องโหว่) · ⬜ TODO (ยังไม่มี) · 🔵 IN-FLIGHT (อยู่ในลูป) · Effort S/M/L · Phase 1 core-real / 2 AI+depth / 3 scale
@@ -14,11 +15,11 @@
 
 | ฝั่ง | ✅ Done | 🟡 Partial | ⬜ Todo | 🔵 In-flight | ความครบของ "ระบบที่ใช้จริง" |
 |---|---|---|---|---|---|
-| **Host** | ~9 | ~12 | ~22 | 0 | 🟡 จัดการลาน/จอง/ทีม ใช้ได้ — **แต่ไม่มีรับเงิน/payout/KYC/แจ้งเตือน/ปฏิทินบล็อกวัน** |
-| **Camper** | ~22 | ~9 | ~20 | 1 | 🟡 ค้นหา→ดู→จอง→ติดตาม ใช้ได้ — **แต่จ่ายเงินไม่ได้, ไม่มี confirmation/email, รีวิวไม่กันของปลอม** |
+| **Host** | ~9 | ~12 | ~22 | 0 | 🟡 จัดการลาน/จอง/ทีม ใช้ได้ — **by design: host ถือเงินเอง; ledger มาใน M1.2 — ยังไม่มี payout/KYC/แจ้งเตือน/ปฏิทินบล็อกวัน (write)** |
+| **Camper** | ~22 | ~9 | ~20 | 1 | 🟡 ค้นหา→ดู→จอง→ติดตาม ใช้ได้ — **by design: host ถือเงินเอง (payment เลื่อนไป M7.5); ledger มาใน M1.2 — ยังไม่มี confirmation/email, รีวิวไม่กันของปลอม** |
 | **Admin** | ~0 | ~3 | ~40 | 0 | 🔴 **แทบไม่มีจริง** — ไม่มี /admin, ไม่มี KYC review, มีช่องโหว่ security |
 
-**คำตอบสั้น ๆ:** Host/Camper มี "core loop" ครบพอเดโม แต่ยังไม่ใช่ marketplace จริง (ติดเรื่องเงิน+สื่อสาร) · **Admin ยังไม่มีแผนที่ลงมือเลย — ต้องสร้างเกือบทั้งหมด** · และมี **foundation ร่วม** (payment, notification, AI, security) ที่ค้ำหลาย persona พร้อมกัน → แยกเป็น section F
+**คำตอบสั้น ๆ:** Host/Camper มี "core loop" ครบพอเดโม แต่ยังไม่ใช่ marketplace จริง (เงิน = by design ให้ host ถือเงินเอง ไม่ใช่ gap — เหลือแค่สื่อสาร+ops) · **Admin ยังไม่มีแผนที่ลงมือเลย — ต้องสร้างเกือบทั้งหมด** · และมี **foundation ร่วม** (payment→M7.5, notification, AI, security) ที่ค้ำหลาย persona พร้อมกัน → แยกเป็น section F (+ HostOS wave ใหม่ ดู section HS)
 
 ---
 
@@ -48,7 +49,7 @@
 |---|---|---|---|---|---|
 | H-3.1 | คำนวณ capacity ต่อวัน (API) | ✅ | M | 1 | `lib/campsite-availability.ts` |
 | H-3.2 | ปฏิทิน host (เห็นการจองแบบเดือน) | ⬜ | M | 1 | ตอนนี้เป็นตารางใน `app/dashboard/bookings` |
-| H-3.3 | **บล็อกวันเอง** (ปิดวันซ่อม/งานส่วนตัว) | ⬜ | M | 1 | ไม่มี BlockedDate model — host ต้องสร้าง booking ปลอม |
+| H-3.3 | **บล็อกวันเอง** (ปิดวันซ่อม/งานส่วนตัว) | 🟡 | M | 1 | BlockedDate model + read-path merged แล้ว (CAM-267); เหลือ host write API/UI — wave-1 story (CAM-56) |
 | H-3.4 | กฎ min/max nights, advance window | ⬜ | M | 2 | — |
 | H-3.5 | Inventory lock กัน overbooking (atomic) | 🟡 | M | 1 | เช็ค overlap แล้วแต่ไม่มี DB lock/transaction → race ได้ (F-1.x) |
 
@@ -63,14 +64,15 @@
 | H-4.6 | Cancellation policy + refund rule | ⬜ | L | 2 | ต้อง F-1 payment |
 | H-4.7 | Export bookings (CSV) | ⬜ | S | 2 | — |
 
-### H-5 Get paid (เงิน) — ดู F-1
+### H-5 Get paid (เงิน) — by design ไม่ผ่านแพลตฟอร์ม; ดู F-1 (M7.5)
+> **Blueprint v6:** host ถือเงินเอง (deposit/ค่าเช่าเก็บนอกระบบ ผ่าน Manual Hold + Deposit ledger) — แพลตฟอร์มเป็น ledger/workflow เท่านั้น ไม่ประมวลผลเงินจริงจนกว่าจะถึง M7.5 (BookingReadinessGate)
 | ID | Feature | Status | Effort | Phase | Note |
 |---|---|---|---|---|---|
-| H-5.1 | รับชำระเงินออนไลน์ (ผ่าน F-1) | ⬜ | L | 1 | totalPrice เก็บแต่ไม่ charge |
-| H-5.2 | Payout/settlement + บัญชีธนาคาร host | ⬜ | L | 1 | ไม่มี model |
-| H-5.3 | รายงานรายได้ + กราฟ | 🟡 | M | 1 | dashboard มีตัวเลขรวม แต่ "+20.1%" hardcode, ไม่มีกราฟ |
-| H-5.4 | ใบเสร็จ/ภาษี (หัก ณ ที่จ่าย 3% อุทยาน) | ⬜ | L | 3 | ข้อกำหนดไทย |
-| H-5.5 | ค่าธรรมเนียมแพลตฟอร์ม (fee config) | ⬜ | M | 2 | — |
+| H-5.1 | รับชำระเงินออนไลน์ (ผ่าน F-1) | ⬜ | L | M7.5 (deferred, readiness-gated) | totalPrice เก็บแต่ไม่ charge |
+| H-5.2 | Payout/settlement + บัญชีธนาคาร host | ⬜ | L | M7.5 (deferred, readiness-gated) | ไม่มี model |
+| H-5.3 | รายงานรายได้ + กราฟ | 🟡 | M | M1.2 | dashboard มีตัวเลขรวม แต่ "+20.1%" hardcode, ไม่มีกราฟ — re-point ข้อมูลไปที่ deposit/POS/daily-close ledger (HS-5/HS-7/HS-9) แทนยอด payment charge |
+| H-5.4 | ใบเสร็จ/ภาษี (หัก ณ ที่จ่าย 3% อุทยาน) | ⬜ | L | M7.5 (deferred, readiness-gated) | ข้อกำหนดไทย |
+| H-5.5 | ค่าธรรมเนียมแพลตฟอร์ม (fee config) | ⬜ | M | M7.5 (deferred, readiness-gated) | — |
 
 ### H-6 Communicate — ดู F-2
 | ID | Feature | Status | Effort | Phase | Note |
@@ -132,22 +134,23 @@
 | C-2.8 | รูปในรีวิว (mediaUrls) | 🟡 | M | 2 | field มี แต่ไม่มี upload UI |
 
 ### C-3 Availability & booking
+> **หมายเหตุ (Blueprint v6):** reserve flow เดิม (booking PENDING→CONFIRMED) คงไว้เป็น internal foundation — ADR-005 (booking snapshot) / ADR-006 (atomic inventory lock) ยัง valid แต่ dormant, ไม่ผูก public CTA แล้ว; CTA สาธารณะเปลี่ยนเป็น "สอบถาม/ขอราคา" ที่ M1.2 (ดู HS-2) · item ที่เป็น public-checkout ล้วน ๆ (C-3.4, C-3.7) → M7.5
 | ID | Feature | Status | Effort | Phase | Note |
 |---|---|---|---|---|---|
 | C-3.1 | ปฏิทิน availability real-time (capacity เหลือ) | ✅ | — | 1 | ดึง 3 เดือนล่วงหน้า |
 | C-3.2 | ฟอร์มจอง + สรุปราคา | ✅ | — | 1 | — |
 | C-3.3 | สร้าง booking (PENDING) + validate overlap/capacity | ✅ | — | 1 | `app/api/bookings/route.ts` |
-| C-3.4 | ความโปร่งใสค่าธรรมเนียม | 🟡 | S | 1 | **bug:** UI โชว์ค่าทำความสะอาด/บริการ (20+35) แต่ totalPrice ที่เก็บไม่รวม |
+| C-3.4 | ความโปร่งใสค่าธรรมเนียม | 🟡 | S | M7.5 | **bug:** UI โชว์ค่าทำความสะอาด/บริการ (20+35) แต่ totalPrice ที่เก็บไม่รวม — public-checkout-facing → M7.5 |
 | C-3.5 | หน้า confirmation + booking reference | 🟡 | S | 1 | ตอนนี้ redirect ไป /bookings ใน 1.5s ไม่มีหน้า success |
 | C-3.6 | Special requests/notes | ⬜ | S | 2 | ไม่มี field |
-| C-3.7 | Guest checkout (จองไม่ต้อง login) | ⬜ | L | 3 | — |
+| C-3.7 | Guest checkout (จองไม่ต้อง login) | ⬜ | L | M7.5 | public-checkout-facing → M7.5 |
 
-### C-4 Pay — ดู F-1
+### C-4 Pay — ดู F-1 (ทั้งหมดเลื่อนไป M7.5 — BookingReadinessGate, Blueprint v6)
 | ID | Feature | Status | Effort | Phase | Note |
 |---|---|---|---|---|---|
-| C-4.1 | ชำระเงิน (PromptPay/บัตร ผ่าน F-1) | ⬜ | L | 1-2 | ไม่มี paymentStatus ใน Booking |
-| C-4.2 | E-receipt/ใบกำกับ (PDF) | ⬜ | M | 2 | — |
-| C-4.3 | Refund ตอนยกเลิก | ⬜ | L | 2 | — |
+| C-4.1 | ชำระเงิน (PromptPay/บัตร ผ่าน F-1) | ⬜ | L | M7.5 (deferred, readiness-gated) | ไม่มี paymentStatus ใน Booking |
+| C-4.2 | E-receipt/ใบกำกับ (PDF) | ⬜ | M | M7.5 (deferred, readiness-gated) | — |
+| C-4.3 | Refund ตอนยกเลิก | ⬜ | L | M7.5 (deferred, readiness-gated) | — |
 
 ### C-5 Pre-trip & my bookings
 | ID | Feature | Status | Effort | Phase | Note |
@@ -231,15 +234,37 @@
 
 ---
 
+## 🏠 HS · HostOS (M1.2) — ใหม่ (Blueprint v6)
+> Ladder เต็ม + rationale ของทุก milestone อยู่ที่ [`platform-blueprint.md`](platform-blueprint.md) — ด้านล่างคือ inventory ระดับ 1 บรรทัดต่อ item เท่านั้น (lean ไม่ทำตารางซ้ำ)
+
+- **HS-1** กล่อง Lead รวมทุกช่องทาง (OS1)
+- **HS-2** ฟอร์มสอบถามหน้าแคมป์ + CTA flip จอง→สอบถาม (OS17)
+- **HS-3** AI lead parser (OS2 — spend-gated G2)
+- **HS-4** Quote/ใบเสนอราคา (OS3)
+- **HS-5** Hold + Deposit ledger (OS5)
+- **HS-6** Manual Stay ทะเบียนเข้าพัก (OS7)
+- **HS-7** POS lite (OS8)
+- **HS-8** Rental lite (OS9)
+- **HS-9** Daily close (OS14)
+
+**Milestone ถัดไป** (stub — รายละเอียดที่ `platform-blueprint.md`):
+- **M1.5** Host Map
+- **M3** Trip OS
+- **M4** Gear
+- **M5** Community
+- **M6** Affiliate
+
+---
+
 ## 🧱 F. Foundations ร่วม (ค้ำหลาย persona — ทำทีเดียวปลดล็อกหลายช่อง)
 
-### F-1 Payment & money (ปลดล็อก H-5, C-4, A-7)
+### F-1 Payment & money (ปลดล็อก H-5, C-4, A-7) — เลื่อนไป M7.5 ยกเว้น F-1.4 (Blueprint v6)
 | ID | Item | Status | Effort | Phase |
 |---|---|---|---|---|
-| F-1.1 | Payment gateway (Omise/2C2P + **PromptPay QR**) | ⬜ | L | 1 |
-| F-1.2 | `Payment`/`Payout` model + paymentStatus บน Booking | ⬜ | L | 1 |
-| F-1.3 | Refund + cancellation policy engine | ⬜ | L | 2 |
-| F-1.4 | Inventory lock atomic (transaction/SELECT FOR UPDATE) | ⬜ | M | 1 |
+| F-1.1 | Payment gateway (Omise/2C2P + **PromptPay QR**) | ⬜ | L | M7.5 (deferred, readiness-gated) |
+| F-1.2 | `Payment`/`Payout` model + paymentStatus บน Booking | ⬜ | L | M7.5 (deferred, readiness-gated) |
+| F-1.3 | Refund + cancellation policy engine | ⬜ | L | M7.5 (deferred, readiness-gated) |
+| F-1.4 | Inventory lock atomic (transaction/SELECT FOR UPDATE) — hold lock (M1.2): InternalHold ใช้ semantics เดียวกัน | ⬜ | M | M1.2 |
 
 ### F-2 Notifications (ปลดล็อก H-6, C-5.6)
 | ID | Item | Status | Effort | Phase |
@@ -292,11 +317,13 @@
 
 ---
 
-## 🗺️ ลำดับที่แนะนำ (sequencing)
-- **P0 ก่อนทุกอย่าง (deploy/security blocker):** F-4.5 migration · F-4.1/4.2/4.3 security · F-4.6 commit seed patch
-- **Phase 1 — ทำ core loop ให้ "จริง":** F-3.3 AI Review Summary (quick win พิสูจน์ F-3) → F-2.1 email → C-2.4 ปุ่มนำทาง (คุ้มสุด) → C-3.4/C-3.5 fix ราคา+confirmation → H-3.3 บล็อกวัน → H-7.1 RBAC enforcement → A-1+A-9.1+A-10.1 admin/KYC/audit baseline → [F-1 payment ถ้าจะเปิดจ่ายเงินรอบนี้]
-- **Phase 2 — AI depth / wedge A:** H-2.6 AI Listing Builder → F-2.2 LINE → C-1.7 NL Search → F-5 analytics
-- **คู่ขนาน:** ปิด 🔵 TICKET-0001 Wishlist (G2→merge)
+## 🗺️ ลำดับที่แนะนำ (sequencing) — Blueprint v6
+- **Wave 1** (~2-4 สัปดาห์, spend = 0) — ปิด M1 (Data & Trust): CAM-269 verified-stay gate → CAM-268 price/fee → CAM-56 BlockedDate write → CAM-55 ปฏิทิน → InternalHold → quality score **∥ (คู่ขนาน) design track:** docs + ADR-012 HostOS data model → G2
+- **Wave 2** (M1.2-core, ~4-6 สัปดาห์) — HS-1 → HS-2 → HS-4 → HS-5 → HS-6 → HS-9 → HS-7 → HS-8 แล้วปิดท้าย **HS-3** (จุด G2 spend แรกของ epic นี้)
+- **คู่ขนาน (เดิม):** ปิด 🔵 TICKET-0001 Wishlist (G2→merge) — ไม่ผูกกับ Blueprint v6, เดินคู่ได้อิสระ
+- ladder เต็ม (M1.5→M8) อยู่ที่ [`platform-blueprint.md`](platform-blueprint.md)
 
 ## ⛳ รอ G1 (มนุษย์): จะรัน delivery loop ตัวถัดไปกับอะไร
-ตัวเลือกหลัก: **(ก)** P0 security/migration ก่อน · **(ข)** F-3.3 AI Review Summary quick win · **(ค)** ปิด Wishlist ที่ค้าง · **(ง)** เปิด epic Admin (A-1 KYC + A-9/A-10 baseline) · **(จ)** F-1 payment เปิด core loop จริง
+ตัวเลือกหลัก: **(ก)** P0 security/migration ก่อน · **(ข)** F-3.3 AI Review Summary quick win · **(ค)** ปิด Wishlist ที่ค้าง · **(ง)** เปิด epic Admin (A-1 KYC + A-9/A-10 baseline)
+
+> ~~(จ) F-1 payment เปิด core loop จริง~~ — ย้ายไป **M7.5 (BookingReadinessGate)** ตาม Blueprint v6 (ADR-011); ไม่ใช่ตัวเลือก G1 อีกต่อไป — ดู Wave 1/Wave 2 ด้านบนแทน
