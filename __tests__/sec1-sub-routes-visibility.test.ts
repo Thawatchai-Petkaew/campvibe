@@ -8,9 +8,13 @@
  *
  * Routes under test:
  *   GET /api/campsites/[id]/availability
- *   GET /api/campgrounds/[id]/availability
  *   GET /api/campsites/[id]/spots
  *   GET /api/campsites/[id]/spots/[spotId]
+ *
+ * CAM-345: the dead `/api/campgrounds/[id]/availability` sibling route (0
+ * in-repo fetchers, holds-blind duplicate) was removed; its visibility-gate
+ * block below is removed with it — the campsites-route block above remains
+ * as the live proof of this same visibility gate (BR-5, AC-3).
  *
  * Mocking strategy:
  *   - vi.mock('@/lib/prisma')   — controls whether the camp exists + its visibility state
@@ -66,7 +70,6 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 
 import { GET as campsiteAvailabilityGET } from '@/app/api/campsites/[id]/availability/route';
-import { GET as campgroundAvailabilityGET } from '@/app/api/campgrounds/[id]/availability/route';
 import { GET as spotsGET } from '@/app/api/campsites/[id]/spots/route';
 import { GET as spotGET } from '@/app/api/campsites/[id]/spots/[spotId]/route';
 
@@ -207,74 +210,6 @@ describe('GET /api/campsites/[id]/availability — visibility gate', () => {
 
     const res = await campsiteAvailabilityGET(
       makeAvailabilityReq('/api/campsites', CAMPSITE_ID),
-      makeAvailabilityParams(CAMPSITE_ID)
-    );
-
-    expect(res.status).toBe(404);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// GET /api/campgrounds/[id]/availability
-// ---------------------------------------------------------------------------
-
-describe('GET /api/campgrounds/[id]/availability — visibility gate', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('200 — published camp is accessible to anonymous callers', async () => {
-    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(publicCampRow);
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue(anonymousSession);
-
-    const res = await campgroundAvailabilityGET(
-      makeAvailabilityReq('/api/campgrounds', CAMPSITE_ID),
-      makeAvailabilityParams(CAMPSITE_ID)
-    );
-
-    expect(res.status).toBe(200);
-    expect(auth).not.toHaveBeenCalled();
-  });
-
-  it('404 — unpublished camp + anonymous caller is blocked', async () => {
-    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(unpublishedCampRow);
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue(anonymousSession);
-
-    const res = await campgroundAvailabilityGET(
-      makeAvailabilityReq('/api/campgrounds', CAMPSITE_ID),
-      makeAvailabilityParams(CAMPSITE_ID)
-    );
-
-    expect(res.status).toBe(404);
-  });
-
-  it('200 — unpublished camp + owner session passes the owner bypass', async () => {
-    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(unpublishedCampRow);
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue(ownerSession);
-
-    const res = await campgroundAvailabilityGET(
-      makeAvailabilityReq('/api/campgrounds', CAMPSITE_ID),
-      makeAvailabilityParams(CAMPSITE_ID)
-    );
-
-    expect(res.status).toBe(200);
-  });
-
-  it('200 — unpublished camp + ADMIN session passes the admin bypass', async () => {
-    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(unpublishedCampRow);
-    (auth as ReturnType<typeof vi.fn>).mockResolvedValue(adminSession);
-
-    const res = await campgroundAvailabilityGET(
-      makeAvailabilityReq('/api/campgrounds', CAMPSITE_ID),
-      makeAvailabilityParams(CAMPSITE_ID)
-    );
-
-    expect(res.status).toBe(200);
-  });
-
-  it('404 — non-existent campsite returns 404', async () => {
-    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-
-    const res = await campgroundAvailabilityGET(
-      makeAvailabilityReq('/api/campgrounds', CAMPSITE_ID),
       makeAvailabilityParams(CAMPSITE_ID)
     );
 

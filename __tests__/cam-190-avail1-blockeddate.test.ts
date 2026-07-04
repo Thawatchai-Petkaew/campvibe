@@ -371,10 +371,6 @@ describe('source-inspection — predicate, no-store, privacy (AC-1 / Cache)', ()
     path.join(process.cwd(), 'app/api/campsites/[id]/availability/route.ts'),
     'utf-8'
   );
-  const campgroundsRouteSrc = fs.readFileSync(
-    path.join(process.cwd(), 'app/api/campgrounds/[id]/availability/route.ts'),
-    'utf-8'
-  );
   const bookingsRouteSrc = fs.readFileSync(
     path.join(process.cwd(), 'app/api/bookings/route.ts'),
     'utf-8'
@@ -440,63 +436,49 @@ describe('source-inspection — predicate, no-store, privacy (AC-1 / Cache)', ()
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Privacy: routes do NOT include blockedReason in formatted output
-  // Prove-It: add blockedReason to a route → assertion fails.
+  // Privacy: the route does NOT include blockedReason in formatted output
+  // Prove-It: add blockedReason to the route → assertion fails.
+  //
+  // CAM-345: the sibling `/api/campgrounds/[id]/availability` route (0
+  // in-repo fetchers, holds-blind duplicate) and its parallel source-
+  // inspection assertions below were removed; the campsites-route + lib
+  // assertions remain as the live proof of this same privacy/cache/AC-1
+  // behavior (BR-5, AC-3).
   // ─────────────────────────────────────────────────────────────────────────
   it('[source-privacy] campsites route does NOT include blockedReason in response', () => {
     expect(campsitesRouteSrc).not.toContain('blockedReason');
   });
 
-  it('[source-privacy] campgrounds route does NOT include blockedReason in response', () => {
-    expect(campgroundsRouteSrc).not.toContain('blockedReason');
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
-  // Cache: both routes include 'force-dynamic' export
+  // Cache: the route includes the 'force-dynamic' export
   // Prove-It: remove the export → assertion fails; next.js may cache the route.
   // ─────────────────────────────────────────────────────────────────────────
   it("[source-cache] campsites route exports dynamic = 'force-dynamic'", () => {
     expect(campsitesRouteSrc).toContain("export const dynamic = 'force-dynamic'");
   });
 
-  it("[source-cache] campgrounds route exports dynamic = 'force-dynamic'", () => {
-    expect(campgroundsRouteSrc).toContain("export const dynamic = 'force-dynamic'");
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
-  // Cache: both routes set Cache-Control: no-store on the response
+  // Cache: the route sets Cache-Control: no-store on the response
   // Prove-It: remove the header.set call → assertion fails.
   // ─────────────────────────────────────────────────────────────────────────
   it('[source-cache] campsites route sets Cache-Control: no-store header', () => {
     expect(campsitesRouteSrc).toContain("'Cache-Control', 'no-store'");
   });
 
-  it('[source-cache] campgrounds route sets Cache-Control: no-store header', () => {
-    expect(campgroundsRouteSrc).toContain("'Cache-Control', 'no-store'");
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
-  // AC-1: both routes include blockedByHost in formatted output
-  // Prove-It: remove blockedByHost from a route → assertion fails.
+  // AC-1: the route includes blockedByHost in formatted output
+  // Prove-It: remove blockedByHost from the route → assertion fails.
   // ─────────────────────────────────────────────────────────────────────────
   it('[source-ac1] campsites route includes blockedByHost in formatted day object', () => {
     expect(campsitesRouteSrc).toContain('blockedByHost');
   });
 
-  it('[source-ac1] campgrounds route includes blockedByHost in formatted day object', () => {
-    expect(campgroundsRouteSrc).toContain('blockedByHost');
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
-  // Merged availability rule: available uses blockedByHost in both routes
+  // Merged availability rule: available uses blockedByHost in the route
   // Prove-It: remove the blockedByHost check → blocked days appear available.
   // ─────────────────────────────────────────────────────────────────────────
   it('[source-ac1] campsites route: available = !isCapacityFull && !data.blockedByHost', () => {
     expect(campsitesRouteSrc).toContain('!isCapacityFull && !data.blockedByHost');
-  });
-
-  it('[source-ac1] campgrounds route: available = !isCapacityFull && !data.blockedByHost', () => {
-    expect(campgroundsRouteSrc).toContain('!isCapacityFull && !data.blockedByHost');
   });
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -490,84 +490,17 @@ export async function getAvailabilityStatusForCamps(
 }
 
 /**
- * Check if a date is available for booking
- */
-export async function checkDateAvailability(
-  campSiteId: string,
-  date: Date,
-  requestedGuests: number,
-  requestedTents?: number
-) {
-  const campSite = await prisma.campSite.findUnique({
-    where: { id: campSiteId },
-    select: {
-      maxGuestsPerDay: true,
-      maxTentsPerDay: true
-    }
-  });
-
-  if (!campSite) {
-    return { available: false, reason: 'Camp site not found' };
-  }
-
-  // Get availability for the date
-  const dateKey = date.toISOString().split('T')[0];
-  const availability = await getCampSiteDailyAvailability(
-    campSiteId,
-    date,
-    date
-  );
-
-  const current = availability[dateKey] || { bookedGuests: 0, bookedTents: 0 };
-
-  // Check guests limit
-  if (campSite.maxGuestsPerDay) {
-    const totalGuests = current.bookedGuests + requestedGuests;
-    if (totalGuests > campSite.maxGuestsPerDay) {
-      return {
-        available: false,
-        reason: `Exceeds maximum guests per day (${campSite.maxGuestsPerDay})`,
-        current: current.bookedGuests,
-        max: campSite.maxGuestsPerDay
-      };
-    }
-  }
-
-  // Check tents limit
-  if (campSite.maxTentsPerDay && requestedTents) {
-    const estimatedTents = Math.ceil(requestedGuests / 2);
-    const totalTents = current.bookedTents + estimatedTents;
-    if (totalTents > campSite.maxTentsPerDay) {
-      return {
-        available: false,
-        reason: `Exceeds maximum tents per day (${campSite.maxTentsPerDay})`,
-        current: current.bookedTents,
-        max: campSite.maxTentsPerDay
-      };
-    }
-  }
-
-  return {
-    available: true,
-    current: {
-      guests: current.bookedGuests,
-      tents: current.bookedTents
-    },
-    max: {
-      guests: campSite.maxGuestsPerDay,
-      tents: campSite.maxTentsPerDay
-    }
-  };
-}
-
-/**
- * Transactional variant of checkDateAvailability.
+ * Transactional check for date availability.
  * Must be called inside a prisma.$transaction callback with the tx client.
  * Reads execute within the serializable transaction boundary so Postgres can
  * detect conflicting concurrent writes and issue a serialization failure (P2034).
  *
- * The existing `checkDateAvailability` and `getCampSiteDailyAvailability` exports
- * are NOT changed — GET-availability callers are unaffected.
+ * CAM-345: the non-transactional `checkDateAvailability` this was originally a
+ * variant of has been removed (dead, holds-blind — 0 production callers,
+ * superseded by `getRemainingCapacity` for GET-availability reads and by this
+ * function for the booking write path). This function is now the sole
+ * "check a single date" entry point; `getCampSiteDailyAvailability` is
+ * unaffected either way.
  *
  * CAM-302 (ADR-012 §4, BR-2/BR-3): also reads ACTIVE, non-expired InternalHold
  * rows overlapping this date INSIDE the same transaction boundary — this is the

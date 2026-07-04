@@ -20,8 +20,10 @@
  * AC-3  Fully booked (bookedGuests === capacity) → remaining 0.
  * BR    A whole-camp BlockedDate covering a night ⇒ remaining forced to 0
  *       regardless of numeric capacity headroom.
- * Agree getRemainingCapacity vs checkDateAvailability agree on the same fixture
- *       (same boundary: the last additional guest that still fits).
+ * Agree getRemainingCapacity vs checkDateAvailabilityInTx agree on the same
+ *       fixture (same boundary: the last additional guest that still fits).
+ *       CAM-345: rewired off the deleted non-tx checkDateAvailability oracle
+ *       onto the live transactional variant — same behavior pinned.
  * Copy  booking.remainingSpots / booking.fullyBooked Thai copy verbatim.
  * Priv  BlockedDate.reason never selected/returned by any touched read path.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +61,7 @@ import { prisma } from '@/lib/prisma';
 import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import {
   getRemainingCapacity,
-  checkDateAvailability,
+  checkDateAvailabilityInTx,
 } from '@/lib/campsite-availability';
 import { getTranslations } from '@/locales/translations';
 
@@ -265,11 +267,30 @@ describe('getRemainingCapacity — remaining math (AC-2/AC-3)', () => {
 });
 
 // ===========================================================================
-// Group C: Agreement — getRemainingCapacity vs checkDateAvailability (same fixture)
+// Group C: Agreement — getRemainingCapacity vs checkDateAvailabilityInTx (same fixture)
+//
+// CAM-345: this oracle previously cross-checked against the non-tx
+// `checkDateAvailability` (deleted as a dead, holds-blind duplicate). Rewired
+// onto the LIVE transactional variant `checkDateAvailabilityInTx` — it does
+// NOT reuse getCampSiteDailyAvailability (it re-queries independently inside
+// the tx boundary), so agreement here still proves the two implementations
+// compute the identical capacity boundary (BR-4), with no coverage dropped.
 // ===========================================================================
 
-describe('getRemainingCapacity agrees with checkDateAvailability (same fixture)', () => {
-  it('[agree] remaining is exactly the last additional-guest count checkDateAvailability still allows', async () => {
+describe('getRemainingCapacity agrees with checkDateAvailabilityInTx (same fixture)', () => {
+  /** Minimal mock Prisma.TransactionClient carrying the SAME fixture data. */
+  function makeTx(overrides: {
+    campSite: { maxGuestsPerDay: number | null; maxTentsPerDay: number | null };
+    bookings: { checkInDate: Date; checkOutDate: Date; guests: number }[];
+  }) {
+    return {
+      campSite: { findUnique: vi.fn().mockResolvedValue(overrides.campSite) },
+      booking: { findMany: vi.fn().mockResolvedValue(overrides.bookings) },
+      internalHold: { findMany: vi.fn().mockResolvedValue([]) },
+    } as unknown as Prisma.TransactionClient;
+  }
+
+  it('[agree] remaining is exactly the last additional-guest count checkDateAvailabilityInTx still allows', async () => {
     (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       maxGuestsPerDay: 5,
       maxTentsPerDay: null,
@@ -281,17 +302,32 @@ describe('getRemainingCapacity agrees with checkDateAvailability (same fixture)'
     const remainingResult = await getRemainingCapacity(CAMP_ID, d('2026-09-10'), d('2026-09-11'));
     expect(remainingResult.remaining).toBe(2);
 
-    // checkDateAvailability re-queries with the same mocked fixture (findMany is
-    // stateless across calls here) — requesting exactly `remaining` more guests
-    // must be available; requesting one more than that must not.
-    const withExactRemaining = await checkDateAvailability(CAMP_ID, d('2026-09-10'), remainingResult.remaining as number);
+    // checkDateAvailabilityInTx re-queries against a tx mock carrying the SAME
+    // fixture — requesting exactly `remaining` more guests must be available;
+    // requesting one more than that must not.
+    const tx = makeTx({
+      campSite: { maxGuestsPerDay: 5, maxTentsPerDay: null },
+      bookings: [{ checkInDate: d('2026-09-10'), checkOutDate: d('2026-09-11'), guests: 3 }],
+    });
+
+    const withExactRemaining = await checkDateAvailabilityInTx(
+      tx,
+      CAMP_ID,
+      d('2026-09-10'),
+      remainingResult.remaining as number
+    );
     expect(withExactRemaining.available).toBe(true);
 
-    const withOneMore = await checkDateAvailability(CAMP_ID, d('2026-09-10'), (remainingResult.remaining as number) + 1);
+    const withOneMore = await checkDateAvailabilityInTx(
+      tx,
+      CAMP_ID,
+      d('2026-09-10'),
+      (remainingResult.remaining as number) + 1
+    );
     expect(withOneMore.available).toBe(false);
   });
 
-  it('[agree] fully booked on both sides — remaining 0 and checkDateAvailability rejects any additional guest', async () => {
+  it('[agree] fully booked on both sides — remaining 0 and checkDateAvailabilityInTx rejects any additional guest', async () => {
     (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       maxGuestsPerDay: 5,
       maxTentsPerDay: null,
@@ -303,7 +339,12 @@ describe('getRemainingCapacity agrees with checkDateAvailability (same fixture)'
     const remainingResult = await getRemainingCapacity(CAMP_ID, d('2026-09-10'), d('2026-09-11'));
     expect(remainingResult.remaining).toBe(0);
 
-    const oneMoreGuest = await checkDateAvailability(CAMP_ID, d('2026-09-10'), 1);
+    const tx = makeTx({
+      campSite: { maxGuestsPerDay: 5, maxTentsPerDay: null },
+      bookings: [{ checkInDate: d('2026-09-10'), checkOutDate: d('2026-09-11'), guests: 5 }],
+    });
+
+    const oneMoreGuest = await checkDateAvailabilityInTx(tx, CAMP_ID, d('2026-09-10'), 1);
     expect(oneMoreGuest.available).toBe(false);
   });
 });
@@ -400,5 +441,47 @@ describe('privacy — BlockedDate.reason never leaves the server on any touched 
 
   it('[validation] remaining-capacity route re-parses query params with zod at the boundary', () => {
     expect(remainingCapacityRouteSrc).toContain('remainingCapacityQuerySchema.safeParse');
+  });
+});
+
+// ===========================================================================
+// Group F: CAM-345 regression guard (AC-4) — the two dead paths do not reappear
+//
+// Best-effort per the CAM-221 caveat: a grep/fs guard catches forbidden
+// STRINGS/files reappearing, not structural drift (e.g. a NEW holds-blind
+// function under a different name). This guard is a floor, not a full proof.
+// ===========================================================================
+
+describe('CAM-345 regression guard — the two removed dead holds-blind paths do not reappear (AC-4)', () => {
+  const campsiteAvailabilitySrc = fs.readFileSync(
+    path.join(process.cwd(), 'lib/campsite-availability.ts'),
+    'utf-8'
+  );
+
+  it('[guard] lib/campsite-availability.ts no longer exports the non-tx checkDateAvailability function', () => {
+    // The removed symbol was `export async function checkDateAvailability(` —
+    // the transactional variant is a DIFFERENT name (checkDateAvailabilityInTx)
+    // and must remain untouched, so this only matches the exact non-tx form.
+    expect(campsiteAvailabilitySrc).not.toMatch(/export\s+async\s+function\s+checkDateAvailability\s*\(/);
+  });
+
+  it('[guard] the transactional checkDateAvailabilityInTx export is still present (untouched, BR-4)', () => {
+    expect(campsiteAvailabilitySrc).toMatch(/export\s+async\s+function\s+checkDateAvailabilityInTx\s*\(/);
+  });
+
+  it('[guard] app/api/campgrounds/[id]/availability/route.ts no longer exists', () => {
+    const removedRoutePath = path.join(
+      process.cwd(),
+      'app/api/campgrounds/[id]/availability/route.ts'
+    );
+    expect(fs.existsSync(removedRoutePath)).toBe(false);
+  });
+
+  it('[guard] the live sibling app/api/campsites/[id]/availability/route.ts still exists (untouched, BR-4)', () => {
+    const liveRoutePath = path.join(
+      process.cwd(),
+      'app/api/campsites/[id]/availability/route.ts'
+    );
+    expect(fs.existsSync(liveRoutePath)).toBe(true);
   });
 });

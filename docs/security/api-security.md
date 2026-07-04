@@ -80,7 +80,6 @@ Legend — **Auth:** Public / Session / Token / Secret / HMAC / ADMIN. **RL:** r
 | `/api/campgrounds` | POST | Session | `operatorId=self`; ADMIN `isVerified` | `campSiteSchema` | 10/h (shared) | ✅ |
 | `/api/campgrounds/[id]` | GET | Lazy | visibility gate | url id | — | 🟡 |
 | `/api/campgrounds/[id]` | PUT/DELETE | Session | `requireCampSiteOwnership` (email, no ADMIN bypass) | `campSiteSchema.partial()` | — | 🟡 |
-| `/api/campgrounds/[id]/availability` | GET | Lazy | visibility gate | date presence only | — | 🟡 |
 | `/api/location` | POST | Session | **any authed user** (no role) | **none** | — | 🟡 gap |
 | `/api/locations/search` | GET | Public | read-only ref data | none (parameterized `$queryRaw`) | — | 🔵 |
 | `/api/reviews` | POST | Session | verified-stay gate; `authorId=self` | `reviewBodySchema` | 5/h | ✅ |
