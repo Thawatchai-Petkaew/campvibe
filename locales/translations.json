@@ -49,7 +49,11 @@
             "themeToggleGroup": "Display theme",
             "themeLight": "Light",
             "themeSystem": "System",
-            "themeDark": "Dark"
+            "themeDark": "Dark",
+            "hostLabel": "Host"
+        },
+        "host": {
+            "onboardingChip": "Host onboarding"
         },
         "preview": {
             "title": "Design Preview",
@@ -99,7 +103,8 @@
             "status": "Status",
             "view": "View",
             "delete": "Delete",
-            "retry": "Try again"
+            "retry": "Try again",
+            "loading_sr": "Loading…"
         },
         "notifications": {
             "unreadCountAria": "{count} unread notifications"
@@ -156,7 +161,9 @@
             "nights": "nights",
             "fees": "Fees",
             "total": "Total",
-            "selectDatesFirst": "Please choose your check-in and check-out dates first."
+            "selectDatesFirst": "Please choose your check-in and check-out dates first.",
+            "remainingSpots": "{n} spots left",
+            "fullyBooked": "Fully booked"
         },
         "profile": {
             "title": "My Profile",
@@ -658,10 +665,50 @@
                 "emptyState": "No delivery data available",
                 "epicLabel": "Epic",
                 "dateLabel": "Delivered on"
+            },
+            "toolbar": {
+                "roster": "Team",
+                "board": "Board",
+                "filter": "Filter"
+            },
+            "sheet": {
+                "roster": {
+                    "title": "Team",
+                    "empty": "No team data",
+                    "idle": "Idle"
+                },
+                "board": {
+                    "title": "Board",
+                    "empty": "Select a Feature or Epic to view the Board"
+                },
+                "close": "Close"
+            },
+            "filter": {
+                "label": "Filter",
+                "all_personas": "All personas",
+                "all_features": "All features",
+                "all_epics": "All epics"
+            },
+            "topBar": {
+                "viewAll": "View all work",
+                "productivity": "Scout Team productivity",
+                "sound": "Toggle sound"
+            },
+            "envPipeline": {
+                "dev": "Dev",
+                "staging": "Staging",
+                "ship": "Ship",
+                "capsuleAriaLabel": "Env Pipeline — Dev {dev}, Staging {stg}, Ship {ship}, {pct}%",
+                "summaryTitle": "Project Status",
+                "gates": "Gates",
+                "epics": "Epics",
+                "backlog": "Backlog",
+                "loadError": "Failed to load"
             }
         },
         "catalog": {
             "loading": "Loading camps",
+            "loading_sr": "Loading…",
             "loading_more": "Loading more camps",
             "end_of_list": "You've seen all camps"
         },
@@ -748,7 +795,11 @@
             "themeToggleGroup": "รูปแบบการแสดงผล",
             "themeLight": "สว่าง",
             "themeSystem": "ตามอุปกรณ์",
-            "themeDark": "มืด"
+            "themeDark": "มืด",
+            "hostLabel": "โฮสต์"
+        },
+        "host": {
+            "onboardingChip": "เริ่มต้นโฮสต์"
         },
         "preview": {
             "title": "ตัวอย่างการออกแบบ",
@@ -798,7 +849,8 @@
             "status": "สถานะ",
             "view": "ดู",
             "delete": "ลบ",
-            "retry": "ลองอีกครั้ง"
+            "retry": "ลองอีกครั้ง",
+            "loading_sr": "กำลังโหลด…"
         },
         "notifications": {
             "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
@@ -855,7 +907,9 @@
             "nights": "คืน",
             "fees": "ค่าธรรมเนียม",
             "total": "ยอดรวม",
-            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน"
+            "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
+            "remainingSpots": "เหลือ {n} ที่",
+            "fullyBooked": "เต็มแล้ว"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
@@ -1358,10 +1412,50 @@
                 "emptyState": "ไม่มีข้อมูลงานที่ส่งมอบ",
                 "epicLabel": "Epic",
                 "dateLabel": "ส่งมอบเมื่อ"
+            },
+            "toolbar": {
+                "roster": "ทีม",
+                "board": "Board",
+                "filter": "กรอง"
+            },
+            "sheet": {
+                "roster": {
+                    "title": "ทีมงาน",
+                    "empty": "ยังไม่มีข้อมูลทีม",
+                    "idle": "ว่าง"
+                },
+                "board": {
+                    "title": "Board",
+                    "empty": "ยังไม่มีงานในบอร์ด"
+                },
+                "close": "ปิด"
+            },
+            "filter": {
+                "label": "กรอง",
+                "all_personas": "ผู้ใช้งานทั้งหมด",
+                "all_features": "ทุก Feature",
+                "all_epics": "ทุก Epic"
+            },
+            "topBar": {
+                "viewAll": "ดูผลงานทั้งหมด",
+                "productivity": "ผลผลิต Scout Team",
+                "sound": "เปิด/ปิดเสียง"
+            },
+            "envPipeline": {
+                "dev": "Dev",
+                "staging": "Staging",
+                "ship": "Ship",
+                "capsuleAriaLabel": "สถานะ Env Pipeline — Dev {dev}, Staging {stg}, Ship {ship}, {pct}%",
+                "summaryTitle": "สถานะโปรเจกต์",
+                "gates": "Gates",
+                "epics": "Epics",
+                "backlog": "Backlog",
+                "loadError": "โหลดไม่สำเร็จ"
             }
         },
         "catalog": {
             "loading": "กำลังโหลดลาน",
+            "loading_sr": "กำลังโหลด…",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
             "end_of_list": "ดูลานครบทั้งหมดแล้ว"
         },

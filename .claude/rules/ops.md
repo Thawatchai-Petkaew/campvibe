@@ -21,11 +21,11 @@ Promote `staging`→`main` (= Released, G5):
 4. **Tag + changelog + rollback plan** — all three, every prod release.
 5. **Smoke test** on the real Production URL.
 6. **Watch errors** (Sentry) for N minutes → spike = auto-rollback + alert; real error = open a bug ticket.
-7. Label the story `released` (a label, not a state); sync Linear (`linear-sync.mjs audit`).
+7. Label the story `released` (a label, not a state); sync the ticket DB (`ticket-sync.mjs audit`).
 
 Rollout (if flagged): internal → 5% → 25% → 50% → 100% · errors **+10% over baseline = investigate · ≥2× = rollback**.
 
-Any failure at any env → **stop the promotion + auto-open a Linear ticket**.
+Any failure at any env → **stop the promotion + auto-open a ticket**.
 
 ## When to Use
 
@@ -71,7 +71,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 
 ### 3. Definition of Done vs Released
 
-- **Done** (story → Linear state `Done`): merged to `staging` + full quality-gate green + migration succeeded on staging + **AC verified on the real Staging URL**.
+- **Done** (story → ticket state `Done`): merged to `staging` + full quality-gate green + migration succeeded on staging + **AC verified on the real Staging URL**.
 - **Released** (deployment → label `released` + git tag): promote `staging`→`main` + Production deploy + smoke green + tag + changelog + rollback plan + G5.
 - `released` is a **label, not a state**; many stories can be Done before shipping together as one release.
 
@@ -82,7 +82,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 - Prod always goes through Staging (Done + G4 sign-off) — never skip.
 - Every prod release has a **tag + changelog + rollback plan**.
 - Migrations are **reversible + tested on Staging before prod**.
-- A failure at any env → **stop the promotion + auto-open a Linear ticket** into the loop.
+- A failure at any env → **stop the promotion + auto-open a ticket** into the loop.
 - Cross-env promotion happens only via `/promote-release --to <staging|prod>` (merge→staging = Done, staging→main = Released).
 
 ### 5. Git / CI
@@ -94,7 +94,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 ### 6. After deploy (observability)
 
 - Watch errors (Sentry) for N minutes after deploy → error spike = **auto-rollback + alert**; a real error → open a bug ticket into the loop.
-- Linear-side tickets are checked against the story ticket template via `node scripts/linear-sync.mjs audit`.
+- Ticket-DB tickets are checked against the story ticket template via `node scripts/ticket-sync.mjs audit`.
 
 ### 7. Pre-launch + rollout (before prod)
 
@@ -132,7 +132,7 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 | "I'll promote straight from feature/Preview to prod." | Prod always goes through Staging + G4 sign-off first. |
 | "This migration is irreversible / I'll test it first on prod." | Make it reversible + test on Staging before prod. |
 | "Ship the release without a tag/changelog/rollback." | All three are required for every prod release. |
-| "It failed, so I'll just silently retry." | Stop the promotion + auto-open a Linear ticket. |
+| "It failed, so I'll just silently retry." | Stop the promotion + auto-open a ticket. |
 | "Local/Preview passed, so call it Done." | Done means AC verified on the real Staging URL. |
 | "One `DATABASE_URL` across envs is simpler." | Keep staging/prod strictly separate. |
 | "Add the new consistency/lint guard straight as blocking." | A grep guard catches forbidden STRINGS, not structural/role drift (CAM-221: ~90 drift passed `check-ds` with correct tokens but the wrong role / re-implemented). Use AST/co-occurrence heuristics for structural rules, and roll out **report-mode → clear the backlog to 0 → flip to blocking**; never ship a blocking guard with a non-zero backlog. Make supplementary CI checks (visual regression) advisory (`continue-on-error` + non-required) so they don't block the gate. |
@@ -144,4 +144,4 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 - [ ] AC verified on the **real URL** (Staging→Done / Production→smoke green)
 - [ ] (prod) tag + changelog + rollback plan complete + G5 passed
 - [ ] errors watched after deploy; spike → auto-rollback; real error → open a bug ticket
-- [ ] Linear status synced (`linear-sync.mjs audit` passes) before closing the story
+- [ ] Ticket DB status synced (`ticket-sync.mjs audit` passes) before closing the story

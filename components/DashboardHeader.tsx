@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { handleSignOut } from "@/lib/actions";
+import { signOut } from "next-auth/react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 
 interface DashboardHeaderProps {
@@ -75,7 +75,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             {user.email}
                         </div>
                         <div className="px-3 py-1">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline">
                                 {user.role || "USER"}
                             </Badge>
                         </div>
@@ -84,7 +84,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                             <Link href="/profile">{t.nav.myProfile}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                            onClick={() => handleSignOut()}
+                            onClick={() => signOut({ callbackUrl: "/" })}
                             className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
                             {t.auth.signOut}

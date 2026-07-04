@@ -129,7 +129,6 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
           <div className="absolute top-4 left-4">
             <Badge
               variant={variant}
-              className="ring-2 ring-card shadow-sm font-bold tracking-wider rounded-xl"
               data-testid="badge--booking-status"
             >
               {statusLabel}

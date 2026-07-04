@@ -275,9 +275,12 @@ describe("[regression CAM-201 GAP B] working/idle class is engine-owned, not Rea
   // After: className is the static string "scout".
   //
   // On OLD (v0.10.1) code: the interpolation `${stateClass}` was present → FAIL.
-  it("AgentScoutInner className is the static string \"scout\" (no working/idle interpolation)", () => {
-    // Must contain className="scout" as a static string (not a template literal with stateClass).
-    expect(agentScoutInnerSrc).toContain('className="scout"');
+  // SMUX-3: className may now be a ternary (scout vs scout--focused) but must
+  // never contain working/idle interpolation (those remain engine-owned).
+  it("AgentScoutInner className always includes 'scout' as a base class (no working/idle interpolation)", () => {
+    // The className expression must reference "scout" as a string literal somewhere.
+    // Static: className="scout"  OR  ternary: className={... ? "scout ..." : "scout"}.
+    expect(agentScoutInnerSrc).toContain('"scout"');
   });
 
   it("AgentScoutInner className does NOT contain '${stateClass}' interpolation", () => {

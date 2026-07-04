@@ -11,11 +11,9 @@ export default async function HostNewCampSitePage() {
     redirect("/login?callbackUrl=/host/new");
   }
 
-  const currentUser = { name: session.user.name ?? null, image: (session.user as any).image ?? null };
-
   return (
     <div className="min-h-screen bg-background">
-      <Navbar currentUser={currentUser} />
+      <Navbar />
       <div className="pt-2">
         <CampgroundForm />
       </div>

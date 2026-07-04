@@ -2,8 +2,9 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
+import type { Session } from "next-auth";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, session }: { children: React.ReactNode; session: Session | null }) {
     return (
         <ThemeProvider
             attribute="class"
@@ -11,7 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             enableSystem
             storageKey="campvibe_theme"
         >
-            <SessionProvider>{children}</SessionProvider>
+            <SessionProvider session={session}>{children}</SessionProvider>
         </ThemeProvider>
     );
 }

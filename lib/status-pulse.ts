@@ -1,6 +1,16 @@
-// Real-time signal for the /status dashboard. A single row ("singleton") whose
-// `version` integer is bumped by the Linear webhook on every issue change; the SSE
-// stream polls it and pushes a refresh to connected dashboards. No business data.
+// Legacy real-time signal for the TICKETS_SOURCE=linear read path. A single row
+// ("singleton") whose `version` integer used to be bumped by the Linear webhook on every
+// issue change (retired CAM-281 T-5b).
+//
+// CAM-287: app/api/status/stream/route.ts (the SSE loop) and app/api/status/pulse/route.ts
+// (the manual-bump endpoint) switched to lib/delivery/pulse.ts's DeliveryPulse — the pulse
+// real ticket mutations actually bump today (ADR-010, no webhook). Nothing calls
+// `bumpPulse` in this codebase any more, so this row is now dormant/frozen — it will not
+// change again. `readPulse` still has real callers (app/status/page.tsx,
+// app/status/map/page.tsx, app/status/map/data/route.ts, app/api/status/version/route.ts):
+// they key their own cache off this version for the legacy TICKETS_SOURCE=linear rendering
+// path, and each already falls back to a time-based cache when the pulse is stale/unavailable.
+// Do NOT delete this file — those reads still resolve; only the write path is orphaned.
 import { prisma } from "@/lib/prisma";
 
 const ID = "singleton";

@@ -54,6 +54,10 @@ function fillStore(key: string, count: number) {
 // Module mocks — declared before any route imports (Vitest hoisting boundary)
 // ---------------------------------------------------------------------------
 
+// lib/status-auth.ts (CAM-275) declares `import "server-only"` — stub it so the
+// dynamically-imported status/stream route's transitive import resolves under vitest.
+vi.mock('server-only', () => ({}));
+
 const mockAuth = vi.fn();
 vi.mock('@/lib/auth', () => ({
   auth: (...args: unknown[]) => mockAuth(...args),
@@ -107,7 +111,8 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-vi.mock('@/lib/status-pulse', () => ({ readPulse: vi.fn(async () => 0) }));
+// CAM-287: app/api/status/stream/route.ts now reads lib/delivery/pulse.ts's DeliveryPulse.
+vi.mock('@/lib/delivery/pulse', () => ({ readDeliveryPulse: vi.fn(async () => 0) }));
 
 // withTiming just calls the callback
 vi.mock('@/lib/route-timing', () => ({

@@ -1,12 +1,10 @@
 /**
  * notify-messages — single source of copy for delivery-team Telegram notifications.
  *
- * All event messages are built here. The Linear webhook (app/api/linear-webhook/route.ts)
- * is the SINGLE source of Telegram event notifications — it fires for any actor
- * (the linear-sync.mjs CLI, the Linear MCP, or a manual edit in the Linear UI).
- *
- * scripts/linear-sync.mjs no longer sends event messages; it only sets state/labels/title
- * whose changes trigger the webhook, which notifies here.
+ * All event messages are built here. lib/delivery/tickets.ts is the SINGLE mutation path
+ * (ADR-010 "single mutation path, no webhook" — CAM-281 T-5b retired the Linear event
+ * webhook this copy used to be driven by) — every ticket verb (approve/reject/handoff/...)
+ * calls buildEventMessage() directly at mutation time and sends the result itself.
  *
  * Copy rules: English, no emoji, no Thai in event messages.
  */
@@ -81,7 +79,14 @@ export function statusUrl(): string {
   return `${base}/status${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
 
-/** Inline-keyboard button that opens the Linear issue (or any URL). */
+/** Link to the live /status/map board (token-gated) — the "More Detail" target for every ticket. */
+export function statusMapUrl(): string {
+  const base = process.env.APP_BASE_URL || "https://campvibe-staging.vercel.app";
+  const token = process.env.STATUS_TOKEN;
+  return `${base}/status/map${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+
+/** Inline-keyboard button that opens the board detail (or any URL). Never log the token embedded in url. */
 export function moreDetailBtn(url: string): { text: string; url: string } {
   return { text: "More Detail", url };
 }
@@ -93,11 +98,11 @@ export function liveStatusBtn(): { text: string; url: string } {
 
 // ── Message context ───────────────────────────────────────────────────────────────────────────
 export interface EventCtx {
-  /** Linear identifier, e.g. "CAM-9". */
+  /** Ticket identifier, e.g. "CAM-9". */
   id: string;
   /** Issue title (may start with a [role] tag). */
   title?: string;
-  /** Direct URL to the Linear issue. */
+  /** Board detail URL (the live /status/map board, token-gated — see statusMapUrl()). */
   url?: string;
   /** Role slug for handoff/regression/reverify events, e.g. "backend-engineer". */
   role?: string;

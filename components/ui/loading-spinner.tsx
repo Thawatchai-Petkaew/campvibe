@@ -27,11 +27,11 @@ export function LoadingSpinner({
             className
         )}>
             <div className={cn(
-                "border-primary border-t-transparent rounded-full animate-spin",
+                "border-primary border-t-transparent rounded-full animate-spin motion-reduce:animate-none",
                 sizeClasses[size]
             )} />
             {text && (
-                <p className="text-muted-foreground font-medium animate-pulse">
+                <p className="text-muted-foreground font-medium animate-pulse motion-reduce:animate-none">
                     {text}
                 </p>
             )}

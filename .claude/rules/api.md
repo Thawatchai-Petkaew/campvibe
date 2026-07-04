@@ -163,6 +163,7 @@ Backend implements the endpoint to this standard → qa writes contract + happy/
 | "Migration without a down / never tried rollback is OK." | Test up→down→up on Staging first. |
 | "Cram `fullName: \"นายสมชาย\"`, `price: \"฿1,250\"`." | Atomic fields per `types/api.ts`. |
 | "Adding pagination means adding a cursor." | A keyset cursor changes the list response shape (array → `{items, nextCursor}`) and breaks flat-array consumers. Check the consumers first; a bounded `take` (newest-first) closes the unbounded-scan risk non-breaking — only change the contract if the FE is updated in the same story (CAM-212). |
+| "Fall back to `fs.writeFile`/local disk when blob storage is unavailable." | The serverless filesystem is read-only (except `/tmp`) — a `writeFile` to `public/uploads` throws on Vercel and surfaces as a mystery `500` (uploads dead on staging). Make any local-FS write fallback `NODE_ENV==='development'`-only; in production with no object-storage token, return a clear error (`503`), never a doomed write (CAM-239). |
 
 ## Verify (exit criteria)
 

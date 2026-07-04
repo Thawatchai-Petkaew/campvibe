@@ -1,0 +1,1416 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe — /status/map Responsive Wireframe · CAM-250 SMUX-1</title>
+<style>
+/* ── Design-doc variables (mirror loading-ux.html palette exactly) ── */
+:root {
+  --bg: #f0f4f3;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-alt: #e8f4f2;
+  --line: #d8e8e6;
+  --line-strong: #b8d4d0;
+  --fg: #1a2c2e;
+  --muted: #4e6e6b;
+  --muted-lt: #7a9896;
+  --primary: #14b8a6;
+  --primary-dim: #0d9488;
+  --primary-10: rgba(20,184,166,.10);
+  --primary-20: rgba(20,184,166,.20);
+  --success: #16a34a;
+  --success-10: rgba(22,163,74,.10);
+  --warn: #d97706;
+  --warn-10: rgba(217,119,6,.10);
+  --danger: #dc2626;
+  --radius-card: 22px;
+  --radius-ctrl: 999px;
+  --radius-inner: 14px;
+  --radius-pop: 18px;
+
+  /* Map/scene palette — night dark, always-on, immune to .dark */
+  --night: #070d1c;
+  --night-2: #0b1e18;
+  --glass: rgba(11,30,24,.55);
+  --glass-hi: rgba(11,30,24,.70);
+  --glass-border: rgba(150,240,195,.14);
+  --glass-border-hi: rgba(91,233,176,.40);
+  --teal-glow: #5BE9B0;
+  --amber: #FFB454;
+  --text-night: #F1F6FB;
+  --muted-night: rgba(223,234,245,.65);
+  --faint-night: rgba(223,234,245,.40);
+  --fire: #ff7c32;
+  --fire-glow: rgba(255,140,40,.50);
+  --agent-done: rgba(91,233,176,.70);
+  --agent-active: rgba(255,180,84,.70);
+  --agent-idle: rgba(180,210,230,.45);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14.5px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+  padding: 0 0 80px;
+}
+
+/* ── Doc shell ── */
+.wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+
+/* ── Hero ── */
+.hero {
+  padding: 36px 40px 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: linear-gradient(135deg, var(--card-alt) 0%, var(--surface) 60%);
+  margin-bottom: 32px;
+}
+.eyebrow {
+  letter-spacing: .2em; text-transform: uppercase; font-size: 11px;
+  color: var(--primary); font-weight: 800;
+}
+h1 { margin: .4em 0 .25em; font-size: 28px; letter-spacing: -.02em; color: var(--fg); }
+.sub { color: var(--muted); max-width: 76ch; font-size: 14px; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.badge {
+  font-size: 11.5px; font-weight: 700; padding: 4px 13px;
+  border-radius: var(--radius-ctrl); border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+}
+.badge.ok  { color: var(--success); border-color: rgba(22,163,74,.35); background: var(--success-10); }
+.badge.warn { color: var(--warn); border-color: rgba(217,119,6,.35); background: var(--warn-10); }
+.badge.info { color: var(--primary-dim); border-color: rgba(20,184,166,.35); background: var(--primary-10); }
+.badge.nxt  { color: #8b5cf6; border-color: rgba(139,92,246,.35); background: rgba(139,92,246,.08); }
+
+/* ── Nav ── */
+nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+nav.toc a {
+  font-size: 12.5px; font-weight: 700; color: var(--muted); text-decoration: none;
+  padding: 5px 13px; border: 1px solid var(--line); border-radius: var(--radius-ctrl);
+  transition: color .15s, border-color .15s;
+}
+nav.toc a:hover { color: var(--fg); border-color: var(--primary); }
+
+/* ── Section titles ── */
+section { margin-top: 48px; }
+h2 {
+  font-size: 19px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; color: var(--fg);
+}
+h2 .n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 9px;
+  background: var(--primary); color: #fff; font-size: 13px; font-weight: 900; flex-shrink: 0;
+}
+.section-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; max-width: 88ch; }
+
+/* ── Breakpoint frames container ── */
+.bp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .bp-row { grid-template-columns: 1fr; }
+}
+
+/* ── Individual breakpoint frame ── */
+.bp-frame {
+  border-radius: var(--radius-card);
+  border: 1.5px solid var(--line-strong);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  background: var(--night);
+}
+.bp-label-bar {
+  background: var(--card-alt);
+  border-bottom: 1px solid var(--line);
+  padding: 9px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.bp-label {
+  font-size: 12px; font-weight: 800; color: var(--fg); letter-spacing: .04em; text-transform: uppercase;
+}
+.bp-dim { font-size: 11px; color: var(--muted); font-weight: 600; }
+
+/* ── The "map" canvas inside each frame — inline SVG-drawn scene ── */
+.map-scene {
+  position: relative;
+  width: 100%;
+  background: var(--night);
+  overflow: hidden;
+  /* height set per frame variant */
+}
+
+/* ── Shared HUD pieces (inside map-scene, absolutely positioned) ── */
+
+/* TOP FILTER BAR */
+.hud-filter {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+  pointer-events: none;
+}
+.hud-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 13px; font-size: 11px; font-weight: 700;
+  color: var(--teal-glow); background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hud-chip.logo { color: var(--text-night); }
+.hud-chip.active { border-color: var(--glass-border-hi); color: var(--teal-glow); }
+.hud-spacer { flex: 1; }
+.hud-compact-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 12px; font-size: 11px; font-weight: 700;
+  color: var(--text-night); background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 999px;
+}
+
+/* LEFT PANEL (Roster) — desktop */
+.hud-left {
+  position: absolute; top: 54px; left: 10px; z-index: 20;
+  width: 130px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+}
+.hud-panel-title {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--teal-glow); margin-bottom: 7px;
+}
+.roster-row {
+  display: flex; align-items: center; gap: 6px; padding: 3.5px 0;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dot.active  { background: var(--teal-glow); box-shadow: 0 0 4px var(--teal-glow); }
+.dot.busy    { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+.dot.idle    { background: var(--muted-night); }
+.roster-name { font-size: 9px; font-weight: 600; color: var(--muted-night); }
+
+/* RIGHT PANEL (StatusBoard) — desktop */
+.hud-right {
+  position: absolute; top: 54px; right: 10px; z-index: 20;
+  width: 150px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+}
+.board-col { margin-bottom: 7px; }
+.board-col-title {
+  font-size: 8.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-night); margin-bottom: 3px;
+}
+.board-card {
+  font-size: 8px; font-weight: 600; color: var(--text-night);
+  background: rgba(255,255,255,.07); border-radius: 6px;
+  padding: 3px 6px; margin-bottom: 2px;
+  border-left: 2px solid transparent;
+}
+.board-card.in-prog { border-left-color: var(--amber); }
+.board-card.done    { border-left-color: var(--teal-glow); }
+.board-card.todo    { border-left-color: var(--muted-night); }
+
+/* BOTTOM DOCK */
+.hud-dock {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 20;
+  display: flex; align-items: center; gap: 0;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 0;
+  white-space: nowrap;
+  max-width: 92%;
+  overflow: hidden;
+}
+.dock-seg {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; min-height: 40px; min-width: 44px;
+  font-size: 10px; font-weight: 700; color: var(--muted-night);
+  border-right: 1px solid rgba(255,255,255,.10);
+  cursor: pointer;
+}
+.dock-seg:last-child { border-right: none; }
+.dock-seg .val { font-size: 12px; font-weight: 800; color: var(--teal-glow); }
+.dock-seg .val.amber { color: var(--amber); }
+.dock-seg.icon-only { padding: 7px 12px; }
+
+/* MOBILE TOOLBAR */
+.mobile-toolbar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 25;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px 10px;
+  background: var(--glass-hi);
+  border-top: 1px solid var(--glass-border);
+  min-height: 52px;
+}
+.toolbar-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; font-size: 11px; font-weight: 800;
+  color: var(--text-night); background: var(--glass);
+  border: 1px solid var(--glass-border); border-radius: 999px;
+  min-height: 44px; min-width: 44px;
+  cursor: pointer;
+}
+.toolbar-btn.active { border-color: var(--glass-border-hi); color: var(--teal-glow); }
+.toolbar-center { display: flex; align-items: center; gap: 6px; }
+
+/* BOTTOM SHEET */
+.bottom-sheet {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px 18px 0 0;
+  padding: 0;
+  backdrop-filter: saturate(195%) blur(32px);
+}
+.sheet-handle-bar {
+  display: flex; justify-content: center; padding: 10px 0 6px;
+}
+.sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.25);
+}
+.sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px 10px;
+}
+.sheet-title {
+  font-size: 13px; font-weight: 800; color: var(--text-night);
+  letter-spacing: -.01em;
+}
+.sheet-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 999px;
+  background: rgba(255,255,255,.08); color: var(--muted-night);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.sheet-body { padding: 0 14px 16px; }
+.kanban-cols { display: flex; gap: 8px; overflow-x: auto; }
+.kanban-col {
+  min-width: 90px; flex-shrink: 0;
+  background: rgba(255,255,255,.04); border-radius: 10px; padding: 8px 7px;
+}
+.kanban-col-h {
+  font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted-night); margin-bottom: 5px;
+}
+.k-card {
+  font-size: 8px; font-weight: 600; color: var(--text-night);
+  background: rgba(255,255,255,.07); border-radius: 5px; padding: 4px 6px; margin-bottom: 3px;
+  border-left: 2px solid transparent;
+}
+.k-card.ip  { border-left-color: var(--amber); }
+.k-card.dn  { border-left-color: var(--teal-glow); }
+.k-card.td  { border-left-color: var(--muted-night); }
+
+/* ── Campfire + Agents SVG canvas ── */
+.scene-svg { display: block; width: 100%; }
+
+/* ── Annotation panel ── */
+.annotation {
+  background: var(--card-alt);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pop);
+  padding: 18px 20px;
+  margin-top: 16px;
+  font-size: 12.5px;
+}
+.annotation h3 { font-size: 13px; font-weight: 800; color: var(--fg); margin-bottom: 10px; }
+.annotation ul { padding-left: 18px; color: var(--muted); line-height: 1.8; }
+.annotation ul li { margin-bottom: 3px; }
+.annotation ul li strong { color: var(--fg); }
+.annotation code {
+  font-size: 11px; font-family: 'JetBrains Mono','Fira Mono',monospace;
+  background: rgba(0,0,0,.06); border-radius: 4px; padding: 1px 5px;
+}
+
+/* ── State sub-frames ── */
+.states-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .states-row { grid-template-columns: 1fr; } }
+
+.state-frame {
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-pop);
+  overflow: hidden;
+  background: var(--night);
+}
+.state-label {
+  background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 7px 14px; font-size: 11px; font-weight: 800; color: var(--fg);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+
+/* ── S3 Flicker preview (next story, separate) ── */
+.preview-box {
+  border: 2px dashed rgba(139,92,246,.5);
+  border-radius: var(--radius-pop);
+  background: rgba(139,92,246,.04);
+  padding: 18px 20px;
+  margin-top: 20px;
+}
+.preview-box .px-label {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+  color: #8b5cf6; margin-bottom: 10px;
+}
+.preview-box p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.preview-box code {
+  font-size: 11px; font-family: 'JetBrains Mono','Fira Mono',monospace;
+  background: rgba(139,92,246,.10); border-radius: 4px; padding: 1px 5px; color: #6d28d9;
+}
+
+/* ── Design token table ── */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  text-align: left; padding: 7px 12px;
+  background: var(--card-alt); border-bottom: 2px solid var(--line-strong);
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+tbody td { padding: 7px 12px; border-bottom: 1px solid var(--line); color: var(--fg); }
+tbody tr:last-child td { border-bottom: none; }
+code.token {
+  font-size: 11px; font-family: 'JetBrains Mono','Fira Mono',monospace;
+  background: rgba(0,0,0,.05); border-radius: 4px; padding: 1px 5px; color: var(--primary-dim);
+}
+
+/* ── Divider ── */
+.divider { border: none; border-top: 1px solid var(--line-strong); margin: 40px 0 0; }
+
+/* ── Note box ── */
+.note {
+  display: flex; gap: 10px;
+  background: var(--primary-10); border: 1px solid rgba(20,184,166,.25); border-radius: 12px;
+  padding: 14px 16px; margin: 16px 0 0;
+}
+.note .icon { color: var(--primary); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.note p { font-size: 13px; color: var(--fg); line-height: 1.6; }
+.note p strong { color: var(--primary-dim); }
+.note-warn { background: var(--warn-10); border-color: rgba(217,119,6,.30); }
+.note-warn .icon { color: var(--warn); }
+
+/* ── Invariant callout ── */
+.invariant {
+  background: rgba(15,25,30,.06); border-left: 3px solid var(--primary);
+  border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0;
+  font-size: 12.5px; color: var(--muted);
+}
+.invariant strong { color: var(--fg); }
+
+/* ── Flow arrow ── */
+.flow-arrow { color: var(--muted); font-weight: 800; margin: 0 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="eyebrow">CampVibe · CAM-250 · SMUX-1 · Designer Wireframe</div>
+  <h1>/status/map — Responsive Wireframe</h1>
+  <p class="sub">Layout design for 3 breakpoints (Desktop ≥1024 · Tablet 640–1024 · Mobile &lt;640) + all mobile sheet states + narrow agent ring + annotation + token map. For owner review at G2 before any code is written.</p>
+  <div class="badges">
+    <span class="badge info">G2 Design Review</span>
+    <span class="badge info">SMUX-1 Wireframe</span>
+    <span class="badge ok">3 Breakpoints</span>
+    <span class="badge ok">Mobile Sheet States</span>
+    <span class="badge ok">Narrow Ring</span>
+    <span class="badge warn">No App Code Changed</span>
+    <span class="badge nxt">SMUX-3 Preview Included</span>
+  </div>
+</div>
+
+<!-- ── TOC ── -->
+<nav class="toc">
+  <a href="#breakpoints">Breakpoints</a>
+  <a href="#mobile-states">Mobile States</a>
+  <a href="#narrow-ring">Narrow Ring</a>
+  <a href="#annotations">Annotations</a>
+  <a href="#tokens">Tokens</a>
+  <a href="#s3-preview">SMUX-3 Preview</a>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     §1  THREE BREAKPOINT FRAMES
+     ════════════════════════════════════════════════ -->
+<section id="breakpoints">
+  <h2><span class="n">1</span>Three Breakpoints — Side by Side</h2>
+  <p class="section-sub">
+    Each frame shows the full /status/map layout at that viewport width.
+    Night-scene aesthetic is always-on, immune to the .dark theme class.
+    The map canvas always fills its container; HUD panels adapt by breakpoint.
+  </p>
+
+  <div class="bp-row">
+
+    <!-- ══ DESKTOP ≥1024 ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Desktop</span>
+        <span class="bp-dim">≥ 1024px · 3 panels visible</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Background gradient — night sky -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 400 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="skyd" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0d2535"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="firegd" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".9"/>
+              <stop offset="60%" stop-color="#ff5c00" stop-opacity=".5"/>
+              <stop offset="100%" stop-color="#ff3d00" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="groundd" cx="50%" cy="100%" r="60%">
+              <stop offset="0%" stop-color="#0a1f14" stop-opacity=".9"/>
+              <stop offset="100%" stop-color="#070d1c" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <!-- Sky -->
+          <rect width="400" height="480" fill="url(#skyd)"/>
+          <!-- Stars -->
+          <g fill="white" opacity=".6">
+            <circle cx="40" cy="30" r="1"/>  <circle cx="90" cy="15" r="1.2"/>
+            <circle cx="160" cy="25" r=".9"/> <circle cx="230" cy="10" r="1.1"/>
+            <circle cx="310" cy="20" r="1"/> <circle cx="370" cy="35" r=".8"/>
+            <circle cx="60" cy="60" r=".7"/> <circle cx="130" cy="45" r="1"/>
+            <circle cx="280" cy="55" r=".9"/> <circle cx="340" cy="50" r="1.2"/>
+          </g>
+          <!-- Tree silhouettes -->
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,320 25,240 50,320"/>
+            <polygon points="10,320 38,220 65,320"/>
+            <polygon points="340,320 368,235 396,320"/>
+            <polygon points="355,320 380,215 400,320"/>
+          </g>
+          <!-- Ground glow -->
+          <rect x="0" y="340" width="400" height="140" fill="url(#groundd)" opacity=".8"/>
+          <rect x="0" y="380" width="400" height="100" fill="#071510" opacity=".6"/>
+
+          <!-- Campfire (centre-ish) -->
+          <g transform="translate(200,290)">
+            <!-- Glow -->
+            <ellipse cx="0" cy="18" rx="55" ry="28" fill="url(#firegd)" opacity=".55"/>
+            <!-- Log base -->
+            <ellipse cx="0" cy="20" rx="22" ry="7" fill="#1a0f06"/>
+            <line x1="-18" y1="17" x2="18" y2="23" stroke="#2d1a08" stroke-width="5" stroke-linecap="round"/>
+            <line x1="-16" y1="22" x2="16" y2="17" stroke="#2d1a08" stroke-width="4" stroke-linecap="round"/>
+            <!-- Flames -->
+            <path d="M0,20 Q-8,8 -4,-4 Q0,4 4,-8 Q6,4 10,0 Q6,12 0,20Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,20 Q-5,10 -2,2 Q2,10 5,0 Q4,12 0,20Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+
+          <!-- Agent ring (wide layout, 7 agents in oval) -->
+          <!-- Positions: scaled to this 400×480 frame (map stage 240×240 centred ~200,270) -->
+          <!-- WIDE positions from LAYOUT_WIDE, roughly scaled -->
+          <!-- architect W0 → ~200,200 (top) -->
+          <g>
+            <!-- architect -->
+            <circle cx="200" cy="200" r="12" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="200" cy="200" r="6" fill="#5BE9B0"/>
+            <text x="200" y="192" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">architect</text>
+
+            <!-- ux-designer -->
+            <circle cx="235" cy="218" r="12" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="235" cy="218" r="6" fill="#FFB454"/>
+            <text x="235" y="210" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">ux</text>
+
+            <!-- backend-engineer -->
+            <circle cx="250" cy="262" r="12" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="250" cy="262" r="6" fill="#5BE9B0"/>
+            <text x="250" y="254" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">backend</text>
+
+            <!-- frontend-engineer -->
+            <circle cx="200" cy="308" r="12" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="200" cy="308" r="6" fill="#5BE9B0"/>
+            <text x="200" y="300" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">frontend</text>
+
+            <!-- devops-release -->
+            <circle cx="152" cy="278" r="12" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="152" cy="278" r="6" fill="#FFB454"/>
+            <text x="152" y="270" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">devops</text>
+
+            <!-- qa-engineer -->
+            <circle cx="144" cy="228" r="12" fill="rgba(180,210,230,.18)" stroke="rgba(180,210,230,.6)" stroke-width="1.5"/>
+            <circle cx="144" cy="228" r="6" fill="rgba(180,210,230,.7)"/>
+            <text x="144" y="220" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">qa</text>
+
+            <!-- security-reviewer -->
+            <circle cx="174" cy="205" r="12" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="174" cy="205" r="6" fill="#5BE9B0"/>
+            <text x="174" y="197" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui">security</text>
+
+            <!-- YOU -->
+            <circle cx="155" cy="185" r="10" fill="rgba(255,255,255,.15)" stroke="white" stroke-width="2"/>
+            <circle cx="155" cy="185" r="5" fill="white"/>
+            <text x="155" y="177" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.8)" font-family="system-ui" font-weight="700">YOU</text>
+          </g>
+        </svg>
+
+        <!-- HUD FILTER BAR (top) — 3 dropdowns -->
+        <div class="hud-filter">
+          <div class="hud-chip logo" style="font-size:9px;">CampVibe</div>
+          <div class="hud-spacer"></div>
+          <div class="hud-chip">ผู้ใช้งาน ▾</div>
+          <div class="hud-chip active">Feature ▾</div>
+          <div class="hud-chip">Epic ▾</div>
+          <div class="hud-spacer"></div>
+          <!-- ViewToggle -->
+          <div class="hud-chip" style="font-size:9px;gap:3px;">
+            <span style="color:var(--muted-night)">แดชบอร์ด</span>
+            <span style="color:rgba(255,255,255,.25)">|</span>
+            <span style="color:var(--teal-glow)">แผนที่</span>
+          </div>
+        </div>
+
+        <!-- TEAM ROSTER (left side) -->
+        <div class="hud-left">
+          <div class="hud-panel-title">ทีมงาน</div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Architect</div></div>
+          <div class="roster-row"><div class="dot busy"></div><div class="roster-name">UX Designer</div></div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Backend</div></div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Frontend</div></div>
+          <div class="roster-row"><div class="dot busy"></div><div class="roster-name">DevOps</div></div>
+          <div class="roster-row"><div class="dot idle"></div><div class="roster-name">QA</div></div>
+          <div class="roster-row"><div class="dot active"></div><div class="roster-name">Security</div></div>
+        </div>
+
+        <!-- STATUS BOARD (right side) -->
+        <div class="hud-right" style="width:155px;">
+          <div class="hud-panel-title">Board · SMUX</div>
+          <div class="board-col">
+            <div class="board-col-title">In Progress</div>
+            <div class="board-card in-prog">SMUX-1 Wireframe</div>
+            <div class="board-card in-prog">PERF-3 Keyset</div>
+          </div>
+          <div class="board-col">
+            <div class="board-col-title">Todo</div>
+            <div class="board-card todo">SMUX-2 Responsive</div>
+            <div class="board-card todo">SMUX-3 Sync</div>
+          </div>
+          <div class="board-col">
+            <div class="board-col-title">Done</div>
+            <div class="board-card done">CAM-197 LOAD-1</div>
+          </div>
+        </div>
+
+        <!-- BOTTOM DOCK -->
+        <div class="hud-dock" style="bottom:10px;">
+          <div class="dock-seg" style="border-radius:999px 0 0 999px;padding-left:16px;">
+            <span>Persona</span>
+          </div>
+          <div class="dock-seg">
+            <div>
+              <div class="val">5</div>
+              <div style="font-size:8px;color:var(--muted-night)">Epic</div>
+            </div>
+          </div>
+          <div class="dock-seg">
+            <div>
+              <div class="val amber">3</div>
+              <div style="font-size:8px;color:var(--muted-night)">In Progress</div>
+            </div>
+          </div>
+          <div class="dock-seg">
+            <div>
+              <div class="val">12</div>
+              <div style="font-size:8px;color:var(--muted-night)">Done</div>
+            </div>
+          </div>
+          <div class="dock-seg icon-only" style="border-radius:0 999px 999px 0;padding-right:16px;">
+            <!-- Bell icon (Lucide) -->
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted-night)"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+        </div>
+
+      </div><!-- /map-scene desktop -->
+      <div class="annotation" style="border-radius:0;border:none;border-top:1px solid var(--line);background:var(--card);">
+        <ul>
+          <li><strong>FilterSignposts:</strong> 3 dropdowns top-bar (คงเดิม)</li>
+          <li><strong>Team Roster:</strong> left side panel, always visible</li>
+          <li><strong>StatusBoard:</strong> right side panel, shows when filter active</li>
+          <li><strong>Bottom dock:</strong> summary segments + gate bell</li>
+          <li>All panels render instantly (no loader needed on chrome)</li>
+        </ul>
+      </div>
+    </div><!-- /desktop frame -->
+
+    <!-- ══ TABLET 640–1024 ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Tablet</span>
+        <span class="bp-dim">640–1024px · drawers</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Background (same night sky, abbreviated) -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 300 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="skyt" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0d2535"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="firet" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".9"/>
+              <stop offset="60%" stop-color="#ff5c00" stop-opacity=".5"/>
+              <stop offset="100%" stop-color="#ff3d00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="300" height="480" fill="url(#skyt)"/>
+          <g fill="white" opacity=".5">
+            <circle cx="30" cy="20" r="1"/><circle cx="80" cy="12" r="1.1"/>
+            <circle cx="150" cy="18" r=".9"/><circle cx="220" cy="8" r="1"/>
+            <circle cx="270" cy="25" r=".8"/>
+          </g>
+          <!-- Trees -->
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,320 20,250 40,320"/>
+            <polygon points="260,320 280,240 300,320"/>
+          </g>
+          <rect x="0" y="380" width="300" height="100" fill="#071510" opacity=".6"/>
+          <!-- Campfire -->
+          <g transform="translate(150,285)">
+            <ellipse cx="0" cy="16" rx="45" ry="24" fill="url(#firet)" opacity=".55"/>
+            <ellipse cx="0" cy="18" rx="18" ry="6" fill="#1a0f06"/>
+            <path d="M0,18 Q-6,7 -3,-3 Q0,4 3,-6 Q5,4 8,0 Q5,10 0,18Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,18 Q-4,8 -1,2 Q2,8 4,0 Q3,10 0,18Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+
+          <!-- Agent ring — SAME wide layout, no side panels cramping it -->
+          <g>
+            <circle cx="150" cy="195" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="150" cy="195" r="5" fill="#5BE9B0"/>
+            <text x="150" y="188" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">architect</text>
+
+            <circle cx="182" cy="212" r="11" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="182" cy="212" r="5" fill="#FFB454"/>
+            <text x="182" y="205" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">ux</text>
+
+            <circle cx="195" cy="252" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="195" cy="252" r="5" fill="#5BE9B0"/>
+            <text x="195" y="245" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">backend</text>
+
+            <circle cx="150" cy="295" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="150" cy="295" r="5" fill="#5BE9B0"/>
+            <text x="150" y="288" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">frontend</text>
+
+            <circle cx="108" cy="267" r="11" fill="rgba(255,180,84,.18)" stroke="#FFB454" stroke-width="1.5"/>
+            <circle cx="108" cy="267" r="5" fill="#FFB454"/>
+            <text x="108" y="260" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">devops</text>
+
+            <circle cx="100" cy="222" r="11" fill="rgba(180,210,230,.18)" stroke="rgba(180,210,230,.6)" stroke-width="1.5"/>
+            <circle cx="100" cy="222" r="5" fill="rgba(180,210,230,.7)"/>
+            <text x="100" y="215" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">qa</text>
+
+            <circle cx="124" cy="200" r="11" fill="rgba(91,233,176,.18)" stroke="#5BE9B0" stroke-width="1.5"/>
+            <circle cx="124" cy="200" r="5" fill="#5BE9B0"/>
+            <text x="124" y="193" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.6)" font-family="system-ui">security</text>
+
+            <!-- YOU -->
+            <circle cx="108" cy="180" r="9" fill="rgba(255,255,255,.15)" stroke="white" stroke-width="1.5"/>
+            <circle cx="108" cy="180" r="4.5" fill="white"/>
+            <text x="108" y="173" text-anchor="middle" font-size="6.5" fill="rgba(223,234,245,.8)" font-family="system-ui" font-weight="700">YOU</text>
+          </g>
+
+          <!-- Edge drawer indicator — right (Board) -->
+          <g>
+            <rect x="268" y="80" width="32" height="200" rx="8" fill="rgba(11,30,24,.7)" stroke="rgba(150,240,195,.2)" stroke-width="1"/>
+            <text x="284" y="152" text-anchor="middle" font-size="7" fill="rgba(91,233,176,.8)" font-family="system-ui" font-weight="700" transform="rotate(90,284,152)">Board ▸</text>
+          </g>
+          <!-- Edge drawer indicator — left (Roster) -->
+          <g>
+            <rect x="0" y="80" width="28" height="180" rx="8" fill="rgba(11,30,24,.7)" stroke="rgba(150,240,195,.2)" stroke-width="1"/>
+            <text x="14" y="152" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.6)" font-family="system-ui" font-weight="700" transform="rotate(-90,14,152)">≡ Roster</text>
+          </g>
+        </svg>
+
+        <!-- HUD FILTER BAR — compact combined -->
+        <div class="hud-filter">
+          <div class="hud-chip logo" style="font-size:9px;">CampVibe</div>
+          <div class="hud-spacer"></div>
+          <!-- Compact combined filter -->
+          <div class="hud-chip active">กรอง ▾</div>
+          <div class="hud-spacer"></div>
+          <div class="hud-chip" style="font-size:9px;">
+            <span style="color:var(--muted-night)">แดชบอร์ด</span>
+            <span style="color:rgba(255,255,255,.25)">|</span>
+            <span style="color:var(--teal-glow)">แผนที่</span>
+          </div>
+        </div>
+
+        <!-- BOTTOM DOCK — scrollable, no side panels -->
+        <div class="hud-dock">
+          <div class="dock-seg" style="border-radius:999px 0 0 999px;padding-left:14px;">
+            <div class="val amber">3</div>
+            <div style="font-size:8px;color:var(--muted-night)">กำลังทำ</div>
+          </div>
+          <div class="dock-seg">
+            <div class="val">12</div>
+            <div style="font-size:8px;color:var(--muted-night)">เสร็จ</div>
+          </div>
+          <div class="dock-seg icon-only" style="border-radius:0 999px 999px 0;padding-right:14px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted-night)"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+        </div>
+
+      </div><!-- /map-scene tablet -->
+      <div class="annotation" style="border-radius:0;border:none;border-top:1px solid var(--line);background:var(--card);">
+        <ul>
+          <li><strong>FilterSignposts:</strong> compact combined "กรอง ▾" chip</li>
+          <li><strong>Roster:</strong> left-edge drawer tab (tap to open, swipe left to close)</li>
+          <li><strong>Board:</strong> right-edge drawer tab (tap to open)</li>
+          <li><strong>Map fills:</strong> full width, no panel columns</li>
+          <li><strong>Drawers:</strong> shadcn <code>Sheet</code> side=left/right · Esc closes</li>
+        </ul>
+      </div>
+    </div><!-- /tablet frame -->
+
+    <!-- ══ MOBILE <640 ══ -->
+    <div class="bp-frame">
+      <div class="bp-label-bar">
+        <span class="bp-label">Mobile</span>
+        <span class="bp-dim">&lt; 640px · map primary + toolbar</span>
+      </div>
+      <div class="map-scene" style="height:480px;">
+
+        <!-- Background (compressed) -->
+        <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 220 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="skym" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#0d2535"/>
+              <stop offset="100%" stop-color="#070d1c"/>
+            </radialGradient>
+            <radialGradient id="firem" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9a32" stop-opacity=".9"/>
+              <stop offset="40%" stop-color="#ff5c00" stop-opacity=".5"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <rect width="220" height="480" fill="url(#skym)"/>
+          <g fill="white" opacity=".4">
+            <circle cx="20" cy="18" r="1"/><circle cx="60" cy="10" r=".9"/>
+            <circle cx="120" cy="15" r="1"/><circle cx="180" cy="8" r=".8"/>
+            <circle cx="200" cy="22" r=".9"/>
+          </g>
+          <g fill="#040a0e" opacity=".9">
+            <polygon points="0,310 15,255 30,310"/>
+            <polygon points="195,310 210,248 225,310"/>
+          </g>
+          <rect x="0" y="370" width="220" height="110" fill="#071510" opacity=".6"/>
+          <!-- Campfire -->
+          <g transform="translate(110,275)">
+            <ellipse cx="0" cy="14" rx="36" ry="18" fill="url(#firem)" opacity=".6"/>
+            <ellipse cx="0" cy="16" rx="14" ry="5" fill="#1a0f06"/>
+            <path d="M0,16 Q-5,6 -2,-2 Q0,3 2,-5 Q4,3 6,0 Q4,8 0,16Z" fill="#ff9a32" opacity=".9"/>
+            <path d="M0,16 Q-3,6 -1,2 Q1,6 3,0 Q2,8 0,16Z" fill="#ffce6a" opacity=".75"/>
+          </g>
+
+          <!-- Agent ring — NARROW layout: tighter oval, vertical emphasis -->
+          <!-- Agents compressed into a taller narrower oval to fit portrait -->
+          <g>
+            <!-- architect (top) -->
+            <circle cx="110" cy="160" r="14" fill="rgba(91,233,176,.20)" stroke="#5BE9B0" stroke-width="2"/>
+            <circle cx="110" cy="160" r="7" fill="#5BE9B0"/>
+            <text x="110" y="150" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">Architect</text>
+
+            <!-- ux-designer (upper-right) -->
+            <circle cx="148" cy="185" r="14" fill="rgba(255,180,84,.20)" stroke="#FFB454" stroke-width="2"/>
+            <circle cx="148" cy="185" r="7" fill="#FFB454"/>
+            <text x="148" y="175" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">UX</text>
+
+            <!-- backend-engineer (right) -->
+            <circle cx="162" cy="232" r="14" fill="rgba(91,233,176,.20)" stroke="#5BE9B0" stroke-width="2"/>
+            <circle cx="162" cy="232" r="7" fill="#5BE9B0"/>
+            <text x="162" y="222" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">BE</text>
+
+            <!-- frontend-engineer (lower-right) -->
+            <circle cx="140" cy="278" r="14" fill="rgba(91,233,176,.20)" stroke="#5BE9B0" stroke-width="2"/>
+            <circle cx="140" cy="278" r="7" fill="#5BE9B0"/>
+            <text x="140" y="268" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">FE</text>
+
+            <!-- devops-release (lower-left) -->
+            <circle cx="78" cy="278" r="14" fill="rgba(255,180,84,.20)" stroke="#FFB454" stroke-width="2"/>
+            <circle cx="78" cy="278" r="7" fill="#FFB454"/>
+            <text x="78" y="268" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">DevOps</text>
+
+            <!-- qa-engineer (left) -->
+            <circle cx="56" cy="232" r="14" fill="rgba(180,210,230,.20)" stroke="rgba(180,210,230,.7)" stroke-width="2"/>
+            <circle cx="56" cy="232" r="7" fill="rgba(180,210,230,.8)"/>
+            <text x="56" y="222" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">QA</text>
+
+            <!-- security-reviewer (upper-left) -->
+            <circle cx="70" cy="185" r="14" fill="rgba(91,233,176,.20)" stroke="#5BE9B0" stroke-width="2"/>
+            <circle cx="70" cy="185" r="7" fill="#5BE9B0"/>
+            <text x="70" y="175" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">Sec</text>
+
+            <!-- YOU (top-left of ring) -->
+            <circle cx="85" cy="155" r="11" fill="rgba(255,255,255,.18)" stroke="white" stroke-width="2"/>
+            <circle cx="85" cy="155" r="5.5" fill="white"/>
+            <text x="85" y="146" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.9)" font-family="system-ui" font-weight="800">YOU</text>
+          </g>
+        </svg>
+
+        <!-- HUD FILTER BAR — minimal: logo + compact filter only -->
+        <div class="hud-filter" style="padding:8px 10px;">
+          <div class="hud-chip logo" style="font-size:8.5px;padding:4px 10px;">CV</div>
+          <div class="hud-spacer"></div>
+          <div class="hud-chip" style="padding:4px 10px;font-size:9px;">กรอง ▾</div>
+        </div>
+
+        <!-- MOBILE TOOLBAR at bottom -->
+        <div class="mobile-toolbar">
+          <div class="toolbar-btn" style="font-size:10px;padding:6px 12px;">
+            <!-- Menu icon (Lucide AlignJustify shape) -->
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            ทีม
+          </div>
+          <div class="toolbar-center">
+            <div style="font-size:9px;font-weight:700;color:var(--teal-glow);font-family:'JetBrains Mono',monospace;">3 <span style="color:var(--muted-night);font-weight:600;">กำลังทำ</span></div>
+          </div>
+          <div class="toolbar-btn active" style="font-size:10px;padding:6px 12px;">
+            Board
+            <!-- ChevronUp shape -->
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          </div>
+        </div>
+
+      </div><!-- /map-scene mobile -->
+      <div class="annotation" style="border-radius:0;border:none;border-top:1px solid var(--line);background:var(--card);">
+        <ul>
+          <li><strong>Map fills 100%</strong> of the screen, no side panels</li>
+          <li><strong>Filter:</strong> minimal chip top-right, opens compact dropdown</li>
+          <li><strong>Bottom toolbar:</strong> "ทีม" button (Roster sheet) + stats + "Board" button</li>
+          <li><strong>Both panels:</strong> shadcn <code>Sheet</code> side=bottom, slide-up</li>
+          <li><strong>Toolbar height:</strong> inside existing <code>--pad-y: 140px</code> clearance</li>
+        </ul>
+      </div>
+    </div><!-- /mobile frame -->
+
+  </div><!-- /bp-row -->
+</section>
+
+<!-- ════════════════════════════════════════════════
+     §2  MOBILE STATES (3 states detailed)
+     ════════════════════════════════════════════════ -->
+<section id="mobile-states">
+  <h2><span class="n">2</span>Mobile States — Sheet Open / Closed</h2>
+  <p class="section-sub">
+    Three states for mobile (&lt;640px): (a) default map + toolbar,
+    (b) Board sheet open (kanban slides up over the map),
+    (c) Roster drawer open. Sheets use shadcn <code>Sheet</code> side=bottom.
+    Handle bar = 36×4px rounded pill. Close = ×-button (≥44px target) + Esc + drag-down.
+  </p>
+
+  <div class="states-row">
+
+    <!-- State A: Map + toolbar (default) -->
+    <div>
+      <div class="state-frame">
+        <div class="state-label">A — Default (Map + Toolbar)</div>
+        <div class="map-scene" style="height:360px;background:var(--night);">
+          <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 220 360" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="skyA" cx="50%" cy="35%" r="70%"><stop offset="0%" stop-color="#0d2535"/><stop offset="100%" stop-color="#070d1c"/></radialGradient>
+              <radialGradient id="fireA" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ff9a32" stop-opacity=".8"/><stop offset="100%" stop-color="transparent"/></radialGradient>
+            </defs>
+            <rect width="220" height="360" fill="url(#skyA)"/>
+            <g fill="white" opacity=".4"><circle cx="30" cy="15" r=".9"/><circle cx="100" cy="10" r="1"/><circle cx="180" cy="18" r=".8"/></g>
+            <g fill="#040a0e" opacity=".9"><polygon points="0,250 12,200 24,250"/><polygon points="200,250 212,198 224,250"/></g>
+            <rect x="0" y="280" width="220" height="80" fill="#071510" opacity=".6"/>
+            <!-- Campfire -->
+            <g transform="translate(110,195)">
+              <ellipse cx="0" cy="12" rx="30" ry="14" fill="url(#fireA)" opacity=".6"/>
+              <ellipse cx="0" cy="14" rx="12" ry="4" fill="#1a0f06"/>
+              <path d="M0,14 Q-4,4 -2,0 Q0,3 2,-4 Q3,3 5,0 Q3,7 0,14Z" fill="#ff9a32" opacity=".9"/>
+            </g>
+            <!-- Narrow-layout agent ring (portrait-optimised, 7 agents) -->
+            <g>
+              <circle cx="110" cy="105" r="11" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="110" cy="105" r="6" fill="#5BE9B0"/>
+              <circle cx="138" cy="122" r="11" fill="rgba(255,180,84,.2)" stroke="#FFB454" stroke-width="1.5"/><circle cx="138" cy="122" r="6" fill="#FFB454"/>
+              <circle cx="148" cy="158" r="11" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="148" cy="158" r="6" fill="#5BE9B0"/>
+              <circle cx="130" cy="193" r="11" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="130" cy="193" r="6" fill="#5BE9B0"/>
+              <circle cx="88" cy="193" r="11" fill="rgba(255,180,84,.2)" stroke="#FFB454" stroke-width="1.5"/><circle cx="88" cy="193" r="6" fill="#FFB454"/>
+              <circle cx="70" cy="158" r="11" fill="rgba(180,210,230,.2)" stroke="rgba(180,210,230,.7)" stroke-width="1.5"/><circle cx="70" cy="158" r="6" fill="rgba(180,210,230,.8)"/>
+              <circle cx="80" cy="122" r="11" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="80" cy="122" r="6" fill="#5BE9B0"/>
+              <!-- YOU -->
+              <circle cx="85" cy="100" r="9" fill="rgba(255,255,255,.18)" stroke="white" stroke-width="1.5"/><circle cx="85" cy="100" r="4.5" fill="white"/>
+            </g>
+          </svg>
+          <!-- Top compact filter -->
+          <div class="hud-filter" style="padding:7px 10px;">
+            <div class="hud-chip logo" style="font-size:8px;padding:4px 9px;">CV</div>
+            <div class="hud-spacer"></div>
+            <div class="hud-chip" style="padding:4px 10px;font-size:9px;">กรอง ▾</div>
+          </div>
+          <!-- Bottom toolbar -->
+          <div class="mobile-toolbar">
+            <div class="toolbar-btn" style="font-size:10px;padding:6px 11px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              ทีม
+            </div>
+            <div style="font-size:9px;font-weight:700;color:var(--teal-glow);">3 <span style="color:var(--muted-night);font-weight:600;">กำลังทำ</span></div>
+            <div class="toolbar-btn" style="font-size:10px;padding:6px 11px;">
+              Board
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation" style="margin-top:10px;">
+        <ul>
+          <li>Map = 100%, agents visible, campfire centred</li>
+          <li>Toolbar: ≥44px tap targets, 2 action buttons</li>
+          <li>No panels overlap map canvas</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- State B: Board sheet OPEN -->
+    <div>
+      <div class="state-frame">
+        <div class="state-label">B — Board Sheet OPEN</div>
+        <div class="map-scene" style="height:360px;background:var(--night);position:relative;overflow:hidden;">
+          <!-- Dimmed map behind sheet -->
+          <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 220 360" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <rect width="220" height="360" fill="#070d1c"/>
+            <g fill="white" opacity=".25"><circle cx="30" cy="15" r=".9"/><circle cx="110" cy="10" r="1"/><circle cx="185" cy="18" r=".8"/></g>
+            <!-- Agents dimmed -->
+            <g opacity=".35">
+              <circle cx="110" cy="105" r="10" fill="rgba(91,233,176,.15)" stroke="#5BE9B0" stroke-width="1"/><circle cx="110" cy="105" r="5" fill="#5BE9B0"/>
+              <circle cx="148" cy="158" r="10" fill="rgba(255,180,84,.15)" stroke="#FFB454" stroke-width="1"/><circle cx="148" cy="158" r="5" fill="#FFB454"/>
+              <circle cx="110" cy="190" r="10" fill="rgba(91,233,176,.15)" stroke="#5BE9B0" stroke-width="1"/><circle cx="110" cy="190" r="5" fill="#5BE9B0"/>
+            </g>
+            <!-- Dim overlay -->
+            <rect width="220" height="360" fill="rgba(0,0,0,.45)"/>
+          </svg>
+          <!-- Board bottom-sheet -->
+          <div class="bottom-sheet" style="height:260px;">
+            <div class="sheet-handle-bar"><div class="sheet-handle"></div></div>
+            <div class="sheet-header">
+              <div class="sheet-title">Board · SMUX</div>
+              <div class="sheet-close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+            </div>
+            <div class="sheet-body">
+              <div class="kanban-cols">
+                <div class="kanban-col">
+                  <div class="kanban-col-h">Backlog</div>
+                  <div class="k-card td">SMUX-4 QA</div>
+                </div>
+                <div class="kanban-col">
+                  <div class="kanban-col-h">Todo</div>
+                  <div class="k-card td">SMUX-2 FE</div>
+                  <div class="k-card td">SMUX-3 Sync</div>
+                </div>
+                <div class="kanban-col">
+                  <div class="kanban-col-h" style="color:var(--amber);">In Progress</div>
+                  <div class="k-card ip">SMUX-1 UX</div>
+                  <div class="k-card ip">CAM-248</div>
+                </div>
+                <div class="kanban-col">
+                  <div class="kanban-col-h">In Review</div>
+                  <div class="k-card td">CAM-197</div>
+                </div>
+                <div class="kanban-col">
+                  <div class="kanban-col-h" style="color:var(--teal-glow);">Done</div>
+                  <div class="k-card dn">PERF-3</div>
+                  <div class="k-card dn">LOAD-1</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation" style="margin-top:10px;">
+        <ul>
+          <li>Sheet slides up (translateY, 200ms ease-out)</li>
+          <li>Handle bar at top — drag down to dismiss</li>
+          <li>Close button ≥44px, Esc key also closes</li>
+          <li>Focus trapped inside sheet while open</li>
+          <li>Map dimmed (backdrop rgba(.45)) but not hidden</li>
+          <li>Kanban scrolls horizontally inside sheet</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- State C: Roster drawer OPEN -->
+    <div>
+      <div class="state-frame">
+        <div class="state-label">C — Roster Drawer OPEN</div>
+        <div class="map-scene" style="height:360px;background:var(--night);position:relative;overflow:hidden;">
+          <svg class="scene-svg" style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 220 360" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <rect width="220" height="360" fill="#070d1c"/>
+            <g fill="white" opacity=".25"><circle cx="30" cy="15" r=".9"/><circle cx="110" cy="10" r="1"/><circle cx="185" cy="18" r=".8"/></g>
+            <g opacity=".35">
+              <circle cx="110" cy="105" r="10" fill="rgba(91,233,176,.15)" stroke="#5BE9B0" stroke-width="1"/><circle cx="110" cy="105" r="5" fill="#5BE9B0"/>
+              <circle cx="70" cy="155" r="10" fill="rgba(180,210,230,.15)" stroke="rgba(180,210,230,.6)" stroke-width="1"/><circle cx="70" cy="155" r="5" fill="rgba(180,210,230,.7)"/>
+            </g>
+            <rect width="220" height="360" fill="rgba(0,0,0,.45)"/>
+          </svg>
+          <!-- Roster bottom-sheet -->
+          <div class="bottom-sheet" style="height:300px;">
+            <div class="sheet-handle-bar"><div class="sheet-handle"></div></div>
+            <div class="sheet-header">
+              <div class="sheet-title">ทีมงาน (7 คน)</div>
+              <div class="sheet-close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+            </div>
+            <div class="sheet-body">
+              <!-- Roster rows with role + status + task -->
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.05);border-radius:10px;">
+                  <div class="dot active" style="width:10px;height:10px;"></div>
+                  <div style="flex:1;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-night);">Architect</div>
+                    <div style="font-size:9px;color:var(--muted-night);">SMUX-1 Wireframe Review</div>
+                  </div>
+                  <div style="font-size:8.5px;font-weight:700;color:var(--teal-glow);background:rgba(91,233,176,.1);padding:2px 7px;border-radius:999px;">กำลังทำ</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,180,84,.07);border-radius:10px;border:1px solid rgba(255,180,84,.2);">
+                  <div class="dot busy" style="width:10px;height:10px;"></div>
+                  <div style="flex:1;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-night);">UX Designer</div>
+                    <div style="font-size:9px;color:var(--muted-night);">CAM-250 SMUX-1</div>
+                  </div>
+                  <div style="font-size:8.5px;font-weight:700;color:var(--amber);background:rgba(255,180,84,.1);padding:2px 7px;border-radius:999px;">In Progress</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.05);border-radius:10px;">
+                  <div class="dot active" style="width:10px;height:10px;"></div>
+                  <div style="flex:1;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-night);">Frontend</div>
+                    <div style="font-size:9px;color:var(--muted-night);">CAM-197 LOAD-1</div>
+                  </div>
+                  <div style="font-size:8.5px;font-weight:700;color:var(--teal-glow);background:rgba(91,233,176,.1);padding:2px 7px;border-radius:999px;">กำลังทำ</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:10px;">
+                  <div class="dot idle" style="width:10px;height:10px;"></div>
+                  <div style="flex:1;">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted-night);">QA Engineer</div>
+                    <div style="font-size:9px;color:var(--faint-night);">ว่าง</div>
+                  </div>
+                  <div style="font-size:8.5px;font-weight:600;color:var(--faint-night);padding:2px 7px;">รอ</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="annotation" style="margin-top:10px;">
+        <ul>
+          <li>Same Sheet side=bottom pattern as Board</li>
+          <li>Roster rows: dot + name + current task + status badge</li>
+          <li>Idle agents use muted opacity, not hidden</li>
+          <li>Tap a row = future: focus that agent on map (SMUX-3)</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /states-row -->
+</section>
+
+<!-- ════════════════════════════════════════════════
+     §3  NARROW RING RATIONALE
+     ════════════════════════════════════════════════ -->
+<section id="narrow-ring">
+  <h2><span class="n">3</span>Narrow Agent Ring — Portrait Layout</h2>
+  <p class="section-sub">
+    The current <code>LAYOUT_NARROW</code> is an alias of <code>LAYOUT_WIDE</code> (same coordinates).
+    On portrait mobile the scale factor (--s) compresses the ring horizontally, pushing
+    agents toward the campfire. The narrow layout uses a tighter oval: same 7 agents,
+    rotationally-even spacing, expanded vertically to use the taller viewport, contracted
+    horizontally to avoid side-panel overlap. No agent overlaps the campfire at any scale.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+    <!-- Wide ring (current) -->
+    <div>
+      <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Wide Ring (current — ≥1024)</div>
+      <div style="background:var(--night);border-radius:14px;border:1px solid var(--glass-border);overflow:hidden;">
+        <svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Wide oval, landscape -->
+          <rect width="280" height="200" fill="#070d1c"/>
+          <!-- Campfire -->
+          <g transform="translate(140,110)">
+            <ellipse cx="0" cy="10" rx="25" ry="12" fill="rgba(255,140,40,.5)"/>
+            <circle cx="0" cy="2" r="8" fill="#ff9a32" opacity=".8"/>
+            <circle cx="0" cy="-2" r="5" fill="#ffce6a" opacity=".7"/>
+          </g>
+          <!-- Wide oval ring (aspect ~2:1 landscape) -->
+          <ellipse cx="140" cy="102" rx="82" ry="52" fill="none" stroke="rgba(91,233,176,.08)" stroke-width="1" stroke-dasharray="4 4"/>
+          <!-- 7 agents on wide oval -->
+          <circle cx="140" cy="50" r="9" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="140" cy="50" r="5" fill="#5BE9B0"/>
+          <circle cx="195" cy="68" r="9" fill="rgba(255,180,84,.2)" stroke="#FFB454" stroke-width="1.5"/><circle cx="195" cy="68" r="5" fill="#FFB454"/>
+          <circle cx="222" cy="102" r="9" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="222" cy="102" r="5" fill="#5BE9B0"/>
+          <circle cx="195" cy="136" r="9" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="195" cy="136" r="5" fill="#5BE9B0"/>
+          <circle cx="140" cy="154" r="9" fill="rgba(255,180,84,.2)" stroke="#FFB454" stroke-width="1.5"/><circle cx="140" cy="154" r="5" fill="#FFB454"/>
+          <circle cx="85" cy="136" r="9" fill="rgba(180,210,230,.2)" stroke="rgba(180,210,230,.7)" stroke-width="1.5"/><circle cx="85" cy="136" r="5" fill="rgba(180,210,230,.8)"/>
+          <circle cx="58" cy="102" r="9" fill="rgba(91,233,176,.2)" stroke="#5BE9B0" stroke-width="1.5"/><circle cx="58" cy="102" r="5" fill="#5BE9B0"/>
+          <!-- YOU -->
+          <circle cx="80" cy="60" r="8" fill="rgba(255,255,255,.2)" stroke="white" stroke-width="1.5"/><circle cx="80" cy="60" r="4" fill="white"/>
+          <!-- Labels -->
+          <text x="140" y="40" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">architect</text>
+          <text x="212" y="58" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">ux</text>
+          <text x="238" y="102" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">BE</text>
+          <text x="212" y="148" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">FE</text>
+          <text x="140" y="168" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">devops</text>
+          <text x="68" y="148" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">QA</text>
+          <text x="40" y="102" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.55)" font-family="system-ui">sec</text>
+          <text x="62" y="50" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.8)" font-family="system-ui" font-weight="700">YOU</text>
+        </svg>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);">Oval aspect ~1.6:1 (wide). Agents well-spaced, no overlap with fire.</div>
+    </div>
+
+    <!-- Narrow ring (proposed) -->
+    <div>
+      <div style="font-size:12px;font-weight:800;color:var(--primary-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Narrow Ring (proposed — &lt;640)</div>
+      <div style="background:var(--night);border-radius:14px;border:1px solid var(--glass-border-hi);overflow:hidden;">
+        <svg viewBox="0 0 160 280" xmlns="http://www.w3.org/2000/svg">
+          <!-- Narrow/portrait frame -->
+          <rect width="160" height="280" fill="#070d1c"/>
+          <!-- Campfire -->
+          <g transform="translate(80,155)">
+            <ellipse cx="0" cy="10" rx="20" ry="10" fill="rgba(255,140,40,.5)"/>
+            <circle cx="0" cy="2" r="7" fill="#ff9a32" opacity=".8"/>
+            <circle cx="0" cy="-2" r="4" fill="#ffce6a" opacity=".7"/>
+          </g>
+          <!-- Narrow oval ring (aspect ~1:1.5 portrait) -->
+          <ellipse cx="80" cy="150" rx="52" ry="78" fill="none" stroke="rgba(91,233,176,.12)" stroke-width="1" stroke-dasharray="4 4"/>
+          <!-- 7 agents on narrow oval — tighter x, expanded y -->
+          <!-- Top -->
+          <circle cx="80" cy="72" r="11" fill="rgba(91,233,176,.22)" stroke="#5BE9B0" stroke-width="2"/><circle cx="80" cy="72" r="6" fill="#5BE9B0"/>
+          <!-- Upper-right -->
+          <circle cx="120" cy="96" r="11" fill="rgba(255,180,84,.22)" stroke="#FFB454" stroke-width="2"/><circle cx="120" cy="96" r="6" fill="#FFB454"/>
+          <!-- Right -->
+          <circle cx="132" cy="145" r="11" fill="rgba(91,233,176,.22)" stroke="#5BE9B0" stroke-width="2"/><circle cx="132" cy="145" r="6" fill="#5BE9B0"/>
+          <!-- Lower-right -->
+          <circle cx="114" cy="195" r="11" fill="rgba(91,233,176,.22)" stroke="#5BE9B0" stroke-width="2"/><circle cx="114" cy="195" r="6" fill="#5BE9B0"/>
+          <!-- Bottom -->
+          <!-- (skipped — too close to fire; agent placed at lower-left instead) -->
+          <!-- Lower-left -->
+          <circle cx="46" cy="195" r="11" fill="rgba(255,180,84,.22)" stroke="#FFB454" stroke-width="2"/><circle cx="46" cy="195" r="6" fill="#FFB454"/>
+          <!-- Left -->
+          <circle cx="28" cy="145" r="11" fill="rgba(180,210,230,.22)" stroke="rgba(180,210,230,.7)" stroke-width="2"/><circle cx="28" cy="145" r="6" fill="rgba(180,210,230,.8)"/>
+          <!-- Upper-left -->
+          <circle cx="40" cy="96" r="11" fill="rgba(91,233,176,.22)" stroke="#5BE9B0" stroke-width="2"/><circle cx="40" cy="96" r="6" fill="#5BE9B0"/>
+          <!-- YOU -->
+          <circle cx="52" cy="68" r="9" fill="rgba(255,255,255,.2)" stroke="white" stroke-width="1.5"/><circle cx="52" cy="68" r="4.5" fill="white"/>
+          <!-- Labels -->
+          <text x="80" y="62" text-anchor="middle" font-size="7.5" fill="rgba(223,234,245,.75)" font-family="system-ui" font-weight="700">Architect</text>
+          <text x="120" y="86" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">UX</text>
+          <text x="132" y="134" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">BE</text>
+          <text x="114" y="184" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">FE</text>
+          <text x="46" y="184" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">DevOps</text>
+          <text x="28" y="134" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">QA</text>
+          <text x="40" y="86" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.65)" font-family="system-ui">Sec</text>
+          <text x="35" y="58" text-anchor="middle" font-size="7" fill="rgba(223,234,245,.85)" font-family="system-ui" font-weight="700">YOU</text>
+        </svg>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted);">Oval aspect ~0.67:1 (portrait). Tighter x-axis, expanded y-axis. Campfire gap preserved. Agents ≥44px targets. No overlap.</div>
+    </div>
+
+  </div>
+
+  <div class="note" style="margin-top:16px;">
+    <div class="icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <p>
+      <strong>Implementation note for Frontend (SMUX-2):</strong>
+      <code>LAYOUT_NARROW</code> at <code>campsite-scene.tsx:159</code> currently aliases <code>LAYOUT_WIDE</code>.
+      Replace it with the narrow coordinates table above. The existing <code>matchMedia</code> listener at
+      <code>:1244</code> and <code>:1356–1399</code> already switches the layout — it just needs different
+      target coordinates in <code>LAYOUT_NARROW</code>. The <code>setHomes()</code> call handles re-positioning.
+      The breakpoint to switch is <code>max-width: 639px</code> (mobile).
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     §4  ANNOTATIONS
+     ════════════════════════════════════════════════ -->
+<section id="annotations">
+  <h2><span class="n">4</span>Annotations — Layout Rules + A11y + Motion</h2>
+  <p class="section-sub">
+    The design rules that Frontend must implement in SMUX-2. Every rule here has a rationale.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:0;">
+
+    <!-- Breakpoints -->
+    <div class="annotation" style="margin-top:0;">
+      <h3>Breakpoints</h3>
+      <ul>
+        <li><strong>≥ 1024px (Desktop):</strong> 3-panel layout unchanged. FilterSignposts (3 dropdowns) top · Roster left · Board right · bottom dock.</li>
+        <li><strong>640–1023px (Tablet):</strong> Map fills full width. Filter collapses to 1 compact chip "กรอง ▾". Roster = Sheet side=left (≡ tab on left edge). Board = Sheet side=right (Board ▸ tab on right edge). Bottom dock shrinks to summary only.</li>
+        <li><strong>&lt; 640px (Mobile):</strong> Map fills 100vw/100svh. Filter = minimal chip top-right. Roster + Board = Sheet side=bottom. Bottom toolbar (height inside <code>--pad-y: 140px</code>): <code>≡ ทีม</code> left · stats centre · <code>Board ▸</code> right.</li>
+      </ul>
+    </div>
+
+    <!-- Sheet behaviour -->
+    <div class="annotation" style="margin-top:0;">
+      <h3>Sheet Open/Close Contract</h3>
+      <ul>
+        <li><strong>Open:</strong> tap toolbar button → Sheet slides up (translateY 0 → -height, 200ms <code>cubic-bezier(0.23,1,0.32,1)</code>)</li>
+        <li><strong>Close triggers:</strong> tap × button · Esc key · tap backdrop outside sheet · drag handle down ≥ 80px</li>
+        <li><strong>Focus trap:</strong> on open, focus moves to sheet first interactive element; Tab cycles within sheet only; Esc closes and returns focus to the trigger button</li>
+        <li><strong>Backdrop:</strong> <code>rgba(0,0,0,.45)</code> overlay behind sheet, <code>z-index</code> below sheet but above map</li>
+        <li><strong>Only one sheet open at a time:</strong> opening Board closes Roster and vice versa</li>
+        <li><strong>Keyboard (tablet/desktop):</strong> Roster/Board triggers are also keyboard-activatable buttons (not links)</li>
+      </ul>
+    </div>
+
+    <!-- A11y -->
+    <div class="annotation" style="margin-top:0;">
+      <h3>Accessibility (WCAG 2.1 AA)</h3>
+      <ul>
+        <li><strong>Tap targets ≥ 44px:</strong> toolbar buttons <code>min-height: 44px min-width: 44px</code>; agent sprites on mobile — <code>--scout-size</code> clamped to ≥ 44px</li>
+        <li><strong>Keyboard-activatable agents:</strong> each agent sprite is <code>role="button"</code> + <code>aria-label="[Role]: [task title or ว่าง]"</code> + <code>tabIndex=0</code> + <code>onKeyDown Enter/Space</code></li>
+        <li><strong>Sheet:</strong> <code>role="dialog"</code> + <code>aria-modal="true"</code> + <code>aria-label="ทีมงาน"</code> / <code>"Board [epic name]"</code>; focus-trap + Esc + return-focus</li>
+        <li><strong>Toolbar buttons:</strong> <code>aria-haspopup="dialog"</code> + <code>aria-expanded</code> state</li>
+        <li><strong>Contrast:</strong> <code>#5BE9B0</code> on <code>rgba(11,30,24,.70)</code> — measured: ~7.2:1 (AA pass). <code>#F1F6FB</code> on glass — ~11:1 (AA pass). Not measured: <code>rgba(223,234,245,.65)</code> muted text — label as not measured, Frontend to verify with axe.</li>
+        <li><strong>Reduced motion:</strong> sheet animation disabled; sheets appear instantly. Existing <code>@media (prefers-reduced-motion:reduce)</code> in <code>SCENE_CSS</code> already kills the rAF loop.</li>
+        <li><strong>Loading:</strong> map canvas has existing <code>aria-label</code> on scene root (<code>role="img"</code>). Sheet content has <code>role="status"</code> if data-loading.</li>
+      </ul>
+    </div>
+
+    <!-- Motion + CSS invariants -->
+    <div class="annotation" style="margin-top:0;">
+      <h3>Motion + CSS Invariants</h3>
+      <ul>
+        <li><strong>Sheet animation:</strong> <code>transform: translateY</code> only (not height/top). Duration 200ms. Easing <code>cubic-bezier(0.23,1,0.32,1)</code> (system motion token). Disabled under reduced-motion.</li>
+        <li><strong>Backdrop:</strong> <code>opacity</code> fade 160ms.</li>
+        <li><strong>No Tailwind classes on SCENE_CSS:</strong> the scene CSS lives in <code>SCENE_CSS</code> (campsite-scene.tsx) and the <code>dangerouslySetInnerHTML</code> block (page.tsx). Responsive <code>@media</code> rules are added there, not to globals.css. This preserves the immune-to-.dark invariant.</li>
+        <li><strong>Bottom toolbar:</strong> inside the existing <code>--pad-y: 140px</code> bottom clearance of <code>.map-stage</code>. No layout shift to the canvas.</li>
+        <li><strong>Sheet CSS:</strong> may use Tailwind (shadcn <code>Sheet</code> is a React component) because it is mounted outside the self-contained CSS block via React portal / the App Router layout. The sheet is NOT inside <code>.map-stage</code>.</li>
+        <li><strong>Immune-to-.dark rule:</strong> the scene background and all HUD panel colours are hardcoded night-palette values (not design tokens). They do not respond to the global <code>.dark</code> class. This must be preserved.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     §5  TOKEN MAP
+     ════════════════════════════════════════════════ -->
+<section id="tokens">
+  <h2><span class="n">5</span>Token Map — What Goes Where</h2>
+  <p class="section-sub">
+    The scene uses its own internal palette (defined in SCENE_CSS / page.tsx) — not the CampVibe global tokens —
+    because it is intentionally immune to the .dark class. The shadcn Sheet component is outside the scene CSS
+    and uses the global token system.
+  </p>
+
+  <table style="margin-top:8px;">
+    <thead>
+      <tr>
+        <th>Element</th>
+        <th>Value (scene-internal)</th>
+        <th>Role</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Map background</td><td><code class="token">#070d1c</code></td><td>Night sky</td><td>Invariant — never changes with .dark</td></tr>
+      <tr><td>Glass panels (HUD)</td><td><code class="token">rgba(11,30,24,.55)</code></td><td>HUD surface</td><td>Backdrop-filter: blur(30px)</td></tr>
+      <tr><td>Glass border</td><td><code class="token">rgba(150,240,195,.14)</code></td><td>Panel edge</td><td>Teal-tinted at low opacity</td></tr>
+      <tr><td>Active/focus border</td><td><code class="token">rgba(91,233,176,.40)</code></td><td>Active state ring</td><td>On active dock segment, sheet handle</td></tr>
+      <tr><td>Agent active aura</td><td><code class="token">#5BE9B0</code></td><td>Teal glow</td><td>In-progress agent ring + stroke</td></tr>
+      <tr><td>Agent busy/gate aura</td><td><code class="token">#FFB454</code></td><td>Amber</td><td>Awaiting gate or blocked agent</td></tr>
+      <tr><td>Agent idle</td><td><code class="token">rgba(180,210,230,.7)</code></td><td>Muted blue-white</td><td>QA when no active task</td></tr>
+      <tr><td>Primary text (night)</td><td><code class="token">#F1F6FB</code></td><td>On-dark text</td><td>Sheet titles, segment labels</td></tr>
+      <tr><td>Muted text (night)</td><td><code class="token">rgba(223,234,245,.65)</code></td><td>Secondary text</td><td>NOT measured — Frontend verify with axe</td></tr>
+      <tr><td>Sheet (shadcn)</td><td><code class="token">--background / --card</code></td><td>Global token</td><td>Sheet itself uses the global token system</td></tr>
+      <tr><td>Sheet border</td><td><code class="token">--border</code></td><td>Global token</td><td>Top border on sheet</td></tr>
+      <tr><td>Sheet text</td><td><code class="token">--foreground</code></td><td>Global token</td><td>Title, list items</td></tr>
+      <tr><td>Board card (In Progress)</td><td><code class="token">--warning</code> / <code class="token">#FFB454</code></td><td>Amber accent</td><td>Left border of in-progress kanban card</td></tr>
+      <tr><td>Board card (Done)</td><td><code class="token">--success</code> / <code class="token">#5BE9B0</code></td><td>Teal accent</td><td>Left border of done kanban card</td></tr>
+      <tr><td>Motion duration</td><td><code class="token">200ms</code></td><td>Sheet slide</td><td>Within 120–250ms system motion range</td></tr>
+      <tr><td>Motion easing</td><td><code class="token">cubic-bezier(0.23,1,0.32,1)</code></td><td>Sheet open</td><td>System motion easing (DESIGN.md §2)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="invariant" style="margin-top:14px;">
+    <strong>CSS invariant:</strong> All <code>rgba(…)</code> and hex values in the table are inside SCENE_CSS or the scene-internal stylesheet. They are exempt from <code>npm run check:palette</code> (the guard excludes <code>app/status/**</code>). The shadcn <code>Sheet</code> component uses only global design tokens and is NOT exempt — it must use <code>--background</code>, <code>--foreground</code>, <code>--border</code>.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     §6  SMUX-3 PREVIEW (next story, labeled clearly)
+     ════════════════════════════════════════════════ -->
+<section id="s3-preview">
+  <h2><span class="n">6</span>SMUX-3 Preview — Flicker Click Sync <span class="badge nxt" style="margin-left:8px;vertical-align:middle;">next story</span></h2>
+  <p class="section-sub">
+    This is NOT part of SMUX-1 or SMUX-2. It is shown here so the owner can see the full
+    intended UX arc before committing to the responsive layout. The sync behaviour is
+    implemented in SMUX-3 (frontend story).
+  </p>
+
+  <div class="preview-box">
+    <div class="px-label">SMUX-3 — Flicker Click Interaction (not yet built)</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Map → Board/Filter</div>
+        <div style="background:var(--night);border-radius:12px;border:1px solid rgba(139,92,246,.3);padding:14px;font-size:11px;color:var(--text-night);line-height:1.8;">
+          <div style="color:rgba(139,92,246,.9);font-weight:800;margin-bottom:8px;">คลิก Agent ที่มี task in-progress</div>
+          <div>1. <code style="background:rgba(139,92,246,.12);padding:1px 5px;border-radius:3px;color:#a78bfa;">setSelectedEpic(task.epic)</code></div>
+          <div>2. Filter → epic นั้น → Board เปิด</div>
+          <div>3. การ์ด <code style="background:rgba(139,92,246,.12);padding:1px 5px;border-radius:3px;color:#a78bfa;">task.id</code> ได้รับ ring + pulse + scroll-into-view</div>
+          <div>4. Agent ตัวนั้น pulse (ring สว่างขึ้น 2 วินาที)</div>
+          <div style="margin-top:6px;color:rgba(139,92,246,.7);font-size:10px;">Agent ไม่มี task → เปิด Roster (behavior เดิม)</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Board/Filter → Map</div>
+        <div style="background:var(--night);border-radius:12px;border:1px solid rgba(139,92,246,.3);padding:14px;font-size:11px;color:var(--text-night);line-height:1.8;">
+          <div style="color:rgba(139,92,246,.9);font-weight:800;margin-bottom:8px;">เลือก Epic / คลิก Board Card</div>
+          <div>1. หา agent ที่ <code style="background:rgba(139,92,246,.12);padding:1px 5px;border-radius:3px;color:#a78bfa;">task.epic === selected</code></div>
+          <div>2. Agent นั้น pulse บน map</div>
+          <div>3. Filter หลาย agent → highlight ทุกตัว</div>
+          <div>4. ล้าง focus เมื่อ "ทั้งหมด" หรือปิด sheet</div>
+          <div style="margin-top:6px;color:rgba(139,92,246,.7);font-size:10px;">Single source of truth: <code style="color:#a78bfa;">{ selectedEpic, focusedTaskId }</code></div>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:14px;font-size:12.5px;color:var(--muted);">
+      Requires data prep: add <code>epic</code> + <code>feature</code> to <code>MapAgent.task</code> projection in <code>lib/status-map-model.ts:64-75</code>.
+      The state machine lives entirely in <code>campsite-scene.tsx</code> — no backend changes needed.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     FOOTER NOTE
+     ════════════════════════════════════════════════ -->
+<hr class="divider"/>
+<div class="note" style="margin-top:24px;">
+  <div class="icon">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <p>
+    <strong>G2 Design Gate — for owner review only. No app code has been changed.</strong>
+    This HTML file is self-contained (no external dependencies). Once the owner approves the layout at G2,
+    Frontend (SMUX-2) builds from the Design Brief at
+    <code>docs/delivery/status-map-ux/status-map-ux/CAM-250-smux-1-responsive-wireframe/design.md</code>.
+    Icon shapes are Lucide-style SVG inline (no emoji, no icon library CDN). Thai labels used where the real UI uses Thai.
+  </p>
+</div>
+
+</div><!-- /wrap -->
+</body>
+</html>

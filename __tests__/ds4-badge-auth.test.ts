@@ -197,10 +197,10 @@ describe("badge--status-bookings: getBookingStatusMeta + Badge usage (AC-status-
         expect(bookingsPageSrc).toMatch(/variant=\{variant\}/);
     });
 
-    it("AC-over-img: over-image status badge preserves ring-2 ring-card treatment", () => {
-        // Badge over the photo must have ring-2 ring-card so it's readable
-        const badgeBlock = bookingsPageSrc.match(/<Badge[\s\S]{0,400}?<\/Badge>/)?.[0] ?? "";
-        expect(badgeBlock).toMatch(/ring-2 ring-card/);
+    it("AC-over-img: over-image status badge does NOT carry ring/shadow overrides (DS-badge-norm)", () => {
+        // DS-badge-norm: ring-2 ring-card shadow-sm removed — variant styling handles legibility.
+        // Legibility over photo is the containing element's responsibility (dark gradient scrim).
+        expect(bookingsPageSrc).not.toMatch(/ring-2 ring-card/);
     });
 
     it("AC-i18n-1: bookings/page status label comes from t.bookings[labelKey] (i18n via util, not raw enum)", () => {
@@ -243,8 +243,9 @@ describe("badge--status-dashboard: getBookingStatusMeta + Badge (AC-status-5/6/7
         expect(dashboardPageSrc).toMatch(/getBookingStatusMeta\(booking\.status\)/);
     });
 
-    it("AC-i18n-2: dashboard/page status label comes from booking.status (not hardcoded)", () => {
-        expect(dashboardPageSrc).toMatch(/>\s*\{booking\.status\}\s*</);
+    it("AC-i18n-2: dashboard/page status label comes from t.bookings[labelKey] (DS-badge-norm)", () => {
+        // DS-badge-norm: raw booking.status enum replaced with i18n label via labelKey.
+        expect(dashboardPageSrc).toMatch(/t\.bookings\[labelKey/);
     });
 });
 
@@ -497,12 +498,13 @@ describe("auth--register: no text-white in RegisterModal (AC-auth-12, CAM-235)",
 });
 
 describe("auth--login: layout+behavior unchanged (AC-auth-13)", () => {
-    it("AC-auth-13: login form action wires to formAction (inline async or direct ref)", () => {
-        // Login uses an inline async action that calls formAction(formData)
-        // to allow setHasSubmitted interleave — both patterns are acceptable
+    it("AC-auth-13: login form wires to a submit handler (onSubmit or formAction)", () => {
+        // CAM-241: switched from server-action formAction to client signIn (onSubmit handler).
+        // Both the old pattern (action={formAction}) and the new (onSubmit={handleSubmit}) are acceptable.
         const hasDirectAction = /action=\{formAction\}/.test(loginPageSrc);
         const hasInlineAction = /action=\{async[\s\S]{0,400}?formAction\(formData\)/.test(loginPageSrc);
-        expect(hasDirectAction || hasInlineAction).toBe(true);
+        const hasOnSubmit = /onSubmit=\{handleSubmit\}/.test(loginPageSrc);
+        expect(hasDirectAction || hasInlineAction || hasOnSubmit).toBe(true);
     });
 
     it("AC-auth-13: login form still has noValidate for client-side validation", () => {

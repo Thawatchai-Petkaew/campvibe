@@ -333,7 +333,8 @@ export function FilterModal() {
                         <Badge
                             aria-hidden="true"
                             variant="default"
-                            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full animate-in zoom-in duration-200 border-2 border-background"
+                            shape="pill"
+                            className="absolute -top-1 -right-1 px-1.5 animate-in zoom-in duration-200"
                         >
                             {activeFilterCount}
                         </Badge>

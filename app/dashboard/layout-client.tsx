@@ -35,22 +35,16 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
 
     // Fetch pending bookings count
     useEffect(() => {
-        console.log("=== FETCHING PENDING BOOKINGS ===");
         fetch('/api/operator/bookings?status=PENDING')
-            .then(res => {
-                console.log("Response status:", res.status);
-                return res.json();
-            })
+            .then(res => res.json())
             .then(data => {
-                console.log("Response data:", data);
                 if (data.success && Array.isArray(data.data)) {
-                    console.log("Pending bookings count:", data.data.length);
                     setPendingCount(data.data.length);
-                } else {
-                    console.log("Invalid response format or no data");
                 }
             })
-            .catch(err => console.error("Failed to fetch pending bookings:", err));
+            .catch(() => {
+                // ignore — count stays 0
+            });
     }, []);
 
     const navigation = [
@@ -60,12 +54,6 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
         { name: t.settings?.title || "Settings", href: '/dashboard/settings', icon: Settings, badge: null },
     ];
 
-    // Debug: Log pending count
-    useEffect(() => {
-        console.log("Current pendingCount:", pendingCount);
-        console.log("Bookings badge value:", pendingCount > 0 ? pendingCount : null);
-    }, [pendingCount]);
-
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-card">
             <div className="p-6">
@@ -74,11 +62,8 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
                         <img src="/logo.png" alt="CampVibe Logo" className="h-10 w-auto" />
                     </Link>
                     <Link href="/dashboard">
-                        <Badge 
-                            variant="default" 
-                            className="cursor-pointer hover:bg-primary/80 transition-colors text-xs px-2 py-0.5 font-bold uppercase"
-                        >
-                            HOST
+                        <Badge variant="default">
+                            {t.nav.hostLabel}
                         </Badge>
                     </Link>
                 </div>
@@ -91,6 +76,7 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
                         <Link
                             key={item.name}
                             href={item.href}
+                            aria-label={item.badge ? `${item.name}, ${item.badge} pending` : undefined}
                             className={cn(
                                 "flex items-center justify-between gap-3 px-4 py-3 rounded-full font-medium transition",
                                 isActive
@@ -103,9 +89,10 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
                                 {item.name}
                             </div>
                             {item.badge && (
-                                <Badge 
-                                    variant="destructive" 
-                                    className="h-5 min-w-5 flex items-center justify-center rounded-full text-xs font-bold px-1.5"
+                                <Badge
+                                    variant="destructive"
+                                    shape="pill"
+                                    className="px-1.5"
                                 >
                                     {item.badge}
                                 </Badge>
@@ -138,11 +125,8 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
                         <img src="/logo.png" alt="CampVibe Logo" className="h-8 w-auto" />
                     </Link>
                     <Link href="/dashboard">
-                        <Badge 
-                            variant="default" 
-                            className="cursor-pointer hover:bg-primary/80 transition-colors text-xs px-2 py-0.5 font-bold uppercase"
-                        >
-                            HOST
+                        <Badge variant="default">
+                            {t.nav.hostLabel}
                         </Badge>
                     </Link>
                 </div>

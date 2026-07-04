@@ -107,7 +107,7 @@ Read every time before starting:
 - [ ] **Responsive-visibility coverage** — where an element appears/hides by breakpoint, the AC states which breakpoint shows what (no "responsive" hand-wave).
 - [ ] **Verbatim Thai copy** — user-facing strings are the exact Thai text in backticks, with `{N}`-style placeholders preserved exactly (e.g. `เหลือ {N} ที่`); no paraphrase, no English stand-in.
 - [ ] **Per-field validation completeness** — every field in the flow has required/format/range/uniqueness decided; no field left "TBD".
-- [ ] **Delivery artifact authored** — the business rules + user flows (`BR-n`, each mapped to its `AC-n`) are written into `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`, with its `status:` header kept = the Linear state.
+- [ ] **Delivery artifact authored** — the business rules + user flows (`BR-n`, each mapped to its `AC-n`) are written into `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/`, with its `status:` header kept = the ticket state.
 
 **Final-check triggers — answer each before handoff (mark "not measured" if a value is unknown; never fabricate one):**
 
@@ -134,14 +134,14 @@ Read every time before starting:
 
 ## Output (handoff contract)
 
-Post to the story-level issue (Linear) per `story.md`:
+Post to the story-level ticket (delivery ticket DB) per `story.md`:
 
 - **## Story** — persona + what they can do + value + scope, in one line.
 - **## AC** — GFM table `# | Given | When | What the user sees (Thai copy verbatim) | Data/system effect` (granular, one action per row).
 - **## Rules** — BR + validation with definite values/bounds + the actual error message per case.
 - **## Data** — entity/field (atomic) the rules touch → hand to the architect to confirm schema/migration.
 - **## Out of scope** — what is not being done + a pointer to the ticket that picks it up.
-- **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the Linear state (files = content SoT, Linear = status SoT).
+- **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/delivery/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Questions and trade-offs left for a human get the `awaiting-you` label.
 
 ## Verify / Definition of Done
@@ -151,4 +151,4 @@ Post to the story-level issue (Linear) per `story.md`:
 - [ ] Every validation has a definite value/bound + actual error message (no vague words).
 - [ ] AC has no event codes, variable names, or testids; user-facing messages are human Thai language (no technical jargon, no em-dash as a separator in Thai).
 - [ ] Fields a rule references are atomic (flag the architect if nested).
-- [ ] Run `node scripts/linear-sync.mjs audit` → ticket passes with at least `## Story` + `## AC`.
+- [ ] Run `node scripts/ticket-sync.mjs audit` → ticket passes with at least `## Story` + `## AC`.

@@ -27,11 +27,18 @@
 // Effect cleanup cancels rAF.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BellRing } from "lucide-react";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, ViewToggle } from "./campsite-overlays";
+import { BellRing, Gauge, LayoutDashboard, LayoutGrid, Layers, Users, X } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from "@/components/ui/sheet";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, TicketDetailModal, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
-import { payloadChanged } from "@/lib/status-map-model";
+import { payloadChanged, deriveCapsuleStats } from "@/lib/status-map-model";
 import {
   ADJ,
   buildScoutState,
@@ -49,7 +56,8 @@ export interface MapAgent {
   done: number;
   activeCount: number;
   queued: number;       // total - done - active (stories not yet started)
-  task: { id: string; title: string; startedAt: string | null } | null;
+  /** Active task for this agent (null when idle). epicKey + feature power Map↔Board/Filter sync (SMUX-3). */
+  task: { id: string; title: string; startedAt: string | null; epicKey: string; feature: string } | null;
 }
 
 // Gate item for the You → Gates panel.
@@ -152,12 +160,20 @@ export const LAYOUT_WIDE: Record<string, { x: number; y: number }> = {
 };
 export const YOU_POS_WIDE = { x: 38, y: 31 };
 
-// Single-layout model: the decoupled fixed play area uses ONE ring on every
-// screen (narrow simply crops at the edges — no reflow). Narrow aliases the one
-// layout so the existing matchMedia wiring is a no-op; that dual-layout machinery
-// is fully retired (and tests reconciled) at the final quality gate.
-export const LAYOUT_NARROW = LAYOUT_WIDE;
-export const YOU_POS_NARROW = YOU_POS_WIDE;
+// SMUX-2 (CAM-251): LAYOUT_NARROW — portrait-optimised oval for mobile (<640px).
+// x-axis contracts ~35%, y-axis expands ~40% relative to wide so all 7 agents
+// fit a vertical aspect without overlapping the campfire centre (~50.1, ~52.0).
+// Coordinates are % of the fixed 1920×1080 design canvas (same system as LAYOUT_WIDE).
+export const LAYOUT_NARROW: Record<string, { x: number; y: number }> = {
+  "architect":          { x: 50.0, y: 31.0 },  // top
+  "ux-designer":        { x: 61.8, y: 37.5 },  // upper-right
+  "backend-engineer":   { x: 67.2, y: 52.5 },  // right
+  "frontend-engineer":  { x: 60.5, y: 67.0 },  // lower-right
+  "devops-release":     { x: 40.5, y: 67.0 },  // lower-left (symmetric with FE)
+  "qa-engineer":        { x: 33.8, y: 52.5 },  // left (symmetric with BE)
+  "security-reviewer":  { x: 39.2, y: 37.5 },  // upper-left (symmetric with UX)
+};
+export const YOU_POS_NARROW = { x: 38, y: 27 };
 
 // Active layout (mutable at runtime; starts with wide, switched by matchMedia).
 // currentLayout is read by homeStyle() which is called each render, so React state
@@ -267,6 +283,7 @@ const SCENE_CSS = `
   display:flex;align-items:center;gap:12px;
   padding:14px 18px;
   pointer-events:none;
+  box-sizing:border-box;max-width:100vw;overflow:hidden;
 }
 .hud-topbar > *{pointer-events:auto}
 /* logo wrapped in its own green-glass chip */
@@ -288,8 +305,8 @@ const SCENE_CSS = `
 .hud-left-panels > *{pointer-events:auto}
 .hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
 .hud-right-panels > *{pointer-events:auto}
-.hud-topbar-spacer{flex:1 1 auto}
-.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:none}
+.hud-topbar-spacer{flex:1 1 0;min-width:0}
+.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0}
 .cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
 /* Ambient sound toggle — glass button inside the top bar. */
 .sound-toggle{
@@ -472,6 +489,204 @@ const SCENE_CSS = `
     opacity:0;
     animation:fireflyTwinkle var(--ff-dur,3.5s) ease-in-out var(--ff-delay,0s) infinite;
   }
+}
+/* ── SMUX-2: Responsive HUD — tablet 640–1023px ─────────────────────────────
+   Side panels (left + right stacks) become edge-drawer tabs; the 3-filter
+   signposts collapse to a single compact chip.
+   .hud-left-panels and .hud-right-panels are hidden in favour of Sheet drawers.
+   Bottom dock stays (simplified). */
+@media (max-width: 1023px) {
+  .hud-left-panels{display:none}
+  .hud-right-panels{display:none}
+  /* Edge drawer tabs — position:fixed strips on left and right of the viewport */
+  .hud-edge-tab{
+    position:fixed;
+    top:50%;transform:translateY(-50%);
+    z-index:24;
+    display:flex;align-items:center;justify-content:center;
+    min-height:80px;width:28px;
+    background:rgba(11,30,24,.70);
+    border:1px solid rgba(150,240,195,.18);
+    backdrop-filter:saturate(195%) blur(20px);-webkit-backdrop-filter:saturate(195%) blur(20px);
+    cursor:pointer;
+    writing-mode:vertical-rl;
+    font-size:9px;font-weight:700;letter-spacing:.08em;
+    color:rgba(223,234,245,.55);
+    padding:8px 0;
+    user-select:none;
+    transition:background 140ms,border-color 140ms,color 140ms;
+  }
+  .hud-edge-tab.left{
+    left:0;border-left:none;
+    border-radius:0 6px 6px 0;
+  }
+  .hud-edge-tab.right{
+    right:0;border-right:none;
+    border-radius:0 6px 6px 0;
+    transform:translateY(-50%) rotate(180deg);
+  }
+  .hud-edge-tab:hover{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.3)}
+  .hud-edge-tab:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-edge-tab[aria-expanded="true"]{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.4)}
+  @media(prefers-reduced-motion:no-preference){
+    .hud-edge-tab:active{background:rgba(91,233,176,.12)}
+  }
+  /* SMUX-6: filter row is a separate bottom row (FilterSignposts layout="bottom"), not in the topbar */
+  /* Hide 3-filter desktop row on tablet */
+  .hud-signposts-desktop{display:none}
+}
+/* ── CAM-260: Tablet (640–1023px) bottom toolbar ────────────────────────────
+   Same structural overflow guard as mobile. Labels + capsule lane words stay
+   visible at tablet width. Edge drawer tabs are kept for panel access. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hud-map-toolbar{
+    position:fixed;bottom:calc(8px + env(safe-area-inset-bottom));
+    /* CAM-260: structural overflow guard — inset 12px each side */
+    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
+    z-index:25;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:4px 0;
+    min-height:52px;
+    box-sizing:border-box;max-width:100%;
+    background:transparent;
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-top:none;
+  }
+  .hud-map-toolbar > *{min-width:0}
+  .hud-toolbar-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:0 16px;font-size:12px;font-weight:600;
+    color:rgba(223,234,245,.82);
+    background:rgba(11,30,24,.50);
+    backdrop-filter:saturate(195%) blur(26px);
+    -webkit-backdrop-filter:saturate(195%) blur(26px);
+    border:1px solid rgba(150,240,195,.13);border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+    min-height:44px;min-width:44px;cursor:pointer;
+    transition:background 120ms,border-color 120ms,color 120ms;
+  }
+  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
+  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-toolbar-btn[aria-expanded="true"]{background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0}
+  .hud-toolbar-btn svg{display:block;flex:none}
+  @media(prefers-reduced-motion:no-preference){
+    .hud-toolbar-btn:active{transform:scale(.96)}
+  }
+  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+  /* Lift dock above toolbar on tablet (same as mobile) */
+  .hud-dock{bottom:60px}
+  .hud-signposts-desktop{display:none !important}
+}
+/* On desktop, hide the edge tabs and mobile toolbar; show desktop filter row */
+@media (min-width: 1024px) {
+  .hud-edge-tab{display:none}
+  .hud-filter-compact{display:none}
+  .hud-map-toolbar{display:none}
+}
+/* ── SMUX-6: Mobile top-bar icon buttons — shown only at <1024 ───────────────
+   The .hud-topbar-right children that should only be visible on desktop are
+   hidden at <1024; instead the SMUX-6 icon buttons appear in the top bar. */
+@media (max-width: 1023px) {
+  /* Hide the full-text env toggle and ViewToggle text link on tablet/mobile */
+  .hud-env-toggle{display:none}
+  .hud-view-toggle{display:none}
+  /* Icon buttons are always visible; icon-only versions in .hud-topbar-icons replace them */
+}
+@media (min-width: 1024px) {
+  /* On desktop show the original full-text controls, hide icon-only versions */
+  .hud-topbar-icons{display:none !important}
+}
+
+/* ── CAM-260: Mobile + tablet bottom toolbar (<640px) ────────────────────────
+   Bottom toolbar replaces panel triggers on very small screens.
+   Dock is still visible but shifted up; toolbar floats at z-index:25.
+   SMUX-6: toolbar background removed — transparent; only the glass chips have fill.
+   CAM-260: structural overflow guard + centered layout + icon-only at ≤420px. */
+@media (max-width: 639px) {
+  .hud-edge-tab{display:none}
+  /* Bottom toolbar — structural overflow guard (CAM-260 Defect C) */
+  .hud-map-toolbar{
+    position:fixed;bottom:0;
+    /* CAM-260: structural overflow guard — inset 12px each side, never butts against edge */
+    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
+    z-index:25;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:6px 0 max(10px, env(safe-area-inset-bottom)) 0;
+    min-height:52px;
+    /* structural ceiling — padding is contained, cannot exceed viewport */
+    box-sizing:border-box;max-width:100%;
+    background:transparent;
+    backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-top:none;
+  }
+  /* All direct flex children must be able to shrink (CAM-260) */
+  .hud-map-toolbar > *{min-width:0}
+  /* SMUX-6-fix-3 (CAM-259): same dark-green HUD glass language as .hud-signpost /
+     .hud-view-toggle (campsite-overlays.tsx) so the toolbar buttons read as one
+     family with the filter chips + the desktop dashboard chip. */
+  .hud-toolbar-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:0 16px;font-size:12px;font-weight:600;
+    color:rgba(223,234,245,.82);
+    background:rgba(11,30,24,.50);
+    backdrop-filter:saturate(195%) blur(26px);
+    -webkit-backdrop-filter:saturate(195%) blur(26px);
+    border:1px solid rgba(150,240,195,.13);border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
+    min-height:44px;min-width:44px;cursor:pointer;
+    transition:background 120ms,border-color 120ms,color 120ms;
+  }
+  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
+  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
+  .hud-toolbar-btn[aria-expanded="true"]{
+    background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0;
+  }
+  .hud-toolbar-btn svg{display:block;flex:none}
+  @media(prefers-reduced-motion:no-preference){
+    .hud-toolbar-btn:active{transform:scale(.96)}
+  }
+  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
+  /* CAM-260: at ≤420px collapse toolbar buttons to icon-only 44×44 (hide the
+     text label; the lucide icon + aria-label carry the meaning, ≥44px hit area kept).
+     Capsule compacts: lane words hidden, colored dots shown instead. */
+  @media (max-width: 420px){
+    .hud-toolbar-btn-label{display:none}
+    .hud-toolbar-btn{padding:0;width:44px;justify-content:center;gap:0}
+    .env-lane-word{display:none}
+    .env-lane-dot{display:inline-block}
+  }
+  /* CAM-260: at ≤380px tighten the toolbar gap further */
+  @media (max-width: 380px){
+    .hud-map-toolbar{gap:6px}
+  }
+  .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
+  /* Move dock up so toolbar doesn't overlap it on mobile */
+  .hud-dock{bottom:60px}
+  /* SMUX-6: the bottom filter row (.hud-signposts-bottom) sits above the toolbar — see HUD_CSS */
+  /* Hide desktop signposts on mobile */
+  .hud-signposts-desktop{display:none !important}
+}
+/* ── SMUX-3: Map↔Board/Filter bidirectional sync ────────────────────────────
+   .scout--focused: a teal glow-ring on the GROUND (aligned with .shadow / .aura-ring)
+   when a board card or filter selection points at this agent. Replaces the old
+   rectangular sprite outline (CAM-263) so the selection reads as part of the scene.
+   Uniform teal for every role. Shown for both motion + reduced-motion; only the
+   pulse animation is gated behind prefers-reduced-motion. */
+.scout--focused::after {
+  content:"";position:absolute;left:50%;bottom:0;
+  transform:translate(-50%,30%);                 /* same anchor as .aura-ring */
+  width:calc(var(--scout-size)*0.82);height:calc(var(--scout-size)*0.34);
+  border-radius:50%;
+  border:2.5px solid rgba(91,233,176,.9);
+  box-shadow:0 0 14px rgba(91,233,176,.55),inset 0 0 8px rgba(91,233,176,.35);
+  z-index:2;pointer-events:none;                 /* on the ground, behind the body(z:3) */
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes smux3-ground-pulse {
+    0%,100% { transform:translate(-50%,30%) scale(1);    box-shadow:0 0 14px rgba(91,233,176,.55),inset 0 0 8px rgba(91,233,176,.35); }
+    50%     { transform:translate(-50%,30%) scale(1.06); box-shadow:0 0 22px rgba(91,233,176,.4),inset 0 0 10px rgba(91,233,176,.25); }
+  }
+  .scout--focused::after { animation:smux3-ground-pulse 1.4s ease-in-out infinite; }
 }`;
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -482,10 +697,12 @@ interface AgentScoutProps {
   rootRef: (el: HTMLElement | null) => void;
   speechRef: (el: HTMLElement | null) => void;
   onActivate: () => void;
+  /** SMUX-3: when true, applies the teal focus-ring/pulse to this agent sprite. */
+  focused?: boolean;
 }
 
 function AgentScoutInner({
-  agent, bodyRef, rootRef, speechRef, onActivate,
+  agent, bodyRef, rootRef, speechRef, onActivate, focused = false,
 }: AgentScoutProps) {
   const cfg = ROLE_CONFIG[agent.role];
   if (!cfg) return null;
@@ -518,7 +735,7 @@ function AgentScoutInner({
     <button
       ref={rootRef as (el: HTMLButtonElement | null) => void}
       type="button"
-      className="scout"
+      className={focused ? "scout scout--focused" : "scout"}
       style={{
         // Position is engine-owned (imperative per-frame via place()). Do NOT set
         // left/top/zIndex here — React re-applying them on every feed update would
@@ -592,13 +809,15 @@ function AgentScoutInner({
 // The agent position is engine-owned (imperative per-frame DOM writes). Memoise so a
 // status-feed re-render (every SSE pulse / 60s poll) does NOT re-apply the static home
 // position and warp a walking agent. Re-render only when its displayed data changes.
+// SMUX-3: include focused in the memo guard so focus-ring toggling forces a re-render.
 const AgentScout = memo(AgentScoutInner, (prev, next) =>
   prev.agent.active === next.agent.active &&
   prev.agent.done === next.agent.done &&
   prev.agent.activeCount === next.agent.activeCount &&
   prev.agent.queued === next.agent.queued &&
   prev.agent.task?.id === next.agent.task?.id &&
-  prev.agent.task?.title === next.agent.task?.title,
+  prev.agent.task?.title === next.agent.task?.title &&
+  prev.focused === next.focused,
 );
 
 interface YouScoutProps {
@@ -1092,10 +1311,26 @@ export default function CampsiteScene({
   const [teamCollapsed, setTeamCollapsed] = useState<boolean>(() => readFilterCookie().teamCollapsed ?? false);
   const [envPickerOpen, setEnvPickerOpen] = useState(false);
   const envPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // SMUX-3: Bidirectional Map↔Board/Filter sync.
+  // Single source of truth: which task (by id) is focused on the board + map.
+  // Cleared when the filter is reset to "all" or the board sheet closes.
+  const [focusedTaskId, setFocusedTaskId] = useState<string>("");
+
+  // SMUX-2: Responsive sheet state — one-at-a-time (opening one closes the other).
+  const [openSheet, setOpenSheet] = useState<"roster" | "board" | null>(null);
+  const rosterTabRef = useRef<HTMLButtonElement | null>(null);
+  const boardTabRef  = useRef<HTMLButtonElement | null>(null);
+  const rosterToolbarRef = useRef<HTMLButtonElement | null>(null);
+  const boardToolbarRef  = useRef<HTMLButtonElement | null>(null);
   // CAM-184: GateDetailModal state
   const [gateDetailId, setGateDetailId] = useState<string>("");
   const [gateDetailOpen, setGateDetailOpen] = useState(false);
   const gateDetailTriggerRef = useRef<HTMLElement | null>(null);
+  // CAM-286: read-only TicketDetailModal state — for the mobile "Board Sheet" cards below,
+  // which used to link straight out to linear.app.
+  const [ticketDetailId, setTicketDetailId] = useState<string>("");
+  const [ticketDetailOpen, setTicketDetailOpen] = useState(false);
+  const ticketDetailTriggerRef = useRef<HTMLElement | null>(null);
   // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
   // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
   // the very first poll of an unchanged board is already a no-op.
@@ -1143,26 +1378,85 @@ export default function CampsiteScene({
     return { pct, epicDone, epicTotal, storyDone, storyTotal, backlog, todayStories, todayEpics, weekStories, weekEpics, sparkline, statusCounts };
   }, [epics, persona, feature, scope, activeEpic, projectPct]);
 
-  const showBoard = !!feature || (scope === "epic" && !!activeEpic);
+  // CAM-257 (SMUX-6-fix): EnvPipelineCapsule counts scoped to the ACTIVE filter.
+  // Selecting a persona/feature/epic makes the capsule reflect THAT set's
+  // Dev/Staging/Ship split + % (not the whole-project envLanes); "all" (no filter)
+  // falls back to the global numbers. Logic lives in the pure, unit-tested
+  // deriveCapsuleStats() helper (lib/status-map-model) so it cannot drift.
+  const capsuleStats = useMemo(
+    () =>
+      deriveCapsuleStats({
+        epics,
+        scope,
+        activeEpic,
+        feature,
+        persona,
+        envLanes,
+        projectPct,
+        gates,
+        backlogItems,
+        epicsActive,
+        totalEpics,
+      }),
+    [epics, persona, feature, scope, activeEpic, envLanes, projectPct, gates, epicsActive, totalEpics, backlogItems],
+  );
+
+  // CAM-264: the board is always visible. Show ALL work when nothing is filtered; narrow
+  // when a Feature/Epic is selected. showBoard now means "is there any work to show" —
+  // the board renders whenever there are stories, and a true empty-state shows otherwise.
   const boardStories = useMemo(() => {
-    if (!showBoard) return [];
     let filtered = epics;
     if (scope === "epic" && activeEpic) filtered = epics.filter((e) => e.key === activeEpic);
     else if (feature) filtered = epics.filter((e) => e.feature === feature);
     return filtered.flatMap((e) => e.stories);
-  }, [epics, feature, scope, activeEpic, showBoard]);
+  }, [epics, feature, scope, activeEpic]);
+  const showBoard = boardStories.length > 0;
 
   const boardLabel = useMemo(() => {
     if (scope === "epic" && activeEpic) return epics.find((e) => e.key === activeEpic)?.label ?? activeEpic;
     if (feature) return feature;
-    return "";
+    return "ทั้งหมด";
   }, [scope, activeEpic, feature, epics]);
 
   // One handler for the 3-level filter; choosing a higher level resets the lower ones.
+  // SMUX-3: clear focusedTaskId when the filter is reset (empty value = "all").
   const onFilterChange = useCallback((level: "persona" | "feature" | "epic", value: string) => {
-    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); }
-    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); }
-    else { setActiveEpic(value); setScope(value ? "epic" : "all"); }
+    if (level === "persona") { setPersona(value); setFeature(""); setActiveEpic(""); setScope("all"); if (!value) setFocusedTaskId(""); }
+    else if (level === "feature") { setFeature(value); setActiveEpic(""); setScope("all"); if (!value) setFocusedTaskId(""); }
+    else { setActiveEpic(value); setScope(value ? "epic" : "all"); if (!value) setFocusedTaskId(""); }
+  }, []);
+
+  // SMUX-3: Board card → Map. Clicking a card focuses the matching agent(s).
+  // Accepts the story id; derives which agents have that task id and focuses them.
+  const handleBoardCardActivate = useCallback((storyId: string) => {
+    setFocusedTaskId(storyId);
+  }, []);
+
+  // SMUX-3: Agent click → Board/Filter. An agent with a task → set filter to task's
+  // epic (+feature), open/show the board, highlight the card, focus the agent.
+  // An agent without a task → keep existing behavior (open roster).
+  const handleAgentActivate = useCallback((agent: MapAgent) => {
+    if (!agent.task) {
+      // No active task: open the team roster (original behavior).
+      setTeamCollapsed(false);
+      return;
+    }
+    // Set filter to the task's epic (and feature when available).
+    if (agent.task.feature) {
+      setFeature(agent.task.feature);
+      setActiveEpic("");
+      setScope("all");
+    }
+    if (agent.task.epicKey) {
+      setActiveEpic(agent.task.epicKey);
+      setScope("epic");
+    }
+    // Highlight the specific card + focus this agent.
+    setFocusedTaskId(agent.task.id);
+    // On mobile: open the board sheet.
+    setOpenSheet("board");
+    // On desktop: expand the board panel.
+    setBoardCollapsed(false);
   }, []);
 
   // Persist the filter + panel collapse states to a cookie so they are restored on the next visit.
@@ -1176,9 +1470,10 @@ export default function CampsiteScene({
   // useEffect fires — the initial render is already at the correct layout.
   // The module-level currentLayout is also pre-seeded here so homeStyle() is correct
   // on the very first render without waiting for the effect.
+  // SMUX-2: layoutKey initialised from min-width: 640px (not aspect-ratio).
   const [layoutKey, setLayoutKey] = useState<"wide" | "narrow">(() => {
     if (typeof window === "undefined") return "wide"; // SSR guard (never reached — ssr:false)
-    const isWide = window.matchMedia("(min-aspect-ratio: 7/5)").matches;
+    const isWide = window.matchMedia("(min-width: 640px)").matches;
     currentLayout = isWide ? LAYOUT_WIDE : LAYOUT_NARROW;
     return isWide ? "wide" : "narrow";
   });
@@ -1241,7 +1536,9 @@ export default function CampsiteScene({
     // CAM-163: Determine the active layout BEFORE building scouts so they are
     // placed at the correct art-measured position from the very first frame —
     // no compass-detour entrance walk and no visible snap on load.
-    const arMqEarly = window.matchMedia("(min-aspect-ratio: 7/5)");
+    // SMUX-2: trigger is viewport WIDTH <640px (not aspect-ratio) so a phone in
+    // landscape still uses LAYOUT_NARROW (the canvas is small regardless of orientation).
+    const arMqEarly = window.matchMedia("(min-width: 640px)");
     const initialLayout = arMqEarly.matches ? LAYOUT_WIDE : LAYOUT_NARROW;
     // Sync the module-level var so homeStyle() is correct on first render.
     currentLayout = initialLayout;
@@ -1353,9 +1650,9 @@ export default function CampsiteScene({
     }
     mq.addEventListener("change", onMqChange);
 
-    // CAM-161 / CAM-163: aspect-ratio layout switcher — no remount.
-    // (min-aspect-ratio: 7/5) = wide: use LAYOUT_WIDE.
-    // Below threshold: use LAYOUT_NARROW so all 8 stay in the visible centre band.
+    // CAM-161 / CAM-163 / SMUX-2: width-based layout switcher — no remount.
+    // (min-width: 640px) = wide: use LAYOUT_WIDE.
+    // Below 640px: use LAYOUT_NARROW (portrait-optimised oval — CAM-251).
     // arMqEarly is already declared above for the initial layout determination;
     // reuse it here (same MediaQueryList object) for the change listener.
     const arMq = arMqEarly;
@@ -1621,10 +1918,17 @@ export default function CampsiteScene({
             />
             {agents.map((agent) => {
               const pos = homeStyle(agent.role);
+              // SMUX-3: an agent is focused when:
+              //   • its task.id matches focusedTaskId (user clicked this agent or its board card), OR
+              //   • its task.epicKey matches the active epic filter (board/filter→map direction, all matching agents).
+              const isFocused = !!focusedTaskId && agent.task?.id === focusedTaskId
+                ? true
+                : !focusedTaskId && !!activeEpic && agent.task?.epicKey === activeEpic && !!agent.task;
               return (
                 <AgentScout
                   key={agent.role}
                   agent={agent}
+                  focused={isFocused}
                   rootRef={(el) => {
                     rootRefs.current[agent.role] = el;
                     // Seed the first-paint position and initial working/idle class
@@ -1650,7 +1954,7 @@ export default function CampsiteScene({
                   }}
                   bodyRef={(el) => { bodyRefs.current[agent.role] = el; }}
                   speechRef={(el) => { speechRefs.current[agent.role] = el; }}
-                  onActivate={() => setTeamCollapsed(false)}
+                  onActivate={() => handleAgentActivate(agent)}
                 />
               );
             })}
@@ -1696,17 +2000,21 @@ export default function CampsiteScene({
       {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
       <div className="hud-topbar">
         <div className="hud-topbar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO }} />
-        <FilterSignposts
-          personas={filterOpts.personas}
-          features={filterOpts.features}
-          epics={filterOpts.epics}
-          persona={persona}
-          feature={feature}
-          epic={scope === "epic" ? activeEpic : ""}
-          onChange={onFilterChange}
-        />
+        {/* Desktop: 3-filter signposts. Hidden on tablet/mobile via .hud-signposts-desktop CSS. */}
+        <span className="hud-signposts-desktop">
+          <FilterSignposts
+            personas={filterOpts.personas}
+            features={filterOpts.features}
+            epics={filterOpts.epics}
+            persona={persona}
+            feature={feature}
+            epic={scope === "epic" ? activeEpic : ""}
+            onChange={onFilterChange}
+          />
+        </span>
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
+          {/* Desktop: full-text env toggle + ViewToggle */}
           <ViewToggle dashboardHref={dashboardHref} />
           <button
             ref={envPickerTriggerRef}
@@ -1723,8 +2031,251 @@ export default function CampsiteScene({
             triggerRef={envPickerTriggerRef}
           />
           <SoundToggle />
+
+          {/* SMUX-6: Tablet/mobile icon-only buttons (hidden on desktop ≥1024 via CSS) */}
+          <div className="hud-topbar-icons" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Dashboard link — icon only */}
+            <a
+              href={dashboardHref}
+              className="hud-icon-btn"
+              aria-label="ดูผลงานทั้งหมด"
+              data-testid="link--map-icon-dashboard"
+            >
+              <LayoutDashboard size={20} aria-hidden="true" />
+            </a>
+            {/* Env/productivity toggle — icon only */}
+            <button
+              type="button"
+              className={`hud-icon-btn${envPickerOpen ? " active" : ""}`}
+              aria-label="ผลผลิต Scout Team"
+              aria-pressed={envPickerOpen}
+              data-testid="btn--map-icon-env"
+              onClick={() => setEnvPickerOpen(v => !v)}
+            >
+              <Gauge size={20} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* SMUX-6 · CAM-258: Bottom filter row — tablet + mobile (<1024px).
+          The SAME FilterSignposts chip (layout="bottom"): equal columns that
+          fill the frame width with drop-up menus, positioned above the mobile
+          toolbar. One filter implementation — no parallel mobile component. */}
+      <FilterSignposts
+        layout="bottom"
+        personas={filterOpts.personas}
+        features={filterOpts.features}
+        epics={filterOpts.epics}
+        persona={persona}
+        feature={feature}
+        epic={scope === "epic" ? activeEpic : ""}
+        onChange={onFilterChange}
+      />
+
+      {/* SMUX-2: Tablet edge drawer tabs — visible on 640–1023px only (CSS hides on mobile/desktop). */}
+      <button
+        ref={rosterTabRef}
+        type="button"
+        className="hud-edge-tab left"
+        aria-label="เปิด Roster"
+        aria-haspopup="dialog"
+        aria-expanded={openSheet === "roster"}
+        aria-controls="sheet-roster"
+        data-testid="btn--map-edge-roster"
+        onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
+      >
+        ≡ Roster
+      </button>
+      <button
+        ref={boardTabRef}
+        type="button"
+        className="hud-edge-tab right"
+        aria-label="เปิด Board"
+        aria-haspopup="dialog"
+        aria-expanded={openSheet === "board"}
+        aria-controls="sheet-board"
+        data-testid="btn--map-edge-board"
+        onClick={() => setOpenSheet(openSheet === "board" ? null : "board")}
+      >
+        Board ▸
+      </button>
+
+      {/* SMUX-2/SMUX-6: Mobile bottom toolbar — visible on <640px only (CSS hides on tablet/desktop).
+          SMUX-6: transparent bar; chips keep their own glass fill; center = EnvPipelineCapsule. */}
+      <div className="hud-map-toolbar" role="toolbar" aria-label="เมนูหลัก" data-testid="toolbar--map-mobile">
+        <button
+          ref={rosterToolbarRef}
+          type="button"
+          className="hud-toolbar-btn"
+          aria-label="เปิดรายชื่อทีม"
+          aria-haspopup="dialog"
+          aria-expanded={openSheet === "roster"}
+          aria-controls="sheet-roster"
+          data-testid="btn--map-toolbar-roster"
+          onClick={() => setOpenSheet(openSheet === "roster" ? null : "roster")}
+        >
+          <Users size={16} aria-hidden="true" />
+          <span className="hud-toolbar-btn-label">ทีม</span>
+        </button>
+
+        {/* SMUX-6 / CAM-257: Env Pipeline Capsule — counts scoped to the active filter
+            (capsuleStats); "all" falls back to global project numbers. */}
+        <EnvPipelineCapsule
+          devCount={capsuleStats.devCount}
+          stagingCount={capsuleStats.stagingCount}
+          shipCount={capsuleStats.shipCount}
+          pct={capsuleStats.pct}
+          gatesCount={capsuleStats.gatesCount}
+          epicsActiveCount={capsuleStats.epicsActiveCount}
+          epicsTotalCount={capsuleStats.epicsTotalCount}
+          backlogCount={capsuleStats.backlogCount}
+        />
+
+        <button
+          ref={boardToolbarRef}
+          type="button"
+          className="hud-toolbar-btn"
+          aria-label="เปิด Board"
+          aria-haspopup="dialog"
+          aria-expanded={openSheet === "board"}
+          aria-controls="sheet-board"
+          data-testid="btn--map-toolbar-board"
+          onClick={() => setOpenSheet(openSheet === "board" ? null : "board")}
+        >
+          <LayoutGrid size={16} aria-hidden="true" />
+          <span className="hud-toolbar-btn-label">Board</span>
+        </button>
+      </div>
+
+      {/* SMUX-2: Roster Sheet — side="left" on tablet, side="bottom" on mobile.
+          One Sheet, one-at-a-time open state. shadcn Sheet handles focus-trap + Esc + return-focus. */}
+      <Sheet open={openSheet === "roster"} onOpenChange={(v) => setOpenSheet(v ? "roster" : null)}>
+        <SheetContent
+          id="sheet-roster"
+          side="left"
+          showCloseButton={false}
+          className="w-[280px] sm:w-[320px] border-r-0 rounded-r-3xl p-0 overflow-y-auto"
+          style={{
+            background: "rgba(11,30,24,.88)",
+            borderRight: "1px solid rgba(150,240,195,.18)",
+          }}
+          data-testid="sheet--map-roster"
+        >
+          <div role="status" aria-live="polite" className="sr-only">กำลังโหลด…</div>
+          <SheetHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
+            <SheetTitle style={{ color: "#F1F6FB", fontFamily: "'Outfit','Anuphan',system-ui,sans-serif" }}>
+              ทีมงาน
+            </SheetTitle>
+            <SheetClose
+              className="h-11 w-11 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "rgba(223,234,245,.7)" }}
+              aria-label="ปิด"
+              data-testid="btn--sheet-roster-close"
+            >
+              <X size={16} aria-hidden="true" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="px-5 pb-5">
+            {agents.length === 0 ? (
+              <div style={{ textAlign: "center", color: "rgba(223,234,245,.35)", fontSize: 13, padding: "24px 0" }}>
+                ยังไม่มีข้อมูลทีม
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {agents.map((agent) => {
+                  const cfg = ROLE_CONFIG[agent.role];
+                  if (!cfg) return null;
+                  return (
+                    <div
+                      key={agent.role}
+                      className={`hud-role-row ${agent.active ? "active" : "sleep"}`}
+                      style={{ minHeight: 44 }}
+                    >
+                      <span className={`hud-role-dot ${agent.active ? "active" : "sleep"}`} aria-hidden="true" />
+                      <span className="hud-role-label">{cfg.displayName}</span>
+                      <span className={`hud-role-badge ${agent.active ? "active" : "sleep"}`}>
+                        {agent.active ? "กำลังทำ" : "ว่าง"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* SMUX-2: Board Sheet — side="right" on tablet, side="bottom" on mobile.
+          Shows existing StatusBoard content.
+          SMUX-3: closing the board sheet clears the focused card highlight. */}
+      <Sheet open={openSheet === "board"} onOpenChange={(v) => { setOpenSheet(v ? "board" : null); if (!v) setFocusedTaskId(""); }}>
+        <SheetContent
+          id="sheet-board"
+          side="right"
+          showCloseButton={false}
+          className="w-[300px] sm:w-[360px] border-l-0 rounded-l-3xl p-0 overflow-y-auto"
+          style={{
+            background: "rgba(11,30,24,.88)",
+            borderLeft: "1px solid rgba(150,240,195,.18)",
+          }}
+          data-testid="sheet--map-board"
+        >
+          <div role="status" aria-live="polite" className="sr-only">กำลังโหลด…</div>
+          <SheetHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
+            <SheetTitle style={{ color: "#F1F6FB", fontFamily: "'Outfit','Anuphan',system-ui,sans-serif" }}>
+              Board
+            </SheetTitle>
+            <SheetClose
+              className="h-11 w-11 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "rgba(223,234,245,.7)" }}
+              aria-label="ปิด"
+              data-testid="btn--sheet-board-close"
+            >
+              <X size={16} aria-hidden="true" />
+            </SheetClose>
+          </SheetHeader>
+          <div className="px-5 pb-5">
+            {!showBoard ? (
+              <div style={{ textAlign: "center", padding: "32px 0" }}>
+                <Layers size={28} style={{ color: "rgba(91,233,176,.4)", margin: "0 auto 10px" }} aria-hidden="true" />
+                <p style={{ color: "rgba(223,234,245,.35)", fontSize: 13 }}>
+                  ยังไม่มีงานในบอร์ด
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={{ fontSize: 11, color: "rgba(223,234,245,.45)", marginBottom: 4 }}>{boardLabel}</p>
+                {boardStories.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`hud-kc${focusedTaskId === s.id ? " smux3-focused" : ""}`}
+                    style={{ display: "block" }}
+                    aria-label={`ดูรายละเอียด ${s.id}`}
+                    data-testid={`card--sheet-board-${s.id}`}
+                    onClick={(e) => {
+                      handleBoardCardActivate(s.id);
+                      ticketDetailTriggerRef.current = e.currentTarget;
+                      setTicketDetailId(s.id);
+                      setTicketDetailOpen(true);
+                    }}
+                  >
+                    <div className="hud-kt">
+                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, color: "rgba(223,234,245,.88)" }}>
+                        {s.title}
+                      </span>
+                    </div>
+                    <div className="hud-kb" style={{ marginTop: 5 }}>
+                      <span className="hud-kr" style={{ fontSize: 10 }}>{s.role}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Left panel stack — summary · delivery · approval */}
       <div className="hud-left-panels">
@@ -1778,9 +2329,12 @@ export default function CampsiteScene({
           <StatusBoard
             stories={boardStories}
             label={boardLabel}
+            focusedTaskId={focusedTaskId}
+            onCardActivate={handleBoardCardActivate}
             pct={summaryStats.pct}
             collapsed={boardCollapsed}
             onToggle={() => setBoardCollapsed((v) => !v)}
+            token={token}
           />
         ) : (
           <StatusBoardHint />
@@ -1799,6 +2353,17 @@ export default function CampsiteScene({
           onApproved={() => {
             setGateDetailOpen(false);
           }}
+        />
+      )}
+
+      {/* CAM-286: read-only ticket detail modal for the mobile "Board Sheet" cards */}
+      {ticketDetailOpen && ticketDetailId && (
+        <TicketDetailModal
+          ticketId={ticketDetailId}
+          token={token}
+          triggerRef={ticketDetailTriggerRef}
+          isOpen={ticketDetailOpen}
+          onClose={() => setTicketDetailOpen(false)}
         />
       )}
 

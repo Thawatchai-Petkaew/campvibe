@@ -1,23 +1,24 @@
-// SSE stream that pushes a "refresh" signal to open /status dashboards when the
-// Linear webhook bumps the pulse. Zero new infra: the server polls one tiny Postgres
-// row and emits an event when `version` increases. Self-closes after MAX_MS so the
-// browser's EventSource reconnects cleanly (tolerates the Vercel function-duration cap).
-import { readPulse } from "@/lib/status-pulse";
+// SSE stream that pushes a "refresh" signal to open /status dashboards when a ticket
+// mutation bumps the pulse. Zero new infra: the server polls one tiny Postgres row and
+// emits an event when `version` increases. Self-closes after MAX_MS so the browser's
+// EventSource reconnects cleanly (tolerates the Vercel function-duration cap).
+//
+// CAM-287: switched from lib/status-pulse.ts (StatusPulse — bumped by the retired Linear
+// webhook, CAM-281 T-5b) to lib/delivery/pulse.ts (DeliveryPulse — bumped in-process by
+// every lib/delivery/tickets.ts mutation, ADR-010 "single mutation path, no webhook").
+// This is the pulse real ticket mutations actually bump today; the response/event shape
+// and version semantics (a monotonic integer, "value changed" = refresh) are unchanged.
+import { readDeliveryPulse } from "@/lib/delivery/pulse";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  // RISK-7: STATUS_TOKEN is now required — missing/invalid token → 401.
-  // Removed the `if (!required) return true` public fallback.
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  return new URL(req.url).searchParams.get("token") === required;
-}
-
 export async function GET(req: Request) {
-  if (!authorized(req)) return new Response("unauthorized", { status: 401 });
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): default-deny — missing
+  // STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) return new Response("unauthorized", { status: 401 });
 
   // RISK-7: IP connection rate-limit (5 connections / 1 min).
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let last = await readPulse();
+      let last = await readDeliveryPulse();
       let closed = false;
       const send = (s: string) => {
         if (closed) return;
@@ -62,7 +63,7 @@ export async function GET(req: Request) {
 
       poll = setInterval(async () => {
         try {
-          const v = await readPulse();
+          const v = await readDeliveryPulse();
           if (v > last) { last = v; send(`data: {"version":${v}}\n\n`); }
         } catch { /* transient DB error — keep the connection, retry next tick */ }
       }, POLL_MS);

@@ -1,10 +1,12 @@
 /* CampVibe — Live Delivery dashboard. Server-rendered from Linear, refreshed every 60s.
  * Look & feel: design/campvibe-delivery.html. Data: lib/linear.ts (real, no mock numbers).
- * Protected by STATUS_TOKEN (visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
+ * Protected by STATUS_TOKEN via the shared default-deny gate (lib/status-auth.ts — CAM-275;
+ * visit /status?token=YOUR_TOKEN). Tabs: ?tab=overview|epic&epic=<name>.
  * Note: this page renders self-contained CSS (dangerouslySetInnerHTML) and is intentionally
  * immune to the .dark class applied by ThemeProvider — its appearance is fixed by design. */
 import { fetchStatusIssues, type StatusIssue } from "@/lib/linear";
 import { readPulse } from "@/lib/status-pulse";
+import { isStatusAuthorized } from "@/lib/status-auth";
 import { CSS, SCENE, LOGO } from "./dashboard-assets";
 import { boardColumnOf, buildTrail, epicBucket, regressionRound, canonRole, type EnvLane } from "@/lib/status-derive";
 import { buildModel, type Model, type EpicNode, epicOf, isActive, isDone, hasAwait, personaOf, featureOf } from "@/lib/status-model";
@@ -105,7 +107,7 @@ function renderEnvPane(m: Model, open: boolean): string {
   }).join("");
   let h = `<section class="glass board-wrap"><div class="pane-h envhead"><span class="t">Environments</span>`
     + `<span class="envsum">${pills}`
-    + `<button class="env-toggle-btn" id="env-toggle" onclick="toggleEnv()" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
+    + `<button class="env-toggle-btn" id="env-toggle" data-act="toggleEnv" aria-expanded="${open}">${open ? "ย่อ ▴" : "รายละเอียด ▾"}</button></span></div>`
     + `<div id="env-board" class="envwrap ${open ? "" : "collapsed"}"><div class="board" style="grid-template-columns:repeat(3,1fr)">`;
   for (const env of ENV_ORDER) {
     const items = m.byEnv[env], meta = ENV_META[env];
@@ -116,7 +118,7 @@ function renderEnvPane(m: Model, open: boolean): string {
     items.forEach((i) => {
       const r = regressionRound(i.labels);
       const rChip = r > 0 ? `<span class="chip regression">↩${r}</span>` : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      h += `<button type="button" class="kc ${isActive(i) ? "prog" : ""}" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></button>`;
     });
     h += `</div>`;
   }
@@ -150,8 +152,8 @@ function mapHref(tab: string, epic: string, group: string, efilter: string, tq: 
 function topBar(m: Model, tab: string, epic: string, group: string, efilter: string, tq: string): string {
   const mapUrl = mapHref(tab, epic, group, efilter, tq);
   return `<header class="glass bar"><div class="brand">${LOGO}<span class="cv-sub">${esc(m.activeEpic || "CampVibe")} · live</span></div>`
-    + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" onclick="showView('overview')">Overview</button>`
-    + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" onclick="showView('epic')">Epic detail</button></nav>`
+    + `<nav class="tabs"><button class="tab ${tab !== "epic" ? "active" : ""}" id="tab-overview" data-act="showView" data-arg="overview">Overview</button>`
+    + `<button class="tab ${tab === "epic" ? "active" : ""}" id="tab-epic" data-act="showView" data-arg="epic">Epic detail</button></nav>`
     + `<a href="${esc(mapUrl)}" data-testid="link--status-to-map" aria-label="ดูแผนที่" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:0 15px;min-height:40px;border:1px solid rgba(150,240,195,.2);border-radius:999px;background:rgba(11,30,24,.5);font-size:12.5px;font-weight:600;color:rgba(223,234,245,.85);text-decoration:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:block;flex:none"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 4v14M15 6v14" stroke="currentColor" stroke-width="1.6"/></svg>ดูแผนที่</a>`
     + `<span class="live"><span class="dot live"></span><span id="clock">·</span></span></header>`;
 }
@@ -164,14 +166,14 @@ const MIX_COLORS = ["#8a9aa8", "var(--blue)", "var(--emerald)", "var(--violet)",
 // segmented toggle — appears in both Epics + Project backlog headers; setGroup() keeps every copy in sync.
 const segmented = (group: string) =>
   `<div class="segmented" role="tablist" aria-label="จัดกลุ่ม">`
-  + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" onclick="setGroup('feature')">Feature</button>`
-  + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" onclick="setGroup('persona')">Persona</button></div>`;
+  + `<button class="segbtn ${group !== "persona" ? "active" : ""}" data-g="feature" role="tab" aria-selected="${group !== "persona"}" data-act="setGroup" data-arg="feature">Feature</button>`
+  + `<button class="segbtn ${group === "persona" ? "active" : ""}" data-g="persona" role="tab" aria-selected="${group === "persona"}" data-act="setGroup" data-arg="persona">Persona</button></div>`;
 
 // Epics lifecycle filter — All | กำลังทำ | เสร็จแล้ว | ยังไม่เริ่ม. filterEpics() shows/hides cards client-side.
 const EPIC_FILTERS: [string, string][] = [["all", "ทั้งหมด"], ["prog", "กำลังทำ"], ["done", "เสร็จแล้ว"], ["todo", "ยังไม่เริ่ม"]];
 const epicFilter = (f: string) =>
   `<div class="segmented" role="tablist" aria-label="กรองสถานะ Epic">`
-  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" onclick="filterEpics('${k}')">${lbl}</button>`).join("")
+  + EPIC_FILTERS.map(([k, lbl]) => `<button class="segbtn efbtn ${f === k ? "active" : ""}" data-f="${k}" data-act="filterEpics" data-arg="${k}">${lbl}</button>`).join("")
   + `</div>`;
 
 function renderEpicCard(n: EpicNode, linkQ: string, chip: string, efilter: string): string {
@@ -207,7 +209,7 @@ function renderBacklogGroups(groups: Record<string, StatusIssue[]>, order: strin
     h += `<div class="grp"><div class="grp-h"><span class="grp-name">${esc(labelOf(k))}</span><span class="grp-meta">${items.length}</span></div>`;
     items.forEach((i) => {
       const chip = chipMode === "persona" ? personaChip(personaOf(i)) : featChip(featureOf(i));
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></a>`;
+      h += `<button type="button" class="qrow" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(clean(i.title))}</b><span class="tk">${esc(i.id)} · ${esc(epicKeyOf(i) || "—")}</span></div>${chip}<span class="qs bl">Backlog</span></button>`;
     });
     h += `</div>`;
   }
@@ -226,7 +228,7 @@ function renderOverview(m: Model, tq: string, group: string, envOpen: boolean, e
   if (m.gates.length) {
     m.gates.forEach((i) => {
       const g = gateOf(i.title);
-      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><a class="gr-btn" href="${esc(i.url)}" target="_blank" rel="noopener">Review →</a></div>`;
+      h += `<div class="gaterow urgent"><div class="gr-ic">${svg(ICON.flame)}</div><div class="gr-m"><div class="gr-title">${esc(clean(i.title))}</div><div class="gr-sub">${esc(epicKeyOf(i))} · ${esc(i.priority)}${g ? " · " + esc(g) : ""}</div></div><button type="button" class="gr-btn" data-act="open-ticket" data-arg="${esc(i.id)}">View Detail →</button></div>`;
     });
   } else h += `<div class="none-row">✓ ไม่มีงานรออนุมัติจากคุณตอนนี้</div>`;
   h += `</section>`;
@@ -286,8 +288,8 @@ function renderSwitcher(m: Model, current: string, tq: string, group: string): s
     const stCls = n.stories.some(hasAwait) ? "gate" : n.stories.some(isActive) ? "run" : pct === 100 && total ? "done" : "q";
     items += `<a class="sw-item ${n.key === current ? "current" : ""}" data-persona="${n.persona || "none"}" href="?tab=epic&epic=${encodeURIComponent(n.key)}${linkQ}"><span class="sw-ic">${epicIcon(n.label)}</span><span class="sw-m"><span class="sw-name">${esc(n.label)}</span><span class="sw-meta">${esc(n.feature)}</span></span>${personaChip(n.persona)}<span class="sw-st ${stCls}">${pct}%</span></a>`;
   });
-  const fbtn = (p: string, label: string) => `<button class="sw-fbtn ${p === "all" ? "active" : ""}" data-p="${p}" onclick="filterSwitcher('${p}')">${esc(label)}</button>`;
-  return `<div id="switcher" class="switcher" role="dialog" aria-modal="true" aria-label="สลับ epic"><div class="sw-backdrop" onclick="closeSwitcher()"></div><div class="sw-panel"><div class="sw-head"><span class="sw-title">สลับ epic</span><button class="sw-x" onclick="closeSwitcher()" aria-label="ปิด">✕</button></div><div class="sw-filter">${fbtn("all", "All")}${fbtn("host", "Host")}${fbtn("camper", "Camper")}${fbtn("admin", "Admin")}${fbtn("platform", "Platform")}</div><div class="sw-list">${items}</div></div></div>`;
+  const fbtn = (p: string, label: string) => `<button class="sw-fbtn ${p === "all" ? "active" : ""}" data-p="${p}" data-act="filterSwitcher" data-arg="${p}">${esc(label)}</button>`;
+  return `<div id="switcher" class="switcher" role="dialog" aria-modal="true" aria-label="สลับ epic"><div class="sw-backdrop" data-act="closeSwitcher"></div><div class="sw-panel"><div class="sw-head"><span class="sw-title">สลับ epic</span><button class="sw-x" data-act="closeSwitcher" aria-label="ปิด">✕</button></div><div class="sw-filter">${fbtn("all", "All")}${fbtn("host", "Host")}${fbtn("camper", "Camper")}${fbtn("admin", "Admin")}${fbtn("platform", "Platform")}</div><div class="sw-list">${items}</div></div></div>`;
 }
 
 // ---------- EPIC DETAIL ----------
@@ -307,7 +309,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
 
   let h = "";
   // breadcrumb
-  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())} · ${esc(trail.header)}</span><button class="swbtn" onclick="openSwitcher()" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
+  h += `<div class="glass crumb"><a href="?tab=overview${linkQ}">CampVibe</a><span class="sep">›</span><span class="cur">${esc(e)}</span><span class="cstage">Stage ${curIdx + 1} / 5 · ${esc(curName.toLowerCase())} · ${esc(trail.header)}</span><button class="swbtn" data-act="openSwitcher" aria-haspopup="dialog" aria-controls="switcher" title="สลับไป epic อื่น">${svg('<path d="M7 4l-3 3 3 3"/><path d="M4 7h13"/><path d="M17 20l3-3-3-3"/><path d="M20 17H7"/>')}<span>Switch</span></button></div>`;
 
   // hero orbs + pips
   h += `<section class="glass hero"><div class="orbs">`
@@ -330,7 +332,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   // action card
   if (needs.length) {
     const g = needs[0], gl = gateOf(g.title);
-    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><a class="approve" href="${esc(g.url)}" target="_blank" rel="noopener">Review &amp; Approve <span aria-hidden="true">→</span></a></section>`;
+    h += `<section class="glass action"><div class="fi">${svg(ICON.flame)}</div><div class="c"><div class="k"><span class="dot"></span>Paused on you</div><h3>${esc(clean(g.title))}</h3><div class="tk">${esc(g.id)} · ${esc(g.priority)}${gl ? " · " + esc(gl) : ""}</div></div><button type="button" class="approve" data-act="open-ticket" data-arg="${esc(g.id)}">View Detail <span aria-hidden="true">→</span></button></section>`;
   }
 
   // live now + up next
@@ -348,7 +350,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
   if (queued.length) {
     queued.forEach((i) => {
       const cls = i.status === "Backlog" ? "bl" : "td";
-      h += `<a class="qrow" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></a>`;
+      h += `<button type="button" class="qrow" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="qa">${roleIcon(roleOf(i.title))}</div><div class="qm"><b>${esc(roleLabel(roleOf(i.title)))}</b><span class="tk">${esc(i.id)} · ${esc(clean(i.title))}</span></div><span class="qs ${cls}">${esc(i.status)}</span></button>`;
     });
   } else h += `<div class="none-row" style="color:var(--muted)">— คิวว่าง</div>`;
   h += `</section></div>`;
@@ -364,7 +366,7 @@ function renderEpic(m: Model, e: string, tq: string, group: string): string {
       const live = isActive(i) ? '<span class="dot live" style="margin-right:5px"></span>' : "";
       const rb = regressionRound(i.labels);
       const rChip = rb > 0 ? `<span class="chip regression">↩${rb}</span>` : "";
-      h += `<a class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></a>`;
+      h += `<button type="button" class="kc ${isActive(i) ? "prog" : ""} ${hasAwait(i) ? "gate" : ""}" data-act="open-ticket" data-arg="${esc(i.id)}" title="${esc(clean(i.title))}"><div class="kt">${roleIcon(roleOf(i.title))}<span>${esc(clean(i.title))}</span></div><div class="kb"><span class="kr">${live}${yb}${rChip}${esc(roleLabel(roleOf(i.title)))}</span><span class="tk">${esc(i.id)}</span></div></button>`;
     });
     h += `</div>`;
   });
@@ -381,8 +383,10 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const required = process.env.STATUS_TOKEN;
 
-  if (required && sp.token !== required) {
-    const body = SCENE + `<div class="gatebox glass" style="padding:26px"><h2>🔒 Protected dashboard</h2><p style="color:var(--muted)">เพิ่ม access token ใน URL:<br><code>/status?token=YOUR_TOKEN</code></p></div>`;
+  // CAM-275: symmetric, default-deny gate (lib/status-auth.ts) — same rule the API routes
+  // enforce, so an unset STATUS_TOKEN never renders a dashboard whose actions then 401.
+  if (!isStatusAuthorized(sp.token)) {
+    const body = SCENE + `<div class="gatebox glass" style="padding:26px"><h2>ลิงก์ไม่ถูกต้อง</h2><p style="color:var(--muted)">เปิดหน้านี้ผ่านลิงก์จาก Telegram หรือใส่รหัสให้ถูกต้อง</p></div>`;
     return (<><style dangerouslySetInnerHTML={{ __html: CSS }} /><div dangerouslySetInnerHTML={{ __html: body }} /></>);
   }
 

@@ -14,7 +14,7 @@
  *   AC-modal-1   GateDetailModal component exists in overlays
  *   AC-modal-2   GateDetailModal has role="dialog" aria-modal="true"
  *   AC-modal-3   GateDetailModal has aria-label="รายละเอียดงานรออนุมัติ"
- *   AC-modal-4   GateDetailModal has Approve + ส่งกลับ + reason textarea
+ *   AC-modal-4   GateDetailModal has Approve + ส่งกลับ (CAM-275: no reason textarea)
  *   AC-modal-5   GateDetailModal fetches /api/status/issue
  *   AC-modal-6   GateDetailModal calls /api/status/approve
  *   AC-modal-7   GateDetailModal calls /api/status/reject
@@ -127,7 +127,7 @@ describe("CAM-184 AC-modal-3: GateDetailModal has correct aria-label", () => {
   });
 });
 
-describe("CAM-184 AC-modal-4: GateDetailModal has Approve + ส่งกลับ + reason textarea", () => {
+describe("CAM-184 AC-modal-4: GateDetailModal has Approve + ส่งกลับ (CAM-275: no reason textarea)", () => {
   it("contains อนุมัติ button text", () => {
     expect(overlaySrc).toContain("อนุมัติ");
   });
@@ -136,12 +136,10 @@ describe("CAM-184 AC-modal-4: GateDetailModal has Approve + ส่งกลั�
     expect(overlaySrc).toContain("ส่งกลับ");
   });
 
-  it("contains reason textarea with aria-label เหตุผลในการส่งกลับ", () => {
-    expect(overlaySrc).toContain("เหตุผลในการส่งกลับ");
-  });
-
-  it("contains hud-gate-modal-textarea class", () => {
-    expect(overlaySrc).toContain("hud-gate-modal-textarea");
+  it("does not render a reason textarea (CAM-275: removed from GateDetailModal)", () => {
+    expect(overlaySrc).not.toContain("<textarea");
+    expect(overlaySrc).not.toContain("เหตุผลในการส่งกลับ");
+    expect(overlaySrc).not.toContain("hud-gate-modal-textarea");
   });
 });
 

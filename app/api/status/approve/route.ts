@@ -1,42 +1,46 @@
 /**
- * POST /api/status/approve — approve a gate issue by removing its `awaiting-you` label.
+ * POST /api/status/approve — approve a gate issue.
  *
- * This is a thin, server-only wrapper around removeAwaitingYou().  The downstream
- * "Approved" Telegram notification + repository_dispatch are handled by the Linear
- * webhook (app/api/linear-webhook/route.ts) — the SINGLE source.  Do not duplicate
- * that logic here.
+ * Single mutation path (ADR-010 "single mutation path, no webhook" — CAM-281 T-5b retired
+ * the legacy Linear branch): calls lib/delivery/tickets.ts's `approve()` verb —
+ * AWAITING_GATE -> IN_PROGRESS (the ADR-010 "gate-clear, not terminal" verb; `complete()`
+ * is the separate terminal-gate verb, not used by this generic approve button). The
+ * service itself sends the "approved" Telegram notification AND fires the
+ * repository_dispatch in the SAME call — there is no webhook to relay from, so this route
+ * must NOT also notify/dispatch (would double-send).
  *
  * Auth: STATUS_TOKEN via `?token=` query param OR `x-status-token` header.
  * Rate-limit: 20 req/min per IP (in-process sliding window, best-effort on serverless).
  * Errors: 400 bad id · 401 unauthorized · 429 rate-limited · 500 internal (no stack).
  */
 import { NextResponse } from "next/server";
-import { removeAwaitingYou } from "@/lib/linear-actions";
+import { approve as approveTicket } from "@/lib/delivery/tickets";
+import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Reuse the STATUS_TOKEN gate: ?token= query param OR x-status-token header.
- * SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  const url = new URL(req.url);
-  const query = url.searchParams.get("token");
-  const header = req.headers.get("x-status-token");
-  return query === required || header === required;
-}
-
-/** Linear issue identifier, e.g. CAM-184 or CAM-10. */
+/** Ticket identifier, e.g. CAM-184 or CAM-10. */
 const ID_RE = /^[A-Z]+-\d+$/;
 
+/**
+ * Free-text actor for the delivery-ticket audit ledger (G2-locked — no FK to a User table,
+ * see lib/delivery/tickets.ts top comment). This route has no NextAuth session; its only
+ * possible caller is the human owner clicking Approve on /status/map (gated by STATUS_TOKEN
+ * above), so a static, descriptive actor string is correct — not a guess.
+ */
+const DB_ACTOR = "owner (status-map)";
+
 export async function POST(req: Request) {
-  if (!authorized(req)) {
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): ?token= query param OR
+  // x-status-token header; default-deny — missing STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Rate-limit: 20 req/min per IP (protects the Linear API from bulk abuse).
+  // Rate-limit: 20 req/min per IP (protects the delivery DB from bulk abuse).
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rl = checkRateLimit(`status:approve:${ip}`, { limit: 20, windowMs: 60_000 });
   if (!rl.allowed) {
@@ -62,11 +66,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const approved = await removeAwaitingYou(id);
-    return NextResponse.json({ ok: true, approved });
-  } catch {
-    // Log the error server-side; never surface stack/internals to the client.
-    console.error("[approve] removeAwaitingYou failed", { id });
+    await approveTicket(id, DB_ACTOR);
+    return NextResponse.json({ ok: true, approved: true });
+  } catch (err) {
+    // A not-found / not-awaiting-a-gate ticket is a no-op, not a failure — the map UI sees
+    // {ok:true,approved:false} instead of an error toast for a ticket that simply isn't
+    // awaiting a gate anymore.
+    if (
+      err instanceof TicketNotFoundError ||
+      (err instanceof TicketTransitionError && err.code === "invalid_state")
+    ) {
+      return NextResponse.json({ ok: true, approved: false });
+    }
+    console.error(
+      JSON.stringify({
+        event: "status_approve_failed",
+        id,
+        reason: err instanceof Error ? err.message : String(err),
+      })
+    );
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

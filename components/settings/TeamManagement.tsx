@@ -142,6 +142,17 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
         return 'muted';
     };
 
+    const getRoleLabel = (role: string): string => {
+        switch (role) {
+            case 'OWNER': return ts?.roleOwner || 'Owner';
+            case 'ADMIN': return ts?.roleAdmin || 'Admin';
+            case 'MANAGER': return ts?.roleManager || 'Manager';
+            case 'STAFF': return ts?.roleStaff || 'Staff';
+            case 'VIEWER': return ts?.roleViewer || 'Viewer';
+            default: return role;
+        }
+    };
+
     const getRoleDescription = (role: string) => {
         switch (role) {
             case "OWNER": return ts?.ownerDesc || "Full access (owner).";
@@ -302,12 +313,9 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                         <PopoverAnchor asChild>
                                                             <div className="inline-flex items-center cursor-help">
                                                                 {member.role === 'OWNER' ? (
-                                                                    <Badge
-                                                                        variant={getRoleVariant(member.role)}
-                                                                        className="rounded-full text-xs font-bold"
-                                                                    >
-                                                                        <Shield className="w-3 h-3 mr-1" />
-                                                                        {member.role}
+                                                                    <Badge variant={getRoleVariant(member.role)}>
+                                                                        <Shield className="w-3 h-3 mr-1" aria-hidden="true" />
+                                                                        {getRoleLabel(member.role)}
                                                                     </Badge>
                                                                 ) : (
                                                                     <Select
@@ -357,11 +365,8 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                                             {getRoleDescription(member.role)}
                                                                         </div>
                                                                     </div>
-                                                                    <Badge
-                                                                        variant={getRoleVariant(member.role)}
-                                                                        className="rounded-full text-xs font-bold"
-                                                                    >
-                                                                        {member.role}
+                                                                    <Badge variant={getRoleVariant(member.role)}>
+                                                                        {getRoleLabel(member.role)}
                                                                     </Badge>
                                                                 </div>
 
@@ -383,13 +388,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                                 </Popover>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <Badge
-                                                    variant={member.acceptedAt ? "success" : "outline"}
-                                                    className={cn(
-                                                        "rounded-full text-xs",
-                                                        !member.acceptedAt && "text-muted-foreground"
-                                                    )}
-                                                >
+                                                <Badge variant={member.acceptedAt ? "success" : "outline"}>
                                                     {member.acceptedAt ? (ts?.active || "Active") : (ts?.invited || "Invited")}
                                                 </Badge>
                                             </td>

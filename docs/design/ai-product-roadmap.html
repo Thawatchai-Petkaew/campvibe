@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe · AI Product Roadmap</title>
+<style>
+  :root{
+    --bg:#f0f4f3; --surface:#fff; --card:#fff; --card-alt:#e8f4f2; --line:#d8e8e6; --line-strong:#b8d4d0;
+    --fg:#1a2c2e; --muted:#4e6e6b; --muted-lt:#7a9896;
+    --primary:#14b8a6; --primary-dim:#0d9488; --primary-10:rgba(20,184,166,.10); --primary-20:rgba(20,184,166,.20);
+    --green:#16a34a; --green-10:rgba(22,163,74,.10); --amber:#d97706; --amber-10:rgba(217,119,6,.10);
+    --red:#dc2626; --red-10:rgba(220,38,38,.10);
+    --r-card:22px; --r-ctrl:999px; --r-in:14px; --r-pop:18px;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    color:var(--fg);line-height:1.6;font-size:14.5px;background:var(--bg);padding:30px 20px 70px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .badge{display:inline-flex;gap:7px;font-size:11.5px;font-weight:700;padding:5px 13px;border-radius:var(--r-ctrl);
+    border:1px solid var(--line-strong);background:var(--card-alt);color:var(--primary-dim)}
+  h1{font-size:27px;margin:13px 0 3px;letter-spacing:-.3px}
+  h1 .sub{display:block;font-size:14px;font-weight:500;color:var(--muted);margin-top:6px;max-width:820px}
+  h2{font-size:18px;margin:0 0 3px;display:flex;align-items:center;gap:9px}
+  h2 .n{width:25px;height:25px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:var(--primary)}
+  .lead{color:var(--muted);font-size:13px;margin:2px 0 14px}
+  section.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:20px 22px;margin:16px 0}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--card-alt);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--primary-dim)}
+  .muted{color:var(--muted)}
+  /* legend + summary */
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:var(--r-ctrl);border:1px solid var(--line);background:var(--surface)}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .d-green{background:var(--green)} .d-amber{background:var(--amber)} .d-red{background:var(--red)}
+  .eff{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:var(--r-in);border:1px solid var(--line-strong);color:var(--muted);background:var(--card-alt)}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px} @media(max-width:760px){.summary{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--card-alt);border:1px solid var(--line);border-radius:var(--r-in);padding:12px 14px}
+  .stat b{display:block;font-size:22px;color:var(--fg)} .stat span{font-size:11.5px;color:var(--muted)}
+  /* scales table */
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px} th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted-lt);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+  /* trains */
+  .train{border:1px solid var(--line);border-radius:var(--r-card);padding:16px 18px;margin:14px 0;background:var(--surface)}
+  .train.active{border-color:var(--primary);background:linear-gradient(180deg,var(--primary-10),transparent 70%);box-shadow:0 0 0 1px var(--primary-20)}
+  .train .th{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .train .tid{font-size:17px;font-weight:800;color:var(--primary-dim)}
+  .train .tname{font-weight:700} .train .tmeta{margin-left:auto;font-size:12px;color:var(--muted)}
+  .train .tmeta b{color:var(--fg)}
+  .nowchip{font-size:10px;font-weight:800;color:#fff;background:var(--primary);padding:2px 9px;border-radius:var(--r-ctrl)}
+  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px}
+  .item{border:1px solid var(--line);border-left-width:4px;border-radius:var(--r-in);padding:10px 12px;background:var(--surface);min-width:0}
+  .item.f-green{border-left-color:var(--green)} .item.f-amber{border-left-color:var(--amber)} .item.f-red{border-left-color:var(--red)}
+  .item .ih{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .item .iid{font-size:11px;font-weight:800;color:var(--muted-lt)}
+  .item .iname{font-weight:700;font-size:13px;line-height:1.35}
+  .item .imeta{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;align-items:center}
+  .item .dep{font-size:11px;color:var(--muted-lt);margin-top:5px}
+  .spend{font-size:10px;font-weight:800;color:var(--amber);background:var(--amber-10);border:1px solid rgba(217,119,6,.3);padding:1px 7px;border-radius:var(--r-ctrl)}
+  .nospend{font-size:10px;font-weight:700;color:var(--green);background:var(--green-10);border:1px solid rgba(22,163,74,.3);padding:1px 7px;border-radius:var(--r-ctrl)}
+  .risk{border-left:3px solid var(--amber);background:var(--amber-10);border-radius:0 var(--r-in) var(--r-in) 0;padding:9px 13px;margin:7px 0;font-size:13px}
+  .risk.red{border-left-color:var(--red);background:var(--red-10)}
+  .dec{font-size:13px;margin:6px 0;padding-left:16px;position:relative;color:var(--muted)} .dec::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:800}
+  .foot{margin-top:24px;font-size:12px;color:var(--muted-lt);text-align:center} a{color:var(--primary-dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="badge">● Living roadmap · planning — docs เท่านั้น ไม่ build/ไม่ spend · SoT = docs/project/ai-product-roadmap.md</span>
+  <h1>CampVibe · AI Product Roadmap
+    <span class="sub">Requirement AI ทั้งหมด (chat A–E + Host + video/social proof F + infra) · feasibility + effort/timeline + ลำดับ release train · requirement ใหม่เข้ามา → เติมลงตาราง → จัด train</span>
+  </h1>
+
+  <!-- SUMMARY -->
+  <section class="box">
+    <div class="summary">
+      <div class="stat"><b>4</b><span>Release trains (R1 กำลังทำ)</span></div>
+      <div class="stat"><b>~30–38</b><span>สัปดาห์รวมโดยประมาณ (คู่ขนานได้ สั้นกว่านี้)</span></div>
+      <div class="stat"><b>13 🟢 · 13 🟡 · 3 🔴</b><span>feasibility (29 item; การ์ดพับ F2/F3 เข้า VID)</span></div>
+      <div class="stat"><b>G2</b><span>ทุก item ที่มี $ = รอ owner อนุมัติ spend</span></div>
+    </div>
+  </section>
+
+  <!-- LEGEND -->
+  <section class="box">
+    <h2><span class="n">◐</span> Legend + Scales</h2>
+    <div class="row" style="margin-bottom:12px">
+      <span class="pill"><span class="dot d-green"></span> 🟢 พร้อม (data+API มี)</span>
+      <span class="pill"><span class="dot d-amber"></span> 🟡 ต้อง prep (gap/dependency)</span>
+      <span class="pill"><span class="dot d-red"></span> 🔴 ติดข้อจำกัด (ToS/spend/external)</span>
+      <span class="pill"><span class="eff">S/M/L/XL</span> effort</span>
+      <span class="pill"><span class="spend">$ spend</span> รอ G2</span>
+      <span class="pill"><span class="nospend">no $</span> ไม่มีค่าใช้จ่าย</span>
+    </div>
+    <table>
+      <tr><th>Effort</th><th>ระยะโดยประมาณ</th><th>ความหมาย</th></tr>
+      <tr><td><b>S</b></td><td>~0.5–1 สัปดาห์</td><td>1 PR เล็ก / migration ตรงไปตรงมา</td></tr>
+      <tr><td><b>M</b></td><td>~1–2 สัปดาห์</td><td>หลาย PR / migration + UI</td></tr>
+      <tr><td><b>L</b></td><td>~3–5 สัปดาห์</td><td>data model + infra + หลาย story</td></tr>
+      <tr><td><b>XL</b></td><td>~6+ สัปดาห์</td><td>subsystem ใหม่ (เช่น trip planner + routing)</td></tr>
+    </table>
+    <p class="lead" style="margin-top:8px">ตัวเลขสัปดาห์เป็นประมาณการหยาบเพื่อจัดลำดับ ไม่ใช่คำมั่น · หลาย item ในเทรนเดียวทำคู่ขนานได้</p>
+  </section>
+
+  <!-- R1 -->
+  <div class="train active">
+    <div class="th"><span class="tid">R1</span><span class="nowchip">ทำก่อน</span><span class="tname">Chat core (v1) — A Discover + C Book</span>
+      <span class="tmeta">effort รวม <b>~8–10 สัปดาห์</b> · gate: G1 scope · <b>G2 spend (OpenRouter)</b></span></div>
+    <div class="items">
+      <div class="item f-green"><div class="ih"><span class="iid">PREP-1</span></div><div class="iname">availability เช็ค BlockedDate + partial capacity</div><div class="imeta"><span class="eff">S ~1wk</span><span class="nospend">no $</span></div><div class="dep">CAM-267</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">PREP-2</span></div><div class="iname">price/fee ตรง total + cancellation field</div><div class="imeta"><span class="eff">M ~1–1.5wk</span><span class="nospend">no $</span></div><div class="dep">CAM-268</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">PREP-3</span></div><div class="iname">verified-stay gate ของรีวิว</div><div class="imeta"><span class="eff">S–M ~1wk</span><span class="nospend">no $</span></div><div class="dep">CAM-269</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">AI-1</span></div><div class="iname">tool registry + searchCampsites + OpenRouter client</div><div class="imeta"><span class="eff">M ~1.5wk</span><span class="spend">$ G2</span></div><div class="dep">→ PREP-1 · CAM-270</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">AI-2</span></div><div class="iname">agent loop + streaming + checkAvailability + getCampDetail</div><div class="imeta"><span class="eff">M–L ~2wk</span><span class="spend">$ G2</span></div><div class="dep">→ AI-1 · CAM-271</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">AI-3</span></div><div class="iname">chat UI + การ์ดในแชท + booking handoff</div><div class="imeta"><span class="eff">M ~1.5–2wk</span><span class="nospend">no $</span></div><div class="dep">→ AI-2 · CAM-272</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">A1</span></div><div class="iname">NL compound search → การ์ด</div><div class="imeta"><span class="eff">S</span><span class="spend">$</span></div><div class="dep">→ AI-1</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">A2</span></div><div class="iname">geo / near-me (ระยะขับ)</div><div class="imeta"><span class="eff">S–M</span><span class="spend">$</span></div><div class="dep">→ AI-1 · lat/lng</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">A3</span></div><div class="iname">availability transparency ("เหลือ 2/5")</div><div class="imeta"><span class="eff">S</span><span class="spend">$</span></div><div class="dep">→ PREP-1, AI-2</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">A4</span></div><div class="iname">"วันนี้ลานนี้ว่างไหม" (สด)</div><div class="imeta"><span class="eff">S</span><span class="spend">$</span></div><div class="dep">→ AI-2</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">C1</span></div><div class="iname">การ์ด → กดจอง (/campgrounds/[slug])</div><div class="imeta"><span class="eff">S</span><span class="nospend">no $</span></div><div class="dep">→ AI-3</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">C2</span></div><div class="iname">booking prep (deep-link prefill)</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ AI-2, AI-3</div></div>
+    </div>
+  </div>
+
+  <!-- R2 -->
+  <div class="train">
+    <div class="th"><span class="tid">R2</span><span class="tname">Decide + Social proof / video</span>
+      <span class="tmeta">effort รวม <b>~7–9 สัปดาห์</b> · gate: G2 spend (scraper) · CSP · ADR-010</span></div>
+    <div class="items">
+      <div class="item f-green"><div class="ih"><span class="iid">B2 / F1</span></div><div class="iname">AI สรุปรีวิว <b>ของเรา</b> ในแชท</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ PREP-3, AI-2</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">B3</span></div><div class="iname">price / cancellation Q&amp;A</div><div class="imeta"><span class="eff">S</span><span class="spend">$</span></div><div class="dep">→ PREP-2</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">B1</span></div><div class="iname">เทียบ A vs B</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ AI-2</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">VID-1</span></div><div class="iname">data model ReviewVideo + VideoSource + migration</div><div class="imeta"><span class="eff">M</span><span class="nospend">no $</span></div><div class="dep">—</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">VID-2</span></div><div class="iname">oEmbed + owned video (host/admin) + embed + CSP</div><div class="imeta"><span class="eff">M</span><span class="nospend">no $</span></div><div class="dep">→ VID-1 · (F3)</div></div>
+      <div class="item f-red"><div class="ih"><span class="iid">VID-3</span></div><div class="iname">batch harvest job (allow-list) + moderation</div><div class="imeta"><span class="eff">M–L</span><span class="spend">$ อาจ (scraper)</span></div><div class="dep">→ VID-1 · (F2) · ToS-risk</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">VID-4</span></div><div class="iname">tool getReviewMedia + chat video cards (link-out+embed)</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ VID-1</div></div>
+    </div>
+    <p class="lead" style="margin-top:10px">F2 (วิดีโอ harvested = การ์ด thumbnail กด→เปิดของจริง) รวมอยู่ใน VID-3/VID-4 · F3 (owned = ฝัง+เล่นในแชท) รวมใน VID-2/VID-4</p>
+  </div>
+
+  <!-- R3 -->
+  <div class="train">
+    <div class="th"><span class="tid">R3</span><span class="tname">Plan / Trip</span>
+      <span class="tmeta">effort รวม <b>~8–10 สัปดาห์</b> · gate: data model ใหม่ (trip) · G2 (weather/maps API)</span></div>
+    <div class="items">
+      <div class="item f-green"><div class="ih"><span class="iid">D2</span></div><div class="iname">packing list (จาก terrain/facilities)</div><div class="imeta"><span class="eff">S</span><span class="spend">$</span></div><div class="dep">→ AI-2</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">D3</span></div><div class="iname">weather + นำทาง (ลิงก์ Google Maps)</div><div class="imeta"><span class="eff">M</span><span class="spend">$ weather API</span></div><div class="dep">→ external</div></div>
+      <div class="item f-green"><div class="ih"><span class="iid">E2</span></div><div class="iname">ชวนรีวิว / แนะนำลานคล้าย</div><div class="imeta"><span class="eff">S–M</span><span class="spend">$</span></div><div class="dep">→ AI-2</div></div>
+      <div class="item f-red"><div class="ih"><span class="iid">D1</span></div><div class="iname">trip / route planner (multi-camp + ระยะขับ + งบรวม)</div><div class="imeta"><span class="eff">XL ~6+wk</span><span class="spend">$</span></div><div class="dep">→ trip/itinerary model + distance/routing (+maps)</div></div>
+    </div>
+  </div>
+
+  <!-- R4 -->
+  <div class="train">
+    <div class="th"><span class="tid">R4</span><span class="tname">Post-trip + Host tools</span>
+      <span class="tmeta">effort รวม <b>~7–9 สัปดาห์</b> · gate: G2 (POI API + AI generation)</span></div>
+    <div class="items">
+      <div class="item f-amber"><div class="ih"><span class="iid">E1</span></div><div class="iname">ที่เที่ยว/กิจกรรมใกล้ลาน (POI)</div><div class="imeta"><span class="eff">M</span><span class="spend">$ POI API</span></div><div class="dep">→ external</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">H1</span></div><div class="iname">AI listing builder (FB/รูป → ร่าง listing)</div><div class="imeta"><span class="eff">L</span><span class="spend">$</span></div><div class="dep">→ AI infra</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">H2</span></div><div class="iname">FAQ auto-reply</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ AI infra</div></div>
+      <div class="item f-amber"><div class="ih"><span class="iid">H3</span></div><div class="iname">listing optimizer (แนะนำรูป/ราคา)</div><div class="imeta"><span class="eff">M</span><span class="spend">$</span></div><div class="dep">→ analytics</div></div>
+    </div>
+  </div>
+
+  <!-- RISKS -->
+  <section class="box">
+    <h2><span class="n">!</span> Risks / constraints</h2>
+    <div class="risk">availability ต้องแม่นก่อน AI — <b>PREP-1</b> ต้องเสร็จก่อน A3/A4 ไม่งั้นแชทตอบ "ว่าง" ผิด → double-booking</div>
+    <div class="risk red">วิดีโอ <b>harvested (F2/VID-3)</b> ยังขัด ToS TikTok/FB เชิงเทคนิค + thumbnail ลิขสิทธิ์ครีเอเตอร์ · ลดเสี่ยง: allow-list + link-out ไม่ rehost + เครดิต/ลิงก์กลับ + takedown + batch ถี่ต่ำ (owner รับความเสี่ยงแล้ว) · กลไก scrape (self-host vs 3rd-party=spend) เคาะที่ G2</div>
+    <div class="risk">embeddings deferred (ADR-009) — v1 ใช้ tool-use/keyword; query แนว "ฟีลดิบ เงียบ" อาจอ่อนจนกว่าจะเติม vector (content-only)</div>
+    <div class="risk">external API + spend — D3 weather, E1 POI, D1 maps/routing, H1–H3 generation, F2 scraper = มีค่าใช้จ่าย ต้องอนุมัติ G2</div>
+    <div class="risk">CSP — ฝัง owned video (F3/VID-2) ต้องเพิ่ม <code>frame-src</code>/<code>script-src</code> โดเมน player ใน proxy.ts</div>
+  </section>
+
+  <!-- DECISIONS -->
+  <section class="box">
+    <h2><span class="n">✓</span> Decisions log</h2>
+    <div class="dec"><b>2026-07-01</b> chat v1 = A Discover + C Book; prep-data (PREP-1/2/3) ก่อน AI</div>
+    <div class="dec"><b>2026-07-01</b> ADR-009: ไม่ merge data, typed tool layer, availability = live query, embeddings deferred</div>
+    <div class="dec"><b>2026-07-01</b> video reviews 2 ชั้น: owned = ฝัง+เล่นในแชท; harvested (allow-list) = การ์ด thumbnail link-out; harvest batch รายเดือน; owner รับความเสี่ยง ToS/link-out</div>
+    <div class="dec"><b>2026-07-01</b> roadmap นี้เป็น SoT; ประเมิน S/M/L + สัปดาห์ + release train</div>
+  </section>
+
+  <div class="foot">SoT: <a href="../project/ai-product-roadmap.md">docs/project/ai-product-roadmap.md</a> · related: ADR-009 · ai-search-architecture.html · ai-assistant-journeys.html · Linear epic CAM-266</div>
+</div>
+</body>
+</html>

@@ -353,10 +353,54 @@ describe("AC-5 — proxy.ts COMING_SOON gate (source inspection)", () => {
     expect(nextIndex).toBeGreaterThan(elseIndex);
   });
 
-  it("[matcher] matcher does NOT exclude api routes (api| removed)", () => {
+  it("[matcher] matcher does NOT exclude api routes broadly (api| removed — only api/auth is excluded)", () => {
     const configBlock = proxySrc.slice(proxySrc.indexOf("export const config"));
+    // The old broad exclusion `(?!api|` must NOT be present — only /api/auth is excluded.
     expect(configBlock).not.toMatch(/\(\?!api\|/);
     expect(configBlock).not.toMatch(/api\|_next/);
+  });
+
+  // CAM-240 B1 — /api/auth exclusion (logout/session regression fix)
+  it("[matcher-b1] matcher EXCLUDES api/auth so NextAuth routes are never wrapped", () => {
+    const configBlock = proxySrc.slice(proxySrc.indexOf("export const config"));
+    // The negative-lookahead must contain api/auth so /api/auth/* is never matched.
+    expect(configBlock).toContain("api/auth");
+  });
+
+  // CAM-240 B1 — runtime matcher verification: /api/auth/* paths do NOT match the regex.
+  // Next.js anchors matcher patterns with ^ and $ internally; we replicate that here.
+  it("[matcher-b1] /api/auth/session does NOT match the middleware regex (runtime check)", () => {
+    const configBlock = proxySrc.slice(proxySrc.indexOf("export const config"));
+    // Extract the raw pattern string from the matcher array literal.
+    const patternMatch = configBlock.match(/matcher:\s*\[\s*'([^']+)'/);
+    expect(patternMatch).not.toBeNull();
+    // Anchor the pattern as Next.js does: ^pattern$
+    const regex = new RegExp("^" + patternMatch![1] + "$");
+    // NextAuth's own session endpoint must NOT be intercepted.
+    expect(regex.test("/api/auth/session")).toBe(false);
+    // NextAuth's signout endpoint must NOT be intercepted.
+    expect(regex.test("/api/auth/signout")).toBe(false);
+    // NextAuth's callback endpoint must NOT be intercepted.
+    expect(regex.test("/api/auth/callback/credentials")).toBe(false);
+    // NextAuth's csrf endpoint must NOT be intercepted.
+    expect(regex.test("/api/auth/csrf")).toBe(false);
+  });
+
+  // CAM-240 B1 — data API routes still ARE matched (COMING_SOON gate intact).
+  // Next.js anchors matcher patterns with ^ and $ internally; we replicate that here.
+  it("[matcher-b1] /api/campsites and page routes still match (COMING_SOON gate intact)", () => {
+    const configBlock = proxySrc.slice(proxySrc.indexOf("export const config"));
+    const patternMatch = configBlock.match(/matcher:\s*\[\s*'([^']+)'/);
+    expect(patternMatch).not.toBeNull();
+    // Anchor the pattern as Next.js does: ^pattern$
+    const regex = new RegExp("^" + patternMatch![1] + "$");
+    // Data API routes are still matched — COMING_SOON can 404 them.
+    expect(regex.test("/api/campsites")).toBe(true);
+    expect(regex.test("/api/bookings")).toBe(true);
+    // Page routes are still matched.
+    expect(regex.test("/")).toBe(true);
+    expect(regex.test("/dashboard")).toBe(true);
+    expect(regex.test("/coming-soon")).toBe(true);
   });
 
   it("[matcher] matcher still excludes _next/static, _next/image, favicon, .png assets", () => {

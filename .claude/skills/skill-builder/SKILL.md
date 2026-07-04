@@ -43,7 +43,7 @@ Read first: `.claude/SKILL-AUTHORING.md` (the binding house style — this skill
 2. **Interview the owner — one field at a time** (use AskUserQuestion; batch only tightly-related fields). Gather, and read back before writing:
    - `name` (lowercase-hyphen) and a one-line **purpose** (what it does + why) → Overview.
    - **When to Use** positive triggers, and **NOT for** exclusions (each cross-linked to the right skill/rule).
-   - The **Workflow** steps — push for *real* commands/paths/values (`npm run …`, `node scripts/linear-sync.mjs …`, `.claude/templates/story.md`), not "do the thing".
+   - The **Workflow** steps — push for *real* commands/paths/values (`npm run …`, `node scripts/ticket-sync.mjs …`, `.claude/templates/story.md`), not "do the thing".
    - **Prerequisites**, at least one **Example** (✅/❌ or input→output; Thai product copy verbatim in backticks if user-facing), and the **scope** (repo-wide skill vs a rule with `paths:`).
    - Whether a `/command` wrapper is wanted (the owner may just call via `/camper`).
 3. **Draft the body** in section order (Quick Reference table above), dogfooding SKILL-AUTHORING: frontmatter `name` + `description` (third-person *what* + `Use when …` + `Do NOT use when …`, ≤1024 chars, **no steps inlined**); every official-floor section present; extras `## Standards` / `## Common Rationalizations` (one row per skippable step) / `## Verify` (every box provable).

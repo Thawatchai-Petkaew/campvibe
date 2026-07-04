@@ -1,26 +1,32 @@
 /**
  * Telegram webhook → reply loop for delivery-team gates.
  *
- * Flow:  gate raised (scripts/linear-sync.mjs adds `awaiting-you`) → Telegram message
- *        with Approve / Reject buttons → you tap (or reply) → this route:
- *          • approve:<CAM-id>  → remove `awaiting-you` (= the Linear webhook then fires
- *                                 the existing repository_dispatch → orchestrator continues;
- *                                 the webhook also sends the "Approved" notification, so we
- *                                 do NOT send a duplicate message here — only ack the tap)
- *          • reject:<CAM-id>   → keep the label + post the reason as a Linear comment
- *                                 + send the "Sent back for changes" notification (the webhook
- *                                 cannot detect a rejection, so this route owns that send)
- *          • free-text reply   → if it replies to a gate message, post it as a comment
- *                                 (free-form ad-hoc routing lands in Phase 3 / /camper)
+ * Flow:  gate raised (lib/delivery/tickets.ts's raiseGate()) → Telegram message with
+ *        Approve / Reject buttons → you tap (or reply) → this route:
+ *          • approve:<CAM-id>  → calls the delivery service's approve() verb directly,
+ *                                 which sends the "approved" notification + fires the
+ *                                 repository_dispatch itself in the same call (ADR-010
+ *                                 "single mutation path, no webhook") — this route must NOT
+ *                                 also send a notification, only ack the tap.
+ *          • reject:<CAM-id>   → calls the delivery service's reject() verb, which sends
+ *                                 its own "rejected" notification — this route must NOT
+ *                                 also send one (double-send).
+ *          • free-text reply   → if it replies to a gate message, post it as a comment via
+ *                                 the delivery service (free-form ad-hoc routing lands in
+ *                                 Phase 3 / /camper)
+ *
+ * Single mutation path (CAM-281 T-5b retired the legacy Linear branch — ADR-010 "single
+ * mutation path, no webhook"). The secret check, answerCallback, and camper-adhoc dispatch
+ * for free-text not tied to a gate are unchanged.
  *
  * Required env (Vercel): TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID · TELEGRAM_WEBHOOK_SECRET
  * Register once: setWebhook with secret_token = TELEGRAM_WEBHOOK_SECRET → /api/telegram-webhook
  */
 import { NextResponse } from "next/server";
 import { answerCallback, sendTelegram } from "@/lib/notify";
-import { addComment, removeAwaitingYou } from "@/lib/linear-actions";
+import { approve as approveTicket, reject as rejectTicket, addComment as addDeliveryComment } from "@/lib/delivery/tickets";
+import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
 import { fireRepositoryDispatch } from "@/lib/github-dispatch";
-import { buildEventMessage } from "@/lib/notify-messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +36,23 @@ interface TgUpdate {
   message?: { text?: string; reply_to_message?: { text?: string } };
 }
 
+/** See app/api/status/approve/route.ts's DB_ACTOR comment — same trust model, this surface. */
+const DB_ACTOR = "owner (telegram)";
+
+const REJECT_NOTE = "Rejected via Telegram — needs changes before continuing";
+
 function authorized(req: Request): boolean {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret) return false;
   return req.headers.get("x-telegram-bot-api-secret-token") === secret;
+}
+
+/** True for the two "expected, not a failure" service errors — not-found / not-awaiting-gate. */
+function isExpectedTicketError(err: unknown): boolean {
+  return (
+    err instanceof TicketNotFoundError ||
+    (err instanceof TicketTransitionError && err.code === "invalid_state")
+  );
 }
 
 export async function POST(req: Request) {
@@ -50,25 +69,39 @@ export async function POST(req: Request) {
   const cb = update.callback_query;
   if (cb?.data) {
     const [action, id] = cb.data.split(":");
-    // Defence-in-depth: the id must look like a Linear identifier before it reaches any Linear call.
+    // Defence-in-depth: the id must look like a ticket identifier before it reaches the
+    // delivery service.
     if (id && !/^[A-Z]+-\d+$/.test(id)) {
       await answerCallback(cb.id);
       return NextResponse.json({ ok: true, ignored: "bad id" });
     }
     if (action === "approve" && id) {
-      const changed = await removeAwaitingYou(id);
+      let changed = true;
+      try {
+        await approveTicket(id, DB_ACTOR);
+      } catch (err) {
+        if (!isExpectedTicketError(err)) throw err;
+        changed = false;
+      }
       await answerCallback(cb.id, changed ? `Approved ${id}` : `${id}: no gate pending`);
-      // Removing `awaiting-you` triggers the Linear webhook, which is now the SINGLE source of the
-      // "Approved" notification — it fires for this tap AND for an approval done in the Linear UI.
-      // So we do NOT send it here (only ack the tap), avoiding a double-send.
+      // approveTicket() already sent the "approved" Telegram notification + fired the
+      // gate-approved dispatch in the SAME call (ADR-010 "single mutation path, no
+      // webhook") — do NOT send anything else here, only ack the tap.
       return NextResponse.json({ ok: true, action: "approve", id, changed });
     }
     if (action === "reject" && id) {
-      // The webhook cannot detect a rejection (label stays); this route owns the notification.
-      await addComment(id, "Rejected via Telegram — needs changes before continuing");
+      try {
+        await rejectTicket(id, DB_ACTOR, REJECT_NOTE);
+      } catch (err) {
+        if (!isExpectedTicketError(err)) throw err;
+        // Not-found / not-awaiting-a-gate — nothing to reject; ack without sending a
+        // "Sent back" message for a ticket that was never on a gate.
+        await answerCallback(cb.id, `${id}: no gate pending`);
+        return NextResponse.json({ ok: true, action: "reject", id });
+      }
       await answerCallback(cb.id, `Sent back ${id}`);
-      const msg = buildEventMessage("rejected", { id });
-      if (msg) await sendTelegram(msg.text, { buttons: msg.buttons });
+      // rejectTicket() already sent the "rejected" Telegram notification in the same
+      // call (ADR-010 "single mutation path, no webhook") — do not send it again here.
       return NextResponse.json({ ok: true, action: "reject", id });
     }
     await answerCallback(cb.id);
@@ -80,7 +113,7 @@ export async function POST(req: Request) {
   if (msg?.text) {
     const ref = msg.reply_to_message?.text?.match(/\b(CAM-\d+)\b/);
     if (ref) {
-      await addComment(ref[1], `(Telegram) ${msg.text}`);
+      await addDeliveryComment(ref[1], DB_ACTOR, `(Telegram) ${msg.text}`);
       await sendTelegram(`Saved comment on ${ref[1]}`);
       return NextResponse.json({ ok: true, comment: ref[1] });
     }

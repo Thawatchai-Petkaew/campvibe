@@ -82,7 +82,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <main className="min-h-screen pb-20 bg-background text-foreground">
-      <Navbar currentUser={session?.user} />
+      <Navbar />
 
       <div className="sticky top-20 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
         <div className="container mx-auto px-6 py-2">

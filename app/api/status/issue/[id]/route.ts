@@ -1,41 +1,68 @@
 /**
  * GET /api/status/issue/[id] — return a single issue's detail for the gate detail
- * modal on /status/map.  Data comes from the existing cached fetchStatusIssues()
- * (keyed on pulse) — no extra Linear API call beyond what the dashboard already makes.
+ * modal on /status/map.
  *
- * The `[id]` segment is the Linear identifier, e.g. CAM-184 or CAM-10.
+ * Single read path (CAM-281 T-5b retired the legacy Linear branch): fetchTicketFromDb()
+ * reads the one ticket row (+ its epic join) straight from the delivery database and
+ * synthesizes it into the same StatusIssue shape via lib/delivery/status-adapter.ts's
+ * toStatusIssue() — the shape shapeIssueDetail() below (the final response shape the modal
+ * expects) has always been source-agnostic.
+ *
+ * Note: unlike the list dashboard's list-read helper (lib/linear.ts), this route does NOT
+ * keep its own Linear rollback fallback — this detail endpoint's only consumer is the
+ * /status/map gate-detail modal, grouped with the mutation routes for this retirement
+ * (ADR-010 T-5b). The one documented one-cycle rollback lever lives solely in
+ * lib/linear.ts, used by the list views.
+ *
+ * The `[id]` segment is the ticket identifier, e.g. CAM-184 or CAM-10.
  *
  * Auth: STATUS_TOKEN via `?token=` query param OR `x-status-token` header.
  * Errors: 400 bad id · 401 unauthorized · 404 not found · 500 internal (no stack).
  *
  * Response shape (200):
  *   { id, title, status, statusType, role, description, url, assignee, project, labels }
+ *
+ * Note: the underlying delivery service also exposes comments/events for a ticket
+ * (GET /api/tickets/[id]), but the modal's IssueDetail contract (app/status/map/
+ * campsite-overlays.tsx) does not consume them — omitted here rather than shipping an
+ * unused field (CLAUDE.md iron rule #2: no code for the future).
  */
 import { NextResponse } from "next/server";
-import { fetchStatusIssues } from "@/lib/linear";
+import type { StatusIssue } from "@/lib/linear";
+import { fetchTicketFromDb } from "@/lib/delivery/status-adapter";
 import { roleFromTitle } from "@/lib/notify-messages";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ID_RE = /^[A-Z]+-\d+$/;
 
-/** SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  const url = new URL(req.url);
-  const query = url.searchParams.get("token");
-  const header = req.headers.get("x-status-token");
-  return query === required || header === required;
+/** Shapes a StatusIssue into the modal's response contract. */
+function shapeIssueDetail(issue: StatusIssue) {
+  const role = roleFromTitle(issue.title) ?? undefined;
+  return {
+    id: issue.id,
+    title: issue.title,
+    status: issue.status,
+    statusType: issue.statusType,
+    role,
+    description: issue.description,
+    url: issue.url,
+    assignee: issue.assignee,
+    project: issue.project,
+    labels: issue.labels,
+  };
 }
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!authorized(req)) {
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): default-deny — missing
+  // STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -55,31 +82,13 @@ export async function GET(
   }
 
   try {
-    // Reuse the pulse-keyed cache — avoids an extra Linear fetch beyond the dashboard.
-    const issues = await fetchStatusIssues(0);
-    const issue = issues.find((i) => i.id.toUpperCase() === id.toUpperCase());
-
+    const issue = await fetchTicketFromDb(id);
     if (!issue) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
-
-    // Extract [role] from the title if present.
-    const role = roleFromTitle(issue.title) ?? undefined;
-
-    return NextResponse.json({
-      id: issue.id,
-      title: issue.title,
-      status: issue.status,
-      statusType: issue.statusType,
-      role,
-      description: issue.description,
-      url: issue.url,
-      assignee: issue.assignee,
-      project: issue.project,
-      labels: issue.labels,
-    });
+    return NextResponse.json(shapeIssueDetail(issue));
   } catch {
-    console.error("[issue/detail] fetchStatusIssues failed", { id });
+    console.error("[issue/detail] fetchTicketFromDb failed", { id });
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

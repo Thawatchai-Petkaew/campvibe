@@ -1,35 +1,33 @@
 /**
  * POST /api/status/pulse — manually bump the live /status + /map refresh pulse.
  *
- * This is a SECONDARY pulse trigger. The Linear webhook (app/api/linear-webhook/route.ts) is the
- * primary one — it bumps the pulse on every Issue change. But if that webhook is down or not yet
- * registered for this environment, no transition refreshes the board. scripts/linear-sync.mjs
- * calls this endpoint (best-effort) after every write so the dashboards stay fresh regardless.
+ * CAM-287: switched from lib/status-pulse.ts (StatusPulse) to lib/delivery/pulse.ts
+ * (DeliveryPulse — bumped in-process by every lib/delivery/tickets.ts mutation, ADR-010
+ * "single mutation path, no webhook"). This keeps the endpoint bumping the SAME counter
+ * app/api/status/stream/route.ts's SSE loop now polls, so a manual call here still causes
+ * connected /status dashboards to refresh. Before this story, this endpoint bumped the
+ * legacy StatusPulse (the pre-CAM-281 Linear webhook's counter); that write is no longer
+ * useful since the SSE stream stopped reading it — see lib/status-pulse.ts's header for
+ * the remaining (read-only) legacy consumers.
  *
  * Guard: STATUS_TOKEN (the same gate as /status). Must always be set; token is required — a
  * missing STATUS_TOKEN returns 401 (no open fallback). The request must carry it via
  * `x-status-token` header or `?token=`. No business data — just a monotonic refresh counter
- * (lib/status-pulse).
+ * (lib/delivery/pulse.ts).
  * Rate-limit: 30 req/min per IP.
  */
 import { NextResponse } from "next/server";
-import { bumpPulse } from "@/lib/status-pulse";
+import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isStatusRequestAuthorized } from "@/lib/status-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** SEC-A: token is always required — missing STATUS_TOKEN → 401 (no open fallback). */
-function authorized(req: Request): boolean {
-  const required = process.env.STATUS_TOKEN;
-  if (!required) return false; // token must be configured; no unauthenticated access
-  const header = req.headers.get("x-status-token");
-  const query = new URL(req.url).searchParams.get("token");
-  return header === required || query === required;
-}
-
 export async function POST(req: Request) {
-  if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Shared STATUS_TOKEN gate (lib/status-auth.ts — CAM-275): default-deny — missing
+  // STATUS_TOKEN → 401 (no open fallback).
+  if (!isStatusRequestAuthorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   // SEC-A: rate-limit 30 req/min per IP.
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -41,6 +39,6 @@ export async function POST(req: Request) {
     );
   }
 
-  await bumpPulse();
+  await bumpDeliveryPulse();
   return NextResponse.json({ ok: true });
 }

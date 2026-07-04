@@ -70,7 +70,7 @@ export function ActiveFilters() {
                 <Badge
                     key={`${filter.key}-${filter.value}-${idx}`}
                     variant="secondary"
-                    className="pl-3 pr-1 py-1 h-7 rounded-full gap-1 flex items-center bg-muted text-foreground hover:bg-muted/80"
+                    className="pl-3 pr-1 py-1 gap-1 flex items-center"
                 >
                     {filter.label}
                     <button

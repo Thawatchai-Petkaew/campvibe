@@ -59,17 +59,25 @@ next-env.d.ts
 
 /app/generated/prisma
 
+# delivery-ticket schema (CAM-277 / ADR-010) — generated client only; the schema + future
+# prisma/delivery/migrations/ ARE tracked
+/prisma/delivery/generated/
+
 # local uploads
 /public/uploads*
 
 # utility scripts (local) — but track the Linear sync CLI used by CI + hooks
 /scripts/*
 !/scripts/linear-sync.mjs
+!/scripts/ticket-sync.mjs
+!/scripts/lib/
 !/scripts/db-reset.mjs
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
 !/scripts/load-mock-staging.mjs
 !/scripts/reconcile-ratings.mjs
+!/scripts/import-linear.mjs
+!/scripts/parity-check.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

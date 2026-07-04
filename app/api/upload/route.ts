@@ -102,11 +102,31 @@ export async function POST(request: Request): Promise<NextResponse> {
                 const blob = await put(`${filename}${ext}`, buffer, { access: "public", contentType: file.type });
                 return NextResponse.json(blob);
             } catch (blobError) {
+                // In production, Blob is the only storage path. Log server-side detail
+                // and return a clear 503 — do NOT fall through to the FS write
+                // (serverless filesystem is read-only on Vercel).
+                if (process.env.NODE_ENV !== "development") {
+                    console.error("upload: blob storage unavailable", blobError instanceof Error ? blobError.message : String(blobError));
+                    return NextResponse.json(
+                        { error: "ระบบจัดเก็บรูปยังไม่พร้อม กรุณาติดต่อผู้ดูแล" },
+                        { status: 503 }
+                    );
+                }
+                // Development only: log a warning and fall through to local FS.
                 console.warn("Vercel Blob failed, falling back to local storage:", blobError instanceof Error ? blobError.message : String(blobError));
             }
+        } else if (process.env.NODE_ENV !== "development") {
+            // Production without a BLOB_READ_WRITE_TOKEN: fail clearly.
+            // The serverless filesystem is read-only — a write would silently fail.
+            console.error("upload: blob storage unavailable — BLOB_READ_WRITE_TOKEN is not set");
+            return NextResponse.json(
+                { error: "ระบบจัดเก็บรูปยังไม่พร้อม กรุณาติดต่อผู้ดูแล" },
+                { status: 503 }
+            );
         }
 
-        // 2. Fallback to Local Storage (public/uploads)
+        // 2. Local-FS fallback — development only (public/uploads).
+        // This branch is NEVER reached in production (guarded above).
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const finalFilename = `${filename}-${uniqueSuffix}${ext}`;
 
@@ -120,7 +140,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         return NextResponse.json({ url });
 
     } catch (error) {
-        console.error("Upload error:", error);
+        // Log only the message, never the raw error object (a future SDK could
+        // nest a signed URL / token in an error property) — security CAM-239.
+        console.error("Upload error:", error instanceof Error ? error.message : String(error));
         return NextResponse.json({ error: "Upload failed" }, { status: 500 });
     }
 }

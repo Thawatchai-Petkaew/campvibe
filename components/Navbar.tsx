@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Search, Menu, User, Filter, Globe, Bell, Check, X, Heart } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { handleSignOut } from "@/lib/actions";
 import { useState, useMemo, useEffect } from "react";
 // CAM-200 PERF-BUNDLE Actions B + D: lazy-load interaction-only modals.
 // Triggers (search bar, login/register buttons) stay eager in Navbar.
@@ -35,21 +34,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { HostOnboardingFab } from "@/components/HostOnboardingFab";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-interface NavbarProps {
-    currentUser?: {
-        name?: string | null;
-        image?: string | null;
-    } | null;
-}
-
-export function Navbar({ currentUser }: NavbarProps) {
+export function Navbar() {
     const { t } = useLanguage();
     const searchParams = useSearchParams();
     const pathname = usePathname();
-    const { status } = useSession();
+    const { data: session, status } = useSession();
+    // CAM-242 MEDIA-4: single authoritative source — SessionProvider is hydrated with the
+    // server session in layout.tsx so session.user is correct on first paint (no loading flash).
+    // This eliminates the dual-source (frozen server prop vs client session) race.
+    const navUser = session?.user ?? null;
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -60,22 +56,20 @@ export function Navbar({ currentUser }: NavbarProps) {
     const isDashboard = pathname?.startsWith('/dashboard');
 
     useEffect(() => {
-        if (!currentUser) return;
-        // Safety net: after login succeeds and Navbar re-renders with currentUser, ensure no auth modal overlay remains.
-        setIsLoginOpen(false);
-        setIsRegisterOpen(false);
-    }, [currentUser]);
-
-    useEffect(() => {
         if (status !== "authenticated") return;
-        // Extra safety net: session can update without a route change; ensure any overlay modals are closed.
+        // Safety net: after login succeeds, ensure any overlay modals are closed.
         setIsLoginOpen(false);
         setIsRegisterOpen(false);
         setIsSearchOpen(false);
     }, [status]);
 
+    // Reset imageError when the avatar URL changes (e.g. after a profile update).
     useEffect(() => {
-        if (!currentUser) return;
+        setImageError(false);
+    }, [navUser?.image]);
+
+    useEffect(() => {
+        if (!navUser) return;
         const run = async () => {
             try {
                 const res = await fetch("/api/access/dashboard");
@@ -89,7 +83,9 @@ export function Navbar({ currentUser }: NavbarProps) {
             }
         };
         run();
-    }, [currentUser]);
+    // navUser identity changes when session.user changes after update() or on logout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navUser?.image, navUser?.name, status]);
 
     const activeSearchLabel = useMemo(() => {
         const keyword = searchParams.get("keyword");
@@ -116,13 +112,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                         <Link href="/" className="flex-shrink-0">
                             <img src="/logo.png" alt="CampVibe Logo" className="h-8 md:h-10 w-auto" />
                         </Link>
-                        {currentUser && isDashboard && (
+                        {navUser && isDashboard && (
                             <Link href="/dashboard">
-                                <Badge 
-                                    variant="default" 
-                                    className="cursor-pointer hover:bg-primary/80 transition-colors text-xs px-2 py-0.5 font-bold uppercase"
-                                >
-                                    HOST
+                                <Badge variant="default">
+                                    {t.nav.hostLabel}
                                 </Badge>
                             </Link>
                         )}
@@ -151,8 +144,8 @@ export function Navbar({ currentUser }: NavbarProps) {
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <LanguageSwitcher />
 
-                        {/* Wishlist heart link — shown only when logged in (CAM-18). */}
-                        {currentUser && (
+                        {/* Wishlist heart link — shown only when logged in (CAM-18, B2 CAM-240). */}
+                        {navUser && (
                             <Link
                                 href="/wishlist"
                                 data-testid="btn--wishlist-nav"
@@ -164,7 +157,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                         )}
 
                         {/* Notifications (Camper context): booking status updates (no required action) + team invites */}
-                        {currentUser && (
+                        {navUser && (
                             <NotificationCenter
                                 showHostBookings={canAccessDashboard}
                                 showCamperBookingUpdates
@@ -172,7 +165,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                             />
                         )}
 
-                        {!currentUser && (
+                        {!navUser && status !== "loading" && (
                             <div className="hidden lg:flex items-center gap-1">
                                 <Button
                                     variant="ghost"
@@ -195,10 +188,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                             <DropdownMenuTrigger asChild aria-label="User menu">
                                 <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="w-5 h-5 text-muted-foreground" />
-                                    <div className={(currentUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
-                                        {(currentUser?.image && !imageError) ? (
+                                    <div className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
+                                        {(navUser?.image && !imageError) ? (
                                             <img
-                                                src={currentUser.image}
+                                                src={navUser.image}
                                                 alt="User"
                                                 className="w-8 h-8 rounded-full object-cover"
                                                 onError={() => setImageError(true)}
@@ -210,10 +203,10 @@ export function Navbar({ currentUser }: NavbarProps) {
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 mt-2">
-                                {currentUser ? (
+                                {navUser ? (
                                     <>
                                         <DropdownMenuLabel className="px-3 py-2">
-                                            {currentUser.name}
+                                            {navUser.name}
                                         </DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem asChild className="cursor-pointer py-2.5 px-3">
@@ -235,8 +228,8 @@ export function Navbar({ currentUser }: NavbarProps) {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <Badge variant="default" className="rounded-full text-xs font-bold">
-                                                    HOST
+                                                <Badge variant="default">
+                                                    {t.nav.hostLabel}
                                                 </Badge>
                                             </Link>
                                         </DropdownMenuItem>
@@ -249,7 +242,7 @@ export function Navbar({ currentUser }: NavbarProps) {
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
-                                            onClick={() => handleSignOut()}
+                                            onSelect={() => signOut({ callbackUrl: "/" })}
                                             className="cursor-pointer py-2.5 px-3 text-destructive focus:bg-destructive/10 focus:text-destructive"
                                         >
                                             {t.auth.signOut}
@@ -327,7 +320,7 @@ export function Navbar({ currentUser }: NavbarProps) {
             />
 
             {/* Camper → Host onboarding CTA (only shows if user cannot access dashboard yet) */}
-            <HostOnboardingFab isLoggedIn={!!currentUser} />
+            <HostOnboardingFab isLoggedIn={!!navUser} />
         </>
     );
 }

@@ -4,7 +4,7 @@ Central memory for the AI agent team, auto-loaded every session. **Every rule in
 
 ## Stack
 
-Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v4 + shadcn/ui (new-york) · NextAuth · Vercel · Linear (tracker)
+Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v4 + shadcn/ui (new-york) · NextAuth · Vercel · self-hosted delivery tickets (`/status` + `scripts/ticket-sync.mjs`, tracker)
 
 ## Iron Rules (every agent)
 
@@ -26,7 +26,7 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 
 - `docs/project/*` — business/product source-of-truth (why / for whom / worth it): master-plan · business (cost list) · market-size · user-research · product-strategy.
 - `docs/context/*` — the owner's stable context / **Second Brain** (principles, non-negotiables, decision heuristics); the orchestrator (and you) read it before planning or before raising a gate. Gates G1–G5 are **always approved by the human** (interactive, in chat) — there is no autonomous approval.
-- `docs/delivery/` — durable **content** per Feature→Epic→Story (spec/design/test/review/ship as files); **Linear = live status**; generated `docs/delivery/INDEX.md`.
+- `docs/delivery/` — durable **content** per Feature→Epic→Story (spec/design/test/review/ship as files); **ticket DB = live status** (`/status`, `scripts/ticket-sync.mjs`); generated `docs/delivery/INDEX.md`.
 
 ## Quality gates (mandatory before merge — `/quality-gate`)
 
@@ -36,7 +36,7 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 
 Local Dev → **Staging** (`staging` branch, auto deploy) → **Production** (`main`, promote + tag) · separate staging/prod DBs
 
-- **Done** = merge into `staging` + quality-gate green + **verify AC on the real Staging URL** → Linear state `Done`
+- **Done** = merge into `staging` + quality-gate green + **verify AC on the real Staging URL** → ticket state `Done`
 - **Released** = promote `staging`→`main` + prod deploy + smoke + tag + changelog → label `released` (a label, not a state) · multiple stories may reach Done before being released together in one batch
 
 ## Git
