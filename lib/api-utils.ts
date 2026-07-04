@@ -67,17 +67,31 @@ export async function resolveOptionConnect(
 }
 
 /**
- * S4b: build a nested Prisma write for the polymorphic Image gallery from a list of URLs.
- * Order is preserved via sortOrder. imageCreateNested for POST; imageReplaceNested for PUT
- * (clears the existing gallery then recreates it from the submitted order).
+ * S4b: build a nested Prisma write for the polymorphic Image gallery from a list of
+ * image inputs. Order is preserved via sortOrder. imageCreateNested for POST;
+ * imageReplaceNested for PUT (clears the existing gallery then recreates it from the
+ * submitted order).
+ *
+ * CAM-352 groundwork: widened to accept EITHER a bare `string` url (legacy shape —
+ * every un-migrated caller keeps compiling and behaving identically) OR `{url, kind}`
+ * (the new shape once the zod boundary normalizes `imageInputSchema`). `kind` persists
+ * to the `Image.kind` column; omitted `kind` still lands as `PHOTO` (the column
+ * default), so a caller that never learns about `kind` is still correct.
  */
-export function imageCreateNested(urls: string[] | undefined | null) {
-  const list = (urls ?? []).filter(Boolean);
-  return { create: list.map((url, i) => ({ url, sortOrder: i })) };
+type ImageWriteInput = string | { url: string; kind?: 'PHOTO' | 'PANORAMA' };
+
+function normalizeImages(items: ImageWriteInput[] | undefined | null) {
+  return (items ?? [])
+    .map((it) => (typeof it === 'string' ? { url: it, kind: 'PHOTO' as const } : it))
+    .filter((it) => Boolean(it.url))
+    .map((it, i) => ({ url: it.url, sortOrder: i, kind: it.kind ?? ('PHOTO' as const) }));
 }
-export function imageReplaceNested(urls: string[] | undefined | null) {
-  const list = (urls ?? []).filter(Boolean);
-  return { deleteMany: {}, create: list.map((url, i) => ({ url, sortOrder: i })) };
+
+export function imageCreateNested(items: ImageWriteInput[] | undefined | null) {
+  return { create: normalizeImages(items) };
+}
+export function imageReplaceNested(items: ImageWriteInput[] | undefined | null) {
+  return { deleteMany: {}, create: normalizeImages(items) };
 }
 
 /**
