@@ -11,6 +11,7 @@ import {
     MapPin,
     Search,
     ArrowUpDown,
+    CalendarOff,
 } from "lucide-react";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { Button } from "@/components/ui/button";
@@ -241,6 +242,19 @@ export default function MyCampSitesPage() {
                                         </td>
                                         <td className="px-8 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
+                                                {/* CAM-56: manage blocked dates (camp-wide + per-spot). Navigation only —
+                                                    the destination page itself enforces BOOKING_UPDATE server-side. */}
+                                                <Link href={`/dashboard/campsites/${camp.id}/availability`}>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        aria-label={t.blockedDates.pageTitle}
+                                                        className="h-11 w-11 rounded-full border-border hover:text-primary hover:border-primary hover:bg-primary/5 transition"
+                                                        data-testid={`btn--campsites-availability-${camp.id}`}
+                                                    >
+                                                        <CalendarOff className="w-4 h-4" />
+                                                    </Button>
+                                                </Link>
                                                 <PermissionTooltip
                                                     hasPermission={camp?.canUpdate !== false}
                                                     title="Permission Required"
