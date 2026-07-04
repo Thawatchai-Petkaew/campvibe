@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { imageInputSchema } from './image';
 
 export const ViewTypeEnum = z.enum([
   "GENERAL", // ทั่วไป
@@ -12,7 +13,9 @@ export const ViewTypeEnum = z.enum([
 export const spotSchema = z.object({
   zone: z.string().optional(),
   name: z.string().min(1, "Spot name is required"),
-  images: z.array(z.string().url()).optional(),
+  // CAM-352: union input — accepts a legacy bare url string OR {url, kind};
+  // both normalize to {url, kind} (see lib/validations/image.ts).
+  images: z.array(imageInputSchema).optional(),
   viewType: ViewTypeEnum.optional(),
   maxCampers: z.number().int().min(1).optional(),
   maxTents: z.number().int().min(1).optional(),

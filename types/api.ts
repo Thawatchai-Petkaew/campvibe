@@ -10,6 +10,9 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'CAMPER';
 // PREP-2 (CAM-268): closed set, see lib/cancellation-policy.ts for the Thai/EN copy.
 export type CancellationPolicy = 'FLEXIBLE' | 'MODERATE' | 'STRICT' | 'NON_REFUNDABLE';
+// CAM-352 groundwork: mirrors the Prisma `ImageKind` enum. PANORAMA = wide-strip
+// pano (iPhone Pano), NOT an equirectangular sphere.
+export type ImageKind = 'PHOTO' | 'PANORAMA';
 
 // API Request/Response Types
 // Legacy CampgroundDTO (for backward compatibility)
@@ -71,7 +74,7 @@ export interface SpotDTO {
     id: string;
     zone?: string;
     name: string;
-    images?: { url: string }[]; // S4b: Image relation
+    images?: { url: string; kind?: ImageKind }[]; // S4b: Image relation; kind additive (CAM-352)
     viewType?: string;
     maxCampers?: number;
     maxTents?: number;

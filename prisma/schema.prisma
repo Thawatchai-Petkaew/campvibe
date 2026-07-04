@@ -734,6 +734,14 @@ model Notification {
   @@index([createdAt])
 }
 
+// CAM-352 groundwork — 360/panorama structural marker. PHOTO = a regular gallery
+// image; PANORAMA = an iPhone-style wide-strip pano (NOT an equirectangular sphere —
+// the future viewer (CAM-355) must not assume a sphere). [Public] classification.
+enum ImageKind {
+  PHOTO
+  PANORAMA
+}
+
 // S4b — media gallery (ADR-006). Polymorphic via nullable FKs: an Image belongs to a
 // CampSite, a Spot, or a Review. Replaces the *.images / mediaUrls CSV columns; logo
 // stays a single String. sortOrder controls gallery order.
@@ -741,6 +749,7 @@ model Image {
   id         String    @id @default(uuid())
   url        String
   alt        String?
+  kind       ImageKind @default(PHOTO) // [Public] 360/pano marker (CAM-352). PANORAMA = wide-strip pano, NOT equirectangular sphere.
   sortOrder  Int       @default(0)
   campSiteId String?
   campSite   CampSite? @relation(fields: [campSiteId], references: [id], onDelete: Cascade)
