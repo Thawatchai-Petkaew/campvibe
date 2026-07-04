@@ -79,11 +79,17 @@ export function ListingCompletenessCard({ campSiteId, campSiteName }: ListingCom
     fetch(`/api/campsites/${campSiteId}/completeness`)
       .then((res) => {
         if (!res.ok) throw new Error(`completeness fetch failed: ${res.status}`);
-        return res.json() as Promise<ListingCompletenessResult>;
+        return res.json();
       })
-      .then((body) => {
+      .then((body: unknown) => {
         if (cancelled) return;
-        setResult(body);
+        // Guard the contract shape so upstream drift falls to the error state
+        // (BR-6) instead of crashing the render (G3 review nit, PR #341).
+        const data = body as ListingCompletenessResult;
+        if (typeof data?.score !== 'number' || !Array.isArray(data?.missing)) {
+          throw new Error('completeness payload off-contract');
+        }
+        setResult(data);
         setIsLoading(false);
       })
       .catch(() => {
