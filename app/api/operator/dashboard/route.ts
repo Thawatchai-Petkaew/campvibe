@@ -58,6 +58,9 @@ export async function GET(request: NextRequest) {
           include: {
             location: { include: { thaiLocation: true } },
             _count: { select: { bookings: true, reviews: true } },
+            // CAM-349: the My Camp Sites list renders camp.images[0].url as its
+            // thumbnail; one image is enough for the list surface.
+            images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true, sortOrder: true } },
           },
         })
       : [];
