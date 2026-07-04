@@ -140,6 +140,10 @@ For any story with non-trivial AC (branches, edge cases, negative paths), dispat
 
 Evidence: spec-derived test oracles catch 94.3% of the intended behavior vs 68% for agent-authored post-hoc tests (internal measurement, cited in the PR-2 research program). Sequencing: Discovery closes gaps → QA drafts oracle tests (red) → build role implements against them (green) → QA extends coverage/edge cases.
 
+## Model tiers (trial — owner policy 2026-07-04)
+
+Per-dispatch model resolution: explicit `model` param > agent-file frontmatter (opus: PO/analyst/architect/designer/security · sonnet: frontend/backend/qa/devops) > inherit session (orchestrator = Fable). Haiku only via explicit param for purely mechanical agent tasks. **Escalation ladder:** a story that trips the circuit breaker (2 rejections) or whose spec fails audit re-dispatches its build ONE tier up — record the escalation + reason in the trial scorecard. Policy, scorecard and demote criteria: `docs/research/model-tier-trial.md`. The owner owns the policy; the orchestrator only executes it.
+
 ## Per-dispatch caps
 
 Track max-turn / spend awareness per dispatch; note the actual $/story figure in the Gate Review Packet (alongside the existing checks) so the human can see cost trend across stories, not just pass/fail. A dispatch that is burning far outside its expected turn/spend budget is itself a stall-watchdog signal — check ground truth per the section above rather than letting it run unbounded.
