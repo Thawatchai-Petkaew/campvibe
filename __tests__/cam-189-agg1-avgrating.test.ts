@@ -77,7 +77,11 @@ const mockTxCampSiteUpdate = vi.fn();
 
 // Non-transaction methods used before the tx:
 const mockPrismaCampSiteFindUnique = vi.fn();
-const mockPrismaBookingFindFirst = vi.fn();
+// CAM-269 (PREP-3): the route now calls booking.findMany (not findFirst) so it can
+// tell "no qualifying booking" (403) apart from "already reviewed every qualifying
+// booking" (409) in one query. See cam-269-verified-stay-gate.test.ts for the full
+// gate coverage — this file only needs a shape that keeps the AGG-1 tx assertions green.
+const mockPrismaBookingFindMany = vi.fn();
 
 // The tx object the $transaction callback receives
 const mockTx = {
@@ -96,7 +100,7 @@ vi.mock('@/lib/prisma', () => ({
             findUnique: (...args: unknown[]) => mockPrismaCampSiteFindUnique(...args),
         },
         booking: {
-            findFirst: (...args: unknown[]) => mockPrismaBookingFindFirst(...args),
+            findMany: (...args: unknown[]) => mockPrismaBookingFindMany(...args),
         },
         // $transaction receives a callback, executes it with the tx client, returns the result
         $transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => {
@@ -158,7 +162,10 @@ describe('AC-1 — review-create maintains aggregate (POST /api/reviews, CAM-189
     }) {
         mockAuth.mockResolvedValue(makeSession());
         mockPrismaCampSiteFindUnique.mockResolvedValue({ id: VALID_CAMP_UUID });
-        mockPrismaBookingFindFirst.mockResolvedValue({ id: 'booking-001' });
+        // CAM-269: a qualifying (COMPLETED, past checkInDate) booking with no review yet.
+        mockPrismaBookingFindMany.mockResolvedValue([
+            { id: 'booking-001', checkInDate: new Date('2026-01-01T00:00:00.000Z'), review: null },
+        ]);
         mockTxReviewCreate.mockResolvedValue({
             id: VALID_REVIEW_UUID,
             campSiteId: VALID_CAMP_UUID,
@@ -355,10 +362,10 @@ describe('AC-1 — review-create maintains aggregate (POST /api/reviews, CAM-189
         expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('[authz] 403 when no confirmed booking — verified-stay gate still fires before tx', async () => {
+    it('[authz] 403 when no qualifying booking — verified-stay gate still fires before tx', async () => {
         mockAuth.mockResolvedValue(makeSession());
         mockPrismaCampSiteFindUnique.mockResolvedValue({ id: VALID_CAMP_UUID });
-        mockPrismaBookingFindFirst.mockResolvedValue(null); // no confirmed booking
+        mockPrismaBookingFindMany.mockResolvedValue([]); // no qualifying (COMPLETED + past) booking
 
         const req = makePostRequest(validBody());
         const res = await reviewsPOST(req);
@@ -371,7 +378,9 @@ describe('AC-1 — review-create maintains aggregate (POST /api/reviews, CAM-189
     it('[error] 500 when $transaction throws — generic error, no stack leaked', async () => {
         mockAuth.mockResolvedValue(makeSession());
         mockPrismaCampSiteFindUnique.mockResolvedValue({ id: VALID_CAMP_UUID });
-        mockPrismaBookingFindFirst.mockResolvedValue({ id: 'booking-001' });
+        mockPrismaBookingFindMany.mockResolvedValue([
+            { id: 'booking-001', checkInDate: new Date('2026-01-01T00:00:00.000Z'), review: null },
+        ]);
 
         const { prisma } = await import('@/lib/prisma');
         vi.mocked(prisma.$transaction).mockRejectedValueOnce(new Error('DB connection lost'));

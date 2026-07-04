@@ -103,6 +103,10 @@ export interface ReviewDTO {
     content: string;
     visitDate?: string; // ISO date string
     createdAt?: string;
+    // CAM-269 (PREP-3) — verified-stay gate. Additive fields only (api.md #12);
+    // both optional so existing callers of this shared DTO are unaffected.
+    bookingId?: string;
+    verified?: boolean;
 }
 
 export interface UserDTO {

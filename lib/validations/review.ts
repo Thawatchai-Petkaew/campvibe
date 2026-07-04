@@ -16,18 +16,41 @@ export const reviewBodySchema = z.object({
 export type ReviewBody = z.infer<typeof reviewBodySchema>;
 
 /**
- * Booking status values that count as a verified stay.
- * Sourced from schema.prisma Booking.status comment: PENDING | CONFIRMED | CANCELLED.
- * COMPLETED is not in the current schema — only CONFIRMED qualifies.
+ * Booking status values that count as a verified stay (CAM-269 PREP-3).
+ * BookingStatus (schema.prisma) is PENDING | CONFIRMED | PAID | CANCELLED | COMPLETED.
+ * Only COMPLETED qualifies — a CONFIRMED/PAID booking is a reservation, not yet a stay
+ * that happened. The caller must ALSO check `checkInDate` has passed (see canReview
+ * below and the query in app/api/reviews/route.ts) — a booking can be marked COMPLETED
+ * ahead of the stay date by a host/admin mistake, so status alone is not sufficient.
  */
-export const VERIFIED_STAY_STATUSES = ['CONFIRMED'] as const;
+export const VERIFIED_STAY_STATUSES = ['COMPLETED'] as const;
 
 /**
  * Pure, DB-free helper — determines whether a user is allowed to post a review.
  * Tested directly in unit tests without any DB or session dependency.
+ *
+ * This is the single seam for verified-stay eligibility. `hasQualifyingBooking` is
+ * true when the caller found at least one Booking for this user+campSite with
+ * status in VERIFIED_STAY_STATUSES AND checkInDate <= now (both conditions are the
+ * DB query's job, not this function's — this function stays a pure decision).
+ *
+ * Future seam (ADR-012, pending — do not implement yet): a ManualStay / a
+ * Booking(source=MANUAL) row could supply a second, independent signal. When that
+ * lands, extend the destructured input (e.g. `hasManualStay`) and OR it in here —
+ * every existing caller keeps working unchanged because the parameter is additive.
  */
-export function canReview({ hasConfirmedBooking }: { hasConfirmedBooking: boolean }): boolean {
-    return hasConfirmedBooking;
+export function canReview({ hasQualifyingBooking }: { hasQualifyingBooking: boolean }): boolean {
+    return hasQualifyingBooking;
+}
+
+/**
+ * Pure, DB-free helper — has the stay's check-in date already passed?
+ * "ผ่านวันเข้าพัก" (Rules): a booking dated in the future must never qualify as a
+ * verified stay even if its status is already COMPLETED (e.g. a host mistake).
+ * `now` is injectable so tests never depend on the real clock.
+ */
+export function hasStayOccurred(checkInDate: Date, now: Date = new Date()): boolean {
+    return checkInDate.getTime() <= now.getTime();
 }
 
 // ---------------------------------------------------------------------------
