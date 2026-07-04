@@ -79,76 +79,53 @@ beforeEach(() => {
 });
 
 // ===========================================================================
-// Group A: buildCampSiteWhere — BlockedDate exclusion (AC-1, search)
+// Group A: buildCampSiteWhere — date-availability exclusion REMOVED
+// (CAM-344 BR-6 — supersedes the CAM-267 AC-1 "hide unavailable camps"
+// behaviour asserted here previously; the hide→badge pivot removes step 7
+// entirely so a camp with an overlapping Booking/whole-camp BlockedDate is
+// no longer excluded from search results — it is badged instead, computed
+// from lib/campsite-availability.ts getAvailabilityStatusForCamps.)
 // ===========================================================================
 
-describe('buildCampSiteWhere — BlockedDate exclusion (AC-1)', () => {
-  it('[normal] no dates supplied → where.NOT is not set (no blocked-date clause at all)', () => {
+describe('buildCampSiteWhere — date-availability exclusion removed (CAM-344 BR-6)', () => {
+  it('[normal] no dates supplied → where.NOT is not set (unchanged)', () => {
     const where = buildCampSiteWhere({});
     expect(where.NOT).toBeUndefined();
   });
 
-  it('[normal] dates supplied → where.NOT excludes whole-camp blocks overlapping the range', () => {
+  it('[normal] dates supplied → where.NOT is NOT set (step 7 removed — no blocked-date exclusion clause at all)', () => {
     const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
-
-    expect(where.NOT).toBeDefined();
-    const not = where.NOT as Prisma.CampSiteWhereInput;
-    const blockedDates = not.blockedDates as Prisma.BlockedDateListRelationFilter;
-    expect(blockedDates.some).toEqual({
-      spotId: null,
-      deletedAt: null,
-      startDate: { lte: d('2026-09-10') },
-      endDate: { gte: d('2026-09-05') },
-    });
+    expect(where.NOT).toBeUndefined();
   });
 
-  it('[predicate] overlap shape is IDENTICAL to getBlockedDatesForRange (lte rangeEnd / gte rangeStart)', () => {
-    const availabilitySrc = fs.readFileSync(
-      path.join(process.cwd(), 'lib/campsite-availability.ts'),
-      'utf-8'
-    );
+  it('[normal] dates supplied → where.spots is NOT set (the former booking-overlap exclusion sub-query is gone)', () => {
+    const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
+    expect(where.spots).toBeUndefined();
+  });
+
+  it('[predicate] campsite-filters.ts no longer contains the removed BlockedDate-exclusion predicate shape', () => {
     const filtersSrc = fs.readFileSync(
       path.join(process.cwd(), 'lib/campsite-filters.ts'),
       'utf-8'
     );
-
-    // Both sources express the same overlap predicate shape.
-    expect(availabilitySrc).toContain('startDate: { lte: endDate }');
-    expect(availabilitySrc).toContain('endDate: { gte: startDate }');
-    expect(filtersSrc).toContain('startDate: { lte: rangeEnd }');
-    expect(filtersSrc).toContain('endDate: { gte: rangeStart }');
+    expect(filtersSrc).not.toContain('startDate: { lte: rangeEnd }');
+    expect(filtersSrc).not.toContain('endDate: { gte: rangeStart }');
   });
 
-  it('[normal] campsite-level blocks only — predicate pins spotId: null (a spot-level block must not remove the whole campsite)', () => {
-    const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
-    const not = where.NOT as Prisma.CampSiteWhereInput;
-    const blockedDates = not.blockedDates as Prisma.BlockedDateListRelationFilter;
-    expect(blockedDates.some).toMatchObject({ spotId: null });
-  });
-
-  it('[predicate] soft-deleted BlockedDate rows are excluded from the predicate (deletedAt: null)', () => {
-    const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
-    const not = where.NOT as Prisma.CampSiteWhereInput;
-    const blockedDates = not.blockedDates as Prisma.BlockedDateListRelationFilter;
-    expect(blockedDates.some).toMatchObject({ deletedAt: null });
-  });
-
-  it('[normal] booking-overlap sub-query (where.spots) is still present alongside the blocked-date exclusion', () => {
-    const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
-    expect(where.spots).toBeDefined();
-    expect(where.NOT).toBeDefined();
-  });
-
-  it('[boundary] a single-day range (startDate === endDate) still produces a valid predicate', () => {
+  it('[boundary] a single-day range (startDate === endDate) produces no exclusion clause either', () => {
     const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-05' });
-    const not = where.NOT as Prisma.CampSiteWhereInput;
-    const blockedDates = not.blockedDates as Prisma.BlockedDateListRelationFilter;
-    expect(blockedDates.some).toEqual({
-      spotId: null,
-      deletedAt: null,
-      startDate: { lte: d('2026-09-05') },
-      endDate: { gte: d('2026-09-05') },
-    });
+    expect(where.NOT).toBeUndefined();
+    expect(where.spots).toBeUndefined();
+  });
+
+  it('[br-6] base gates (isActive/isPublished/deletedAt) + step 5 guest-capacity filter still apply with dates present', () => {
+    const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10', guests: '4' });
+    expect(where).toMatchObject({ isActive: true, isPublished: true, deletedAt: null });
+    const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
+    const capacityClause = andArray.find(
+      (c) => typeof c === 'object' && c !== null && 'OR' in c
+    ) as Prisma.CampSiteWhereInput | undefined;
+    expect(capacityClause).toBeDefined();
   });
 });
 
@@ -386,15 +363,14 @@ describe('privacy — BlockedDate.reason never leaves the server on any touched 
     expect(result).not.toHaveProperty('reason');
   });
 
-  it('[privacy] buildCampSiteWhere blocked-date predicate does not select/return BlockedDate.reason', () => {
-    // The predicate uses only spotId/deletedAt/startDate/endDate — never selects
-    // or forwards the host's free-text reason field.
+  it('[privacy] buildCampSiteWhere no longer references BlockedDate at all (CAM-344 — step 7 removed, stronger than the old reason-omission guarantee)', () => {
+    // Previously this predicate selected only spotId/deletedAt/startDate/endDate
+    // (never the host's free-text reason). CAM-344 removes the predicate
+    // entirely — there is now no blockedDates clause anywhere in the where
+    // shape for a dated search, so there is nothing to leak.
     const where = buildCampSiteWhere({ startDate: '2026-09-05', endDate: '2026-09-10' });
-    const not = where.NOT as Prisma.CampSiteWhereInput;
-    const blockedDates = not.blockedDates as Prisma.BlockedDateListRelationFilter;
-    expect(Object.keys(blockedDates.some as object).sort()).toEqual(
-      ['deletedAt', 'endDate', 'spotId', 'startDate']
-    );
+    expect(where.NOT).toBeUndefined();
+    expect(JSON.stringify(where)).not.toContain('blockedDates');
   });
 
   it('[privacy] the new remaining-capacity route never forwards a reason/blockedReason field in its response', () => {

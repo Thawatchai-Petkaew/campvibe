@@ -267,6 +267,229 @@ export async function getRemainingCapacity(
 }
 
 /**
+ * CAM-344 — three-state per-camp availability status for a page of dated
+ * catalog search results.
+ *
+ * BACKEND CONTRACT CALL (spec left this open — "architect/backend contract
+ * details, not fixed here"):
+ *   - enum literal: 'FULLY_UNAVAILABLE' | 'PARTIALLY_UNAVAILABLE'. Absence
+ *     from the returned map = fully available (no badge), per BR-3/BR-4.
+ *   - field name on the card payload: `availabilityStatus` (see
+ *     components/CampgroundGrid.tsx CampSiteCardData).
+ */
+export type CampAvailabilityStatus = 'FULLY_UNAVAILABLE' | 'PARTIALLY_UNAVAILABLE';
+
+/**
+ * SECURITY (G3 review finding, event-loop DoS): the widest date span this
+ * helper will ever classify in-memory. `getAvailabilityStatusForCamps` runs a
+ * synchronous per-night loop per camp; the public, unauthenticated,
+ * unrate-limited `GET /api/campsites` endpoint could otherwise be sent an
+ * absurd range (e.g. `startDate=2026-01-01&endDate=9999-12-31`) and hang the
+ * event loop / OOM the process on a single request. 366 nights covers any
+ * real camper search (a full year, inclusive of a leap year) with margin;
+ * beyond that the range fails open (no badge computed) rather than iterate.
+ */
+export const MAX_STATUS_RANGE_NIGHTS = 366;
+
+/**
+ * CAM-344 — batched per-camp availability status for a page of dated catalog
+ * search results (BR-1/BR-2/BR-3/BR-5, ADR-009 no-forked-data-path).
+ *
+ * Derives from the EXACT SAME predicates as getCampSiteDailyAvailability /
+ * getBlockedDatesForRange / getActiveHoldsForRange: Booking `CONFIRMED`/
+ * `PENDING` overlap, whole-camp BlockedDate (`spotId` null, `deletedAt` null)
+ * overlap, InternalHold `ACTIVE` + `expiresAt > now` overlap. Nights only —
+ * `endDate` is the EXCLUSIVE checkout day; `lastNight = endDate - 1 day` is
+ * used as the upper query bound for all three predicates, mirroring exactly
+ * how getRemainingCapacity calls getCampSiteDailyAvailability with an
+ * already-adjusted exclusive bound (same night-exclusive shape as the
+ * booking write path).
+ *
+ * Batched shape: 4 grouped queries total for the WHOLE page, run in
+ * parallel — one CampSite.maxGuestsPerDay side-select over the page ids
+ * (capacity is intentionally NOT added to campCardSelect: every
+ * date-less consumer of CampSiteCardData — wishlist, similar-camps — would
+ * otherwise over-fetch a field it never renders, the exact anti-pattern
+ * lib/read-models/camp-card.ts already documents) plus the 3 predicate
+ * queries (Booking / BlockedDate / InternalHold), each
+ * `WHERE campSiteId IN [pageIds]`. Classification runs in memory afterwards.
+ * NEVER calls getCampSiteDailyAvailability/getRemainingCapacity per camp
+ * (BR-5 — O(1) queries per page, not O(N)).
+ *
+ * Returns a map of campId → status. A camp with ZERO unavailable nights is
+ * OMITTED from the map entirely (fully available = no badge, BR-3).
+ *
+ * DoS guard: a non-finite date (Invalid Date), an inverted/zero-night range,
+ * or a span wider than MAX_STATUS_RANGE_NIGHTS returns {} immediately — no
+ * query, no loop. This is checked BEFORE any Prisma call, so it protects both
+ * attach points (CatalogResults.tsx SSR + app/api/campsites/route.ts cursor
+ * GET) from a single shared choke point.
+ *
+ * Fail-open contract (AC-9/EC-8): this function does NOT catch its own
+ * Prisma errors — callers (CatalogResults.tsx, app/api/campsites/route.ts)
+ * must wrap the call in try/catch and treat a throw as "no status computed"
+ * (empty map), never blocking/blanking/emptying the result list.
+ */
+export async function getAvailabilityStatusForCamps(
+  campIds: string[],
+  startDate: Date,
+  endDate: Date,
+  requestedGuests: number = 1
+): Promise<Record<string, CampAvailabilityStatus>> {
+  if (campIds.length === 0) return {};
+
+  // Reject non-finite dates (Invalid Date, e.g. from an unparseable query
+  // string) BEFORE any arithmetic/query — an Invalid Date compares as
+  // neither < nor >= anything, so the lastNight/startDate check below would
+  // silently pass a NaN-backed date straight into 4 Prisma calls that throw.
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
+    return {};
+  }
+
+  // Nights only: exclude the checkout day (BR-1, EC-6). A same-day/inverted
+  // range has no night to classify — nothing to compute, no badge.
+  const lastNight = new Date(endDate);
+  lastNight.setDate(lastNight.getDate() - 1);
+  if (lastNight < startDate) return {};
+
+  // DoS guard: cap the per-night in-memory loop width (see
+  // MAX_STATUS_RANGE_NIGHTS doc comment above). Computed from whole days —
+  // safe here since startDate/lastNight are always UTC midnight Dates.
+  const nightCount =
+    Math.round((lastNight.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (nightCount > MAX_STATUS_RANGE_NIGHTS) return {};
+
+  // BR-2: requestedGuests defaults to 1 when absent/invalid.
+  const guests = Number.isFinite(requestedGuests) && requestedGuests > 0 ? requestedGuests : 1;
+
+  const [campSites, bookings, blockedRanges, holds] = await Promise.all([
+    prisma.campSite.findMany({
+      where: { id: { in: campIds } },
+      select: { id: true, maxGuestsPerDay: true },
+    }),
+    prisma.booking.findMany({
+      where: {
+        campSiteId: { in: campIds },
+        status: { in: ['CONFIRMED', 'PENDING'] },
+        AND: [
+          { checkInDate: { lte: lastNight } },
+          { checkOutDate: { gte: startDate } },
+        ],
+      },
+      select: { campSiteId: true, checkInDate: true, checkOutDate: true, guests: true },
+    }),
+    prisma.blockedDate.findMany({
+      where: {
+        campSiteId: { in: campIds },
+        spotId: null,
+        deletedAt: null,
+        AND: [
+          { startDate: { lte: lastNight } },
+          { endDate: { gte: startDate } },
+        ],
+      },
+      select: { campSiteId: true, startDate: true, endDate: true },
+    }),
+    prisma.internalHold.findMany({
+      where: {
+        campSiteId: { in: campIds },
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+        AND: [
+          { startDate: { lte: lastNight } },
+          { endDate: { gte: startDate } },
+        ],
+      },
+      select: { campSiteId: true, startDate: true, endDate: true, guests: true },
+    }),
+  ]);
+
+  const capacityById = new Map(campSites.map((c) => [c.id, c.maxGuestsPerDay]));
+
+  interface NightState {
+    bookedGuests: number;
+    heldGuests: number;
+    blockedByHost: boolean;
+  }
+
+  const initNights = (): Record<string, NightState> => {
+    const nights: Record<string, NightState> = {};
+    const cur = new Date(startDate);
+    while (cur <= lastNight) {
+      nights[cur.toISOString().split('T')[0]] = { bookedGuests: 0, heldGuests: 0, blockedByHost: false };
+      cur.setDate(cur.getDate() + 1);
+    }
+    return nights;
+  };
+
+  const nightsByCamp = new Map<string, Record<string, NightState>>();
+  for (const id of campIds) {
+    nightsByCamp.set(id, initNights());
+  }
+
+  // Booking overlap — exclusive checkout, same per-night loop shape as
+  // getCampSiteDailyAvailability's booking pass.
+  for (const booking of bookings) {
+    const nights = nightsByCamp.get(booking.campSiteId);
+    if (!nights) continue;
+    const cur = new Date(booking.checkInDate);
+    const checkOut = new Date(booking.checkOutDate);
+    while (cur < checkOut) {
+      const key = cur.toISOString().split('T')[0];
+      if (nights[key]) nights[key].bookedGuests += booking.guests;
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  // Whole-camp BlockedDate — inclusive range, same per-night loop shape as
+  // getCampSiteDailyAvailability's blockedDate pass.
+  for (const block of blockedRanges) {
+    const nights = nightsByCamp.get(block.campSiteId);
+    if (!nights) continue;
+    const cur = new Date(block.startDate);
+    const blockEnd = new Date(block.endDate);
+    while (cur <= blockEnd && cur <= lastNight) {
+      const key = cur.toISOString().split('T')[0];
+      if (nights[key]) nights[key].blockedByHost = true;
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  // ACTIVE non-expired InternalHold — exclusive checkout (ADR-012 §4, lazy
+  // expiry already applied by the query's `expiresAt: { gt: now }` filter).
+  for (const hold of holds) {
+    const nights = nightsByCamp.get(hold.campSiteId);
+    if (!nights) continue;
+    const cur = new Date(hold.startDate);
+    const holdEnd = new Date(hold.endDate);
+    while (cur < holdEnd) {
+      const key = cur.toISOString().split('T')[0];
+      if (nights[key]) nights[key].heldGuests += hold.guests;
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  // Classify per BR-2 (night unavailable when host-blocked OR numerically
+  // full) / BR-3 (0 unavailable → no entry; some → PARTIALLY; all → FULLY).
+  const result: Record<string, CampAvailabilityStatus> = {};
+  for (const [campId, nights] of nightsByCamp.entries()) {
+    const capacity = capacityById.get(campId) ?? null;
+    const nightStates = Object.values(nights);
+    let unavailableCount = 0;
+    for (const night of nightStates) {
+      const numericallyFull =
+        capacity !== null && night.bookedGuests + night.heldGuests + guests > capacity;
+      if (night.blockedByHost || numericallyFull) unavailableCount++;
+    }
+    if (unavailableCount === 0) continue; // fully available — omitted (no badge)
+    result[campId] =
+      unavailableCount === nightStates.length ? 'FULLY_UNAVAILABLE' : 'PARTIALLY_UNAVAILABLE';
+  }
+
+  return result;
+}
+
+/**
  * Check if a date is available for booking
  */
 export async function checkDateAvailability(

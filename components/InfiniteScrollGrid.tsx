@@ -232,6 +232,7 @@ export default function InfiniteScrollGrid({
             onGuestHeartClick={() => setIsLoginOpen(true)}
             avgRating={camp.avgRating}
             reviewCount={camp.reviewCount}
+            availabilityStatus={camp.availabilityStatus}
             priority={index < 4}
           />
         ))}

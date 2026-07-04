@@ -21,6 +21,7 @@ import { buildCampSiteWhere } from "@/lib/campsite-filters";
 import { campCardSelect, type CampCardPayload } from "@/lib/read-models/camp-card";
 import { getDefaultCatalog } from "@/lib/catalog-cache";
 import { encodeCursorFromItem, PAGE_SIZE, VALID_SORTS, type CatalogSort } from "@/lib/catalog-cursor";
+import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from "@/lib/campsite-availability";
 
 // ---------------------------------------------------------------------------
 // Props — primitives parsed from searchParams in page.tsx
@@ -138,13 +139,37 @@ export default async function CatalogResults({
           ? (sort as CatalogSort)
           : "related");
 
+  // CAM-344 (BR-7): compute the dated-search availability badge ONLY when
+  // both check-in and check-out are present — undated search stays exactly
+  // as it is today (no status computed, no badge on any card). Fail-open
+  // (AC-9/EC-8): a thrown/timed-out computation never blocks or empties the
+  // result list — it is caught here and simply yields no badge on any card.
+  let availabilityByCampId: Record<string, CampAvailabilityStatus> = {};
+  if (startDate && endDate && campSites.length > 0) {
+    try {
+      const guestsNum = guests ? parseInt(guests, 10) : 1;
+      const requestedGuests = Number.isFinite(guestsNum) && guestsNum > 0 ? guestsNum : 1;
+      availabilityByCampId = await getAvailabilityStatusForCamps(
+        campSites.map((c) => c.id),
+        new Date(startDate),
+        new Date(endDate),
+        requestedGuests
+      );
+    } catch (error) {
+      console.error("Availability status computation failed (fail-open, no badge):", error);
+      availabilityByCampId = {};
+    }
+  }
+
   // PERF-3 (CAM-196): Compute initialCursor for InfiniteScrollGrid.
-  const serialisedCamps = campSites.map((c: any) =>
-    serializeDecimals({
+  const serialisedCamps = campSites.map((c: any) => {
+    const availabilityStatus = availabilityByCampId[c.id];
+    return serializeDecimals({
       ...c,
       createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-    })
-  );
+      ...(availabilityStatus ? { availabilityStatus } : {}),
+    });
+  });
 
   const initialCursor: string | null =
     campSites.length === PAGE_SIZE && campSites.length > 0

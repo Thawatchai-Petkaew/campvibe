@@ -20,13 +20,17 @@ export interface CampSiteFilterParams {
 
 // Shared helper to build Prisma where-clause for camp site listing & counts
 export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSiteWhereInput {
+  // NOTE: startDate/endDate are still part of CampSiteFilterParams (the shared
+  // shape carried through the whole query pipeline) but are intentionally NOT
+  // destructured/used here since CAM-344 removed the date-availability
+  // exclusion (former step 7, see below) — dates now drive ONLY the badge
+  // computation (lib/campsite-availability.ts getAvailabilityStatusForCamps),
+  // never the WHERE clause.
   const {
     type,
     keyword,
     province,
     district,
-    startDate,
-    endDate,
     guests,
     min,
     max,
@@ -114,44 +118,15 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   addOptionFilter(activities);
   addOptionFilter(terrain);
 
-  // 7. Availability Filter (used only when dates are provided)
-  if (startDate && endDate) {
-    const rangeStart = new Date(startDate);
-    const rangeEnd = new Date(endDate);
-
-    where.spots = {
-      some: {
-        bookings: {
-          none: {
-            OR: [
-              {
-                checkInDate: { lte: rangeEnd },
-                checkOutDate: { gte: rangeStart },
-              },
-            ],
-            status: { not: "CANCELLED" },
-          },
-        },
-      },
-    };
-
-    // PREP-1 (CAM-267): exclude campsites with a whole-camp BlockedDate covering
-    // ANY day of the requested range. Predicate is IDENTICAL to
-    // getBlockedDatesForRange's overlap semantics (lib/campsite-availability.ts,
-    // the booking page's source of truth) — campsite-level blocks only
-    // (spotId: null); a spot-level block does not remove the whole campsite from
-    // search results (a different spot may still be bookable).
-    where.NOT = {
-      blockedDates: {
-        some: {
-          spotId: null,
-          deletedAt: null,
-          startDate: { lte: rangeEnd },
-          endDate: { gte: rangeStart },
-        },
-      },
-    };
-  }
+  // 7. (REMOVED — CAM-344, hide→badge pivot, BR-6) Dated search no longer
+  // excludes any camp by date-availability. The former step 7 excluded camps
+  // by Booking overlap + whole-camp BlockedDate, but was blind to InternalHold
+  // (CAM-302) — a data-correctness bug fixed by construction now that no
+  // date-availability exclusion runs here at all. A camp unavailable for the
+  // selected dates now stays in the results, badged instead (see
+  // lib/campsite-availability.ts getAvailabilityStatusForCamps), computed from
+  // the single availability source (ADR-009). Step 5 (static guest-capacity,
+  // a structural gate independent of dates) is unchanged above.
 
   return where;
 }
