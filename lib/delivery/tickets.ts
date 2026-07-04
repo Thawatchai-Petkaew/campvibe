@@ -144,12 +144,12 @@ async function notifySafe(kind: EventKind, ctx: EventCtx): Promise<void> {
 
 /**
  * Fire the gate-approved repository_dispatch that continues the orchestrator.
- * event_type stays "linear-gate-approved" for CI/workflow compatibility with the existing
- * .github/workflows/linear-continue.yml trigger — renaming it is deferred post-cutover cleanup
- * once the workflow itself is repointed at the delivery ticket source.
+ * event_type is "gate-approved", matching the trigger in
+ * .github/workflows/gate-continue.yml (renamed from linear-continue.yml / event
+ * linear-gate-approved in chore/retire-linear-sync, one cycle after the CAM-281 T-5b cutover).
  */
 async function dispatchApproved(ticket: Ticket): Promise<void> {
-  const res = await fireRepositoryDispatch("linear-gate-approved", {
+  const res = await fireRepositoryDispatch("gate-approved", {
     identifier: ticket.identifier,
     title: ticket.title,
     epic: ticket.epicId ?? "",

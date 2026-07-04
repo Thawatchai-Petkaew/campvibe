@@ -1,12 +1,14 @@
-name: Linear → continue (real-time)
+name: Gate → continue (real-time)
 
 # Fired by lib/delivery/tickets.ts's approve() verb (repository_dispatch) when a delivery
 # gate is approved on /status/map or via the Telegram Approve tap (ADR-010 "single mutation
 # path, no webhook" — CAM-281 T-5b retired the Linear event webhook this used to come from).
 # Confirms the gate, then continues the next stage headlessly.
+# Renamed from linear-continue.yml / event linear-gate-approved (chore/retire-linear-sync,
+# one cycle after the CAM-281 T-5b self-hosted cutover).
 on:
   repository_dispatch:
-    types: [linear-gate-approved]
+    types: [gate-approved]
   workflow_dispatch: {} # allow manual run for testing
 
 permissions:

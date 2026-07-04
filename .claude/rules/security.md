@@ -29,7 +29,7 @@ Run against the diff of every atomic story. **6-area audit** — walk all six:
 
 - Building or reviewing any API route, server action, or Prisma mutation
 - Touching auth, sessions, secrets, dependencies, file uploads, or external fetches
-- Working on a headless `camper-adhoc` / `linear-continue` workflow that ingests Telegram/Linear input
+- Working on a headless `camper-adhoc` / `gate-continue` workflow that ingests Telegram/Linear input
 - Running the security gate before G3 (merge→staging) and re-checking before G5 (release→prod)
 
 **NOT for:**
@@ -73,7 +73,7 @@ Read before every task: this file + the diff of the story. Scope = a security ga
 - **Security headers** — CSP + HSTS + `X-Content-Type-Options: nosniff` + `Referrer-Policy` (set in next.config/middleware).
 - **File upload** — allowlist MIME + size limit + magic-byte check (do not trust the extension).
 - **Secret scan** — keep secrets out of git (pre-commit/CI); `.env*` is always in `.gitignore`.
-- **AI/agent-layer (headless `camper-adhoc` / `linear-continue`)** — input from Telegram/Linear is **untrusted** → validate/normalize before putting it in a prompt (block prompt-injection); model output is untrusted (do not exec or follow instructions in raw output, e.g. a `SUMMARY:` line); the workflow uses least privilege (avoid blanket `--dangerously-skip-permissions` where possible); scope tokens (Linear/Telegram/GH/Anthropic) + rotate on leak + enforce a spend/turn cap; never leak a secret into the Action log.
+- **AI/agent-layer (headless `camper-adhoc` / `gate-continue`)** — input from Telegram/Linear is **untrusted** → validate/normalize before putting it in a prompt (block prompt-injection); model output is untrusted (do not exec or follow instructions in raw output, e.g. a `SUMMARY:` line); the workflow uses least privilege (avoid blanket `--dangerously-skip-permissions` where possible); scope tokens (Linear/Telegram/GH/Anthropic) + rotate on leak + enforce a spend/turn cap; never leak a secret into the Action log.
 
 ## Examples
 

@@ -15,11 +15,12 @@
  *      contract break for /status/map or the Telegram bot).
  *   2. Source-inspection: none of the four routes reference `TICKETS_SOURCE` or import
  *      `@/lib/linear-actions` any longer (guards against a stray dual-mode leftover).
- *   3. The `linear-continue.yml` CI workflow always runs the ticket-sync.mjs gates check
- *      (no TICKETS_SOURCE conditional, no LINEAR_* env); `camper-adhoc.yml` was repointed in
- *      CAM-282 (T-6, the conventions-rewrite story) — its LINEAR_API_KEY/LINEAR_TEAM_KEY/
- *      TICKETS_SOURCE env lines are gone and its prompt/notify text now uses
- *      `scripts/ticket-sync.mjs` too, mirroring linear-continue.yml.
+ *   3. The `gate-continue.yml` CI workflow (renamed from `linear-continue.yml` /
+ *      `chore/retire-linear-sync`, one cycle after this cutover) always runs the
+ *      ticket-sync.mjs gates check (no TICKETS_SOURCE conditional, no LINEAR_* env);
+ *      `camper-adhoc.yml` was repointed in CAM-282 (T-6, the conventions-rewrite story) —
+ *      its LINEAR_API_KEY/LINEAR_TEAM_KEY/TICKETS_SOURCE env lines are gone and its
+ *      prompt/notify text now uses `scripts/ticket-sync.mjs` too, mirroring gate-continue.yml.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "node:fs";
@@ -390,13 +391,14 @@ describe("CAM-281 (T-5b) — the four routes are single-path (no dual-mode lefto
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
-// CI workflows — linear-continue.yml always runs ticket-sync.mjs gates (no TICKETS_SOURCE
-// conditional, no LINEAR_* env); camper-adhoc.yml is untouched by this story.
+// CI workflows — gate-continue.yml (renamed from linear-continue.yml, chore/retire-linear-sync)
+// always runs ticket-sync.mjs gates (no TICKETS_SOURCE conditional, no LINEAR_* env);
+// camper-adhoc.yml is untouched by this story.
 // ═══════════════════════════════════════════════════════════════════════════════════════
 
 describe("CAM-281 (T-5b) — CI workflows", () => {
-  it("linear-continue.yml always runs ticket-sync.mjs gates, no TICKETS_SOURCE conditional, no LINEAR_* env", () => {
-    const yml = read(".github/workflows/linear-continue.yml");
+  it("gate-continue.yml always runs ticket-sync.mjs gates, no TICKETS_SOURCE conditional, no LINEAR_* env", () => {
+    const yml = read(".github/workflows/gate-continue.yml");
     expect(yml).toContain("node scripts/ticket-sync.mjs gates");
     expect(yml).not.toContain("linear-sync.mjs gates");
     expect(yml).not.toContain("TICKETS_SOURCE");
@@ -404,10 +406,26 @@ describe("CAM-281 (T-5b) — CI workflows", () => {
     expect(yml).not.toContain("LINEAR_TEAM_KEY");
   });
 
-  it("linear-continue.yml reports to Telegram via ticket-sync.mjs notify (no LINEAR_API_KEY dependency)", () => {
-    const yml = read(".github/workflows/linear-continue.yml");
+  it("gate-continue.yml reports to Telegram via ticket-sync.mjs notify (no LINEAR_API_KEY dependency)", () => {
+    const yml = read(".github/workflows/gate-continue.yml");
     expect(yml).toContain("node scripts/ticket-sync.mjs notify");
     expect(yml).not.toContain("linear-sync.mjs notify");
+  });
+
+  it("gate-continue.yml triggers on the gate-approved repository_dispatch event, not the retired linear-gate-approved", () => {
+    const yml = read(".github/workflows/gate-continue.yml");
+    expect(yml).toContain("types: [gate-approved]");
+    // A comment documenting the rename's history is fine; the trigger itself must not
+    // still list the old event name.
+    expect(yml).not.toContain("types: [linear-gate-approved]");
+  });
+
+  it("the old .github/workflows/linear-continue.yml file no longer exists (renamed to gate-continue.yml)", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github", "workflows", "linear-continue.yml"))).toBe(false);
+  });
+
+  it("scripts/linear-sync.mjs no longer exists anywhere in the repo (retired, chore/retire-linear-sync)", () => {
+    expect(fs.existsSync(path.join(ROOT, "scripts", "linear-sync.mjs"))).toBe(false);
   });
 
   it("camper-adhoc.yml (CAM-282 T-6) no longer provisions LINEAR_*/TICKETS_SOURCE env and reports via ticket-sync.mjs notify", () => {

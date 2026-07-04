@@ -84,7 +84,7 @@ Ticket state เปลี่ยนตาม **git/gate event ไม่ผูก 
     │   trigger ได้ 3 ทาง:                                                    │
     │   (a) คุณพิมพ์ในเซสชัน "approved / ไปต่อ" → orchestrator poll gates แล้วเดินต่อ │
     │   (b) /loop ทุก N นาที รัน gates → cleared (changesRequested) → resume เอง   │
-    │   (c) repository_dispatch (`linear-gate-approved`) จาก approve() ตรง ๆ      │
+    │   (c) repository_dispatch (`gate-approved`) จาก approve() ตรง ๆ            │
     └──────────────────────────────────────────────────────────────────────┘
                                                      │
 6. orchestrator spawn agent stage ถัดไป → set state → (วน 2)
@@ -115,32 +115,31 @@ lib/delivery/tickets.ts's approve()/reject() ──▶ (1) เขียน Ticke
                                                   (2) bump DeliveryPulse.version
                                                   (3) ยิง Telegram (buildEventMessage)
                                                   (4) (เฉพาะ approve) ยิง repository_dispatch
-                                                       event_type="linear-gate-approved"
-                                                       (ชื่อ event เดิมไว้เพื่อ backward-compat กับ workflow YAML)
+                                                       event_type="gate-approved"
         │
         ▼
-GitHub Action .github/workflows/linear-continue.yml
+GitHub Action .github/workflows/gate-continue.yml
    → node scripts/ticket-sync.mjs gates  (ยืนยัน exit 10 = cleared จริง)
    → claude -p (headless orchestrator) เดิน stage ถัดไป → **draft PR เท่านั้น ห้ามแตะ main** → update ticket DB
 ```
 
-ไฟล์หลัก: `lib/delivery/tickets.ts` (mutation + notify + dispatch ในที่เดียว) · `app/api/status/approve/route.ts` · `app/api/status/reject/route.ts` · `app/api/telegram-webhook/route.ts` (Telegram Approve/Reject tap) · `.github/workflows/linear-continue.yml` · `.github/workflows/camper-adhoc.yml` (ad-hoc `/camper` request, ไม่ผูก gate). **ไฟล์ที่ถูกลบไปแล้ว:** `app/api/linear-webhook/route.ts` (Linear event webhook, retired T-5b/CAM-281 — ไม่มีอีกต่อไปในโค้ด).
+ไฟล์หลัก: `lib/delivery/tickets.ts` (mutation + notify + dispatch ในที่เดียว) · `app/api/status/approve/route.ts` · `app/api/status/reject/route.ts` · `app/api/telegram-webhook/route.ts` (Telegram Approve/Reject tap) · `.github/workflows/gate-continue.yml` (เดิมชื่อ `linear-continue.yml` / event `linear-gate-approved` — เปลี่ยนชื่อใน `chore/retire-linear-sync` หนึ่งรอบหลัง cutover) · `.github/workflows/camper-adhoc.yml` (ad-hoc `/camper` request, ไม่ผูก gate). **ไฟล์ที่ถูกลบไปแล้ว:** `app/api/linear-webhook/route.ts` (Linear event webhook, retired T-5b/CAM-281 — ไม่มีอีกต่อไปในโค้ด), `scripts/linear-sync.mjs` (deprecated legacy Linear writer, retired ใน `chore/retire-linear-sync`).
 
 ### ⚠️ ช่องว่างที่พบระหว่างเขียนเอกสารนี้ใหม่ (T-6) — SSE auto-refresh ยังผูกกับ pulse ยุคเก่า
 
 `app/api/status/stream/route.ts` (SSE ที่ดัน "refresh" ให้ browser ที่เปิด `/status` ค้างอยู่) ยังอ่าน `lib/status-pulse.ts`'s `readPulse()` — นั่นคือ `StatusPulse` model ใน **product schema** (`prisma/schema.prisma`, database คนละตัวกับ delivery ticket DB) ไม่ใช่ `lib/delivery/pulse.ts`'s `DeliveryPulse` (delivery schema) ที่ `lib/delivery/tickets.ts` bump จริงตอนมี mutation. ผลคือ:
 
 - **ข้อมูลที่ dashboard ดึงเอง (list read) ถูกต้องและสดจริง** — `lib/delivery/status-adapter.ts`'s `unstable_cache` รับ `pulse` (จาก `readDeliveryPulse()`) เป็น argument ซึ่ง Next.js เอาไปรวมเป็นส่วนหนึ่งของ cache key เอง ทำให้พอ pulse ขยับ การอ่านครั้งถัดไปได้ข้อมูลใหม่ทันที ไม่ต้องรอ 60s เต็ม ๆ และไม่ต้องพึ่ง webhook
-- **แต่ SSE "ดันให้ browser ที่เปิดค้างอยู่ refetch เอง" ยังไม่ทำงานกับ mutation ใหม่** — เพราะมันฟัง pulse คนละตัว (ของ product DB เดิม ที่ไม่มีอะไรมา bump แล้วนอกจาก legacy `POST /api/status/pulse` ซึ่งตอนนี้ถูกเรียกจาก `scripts/linear-sync.mjs` ที่ deprecated เท่านั้น). ผู้ใช้ที่เปิด `/status` ค้างไว้จะไม่เห็น auto-refresh ทันทีที่มี ticket ใหม่เปลี่ยนสถานะ (ต้อง refresh มือ หรือรอ 60s cache หมดอายุตามการ poll ปกติของ browser)
+- **แต่ SSE "ดันให้ browser ที่เปิดค้างอยู่ refetch เอง" ยังไม่ทำงานกับ mutation ใหม่** — เพราะมันฟัง pulse คนละตัว (ของ product DB เดิม ที่ไม่มีอะไรมา bump แล้วนอกจาก legacy `POST /api/status/pulse`, ซึ่งไม่มีอะไรเรียกใช้อีกต่อไปแล้วหลัง `scripts/linear-sync.mjs` ถูกลบใน `chore/retire-linear-sync`). ผู้ใช้ที่เปิด `/status` ค้างไว้จะไม่เห็น auto-refresh ทันทีที่มี ticket ใหม่เปลี่ยนสถานะ (ต้อง refresh มือ หรือรอ 60s cache หมดอายุตามการ poll ปกติของ browser)
 - **นี่คือ gap จริงที่ตรวจสอบโค้ดแล้วยืนยัน ไม่ใช่แค่คาดเดา** — ยังไม่มี story ไหนแก้ (T-0..T-6 ไม่มีสโคปนี้). แก้ได้โดยเปลี่ยน `app/api/status/stream/route.ts` ให้อ่าน `readDeliveryPulse()` แทน (หรือรวมสัญญาณทั้งสอง pulse) — เป็น follow-up ticket ที่แนะนำ ไม่ใช่ scope ของ T-6 (docs/convention only)
 
-## Rollback levers (เก็บไว้ตามแผน ADR-010, มีอายุจำกัด)
+## Rollback levers (retired — เก็บไว้ตามแผน ADR-010 หนึ่ง cycle, ถอดแล้วใน `chore/retire-linear-sync`)
 
-| Lever | ค่า default | ใช้ทำอะไร | อายุ |
-|---|---|---|---|
-| `TICKETS_SOURCE` env | unset/`"db"` = อ่านจาก delivery ticket DB (ปัจจุบัน) · `"linear"` = อ่านจาก Linear ผ่าน `lib/linear.ts` (fallback) | ถ้า delivery DB มีปัญหา ปรับ env ตัวเดียวให้ dashboard กลับไปอ่าน Linear ได้ทันที ไม่ต้อง redeploy โค้ด | เก็บไว้ **1 cycle** หลัง T-4 (import) verified แล้วค่อยพิจารณาถอด |
-| `scripts/linear-sync.mjs` | deprecated, ยังอยู่ในโค้ด | เขียนเข้า Linear โดยตรง (ใช้ตอน dual-mode T-5a เท่านั้น) | เก็บไว้ **1 cycle** เป็น rollback lever ของฝั่งเขียน คู่กับ `TICKETS_SOURCE=linear` ฝั่งอ่าน — ห้ามใช้เป็น convention ปกติอีกต่อไป |
-| Linear MCP (`.mcp.json`) | ยังต่ออยู่ | อ่านประวัติ 275 ใบเก่า (archive) | ไม่มีกำหนดถอด แต่ **ห้ามเขียน** ผ่านทางนี้อีก |
+| Lever | สถานะ | เคยใช้ทำอะไร |
+|---|---|---|
+| `TICKETS_SOURCE` env | **ถอดแล้ว** — `lib/linear.ts`'s `fetchStatusIssues()` อ่านจาก delivery ticket DB (`lib/delivery/status-adapter.ts`) เสมอ ไม่มี branch แล้ว | เดิม: unset/`"db"` = อ่านจาก delivery ticket DB · `"linear"` = อ่านจาก Linear ผ่าน `lib/linear.ts` (fallback ถ้า delivery DB มีปัญหา) |
+| `scripts/linear-sync.mjs` | **ลบไฟล์แล้ว** | เดิม: เขียนเข้า Linear โดยตรง (ใช้ตอน dual-mode T-5a เท่านั้น) — rollback lever ของฝั่งเขียน คู่กับ `TICKETS_SOURCE=linear` ฝั่งอ่าน |
+| Linear MCP (`.mcp.json`) | ยังต่ออยู่ (ไม่ใช่ rollback lever ของ cutover นี้) | อ่านประวัติ 275+ ใบเก่า (archive) เท่านั้น ไม่มีกำหนดถอด แต่ **ห้ามเขียน** ผ่านทางนี้อีก |
 
 ## Import / parity tooling (บันทึกการย้ายข้อมูล)
 

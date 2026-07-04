@@ -66,9 +66,8 @@ next-env.d.ts
 # local uploads
 /public/uploads*
 
-# utility scripts (local) — but track the Linear sync CLI used by CI + hooks
+# utility scripts (local) — but track the ticket-sync CLI used by CI + hooks
 /scripts/*
-!/scripts/linear-sync.mjs
 !/scripts/ticket-sync.mjs
 !/scripts/lib/
 !/scripts/db-reset.mjs

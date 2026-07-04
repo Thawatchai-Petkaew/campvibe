@@ -241,11 +241,11 @@ describe("transition matrix — approve(nextRole?)", () => {
     expect(tg).toHaveBeenCalledTimes(2);
   });
 
-  it("[dispatch] fires the gate-approved repository_dispatch (event_type kept for CI compat)", async () => {
+  it("[dispatch] fires the gate-approved repository_dispatch", async () => {
     const row = seed({ state: "AWAITING_GATE", currentRole: "ARCHITECT" });
     await tickets.approve(row.identifier, "human");
     expect(dispatch).toHaveBeenCalledWith(
-      "linear-gate-approved",
+      "gate-approved",
       expect.objectContaining({ identifier: row.identifier })
     );
   });

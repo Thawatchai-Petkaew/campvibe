@@ -1,14 +1,20 @@
 /**
- * CAM-278 (T-2) / CAM-281 (T-5b) — lib/linear.ts's TICKETS_SOURCE rollback switch (ADR-010
- * seam #1).
+ * CAM-278 (T-2) / CAM-281 (T-5b) / chore/retire-linear-sync — lib/linear.ts's dashboard
+ * list-read seam.
  *
- * CAM-281 (T-5b) flipped the default: the delivery database is now the live source for the
- * dashboard list read. Confirms: TICKETS_SOURCE=linear (or unset — this test file predates
- * that value existing, so exercise it explicitly) reads the original Linear API path — the
- * documented one-cycle rollback lever, removed next cycle; any other value (unset included)
- * delegates to lib/delivery/status-adapter and never touches the Linear API.
+ * History: this file used to exercise the `TICKETS_SOURCE` rollback switch (`"linear"` read
+ * the original Linear GraphQL API path; anything else delegated to the delivery ticket DB).
+ * One cycle after the CAM-281 T-5b cutover, `chore/retire-linear-sync` retired that switch
+ * entirely — `fetchStatusIssues()` now calls `lib/delivery/status-adapter.ts`'s
+ * `fetchTicketsFromDb()` unconditionally, and the Linear GraphQL fetch code it used to guard
+ * was deleted (dead code with the switch gone). This file now guards: (1) the unconditional
+ * delegation actually happens, regardless of any leftover `TICKETS_SOURCE`/`LINEAR_API_KEY`
+ * env value a stale `.env` might still carry, and (2) the retired branch/fetch code never
+ * silently creeps back into the source.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/delivery/status-adapter", () => ({
@@ -26,30 +32,43 @@ beforeEach(() => {
   delete process.env.LINEAR_API_KEY;
 });
 
-describe("fetchStatusIssues — TICKETS_SOURCE rollback switch (CAM-281 T-5b default = db)", () => {
-  it("TICKETS_SOURCE unset delegates to the delivery adapter (new default)", async () => {
+describe("fetchStatusIssues — unconditional delegation to the delivery ticket DB (TICKETS_SOURCE retired)", () => {
+  it("no env set delegates to the delivery adapter", async () => {
     const issues = await fetchStatusIssues();
     expect(issues).toEqual([{ id: "CAM-1" }]);
     expect(dbFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("TICKETS_SOURCE=db delegates to the delivery adapter", async () => {
+  it("a leftover TICKETS_SOURCE=db value still delegates to the delivery adapter (no-op env)", async () => {
     process.env.TICKETS_SOURCE = "db";
     const issues = await fetchStatusIssues();
     expect(issues).toEqual([{ id: "CAM-1" }]);
     expect(dbFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("TICKETS_SOURCE=linear uses the original Linear path (the one-cycle rollback lever), never the adapter", async () => {
+  it("a leftover TICKETS_SOURCE=linear value NO LONGER reads Linear — still delegates to the delivery adapter", async () => {
     process.env.TICKETS_SOURCE = "linear";
-    await expect(fetchStatusIssues()).rejects.toThrow("LINEAR_API_KEY is not set");
-    expect(dbFetch).not.toHaveBeenCalled();
-  });
-
-  it("any other TICKETS_SOURCE value also falls back to the delivery adapter (default-safe)", async () => {
-    process.env.TICKETS_SOURCE = "bogus";
     const issues = await fetchStatusIssues();
     expect(issues).toEqual([{ id: "CAM-1" }]);
     expect(dbFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("passing a pulse argument (legacy call-site compatibility) still delegates unconditionally", async () => {
+    const issues = await fetchStatusIssues(42);
+    expect(issues).toEqual([{ id: "CAM-1" }]);
+    expect(dbFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("lib/linear.ts source — the retired TICKETS_SOURCE switch never creeps back", () => {
+  const src = fs.readFileSync(path.resolve(__dirname, "..", "lib", "linear.ts"), "utf8");
+
+  it("contains no runtime TICKETS_SOURCE conditional (a header comment documenting the retired lever's history is fine)", () => {
+    expect(src).not.toContain("process.env.TICKETS_SOURCE");
+  });
+
+  it("contains no raw Linear GraphQL fetch (the dead code the switch used to guard)", () => {
+    expect(src).not.toContain("api.linear.app/graphql");
+    expect(src).not.toContain("LINEAR_API_KEY");
   });
 });
