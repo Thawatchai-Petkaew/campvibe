@@ -486,8 +486,12 @@ async function cmdAudit() {
   // (scaffold no longer copies ticket.description — it writes the story template skeleton for
   // the PO to fill, so the file is the real content). Fall back to the ticket description only
   // for a legacy ticket with no story file yet (pre-scaffold, or scaffolded before this change).
-  let bad = 0, marked = 0;
+  let bad = 0, marked = 0, backlogSkipped = 0;
   for (const s of stories) {
+    // Files-as-SoT consequence: a freshly-carded BACKLOG stub carries only a 1-line
+    // pointer description and no story file yet — that is pre-DoR by definition, not
+    // drift. The template check applies once work starts (TODO and beyond).
+    if (s.state === "BACKLOG") { backlogSkipped++; continue; }
     const { sdir } = deliveryDirsFor(s, byId);
     const storyFile = path.join(sdir, "story.md");
     const d = fs.existsSync(storyFile) ? fs.readFileSync(storyFile, "utf8") : (s.description || "");
@@ -502,7 +506,7 @@ async function cmdAudit() {
     const head = parts.length ? parts.join(" · ") : "template ok";
     console.log(`${(miss.length || unresolved) ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.slice(0, 40)}`);
   }
-  console.log(`\n${stories.length} story ticket(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}, and no open [NEEDS CLARIFICATION] marker)${marked ? ` — ${marked} with an unresolved marker` : ""} — see .claude/templates/story.md`);
+  console.log(`\n${stories.length} story ticket(s) (${backlogSkipped} BACKLOG pre-DoR skipped) · ${bad} not template-conformant (require ${REQ.join(" + ")}, and no open [NEEDS CLARIFICATION] marker)${marked ? ` — ${marked} with an unresolved marker` : ""} — see .claude/templates/story.md`);
   if (bad) process.exitCode = 11;
 
   // Handoff/role-history integrity: every ADR-010 verb that sets currentRole (start/approve/
