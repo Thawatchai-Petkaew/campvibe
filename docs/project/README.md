@@ -12,6 +12,7 @@
 | ไฟล์ | ตอบคำถาม |
 |---|---|
 | [master-plan.md](master-plan.md) | เราจะไปไหน — vision/mission/north-star + roadmap + ขอบเขต |
+| [platform-blueprint.md](platform-blueprint.md) | รูปทรงแพลตฟอร์มจริง + ลำดับการสร้าง — 8 product layers + milestone ladder M0–M8 + BookingReadinessGate (สืบทอดรายละเอียด roadmap จาก master-plan.md) |
 | [business.md](business.md) | หาเงิน/สร้างคุณค่ายังไง — model, value prop, pricing, unit economics, GTM |
 | [market-size.md](market-size.md) | ตลาดใหญ่แค่ไหน + แข่งกับใคร — TAM/SAM/SOM, เทรนด์, คู่แข่ง, positioning |
 | [user-research.md](user-research.md) | ผู้ใช้คือใคร เจ็บตรงไหน — personas, JTBD, pain points, insights |

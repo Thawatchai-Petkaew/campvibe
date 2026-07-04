@@ -10,14 +10,19 @@
 > ลำดับ + sequencing ฉบับเต็ม (P0 / Phase 1–2 + AI rollup) → [product-plan.md](product-plan.md) — authoritative roadmap อยู่ที่ไฟล์เดียว; ใช้ประกอบเกณฑ์ตัดสิน gate ด้านล่าง
 
 ## จะทำ / ไม่ทำ (ให้ orchestrator + เจ้าของ รู้ขอบเขต)
-**ทำ:** อะไรที่ดัน core loop (ค้นหา/จอง/รีวิว/wishlist) + trust + supply/demand
+**ทำ:** อะไรที่ดัน dual loop นี้ + trust + supply/demand (ดู [platform-blueprint.md](platform-blueprint.md) §1)
+- **Host loop:** lead → quote → hold/deposit → stay → daily close
+- **Camper loop:** discover → inquire → stay → review/return
+
 **ยังไม่ทำตอนนี้ (escalate ถ้าถูกขอ):**
 > TODO(you): ระบุชัด เช่น — payment จริง/escrow, native app, ตลาดนอกไทย, social feed, ฟีเจอร์ที่ไม่แตะ core loop
+> PROPOSED (awaiting owner): online payment/booking checkout จนกว่าผ่าน BookingReadinessGate (M7.5) · native app · ตลาดนอกไทย · secondhand marketplace ก่อน M8 (สอดคล้องกับ [master-plan.md](master-plan.md) ขอบเขต)
 
 ## Success metrics / KPI
 - **North-star:** > TODO(you): (แนะนำ booking สำเร็จ/เดือน หรือ GMV) — ค่าปัจจุบัน/เป้า: ___
-- **Input:** conversion ค้นหา→จอง · % ใช้ wishlist · review/booking · แคมป์ published · MAU
-- **Guardrail (ห้ามแย่ลง):** อัตรา booking ล้มเหลว · เวลาโหลดหน้า public (Core Web Vitals, `.claude/rules/seo.md`) · security incident = 0
+> PROPOSED (awaiting owner): confirmed stays/เดือน (ดู [platform-blueprint.md](platform-blueprint.md) §5) — ค่าปัจจุบัน/เป้า: ___
+- **Input:** % ใช้ wishlist · review/booking · แคมป์ published · MAU · qualified inquiries · lead→close rate · host DAU/WAU · ledger accuracy
+- **Guardrail (ห้ามแย่ลง):** double-hold = 0 · ledger mismatch = 0 · เวลาโหลดหน้า public (Core Web Vitals, `.claude/rules/seo.md`) · security incident = 0
 > TODO(you): ใส่ตัวเลขเป้าจริงต่อ metric
 
 ---
@@ -35,7 +40,8 @@
 - ขัด principle (เช่น โตเร็วแต่ทอน trust/ความปลอดภัย)
 - **มีค่าใช้จ่ายเงินแม้นิดเดียว** · G5 prod go-live · แตะ authz/secret/PII · migration ที่ย้อนยาก/ลบข้อมูล
 - กระทบ guardrail metric หรือ trade-off เชิงธุรกิจที่เอกสารไม่ฟันธง
+- เปิด public booking/payment ให้ campsite ใดต้องผ่าน **BookingReadinessGate (M7.5)** ก่อนเสมอ — owner ตัดสินราย campsite, เกณฑ์อยู่ใน [platform-blueprint.md](platform-blueprint.md) §3
 > หลักคิด: **ไม่แน่ใจ = ถาม** — gate ทุก gate ตัดสินโดยเจ้าของเสมอ (interactive); orchestrator เป็นผู้ raise ให้, ไม่ตัดสินแทน "ความเสี่ยง/รสนิยม/เงิน" ของเจ้าของ
 
 ## เกี่ยวข้อง
-[master-plan.md](master-plan.md) · [business.md](business.md) · [user-research.md](user-research.md) · `.claude/agents/orchestrator.md` (raises gates to the human)
+[master-plan.md](master-plan.md) · [platform-blueprint.md](platform-blueprint.md) · [business.md](business.md) · [user-research.md](user-research.md) · `.claude/agents/orchestrator.md` (raises gates to the human)

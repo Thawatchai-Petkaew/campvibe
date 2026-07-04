@@ -28,6 +28,7 @@ import { getDeliveryClient } from "@/lib/delivery/client";
 import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
+import { TICKET_ID_RE } from "@/lib/delivery/validations";
 import { buildEventMessage, statusMapUrl, type EventCtx, type EventKind } from "@/lib/notify-messages";
 import { sendTelegram } from "@/lib/notify";
 import { fireRepositoryDispatch } from "@/lib/github-dispatch";
@@ -58,6 +59,8 @@ export interface UpdateTicketFieldsInput {
   priority?: number;
   persona?: Persona | null;
   featureName?: string | null;
+  /** CAM identifier or internal id of the target EPIC; null detaches (CAM-300). */
+  epicId?: string | null;
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────────────
@@ -569,8 +572,33 @@ export async function updateFields(id: string, actor: string, input: UpdateTicke
     throw new TicketTransitionError("invalid_input", "title cannot be empty");
   }
 
+  // CAM-300: epicId arrives as a CAM identifier or internal id — resolve to the internal id
+  // and enforce the FK invariants (target exists, is an EPIC, is not the ticket itself).
+  let resolvedEpicId: string | null | undefined;
+  if (input.epicId !== undefined) {
+    if (input.epicId === null) {
+      resolvedEpicId = null;
+    } else {
+      const epic = TICKET_ID_RE.test(input.epicId)
+        ? await db.ticket.findUnique({ where: { identifier: input.epicId } })
+        : await db.ticket.findUnique({ where: { id: input.epicId } });
+      if (!epic) throw new TicketNotFoundError(input.epicId);
+      if (epic.type !== "EPIC") {
+        throw new TicketTransitionError(
+          "invalid_input",
+          `epicId target ${epic.identifier} is ${epic.type}, not EPIC`
+        );
+      }
+      if (epic.id === ticket.id) {
+        throw new TicketTransitionError("invalid_input", "a ticket cannot be its own epic");
+      }
+      resolvedEpicId = epic.id;
+    }
+  }
+  const data = input.epicId !== undefined ? { ...input, epicId: resolvedEpicId } : input;
+
   const updated = await db.$transaction(async (tx) => {
-    const u = await tx.ticket.update({ where: { id: ticket.id }, data: input });
+    const u = await tx.ticket.update({ where: { id: ticket.id }, data });
     // "updated" is an additive TicketEvent kind beyond ADR-010's enumerated list — the
     // schema's `kind` column is a plain String specifically so a new kind can be added
     // without a migration (see prisma/delivery/schema.prisma comment on TicketEvent.kind).

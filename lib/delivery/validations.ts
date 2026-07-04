@@ -105,6 +105,9 @@ export const patchTicketBodySchema = z.discriminatedUnion("action", [
     priority: z.number().int().min(0).max(4).optional(),
     persona: personaSchema.nullable().optional(),
     featureName: z.string().max(200).nullable().optional(),
+    // CAM-300: re-parent — accepts a CAM identifier or internal id (resolved + type-checked
+    // in the service), or null to detach from its epic.
+    epicId: z.string().trim().min(1).max(30).nullable().optional(),
   }),
 ]);
 export type PatchTicketBody = z.infer<typeof patchTicketBodySchema>;
