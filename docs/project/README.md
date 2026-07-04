@@ -18,6 +18,7 @@
 | [user-research.md](user-research.md) | ผู้ใช้คือใคร เจ็บตรงไหน — personas, JTBD, pain points, insights |
 | [product-strategy.md](product-strategy.md) | จะทำ/ไม่ทำอะไร + วัดผลยังไง — priorities, principles, success metrics, **เกณฑ์เชิงธุรกิจที่ใช้ประกอบการตัดสิน gate** |
 | [product-plan.md](product-plan.md) | แผนฟีเจอร์ราย persona + สถานะจริงในโค้ด + epic-backlog + AI rollup (audit 06-20) — inventory เดียว (รวม FEATURE-BACKLOG เดิม); ทุก item ที่เลือกทำ → TICKET ที่ Linear |
+| [platform-master-plan.html](../design/platform-master-plan.html) | visual twin ของ master-plan + platform-blueprint — milestone timeline M0–M8, สถานะปัจจุบัน, release plan, KPI/revenue, number-alignment table รวมเป็นเรื่องเดียว (ไม่ใช่ SoT — markdown ด้านบนคือ SoT) |
 
 ## orchestrator + เจ้าของ ใช้ไฟล์นี้อย่างไร
 เมื่อต้องตัดสิน gate ที่มีมิติธุรกิจ (เช่น "feature นี้คุ้มไหม", "scope นี้ตรง strategy ไหม", G5 go-live) — orchestrator อ่านเพื่อ raise packet, เจ้าของอ่านเพื่อตัดสิน:

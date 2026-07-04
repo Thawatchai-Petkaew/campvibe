@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CampVibe · Platform Master Plan (Blueprint v6)</title>
+<style>
+  :root{
+    --bg:#f0f4f3; --surface:#fff; --card:#fff; --card-alt:#e8f4f2; --line:#d8e8e6; --line-strong:#b8d4d0;
+    --fg:#1a2c2e; --muted:#4e6e6b; --muted-lt:#7a9896;
+    --primary:#14b8a6; --primary-dim:#0d9488; --primary-10:rgba(20,184,166,.10); --primary-20:rgba(20,184,166,.20);
+    --green:#16a34a; --green-10:rgba(22,163,74,.10); --amber:#d97706; --amber-10:rgba(217,119,6,.10);
+    --red:#dc2626; --red-10:rgba(220,38,38,.10);
+    --r-card:22px; --r-ctrl:999px; --r-in:14px; --r-pop:18px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth} html,body{margin:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+    color:var(--fg);line-height:1.6;font-size:14.5px;background:var(--bg);padding:0 20px 70px}
+  .wrap{max-width:1220px;margin:0 auto}
+  h1{font-size:29px;margin:14px 0 4px;letter-spacing:-.3px}
+  h1 .sub{display:block;font-size:14.5px;font-weight:500;color:var(--muted);margin-top:8px;max-width:900px}
+  h2{font-size:19px;margin:0 0 4px;display:flex;align-items:center;gap:9px;scroll-margin-top:64px}
+  h2 .n{width:27px;height:27px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff;background:var(--primary)}
+  h3{font-size:15px;margin:0 0 6px}
+  .lead{color:var(--muted);font-size:13px;margin:2px 0 14px}
+  section.box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:22px 24px;margin:16px 0;scroll-margin-top:64px}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--card-alt);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--primary-dim)}
+  .muted{color:var(--muted)} .muted-lt{color:var(--muted-lt)}
+  a{color:var(--primary-dim)}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted-lt);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+
+  /* top jump nav */
+  .jump{position:sticky;top:0;z-index:20;background:rgba(240,244,243,.94);backdrop-filter:blur(6px);
+    display:flex;flex-wrap:wrap;gap:6px;padding:10px 0;margin-bottom:6px;border-bottom:1px solid var(--line)}
+  .jump a{font-size:11.5px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-ctrl);padding:5px 12px;text-decoration:none;white-space:nowrap}
+  .jump a:hover{color:var(--primary-dim);border-color:var(--line-strong)}
+
+  /* badge / chip / pill */
+  .badge{display:inline-flex;gap:7px;align-items:center;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:var(--r-ctrl);
+    border:1px solid var(--line-strong);background:var(--card-alt);color:var(--primary-dim);margin-top:16px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+  .chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:var(--r-ctrl);white-space:nowrap}
+  .chip-done{color:#fff;background:var(--green)}
+  .chip-active{color:#fff;background:var(--primary)}
+  .chip-next{color:var(--amber);background:var(--amber-10);border:1px solid rgba(217,119,6,.3)}
+  .chip-later{color:var(--muted-lt);background:#fff;border:1px solid var(--line-strong)}
+  .chip-gated{color:var(--red);background:var(--red-10);border:1px dashed rgba(220,38,38,.4)}
+  .chip-proposed{color:var(--amber);background:var(--amber-10);border:1px solid rgba(217,119,6,.3);font-weight:700}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:var(--r-ctrl);border:1px solid var(--line);background:var(--surface)}
+
+  /* hero stat grid */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+  @media(max-width:760px){.stat-grid{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--card-alt);border:1px solid var(--line);border-radius:var(--r-in);padding:13px 15px}
+  .stat b{display:block;font-size:21px;color:var(--fg)} .stat span{font-size:11.5px;color:var(--muted)}
+
+  /* milestone strip */
+  .ms-strip{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px}
+  .ms-card{flex:0 0 182px;border:1px solid var(--line);border-radius:var(--r-in);padding:12px 13px;background:var(--surface)}
+  .ms-card.done{border-color:var(--green);background:linear-gradient(180deg,var(--green-10),transparent 75%)}
+  .ms-card.active{border-color:var(--primary);background:linear-gradient(180deg,var(--primary-10),transparent 70%);box-shadow:0 0 0 1px var(--primary-20)}
+  .ms-card.next{border-color:var(--amber);background:linear-gradient(180deg,var(--amber-10),transparent 75%)}
+  .ms-card.later{opacity:.8}
+  .ms-card.gated{border-style:dashed;border-color:var(--red)}
+  .ms-card .tag{font-size:10px;font-weight:800;color:var(--muted-lt);letter-spacing:.03em}
+  .ms-card .nm{font-weight:700;font-size:13px;margin:3px 0 6px;min-height:34px}
+  .ms-card .dur{font-size:10.5px;color:var(--muted-lt);margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
+  /* delivered grid */
+  .deliv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+  @media(max-width:980px){.deliv-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.deliv-grid{grid-template-columns:1fr}}
+  .deliv-col{background:var(--card-alt);border:1px solid var(--line);border-radius:var(--r-in);padding:14px 15px}
+  .deliv-col h4{margin:0 0 8px;font-size:12.5px;display:flex;align-items:center;gap:6px;color:var(--primary-dim)}
+  .deliv-col ul{margin:0;padding-left:16px}
+  .deliv-col li{font-size:12px;margin:4px 0;color:var(--fg)}
+
+  /* milestone detail cards */
+  .mile{border:1px solid var(--line);border-radius:var(--r-card);padding:18px 20px;margin:14px 0;background:var(--surface)}
+  .mile.active{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary-20);background:linear-gradient(180deg,var(--primary-10),transparent 55%)}
+  .mile.gated{border-style:dashed}
+  .mile .mh{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:8px}
+  .mile .mid{font-size:18px;font-weight:800;color:var(--primary-dim)}
+  .mile .mname{font-weight:700;font-size:14px}
+  .mile .mmeta{margin-left:auto;font-size:11.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .mile ul{margin:6px 0 8px;padding-left:18px}
+  .mile li{margin:3px 0;font-size:12.5px}
+  .epics{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .epic-chip{font-size:11px;font-weight:700;color:var(--primary-dim);background:var(--primary-10);border:1px solid var(--primary-20);border-radius:999px;padding:3px 10px}
+  .story-chip{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--card-alt);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+  .exit-box{border-left:3px solid var(--primary);background:var(--primary-10);border-radius:0 12px 12px 0;padding:9px 13px;margin-top:8px;font-size:12.5px}
+  .gate-box{border-left:3px solid var(--amber);background:var(--amber-10);border-radius:0 12px 12px 0;padding:9px 13px;margin-top:8px;font-size:12.5px}
+  .est-note{font-size:10.5px;color:var(--muted-lt);margin-top:4px}
+
+  /* flow / wave progress */
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:14px 0}
+  .flow .node{flex:1;min-width:130px;border-radius:14px;padding:12px 12px;font-size:12px;text-align:center;border:1px solid var(--line);background:var(--card-alt)}
+  .flow .node b{display:block;font-size:12.5px;margin-bottom:3px;color:var(--fg)}
+  .flow .node span.sub{display:block;font-size:10.5px;color:var(--muted-lt);margin-top:3px}
+  .flow .node.done{border-color:var(--green);background:var(--green-10)}
+  .flow .node.active{border-color:var(--primary);background:var(--primary-10);box-shadow:0 0 0 1px var(--primary-20)}
+  .flow .node.queued{border-color:var(--amber);background:var(--amber-10)}
+  .flow .node.hold{border-color:var(--red);background:var(--red-10);border-style:dashed}
+  .flow .arrow{align-self:center;color:var(--primary);font-size:18px;flex:none}
+
+  /* release plan */
+  .env-flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:12px 0}
+  .env-flow .node{flex:1;min-width:150px;border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--card-alt);text-align:center}
+  .env-flow .node b{display:block;font-size:13px;margin-bottom:4px}
+  .env-flow .node span{font-size:11px;color:var(--muted)}
+  .env-flow .arrow{align-self:center;color:var(--primary);font-size:18px;flex:none}
+
+  /* guardrail / risk boxes */
+  .risk{border-left:3px solid var(--amber);background:var(--amber-10);border-radius:0 var(--r-in) var(--r-in) 0;padding:10px 14px;margin:8px 0;font-size:13px}
+  .risk b{color:var(--fg)}
+  .gate-chip-row{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .gate-chip{flex:1;min-width:150px;border:1px solid var(--line);border-radius:14px;padding:11px 13px;background:var(--surface)}
+  .gate-chip .gid{font-weight:800;color:var(--primary-dim);font-size:13px}
+  .gate-chip .gd{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+  /* kpi / revenue */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.two-col{grid-template-columns:1fr}}
+
+  .foot{margin-top:26px;font-size:12px;color:var(--muted-lt);text-align:center}
+  .foot .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;text-align:left;max-width:1040px;margin:14px auto 0}
+  @media(max-width:900px){.foot .fgrid{grid-template-columns:repeat(2,1fr)}}
+  .foot .fbox{background:var(--card-alt);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:11.5px;color:var(--muted)}
+  .foot .fbox b{color:var(--fg);display:block;margin-bottom:4px;font-size:12px}
+
+  @media print{
+    .jump{display:none}
+    body{padding:0 8px 30px;background:#fff}
+    section.box{break-inside:avoid;border-color:#ccc}
+    .ms-strip{overflow-x:visible;flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="jump">
+    <a href="#milestones">1 · Milestone strip</a>
+    <a href="#delivered">2 · ส่งมอบแล้ว (M0)</a>
+    <a href="#detail">3 · รายละเอียด M1→M8</a>
+    <a href="#release">4 · แผนปล่อย</a>
+    <a href="#status">5 · สถานะ + จุด HOLD</a>
+    <a href="#kpi">6 · KPI + Revenue</a>
+    <a href="#guardrails">7 · Guardrails + Gates</a>
+    <a href="#mapping">8 · Number alignment</a>
+  </nav>
+
+  <span class="badge"><span class="dot"></span> Living roadmap · visual twin · SoT = docs/project/platform-blueprint.md + master-plan.md + board สด</span>
+  <h1>CampVibe · Platform Master Plan
+    <span class="sub">แพลตฟอร์ม <b>HostOS-first</b> สำหรับแคมป์/ลานกางเต็นท์ในประเทศไทย — เจ้าของแคมป์ (Host) รันธุรกิจได้ครบวงจรในระบบเดียว (lead → ใบเสนอราคา → มัดจำ → เข้าพัก → ปิดยอด) โดย <b>host ถือเงินเอง</b> แพลตฟอร์มเป็นแค่ ledger/workflow ส่วนการจองสาธารณะ+ชำระเงินออนไลน์ (public booking/payment) เลื่อนกลับมาที่ <b>M7.5</b> เมื่อผ่าน BookingReadinessGate ต่อ campsite เท่านั้น เอกสารนี้รวมทุกแผนที่มีอยู่ (master-plan · platform-blueprint · product-plan · ai-product-roadmap · ADR-011/012 · release history) เข้าเป็นเรื่องเดียว ใช้ระบบเลข M ใหม่เป็นเลขอ้างอิงหลัก</span>
+  </h1>
+
+  <section class="box">
+    <div class="stat-grid">
+      <div class="stat"><b>13</b><span>เลนบนบอร์ด (/status) — ชื่อ capability ล้วน, M-code เป็นแค่ sequence tag ในเอกสารนี้</span></div>
+      <div class="stat"><b>24</b><span>epics เปิดอยู่ (30 canceled มี pointer note, 0 orphan) — รวม CAM-340 ที่เพิ่งเปิดปิด gap M7</span></div>
+      <div class="stat"><b>Data &amp; Trust</b><span>lane กำลังวิ่ง (M1) — CAM-268 final price/fees/cancellation กำลัง build</span></div>
+      <div class="stat"><b>Coming Soon</b><span>prod = v0.11.0 (COMING_SOON gate) · staging = product จริงที่ล้ำหน้ากว่ามาก</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 1. MILESTONE STRIP ============ -->
+  <section class="box" id="milestones">
+    <h2><span class="n">1</span> Milestone timeline — M0 → M8</h2>
+    <p class="lead">ระบบเลข <b>M</b> (M0–M8) คือ numbering เดียวที่ใช้ต่อจากนี้ (canonical) — สืบทอดจาก <code>platform-blueprint.md</code> §3 · ทุกเลขเก่า (R-train เดิม) แม็ปกลับมาที่นี่ได้ทั้งหมด (ดู §8 ด้านล่าง)</p>
+    <div class="ms-strip">
+      <div class="ms-card done"><span class="tag">M0</span><div class="nm">Platform Core</div><span class="chip chip-done">ส่งมอบแล้ว</span><div class="dur">baseline เสร็จแล้ว</div></div>
+      <div class="ms-card active"><span class="tag">M1</span><div class="nm">Data &amp; Trust</div><span class="chip chip-active">กำลังทำ</span><div class="dur">~2–4 สัปดาห์</div></div>
+      <div class="ms-card next"><span class="tag">M1.2</span><div class="nm">HostOS</div><span class="chip chip-next">ถัดไป</span><div class="dur">~4–6 สัปดาห์</div></div>
+      <div class="ms-card later"><span class="tag">M1.5</span><div class="nm">Camp Map &amp; Host Onboarding</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์</div></div>
+      <div class="ms-card later"><span class="tag">M2</span><div class="nm">AI Assistant</div><span class="chip chip-later">later</span><div class="dur">~6–10 สัปดาห์</div></div>
+      <div class="ms-card later"><span class="tag">M3</span><div class="nm">Trip OS</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M4</span><div class="nm">Gear Locker</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M5</span><div class="nm">Community</div><span class="chip chip-later">later</span><div class="dur">~6–8 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M6</span><div class="nm">Affiliate Hub</div><span class="chip chip-later">later</span><div class="dur">~4–6 สัปดาห์*</div></div>
+      <div class="ms-card later"><span class="tag">M7</span><div class="nm">Setup Showcase (Future)</div><span class="chip chip-later">later</span><div class="dur">~8–12 สัปดาห์*</div></div>
+      <div class="ms-card gated"><span class="tag">M7.5</span><div class="nm">Booking Engine (Gated)</div><span class="chip chip-gated">readiness-gated</span><div class="dur">ไม่ตั้งเวลาตายตัว</div></div>
+      <div class="ms-card later"><span class="tag">M8</span><div class="nm">Secondhand Marketplace (Future)</div><span class="chip chip-later">later</span><div class="dur">readiness-gated, ไม่ตั้งเวลา</div></div>
+    </div>
+    <p class="lead" style="margin-top:2px">* ตัวเลขสัปดาห์ของ M3–M7 เป็น<b>ประมาณการหยาบ</b>จากเซสชันวางแผนนี้ — <code>platform-blueprint.md</code> ฉบับปัจจุบันยังระบุ exit criteria ของ M3–M8 ว่า "TBD / not measured" (ยังไม่ discover ละเอียด) ดังนั้นถือเป็นตัวเลขจัดลำดับ ไม่ใช่คำมั่นจนกว่าจะ discover milestone นั้นจริง</p>
+    <p class="lead">ทั้ง 12 milestone ในเส้นเวลานี้ (นับ M1.2 / M1.5 / M7.5 แยกจาก M0–M8) มี epic บนบอร์ดครบแล้วทุกตัว (M7 เพิ่งปิด gap ด้วย CAM-340 วันนี้) บวกเลนที่ 13 คือ <b>Trust &amp; Admin (CAM-39)</b> ซึ่งเป็น cross-cutting lane (ไม่ผูกกับลำดับ M ใด milestone หนึ่งโดยตรง) — รวม = 13 เลนบนบอร์ดตามสถิติด้านบน</p>
+    <p class="lead"><b>หมายเหตุการตั้งชื่อ:</b> บอร์ดจริงใช้ชื่อ capability ล้วน (ไม่ใช้โค้ด M) ตาม owner directive 2026-07-04 — เลข M ใน strip นี้เป็นแค่ sequence tag ที่ยังใช้ในเอกสารชุดนี้เท่านั้น รายละเอียดเต็มดู §8</p>
+  </section>
+
+  <!-- ============ 2. DELIVERED M0 ============ -->
+  <section class="box" id="delivered">
+    <h2><span class="n">2</span> สิ่งที่ส่งมอบแล้ว (M0 — Platform Core baseline)</h2>
+    <p class="lead">ทุกอย่างด้านล่างอยู่จริงบน <b>staging</b> (<code>campvibe-staging.vercel.app</code>) วันนี้ — เป็นรากที่ M1/M1.2 ต่อยอด ไม่ใช่ layer ใหม่</p>
+    <div class="deliv-grid">
+      <div class="deliv-col">
+        <h4>Camper-facing</h4>
+        <ul>
+          <li>Catalog / discovery / search / filters (~128 แคมป์)</li>
+          <li>หน้า detail + image gallery</li>
+          <li>Wishlist</li>
+          <li><b>Verified-stay reviews</b> (CAM-269 — ส่งวันนี้: เฉพาะ stay ที่เข้าพักจริงเท่านั้นรีวิวได้ + list แสดงเฉพาะรีวิว verified)</li>
+          <li>Reserve flow (booking สถานะ PENDING เท่านั้น ไม่มี payment — เก็บไว้เป็น internal foundation ตาม ADR-011 ไม่ใช่ camper-facing checkout จริง)</li>
+          <li>Google OAuth (กำลังทำ, CAM-233)</li>
+        </ul>
+      </div>
+      <div class="deliv-col">
+        <h4>Host-facing</h4>
+        <ul>
+          <li>Host dashboard (listing/spot CRUD, booking management)</li>
+          <li>Availability lib + remaining-capacity API (CAM-267)</li>
+          <li>Team RBAC — 5 roles / 13 permissions</li>
+        </ul>
+      </div>
+      <div class="deliv-col">
+        <h4>Platform + AI delivery system</h4>
+        <ul>
+          <li>Design system v2 + loading UX</li>
+          <li>Performance / Core Web Vitals hardening</li>
+          <li>Security hardening (strict CSP nonce)</li>
+          <li>Self-hosted delivery ticket system — <code>/status</code> + <code>/status/map</code> + Telegram gates (ADR-010) — the AI delivery team ทำงานเอง</li>
+        </ul>
+      </div>
+      <div class="deliv-col">
+        <h4>Prod state</h4>
+        <ul>
+          <li><code>campvibe.vercel.app</code> live ตั้งแต่ 2026-06-28 (v0.11.0)</li>
+          <li>เป็นหน้า <b>Coming Soon</b> gated ด้วย flag <code>COMING_SOON=1</code> — full app ยังซ่อนอยู่</li>
+          <li>Staging = product ที่ใช้งานได้จริง ล้ำหน้ากว่า prod มาก</li>
+          <li>19 tickets ติด label <code>released</code> · ~130 Done-not-yet-released รอ release train ถัดไป</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. PER-MILESTONE DETAIL ============ -->
+  <section class="box" id="detail">
+    <h2><span class="n">3</span> รายละเอียดต่อ milestone — M1 → M8</h2>
+    <p class="lead">scope · epic (CAM id) · key stories · entry/exit criteria · ระยะเวลาโดยประมาณ · gate สำคัญ — เต็มที่ <code>platform-blueprint.md</code> §3</p>
+
+    <!-- M1 -->
+    <div class="mile active">
+      <div class="mh"><span class="mid">M1</span><span class="mname">Data &amp; Trust</span>
+        <span class="mmeta"><span class="chip chip-active">กำลังทำ</span><span>~2–4 สัปดาห์</span></span></div>
+      <ul>
+        <li>Availability ถูกต้อง — BlockedDate + partial capacity + hold</li>
+        <li>ราคา/ค่าธรรมเนียม/นโยบายยกเลิกสุดท้าย เป็น atomic field ตรง total จริง</li>
+        <li>Verified-stay review gate (เฉพาะ stay จริงเท่านั้นรีวิวได้)</li>
+        <li>Rule-based listing quality score + missing-data checklist</li>
+      </ul>
+      <div class="epics">
+        <span class="epic-chip">CAM-22 · Availability</span>
+        <span class="epic-chip">CAM-288 · Listing Truth — ราคา/ค่าธรรมเนียม/นโยบายยกเลิก + quality score</span>
+        <span class="epic-chip">CAM-35 · Review Trust</span>
+      </div>
+      <p class="lead" style="margin:4px 0">Key stories (wave-1): <span class="story-chip">CAM-269 Done · reviews require a verified stay</span> <span class="story-chip">CAM-268 building · final price, fees and cancellation policy as structured fields (PREP-2)</span> <span class="story-chip">CAM-56 next · hosts block their own dates</span> <span class="story-chip">CAM-55 last before HOLD · host month calendar</span> <span class="story-chip">CAM-302 temporary spot holds with expiry</span> <span class="story-chip">CAM-303 one availability read service</span> <span class="story-chip">CAM-304/305 listing quality score + missing-data checklist</span></p>
+      <div class="exit-box"><b>ออก (exit):</b> ทั้ง 4 รายการผ่าน AC/QA · <b>เข้า (entry):</b> M0 พร้อม (ผ่านแล้ว)</div>
+    </div>
+
+    <!-- M1.2 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M1.2</span><span class="mname">HostOS</span>
+        <span class="mmeta"><span class="chip chip-next">ถัดไป</span><span>~4–6 สัปดาห์</span></span></div>
+      <ul>
+        <li>Lead inbox (manual-first) → quote builder → hold &amp; deposit ledger → manual stay → POS lite → rental lite → daily close</li>
+        <li>AI lead parser เป็นรายการ<b>สุดท้าย</b>ของ wave นี้และ <b>spend-gated</b> (ไม่ block ส่วนอื่นของ M1.2)</li>
+      </ul>
+      <div class="epics">
+        <span class="epic-chip">CAM-289 · HostOS · Leads &amp; Quotes (OS1-OS5, OS17)</span>
+        <span class="epic-chip">CAM-290 · HostOS · Ops &amp; Stays</span>
+        <span class="epic-chip">CAM-291 · HostOS · POS &amp; Rental</span>
+        <span class="epic-chip">CAM-292 · HostOS · Back Office</span>
+      </div>
+      <p class="lead" style="margin:4px 0">Key stories (wave-2): <span class="story-chip">CAM-306 host lead inbox — leads from every channel in one place (OS1)</span> <span class="story-chip">CAM-307 lead detail view</span> <span class="story-chip">CAM-308 public 'ask availability' form creates a host lead (OS17)</span> <span class="story-chip">CAM-309 quote builder</span> <span class="story-chip">CAM-310 convert an accepted quote into a hold</span> <span class="story-chip">CAM-311 record a deposit against a hold</span> <span class="story-chip">CAM-312 convert a hold into a manual stay</span> <span class="story-chip">CAM-313 manual stay detail &amp; check-in</span> + stub <span class="story-chip">CAM-315..325</span> (POS/rental/back-office/daily-close — รายละเอียดยังเป็น stub)</p>
+      <div class="gate-box"><b>จุด G2 spend แรกของทั้งโปรเจกต์ = CAM-314 AI Lead Parser</b> (อยู่ท้าย wave-2) — ถ้า owner ไม่อนุมัติ spend ก็ยังปิด M1.2 ได้สมบูรณ์ด้วย manual entry อย่างเดียว ไม่ใช่ blocker</div>
+      <div class="exit-box"><b>ออก:</b> host ปิด lead→stay→daily close ครบ loop โดยไม่ต้องใช้ AI parser · <b>เข้า:</b> M1 เสร็จ</div>
+    </div>
+
+    <!-- M1.5 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M1.5</span><span class="mname">Camp Map &amp; Host Onboarding</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~4–6 สัปดาห์</span></span></div>
+      <ul>
+        <li>Model <code>CampZone</code>/<code>CampMap</code></li>
+        <li>2D SVG canvas builder + zone/pitch editors + facility matrix</li>
+        <li>Guest interactive map → inquiry CTA</li>
+      </ul>
+      <div class="epics"><span class="epic-chip">CAM-293 · Camp Map Builder</span><span class="epic-chip">CAM-21 · Host Onboarding &amp; AI Listing</span></div>
+      <p class="lead" style="margin:4px 0">Key stories: <span class="story-chip">CAM-326..330</span></p>
+      <div class="exit-box"><b>ออก:</b> host วาดแผนที่ตัวเองได้ + guest เห็นแผนที่ + กด CTA สอบถามได้ · <b>เข้า:</b> M1.2 core ใช้งานได้</div>
+    </div>
+
+    <!-- M2 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M2</span><span class="mname">AI Assistant</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~6–10 สัปดาห์</span></span></div>
+      <ul>
+        <li>NL search + live availability Q&amp;A + การ์ดในแชท</li>
+        <li>ส่งต่อ inquiry เข้า HostOS lead inbox (สร้าง <code>HostLead</code> ไม่ใช่ <code>Booking</code> — ADR-009 Amendment 2026-07)</li>
+        <li>Runtime = OpenRouter</li>
+      </ul>
+      <div class="epics"><span class="epic-chip">CAM-266 · AI Camping Assistant</span><span class="epic-chip">CAM-33</span></div>
+      <p class="lead" style="margin:4px 0">Key stories: <span class="story-chip">CAM-270 tool registry &amp; OpenRouter client</span> <span class="story-chip">CAM-271 agent loop with streaming responses</span> <span class="story-chip">CAM-272 chat UI with camp cards, hands off to inquiry</span> — item A1-A4/C1-C2 (<code>ai-product-roadmap.md</code>) ยังไม่แปลงเป็น ticket จนกว่าจะเริ่ม train นี้จริง</p>
+      <div class="gate-box">gate: G2 spend (OpenRouter — reuse การอนุมัติเดิมจาก M1.2 AI-PARSE)</div>
+      <div class="exit-box"><b>ออก:</b> assistant ส่ง inquiry เข้า lead inbox จริงบน staging · <b>เข้า:</b> ต้องมีทั้ง M1 <b>และ</b> M1.2 เสร็จ</div>
+    </div>
+
+    <!-- M3 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M3</span><span class="mname">Trip OS</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~4–6 สัปดาห์*</span></span></div>
+      <ul><li>วางแผนทริป/เส้นทางหลัง stay สำเร็จ</li></ul>
+      <div class="epics"><span class="epic-chip">CAM-294</span></div>
+      <p class="lead" style="margin:4px 0">Key stories (stub): <span class="story-chip">CAM-331..333</span></p>
+      <div class="exit-box"><b>ออก:</b> TBD (ยังไม่ discover ละเอียด) · <b>เข้า:</b> M2 เสร็จ</div>
+      <p class="est-note">* ระยะเวลาเป็นประมาณการหยาบของเซสชันนี้ — <code>platform-blueprint.md</code> ระบุ "not measured"</p>
+    </div>
+
+    <!-- M4 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M4</span><span class="mname">Gear Locker</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~6–8 สัปดาห์*</span></span></div>
+      <ul><li>ข้อมูลอุปกรณ์แคมป์ของผู้ใช้</li></ul>
+      <div class="epics"><span class="epic-chip">CAM-295</span></div>
+      <p class="lead" style="margin:4px 0">Key stories (stub): <span class="story-chip">CAM-334..335</span></p>
+      <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M3 เสร็จ</div>
+      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured"</p>
+    </div>
+
+    <!-- M5 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M5</span><span class="mname">Community</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~6–8 สัปดาห์*</span></span></div>
+      <ul><li>โชว์/แชร์ setup การกางเต็นท์</li></ul>
+      <div class="epics"><span class="epic-chip">CAM-296</span></div>
+      <p class="lead" style="margin:4px 0">Key stories (stub): <span class="story-chip">CAM-336..337</span></p>
+      <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M4 เสร็จ</div>
+      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured"</p>
+    </div>
+
+    <!-- M6 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M6</span><span class="mname">Affiliate Hub</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~4–6 สัปดาห์*</span></span></div>
+      <ul><li>พาร์ทเนอร์/ลิงก์พาไปซื้ออุปกรณ์</li></ul>
+      <div class="epics"><span class="epic-chip">CAM-297</span></div>
+      <p class="lead" style="margin:4px 0">Key stories (stub): <span class="story-chip">CAM-338..339</span></p>
+      <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M5 เสร็จ</div>
+      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured"</p>
+    </div>
+
+    <!-- M7 -->
+    <div class="mile">
+      <div class="mh"><span class="mid">M7</span><span class="mname">Setup Showcase (Future)</span>
+        <span class="mmeta"><span class="chip chip-later">later</span><span>~8–12 สัปดาห์*</span></span></div>
+      <ul>
+        <li>ยกระดับภาพ/ผังแคมป์เป็น 2.5D</li>
+        <li>Persona: camper</li>
+      </ul>
+      <div class="epics"><span class="epic-chip">CAM-340 · 2.5D Setup Showcase (J3-J5)</span></div>
+      <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M6 เสร็จ</div>
+      <p class="est-note">* ประมาณการหยาบ — blueprint ระบุ "not measured" · epic เพิ่งเปิด (CAM-340) วันนี้ ปิด gap เดิม</p>
+    </div>
+
+    <!-- M7.5 -->
+    <div class="mile gated">
+      <div class="mh"><span class="mid">M7.5</span><span class="mname">Booking Engine (Gated)</span>
+        <span class="mmeta"><span class="chip chip-gated">readiness-gated</span><span>ไม่ตั้งเวลาตายตัว</span></span></div>
+      <ul>
+        <li>เปิด public booking/payment กลับมา — <b>readiness-gated ต่อ campsite</b> ไม่ใช่ทั้งแพลตฟอร์มพร้อมกันครั้งเดียว</li>
+        <li>Defer pile ของเดิม (payment/KYC): CAM-62 / CAM-65 / CAM-66 / CAM-67 / CAM-68 — ไม่ถูกลบ แค่ย้ายมารอที่นี่</li>
+      </ul>
+      <div class="epics"><span class="epic-chip">CAM-298 · Booking Engine (BookingReadinessGate)</span></div>
+      <div class="gate-box">
+        <b>BookingReadinessGate (ทั้ง 5 ข้อ ต่อ campsite เจ้าของตัดสินใจเอง):</b>
+        <ol style="margin:6px 0 0 16px;padding:0">
+          <li>HostOS daily-active adoption ≥ เป้า</li>
+          <li>map/zone/pitch completeness ≥ เป้า</li>
+          <li>double-hold incidents = 0</li>
+          <li>cancellation/refund policy ครบ</li>
+          <li>support playbook + audit trail พร้อม</li>
+        </ol>
+      </div>
+      <div class="exit-box">จนกว่า campsite หนึ่งจะผ่าน gate ทุก CTA ที่ดูเหมือน "จอง" ต้องใช้คำ <b>สอบถาม / ขอราคา / ส่งคำขอ</b> แทน (Guardrail #4, ดู §7)</div>
+    </div>
+
+    <!-- M8 -->
+    <div class="mile gated">
+      <div class="mh"><span class="mid">M8</span><span class="mname">Secondhand Marketplace (Future)</span>
+        <span class="mmeta"><span class="chip chip-gated">readiness-gated</span><span>ไม่ตั้งเวลาตายตัว</span></span></div>
+      <ul><li>ซื้อขายอุปกรณ์มือสอง — ลำดับสุดท้ายตาม blueprint</li></ul>
+      <div class="epics"><span class="epic-chip">CAM-299 · Secondhand Marketplace (L1-L4)</span></div>
+      <div class="exit-box"><b>ออก:</b> TBD · <b>เข้า:</b> M7 เสร็จ</div>
+    </div>
+  </section>
+
+  <!-- ============ 4. RELEASE PLAN ============ -->
+  <section class="box" id="release">
+    <h2><span class="n">4</span> แผนปล่อย (Release plan)</h2>
+    <p class="lead">3-env flow ตาม <code>.claude/rules/ops.md</code> — Local Dev → Staging → Production; <b>Done ≠ Released</b></p>
+    <div class="env-flow">
+      <div class="node"><b>Local Dev</b><span>feature/* → Preview (ephemeral)</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Staging</b><span>auto deploy on merge · G4 sign-off ที่นี่ = <b>Done</b></span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Production</b><span>promote + tag + G5 = <b>Released</b></span></div>
+    </div>
+    <table>
+      <tr><th>สถานะ</th><th>เกณฑ์</th></tr>
+      <tr><td><b>Done</b></td><td>merge เข้า <code>staging</code> + quality-gate green + AC ยืนยันบน Staging URL จริง</td></tr>
+      <tr><td><b>Released</b></td><td>promote <code>staging</code>→<code>main</code> + prod deploy + smoke + tag + changelog + label <code>released</code> (label ไม่ใช่ state)</td></tr>
+    </table>
+    <p class="lead">หลายเรื่องเป็น Done ได้ก่อนแล้วค่อยปล่อยพร้อมกันเป็น <b>release train</b> — วันนี้มี <b>~130 story Done-not-yet-released</b> รอ train ถัดไป (19 tickets ติด label <code>released</code> แล้ว)</p>
+    <h3 style="margin-top:14px">เกณฑ์ full-launch prod (ปลด <code>COMING_SOON</code>)</h3>
+    <ul>
+      <li>Pre-launch 8 domains ผ่านครบ (Code / Security / Performance / Accessibility / Data-Migration / Observability / Infra / Rollback) ตาม <code>.claude/rules/ops.md</code> §7</li>
+      <li>M1 (Data &amp; Trust) ปิดสมบูรณ์อย่างน้อย — availability/ราคา/รีวิวถูกต้องก่อนเปิดให้ camper เห็นจริง</li>
+      <li>หลังผ่าน hardening checklist → flip <code>COMING_SOON=0</code> (Vercel env change + Redeploy no-cache + Production scope)</li>
+      <li>full-launch ไม่ผูกกับ M7.5 — เปิดตัว HostOS-first ได้ก่อน public booking (ตาม pivot นี้)</li>
+    </ul>
+  </section>
+
+  <!-- ============ 5. STATUS + HOLD ============ -->
+  <section class="box" id="status">
+    <h2><span class="n">5</span> สถานะปัจจุบัน + จุด HOLD</h2>
+    <p class="lead">Wave-1 (M1) กำลังวิ่งอยู่จริงวันนี้ — ลำดับ: reviews require a verified stay → final price/fees/cancellation → hosts block their own dates → host month calendar → <b>HOLD</b> (เอกสารนี้เป็นส่วนหนึ่งของการทบทวนแผนที่ owner สั่งหยุด)</p>
+    <div class="flow">
+      <div class="node done"><b>CAM-269</b>reviews require a verified stay<span class="sub">Done — merged staging วันนี้</span></div>
+      <div class="arrow">→</div>
+      <div class="node active"><b>CAM-268</b>final price, fees &amp; cancellation policy as structured fields (PREP-2)<span class="sub">กำลัง build ตอนนี้</span></div>
+      <div class="arrow">→</div>
+      <div class="node queued"><b>CAM-56</b>hosts block their own dates<span class="sub">ถัดไป</span></div>
+      <div class="arrow">→</div>
+      <div class="node queued"><b>CAM-55</b>host month calendar<span class="sub">ใบสุดท้ายก่อน HOLD</span></div>
+      <div class="arrow">→</div>
+      <div class="node hold"><b>HOLD</b>ทบทวนแผน<span class="sub">owner สั่งหยุดหลัง CAM-55 — เอกสารนี้คือส่วนหนึ่งของ HOLD</span></div>
+    </div>
+    <p class="lead">เหลือใน M1 หลัง HOLD คลาย: <span class="story-chip">CAM-302 temporary spot holds with expiry</span> <span class="story-chip">CAM-303 one availability read service</span> <span class="story-chip">CAM-304/305 listing quality score + missing-data checklist</span></p>
+    <p class="lead">Wave-2 (M1.2) รอคิวถัดจาก M1: <span class="story-chip">CAM-306..313</span> (lead inbox → lead detail → CTA flip → quote → hold link → deposit → manual stay → stay detail/checkin) + stub <span class="story-chip">CAM-314..325</span> — จุด G2 spend แรกของโปรเจกต์ = <b>CAM-314 AI Lead Parser</b> (ท้าย wave-2)</p>
+  </section>
+
+  <!-- ============ 6. KPI + REVENUE ============ -->
+  <section class="box" id="kpi">
+    <h2><span class="n">6</span> KPI shift + Revenue engines</h2>
+    <div class="two-col">
+      <div>
+        <h3>KPI</h3>
+        <table>
+          <tr><th></th><th>เดิม</th><th>ใหม่</th></tr>
+          <tr><td>North-star</td><td>Booking สำเร็จ/เดือน + conversion ค้นหา→จอง</td><td><span class="chip chip-proposed">PROPOSED</span> confirmed stays/เดือน + qualified inquiries</td></tr>
+          <tr><td>Input metrics เพิ่ม</td><td>—</td><td>lead→close rate, host DAU/WAU, ledger accuracy</td></tr>
+          <tr><td>Guardrail เพิ่ม</td><td>อัตรา booking ล้มเหลว</td><td>double-hold = 0, ledger mismatch = 0 (คง CWV + security guardrail เดิม)</td></tr>
+        </table>
+        <p class="lead">ตัวเลขเป้าจริง (target จริง ไม่ใช่แค่ชื่อ metric) ยังเป็น <span class="chip chip-proposed">PROPOSED (awaiting owner)</span> — SoT ที่ฟันธงตัวเลขคือ <code>product-strategy.md</code></p>
+      </div>
+      <div>
+        <h3>Revenue engines <span class="chip chip-proposed">PROPOSED</span></h3>
+        <ul>
+          <li><b>Primary:</b> HostOS SaaS (subscription) + POS module fees + AI credits (parser/chat usage)</li>
+          <li><b>Secondary:</b> Affiliate hub (M6) + sponsored placement</li>
+          <li><b>Booking commission:</b> เฉพาะ M7.5+ เท่านั้น (หลัง BookingReadinessGate เปิด public booking/payment ต่อ campsite) — ก่อนหน้านั้น host ถือเงินเองทั้งหมด แพลตฟอร์มเป็น ledger/workflow ไม่แตะเงินจอง</li>
+        </ul>
+        <p class="lead">ยังไม่ยืนยันจาก owner (ดู <code>business.md</code> §Business model — ยังมี <code>&gt; TODO(you)</code> รอเติมตัวเลข/อัตราจริง)</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7. GUARDRAILS + GATES ============ -->
+  <section class="box" id="guardrails">
+    <h2><span class="n">7</span> Guardrails (4 ข้อ บังคับทุก milestone) + Gate loop G1–G5</h2>
+    <div class="risk"><b>1. AI ไม่ auto-publish แผนที่</b> — ทุก draft ที่ AI สร้าง (แผนที่/โซน/ข้อมูล) ต้องให้ host ยืนยันก่อนเผยแพร่เสมอ</div>
+    <div class="risk"><b>2. AI ไม่เขียนเงิน/availability โดยไม่ผ่าน host ยืนยัน</b> — AI drafts/summarizes/suggests เท่านั้น ไม่ commit การเปลี่ยนแปลงที่กระทบเงินหรือที่ว่างโดยตรง</div>
+    <div class="risk"><b>3. Deterministic core vs AI-assist layer แยกกันชัด</b> — ledger, availability, state transitions, daily-close math ต้อง deterministic; AI อยู่ใน layer แยกที่ทำได้แค่ draft/summary/suggestion</div>
+    <div class="risk"><b>4. กฎคำ CTA</b> — ตราบใดที่ campsite นั้นยังไม่ผ่าน BookingReadinessGate ปุ่ม/ข้อความที่ดูเหมือน "จอง" ต้องเปลี่ยนเป็น สอบถาม/ขอราคา/ส่งคำขอ เสมอ</div>
+
+    <h3 style="margin-top:16px">Gate loop (ทุก milestone เดินผ่านลูปนี้ — เจ้าของอนุมัติทุก gate เอง ไม่มี autonomous approval)</h3>
+    <div class="gate-chip-row">
+      <div class="gate-chip"><div class="gid">G1 · Scope</div><div class="gd">Discovery ปิด gap แล้ว → อนุมัติ scope/AC</div></div>
+      <div class="gate-chip"><div class="gid">G2 · Design/spend</div><div class="gd">data model/API + อนุมัติ spend จริง (เช่น OpenRouter, LINE API)</div></div>
+      <div class="gate-chip"><div class="gid">G3 · Merge→staging</div><div class="gd">quality-gate green → merge (=Done หลัง verify)</div></div>
+      <div class="gate-chip"><div class="gid">G4 · Staging sign-off</div><div class="gd">AC ยืนยันบน Staging URL จริง</div></div>
+      <div class="gate-chip"><div class="gid">G5 · Go-live (prod)</div><div class="gd">promote + tag + changelog + rollback plan = Released</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 8. NUMBER ALIGNMENT ============ -->
+  <section class="box" id="mapping">
+    <h2><span class="n">8</span> Number-alignment table — M ↔ R เก่า ↔ CAM epics ↔ สถานะ</h2>
+    <p class="lead">มีเลข R สองชุดในประวัติศาสตร์เอกสาร — ชุดที่ 1: research-doc เดิมของ owner (R0–R8, กว้างระดับแพลตฟอร์ม) ชุดที่ 2: <code>ai-product-roadmap.md</code> เอง (R1–R4, เฉพาะ AI feature sub-train ซ้อนอยู่ภายใน M2/M2.x/M3) — ตารางนี้แม็ปชุดที่ 1 เป็นหลัก; เมื่อขัดแย้งกันให้ยึด <code>platform-blueprint.md</code> เป็น SoT</p>
+    <table>
+      <tr><th>M (canonical)</th><th>R เก่า (research doc)</th><th>CAM epic(s)</th><th>สถานะ</th></tr>
+      <tr><td><b>M0</b> Platform Core</td><td>R0</td><td>CAM-31, 46, 148, 233, 243</td><td>ส่งมอบแล้ว (บางส่วน released, ที่เหลืออยู่บน staging)</td></tr>
+      <tr><td><b>M1</b> Data &amp; Trust</td><td>— (ใหม่ใน Blueprint v6 ไม่อยู่ใน numbering เดิม)</td><td>CAM-22, 288, 35</td><td>กำลังทำ (wave-1 วิ่งอยู่)</td></tr>
+      <tr><td><b>M1.2</b> HostOS</td><td>R0.5</td><td>CAM-289, 290, 291, 292</td><td>ถัดไป (wave-2 รอคิว)</td></tr>
+      <tr><td><b>M1.5</b> Camp Map &amp; Host Onboarding</td><td>R1A</td><td>CAM-293, 21</td><td>later</td></tr>
+      <tr><td><b>M2</b> AI Assistant</td><td>R1</td><td>CAM-266, 33</td><td>later (ต้องรอทั้ง M1 + M1.2)</td></tr>
+      <tr><td><b>M3</b> Trip OS</td><td>R3 <span class="muted-lt">(ai-roadmap.md ภายในเองเรียก R2/M2.x สำหรับ decide+video ก่อนถึง R3=trip)</span></td><td>CAM-294</td><td>later</td></tr>
+      <tr><td><b>M4</b> Gear Locker</td><td>— (ไม่อยู่ใน numbering เดิมชัดเจน)</td><td>CAM-295</td><td>later</td></tr>
+      <tr><td><b>M5</b> Community</td><td>R4 ("M5-ish" ในเอกสารเดิม)</td><td>CAM-296</td><td>later</td></tr>
+      <tr><td><b>M6</b> Affiliate Hub</td><td>R5</td><td>CAM-297</td><td>later</td></tr>
+      <tr><td><b>M7</b> Setup Showcase (Future)</td><td>R6</td><td>CAM-340</td><td>later (gap ปิดแล้ว — epic เปิดวันนี้)</td></tr>
+      <tr><td><b>M7.5</b> Booking Engine (Gated)</td><td>R6.5</td><td>CAM-298 (+ defer pile CAM-62/65/66/67/68)</td><td>readiness-gated, ไม่ตั้งเวลา</td></tr>
+      <tr><td><b>M8</b> Secondhand Marketplace (Future)</td><td>R7 / R8</td><td>CAM-299</td><td>readiness-gated, ลำดับสุดท้าย</td></tr>
+      <tr><td><b>Trust &amp; Admin</b> <span class="muted-lt">(cross-cutting, ไม่อยู่ใน ladder M0–M8)</span></td><td>—</td><td>CAM-39</td><td>ongoing lane แยกบนบอร์ด</td></tr>
+    </table>
+    <p class="lead"><b>บนบอร์ดใช้ชื่อ capability ล้วน (owner directive 2026-07-04); เลข M คงอยู่ในเอกสารเป็นตัวบอกลำดับเท่านั้น.</b></p>
+    <p class="lead">หมายเหตุ: mapping ของ R0–R8 อ้างอิงจากบันทึกของเซสชันวางแผนนี้ (owner's original Platform Blueprint v6 research) — ไม่พบเอกสาร R0–R8 ตัวเต็มใน repo วันนี้ (มีแต่ <code>ai-product-roadmap.md</code>'s R1–R4 sub-train ซึ่งคนละสเกลกัน) จึงไม่สามารถ cross-verify ทุกแถวได้อิสระ 100% — ใช้เพื่อความต่อเนื่องของการสื่อสาร ไม่ใช่ตัวเลขที่ deterministic-check ครอบ</p>
+  </section>
+
+  <div class="foot">
+    <div>Generated 2026-07-04 (Asia/Bangkok) · เอกสารนี้เป็น <b>visual twin</b> — SoT คือไฟล์ markdown ด้านล่าง ไม่ใช่ไฟล์นี้</div>
+    <div class="fgrid">
+      <div class="fbox"><b>Milestone ladder + guardrails</b><a href="../project/platform-blueprint.md">docs/project/platform-blueprint.md</a></div>
+      <div class="fbox"><b>Vision/mission/north-star</b><a href="../project/master-plan.md">docs/project/master-plan.md</a></div>
+      <div class="fbox"><b>Pivot decision + data model</b>ADR-011 · ADR-012</div>
+      <div class="fbox"><b>สถานะสด</b>บอร์ด <code>/status</code> · <code>node scripts/ticket-sync.mjs</code></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
