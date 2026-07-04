@@ -69,6 +69,16 @@ jobs:
           # (the build was already done above).
           SKIP_BUILD: "1"
           CI: "true"
+          # CAM-261: `next start` runs with NODE_ENV=production, and NextAuth
+          # v5's host-trust check rejects the CI runner's plain localhost:3000
+          # (no AUTH_URL / reverse proxy) with an UntrustedHost error, which
+          # spams the server log on every /api/auth/* call. AUTH_TRUST_HOST is
+          # NextAuth's documented escape hatch for exactly this case (a non-DB,
+          # non-Vercel host) — no schema/logic change. A real DATABASE_URL is
+          # NOT set here: this job has no Postgres service, so `/` still 500s
+          # on any DB-backed query. That's a separate, out-of-scope gap (would
+          # need a CI Postgres service) — left for backend/devops follow-up.
+          AUTH_TRUST_HOST: "true"
       - name: Upload Playwright report + diff images
         if: always()
         uses: actions/upload-artifact@v4

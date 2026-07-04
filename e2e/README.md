@@ -33,8 +33,25 @@ npx playwright test --update-snapshots
 ## Baseline workflow (cross-OS)
 
 Screenshots generated on macOS differ from CI Linux due to sub-pixel
-anti-aliasing and font hinting. The advisory CI job handles this gracefully
-(`continue-on-error: true`), but for clean committed baselines:
+anti-aliasing and font hinting, and `toHaveScreenshot()` running with
+`CI=true` (set in `.github/workflows/ci.yml`) hard-fails — rather than
+auto-creating — when no baseline exists for the current OS/project. Since
+only macOS (`-darwin`) baselines are committed today, CI (Linux, `-linux`)
+has no baseline to compare against.
+
+**CAM-261: `preview.visual.spec.ts` handles this automatically.** Each
+screenshot assertion checks whether the platform-correct baseline file
+exists first (`test.info().snapshotPath(name, { kind: 'screenshot' })`):
+
+- **Baseline present** → real pixel comparison runs; a genuine visual
+  regression still fails the check (advisory, `continue-on-error: true`).
+- **Baseline absent** (today's state on CI) → the assertion is skipped and a
+  report-only screenshot is captured instead, so a missing cross-OS baseline
+  never fails the job. This does not touch `preview.a11y.spec.ts` — a11y
+  assertions always run for real.
+
+To upgrade from report-only to a real Linux comparison, commit a Linux
+baseline:
 
 1. **Preferred — generate baselines in CI/Linux** (eliminates the OS gap):
    - Push a branch; the `visual-a11y` CI job runs Playwright in Linux.
@@ -48,12 +65,6 @@ anti-aliasing and font hinting. The advisory CI job handles this gracefully
    report pixel diffs as advisory failures (non-blocking). A teammate running
    on Linux can refresh the baselines at any time.
 
-3. **First CI run with no baseline** — Playwright creates the snapshots on
-   the first run and then fails with "screenshot is missing" on the
-   _next_ comparison run. To bootstrap from CI:
-   - Set `UPDATE_SNAPSHOTS=true` once in the CI job (or run locally and commit).
-   - After that, the job compares against committed baselines.
-
 ## Configuration
 
 `playwright.config.ts` at the project root:
@@ -65,16 +76,20 @@ anti-aliasing and font hinting. The advisory CI job handles this gracefully
 - `animations: 'disabled'` — CSS transitions/animations frozen for stable shots.
 - Single `chromium` project — keeps the advisory job lean.
 
-## Known a11y findings (as of CAM-230 B4 first run)
+## Known a11y findings
 
-These are real findings surfaced by the advisory check. They do not block CI
-but should be tracked as follow-up work:
+As of CAM-261, both `/` and `/preview` clear the advisory axe scan with no
+critical/serious violations:
 
-| Page | Impact | Rule | Description |
-|---|---|---|---|
-| `/` (home) | critical | `select-name` | One or more Radix `<select>` trigger buttons have no accessible label. The Select component renders a `role="combobox"` without `aria-label` or a wrapping `<label>`. Follow-up: add `aria-label` props to all standalone Select inputs (sort/filter controls on the home page). |
+- `/` (home) `select-name` (critical) — fixed in CAM-231 (`aria-label` added
+  to `SortDropdown`'s `SelectTrigger`).
+- `/preview` `select-name` (critical) — fixed in CAM-261 (`aria-label` added
+  to the 3 example `SelectTrigger`s) + `aria-prohibited-attr` (serious) on the
+  color-swatch `<div aria-label>` — fixed by adding `role="img"` (a generic
+  `<div>`/`role="generic"` does not support `aria-label`; `role="img"` does).
 
-`/preview` passed with no critical/serious violations on first run.
+Any new violation surfaced going forward is a real regression — check the
+`playwright-report` artifact.
 
 ## CI job
 

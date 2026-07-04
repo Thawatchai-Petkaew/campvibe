@@ -69,7 +69,10 @@
             "imageWithFallbackSection": "Image with Fallback",
             "imageGood": "Good image",
             "imageBroken": "Broken URL",
-            "imageNone": "No source"
+            "imageNone": "No source",
+            "selectDefaultLabel": "Example select (default)",
+            "selectSmLabel": "Example select (small)",
+            "selectDisabledLabel": "Example select (disabled)"
         },
         "common": {
             "or": "or",
@@ -865,7 +868,10 @@
             "imageWithFallbackSection": "รูปภาพพร้อมรองรับข้อผิดพลาด",
             "imageGood": "รูปภาพปกติ",
             "imageBroken": "ลิงก์เสีย",
-            "imageNone": "ไม่มีรูปภาพ"
+            "imageNone": "ไม่มีรูปภาพ",
+            "selectDefaultLabel": "ตัวอย่างตัวเลือกแบบปกติ",
+            "selectSmLabel": "ตัวอย่างตัวเลือกแบบเล็ก",
+            "selectDisabledLabel": "ตัวอย่างตัวเลือกแบบปิดใช้งาน"
         },
         "common": {
             "or": "หรือ",

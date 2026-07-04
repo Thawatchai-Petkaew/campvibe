@@ -17,7 +17,12 @@ export function ErrorBanner({ message, className, "data-testid": dataTestId }: E
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm",
+        // CAM-261: bg-destructive/2 (was /10) — text-destructive on the same
+        // hue's tint loses AA contrast as the tint's opacity rises (measured
+        // real-browser color-mix; same fix as components/ui/badge.tsx). This
+        // component never had a dark:-specific override, so the single value
+        // applies to both modes — verified >=4.5:1 in light AND dark.
+        "flex items-center gap-2 px-4 py-3 rounded-xl bg-destructive/2 border border-destructive/20 text-destructive text-sm",
         className
       )}
       role="alert"
