@@ -1,6 +1,6 @@
 # ADR-004 — Multi-country location: Country + self-referencing AdminArea
 
-**Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S5 (CAM-102)
+**Status:** Accepted (retro-flipped 2026-07-04 — shipped on staging: `prisma/schema.prisma` `model Country`/`model AdminArea`, commit "S5 — multi-region foundation (CAM-102)") · **Epic:** Atomic Schema (CAM-96) · **Story:** S5 (CAM-102)
 
 ## Context
 Location is Thailand-only: `ThailandLocation` flattens province+district into one row (nullable district) and `Location` carries `country @default("Thailand")` + free-string `province/district/subDistrict/village` + Float lat/lon. This bakes Thailand's 2-level admin shape into columns and cannot hold other countries. The owner wants real multi-region.

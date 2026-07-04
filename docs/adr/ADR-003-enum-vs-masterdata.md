@@ -1,6 +1,6 @@
 # ADR-003 — Closed Prisma enum vs open MasterData boundary
 
-**Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Stories:** S1 (CAM-98), S4 (CAM-101)
+**Status:** Accepted (retro-flipped 2026-07-04 — shipped on staging: `prisma/schema.prisma` enums + `model MasterData`, commits S1/S4a CAM-98/CAM-101) · **Epic:** Atomic Schema (CAM-96) · **Stories:** S1 (CAM-98), S4 (CAM-101)
 
 ## Context
 Today categorical fields are bare strings: some are fixed domain states (`role`, `status`, `kycStatus`, `bookingMethod`, `ownershipType`, `viewType`), others are extensible taxonomies (facilities, activities, terrain, equipment) stored as CSV and/or referencing `MasterData`. Without a clear rule, S1 (enums) and S4 (CSV→relations) would thrash each other.

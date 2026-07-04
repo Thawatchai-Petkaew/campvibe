@@ -3,6 +3,7 @@ story v2 — ONE atomic story (PR <= ~400 lines). Fill every <stub>; delete guid
 Framework in English; UI copy = verbatim Thai in backticks incl. `{N}` — QA asserts char-for-char.
 EARS: Given = state · When = ONE trigger · failure = "IF <condition> THEN <response>". One behavior per row. Ban vague adverbs (fast/easy/robust); use numbers.
 No event-codes/testids/class names/endpoints (G2 owns those). AC-n/BR-n/EC-n IDs are contracts. audit needs ## Story + ## AC.
+Unresolved ambiguity → write it inline as `[NEEDS CLARIFICATION: <question>]` instead of guessing (spec-kit convention). The spec is NOT build-ready while any marker remains — `ticket-sync.mjs audit` fails template-conformance (exit 11) on a non-DONE ticket that still carries one. Close every marker (answer it and delete the marker) before proposing G1.
 -->
 
 ## Story

@@ -91,7 +91,8 @@ Read first: `.claude/rules/qa.md` (this file) · the ticket you will test (its A
 
 ### 7. Test design
 
-- **Test pyramid** — base is unit (logic/zod/validation), middle is integration (API + Prisma), top is e2e for critical user flows only (never an inverted pyramid).
+- **Test pyramid** — base is unit (logic/zod/validation), middle is integration (API + Prisma), top is e2e for critical user flows only (never an inverted pyramid). Default type mix across a story's AC→test matrix ≈ 70/20/10 unit/integration/e2e (Google ratio) — a matrix skewed toward e2e is a smell.
+- **Risk-based depth** — `test.md`'s AC→test matrix carries a `risk` column (H/M/L = impact × likelihood, ISTQB); order rows by risk and go deepest (more case types, tighter edge coverage) on the H rows first — do not spend equal depth on a cosmetic AC and a payment/authz AC.
 - **AAA + name = spec** — structure as Arrange-Act-Assert; name the test so it reads as behavior (`[unit] [expected] [condition]`).
 - **Coverage matrix per unit** — cover: normal · null/empty · boundary (min/max/0/negative) · error/validation · concurrent/ordering.
 - **Prove-It (when fixing a bug)** — write a test that reproduces the bug and **fails first** → fix → confirm it passes + run the suite to guard regression (every bug leaves behind a regression test).

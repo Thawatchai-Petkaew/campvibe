@@ -1,6 +1,6 @@
 # ADR-009 — AI Camping Assistant: data architecture + retrieval strategy
 
-**Status:** PROPOSED · **Epic:** AI Camping Assistant · **Date:** 2026-07-01
+**Status:** PROPOSED — **verified NOT shipped** (2026-07-04 PO audit): the AI Camping Assistant epic (CAM-266) is 1/5 done — only the prep-data story CAM-267 (availability partial-capacity) is Done; the tool-layer/chat/card stories this ADR actually decides (CAM-270 architect, CAM-271 backend, CAM-272 designer) are still Backlog. The decision recorded here is real and current (amended in part by ADR-011), but no code implementing it exists yet. Left as Proposed; flip to Accepted only once CAM-270 clears its own G2 (or the human explicitly ratifies the decision ahead of implementation). · **Epic:** AI Camping Assistant · **Date:** 2026-07-01
 
 ## Context
 

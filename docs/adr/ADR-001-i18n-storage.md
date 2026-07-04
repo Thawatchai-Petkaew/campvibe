@@ -1,6 +1,6 @@
 # ADR-001 — Localized content storage
 
-**Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S5 (CAM-102)
+**Status:** Proposed (G2 pending) — **verified NOT shipped** (2026-07-04 PO audit): `prisma/schema.prisma` still carries `nameTh`/`nameEn` paired columns and no `model Translation` exists, even though the ticket-DB story CAM-102 (S5) shows `Done`. That Done state came from the legacy Linear import (`created — → DONE by import:linear`), not a verified build of this ADR's decision — the multi-region half of S5 (`Country`/`AdminArea`) shipped, the i18n/Translation half did not. Left as Proposed pending an explicit re-scope or re-run of this story; do not treat CAM-102's `Done` state as evidence this ADR shipped. · **Epic:** Atomic Schema (CAM-96) · **Story:** S5 (CAM-102)
 
 ## Context
 Content is currently stored as paired columns `nameTh`/`nameEn` (CampSite, MasterData, ThailandLocation). The owner wants **real multi-region / multi-language** support now, not just Thai+English. Paired columns are "UI-shaped" — they bake the supported locale set into column names and need a migration + N nullable columns per new language, which `.claude/rules/architecture.md` explicitly names as an anti-pattern ("table ปั้นมาให้พอดีหน้าจอเดียว", "link by ID, not nested JSON").

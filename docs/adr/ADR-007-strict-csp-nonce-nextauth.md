@@ -1,6 +1,6 @@
 # ADR-007: Strict nonce-based CSP composition with NextAuth v5 middleware
 
-Status: PROPOSED (pending G2 sign-off, CAM-203)
+Status: ACCEPTED (retro-flipped 2026-07-04 — shipped on staging: `next.config.ts`/`lib/auth.config.ts` nonce middleware; CAM-203 Done)
 Date: 2026-06-27
 Supersedes: n/a
 Related: CAM-203 (SEC-3), CAM-191 (Edge middleware fix), next.config.ts SEC-2 headers

@@ -75,7 +75,7 @@ Pass G1 when **no 🔴 remains**. Every 🟡 must state the default that will be
 
 Use the template exactly (v2, English framework — story.md §"story v2") — `## Story` (As a **persona**, I want capability, so that outcome + Scope + `Depends on:`; value lives in the "so that" clause, no separate `## Why`; a one-line `Why: <reason>` inside `## Story` is allowed only when the reason isn't obvious — incident lesson, external constraint) · `## AC` (GFM 6-column table: `# | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge`) · `## Rules` (BR-n: values/bounds/transitions/defaults + real error) · `## Edge cases` (EC-n: invalid/empty/concurrent/permission/boundary, EARS `IF <condition> THEN <response>`) · `## Data` (atomic fields + migration) · `## Seams & refs` (reuse pointer + ADR ref, no implementation) · `## Out of scope` (+ point to the follow-up ticket) · `## Self-verify`. Phrase AC/EC in EARS form (Given = state, When = ONE trigger, failure = "IF…THEN…") and ban vague adverbs (fast/easy/robust) — use numbers.
 
-- The story body + AC go into the **story-level ticket** in the ticket DB (created via `node scripts/ticket-sync.mjs create`; role-task = sub-ticket). Check template conformance with `node scripts/ticket-sync.mjs audit` (must contain `## Story` + `## AC`).
+- The story body + AC go into the **story-level ticket** in the ticket DB (created via `node scripts/ticket-sync.mjs create`; role-task = sub-ticket). Check template conformance with `node scripts/ticket-sync.mjs audit` (must contain `## Story` + `## AC`, and carry no open `[NEEDS CLARIFICATION: …]` marker — see `story.md`'s header comment).
 - **persona** = Admin | Camper | Host. Framework (Given/When/Then/headings) is English; AC's "Then" column = "what the user sees" (verbatim Thai copy, char-for-char incl. `{N}`); "System effect" column = what the system stores/changes (plain language); "Neg/edge" column names the failure twin (EC-n or AC-n) — a `—` needs a stated reason.
 
 ### 5. Definition of Ready (DoR — "ready to build")
@@ -85,6 +85,7 @@ Use the template exactly (v2, English framework — story.md §"story v2") — `
 - Out-of-scope is explicit
 - Broken into an atomic story (1 small PR ≤ ~400 lines)
 - AC verifiable on the real **Staging URL** (Done = merge → `staging`, not just passing lint)
+- No open `[NEEDS CLARIFICATION: …]` marker remains in the spec — a spec carrying one is not build-ready (audit-enforced, exit 11)
 
 ### 6. Spec quality
 
