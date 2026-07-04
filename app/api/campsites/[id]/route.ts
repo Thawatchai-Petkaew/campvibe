@@ -106,10 +106,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.toiletInfo !== undefined && { toiletInfo: data.toiletInfo }),
         ...(data.minimumAge !== undefined && { minimumAge: data.minimumAge }),
 
-        // PREP-2 (CAM-268): atomic one-time fee + closed cancellation policy.
+        // PREP-2 (CAM-268) + CAM-341 clearing fix: undefined (key omitted) means
+        // skip - a partial update must never touch a field it did not send. An
+        // explicit null means clear the column. The old `|| undefined` mapping
+        // collapsed null/empty into "skip" too, so a host clearing extraFeeLabel
+        // or cancellationPolicy silently no-op'd (Prisma treats `field: undefined`
+        // identically to an omitted key - it never writes NULL). extraFeeAmount
+        // already forwarded its value as-is (no `|| undefined` bug), so once the
+        // schema accepts an explicit null it clears correctly with no change here.
         ...(data.extraFeeAmount !== undefined && { extraFeeAmount: data.extraFeeAmount }),
-        ...(data.extraFeeLabel !== undefined && { extraFeeLabel: data.extraFeeLabel || undefined }),
-        ...(data.cancellationPolicy !== undefined && { cancellationPolicy: data.cancellationPolicy || undefined }),
+        ...(data.extraFeeLabel !== undefined && {
+          extraFeeLabel: data.extraFeeLabel === '' || data.extraFeeLabel === null ? null : data.extraFeeLabel,
+        }),
+        ...(data.cancellationPolicy !== undefined && {
+          cancellationPolicy: data.cancellationPolicy === null ? null : data.cancellationPolicy,
+        }),
 
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),

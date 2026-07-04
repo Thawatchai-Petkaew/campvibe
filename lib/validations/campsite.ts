@@ -95,13 +95,19 @@ export const campSiteSchema = z.object({
 
   // PREP-2 (CAM-268): atomic one-time additive fee + closed cancellation policy.
   // Bound mirrors the existing pricePerNight catalog row (.claude/rules/ux.md §2).
+  // CAM-341 clearing fix: all three accept an explicit `null` (in addition to
+  // being omittable via .optional()) so a host can clear a previously-set value.
+  // undefined = key omitted, skip (partial update untouched) · null = clear the
+  // column · a value = set it. Do not conflate undefined and null (PUT relies on
+  // this distinction — see app/api/campsites/[id]/route.ts).
   extraFeeAmount: z
     .number()
     .min(0, "ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท")
     .max(100000, "ค่าธรรมเนียมต้องอยู่ระหว่าง 0–100,000 บาท")
+    .nullable()
     .optional(),
-  extraFeeLabel: z.string().max(100, "ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร").optional(),
-  cancellationPolicy: CancellationPolicyEnum.optional(),
+  extraFeeLabel: z.string().max(100, "ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร").nullable().optional(),
+  cancellationPolicy: CancellationPolicyEnum.nullable().optional(),
 
   partner: z.string().optional(),
   nationalPark: z.string().optional(),

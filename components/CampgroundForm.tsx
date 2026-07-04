@@ -45,7 +45,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
+import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
 import * as LucideIcons from "lucide-react";
+
+// CAM-341: Radix Select forbids an empty-string item value, so the "not set"
+// cancellation-policy option uses this sentinel; onValueChange maps it back to "".
+const CANCELLATION_POLICY_NOT_SET = "NOT_SET";
 
 interface CampgroundFormProps {
     initialData?: any;
@@ -109,6 +114,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         bookingMethod: "ONLI",
         priceLow: 500 as number | string,
         priceHigh: 1200 as number | string,
+
+        // Extra fee + cancellation policy (CAM-341). New listing defaults to no fee
+        // and no policy (AC-7) — never pre-filled/implied.
+        extraFeeAmount: "" as number | string,
+        extraFeeLabel: "",
+        cancellationPolicy: "" as string,
+
         images: [] as string[],
         locationId: "",
         thaiLocationId: "",
@@ -190,6 +202,17 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 bookingMethod: initialData.bookingMethod || "ONLI",
                 priceLow: initialData.priceLow ?? 0,
                 priceHigh: initialData.priceHigh ?? 0,
+
+                // Extra fee + cancellation policy (CAM-341): the Decimal arrives
+                // serialized over JSON — coerce with Number() (mirrors priceLow).
+                // Unset stays "" so the select/input render empty, not a false 0.
+                extraFeeAmount:
+                    initialData.extraFeeAmount !== undefined && initialData.extraFeeAmount !== null
+                        ? Number(initialData.extraFeeAmount)
+                        : "",
+                extraFeeLabel: initialData.extraFeeLabel || "",
+                cancellationPolicy: initialData.cancellationPolicy || "",
+
                 images: initialData.images ? initialData.images.split(',').filter(Boolean) : [],
                 locationId: initialData.locationId || "",
                 thaiLocationId: initialData.location?.thaiLocationId || "",
@@ -226,6 +249,17 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     useEffect(() => {
         setLogoError(false);
     }, [formData.logo]);
+
+    // EC-6 (CAM-341/CAM-305 BR-2): a completeness-card deep-link (#extra-fee,
+    // #cancellation-policy, ...) opens before the form has rendered its sections
+    // (optionsLoading gates the whole return). Resolve the hash once the real
+    // form mounts so the link lands on the section instead of staying inert.
+    useEffect(() => {
+        if (optionsLoading) return;
+        const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+        if (!hash) return;
+        document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [optionsLoading]);
 
     const toggleArrayItem = (field: keyof typeof formData, value: string) => {
         setFormData((prev: any) => {
@@ -329,6 +363,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 tags: formData.tags,
                 priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
                 priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
+                // Extra fee + cancellation policy (CAM-341, BR-6 v1.1): blank sends
+                // an EXPLICIT null (not undefined) - undefined is dropped by
+                // JSON.stringify and the PUT then skips the field (partial-update
+                // semantics), which can never clear an existing value. null is
+                // sent over the wire and the PUT/zod now accept it as "clear".
+                extraFeeAmount: formData.extraFeeAmount === "" ? null : Number(formData.extraFeeAmount),
+                extraFeeLabel: formData.extraFeeLabel === "" ? null : formData.extraFeeLabel,
+                cancellationPolicy: formData.cancellationPolicy === "" ? null : formData.cancellationPolicy,
                 minimumAge: formData.minimumAge === "" ? undefined : formData.minimumAge,
                 latitude: formData.latitude === "" ? 0 : formData.latitude,
                 longitude: formData.longitude === "" ? 0 : formData.longitude,
@@ -403,6 +445,22 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             setDeleteDialogOpen(false);
         }
     };
+
+    // Extra fee validation + transparency nudge (CAM-341 BR-1/BR-2/BR-4).
+    const extraFeeAmountFilled = formData.extraFeeAmount !== "";
+    const extraFeeLabelFilled = formData.extraFeeLabel.trim().length > 0;
+    // BR-4: hint only on a PARTIAL fill (one side set, the other empty) — both
+    // filled or both empty are valid "complete" states and show no hint (EC-3).
+    const showExtraFeeHint = extraFeeAmountFilled !== extraFeeLabelFilled;
+    const extraFeeAmountError =
+        extraFeeAmountFilled &&
+        (isNaN(Number(formData.extraFeeAmount)) ||
+            Number(formData.extraFeeAmount) < 0 ||
+            Number(formData.extraFeeAmount) > 100000)
+            ? t.newCampground.extraFeeAmountError
+            : undefined;
+    const extraFeeLabelError =
+        formData.extraFeeLabel.length > 100 ? t.newCampground.extraFeeLabelError : undefined;
 
     if (optionsLoading) {
         return (
@@ -523,7 +581,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Media Upload */}
-                        <Card className="border-border shadow-sm">
+                        <Card id="photos" className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     {t.newCampground.mediaBranding}
@@ -773,7 +831,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Amenities & Features */}
-                        <Card className="border-border shadow-sm">
+                        <Card id="amenities" className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
                                     <Tent className="w-5 h-5 text-primary" />
@@ -907,7 +965,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         </Card>
 
                         {/* Pricing */}
-                        <Card className="border-border shadow-sm">
+                        <Card id="price" className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.pricing}</CardTitle>
                             </CardHeader>
@@ -971,8 +1029,77 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             </CardContent>
                         </Card>
 
+                        {/* Extra Fee (CAM-341) */}
+                        <Card id="extra-fee" className="border-border shadow-sm">
+                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                                <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.extraFee}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-4">
+                                <InputField
+                                    label={t.newCampground.extraFeeAmountLabel}
+                                    type="number"
+                                    value={formData.extraFeeAmount}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setFormData({ ...formData, extraFeeAmount: val === "" ? "" : parseFloat(val) });
+                                    }}
+                                    leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
+                                    inputSize="lg"
+                                    placeholder={t.newCampground.extraFeeAmountPlaceholder}
+                                    helperText={t.newCampground.extraFeeAmountHelper}
+                                    error={extraFeeAmountError}
+                                />
+                                <InputField
+                                    label={t.newCampground.extraFeeLabelField}
+                                    value={formData.extraFeeLabel}
+                                    onChange={e => setFormData({ ...formData, extraFeeLabel: e.target.value })}
+                                    inputSize="lg"
+                                    placeholder={t.newCampground.extraFeeLabelPlaceholder}
+                                    error={extraFeeLabelError}
+                                />
+                                {showExtraFeeHint && (
+                                    <p className="text-sm px-4 text-muted-foreground">{t.newCampground.extraFeeHint}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Cancellation Policy (CAM-341) */}
+                        <Card id="cancellation-policy" className="border-border shadow-sm">
+                            <CardHeader className="bg-muted/40 border-b border-border pb-4">
+                                <CardTitle className="text-lg font-bold text-foreground">{t.campground.cancellationPolicy.title}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6">
+                                <Select
+                                    value={formData.cancellationPolicy || CANCELLATION_POLICY_NOT_SET}
+                                    onValueChange={(value) =>
+                                        setFormData({
+                                            ...formData,
+                                            cancellationPolicy: value === CANCELLATION_POLICY_NOT_SET ? "" : value,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger
+                                        aria-label={t.campground.cancellationPolicy.title}
+                                        className="w-full"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={CANCELLATION_POLICY_NOT_SET}>
+                                            {t.campground.cancellationPolicy.notSet}
+                                        </SelectItem>
+                                        {CANCELLATION_POLICY_VALUES.map((value) => (
+                                            <SelectItem key={value} value={value}>
+                                                {t.campground.cancellationPolicy[value]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </CardContent>
+                        </Card>
+
                         {/* Capacity & Ground Type */}
-                        <Card className="border-border shadow-sm">
+                        <Card id="zones" className="border-border shadow-sm">
                             <CardHeader className="bg-muted/40 border-b border-border pb-4">
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.capacity}</CardTitle>
                             </CardHeader>
