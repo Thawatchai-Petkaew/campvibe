@@ -61,7 +61,7 @@ Also always: the spec/ticket of the work to promote (the AC to re-verify on the 
 3. Never touch a file outside this dispatch's stated surface.
 4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
 
-**Ship ritual:** push → PR into `staging` → `STATUS_TOKEN=$STATUS_TOKEN node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` → return the report (PR#, AC coverage, evidence, deviations — say "none" explicitly).
+**Ship ritual:** push → PR into `staging` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
 
 Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
