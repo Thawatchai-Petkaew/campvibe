@@ -381,7 +381,7 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
 
     expect(res.status).toBe(401);
     expect(prisma.spot.findFirst).not.toHaveBeenCalled();
-    expect(prisma.spot.delete).not.toHaveBeenCalled();
+    expect(prisma.spot.update).not.toHaveBeenCalled();
   });
 
   it('403 — non-member is rejected (no CAMPSITE_DELETE)', async () => {
@@ -394,7 +394,7 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
     const res = await spotDELETE(req, makeItemParams(CAMPSITE_ID, SPOT_ID));
 
     expect(res.status).toBe(403);
-    expect(prisma.spot.delete).not.toHaveBeenCalled();
+    expect(prisma.spot.update).not.toHaveBeenCalled();
   });
 
   it('403 — team ADMIN (has CAMPSITE_UPDATE but NOT CAMPSITE_DELETE) is rejected', async () => {
@@ -409,7 +409,7 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
     const res = await spotDELETE(req, makeItemParams(CAMPSITE_ID, SPOT_ID));
 
     expect(res.status).toBe(403);
-    expect(prisma.spot.delete).not.toHaveBeenCalled();
+    expect(prisma.spot.update).not.toHaveBeenCalled();
   });
 
   it('uses requireCampSitePermission with CAMPSITE_DELETE', async () => {
@@ -424,10 +424,12 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
     expect(requireCampSitePermission).toHaveBeenCalledWith(CAMPSITE_ID, 'CAMPSITE_DELETE');
   });
 
-  it('200 — owner with CAMPSITE_DELETE can delete the spot', async () => {
+  // CAM-352 BR-2: DELETE is now a SOFT delete (prisma.spot.update sets deletedAt),
+  // not a hard prisma.spot.delete — Booking/InternalHold/BlockedDate rows survive.
+  it('200 — owner with CAMPSITE_DELETE soft-deletes the spot (sets deletedAt, no hard delete)', async () => {
     mockAllowed();
     (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
-    (prisma.spot.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
+    (prisma.spot.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID, deletedAt: new Date() });
 
     const req = new NextRequest(
       `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,
@@ -438,7 +440,26 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(prisma.spot.delete).toHaveBeenCalledOnce();
+    expect(prisma.spot.delete).not.toHaveBeenCalled();
+    expect(prisma.spot.update).toHaveBeenCalledOnce();
+    const call = (prisma.spot.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ id: SPOT_ID });
+    expect(call.data.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('the ownership lookup excludes an already-deleted spot (findFirst scoped by deletedAt: null)', async () => {
+    mockAllowed();
+    (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
+    (prisma.spot.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
+
+    const req = new NextRequest(
+      `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,
+      { method: 'DELETE' }
+    );
+    await spotDELETE(req, makeItemParams(CAMPSITE_ID, SPOT_ID));
+
+    const call = (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ id: SPOT_ID, campSiteId: CAMPSITE_ID, deletedAt: null });
   });
 
   it('404 — spot does not belong to this campsite even with permission', async () => {
@@ -452,13 +473,28 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
     const res = await spotDELETE(req, makeItemParams(CAMPSITE_ID, SPOT_ID));
 
     expect(res.status).toBe(404);
-    expect(prisma.spot.delete).not.toHaveBeenCalled();
+    expect(prisma.spot.update).not.toHaveBeenCalled();
   });
 
-  it('500 — prisma.spot.delete throws returns 500 without leaking details', async () => {
+  it('404 — a repeat DELETE on an already soft-deleted spot is not a silent no-op (EC-4/BR-1)', async () => {
+    mockAllowed();
+    // The ownership lookup is scoped deletedAt: null, so an already-deleted spot resolves to null.
+    (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const req = new NextRequest(
+      `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,
+      { method: 'DELETE' }
+    );
+    const res = await spotDELETE(req, makeItemParams(CAMPSITE_ID, SPOT_ID));
+
+    expect(res.status).toBe(404);
+    expect(prisma.spot.update).not.toHaveBeenCalled();
+  });
+
+  it('500 — prisma.spot.update throws returns 500 without leaking details', async () => {
     mockAllowed();
     (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
-    (prisma.spot.delete as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB down'));
+    (prisma.spot.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB down'));
 
     const req = new NextRequest(
       `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,
@@ -469,6 +505,45 @@ describe('DELETE /api/campsites/[id]/spots/[spotId] — RBAC', () => {
 
     expect(res.status).toBe(500);
     expect('details' in body).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/campsites/[id]/spots — BR-1 list filter (CAM-352)
+// ---------------------------------------------------------------------------
+
+describe('GET /api/campsites/[id]/spots — BR-1 excludes soft-deleted spots', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isActive: true,
+      isPublished: true,
+      deletedAt: null,
+      operatorId: 'op-default',
+    });
+  });
+
+  it('queries spot.findMany with deletedAt: null (soft-deleted rows never resurface, EC-4)', async () => {
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    const req = new NextRequest(`http://localhost/api/campsites/${CAMPSITE_ID}/spots`);
+    await spotsGET(req, makeCollectionParams(CAMPSITE_ID));
+
+    const call = (prisma.spot.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ campSiteId: CAMPSITE_ID, deletedAt: null });
+  });
+
+  it('200 — returns only the non-deleted spots the mocked query resolves', async () => {
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: SPOT_ID, name: 'Spot A', campSiteId: CAMPSITE_ID, images: [] },
+    ]);
+
+    const req = new NextRequest(`http://localhost/api/campsites/${CAMPSITE_ID}/spots`);
+    const res = await spotsGET(req, makeCollectionParams(CAMPSITE_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toHaveLength(1);
   });
 });
 

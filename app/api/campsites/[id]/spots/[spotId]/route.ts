@@ -72,7 +72,8 @@ export async function PUT(
 
     // Ownership of the campsite is checked above; also verify the spot belongs to THIS
     // campsite so an owner of campsite A cannot mutate spots of campsite B (IDOR).
-    const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id }, select: { id: true } });
+    // Excludes a soft-deleted spot — a deleted spot cannot be edited back to life (BR-1).
+    const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id, deletedAt: null }, select: { id: true } });
     if (!owned) return apiError('Spot not found', 404);
 
     const updated = await prisma.spot.update({
@@ -110,11 +111,20 @@ export async function DELETE(
 
   try {
     // Verify the spot belongs to THIS campsite before deleting (prevent cross-campsite IDOR).
-    const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id }, select: { id: true } });
+    // Also excludes an already-deleted spot so a repeat DELETE surfaces 404, not a silent no-op.
+    const owned = await prisma.spot.findFirst({
+      where: { id: spotId, campSiteId: id, deletedAt: null },
+      select: { id: true },
+    });
     if (!owned) return apiError('Spot not found', 404);
 
-    await prisma.spot.delete({
-      where: { id: spotId }
+    // BR-2 (CAM-352): soft-delete — a spot may have Booking/InternalHold/BlockedDate
+    // rows; a hard delete either fails on the FK or orphans booking history.
+    // Setting deletedAt preserves those rows and matches every other soft-deleted
+    // model in the schema; BR-1's list filter then hides it everywhere it's read.
+    await prisma.spot.update({
+      where: { id: spotId },
+      data: { deletedAt: new Date() },
     });
 
     return apiSuccess({ success: true });

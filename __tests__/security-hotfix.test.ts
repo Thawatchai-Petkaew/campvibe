@@ -479,9 +479,11 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
       );
     });
 
-    it('proceeds (200) when spot belongs to campsite', async () => {
+    // CAM-352 BR-2: DELETE is now a soft-delete (prisma.spot.update sets
+    // deletedAt) — a hard prisma.spot.delete is never called.
+    it('proceeds (200) when spot belongs to campsite — soft-deletes via spot.update, no hard delete', async () => {
       (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
-      (prisma.spot.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
+      (prisma.spot.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID, deletedAt: new Date() });
 
       const req = new NextRequest(
         `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,
@@ -492,12 +494,13 @@ describe('Spot IDOR — scope spot access by campSiteId', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(prisma.spot.delete).toHaveBeenCalledOnce();
+      expect(prisma.spot.delete).not.toHaveBeenCalled();
+      expect(prisma.spot.update).toHaveBeenCalledOnce();
     });
 
     it('returns 500 when prisma throws during DELETE', async () => {
       (prisma.spot.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: SPOT_ID });
-      (prisma.spot.delete as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+      (prisma.spot.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
 
       const req = new NextRequest(
         `http://localhost/api/campsites/${CAMPSITE_ID}/spots/${SPOT_ID}`,

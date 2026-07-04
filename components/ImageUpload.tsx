@@ -6,19 +6,31 @@ import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import clsx from "clsx";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import type { ImageKind } from "@/types/api";
 
 interface ImageUploadProps {
     value: string[];
     onChange: (value: string[]) => void;
     onRemove: (value: string) => void;
     disabled?: boolean;
+    // CAM-352 (BR-7/BR-8): additive panorama-marker mode. Existing callers
+    // (CampgroundForm etc.) that omit these two props are completely
+    // unaffected — `value`/`onChange`/`onRemove` keep their string[] contract.
+    // When both are provided, each thumbnail gains a "mark as panorama"
+    // toggle + a badge, and the caller owns the url -> kind map.
+    imageKinds?: Record<string, ImageKind>;
+    onKindChange?: (url: string, kind: ImageKind) => void;
 }
 
 export function ImageUpload({
     value,
     onChange,
     onRemove,
-    disabled
+    disabled,
+    imageKinds,
+    onKindChange
 }: ImageUploadProps) {
     const { t } = useLanguage();
     const [isUploading, setIsUploading] = useState(false);
@@ -62,24 +74,51 @@ export function ImageUpload({
     return (
         <div className="space-y-4 w-full">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {value.map((url) => (
-                    <div key={url} className="relative aspect-square rounded-xl overflow-hidden group border border-border">
-                        <ImageWithFallback
-                            src={url}
-                            alt={t.newCampground.imagePreview}
-                            className="w-full h-full"
-                            imgClassName="object-cover"
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => onRemove(url)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))}
+                {value.map((url) => {
+                    const kind = imageKinds?.[url] ?? "PHOTO";
+                    return (
+                        <div key={url} className="relative aspect-square rounded-xl overflow-hidden group border border-border">
+                            <ImageWithFallback
+                                src={url}
+                                alt={t.newCampground.imagePreview}
+                                className="w-full h-full"
+                                imgClassName="object-cover"
+                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => onRemove(url)}
+                                className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            {/* CAM-352 AC-11: per-photo panorama marker (additive — only when the caller opts in via onKindChange). */}
+                            {onKindChange && (
+                                <label className="absolute bottom-0 inset-x-0 flex items-center gap-1.5 px-2 py-1.5 bg-card/85 backdrop-blur-sm border-t border-border/40 cursor-pointer">
+                                    <Checkbox
+                                        checked={kind === "PANORAMA"}
+                                        onCheckedChange={(checked) => onKindChange(url, checked ? "PANORAMA" : "PHOTO")}
+                                        aria-label={t.spotManagement.panoramaToggleLabel}
+                                        data-testid={`checkbox--spot-photo-panorama-${url}`}
+                                    />
+                                    <span className="text-xs text-foreground font-medium">
+                                        {t.spotManagement.panoramaToggleLabel}
+                                    </span>
+                                </label>
+                            )}
+                            {kind === "PANORAMA" && (
+                                <Badge
+                                    variant="overlay"
+                                    className="absolute top-2 left-2"
+                                    data-testid={`badge--spot-photo-panorama-${url}`}
+                                >
+                                    {t.spotManagement.panoramaBadge}
+                                </Badge>
+                            )}
+                        </div>
+                    );
+                })}
 
                 {/* Dropzone Area */}
                 <div
