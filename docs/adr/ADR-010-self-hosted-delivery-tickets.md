@@ -1,6 +1,6 @@
 # ADR-010 — Self-hosted delivery tickets: schema, state machine, and module boundary
 
-**Status:** PROPOSED · **Epic:** Self-hosted Delivery Tickets (CAM-276) · **Story:** CAM-277 (T-1) · **Date:** 2026-07-03
+**Status:** Accepted (retro-flipped 2026-07-04 — shipped on staging: `prisma/delivery.prisma` + `scripts/ticket-sync.mjs` live since 2026-07-03; CAM-276 epic 10/10 Done) · **Epic:** Self-hosted Delivery Tickets (CAM-276) · **Story:** CAM-277 (T-1) · **Date:** 2026-07-03
 
 ## Context
 

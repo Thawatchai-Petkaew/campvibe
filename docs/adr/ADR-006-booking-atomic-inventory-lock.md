@@ -1,6 +1,6 @@
 # ADR-006 — Booking atomic inventory lock: concurrency-control strategy
 
-**Status:** PROPOSED · **Story:** CAM-57 · **Date:** 2026-06-23
+**Status:** ACCEPTED (retro-flipped 2026-07-04 — shipped on staging: `app/api/bookings/route.ts` Serializable transaction + bounded retry on P2034; CAM-57 Done) · **Story:** CAM-57 · **Date:** 2026-06-23
 
 ## Context
 

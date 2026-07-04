@@ -14,6 +14,12 @@ updated: {{date}}
 ## Flow
 <the screen flow for this story>
 
+## Non-goals
+<optional, 1-2 lines — only fill when a real alternative flow/screen was considered and set aside; states what this design deliberately does NOT do, so the build agent doesn't wander into it. Delete the section if nothing was rejected.>
+
+## Alternatives considered
+<optional, 1-2 lines — only fill when a real alternative existed (a different flow/layout/interaction); names it + why it lost. Delete the section if there was only one reasonable design.>
+
 ## States (8)
 default · hover · focus (ring) · active · loading · error · empty · disabled
 

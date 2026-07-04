@@ -1,6 +1,6 @@
 # ADR-005 — Booking snapshot (crystallization) scope
 
-**Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S6 (CAM-103)
+**Status:** Accepted (retro-flipped 2026-07-04 — shipped on staging: `prisma/schema.prisma` `snapshotUnitAmount`/`snapshotTaxAmount`/… fields, commit "S6 — Booking snapshot crystallization (CAM-103)") · **Epic:** Atomic Schema (CAM-96) · **Story:** S6 (CAM-103)
 
 ## Context
 `Booking` stores only live FKs + `totalPrice Float`. A booking is a financial/legal document: if a host later edits the campsite price, name, or cancellation policy — or a region's VAT rate changes — historical bookings must NOT change. `.claude/rules/architecture.md` mandates that transactional Sets **snapshot** the values with legal/financial impact **+ keep the source ID** for trace.

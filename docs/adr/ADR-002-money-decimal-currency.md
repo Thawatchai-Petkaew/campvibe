@@ -1,6 +1,6 @@
 # ADR-002 — Money representation: Decimal + ISO-4217 currency
 
-**Status:** Proposed (G2 pending) · **Epic:** Atomic Schema (CAM-96) · **Story:** S3 (CAM-100), snapshot in S6
+**Status:** Accepted (retro-flipped 2026-07-04 — shipped on staging: `prisma/schema.prisma` Decimal(12,2)+ISO-4217 fields, commit "S3 — money Float→Decimal(12,2)+currency (CAM-100)") · **Epic:** Atomic Schema (CAM-96) · **Story:** S3 (CAM-100), snapshot in S6
 
 ## Context
 Every monetary value is `Float` with no currency (`CampSite.priceLow/priceHigh`, `Spot.pricePerNight/pricePerSite`, `Booking.totalPrice`) — assumes THB. `.claude/rules/architecture.md` names `amount`+`currency` (Decimal, not float) as **the** canonical atomic example. The owner wants real multi-currency. Float causes rounding errors and cannot represent currency or zero-decimal currencies (JPY) correctly.

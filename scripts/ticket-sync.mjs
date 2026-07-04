@@ -24,6 +24,7 @@
  *   node scripts/ticket-sync.mjs release CAM-7
  *   node scripts/ticket-sync.mjs gates                      # exit 10 when a gate is "cleared"
  *   node scripts/ticket-sync.mjs audit                       # exit 11 on template/artifact drift
+ *                                                            # (incl. an open [NEEDS CLARIFICATION] marker)
  *   node scripts/ticket-sync.mjs pull [outfile]
  *   node scripts/ticket-sync.mjs index
  *   node scripts/ticket-sync.mjs scaffold CAM-7
@@ -76,6 +77,7 @@ import {
   parseCommentFlags,
   parseActorFlag,
 } from "./lib/ticket-sync-args.mjs";
+import { hasUnresolvedMarker } from "./lib/ticket-sync-audit.mjs";
 
 // ── env (dotenv-style parse, no deps — copied from scripts/linear-sync.mjs) ───────────────
 
@@ -443,18 +445,23 @@ async function cmdAudit() {
   // (scaffold no longer copies ticket.description — it writes the story template skeleton for
   // the PO to fill, so the file is the real content). Fall back to the ticket description only
   // for a legacy ticket with no story file yet (pre-scaffold, or scaffolded before this change).
-  let bad = 0;
+  let bad = 0, marked = 0;
   for (const s of stories) {
     const { sdir } = deliveryDirsFor(s, byId);
     const storyFile = path.join(sdir, "story.md");
     const d = fs.existsSync(storyFile) ? fs.readFileSync(storyFile, "utf8") : (s.description || "");
     const miss = REQ.filter((h) => !d.includes(h));
     const warn = NICE.filter((h) => !d.includes(h));
-    if (miss.length) bad++;
-    const head = miss.length ? "MISSING " + miss.join(",") : "template ok";
-    console.log(`${miss.length ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.slice(0, 40)}`);
+    const unresolved = hasUnresolvedMarker(d);
+    if (miss.length || unresolved) bad++;
+    if (unresolved) marked++;
+    const parts = [];
+    if (miss.length) parts.push("MISSING " + miss.join(","));
+    if (unresolved) parts.push("UNRESOLVED [NEEDS CLARIFICATION] marker — not build-ready");
+    const head = parts.length ? parts.join(" · ") : "template ok";
+    console.log(`${(miss.length || unresolved) ? "✗" : "✓"} ${s.identifier.padEnd(7)} ${head.padEnd(26)}${warn.length ? " warn:" + warn.join(",") : ""}  ${s.title.slice(0, 40)}`);
   }
-  console.log(`\n${stories.length} story ticket(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}) — see .claude/templates/story.md`);
+  console.log(`\n${stories.length} story ticket(s) · ${bad} not template-conformant (require ${REQ.join(" + ")}, and no open [NEEDS CLARIFICATION] marker)${marked ? ` — ${marked} with an unresolved marker` : ""} — see .claude/templates/story.md`);
   if (bad) process.exitCode = 11;
 
   // Handoff/role-history integrity: every ADR-010 verb that sets currentRole (start/approve/
