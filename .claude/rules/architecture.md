@@ -154,6 +154,10 @@ Pass every item before writing a migration/contract/form:
 
 Any single "no" = redesign first.
 
+### 15b. Reader/writer inventory sweep (mandatory when derivation/enforcement changes)
+
+Any story that changes HOW a value is derived, enforced, or written (not just where it renders) must grep-inventory **every** reader and writer of the affected columns/fields across `app/`, `lib/`, `components/`, `scripts/`, and tests, and record them in the spec's Seams (tech.md blast-radius table or story Seams & refs) tagged **NOW / LATER / NO-CHANGE** with one line of reasoning each. Exemplar: CAM-362 tech.md §5. Lesson: CAM-355's spec enumerated 4 enforcement readers and missed the 5th (`/api/campsites/[id]/availability` — the camper date-picker), surfacing as a G3 Important and a same-PR rework round. The sweep is grep-backed, not memory-backed — name the search terms used.
+
 ## ADR Lifecycle + Decision Rigor
 
 ### 16. ADR Status lifecycle

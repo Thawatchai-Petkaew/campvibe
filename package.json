@@ -20,6 +20,7 @@
     "tickets:gates": "node scripts/ticket-sync.mjs gates",
     "tickets:pull": "node scripts/ticket-sync.mjs pull",
     "db:reset:staging": "node scripts/db-reset.mjs",
+    "db:sync-from-staging": "node scripts/db-sync-from-staging.mjs",
     "db:load:staging": "node scripts/load-mock-staging.mjs",
     "check:palette": "node scripts/check-palette.mjs",
     "check:ds": "node scripts/check-ds.mjs",

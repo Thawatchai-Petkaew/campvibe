@@ -2,6 +2,10 @@
 
 > **POLICY LOCKED 2026-07-04 (owner-ratified after trial 3/3: CAM-342, CAM-302, CAM-303).** Trial verdict: CI first-pass 3/3 · rework 0 · proactive catches ~4x baseline · spec-lite path + Auto round both proven. The 4-tier assignment below is now standing policy; demote criteria remain permanently active (any severe escape attributable to a tier -> demote immediately). Escaped-defect windows for the 3 trial stories close 2026-07-11.
 
+## Post-epic evidence (2026-07-05) — policy re-confirmed by the owner
+
+The Availability/Spot/Zone epic (~24 stories Done in ~2 days under delegated autonomy) is the largest sample since the trial: Sonnet builders passed CI first-try on nearly every PR; every rework round was a G3 approve-with-nits fold-in whose root cause sat at the SPEC level (e.g. the CAM-355 fifth-reader inventory miss — authored by Opus), not builder code quality. Conclusion: switching builders to Opus would multiply build-token cost ~5x without addressing the actual rework source; the countermeasure that does is the reader/writer inventory sweep added to `.claude/rules/architecture.md`. Owner re-confirmed the locked assignment 2026-07-05 (declined an all-Opus/Fable mix); escalation ladder unchanged.
+
 ## Tier assignment (in effect from this commit)
 
 | Tier | Assignment | Rationale |

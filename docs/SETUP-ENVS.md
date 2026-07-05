@@ -12,13 +12,15 @@
 **กฎ:** push `staging` → Vercel build env "Staging" → อ่าน `DATABASE_URL` ของ Staging → ชี้ **staging DB**
 ถ้าไม่ align (staging ใช้ `DATABASE_URL` ของ prod) = เขียนทับข้อมูล prod ⚠️ — จึงต้องแยก DB ต่อ env
 
-## 2. รางต่อ env
-| Layer | Local | Staging | Production |
-|---|---|---|---|
-| Git branch | `feature/*` | `staging` | `main` |
-| Vercel env | (local dev) | **Staging** | Production |
-| Prisma DB | local Postgres | **`campvibe-staging`** | prod DB (Prisma Postgres) |
-| URL | `localhost:3000` | `campvibe-git-staging-*.vercel.app` | `campvibe.vercel.app` |
+## 2. รางต่อ env (อัปเดต 2026-07-05: เพิ่มชั้น Dev — ไม่มี Vercel deploy)
+| Layer | Local | **Dev (integration)** | Staging | Production |
+|---|---|---|---|---|
+| Git branch | `feature/*` (worktrees) | `dev` | `staging` | `main` |
+| Vercel deploy | ไม่มี (allow-list) | **ไม่มี (allow-list)** | **Staging** (deploy ตอน promote batch) | Production |
+| Prisma DB | local dev Postgres | local dev Postgres (refresh: `npm run db:sync-from-staging`) | **`campvibe-staging`** | prod DB (Prisma Postgres) |
+| URL | `localhost:3000` | `localhost:3000` (owner อ่านผ่าน main tree ที่ checkout `dev`) | `campvibe-git-staging-*.vercel.app` | `campvibe.vercel.app` |
+
+> เฉพาะ `staging` + `main` สร้าง deployment ได้ (`vercel.json` `git.deploymentEnabled` allow-list) — branch อื่น push แล้ว **ไม่เกิด deployment เลย** (Vercel Hobby นับ build ที่ skip เป็นโควตาเต็ม จึงต้องกันตั้งแต่ชั้นสร้าง deployment) · config matrix เต็ม: `.claude/ENV-CONFIG.md`
 
 ## 3. env var matrix (ต้องตรงกันไหม)
 | Var | Local | Staging | Prod | กลุ่ม |
