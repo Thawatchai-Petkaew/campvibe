@@ -94,10 +94,14 @@ jobs:
   # Drives REAL host create/update/delete flows (via the real /login form +
   # storageState — see playwright.config.ts + e2e/regression/) against a
   # Postgres service container that lives ONLY inside this job/runner — never
-  # a shared staging/prod DB. The harness's own BR-1 guard (e2e/regression/
-  # db-guard.ts) independently refuses to run against a non-localhost
-  # DATABASE_URL, so even a misconfigured env var here would abort loudly
-  # instead of touching a real database (defense in depth).
+  # a shared staging/prod DB. That isolation comes from the hardcoded local
+  # DATABASE_URL below (the "Migrate + seed" step runs BEFORE Playwright, so
+  # the harness's own BR-1 guard — e2e/regression/db-guard.ts, which only
+  # runs inside the `regression-setup` Playwright project — does NOT cover
+  # that step). The guard's real job is to catch a LOCAL dev misconfiguring
+  # `DATABASE_URL` when running this same suite by hand (its actual
+  # non-negotiable purpose per BR-1), and it still runs here too, immediately
+  # before any login/spec, as a second check on the Playwright-driven steps.
   # `continue-on-error: true` + not a required check: advisory-first rollout
   # per .claude/rules/ops.md §Gate policy v2 — flips to blocking only after
   # BR-6's stability criterion (>=10 consecutive green runs) is met, a
