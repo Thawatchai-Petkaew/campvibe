@@ -166,3 +166,26 @@ export function computeListingCompleteness(
 
   return { score, missing };
 }
+
+/**
+ * CAM-365 BR-1: single-source publish floor. Both the client
+ * (components/CampgroundForm.tsx's disabled-switch UX gate) and the server
+ * (the PUT/POST /api/campsites write path) import this ONE constant — the
+ * value never appears as a literal anywhere else. Changing the floor later is
+ * a one-line, single-place edit. BR-2: the boundary is inclusive — a score
+ * `>= PUBLISH_MIN_COMPLETENESS` permits publishing, 79 (one below) blocks it.
+ */
+export const PUBLISH_MIN_COMPLETENESS = 80;
+
+/**
+ * CAM-365 BR-5: the exact copy shown when a false->true publish transition is
+ * rejected for scoring below PUBLISH_MIN_COMPLETENESS. Both write paths
+ * (app/api/campsites/[id]/route.ts PUT, app/api/campsites/route.ts POST)
+ * import this ONE function so the two routes can never drift into two
+ * different phrasings of the same rejection. `{N}` (score) is the only
+ * caller-supplied part; the floor itself is interpolated from
+ * PUBLISH_MIN_COMPLETENESS so BR-1's "one-line edit" also covers this string.
+ */
+export function publishGateBlockedMessage(score: number): string {
+  return `ยังเผยแพร่ไม่ได้ ต้องกรอกข้อมูลให้ครบอย่างน้อย ${PUBLISH_MIN_COMPLETENESS}% ก่อน ตอนนี้ ${score}%`;
+}

@@ -9,6 +9,7 @@ import { applyAdminOnlyFields } from '@/lib/admin-fields';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { CATALOG_TAG, campTag } from '@/lib/catalog-cache';
+import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,6 +59,74 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       validation.data as Record<string, unknown>,
       session.user?.role
     ) as typeof validation.data;
+
+    // CAM-365 BR-3/BR-4/BR-5/BR-7: gate a false->true isPublished transition
+    // on the POST-SAVE PROJECTED completeness score. Detected by comparing
+    // the STORED isPublished (existing, from requireCampSitePermission above)
+    // against this request's value - an omitted isPublished, an unchanged
+    // `true`, or any ->false transition never evaluates the score at all (no
+    // auto-unpublish, no wasted queries on an ordinary edit). No role -
+    // including ADMIN - bypasses this (BR-7): `existing`/`data` here carry no
+    // role branch.
+    const isPublishTransition = data.isPublished === true && existing!.isPublished === false;
+    if (isPublishTransition) {
+      // BR-4 post-save projection: the state AS IT WILL BE after THIS save -
+      // stored atomic fields overlaid with this request's changed fields,
+      // plus the relation counts. `images`/`options`/`spots` come from a live
+      // read (this route never re-derives resolveOptionConnect's exact
+      // validated set here) EXCEPT `images`: if this same request replaces
+      // the gallery (`imageReplaceNested` below), the projection counts what
+      // THIS write will persist instead of the stale pre-write count - this
+      // is what lets one save both complete the last missing photo AND
+      // publish (AC-3).
+      const [relCounts, spotCount] = await Promise.all([
+        prisma.campSite.findUnique({
+          where: { id },
+          select: { _count: { select: { images: true, options: true } } },
+        }),
+        prisma.spot.count({ where: { campSiteId: id, deletedAt: null } }),
+      ]);
+
+      const projectedExtraFeeAmount =
+        data.extraFeeAmount !== undefined
+          ? data.extraFeeAmount
+          : existing!.extraFeeAmount !== null
+            ? Number(existing!.extraFeeAmount)
+            : null;
+      const projectedExtraFeeLabel =
+        data.extraFeeLabel !== undefined
+          ? (data.extraFeeLabel === '' || data.extraFeeLabel === null ? null : data.extraFeeLabel)
+          : existing!.extraFeeLabel;
+      const projectedCancellationPolicy =
+        data.cancellationPolicy !== undefined
+          ? (data.cancellationPolicy === null ? null : data.cancellationPolicy)
+          : existing!.cancellationPolicy;
+
+      const { score, missing } = computeListingCompleteness({
+        imageCount: 'images' in body ? (data.images?.length ?? 0) : (relCounts?._count.images ?? 0),
+        priceLow:
+          data.priceLow !== undefined
+            ? data.priceLow
+            : existing!.priceLow !== null
+              ? Number(existing!.priceLow)
+              : null,
+        isFree: data.isFree !== undefined ? data.isFree : existing!.isFree,
+        extraFeeAmount: projectedExtraFeeAmount,
+        extraFeeLabel: projectedExtraFeeLabel,
+        cancellationPolicy: projectedCancellationPolicy,
+        spotCount,
+        optionsCount: relCounts?._count.options ?? 0,
+        useSpotView: data.useSpotView !== undefined ? data.useSpotView : existing!.useSpotView,
+        maxGuestsPerDay:
+          data.maxGuestsPerDay !== undefined ? data.maxGuestsPerDay : existing!.maxGuestsPerDay,
+      });
+
+      if (score < PUBLISH_MIN_COMPLETENESS) {
+        // No write happens at all - reject before the location update and
+        // the campSite.update below (AC-1/AC-4: isPublished stays unchanged).
+        return apiError(publishGateBlockedMessage(score), 400, { missing });
+      }
+    }
 
     // Update Location if provided (but don't auto-update lat/lon from camp site)
     // Lat/Lon are independent - user enters manually
