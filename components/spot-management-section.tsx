@@ -43,14 +43,23 @@ interface SpotManagementSectionProps {
   /**
    * "page" - the standalone /dashboard/campsites/[id]/spots route's full
    * body (h1 title + description, data-testid="page--campsite-spots").
-   * "embedded" - the section embedded below the campsite edit form's main
-   * <form> (Card wrapper, CardTitle heading). The caller gates this to
-   * edit mode only - a create-mode camp has no id yet.
+   * "embedded" - the section embedded on the campsite edit form (Card
+   * wrapper, CardTitle heading, unless `hideCard` is set). The caller gates
+   * this to edit mode only - a create-mode camp has no id yet.
    */
   variant: "page" | "embedded";
+  /**
+   * CAM-363 - additive, "embedded" variant only. When true, skips this
+   * component's own Card/CardHeader/CardTitle chrome and renders just the
+   * add-button + list body + dialogs, so it can nest inside the campsite
+   * edit page's unified Capacity & Spot-Management Card (one bordered
+   * section, not two stacked cards). Defaults to false (unchanged prior
+   * behavior - a self-contained Card).
+   */
+  hideCard?: boolean;
 }
 
-export function SpotManagementSection({ campSiteId, variant }: SpotManagementSectionProps) {
+export function SpotManagementSection({ campSiteId, variant, hideCard = false }: SpotManagementSectionProps) {
   const { t, formatCurrency } = useLanguage();
   const copy = t.spotManagement;
 
@@ -234,6 +243,7 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
         {canManage && (
           <div className="flex items-center gap-2 shrink-0">
             <Button
+              type="button"
               variant="outline"
               size="icon"
               aria-label={`${copy.formTitleEdit}: ${spot.name}`}
@@ -244,6 +254,7 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
               <Pencil className="w-4 h-4" />
             </Button>
             <Button
+              type="button"
               variant="outline"
               size="icon"
               aria-label={`${copy.deleteAriaLabel}: ${spot.name}`}
@@ -281,7 +292,7 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
       ) : loadError ? (
         <div className="bg-card rounded-3xl border border-border p-8 flex flex-col items-center gap-3 text-center">
           <ErrorBanner message={copy.loadFailed} data-testid="alert--spots-load-error" />
-          <Button variant="outline" onClick={loadData} data-testid="btn--spots-retry">
+          <Button type="button" variant="outline" onClick={loadData} data-testid="btn--spots-retry">
             {t.common.retry}
           </Button>
         </div>
@@ -359,6 +370,33 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
     </>
   );
 
+  if (variant === "embedded" && hideCard) {
+    // CAM-363 - headerless: nests inside the campsite edit page's unified
+    // Capacity & Spot-Management Card, so this renders no Card/CardHeader of
+    // its own (avoids a card-inside-a-card look) - just the add-button row,
+    // list body, and dialogs.
+    return (
+      <div data-testid="section--spots-management">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <p className="text-sm text-muted-foreground">{copy.pageDescription}</p>
+          {canManage && (
+            <Button
+              type="button"
+              onClick={openCreate}
+              className="h-11 px-6 rounded-full font-bold shadow-lg shadow-primary/20 shrink-0"
+              data-testid="btn--spots-add"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {copy.addButton}
+            </Button>
+          )}
+        </div>
+        {listBody}
+        {dialogs}
+      </div>
+    );
+  }
+
   if (variant === "embedded") {
     return (
       <Card className="border-border shadow-sm" data-testid="section--spots-management">
@@ -367,6 +405,7 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
           {canManage && (
             <CardAction>
               <Button
+                type="button"
                 onClick={openCreate}
                 className="h-11 px-6 rounded-full font-bold shadow-lg shadow-primary/20"
                 data-testid="btn--spots-add"
@@ -395,6 +434,7 @@ export function SpotManagementSection({ campSiteId, variant }: SpotManagementSec
         </div>
         {canManage && (
           <Button
+            type="button"
             onClick={openCreate}
             className="h-11 px-6 rounded-full font-bold shadow-lg shadow-primary/20"
             data-testid="btn--spots-add"

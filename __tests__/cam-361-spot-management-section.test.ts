@@ -61,22 +61,43 @@ describe('CAM-361 — extraction guard: both surfaces import the SAME shared com
   });
 });
 
-describe('CAM-361 — embedding gate on the campsite edit page (edit mode only, real camp id)', () => {
+// CAM-363 RETARGET (honest note): CAM-363 unifies the Capacity card and this
+// spot-management section into ONE mode-driven section. Two of this
+// describe's original assertions pinned the CAM-361-era architecture and now
+// read differently on purpose:
+//   1. the embed still gates on `isEditing && initialData?.id`, but the JSX
+//      now also carries the additive `hideCard` prop (nests inside the
+//      unified Card instead of rendering its own).
+//   2. the embed used to sit OUTSIDE the campsite <form> (this suite's
+//      original rationale: no nested <form>). CAM-363 moves it INSIDE the
+//      <form> instead, because the whole-camp inputs it now sits beside must
+//      stay form-bound. This is still HTML-safe: SpotFormDialog/ConfirmDialog
+//      render through Radix DialogPortal/AlertDialogPortal straight to
+//      <body> (see components/ui/dialog.tsx, alert-dialog.tsx), so no <form>
+//      is ever nested inside another <form> - see the CAM-363 type="button"
+//      audit test file for the sibling half of this proof (every
+//      non-portal-rendered control in spot-management-section.tsx is
+//      explicitly type="button", so it can never submit the campsite form).
+//   3. the "manage spots" link to the standalone /spots route is retired -
+//      edit mode embeds the manager directly, so there is nothing left to
+//      link to from here (everything is manageable from this one page).
+describe('CAM-361/CAM-363 — embedding gate on the campsite edit page (edit mode only, real camp id)', () => {
   it('renders the section only when isEditing AND initialData?.id is present (create mode has no camp id yet)', () => {
     expect(campgroundFormSrc).toContain('{isEditing && initialData?.id && (');
-    expect(campgroundFormSrc).toContain('<SpotManagementSection campSiteId={initialData.id} variant="embedded" />');
+    expect(campgroundFormSrc).toContain('<SpotManagementSection campSiteId={initialData.id} variant="embedded" hideCard />');
   });
 
-  it('sits OUTSIDE the campsite <form> element (SpotFormDialog renders its own <form>; no nested <form>)', () => {
+  it('[CAM-363 retarget] sits INSIDE the campsite <form> (whole-camp inputs beside it must stay form-bound); still HTML-safe because the CRUD dialogs are portal-rendered', () => {
     const formCloseIndex = campgroundFormSrc.indexOf('</form>');
     const embedIndex = campgroundFormSrc.indexOf('<SpotManagementSection campSiteId={initialData.id}');
     expect(formCloseIndex).toBeGreaterThan(-1);
-    expect(embedIndex).toBeGreaterThan(formCloseIndex);
+    expect(embedIndex).toBeGreaterThan(-1);
+    expect(embedIndex).toBeLessThan(formCloseIndex);
   });
 
-  it('the Capacity card link to /spots stays as a shortcut (BR-6 seam preserved)', () => {
-    expect(campgroundFormSrc).toContain('btn--capacity-manage-spots');
-    expect(campgroundFormSrc).toContain('/dashboard/campsites/${initialData.id}/spots');
+  it('[CAM-363 retarget] the standalone-route "manage spots" link is retired - edit mode embeds the manager directly instead', () => {
+    expect(campgroundFormSrc).not.toContain('/dashboard/campsites/${initialData.id}/spots');
+    expect(campgroundFormSrc).toContain('data-testid="btn--capacity-manage-spots"');
   });
 });
 

@@ -366,10 +366,23 @@ describe('CampgroundForm — AC-2/AC-11/BR-2: WHOLE-CAMP manual capacity + block
   });
 });
 
-describe('CampgroundForm — BR-8: PER-SPOT links to the CAM-352 spot-management screen', () => {
-  it('links to /dashboard/campsites/{id}/spots when editing; gates the CTA on isEditing otherwise (no dead link)', () => {
-    expect(formSrc).toContain('href={isEditing ? `/dashboard/campsites/${initialData.id}/spots` : "#"}');
-    expect(formSrc).toContain('toast.error(t.newCampground.saveBeforeSpots);');
+// CAM-363 RETARGET: BR-8's original assertion pinned a `<Link href=.../spots>`
+// CTA that navigated away to the CAM-352 standalone screen. CAM-363 unifies
+// the Capacity card with the spot manager into ONE section, so edit mode no
+// longer navigates anywhere - it embeds SpotManagementSection directly right
+// there. The href/Link assertion is gone by design (superseded), not a
+// missed regression; create mode (no camp id yet) still has no manager to
+// embed, so the save-first prompt (button + toast, no navigation) is kept.
+describe('CampgroundForm — BR-8 (superseded by CAM-363): PER-SPOT mode embeds the spot manager directly', () => {
+  it('[CAM-363] edit mode with a real camp id embeds SpotManagementSection directly (no separate nav link)', () => {
+    expect(formSrc).toContain('{isEditing && initialData?.id && (');
+    expect(formSrc).toContain('<SpotManagementSection campSiteId={initialData.id} variant="embedded" hideCard />');
+    expect(formSrc).not.toContain('href={isEditing ? `/dashboard/campsites/${initialData.id}/spots` : "#"}');
+  });
+
+  it('[CAM-363] create mode (no camp id yet) keeps the CAM-351 save-first prompt (toast, no navigation)', () => {
+    expect(formSrc).toContain('{!(isEditing && initialData?.id) && (');
+    expect(formSrc).toContain('onClick={() => toast.error(t.newCampground.saveBeforeSpots)}');
     expect(formSrc).toContain('data-testid="btn--capacity-manage-spots"');
   });
 });
