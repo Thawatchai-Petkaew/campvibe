@@ -380,6 +380,7 @@ Representative ✅/❌ (the full sets live in §2/§3/§5):
 | "I'll add a `dark:` override so it looks right in dark mode." | Dark mode flips automatically via `.dark`. A hand-written `dark:` color override is a defect, not a fix. |
 | "A quick custom dropdown is faster than wiring the primitive." | Vocabulary is `components/ui/*` only. An out-of-system component fails the Design Gate. |
 | "Color alone makes the status obvious enough." | Color is never the only signal (a11y). Pair it with text/icon/shape and a `Badge`. |
+| "Copy the existing modal's markup — it already looks right." | Cloning a modal's chrome silently inherits its BEHAVIORAL a11y gaps too: PanoramaViewer copied ImageGallery and inherited the missing focus-trap + body-scroll-lock (fixed once for both in `lib/hooks/use-modal-a11y.ts`). Before cloning dialog/overlay chrome, check for the shared a11y hook and consume it — behavior reuses like tokens do (CAM-354/CAM-368). |
 | "Centered hero + gradient + three matching cards is a safe default." | That is the §5 AI-slop tell. It is not CampVibe — send it back. |
 | "Profile menu and Filter do different jobs, so they can look different." | Different roles can be different components, but they must share one grammar (radius/size/spacing from §2). |
 
