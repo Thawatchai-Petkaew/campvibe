@@ -77,6 +77,7 @@ export function LogoUpload({
                         type="button"
                         onClick={handleRemove}
                         className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
+                        data-testid="btn--logo-remove"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -89,6 +90,7 @@ export function LogoUpload({
                         isDragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary hover:bg-muted",
                         (disabled || isUploading) && "opacity-50 cursor-not-allowed"
                     )}
+                    data-testid="dropzone--logo"
                 >
                     <input {...getInputProps()} />
                     {isUploading ? (

@@ -654,19 +654,37 @@ async function main() {
             }
         });
 
-        // Create or update location
-        const location = await prisma.location.create({
-            data: {
-                country: 'Thailand',
-                province: provinceNameEn || 'Unknown',
-                lat: campData.latitude,
-                lon: campData.longitude,
-                thaiLocationId: thaiLoc?.id,
-                // S5: link to the conformant Country + AdminArea (province node)
-                countryCode: 'TH',
-                adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,
-            }
+        // Create or update location — idempotent by natural key (country +
+        // province + lat/lon, which is unique per seeded camp here).
+        //
+        // CAM-359 BR-3(a): this used to be a bare `prisma.location.create`,
+        // which inserted a NEW Location row every seed run and orphaned every
+        // previous run's rows (no FK pointed back at them, but they piled up
+        // forever and the seed was not repeatable). No production migration
+        // is in scope for this fix (Data section — seed changes only), so the
+        // idempotency is enforced at the application level via findFirst +
+        // update-or-create instead of a new `@@unique` DB constraint.
+        const locationData = {
+            country: 'Thailand',
+            province: provinceNameEn || 'Unknown',
+            lat: campData.latitude,
+            lon: campData.longitude,
+            thaiLocationId: thaiLoc?.id,
+            // S5: link to the conformant Country + AdminArea (province node)
+            countryCode: 'TH',
+            adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,
+        };
+        const existingLocation = await prisma.location.findFirst({
+            where: {
+                country: locationData.country,
+                province: locationData.province,
+                lat: locationData.lat,
+                lon: locationData.lon,
+            },
         });
+        const location = existingLocation
+            ? await prisma.location.update({ where: { id: existingLocation.id }, data: locationData })
+            : await prisma.location.create({ data: locationData });
 
         // `contacts` is a legacy field no longer in the CampSite schema
         // (replaced by structured phone/lineId/etc.); strip it before write.
@@ -691,6 +709,31 @@ async function main() {
             .map((u: string) => u.trim()).filter(Boolean);
         delete campSiteData.images;
         const imagesCreate = imageUrls.map((url, i) => ({ url, sortOrder: i }));
+
+        // CAM-359 BR-3(b)/EC-6: none of the 12 mock camps above set
+        // maxGuestsPerDay, and none set useSpotView (they all default to
+        // WHOLE-CAMP mode). CampgroundForm's whole-camp save guard
+        // (components/CampgroundForm.tsx handleSubmit) requires
+        // maxGuestsPerDay >= 1 BEFORE it reaches name/price validation — a
+        // seeded camp missing it trips the guest-capacity banner first, not
+        // the banner the AC/edit-round-trip regression specs assert. Default
+        // every seeded whole-camp site to a reasonable capacity so every
+        // seeded camp is save-valid without changing any other seed value.
+        if (campSiteData.maxGuestsPerDay === undefined) {
+            campSiteData.maxGuestsPerDay = 20;
+        }
+        // maxTentsPerDay is a SIBLING field under the exact same
+        // campSiteSchema rule (`z.number().int().min(1).optional()`): it is
+        // OPTIONAL when omitted, but the form's edit-initializer defaults an
+        // unset value to `0` (`initialData.maxTentsPerDay ?? 0`), and the
+        // form's own client pre-check (`campSiteSchema.partial().safeParse`)
+        // then rejects that `0` as "Too small: expected number to be >=1" —
+        // discovered live while proving AC-1 against these camps: EVERY
+        // seeded camp failed EVERY save with this exact error, since none of
+        // the 12 set it. Same fix as maxGuestsPerDay, same reason.
+        if (campSiteData.maxTentsPerDay === undefined) {
+            campSiteData.maxTentsPerDay = 10;
+        }
 
         // Create or update camp site
         await prisma.campSite.upsert({

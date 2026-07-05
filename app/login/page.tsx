@@ -126,6 +126,7 @@ export default function LoginPage() {
                             leftIcon={<Mail className="w-4 h-4" />}
                             inputSize="lg"
                             className="rounded-full bg-background border-border"
+                            data-testid="input--login-email"
                         />
 
                         {/* Password */}
@@ -142,6 +143,7 @@ export default function LoginPage() {
                             containerClassName="mb-8"
                             inputSize="lg"
                             className="rounded-full bg-background border-border"
+                            data-testid="input--login-password"
                         />
 
                         {/* Submit Button */}
@@ -150,6 +152,7 @@ export default function LoginPage() {
                             size="lg"
                             disabled={isPending}
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 active:scale-95 transition-all text-lg"
+                            data-testid="btn--login-submit"
                         >
                             {isPending ? t.auth.signingIn : t.auth.login}
                         </Button>

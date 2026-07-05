@@ -750,6 +750,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 disabled={isLoading}
                                 aria-busy={isLoading}
                                 className="px-6 rounded-full font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
+                                data-testid="btn--campground-save"
                             >
                                 {isLoading ? t.newCampground.saving : <><Save className="w-4 h-4 mr-2" /> {isEditing ? t.newCampground.update : t.newCampground.saveListing}</>}
                             </Button>
@@ -762,7 +763,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 {/* Server Error Banner (after submit) */}
                 {hasSubmitted && serverError && (
                     <div className="mb-6">
-                        <ErrorBanner message={serverError} />
+                        <ErrorBanner message={serverError} data-testid="alert--campground-validation" />
                     </div>
                 )}
 
@@ -786,6 +787,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, nameTh: e.target.value })}
                                         inputSize="lg"
                                         error={zErr('nameTh')}
+                                        data-testid="input--campground-name-th"
                                     />
                                     <InputField
                                         label={t.newCampground.nameEn}
@@ -793,6 +795,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
                                         inputSize="lg"
                                         error={zErr('nameEn')}
+                                        data-testid="input--campground-name-en"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -1251,6 +1254,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             inputSize="lg"
                                             placeholder="e.g. 500"
                                             error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.minPriceError : undefined) || zErr('priceLow')}
+                                            data-testid="input--campground-price-low"
                                         />
                                         <InputField
                                             label={t.newCampground.maxPrice}
@@ -1264,6 +1268,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             inputSize="lg"
                                             placeholder="e.g. 1200"
                                             error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.maxPriceError : undefined) || zErr('priceHigh')}
+                                            data-testid="input--campground-price-high"
                                         />
                                     </div>
                                 )}
