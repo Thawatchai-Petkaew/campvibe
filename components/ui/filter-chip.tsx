@@ -40,7 +40,7 @@ export function FilterChip({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "active:scale-95",
           selected
-            ? "border-foreground bg-foreground text-background hover:bg-foreground/85"
+            ? "border-primary bg-primary text-primary-foreground hover:bg-primary/85"
             : "border-border bg-card text-foreground hover:border-foreground",
           disabled && "opacity-50 pointer-events-none"
         )}
@@ -65,7 +65,7 @@ export function FilterChip({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "active:scale-95",
           selected
-            ? "border-foreground bg-foreground/5"
+            ? "border-primary bg-primary/5"
             : "border-border bg-card hover:border-foreground/40",
           disabled && "opacity-50 pointer-events-none"
         )}
@@ -74,7 +74,7 @@ export function FilterChip({
           <Icon
             className={cn(
               "size-8",
-              selected ? "text-foreground" : "text-muted-foreground"
+              selected ? "text-primary" : "text-muted-foreground"
             )}
             aria-hidden="true"
           />
@@ -98,7 +98,7 @@ export function FilterChip({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "active:scale-95",
         selected
-          ? "border-foreground bg-foreground/5 font-semibold text-foreground"
+          ? "border-primary bg-primary/5 font-semibold text-primary"
           : "border-border text-muted-foreground hover:border-foreground/40",
         disabled && "opacity-50 pointer-events-none"
       )}
