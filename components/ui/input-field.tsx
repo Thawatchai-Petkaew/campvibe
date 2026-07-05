@@ -33,6 +33,7 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
       className,
       id,
       inputSize,
+      required,
       ...props
     },
     ref
@@ -74,6 +75,12 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
                 )}
               >
                 {label}
+                {required && (
+                  <span className="text-destructive" aria-hidden="true">
+                    {" "}
+                    *
+                  </span>
+                )}
               </Label>
             </PopoverTrigger>
             {isTruncated && (
@@ -100,6 +107,7 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
             ref={ref}
             id={inputId}
             inputSize={inputSize}
+            required={required}
             aria-invalid={hasError}
             aria-describedby={displayText ? `${inputId}-hint` : undefined}
             className={cn(

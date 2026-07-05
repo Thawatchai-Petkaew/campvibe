@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { imageInputSchema } from './image';
+import { imageInputSchema, imageUrlValue } from './image';
 
 // Extended camp site types to match actual usage
 export const CampSiteTypeEnum = z.enum([
@@ -112,7 +112,10 @@ export const campSiteSchema = z.object({
 
   partner: z.string().optional(),
   nationalPark: z.string().optional(),
-  logo: z.string().url().optional().or(z.literal('')),
+  // CAM-358: root-relative paths (the /api/upload dev-fallback shape + legacy
+  // rows already in the DB) are valid alongside an absolute URL — see
+  // lib/validations/image.ts `imageUrlValue`. Empty stays valid (no logo set).
+  logo: imageUrlValue.optional().or(z.literal('')),
   // CAM-352: union input — accepts a legacy bare url string OR {url, kind};
   // both normalize to {url, kind} (see lib/validations/image.ts). The shared
   // <ImageUpload> component also feeds the camp gallery, so it must accept
