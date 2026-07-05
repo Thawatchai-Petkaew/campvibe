@@ -22,25 +22,34 @@ function issue(p: Partial<StatusIssue>): StatusIssue {
   };
 }
 
-describe("envOf — derive env from state + released label", () => {
+describe("envOf — derive env from the released/on-staging labels (CAM-370 dev-branch flow)", () => {
   it("[AC2] in-progress / backlog (not done) → dev", () => {
     expect(envOf(issue({ status: "In Progress", statusType: "started" }))).toBe("dev");
     expect(envOf(issue({ status: "Backlog", statusType: "backlog" }))).toBe("dev");
   });
 
-  it("[AC3] Done without released → staging (release train)", () => {
-    expect(envOf(issue({ status: "Done", statusType: "completed" }))).toBe("staging");
+  it("[CAM-370] Done WITHOUT on-staging → dev (merged to `dev` only, not yet batch-promoted)", () => {
+    expect(envOf(issue({ status: "Done", statusType: "completed" }))).toBe("dev");
+  });
+
+  it("[AC3] Done + on-staging → staging (rode a batched dev→staging promote)", () => {
+    expect(envOf(issue({ status: "Done", statusType: "completed", labels: ["on-staging"] }))).toBe("staging");
   });
 
   it("[AC4] Done + released → prod", () => {
     expect(envOf(issue({ status: "Done", statusType: "completed", labels: ["released"] }))).toBe("prod");
   });
 
-  it("released label takes precedence over state", () => {
-    expect(envOf(issue({ status: "In Progress", statusType: "started", labels: ["released"] }))).toBe("prod");
+  it("released label takes precedence over on-staging and state", () => {
+    expect(
+      envOf(issue({ status: "In Progress", statusType: "started", labels: ["released"] }))
+    ).toBe("prod");
+    expect(
+      envOf(issue({ status: "Done", statusType: "completed", labels: ["on-staging", "released"] }))
+    ).toBe("prod");
   });
 
-  it("ignores unrelated labels for non-released, non-done work", () => {
+  it("ignores unrelated labels for non-released, non-staged work", () => {
     expect(envOf(issue({ status: "In Progress", statusType: "started", labels: ["platform", "awaiting-you"] }))).toBe("dev");
   });
 });

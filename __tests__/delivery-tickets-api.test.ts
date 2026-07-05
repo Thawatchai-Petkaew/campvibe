@@ -29,6 +29,7 @@ vi.mock("@/lib/delivery/tickets", () => ({
   reject: vi.fn(),
   complete: vi.fn(),
   release: vi.fn(),
+  stage: vi.fn(),
   cancel: vi.fn(),
   reopen: vi.fn(),
   handoff: vi.fn(),
@@ -310,6 +311,7 @@ describe("PATCH /api/tickets/[id]", () => {
     { body: { action: "reject", actor: "human" }, fn: "reject", args: ["CAM-1", "human", undefined] },
     { body: { action: "complete", actor: "human" }, fn: "complete", args: ["CAM-1", "human"] },
     { body: { action: "release", actor: "human" }, fn: "release", args: ["CAM-1", "human"] },
+    { body: { action: "stage", actor: "human" }, fn: "stage", args: ["CAM-1", "human"] },
     { body: { action: "cancel", actor: "human", note: "dup" }, fn: "cancel", args: ["CAM-1", "human", "dup"] },
     { body: { action: "reopen", actor: "human", note: "regression" }, fn: "reopen", args: ["CAM-1", "human", "regression"] },
     {

@@ -89,6 +89,8 @@ export const patchTicketBodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("reject"), actor: actorSchema, note: z.string().max(noteMaxLen).optional() }),
   z.object({ action: z.literal("complete"), actor: actorSchema }),
   z.object({ action: z.literal("release"), actor: actorSchema }),
+  // CAM-370: durable on-staging marker — no extra params (mirrors "release" above).
+  z.object({ action: z.literal("stage"), actor: actorSchema }),
   z.object({ action: z.literal("cancel"), actor: actorSchema, note: z.string().max(noteMaxLen).optional() }),
   z.object({
     action: z.literal("reopen"),

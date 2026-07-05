@@ -21,3 +21,17 @@ export const NEEDS_CLARIFICATION_MARKER = "[NEEDS CLARIFICATION";
 export function hasUnresolvedMarker(text) {
   return typeof text === "string" && text.includes(NEEDS_CLARIFICATION_MARKER);
 }
+
+/**
+ * hasStagedAtIntegrityGap — CAM-370. True when a ticket carries a `stagedAt` timestamp
+ * (the durable "rode a batched dev->staging promote" marker) while its `state` is anything
+ * other than DONE. The `stage` verb (lib/delivery/tickets.ts) only ever writes `stagedAt`
+ * while the ticket IS DONE, so this combination can only arise from data drift outside the
+ * API's own verbs (e.g. a direct DB edit, or a future legacy import) — the same "defensive,
+ * not reachable via the API's own verbs" reasoning as the roleHistory integrity check in
+ * `ticket-sync.mjs audit`. Accepts the minimal shape so callers don't need the full Ticket
+ * type (kept a pure function, same pattern as hasUnresolvedMarker above).
+ */
+export function hasStagedAtIntegrityGap(ticket) {
+  return Boolean(ticket && ticket.stagedAt && ticket.state !== "DONE");
+}

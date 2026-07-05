@@ -23,6 +23,7 @@ export type FakeTicketRow = Record<string, any> & {
   blocked: boolean;
   archivedAt: Date | null;
   releasedAt: Date | null;
+  stagedAt: Date | null;
   startedAt: Date | null;
   completedAt: Date | null;
   gateRaisedAt: Date | null;
@@ -52,6 +53,7 @@ export function makeTicketRow(overrides: Partial<FakeTicketRow> & { number: numb
     changesRequested: false,
     regressionRound: 0,
     releasedAt: null,
+    stagedAt: null,
     blocked: false,
     roleHistory: [],
     assigneeName: null,

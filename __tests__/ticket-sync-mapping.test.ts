@@ -153,6 +153,14 @@ describe("mapLegacyLabel", () => {
     expect(r.ok).toBe(true);
     expect(r.warn).toMatch(/one-way stamp/i);
   });
+  it("add on-staging -> stage (CAM-370)", () => {
+    expect(mapLegacyLabel("on-staging", "add")).toEqual({ ok: true, action: "stage" });
+  });
+  it("remove on-staging -> warn (not reversible)", () => {
+    const r = mapLegacyLabel("on-staging", "remove");
+    expect(r.ok).toBe(true);
+    expect(r.warn).toMatch(/not reversible/i);
+  });
   it("add blocked -> setBlocked(true)", () => {
     expect(mapLegacyLabel("blocked", "add")).toEqual({
       ok: true,
@@ -203,7 +211,7 @@ describe("ACTIONS_ACCEPTING_NOTE", () => {
     );
   });
   it("excludes verbs with no note field", () => {
-    for (const a of ["start", "approve", "complete", "release", "archive", "unarchive", "updateFields"]) {
+    for (const a of ["start", "approve", "complete", "release", "stage", "archive", "unarchive", "updateFields"]) {
       expect(ACTIONS_ACCEPTING_NOTE.has(a)).toBe(false);
     }
   });

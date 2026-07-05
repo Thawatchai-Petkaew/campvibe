@@ -7,7 +7,11 @@
  * Kept as a pure-function test — no network, no live ticket DB mutation.
  */
 import { describe, it, expect } from "vitest";
-import { hasUnresolvedMarker, NEEDS_CLARIFICATION_MARKER } from "../scripts/lib/ticket-sync-audit.mjs";
+import {
+  hasUnresolvedMarker,
+  NEEDS_CLARIFICATION_MARKER,
+  hasStagedAtIntegrityGap,
+} from "../scripts/lib/ticket-sync-audit.mjs";
 
 describe("hasUnresolvedMarker", () => {
   it("false on a clean story.md with no marker", () => {
@@ -43,5 +47,29 @@ describe("hasUnresolvedMarker", () => {
 
   it("exports the marker constant used by the template + docs", () => {
     expect(NEEDS_CLARIFICATION_MARKER).toBe("[NEEDS CLARIFICATION");
+  });
+});
+
+// ── CAM-370: hasStagedAtIntegrityGap ────────────────────────────────────────────────────
+
+describe("hasStagedAtIntegrityGap", () => {
+  it("true when stagedAt is set and state is not DONE", () => {
+    expect(hasStagedAtIntegrityGap({ stagedAt: new Date(), state: "IN_PROGRESS" })).toBe(true);
+    expect(hasStagedAtIntegrityGap({ stagedAt: new Date(), state: "BACKLOG" })).toBe(true);
+  });
+
+  it("false when stagedAt is set and state IS DONE (the valid case)", () => {
+    expect(hasStagedAtIntegrityGap({ stagedAt: new Date(), state: "DONE" })).toBe(false);
+  });
+
+  it("false when stagedAt is null/undefined, regardless of state", () => {
+    expect(hasStagedAtIntegrityGap({ stagedAt: null, state: "IN_PROGRESS" })).toBe(false);
+    expect(hasStagedAtIntegrityGap({ state: "IN_PROGRESS" })).toBe(false);
+  });
+
+  it("false on empty/undefined/null input — never throws", () => {
+    expect(hasStagedAtIntegrityGap(undefined as unknown as Record<string, unknown>)).toBe(false);
+    expect(hasStagedAtIntegrityGap(null as unknown as Record<string, unknown>)).toBe(false);
+    expect(hasStagedAtIntegrityGap({} as Record<string, unknown>)).toBe(false);
   });
 });

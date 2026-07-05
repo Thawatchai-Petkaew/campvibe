@@ -24,6 +24,7 @@
  *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --state "In Progress"
  *   node scripts/ticket-sync.mjs handoff CAM-7 --role backend-engineer --model sonnet   # CAM-342 model-tier stamp (fable|opus|sonnet|haiku); trial-2 feedback: also stamped when this call maps onto start()
  *   node scripts/ticket-sync.mjs release CAM-7
+ *   node scripts/ticket-sync.mjs stage CAM-7                # CAM-370: on-staging marker (stagedAt); requires DONE, else no-op-warn
  *   node scripts/ticket-sync.mjs gates                      # exit 10 when a gate is "cleared"
  *   node scripts/ticket-sync.mjs audit                       # exit 11 on template/artifact drift
  *                                                            # (incl. an open [NEEDS CLARIFICATION] marker)
@@ -57,6 +58,9 @@
  *   `set --add-label X` / `--remove-label X`:
  *     awaiting-you  add→raiseGate · remove→approve
  *     released      add→release   · remove→warn (releasedAt is a one-way stamp), no-op exit 0
+ *     on-staging    add→stage (CAM-370; requires DONE server-side, else silent no-op — the CLI
+ *                   detects that from the returned ticket and prints a warn) · remove→warn
+ *                   (stagedAt has no remove-verb, same shape as released), no-op exit 0
  *     blocked       add→setBlocked(true) · remove→setBlocked(false)
  *     <persona>     (host|camper|admin|platform) add→updateFields(persona) · remove→updateFields(persona:null)
  *     anything else → warn "labels are columns now", no-op, exit 0
@@ -79,7 +83,7 @@ import {
   parseCommentFlags,
   parseActorFlag,
 } from "./lib/ticket-sync-args.mjs";
-import { hasUnresolvedMarker } from "./lib/ticket-sync-audit.mjs";
+import { hasUnresolvedMarker, hasStagedAtIntegrityGap } from "./lib/ticket-sync-audit.mjs";
 
 // ── env (dotenv-style parse, no deps — copied from scripts/linear-sync.mjs) ───────────────
 
@@ -220,6 +224,7 @@ function synthesizeLabels(t) {
   if (t.state === "AWAITING_GATE") labels.push("awaiting-you");
   if (t.changesRequested) labels.push("changes-requested");
   if (t.releasedAt) labels.push("released");
+  if (t.stagedAt) labels.push("on-staging"); // CAM-370
   if (t.blocked) labels.push("blocked");
   if (t.persona) labels.push(t.persona.toLowerCase());
   if (t.regressionRound > 0) labels.push(`regression:${t.regressionRound}`);
@@ -358,7 +363,16 @@ async function cmdSet(id, args) {
     const params = { ...(decision.params || {}) };
     if (flags.note && ACTIONS_ACCEPTING_NOTE.has(decision.action)) params.note = flags.note;
     const updated = await patchTicket(id, decision.action, params, actor);
-    if (updated) changeLines.push(`+${label} (${decision.action})`);
+    if (updated) {
+      // CAM-370: `stage` is a silent no-op server-side when the ticket isn't DONE yet (never
+      // hard-fails a batched `set --add-label on-staging` run across a mixed-state set) —
+      // detect that here from the returned ticket and print a warn instead of a false "updated".
+      if (decision.action === "stage" && updated.state !== "DONE") {
+        console.log(`⚠ ${id} on-staging requires state=Done (ticket is ${STATE_LABEL[updated.state] || updated.state}) — no-op, stagedAt not stamped`);
+      } else {
+        changeLines.push(`+${label} (${decision.action})`);
+      }
+    }
   }
   for (const label of flags.remove) {
     const decision = mapLegacyLabel(label, "remove");
@@ -432,6 +446,23 @@ async function cmdRelease(id, args) {
   try { flags = parseActorFlag(args); } catch (e) { usageErr(e.message); return; }
   const updated = await patchTicket(id, "release", {}, flags.actor || DEFAULT_ACTOR);
   if (updated) console.log(`✓ ${id} released`);
+}
+
+/** stage — CAM-370 direct subcommand, mirrors `release` above (equivalent to
+ * `set <CAM-id> --add-label on-staging`, see mapLegacyLabel). A non-DONE ticket is a
+ * silent no-op server-side (lib/delivery/tickets.ts stage()) — detected here from the
+ * returned ticket's state and reported as a warn, not a false "staged". */
+async function cmdStage(id, args) {
+  if (!id) usage("stage <CAM-id> [--actor <actor>]");
+  let flags;
+  try { flags = parseActorFlag(args); } catch (e) { usageErr(e.message); return; }
+  const updated = await patchTicket(id, "stage", {}, flags.actor || DEFAULT_ACTOR);
+  if (!updated) return;
+  if (updated.state !== "DONE") {
+    console.log(`⚠ ${id} on-staging requires state=Done (ticket is ${STATE_LABEL[updated.state] || updated.state}) — no-op, stagedAt not stamped`);
+  } else {
+    console.log(`✓ ${id} staged (on-staging)`);
+  }
 }
 
 /**
@@ -528,6 +559,21 @@ async function cmdAudit() {
     // operator cannot clear through sanctioned tools is a broken gate. It self-heals on the
     // ticket's next real role change.
     console.log(`handoff: ${noHandoff} active ticket(s) with a currentRole/roleHistory mismatch (warning — self-heals on next handoff)`);
+  }
+
+  // stagedAt integrity (CAM-370): every ticket in `stories` is already guaranteed state !== DONE
+  // (see the filter above), so any of them carrying a stagedAt timestamp is a real integrity gap —
+  // the `stage` verb only ever writes stagedAt while the ticket IS DONE (lib/delivery/tickets.ts).
+  let staleStaged = 0;
+  for (const s of stories) {
+    if (hasStagedAtIntegrityGap(s)) {
+      staleStaged++;
+      console.log(`  ✗ ${s.identifier} stagedAt is set but state=${STATE_LABEL[s.state] || s.state} (expected DONE) — integrity gap`);
+    }
+  }
+  if (staleStaged) {
+    console.log(`stagedAt: ${staleStaged} ticket(s) with stagedAt set but not DONE`);
+    process.exitCode = 11;
   }
 
   // Delivery artifact-store consistency (docs/specs/) — filesystem checks unchanged,
@@ -766,7 +812,7 @@ const USAGE =
   "usage: ticket-sync <list | gates | audit | pull [outfile] | index | show <CAM-id> | " +
   "set <CAM-id> [--state S] [--add-label L] [--remove-label L] [--model fable|opus|sonnet|haiku] [--note N] [--actor A] | " +
   "handoff <CAM-id> --role <role> [--state S] [--model fable|opus|sonnet|haiku] [--note N] [--actor A] | " +
-  "release <CAM-id> [--actor A] | scaffold <CAM-id> | notify <text> | " +
+  "release <CAM-id> [--actor A] | stage <CAM-id> [--actor A] | scaffold <CAM-id> | notify <text> | " +
   "create --type epic|story|task --title T [--epic E] [--role R] [--persona P] [--feature F] " +
   "[--priority N] [--description-file F | --description D] [--actor A] | " +
   "comment <CAM-id> --body B [--body-file F] [--actor A]>";
@@ -777,6 +823,7 @@ try {
   else if (cmd === "set") await cmdSet(rest[0], rest.slice(1));
   else if (cmd === "handoff") await cmdHandoff(rest[0], rest.slice(1));
   else if (cmd === "release") await cmdRelease(rest[0], rest.slice(1));
+  else if (cmd === "stage") await cmdStage(rest[0], rest.slice(1));
   else if (cmd === "gates") await cmdGates();
   else if (cmd === "audit") await cmdAudit();
   else if (cmd === "pull") await cmdPull(rest[0]);

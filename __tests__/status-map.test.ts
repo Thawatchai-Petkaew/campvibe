@@ -2171,13 +2171,14 @@ function epic(p: {
 // A representative project: 2 features. "Authentication" has 2 dev + 1 staging + 1 ship;
 // "Booking" has 1 dev. Global env fallback below intentionally differs from the
 // per-filter derivation so the tests prove the numbers actually change.
+// CAM-370: Staging now requires the `on-staging` label (Done alone buckets into Dev).
 const FIXTURE_EPICS: MapEpicItem[] = [
   epic({
     key: "auth-login", label: "Login", feature: "Authentication", persona: "camper", bucket: "prog",
     stories: [
       { statusType: "started" },                                   // dev
       { statusType: "unstarted" },                                 // dev
-      { statusType: "completed", status: "Done" },                 // staging (Done, not released)
+      { statusType: "completed", status: "Done", labels: ["on-staging"] }, // staging (on-staging, not released)
       { statusType: "completed", status: "Done", labels: ["released"] }, // ship (released)
     ],
   }),
@@ -2229,7 +2230,7 @@ describe("CAM-257 A — deriveCapsuleStats scopes counts to the active filter", 
       ...GLOBAL_FALLBACK,
     });
     expect(s.scoped).toBe(true);
-    // Authentication: 2 started/unstarted → dev, 1 Done → staging, 1 released → ship
+    // Authentication: 2 started/unstarted → dev, 1 Done+on-staging → staging, 1 released → ship
     expect(s.devCount).toBe(2);
     expect(s.stagingCount).toBe(1);
     expect(s.shipCount).toBe(1);
@@ -2248,7 +2249,7 @@ describe("CAM-257 A — deriveCapsuleStats scopes counts to the active filter", 
     expect(s.pct).toBe(0); // 0 done / 1 total
   });
 
-  it("env bucketing follows envOf semantics: released→Ship, Done→Staging, else→Dev", () => {
+  it("env bucketing follows envOf semantics: released→Ship, on-staging→Staging, else→Dev (CAM-370)", () => {
     const s = deriveCapsuleStats({
       epics: FIXTURE_EPICS, scope: "epic", activeEpic: "auth-login", feature: "", persona: "",
       ...GLOBAL_FALLBACK,
@@ -2257,6 +2258,22 @@ describe("CAM-257 A — deriveCapsuleStats scopes counts to the active filter", 
     expect(s.shipCount).toBe(1);
     expect(s.stagingCount).toBe(1);
     expect(s.devCount).toBe(2);
+  });
+
+  it("[CAM-370] a Done story WITHOUT the on-staging label counts as Dev, not Staging", () => {
+    const epics: MapEpicItem[] = [
+      epic({
+        key: "solo", label: "Solo", feature: "Solo", persona: "", bucket: "prog",
+        stories: [{ statusType: "completed", status: "Done" }], // Done, no on-staging, no released
+      }),
+    ];
+    const s = deriveCapsuleStats({
+      epics, scope: "all", activeEpic: "", feature: "Solo", persona: "",
+      ...GLOBAL_FALLBACK,
+    });
+    expect(s.devCount).toBe(1);
+    expect(s.stagingCount).toBe(0);
+    expect(s.shipCount).toBe(0);
   });
 
   it("summary counts (gates/backlog/epics) are scoped to the same selection", () => {

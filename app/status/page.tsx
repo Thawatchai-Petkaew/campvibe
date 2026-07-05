@@ -89,13 +89,14 @@ function timeAgo(iso: string | null): string {
   return `${Math.max(1, Math.floor(ms / 6e4))}m`;
 }
 
-// ---------- Environments board (derived 3-env lanes: Dev → Staging → Prod) ----------
+// ---------- Environments board (derived dev-branch-flow lanes: Dev → Staging → Prod) ----------
 // Mirrors the per-status Board idiom (.board/.col/.kc) but keyed by env. env is DERIVED from
-// state + the `released` label (envOf) — no env field. Staging column = the release train.
+// the `released` / `on-staging` labels (envOf) — no env field (ops.md §1 4-layer model;
+// CAM-370 added the on-staging label, so Done alone no longer buckets into Staging).
 const ENV_ORDER: EnvLane[] = ["dev", "staging", "prod"];
 const ENV_META: Record<EnvLane, { label: string; sub: string }> = {
   dev: { label: "Dev", sub: "กำลังทำ · ยังไม่ขึ้น staging" },
-  staging: { label: "Staging", sub: "Done · พร้อมขึ้น prod" },
+  staging: { label: "Staging", sub: "on-staging · รอ G4" },
   prod: { label: "Prod", sub: "released" },
 };
 const ENV_COLOR: Record<EnvLane, string> = { dev: "#8a9aa8", staging: "var(--blue)", prod: "var(--green)" };
