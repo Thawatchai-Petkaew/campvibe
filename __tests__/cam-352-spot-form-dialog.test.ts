@@ -139,7 +139,7 @@ describe('CAM-352 spot form dialog — data-testid convention (<type>--<module>-
   const REQUIRED_TESTIDS = [
     'modal--spot-form',
     'input--spot-name',
-    'input--spot-zone',
+    'select--spot-zone', // CAM-362 — free-text zone input replaced by a zone <Select>
     'select--spot-viewtype',
     'input--spot-max-campers',
     'input--spot-max-tents',
