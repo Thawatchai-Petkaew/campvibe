@@ -62,7 +62,10 @@ jobs:
           # Prisma generate runs inside `npm run build`; no migration needed here.
           SKIP_ENV_VALIDATION: "1"
       - name: Run Playwright (visual + a11y)
-        run: npx playwright test
+        # CAM-359: scoped to the chromium project only. playwright.config.ts now
+        # also defines regression/regression-setup projects (a separate, local-DB-
+        # only suite) — this job has no Postgres service and must stay unaffected.
+        run: npx playwright test --project=chromium
         env:
           # Point at the production build started by the webServer config.
           # SKIP_BUILD=1 tells playwright.config.ts to only `npm run start`
@@ -84,6 +87,72 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # CAM-359 — Advisory E2E regression suite (harness + first 6 specs).
+  # Drives REAL host create/update/delete flows (via the real /login form +
+  # storageState — see playwright.config.ts + e2e/regression/) against a
+  # Postgres service container that lives ONLY inside this job/runner — never
+  # a shared staging/prod DB. That isolation comes from the hardcoded local
+  # DATABASE_URL below (the "Migrate + seed" step runs BEFORE Playwright, so
+  # the harness's own BR-1 guard — e2e/regression/db-guard.ts, which only
+  # runs inside the `regression-setup` Playwright project — does NOT cover
+  # that step). The guard's real job is to catch a LOCAL dev misconfiguring
+  # `DATABASE_URL` when running this same suite by hand (its actual
+  # non-negotiable purpose per BR-1), and it still runs here too, immediately
+  # before any login/spec, as a second check on the Playwright-driven steps.
+  # `continue-on-error: true` + not a required check: advisory-first rollout
+  # per .claude/rules/ops.md §Gate policy v2 — flips to blocking only after
+  # BR-6's stability criterion (>=10 consecutive green runs) is met, a
+  # separate future decision.
+  e2e-regression:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: campvibe
+          POSTGRES_PASSWORD: campvibe
+          POSTGRES_DB: campvibe_e2e
+        ports:
+          - 5432:5432
+        # EC-5: GitHub Actions waits for the service health check to pass
+        # before running any job step, so migrate/seed never race a
+        # not-yet-ready Postgres.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: "postgresql://campvibe:campvibe@localhost:5432/campvibe_e2e?schema=public"
+      AUTH_SECRET: "e2e-regression-ci-secret-not-a-real-secret-0000000000"
+      NEXTAUTH_URL: "http://localhost:3100"
+      # NextAuth v5 rejects the CI runner's plain localhost host without this
+      # (same reasoning as the visual-a11y job above).
+      AUTH_TRUST_HOST: "true"
+      PW_REGRESSION: "1"
+      E2E_PORT: "3100"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - name: Install Playwright Chromium + OS deps
+        run: npx playwright install --with-deps chromium
+      - name: Migrate + seed the CI Postgres service (BR-3 idempotent seed)
+        run: npx prisma migrate deploy && npx tsx prisma/seed.ts
+      - name: Run Playwright (regression)
+        run: npx playwright test --project=regression
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-regression-report
           path: playwright-report/
           retention-days: 14
 

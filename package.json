@@ -11,7 +11,8 @@
     "postinstall": "prisma generate && npm run delivery:generate",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:regression": "playwright test --project=regression",
     "status:linear": "node scripts/ticket-sync.mjs list",
     "status:gates": "node scripts/ticket-sync.mjs gates",
     "status:pull": "node scripts/ticket-sync.mjs pull",
@@ -89,7 +90,7 @@
     "vitest": "^4.1.9"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "overrides": {
     "@emnapi/core": "1.11.1",

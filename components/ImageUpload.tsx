@@ -89,6 +89,7 @@ export function ImageUpload({
                                 type="button"
                                 onClick={() => onRemove(url)}
                                 className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition shadow-sm"
+                                data-testid="btn--album-image-remove"
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -128,6 +129,7 @@ export function ImageUpload({
                         isDragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary hover:bg-muted",
                         (disabled || isUploading) && "opacity-50 cursor-not-allowed"
                     )}
+                    data-testid="dropzone--album"
                 >
                     <input {...getInputProps()} />
                     {isUploading ? (

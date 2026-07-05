@@ -207,7 +207,7 @@ export default function MyCampSitesPage() {
                                 </tr>
                             ) : (
                                 filteredCampSites.map((camp) => (
-                                <tr key={camp.id} className="hover:bg-muted/40 transition duration-200 group">
+                                <tr key={camp.id} className="hover:bg-muted/40 transition duration-200 group" data-testid={`row--campsite-${camp.id}`}>
                                         <td className="px-8 py-4">
                                             <div className="w-16 h-16 rounded-xl bg-muted overflow-hidden shadow-sm border border-border/60">
                                                 {camp.images?.length ? (

@@ -19,6 +19,9 @@
 /blob-report/
 /playwright/.cache/
 
+# CAM-359 — e2e-regression storageState (real session cookies; never commit)
+/e2e/regression/.auth/
+
 # next.js
 /.next/
 /out/

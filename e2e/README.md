@@ -4,6 +4,11 @@ Advisory mechanical reviewer that catches visual/spacing/a11y drift that grep
 guards and prose review miss. **Never blocks a merge gate** — the CI job runs
 with `continue-on-error: true`.
 
+> This file covers the `chromium` visual/a11y project only (production build,
+> no local DB). The separate **e2e-regression** suite (real host create/
+> update/delete flows against a local-only DB + the dev server) lives under
+> `e2e/regression/` — see `e2e/regression/README.md`.
+
 ## What is in here
 
 | File | Purpose |
