@@ -427,6 +427,12 @@
             "viewImage": "View photo {n}",
             "imageUnavailable": "Image unavailable"
         },
+        "panorama": {
+            "title": "Panorama photo",
+            "hint": "Drag or scroll to see the photo",
+            "openLabel": "Open panorama photo",
+            "closeLabel": "Close panorama photo"
+        },
         "bookings": {
             "myBookings": "My Bookings",
             "manageBookings": "Manage your upcoming trips and booking history.",
@@ -1375,6 +1381,12 @@
             "openGallery": "เปิดแกลเลอรีรูปภาพ",
             "viewImage": "ดูรูปภาพที่ {n}",
             "imageUnavailable": "ไม่มีรูปภาพ"
+        },
+        "panorama": {
+            "title": "ภาพพาโนรามา",
+            "hint": "ลากหรือเลื่อนเพื่อดูภาพ",
+            "openLabel": "เปิดภาพพาโนรามา",
+            "closeLabel": "ปิดภาพพาโนรามา"
         },
         "bookings": {
             "myBookings": "การจองของฉัน",
