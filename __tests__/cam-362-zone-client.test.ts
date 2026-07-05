@@ -10,7 +10,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createZone, deleteZone } from '../lib/zone-client';
+import { createZone, deleteZone, fetchZonesSafe } from '../lib/zone-client';
 
 function mockFetchOnce(status: number, body: unknown) {
   vi.stubGlobal(
@@ -133,5 +133,90 @@ describe('CAM-362 zone-client — deleteZone (DELETE /api/campsites/[id]/zones/[
     await deleteZone('c1', 'z9');
 
     expect(fetch).toHaveBeenCalledWith('/api/campsites/c1/zones/z9', { method: 'DELETE' });
+  });
+});
+
+/**
+ * G3 fix (I-1) — Prove-It regression suite: before this fix,
+ * components/spot-management-section.tsx's loadData did
+ * `if (!zonesRes.ok) throw new Error("Failed to load zones")` INSIDE the
+ * same try/catch as the spots fetch, so a zones failure set the SHARED
+ * `loadError` and blanked the whole spots section even though spots had
+ * already loaded successfully. fetchZonesSafe is the extracted, real-tested
+ * fix: it must resolve to `{ ok: false }` for every failure mode (bad
+ * status, network rejection) and NEVER throw/reject — the property the
+ * component's Promise.all now depends on for isolation.
+ */
+describe('CAM-362 zone-client — fetchZonesSafe (GET /api/campsites/[id]/zones) — G3 fix I-1', () => {
+  it('200 -> ok:true with the live zones array', async () => {
+    const zones = [
+      { id: 'z1', campSiteId: 'c1', name: 'โซน A', sortOrder: 0 },
+      { id: 'z2', campSiteId: 'c1', name: 'โซน B', sortOrder: 1 },
+    ];
+    mockFetchOnce(200, zones);
+
+    const result = await fetchZonesSafe('c1');
+
+    expect(result).toEqual({ ok: true, zones });
+  });
+
+  it('200 with an empty list -> ok:true, zones: [] (boundary)', async () => {
+    mockFetchOnce(200, []);
+
+    const result = await fetchZonesSafe('c1');
+
+    expect(result).toEqual({ ok: true, zones: [] });
+  });
+
+  it('a non-array body coerces to zones: [] rather than crashing the caller', async () => {
+    mockFetchOnce(200, { error: 'unexpected shape' });
+
+    const result = await fetchZonesSafe('c1');
+
+    expect(result).toEqual({ ok: true, zones: [] });
+  });
+
+  it('[Prove-It] 500 -> resolves to { ok: false } — does NOT throw (the exact failure mode that used to blank the spots section)', async () => {
+    mockFetchOnce(500, { error: 'Internal Server Error' });
+
+    await expect(fetchZonesSafe('c1')).resolves.toEqual({ ok: false });
+  });
+
+  it('404 -> ok:false (camp not found / not viewable)', async () => {
+    mockFetchOnce(404, { error: 'Camp site not found' });
+
+    const result = await fetchZonesSafe('c1');
+
+    expect(result).toEqual({ ok: false });
+  });
+
+  it('[Prove-It] a network-level rejection resolves to { ok: false } — never propagates as a rejected promise', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    await expect(fetchZonesSafe('c1')).resolves.toEqual({ ok: false });
+  });
+
+  it('can sit inside a Promise.all alongside a rejecting fetch without the WHOLE batch rejecting (the actual bug shape)', async () => {
+    // Simulates loadData's real Promise.all: spots resolves fine, zones'
+    // underlying fetch rejects. Promise.all only rejects if ANY entry
+    // rejects — fetchZonesSafe's internal catch is what prevents that here.
+    const spotsFetch = Promise.resolve({ ok: true, status: 200, json: async () => [] });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('zones endpoint unreachable'))
+    );
+
+    const [spotsRes, zonesResult] = await Promise.all([spotsFetch, fetchZonesSafe('c1')]);
+
+    expect(spotsRes.ok).toBe(true);
+    expect(zonesResult).toEqual({ ok: false });
+  });
+
+  it('GETs the camp-scoped path with no-store caching (fresh zone list every load)', async () => {
+    mockFetchOnce(200, []);
+
+    await fetchZonesSafe('c1');
+
+    expect(fetch).toHaveBeenCalledWith('/api/campsites/c1/zones', { cache: 'no-store' });
   });
 });

@@ -29,7 +29,7 @@ const sectionSrc = src('components/spot-management-section.tsx');
 
 describe('CAM-362 — zone manager reuses the shared zone-client + zod schema (no re-implementation)', () => {
   it('imports createZone/deleteZone from lib/zone-client (not an inline fetch/status-mapping fork)', () => {
-    expect(sectionSrc).toContain('import { createZone, deleteZone } from "@/lib/zone-client"');
+    expect(sectionSrc).toContain('import { createZone, deleteZone, fetchZonesSafe } from "@/lib/zone-client"');
   });
 
   it('imports zoneCreateSchema from lib/validations/zone for the client pre-check (ux.md #1)', () => {
@@ -160,18 +160,104 @@ describe('CAM-362 — zone manager: delete per zone via ConfirmDialog + detached
 });
 
 describe('CAM-362 — zones ride as a 4th parallel request (tech.md §4.1, no N+1)', () => {
-  it('fetches /zones in the SAME Promise.all as /spots + camp + session', () => {
+  it('fetches /zones (via fetchZones()) in the SAME Promise.all as /spots + camp + session', () => {
     const loadDataBody = sectionSrc.slice(
       sectionSrc.indexOf('const loadData = useCallback'),
-      sectionSrc.indexOf('}, [campSiteId]);')
+      sectionSrc.indexOf('}, [campSiteId, fetchZones]);')
     );
-    expect(loadDataBody).toContain('const [spotsRes, campRes, sessionRes, zonesRes] = await Promise.all([');
-    expect(loadDataBody).toContain('fetch(`/api/campsites/${campSiteId}/zones`, { cache: "no-store" })');
+    expect(loadDataBody).toContain('const [spotsRes, campRes, sessionRes, zonesResult] = await Promise.all([');
+    expect(loadDataBody).toContain('fetchZones(),');
+  });
+
+  it('no component-local /zones fetch remains — the raw request lives ONLY in fetchZonesSafe (lib/zone-client.ts), reused by loadData + retry', () => {
+    // the component no longer fetches /zones directly at all; it delegates
+    // to the shared, real-tested fetchZonesSafe (see cam-362-zone-client.test.ts).
+    expect(sectionSrc).not.toMatch(/fetch\(`\/api\/campsites\/\$\{campSiteId\}\/zones`/);
+    const zoneClientSrc = src('lib/zone-client.ts');
+    expect(zoneClientSrc).toContain('export async function fetchZonesSafe(campSiteId: string)');
+    const matches = zoneClientSrc.match(/fetch\(`\/api\/campsites\/\$\{campSiteId\}\/zones`/g) ?? [];
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it('SpotFormDialog receives the live zones list + a refetch callback (create/edit flow, tech.md §4.1)', () => {
     expect(sectionSrc).toContain('zones={zones ?? []}');
     expect(sectionSrc).toContain('onZonesChanged={loadData}');
+  });
+});
+
+describe('G3 fix (I-1) — a zones-fetch failure is isolated from the spots section', () => {
+  it('fetchZones() delegates to the real-tested fetchZonesSafe (lib/zone-client.ts) — never re-implements the isolation inline', () => {
+    expect(sectionSrc).toContain('import { createZone, deleteZone, fetchZonesSafe } from "@/lib/zone-client"');
+    const fetchZonesBody = sectionSrc.slice(
+      sectionSrc.indexOf('const fetchZones = useCallback'),
+      sectionSrc.indexOf('const loadData = useCallback')
+    );
+    expect(fetchZonesBody).toContain('const result = await fetchZonesSafe(campSiteId);');
+    expect(fetchZonesBody).not.toContain('throw');
+  });
+
+  it('a zones failure inside loadData sets zonesLoadError + zones=[] — it does NOT throw into the shared catch', () => {
+    const loadDataBody = sectionSrc.slice(
+      sectionSrc.indexOf('const loadData = useCallback'),
+      sectionSrc.indexOf('}, [campSiteId, fetchZones]);')
+    );
+    const zonesBranch = loadDataBody.slice(
+      loadDataBody.indexOf('if (zonesResult.ok) {'),
+      loadDataBody.indexOf('let ownerOrAdmin')
+    );
+    expect(zonesBranch).toContain('setZones(zonesResult.zones);');
+    expect(zonesBranch).toContain('setZonesLoadError(false);');
+    expect(zonesBranch).toContain('setZones([]);');
+    expect(zonesBranch).toContain('setZonesLoadError(true);');
+    expect(zonesBranch).not.toContain('throw');
+    // the only throw in loadData is for the spots fetch, not zones
+    expect(loadDataBody).toContain('if (!spotsRes.ok) throw new Error("Failed to load spots");');
+  });
+
+  it('the spot list keeps rendering when only zones fails: zoneManagerBlock and listBody are independent gates', () => {
+    // listBody's own render branches never reference zonesLoadError — a
+    // zones-only failure cannot affect the spots skeleton/error/empty/list.
+    const listBodyDef = sectionSrc.slice(
+      sectionSrc.indexOf('const listBody = ('),
+      sectionSrc.indexOf('const dialogs = (')
+    );
+    expect(listBodyDef).not.toContain('zonesLoadError');
+  });
+
+  it('the zone manager shows a LOCAL error + retry (not the shared loadError banner)', () => {
+    const zoneManagerBody = sectionSrc.slice(
+      sectionSrc.indexOf('const zoneManagerBlock ='),
+      sectionSrc.indexOf('const listBody = (')
+    );
+    expect(zoneManagerBody).toContain('data-testid="alert--zone-manager-load-error"');
+    expect(zoneManagerBody).toContain('message={copy.zoneManagerLoadFailed}');
+    expect(zoneManagerBody).toContain('data-testid="btn--zone-manager-retry"');
+    expect(zoneManagerBody).toContain('onClick={loadZones}');
+  });
+
+  it('retry (loadZones) re-fetches ONLY /zones, not spots/camp/session (a lighter, targeted retry)', () => {
+    const loadZonesBody = sectionSrc.slice(
+      sectionSrc.indexOf('const loadZones = useCallback'),
+      sectionSrc.indexOf('useEffect(() => {\n    loadData();')
+    );
+    expect(loadZonesBody).toContain('const result = await fetchZones();');
+    expect(loadZonesBody).not.toContain('Promise.all');
+    expect(loadZonesBody).not.toContain('/spots`');
+  });
+
+  it('degraded-Select call: an empty zones list still lets the spot form work (no-zone + inline create) — no extra code path needed', () => {
+    // zones=[] flows straight into SpotFormDialog's existing `zones` prop;
+    // the Select's "no zone" + "create new zone" options render unconditionally
+    // regardless of how many entries `zones` has (spot-form-dialog.tsx unchanged).
+    const dialogSrc = fs.readFileSync(path.join(root, 'components/spot-form-dialog.tsx'), 'utf-8');
+    expect(dialogSrc).toContain('<SelectItem value={NO_ZONE_VALUE} disabled={noZoneDisabled}>');
+    expect(dialogSrc).toContain('<SelectItem value={CREATE_NEW_ZONE_VALUE}>{copy.zoneSelectCreateNewOption}</SelectItem>');
+  });
+
+  it('i18n: zoneManagerLoadFailed exists in both locales (no em-dash, generic retry copy)', () => {
+    expect(translations.th.spotManagement.zoneManagerLoadFailed).toBeTruthy();
+    expect(translations.en.spotManagement.zoneManagerLoadFailed).toBeTruthy();
+    expect(translations.th.spotManagement.zoneManagerLoadFailed).not.toContain('—');
   });
 });
 

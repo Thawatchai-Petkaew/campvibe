@@ -51,3 +51,26 @@ export async function deleteZone(campSiteId: string, zoneId: string): Promise<De
     return { ok: false, reason: "other" };
   }
 }
+
+export type FetchZonesResult = { ok: true; zones: ZoneDTO[] } | { ok: false };
+
+/**
+ * G3 fix (I-1) — GET /api/campsites/[id]/zones, but NEVER throws/rejects: a
+ * bad HTTP status and a network-level fetch rejection both resolve to
+ * `{ ok: false }`. This lets a caller place it inside a `Promise.all`
+ * alongside independent requests (spots/camp/session) without risking the
+ * whole batch rejecting over a zones-only hiccup — see
+ * components/spot-management-section.tsx's `loadData`/`loadZones`, which
+ * previously threw on a bad zones response and blanked the entire spots
+ * section even though spots had already loaded successfully.
+ */
+export async function fetchZonesSafe(campSiteId: string): Promise<FetchZonesResult> {
+  try {
+    const res = await fetch(`/api/campsites/${campSiteId}/zones`, { cache: "no-store" });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return { ok: true, zones: Array.isArray(data) ? data : [] };
+  } catch {
+    return { ok: false };
+  }
+}

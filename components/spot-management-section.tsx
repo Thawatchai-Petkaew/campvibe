@@ -23,7 +23,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
 import { groupSpotsByZone } from "@/lib/spot-zone-grouping";
 import { zoneCreateSchema, ZONE_NAME_TOO_LONG_MESSAGE } from "@/lib/validations/zone";
-import { createZone, deleteZone } from "@/lib/zone-client";
+import { createZone, deleteZone, fetchZonesSafe } from "@/lib/zone-client";
 import type { SpotDTO, ZoneDTO } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,12 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
   const [zoneDeleteTarget, setZoneDeleteTarget] = useState<ZoneDTO | null>(null);
   const [deletingZone, setDeletingZone] = useState(false);
 
+  // G3 fix (I-1) — a zones-fetch failure must never blank the spot list: it
+  // is tracked in its own state, isolated from `loadError`, so the spots
+  // section keeps rendering when only /zones hiccups.
+  const [zonesLoadError, setZonesLoadError] = useState(false);
+  const [zonesRetrying, setZonesRetrying] = useState(false);
+
   // AC-9/EC-8: proactively hide write controls unless the signed-in user is
   // this camp's owner or a platform admin (the two "always allowed" bypasses
   // in requireCampSitePermission, lib/auth-utils.ts). A team member's granted
@@ -99,6 +105,22 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
   // the "all" chip (every group visible).
   const [activeZone, setActiveZone] = useState<string>(ALL_ZONES_VALUE);
 
+  // G3 fix (I-1) — fetchZonesSafe (lib/zone-client.ts) NEVER throws/rejects
+  // (a bad status AND a network-level rejection both resolve to
+  // `{ ok: false }`, real-tested in __tests__/cam-362-zone-client.test.ts),
+  // so it can sit inside loadData's Promise.all as a 4th concurrent request
+  // (tech.md §4.1 — same round-trip, no N+1) without ever being able to
+  // reject that Promise.all and blank the spots section over a zones-only
+  // hiccup. Shared by the initial load and the zone-manager's own "retry"
+  // (loadZones below).
+  const fetchZones = useCallback(async () => {
+    const result = await fetchZonesSafe(campSiteId);
+    if (!result.ok) {
+      console.error("Failed to load campsite zones");
+    }
+    return result;
+  }, [campSiteId]);
+
   const loadData = useCallback(async () => {
     if (!campSiteId) return;
     setLoading(true);
@@ -107,20 +129,30 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
       // CAM-362 (tech.md §4.1) — /zones rides as a 4th parallel request, same
       // round-trip, no N+1. Refetched together with spots any time either
       // changes (zone create/delete, spot create/edit/delete).
-      const [spotsRes, campRes, sessionRes, zonesRes] = await Promise.all([
+      const [spotsRes, campRes, sessionRes, zonesResult] = await Promise.all([
         fetch(`/api/campsites/${campSiteId}/spots`, { cache: "no-store" }),
         fetch(`/api/campsites/${campSiteId}`, { cache: "no-store" }),
         fetch(`/api/auth/session`, { cache: "no-store" }),
-        fetch(`/api/campsites/${campSiteId}/zones`, { cache: "no-store" }),
+        fetchZones(),
       ]);
 
       if (!spotsRes.ok) throw new Error("Failed to load spots");
       const spotsData = await spotsRes.json();
       setSpots(Array.isArray(spotsData) ? spotsData : []);
 
-      if (!zonesRes.ok) throw new Error("Failed to load zones");
-      const zonesData = await zonesRes.json();
-      setZones(Array.isArray(zonesData) ? zonesData : []);
+      // G3 fix (I-1): a zones failure is isolated to its own state — it
+      // must never throw here, or the shared catch below would blank the
+      // whole section (including the spots list that loaded fine). The
+      // zone manager renders its own local error + retry instead (below);
+      // the spot-form Select degrades to `zones=[]` (no-zone + create-new
+      // still work — see spot-form-dialog.tsx, unchanged).
+      if (zonesResult.ok) {
+        setZones(zonesResult.zones);
+        setZonesLoadError(false);
+      } else {
+        setZones([]);
+        setZonesLoadError(true);
+      }
 
       let ownerOrAdmin = false;
       if (campRes.ok && sessionRes.ok) {
@@ -136,7 +168,25 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
     } finally {
       setLoading(false);
     }
-  }, [campSiteId]);
+  }, [campSiteId, fetchZones]);
+
+  // G3 fix (I-1) — the zone manager's own retry: re-fetches ONLY /zones
+  // (not spots/camp/session) since those already loaded fine; a full
+  // `loadData()` re-run would be a heavier, unnecessary refetch for what is
+  // a zones-only failure.
+  const loadZones = useCallback(async () => {
+    if (!campSiteId) return;
+    setZonesRetrying(true);
+    const result = await fetchZones();
+    setZonesRetrying(false);
+    if (result.ok) {
+      setZones(result.zones);
+      setZonesLoadError(false);
+    } else {
+      setZones([]);
+      setZonesLoadError(true);
+    }
+  }, [campSiteId, fetchZones]);
 
   useEffect(() => {
     loadData();
@@ -363,7 +413,22 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
     <div className="rounded-2xl border border-border bg-background p-4 space-y-3" data-testid="section--zone-manager">
       <h3 className="text-sm font-bold text-foreground">{copy.zoneManagerTitle}</h3>
 
-      {(zones?.length ?? 0) === 0 ? (
+      {zonesLoadError ? (
+        // G3 fix (I-1) — isolated to this block only: the spots list above
+        // (rendered outside zoneManagerBlock) is unaffected by this error.
+        <div className="flex flex-col items-start gap-2" data-testid="alert--zone-manager-load-error">
+          <ErrorBanner message={copy.zoneManagerLoadFailed} />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadZones}
+            disabled={zonesRetrying}
+            data-testid="btn--zone-manager-retry"
+          >
+            {zonesRetrying ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : t.common.retry}
+          </Button>
+        </div>
+      ) : (zones?.length ?? 0) === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="empty--zone-manager">
           {copy.zoneManagerEmptyText}
         </p>
