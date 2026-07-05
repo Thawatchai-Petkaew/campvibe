@@ -15,7 +15,7 @@
 // its existing usage in components/FilterModal.tsx - no new primitive, no
 // new token.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Pencil, Plus, Tent, Trash2 } from "lucide-react";
 
@@ -121,8 +121,22 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
     return result;
   }, [campSiteId]);
 
+  // CAM-359 QA fix — monotonic request-id guard. loadData() can legitimately
+  // be in flight more than once at a time (e.g. React Strict Mode's dev-only
+  // double-invoked mount effect racing a create -> refetch triggered right
+  // after), and the two Promise.all round-trips are not guaranteed to
+  // resolve in the order they were issued. Without a guard, whichever call
+  // RESOLVES LAST wins the state update regardless of which one was ISSUED
+  // last — a slower, now-stale call can silently overwrite fresher state
+  // (e.g. a spot the user just created disappearing from the list again).
+  // Every state commit below is gated on "is this still the most recently
+  // issued call" so an out-of-order response is a no-op instead of a
+  // last-write-wins race.
+  const requestIdRef = useRef(0);
+
   const loadData = useCallback(async () => {
     if (!campSiteId) return;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setLoadError(false);
     try {
@@ -135,6 +149,11 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
         fetch(`/api/auth/session`, { cache: "no-store" }),
         fetchZones(),
       ]);
+
+      // Stale-response guard — a newer loadData() call has been issued since
+      // this one started; never let an out-of-order (earlier-issued,
+      // later-resolving) response overwrite state a newer call already set.
+      if (requestIdRef.current !== requestId) return;
 
       if (!spotsRes.ok) throw new Error("Failed to load spots");
       const spotsData = await spotsRes.json();
@@ -163,10 +182,13 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
       }
       setCanManage(ownerOrAdmin);
     } catch (err) {
+      if (requestIdRef.current !== requestId) return;
       console.error("Failed to load campsite spots", err);
       setLoadError(true);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [campSiteId, fetchZones]);
 
