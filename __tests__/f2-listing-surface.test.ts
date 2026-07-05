@@ -24,7 +24,7 @@
  *   AC-i18n-5       No hardcoded "Clear all" string literal in FilterModal source
  *   AC-grid-1       CampgroundGrid has sm:2 / md:3 / lg:4 / xl:5 responsive cols
  *   AC-scroll-1     FilterModal content area uses overflow-y-auto + flex-1 (mobile scroll)
- *   AC-chip-1       Selected Activity pill uses foreground tokens (dark-mode safe)
+ *   AC-chip-1       Selected Activity pill uses primary tokens (dark-mode safe, CAM-366)
  *   AC-searchmodal-1 SearchModal close is w-11 h-11 with focus-visible ring (defect gate)
  *   AC-searchmodal-2 SearchModal search action button uses text-primary-foreground, not text-white
  */
@@ -411,17 +411,17 @@ describe("modal--filter: mobile scroll", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// AC-chip-1  Selected filter chips use foreground tokens (dark-mode safe)
+// AC-chip-1  Selected filter chips use primary tokens (dark-mode safe, CAM-366)
 // ─────────────────────────────────────────────────────────────
 describe("modal--filter: selected chip dark-mode safety", () => {
-    it("AC-chip-1: selected Activity pill uses bg-foreground (not bg-black or hardcoded dark)", () => {
-        // DS-1: token baked into FilterChip primitive; FilterModal delegates to it.
-        expect(filterModalSrc + filterChipSrc).toMatch(/bg-foreground\b/);
+    it("AC-chip-1: selected Activity pill uses bg-primary (not bg-black or hardcoded dark) (CAM-366)", () => {
+        // DS-1/CAM-366: token baked into FilterChip primitive; FilterModal delegates to it.
+        expect(filterModalSrc + filterChipSrc).toMatch(/bg-primary\b/);
     });
 
-    it("AC-chip-1: selected Activity pill uses text-background (not text-white or hardcoded light)", () => {
-        // DS-1: token baked into FilterChip primitive; FilterModal delegates to it.
-        expect(filterModalSrc + filterChipSrc).toMatch(/text-background\b/);
+    it("AC-chip-1: selected Activity pill uses text-primary-foreground (not text-white or hardcoded light) (CAM-366)", () => {
+        // DS-1/CAM-366: token baked into FilterChip primitive; FilterModal delegates to it.
+        expect(filterModalSrc + filterChipSrc).toMatch(/text-primary-foreground\b/);
     });
 
     it("AC-chip-1: unselected Activity pill uses text-foreground (visible on both themes)", () => {

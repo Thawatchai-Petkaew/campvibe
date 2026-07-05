@@ -24,7 +24,7 @@
  *  AC-chip-4      FilterChip has aria-pressed on all variants
  *  AC-chip-5      FilterChip has focus-visible ring (ring-2 ring-ring)
  *  AC-chip-6      FilterChip is token-only (no hex values, no hardcoded px sizes that imply palette)
- *  AC-chip-7      FilterChip selected pill uses bg-foreground + text-background tokens
+ *  AC-chip-7      FilterChip selected pill uses bg-primary + text-primary-foreground tokens (CAM-366)
  *  AC-gate-1      No rounded-3xl in Select/Popover/DropdownMenu content (primitives)
  *  AC-gate-2      No rounded-lg on DropdownMenuItem primitive
  *  AC-gate-3      No font-semibold or font-bold on DropdownMenuItem primitive
@@ -297,16 +297,27 @@ describe("chip--filter: 3 variants + a11y + tokens (AC-chip-1 through AC-chip-7)
     expect(filterChipSrc).not.toMatch(/dark:bg-|dark:text-|dark:border-/);
   });
 
-  it("AC-chip-7: FilterChip pill selected state uses bg-foreground token", () => {
-    expect(filterChipSrc).toMatch(/bg-foreground\b/);
+  it("AC-chip-7: FilterChip pill selected state uses bg-primary token (CAM-366)", () => {
+    expect(filterChipSrc).toMatch(/bg-primary\b/);
   });
 
-  it("AC-chip-7: FilterChip pill selected state uses text-background token", () => {
-    expect(filterChipSrc).toMatch(/text-background\b/);
+  it("AC-chip-7: FilterChip pill selected state uses text-primary-foreground token (CAM-366)", () => {
+    expect(filterChipSrc).toMatch(/text-primary-foreground\b/);
   });
 
   it("AC-chip-7: FilterChip pill unselected state uses text-foreground token", () => {
     expect(filterChipSrc).toMatch(/text-foreground\b/);
+  });
+
+  it("AC-chip-7: FilterChip selected state no longer uses foreground-inversion tokens on any variant (CAM-366 guard)", () => {
+    // Guard: pin the new primary-family classes on every variant's selected branch;
+    // the old foreground-inversion (bg-foreground/border-foreground/text-background on
+    // a selected branch) must not regress back in.
+    expect(filterChipSrc).toMatch(/border-primary bg-primary text-primary-foreground hover:bg-primary\/85/);
+    expect(filterChipSrc).toMatch(/border-primary bg-primary\/5/);
+    expect(filterChipSrc).toMatch(/border-primary bg-primary\/5 font-semibold text-primary/);
+    expect(filterChipSrc).not.toMatch(/border-foreground bg-foreground text-background/);
+    expect(filterChipSrc).not.toMatch(/border-foreground bg-foreground\/5/);
   });
 });
 
