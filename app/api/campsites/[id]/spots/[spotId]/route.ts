@@ -3,7 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSitePermission } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv, imageReplaceNested } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, imageReplaceNested, resolveSpotZoneWrite } from '@/lib/api-utils';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { campTag, campSlugTag } from '@/lib/catalog-cache';
@@ -80,10 +80,18 @@ export async function PUT(
     const owned = await prisma.spot.findFirst({ where: { id: spotId, campSiteId: id, deletedAt: null }, select: { id: true } });
     if (!owned) return apiError('Spot not found', 404);
 
+    // CAM-362: resolve zoneId (takes precedence) or the legacy zone string
+    // (tech.md §4.2) — zoneId is validated to belong to THIS camp + live.
+    // Neither field sent -> {} (no-op, leaves the existing zone/zoneId untouched).
+    const zoneResolution = await resolveSpotZoneWrite(id, { zone: data.zone, zoneId: data.zoneId });
+    if (!zoneResolution.ok) {
+      return apiError(zoneResolution.message, zoneResolution.status);
+    }
+
     const updated = await prisma.spot.update({
       where: { id: spotId },
       data: {
-        ...(data.zone !== undefined && { zone: data.zone }),
+        ...zoneResolution.fields,
         ...(data.name && { name: data.name }),
         ...('images' in body && { images: imageReplaceNested(data.images) }),
         ...(data.viewType !== undefined && { viewType: data.viewType }),

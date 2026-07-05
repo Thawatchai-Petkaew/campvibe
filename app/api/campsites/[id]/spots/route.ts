@@ -3,7 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { spotSchema } from '@/lib/validations/spot';
 import { requireCampSitePermission } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv, imageCreateNested } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, imageCreateNested, resolveSpotZoneWrite } from '@/lib/api-utils';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { campTag, campSlugTag } from '@/lib/catalog-cache';
@@ -70,9 +70,16 @@ export async function POST(
 
     const data = validation.data;
 
+    // CAM-362: resolve zoneId (takes precedence) or the legacy zone string
+    // (tech.md §4.2) — zoneId is validated to belong to THIS camp + live.
+    const zoneResolution = await resolveSpotZoneWrite(id, { zone: data.zone, zoneId: data.zoneId });
+    if (!zoneResolution.ok) {
+      return apiError(zoneResolution.message, zoneResolution.status);
+    }
+
     const spot = await prisma.spot.create({
       data: {
-        zone: data.zone,
+        ...zoneResolution.fields,
         name: data.name,
         images: imageCreateNested(data.images),
         viewType: data.viewType,

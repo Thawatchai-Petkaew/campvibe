@@ -11,7 +11,8 @@ export const ViewTypeEnum = z.enum([
 ]);
 
 export const spotSchema = z.object({
-  zone: z.string().optional(),
+  zone: z.string().optional(), // DEPRECATED (CAM-362) — kept for backward compatibility
+  zoneId: z.string().uuid().optional(), // CAM-362 — the entity link; takes precedence when present (tech.md §4.2)
   name: z.string().min(1, "Spot name is required"),
   // CAM-352: union input — accepts a legacy bare url string OR {url, kind};
   // both normalize to {url, kind} (see lib/validations/image.ts).

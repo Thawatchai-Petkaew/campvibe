@@ -95,6 +95,43 @@ export function imageReplaceNested(items: ImageWriteInput[] | undefined | null) 
 }
 
 /**
+ * CAM-362 — resolve a spot write's zone fields (POST + PUT share this exact
+ * resolution rule, tech.md §4.2). `zoneId` takes precedence when present:
+ * validated against THIS campsite + live (no cross-camp IDOR, no linking a
+ * soft-deleted zone), then mirrored into the legacy `Spot.zone` display
+ * string (T1 denormalize-on-write, tech.md §0.3-B) so the four un-migrated
+ * read consumers (booking list/detail, operator bookings, public detail)
+ * keep showing a zone label with zero code change to them. When only the
+ * legacy `zone` string is sent, behavior is unchanged (zoneId stays
+ * untouched). Returns only the fields that should be merged into the
+ * Prisma `data` object — callers spread `...fields`.
+ */
+export type ZoneWriteResolution =
+  | { ok: true; fields: { zoneId?: string; zone?: string } }
+  | { ok: false; status: 404; message: string };
+
+export async function resolveSpotZoneWrite(
+  campSiteId: string,
+  input: { zone?: string; zoneId?: string }
+): Promise<ZoneWriteResolution> {
+  if (input.zoneId !== undefined) {
+    const zone = await prisma.zone.findFirst({
+      where: { id: input.zoneId, campSiteId, deletedAt: null },
+      select: { name: true },
+    });
+    if (!zone) {
+      // No cross-camp IDOR + no linking a soft-deleted/nonexistent zone.
+      return { ok: false, status: 404, message: 'Zone not found' };
+    }
+    return { ok: true, fields: { zoneId: input.zoneId, zone: zone.name } };
+  }
+  if (input.zone !== undefined) {
+    return { ok: true, fields: { zone: input.zone } };
+  }
+  return { ok: true, fields: {} };
+}
+
+/**
  * Calculate number of nights between two dates
  */
 export function calculateNights(checkIn: Date, checkOut: Date): number {

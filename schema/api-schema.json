@@ -389,6 +389,37 @@
             "errorShape": "{ error: { code: string, message: string } } (standard) | empty for 204",
             "validationSchema": "lib/validations/vitals.ts (VitalPayloadSchema)",
             "queryStrategy": "no DB query"
+        },
+        "GET /api/campsites/[id]/zones": {
+            "story": "CAM-362",
+            "auth": "public camp -> anyone; private camp -> canViewCampSite else 404 (mirrors spots GET)",
+            "input": { "id": "string (campSite uuid, path)" },
+            "output": "ZoneDTO[] (live only, sortOrder asc, name asc)",
+            "errors": { "404": "camp not found or not viewable", "500": "server" },
+            "shape": "{ error: string }",
+            "queryStrategy": "zone.findMany where {campSiteId, deletedAt:null} — single indexed query (@@index([campSiteId, deletedAt])), no N+1"
+        },
+        "POST /api/campsites/[id]/zones": {
+            "story": "CAM-362",
+            "auth": "requireCampSitePermission(id,'CAMPSITE_UPDATE')",
+            "input": { "name": "string 1..50, trimmed + whitespace-collapsed" },
+            "output": { "...ZoneDTO": "201" },
+            "errors": {
+                "400": "zod — empty -> กรุณากรอกชื่อโซน / >50 -> ชื่อโซนต้องไม่เกิน 50 ตัวอักษร",
+                "401": "unauthenticated", "403": "no CAMPSITE_UPDATE", "404": "camp not found",
+                "409": "duplicate live name -> มีโซนชื่อนี้อยู่แล้ว", "500": "server"
+            },
+            "shape": "{ error: string }",
+            "notes": "dup check case-insensitive+trim inside $transaction; P2002 (partial unique index) -> 409; soft-deleted name re-creatable; sortOrder server-assigned (count of live zones)"
+        },
+        "DELETE /api/campsites/[id]/zones/[zoneId]": {
+            "story": "CAM-362",
+            "auth": "requireCampSitePermission(id,'CAMPSITE_UPDATE')",
+            "input": { "id": "campSite uuid", "zoneId": "zone uuid" },
+            "output": { "success": true, "detachedSpotCount": "int" },
+            "errors": { "401": "unauthenticated", "403": "no CAMPSITE_UPDATE", "404": "zone not found / not live / cross-camp", "500": "server" },
+            "shape": "{ error: string }",
+            "notes": "soft-delete + detach in ONE $transaction; CAS updateMany where {id,campSiteId,deletedAt:null}; audit zone.deleted"
         }
     }
 }

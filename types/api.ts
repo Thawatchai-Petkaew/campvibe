@@ -72,7 +72,8 @@ export interface CampSiteDTO {
 // Spot DTO (new)
 export interface SpotDTO {
     id: string;
-    zone?: string;
+    zone?: string; // DEPRECATED (CAM-362) — legacy free-text label, kept as a display mirror (T1)
+    zoneId?: string; // CAM-362 — the entity link; source of truth for zone membership
     name: string;
     images?: { url: string; kind?: ImageKind }[]; // S4b: Image relation; kind additive (CAM-352)
     viewType?: string;
@@ -82,6 +83,17 @@ export interface SpotDTO {
     pricePerSite?: number;
     nearFacilities?: string; // CSV
     campSiteId: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+// CAM-362 — Zone DTO: per-camp reusable zone (tech.md §1.3). `deletedAt`/`version`
+// are internal — NOT in the DTO (Buffet boundary: the client binds to the view).
+export interface ZoneDTO {
+    id: string;
+    campSiteId: string;
+    name: string;
+    sortOrder: number;
     createdAt?: string;
     updatedAt?: string;
 }
