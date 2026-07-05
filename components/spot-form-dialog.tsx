@@ -209,6 +209,7 @@ export function SpotFormDialog({ open, onOpenChange, campSiteId, spot, onSaved }
 
           <InputField
             label={copy.nameLabel}
+            required
             placeholder={copy.namePlaceholder}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -274,6 +275,7 @@ export function SpotFormDialog({ open, onOpenChange, campSiteId, spot, onSaved }
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InputField
               label={copy.pricePerNightLabel}
+              required
               type="number"
               min={0}
               max={100000}

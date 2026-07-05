@@ -789,7 +789,6 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     />
                                     <InputField
                                         label={t.newCampground.nameEn}
-                                        required
                                         value={formData.nameEn}
                                         onChange={e => setFormData({ ...formData, nameEn: e.target.value })}
                                         inputSize="lg"
@@ -910,7 +909,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label={t.newCampground.latitude}
-                                        type="number" 
+                                        required
+                                        type="number"
                                         step="any"
                                         inputSize="lg"
                                         value={formData.latitude}
@@ -923,7 +923,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     />
                                     <InputField
                                         label={t.newCampground.longitude}
-                                        type="number" 
+                                        required
+                                        type="number"
                                         step="any"
                                         inputSize="lg"
                                         value={formData.longitude}
@@ -1545,6 +1546,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             <CardContent className="p-6 space-y-4">
                                 <InputField
                                     label={t.newCampground.checkIn}
+                                    required
                                     type="time"
                                     value={formData.checkInTime}
                                     onChange={e => setFormData({ ...formData, checkInTime: e.target.value })}
@@ -1553,6 +1555,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 />
                                 <InputField
                                     label={t.newCampground.checkOut}
+                                    required
                                     type="time"
                                     value={formData.checkOutTime}
                                     onChange={e => setFormData({ ...formData, checkOutTime: e.target.value })}
