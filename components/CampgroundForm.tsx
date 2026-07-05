@@ -21,7 +21,8 @@ import {
     Video,
     Plus,
     Grid3x3,
-    TriangleAlert
+    TriangleAlert,
+    ArrowUpRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -48,6 +49,8 @@ import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
 import { campSiteSchema } from "@/lib/validations/campsite";
+import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/listing-completeness";
+import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
 import type { UserRole } from "@/types/api";
 import * as LucideIcons from "lucide-react";
@@ -714,6 +717,62 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     const derivedGuestTotal: number = spotCount > 0 ? (initialData?.maxGuestsPerDay ?? 0) : 0;
     const justSwitchedToPerSpot = formData.useSpotView && !initialModeWasPerSpot;
     const justSwitchedToWholeCamp = !formData.useSpotView && initialModeWasPerSpot;
+
+    // CAM-365 BR-8: client-side publish gate — UX only (ux.md rule 1). The
+    // server (app/api/campsites/[id]/route.ts PUT, app/api/campsites/route.ts
+    // POST) is the sole authority (BR-5) and always recomputes its own score
+    // from the DB; this exists purely to disable the switch + show what's
+    // missing before a doomed submit round-trips to the server.
+    //
+    // Computed with the SAME pure computeListingCompleteness fn the server
+    // uses, fed from the current unsaved form state:
+    //  - imageCount/extraFee*/cancellationPolicy/priceLow/isFree/useSpotView/
+    //    maxGuestsPerDay read straight off `formData` (live as the host types).
+    //  - optionsCount mirrors resolveOptionConnect's dedup-across-taxonomies
+    //    Set (lib/api-utils.ts) so "amenities" evaluates the same way here.
+    //  - spotCount reuses the `spotCount` approximation above (BR-3/BR-7) —
+    //    captured once from the initial GET payload's spotStats.totalSpots.
+    //    It does NOT update live as spots are added/removed through the
+    //    embedded SpotManagementSection (that component's own CRUD calls
+    //    never touch `formData`) — a known, accepted approximation since the
+    //    server always re-checks live counts at write time regardless.
+    const currentCompleteness = computeListingCompleteness({
+        imageCount: formData.images.length,
+        priceLow: formData.priceLow === "" ? null : Number(formData.priceLow),
+        isFree: formData.isFree,
+        extraFeeAmount: formData.extraFeeAmount === "" ? null : Number(formData.extraFeeAmount),
+        extraFeeLabel: formData.extraFeeLabel || null,
+        cancellationPolicy: formData.cancellationPolicy || null,
+        spotCount,
+        optionsCount: new Set([
+            ...formData.accessTypes,
+            ...formData.facilities,
+            ...formData.externalFacilities,
+            ...formData.equipment,
+            ...formData.activities,
+            ...formData.terrain,
+        ]).size,
+        useSpotView: formData.useSpotView,
+        maxGuestsPerDay: formData.maxGuestsPerDay === "" ? null : Number(formData.maxGuestsPerDay),
+    });
+    // BR-3/BR-8: the switch locks only for a camp CURRENTLY (stored, not the
+    // live in-session toggle) unpublished whose live score is below the
+    // floor — mirrors the server's transition detection exactly
+    // (existing.isPublished === false). An already-published camp's switch
+    // always stays enabled so the host can unpublish (never re-gated).
+    const storedIsPublished: boolean = initialData?.isPublished ?? false;
+    const publishLocked = !storedIsPublished && currentCompleteness.score < PUBLISH_MIN_COMPLETENESS;
+
+    // Scrolls + moves a11y focus to the Card section for a missing-item link
+    // below the locked publish switch (same jump pattern as
+    // scrollToFirstErrorField below, targeting a completeness `key`'s anchor
+    // via the shared CAM-305 ANCHOR_BY_KEY map instead of a zod field name).
+    const jumpToPublishGateSection = (anchorId: string) => {
+        if (typeof document === "undefined") return;
+        const section = document.getElementById(anchorId);
+        section?.scrollIntoView({ behavior: "smooth", block: "start" });
+        section?.focus({ preventScroll: true });
+    };
 
     if (optionsLoading) {
         return (
@@ -1516,29 +1575,76 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         {formData.isActive && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isPublished: !formData.isPublished })}
-                                    aria-pressed={formData.isPublished}
-                                    className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                        formData.isPublished
-                                            ? "bg-primary/10 border-primary"
-                                            : "bg-card border-border hover:border-primary/50"
+                                {/* CAM-365 BR-8: locked while the camp is currently (stored)
+                                    unpublished AND the live form score is below the floor -
+                                    UX only, the PUT/POST server gate (BR-5) is authoritative. */}
+                                <div className="space-y-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (publishLocked) return;
+                                            setFormData({ ...formData, isPublished: !formData.isPublished });
+                                        }}
+                                        disabled={publishLocked}
+                                        aria-pressed={formData.isPublished}
+                                        aria-disabled={publishLocked}
+                                        data-testid="btn--campground-publish-toggle"
+                                        className={cn(
+                                            "flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                            publishLocked
+                                                ? "cursor-not-allowed opacity-70 bg-muted/50 border-border"
+                                                : cn(
+                                                    "cursor-pointer",
+                                                    formData.isPublished
+                                                        ? "bg-primary/10 border-primary"
+                                                        : "bg-card border-border hover:border-primary/50"
+                                                )
+                                        )}
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
+                                                {t.newCampground.published}
+                                            </TruncatedLabel>
+                                            <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                                {t.newCampground.publishedDesc}
+                                            </TruncatedLabel>
+                                        </div>
+                                        <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isPublished ? "bg-primary" : "bg-muted")}>
+                                            {formData.isPublished && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                                        </div>
+                                    </button>
+                                    {publishLocked && (
+                                        <div className="space-y-2" data-testid="section--publish-gate-blocked">
+                                            <p
+                                                className="text-sm px-4 text-muted-foreground"
+                                                data-testid="text--publish-gate-helper"
+                                            >
+                                                {t.newCampground.publishGateHelper.replace(
+                                                    "{N}",
+                                                    String(currentCompleteness.score)
+                                                )}
+                                            </p>
+                                            <ul className="space-y-1" data-testid="list--publish-gate-missing">
+                                                {currentCompleteness.missing.map((item) => (
+                                                    <li key={item.key}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => jumpToPublishGateSection(ANCHOR_BY_KEY[item.key])}
+                                                            data-testid={`link--publish-gate-${item.key}`}
+                                                            className="group/link flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                        >
+                                                            <span>{item.label}</span>
+                                                            <ArrowUpRight
+                                                                className="size-4 shrink-0 text-muted-foreground group-hover/link:text-foreground"
+                                                                aria-hidden="true"
+                                                            />
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     )}
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
-                                            {t.newCampground.published}
-                                        </TruncatedLabel>
-                                        <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
-                                            {t.newCampground.publishedDesc}
-                                        </TruncatedLabel>
-                                    </div>
-                                    <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isPublished ? "bg-primary" : "bg-muted")}>
-                                        {formData.isPublished && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                                    </div>
-                                </button>
+                                </div>
                             </CardContent>
                         </Card>
 

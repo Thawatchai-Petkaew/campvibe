@@ -54,7 +54,10 @@ export interface ListingCompletenessCardProps {
 // `key`, never the label. Anchors now resolve to CAM-341's real edit-form
 // sections; an unrecognized key falls through to `edit` with no hash (EC-5)
 // rather than being hidden or a dead link.
-const ANCHOR_BY_KEY: Record<ListingCompletenessKey, string> = {
+// Exported (CAM-365 BR-8) so components/CampgroundForm.tsx's own disabled-
+// publish-switch missing list can jump to the SAME in-page `#anchor` — one
+// source of truth for the key->section map, never a second copy.
+export const ANCHOR_BY_KEY: Record<ListingCompletenessKey, string> = {
   photos: "photos",
   price: "price",
   cancellationPolicy: "cancellation-policy",

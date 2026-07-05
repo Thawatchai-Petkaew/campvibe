@@ -12,6 +12,7 @@ import { withTiming } from '@/lib/route-timing';
 import { campCardSelect } from '@/lib/read-models/camp-card';
 import { CATALOG_TAG } from '@/lib/catalog-cache';
 import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from '@/lib/campsite-availability';
+import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
 import {
   decodeCursor,
   buildKeysetWhere,
@@ -181,6 +182,44 @@ export async function POST(request: NextRequest) {
     const nameThSlug = data.nameThSlug || data.nameTh.toLowerCase().replace(/\s+/g, '-');
     const nameEnSlug = data.nameEnSlug || (data.nameEn || data.nameTh).toLowerCase().replace(/\s+/g, '-');
 
+    // S4a: 6 multi-value taxonomies → validated options connect (unknown codes
+    // dropped, not 500). Hoisted above the create() call (was inline before
+    // CAM-365) so the SAME resolved+validated connect array feeds both the
+    // actual write below AND the publish-gate projection's optionsCount —
+    // one DB round trip, never two.
+    const optionsConnect = await resolveOptionConnect([
+      data.accessTypes, data.facilities, data.externalFacilities,
+      data.equipment, data.activities, data.terrain,
+    ]);
+
+    // CAM-365 BR-6: a create that requests isPublished=true is the same
+    // false->true transition as the PUT path (there is no "stored" row yet -
+    // it is implicitly false) - gated identically on the post-CREATE
+    // projected score. The normal form create always sends
+    // isPublished=false (components/CampgroundForm.tsx), so only a direct
+    // API create can reach this. No role - including ADMIN - bypasses it
+    // (BR-7): this check has no role branch.
+    if (data.isPublished === true) {
+      const { score, missing } = computeListingCompleteness({
+        imageCount: data.images?.length ?? 0,
+        priceLow: data.priceLow ?? null,
+        isFree: data.isFree ?? false,
+        extraFeeAmount: data.extraFeeAmount ?? null,
+        extraFeeLabel: data.extraFeeLabel ?? null,
+        cancellationPolicy: data.cancellationPolicy ?? null,
+        spotCount: 0, // a create has no Spot rows yet — Spot is a separate resource
+        optionsCount: optionsConnect.length,
+        useSpotView: data.useSpotView ?? false,
+        maxGuestsPerDay: data.maxGuestsPerDay ?? null,
+      });
+
+      if (score < PUBLISH_MIN_COMPLETENESS) {
+        // Reject before any write — nothing is created at all (not even
+        // unpublished), matching a 400's no-side-effect contract.
+        return apiError(publishGateBlockedMessage(score), 400, { missing });
+      }
+    }
+
     const campSite = await prisma.campSite.create({
       data: {
         nameTh: data.nameTh,
@@ -191,12 +230,9 @@ export async function POST(request: NextRequest) {
         campSiteType: ((Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) || "CAMPGROUND") as string,
         accommodationTypes: (arrayToCsv(data.accommodationTypes) ?? "") as string,
 
-        // S4a: 6 multi-value taxonomies → validated options connect (unknown codes dropped, not 500)
+        // S4a: validated options connect resolved once above (CAM-365).
         options: {
-          connect: await resolveOptionConnect([
-            data.accessTypes, data.facilities, data.externalFacilities,
-            data.equipment, data.activities, data.terrain,
-          ]),
+          connect: optionsConnect,
         },
 
         address: data.address,

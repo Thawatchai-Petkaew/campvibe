@@ -9,6 +9,7 @@ import { applyAdminOnlyFields } from '@/lib/admin-fields';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { CATALOG_TAG, campTag, campSlugTag } from '@/lib/catalog-cache';
+import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,6 +60,93 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       session.user?.role
     ) as typeof validation.data;
 
+    // CAM-365 BR-3/BR-4/BR-5/BR-7: gate a false->true isPublished transition
+    // on the POST-SAVE PROJECTED completeness score. Detected by comparing
+    // the STORED isPublished (existing, from requireCampSitePermission above)
+    // against this request's value - an omitted isPublished, an unchanged
+    // `true`, or any ->false transition never evaluates the score at all (no
+    // auto-unpublish, no wasted queries on an ordinary edit). No role -
+    // including ADMIN - bypasses this (BR-7): `existing`/`data` here carry no
+    // role branch.
+    // S4a: only replace the options relation when the request actually carried a taxonomy
+    // field. zod .default([]) makes parsed values always-present, so gate on the RAW body —
+    // otherwise a partial PUT (e.g. price-only) would wipe every option.
+    // Hoisted above the gate (G3 I-1 fix): the write further below ALREADY
+    // unconditionally resolves this exact set whenever `replacesOptions` is
+    // true (moving it earlier adds no new query on any path) - hoisting lets
+    // the publish-gate projection reuse the SAME resolved+validated connect
+    // array the write uses, instead of a stale pre-write live count, mirroring
+    // the `images` special-case below (BR-4 symmetry).
+    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'].some((k) => k in body);
+    const resolvedOptionsConnect = replacesOptions
+      ? await resolveOptionConnect([
+          data.accessTypes, data.facilities, data.externalFacilities,
+          data.equipment, data.activities, data.terrain,
+        ])
+      : null;
+
+    const isPublishTransition = data.isPublished === true && existing!.isPublished === false;
+    if (isPublishTransition) {
+      // BR-4 post-save projection: the state AS IT WILL BE after THIS save -
+      // stored atomic fields overlaid with this request's changed fields,
+      // plus the relation counts. `images` AND `options` both special-case:
+      // if this same request replaces that relation, the projection counts
+      // what THIS write will persist (the request's own resolved set)
+      // instead of the stale pre-write count - this is what lets one save
+      // both complete the last missing photo/amenity AND publish (AC-3).
+      // `spots` is never touched by this PUT body (a separate resource), so
+      // it is always a live read.
+      const [relCounts, spotCount] = await Promise.all([
+        prisma.campSite.findUnique({
+          where: { id },
+          select: { _count: { select: { images: true, options: true } } },
+        }),
+        prisma.spot.count({ where: { campSiteId: id, deletedAt: null } }),
+      ]);
+
+      const projectedExtraFeeAmount =
+        data.extraFeeAmount !== undefined
+          ? data.extraFeeAmount
+          : existing!.extraFeeAmount !== null
+            ? Number(existing!.extraFeeAmount)
+            : null;
+      const projectedExtraFeeLabel =
+        data.extraFeeLabel !== undefined
+          ? (data.extraFeeLabel === '' || data.extraFeeLabel === null ? null : data.extraFeeLabel)
+          : existing!.extraFeeLabel;
+      const projectedCancellationPolicy =
+        data.cancellationPolicy !== undefined
+          ? (data.cancellationPolicy === null ? null : data.cancellationPolicy)
+          : existing!.cancellationPolicy;
+
+      const { score, missing } = computeListingCompleteness({
+        imageCount: 'images' in body ? (data.images?.length ?? 0) : (relCounts?._count.images ?? 0),
+        priceLow:
+          data.priceLow !== undefined
+            ? data.priceLow
+            : existing!.priceLow !== null
+              ? Number(existing!.priceLow)
+              : null,
+        isFree: data.isFree !== undefined ? data.isFree : existing!.isFree,
+        extraFeeAmount: projectedExtraFeeAmount,
+        extraFeeLabel: projectedExtraFeeLabel,
+        cancellationPolicy: projectedCancellationPolicy,
+        spotCount,
+        optionsCount: replacesOptions
+          ? (resolvedOptionsConnect?.length ?? 0)
+          : (relCounts?._count.options ?? 0),
+        useSpotView: data.useSpotView !== undefined ? data.useSpotView : existing!.useSpotView,
+        maxGuestsPerDay:
+          data.maxGuestsPerDay !== undefined ? data.maxGuestsPerDay : existing!.maxGuestsPerDay,
+      });
+
+      if (score < PUBLISH_MIN_COMPLETENESS) {
+        // No write happens at all - reject before the location update and
+        // the campSite.update below (AC-1/AC-4: isPublished stays unchanged).
+        return apiError(publishGateBlockedMessage(score), 400, { missing });
+      }
+    }
+
     // Update Location if provided (but don't auto-update lat/lon from camp site)
     // Lat/Lon are independent - user enters manually
     if (data.locationId && (body as any).province) {
@@ -81,14 +169,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.campSiteType?.length && { campSiteType: (Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) as string }),
         ...(data.accommodationTypes?.length && { accommodationTypes: arrayToCsv(data.accommodationTypes) as string }),
         // S4a: only replace the options relation when the request actually carried a taxonomy
-        // field. zod .default([]) makes parsed values always-present, so gate on the RAW body —
-        // otherwise a partial PUT (e.g. price-only) would wipe every option.
-        ...((['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'].some((k) => k in body)) && {
+        // field (`replacesOptions`/`resolvedOptionsConnect` resolved once above, CAM-365 I-1 —
+        // reused here so the write and the publish-gate projection can never disagree).
+        ...(replacesOptions && {
           options: {
-            set: await resolveOptionConnect([
-              data.accessTypes, data.facilities, data.externalFacilities,
-              data.equipment, data.activities, data.terrain,
-            ]),
+            set: resolvedOptionsConnect ?? [],
           },
         }),
 
