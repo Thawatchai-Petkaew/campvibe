@@ -74,6 +74,15 @@ vi.mock('@/lib/serialize', () => ({
   serializeDecimals: vi.fn((x) => x),
 }));
 
+// GET /api/campsites/[id]/availability imports '@/lib/auth' (NextAuth) for its
+// lazy non-public-camp gate — mocked here purely so importing the real route
+// module never pulls in next-auth's runtime resolution in this suite (mirrors
+// cam-302-internal-holds.test.ts's established convention). Every fixture in
+// Group G is a public camp, so `auth()` is never actually invoked.
+vi.mock('@/lib/auth', () => ({
+  auth: vi.fn(),
+}));
+
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import {
@@ -85,6 +94,7 @@ import {
 import { calculateSpotCapacity, getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 
 const { POST: bookingsPOST } = await import('@/app/api/bookings/route');
+const { GET: availabilityGET } = await import('@/app/api/campsites/[id]/availability/route');
 
 // ---------------------------------------------------------------------------
 // Fixtures / helpers
@@ -797,5 +807,134 @@ describe('POST /api/bookings — PER-SPOT enforcement end-to-end (AC-3/AC-7/EC-4
     expect(body.error).toBe('Capacity exceeded');
     expect(body.details).toMatch(/Exceeds maximum guests per day \(10\)/);
     expect(tx.spot.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Group G: GET /api/campsites/[id]/availability — the 5th capacity reader
+// (G3 Important-1). Feeds the camper date-picker (isDateDisabled) + the host
+// availability calendar. DISPLAY reader — fails OPEN on a spot-sum read
+// failure (mirrors the catalog-badge contract), unlike the booking write gate.
+// ===========================================================================
+
+describe('GET /api/campsites/[id]/availability — PER-SPOT effective capacity (G3 Important-1)', () => {
+  const makeParams = (id: string) => ({ params: Promise.resolve({ id }) });
+
+  // Same guest total as SPOTS_16 (4+6+6=16) but generous per-spot maxTents so
+  // a 10-guest booking's estimated tent usage (ceil(10/2)=5) never trips the
+  // TENTS side of the derived cap — these tests are guest-focused (AC-1/AC-6).
+  const SPOTS_16_GUESTS_ONLY = SPOTS_16.map((s) => ({ ...s, maxTents: 10 }));
+
+  function makeAvailabilityRequest(id: string, startDate = '2026-09-10', endDate = '2026-09-11') {
+    return new NextRequest(
+      `http://localhost/api/campsites/${id}/availability?startDate=${startDate}T00:00:00.000Z&endDate=${endDate}T00:00:00.000Z`
+    );
+  }
+
+  function mockPublicCampSite(overrides: {
+    useSpotView: boolean;
+    maxGuestsPerDay: number | null;
+    maxTentsPerDay: number | null;
+  }) {
+    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isActive: true,
+      isPublished: true,
+      deletedAt: null,
+      operatorId: 'operator-355',
+      ...overrides,
+    });
+  }
+
+  beforeEach(() => {
+    (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  });
+
+  it('[ac-1/ac-6] a per-spot camp with stale column 999 but derived total 16, 10 booked -> limits/remaining report 16-derived numbers, not 999', async () => {
+    mockPublicCampSite({ useSpotView: true, maxGuestsPerDay: 999, maxTentsPerDay: null });
+    (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { checkInDate: d('2026-09-10'), checkOutDate: d('2026-09-11'), guests: 10, status: 'CONFIRMED' },
+    ]);
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(SPOTS_16_GUESTS_ONLY);
+
+    const res = await availabilityGET(makeAvailabilityRequest(CAMP_ID), makeParams(CAMP_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.limits.maxGuestsPerDay).toBe(16);
+    const day = body.availability.find((a: { date: string }) => a.date === '2026-09-10');
+    expect(day.maxGuests).toBe(16);
+    expect(day.remainingGuests).toBe(6); // 16 - 10, not 999 - 10
+    expect(day.available).toBe(true);
+  });
+
+  it('[ac-7] a per-spot camp with zero non-deleted spots -> every day isCapacityFull (available:false), derived capacity 0', async () => {
+    mockPublicCampSite({ useSpotView: true, maxGuestsPerDay: 999, maxTentsPerDay: null });
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    const res = await availabilityGET(makeAvailabilityRequest(CAMP_ID), makeParams(CAMP_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.limits.maxGuestsPerDay).toBe(0);
+    const day = body.availability.find((a: { date: string }) => a.date === '2026-09-10');
+    expect(day.maxGuests).toBe(0);
+    expect(day.remainingGuests).toBe(0);
+    expect(day.available).toBe(false); // NOT true — 0 is a real cap, never treated as "no cap"
+  });
+
+  it('[ec-3] the soft-delete filter is applied to the spot-sum this route reads', async () => {
+    mockPublicCampSite({ useSpotView: true, maxGuestsPerDay: null, maxTentsPerDay: null });
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(SPOTS_16);
+
+    await availabilityGET(makeAvailabilityRequest(CAMP_ID), makeParams(CAMP_ID));
+
+    const call = (prisma.spot.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.where).toEqual({ campSiteId: CAMP_ID, deletedAt: null });
+  });
+
+  it('[br-4][perf guard] the spot-sum is read exactly ONCE per request, not once per day in the range', async () => {
+    mockPublicCampSite({ useSpotView: true, maxGuestsPerDay: null, maxTentsPerDay: null });
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(SPOTS_16);
+
+    // 5-day range — the pre-CAM-355 route already loops per day for
+    // isCapacityFull/remaining; the spot-sum read must NOT follow that loop.
+    const res = await availabilityGET(
+      makeAvailabilityRequest(CAMP_ID, '2026-09-10', '2026-09-15'),
+      makeParams(CAMP_ID)
+    );
+    const body = await res.json();
+
+    expect(body.availability.length).toBeGreaterThan(1);
+    expect(prisma.spot.findMany).toHaveBeenCalledOnce();
+  });
+
+  it('[ec-5][fail-open] a spot-sum read failure serves the calendar from the raw column instead of 500ing (mirrors the badge contract)', async () => {
+    mockPublicCampSite({ useSpotView: true, maxGuestsPerDay: 50, maxTentsPerDay: null });
+    (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB connection lost'));
+
+    const res = await availabilityGET(makeAvailabilityRequest(CAMP_ID), makeParams(CAMP_ID));
+    const body = await res.json();
+
+    // Fail-OPEN: 200, not 500 — falls back to the raw (stale) column value.
+    expect(res.status).toBe(200);
+    expect(body.limits.maxGuestsPerDay).toBe(50);
+  });
+
+  it('[br-8][regression] a WHOLE-CAMP camp (useSpotView=false) is byte-for-byte unchanged — no spot query at all', async () => {
+    mockPublicCampSite({ useSpotView: false, maxGuestsPerDay: 5, maxTentsPerDay: null });
+    (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { checkInDate: d('2026-09-10'), checkOutDate: d('2026-09-11'), guests: 3, status: 'CONFIRMED' },
+    ]);
+
+    const res = await availabilityGET(makeAvailabilityRequest(CAMP_ID), makeParams(CAMP_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.limits.maxGuestsPerDay).toBe(5);
+    const day = body.availability.find((a: { date: string }) => a.date === '2026-09-10');
+    expect(day.remainingGuests).toBe(2); // 5 - 3, unchanged formula
+    expect(prisma.spot.findMany).not.toHaveBeenCalled();
   });
 });
