@@ -84,6 +84,15 @@ vi.mock('@/lib/prisma', () => ({
     internalHold: {
       findMany: vi.fn(),
     },
+    // CAM-355 BR-4c: getAvailabilityStatusForCamps now runs ONE additional
+    // grouped Spot query (the PER-SPOT batched sum) alongside the 4 existing
+    // ones — mocked here so every pre-existing test in this file continues to
+    // exercise the real function unmodified (defaults to no spot rows, i.e.
+    // every camp fixture here stays effectively WHOLE-CAMP unless a test
+    // explicitly sets useSpotView + spot rows).
+    spot: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -127,6 +136,7 @@ beforeEach(() => {
   (prisma.booking.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.blockedDate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.spot.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 // ===========================================================================
@@ -279,7 +289,7 @@ describe('getAvailabilityStatusForCamps — classification', () => {
     expect(prisma.internalHold.findMany).toHaveBeenCalledOnce();
   });
 
-  it('[br-5][no-n+1] a page of 3 camps still runs exactly 4 grouped queries total (never per-camp)', async () => {
+  it('[br-5][no-n+1] a page of 3 camps still runs exactly 5 grouped queries total (never per-camp, CAM-355 adds the Spot sum)', async () => {
     (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { id: CAMP_A, maxGuestsPerDay: 2 },
       { id: CAMP_B, maxGuestsPerDay: 2 },
@@ -292,9 +302,16 @@ describe('getAvailabilityStatusForCamps — classification', () => {
     expect(prisma.booking.findMany).toHaveBeenCalledOnce();
     expect(prisma.blockedDate.findMany).toHaveBeenCalledOnce();
     expect(prisma.internalHold.findMany).toHaveBeenCalledOnce();
+    // CAM-355 BR-4c/BR-5: the ONE added grouped Spot query, batched for the
+    // whole page (never per-camp) — same `IN [pageIds]` shape as the others.
+    expect(prisma.spot.findMany).toHaveBeenCalledOnce();
 
     const bookingArgs = (prisma.booking.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(bookingArgs.where.campSiteId).toEqual({ in: [CAMP_A, CAMP_B, CAMP_C] });
+
+    const spotArgs = (prisma.spot.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(spotArgs.where.campSiteId).toEqual({ in: [CAMP_A, CAMP_B, CAMP_C] });
+    expect(spotArgs.where.deletedAt).toBeNull();
   });
 
   it('[ec-6] zero-night / inverted range → returns {} with NO database calls at all', async () => {

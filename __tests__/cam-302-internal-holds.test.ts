@@ -875,9 +875,13 @@ describe('source-inspection — availability route threads heldGuests through (A
     'utf-8'
   );
 
-  it('remainingGuests subtracts (bookedGuests + heldGuests), not bookedGuests alone', () => {
+  // CAM-355 (G3 Important-1): the WHOLE-CAMP formula is now reached through a
+  // useSpotView mode gate (PER-SPOT reads the derived effective capacity
+  // instead) — the exact pre-CAM-355 expression is still present verbatim as
+  // the whole-camp branch, just no longer the bare `remainingGuests:` prefix.
+  it('remainingGuests (whole-camp branch) subtracts (bookedGuests + heldGuests), not bookedGuests alone', () => {
     expect(availabilityRouteSrc).toContain(
-      'remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
+      'campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
     );
   });
 
