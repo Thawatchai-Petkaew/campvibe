@@ -85,6 +85,47 @@ describe('isSafeImageUrl (CAM-358) — accepts absolute http(s) + safe root-rela
   it('[boundary] a path with two+ leading slashes beyond // is still rejected', () => {
     expect(isSafeImageUrl('///evil.com')).toBe(false);
   });
+
+  // G3 nit-close: the scheme-safety invariant (only http/https are ever
+  // accepted as an absolute URL — every other scheme falls through to the
+  // root-relative check and is rejected there since none of these start with
+  // a bare `/`) had zero direct tests. Pinned explicitly so a future refactor
+  // of isSafeImageUrl can't silently regress it.
+  it('[error/validation] javascript: scheme is rejected', () => {
+    expect(isSafeImageUrl('javascript:alert(1)')).toBe(false);
+  });
+
+  it('[error/validation] a leading-space javascript: scheme is rejected (WHATWG trims the space, protocol is still non-http)', () => {
+    expect(isSafeImageUrl(' javascript:alert(1)')).toBe(false);
+  });
+
+  it('[error/validation] data: scheme is rejected', () => {
+    expect(isSafeImageUrl('data:text/html;base64,x')).toBe(false);
+  });
+
+  it('[error/validation] file: scheme is rejected', () => {
+    expect(isSafeImageUrl('file:///etc/passwd')).toBe(false);
+  });
+
+  it('[error/validation] vbscript: scheme is rejected', () => {
+    expect(isSafeImageUrl('vbscript:x')).toBe(false);
+  });
+
+  it('[error/validation] blob: scheme is rejected', () => {
+    expect(isSafeImageUrl('blob:https://x')).toBe(false);
+  });
+
+  it('[error/validation] ftp: scheme is rejected (only http/https are accepted, not just "any URL-shaped value")', () => {
+    expect(isSafeImageUrl('ftp://host/x.jpg')).toBe(false);
+  });
+
+  it('[normal] an uppercase HTTP scheme still passes (WHATWG lowercases the scheme before the protocol check)', () => {
+    expect(isSafeImageUrl('HTTP://cdn.example.com/x.jpg')).toBe(true);
+  });
+
+  it('[boundary] a bare "/" is degenerate but currently passes the root-relative check — pinned intentionally, not a silent gap', () => {
+    expect(isSafeImageUrl('/')).toBe(true);
+  });
 });
 
 describe('imageUrlValue — zod wrapper carries the Thai error message', () => {
