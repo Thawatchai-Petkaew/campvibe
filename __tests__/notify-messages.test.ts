@@ -79,6 +79,9 @@ describe("NOTIFY_EVENTS defaults", () => {
   it("done is true", () => {
     expect(NOTIFY_EVENTS.done).toBe(true);
   });
+  it("staged is true (CAM-370, default on like released)", () => {
+    expect(NOTIFY_EVENTS.staged).toBe(true);
+  });
   it("defect is false (default off)", () => {
     expect(NOTIFY_EVENTS.defect).toBe(false);
   });
@@ -353,6 +356,24 @@ describe("buildEventMessage — released", () => {
 
   it("no emoji", () => {
     const msg = buildEventMessage("released", BASE_CTX);
+    assertNoEmoji(msg!.text, "text");
+    allButtonLabels(msg!.buttons).forEach((l) => assertNoEmoji(l, "button label"));
+  });
+});
+
+describe("buildEventMessage — staged (CAM-370)", () => {
+  it("returns exact header 'Now on staging'", () => {
+    const msg = buildEventMessage("staged", BASE_CTX);
+    expect(msg!.text).toContain("Now on staging");
+  });
+
+  it("includes the description", () => {
+    const msg = buildEventMessage("staged", BASE_CTX);
+    expect(msg!.text).toContain("Some story title");
+  });
+
+  it("no emoji", () => {
+    const msg = buildEventMessage("staged", BASE_CTX);
     assertNoEmoji(msg!.text, "text");
     allButtonLabels(msg!.buttons).forEach((l) => assertNoEmoji(l, "button label"));
   });

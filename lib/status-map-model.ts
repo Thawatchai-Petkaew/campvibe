@@ -201,8 +201,8 @@ export function payloadChanged(prev: string, next: string): boolean {
  *   (whole-project envLanes / projectPct / gates / epicsActive / totalEpics / backlog),
  *   preserving the original capsule behaviour.
  * - When a persona/feature/epic is selected → buckets the selected stories with the
- *   same env semantics as `envOf` (released → Ship · else Done → Staging · else Dev),
- *   `pct = done/total` of that set, and scopes gates/backlog by their epicKey.
+ *   same env semantics as `envOf` (released → Ship · else on-staging → Staging (CAM-370)
+ *   · else Dev), `pct = done/total` of that set, and scopes gates/backlog by their epicKey.
  *
  * Kept as a standalone pure function so the filter-scoping logic is unit-testable
  * without rendering the client scene (mirrors `payloadChanged`).
@@ -262,9 +262,10 @@ export function deriveCapsuleStats(args: {
   const stories = filteredEpics.flatMap((e) => e.stories);
   let dev = 0, staging = 0, ship = 0;
   for (const s of stories) {
-    // envOf semantics on the cleaned MapEpicStory shape.
+    // envOf semantics on the cleaned MapEpicStory shape (CAM-370: on-staging, not Done alone,
+    // is what buckets a story into Staging — see lib/status-derive.ts envOf).
     if (s.labels.includes("released")) ship++;
-    else if (s.statusType === "completed" || s.status === "Done") staging++;
+    else if (s.labels.includes("on-staging")) staging++;
     else dev++;
   }
   const done = staging + ship;

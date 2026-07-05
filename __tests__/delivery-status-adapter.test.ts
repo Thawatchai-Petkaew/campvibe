@@ -116,6 +116,16 @@ describe("toStatusIssue — labels synthesis", () => {
     expect(issue.labels).not.toContain("released");
   });
 
+  it("stagedAt set adds 'on-staging' (CAM-370)", () => {
+    const issue = toStatusIssue(ticketFixture({ stagedAt: new Date() }));
+    expect(issue.labels).toContain("on-staging");
+  });
+
+  it("stagedAt null does not add 'on-staging'", () => {
+    const issue = toStatusIssue(ticketFixture({ stagedAt: null }));
+    expect(issue.labels).not.toContain("on-staging");
+  });
+
   it("blocked=true adds 'blocked'", () => {
     const issue = toStatusIssue(ticketFixture({ blocked: true }));
     expect(issue.labels).toContain("blocked");

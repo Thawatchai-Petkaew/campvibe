@@ -38,6 +38,7 @@ export type EventKind =
   | "blocked"
   | "done"
   | "released"
+  | "staged"
   | "defect";
 
 export const NOTIFY_EVENTS: Record<EventKind, boolean> = {
@@ -52,6 +53,8 @@ export const NOTIFY_EVENTS: Record<EventKind, boolean> = {
   blocked: true,
   done: true,
   released: true,
+  // CAM-370: default ON, same as released (the on-staging marker is worth surfacing).
+  staged: true,
   defect: false,
 };
 
@@ -228,6 +231,14 @@ export function buildEventMessage(kind: EventKind, ctx: EventCtx): NotifyMessage
 
     case "released":
       header = "Now live";
+      buttons = [
+        ...(url ? [[moreDetailBtn(url)]] : []),
+        [liveStatusBtn()],
+      ];
+      break;
+
+    case "staged":
+      header = "Now on staging";
       buttons = [
         ...(url ? [[moreDetailBtn(url)]] : []),
         [liveStatusBtn()],

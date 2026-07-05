@@ -48,6 +48,7 @@ export function toStatusIssue(t: TicketWithEpic): StatusIssue {
   if (t.state === "AWAITING_GATE") labels.push("awaiting-you");
   if (t.changesRequested) labels.push("changes-requested");
   if (t.releasedAt) labels.push("released");
+  if (t.stagedAt) labels.push("on-staging"); // CAM-370: durable dev->staging promote marker
   if (t.blocked) labels.push("blocked");
   if (t.persona) labels.push(t.persona.toLowerCase());
   for (const r of t.roleHistory) {

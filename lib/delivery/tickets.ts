@@ -409,6 +409,37 @@ export async function release(id: string, actor: string): Promise<Ticket> {
   return updated;
 }
 
+// ── stage — re-stampable; DONE -> DONE, stamps stagedAt only (CAM-370) ─────────────────
+//
+// UNLIKE release() (idempotent-GUARDED — throws "already_released" on a second call),
+// stage() is re-stampable: a story can ride more than one batched dev->staging promote
+// over its life (ops.md "on-staging ~1-3/day or on owner request"), so every call simply
+// overwrites stagedAt with the latest promote time — no "already staged" error.
+//
+// UNLIKE release() (which THROWS invalid_state on a non-DONE ticket), a non-DONE ticket is
+// a silent no-op here (same idempotent-no-op shape as setBlocked above) — the on-staging
+// marker only ever applies to a Done ticket, but a batched promote across many tickets
+// should never hard-fail the whole run just because one of them isn't Done yet (ops.md
+// "batched daily sitting" runs across a mixed-state set). The CLI (scripts/ticket-sync.mjs)
+// detects this by comparing the returned ticket's state and prints a distinct warn line —
+// see cmdSet/cmdStage there.
+export async function stage(id: string, actor: string): Promise<Ticket> {
+  const db = getDeliveryClient();
+  const ticket = await getTicketOr404(db, id);
+  if (ticket.state !== "DONE") return ticket; // no-op: on-staging only applies once a story is Done
+
+  const now = new Date();
+  const updated = await db.$transaction(async (tx) => {
+    const u = await tx.ticket.update({ where: { id: ticket.id }, data: { stagedAt: now } });
+    await logEvent(tx, u.id, "staged", ticket.stagedAt ? ticket.stagedAt.toISOString() : null, now.toISOString(), actor);
+    return u;
+  });
+
+  await bumpDeliveryPulse();
+  await notifySafe("staged", ticketCtx(updated));
+  return updated;
+}
+
 // ── cancel(note?) — any non-terminal state -> CANCELED ──────────────────────────────────
 
 export async function cancel(id: string, actor: string, note?: string): Promise<Ticket> {

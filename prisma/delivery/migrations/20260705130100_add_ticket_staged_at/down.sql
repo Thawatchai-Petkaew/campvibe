@@ -1,0 +1,24 @@
+-- Down migration for 20260705130100_add_ticket_staged_at (CAM-370).
+-- Prisma Migrate does not auto-generate a down migration; this file is a hand-written,
+-- TESTED rollback path (ops.md "reversible + tested on Staging/the delivery DB before use").
+--
+-- Verified 2026-07-05 against a LOCAL scratch Postgres database (never against the real
+-- delivery DB / db.prisma.io — this worktree has no DELIVERY_DATABASE_URL configured; a
+-- throwaway local database `campvibe_delivery_scratch_cam370` stood in for it):
+--   1. `prisma migrate deploy` applied the existing 2 migrations (init + add_ticket_agent_model)
+--      to the empty scratch database, reproducing the pre-CAM-370 baseline.
+--   2. `prisma migrate dev --name add_ticket_staged_at` applied THIS migration's up
+--      (migration.sql) against that baseline -- column added cleanly, no drift detected
+--      (the hand-written migration.sql matched the schema.prisma diff exactly).
+--   3. This DROP COLUMN statement was run directly via `psql` -- column removed cleanly;
+--      a follow-up `\d "Ticket"` confirmed only "stagedAt" was gone and "releasedAt" (the
+--      sibling column) was untouched.
+--   4. The up ADD COLUMN statement was re-run -- column restored, confirmed nullable
+--      (round-trip proven: up -> down -> up).
+--
+-- No backfill needed either direction: the column is nullable with no default other than
+-- NULL, and no other table/column depends on it. Not wired into any automated rollback
+-- tooling (the delivery DB has no per-env split -- see ADR-010 -- rollback here means running
+-- this statement by hand via `prisma db execute --schema prisma/delivery/schema.prisma --stdin`
+-- against DELIVERY_DATABASE_URL, same as the CAM-342 precedent).
+ALTER TABLE "Ticket" DROP COLUMN "stagedAt";

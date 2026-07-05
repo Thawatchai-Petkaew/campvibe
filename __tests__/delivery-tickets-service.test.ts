@@ -340,6 +340,47 @@ describe("release — idempotent-guarded, DONE -> DONE (stamps releasedAt only)"
   });
 });
 
+describe("stage — CAM-370: re-stampable, DONE -> DONE (stamps stagedAt only)", () => {
+  it("DONE without stagedAt stamps stagedAt, state unchanged", async () => {
+    const row = seed({ state: "DONE", stagedAt: null });
+    const t = await tickets.stage(row.identifier, "human");
+    expect(t.stagedAt).not.toBeNull();
+    expect(t.state).toBe("DONE");
+  });
+
+  it("[idempotent] DONE with stagedAt already set re-stamps (no error, unlike release)", async () => {
+    const first = new Date("2026-01-01T00:00:00Z");
+    const row = seed({ state: "DONE", stagedAt: first });
+    const t = await tickets.stage(row.identifier, "human");
+    expect(t.stagedAt).not.toBeNull();
+    expect(t.stagedAt!.getTime()).toBeGreaterThan(first.getTime());
+  });
+
+  it.each(ALL_STATES.filter((s) => s !== "DONE"))("[no-op] %s ticket returns unchanged, does not throw", async (state) => {
+    const row = seed({ state, stagedAt: null });
+    const t = await tickets.stage(row.identifier, "human");
+    expect(t.stagedAt).toBeNull();
+    expect(t.state).toBe(state);
+  });
+
+  it("[no-op] does not emit a TicketEvent or Telegram notification for a non-DONE ticket", async () => {
+    const row = seed({ state: "IN_PROGRESS", stagedAt: null });
+    await tickets.stage(row.identifier, "human");
+    expect(fake.store.events.find((e) => e.kind === "staged" && e.ticketId === row.id)).toBeUndefined();
+    expect(tg).not.toHaveBeenCalled();
+  });
+
+  it("[notify] sends the 'staged' Telegram message with an ISO toValue on the event", async () => {
+    const row = seed({ state: "DONE", stagedAt: null });
+    await tickets.stage(row.identifier, "human");
+    const ev = fake.store.events.find((e) => e.kind === "staged" && e.ticketId === row.id);
+    expect(ev?.toValue).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(tg).toHaveBeenCalledTimes(1);
+    const [text] = tg.mock.calls[0] as [string];
+    expect(text).toContain("Now on staging");
+  });
+});
+
 describe("transition matrix — cancel(note?)", () => {
   const cancellable = ["BACKLOG", "TODO", "IN_PROGRESS", "AWAITING_GATE"];
   it.each(ALL_STATES)("cancel: %s", async (state) => {
