@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { ImageUpload } from "@/components/ImageUpload";
 import { LogoUpload } from "@/components/LogoUpload";
 import { LocationPicker } from "@/components/LocationPicker";
+import { SpotManagementSection } from "@/components/spot-management-section";
 import { InputField } from "@/components/ui/input-field";
 import { Badge } from "@/components/ui/badge";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -1683,6 +1684,19 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     </div>
                 </div>
             </form>
+
+            {/* CAM-361: embed the spot list + management section full-width
+                below the main form - edit mode only (a create-mode camp has
+                no id yet, so nothing renders there). Sits OUTSIDE the <form>
+                above on purpose: SpotFormDialog renders its own <form>, and
+                nesting a <form> inside another <form> is invalid HTML. The
+                Capacity card's "manage spots" link (above) stays as a
+                shortcut to the standalone route. */}
+            {isEditing && initialData?.id && (
+                <div className="w-full px-4 md:px-6 pb-8">
+                    <SpotManagementSection campSiteId={initialData.id} variant="embedded" />
+                </div>
+            )}
 
             {/* Delete Confirmation Dialog */}
             <ConfirmDialog
