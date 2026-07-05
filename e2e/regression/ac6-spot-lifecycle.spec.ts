@@ -40,9 +40,14 @@ test("spot lifecycle: create, visible in spots list + availability picker, soft-
   const createdSpot = await createRes.json();
   const spotId: string = createdSpot.id;
 
-  // Visible result — new spot row appears on the spots page.
+  // Visible result — new spot row appears on the spots page. A single
+  // toContainText assertion (not a toBeVisible + toContainText pair) closes
+  // the re-render window between two checks on the same locator: Playwright
+  // re-resolves the locator on every retry, so a two-step check can observe
+  // the row on step 1 and then miss a transient re-render before step 2 ever
+  // fires - a two-step assertion on the same locator is inherently racy
+  // across re-renders (CAM-359 harness flake).
   const spotRow = page.getByTestId(`row--spot-${spotId}`);
-  await expect(spotRow).toBeVisible();
   await expect(spotRow).toContainText(spotName);
 
   // --- Availability page: the new spot appears as an option in the picker. ---
