@@ -920,7 +920,9 @@
             "forbiddenMessage": "You don't have permission to manage this camp's spots",
             "notFoundMessage": "Spot not found",
             "panoramaToggleLabel": "Panorama photo",
-            "panoramaBadge": "Panorama"
+            "panoramaBadge": "Panorama",
+            "filterAllLabel": "All",
+            "unassignedZoneLabel": "No zone"
         }
     },
     "th": {
@@ -1845,7 +1847,9 @@
             "forbiddenMessage": "คุณไม่มีสิทธิ์จัดการจุดของแคมป์นี้",
             "notFoundMessage": "ไม่พบจุดนี้",
             "panoramaToggleLabel": "ภาพพาโนรามา",
-            "panoramaBadge": "พาโนรามา"
+            "panoramaBadge": "พาโนรามา",
+            "filterAllLabel": "ทั้งหมด",
+            "unassignedZoneLabel": "ไม่ระบุโซน"
         }
     }
 }
