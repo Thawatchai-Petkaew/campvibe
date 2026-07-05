@@ -131,7 +131,7 @@
   <section class="box" id="hero">
     <span class="badge"><span class="dot"></span> Living reference · visual twin · SoT = CLAUDE.md + AGENTS.md + .claude/* + docs/adr/*</span>
     <h1>CampVibe AI Delivery Team
-      <span class="sub">โซโล่โอเนอร์คนเดียว + <b>orchestrator</b> 1 ตัว + <b>role agent</b> 9 ตำแหน่ง ส่งงานทุกชิ้นผ่าน gate ที่มนุษย์คุมเองทุกบาน (G1–G5) — ไม่มี autonomous approval ที่ไหนเลยในระบบ นี่คือ visual twin ของสิ่งที่วิ่งจริงหลัง 4 PR ปรับปรุงกระบวนการวันนี้ (#317–#320): specs ย้ายมาที่ <code>docs/specs/</code>, ticket-DB convention v2, <code>AGENTS.md</code> cross-vendor entry, template v2 + ADR hygiene</span>
+      <span class="sub">โซโล่โอเนอร์คนเดียว + <b>orchestrator</b> 1 ตัว + <b>role agent</b> 9 ตำแหน่ง ส่งงานทุกชิ้นผ่าน gate ที่มนุษย์คุมเองทุกบาน (G1–G5) — ไม่มี autonomous approval ที่ไหนเลยในระบบ นี่คือ visual twin ของสิ่งที่วิ่งจริงหลัง 4 PR ปรับปรุงกระบวนการวันนี้ (#317–#320): specs ย้ายมาที่ <code>docs/specs/</code>, ticket-DB convention v2, <code>AGENTS.md</code> cross-vendor entry, template v2 + ADR hygiene — และอัปเดต 2026-07-05: <b>dev-branch local-first flow</b> (Local → Dev ไม่ deploy → Staging batch promote → Prod) + deploy allow-list</span>
     </h1>
     <div class="stat-grid">
       <div class="stat"><b>1</b><span>owner — อนุมัติทุก gate + ทุก spend</span></div>
@@ -220,35 +220,37 @@
       <tr><th>Discovery — 6 มิติ gap</th><th>สถานะ (tag ทุก gap)</th></tr>
       <tr><td>Business · Functional · Technical · UX · Security/Data · Risk</td><td>🟢 closed · 🟡 assumed (ระบุ default) · 🔴 must-ask (blocker) · ⚪ N/A — ผ่าน G1 ได้เมื่อไม่มี 🔴 เหลือเลย</td></tr>
     </table>
-    <p class="lead" style="margin:2px 0 10px">Definition of Ready ก่อนเข้า build: User Story + testable AC · NFR ชัด (perf/a11y/i18n/security) · out-of-scope ระบุชัด · atomic (1 PR เล็ก) · AC verify ได้บน Staging URL จริง</p>
+    <p class="lead" style="margin:2px 0 10px">Definition of Ready ก่อนเข้า build: User Story + testable AC · NFR ชัด (perf/a11y/i18n/security) · out-of-scope ระบุชัด · atomic (1 PR เล็ก) · AC verify ได้บน localhost (dev DB) ก่อน merge — flow ใหม่ 2026-07-05</p>
     <div class="flow">
-      <div class="node"><b>Requirement</b><span class="sub">/camper หรือ /new-feature</span></div>
+      <div class="node"><b>Requirement</b><span class="sub">/camper หรือ /new-feature — <code>ticket-sync create</code> → ticket เกิด (BACKLOG)</span></div>
       <div class="arrow">→</div>
       <div class="node"><b>Discovery</b><span class="sub">6-dimension gap · batch questions · <code>[NEEDS CLARIFICATION]</code> marker · DoR = audit</span></div>
       <div class="arrow">→</div>
-      <div class="node gate"><b>G1 · Scope</b><span class="sub">มนุษย์ full attention เสมอ</span></div>
+      <div class="node gate"><b>G1 · Scope</b><span class="sub">มนุษย์ full attention (spec-lite พับเข้า G3) — ผ่านแล้ว ticket → TODO</span></div>
       <div class="arrow">→</div>
-      <div class="node"><b>Spec = ไฟล์</b><span class="sub"><code>docs/specs/.../story.md</code> (template v2: EARS AC 6 คอลัมน์ + Edge cases + Seams) — แก้ผ่าน PR</span></div>
+      <div class="node"><b>Spec = ไฟล์</b><span class="sub"><code>docs/specs/.../story.md</code> (template v2) — อยู่บน branch ของ story ไม่มี PR แยก (flow 2026-07-05)</span></div>
       <div class="arrow">→</div>
-      <div class="node"><b>Dispatch</b><span class="sub">pointer + delta — contract อยู่ในไฟล์ agent แล้ว</span></div>
+      <div class="node"><b>Dispatch</b><span class="sub">pointer + delta · <code>handoff --role … --state "In Progress"</code> → IN_PROGRESS + roleHistory + Telegram</span></div>
       <div class="arrow">→</div>
-      <div class="node"><b>Build</b><span class="sub">writer เดียวใน main tree / worktree แยก · oracle-first QA · STOP RULES 4 ข้อ · stall watchdog</span></div>
+      <div class="node"><b>Build (Local)</b><span class="sub">worktree แยกเสมอ (สูงสุด 2 writer) branch off <code>origin/dev</code> · spec+code+tests ใน PR เดียว · STOP RULES · stall watchdog</span></div>
       <div class="arrow">→</div>
       <div class="node"><b>Self-verify</b><span class="sub">lint · typecheck · test · build · design-gate</span></div>
       <div class="arrow">→</div>
-      <div class="node"><b>PR → CI</b><span class="sub">quality-gate + adversarial reviewer agent</span></div>
+      <div class="node"><b>PR เข้า dev → CI</b><span class="sub">quality-gate + adversarial reviewer agent — <b>push ไม่สร้าง deployment</b> (allow-list)</span></div>
       <div class="arrow">→</div>
-      <div class="node gate"><b>G3 · Merge</b><span class="sub">exception-first packet</span></div>
+      <div class="node gate"><b>G3 · Merge</b><span class="sub">exception-first packet · <code>set --add-label awaiting-you</code> → AWAITING_GATE + Telegram gate</span></div>
       <div class="arrow">→</div>
-      <div class="node"><b>Merge → Staging</b><span class="sub">serial (update-branch) · auto deploy + smoke</span></div>
+      <div class="node"><b>Verify AC บน localhost</b><span class="sub">orchestrator + owner ตรวจกับ dev DB <b>ก่อน merge</b> (browser-only AC = หลัง merge บน dev)</span></div>
       <div class="arrow">→</div>
-      <div class="node gate"><b>G4 · Staging sign-off</b><span class="sub">verify AC บน URL จริง</span></div>
+      <div class="node done"><b>Merge → dev = Done</b><span class="sub"><code>set --state Done</code> (complete) → DONE + Telegram done · ไม่มี deploy</span></div>
       <div class="arrow">→</div>
-      <div class="node done"><b>Done</b><span class="sub">release train</span></div>
+      <div class="node"><b>Batch promote dev→staging</b><span class="sub">PR เดียว ~1-3/วัน = 1 deploy + smoke · ticket ติด label <code>on-staging</code></span></div>
       <div class="arrow">→</div>
-      <div class="node gate"><b>G5 · Go-live</b><span class="sub">promote → prod</span></div>
+      <div class="node gate"><b>G4 · Staging sign-off</b><span class="sub">นั่งตรวจรวมวันละครั้ง บน URL จริง</span></div>
       <div class="arrow">→</div>
-      <div class="node done"><b>Released</b><span class="sub">tag + changelog + rollback + Sentry watch</span></div>
+      <div class="node gate"><b>G5 · Go-live</b><span class="sub">promote staging→main + back-merge chain</span></div>
+      <div class="arrow">→</div>
+      <div class="node done"><b>Released</b><span class="sub"><code>ticket-sync release</code> → releasedAt + label + Telegram released · tag + changelog + rollback + watch</span></div>
     </div>
     <p class="lead"><b>G2</b> (Design/spend) อยู่ระหว่าง spec-ไฟล์ กับ dispatch — architect ออก data/API contract + designer ออก flow/states คู่กัน; ภายใต้ Gate policy v2 เคส "standard class" (reuse token/component เดิม ไม่มี screen/flow/token ใหม่) จะข้าม tap แยกและพับเข้า G3 packet บรรทัดเดียวแทน (ดู §5)</p>
 
@@ -262,12 +264,13 @@
       <tr><td><code>npm audit --omit=dev</code></td><td>0 high/critical</td></tr>
       <tr><td>design gate</td><td>เขียว เมื่อ diff แตะ UI (token/a11y/8-states ตาม <code>DESIGN.md</code>)</td></tr>
     </table>
-    <h3 style="margin-top:14px">3-env + Done ≠ Released (<code>.claude/rules/ops.md</code>)</h3>
+    <h3 style="margin-top:14px">4-layer env + Done ≠ On-staging ≠ Released (<code>.claude/rules/ops.md</code> — flow 2026-07-05)</h3>
     <table>
-      <tr><th>Env</th><th>Deploy เมื่อ</th><th>สถานะที่ได้</th></tr>
-      <tr><td>Local Dev</td><td>—</td><td>develop + self-verify</td></tr>
-      <tr><td>Staging</td><td>auto บน merge เข้า <code>staging</code></td><td><b>Done</b> — quality-gate เขียว + AC verify บน Staging URL จริง + G4 sign-off</td></tr>
-      <tr><td>Production</td><td>promote <code>staging</code>→<code>main</code> + tag</td><td><b>Released</b> — label ไม่ใช่ state, promote + smoke + tag + changelog + rollback + G5</td></tr>
+      <tr><th>Env</th><th>Branch / Deploy</th><th>ticket เกิด/เปลี่ยนอะไรที่ชั้นนี้</th></tr>
+      <tr><td>Local</td><td><code>feature/*</code> ใน worktree — <b>ไม่มี deploy</b> (vercel.json allow-list)</td><td>create (BACKLOG) → G1 (TODO) → dispatch = <code>handoff</code> (IN_PROGRESS) → gate = <code>--add-label awaiting-you</code> (AWAITING_GATE)</td></tr>
+      <tr><td><b>Dev (integration)</b></td><td><code>dev</code> — <b>ไม่มี deploy</b>; owner อ่านผ่าน localhost + dev DB (refresh: <code>db:sync-from-staging</code> ทิศเดียว)</td><td>merge PR เข้า dev = <b>Done</b> (<code>set --state Done</code> → state DONE, terminal) — AC ต้อง verify บน localhost ก่อน merge</td></tr>
+      <tr><td>Staging</td><td><code>staging</code> — deploy เฉพาะตอน batch promote dev→staging (~1-3/วัน) + smoke</td><td>ticket ที่อยู่ใน batch ติด label <b><code>on-staging</code></b> (label ไม่ใช่ state) — G4 นั่งตรวจบน URL จริง</td></tr>
+      <tr><td>Production</td><td><code>main</code> — promote staging→main + tag + back-merge chain (main→staging→dev)</td><td><code>ticket-sync release</code> → ประทับ <code>releasedAt</code> + label <b><code>released</code></b> + Telegram</td></tr>
     </table>
 
     <h3 style="margin-top:14px">Story template v2 — โครง 9 section ที่ product-owner เติมเสมอ</h3>
@@ -285,9 +288,9 @@
     <h3 style="margin-top:14px">Dispatch contract — เหมือนกันทุก role file (frozen prefix)</h3>
     <table>
       <tr><th>ส่วน</th><th>เนื้อหา</th></tr>
-      <tr><td>Git mechanics</td><td>branch <code>&lt;type&gt;/&lt;kebab&gt;</code> off <code>origin/staging</code> · pre-flight <code>git status</code> ก่อน branch (ห้าม <code>git add -A</code>) · commit trailer <code>Co-Authored-By: Claude Fable 5</code></td></tr>
+      <tr><td>Git mechanics</td><td>branch <code>&lt;type&gt;/&lt;kebab&gt;</code> off <code>origin/dev</code> ใน worktree ของตัวเอง (ยืนยัน pwd ก่อน git คำสั่งแรก — main tree คือ dev server ของ owner) · pre-flight <code>git status</code> (ห้าม <code>git add -A</code>) · commit trailer <code>Co-Authored-By: Claude Fable 5</code></td></tr>
       <tr><td>Self-verify</td><td><code>npm run lint</code> (0 error) · <code>npm run typecheck</code> · <code>npm test</code> (coverage ≥80% โค้ดใหม่) · <code>npm run build</code> เมื่อแก้โค้ด · design-gate เมื่อแตะ UI</td></tr>
-      <tr><td>Ship ritual</td><td>push → PR เข้า <code>staging</code> → <code>ticket-sync.mjs set &lt;CAM-id&gt; --add-label awaiting-you</code> → ส่งรายงาน (PR#, AC coverage, evidence, deviations — พูด "none" ชัดถ้าไม่มี)</td></tr>
+      <tr><td>Ship ritual</td><td>push → PR เข้า <code>dev</code> (spec+code+tests+docs ใน PR เดียว; push ไม่กิน deploy quota) → orchestrator เป็นคน raise gate (<code>--add-label awaiting-you</code> — agent ไม่มี STATUS_TOKEN) → ส่งรายงาน (PR#, AC coverage, evidence, deviations — พูด "none" ชัดถ้าไม่มี)</td></tr>
     </table>
 
     <div class="two-col" style="margin-top:10px">
@@ -385,6 +388,23 @@
       <tr><td>persona / feature flag</td><td><code>--persona host\|camper\|admin\|platform</code> ขับ persona grouping · <code>--feature "&lt;name&gt;"</code> free text ตรงกับ <code>featureName</code> ของ epic</td></tr>
       <tr><td>Role handoff</td><td><code>ticket-sync handoff &lt;CAM-id&gt; --role &lt;role&gt;</code> เท่านั้น (ห้าม hand-edit title ปลอมบทบาท) — set <code>currentRole</code> + push <code>roleHistory</code> (append-only) + ยิง Telegram ในคำสั่งเดียว; audit จับ mismatch <code>currentRole</code>/<code>roleHistory</code> เป็น data-integrity gap</td></tr>
     </table>
+    <h3 style="margin-top:14px">Map: จุดไหนในลูป → ticket เกิด/ถูกอัปเดตด้วยอะไร (ทุก mutation ผ่าน <code>scripts/ticket-sync.mjs</code> → <code>lib/delivery/tickets.ts</code> ที่เดียว — Telegram ยิงใน call เดียวกัน)</h3>
+    <table>
+      <tr><th>จุดในลูป</th><th>Env</th><th>คำสั่ง / verb</th><th>ผลกับ ticket</th><th>Telegram</th></tr>
+      <tr><td>Intake (/camper, /new-feature, defect จาก review/e2e)</td><td>—</td><td><code>create --type epic|story --epic &lt;CAM&gt; --persona --feature [--description-file]</code></td><td><b>ticket เกิด</b> → BACKLOG โผล่บน /status ทันที (epic ต้องมาก่อน story — FK จริง)</td><td>created (ปิด default)</td></tr>
+      <tr><td>ผ่าน G1 (scope แล้ว)</td><td>—</td><td><code>set --state …</code> (แปลงเป็น start บน state machine)</td><td>BACKLOG → TODO (เข้าคิว)</td><td>—</td></tr>
+      <tr><td>Dispatch role / ส่งไม้ต่อ (Designer→FE→QA→…)</td><td>Local</td><td><code>handoff &lt;CAM&gt; --role &lt;role&gt; [--state "In Progress"] [--note]</code></td><td>→ IN_PROGRESS · set <code>currentRole</code> + append <code>roleHistory</code> (ห้าม hand-edit title)</td><td>started (ครั้งแรก) / handoff</td></tr>
+      <tr><td>Raise gate ใดๆ (G1/G3/G4-lite)</td><td>—</td><td><code>set &lt;CAM&gt; --add-label awaiting-you</code> (verb raiseGate — orchestrator เท่านั้น, agent ไม่มี STATUS_TOKEN)</td><td>→ AWAITING_GATE · โผล่เลน In Review + ปุ่ม Approve</td><td>gate + ปุ่ม approve/send-back</td></tr>
+      <tr><td>Owner อนุมัติ</td><td>—</td><td>verb <code>approve</code> (Telegram tap / /status / /status/map — converge จุดเดียว)</td><td>→ กลับ IN_PROGRESS วิ่งต่อ</td><td>approved</td></tr>
+      <tr><td>Owner ตีกลับ</td><td>—</td><td>verb <code>reject</code> (Telegram Send-Back / map Reject)</td><td>→ IN_PROGRESS + <code>changesRequested=true</code> + <code>regressionRound</code>+1 (2 ครั้ง = circuit breaker → อัพ tier)</td><td>rejected</td></tr>
+      <tr><td>AC ผ่านบน localhost + merge PR เข้า <code>dev</code></td><td><b>Dev</b></td><td><code>set &lt;CAM&gt; --state Done</code> (verb complete จาก AWAITING_GATE)</td><td>→ <b>DONE (terminal)</b> — นิยาม Done ใหม่: ไม่รอ staging</td><td>done</td></tr>
+      <tr><td>Batch promote dev→staging (1 PR = 1 deploy)</td><td>Staging</td><td><code>set &lt;CAM&gt; --add-label on-staging</code> + <code>comment</code> ผล smoke/probe</td><td>label <code>on-staging</code> (ไม่ใช่ state) — คิว G4 นั่งตรวจ</td><td>—</td></tr>
+      <tr><td>Release staging→main (G5)</td><td>Prod</td><td><code>release &lt;CAM&gt;</code></td><td>ประทับ <code>releasedAt</code> + label <code>released</code></td><td>released</td></tr>
+      <tr><td>ตรวจสุขภาพข้อมูล ticket (ทุกจุด)</td><td>—</td><td><code>audit</code></td><td>เช็ค story.md ที่ path จริงก่อน · marker <code>[NEEDS CLARIFICATION]</code> = exit 11 · currentRole/roleHistory mismatch = integrity gap</td><td>—</td></tr>
+      <tr><td>Blocked / เหตุการณ์อิสระ</td><td>—</td><td><code>setBlocked</code> · <code>notify "&lt;text&gt;"</code></td><td>flag <code>blocked</code> (คู่ขนาน ไม่ใช่ state) · ข้อความ free-form</td><td>blocked / ข้อความตรง</td></tr>
+    </table>
+    <p class="lead">หลักจำ: <b>state</b> เดินหน้าเดียว BACKLOG→TODO→IN_PROGRESS→AWAITING_GATE→DONE (guarded state machine ใน <code>ticket-sync-mapping.mjs</code>) — ส่วนความคืบหน้าหลัง Done เป็น <b>label</b> ล้วน (<code>on-staging</code>, <code>released</code>) เพราะหลาย story ขึ้น staging/prod พร้อมกันเป็น batch/train</p>
+
     <h3 style="margin-top:14px">Board lane semantics (<code>boardColumnOf()</code> ใน <code>lib/status-derive.ts</code>)</h3>
     <table>
       <tr><th>เลน</th><th>ความหมาย</th></tr>
@@ -392,7 +412,7 @@
       <tr><td><b>To Do</b></td><td>scope แล้ว (ผ่าน G1) เข้าคิวรอ ยังไม่มีใครเริ่ม</td></tr>
       <tr><td><b>In Progress</b></td><td>build role (frontend/backend/devops) กำลังทำอยู่จริง</td></tr>
       <tr><td><b>In Review</b></td><td>QA/Security กำลังทำงาน หรือมี gate <code>awaiting-you</code> เปิดรอมนุษย์</td></tr>
-      <tr><td><b>Done</b></td><td>merge เข้า staging แล้ว + quality-gate เขียว + AC verified บน staging URL จริง</td></tr>
+      <tr><td><b>Done</b></td><td>merge เข้า <code>dev</code> แล้ว + quality-gate เขียว + AC verified บน localhost (dev DB) ก่อน merge — ขึ้น staging เป็น batch ทีหลัง (label <code>on-staging</code>)</td></tr>
     </table>
     <h3 style="margin-top:14px">Telegram notify event matrix (<code>lib/notify-messages.ts</code> — ยิง in-process ที่จุด mutation เดียว)</h3>
     <p class="lead">เปิดเป็นค่าเริ่มต้น: <code>started</code> · <code>handoff</code> · <code>gate</code> · <code>approved</code> · <code>rejected</code> · <code>blocked</code> · <code>done</code> · <code>released</code> — ปิดเป็นค่าเริ่มต้น (กันสแปม): <code>created</code>, <code>defect</code>. อนุมัติผ่าน 3 ทาง (Telegram tap / <code>/status</code> Approve / <code>/status/map</code> Approve) ล้วน converge ที่ verb <code>approve</code>; ปฏิเสธผ่าน 2 ทาง (Telegram Send-Back / <code>/status/map</code> Reject) converge ที่ verb <code>reject</code></p>
