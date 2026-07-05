@@ -366,6 +366,7 @@ model CampSite {
   blockedDates BlockedDate[] // Operator-blocked availability (S7)
   images       Image[] // S4b: media gallery (replaces images CSV)
   holds        InternalHold[] // CAM-302: temporary spot holds (HostOS M1.2, ADR-012 §4)
+  zones        Zone[] // CAM-362: per-camp reusable zones
 
   // Options & Features (New Data-Driven Approach)
   options MasterData[]
@@ -423,8 +424,17 @@ model MasterData {
 }
 
 model Spot {
-  id            String    @id @default(uuid())
-  zone          String? // Zone name
+  id     String  @id @default(uuid())
+  zone   String? // DEPRECATED (CAM-362) — legacy free-text label. Kept as a
+                 // fallback display string + the rollback anchor (tech.md §2.3).
+                 // New writes go through zoneId; do NOT add new readers of this
+                 // column. Retirement plan: api.md rule 12 — remove only after
+                 // every read consumer (tech.md §5) has switched to the Zone relation.
+  zoneId String? // CAM-362 — entity link; the source of truth for zone membership
+  zoneRef Zone?  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  // ^ named zoneRef (not `zone`) because `zone` is the existing string column.
+  // onDelete: SetNull is a safety net only — soft-delete never fires it (the
+  // app detaches explicitly, see the zones [zoneId] DELETE route).
   name          String // Spot name
   viewType      ViewType?
   maxCampers    Int? // Maximum campers
@@ -449,6 +459,38 @@ model Spot {
   version   Int       @default(1)
 
   @@index([campSiteId])
+  @@index([zoneId]) // CAM-362 — detach-on-delete UPDATE + zone-grouped reads
+}
+
+// CAM-362 — per-camp reusable zone. Extracts the free-text Spot.zone string
+// into a queryable Set (Pixel · Set · Buffet). Scope is per-camp (campSiteId),
+// never a global list. Soft-deletable: a delete DETACHES attached spots to
+// no-zone (Spot.zoneId = null) inside one transaction, it does NOT remove
+// inventory. Uniqueness of `name` among LIVE rows is enforced by a PARTIAL
+// unique index declared in the migration SQL (Prisma cannot express
+// `WHERE deletedAt IS NULL` in-schema — see tech.md §2.1); the plain
+// @@index below is for lookup only.
+model Zone {
+  id         String   @id @default(uuid())
+  campSiteId String
+  campSite   CampSite @relation(fields: [campSiteId], references: [id])
+  name       String   @db.VarChar(50) // [Public] host-entered label, trimmed 1..50
+
+  sortOrder Int @default(0) // display order; server-assigned in round 1 (no client input yet)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft-delete (business Set convention)
+  version   Int       @default(1) // optimistic concurrency (business Set convention)
+
+  spots Spot[]
+
+  @@index([campSiteId, deletedAt]) // list live zones per camp (matches the GET where-clause)
+  @@index([campSiteId, name]) // duplicate-name lookup on POST
+  // NOTE: a UNIQUE index does NOT live here. The live-only uniqueness constraint
+  // is `Zone_campSiteId_name_active_key` (partial, WHERE deletedAt IS NULL),
+  // added by raw SQL in the migration (tech.md §2.1). Do not add
+  // @@unique([campSiteId,name]) — it would burn a name after soft-delete.
 }
 
 model Review {
