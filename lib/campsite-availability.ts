@@ -1,5 +1,88 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { calculateSpotCapacity, sumSpotCapacity } from '@/lib/spot-aggregation';
+
+/**
+ * CAM-355 BR-1/BR-2 (T-B read-through): the effective capacity a camp
+ * enforces/displays, mode-driven. Never null for PER-SPOT (a derived sum is
+ * always a real number, 0 included — BR-6); may be null for WHOLE-CAMP (no
+ * explicit column value set = unbounded, unchanged pre-existing semantics).
+ */
+export interface EffectiveCapacity {
+  maxGuestsPerDay: number | null;
+  maxTentsPerDay: number | null;
+}
+
+/** The subset of CampSite fields getEffectiveCapacity needs to decide mode + read the column. */
+interface CampSiteCapacityMode {
+  id: string;
+  useSpotView: boolean;
+  maxGuestsPerDay: number | null;
+  maxTentsPerDay: number | null;
+}
+
+/**
+ * CAM-355 BR-1/BR-2/BR-3 (T-B read-through, ADR-009 single derivation): the
+ * ONE effective-capacity helper shared by every enforcement/display reader —
+ * checkDateAvailabilityInTx (booking write gate), getRemainingCapacity
+ * (detail badge), and lib/spot-aggregation.ts getCampSiteWithCapacity
+ * (display fold-in). getAvailabilityStatusForCamps (catalog badge) uses the
+ * same underlying sumSpotCapacity formula directly in a batched, multi-camp
+ * shape instead of calling this per-camp (BR-5 — O(1) queries per page).
+ *
+ * WHOLE-CAMP (`useSpotView = false`): reads the stored column UNCHANGED
+ * (BR-8 — no per-spot branch executes; a hard regression boundary).
+ * PER-SPOT (`useSpotView = true`): sums non-deleted spots via
+ * calculateSpotCapacity (BR-3 soft-delete filter) — a spot-sum of 0 (no live
+ * spots, or every per-spot value null/0) is returned as 0, NEVER falls back
+ * to the stale stored column (BR-6, the bug this story fixes).
+ *
+ * `client` may be the default `prisma` singleton or a `Prisma.TransactionClient`
+ * — passing the tx client keeps the PER-SPOT sum snapshot-consistent with the
+ * booking/hold reads inside the SAME serializable transaction (EC-1, EC-2).
+ */
+export async function getEffectiveCapacity(
+  client: PrismaClient | Prisma.TransactionClient,
+  campSite: CampSiteCapacityMode
+): Promise<EffectiveCapacity> {
+  if (!campSite.useSpotView) {
+    return { maxGuestsPerDay: campSite.maxGuestsPerDay, maxTentsPerDay: campSite.maxTentsPerDay };
+  }
+  const spotCapacity = await calculateSpotCapacity(campSite.id, client);
+  return { maxGuestsPerDay: spotCapacity.maxGuestsPerDay, maxTentsPerDay: spotCapacity.maxTentsPerDay };
+}
+
+/**
+ * CAM-355 BR-4 perf: the PER-SPOT sum is date-independent within one booking/
+ * hold transaction — every night in the same stay/hold range must reuse the
+ * SAME derived total rather than re-querying the spot table per night.
+ * Memoized by tx object identity (WeakMap — scoped to exactly one
+ * transaction, garbage-collected with it, never leaks across requests or
+ * retries — a P2034 retry opens a brand-new tx, a fresh cache miss, correctly
+ * re-reading live state) then by campSiteId. checkDateAvailabilityInTx is the
+ * only caller; keeping the hoist self-contained here means every existing
+ * per-night caller — the booking write path (app/api/bookings/route.ts) AND
+ * the CAM-302 hold write path (app/api/campsites/[id]/holds/route.ts) — gets
+ * it for free with NO call-site change.
+ */
+const spotCapacityByTx = new WeakMap<Prisma.TransactionClient, Map<string, Promise<EffectiveCapacity>>>();
+
+function getSpotCapacityOnceForTx(
+  tx: Prisma.TransactionClient,
+  campSite: CampSiteCapacityMode
+): Promise<EffectiveCapacity> {
+  let byCamp = spotCapacityByTx.get(tx);
+  if (!byCamp) {
+    byCamp = new Map();
+    spotCapacityByTx.set(tx, byCamp);
+  }
+  let pending = byCamp.get(campSite.id);
+  if (!pending) {
+    pending = getEffectiveCapacity(tx, campSite);
+    byCamp.set(campSite.id, pending);
+  }
+  return pending;
+}
 
 /**
  * Returns BlockedDate rows that overlap [startDate, endDate] for the given
@@ -168,7 +251,12 @@ export async function getCampSiteDailyAvailability(
  * Result shape for getRemainingCapacity — CAM-267 PREP-1 (+ CAM-302 heldGuests).
  */
 export interface RemainingCapacityResult {
-  /** CampSite.maxGuestsPerDay. null = no explicit capacity set (unbounded — never rendered as a number). */
+  /**
+   * The effective capacity (CAM-355 BR-1/getEffectiveCapacity): WHOLE-CAMP
+   * reads CampSite.maxGuestsPerDay unchanged (null = no explicit capacity set,
+   * unbounded — never rendered as a number); PER-SPOT is the live derived sum
+   * of non-deleted spots' maxCampers (never null — 0 when no live spots).
+   */
   capacity: number | null;
   /** Booked (non-CANCELLED) guests on the bottleneck night — the night with the highest bookedGuests + heldGuests. */
   bookedGuests: number;
@@ -217,14 +305,24 @@ export async function getRemainingCapacity(
 ): Promise<RemainingCapacityResult> {
   const campSite = await prisma.campSite.findUnique({
     where: { id: campSiteId },
-    select: { maxGuestsPerDay: true },
+    select: { useSpotView: true, maxGuestsPerDay: true, maxTentsPerDay: true },
   });
 
   if (!campSite) {
     return { capacity: null, bookedGuests: 0, heldGuests: 0, remaining: null, blockedByHost: false };
   }
 
-  const capacity = campSite.maxGuestsPerDay;
+  // CAM-355 BR-1/BR-6 (T-B read-through): PER-SPOT derives a LIVE, always-
+  // defined capacity (never the stale column — a zero-spot per-spot camp is
+  // capacity 0 = "เต็มแล้ว", not unbounded). WHOLE-CAMP is unchanged (BR-8):
+  // reads the stored column exactly as before this story.
+  const effective = await getEffectiveCapacity(prisma, {
+    id: campSiteId,
+    useSpotView: campSite.useSpotView,
+    maxGuestsPerDay: campSite.maxGuestsPerDay,
+    maxTentsPerDay: campSite.maxTentsPerDay,
+  });
+  const capacity = effective.maxGuestsPerDay;
 
   // Nights only: exclude the checkout day (a guest departing that day frees the
   // spot for a same-day arrival). A same-day / inverted range has no night to
@@ -305,16 +403,20 @@ export const MAX_STATUS_RANGE_NIGHTS = 366;
  * already-adjusted exclusive bound (same night-exclusive shape as the
  * booking write path).
  *
- * Batched shape: 4 grouped queries total for the WHOLE page, run in
- * parallel — one CampSite.maxGuestsPerDay side-select over the page ids
- * (capacity is intentionally NOT added to campCardSelect: every
+ * Batched shape: 5 grouped queries total for the WHOLE page, run in
+ * parallel — one CampSite.useSpotView/maxGuestsPerDay side-select over the
+ * page ids (capacity is intentionally NOT added to campCardSelect: every
  * date-less consumer of CampSiteCardData — wishlist, similar-camps — would
  * otherwise over-fetch a field it never renders, the exact anti-pattern
  * lib/read-models/camp-card.ts already documents) plus the 3 predicate
- * queries (Booking / BlockedDate / InternalHold), each
+ * queries (Booking / BlockedDate / InternalHold) plus ONE more — CAM-355
+ * BR-4c: a grouped, non-deleted Spot sum over the SAME page ids, feeding the
+ * mode-aware effective-capacity map below (lib/spot-aggregation.ts
+ * sumSpotCapacity — the SAME summing formula calculateSpotCapacity uses,
+ * ADR-009 no-forked-data-path). Each query is
  * `WHERE campSiteId IN [pageIds]`. Classification runs in memory afterwards.
- * NEVER calls getCampSiteDailyAvailability/getRemainingCapacity per camp
- * (BR-5 — O(1) queries per page, not O(N)).
+ * NEVER calls calculateSpotCapacity/getCampSiteDailyAvailability/
+ * getRemainingCapacity per camp (BR-5 — O(1) queries per page, not O(N)).
  *
  * Returns a map of campId → status. A camp with ZERO unavailable nights is
  * OMITTED from the map entirely (fully available = no badge, BR-3).
@@ -362,10 +464,10 @@ export async function getAvailabilityStatusForCamps(
   // BR-2: requestedGuests defaults to 1 when absent/invalid.
   const guests = Number.isFinite(requestedGuests) && requestedGuests > 0 ? requestedGuests : 1;
 
-  const [campSites, bookings, blockedRanges, holds] = await Promise.all([
+  const [campSites, bookings, blockedRanges, holds, spotRows] = await Promise.all([
     prisma.campSite.findMany({
       where: { id: { in: campIds } },
-      select: { id: true, maxGuestsPerDay: true },
+      select: { id: true, useSpotView: true, maxGuestsPerDay: true },
     }),
     prisma.booking.findMany({
       where: {
@@ -402,9 +504,34 @@ export async function getAvailabilityStatusForCamps(
       },
       select: { campSiteId: true, startDate: true, endDate: true, guests: true },
     }),
+    // CAM-355 BR-4c/BR-5: ONE grouped Spot query for the whole page (never
+    // per-camp) — `deletedAt: null` (BR-3 soft-delete filter) is applied HERE
+    // at the query boundary, exactly like calculateSpotCapacity's own query.
+    prisma.spot.findMany({
+      where: { campSiteId: { in: campIds }, deletedAt: null },
+      select: { campSiteId: true, maxCampers: true, maxTents: true },
+    }),
   ]);
 
-  const capacityById = new Map(campSites.map((c) => [c.id, c.maxGuestsPerDay]));
+  // CAM-355 BR-1/BR-4/BR-6 (T-B read-through, ADR-009): group the batched spot
+  // rows by camp, then feed each per-spot camp's rows through the SAME
+  // sumSpotCapacity formula calculateSpotCapacity uses — never a parallel sum.
+  // A per-spot camp with zero rows here derives 0 (closed, BR-6), never the
+  // stale maxGuestsPerDay column. WHOLE-CAMP camps are unaffected (BR-8): the
+  // stored column passes straight through.
+  const spotsByCamp = new Map<string, { maxCampers: number | null; maxTents: number | null }[]>();
+  for (const spot of spotRows) {
+    const existing = spotsByCamp.get(spot.campSiteId);
+    if (existing) existing.push(spot);
+    else spotsByCamp.set(spot.campSiteId, [spot]);
+  }
+
+  const capacityById = new Map<string, number | null>(
+    campSites.map((c) => [
+      c.id,
+      c.useSpotView ? sumSpotCapacity(spotsByCamp.get(c.id) ?? []).maxGuestsPerDay : c.maxGuestsPerDay,
+    ])
+  );
 
   interface NightState {
     bookedGuests: number;
@@ -510,6 +637,21 @@ export async function getAvailabilityStatusForCamps(
  * (the story's KPI seam, AC-4), and a hold create reusing this same function
  * gets the identical serializable double-hold-prevention lock ADR-006 already
  * gives Booking (AC-5, EC-1, EC-5) — no parallel capacity math anywhere.
+ *
+ * CAM-355 BR-1/BR-2/BR-4/BR-6 (T-B read-through): PER-SPOT camps
+ * (`useSpotView = true`) now derive a LIVE effective capacity (the non-
+ * deleted-spot sum, via getEffectiveCapacity/getSpotCapacityOnceForTx above —
+ * hoisted ONCE per booking/hold transaction, not once per night, BR-4 perf)
+ * instead of the stale `maxGuestsPerDay`/`maxTentsPerDay` column. A zero
+ * derived total is a REAL cap (BR-6 — closed for booking), unlike the
+ * WHOLE-CAMP branch below where a null/0 column means "unbounded". WHOLE-CAMP
+ * (`useSpotView = false`) is unchanged-by-construction (BR-8, hard regression
+ * boundary) — the `&&` truthy check is intentionally IDENTICAL to
+ * pre-CAM-355 behavior; no per-spot branch executes for it. A spot-sum read
+ * failure (e.g. a DB error inside calculateSpotCapacity) is NOT caught here —
+ * it propagates up through the serializable transaction, which rolls back,
+ * so the booking/hold write path fails CLOSED (EC-5) — never a swallowed
+ * error that would leave enforcement unbounded.
  */
 export async function checkDateAvailabilityInTx(
   tx: Prisma.TransactionClient,
@@ -520,7 +662,7 @@ export async function checkDateAvailabilityInTx(
 ): Promise<{ available: boolean; reason?: string }> {
   const campSite = await tx.campSite.findUnique({
     where: { id: campSiteId },
-    select: { maxGuestsPerDay: true, maxTentsPerDay: true },
+    select: { useSpotView: true, maxGuestsPerDay: true, maxTentsPerDay: true },
   });
 
   if (!campSite) {
@@ -572,6 +714,44 @@ export async function checkDateAvailabilityInTx(
   });
   const heldGuests = holds.reduce((sum, h) => sum + h.guests, 0);
 
+  // CAM-355: PER-SPOT branch — always a defined effective capacity (BR-6: 0
+  // is a real cap, never "unbounded"). Hoisted once per tx (BR-4 perf).
+  if (campSite.useSpotView) {
+    const effective = await getSpotCapacityOnceForTx(tx, {
+      id: campSiteId,
+      useSpotView: true,
+      maxGuestsPerDay: campSite.maxGuestsPerDay,
+      maxTentsPerDay: campSite.maxTentsPerDay,
+    });
+    // `?? 0` is a defensive, fail-closed guard only — calculateSpotCapacity
+    // always returns a real number (0 at minimum), never null, for PER-SPOT.
+    const effectiveGuests = effective.maxGuestsPerDay ?? 0;
+    const effectiveTents = effective.maxTentsPerDay ?? 0;
+
+    if (bookedGuests + heldGuests + requestedGuests > effectiveGuests) {
+      return {
+        available: false,
+        reason: `Exceeds maximum guests per day (${effectiveGuests})`,
+      };
+    }
+
+    if (requestedTents) {
+      const estimatedTents = Math.ceil(requestedGuests / 2);
+      if (bookedTents + estimatedTents > effectiveTents) {
+        return {
+          available: false,
+          reason: `Exceeds maximum tents per day (${effectiveTents})`,
+        };
+      }
+    }
+
+    return { available: true };
+  }
+
+  // WHOLE-CAMP — unchanged-by-construction (BR-8): byte-identical to
+  // pre-CAM-355. A null/0 column is treated as "unbounded" here exactly as
+  // it always has been; that quirk is NOT extended to the PER-SPOT branch
+  // above (BR-6 fixes it there only).
   if (
     campSite.maxGuestsPerDay &&
     bookedGuests + heldGuests + requestedGuests > campSite.maxGuestsPerDay

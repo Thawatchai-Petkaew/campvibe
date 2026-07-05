@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiSuccess } from '@/lib/api-utils';
-import { getCampSiteDailyAvailability } from '@/lib/campsite-availability';
+import { getCampSiteDailyAvailability, getEffectiveCapacity } from '@/lib/campsite-availability';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
@@ -35,6 +35,7 @@ export async function GET(
         isPublished: true,
         deletedAt: true,
         operatorId: true,
+        useSpotView: true,
         maxGuestsPerDay: true,
         maxTentsPerDay: true,
       }
@@ -54,6 +55,36 @@ export async function GET(
       }
     }
 
+    // CAM-355 (G3 Important-1): this is the 5th capacity reader the story's
+    // inventory missed — the camper date-picker (isDateDisabled) and the host
+    // availability calendar both consume this route's isCapacityFull/available/
+    // remainingGuests/limits, so a PER-SPOT camp with a stale column must not
+    // drive them. Effective capacity is derived ONCE per request here (hoisted,
+    // not once per day) via the SAME getEffectiveCapacity helper the write gate
+    // and the badge/remaining-capacity readers use (ADR-009, one derivation).
+    //
+    // Fail-OPEN (unlike the booking write gate's fail-CLOSED): this route is a
+    // DISPLAY reader (a calendar signal), so a spot-sum read failure must not
+    // 500 the calendar — it mirrors the getAvailabilityStatusForCamps badge
+    // contract and keeps serving the raw (possibly stale) column value instead.
+    let effectiveGuests = campSite.maxGuestsPerDay;
+    let effectiveTents = campSite.maxTentsPerDay;
+    if (campSite.useSpotView) {
+      try {
+        const effective = await getEffectiveCapacity(prisma, {
+          id,
+          useSpotView: true,
+          maxGuestsPerDay: campSite.maxGuestsPerDay,
+          maxTentsPerDay: campSite.maxTentsPerDay,
+        });
+        effectiveGuests = effective.maxGuestsPerDay;
+        effectiveTents = effective.maxTentsPerDay;
+      } catch (error) {
+        console.error('[CAM-355] effective capacity read failed for the availability calendar (fail-open, column-derived)', error);
+        // effectiveGuests/effectiveTents stay the raw column values set above.
+      }
+    }
+
     // Get daily availability
     const availability = await getCampSiteDailyAvailability(id, start, end);
 
@@ -65,20 +96,34 @@ export async function GET(
     // would silently never reduce "เหลือ {n} ที่" on the calendar (the story's
     // Seams & refs "CAM-342 trap" — see lib/campsite-availability.ts).
     const formatted = Object.entries(availability).map(([date, data]) => {
-      const isCapacityFull =
-        (campSite.maxGuestsPerDay && (data.bookedGuests + data.heldGuests) >= campSite.maxGuestsPerDay) ||
-        (campSite.maxTentsPerDay && data.bookedTents >= campSite.maxTentsPerDay);
+      // CAM-355 BR-8: WHOLE-CAMP keeps the EXACT pre-CAM-355 truthy-gate
+      // expression (a falsy/null column means "no cap"). PER-SPOT uses a
+      // null-check gate instead (BR-6: 0 is a REAL derived cap, never "no
+      // cap" — the same fix applied to the write gate/badge/remaining-badge).
+      const isCapacityFull = campSite.useSpotView
+        ? (
+            (effectiveGuests !== null && (data.bookedGuests + data.heldGuests) >= effectiveGuests) ||
+            (effectiveTents !== null && data.bookedTents >= effectiveTents)
+          )
+        : (
+            (campSite.maxGuestsPerDay && (data.bookedGuests + data.heldGuests) >= campSite.maxGuestsPerDay) ||
+            (campSite.maxTentsPerDay && data.bookedTents >= campSite.maxTentsPerDay)
+          );
 
       return {
         date,
         bookedGuests: data.bookedGuests,
         heldGuests: data.heldGuests,
         bookedTents: data.bookedTents,
-        maxGuests: campSite.maxGuestsPerDay,
-        maxTents: campSite.maxTentsPerDay,
+        maxGuests: effectiveGuests,
+        maxTents: effectiveTents,
         available: !isCapacityFull && !data.blockedByHost,
-        remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null,
-        remainingTents: campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null,
+        remainingGuests: campSite.useSpotView
+          ? (effectiveGuests !== null ? effectiveGuests - (data.bookedGuests + data.heldGuests) : null)
+          : (campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null),
+        remainingTents: campSite.useSpotView
+          ? (effectiveTents !== null ? effectiveTents - data.bookedTents : null)
+          : (campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null),
         blockedByHost: data.blockedByHost,
       };
     });
@@ -88,8 +133,8 @@ export async function GET(
       campSiteId: id,
       availability: formatted,
       limits: {
-        maxGuestsPerDay: campSite.maxGuestsPerDay,
-        maxTentsPerDay: campSite.maxTentsPerDay
+        maxGuestsPerDay: effectiveGuests,
+        maxTentsPerDay: effectiveTents
       }
     });
     response.headers.set('Cache-Control', 'no-store');
