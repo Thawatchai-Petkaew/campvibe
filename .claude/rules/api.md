@@ -164,6 +164,7 @@ Backend implements the endpoint to this standard → qa writes contract + happy/
 | "Cram `fullName: \"นายสมชาย\"`, `price: \"฿1,250\"`." | Atomic fields per `types/api.ts`. |
 | "Adding pagination means adding a cursor." | A keyset cursor changes the list response shape (array → `{items, nextCursor}`) and breaks flat-array consumers. Check the consumers first; a bounded `take` (newest-first) closes the unbounded-scan risk non-breaking — only change the contract if the FE is updated in the same story (CAM-212). |
 | "Fall back to `fs.writeFile`/local disk when blob storage is unavailable." | The serverless filesystem is read-only (except `/tmp`) — a `writeFile` to `public/uploads` throws on Vercel and surfaces as a mystery `500` (uploads dead on staging). Make any local-FS write fallback `NODE_ENV==='development'`-only; in production with no object-storage token, return a clear error (`503`), never a doomed write (CAM-239). |
+| "`payload.x || undefined` is a tidy way to send optional fields." | It collapses the user's CLEAR intent (empty string) into an omitted key, which the PUT route's `!== undefined` guard then skips — the clear silently never persists. This exact bug shipped twice (fee/policy fields, then `logo`) because the fix was re-derived per field. Every clearable optional field uses ONE shared pattern: client maps blank→explicit `null`, zod accepts `.nullable()`, the route writes `null` inside its `!== undefined` guard — never hand-roll it per field (CAM-341/CAM-360). |
 
 ## Verify (exit criteria)
 
