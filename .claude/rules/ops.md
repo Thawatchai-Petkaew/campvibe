@@ -7,11 +7,11 @@ description: Standard for CampVibe's release and operations flow — 3-env promo
 
 ## Overview
 
-A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through three environments — Local → Staging → Production — where every change is proven on a real env before it moves up, "Done" and "Released" are deliberately separate, and every prod release carries a tag, a changelog, and a rollback plan. The goal: reversible, observable, gated releases with no shortcut to prod.
+A deploy you can't reverse is a deploy you shouldn't run. CampVibe ships through four layers — Local → **Dev (integration branch, no deploy)** → Staging → Production — where every change is proven locally before it integrates, "Done" and "Released" are deliberately separate, and every prod release carries a tag, a changelog, and a rollback plan. The goal: reversible, observable, gated releases with no shortcut to prod, inside the Vercel Hobby quota (100 deployments/day rolling — see §2).
 
 ## Quick Reference
 
-**Done ≠ Released.** Done = merged to `staging` + AC verified on the real Staging URL. Released = promoted to prod with a tag, changelog, and rollback plan.
+**Done ≠ On-staging ≠ Released.** Done = merged to `dev` + AC verified on localhost (dev DB). `on-staging` (label) = batch-promoted `dev`→`staging`, live on the real Staging URL. Released = promoted to prod with a tag, changelog, and rollback plan.
 
 Promote `staging`→`main` (= Released, G5):
 
@@ -48,48 +48,58 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 
 ## Principles
 
-- **3-env lean** for solo/Hobby: Local Dev → Staging → Production. The old SIT+UAT collapse into a **single Staging** to stay lean; every PR gets a Vercel Preview (ephemeral) for a fast check before merge.
+- **Local-first, dev-integrated** (owner decision 2026-07-05): a story passes EVERYTHING locally (self-verify + G3 review + AC verified on localhost against the dev DB) before it merges anywhere; `dev` is the integration branch with **no Vercel deploy at all**, read through localhost; Staging deploys only on a batched `dev`→`staging` promote. No fix-rounds on staging.
 - **Prod always goes through Staging** — no shortcut; every change is proven on a real env before it moves up.
 - **Done ≠ Released** — many stories can be Done before they ship together as one release (release train) to control risk.
 - **Safe deploy = reversible** — every release must be reversible (rollback plan + reversible migration); if not, it does not ship.
+- **Deploy quota is a budget** (Vercel Hobby: 100 deployments/day rolling): only `staging` and `main` may create deployments — enforced by `vercel.json` `git.deploymentEnabled` allow-list, not by discipline.
 
 ## Standards
 
-### 1. Environments (3-env)
+### 1. Environments (4-layer, the new layer is free)
 
 | Env | Deploy when | Branch | Approval | DB | Role |
 |---|---|---|---|---|---|
-| Local Dev | — | `feature/*` | — | local Postgres | Develop + self-verify |
-| Staging | auto on merge to `staging` + smoke | `staging` (integration) | G4 sign-off (before promote) | staging DB | Work is **"Done"** + acceptance/demo |
+| Local | — | `feature/*` (worktrees) | — | local dev Postgres | Develop + self-verify + AC verify |
+| **Dev (integration)** | **never (no Vercel deploy)** | `dev` | G3 packet per story | **local dev Postgres** (owner's localhost points here; refresh real data via `npm run db:sync-from-staging`, one-way staging→dev only) | Work is **"Done"**; owner reads via localhost |
+| Staging | auto on batched promote `dev`→`staging` + smoke | `staging` (demo/pre-prod) | G4 sign-off (before prod promote) | staging DB | Label **`on-staging`** + acceptance/demo on the real URL |
 | Production | promote `staging`→`main` + tag | `main` (release) | G5 | prod DB | **"Released"** |
 
-### 2. Vercel mapping
+### 2. Vercel mapping + deploy quota
 
-`feature/*` → Preview (ephemeral) · `staging` → Staging env · `main` → Production · `DATABASE_URL` separate per staging/prod · run `prisma migrate deploy` per env.
+`feature/*`, `dev` → **NO deployment** (blocked by `vercel.json` `git.deploymentEnabled` allow-list) · `staging` → Staging env (branch alias, preview-class) · `main` → Production · `DATABASE_URL` separate per dev/staging/prod · `prisma migrate deploy` runs in the Vercel build per env.
 
-> How to set up all 3 envs (Git/Vercel/Prisma) consistently + var matrix + clickable checklist: `docs/SETUP-ENVS.md`
+- **Quota facts (Vercel docs, verified 2026-07-05):** Hobby = 100 deployments/day rolling per owner; builds skipped via the Ignored Build Step **still count as full deployments** — the allow-list is the only mechanism that stops a push from creating a deployment at all. `scripts/vercel-ignore.sh` additionally skips the BUILD for docs-only staging/main pushes (saves build minutes, not quota).
+- Need a one-off preview URL? `vercel deploy` via CLI (costs 1 quota; permission-gated).
+- Full env/config matrix (มีแล้ว / ต้องเพิ่ม / จงใจไม่เติม): `.claude/ENV-CONFIG.md`
 
-### 3. Definition of Done vs Released
+> How to set up the envs (Git/Vercel/Prisma) consistently + var matrix + clickable checklist: `docs/SETUP-ENVS.md`
 
-- **Done** (story → ticket state `Done`): merged to `staging` + full quality-gate green + migration succeeded on staging + **AC verified on the real Staging URL**.
+### 3. Definition of Done vs On-staging vs Released
+
+- **Done** (story → ticket state `Done`): full quality-gate green + G3 review passed + **AC verified on localhost against the dev DB BEFORE merge** + merged to `dev`. One PR per story carries spec + code + tests + docs together (no separate docs-only PRs; specs are read pre-merge via local links).
+- **On-staging** (label `on-staging`): the story rode a batched `dev`→`staging` promote (~1-3/day or on owner request, one PR = one deploy) + staging smoke green. G4 sitting happens here on the real URL.
 - **Released** (deployment → label `released` + git tag): promote `staging`→`main` + Production deploy + smoke green + tag + changelog + rollback plan + G5.
-- `released` is a **label, not a state**; many stories can be Done before shipping together as one release.
+- `on-staging`/`released` are **labels, not states**; many stories can be Done before shipping together.
+- **Back-merge chain (mandatory):** after every release or hotfix into `main` → back-merge `main`→`staging`→`dev` immediately (orchestrator runs it as part of promote-release) — prevents the protected-branch divergence deadlock.
+- **Migrations:** developed and proven up→down→up against the local dev DB; the staging DB is first touched by `migrate deploy` inside the Vercel build at promote time. DB data sync is one-way staging→dev only.
 
 > Full detail: `.claude/SYNC-ARCHITECTURE.md` §Definition of Done
 
 ### 4. Promotion rules (mandatory)
 
-- Prod always goes through Staging (Done + G4 sign-off) — never skip.
+- Prod always goes through Staging (on-staging + G4 sign-off) — never skip.
 - Every prod release has a **tag + changelog + rollback plan**.
-- Migrations are **reversible + tested on Staging before prod**.
+- Migrations are **reversible + proven up→down→up on the local dev DB before promote; staging first sees them via `migrate deploy` in the promote build**.
 - A failure at any env → **stop the promotion + auto-open a ticket** into the loop.
-- Cross-env promotion happens only via `/promote-release --to <staging|prod>` (merge→staging = Done, staging→main = Released).
+- Cross-env promotion happens only via `/promote-release --to <staging|prod>` (batched `dev`→`staging` = on-staging label, staging→main = Released). Story merges into `dev` (= Done) are the per-story pipeline, not a promotion.
+- After every release/hotfix into `main`: back-merge `main`→`staging`→`dev` in the same sitting (mandatory chain).
 
 ### 5. Git / CI
 
-- Use `git` + `gh` CLI; branch `<type>/<kebab>` · Conventional Commits · `main` + `staging` protected.
-- CI (`.github/workflows/ci.yml`) runs the server-side gate on every PR (base `staging`/`main`); CI must pass before merge.
-- Flow: feature → PR into `staging` (= Done) → promote `staging`→`main` (= Released).
+- Use `git` + `gh` CLI; branch `<type>/<kebab>` · Conventional Commits · `main` + `staging` + `dev` protected.
+- CI (`.github/workflows/ci.yml`) runs the server-side gate on every PR (base `dev`/`staging`/`main`); CI must pass before merge.
+- Flow: story branch (spec + code + tests + docs, ONE PR) → PR into `dev` (= Done) → batched promote `dev`→`staging` (= on-staging) → promote `staging`→`main` (= Released).
 
 ### 6. After deploy (observability)
 
@@ -106,7 +116,7 @@ Read first: this file · `CLAUDE.md` (the binding 3-env + Done/Released rules) �
 
 Owner-approved package: all gates remain owner-approved in principle. The owner authors this policy once, spot-audits it, and can revoke any pre-authorized class anytime — this is calibrated trust, not autopilot.
 
-- **G1 Scope** — full human tap for M/L stories: spec-time is the highest-leverage checkpoint, no shortcut there. **Spec-lite class (S stories, trial-2 feedback)** — qualifies when ALL hold: no schema/migration · no new API contract (a new endpoint/contract routes to the full path) · single file-surface · expected diff ≤ ~150 lines; `story.md` (same v2 template, filled tersely) ships in the same PR as the code and G1 folds into the G3 packet (one owner tap, the packet leads with the spec summary); the PO decides the class at intake and states it on the ticket. M/L stories keep full spec-first (separate spec PR + G1 tap) — trial-2 evidence says the upfront spec pays for itself on seam-heavy work.
+- **G1 Scope** — full human tap for M/L stories: spec-time is the highest-leverage checkpoint, no shortcut there. **Spec-lite class (S stories, trial-2 feedback)** — qualifies when ALL hold: no schema/migration · no new API contract (a new endpoint/contract routes to the full path) · single file-surface · expected diff ≤ ~150 lines; `story.md` (same v2 template, filled tersely) ships in the same PR as the code and G1 folds into the G3 packet (one owner tap, the packet leads with the spec summary); the PO decides the class at intake and states it on the ticket. M/L stories keep full spec-first — the spec is authored FIRST on the story's own branch and G1 taps on those files (read via local links / the PR view) before build starts; spec and code land in the same single PR into `dev` (amended 2026-07-05: no separate spec PR). Trial-2 evidence says the upfront spec pays for itself on seam-heavy work.
 - **G2 Design — pre-authorized standard class.** A story qualifies as **standard change** when ALL hold: reuses existing tokens/components/flows per `DESIGN.md` · no new screen/flow/token · `check:ds` + `check:palette` green. A standard-class story skips the separate G2 tap; the G3 packet carries one line — `G2: standard class (criteria met)`. Any novel UI/flow/token routes to full human G2, as before.
 - **G3 Merge — exception-first packet.** An adversarial fresh-context reviewer agent (correctness-scoped) plus the quality-gate CI run together serve as the peer review. The packet the owner sees leads with: verdict · exceptions/risks · $/story · the one-line G2 class note. The owner approves on the packet (target: sub-minute) and reads diffs only when an exception is flagged. Approval rubric = the Google standard: "approve when it definitely improves the system, not when it is perfect." The owner may approve-with-nits — the agent fixes the nit without a second tap.
 - **G4 Staging — batched daily sitting.** Gate requests queue on `/status`; the owner clears them in ONE sitting per day (SLA: 1 business day). Packets stay atomic per story even when cleared in a batch — no bundling multiple stories' AC into one verify.
