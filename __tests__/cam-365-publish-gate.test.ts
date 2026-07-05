@@ -337,6 +337,150 @@ describe('PUT /api/campsites/[id] — AC-3 (THE key test): post-save projection 
   });
 });
 
+describe('PUT /api/campsites/[id] — G3 I-1 fix: the options projection mirrors the images special-case (both directions)', () => {
+  it('[normal] same-save FIRST amenity + publish: stale pre-write live count is 0 (would 400 pre-fix) but the request\'s own resolved set makes it 200', async () => {
+    mockAllowed({
+      priceLow: 1000,
+      isFree: false,
+      cancellationPolicy: 'FLEXIBLE',
+      extraFeeAmount: 100, // partial (label missing) -> extraFee stays unsatisfied throughout
+      extraFeeLabel: null,
+      useSpotView: false,
+      maxGuestsPerDay: 5,
+      isPublished: false,
+    });
+    // Live pre-write options count is 0 (amenities unsatisfied) -> stored/live
+    // score would be 75 (missing extraFee 15 + amenities 10). The SAME save
+    // adds the first facility - resolveOptionConnect must validate it against
+    // masterData, so mock that lookup for THIS test only.
+    mockLiveCounts(1, 0, 1);
+    // .Once — never leaks into a later test (this repo's beforeEach only
+    // clears call history via vi.clearAllMocks(), it does not reset a mocked
+    // resolved value; see .claude/rules/qa.md "keep tests order-independent").
+    (prisma.masterData.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ code: 'WIFI' }]);
+
+    const res = await campSitePUT(
+      putRequest({ facilities: ['WIFI'], isPublished: true }),
+      makeParams(CAMP_ID)
+    );
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.isPublished).toBe(true);
+    // The write's options.set reuses the SAME resolved array the gate scored
+    // against - proven by asserting the exact connect payload here.
+    expect(call.data.options).toEqual({ set: [{ code: 'WIFI' }] });
+  });
+
+  it('[error/validation] same-save CLEAR amenities + publish, where amenities was the margin: stale live count is satisfied (would wrongly 200 pre-fix) but the cleared request makes it 400', async () => {
+    mockAllowed({
+      priceLow: 1000,
+      isFree: false,
+      // cancellationPolicy missing -> with amenities counted (live=2) this
+      // camp would sit exactly at the 80 floor (100 - 20 cancellationPolicy).
+      cancellationPolicy: null,
+      extraFeeAmount: null,
+      extraFeeLabel: null,
+      useSpotView: false,
+      maxGuestsPerDay: 5,
+      isPublished: false,
+    });
+    // Live pre-write options count is 2 (amenities SATISFIED) — this is the
+    // stale count the pre-fix code would have used. `facilities: []` is an
+    // explicit empty array in the RAW body -> replacesOptions is true and
+    // resolveOptionConnect short-circuits to [] with no masterData call.
+    mockLiveCounts(1, 2, 1);
+
+    const res = await campSitePUT(
+      putRequest({ facilities: [], isPublished: true }),
+      makeParams(CAMP_ID)
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    // 100 - cancellationPolicy(20) - amenities(10, now cleared) = 70. The
+    // pre-fix bug would have used the stale live count (2, satisfied) and
+    // computed 80 (>=80) -> wrongly allowed. This locks the fixed math.
+    expect(body.error).toContain('ตอนนี้ 70%');
+    expect(prisma.campSite.update).not.toHaveBeenCalled();
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/campsites/[id] — G3 test gap: clearing a load-bearing field in the SAME publish request is honored (null-overlay)', () => {
+  it('[error/validation] an at-80 camp, this request clears cancellationPolicy (null) AND publishes -> 400 (the clear is NOT ignored)', async () => {
+    // Stored (if cancellationPolicy stayed as-is): missing zones(10, PER-SPOT
+    // with 0 live spots) + amenities(10, live options=0) = 80 exactly. This
+    // request clears cancellationPolicy in the SAME save.
+    mockAllowed({
+      priceLow: 1000,
+      isFree: false,
+      cancellationPolicy: 'FLEXIBLE',
+      extraFeeAmount: null,
+      extraFeeLabel: null,
+      useSpotView: true, // PER-SPOT — the whole-camp fallback does not apply
+      maxGuestsPerDay: null,
+      isPublished: false,
+    });
+    mockLiveCounts(1, 0, 0); // photos ok; options=0 (amenities missing); spots=0 (zones missing)
+
+    const res = await campSitePUT(
+      putRequest({ cancellationPolicy: null, isPublished: true }),
+      makeParams(CAMP_ID)
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    // 80 (zones+amenities already missing) - cancellationPolicy(20, cleared) = 60.
+    expect(body.error).toContain('ตอนนี้ 60%');
+    expect(prisma.campSite.update).not.toHaveBeenCalled();
+  });
+
+  it('[error/validation] the same at-80 camp, this request clears extraFeeLabel (\'\') instead AND publishes -> 400 (partial-fee overlay honored)', async () => {
+    mockAllowed({
+      priceLow: 1000,
+      isFree: false,
+      cancellationPolicy: 'FLEXIBLE',
+      extraFeeAmount: 100,
+      extraFeeLabel: 'ค่าเข้าอุทยาน', // fully specified — extraFee currently satisfied
+      useSpotView: true,
+      maxGuestsPerDay: null,
+      isPublished: false,
+    });
+    mockLiveCounts(1, 0, 0); // amenities + zones already missing -> stored 80 (extraFee still satisfied)
+
+    const res = await campSitePUT(
+      putRequest({ extraFeeLabel: '', isPublished: true }),
+      makeParams(CAMP_ID)
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    // 80 - extraFee(15, now partial/unsatisfied since amount stays set) = 65.
+    expect(body.error).toContain('ตอนนี้ 65%');
+    expect(prisma.campSite.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/campsites/[id] — G3 test gap: explicit isPublished:true on an already-published camp skips the gate', () => {
+  it('[normal] isPublished:true sent explicitly (unchanged from stored true) -> no gate queries fired, 200', async () => {
+    mockAllowed({
+      priceLow: null, // very incomplete — would fail the gate if it ran
+      isFree: false,
+      cancellationPolicy: null,
+      isPublished: true,
+    });
+
+    const res = await campSitePUT(putRequest({ isPublished: true }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    expect(prisma.campSite.findUnique).not.toHaveBeenCalled();
+    expect(prisma.spot.count).not.toHaveBeenCalled();
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.isPublished).toBe(true);
+  });
+});
+
 describe('PUT /api/campsites/[id] — AC-6: unpublish (true->false) is never gated', () => {
   it('[normal] already-published, very-incomplete score (60) -> unpublish still succeeds, gate not evaluated', async () => {
     mockAllowed({

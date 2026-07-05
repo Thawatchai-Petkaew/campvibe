@@ -68,17 +68,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // auto-unpublish, no wasted queries on an ordinary edit). No role -
     // including ADMIN - bypasses this (BR-7): `existing`/`data` here carry no
     // role branch.
+    // S4a: only replace the options relation when the request actually carried a taxonomy
+    // field. zod .default([]) makes parsed values always-present, so gate on the RAW body —
+    // otherwise a partial PUT (e.g. price-only) would wipe every option.
+    // Hoisted above the gate (G3 I-1 fix): the write further below ALREADY
+    // unconditionally resolves this exact set whenever `replacesOptions` is
+    // true (moving it earlier adds no new query on any path) - hoisting lets
+    // the publish-gate projection reuse the SAME resolved+validated connect
+    // array the write uses, instead of a stale pre-write live count, mirroring
+    // the `images` special-case below (BR-4 symmetry).
+    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'].some((k) => k in body);
+    const resolvedOptionsConnect = replacesOptions
+      ? await resolveOptionConnect([
+          data.accessTypes, data.facilities, data.externalFacilities,
+          data.equipment, data.activities, data.terrain,
+        ])
+      : null;
+
     const isPublishTransition = data.isPublished === true && existing!.isPublished === false;
     if (isPublishTransition) {
       // BR-4 post-save projection: the state AS IT WILL BE after THIS save -
       // stored atomic fields overlaid with this request's changed fields,
-      // plus the relation counts. `images`/`options`/`spots` come from a live
-      // read (this route never re-derives resolveOptionConnect's exact
-      // validated set here) EXCEPT `images`: if this same request replaces
-      // the gallery (`imageReplaceNested` below), the projection counts what
-      // THIS write will persist instead of the stale pre-write count - this
-      // is what lets one save both complete the last missing photo AND
-      // publish (AC-3).
+      // plus the relation counts. `images` AND `options` both special-case:
+      // if this same request replaces that relation, the projection counts
+      // what THIS write will persist (the request's own resolved set)
+      // instead of the stale pre-write count - this is what lets one save
+      // both complete the last missing photo/amenity AND publish (AC-3).
+      // `spots` is never touched by this PUT body (a separate resource), so
+      // it is always a live read.
       const [relCounts, spotCount] = await Promise.all([
         prisma.campSite.findUnique({
           where: { id },
@@ -115,7 +132,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         extraFeeLabel: projectedExtraFeeLabel,
         cancellationPolicy: projectedCancellationPolicy,
         spotCount,
-        optionsCount: relCounts?._count.options ?? 0,
+        optionsCount: replacesOptions
+          ? (resolvedOptionsConnect?.length ?? 0)
+          : (relCounts?._count.options ?? 0),
         useSpotView: data.useSpotView !== undefined ? data.useSpotView : existing!.useSpotView,
         maxGuestsPerDay:
           data.maxGuestsPerDay !== undefined ? data.maxGuestsPerDay : existing!.maxGuestsPerDay,
@@ -150,14 +169,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.campSiteType?.length && { campSiteType: (Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) as string }),
         ...(data.accommodationTypes?.length && { accommodationTypes: arrayToCsv(data.accommodationTypes) as string }),
         // S4a: only replace the options relation when the request actually carried a taxonomy
-        // field. zod .default([]) makes parsed values always-present, so gate on the RAW body —
-        // otherwise a partial PUT (e.g. price-only) would wipe every option.
-        ...((['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'].some((k) => k in body)) && {
+        // field (`replacesOptions`/`resolvedOptionsConnect` resolved once above, CAM-365 I-1 —
+        // reused here so the write and the publish-gate projection can never disagree).
+        ...(replacesOptions && {
           options: {
-            set: await resolveOptionConnect([
-              data.accessTypes, data.facilities, data.externalFacilities,
-              data.equipment, data.activities, data.terrain,
-            ]),
+            set: resolvedOptionsConnect ?? [],
           },
         }),
 
