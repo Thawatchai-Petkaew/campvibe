@@ -33,13 +33,21 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * BR-2/EC-1: returns the LIVE focusable set inside `container`. Call this
- * fresh at keydown time — never cache the result at mount — so a focusable
- * set that changes while the modal is open (e.g. an image error swaps
- * controls) still wraps correctly on the very next Tab press.
+ * BR-2/EC-1: returns the LIVE, VISIBLE focusable set inside `container`.
+ * Call this fresh at keydown time — never cache the result at mount — so a
+ * focusable set that changes while the modal is open (e.g. an image error
+ * swaps controls) still wraps correctly on the very next Tab press.
+ *
+ * `offsetParent !== null` excludes elements hidden via `display: none` or an
+ * ancestor with `hidden`/`display: none` (BR-2 "visible only"). It does not
+ * catch `visibility: hidden` (offsetParent stays non-null for that case),
+ * which is an accepted gap — neither modal uses `visibility: hidden` on a
+ * focusable control today.
  */
 export function getFocusableElements(container: Element): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.offsetParent !== null
+  );
 }
 
 /**
@@ -55,6 +63,10 @@ export function computeFocusTrapTarget(
   current: Element | null,
   shiftKey: boolean
 ): HTMLElement | null {
+  // An empty focusable set has nothing to trap into — Tab would escape the
+  // dialog to the background page. Both consuming modals always render at
+  // least a close button, so this branch is a defensive floor, not an
+  // expected runtime path.
   if (focusable.length === 0) return null;
 
   const first = focusable[0];
@@ -145,6 +157,13 @@ export function useModalA11y<T extends HTMLElement>(
   // or on abnormal unmount (route change/back button) via effect cleanup.
   // Each open/close cycle snapshots + restores independently (EC-3) — there
   // is no shared counter to leak across cycles.
+  //
+  // This assumes ONE modal is open at a time on document.body — both current
+  // callers (ImageGallery, PanoramaViewer) are full-screen scrims that are
+  // mutually exclusive in the UI, so they can never be open concurrently. A
+  // future caller that stacks a second modal on top while this one stays
+  // open would need a shared lock counter (increment on open, only restore
+  // on the last close) — out of scope for this story.
   useEffect(() => {
     if (!active) return;
 

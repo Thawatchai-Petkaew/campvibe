@@ -174,6 +174,19 @@ describe("getFocusableElements — queries the live DOM via the FOCUSABLE_SELECT
     expect(calls[0]).toContain("button:not([disabled])");
     expect(calls[0]).toContain('[tabindex]:not([tabindex="-1"])');
   });
+
+  it("[error/validation] BR-2 \"visible only\": excludes a matched element whose offsetParent is null (hidden)", () => {
+    const visible = { offsetParent: {} } as unknown as HTMLElement;
+    const hidden = { offsetParent: null } as unknown as HTMLElement;
+    const fakeContainer = {
+      querySelectorAll: () => [visible, hidden] as unknown as NodeListOf<HTMLElement>,
+    } as unknown as Element;
+
+    const result = getFocusableElements(fakeContainer);
+
+    expect(result).toEqual([visible]);
+    expect(result).not.toContain(hidden);
+  });
 });
 
 // ===========================================================================

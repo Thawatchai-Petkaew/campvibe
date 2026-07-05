@@ -32,7 +32,7 @@ Depends on: CAM-354 (merged).
 ## Edge cases
 - EC-1 IF the dialog's focusable set changes while open (e.g. an image error swaps controls) THEN the trap still wraps correctly because the set is queried at keydown time, not cached at mount (BR-2)
 - EC-2 IF the modal unmounts abnormally (route change/back button) THEN the body scroll state is still restored by the effect cleanup — a locked page with no modal is the worst failure of this story (BR-3)
-- EC-3 IF both het modals somehow mount in the same session sequentially THEN each open/close cycle locks and restores independently (no lock-count leak)
+- EC-3 IF both photo modals somehow mount in the same session sequentially THEN each open/close cycle locks and restores independently (no lock-count leak)
 
 ## Data
 - None. No schema, no endpoint.
