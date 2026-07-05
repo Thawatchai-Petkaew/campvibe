@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -15,8 +15,9 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
@@ -29,6 +30,35 @@ import { th, enUS } from 'date-fns/locale';
 const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     ssr: false,
     loading: () => <div className="w-full h-full bg-muted animate-pulse rounded-xl" />
+});
+
+// CAM-354 BR-3: the module-load fallback for the panorama viewer — shown the
+// instant a PANORAMA thumbnail is tapped, while the viewer's own chunk
+// downloads (loading.md: "isolated module/widget -> spinner, shown
+// immediately"). A real component (not a plain arrow function) so it can call
+// useLanguage() for the i18n label; the `dynamic()` call below stays a stable
+// module-scope reference (never re-created on render).
+function PanoramaModuleLoading() {
+    const { t } = useLanguage();
+    return (
+        <div
+            role="status"
+            aria-live="polite"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
+            data-testid="status--panorama-module-loading"
+        >
+            <LoadingSpinner text={t.common.loading_sr} />
+        </div>
+    );
+}
+
+// CAM-354 BR-3: dynamic({ssr:false}) — the pan-strip viewer is never part of
+// the detail route's initial bundle; its chunk downloads only the first time
+// a PANORAMA thumbnail is opened (see openPanorama / the conditional mount
+// below, which is what actually defers the import — see PanoramaViewer.tsx).
+const PanoramaViewer = dynamic(() => import("@/components/PanoramaViewer"), {
+    ssr: false,
+    loading: PanoramaModuleLoading,
 });
 
 export default function CampgroundDetailClient({
@@ -66,6 +96,13 @@ export default function CampgroundDetailClient({
     // change, no new component) by swapping which image list it points at.
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
+
+    // CAM-354 AC-1..7: the pan-strip panorama viewer. Mounted (and its dynamic
+    // chunk downloaded, BR-3) only while `panorama` is non-null; unmounts on
+    // close. panoramaTriggerRef restores focus to the originating thumbnail
+    // (AC-5, EC-5, EC-7).
+    const [panorama, setPanorama] = useState<{ url: string; alt: string } | null>(null);
+    const panoramaTriggerRef = useRef<HTMLButtonElement | null>(null);
 
     // Wishlist toggle state — AC-1, AC-2, AC-3, AC-4, AC-5, BR-1..5.
     const [saved, setSaved] = useState(!!initialSaved);
@@ -365,6 +402,20 @@ export default function CampgroundDetailClient({
         setGalleryStartIndex(safe);
         setIsGalleryOpen(true);
     };
+
+    // CAM-354 BR-1, AC-1: opens the pan-strip viewer for a PANORAMA-kind spot
+    // photo (the flat lightbox never opens for this image, EC-1).
+    const openPanorama = (url: string, alt: string, triggerEl: HTMLButtonElement) => {
+        panoramaTriggerRef.current = triggerEl;
+        setPanorama({ url, alt });
+    };
+
+    // CAM-354 AC-5, EC-5, EC-7: unmounts the viewer and restores focus to the
+    // thumbnail that opened it.
+    const closePanorama = useCallback(() => {
+        setPanorama(null);
+        panoramaTriggerRef.current?.focus();
+    }, []);
 
     // Helper to format displayed dates based on locale
     const formatDateDisplay = (date: Date | undefined) => {
@@ -827,13 +878,26 @@ export default function CampgroundDetailClient({
 
                                                 {spotImages.length > 0 && (
                                                     <div className="flex gap-2 overflow-x-auto">
-                                                        {spot.images.map((img: { url: string; kind?: string }, i: number) => (
+                                                        {spot.images.map((img: { url: string; kind?: string; alt?: string | null }, i: number) => (
                                                             <button
                                                                 key={`${spot.id}-${i}`}
                                                                 type="button"
                                                                 className="relative flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                                                aria-label={t.gallery.viewImage.replace("{n}", String(i + 1))}
-                                                                onClick={() => openSpotGallery(spotImages, i)}
+                                                                aria-label={
+                                                                    img.kind === "PANORAMA"
+                                                                        ? t.panorama.openLabel
+                                                                        : t.gallery.viewImage.replace("{n}", String(i + 1))
+                                                                }
+                                                                onClick={(e) => {
+                                                                    // CAM-354 BR-1: kind branch — PANORAMA opens the
+                                                                    // pan-strip viewer; PHOTO keeps the flat lightbox
+                                                                    // path byte-for-byte (AC-1, AC-2, EC-1, EC-2).
+                                                                    if (img.kind === "PANORAMA") {
+                                                                        openPanorama(img.url, img.alt || t.panorama.title, e.currentTarget);
+                                                                    } else {
+                                                                        openSpotGallery(spotImages, i);
+                                                                    }
+                                                                }}
                                                             >
                                                                 <ImageWithFallback
                                                                     src={img.url}
@@ -847,9 +911,10 @@ export default function CampgroundDetailClient({
                                                                 {img.kind === "PANORAMA" && (
                                                                     <Badge
                                                                         variant="overlay"
-                                                                        className="absolute bottom-0.5 left-0.5 px-1"
+                                                                        className="absolute bottom-0.5 left-0.5 gap-1"
                                                                         data-testid={`badge--campground-spot-panorama-${spot.id}`}
                                                                     >
+                                                                        <MoveHorizontal aria-hidden="true" />
                                                                         {t.spotManagement.panoramaBadge}
                                                                     </Badge>
                                                                 )}
@@ -1354,6 +1419,12 @@ export default function CampgroundDetailClient({
                 onClose={() => setIsGalleryOpen(false)}
                 initialIndex={galleryStartIndex}
             />
+
+            {/* CAM-354 BR-3: mounted (and its dynamic chunk fetched) only while a
+                PANORAMA thumbnail is open — never for a PHOTO-only spot (EC-2). */}
+            {panorama && (
+                <PanoramaViewer url={panorama.url} alt={panorama.alt} onClose={closePanorama} />
+            )}
 
             {/* Amenities Modal */}
             <AmenitiesModal

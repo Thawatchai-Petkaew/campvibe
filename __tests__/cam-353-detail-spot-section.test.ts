@@ -189,10 +189,13 @@ describe('CampgroundDetailClient.tsx — spot section source-inspection (CAM-353
   it('[BR-6] spot photos are lazy with explicit fixed dimensions (no CLS) and never priority', () => {
     // Slice by index rather than a non-greedy regex: the button's own
     // aria-label attribute contains a `)}` sequence that would otherwise
-    // terminate a non-greedy match far too early.
+    // terminate a non-greedy match far too early. Window widened to 3200
+    // (was 2000) to still cover height={80} after CAM-354's kind-branch
+    // onClick/aria-label grew this block; still short of any unrelated
+    // `priority` usage elsewhere in the file (e.g. the hero image).
     const startIdx = detailSrc.indexOf('{spotImages.length > 0 && (');
     expect(startIdx).toBeGreaterThan(-1);
-    const galleryBlock = detailSrc.slice(startIdx, startIdx + 2000);
+    const galleryBlock = detailSrc.slice(startIdx, startIdx + 3200);
     expect(galleryBlock).toContain('loading="lazy"');
     expect(galleryBlock).toContain('width={80}');
     expect(galleryBlock).toContain('height={80}');
@@ -200,7 +203,9 @@ describe('CampgroundDetailClient.tsx — spot section source-inspection (CAM-353
   });
 
   it('[AC-3] photos render in sortOrder order (mapped straight off the payload, no re-sort/shuffle)', () => {
-    expect(detailSrc).toContain('spot.images.map((img: { url: string; kind?: string }, i: number) => (');
+    // CAM-354 added `alt?: string | null` to the inline image type (the pan
+    // viewer's accessible name falls back to the host-set Image.alt).
+    expect(detailSrc).toContain('spot.images.map((img: { url: string; kind?: string; alt?: string | null }, i: number) => (');
   });
 
   it('[AC-3] reuses the existing shared photo viewer (ImageGallery) — no new viewer component', () => {
