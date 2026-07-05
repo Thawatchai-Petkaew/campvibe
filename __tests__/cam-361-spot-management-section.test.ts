@@ -140,6 +140,102 @@ describe('CAM-361 — zone grouping + FilterChip source guards', () => {
   });
 });
 
+describe('CAM-359 — loadData stale-response guard (last-write-wins race fix)', () => {
+  // Same node-env/no-jsdom constraint as the rest of this file (see the file
+  // header): we cannot render the real component with real fetch timing, so
+  // this mirrors the EXACT requestId guard added to loadData() with plain
+  // Promises whose resolution order we control directly — proving the
+  // algorithm, not a paraphrase of it. A structural test below ties this
+  // mirror back to the real source.
+  //
+  // The bug this guards against: React Strict Mode's dev-only double-invoked
+  // mount effect (Next.js App Router defaults reactStrictMode: true) can fire
+  // loadData() twice at mount with no cancellation; a rapid create -> refetch
+  // right after can then race a still-in-flight mount call. Whichever
+  // Promise.all round-trip RESOLVES LAST used to win the state update
+  // regardless of which one was ISSUED last, so an earlier, now-stale mount
+  // response could silently wipe out a spot the user just created
+  // (CAM-359 ac6-spot-lifecycle.spec.ts flake).
+  function createRequestGuard() {
+    let requestIdCounter = 0;
+    let committed: string[] | null = null;
+
+    async function loadData(resolveWith: () => Promise<string[]>): Promise<void> {
+      const requestId = ++requestIdCounter;
+      const data = await resolveWith();
+      if (requestIdCounter !== requestId) return; // stale — a newer call has since started
+      committed = data;
+    }
+
+    return { loadData, getCommitted: () => committed };
+  }
+
+  it('[unit] a later-issued call that resolves first is not overwritten by an earlier-issued call that resolves last (out-of-order resolution keeps the newest data)', async () => {
+    const guard = createRequestGuard();
+
+    // A manually-resolvable promise lets the test control resolution ORDER
+    // independently of issue order — exactly the race the guard closes.
+    let resolveFirstIssued!: (data: string[]) => void;
+    const firstIssued = new Promise<string[]>((resolve) => {
+      resolveFirstIssued = resolve;
+    });
+
+    // Call #1 issued first (e.g. the mount-effect's loadData()) but its
+    // response resolves LAST (a slow, now-stale fetch).
+    const call1 = guard.loadData(() => firstIssued);
+
+    // Call #2 issued second (e.g. the post-create loadData()) and resolves
+    // immediately with the fresher data (the new spot included).
+    const call2 = guard.loadData(() => Promise.resolve(['spot-new']));
+    await call2;
+    expect(guard.getCommitted()).toEqual(['spot-new']);
+
+    // The stale call #1 now finally resolves with the OLDER, pre-create
+    // list — it must be ignored, not overwrite the fresher committed state.
+    resolveFirstIssued(['spot-old']);
+    await call1;
+
+    expect(guard.getCommitted()).toEqual(['spot-new']);
+  });
+
+  it('[unit] Prove-It: the same race WITHOUT a requestId guard loses the newer data (documents the pre-fix bug this guard closes)', async () => {
+    // A naive committer with no requestId check — the exact shape loadData()
+    // had before this fix. This reproduces the bug the guard closes, proving
+    // the race scenario above is real and not a tautology of the fixture.
+    async function naiveLoadData(
+      committedRef: { current: string[] | null },
+      resolveWith: () => Promise<string[]>
+    ): Promise<void> {
+      const data = await resolveWith();
+      committedRef.current = data; // no requestId check — last resolve always wins
+    }
+
+    const committedRef: { current: string[] | null } = { current: null };
+    let resolveFirstIssued!: (data: string[]) => void;
+    const firstIssued = new Promise<string[]>((resolve) => {
+      resolveFirstIssued = resolve;
+    });
+
+    const call1 = naiveLoadData(committedRef, () => firstIssued);
+    const call2 = naiveLoadData(committedRef, () => Promise.resolve(['spot-new']));
+    await call2;
+    expect(committedRef.current).toEqual(['spot-new']);
+
+    resolveFirstIssued(['spot-old']);
+    await call1;
+
+    // Bug reproduced: the stale, earlier-issued call overwrote the fresher
+    // one — this is the "row disappears and never comes back" flake.
+    expect(committedRef.current).toEqual(['spot-old']);
+  });
+
+  it('[structural] loadData() carries the monotonic requestId guard against out-of-order stale responses', () => {
+    expect(sectionSrc).toContain('const requestIdRef = useRef(0)');
+    expect(sectionSrc).toContain('const requestId = ++requestIdRef.current;');
+    expect(sectionSrc).toContain('if (requestIdRef.current !== requestId) return;');
+  });
+});
+
 describe('CAM-361 — i18n: new copy keys exist in both locales with the exact Thai copy', () => {
   it('filterAllLabel — Thai copy is exactly ทั้งหมด verbatim', () => {
     expect(translations.th.spotManagement.filterAllLabel).toBe('ทั้งหมด');
