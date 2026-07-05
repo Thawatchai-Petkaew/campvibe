@@ -130,7 +130,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.priceLow !== undefined && { priceLow: data.priceLow }),
         ...(data.priceHigh !== undefined && { priceHigh: data.priceHigh }),
         ...('images' in body && { images: imageReplaceNested(data.images) }),
-        ...(data.logo !== undefined && { logo: data.logo || undefined }),
+        // CAM-360 clearing fix (same class as CAM-341, see comment above): the
+        // old `data.logo || undefined` collapsed both '' and an explicit null
+        // into "skip" - a host clearing the logo never actually cleared the
+        // column. undefined (key omitted) still skips the field entirely;
+        // '' or null now map to an explicit null write.
+        ...(data.logo !== undefined && {
+          logo: data.logo === '' || data.logo === null ? null : data.logo,
+        }),
         ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) }),
         ...(data.partner !== undefined && { partner: data.partner || undefined }),
         ...(data.nationalPark !== undefined && { nationalPark: data.nationalPark || undefined }),

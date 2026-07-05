@@ -202,7 +202,11 @@ export async function POST(request: NextRequest) {
         address: data.address,
         directions: data.directions,
         videoUrl: data.videoUrl || undefined,
-        logo: data.logo || undefined,
+        // CAM-360: on create there is nothing to clear, but map '' / explicit
+        // null to null consistently with the PUT route (rather than the old
+        // blanket `|| undefined`) so the same input shape behaves the same
+        // way on both write paths.
+        logo: data.logo === '' || data.logo === null ? null : data.logo,
         
         // Contact Information
         phone: data.phone || undefined,
