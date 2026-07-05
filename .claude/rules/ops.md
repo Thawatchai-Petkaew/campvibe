@@ -154,6 +154,9 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 
 | Rationalization | Reality |
 |---|---|
+| "The flow/policy change is done — ops.md is updated." | Policies are restated across CLAUDE.md, rules, commands, and agent files; updating one file leaves the others contradicting it (CLAUDE.md still described the old flow two promotes later, caught incidentally by a G3). A policy change greps EVERY restatement of the old wording in the same PR (PR 390/392). |
+| "Add the new branch to the CI push trigger — done." | `pull_request.branches` and `push.branches` are separate lists: updating only one strands PRs into the new branch with the required check stuck at "expected" forever. Edit BOTH trigger blocks in the same commit (PR 390). |
+| "The conditional CI job skips gracefully when the var is unset." | Graceful = silent: smoke self-skipped for its entire life because STAGING_URL/PROD_URL were never created (camper-adhoc/gate-continue share the shape). Every conditional job needs a first-run proof that it ACTUALLY ran once, and the skip prints a loud notice naming the missing var (repo vars, 2026-07-05). |
 | "`gh`/the script said merged, so it merged." | A chained `&& echo merged` can lie. Confirm with `gh pr view --json state`; a branch BEHIND after a concurrent merge makes the required status check "expected" and blocks even `--admin` → update the branch (merge base in) → re-run CI → merge (CAM-203). |
 | "`git add -A` then branch — the tree is clean enough." | Another team's uncommitted WIP rides onto your branch and into the PR. Pre-flight `git status` before branching; stage explicit paths, never `git add -A`, when the tree may hold others' work (CAM-199). |
 | "I'll promote straight from feature/Preview to prod." | Prod always goes through Staging + G4 sign-off first. |
