@@ -51,8 +51,13 @@ describe('lib/catalog-cache.ts — getCampBySlug spots include (BR-2, CAM-353)',
 
   // Isolate the getCampBySlug wrapper body from the rest of the file so
   // assertions can't accidentally match getDefaultCatalog or unrelated code.
+  // CAM-357: getCampBySlug changed from `export const getCampBySlug = unstable_cache(...)`
+  // to `export async function getCampBySlug(slug) { ... }` (the unstable_cache wrapper is
+  // now built INSIDE the function so its `tags` can carry the real per-slug cache tag) —
+  // update the start marker to match; the assertions below are unchanged (still true of
+  // the new body).
   const getCampBySlugBody = catalogCacheSrc.slice(
-    catalogCacheSrc.indexOf('export const getCampBySlug'),
+    catalogCacheSrc.indexOf('export async function getCampBySlug'),
     catalogCacheSrc.indexOf('export const getDefaultCatalog')
   );
 
