@@ -491,8 +491,18 @@ describe('locales/translations.json — CAM-351 capacity-mode copy (TH verbatim 
 // ===========================================================================
 
 describe('AC-10/EC-7 — availability/booking consumers stay mode-unaware (regression guard)', () => {
+  // CAM-355 (per-spot capacity ENFORCEMENT parity, the explicit CAM-351/352
+  // Discovery follow-up this guard itself calls out) deliberately supersedes
+  // this "no mode-awareness" guard for lib/campsite-availability.ts ONLY —
+  // that file's 3 enforcement readers (checkDateAvailabilityInTx,
+  // getRemainingCapacity, getAvailabilityStatusForCamps) now DO read
+  // CampSite.useSpotView to derive PER-SPOT capacity live (BR-1/BR-4). The
+  // OTHER two files are unaffected by CAM-355 and stay mode-unaware exactly
+  // as this guard originally proved: lib/campsite-filters.ts step 5 is ruled
+  // a coarse pre-filter (CAM-355 BR-5, unchanged); app/api/bookings/route.ts
+  // itself never branches on mode (all mode-awareness lives inside the
+  // shared checkDateAvailabilityInTx helper it calls, not the route file).
   const DO_NOT_TOUCH_FILES = [
-    'lib/campsite-availability.ts',
     'lib/campsite-filters.ts',
     'app/api/bookings/route.ts',
   ];
@@ -500,5 +510,10 @@ describe('AC-10/EC-7 — availability/booking consumers stay mode-unaware (regre
   it.each(DO_NOT_TOUCH_FILES)('%s never references useSpotView (no mode-awareness added by this story)', (rel) => {
     const src = fs.readFileSync(path.join(process.cwd(), rel), 'utf-8');
     expect(src).not.toContain('useSpotView');
+  });
+
+  it('[cam-355] lib/campsite-availability.ts NOW references useSpotView — CAM-355 intentionally supersedes the CAM-351 guard for this one file (BR-1/BR-4 mode-aware enforcement)', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'lib/campsite-availability.ts'), 'utf-8');
+    expect(src).toContain('useSpotView');
   });
 });
