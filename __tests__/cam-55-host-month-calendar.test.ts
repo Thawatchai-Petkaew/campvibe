@@ -137,9 +137,12 @@ describe('CAM-55 BR-1 — the consumed endpoint computes from getCampSiteDailyAv
     expect(routeSrc).toContain('getCampSiteDailyAvailability(id, start, end)');
   });
 
-  it('remainingGuests is derived from maxGuestsPerDay - (bookedGuests + heldGuests) — CAM-302 threads holds into the same one formula', () => {
+  // CAM-355 (G3 Important-1): whole-camp keeps this EXACT pre-CAM-355 formula,
+  // now reached through a useSpotView mode gate (PER-SPOT reads the derived
+  // effective capacity instead of the stale column).
+  it('remainingGuests (whole-camp branch) is derived from maxGuestsPerDay - (bookedGuests + heldGuests) — CAM-302 threads holds into the same one formula', () => {
     expect(routeSrc).toContain(
-      'remainingGuests: campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
+      'campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
     );
   });
 
