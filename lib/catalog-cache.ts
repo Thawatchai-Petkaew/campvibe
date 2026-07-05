@@ -53,45 +53,63 @@ const LISTING_REVALIDATE_S = 60;  // 60 s — default catalog listing: shorter T
  * are never inside the cache boundary. Calling canViewCampSite inside the cache would
  * cache an access-control decision keyed to one session for all future callers (sec leak).
  *
- * Each slug gets its own cache entry because the slug arg is incorporated into the
- * cache key by unstable_cache. Write paths bust the entry via:
- *   revalidateTag(campSlugTag(slug))  — by slug
- *   revalidateTag(campTag(id))        — by database id (same entry)
+ * CAM-357 fix: unstable_cache's `tags` option is fixed at WRAP time, not per-call — a
+ * module-level `unstable_cache(fn, keyParts, { tags: [] })` (the old shape here) can never
+ * carry a tag that depends on the runtime slug, so every revalidateTag(campSlugTag(slug))
+ * call across the app was inert against this cache entry (freshness relied on the 5-min
+ * TTL alone). The fix builds the unstable_cache wrapper INSIDE this exported function, on
+ * every call, so `tags` can read the real `slug` argument: `tags: [campSlugTag(slug)]`.
  *
- * Pattern mirrors lib/linear.ts:106.
+ * This still caches correctly (no cache-hit loss) because unstable_cache's persisted
+ * cache store is looked up by a hash of `keyParts` + the serialized call arguments, NOT
+ * by the JS identity/closure of the `unstable_cache(...)` call site. `keyParts` here is
+ * `['camp-detail', slug]` — a value that is deterministic given only `slug` — and the
+ * runtime argument passed to the returned function is the same `slug` again. Two calls
+ * for the SAME slug (even across two separate request lifecycles, each constructing a
+ * "new" wrapper object) hash to the IDENTICAL cache key and hit the same persisted entry;
+ * two calls for DIFFERENT slugs hash to different keys and get independent entries, each
+ * carrying its own real tag. Constructing the wrapper per call is the standard, documented
+ * workaround for unstable_cache not supporting a tags-generator function of the arguments.
+ *
+ * Write paths bust the entry via:
+ *   revalidateTag(campSlugTag(slug))  — by slug (now a REAL tag on this entry)
+ *   revalidateTag(campTag(id))        — by database id (kept for the catalog-tag path;
+ *                                        does not bust this cache entry, since the id is
+ *                                        not knowable before the slug is resolved)
  */
-export const getCampBySlug = unstable_cache(
-  async (slug: string) => {
-    return prisma.campSite.findFirst({
-      where: {
-        OR: [{ nameThSlug: slug }, { nameEnSlug: slug }],
-      },
-      include: {
-        location: true,
-        operator: { select: { id: true, name: true, image: true, createdAt: true } },
-        // CAM-353 BR-2: extend from `spots: true` to carry live spots' own photos.
-        // Full `include: { images }` (NOT an enumerating `select`) so `Image.kind`
-        // (the PANORAMA marker) rides through at runtime — the CAM-342 trap.
-        // `where: { deletedAt: null }` excludes soft-deleted spots (EC-3); same
-        // single query, richer include — no N+1, no extra round-trip.
-        spots: {
-          where: { deletedAt: null },
-          include: { images: { orderBy: { sortOrder: 'asc' } } },
+export async function getCampBySlug(slug: string) {
+  const cached = unstable_cache(
+    async (slug: string) => {
+      return prisma.campSite.findFirst({
+        where: {
+          OR: [{ nameThSlug: slug }, { nameEnSlug: slug }],
         },
-        options: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-      },
-    });
-  },
-  ['camp-detail'],
-  {
-    revalidate: DETAIL_REVALIDATE_S,
-    // tags: [] — slug differentiates entries via the function arg (Next.js incorporates
-    // args into the cache key). Write paths call revalidateTag(campSlugTag(slug)) +
-    // revalidateTag(campTag(id)) to bust the relevant entry.
-    tags: [],
-  }
-);
+        include: {
+          location: true,
+          operator: { select: { id: true, name: true, image: true, createdAt: true } },
+          // CAM-353 BR-2: extend from `spots: true` to carry live spots' own photos.
+          // Full `include: { images }` (NOT an enumerating `select`) so `Image.kind`
+          // (the PANORAMA marker) rides through at runtime — the CAM-342 trap.
+          // `where: { deletedAt: null }` excludes soft-deleted spots (EC-3); same
+          // single query, richer include — no N+1, no extra round-trip.
+          spots: {
+            where: { deletedAt: null },
+            include: { images: { orderBy: { sortOrder: 'asc' } } },
+          },
+          options: true,
+          images: { orderBy: { sortOrder: 'asc' } },
+        },
+      });
+    },
+    ['camp-detail', slug],
+    {
+      revalidate: DETAIL_REVALIDATE_S,
+      // Real per-slug tag — computed from the runtime argument (CAM-357).
+      tags: [campSlugTag(slug)],
+    }
+  );
+  return cached(slug);
+}
 
 /**
  * getDefaultCatalog — cached default/unfiltered listing.
