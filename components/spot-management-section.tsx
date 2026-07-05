@@ -17,12 +17,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus, Tent, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Tent, Trash2 } from "lucide-react";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
 import { groupSpotsByZone } from "@/lib/spot-zone-grouping";
-import type { SpotDTO } from "@/types/api";
+import { zoneCreateSchema, ZONE_NAME_TOO_LONG_MESSAGE } from "@/lib/validations/zone";
+import { createZone, deleteZone, fetchZonesSafe } from "@/lib/zone-client";
+import type { SpotDTO, ZoneDTO } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +33,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { InputField } from "@/components/ui/input-field";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SpotFormDialog } from "@/components/spot-form-dialog";
 
@@ -64,9 +67,24 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
   const copy = t.spotManagement;
 
   const [spots, setSpots] = useState<SpotDTO[] | null>(null);
+  const [zones, setZones] = useState<ZoneDTO[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const showSkeleton = useMinimumLoading(loading, { delay: 300, minDisplay: 400 });
+
+  // CAM-362 — zone manager (list/add/delete) state, independent of the
+  // shared spots skeleton/error above.
+  const [newZoneName, setNewZoneName] = useState("");
+  const [creatingZone, setCreatingZone] = useState(false);
+  const [zoneCreateError, setZoneCreateError] = useState<string | null>(null);
+  const [zoneDeleteTarget, setZoneDeleteTarget] = useState<ZoneDTO | null>(null);
+  const [deletingZone, setDeletingZone] = useState(false);
+
+  // G3 fix (I-1) — a zones-fetch failure must never blank the spot list: it
+  // is tracked in its own state, isolated from `loadError`, so the spots
+  // section keeps rendering when only /zones hiccups.
+  const [zonesLoadError, setZonesLoadError] = useState(false);
+  const [zonesRetrying, setZonesRetrying] = useState(false);
 
   // AC-9/EC-8: proactively hide write controls unless the signed-in user is
   // this camp's owner or a platform admin (the two "always allowed" bypasses
@@ -87,20 +105,54 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
   // the "all" chip (every group visible).
   const [activeZone, setActiveZone] = useState<string>(ALL_ZONES_VALUE);
 
+  // G3 fix (I-1) — fetchZonesSafe (lib/zone-client.ts) NEVER throws/rejects
+  // (a bad status AND a network-level rejection both resolve to
+  // `{ ok: false }`, real-tested in __tests__/cam-362-zone-client.test.ts),
+  // so it can sit inside loadData's Promise.all as a 4th concurrent request
+  // (tech.md §4.1 — same round-trip, no N+1) without ever being able to
+  // reject that Promise.all and blank the spots section over a zones-only
+  // hiccup. Shared by the initial load and the zone-manager's own "retry"
+  // (loadZones below).
+  const fetchZones = useCallback(async () => {
+    const result = await fetchZonesSafe(campSiteId);
+    if (!result.ok) {
+      console.error("Failed to load campsite zones");
+    }
+    return result;
+  }, [campSiteId]);
+
   const loadData = useCallback(async () => {
     if (!campSiteId) return;
     setLoading(true);
     setLoadError(false);
     try {
-      const [spotsRes, campRes, sessionRes] = await Promise.all([
+      // CAM-362 (tech.md §4.1) — /zones rides as a 4th parallel request, same
+      // round-trip, no N+1. Refetched together with spots any time either
+      // changes (zone create/delete, spot create/edit/delete).
+      const [spotsRes, campRes, sessionRes, zonesResult] = await Promise.all([
         fetch(`/api/campsites/${campSiteId}/spots`, { cache: "no-store" }),
         fetch(`/api/campsites/${campSiteId}`, { cache: "no-store" }),
         fetch(`/api/auth/session`, { cache: "no-store" }),
+        fetchZones(),
       ]);
 
       if (!spotsRes.ok) throw new Error("Failed to load spots");
       const spotsData = await spotsRes.json();
       setSpots(Array.isArray(spotsData) ? spotsData : []);
+
+      // G3 fix (I-1): a zones failure is isolated to its own state — it
+      // must never throw here, or the shared catch below would blank the
+      // whole section (including the spots list that loaded fine). The
+      // zone manager renders its own local error + retry instead (below);
+      // the spot-form Select degrades to `zones=[]` (no-zone + create-new
+      // still work — see spot-form-dialog.tsx, unchanged).
+      if (zonesResult.ok) {
+        setZones(zonesResult.zones);
+        setZonesLoadError(false);
+      } else {
+        setZones([]);
+        setZonesLoadError(true);
+      }
 
       let ownerOrAdmin = false;
       if (campRes.ok && sessionRes.ok) {
@@ -116,7 +168,25 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
     } finally {
       setLoading(false);
     }
-  }, [campSiteId]);
+  }, [campSiteId, fetchZones]);
+
+  // G3 fix (I-1) — the zone manager's own retry: re-fetches ONLY /zones
+  // (not spots/camp/session) since those already loaded fine; a full
+  // `loadData()` re-run would be a heavier, unnecessary refetch for what is
+  // a zones-only failure.
+  const loadZones = useCallback(async () => {
+    if (!campSiteId) return;
+    setZonesRetrying(true);
+    const result = await fetchZones();
+    setZonesRetrying(false);
+    if (result.ok) {
+      setZones(result.zones);
+      setZonesLoadError(false);
+    } else {
+      setZones([]);
+      setZonesLoadError(true);
+    }
+  }, [campSiteId, fetchZones]);
 
   useEffect(() => {
     loadData();
@@ -190,6 +260,71 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
     } finally {
       setDeleting(false);
     }
+  };
+
+  // CAM-362 — zone manager: create a new zone (409 shown inline under the
+  // add-zone input with the API's verbatim duplicate copy).
+  const handleCreateZone = async () => {
+    // Client pre-check with the SAME shared schema the server enforces — one
+    // schema, client + server (.claude/rules/ux.md #1).
+    const preCheck = zoneCreateSchema.safeParse({ name: newZoneName });
+    if (!preCheck.success) {
+      const issue = preCheck.error.issues[0];
+      setZoneCreateError(
+        issue?.message === ZONE_NAME_TOO_LONG_MESSAGE ? copy.zoneNameTooLong : copy.zoneNameRequired
+      );
+      return;
+    }
+
+    setCreatingZone(true);
+    const result = await createZone(campSiteId, preCheck.data.name);
+    setCreatingZone(false);
+
+    if (!result.ok) {
+      setZoneCreateError(
+        result.reason === "duplicate"
+          ? copy.zoneDuplicateError
+          : result.reason === "forbidden"
+            ? copy.zoneForbiddenMessage
+            : copy.zoneCreateFailed
+      );
+      return;
+    }
+
+    toast.success(copy.zoneCreateSuccess);
+    setNewZoneName("");
+    setZoneCreateError(null);
+    await loadData();
+  };
+
+  // CAM-362 — zone manager: delete a zone (detaches its live spots to
+  // no-zone in one transaction, tech.md §3.3). The confirm dialog warns
+  // generically before the count is known; the success toast then uses the
+  // API's returned detachedSpotCount.
+  const confirmDeleteZone = async () => {
+    if (!zoneDeleteTarget) return;
+    setDeletingZone(true);
+    const result = await deleteZone(campSiteId, zoneDeleteTarget.id);
+    setDeletingZone(false);
+
+    if (!result.ok) {
+      if (result.reason === "notFound") {
+        toast.error(copy.zoneNotFoundMessage);
+        setZoneDeleteTarget(null);
+        await loadData();
+        return;
+      }
+      toast.error(result.reason === "forbidden" ? copy.zoneForbiddenMessage : copy.zoneDeleteFailed);
+      return;
+    }
+
+    toast.success(
+      result.detachedSpotCount > 0
+        ? copy.zoneDeleteSuccessWithCount.replace("{N}", String(result.detachedSpotCount))
+        : copy.zoneDeleteSuccess
+    );
+    setZoneDeleteTarget(null);
+    await loadData();
   };
 
   const renderSpotRow = (spot: SpotDTO) => {
@@ -269,6 +404,91 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
       </div>
     );
   };
+
+  // CAM-362 — compact zone manager: list the camp's live zones + add-new
+  // (409 inline under the input) + delete per zone (ConfirmDialog below).
+  // Shares the parent load/error state; skipped during that initial load so
+  // it never flashes an "empty" zone list before the real data arrives.
+  const zoneManagerBlock = canManage && !showSkeleton && !loadError && (
+    <div className="rounded-2xl border border-border bg-background p-4 space-y-3" data-testid="section--zone-manager">
+      <h3 className="text-sm font-bold text-foreground">{copy.zoneManagerTitle}</h3>
+
+      {zonesLoadError ? (
+        // G3 fix (I-1) — isolated to this block only: the spots list above
+        // (rendered outside zoneManagerBlock) is unaffected by this error.
+        <div className="flex flex-col items-start gap-2" data-testid="alert--zone-manager-load-error">
+          <ErrorBanner message={copy.zoneManagerLoadFailed} />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadZones}
+            disabled={zonesRetrying}
+            data-testid="btn--zone-manager-retry"
+          >
+            {zonesRetrying ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : t.common.retry}
+          </Button>
+        </div>
+      ) : (zones?.length ?? 0) === 0 ? (
+        <p className="text-sm text-muted-foreground" data-testid="empty--zone-manager">
+          {copy.zoneManagerEmptyText}
+        </p>
+      ) : (
+        <div className="rounded-xl border border-border divide-y divide-border/60" data-testid="section--zone-manager-list">
+          {(zones ?? []).map((zone) => (
+            <div
+              key={zone.id}
+              className="px-4 py-2.5 flex items-center justify-between gap-3"
+              data-testid={`row--zone-${zone.id}`}
+            >
+              <span className="text-sm font-medium text-foreground truncate">{zone.name}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={`${copy.zoneDeleteAriaLabel}: ${zone.name}`}
+                onClick={() => setZoneDeleteTarget(zone)}
+                className="rounded-full hover:text-destructive hover:border-destructive hover:bg-destructive/10 shrink-0"
+                data-testid={`btn--zone-delete-${zone.id}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-start gap-2" data-testid="form--zone-add">
+        <InputField
+          placeholder={copy.zoneManagerAddPlaceholder}
+          value={newZoneName}
+          onChange={(e) => {
+            setNewZoneName(e.target.value);
+            setZoneCreateError(null);
+          }}
+          error={zoneCreateError ?? undefined}
+          disabled={creatingZone}
+          containerClassName="flex-1"
+          data-testid="input--zone-add-name"
+        />
+        <Button
+          type="button"
+          onClick={handleCreateZone}
+          disabled={creatingZone}
+          className="rounded-full h-11 shrink-0"
+          data-testid="btn--zone-add"
+        >
+          {creatingZone ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <>
+              <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+              {copy.zoneManagerAddButton}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 
   const listBody = (
     <div aria-busy={showSkeleton} data-testid="section--spots-list">
@@ -352,6 +572,8 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
           onOpenChange={setFormOpen}
           campSiteId={campSiteId}
           spot={editTarget}
+          zones={zones ?? []}
+          onZonesChanged={loadData}
           onSaved={handleSaved}
         />
       )}
@@ -366,6 +588,18 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
         isLoading={deleting}
         destructive
         data-testid="modal--spots-delete-confirm"
+      />
+
+      <ConfirmDialog
+        open={!!zoneDeleteTarget}
+        onOpenChange={(open) => !open && setZoneDeleteTarget(null)}
+        title={copy.zoneDeleteConfirmTitle}
+        confirmLabel={copy.deleteConfirmLabel}
+        cancelLabel={copy.deleteCancelLabel}
+        onConfirm={confirmDeleteZone}
+        isLoading={deletingZone}
+        destructive
+        data-testid="modal--zone-delete-confirm"
       />
     </>
   );
@@ -391,6 +625,7 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
             </Button>
           )}
         </div>
+        {zoneManagerBlock}
         {listBody}
         {dialogs}
       </div>
@@ -418,6 +653,7 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           <p className="text-sm text-muted-foreground -mt-2">{copy.pageDescription}</p>
+          {zoneManagerBlock}
           {listBody}
         </CardContent>
         {dialogs}
@@ -445,6 +681,7 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
         )}
       </div>
 
+      {zoneManagerBlock}
       {listBody}
       {dialogs}
     </div>
