@@ -119,6 +119,11 @@ export const PERSONA_LABELS = ["host", "camper", "admin", "platform"];
  *   awaiting-you  remove -> approve                 (AWAITING_GATE -> IN_PROGRESS; "you approved")
  *   released      add    -> release                 (stamps releasedAt; DONE -> DONE)
  *   released      remove -> warn (releasedAt is a one-way stamp, no verb clears it)
+ *   on-staging    add    -> stage                    (CAM-370: stamps stagedAt; DONE -> DONE;
+ *                                                      re-stampable — no "already staged" guard;
+ *                                                      a silent no-op server-side when the ticket
+ *                                                      isn't DONE yet, see lib/delivery/tickets.ts)
+ *   on-staging    remove -> warn (stagedAt has no remove-verb, same shape as released)
  *   blocked       add    -> setBlocked(true)
  *   blocked       remove -> setBlocked(false)
  *   <persona>     add    -> updateFields({ persona: PERSONA })
@@ -134,6 +139,10 @@ export function mapLegacyLabel(name, direction) {
   if (n === "released") {
     if (direction === "add") return { ok: true, action: "release" };
     return { ok: true, warn: `label "released" has no remove-verb (releasedAt is a one-way stamp) — no-op` };
+  }
+  if (n === "on-staging") {
+    if (direction === "add") return { ok: true, action: "stage" };
+    return { ok: true, warn: `label "on-staging" has no remove-verb (stagedAt is a re-stampable marker, not reversible) — no-op` };
   }
   if (n === "blocked") {
     return { ok: true, action: "setBlocked", params: { blocked: direction === "add" } };

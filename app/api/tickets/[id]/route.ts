@@ -21,6 +21,7 @@ import {
   reject,
   complete,
   release,
+  stage,
   cancel,
   reopen,
   handoff,
@@ -117,6 +118,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         break;
       case "release":
         ticket = await release(id, p.actor);
+        break;
+      case "stage":
+        ticket = await stage(id, p.actor);
         break;
       case "cancel":
         ticket = await cancel(id, p.actor, p.note);
