@@ -49,6 +49,7 @@ import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
 import { campSiteSchema } from "@/lib/validations/campsite";
 import type { TranslationType } from "@/locales/translations";
+import type { UserRole } from "@/types/api";
 import * as LucideIcons from "lucide-react";
 
 // CAM-341: Radix Select forbids an empty-string item value, so the "not set"
@@ -179,6 +180,9 @@ const FIELD_SECTION_ID: Record<string, string> = {
     partner: "additional-info", nationalPark: "additional-info", tags: "additional-info",
     facilities: "amenities", externalFacilities: "amenities", equipment: "amenities",
     accessTypes: "amenities", accommodationTypes: "amenities", activities: "amenities", terrain: "amenities",
+    // CAM-364: petFriendly relocated out of Status & Visibility into Amenities &
+    // Features - it's a guest-facing camp feature, not an internal status flag.
+    petFriendly: "amenities",
     campSiteType: "campground-type",
     ownershipType: "ownership",
     priceLow: "price", priceHigh: "price", isFree: "price",
@@ -186,8 +190,7 @@ const FIELD_SECTION_ID: Record<string, string> = {
     cancellationPolicy: "cancellation-policy",
     maxGuestsPerDay: "zones", maxTentsPerDay: "zones", groundType: "zones", useSpotView: "zones",
     checkInTime: "operations", checkOutTime: "operations",
-    isVerified: "status-visibility", isActive: "status-visibility",
-    isPublished: "status-visibility", petFriendly: "status-visibility",
+    isVerified: "status-visibility", isActive: "status-visibility", isPublished: "status-visibility",
 };
 
 // Composes the banner copy from locale labels only (no raw field key / jargon
@@ -202,7 +205,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
     const router = useRouter();
     const { t, language } = useLanguage();
     const [isLoading, setIsLoading] = useState(false);
-    const [operator, setOperator] = useState<any>(null);
+    // CAM-364: role rides the same /api/operator/dashboard fetch this form already
+    // makes (no extra request) - it gates the admin-only isVerified toggle below.
+    const [operator, setOperator] = useState<{ id: string; role?: UserRole } | null>(null);
     const [masterOptions, setMasterOptions] = useState<Record<string, any[]>>({});
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [serverError, setServerError] = useState<string | null>(null);
@@ -384,7 +389,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             .then(res => res.json())
             .then(data => {
                 if (data.operator?.id) {
-                    setOperator({ id: data.operator.id });
+                    setOperator({ id: data.operator.id, role: data.operator.role });
                 }
             });
     }, [initialData, isEditing]);
@@ -561,7 +566,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 logo: formData.logo === "" ? (isEditing ? null : undefined) : formData.logo,
                 partner: formData.partner || undefined,
                 nationalPark: formData.nationalPark || undefined,
-                isVerified: formData.isVerified,
+                // CAM-364: the host-facing UI is now read-only for isVerified (no
+                // toggle to edit), so a non-admin session never sends an edit for
+                // it - undefined is dropped by JSON.stringify (omitted from the
+                // wire payload), not sent as an unchanged value. The server strips
+                // it for non-admins anyway (lib/admin-fields.ts, defense in depth);
+                // an admin session keeps sending it exactly as before.
+                isVerified: isAdminEditor ? formData.isVerified : undefined,
                 isActive: formData.isActive,
                 isPublished: formData.isPublished,
                 
@@ -672,6 +683,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             : undefined;
     const extraFeeLabelError =
         formData.extraFeeLabel.length > 100 ? t.newCampground.extraFeeLabelError : undefined;
+
+    // CAM-364: isVerified is admin-only server-side (lib/admin-fields.ts
+    // applyAdminOnlyFields strips it silently for any non-ADMIN caller). A
+    // platform admin DOES legitimately reach this same form/endpoint for any
+    // camp site (lib/auth-utils.ts requireCampSitePermission grants ADMIN
+    // access unconditionally) and the PUT route honors isVerified for that
+    // role - so the toggle stays editable ONLY for an admin session; every
+    // other host sees a read-only status display instead of a lying control.
+    const isAdminEditor = operator?.role === 'ADMIN';
 
     // CAM-351 — capacity-mode derived state for the Capacity card.
     // BR-1/BR-6: the mode as it was when the form LOADED (not reactive to the
@@ -1084,6 +1104,34 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-4">
+                                {/* CAM-364: relocated from Status & Visibility - pet policy is a
+                                    guest-facing camp feature/amenity (like the taxonomy groups
+                                    below), not an internal status/visibility flag. Same control +
+                                    copy, just moved; the FIELD_SECTION_ID error-scroll map (CAM-356)
+                                    now points petFriendly here too. */}
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, petFriendly: !formData.petFriendly })}
+                                    aria-pressed={formData.petFriendly}
+                                    className={cn(
+                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                        formData.petFriendly
+                                            ? "bg-primary/10 border-primary"
+                                            : "bg-card border-border hover:border-primary/50"
+                                    )}
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
+                                            {t.newCampground.petFriendly}
+                                        </TruncatedLabel>
+                                        <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                            {t.newCampground.petFriendlyDesc}
+                                        </TruncatedLabel>
+                                    </div>
+                                    <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.petFriendly ? "bg-primary" : "bg-muted")}>
+                                        {formData.petFriendly && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                                    </div>
+                                </button>
                                 {renderOptionGroup(t.filter["Internal facility"], "Internal facility", "facilities")}
                                 {renderOptionGroup(t.filter["External facility"], "External facility", "externalFacilities")}
                                 {renderOptionGroup(t.filter["Equipment for rent"], "Equipment for rent", "equipment")}
@@ -1387,29 +1435,64 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 <CardTitle className="text-lg font-bold text-foreground">{t.newCampground.statusVisibility}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isVerified: !formData.isVerified })}
-                                    aria-pressed={formData.isVerified}
-                                    className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                        formData.isVerified
-                                            ? "bg-primary/10 border-primary"
-                                            : "bg-card border-border hover:border-primary/50"
-                                    )}
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
-                                            {t.newCampground.verified}
-                                        </TruncatedLabel>
-                                        <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
-                                            {t.newCampground.verifiedDesc}
-                                        </TruncatedLabel>
+                                {/* CAM-364: isVerified is admin-only server-side (lib/admin-fields.ts
+                                    strips it silently for non-ADMIN callers) - the previous host-facing
+                                    toggle here was a lying control (it looked editable but never
+                                    persisted). A platform admin genuinely edits verification through
+                                    this same form/endpoint (requireCampSitePermission grants ADMIN
+                                    unconditional access; the PUT route honors isVerified for that
+                                    role), so the toggle stays interactive ONLY for that session; every
+                                    other host sees a read-only verified-status display instead. */}
+                                {isAdminEditor ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, isVerified: !formData.isVerified })}
+                                        aria-pressed={formData.isVerified}
+                                        data-testid="btn--campground-verified-admin-toggle"
+                                        className={cn(
+                                            "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                            formData.isVerified
+                                                ? "bg-primary/10 border-primary"
+                                                : "bg-card border-border hover:border-primary/50"
+                                        )}
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
+                                                {t.newCampground.verified}
+                                            </TruncatedLabel>
+                                            <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                                {t.newCampground.verifiedDesc}
+                                            </TruncatedLabel>
+                                        </div>
+                                        <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isVerified ? "bg-primary" : "bg-muted")}>
+                                            {formData.isVerified && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                                        </div>
+                                    </button>
+                                ) : (
+                                    <div
+                                        className="flex items-center justify-between p-4 rounded-xl border border-border bg-card"
+                                        data-testid="row--campground-verified-status"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
+                                                {t.newCampground.verified}
+                                            </TruncatedLabel>
+                                            <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
+                                                {t.newCampground.verifiedDesc}
+                                            </TruncatedLabel>
+                                        </div>
+                                        {formData.isVerified ? (
+                                            <Badge variant="success" data-testid="badge--campground-verified">
+                                                <CheckCircle2 aria-hidden="true" />
+                                                {t.newCampground.verified}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-sm text-muted-foreground" data-testid="text--campground-not-verified">
+                                                {t.newCampground.notVerified}
+                                            </span>
+                                        )}
                                     </div>
-                                    <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isVerified ? "bg-primary" : "bg-muted")}>
-                                        {formData.isVerified && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                                    </div>
-                                </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
@@ -1454,31 +1537,6 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     </div>
                                     <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.isPublished ? "bg-primary" : "bg-muted")}>
                                         {formData.isPublished && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                                    </div>
-                                </button>
-
-                                {/* Pet Friendly Toggle */}
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, petFriendly: !formData.petFriendly })}
-                                    aria-pressed={formData.petFriendly}
-                                    className={cn(
-                                        "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                        formData.petFriendly
-                                            ? "bg-primary/10 border-primary"
-                                            : "bg-card border-border hover:border-primary/50"
-                                    )}
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <TruncatedLabel className="text-base font-semibold text-foreground" as="div">
-                                            {t.newCampground.petFriendly}
-                                        </TruncatedLabel>
-                                        <TruncatedLabel className="text-xs text-muted-foreground mt-0.5" as="div">
-                                            {t.newCampground.petFriendlyDesc}
-                                        </TruncatedLabel>
-                                    </div>
-                                    <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", formData.petFriendly ? "bg-primary" : "bg-muted")}>
-                                        {formData.petFriendly && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
                                     </div>
                                 </button>
                             </CardContent>
