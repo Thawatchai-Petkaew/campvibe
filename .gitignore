@@ -72,6 +72,7 @@ next-env.d.ts
 # utility scripts (local) — but track the ticket-sync CLI used by CI + hooks
 /scripts/*
 !/scripts/ticket-sync.mjs
+!/scripts/vercel-ignore.sh
 !/scripts/lib/
 !/scripts/db-reset.mjs
 !/scripts/check-palette.mjs
