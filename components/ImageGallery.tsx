@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
+import { useModalA11y } from "@/lib/hooks/use-modal-a11y";
 
 interface ImageGalleryProps {
     images: string[];
@@ -15,6 +16,7 @@ interface ImageGalleryProps {
 export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: ImageGalleryProps) {
     const { t, language } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Sync initialIndex when gallery opens; clamp to valid range
     useEffect(() => {
@@ -37,6 +39,9 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, images.length, onClose]);
+
+    // CAM-368: shared Tab/Shift+Tab focus trap + body scroll lock.
+    useModalA11y(containerRef, { active: isOpen });
 
     if (!isOpen) return null;
     if (images.length === 0) return null;
@@ -63,6 +68,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
     return (
         // photo-viewer scrim: intentional dark override, exempt per DESIGN.md F3 exception
         <div
+            ref={containerRef}
             role="dialog"
             aria-modal="true"
             aria-label={t.gallery.viewerTitle}

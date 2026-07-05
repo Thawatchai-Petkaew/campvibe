@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useModalA11y } from "@/lib/hooks/use-modal-a11y";
 import { cn } from "@/lib/utils";
 
 interface PanoramaViewerProps {
@@ -42,6 +43,7 @@ export default function PanoramaViewer({ url, alt, onClose }: PanoramaViewerProp
     const [hasErrored, setHasErrored] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const hintId = useId();
 
     // BR-5: a real modal — focus the close control on open; Escape closes.
@@ -54,6 +56,11 @@ export default function PanoramaViewer({ url, alt, onClose }: PanoramaViewerProp
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
+
+    // CAM-368: shared Tab/Shift+Tab focus trap + body scroll lock. This
+    // viewer is only ever mounted while open (the caller conditionally
+    // renders it), so the trap/lock is active for its whole mounted lifetime.
+    useModalA11y(containerRef, { active: true });
 
     const handleBackdropClick = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
@@ -83,6 +90,7 @@ export default function PanoramaViewer({ url, alt, onClose }: PanoramaViewerProp
         // photo-viewer scrim: intentional dark override, exempt per DESIGN.md F3
         // exception (BR-8) — the same idiom as components/ImageGallery.tsx.
         <div
+            ref={containerRef}
             role="dialog"
             aria-modal="true"
             aria-label={t.panorama.title}

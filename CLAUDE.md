@@ -34,14 +34,14 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 
 ## Env & Definition of Done (3-env — details in `.claude/rules/ops.md`)
 
-Local Dev → **Staging** (`staging` branch, auto deploy) → **Production** (`main`, promote + tag) · separate staging/prod DBs
+Local Dev → **Dev** (`dev` branch, no deploy, verify on localhost) → **Staging** (batched promote, auto deploy) → **Production** (`main`, promote + tag) · separate staging/prod DBs
 
-- **Done** = merge into `staging` + quality-gate green + **verify AC on the real Staging URL** → ticket state `Done`
+- **Done** = quality-gate green + AC verified on localhost (dev DB) before merge + merge into `dev`; label `on-staging` after the batched promote
 - **Released** = promote `staging`→`main` + prod deploy + smoke + tag + changelog → label `released` (a label, not a state) · multiple stories may reach Done before being released together in one batch
 
 ## Git
 
-Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) · Conventional Commits · **feature → PR into `staging` (= Done) → promote `staging`→`main` (= Released)** · `main` + `staging` protected · must pass CI before merge
+Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) · Conventional Commits · **feature → ONE PR (spec+code+tests+docs) into `dev` (= Done, verified on localhost first) → batched promote `dev`→`staging` (= on-staging) → promote `staging`→`main` (= Released)** · `main` + `staging` + `dev` protected · must pass CI before merge
 
 ## Commands
 
