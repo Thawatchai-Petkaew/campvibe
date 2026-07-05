@@ -115,7 +115,12 @@ export const campSiteSchema = z.object({
   // CAM-358: root-relative paths (the /api/upload dev-fallback shape + legacy
   // rows already in the DB) are valid alongside an absolute URL — see
   // lib/validations/image.ts `imageUrlValue`. Empty stays valid (no logo set).
-  logo: imageUrlValue.optional().or(z.literal('')),
+  // CAM-360 clearing fix (same class as CAM-341): also accepts an explicit
+  // `null` so a host clearing the logo can round-trip to the PUT route and
+  // actually clear the column. undefined = key omitted, skip (partial update
+  // untouched) · null = clear the column · '' = no logo set · a valid URL =
+  // set it. See app/api/campsites/[id]/route.ts.
+  logo: imageUrlValue.optional().or(z.literal('')).nullable(),
   // CAM-352: union input — accepts a legacy bare url string OR {url, kind};
   // both normalize to {url, kind} (see lib/validations/image.ts). The shared
   // <ImageUpload> component also feeds the camp gallery, so it must accept

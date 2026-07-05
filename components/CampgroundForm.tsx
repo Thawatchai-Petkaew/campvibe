@@ -551,7 +551,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 longitude: formData.longitude === "" ? 0 : formData.longitude,
                 locationId: locationId,
                 operatorId: operator?.id,
-                logo: formData.logo || undefined,
+                // CAM-360 clearing fix (same class as CAM-341): `|| undefined`
+                // collapsed a cleared logo ("") to undefined - dropped by
+                // JSON.stringify, so the PUT skipped the key and the old logo
+                // silently reappeared on reload. On edit, blank now sends an
+                // EXPLICIT null so the PUT/zod clear the column. On create
+                // there is nothing to clear yet, so an untouched/blank logo
+                // stays undefined (omitted) rather than writing a needless null.
+                logo: formData.logo === "" ? (isEditing ? null : undefined) : formData.logo,
                 partner: formData.partner || undefined,
                 nationalPark: formData.nationalPark || undefined,
                 isVerified: formData.isVerified,
