@@ -73,6 +73,7 @@ next-env.d.ts
 /scripts/*
 !/scripts/ticket-sync.mjs
 !/scripts/vercel-ignore.sh
+!/scripts/db-sync-from-staging.mjs
 !/scripts/lib/
 !/scripts/db-reset.mjs
 !/scripts/check-palette.mjs

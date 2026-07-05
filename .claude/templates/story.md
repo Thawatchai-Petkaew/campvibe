@@ -29,6 +29,7 @@ Depends on: <ADR/ticket | —>
 - <entities/fields touched, plain language> · migration: <reversible | none>
 
 ## Seams & refs
+<!-- If this story changes how a value is derived/enforced/written: grep-inventory EVERY reader+writer of the affected fields and tag NOW/LATER/NO-CHANGE (architecture.md 15b — the CAM-355 fifth-reader lesson). -->
 - Reuse: <file/function that owns this logic — no parallel logic | —> · Refs: <ADR-NNN | —> (pointers, never implementation)
 
 ## Out of scope
