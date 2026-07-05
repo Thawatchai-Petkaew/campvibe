@@ -8,7 +8,7 @@ import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
-import { CATALOG_TAG, campTag } from '@/lib/catalog-cache';
+import { CATALOG_TAG, campTag, campSlugTag } from '@/lib/catalog-cache';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -166,8 +166,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // cache after any edit (including isPublished flips for publish/unpublish).
     // revalidatePath covers the detail page URL for both slug variants.
     // Called after the DB write succeeds, before the success response.
+    // CAM-357: also bust the slug-keyed getCampBySlug cache entry directly —
+    // campTag(id) alone cannot reach it (that cache entry is keyed + tagged by
+    // slug, not by id); mirrors the spot/zone write paths (CAM-353 BR-8).
     revalidateTag(campTag(id), {});
     revalidateTag(CATALOG_TAG, {});
+    revalidateTag(campSlugTag(updated.nameThSlug), {});
+    revalidateTag(campSlugTag(updated.nameEnSlug), {});
     revalidatePath('/campgrounds/' + updated.nameThSlug);
     revalidatePath('/campgrounds/' + updated.nameEnSlug);
 
@@ -185,15 +190,21 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (authError) return authError;
 
   try {
-    await prisma.campSite.delete({
+    // Capture the deleted row (Prisma returns the full deleted record by default)
+    // so the slug-keyed cache bust below needs no extra lookup (no N+1).
+    const deleted = await prisma.campSite.delete({
       where: { id }
     });
 
     // FRESH-1: invalidate the camp-specific cache entry and the broad catalog
     // cache after deletion. Called after the DB write succeeds, before the
     // success response.
+    // CAM-357: also bust the slug-keyed getCampBySlug cache entry directly —
+    // campTag(id) alone cannot reach it (see PUT above for the full reasoning).
     revalidateTag(campTag(id), {});
     revalidateTag(CATALOG_TAG, {});
+    revalidateTag(campSlugTag(deleted.nameThSlug), {});
+    revalidateTag(campSlugTag(deleted.nameEnSlug), {});
 
     return apiSuccess({ success: true });
   } catch (error) {
