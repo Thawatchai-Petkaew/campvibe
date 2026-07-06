@@ -36,6 +36,11 @@ import { resolve } from "path";
 const read = (rel: string) => readFileSync(resolve(__dirname, rel), "utf8");
 
 const sceneSrc  = read("../app/status/map/campsite-scene.tsx");
+// CAM-372 (S1b): SCENE_CSS (the .hud-topbar/.hud-map-toolbar/etc rule blocks) moved
+// verbatim from campsite-scene.tsx (now StatusMapShell) into the 2D renderer
+// campsite-canvas.tsx. CSS-block assertions below read canvasSrc; the icon-import
+// and mobile-toolbar-button JSX assertions (still HUD/shell content) keep reading sceneSrc.
+const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 const overlaySrc = read("../app/status/map/campsite-overlays.tsx");
 const globalsCss = read("../app/globals.css");
 
@@ -55,10 +60,10 @@ const globalsCss = read("../app/globals.css");
 describe("[regression CAM-260 Defect A] .hud-topbar overflow guard prevents header from spilling off-screen", () => {
   // Isolate the .hud-topbar CSS rule block from SCENE_CSS.
   // The block starts at ".hud-topbar{" and ends at the next rule.
-  const topbarRuleStart = sceneSrc.indexOf(".hud-topbar{");
+  const topbarRuleStart = canvasSrc.indexOf(".hud-topbar{");
   // The block ends at the next closing brace + newline (the first "}" after the block opens).
-  const topbarRuleEnd   = sceneSrc.indexOf("}", topbarRuleStart);
-  const topbarRule      = sceneSrc.slice(topbarRuleStart, topbarRuleEnd + 1);
+  const topbarRuleEnd   = canvasSrc.indexOf("}", topbarRuleStart);
+  const topbarRule      = canvasSrc.slice(topbarRuleStart, topbarRuleEnd + 1);
 
   it("AC-1a: .hud-topbar rule contains box-sizing:border-box (padding contained within declared width)", () => {
     // Without box-sizing:border-box, padding:14px 18px adds 36px to the declared
@@ -105,9 +110,9 @@ describe("[regression CAM-260 Defect A] .hud-topbar overflow guard prevents head
 // ============================================================
 describe("[regression CAM-260 Defect A] .hud-topbar-right can shrink (flex:0 1 auto, not flex:none)", () => {
   // Isolate .hud-topbar-right block.
-  const rightStart = sceneSrc.indexOf(".hud-topbar-right{");
-  const rightEnd   = sceneSrc.indexOf("}", rightStart);
-  const rightRule  = sceneSrc.slice(rightStart, rightEnd + 1);
+  const rightStart = canvasSrc.indexOf(".hud-topbar-right{");
+  const rightEnd   = canvasSrc.indexOf("}", rightStart);
+  const rightRule  = canvasSrc.slice(rightStart, rightEnd + 1);
 
   it("AC-2a: .hud-topbar-right is flex:0 1 auto (can shrink on narrow screens)", () => {
     // flex:0 1 auto = no grow, CAN shrink, auto basis.
@@ -130,9 +135,9 @@ describe("[regression CAM-260 Defect A] .hud-topbar-right can shrink (flex:0 1 a
   });
 
   it("AC-2d: .hud-topbar-spacer is flex:1 1 0 with min-width:0 (middle gap grows/shrinks freely)", () => {
-    const spacerStart = sceneSrc.indexOf(".hud-topbar-spacer{");
-    const spacerEnd   = sceneSrc.indexOf("}", spacerStart);
-    const spacerRule  = sceneSrc.slice(spacerStart, spacerEnd + 1);
+    const spacerStart = canvasSrc.indexOf(".hud-topbar-spacer{");
+    const spacerEnd   = canvasSrc.indexOf("}", spacerStart);
+    const spacerRule  = canvasSrc.slice(spacerStart, spacerEnd + 1);
     // flex:1 1 0 = grow AND shrink, zero basis (so it takes only free space).
     expect(spacerRule).toContain("flex:1 1 0");
     expect(spacerRule).toContain("min-width:0");
@@ -262,11 +267,11 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
 
   // ── Mobile <639px block ────────────────────────────────────────────────────
   // Isolate the @media (max-width: 639px) block so we can assert precisely inside it.
-  const mobileBlockStart = sceneSrc.indexOf("@media (max-width: 639px)");
+  const mobileBlockStart = canvasSrc.indexOf("@media (max-width: 639px)");
   // Find the closing brace of the media block (next top-level "}" after the block)
   // The block for @media (max-width: 639px) ends before @media (max-width: 420px) starts
   // inside it. We use a wider slice covering the full block (~3000 chars) to capture it.
-  const mobileBlock = sceneSrc.slice(mobileBlockStart, mobileBlockStart + 3000);
+  const mobileBlock = canvasSrc.slice(mobileBlockStart, mobileBlockStart + 3000);
 
   // Find the .hud-map-toolbar rule INSIDE the mobile block.
   const mobileToolbarStart  = mobileBlock.indexOf(".hud-map-toolbar{");
@@ -291,7 +296,7 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
   // ── Tablet 640–1023px block (NEW for CAM-260) ─────────────────────────────
   // This block must exist as a NEW @media (min-width: 640px) and (max-width: 1023px) rule.
   const tabletBlockQuery  = "@media (min-width: 640px) and (max-width: 1023px)";
-  const tabletBlockStart  = sceneSrc.indexOf(tabletBlockQuery);
+  const tabletBlockStart  = canvasSrc.indexOf(tabletBlockQuery);
 
   it("AC-6d (tablet): a @media (min-width:640px) and (max-width:1023px) block exists (tablet parity — NEW for CAM-260)", () => {
     // On OLD code: this block did not exist at all → tabletBlockStart === -1 → FAILS.
@@ -299,7 +304,7 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
   });
 
   it("AC-6e (tablet): .hud-map-toolbar in the tablet block contains box-sizing:border-box", () => {
-    const tabletBlock         = sceneSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
+    const tabletBlock         = canvasSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
     const tabletToolbarStart  = tabletBlock.indexOf(".hud-map-toolbar{");
     const tabletToolbarEnd    = tabletBlock.indexOf("}", tabletToolbarStart);
     const tabletToolbarRule   = tabletBlock.slice(tabletToolbarStart, tabletToolbarEnd + 1);
@@ -309,7 +314,7 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
   });
 
   it("AC-6f (tablet): .hud-map-toolbar in the tablet block contains max-width:100%", () => {
-    const tabletBlock         = sceneSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
+    const tabletBlock         = canvasSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
     const tabletToolbarStart  = tabletBlock.indexOf(".hud-map-toolbar{");
     const tabletToolbarEnd    = tabletBlock.indexOf("}", tabletToolbarStart);
     const tabletToolbarRule   = tabletBlock.slice(tabletToolbarStart, tabletToolbarEnd + 1);
@@ -317,7 +322,7 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
   });
 
   it("AC-6g (tablet): .hud-map-toolbar in the tablet block uses --hud-inset-sm inset (not left:0)", () => {
-    const tabletBlock         = sceneSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
+    const tabletBlock         = canvasSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
     const tabletToolbarStart  = tabletBlock.indexOf(".hud-map-toolbar{");
     const tabletToolbarEnd    = tabletBlock.indexOf("}", tabletToolbarStart);
     const tabletToolbarRule   = tabletBlock.slice(tabletToolbarStart, tabletToolbarEnd + 1);
@@ -325,7 +330,7 @@ describe("[regression CAM-260 Defect C] .hud-map-toolbar structural overflow gua
   });
 
   it("AC-6h (tablet): .hud-map-toolbar children have min-width:0 in the tablet block (can shrink)", () => {
-    const tabletBlock = sceneSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
+    const tabletBlock = canvasSrc.slice(tabletBlockStart, tabletBlockStart + 2000);
     // The rule .hud-map-toolbar > *{min-width:0} must appear in the tablet block.
     expect(tabletBlock).toContain(".hud-map-toolbar > *{min-width:0}");
   });
@@ -393,8 +398,8 @@ describe("[regression CAM-260] icon contract — Users replaces AlignJustify; Ch
 // ============================================================
 describe("[regression CAM-260] desktop unchanged — mobile toolbar hidden at ≥1024px", () => {
   // Isolate the @media (min-width: 1024px) block.
-  const desktopBlockStart = sceneSrc.indexOf("@media (min-width: 1024px)");
-  const desktopBlock      = sceneSrc.slice(desktopBlockStart, desktopBlockStart + 600);
+  const desktopBlockStart = canvasSrc.indexOf("@media (min-width: 1024px)");
+  const desktopBlock      = canvasSrc.slice(desktopBlockStart, desktopBlockStart + 600);
 
   it("AC-8a: @media (min-width:1024px) block still hides .hud-map-toolbar with display:none", () => {
     // On old code if this guard were removed: the mobile toolbar would appear on desktop.
@@ -411,8 +416,8 @@ describe("[regression CAM-260] desktop unchanged — mobile toolbar hidden at �
     // The ViewToggle link is desktop-only — its hide rule in the mobile block must be present.
     // There are two @media (max-width: 1023px) blocks; the hide rule is in the second one
     // (the SMUX-6 icon-buttons block). Use lastIndexOf to find the relevant one.
-    const tabletHideStart = sceneSrc.lastIndexOf("@media (max-width: 1023px)");
-    const tabletHideBlock = sceneSrc.slice(tabletHideStart, tabletHideStart + 400);
+    const tabletHideStart = canvasSrc.lastIndexOf("@media (max-width: 1023px)");
+    const tabletHideBlock = canvasSrc.slice(tabletHideStart, tabletHideStart + 400);
     expect(tabletHideBlock).toContain(".hud-view-toggle{display:none}");
   });
 });
@@ -434,11 +439,12 @@ describe("[regression CAM-260] --hud-inset-sm token is declared in app/globals.c
     expect(globalsCss).toContain("--hud-inset-sm: 12px");
   });
 
-  it("AC-9b: campsite-scene.tsx toolbar rule uses var(--hud-inset-sm,12px) as the inset (not a hardcoded 12px)", () => {
+  it("AC-9b: campsite-canvas.tsx toolbar rule uses var(--hud-inset-sm,12px) as the inset (not a hardcoded 12px)", () => {
     // Using the token (with fallback) lets future design edits change the inset
     // in ONE place. A raw "12px" would break when the token value changes.
-    // Also verifies the token IS referenced in scene (not only in overlays).
-    expect(sceneSrc).toContain("var(--hud-inset-sm,12px)");
+    // Also verifies the token IS referenced in the 2D renderer (not only in overlays).
+    // CAM-372 (S1b): SCENE_CSS (incl. .hud-map-toolbar) moved to campsite-canvas.tsx.
+    expect(canvasSrc).toContain("var(--hud-inset-sm,12px)");
   });
 
   it("AC-9c: campsite-overlays.tsx filter row uses var(--hud-inset-sm,12px) as the inset (token shared)", () => {
@@ -461,8 +467,8 @@ describe("[regression CAM-260] --hud-inset-sm token is declared in app/globals.c
 // ============================================================
 describe("[regression CAM-260] compact capsule at ≤420px — lane words hidden, dots shown", () => {
   // Isolate the @media (max-width: 420px) block inside the (max-width:639px) mobile block.
-  const iconOnlyBlockIdx = sceneSrc.indexOf("@media (max-width: 420px){");
-  const iconOnlyBlock    = sceneSrc.slice(iconOnlyBlockIdx, iconOnlyBlockIdx + 400);
+  const iconOnlyBlockIdx = canvasSrc.indexOf("@media (max-width: 420px){");
+  const iconOnlyBlock    = canvasSrc.slice(iconOnlyBlockIdx, iconOnlyBlockIdx + 400);
 
   it("AC-10a: at max-width:420px, .env-lane-word has display:none (word label hidden)", () => {
     // The lane word "Dev " etc. is hidden so only the colored dot + count show.
