@@ -144,11 +144,13 @@ describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () =>
   });
 
   it("widens the model: MapModel + MapAgent carry per-role workload + task", () => {
-    expect(src).toContain("export interface MapModel");
-    expect(src).toContain("export interface MapAgent");
-    expect(src).toContain("activeCount");
-    expect(src).toContain("queued");
-    expect(src).toContain("task");
+    // CAM-372 (S1a): MapModel/MapAgent moved to map-types.ts (behavior-preserving extract).
+    const types = read("../app/status/map/map-types.ts");
+    expect(types).toContain("export interface MapModel");
+    expect(types).toContain("export interface MapAgent");
+    expect(types).toContain("activeCount");
+    expect(types).toContain("queued");
+    expect(types).toContain("task");
   });
 
   it("renders the You gate badge derived from gates.length", () => {
@@ -942,17 +944,21 @@ describe("lib/status-map-model.ts — CAM-176: payloadChanged pure helper", () =
   });
 });
 
-describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source", () => {
-  const src = readFileSync(resolve(__dirname, "../app/status/map/campsite-scene.tsx"), "utf8");
+// CAM-372 (S1a): the reconcile guard (payloadChanged/lastPayloadRef/fetch/SSE) was
+// extracted verbatim from campsite-scene.tsx into app/status/map/use-map-reconcile.ts
+// (behavior-preserving). These assertions now read the hook's source.
+describe("app/status/map/use-map-reconcile.ts — CAM-176: guard wired in source", () => {
+  const src = readFileSync(resolve(__dirname, "../app/status/map/use-map-reconcile.ts"), "utf8");
 
   it("imports payloadChanged from @/lib/status-map-model", () => {
     expect(src).toContain("payloadChanged");
     expect(src).toContain("status-map-model");
   });
 
-  it("declares lastPayloadRef with useRef and JSON.stringify(model) initializer", () => {
+  it("declares lastPayloadRef with useRef and JSON.stringify(initialModel) initializer", () => {
+    // CAM-372: the hook's param is `initialModel` (was the `model` prop in campsite-scene.tsx).
     expect(src).toContain("lastPayloadRef");
-    expect(src).toContain("JSON.stringify(model)");
+    expect(src).toContain("JSON.stringify(initialModel)");
   });
 
   it("reconcile reads response as text (res.text()) not res.json()", () => {
@@ -975,8 +981,11 @@ describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source",
   it("FALLBACK_MS is still 15_000 (CAM-175 freshness preserved)", () => {
     expect(src).toContain("FALLBACK_MS = 15_000");
   });
+});
 
-  // CAM-176 layer 2: activity-keyed wander/rest effect
+describe("app/status/map/campsite-scene.tsx — CAM-176 layer 2: activity-keyed wander/rest effect", () => {
+  const src = readFileSync(resolve(__dirname, "../app/status/map/campsite-scene.tsx"), "utf8");
+
   it("derives activeKey via useMemo keyed on agents (role:active:activeCount per agent)", () => {
     expect(src).toContain("activeKey");
     expect(src).toContain("a.active ? 1 : 0");
@@ -1372,8 +1381,9 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
 // ============================================================
 
 // ---------- SMUX-3: MapAgent.task widened with epicKey + feature ─────────────
-describe("campsite-scene.tsx — SMUX-3: MapAgent.task carries epicKey + feature", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+// CAM-372 (S1a): MapAgent moved verbatim to map-types.ts (behavior-preserving extract).
+describe("map-types.ts — SMUX-3: MapAgent.task carries epicKey + feature", () => {
+  const src = read("../app/status/map/map-types.ts");
 
   it("MapAgent.task type includes epicKey field (for Map→Board/Filter sync)", () => {
     expect(src).toContain("epicKey: string");
@@ -2136,7 +2146,7 @@ describe("SMUX-6 — desktop unchanged (≥1024px)", () => {
 //   C. single horizontal row + no overlap with the filter row / toolbar
 // ────────────────────────────────────────────────────────────────────────────
 
-import type { MapEpicItem } from "@/app/status/map/campsite-scene";
+import type { MapEpicItem } from "@/app/status/map/map-types";
 import { deriveCapsuleStats } from "@/lib/status-map-model";
 
 // Minimal MapEpicItem fixture builder for capsule-stats derivation tests.

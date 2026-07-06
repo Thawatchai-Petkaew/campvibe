@@ -37,7 +37,7 @@ import type {
   MapAgent,
   MapEpicStory,
   MapGate,
-} from "./campsite-scene";
+} from "./map-types";
 import { boardColumnOf } from "@/lib/status-derive";
 
 // ── CSS ───────────────────────────────────────────────────────────────────────

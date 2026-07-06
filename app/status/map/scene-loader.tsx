@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import type { MapModel } from "./campsite-scene";
+import type { MapModel } from "./map-types";
 import { MapProgress } from "./map-progress";
 
 // CAM-198: Loading fallback — indeterminate progress bar on the night scene.

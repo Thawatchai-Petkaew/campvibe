@@ -38,7 +38,7 @@ import {
 import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, TicketDetailModal, ViewToggle } from "./campsite-overlays";
 import DeliveryGift, { DELIVERY_GIFT_CSS } from "./delivery-gift";
 import { boardColumnOf } from "@/lib/status-derive";
-import { payloadChanged, deriveCapsuleStats } from "@/lib/status-map-model";
+import { deriveCapsuleStats } from "@/lib/status-map-model";
 import {
   ADJ,
   buildScoutState,
@@ -48,87 +48,8 @@ import {
   type ScoutRef,
 } from "./campsite-engine";
 import { LOGO } from "../dashboard-assets";
-
-export interface MapAgent {
-  role: string;         // canonical role key, e.g. "frontend-engineer"
-  name: string;         // display name (Thai-friendly short name)
-  active: boolean;      // rmap[role].active > 0
-  done: number;
-  activeCount: number;
-  queued: number;       // total - done - active (stories not yet started)
-  /** Active task for this agent (null when idle). epicKey + feature power Map↔Board/Filter sync (SMUX-3). */
-  task: { id: string; title: string; startedAt: string | null; epicKey: string; feature: string } | null;
-}
-
-// Gate item for the You → Gates panel.
-export interface MapGate {
-  id: string;
-  title: string;       // raw title (caller uses cleanTitle on it)
-  url: string;
-  epicKey: string;     // first "·" segment of the title, or ""
-  priority: string;    // e.g. "High", "Urgent"
-}
-
-// Backlog story item for the Backlog overlay.
-export interface MapBacklogItem {
-  id: string;
-  title: string;       // cleaned (no epic prefix, no [role] tag)
-  role: string;        // canonical role for grouping
-  epicKey: string;
-}
-
-// Environment lane item for the Environments overlay.
-export interface MapEnvItem {
-  id: string;
-  title: string;       // cleaned display title
-  role: string;        // display role label
-}
-
-/** Minimal serialisable story shape for per-epic Trail/Board/Up-next (client-side derive). */
-export interface MapEpicStory {
-  id: string;
-  title: string;        // cleaned (no epic prefix, no [role] tag)
-  status: string;       // e.g. "In Progress", "Done", "Backlog"
-  statusType: string;   // backlog | unstarted | started | completed | canceled
-  labels: string[];     // needed for hasAwait / epicBucket / rolesOf
-  role: string;         // canonical role from [role] tag (may be "")
-  url: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  // CAM-342 (additive, optional -- backward-compatible with existing MapEpicStory[] fixtures
-  // elsewhere in the test suite): model-tier trial instrumentation, pass-through of
-  // Ticket.agentModel. Absent/"" (not stamped) renders no chip on the active card
-  // (BR-2/EC-1) -- never a placeholder.
-  agentModel?: string;
-}
-
-/** One epic as projected for the map client. */
-export interface MapEpicItem {
-  key: string;          // epic key used as ?epic= value
-  label: string;        // display name
-  feature: string;      // Linear project / feature name
-  persona: string;      // persona label ("" = none)
-  bucket: "prog" | "done" | "todo";  // from epicBucket()
-  stories: MapEpicStory[];
-}
-
-export interface MapModel {
-  projectPct: number;
-  gates: MapGate[];
-  agents: MapAgent[];     // the 7 build-roles, always present
-  epicNames: string[];
-  // S4 overlay data — all derived server-side from Model
-  epicsActive: number;
-  totalEpics: number;
-  backlogItems: MapBacklogItem[];
-  envLanes: {
-    dev: MapEnvItem[];
-    staging: MapEnvItem[];
-    prod: MapEnvItem[];
-  };
-  // S5 addition — per-epic story data for Trail/Board/Up-next client-side derive
-  epics: MapEpicItem[];
-}
+import { useMapReconcile } from "./use-map-reconcile";
+import type { MapAgent, MapGate, MapModel } from "./map-types";
 
 // Canonical role display config — mirrors the mockup AGENTS array.
 const ROLE_CONFIG: Record<
@@ -1281,9 +1202,10 @@ export default function CampsiteScene({
   debugGrid = false,
 }: Props) {
   // S6: liveModel is the authoritative data — starts from SSR initial value, updated
-  // by the SSE reconcile. All overlay data reads from liveModel, never from the stale
-  // `model` prop directly (which is frozen after first render in the dynamic component).
-  const [liveModel, setLiveModel] = useState<MapModel>(model);
+  // by the SSE reconcile (extracted to useMapReconcile, CAM-372 S1a). All overlay data
+  // reads from liveModel, never from the stale `model` prop directly (which is frozen
+  // after first render in the dynamic component).
+  const liveModel = useMapReconcile(token, model);
   const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = liveModel;
 
   // S5: scope state — restored from URL params on mount via initial props
@@ -1336,10 +1258,6 @@ export default function CampsiteScene({
   const [ticketDetailId, setTicketDetailId] = useState<string>("");
   const [ticketDetailOpen, setTicketDetailOpen] = useState(false);
   const ticketDetailTriggerRef = useRef<HTMLElement | null>(null);
-  // CAM-176 — no-op reconcile guard: tracks the last serialized payload so we can skip
-  // setLiveModel when the server returns identical data. Init to the SSR model's JSON so
-  // the very first poll of an unchanged board is already a no-op.
-  const lastPayloadRef = useRef<string>(JSON.stringify(model));
 
   // Summary stats — filtered by the current persona/feature/epic selection.
   const summaryStats = useMemo(() => {
@@ -1743,75 +1661,8 @@ export default function CampsiteScene({
   // ensuring ?scope=epic deep-link is applied even when it starts after this effect.
   }, [scope, activeEpic, group, efilter, epics, engineReady]);
 
-  // S6: SSE reconcile — subscribe to /api/status/stream exactly like dashboard-client.tsx
-  // (same backoff + 15s fallback interval). On a pulse event, fetch the new MapModel from
-  // /status/map/data and merge it into the running engine without remounting.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // 15s fallback poll: re-fetch MapModel data without router.refresh (which would remount).
-    // CAM-175: reduced from 60s to ≤15s to meet the freshness AC.
-    const FALLBACK_MS = 15_000;
-    let fallbackId: ReturnType<typeof setInterval> | null = null;
-
-    async function reconcile() {
-      try {
-        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
-        const res = await fetch(`/status/map/data${qs}`);
-        if (!res.ok) return; // S7: non-ok response — keep last-known data, don't crash
-        const text = await res.text();
-        // CAM-176 — no-op guard: skip re-render when payload is byte-identical to the
-        // last seen value. The /status/map/data route serializes ABSOLUTE timestamps from
-        // Linear (startedAt / completedAt), so an unchanged board produces an identical
-        // JSON string across polls — the text compare is a reliable no-change signal.
-        // A real change → text differs → setLiveModel → one update (expected, not flicker).
-        if (!payloadChanged(lastPayloadRef.current, text)) return;
-        lastPayloadRef.current = text;
-
-        // Update React state — overlays re-render, and the setActivity effect (keyed on
-        // the agents' active flags) drives wander/rest. No per-pulse triggerWalk loop:
-        // it yanked active wanderers home on every pulse (breaking continuous, random
-        // wandering) and could redirect a mid-walk agent on a path across the campfire.
-        setLiveModel(JSON.parse(text) as MapModel);
-      } catch {
-        // S7: transient fetch error — keep last-known liveModel, don't crash or blank.
-        // Next poll or SSE event will retry.
-      }
-    }
-
-    fallbackId = setInterval(reconcile, FALLBACK_MS);
-
-    // Real-time push via SSE — same pattern as dashboard-client.tsx.
-    let es: EventSource | null = null;
-    let guard = 0;
-
-    function openStream() {
-      try {
-        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
-        es = new EventSource(`/api/status/stream${qs}`);
-        es.onmessage = () => {
-          guard = 0;
-          void reconcile();
-        };
-        es.onerror = () => {
-          if (es && es.readyState === EventSource.CLOSED) {
-            es.close();
-            es = null;
-            if (guard++ < 5) setTimeout(openStream, 5000 * guard);
-          }
-        };
-      } catch {
-        /* SSE unsupported → the 15s fallback interval still reconciles */
-      }
-    }
-
-    openStream();
-
-    return () => {
-      if (fallbackId !== null) clearInterval(fallbackId);
-      es?.close();
-    };
-  }, [token]); // token is stable after mount; reconnect only if it changes
+  // S6: SSE reconcile — extracted to useMapReconcile (CAM-372 S1a); see the call
+  // site above where `liveModel` is assigned.
 
   const handleSelectEpic = useCallback((epicKey: string) => {
     setActiveEpic(epicKey);
