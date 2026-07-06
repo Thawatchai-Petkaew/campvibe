@@ -200,12 +200,14 @@ describe("StatusMapShell — CAM-372 (S1b) mount smoke test", () => {
     expect(html).toContain("รอตรวจสอบ");
   });
 
-  // Documents (does not silently skip) the known SSR limitation — see file header.
-  it.todo(
-    "[follow-up, needs jsdom] setActivity is observed on the rendererRef once CampsiteCanvas reports ready " +
-    "— requires an interactive DOM (jsdom) + act() to run the mount effect and commit the ref; " +
-    "not achievable under renderToStaticMarkup (no effects, no ref commit).",
-  );
+  // RESOLVED (CAM-372 S1c fix): the SSR limitation noted above (no effects, no ref
+  // commit under renderToStaticMarkup) is now covered by a real interactive-DOM test.
+  // jsdom + @testing-library/react were added as devDependencies specifically for
+  // this — see __tests__/status-map-shell-renderer-swap.test.ts (scoped to jsdom via
+  // its own top-of-file pragma; this file and every other /status/map test stay on
+  // the repo's default node environment). That file asserts "setActivity is observed
+  // on the rendererRef after mount" for real, PLUS the renderer-swap regression this
+  // fix guards (Prove-It verified: fails pre-fix, passes post-fix).
 
   // ── CAM-372 (S1c): 2D↔3D renderer toggle ────────────────────────────────────
 
@@ -258,10 +260,22 @@ describe("StatusMapShell — CAM-372 (S1b) mount smoke test", () => {
   // Source-grep (SSR cannot observe a client-only dynamic import's actual chunk
   // behavior) — proves Canvas3D is selection-gated behind next/dynamic(ssr:false),
   // so `three` (added in S2) never loads on the default 2D path.
-  it("Canvas3D is imported via dynamic(..., { ssr: false }) — selection-gated, not eagerly bundled", () => {
+  // CAM-372 (S1c fix): Canvas3D moved from next/dynamic(..., {ssr:false}) to plain
+  // React.lazy + a local <Suspense> — next/dynamic's runtime wrapper is itself a
+  // forwardRef component whose own useImperativeHandle intercepts any ref passed to
+  // it (exposing {retry, preload} instead of forwarding to the inner component), so
+  // rendererRef.current resolved to Next's internal handle, not Canvas3DInner's
+  // RendererHandle, and setActivity/setScope calls threw "not a function" — found
+  // via status-map-shell-renderer-swap.test.ts (jsdom), fixed in the same commit as
+  // the readySeq race. React.lazy still keeps Canvas3D selection-gated (its module,
+  // and the `three` dependency S2 adds inside it, only loads when renderer==="3d").
+  it("Canvas3D is imported via React.lazy — selection-gated, not eagerly bundled", () => {
     const sceneSrc = read("../app/status/map/campsite-scene.tsx");
-    expect(sceneSrc).toContain('dynamic(() => import("./canvas-3d")');
-    expect(sceneSrc).toContain("ssr: false");
+    expect(sceneSrc).toContain('lazy(() => import("./canvas-3d")');
+    // No actual next/dynamic IMPORT remains (the string still appears in explanatory
+    // comments documenting why it was replaced — that's fine, this checks the import).
+    expect(sceneSrc).not.toContain('from "next/dynamic"');
+    expect(sceneSrc).toContain("<Suspense fallback={null}>");
   });
 
   // Source-grep: initialRenderer threads server page → SceneLoader → the shell.

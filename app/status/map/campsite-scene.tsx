@@ -27,8 +27,7 @@
 // S6 — Client reconcile failures are caught gracefully (keep last-known data) — see
 //   use-map-reconcile.ts (CAM-372 S1a).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gauge, LayoutDashboard, LayoutGrid, Layers, Users, X } from "lucide-react";
 import {
   Sheet,
@@ -46,12 +45,22 @@ import { CampsiteCanvas } from "./campsite-canvas";
 import { ROLE_DISPLAY } from "./role-config";
 import type { MapAgent, MapModel, RendererHandle } from "./map-types";
 
-// CAM-372 (S1c): Canvas3D is selection-gated — dynamically imported so `three`
-// (added in S2/CAM-373) never loads unless the user actually switches to 3D.
-// ssr:false matches CampsiteCanvas's own loading (the whole shell is already
-// mounted ssr:false via scene-loader.tsx); loading:null since the shell itself
-// already shows a HUD shell while this tiny stub chunk loads.
-const Canvas3D = dynamic(() => import("./canvas-3d"), { ssr: false, loading: () => null });
+// CAM-372 (S1c): Canvas3D is selection-gated — lazily imported so `three` (added in
+// S2/CAM-373) never loads unless the user actually switches to 3D.
+// CAM-372 (S1c fix): React.lazy, NOT next/dynamic. next/dynamic's runtime wrapper is
+// ITSELF a forwardRef component whose own useImperativeHandle exposes {retry,
+// preload} for its internal retry mechanism — passing `ref={rendererRef}` to a
+// next/dynamic-wrapped component silently replaces the ref with that {retry} object
+// instead of forwarding it to the inner component, so rendererRef.current would
+// resolve to Next's internal handle, not Canvas3DInner's RendererHandle, and every
+// setActivity/setScope call would throw "not a function" the moment a user switched
+// to 3D (caught via the interactive regression test, not the adversarial review —
+// a second, more severe bug than the ready-nonce race). React.lazy has no such
+// wrapper: a ref on a <Suspense>-wrapped lazy component forwards straight through to
+// the resolved component's own forwardRef, exactly like a static import would. No
+// SSR concern here either way — this whole module only ever runs client-side (it is
+// itself loaded via a ssr:false dynamic() in scene-loader.tsx).
+const Canvas3D = lazy(() => import("./canvas-3d"));
 
 const RENDERER_STORAGE_KEY = "statusmap.r";
 
@@ -436,6 +445,21 @@ export default function StatusMapShell({
   // reports readiness via onReadyChange — this shell never reaches into the engine.
   const rendererRef = useRef<RendererHandle | null>(null);
   const [rendererReady, setRendererReady] = useState(false);
+  // CAM-372 (S1c fix): a monotonic "ready nonce" — bumped ONLY on ready(true), never
+  // on ready(false). A 3D→2D (or 2D→3D) swap is a same-commit round-trip: the old
+  // renderer's unmount cleanup fires onReadyChange(false), then the newly-mounted
+  // renderer's mount effect fires onReadyChange(true) — React batches both state
+  // updates into one flush, so the PLAIN BOOLEAN nets true→false→true = unchanged,
+  // and effects keyed only on that boolean never re-run for the new renderer (the
+  // freshly-remounted 2D engine then never receives setActivity/setScope — the bug
+  // an adversarial review caught). readySeq strictly increases on every real "ready"
+  // transition, including a same-commit round-trip, so effects keyed on it always
+  // re-fire for the newly-mounted renderer regardless of how the boolean netted out.
+  const [readySeq, setReadySeq] = useState(0);
+  const handleRendererReady = useCallback((ready: boolean) => {
+    setRendererReady(ready);
+    if (ready) setReadySeq((n) => n + 1);
+  }, []);
 
   // CAM-176 — stable activity signature: encode only the fields that actually drive
   // wander/rest (role, active flag, activeCount). A reconcile that changes unrelated
@@ -457,6 +481,10 @@ export default function StatusMapShell({
   // CAM-372 (S1b): hoisted from campsite-scene's engine-owning body — this is the
   // renderer-agnostic bridge; `rendererRef` replaces `engineRef`, `rendererReady`
   // replaces the old local `engineReady` state (now crossed via onReadyChange).
+  // CAM-372 (S1c fix): dep is `readySeq` (not the plain `rendererReady` boolean) so
+  // a same-commit renderer swap (old ready(false) + new ready(true) batched in one
+  // flush) still re-fires this effect for the newly-mounted renderer — see the
+  // readySeq comment above. The `if (!rendererReady) return` gate is unchanged.
   useEffect(() => {
     if (!rendererReady) return;
     const forceWander =
@@ -465,7 +493,7 @@ export default function StatusMapShell({
     const activeByRole: Record<string, boolean> = {};
     for (const a of agents) activeByRole[a.role] = forceWander || a.active;
     rendererRef.current?.setActivity(activeByRole);
-  }, [rendererReady, activeKey]); // activeKey, not agents — guards mid-walk resets (CAM-176)
+  }, [readySeq, activeKey]); // activeKey, not agents — guards mid-walk resets (CAM-176)
 
   // S5 + S7: sync renderer scope + URL params when scope/epic/group/efilter state changes,
   // OR when the renderer first becomes ready (deep-link fix: ?scope=epic&epic=X applied on
@@ -504,7 +532,12 @@ export default function StatusMapShell({
     });
   // S7 fix: include rendererReady so this effect re-runs when the renderer starts,
   // ensuring ?scope=epic deep-link is applied even when it starts after this effect.
-  }, [scope, activeEpic, group, efilter, epics, rendererReady]);
+  // CAM-372 (S1c fix): ALSO include readySeq — on a same-commit renderer swap the
+  // plain `rendererReady` boolean can net unchanged (true→false→true in one React
+  // batch), which would silently skip re-applying setScope to the newly-mounted
+  // renderer. readySeq strictly increases on every real ready(true), so it always
+  // re-fires this effect for the new renderer even when the boolean nets the same.
+  }, [scope, activeEpic, group, efilter, epics, rendererReady, readySeq]);
 
   const handleSelectEpic = useCallback((epicKey: string) => {
     setActiveEpic(epicKey);
@@ -564,11 +597,19 @@ export default function StatusMapShell({
       {/* CAM-372 (S1b/S1c): the single renderer child — CampsiteCanvas (2D, default)
           or Canvas3D (stub today, real scene in S2). The shell (this component,
           incl. useMapReconcile's SSE loop) stays mounted across the swap; only the
-          renderer child unmounts/remounts, so the reconcile loop never re-subscribes. */}
+          renderer child unmounts/remounts, so the reconcile loop never re-subscribes.
+          onReadyChange={handleRendererReady} (not the raw setRendererReady) — see the
+          readySeq comment above the state declaration for why the plain boolean alone
+          is not enough to re-gate the activity/scope effects on a same-commit swap.
+          Canvas3D is React.lazy — wrapped in its own <Suspense fallback={null}> (the
+          shell's own HUD chrome is already visible while this tiny chunk loads; see
+          the ref-forwarding note above the Canvas3D declaration for why NOT next/dynamic). */}
       {renderer === "3d" ? (
-        <Canvas3D ref={rendererRef} {...sharedRendererProps} onReadyChange={setRendererReady} />
+        <Suspense fallback={null}>
+          <Canvas3D ref={rendererRef} {...sharedRendererProps} onReadyChange={handleRendererReady} />
+        </Suspense>
       ) : (
-        <CampsiteCanvas ref={rendererRef} {...sharedRendererProps} onReadyChange={setRendererReady} />
+        <CampsiteCanvas ref={rendererRef} {...sharedRendererProps} onReadyChange={handleRendererReady} />
       )}
 
       {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}

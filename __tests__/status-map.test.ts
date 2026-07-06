@@ -1020,7 +1020,11 @@ describe("app/status/map/campsite-scene.tsx — CAM-176 layer 2: activity-keyed 
   it("wander/rest effect dep array uses activeKey, not agents", () => {
     // Confirm the effect dep is the stable string, not the raw agents array ref.
     // CAM-372 (S1b): engineReady renamed to rendererReady (renderer-agnostic bridge).
-    expect(src).toContain("[rendererReady, activeKey]");
+    // CAM-372 (S1c fix): rendererReady replaced by readySeq in this dep array — a
+    // monotonic nonce bumped only on ready(true), so a same-commit renderer swap
+    // (old ready(false) + new ready(true) batched in one flush) still re-fires this
+    // effect even though the plain rendererReady boolean can net unchanged.
+    expect(src).toContain("[readySeq, activeKey]");
   });
 
   it("wander/rest effect still reads agents array inside the effect body", () => {
