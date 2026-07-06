@@ -43,21 +43,24 @@ import {
   type ScoutRef,
 } from "./campsite-engine";
 import type { MapAgent, MapEpicItem, MapGate, RendererHandle } from "./map-types";
+import { ROLE_DISPLAY } from "./role-config";
 
 // Canonical role display config — mirrors the mockup AGENTS array.
-// Exported: StatusMapShell's Roster Sheet also reads displayName for the team list
-// (the only HUD-side consumer of this 2D-renderer constant, CAM-372 S1b).
+// CAM-372 (S1c): displayName/roleLabel now source from the shared role-config.ts
+// (StatusMapShell's Roster Sheet imports the same ROLE_DISPLAY directly — the shell
+// no longer depends on this 2D-renderer module). node/color/poseIdx stay local here
+// since they are 2D sprite-engine specifics no other renderer needs.
 export const ROLE_CONFIG: Record<
   string,
   { node: string; color: string; poseIdx: number; displayName: string; roleLabel: string }
 > = {
-  "architect":          { node: "W0",  color: "#8FB8F0", poseIdx: 0, displayName: "Architect",  roleLabel: "วางแผนระบบ" },
-  "ux-designer":        { node: "W28", color: "#B7A6FF", poseIdx: 1, displayName: "Designer",   roleLabel: "UX และวิชวล" },
-  "backend-engineer":   { node: "W23", color: "#5BE9B0", poseIdx: 2, displayName: "Backend",    roleLabel: "API และบริการ" },
-  "frontend-engineer":  { node: "W3",  color: "#5FD0DE", poseIdx: 3, displayName: "Frontend",   roleLabel: "หน้าแอป" },
-  "devops-release":     { node: "W2",  color: "#BFE85B", poseIdx: 4, displayName: "DevOps",     roleLabel: "CI/CD" },
-  "qa-engineer":        { node: "W1",  color: "#F39FD2", poseIdx: 5, displayName: "QA",         roleLabel: "ทดสอบและตรวจสอบ" },
-  "security-reviewer":  { node: "W29", color: "#FF8A7A", poseIdx: 0, displayName: "Security",   roleLabel: "ความปลอดภัย" },
+  "architect":          { node: "W0",  color: "#8FB8F0", poseIdx: 0, ...ROLE_DISPLAY["architect"] },
+  "ux-designer":        { node: "W28", color: "#B7A6FF", poseIdx: 1, ...ROLE_DISPLAY["ux-designer"] },
+  "backend-engineer":   { node: "W23", color: "#5BE9B0", poseIdx: 2, ...ROLE_DISPLAY["backend-engineer"] },
+  "frontend-engineer":  { node: "W3",  color: "#5FD0DE", poseIdx: 3, ...ROLE_DISPLAY["frontend-engineer"] },
+  "devops-release":     { node: "W2",  color: "#BFE85B", poseIdx: 4, ...ROLE_DISPLAY["devops-release"] },
+  "qa-engineer":        { node: "W1",  color: "#F39FD2", poseIdx: 5, ...ROLE_DISPLAY["qa-engineer"] },
+  "security-reviewer":  { node: "W29", color: "#FF8A7A", poseIdx: 0, ...ROLE_DISPLAY["security-reviewer"] },
 };
 
 // Speed variation per role index — slight spread so agents don't arrive in a clump.

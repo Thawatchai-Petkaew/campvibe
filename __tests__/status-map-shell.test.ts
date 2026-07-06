@@ -1,5 +1,5 @@
 /**
- * status-map-shell.test.ts — CAM-372 (S1b) StatusMapShell mount smoke test.
+ * status-map-shell.test.ts — CAM-372 (S1b/S1c) StatusMapShell mount smoke test.
  *
  * Environment constraint (documented repo-wide — see cam-352-*.test.ts,
  * theme-toggle.test.ts, cam-343-host-holds-ui.test.ts, etc.): vitest runs in
@@ -40,10 +40,14 @@
  * tree is `typeof window !== "undefined"` guarded).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
 import StatusMapShell from "../app/status/map/campsite-scene";
 import type { MapModel } from "../app/status/map/map-types";
+
+const read = (rel: string) => readFileSync(resolve(__dirname, rel), "utf8");
 
 const BUILD_ROLES = [
   "architect",
@@ -102,7 +106,7 @@ function buildModel(): MapModel {
   };
 }
 
-function renderShell(): string {
+function renderShell(initialRenderer: "2d" | "3d" = "2d"): string {
   const model = buildModel();
   return renderToStaticMarkup(
     React.createElement(StatusMapShell, {
@@ -112,6 +116,7 @@ function renderShell(): string {
       initialEpic: "",
       initialGroup: "feature",
       initialEfilter: "all",
+      initialRenderer,
     }),
   );
 }
@@ -201,4 +206,87 @@ describe("StatusMapShell — CAM-372 (S1b) mount smoke test", () => {
     "— requires an interactive DOM (jsdom) + act() to run the mount effect and commit the ref; " +
     "not achievable under renderToStaticMarkup (no effects, no ref commit).",
   );
+
+  // ── CAM-372 (S1c): 2D↔3D renderer toggle ────────────────────────────────────
+
+  it("renders the renderer-toggle testids regardless of which renderer is selected", () => {
+    // The toggle is shell-level chrome (always rendered), independent of which
+    // renderer child (CampsiteCanvas / the ssr:false Canvas3D) is mounted.
+    const html2d = renderShell("2d");
+    const html3d = renderShell("3d");
+    for (const html of [html2d, html3d]) {
+      expect(html).toContain('data-testid="btn--map-renderer-2d"');
+      expect(html).toContain('data-testid="btn--map-renderer-3d"');
+      expect(html).toContain('role="radiogroup"');
+    }
+  });
+
+  // Real behavioral proof (not a source-grep): the toggle's aria-checked state
+  // actually reflects the `renderer` prop/state driving which child is mounted —
+  // this would fail if the toggle's checked-state wiring were flipped or dropped.
+  it("the toggle's aria-checked reflects the current renderer selection", () => {
+    const html2d = renderShell("2d");
+    const seg2dIn2d = html2d.slice(html2d.indexOf('data-testid="btn--map-renderer-2d"') - 80, html2d.indexOf('data-testid="btn--map-renderer-2d"'));
+    const seg3dIn2d = html2d.slice(html2d.indexOf('data-testid="btn--map-renderer-3d"') - 80, html2d.indexOf('data-testid="btn--map-renderer-3d"'));
+    expect(seg2dIn2d).toContain('aria-checked="true"');
+    expect(seg3dIn2d).toContain('aria-checked="false"');
+
+    const html3d = renderShell("3d");
+    const seg2dIn3d = html3d.slice(html3d.indexOf('data-testid="btn--map-renderer-2d"') - 80, html3d.indexOf('data-testid="btn--map-renderer-2d"'));
+    const seg3dIn3d = html3d.slice(html3d.indexOf('data-testid="btn--map-renderer-3d"') - 80, html3d.indexOf('data-testid="btn--map-renderer-3d"'));
+    expect(seg2dIn3d).toContain('aria-checked="false"');
+    expect(seg3dIn3d).toContain('aria-checked="true"');
+  });
+
+  // 2D remains the actual default renderer output when no explicit "3d" is passed
+  // (mirrors the real page.tsx default: ?r= absent/anything-but-"3d" → "2d").
+  it("renders the 2D sprite stage by default (initialRenderer='2d')", () => {
+    const html = renderShell("2d");
+    expect(html).toContain('data-testid="stage--status-map"');
+  });
+
+  // Canvas3D is dynamic(ssr:false) and selection-gated: under SSR (this test's
+  // renderer) a "3d" render therefore shows NEITHER the 2D stage NOR the 3D stub
+  // markup (next/dynamic({ssr:false}) renders null server-side by design) — but it
+  // must NOT throw, and it must NOT fall back to showing the 2D stage.
+  it("a 3d initialRenderer does not render the 2D stage (real branch-selection proof)", () => {
+    expect(() => renderShell("3d")).not.toThrow();
+    const html = renderShell("3d");
+    expect(html).not.toContain('data-testid="stage--status-map"');
+  });
+
+  // Source-grep (SSR cannot observe a client-only dynamic import's actual chunk
+  // behavior) — proves Canvas3D is selection-gated behind next/dynamic(ssr:false),
+  // so `three` (added in S2) never loads on the default 2D path.
+  it("Canvas3D is imported via dynamic(..., { ssr: false }) — selection-gated, not eagerly bundled", () => {
+    const sceneSrc = read("../app/status/map/campsite-scene.tsx");
+    expect(sceneSrc).toContain('dynamic(() => import("./canvas-3d")');
+    expect(sceneSrc).toContain("ssr: false");
+  });
+
+  // Source-grep: initialRenderer threads server page → SceneLoader → the shell.
+  it("initialRenderer threads page.tsx → scene-loader.tsx → campsite-scene.tsx", () => {
+    const pageSrc = read("../app/status/map/page.tsx");
+    const loaderSrc = read("../app/status/map/scene-loader.tsx");
+    const sceneSrc = read("../app/status/map/campsite-scene.tsx");
+
+    expect(pageSrc).toContain('sp.r === "3d" ? "3d" : "2d"');
+    expect(pageSrc).toContain("initialRenderer={initialRenderer}");
+
+    expect(loaderSrc).toContain("initialRenderer");
+    expect(loaderSrc).toContain("initialRenderer={initialRenderer}");
+
+    expect(sceneSrc).toContain('initialRenderer: "2d" | "3d"');
+  });
+
+  // Canvas3D stub contract: RendererHandle no-ops + onReadyChange(true)/(false) on
+  // mount/unmount (source-grep — SSR cannot observe the effect actually firing,
+  // see the file-header limitation note; this proves the CODE calls it correctly).
+  it("canvas-3d.tsx reports ready on mount and not-ready on unmount", () => {
+    const stubSrc = read("../app/status/map/canvas-3d.tsx");
+    expect(stubSrc).toContain("onReadyChange(true)");
+    expect(stubSrc).toContain("onReadyChange(false)");
+    expect(stubSrc).not.toContain("from \"three\"");
+    expect(stubSrc).toContain('data-testid="scene--status-map-3d-stub"');
+  });
 });

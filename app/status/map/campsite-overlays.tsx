@@ -211,6 +211,38 @@ export const HUD_CSS = `
 .hud-view-toggle:hover{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.3)}
 .hud-view-toggle:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:2px}
 .hud-view-toggle svg{display:block;flex:none}
+
+/* ── CAM-372 (S1c): 2D/3D renderer toggle — segmented pill, same glass language
+   as .hud-signpost (joined pill, shared border, first/last rounded ends). Distinct
+   from .hud-view-toggle (that LINKS to the dashboard; this SWITCHES the map's
+   renderer in-place, no navigation). Desktop-only, matching .hud-env-toggle /
+   .hud-view-toggle — hidden below 1024px here (self-contained, not coupled to
+   whichever renderer is mounted). */
+.hud-renderer-toggle{
+  display:inline-flex;align-items:center;flex:none;
+  border:1px solid rgba(150,240,195,.13);
+  border-radius:999px;
+  background:rgba(11,30,24,.50);
+  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
+  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
+  overflow:hidden;
+}
+.hud-renderer-seg{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:40px;min-height:44px;padding:0 14px;
+  background:transparent;border:none;
+  color:rgba(223,234,245,.66);font-size:12px;font-weight:700;letter-spacing:.02em;
+  font-family:inherit;cursor:pointer;
+  transition:background 120ms,color 120ms;
+}
+.hud-renderer-seg + .hud-renderer-seg{border-left:1px solid rgba(150,240,195,.13)}
+.hud-renderer-seg:hover{background:rgba(255,255,255,.06);color:rgba(223,234,245,.92)}
+.hud-renderer-seg:focus-visible{outline:2px solid rgba(91,233,176,.85);outline-offset:-2px}
+.hud-renderer-seg[aria-checked="true"]{background:rgba(91,233,176,.14);color:#5BE9B0}
+@media (max-width: 1023px){
+  .hud-renderer-toggle{display:none}
+}
+
 /* ── Top filter: cascading signposts (Persona→Feature→Epic) ── */
 .hud-signposts{display:inline-flex;align-items:center;flex:none}
 .hud-signpost-wrap{position:relative;display:inline-flex}
@@ -1298,6 +1330,14 @@ export function KanbanModal({ epicLabel, epicPct, stories, triggerRef, isOpen, o
 
 interface ViewToggleProps {
   dashboardHref: string;
+}
+
+// ── RendererToggle (CAM-372 S1c) — 2D↔3D renderer switch, distinct from ViewToggle
+// (that LINKS out to the dashboard; this SWITCHES the map's renderer in-place). ──
+
+interface RendererToggleProps {
+  renderer: "2d" | "3d";
+  onChange: (renderer: "2d" | "3d") => void;
 }
 
 // ── Top filter: cascading signposts + status chips ───────────────────────────
@@ -2398,6 +2438,41 @@ export function ViewToggle({ dashboardHref }: ViewToggleProps) {
       </svg>
       <span>แดชบอร์ด</span>
     </a>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CAM-372 (S1c): 2D↔3D renderer switch. Radiogroup semantics (mutually-exclusive
+// pair) rather than aria-pressed, which is for a single standalone toggle button.
+export function RendererToggle({ renderer, onChange }: RendererToggleProps) {
+  return (
+    <div className="hud-renderer-toggle" role="radiogroup" aria-label="เลือกมุมมองแผนที่">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={renderer === "2d"}
+        className="hud-renderer-seg"
+        data-testid="btn--map-renderer-2d"
+        aria-label="มุมมอง 2 มิติ"
+        title="มุมมอง 2 มิติ"
+        onClick={() => onChange("2d")}
+      >
+        2D
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={renderer === "3d"}
+        className="hud-renderer-seg"
+        data-testid="btn--map-renderer-3d"
+        aria-label="มุมมอง 3 มิติ (กำลังพัฒนา)"
+        title="มุมมอง 3 มิติ (กำลังพัฒนา)"
+        onClick={() => onChange("3d")}
+      >
+        3D
+      </button>
+    </div>
   );
 }
 

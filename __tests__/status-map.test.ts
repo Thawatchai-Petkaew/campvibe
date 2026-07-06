@@ -1469,8 +1469,11 @@ describe("campsite-scene.tsx — SMUX-3: Map→Board/Filter — agent click hand
   const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
   it("handleAgentActivate is declared and wired to CampsiteCanvas via onAgentActivate", () => {
+    // CAM-372 (S1c): both renderer branches spread a shared `sharedRendererProps`
+    // object (built once so the 2D/3D branches cannot drift) rather than repeating
+    // JSX attrs per branch — assert the object wires the handler, not literal JSX.
     expect(src).toContain("handleAgentActivate");
-    expect(src).toContain("onAgentActivate={handleAgentActivate}");
+    expect(src).toContain("onAgentActivate: handleAgentActivate,");
     expect(canvasSrc).toContain("onActivate={() => onAgentActivate(agent)}");
   });
 

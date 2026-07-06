@@ -24,6 +24,7 @@ export default async function StatusMapPage({
     group?: string;
     efilter?: string;
     grid?: string;
+    r?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -38,6 +39,10 @@ export default async function StatusMapPage({
   // CAM-164 dev tool: ?grid=1 renders a % coordinate overlay for layout tuning.
   // Absent in normal view — no grid param = false.
   const debugGrid = sp.grid === "1";
+  // CAM-372 (S1c): ?r=3d opts into the 3D renderer (stub); anything else defaults
+  // to 2D. The client shell's own localStorage lazy initializer can still override
+  // this default with the user's last choice.
+  const initialRenderer = sp.r === "3d" ? "3d" : "2d" as "2d" | "3d";
 
   // CAM-275: symmetric, default-deny gate (lib/status-auth.ts) — same rule the API routes
   // enforce, so an unset STATUS_TOKEN never renders a map whose approve/reject actions 401.
@@ -105,6 +110,7 @@ export default async function StatusMapPage({
           initialGroup={initialGroup}
           initialEfilter={initialEfilter}
           debugGrid={debugGrid}
+          initialRenderer={initialRenderer}
         />
       )}
     </>

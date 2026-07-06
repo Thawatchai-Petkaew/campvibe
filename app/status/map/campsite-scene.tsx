@@ -1,21 +1,25 @@
 "use client";
 
-// StatusMapShell (CAM-372 S1b) — renderer-agnostic HUD/state shell for /status/map.
+// StatusMapShell (CAM-372 S1b/S1c) — renderer-agnostic HUD/state shell for /status/map.
 // Default-exported as `CampsiteScene` was before (module keeps the same filename +
 // default export so scene-loader.tsx's dynamic(() => import("./campsite-scene")) and
 // its ssr:false test are untouched); the component itself is renamed StatusMapShell.
 //
 // Owns: the liveModel reconcile (useMapReconcile, S1a), all filter/scope/collapse/modal
 // state, the CAM-176 activeKey→setActivity bridge (hoisted here so ANY renderer — the
-// 2D CampsiteCanvas today, a pluggable one later — can subscribe via the RendererHandle
-// imperative interface from map-types.ts), and the entire HUD overlay JSX (topbar,
-// filter rows, edge tabs, mobile toolbar, roster/board Sheets, side panels, gate/ticket
-// detail modals). Renders exactly one renderer child: <CampsiteCanvas> — see
-// campsite-canvas.tsx for the 2D sprite-engine motion model, reduced-motion handling,
-// and DOM-write details that used to live in this file (S3/S7 notes moved there).
+// 2D CampsiteCanvas today, the Canvas3D stub since S1c — can subscribe via the
+// RendererHandle imperative interface from map-types.ts), and the entire HUD overlay
+// JSX (topbar, filter rows, edge tabs, mobile toolbar, roster/board Sheets, side
+// panels, gate/ticket detail modals). Renders exactly ONE renderer child at a time,
+// selected by `renderer` state ("2d" default | "3d"): CampsiteCanvas (2D sprite
+// engine — see that file for the motion model, reduced-motion handling, and
+// DOM-write details that used to live in this file, S3/S7 notes moved there) or
+// Canvas3D (a stub since S1c; the real 3D scene ships in S2/CAM-373). The shell
+// itself (incl. the SSE reconcile loop) stays mounted across a 2D↔3D swap — only
+// the renderer child unmounts/remounts.
 //
 // S5 — Epic scope: rendererRef.current.setScope() dims/shows agents without remounting
-//   the renderer's internal animation loop. URL params (scope/epic/group/efilter) are
+//   the renderer's internal animation loop. URL params (scope/epic/group/efilter/r) are
 //   persisted via history.replaceState and restored from initial props (read by the
 //   server page.tsx from searchParams).
 // S7 — Deep-link scope fix: the scope+syncUrl effect re-runs when rendererReady flips
@@ -24,6 +28,7 @@
 //   use-map-reconcile.ts (CAM-372 S1a).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Gauge, LayoutDashboard, LayoutGrid, Layers, Users, X } from "lucide-react";
 import {
   Sheet,
@@ -32,13 +37,23 @@ import {
   SheetTitle,
   SheetClose,
 } from "@/components/ui/sheet";
-import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, TicketDetailModal, ViewToggle } from "./campsite-overlays";
+import { ApprovalCard, DeliveryCard, EnvPickerPanel, EnvPipelineCapsule, FilterSignposts, GateDetailModal, HUD_CSS, RendererToggle, StatusBoard, StatusBoardHint, SummaryCard, TeamRoster, TicketDetailModal, ViewToggle } from "./campsite-overlays";
 import { boardColumnOf } from "@/lib/status-derive";
 import { deriveCapsuleStats } from "@/lib/status-map-model";
 import { LOGO } from "../dashboard-assets";
 import { useMapReconcile } from "./use-map-reconcile";
-import { CampsiteCanvas, ROLE_CONFIG } from "./campsite-canvas";
+import { CampsiteCanvas } from "./campsite-canvas";
+import { ROLE_DISPLAY } from "./role-config";
 import type { MapAgent, MapModel, RendererHandle } from "./map-types";
+
+// CAM-372 (S1c): Canvas3D is selection-gated — dynamically imported so `three`
+// (added in S2/CAM-373) never loads unless the user actually switches to 3D.
+// ssr:false matches CampsiteCanvas's own loading (the whole shell is already
+// mounted ssr:false via scene-loader.tsx); loading:null since the shell itself
+// already shows a HUD shell while this tiny stub chunk loads.
+const Canvas3D = dynamic(() => import("./canvas-3d"), { ssr: false, loading: () => null });
+
+const RENDERER_STORAGE_KEY = "statusmap.r";
 
 // ── URL param helpers ─────────────────────────────────────────────────────────
 // Mirror syncUrl idiom from dashboard-client.tsx — history.replaceState, no navigation.
@@ -186,6 +201,9 @@ interface Props {
   initialEfilter: "all" | "prog" | "done" | "todo";
   /** CAM-164 dev tool: render a % coordinate grid overlay when true (?grid=1). */
   debugGrid?: boolean;
+  /** CAM-372 (S1c): server default from ?r= ("3d" | else "2d"); localStorage (user
+   *  choice) wins over this on the client — see the renderer state initializer. */
+  initialRenderer: "2d" | "3d";
 }
 
 export interface SceneHandle {
@@ -201,6 +219,7 @@ export default function StatusMapShell({
   initialGroup,
   initialEfilter,
   debugGrid = false,
+  initialRenderer,
 }: Props) {
   // S6: liveModel is the authoritative data — starts from SSR initial value, updated
   // by the SSE reconcile (extracted to useMapReconcile, CAM-372 S1a). All overlay data
@@ -208,6 +227,30 @@ export default function StatusMapShell({
   // after first render in the dynamic component).
   const liveModel = useMapReconcile(token, model);
   const { projectPct, gates, agents, epicsActive, totalEpics, backlogItems, envLanes, epics } = liveModel;
+
+  // CAM-372 (S1c): which renderer is mounted — "2d" (CampsiteCanvas, default) or
+  // "3d" (Canvas3D, stub today). The whole shell is client-only (dynamic ssr:false
+  // via scene-loader.tsx), so it's safe to read localStorage in the lazy initializer;
+  // a returning user's own choice wins over the server's ?r= default.
+  const [renderer, setRenderer] = useState<"2d" | "3d">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(RENDERER_STORAGE_KEY);
+      if (saved === "2d" || saved === "3d") return saved;
+    }
+    return initialRenderer;
+  });
+
+  const handleRendererChange = useCallback((next: "2d" | "3d") => {
+    setRenderer(next);
+    try {
+      localStorage.setItem(RENDERER_STORAGE_KEY, next);
+    } catch {
+      /* localStorage unavailable — renderer choice just won't persist across visits */
+    }
+    // Empty string drops the param (2D is the default) — same convention as every
+    // other filter param below (scope/epic/group/efilter).
+    syncUrl({ r: next === "3d" ? "3d" : "" });
+  }, []);
 
   // S5: scope state — restored from URL params on mount via initial props
   const [scope, setScope]         = useState<"all" | "epic">(() => (initialEpic || readFilterCookie().epic) ? "epic" : initialScope);
@@ -491,32 +534,42 @@ export default function StatusMapShell({
     return `/status?${u.toString()}`;
   })();
 
+  // CAM-372 (S1c): identical props for BOTH renderers — computed once so the 2D/3D
+  // branches below cannot drift from each other. `ref`/`onReadyChange` are added
+  // per-branch (ref cannot be spread from a plain object; onReadyChange is the same
+  // setter either way but keeping it explicit at the call site reads clearer).
+  const sharedRendererProps = {
+    agents,
+    gates,
+    epics,
+    projectPct,
+    activeEpic,
+    focusedTaskId,
+    onAgentActivate: handleAgentActivate,
+    onOpenGates: () => setApprovalCollapsed(false),
+    onOpenFirstGate: () => {
+      if (gates.length > 0) {
+        setGateDetailId(gates[0].id);
+        gateDetailTriggerRef.current = document.querySelector('[data-testid="btn--map-you-alert"]');
+        setGateDetailOpen(true);
+      }
+    },
+    debugGrid,
+  };
+
   return (
     <div className="map-wrap" data-testid="scene--status-map-campsite">
       <style dangerouslySetInnerHTML={{ __html: HUD_CSS }} />
 
-      {/* CAM-372 (S1b): the single renderer child. Today this is the 2D sprite engine
-          (CampsiteCanvas); a future non-2D renderer plugs in at this same seam. */}
-      <CampsiteCanvas
-        ref={rendererRef}
-        agents={agents}
-        gates={gates}
-        epics={epics}
-        projectPct={projectPct}
-        activeEpic={activeEpic}
-        focusedTaskId={focusedTaskId}
-        onAgentActivate={handleAgentActivate}
-        onOpenGates={() => setApprovalCollapsed(false)}
-        onOpenFirstGate={() => {
-          if (gates.length > 0) {
-            setGateDetailId(gates[0].id);
-            gateDetailTriggerRef.current = document.querySelector('[data-testid="btn--map-you-alert"]');
-            setGateDetailOpen(true);
-          }
-        }}
-        debugGrid={debugGrid}
-        onReadyChange={setRendererReady}
-      />
+      {/* CAM-372 (S1b/S1c): the single renderer child — CampsiteCanvas (2D, default)
+          or Canvas3D (stub today, real scene in S2). The shell (this component,
+          incl. useMapReconcile's SSE loop) stays mounted across the swap; only the
+          renderer child unmounts/remounts, so the reconcile loop never re-subscribes. */}
+      {renderer === "3d" ? (
+        <Canvas3D ref={rendererRef} {...sharedRendererProps} onReadyChange={setRendererReady} />
+      ) : (
+        <CampsiteCanvas ref={rendererRef} {...sharedRendererProps} onReadyChange={setRendererReady} />
+      )}
 
       {/* Top bar — logo (left) · view switch + sound (right). Fixed, outside .map-viewport. */}
       <div className="hud-topbar">
@@ -535,7 +588,10 @@ export default function StatusMapShell({
         </span>
         <div className="hud-topbar-spacer" />
         <div className="hud-topbar-right">
-          {/* Desktop: full-text env toggle + ViewToggle */}
+          {/* Desktop: full-text env toggle + ViewToggle + the 2D/3D renderer toggle
+              (CAM-372 S1c) — distinct from ViewToggle: that navigates to the
+              dashboard, this switches the renderer in-place, no navigation. */}
+          <RendererToggle renderer={renderer} onChange={handleRendererChange} />
           <ViewToggle dashboardHref={dashboardHref} />
           <button
             ref={envPickerTriggerRef}
@@ -705,7 +761,7 @@ export default function StatusMapShell({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {agents.map((agent) => {
-                  const cfg = ROLE_CONFIG[agent.role];
+                  const cfg = ROLE_DISPLAY[agent.role];
                   if (!cfg) return null;
                   return (
                     <div
