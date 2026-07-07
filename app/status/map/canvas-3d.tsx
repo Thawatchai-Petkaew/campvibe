@@ -107,6 +107,21 @@
 // startedAt, ...) is a guaranteed no-op, and redraw NEVER happens inside the
 // rAF loop (renderFrame only re-renders the already-drawn texture).
 //
+// CAM-381 (final 3D-map item): the decorative seated Atlas on the sofa. The
+// prototype's `atlas_sit.glb` only ever existed as a meshopt-compressed file
+// (CAM-373 S2a couldn't use it, since runtime meshopt is CSP-blocked); this
+// story re-encodes it build-time (decode meshopt via the gltf-transform Node
+// CLI, then re-quantize+webp — zero runtime WASM, same as every other GLB
+// here) into `atlas-sit.glb` + a matching LOD variant, then childs it onto
+// the sofa's own RoomPropRecord.group at the prototype's local transform
+// (see SEATED_ATLAS_DEF + loadAssets below). It is static (no rAF motion),
+// purely decorative — not one of the 7 build-role characters or the 8th
+// orchestrator Atlas, not `activeByRole`/gate-driven, not in the aria active
+// count, and not clickable (excluded from both the S5 character raycaster
+// and CAM-380's prop raycaster) — but it DOES ride the sofa's own obstacle
+// and move with it under an Object Edit Mode drag, since it is a literal
+// Three.js child of that same group.
+//
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
 // /status-3d/ was optimized with ZERO runtime WASM decoder (quantize + webp
@@ -266,9 +281,8 @@ interface RoomPropDef {
 }
 
 // Ported from the prototype's roomPropDefs (the seated-Atlas-on-sofa decorative
-// extra is intentionally dropped — no optimized `atlas-sit.glb` exists; CAM-373
-// S2a found only a pre-compressed meshopt source for it, which the WASM-free
-// pipeline cannot use, so there was nothing to port here).
+// extra is handled separately below, via SEATED_ATLAS_DEF — it is not one of
+// these 5 draggable/obstacle-bearing props, see that constant's own comment).
 const ROOM_PROPS: RoomPropDef[] = [
   { name: "sofa", file: "sofa.glb", position: new THREE.Vector3(0.5, 0.02, 1.4), rotationY: -Math.PI / 2, targetSize: 2.48, radius: 1.62 },
   { name: "table-oval", file: "table-oval.glb", position: new THREE.Vector3(1.8, 0.02, 3.7), rotationY: Math.PI / 2, targetSize: 1.46, radius: 0.98 },
@@ -276,6 +290,29 @@ const ROOM_PROPS: RoomPropDef[] = [
   { name: "data-vault", file: "data-vault.glb", position: new THREE.Vector3(3.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.52, radius: 1.04 },
   { name: "plant", file: "plant.glb", position: new THREE.Vector3(-2.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.02, radius: 0.72 },
 ];
+
+// CAM-381: the seated-Atlas-on-sofa decorative extra. CAM-373 S2a found only a
+// pre-compressed meshopt source for it (`atlas_sit.glb`) which the WASM-free
+// pipeline could not use at the time; this story re-encodes it (build-time
+// meshopt DECODE via the Node CLI, then re-quantize+webp, zero runtime WASM —
+// see the PR description for the exact command + verification) into
+// `atlas-sit.glb`, so it now ships alongside ROOM_PROPS. It is intentionally
+// NOT a RoomPropDef / not pushed into ROOM_PROPS: it is purely decorative —
+// never draggable on its own, never a nav obstacle of its own, never one of
+// the 8 build-role/Atlas characters (not in WORKFLOW/actors), and never
+// clickable (excluded from both the S5 character raycaster and CAM-380's
+// prop raycaster — see loadAssets below). It rides the sofa's own obstacle:
+// it is childed directly onto the sofa's RoomPropRecord.group, so an Object
+// Edit Mode drag of the sofa (which moves that same group) carries the
+// seated figure with it for free, via ordinary THREE.Object3D parent-child
+// transform inheritance — no separate wiring needed.
+const SEATED_ATLAS_DEF = {
+  file: "atlas-sit.glb",
+  sofaPropName: "sofa",
+  targetHeight: 0.98,
+  localPosition: new THREE.Vector3(0.38, 0.86, -0.04),
+  localRotationY: Math.PI,
+} as const;
 
 // ── Live-activity motion (CAM-375, S3) ───────────────────────────────────────
 // Ported from the prototype's patrolPoints — same room coordinate system as
@@ -2036,6 +2073,35 @@ function Canvas3DInner(
       // CAM-377-style cached hit-test target list, built once (never rebuilt
       // per pointer event — mirrors raycastPivots just above).
       propPivots.push(...propRecords.map((r) => r.group));
+
+      // CAM-381: decorative seated Atlas, childed onto the sofa's OWN group —
+      // deliberately NOT pushed into propRecords/propPivots (so it is never
+      // itself pickable/draggable/a nav obstacle in Object Edit Mode) and NOT
+      // pushed into actors/raycastPivots (so it is never one of the 8 build-
+      // role/Atlas characters, never activity/gate-driven, never clickable —
+      // see SEATED_ATLAS_DEF's comment above for the full rationale). Because
+      // it becomes a child of sofaRecord.group, an Object Edit Mode drag of
+      // the sofa (which mutates that exact group's position) carries the
+      // seated figure along for free via ordinary Object3D transform
+      // inheritance. Per-asset load fallback: unlike a real character/prop, a
+      // failed load here is skipped silently (no fallback mesh) — this is
+      // purely decorative and the sofa itself already rendered fine either way.
+      const sofaRecord = propRecords.find((r) => r.def.name === SEATED_ATLAS_DEF.sofaPropName);
+      if (sofaRecord) {
+        try {
+          const seatedAtlasScene = await loadGltf(loader, `${assetBase}${SEATED_ATLAS_DEF.file}`);
+          if (disposed) {
+            disposeObject3DTree(seatedAtlasScene);
+          } else {
+            const seatedAtlas = normalizeCharacter(seatedAtlasScene, SEATED_ATLAS_DEF.targetHeight);
+            seatedAtlas.position.copy(SEATED_ATLAS_DEF.localPosition);
+            seatedAtlas.rotation.y = SEATED_ATLAS_DEF.localRotationY;
+            sofaRecord.group.add(seatedAtlas);
+          }
+        } catch (err) {
+          console.warn("Canvas3D: seated Atlas skipped (decorative, load failed)", err);
+        }
+      }
 
       if (disposed) return;
       setStatus("ready");
