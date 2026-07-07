@@ -44,6 +44,27 @@
 // it is never counted in `agents`-derived active counts (MapAgent[] never
 // contains an Atlas/orchestrator entry) and never gated by epic scope.
 //
+// S5 scope (CAM-377): clicking/tapping a 3D character opens its ticket, reusing
+// the SAME shell contract the 2D sprite click already uses — onAgentActivate/
+// onOpenGates/onOpenFirstGate (CampsiteCanvasProps) are never reimplemented here.
+// A single reused THREE.Raycaster hit-tests the pointer against every loaded
+// actor's pivot; a build-role hit resolves its `characterKey` to a canonical role
+// (ROLE_KEY_BY_CHARACTER, from S3) and calls onAgentActivate with the live
+// MapAgent for that role (including a taskless/idle agent — the shell's own
+// handleAgentActivate already opens the roster for that case, matching 2D); an
+// Atlas hit opens the approval queue (onOpenFirstGate when a gate is pending,
+// else onOpenGates). A tap-vs-drag guard (pointerdown/pointerup movement
+// threshold) keeps an OrbitControls camera-drag from also firing a selection.
+// Latest-data refs (`agentsRef`/`gatesRef`/the three callback refs) keep the
+// mount-once pointer handler reading current data/callbacks instead of the
+// stale first-render closure (mirrors `atlasGatesPendingRef`'s staleness fix).
+// A pointermove hover sets `canvas.style.cursor = "pointer"` over a character
+// (skipped while any button is held, so it never fights an in-progress orbit
+// drag). The WebGL canvas itself stays out of the keyboard tab order (unchanged
+// `role="img"` + label below) — full keyboard access to the same tickets is
+// already covered by the shell's overlay Status Board, so this click is an
+// enhancement, not the only path.
+//
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
 // /status-3d/ was optimized with ZERO runtime WASM decoder (quantize + webp
@@ -69,7 +90,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import type { RendererHandle } from "./map-types";
+import type { MapAgent, MapGate, RendererHandle } from "./map-types";
 import type { CampsiteCanvasProps } from "./campsite-canvas";
 import { MapProgress } from "./map-progress";
 
@@ -705,7 +726,7 @@ function addStarfield(scene: THREE.Scene): void {
 }
 
 function Canvas3DInner(
-  { onReadyChange, agents, gates }: CampsiteCanvasProps,
+  { onReadyChange, agents, gates, onAgentActivate, onOpenGates, onOpenFirstGate }: CampsiteCanvasProps,
   ref: React.ForwardedRef<RendererHandle>,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -738,6 +759,27 @@ function Canvas3DInner(
   // at first render (already the real SSR-seeded value, never a placeholder),
   // then kept current by the effect below on every real gate-count change.
   const atlasGatesPendingRef = useRef(gates.length > 0);
+
+  // CAM-377 (S5): latest-data refs for the raycaster's click handler (installed
+  // once in the mount effect below, deps []). Without these, that handler would
+  // close over the FIRST render's `agents`/`gates`/callbacks forever — a click
+  // months into a session would still fire `onAgentActivate` with the agent list
+  // as it existed on mount. `onOpenGates`/`onOpenFirstGate` are inline arrow
+  // functions at the call site (campsite-scene.tsx's sharedRendererProps is
+  // recomputed every render, not memoized), so they are NOT stable identities —
+  // ref'd here same as the data, kept current by the effect right below.
+  const agentsRef = useRef<MapAgent[]>(agents);
+  const gatesRef = useRef<MapGate[]>(gates);
+  const onAgentActivateRef = useRef(onAgentActivate);
+  const onOpenGatesRef = useRef(onOpenGates);
+  const onOpenFirstGateRef = useRef(onOpenFirstGate);
+  useEffect(() => {
+    agentsRef.current = agents;
+    gatesRef.current = gates;
+    onAgentActivateRef.current = onAgentActivate;
+    onOpenGatesRef.current = onOpenGates;
+    onOpenFirstGateRef.current = onOpenFirstGate;
+  }, [agents, gates, onAgentActivate, onOpenGates, onOpenFirstGate]);
 
   useImperativeHandle(ref, () => ({
     setActivity: (activeByRole) => controllerRef.current.setActivity(activeByRole),
@@ -888,6 +930,114 @@ function Canvas3DInner(
       if (motionMq.matches) render(); // no continuous loop to pick this up on its own
     }
     window.addEventListener("resize", onResize);
+
+    // ── CAM-377 (S5): raycaster hit-testing — click/tap a 3D character opens its
+    // ticket, reusing the existing 2D modal flow (onAgentActivate/onOpenGates/
+    // onOpenFirstGate, unchanged contracts — see CampsiteCanvasProps). Mechanism
+    // ported from atlas_web_demo/index.html's pointerdown raycaster (setFromCamera
+    // + intersectObjects against the character models, walk up to the actor root).
+    // A single reused Raycaster/Vector2/scratch-intersections array — no per-move
+    // or per-tap allocation beyond what THREE.Raycaster itself needs internally.
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const hitScratch: THREE.Intersection[] = [];
+
+    function setPointerFromClientXY(clientX: number, clientY: number): void {
+      // Canvas-relative (not window-relative, unlike the prototype) — this scene's
+      // canvas fills its own container div, not necessarily the whole viewport.
+      const rect = canvas!.getBoundingClientRect();
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+    }
+
+    // Walks a hit object up its parent chain to the actor's pivot (the group each
+    // CharacterActor is keyed on — see the `actors.push(...)` below), mirroring the
+    // prototype's `while (o && !models.includes(o)) o = o.parent`.
+    function actorForObject(object: THREE.Object3D | null): CharacterActor | null {
+      let current = object;
+      while (current) {
+        const found = actors.find((a) => a.pivot === current);
+        if (found) return found;
+        current = current.parent;
+      }
+      return null;
+    }
+
+    // Raycasts against every loaded actor's pivot (recursive — hits the model mesh
+    // or the fake-shadow disc, both children of the pivot) and resolves the nearest
+    // hit back to its CharacterActor. Returns null before assets finish loading
+    // (actors.length === 0) or when the ray hits nothing.
+    function pickActor(): CharacterActor | null {
+      if (actors.length === 0) return null;
+      hitScratch.length = 0;
+      raycaster.intersectObjects(
+        actors.map((a) => a.pivot),
+        true,
+        hitScratch,
+      );
+      return hitScratch.length > 0 ? actorForObject(hitScratch[0].object) : null;
+    }
+
+    // Resolves a clicked/tapped actor to the shell's existing ticket-flow contract —
+    // never reimplemented here. Build-role actor -> its canonical role's live
+    // MapAgent -> onAgentActivate(agent) (idle agents included: the shell's
+    // handleAgentActivate already opens the roster for a taskless agent, exactly
+    // matching the 2D sprite's onActivate). Atlas -> the approval queue: the first
+    // gate's detail when one is pending (mirrors the 2D You alert bell), otherwise
+    // just expand the ApprovalCard.
+    function activateActor(actor: CharacterActor): void {
+      if (actor.isAtlas) {
+        if (gatesRef.current.length > 0) onOpenFirstGateRef.current();
+        else onOpenGatesRef.current();
+        return;
+      }
+      const roleKey = ROLE_KEY_BY_CHARACTER[actor.key];
+      if (!roleKey) return;
+      const agent = agentsRef.current.find((a) => a.role === roleKey);
+      if (agent) onAgentActivateRef.current(agent);
+    }
+
+    // Tap-vs-drag guard: OrbitControls rotates the camera on the same primary-button
+    // drag a selection tap uses. Only a pointerdown->pointerup pair that stayed
+    // within a small movement threshold counts as a tap; anything that moved further
+    // is a camera drag and must NOT open a ticket. Neither handler calls
+    // preventDefault/stopPropagation, so OrbitControls' own pointerdown/pointerup
+    // listeners on this same canvas are completely unaffected.
+    const TAP_MOVE_THRESHOLD_PX = 6;
+    let pointerDownAt: { x: number; y: number } | null = null;
+
+    function onCanvasPointerDown(event: PointerEvent): void {
+      if (event.button !== 0) { pointerDownAt = null; return; } // only the primary button/touch selects
+      pointerDownAt = { x: event.clientX, y: event.clientY };
+    }
+    function onCanvasPointerUp(event: PointerEvent): void {
+      const start = pointerDownAt;
+      pointerDownAt = null;
+      if (!start || event.button !== 0) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (Math.hypot(dx, dy) > TAP_MOVE_THRESHOLD_PX) return; // moved too far -- a camera drag, not a tap
+      setPointerFromClientXY(event.clientX, event.clientY);
+      const actor = pickActor();
+      if (actor) activateActor(actor);
+    }
+    // Hover affordance: a plain cursor swap, no visual/DOM change to the scene
+    // itself. Skipped entirely while any button is held (`event.buttons !== 0`) so
+    // it never fights OrbitControls mid-drag — orbiting the camera never raycasts.
+    function onCanvasPointerMove(event: PointerEvent): void {
+      if (event.buttons !== 0) return;
+      setPointerFromClientXY(event.clientX, event.clientY);
+      canvas!.style.cursor = pickActor() ? "pointer" : "default";
+    }
+    function onCanvasPointerLeave(): void {
+      pointerDownAt = null;
+      canvas!.style.cursor = "default";
+    }
+    canvas.addEventListener("pointerdown", onCanvasPointerDown);
+    canvas.addEventListener("pointerup", onCanvasPointerUp);
+    canvas.addEventListener("pointermove", onCanvasPointerMove);
+    canvas.addEventListener("pointerleave", onCanvasPointerLeave);
 
     // ── assets: characters + props, in parallel, per-item fallback ──────────
     const loader = new GLTFLoader();
@@ -1072,6 +1222,11 @@ function Canvas3DInner(
       document.removeEventListener("visibilitychange", onVisibilityChange);
       motionMq.removeEventListener("change", onMotionChange);
       controls.removeEventListener("change", onControlsChange);
+      // CAM-377 (S5): raycaster pointer listeners.
+      canvas.removeEventListener("pointerdown", onCanvasPointerDown);
+      canvas.removeEventListener("pointerup", onCanvasPointerUp);
+      canvas.removeEventListener("pointermove", onCanvasPointerMove);
+      canvas.removeEventListener("pointerleave", onCanvasPointerLeave);
       controls.dispose();
       disposeObject3DTree(scene);
       renderer.renderLists.dispose();
