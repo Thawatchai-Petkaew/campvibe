@@ -140,6 +140,14 @@ import { ROLE_DISPLAY } from "./role-config";
 const COPY = {
   loading: "กำลังโหลดมุมมอง 3 มิติ…",
   unavailable: "อุปกรณ์นี้ไม่รองรับการแสดงผล 3 มิติ กรุณาสลับกลับไปมุมมอง 2 มิติ",
+  // CAM-380: Object Edit Mode toggle/reset — this route's copy is Thai-only,
+  // sourced from a local const object (matches this same file's existing
+  // COPY/BOARD_COPY convention, not the shared TH/EN locales/translations.ts
+  // toggle — /status/map is an internal delivery-status view, not a public
+  // bilingual product page).
+  editModeEnter: "จัดห้อง",
+  editModeExit: "เสร็จ",
+  editModeReset: "รีเซ็ต",
 } as const;
 
 // S2a-optimized assets: quantize + webp, no meshopt/Draco/KTX2 (verified WASM-free).
@@ -304,6 +312,179 @@ const NAVIGATION_OBSTACLES = ROOM_PROPS.map((item) => ({
   z: item.position.z,
   radius: item.radius,
 }));
+
+// ── Object Edit Mode (CAM-380): drag/arrange room props + saved layout ──────
+// MECHANISM ported from atlas_web_demo/index.html's `objectEdit` state +
+// handleObjectPointerDown/Move/Up + syncObjectObstacle + localStorage
+// persistence (PROP_LAYOUT_STORAGE_KEY / PROP_DEFAULT_LAYOUT_STORAGE_KEY
+// there). The UI is NOT ported (no per-axis toolbar, no rotate) — the dispatch
+// scoped this to pick+drag (XZ) + a raise/lower-to-floor gesture + a reset
+// action; see Canvas3DInner's edit-mode block for the runtime wiring.
+//
+// Floor/ceiling world-Y clamps are numerically identical to the prototype's
+// OBJECT_FLOOR_WORLD_Y/OBJECT_CEILING_WORLD_Y. Every ROOM_PROPS item is
+// floor-aligned by normalizeRoomProp (min.y -> 0, same as the prototype's
+// normalizeRoomProp), so a prop's OWN group.position.y already IS its
+// resting-on-the-floor value (0.02) — no per-prop bounding-box recompute is
+// needed the way the prototype's updateEditableVerticalRange did for its more
+// varied prop set (this file's 5 props are simpler, single-mesh-root cases).
+const OBJECT_FLOOR_WORLD_Y = 0.02;
+const OBJECT_CEILING_WORLD_Y = 4.05;
+const PROP_LAYOUT_STORAGE_KEY = "statusmap.3d.propLayout";
+// World-Y units moved per pixel of vertical pointer travel during a
+// Shift+drag raise/lower gesture (tune on Staging — dispatch flagged gesture
+// feel as owner-tunable).
+const PROP_VERTICAL_DRAG_SCALE = 0.01;
+// Mirrors S5's HOVER_RAYCAST_THROTTLE_MS — a cursor swap needs no per-move
+// precision; throttling keeps the edit-mode hover raycast off the INP-risk
+// per-mousemove path the same way S5 already avoids it for character hover.
+const PROP_EDIT_HOVER_THROTTLE_MS = 80;
+
+export interface StoredPropPosition {
+  x: number;
+  y: number;
+  z: number;
+}
+export type StoredPropLayout = Record<string, StoredPropPosition>;
+
+// Guards a malformed/absent/corrupted localStorage value: any shape that
+// isn't a plain object of finite-number {x,y,z} triples is dropped per-entry,
+// never thrown — a bad value fails open to "no saved layout" (ROOM_PROPS
+// defaults), never a crash. Exported (named, per code.md's util convention)
+// for a real unit test, mirroring preferLowLod()/boardFacingY() above.
+export function parseStoredPropLayout(raw: string | null): StoredPropLayout {
+  if (!raw) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const out: StoredPropLayout = {};
+  for (const [name, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const v = value as Partial<StoredPropPosition> | null;
+    if (v && typeof v === "object" && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z)) {
+      out[name] = { x: v.x as number, y: v.y as number, z: v.z as number };
+    }
+  }
+  return out;
+}
+
+// Shared bounds math for clampPropPosition/clampPropPositionInto below — a
+// single source for the margin/wall formula so the two clamp entry points
+// (the allocating one-off call sites vs. the zero-allocation hot drag path)
+// can never drift apart.
+function propClampBounds(radius: number): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const margin = Math.max(0.52, radius * 0.48);
+  return {
+    minX: WALL_INNER + margin,
+    maxX: WALL_END - margin,
+    minZ: WALL_INNER + margin,
+    maxZ: WALL_END - margin,
+  };
+}
+
+// Clamps a candidate prop position to the room's floor bounds (ported from
+// the prototype's clampRoomPropPosition, reusing this file's OWN
+// WALL_INNER/WALL_END — numerically identical to the prototype's wallInner/
+// wallEnd) and to the floor/ceiling world-Y range. Exported for a real unit
+// test (boundary: exactly at a wall, exactly at the floor/ceiling). Used at
+// one-off call sites (restoring/resetting a layout) where allocating a small
+// plain object is fine — the per-move hot path uses clampPropPositionInto
+// below instead.
+export function clampPropPosition(
+  x: number,
+  y: number,
+  z: number,
+  radius: number,
+): { x: number; y: number; z: number } {
+  const b = propClampBounds(radius);
+  return {
+    x: THREE.MathUtils.clamp(x, b.minX, b.maxX),
+    y: THREE.MathUtils.clamp(y, OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y),
+    z: THREE.MathUtils.clamp(z, b.minZ, b.maxZ),
+  };
+}
+
+// Same clamp as clampPropPosition, written directly into an existing
+// Vector3 (the dragged prop's own group.position) instead of allocating a
+// fresh {x,y,z} literal — used by the per-pointermove drag path so a mouse
+// move never allocates. Exported (mirrors this file's export-pure-functions
+// convention) so a unit test can assert it agrees with clampPropPosition.
+export function clampPropPositionInto(target: THREE.Vector3, x: number, y: number, z: number, radius: number): void {
+  const b = propClampBounds(radius);
+  target.set(
+    THREE.MathUtils.clamp(x, b.minX, b.maxX),
+    THREE.MathUtils.clamp(y, OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y),
+    THREE.MathUtils.clamp(z, b.minZ, b.maxZ),
+  );
+}
+
+interface RoomPropRecord {
+  def: RoomPropDef;
+  group: THREE.Group;
+  /** The shared NAVIGATION_OBSTACLES[i] entry for this prop — mutated in
+   *  place (never replaced) so the patrol/collision functions above, which
+   *  hold their own reference into this same array, see the update. */
+  obstacle: { x: number; z: number; radius: number };
+}
+
+// Ported from the prototype's syncObjectObstacle — keeps a prop's obstacle
+// circle in lockstep with its CURRENT position after a drag, so patrolling
+// characters (isPointClear/isSegmentClear/choosePatrolTarget above) replan
+// around the new spot. Called on every drag-move + once more on release,
+// never per animation frame.
+function syncPropObstacle(record: RoomPropRecord): void {
+  record.obstacle.x = record.group.position.x;
+  record.obstacle.z = record.group.position.z;
+}
+
+// Captures every prop's current position, keyed by name (matches the
+// prototype's captureCurrentPropLayout, minus rotationY — this port never
+// rotates a prop). Exported for a unit test (no WebGL needed: THREE.Group is
+// plain data in jsdom/node).
+export function capturePropLayout(records: RoomPropRecord[]): StoredPropLayout {
+  const layout: StoredPropLayout = {};
+  records.forEach((record) => {
+    layout[record.def.name] = {
+      x: Number(record.group.position.x.toFixed(3)),
+      y: Number(record.group.position.y.toFixed(3)),
+      z: Number(record.group.position.z.toFixed(3)),
+    };
+  });
+  return layout;
+}
+
+function readStoredPropLayout(): StoredPropLayout {
+  if (typeof window === "undefined") return {};
+  try {
+    return parseStoredPropLayout(window.localStorage.getItem(PROP_LAYOUT_STORAGE_KEY));
+  } catch {
+    return {}; // private-mode / storage-disabled — fail open to ROOM_PROPS defaults
+  }
+}
+
+function writeStoredPropLayout(layout: StoredPropLayout): void {
+  try {
+    window.localStorage.setItem(PROP_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+  } catch {
+    // Layout persistence is a convenience only — ignore quota/private-mode failures.
+  }
+}
+
+// Applies a saved layout onto freshly-created prop groups (called once, right
+// after propRecords is populated in loadAssets below) — a name with no saved
+// entry keeps its ROOM_PROPS default position untouched.
+function applyStoredPropLayout(records: RoomPropRecord[], layout: StoredPropLayout): void {
+  records.forEach((record) => {
+    const saved = layout[record.def.name];
+    if (!saved) return;
+    const clamped = clampPropPosition(saved.x, saved.y, saved.z, record.def.radius);
+    record.group.position.set(clamped.x, clamped.y, clamped.z);
+    syncPropObstacle(record);
+  });
+}
 
 // ── Atlas motion tuning (CAM-376, S4) ────────────────────────────────────────
 // Distinct from both the build-role "active" bob (0.025 @ 2.8) and "idle"
@@ -1069,6 +1250,17 @@ function Canvas3DInner(
     redraw: () => {},
   });
 
+  // CAM-380: a FOURTH internal bridge, for Object Edit Mode — same reassign-
+  // on-mount / reset-on-cleanup shape as the three above. `editModeOn` is real
+  // React state (drives the DOM toggle button's label/aria-pressed below);
+  // the effect further down calls through this ref on every change, mirroring
+  // the gates.length-keyed Atlas effect's bridge-on-primitive-change pattern.
+  const editModeControllerRef = useRef<{ setEnabled: (enabled: boolean) => void; reset: () => void }>({
+    setEnabled: () => {},
+    reset: () => {},
+  });
+  const [editModeOn, setEditModeOn] = useState(false);
+
   // CAM-377 (S5): latest-data refs for the raycaster's click handler (installed
   // once in the mount effect below, deps []). Without these, that handler would
   // close over the FIRST render's `agents`/`gates`/callbacks forever — a click
@@ -1186,6 +1378,27 @@ function Canvas3DInner(
     // the file-header S7 note + createStationBoards' own doc comment.
     const boards = createStationBoards(scene);
 
+    // CAM-380: selection affordance for Object Edit Mode — a thin glowing
+    // ring under the currently-grabbed prop. Created once here (independent
+    // of loadAssets, same as the boards above); position/visibility are
+    // updated on select/drag/deselect only, never per animation frame beyond
+    // what an in-flight drag already touches.
+    const propSelectionRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.62, 0.74, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xffb454,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    propSelectionRing.rotation.x = -Math.PI / 2;
+    propSelectionRing.position.y = 0.03;
+    propSelectionRing.visible = false;
+    propSelectionRing.renderOrder = 5;
+    scene.add(propSelectionRing);
+
     // CAM-375 (S3): live-activity state. `actors` is populated once assets load
     // (below); `clock` drives every character's motion timing.
     const clock = new THREE.Clock();
@@ -1195,6 +1408,40 @@ function Canvas3DInner(
     // (the actor set never changes after load). Read-only from then on; the
     // raycaster never allocates a fresh `actors.map(...)` array per pointer event.
     const raycastPivots: THREE.Object3D[] = [];
+    // CAM-380: the Object Edit Mode counterpart to `actors`/`raycastPivots` —
+    // populated once propScenes load (below); `propPivots` is the cached
+    // hit-test target list (every prop's group), built once, never rebuilt
+    // per pointer event (mirrors raycastPivots' own discipline).
+    const propRecords: RoomPropRecord[] = [];
+    const propPivots: THREE.Object3D[] = [];
+    // Read once at mount — applied onto the prop groups right after they're
+    // created in loadAssets below (loading is async, so this can't wait on it).
+    const initialStoredPropLayout = readStoredPropLayout();
+    // Runtime state for Object Edit Mode (mirrors the prototype's `objectEdit`
+    // object), scoped to this mount like `actors`/`propRecords` above.
+    const editState: {
+      enabled: boolean;
+      dragging: boolean;
+      selected: RoomPropRecord | null;
+      dragOffset: THREE.Vector3;
+      floorPoint: THREE.Vector3;
+      dragStartClientY: number;
+      dragStartY: number;
+      /** The Shift-key state the CURRENT drag is currently operating under —
+       *  set at pointerdown, then kept in sync by the rebase-on-toggle logic
+       *  in onPropPointerMove so switching axis mid-drag never teleports. */
+      dragShiftActive: boolean;
+    } = {
+      enabled: false,
+      dragging: false,
+      selected: null,
+      dragOffset: new THREE.Vector3(),
+      floorPoint: new THREE.Vector3(),
+      dragStartClientY: 0,
+      dragStartY: 0,
+      dragShiftActive: false,
+    };
+    const editFloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     let reducedMotion = false; // set for real by applyMotionPreference() below
 
     // S6 (CAM-378 review fix): split the actor-motion + repaint step
@@ -1411,11 +1658,13 @@ function Canvas3DInner(
     let movedBeyondTap = false;
 
     function onCanvasPointerDown(event: PointerEvent): void {
+      if (editState.enabled) return; // CAM-380: Object Edit Mode owns clicks instead — never opens a ticket
       if (event.button !== 0) { pointerDownAt = null; return; } // only the primary button/touch selects
       pointerDownAt = { x: event.clientX, y: event.clientY };
       movedBeyondTap = false;
     }
     function onCanvasPointerUp(event: PointerEvent): void {
+      if (editState.enabled) return; // CAM-380: suppressed in edit mode (see onCanvasPointerDown above)
       const start = pointerDownAt;
       const wasBeyondTap = movedBeyondTap;
       pointerDownAt = null;
@@ -1439,6 +1688,7 @@ function Canvas3DInner(
     const HOVER_RAYCAST_THROTTLE_MS = 80;
     let lastHoverRaycastAt = 0;
     function onCanvasPointerMove(event: PointerEvent): void {
+      if (editState.enabled) return; // CAM-380: suppressed in edit mode (see onCanvasPointerDown above)
       // Path-length tracking for the tap-vs-drag guard (cheap, no raycast) --
       // runs regardless of the hover throttle below.
       if (pointerDownAt && event.buttons !== 0 && !movedBeyondTap) {
@@ -1456,12 +1706,231 @@ function Canvas3DInner(
     function onCanvasPointerLeave(): void {
       pointerDownAt = null;
       movedBeyondTap = false;
-      canvas!.style.cursor = "default";
+      if (!editState.enabled) canvas!.style.cursor = "default";
     }
     canvas.addEventListener("pointerdown", onCanvasPointerDown);
     canvas.addEventListener("pointerup", onCanvasPointerUp);
     canvas.addEventListener("pointermove", onCanvasPointerMove);
     canvas.addEventListener("pointerleave", onCanvasPointerLeave);
+
+    // ── CAM-380: Object Edit Mode pointer handlers ───────────────────────────
+    // Attached to the SAME canvas as the S5 handlers above; mutual exclusion is
+    // via `editState.enabled` (S5's handlers early-return when it's true, these
+    // early-return when it's false) rather than swapping listeners on/off —
+    // simpler cleanup, and matches this file's existing convention of gating
+    // behavior on a runtime flag inside one stable handler (e.g. reducedMotion).
+    //
+    // Pick + drag on the XZ plane ("ซ้าย-ขวา", left-right/forward-back): a
+    // ray-plane intersection at the prop's CURRENT Y, offset by where inside
+    // the prop it was grabbed (dragOffset) so the prop doesn't jump to be
+    // centered under the pointer on pickup.
+    //
+    // Raise/lower to the floor ("ขึ้น-ลงต่ำสุดบริเวณพื้นผิว"): hold Shift while
+    // dragging to move the SAME selected prop up/down instead of across the
+    // floor — vertical pointer travel scales to world-Y via
+    // PROP_VERTICAL_DRAG_SCALE, clamped every frame by clampPropPosition to
+    // [OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y] so lowering bottoms out
+    // exactly ON the floor surface (never sinks through it) and raising caps
+    // below the ceiling. Two separate gestures (plain-drag vs Shift+drag) on
+    // the same pointer stream, chosen over a toolbar axis-toggle (the
+    // prototype's approach) to keep the edit-mode chrome to a single button.
+    let lastPropHoverRaycastAt = 0;
+
+    function propRecordForObject(object: THREE.Object3D | null): RoomPropRecord | null {
+      let current = object;
+      while (current) {
+        const found = propRecords.find((r) => r.group === current);
+        if (found) return found;
+        current = current.parent;
+      }
+      return null;
+    }
+
+    // Reuses the S5 raycaster/pointer/hitScratch (declared above) — never
+    // concurrent with pickActor() since the two modes are mutually exclusive
+    // at any given moment (editState.enabled gates both handler families).
+    function pickProp(): RoomPropRecord | null {
+      if (propPivots.length === 0) return null;
+      hitScratch.length = 0;
+      raycaster.intersectObjects(propPivots, true, hitScratch);
+      return hitScratch.length > 0 ? propRecordForObject(hitScratch[0].object) : null;
+    }
+
+    function intersectFloorPlaneAtY(y: number, out: THREE.Vector3): THREE.Vector3 | null {
+      editFloorPlane.constant = -y; // plane equation: normal(0,1,0)·p + constant = 0 -> p.y = -constant
+      return raycaster.ray.intersectPlane(editFloorPlane, out);
+    }
+
+    function updatePropSelectionRing(): void {
+      const record = editState.selected;
+      propSelectionRing.visible = !!record && editState.enabled;
+      if (!record) return;
+      propSelectionRing.position.x = record.group.position.x;
+      propSelectionRing.position.z = record.group.position.z;
+      const ringBaseRadius = 0.68;
+      const scale = Math.max(0.85, record.def.radius + 0.18) / ringBaseRadius;
+      propSelectionRing.scale.set(scale, scale, scale);
+    }
+
+    function persistPropLayout(): void {
+      writeStoredPropLayout(capturePropLayout(propRecords));
+    }
+
+    // Clearing an idle actor's in-flight patrol is enough to make it replan a
+    // fresh route around a prop's NEW position on its very next patrol tick —
+    // no forced immediate re-path is needed (ported from the prototype's
+    // replanPatrolsAfterObjectEdit, minus its boss-visit-point special case,
+    // which S3 already dropped as out of this file's scope).
+    function replanPatrolsAfterPropEdit(): void {
+      actors.forEach((actor) => {
+        if (!actor.isAtlas) actor.patrol = null;
+      });
+    }
+
+    function onPropPointerDown(event: PointerEvent): void {
+      if (!editState.enabled || event.button !== 0) return;
+      setPointerFromClientXY(event.clientX, event.clientY);
+      const record = pickProp();
+      editState.selected = record;
+      updatePropSelectionRing();
+      // Review fix (selection-ring repaint): under reduced motion there is no
+      // continuous loop to pick up the ring becoming visible/invisible on its
+      // own — repaint once, on demand, for BOTH a real selection and a
+      // click-on-empty-space deselection (mirrors applyActivity's own
+      // on-demand-repaint contract elsewhere in this file).
+      if (reducedMotion) render();
+      if (!record) return;
+      event.preventDefault();
+      // Disable OrbitControls only while ACTIVELY dragging a prop — re-enabled
+      // on pointer-up/cancel below (and on exiting edit mode) so the user can
+      // still orbit the camera freely between drags, unlike the prototype
+      // which disabled orbit for the entire edit-mode session.
+      controls.enabled = false;
+      editState.dragStartClientY = event.clientY;
+      editState.dragStartY = record.group.position.y;
+      editState.dragShiftActive = event.shiftKey;
+      const hit = intersectFloorPlaneAtY(record.group.position.y, editState.floorPoint);
+      if (hit) {
+        editState.dragOffset.copy(record.group.position).sub(editState.floorPoint);
+        editState.dragOffset.y = 0;
+      } else {
+        editState.dragOffset.set(0, 0, 0);
+      }
+      editState.dragging = true;
+      canvas!.style.cursor = "grabbing";
+      canvas!.setPointerCapture?.(event.pointerId);
+    }
+
+    // Review fix (Shift toggled mid-drag): `dragStartClientY`/`dragStartY`
+    // (vertical axis) and `dragOffset` (XZ axis) are each meaningful only
+    // relative to the axis mode active when they were captured. Toggling
+    // Shift mid-drag without rebasing makes the vertical delta suddenly
+    // measure from the ORIGINAL pointerdown position (a huge jump) and makes
+    // the XZ branch resume from a `dragOffset` computed against a stale
+    // Y-plane (also a jump) — both read as a teleport. Called once, exactly
+    // when `event.shiftKey` differs from the drag's current mode, so the
+    // prop continues smoothly from wherever it already is instead of
+    // snapping. Not called on every move — only on the transition.
+    function rebaseDragAxis(event: PointerEvent, record: RoomPropRecord): void {
+      editState.dragShiftActive = event.shiftKey;
+      if (event.shiftKey) {
+        editState.dragStartClientY = event.clientY;
+        editState.dragStartY = record.group.position.y;
+      } else {
+        const hit = intersectFloorPlaneAtY(record.group.position.y, editState.floorPoint);
+        if (hit) {
+          editState.dragOffset.copy(record.group.position).sub(editState.floorPoint);
+          editState.dragOffset.y = 0;
+        }
+      }
+    }
+
+    function onPropPointerMove(event: PointerEvent): void {
+      if (!editState.enabled) return;
+      if (!editState.dragging || !editState.selected) {
+        // Hover affordance only (throttled, mirrors S5's hover) — no drag in flight.
+        const now = performance.now();
+        if (now - lastPropHoverRaycastAt < PROP_EDIT_HOVER_THROTTLE_MS) return;
+        lastPropHoverRaycastAt = now;
+        setPointerFromClientXY(event.clientX, event.clientY);
+        canvas!.style.cursor = pickProp() ? "grab" : "default";
+        return;
+      }
+      // Review fix (pointercancel/missed-release recovery): a move event with
+      // no button held means a pointerup/pointercancel was somehow missed
+      // (observed on touch when the browser steals the pointer for its own
+      // gesture) — recover exactly as if the drag had ended normally instead
+      // of continuing to drag with nothing pressed.
+      if (event.buttons === 0) {
+        endPropDrag(event);
+        return;
+      }
+      const record = editState.selected;
+      setPointerFromClientXY(event.clientX, event.clientY);
+      if (event.shiftKey !== editState.dragShiftActive) rebaseDragAxis(event, record);
+      let nextX = record.group.position.x;
+      let nextY = record.group.position.y;
+      let nextZ = record.group.position.z;
+      if (event.shiftKey) {
+        // Raise/lower to the floor: dragging UP the screen (clientY decreasing)
+        // raises the prop; the clamp below is what makes "lower" bottom out AT
+        // the surface instead of sinking through it.
+        const deltaPx = editState.dragStartClientY - event.clientY;
+        nextY = editState.dragStartY + deltaPx * PROP_VERTICAL_DRAG_SCALE;
+      } else {
+        const hit = intersectFloorPlaneAtY(record.group.position.y, editState.floorPoint);
+        if (!hit) return;
+        nextX = editState.floorPoint.x + editState.dragOffset.x;
+        nextZ = editState.floorPoint.z + editState.dragOffset.z;
+      }
+      // Review fix (per-move allocation): clamp directly into the prop's own
+      // position Vector3 — no fresh {x,y,z} literal allocated per mousemove.
+      clampPropPositionInto(record.group.position, nextX, nextY, nextZ, record.def.radius);
+      syncPropObstacle(record);
+      updatePropSelectionRing();
+      // Repaint on-demand under reduced motion (no continuous loop to pick up
+      // the moved prop otherwise); the normal-motion rAF loop already covers
+      // this every frame regardless.
+      if (reducedMotion) renderFrame();
+    }
+
+    // Shared teardown for a ended drag, regardless of HOW it ended (a normal
+    // release, a pointercancel, or the buttons===0 recovery path above) — one
+    // place clears `dragging`, re-enables OrbitControls, resets the cursor,
+    // and persists/replans if a prop was actually being moved.
+    function endPropDrag(event: PointerEvent): void {
+      if (!editState.dragging) return;
+      editState.dragging = false;
+      controls.enabled = true; // re-enable orbit now that the drag ended
+      canvas!.style.cursor = editState.selected ? "grab" : "default";
+      canvas!.releasePointerCapture?.(event.pointerId);
+      if (editState.selected) {
+        persistPropLayout();
+        replanPatrolsAfterPropEdit();
+      }
+    }
+
+    function onPropPointerUp(event: PointerEvent): void {
+      endPropDrag(event);
+    }
+
+    // Review fix (FIX 1): a touch/pen drag can be interrupted by the browser
+    // (an OS-level gesture, or another touch stealing the pointer) WITHOUT
+    // ever firing pointerup — pointercancel is the only signal in that case.
+    // Without this listener, `dragging` stayed true and `controls.enabled`
+    // stayed false forever (camera stuck un-orbitable, prop stuck following
+    // the next move with no button held, and tapping empty space couldn't
+    // recover because the null-pick path returns before re-enabling
+    // controls). Listened on the SAME target as pointerup (window) and runs
+    // the identical teardown.
+    function onPropPointerCancel(event: PointerEvent): void {
+      endPropDrag(event);
+    }
+
+    canvas.addEventListener("pointerdown", onPropPointerDown);
+    canvas.addEventListener("pointermove", onPropPointerMove);
+    window.addEventListener("pointerup", onPropPointerUp);
+    window.addEventListener("pointercancel", onPropPointerCancel);
 
     // ── assets: characters + props, in parallel, per-item fallback ──────────
     const loader = new GLTFLoader();
@@ -1542,7 +2011,31 @@ function Canvas3DInner(
         group.add(normalizeRoomProp(propScenes[i], item.targetSize));
         group.add(createFakeShadow(item.radius * 0.72, item.radius * 0.46, 0.01, 0.09));
         scene.add(group);
+        // CAM-380: Object Edit Mode record, keyed to the SAME NAVIGATION_OBSTACLES
+        // entry the patrol/collision functions above already read (index-aligned
+        // — both are built from ROOM_PROPS in this same order).
+        const record: RoomPropRecord = { def: item, group, obstacle: NAVIGATION_OBSTACLES[i] };
+        propRecords.push(record);
+        // Review fix (FIX 3, stale obstacle on remount): NAVIGATION_OBSTACLES
+        // is a module-level array that outlives a single mount (a 2D<->3D
+        // toggle creates a brand-new `group` here every time but reuses the
+        // SAME obstacle entries) — reseed it to THIS fresh group's default
+        // position now, before any saved layout is applied below. Without
+        // this, a prior session's dragged obstacle position would leak into
+        // a fresh mount whose localStorage has no entry for this prop
+        // (private-mode storage, or a drag that was picked up then never
+        // released/persisted): the prop would render back at its default
+        // spot while patrols kept avoiding the OLD position — an invisible
+        // obstacle / a clipped visible prop.
+        syncPropObstacle(record);
       });
+      // CAM-380: restore any saved layout now that every prop group exists —
+      // a prop with no saved entry keeps its ROOM_PROPS default position
+      // (and the obstacle reseed just above, not a stale prior session's).
+      applyStoredPropLayout(propRecords, initialStoredPropLayout);
+      // CAM-377-style cached hit-test target list, built once (never rebuilt
+      // per pointer event — mirrors raycastPivots just above).
+      propPivots.push(...propRecords.map((r) => r.group));
 
       if (disposed) return;
       setStatus("ready");
@@ -1637,14 +2130,53 @@ function Canvas3DInner(
       }
     }
 
+    // CAM-380: the Object Edit Mode toggle — bridges editModeControllerRef
+    // (declared once, outside this effect) to this mount's actual
+    // editState/controls. Mirrors applyActivity/applyGatesPending's own
+    // bridge-function pattern above. Always re-enables OrbitControls on a
+    // mode switch (never leaves it disabled across a toggle) and clears any
+    // stale selection/cursor from a prior session.
+    function applyEditMode(enabled: boolean): void {
+      editState.enabled = enabled;
+      editState.dragging = false;
+      editState.selected = null;
+      controls.enabled = true;
+      canvas!.style.cursor = "default";
+      updatePropSelectionRing();
+      if (reducedMotion) render();
+    }
+
+    // CAM-380: the "รีเซ็ต" action — clears the saved override and restores
+    // every prop to its ROOM_PROPS default position (ported from the
+    // prototype's resetObjectLayout, minus its optional "set current as
+    // default" companion action, which the dispatch didn't ask for).
+    function resetPropLayout(): void {
+      propRecords.forEach((record) => {
+        const clamped = clampPropPosition(
+          record.def.position.x,
+          record.def.position.y,
+          record.def.position.z,
+          record.def.radius,
+        );
+        record.group.position.set(clamped.x, clamped.y, clamped.z);
+        syncPropObstacle(record);
+      });
+      writeStoredPropLayout({}); // clears the saved override — next mount reads ROOM_PROPS defaults
+      replanPatrolsAfterPropEdit();
+      updatePropSelectionRing();
+      if (reducedMotion) render();
+    }
+
     controllerRef.current = { setActivity: applyActivity, setScope: applyScope };
     atlasControllerRef.current = { setGatesPending: applyGatesPending };
+    editModeControllerRef.current = { setEnabled: applyEditMode, reset: resetPropLayout };
 
     return () => {
       disposed = true;
       controllerRef.current = { setActivity: () => {}, setScope: () => {} };
       atlasControllerRef.current = { setGatesPending: () => {} };
       boardsControllerRef.current = { redraw: () => {} };
+      editModeControllerRef.current = { setEnabled: () => {}, reset: () => {} };
       stopLoop();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -1655,6 +2187,11 @@ function Canvas3DInner(
       canvas.removeEventListener("pointerup", onCanvasPointerUp);
       canvas.removeEventListener("pointermove", onCanvasPointerMove);
       canvas.removeEventListener("pointerleave", onCanvasPointerLeave);
+      // CAM-380: Object Edit Mode pointer listeners.
+      canvas.removeEventListener("pointerdown", onPropPointerDown);
+      canvas.removeEventListener("pointermove", onPropPointerMove);
+      window.removeEventListener("pointerup", onPropPointerUp);
+      window.removeEventListener("pointercancel", onPropPointerCancel);
       controls.dispose();
       // CAM-379 (S7): disposeObject3DTree already walks the WHOLE scene graph —
       // every board's group/backPlate/panel was added via scene.add()/
@@ -1718,6 +2255,15 @@ function Canvas3DInner(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardsSignature]);
 
+  // CAM-380: drive Object Edit Mode from the DOM toggle button's React state —
+  // dep is the primitive `editModeOn` boolean (mirrors the gates.length-keyed
+  // Atlas effect above): a re-render that doesn't flip this flag never re-runs
+  // the effect, and editModeControllerRef.current.setEnabled itself is a plain
+  // reassignment (no in-flight animation to restart) either way.
+  useEffect(() => {
+    editModeControllerRef.current.setEnabled(editModeOn);
+  }, [editModeOn]);
+
   // CAM-375 (S3): React-owned (re-computed on every `agents` prop update,
   // independent of the WebGL rAF loop) so the scene's accessible state summary
   // stays accurate even under prefers-reduced-motion, where the characters'
@@ -1763,6 +2309,65 @@ function Canvas3DInner(
           <div className="map-placeholder" role="status" aria-live="polite">
             <p className="map-placeholder-text">{COPY.unavailable}</p>
           </div>
+        </div>
+      )}
+      {/* CAM-380: Object Edit Mode toggle — a small DOM overlay, 3D-view-only
+          (this component never mounts in 2D). Dark-glass HUD idiom (matches
+          .map-placeholder's --glass/--blur/--line/--r tokens from
+          campsite-assets.ts) via a scoped inline <style>, same technique
+          MapProgress above already uses for its own standalone CSS — this
+          route's HUD_CSS (campsite-overlays.tsx) is shell-owned chrome this
+          self-contained component does not reach into. Gated on
+          status === "ready": editing props before the room/props exist is
+          meaningless, and the toggle would otherwise appear over the loading
+          progress bar or the "unavailable" text card. */}
+      {status === "ready" && (
+        <div style={{ position: "absolute", left: 16, bottom: 16, zIndex: 6, display: "flex", gap: 8 }}>
+          <style>{`
+            .map-3d-edit-btn {
+              display: inline-flex; align-items: center; justify-content: center;
+              min-height: 44px; min-width: 44px; padding: 0 18px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.13);
+              background: rgba(16, 26, 42, 0.42);
+              backdrop-filter: saturate(150%) blur(20px);
+              -webkit-backdrop-filter: saturate(150%) blur(20px);
+              box-shadow: 0 14px 44px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+              color: #F1F6FB;
+              font-family: 'Outfit', 'Anuphan', sans-serif;
+              font-size: 13px; font-weight: 700;
+              cursor: pointer;
+              transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+            }
+            .map-3d-edit-btn:hover { background: rgba(255, 255, 255, 0.08); }
+            .map-3d-edit-btn:focus-visible { outline: 2px solid #5BE9B0; outline-offset: 2px; }
+            .map-3d-edit-btn[aria-pressed="true"] {
+              color: #FFB454; border-color: rgba(255, 180, 84, 0.4); background: rgba(255, 180, 84, 0.14);
+            }
+          `}</style>
+          <button
+            type="button"
+            className="map-3d-edit-btn"
+            aria-pressed={editModeOn}
+            aria-label={editModeOn ? COPY.editModeExit : COPY.editModeEnter}
+            title={editModeOn ? COPY.editModeExit : COPY.editModeEnter}
+            data-testid="btn--map-3d-edit"
+            onClick={() => setEditModeOn((prev) => !prev)}
+          >
+            {editModeOn ? COPY.editModeExit : COPY.editModeEnter}
+          </button>
+          {editModeOn && (
+            <button
+              type="button"
+              className="map-3d-edit-btn"
+              aria-label={COPY.editModeReset}
+              title={COPY.editModeReset}
+              data-testid="btn--map-3d-edit-reset"
+              onClick={() => editModeControllerRef.current.reset()}
+            >
+              {COPY.editModeReset}
+            </button>
+          )}
         </div>
       )}
     </div>
