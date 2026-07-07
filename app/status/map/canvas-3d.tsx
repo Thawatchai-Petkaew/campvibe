@@ -19,6 +19,31 @@
 // characters outside the active epic's roles; also idempotent per actor.
 // triggerWalk stays a no-op (not in S3's scope).
 //
+// S4 scope (CAM-376): Atlas — the AI-orchestrator character, distinct from the
+// 7 build roles and never one of them — comes alive, driven by the gate/
+// approval queue (`gates: MapGate[]`, already flowing into this component as a
+// plain prop via CampsiteCanvasProps, exactly like the 2D renderer's YouScout
+// reads it directly). Atlas has exactly two states: "reviewing" (gates.length
+// > 0 — a quicker attention bob + a gaze sweep toward the approval area + a
+// pulsing accent light) and "calm" (gates.length === 0 — a slow, minimal
+// breathing bob, steady light, facing its board plainly). Atlas NEVER patrols
+// in either state — it stays at its own workSpot always (unlike the 7 build
+// roles' idle patrol); only its pose/light react to gate count. The seam is a
+// dedicated internal bridge (`atlasControllerRef`/`applyGatesPending`, mirrors
+// the `controllerRef`/setActivity pattern) driven by a small `useEffect` keyed
+// on `gates.length` (a primitive, not the `gates` array reference) — so a
+// reconcile that changes unrelated fields never touches Atlas, and an
+// unchanged gate COUNT is a guaranteed no-op (idempotent, same contract as
+// setActivity). This is intentionally NOT wired through the shell's
+// activeKey/activeByRole bridge (campsite-scene.tsx) or the public
+// RendererHandle interface — the shell already passes `gates` straight
+// through as a normal prop, so no shell change or interface change was needed;
+// see the PR description for why this option was chosen over extending
+// activeKey or adding a new RendererHandle method. Atlas is still excluded
+// from ROLE_KEY_BY_CHARACTER/applyActivity/applyScope (unchanged from S3) —
+// it is never counted in `agents`-derived active counts (MapAgent[] never
+// contains an Atlas/orchestrator entry) and never gated by epic scope.
+//
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
 // /status-3d/ was optimized with ZERO runtime WASM decoder (quantize + webp
@@ -177,6 +202,27 @@ const NAVIGATION_OBSTACLES = ROOM_PROPS.map((item) => ({
   radius: item.radius,
 }));
 
+// ── Atlas motion tuning (CAM-376, S4) ────────────────────────────────────────
+// Distinct from both the build-role "active" bob (0.025 @ 2.8) and "idle"
+// patrol bob (0.03 @ 2.4) — reviewing reads as "surfacing/assigning work"
+// (quicker bob + a scanning gaze sweep across the approval area), calm reads
+// as a slow, minimal idle breath. Values are a design call (dispatch note);
+// tune on Staging.
+const ATLAS_REVIEW_BOB_AMPLITUDE = 0.022;
+const ATLAS_REVIEW_BOB_FREQ = 3.4;
+const ATLAS_REVIEW_GAZE_SWEEP = 0.4; // radians, +/- sweep toward the approval area
+const ATLAS_REVIEW_GAZE_FREQ = 1.05;
+const ATLAS_CALM_BOB_AMPLITUDE = 0.01;
+const ATLAS_CALM_BOB_FREQ = 1.5;
+// Base intensity matches the PointLight created per-station at mount
+// ((station.isAtlas ? 1.2 : 0.65) * LIGHT_SCALE) — reviewing pulses around it,
+// calm sits dimmer and steady (no pulse), ported feel from the prototype's
+// atlasLight.intensity pulse (t * 5.0).
+const ATLAS_LIGHT_BASE = 1.2 * LIGHT_SCALE;
+const ATLAS_LIGHT_PULSE_FREQ = 5.0;
+const ATLAS_LIGHT_PULSE_AMPLITUDE = 0.35;
+const ATLAS_LIGHT_CALM_SCALE = 0.7;
+
 interface PatrolState {
   current: number;
   previous: number;
@@ -199,11 +245,16 @@ interface CharacterActor {
   homePoint: THREE.Vector3;
   /** Per-character bob-phase stagger (index-based, ported from the prototype). */
   bobPhase: number;
+  /** For Atlas (CAM-376, S4): "active" == reviewing (gates pending), "idle" == calm. */
   mode: "active" | "idle";
   dimmed: boolean;
   patrol: PatrolState | null;
   /** Present only while walking TO workSpot right after an idle→active flip. */
   transit: { from: THREE.Vector3; startTime: number; duration: number } | null;
+  /** CAM-376 (S4): the per-station accent PointLight, so Atlas's reviewing/calm
+   *  motion can pulse it. Unused by the 7 build-role actors (created for every
+   *  actor for a uniform CharacterActor shape, cheap to hold a reference to). */
+  light: THREE.PointLight;
 }
 
 function isPointClear(x: number, z: number, padding: number): boolean {
@@ -317,9 +368,12 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
       }
       return;
     }
+    // Atlas is never passed to this function (the render loop routes it to
+    // updateAtlasMotion instead — CAM-376 S4), so the bob amplitude here is
+    // always the build-role value.
     actor.pivot.position.set(
       actor.workSpot.x,
-      actor.workSpot.y + Math.sin(t * 2.8 + actor.bobPhase) * (actor.isAtlas ? 0.014 : 0.025),
+      actor.workSpot.y + Math.sin(t * 2.8 + actor.bobPhase) * 0.025,
       actor.workSpot.z,
     );
     const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
@@ -363,13 +417,49 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
   }
 }
 
+// CAM-376 (S4): Atlas's own per-frame motion — never patrols (always at its own
+// workSpot, unlike the 7 build roles' idle patrol); only pose + light react to
+// `actor.mode` ("active" == reviewing/gates pending, "idle" == calm), which is
+// driven exclusively by applyGatesPending below (never by applyActivity/
+// applyScope — those explicitly skip isAtlas actors, unchanged from S3).
+function updateAtlasMotion(actor: CharacterActor, t: number): void {
+  const reviewing = actor.mode === "active";
+  const bobAmplitude = reviewing ? ATLAS_REVIEW_BOB_AMPLITUDE : ATLAS_CALM_BOB_AMPLITUDE;
+  const bobFreq = reviewing ? ATLAS_REVIEW_BOB_FREQ : ATLAS_CALM_BOB_FREQ;
+  actor.pivot.position.set(
+    actor.workSpot.x,
+    actor.workSpot.y + Math.sin(t * bobFreq + actor.bobPhase) * bobAmplitude,
+    actor.workSpot.z,
+  );
+  const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
+  // Reviewing: a gaze sweep toward the approval area (reads as "surfacing
+  // work"), distinct from a build agent's steady stand-and-face. Calm: plain,
+  // steady facing — no sweep.
+  const gaze = reviewing ? Math.sin(t * ATLAS_REVIEW_GAZE_FREQ) * ATLAS_REVIEW_GAZE_SWEEP : 0;
+  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dirToBoard + gaze, reviewing ? 0.08 : 0.05);
+  actor.light.intensity = reviewing
+    ? ATLAS_LIGHT_BASE * (1 + Math.sin(t * ATLAS_LIGHT_PULSE_FREQ) * ATLAS_LIGHT_PULSE_AMPLITUDE)
+    : ATLAS_LIGHT_BASE * ATLAS_LIGHT_CALM_SCALE;
+}
+
 // prefers-reduced-motion: freeze every character at its CURRENT commanded pose
 // with no lerp/patrol in flight — active characters stand at their workSpot,
 // idle characters sit at a fixed home point (mirrors the 2D engine's reduced-
 // motion contract: no continuous motion, but the pose still reflects state).
+// CAM-376 (S4): Atlas gets its own static branch (never a home point — it
+// never patrols in either mode) — reviewing shows a fixed gaze-sweep offset
+// (the mid-point of the sweep) so the two states still read as visually
+// distinct without any motion; calm shows a plain facing.
 function poseStaticAll(actors: CharacterActor[]): void {
   actors.forEach((actor) => {
-    if (actor.isAtlas) return;
+    if (actor.isAtlas) {
+      actor.pivot.position.copy(actor.workSpot);
+      const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
+      const reviewing = actor.mode === "active";
+      actor.pivot.rotation.y = reviewing ? dirToBoard + ATLAS_REVIEW_GAZE_SWEEP : dirToBoard;
+      actor.light.intensity = reviewing ? ATLAS_LIGHT_BASE : ATLAS_LIGHT_BASE * ATLAS_LIGHT_CALM_SCALE;
+      return;
+    }
     actor.patrol = null;
     actor.transit = null;
     if (actor.mode === "active") {
@@ -615,7 +705,7 @@ function addStarfield(scene: THREE.Scene): void {
 }
 
 function Canvas3DInner(
-  { onReadyChange, agents }: CampsiteCanvasProps,
+  { onReadyChange, agents, gates }: CampsiteCanvasProps,
   ref: React.ForwardedRef<RendererHandle>,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -631,6 +721,23 @@ function Canvas3DInner(
     setActivity: (activeByRole: Record<string, boolean>) => void;
     setScope: (scope: "all" | "epic", epicRoles: string[]) => void;
   }>({ setActivity: () => {}, setScope: () => {} });
+
+  // CAM-376 (S4): a SEPARATE internal bridge for Atlas, deliberately NOT part of
+  // the public RendererHandle/useImperativeHandle above (the shell never needs
+  // to know Atlas exists — it already passes `gates` straight through as a
+  // plain prop, same as CampsiteCanvasProps gives the 2D renderer's YouScout).
+  // Mirrors controllerRef's reassign-on-mount / reset-on-cleanup pattern.
+  const atlasControllerRef = useRef<{ setGatesPending: (pending: boolean) => void }>({
+    setGatesPending: () => {},
+  });
+  // Seeds the Atlas actor's INITIAL mode at asset-load time (loadAssets() is
+  // async — GLTF fetch — so it can resolve well after this component's first
+  // render; reading a live ref here avoids a race where the actor is created
+  // with a stale/default mode before the gates-driven effect below has had a
+  // chance to call atlasControllerRef). Initialized from `gates` synchronously
+  // at first render (already the real SSR-seeded value, never a placeholder),
+  // then kept current by the effect below on every real gate-count change.
+  const atlasGatesPendingRef = useRef(gates.length > 0);
 
   useImperativeHandle(ref, () => ({
     setActivity: (activeByRole) => controllerRef.current.setActivity(activeByRole),
@@ -713,7 +820,10 @@ function Canvas3DInner(
       if (!reducedMotion) {
         const t = clock.getElapsedTime();
         actors.forEach((actor, i) => {
-          if (!actor.isAtlas) updateCharacterMotion(actor, t, i, actors);
+          // CAM-376 (S4): Atlas gets its own motion (reviewing/calm, never
+          // patrols) instead of being skipped entirely as it was in S3.
+          if (actor.isAtlas) updateAtlasMotion(actor, t);
+          else updateCharacterMotion(actor, t, i, actors);
         });
       }
       renderer.render(scene, camera);
@@ -815,6 +925,11 @@ function Canvas3DInner(
         // flash-of-wandering before the shell's first real setActivity call
         // arrives; Atlas is still pushed (poseStaticAll/setActorDim skip it via
         // isAtlas) so array indices stay 1:1 with WORKFLOW for bobPhase.
+        // CAM-376 (S4): Atlas's initial mode is seeded from atlasGatesPendingRef
+        // (the latest known gates.length > 0, kept current independent of this
+        // async load — see the ref's declaration comment) instead of the build
+        // roles' unconditional "active" default, so Atlas never flashes a
+        // reviewing pose when the queue actually started empty (or vice versa).
         actors.push({
           key: station.key,
           isAtlas: !!station.isAtlas,
@@ -823,10 +938,11 @@ function Canvas3DInner(
           facePos: station.pos,
           homePoint: ROUTE_POINTS[findNearestRouteIndex(station.workSpot)].clone(),
           bobPhase: i,
-          mode: "active",
+          mode: station.isAtlas ? (atlasGatesPendingRef.current ? "active" : "idle") : "active",
           dimmed: false,
           patrol: null,
           transit: null,
+          light: roleLight,
         });
       });
 
@@ -925,11 +1041,32 @@ function Canvas3DInner(
       if (changed && reducedMotion) render();
     }
 
+    // CAM-376 (S4): the Atlas-only counterpart to applyActivity — bridges
+    // atlasControllerRef (declared once, outside this effect) to this mount's
+    // actual Atlas actor. Same idempotence contract as applyActivity: an
+    // unchanged gates-pending signature is a guaranteed no-op, so it never
+    // restarts Atlas's in-flight pose/light animation.
+    function applyGatesPending(pending: boolean): void {
+      const atlasActor = actors.find((a) => a.isAtlas);
+      if (!atlasActor) return; // assets not loaded yet — atlasGatesPendingRef seeds the initial mode instead
+      const nextMode: "active" | "idle" = pending ? "active" : "idle";
+      if (nextMode === atlasActor.mode) return; // idempotent — mirrors applyActivity's contract
+      atlasActor.mode = nextMode;
+      // Under reduced motion there is no continuous loop to apply the new pose
+      // on its own — re-pose + repaint once, on demand (mirrors applyActivity).
+      if (reducedMotion) {
+        poseStaticAll(actors);
+        render();
+      }
+    }
+
     controllerRef.current = { setActivity: applyActivity, setScope: applyScope };
+    atlasControllerRef.current = { setGatesPending: applyGatesPending };
 
     return () => {
       disposed = true;
       controllerRef.current = { setActivity: () => {}, setScope: () => {} };
+      atlasControllerRef.current = { setGatesPending: () => {} };
       stopLoop();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -956,13 +1093,29 @@ function Canvas3DInner(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // CAM-376 (S4): drive Atlas from the gate/approval queue. Dep is `gates.length`
+  // (a primitive), NOT `gates` (a new array reference on every SSE reconcile) —
+  // this is the gate-SIGNATURE guard: a reconcile that changes unrelated fields
+  // (gate title/url/priority, or any other liveModel field) never re-runs this
+  // effect at all, and even if it did, applyGatesPending's own idempotence check
+  // (nextMode === atlasActor.mode) makes an unchanged COUNT a hard no-op either
+  // way — Atlas's animation is never restarted by a no-op signature.
+  useEffect(() => {
+    atlasGatesPendingRef.current = gates.length > 0;
+    atlasControllerRef.current.setGatesPending(gates.length > 0);
+  }, [gates.length]);
+
   // CAM-375 (S3): React-owned (re-computed on every `agents` prop update,
   // independent of the WebGL rAF loop) so the scene's accessible state summary
   // stays accurate even under prefers-reduced-motion, where the characters'
   // own visual motion is frozen (mirrors campsite-canvas.tsx's S7 sceneAriaLabel
   // pattern — active count is always announced from real data, never animation).
+  // CAM-376 (S4): appends the pending-approval count (Atlas is never counted in
+  // activeAgentCount — MapAgent[] never contains an Atlas/orchestrator entry —
+  // so this is purely additive, not a double-count).
   const activeAgentCount = agents.filter((a) => a.active).length;
-  const sceneAriaLabel = `ห้องทำงาน 3 มิติของทีม AI delivery: Atlas และเพื่อนร่วมทีมอีก 7 คน ประจำอยู่ที่สถานีของตนเอง (กำลังทำงาน ${activeAgentCount}/7 คน)`;
+  const gatesAriaSuffix = gates.length > 0 ? ` มี ${gates.length} รายการรออนุมัติ` : "";
+  const sceneAriaLabel = `ห้องทำงาน 3 มิติของทีม AI delivery: Atlas และเพื่อนร่วมทีมอีก 7 คน ประจำอยู่ที่สถานีของตนเอง (กำลังทำงาน ${activeAgentCount}/7 คน)${gatesAriaSuffix}`;
 
   return (
     <div
