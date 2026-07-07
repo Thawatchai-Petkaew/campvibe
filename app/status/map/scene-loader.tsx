@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import type { MapModel } from "./campsite-scene";
+import type { MapModel } from "./map-types";
 import { MapProgress } from "./map-progress";
 
 // CAM-198: Loading fallback — indeterminate progress bar on the night scene.
@@ -24,6 +24,9 @@ interface Props {
   initialEfilter: "all" | "prog" | "done" | "todo";
   /** CAM-164 dev tool: render a % coordinate grid overlay when true (?grid=1). */
   debugGrid?: boolean;
+  /** CAM-372 (S1c): server default from ?r= ("3d" | else "2d"); the shell's own
+   *  localStorage lazy initializer can still override this on the client. */
+  initialRenderer: "2d" | "3d";
 }
 
 export default function SceneLoader({
@@ -34,6 +37,7 @@ export default function SceneLoader({
   initialGroup,
   initialEfilter,
   debugGrid = false,
+  initialRenderer,
 }: Props) {
   return (
     <CampsiteScene
@@ -44,6 +48,7 @@ export default function SceneLoader({
       initialGroup={initialGroup}
       initialEfilter={initialEfilter}
       debugGrid={debugGrid}
+      initialRenderer={initialRenderer}
     />
   );
 }

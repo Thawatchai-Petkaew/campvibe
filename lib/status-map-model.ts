@@ -21,7 +21,7 @@ import type {
   MapEnvItem,
   MapEpicItem,
   MapEpicStory,
-} from "@/app/status/map/campsite-scene";
+} from "@/app/status/map/map-types";
 
 // The 7 build-roles that always appear on the map (same list as page.tsx).
 const BUILD_ROLES: string[] = [

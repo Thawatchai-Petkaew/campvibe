@@ -4,7 +4,7 @@
  * No React, no DOM beyond localStorage. SSR-safe (typeof window guards).
  */
 
-import type { MapEpicItem } from "@/app/status/map/campsite-scene";
+import type { MapEpicItem } from "@/app/status/map/map-types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

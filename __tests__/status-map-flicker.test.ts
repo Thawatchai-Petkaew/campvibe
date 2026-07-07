@@ -51,8 +51,11 @@ const engineSrc = readFileSync(
 // After the fix every assertion passes, locking the contract permanently.
 // ============================================================
 
+// CAM-372 (S1b): AgentScoutInner + the agents.map/rootRef seeding + the engine
+// init block all moved verbatim from campsite-scene.tsx (now StatusMapShell,
+// renderer-agnostic) into the 2D renderer campsite-canvas.tsx — read the new location.
 const sceneSrc = readFileSync(
-  resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+  resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
   "utf8",
 );
 

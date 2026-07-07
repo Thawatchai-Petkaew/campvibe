@@ -31,7 +31,7 @@ import {
   selectUnseen,
   type DeliveryItem,
 } from "@/lib/map-delivery";
-import type { MapEpicItem } from "./campsite-scene";
+import type { MapEpicItem } from "./map-types";
 
 // ── i18n (scene does not use useLanguage; follow the same approach) ──────────
 // Keys live in locales/translations.json; we pull the TH copy directly here

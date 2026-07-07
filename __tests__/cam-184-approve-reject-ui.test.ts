@@ -37,7 +37,9 @@ import { resolve } from "path";
 const root = resolve(__dirname, "..");
 const read = (rel: string) => readFileSync(resolve(root, rel), "utf8");
 
-const sceneSrc    = read("app/status/map/campsite-scene.tsx");
+// CAM-372 (S1b): .you-alert / .popover / .pop-role / .badge (SCENE_CSS) live in the
+// 2D renderer campsite-canvas.tsx now (extracted from campsite-scene.tsx).
+const sceneSrc    = read("app/status/map/campsite-canvas.tsx");
 const overlaySrc  = read("app/status/map/campsite-overlays.tsx");
 
 // ── Part 1: ApprovalCard amber-tinted glass background ───────────────────────

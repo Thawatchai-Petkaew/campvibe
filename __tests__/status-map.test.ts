@@ -129,7 +129,9 @@ describe("app/status/map/scene-loader.tsx — lazy client scene (CAM-151)", () =
 
 // ---------- CAM-152: scene uses /public sprites, no base64, reduced-motion ----------
 describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): sprite paths, reduced-motion CSS, and the You badge/gates.length
+  // usage all moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("references sprites under /status-map/sprites/", () => {
     expect(src).toContain("/status-map/sprites/");
@@ -144,11 +146,13 @@ describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () =>
   });
 
   it("widens the model: MapModel + MapAgent carry per-role workload + task", () => {
-    expect(src).toContain("export interface MapModel");
-    expect(src).toContain("export interface MapAgent");
-    expect(src).toContain("activeCount");
-    expect(src).toContain("queued");
-    expect(src).toContain("task");
+    // CAM-372 (S1a): MapModel/MapAgent moved to map-types.ts (behavior-preserving extract).
+    const types = read("../app/status/map/map-types.ts");
+    expect(types).toContain("export interface MapModel");
+    expect(types).toContain("export interface MapAgent");
+    expect(types).toContain("activeCount");
+    expect(types).toContain("queued");
+    expect(types).toContain("task");
   });
 
   it("renders the You gate badge derived from gates.length", () => {
@@ -162,7 +166,9 @@ describe("app/status/map/campsite-scene.tsx — sprites + a11y (CAM-152)", () =>
 
 // ---------- CAM-161: new CSS architecture — .map-viewport + transform:scale ----------
 describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale model", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): .map-viewport/.map-stage/.map-bg (SCENE_CSS + JSX) moved to
+  // the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("has .map-viewport wrapper (contains the play area)", () => {
     expect(src).toContain(".map-viewport");
@@ -215,7 +221,9 @@ describe("app/status/map/campsite-scene.tsx — CAM-161: fixed-canvas scale mode
 
 // ---------- CAM-161: 2-layout tables + matchMedia switch ----------
 describe("app/status/map/campsite-scene.tsx — CAM-161: LAYOUT_WIDE + LAYOUT_NARROW", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): LAYOUT_WIDE/LAYOUT_NARROW/YOU_POS_*/currentLayout/homeStyle all
+  // moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("exports LAYOUT_WIDE for aspect ≥ 7:5 (art-measured positions)", () => {
     expect(src).toContain("LAYOUT_WIDE");
@@ -315,7 +323,8 @@ describe("canonRole — role canonicalization the map projection relies on (CAM-
 
 // ---------- S7 AC1: reduced-motion labels present in scene source ----------
 describe("campsite-scene.tsx — S7 AC1: reduced-motion static labels", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): rm-label CSS/JSX moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("CSS block contains @media (prefers-reduced-motion: reduce) for rm-labels", () => {
     expect(src).toContain("prefers-reduced-motion: reduce");
@@ -340,7 +349,9 @@ describe("campsite-scene.tsx — S7 AC1: reduced-motion static labels", () => {
 
 // ---------- S7 AC2: keyboard + screen-reader access ----------
 describe("campsite-scene.tsx — S7 AC2: keyboard + screen-reader access", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): map-stage role/aria-label + AgentScout/YouScout button markup
+  // moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("map-stage has role='img' for screen readers", () => {
     expect(src).toContain('role="img"');
@@ -422,22 +433,27 @@ describe("app/status/map/map-progress.tsx — S7 AC4: loading state", () => {
 // see CAM-286 report). The Kanban board's own empty state is covered by
 // "KanbanModal empty state" below (CAM-159 AC3).
 
-// ---------- S7 AC7: deep-link scope fix — engineReady in scope effect deps ----------
+// ---------- S7 AC7: deep-link scope fix — rendererReady in scope effect deps ----------
+// CAM-372 (S1b): engineReady/setEngineReady (local shell state) was hoisted + renamed
+// to rendererReady/setRendererReady (shell) crossed via the onReadyChange callback
+// prop (canvas) — the CAM-176 activeKey→setActivity bridge + this scope-effect gate
+// now work against ANY renderer, not just the 2D engine.
 describe("campsite-scene.tsx — S7 AC7: deep-link scope fix", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
-  it("engineReady state variable is declared", () => {
-    expect(src).toContain("engineReady");
-    expect(src).toContain("setEngineReady");
+  it("rendererReady state variable is declared in the shell", () => {
+    expect(src).toContain("rendererReady");
+    expect(src).toContain("setRendererReady");
   });
 
-  it("setEngineReady(true) is called when engine starts", () => {
-    expect(src).toContain("setEngineReady(true)");
+  it("onReadyChange(true) is called when the renderer's engine starts", () => {
+    expect(canvasSrc).toContain("onReadyChange(true)");
   });
 
-  it("engineReady is included in scope-effect dependency array", () => {
-    // The scope effect deps array must include engineReady for deep-link fix
-    expect(src).toContain("engineReady");
+  it("rendererReady is included in scope-effect dependency array", () => {
+    // The scope effect deps array must include rendererReady for the deep-link fix
+    expect(src).toContain("rendererReady");
     // The comment explains the fix
     expect(src).toContain("S7 fix");
   });
@@ -513,8 +529,9 @@ describe("campsite-scene.tsx — CAM-159 AC6: setScope non-blank fix", () => {
 
   it("scope effect falls back to all-scope when epicRoles is empty", () => {
     // The CAM-159 fix: roles.length > 0 guard before setting epic scope
+    // CAM-372 (S1b): engine.setScope(...) → rendererRef.current?.setScope(...) (renderer-agnostic).
     expect(src).toContain("roles.length > 0");
-    expect(src).toContain('engine.setScope("all", [])');
+    expect(src).toContain('rendererRef.current?.setScope("all", [])');
   });
 
   it("CAM-159 Epic bug fix comment is present", () => {
@@ -569,7 +586,8 @@ describe("campsite-scene.tsx — CAM-159: ViewToggle integrated top-center", () 
 // ============================================================
 
 describe("campsite-scene.tsx — CAM-162: responsive srcset background", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): the .map-bg <img> moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("uses forest-1920.webp as the fallback src (not campsite-forest.webp)", () => {
     expect(src).toContain('src="/status-map/forest-1920.webp"');
@@ -639,7 +657,9 @@ describe("app/status/map/campsite-engine.ts — CAM-163: ScoutState.homeX/homeY"
 
 // ---------- CAM-163: scene builds scouts at layout home from first frame -----
 describe("app/status/map/campsite-scene.tsx — CAM-163: idle placement on mount", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): the mount effect (buildScoutState/startLoop/stopLoop) moved to
+  // the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("determines initial layout BEFORE building scoutRefs (no compass-detour on load)", () => {
     // Scene reads arMqEarly and initialLayout before calling buildScoutState.
@@ -710,7 +730,9 @@ describe("app/status/map/scene-loader.tsx — CAM-164: debugGrid prop forwarded"
 });
 
 describe("app/status/map/campsite-scene.tsx — CAM-164: debug grid component", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): DebugGrid + the debugGrid conditional render moved to the
+  // 2D renderer campsite-canvas.tsx (which also declares its own debugGrid prop).
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("DebugGrid component is defined", () => {
     expect(src).toContain("function DebugGrid");
@@ -735,7 +757,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: debug grid component", 
 
 // ---------- CAM-164: portrait fix — lazy state initializer -------------------
 describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): layoutKey state + currentLayout pre-seed moved to campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("layoutKey useState uses a lazy initializer (not a hardcoded 'wide' literal)", () => {
     // The lazy initializer reads matchMedia on first client render so portrait
@@ -756,7 +779,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-164: portrait centering fix"
 
 // ---------- CAM-164: rebalanced layout coordinates ---------------------------
 describe("app/status/map/campsite-scene.tsx — CAM-164: rebalanced layout coords", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): LAYOUT_NARROW/--scout-size/?grid=1 comment moved to campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("YOU_POS_WIDE is set to {x:38, y:31} (upper-left of clearing)", () => {
     expect(src).toContain("YOU_POS_WIDE = { x: 38, y: 31 }");
@@ -811,7 +835,9 @@ describe("app/status/map/campsite-assets.ts — CAM-165: no conflicting .map-wra
 
 // ---------- CAM-165 Fix 1: scene .map-wrap is position:fixed (only rule now) ---
 describe("app/status/map/campsite-scene.tsx — CAM-165: .map-wrap is position:fixed", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): the .map-wrap CSS rule (SCENE_CSS) moved to campsite-canvas.tsx.
+  // The .map-wrap JSX element itself still renders in the shell (StatusMapShell).
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it(".map-wrap CSS is position:fixed;inset:0 (the single authoritative rule)", () => {
     expect(src).toContain(".map-wrap{");
@@ -823,7 +849,8 @@ describe("app/status/map/campsite-scene.tsx — CAM-165: .map-wrap is position:f
 // CAM-166: all 7 role agents placed in a clean ring on the central dirt clearing
 // around the campfire (~50,52). Furniture is backdrop only, not occupied.
 describe("app/status/map/campsite-scene.tsx — CAM-166: LAYOUT_WIDE clearing-ring coords", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): LAYOUT_WIDE moved to campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("Architect placed at {x:50.1, y:38.2} (ring — top-centre of clearing)", () => {
     expect(src).toContain('{ x: 50.1, y: 38.2 }');
@@ -942,17 +969,21 @@ describe("lib/status-map-model.ts — CAM-176: payloadChanged pure helper", () =
   });
 });
 
-describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source", () => {
-  const src = readFileSync(resolve(__dirname, "../app/status/map/campsite-scene.tsx"), "utf8");
+// CAM-372 (S1a): the reconcile guard (payloadChanged/lastPayloadRef/fetch/SSE) was
+// extracted verbatim from campsite-scene.tsx into app/status/map/use-map-reconcile.ts
+// (behavior-preserving). These assertions now read the hook's source.
+describe("app/status/map/use-map-reconcile.ts — CAM-176: guard wired in source", () => {
+  const src = readFileSync(resolve(__dirname, "../app/status/map/use-map-reconcile.ts"), "utf8");
 
   it("imports payloadChanged from @/lib/status-map-model", () => {
     expect(src).toContain("payloadChanged");
     expect(src).toContain("status-map-model");
   });
 
-  it("declares lastPayloadRef with useRef and JSON.stringify(model) initializer", () => {
+  it("declares lastPayloadRef with useRef and JSON.stringify(initialModel) initializer", () => {
+    // CAM-372: the hook's param is `initialModel` (was the `model` prop in campsite-scene.tsx).
     expect(src).toContain("lastPayloadRef");
-    expect(src).toContain("JSON.stringify(model)");
+    expect(src).toContain("JSON.stringify(initialModel)");
   });
 
   it("reconcile reads response as text (res.text()) not res.json()", () => {
@@ -975,8 +1006,11 @@ describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source",
   it("FALLBACK_MS is still 15_000 (CAM-175 freshness preserved)", () => {
     expect(src).toContain("FALLBACK_MS = 15_000");
   });
+});
 
-  // CAM-176 layer 2: activity-keyed wander/rest effect
+describe("app/status/map/campsite-scene.tsx — CAM-176 layer 2: activity-keyed wander/rest effect", () => {
+  const src = readFileSync(resolve(__dirname, "../app/status/map/campsite-scene.tsx"), "utf8");
+
   it("derives activeKey via useMemo keyed on agents (role:active:activeCount per agent)", () => {
     expect(src).toContain("activeKey");
     expect(src).toContain("a.active ? 1 : 0");
@@ -985,7 +1019,12 @@ describe("app/status/map/campsite-scene.tsx — CAM-176: guard wired in source",
 
   it("wander/rest effect dep array uses activeKey, not agents", () => {
     // Confirm the effect dep is the stable string, not the raw agents array ref.
-    expect(src).toContain("[engineReady, activeKey]");
+    // CAM-372 (S1b): engineReady renamed to rendererReady (renderer-agnostic bridge).
+    // CAM-372 (S1c fix): rendererReady replaced by readySeq in this dep array — a
+    // monotonic nonce bumped only on ready(true), so a same-commit renderer swap
+    // (old ready(false) + new ready(true) batched in one flush) still re-fires this
+    // effect even though the plain rendererReady boolean can net unchanged.
+    expect(src).toContain("[readySeq, activeKey]");
   });
 
   it("wander/rest effect still reads agents array inside the effect body", () => {
@@ -1184,60 +1223,64 @@ describe("app/status/map/campsite-assets.ts — CAM-198: progress bar CSS", () =
 
 describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): LAYOUT_NARROW/LAYOUT_WIDE/YOU_POS_*/the matchMedia layout trigger/
+  // SCENE_CSS responsive blocks all moved to the 2D renderer campsite-canvas.tsx.
+  // Edge-tab/toolbar/sheet JSX (HUD chrome) stays in the shell — read via `src` above.
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
   // ── LAYOUT_NARROW is a genuine portrait oval (not an alias) ─────────────────
   it("LAYOUT_NARROW exports a real portrait oval with 7 role entries", () => {
-    expect(src).toContain("export const LAYOUT_NARROW: Record<string, { x: number; y: number }>");
+    expect(canvasSrc).toContain("export const LAYOUT_NARROW: Record<string, { x: number; y: number }>");
     // All 7 roles must be present
-    expect(src).toContain('"architect"');
-    expect(src).toContain('"ux-designer"');
-    expect(src).toContain('"backend-engineer"');
-    expect(src).toContain('"frontend-engineer"');
-    expect(src).toContain('"devops-release"');
-    expect(src).toContain('"qa-engineer"');
-    expect(src).toContain('"security-reviewer"');
+    expect(canvasSrc).toContain('"architect"');
+    expect(canvasSrc).toContain('"ux-designer"');
+    expect(canvasSrc).toContain('"backend-engineer"');
+    expect(canvasSrc).toContain('"frontend-engineer"');
+    expect(canvasSrc).toContain('"devops-release"');
+    expect(canvasSrc).toContain('"qa-engineer"');
+    expect(canvasSrc).toContain('"security-reviewer"');
   });
 
   it("LAYOUT_NARROW uses portrait-optimised coords — architect at top (y: 31.0)", () => {
     // The Design Brief places architect at top (y=31) in narrow mode
-    expect(src).toContain('"architect":          { x: 50.0, y: 31.0 }');
+    expect(canvasSrc).toContain('"architect":          { x: 50.0, y: 31.0 }');
   });
 
   it("LAYOUT_NARROW is NOT the same reference as LAYOUT_WIDE", () => {
     // After SMUX-2, they must differ — no LAYOUT_NARROW = LAYOUT_WIDE alias
-    expect(src).not.toContain("LAYOUT_NARROW = LAYOUT_WIDE");
+    expect(canvasSrc).not.toContain("LAYOUT_NARROW = LAYOUT_WIDE");
   });
 
   it("YOU_POS_NARROW is { x: 38, y: 27 } (portrait upper-left, Design Brief §Narrow Ring)", () => {
-    expect(src).toContain("YOU_POS_NARROW = { x: 38, y: 27 }");
+    expect(canvasSrc).toContain("YOU_POS_NARROW = { x: 38, y: 27 }");
   });
 
   // ── matchMedia trigger uses width, not aspect-ratio ─────────────────────────
   it("matchMedia trigger uses min-width: 640px (not min-aspect-ratio) for LAYOUT_NARROW", () => {
     // SMUX-2: phone in landscape should still use NARROW → trigger on width, not aspect
-    expect(src).toContain('matchMedia("(min-width: 640px)")');
+    expect(canvasSrc).toContain('matchMedia("(min-width: 640px)")');
   });
 
   it("does NOT use (min-aspect-ratio: 7/5) as the layout trigger any more", () => {
-    expect(src).not.toContain("min-aspect-ratio: 7/5");
+    expect(canvasSrc).not.toContain("min-aspect-ratio: 7/5");
   });
 
   // ── Responsive CSS blocks ────────────────────────────────────────────────────
   it("SCENE_CSS contains a tablet @media (max-width: 1023px) block hiding side panels", () => {
-    expect(src).toContain("@media (max-width: 1023px)");
-    expect(src).toContain(".hud-left-panels{display:none}");
-    expect(src).toContain(".hud-right-panels{display:none}");
+    expect(canvasSrc).toContain("@media (max-width: 1023px)");
+    expect(canvasSrc).toContain(".hud-left-panels{display:none}");
+    expect(canvasSrc).toContain(".hud-right-panels{display:none}");
   });
 
   it("SCENE_CSS contains a mobile @media (max-width: 639px) block with .hud-map-toolbar", () => {
-    expect(src).toContain("@media (max-width: 639px)");
-    expect(src).toContain(".hud-map-toolbar{");
+    expect(canvasSrc).toContain("@media (max-width: 639px)");
+    expect(canvasSrc).toContain(".hud-map-toolbar{");
   });
 
   it("desktop @media (min-width: 1024px) hides edge tabs and mobile toolbar", () => {
-    expect(src).toContain("@media (min-width: 1024px)");
-    expect(src).toContain(".hud-edge-tab{display:none}");
-    expect(src).toContain(".hud-map-toolbar{display:none}");
+    expect(canvasSrc).toContain("@media (min-width: 1024px)");
+    expect(canvasSrc).toContain(".hud-edge-tab{display:none}");
+    expect(canvasSrc).toContain(".hud-map-toolbar{display:none}");
   });
 
   // ── Edge drawer tabs (tablet) ────────────────────────────────────────────────
@@ -1356,8 +1399,8 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
   // ── Desktop unchanged guard ──────────────────────────────────────────────────
   it("LAYOUT_WIDE is unchanged (desktop guard — 7 roles, campfire-ring coords)", () => {
     // Spot-check desktop ring positions
-    expect(src).toContain('"architect":          { x: 50.1, y: 38.2 }');
-    expect(src).toContain('"frontend-engineer":  { x: 49.8, y: 75.8 }');
+    expect(canvasSrc).toContain('"architect":          { x: 50.1, y: 38.2 }');
+    expect(canvasSrc).toContain('"frontend-engineer":  { x: 49.8, y: 75.8 }');
   });
 
   it("desktop hud-left-panels and hud-right-panels classes are still rendered", () => {
@@ -1372,8 +1415,9 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
 // ============================================================
 
 // ---------- SMUX-3: MapAgent.task widened with epicKey + feature ─────────────
-describe("campsite-scene.tsx — SMUX-3: MapAgent.task carries epicKey + feature", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+// CAM-372 (S1a): MapAgent moved verbatim to map-types.ts (behavior-preserving extract).
+describe("map-types.ts — SMUX-3: MapAgent.task carries epicKey + feature", () => {
+  const src = read("../app/status/map/map-types.ts");
 
   it("MapAgent.task type includes epicKey field (for Map→Board/Filter sync)", () => {
     expect(src).toContain("epicKey: string");
@@ -1423,10 +1467,18 @@ describe("campsite-scene.tsx — SMUX-3: focusedTaskId sync state", () => {
 // ---------- SMUX-3: Map → Board/Filter direction (agent click) ───────────────
 describe("campsite-scene.tsx — SMUX-3: Map→Board/Filter — agent click handler", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): the shell no longer wires onActivate directly on AgentScout (that
+  // JSX moved to the 2D renderer); it passes handleAgentActivate down as the
+  // onAgentActivate prop, and campsite-canvas.tsx wires onActivate to call it per agent.
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
-  it("handleAgentActivate is declared and wired to AgentScout onActivate", () => {
+  it("handleAgentActivate is declared and wired to CampsiteCanvas via onAgentActivate", () => {
+    // CAM-372 (S1c): both renderer branches spread a shared `sharedRendererProps`
+    // object (built once so the 2D/3D branches cannot drift) rather than repeating
+    // JSX attrs per branch — assert the object wires the handler, not literal JSX.
     expect(src).toContain("handleAgentActivate");
-    expect(src).toContain("onActivate={() => handleAgentActivate(agent)");
+    expect(src).toContain("onAgentActivate: handleAgentActivate,");
+    expect(canvasSrc).toContain("onActivate={() => onAgentActivate(agent)}");
   });
 
   it("agent without task falls back to roster open (original behavior preserved)", () => {
@@ -1467,7 +1519,9 @@ describe("campsite-scene.tsx — SMUX-3: Board/Filter→Map — board card activ
 
 // ---------- SMUX-3: agent focus ring (CSS + className) ───────────────────────
 describe("campsite-scene.tsx — SMUX-3: agent focus ring", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): .scout--focused CSS + AgentScout/AgentScoutProps moved to
+  // the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("SCENE_CSS includes .scout--focused CSS rule with teal ring", () => {
     expect(src).toContain(".scout--focused");
@@ -1503,7 +1557,8 @@ describe("campsite-scene.tsx — SMUX-3: agent focus ring", () => {
 
 // ---------- SMUX-3: Filter→Map — isFocused derivation for all matching agents ─
 describe("campsite-scene.tsx — SMUX-3: Filter→Map — epic filter highlights matching agents", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): the isFocused derivation moved to the 2D renderer campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("isFocused logic checks agent.task?.id === focusedTaskId (specific card path)", () => {
     expect(src).toContain("agent.task?.id === focusedTaskId");
@@ -1570,7 +1625,8 @@ describe("campsite-scene.tsx — SMUX-3: filter reset clears focusedTaskId", () 
 
 // ---------- Fix 1: right edge-tab border-radius mirrors left (inner-rounded) ---
 describe("campsite-scene.tsx — CAM-254 Fix 1: right edge-tab border-radius", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): .hud-edge-tab CSS (SCENE_CSS) moved to campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("right edge-tab uses border-radius:0 6px 6px 0 (rounds inner/map-facing edge after rotate(180deg))", () => {
     // After rotate(180deg), the top-right and bottom-right corners (6px) visually become
@@ -1597,7 +1653,8 @@ describe("campsite-scene.tsx — CAM-254 Fix 1: right edge-tab border-radius", (
 
 // ---------- Fix 2: mobile (<640) desktop signposts hidden, compact filter visible ---
 describe("campsite-scene.tsx — CAM-254 Fix 2: mobile header overlap", () => {
-  const src = read("../app/status/map/campsite-scene.tsx");
+  // CAM-372 (S1b): .hud-signposts-desktop hide rules (SCENE_CSS) moved to campsite-canvas.tsx.
+  const src = read("../app/status/map/campsite-canvas.tsx");
 
   it("@media (max-width: 639px) hides .hud-signposts-desktop with !important to prevent bleed", () => {
     // !important ensures the rule beats any broader selector that might show it.
@@ -1679,6 +1736,9 @@ describe("campsite-scene.tsx — CAM-254 Fix 3: single close button per Sheet", 
 describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
+  // CAM-372 (S1b): the desktop/mobile hide rules for .hud-topbar-icons/.hud-env-toggle
+  // (SCENE_CSS) moved to the 2D renderer campsite-canvas.tsx.
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
   // AC-1: Icon button class exists with 44x44 sizing
   it("HUD_CSS defines .hud-icon-btn with 44px width and height for tap target", () => {
@@ -1703,16 +1763,16 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
 
   // AC-1: Icon buttons container hidden on desktop ≥1024 via CSS
   it("SCENE_CSS hides .hud-topbar-icons on desktop (min-width:1024px) with display:none", () => {
-    expect(scene).toContain("hud-topbar-icons");
+    expect(canvasSrc).toContain("hud-topbar-icons");
     // The min-width 1024 block should hide them
-    const minBlock = scene.slice(scene.lastIndexOf("@media (min-width: 1024px)"));
+    const minBlock = canvasSrc.slice(canvasSrc.lastIndexOf("@media (min-width: 1024px)"));
     expect(minBlock).toContain("hud-topbar-icons");
     expect(minBlock).toContain("display:none");
   });
 
   // AC-1: Original full-text env toggle hidden at <1024 via CSS
   it("SCENE_CSS hides .hud-env-toggle on mobile/tablet (<1024px)", () => {
-    const maxBlock = scene.slice(scene.indexOf("@media (max-width: 1023px)"), scene.indexOf("@media (max-width: 639px)"));
+    const maxBlock = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 1023px)"), canvasSrc.indexOf("@media (max-width: 639px)"));
     expect(maxBlock).toContain("hud-env-toggle");
     expect(maxBlock).toContain("display:none");
   });
@@ -1735,6 +1795,9 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
 describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass, icon-only, parity)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
+  // CAM-372 (S1b): .hud-toolbar-btn + the ≤420px/≤380px media blocks (SCENE_CSS)
+  // moved to the 2D renderer campsite-canvas.tsx.
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
   // Fix 1: ทีม button renders exactly ONE icon + its label is "ทีม" (no ≡ glyph)
   it("the ทีม toolbar button label is 'ทีม' with no ≡ hamburger glyph (single icon)", () => {
@@ -1757,7 +1820,7 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
 
   // Fix 2: .hud-toolbar-btn uses the dark-green HUD glass (not the white tint)
   it(".hud-toolbar-btn uses the dark-green glass tokens, not rgba(255,255,255,.07)", () => {
-    const block = scene.slice(scene.indexOf(".hud-toolbar-btn{"));
+    const block = canvasSrc.slice(canvasSrc.indexOf(".hud-toolbar-btn{"));
     const decl = block.slice(0, 400);
     // the established glass language (matches .hud-signpost / .hud-view-toggle)
     expect(decl).toContain("background:rgba(11,30,24,.50)");
@@ -1768,24 +1831,24 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
   });
 
   it(".hud-toolbar-btn keeps min-height:44px and the teal aria-expanded active state", () => {
-    const block = scene.slice(scene.indexOf(".hud-toolbar-btn{"));
+    const block = canvasSrc.slice(canvasSrc.indexOf(".hud-toolbar-btn{"));
     expect(block.slice(0, 500)).toContain("min-height:44px");
-    expect(scene).toContain('.hud-toolbar-btn[aria-expanded="true"]{');
-    const active = scene.slice(scene.indexOf('.hud-toolbar-btn[aria-expanded="true"]{'));
+    expect(canvasSrc).toContain('.hud-toolbar-btn[aria-expanded="true"]{');
+    const active = canvasSrc.slice(canvasSrc.indexOf('.hud-toolbar-btn[aria-expanded="true"]{'));
     expect(active.slice(0, 160)).toContain("#5BE9B0");
   });
 
   // Fix 3 (CAM-260): icon-only at ≤420px — labels hidden, hit area preserved; gap tightens at ≤380px
   it("at max-width:420px the toolbar button labels are hidden (CAM-260: was 380px, now 420px)", () => {
     // CAM-260: icon-only threshold raised from ≤380px to ≤420px
-    expect(scene).toContain("@media (max-width: 420px){");
-    const block = scene.slice(scene.indexOf("@media (max-width: 420px){"));
+    expect(canvasSrc).toContain("@media (max-width: 420px){");
+    const block = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 420px){"));
     expect(block.slice(0, 360)).toContain(".hud-toolbar-btn-label{display:none}");
     // ≥44px hit area kept (square icon button)
     expect(block.slice(0, 360)).toContain("width:44px");
     // gap tightens at ≤380px (separate rule)
-    expect(scene).toContain("@media (max-width: 380px){");
-    const gapBlock = scene.slice(scene.indexOf("@media (max-width: 380px){"));
+    expect(canvasSrc).toContain("@media (max-width: 380px){");
+    const gapBlock = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 380px){"));
     expect(gapBlock.slice(0, 120)).toContain("gap:6px");
   });
 
@@ -1965,12 +2028,15 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
 describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
+  // CAM-372 (S1b): the @media (max-width: 639px) .hud-map-toolbar rule (SCENE_CSS)
+  // moved to the 2D renderer campsite-canvas.tsx.
+  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
 
   // AC-3: toolbar background is transparent (not rgba(...) fill)
   it("SCENE_CSS makes .hud-map-toolbar transparent (no background fill) on <640px", () => {
-    const mobileBlock = scene.slice(
-      scene.indexOf("@media (max-width: 639px)"),
-      scene.indexOf("@media (max-width: 639px)") + 1200
+    const mobileBlock = canvasSrc.slice(
+      canvasSrc.indexOf("@media (max-width: 639px)"),
+      canvasSrc.indexOf("@media (max-width: 639px)") + 1200
     );
     expect(mobileBlock).toContain("hud-map-toolbar");
     expect(mobileBlock).toContain("background:transparent");
@@ -1979,9 +2045,9 @@ describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", 
 
   // AC-3: no backdrop-filter on toolbar on mobile
   it("SCENE_CSS removes backdrop-filter from .hud-map-toolbar on mobile", () => {
-    const mobileBlock = scene.slice(
-      scene.indexOf("@media (max-width: 639px)"),
-      scene.indexOf("@media (max-width: 639px)") + 1200
+    const mobileBlock = canvasSrc.slice(
+      canvasSrc.indexOf("@media (max-width: 639px)"),
+      canvasSrc.indexOf("@media (max-width: 639px)") + 1200
     );
     expect(mobileBlock).toContain("backdrop-filter:none");
   });
@@ -2136,7 +2202,7 @@ describe("SMUX-6 — desktop unchanged (≥1024px)", () => {
 //   C. single horizontal row + no overlap with the filter row / toolbar
 // ────────────────────────────────────────────────────────────────────────────
 
-import type { MapEpicItem } from "@/app/status/map/campsite-scene";
+import type { MapEpicItem } from "@/app/status/map/map-types";
 import { deriveCapsuleStats } from "@/lib/status-map-model";
 
 // Minimal MapEpicItem fixture builder for capsule-stats derivation tests.
