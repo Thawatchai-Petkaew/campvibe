@@ -228,6 +228,27 @@ function loadGltf(loader: GLTFLoader, url: string): Promise<THREE.Group> {
   });
 }
 
+// Ported from the prototype's disposeObject3D/disposeMaterial — duck-typed
+// (not isMesh-gated) so Points/Sprite geometries+materials (e.g. the
+// starfield) are freed too, not just Mesh instances. Shared by the main
+// cleanup (disposes the whole scene) and the late-resolved-GLB guard below
+// (disposes a single loaded root that arrived after unmount).
+function disposeObject3DTree(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const o = obj as THREE.Object3D & { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] };
+    o.geometry?.dispose();
+    if (o.material) {
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      materials.forEach((m) => {
+        Object.values(m).forEach((value) => {
+          if (value instanceof THREE.Texture) value.dispose();
+        });
+        m.dispose();
+      });
+    }
+  });
+}
+
 // ── Static room shell: platform base + floor + two walls (ported from the
 // prototype's L-room Shape/ExtrudeGeometry — only the fully-open corner is
 // rounded, matching the room's one open side). ─────────────────────────────
@@ -338,7 +359,23 @@ function Canvas3DInner(
     let disposed = false;
     let rafId = 0;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    // canCreateWebGL() above is a point-in-time probe on a THROWAWAY canvas — it
+    // does not guarantee the REAL renderer construction (on the actual canvas
+    // ref, a moment later) also succeeds. Context creation can still fail here
+    // (GPU driver hiccup, a rapid mount/unmount/remount racing the GPU process —
+    // observed in practice under React's dev Strict-Mode double-invoke). Without
+    // this try/catch, that throw is uncaught inside a synchronous effect body
+    // and crashes the whole tree to the nearest error boundary instead of
+    // degrading to the same "unavailable" state the pre-flight probe guards.
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    } catch (err) {
+      console.warn("Canvas3D: WebGL context creation failed at runtime", err);
+      setStatus("unavailable");
+      onReadyChange(true);
+      return () => onReadyChange(false);
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -414,6 +451,11 @@ function Canvas3DInner(
       if (document.hidden) {
         stopLoop();
       } else if (!motionMq.matches) {
+        // stopLoop() first: `loop()` is otherwise the one unguarded caller — without
+        // this, a tab hidden→visible flip can schedule a second rAF chain the
+        // `rafId` variable doesn't track (it gets overwritten), so it's never
+        // cancelled by cleanup and can render on a disposed renderer post-unmount.
+        stopLoop();
         loop();
       }
     }
@@ -438,7 +480,12 @@ function Canvas3DInner(
           }),
         ),
       );
-      if (disposed) return;
+      if (disposed) {
+        // Unmounted while these were in flight — transient (GC'd regardless),
+        // but cheap to dispose explicitly rather than leave it to GC timing.
+        characterScenes.forEach(disposeObject3DTree);
+        return;
+      }
       WORKFLOW.forEach((station, i) => {
         const pivot = new THREE.Group();
         pivot.position.copy(station.workSpot);
@@ -461,7 +508,10 @@ function Canvas3DInner(
           }),
         ),
       );
-      if (disposed) return;
+      if (disposed) {
+        propScenes.forEach(disposeObject3DTree);
+        return;
+      }
       ROOM_PROPS.forEach((item, i) => {
         const group = new THREE.Group();
         group.position.copy(item.position);
@@ -496,23 +546,16 @@ function Canvas3DInner(
       motionMq.removeEventListener("change", onMotionChange);
       controls.removeEventListener("change", onControlsChange);
       controls.dispose();
-      // Ported from the prototype's disposeObject3D/disposeMaterial — duck-typed
-      // (not isMesh-gated) so Points/Sprite geometries+materials (e.g. the
-      // starfield) are freed too, not just Mesh instances.
-      scene.traverse((obj) => {
-        const o = obj as THREE.Object3D & { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] };
-        o.geometry?.dispose();
-        if (o.material) {
-          const materials = Array.isArray(o.material) ? o.material : [o.material];
-          materials.forEach((m) => {
-            Object.values(m).forEach((value) => {
-              if (value instanceof THREE.Texture) value.dispose();
-            });
-            m.dispose();
-          });
-        }
-      });
+      disposeObject3DTree(scene);
       renderer.renderLists.dispose();
+      // forceContextLoss() BEFORE dispose(): dispose() alone frees three's own
+      // buffers/programs but leaves the underlying WebGL context to be reclaimed
+      // by GC non-deterministically. Each 2D<->3D toggle mounts a fresh renderer
+      // (a fresh context), so without this, repeated toggling can accumulate live
+      // contexts up to the browser's cap (Chromium: ~16) and the scene goes black
+      // ("Too many active WebGL contexts"). forceContextLoss() releases the GPU
+      // context immediately and deterministically on unmount.
+      renderer.forceContextLoss();
       renderer.dispose();
       onReadyChange(false);
       // canvasRef's <canvas> is a JSX-rendered element — React removes it from
