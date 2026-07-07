@@ -65,6 +65,21 @@
 // already covered by the shell's overlay Status Board, so this click is an
 // enhancement, not the only path.
 //
+// S6 scope (CAM-378, production hardening): decides ONCE at mount (never
+// per-frame — same convention as canCreateWebGL/prefers-reduced-motion below)
+// whether to load the default asset tier (/status-3d/, ~27MB total, textures@
+// 1024) or the mobile/low-end LOD tier S2a already shipped alongside it
+// (/status-3d/lod/, ~8.5MB total, textures@512 + simplified geometry, IDENTICAL
+// filenames — see preferLowLod()). The predicate opts into the lighter tier on
+// a narrow/touch viewport OR a device self-reporting <=4GB RAM; pixelRatio is
+// also capped more aggressively (1.5 vs 2) and the decorative starfield is
+// skipped on that same path. This closes the seam S2b's ASSET_BASE comment
+// left open. Also in scope: an a11y pass (confirmed — no code gap found: the
+// scene's role="img"+live label, the WebGL-unavailable text fallback, and
+// reduced-motion were already correct from S2b-S5; the canvas was already
+// out of tab order with no keyboard trap) and this file's own design-gate
+// self-check (see the PR description for the 8-states result).
+//
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
 // /status-3d/ was optimized with ZERO runtime WASM decoder (quantize + webp
@@ -100,9 +115,48 @@ const COPY = {
 } as const;
 
 // S2a-optimized assets: quantize + webp, no meshopt/Draco/KTX2 (verified WASM-free).
-// S6 seam: swap this to "/status-3d/lod/" for a low-power/mobile device tier once
-// device detection is wired — not part of S2b's static-scene scope (dispatch note).
 const ASSET_BASE = "/status-3d/";
+// S6 (CAM-378): the mobile/low-end LOD tier S2a shipped alongside the default —
+// IDENTICAL filenames, only the base path differs (512px textures + simplified
+// geometry, ~8.5MB total vs. the default tier's ~27MB). Selected once at mount
+// by preferLowLod() below, never re-evaluated per frame or on resize.
+const ASSET_BASE_LOD = "/status-3d/lod/";
+
+// Non-standard but widely supported on Chromium/Android (absent on iOS/Safari/
+// Firefox — the `typeof ... === "number"` check below reads as `undefined`
+// there, never throws, and an unsupported browser simply skips this signal
+// rather than being treated as low-end by default).
+interface NavigatorWithMemory extends Navigator {
+  deviceMemory?: number;
+}
+
+// S6 (CAM-378): the mobile/low-end LOD predicate — decided ONCE at mount (see
+// the file-header S6 note), mirroring canCreateWebGL()'s call convention
+// (throwaway matchMedia/navigator reads, never touched again after mount).
+// Opts into the lighter tier when ANY of:
+//   - a narrow viewport (<=768px) — phones and portrait tablets;
+//   - a coarse pointer (touch) — a touch-primary device regardless of its
+//     reported viewport width (e.g. a large tablet in landscape);
+//   - the device self-reports <=4GB RAM (navigator.deviceMemory). Absence of
+//     the signal (older/incompatible browsers) is NOT treated as low-end —
+//     only an explicit low value opts in; a browser this predicate can't read
+//     falls open to the default (higher-fidelity) tier.
+// Safe to call from the mount effect only (this module is ssr:false via
+// scene-loader.tsx, so `window`/`navigator` always exist here) — never called
+// per-frame. Exported (named, per code.md's util convention) so its predicate
+// logic gets a real behavioral unit test instead of a source-grep guard.
+export function preferLowLod(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const narrowViewport = window.matchMedia("(max-width: 768px)").matches;
+    const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    const nav = navigator as NavigatorWithMemory;
+    const lowMemory = typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4;
+    return narrowViewport || coarsePointer || lowMemory;
+  } catch {
+    return false; // fail open to the default tier — never block the scene from loading
+  }
+}
 
 // ── Room geometry constants (ported from the prototype's L-room layout) ─────
 const WALL_OUTER = -8.5;
@@ -802,6 +856,12 @@ function Canvas3DInner(
     let disposed = false;
     let rafId = 0;
 
+    // S6 (CAM-378): decided ONCE here at mount — see preferLowLod()'s doc comment.
+    // `assetBase` feeds loadAssets() below; `lowLod` also gates the pixelRatio cap
+    // and the decorative starfield just below.
+    const lowLod = preferLowLod();
+    const assetBase = lowLod ? ASSET_BASE_LOD : ASSET_BASE;
+
     // canCreateWebGL() above is a point-in-time probe on a THROWAWAY canvas — it
     // does not guarantee the REAL renderer construction (on the actual canvas
     // ref, a moment later) also succeeds. Context creation can still fail here
@@ -819,7 +879,10 @@ function Canvas3DInner(
       onReadyChange(true);
       return () => onReadyChange(false);
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // S6 (CAM-378): a more aggressive pixelRatio cap on the low-LOD path (1.5 vs
+    // the default 2) — fewer fragment-shader invocations per frame, compounding
+    // with the lighter geometry/textures for the mobile/low-end tier.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowLod ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
@@ -858,7 +921,10 @@ function Canvas3DInner(
     }
 
     addLights(scene);
-    addStarfield(scene);
+    // S6 (CAM-378): the starfield is a pure decorative flourish (no state, no
+    // interaction) — skipped on the low-LOD path to cut one extra Points draw
+    // call + 450 vertices on mobile/low-end devices.
+    if (!lowLod) addStarfield(scene);
     buildRoom(scene);
 
     // CAM-375 (S3): live-activity state. `actors` is populated once assets load
@@ -872,8 +938,30 @@ function Canvas3DInner(
     const raycastPivots: THREE.Object3D[] = [];
     let reducedMotion = false; // set for real by applyMotionPreference() below
 
-    function render() {
-      controls.update();
+    // S6 (CAM-378 review fix): split the actor-motion + repaint step
+    // (`renderFrame`) from the OrbitControls update step (`render`, below).
+    // onControlsChange (further down) repaints via `renderFrame` ONLY — never
+    // `render` — because `render`'s `controls.update()` is exactly what is
+    // CURRENTLY dispatching the "change" event onControlsChange handles: on
+    // OrbitControls, dispatchEvent("change") fires synchronously from INSIDE
+    // update(), BEFORE it commits its own _lastPosition/_lastQuaternion/
+    // _lastTargetPosition bookkeeping (three's own change-detection state). A
+    // handler that calls `controls.update()` again at that point re-enters
+    // update() while that bookkeeping is still stale, so the re-entrant call
+    // detects "changed" too and redispatches "change" -- recursing with no
+    // base case (each nested call is un-done only when the OUTERMOST call
+    // finally commits, which never happens while a deeper call is still
+    // in-flight). Confirmed via a real Chromium repro: with prefers-reduced-
+    // motion: reduce, mounting the scene threw "RangeError: Maximum call stack
+    // size exceeded" from Vector3.copy inside OrbitControls.update() on EVERY
+    // mount, zero user interaction required (this bug reproduces identically
+    // on the pre-S6 code — the reduced-motion path is the only caller that
+    // ever re-renders directly from the "change" event, so the bug was latent
+    // and invisible until this story's a11y audit exercised that path for
+    // real). The camera is already fully updated by the in-flight `update()`
+    // call by the time "change" fires, so a plain repaint (no second
+    // `update()` call) is correct and sufficient here — see onControlsChange.
+    function renderFrame() {
       if (!reducedMotion) {
         const t = clock.getElapsedTime();
         actors.forEach((actor, i) => {
@@ -884,6 +972,10 @@ function Canvas3DInner(
         });
       }
       renderer.render(scene, camera);
+    }
+    function render() {
+      controls.update();
+      renderFrame();
     }
 
     // ── prefers-reduced-motion: continuous rAF loop vs on-demand render ──────
@@ -915,7 +1007,10 @@ function Canvas3DInner(
       }
     }
     function onControlsChange() {
-      if (motionMq.matches) render(); // on-demand repaint only when the continuous loop is off
+      // renderFrame (NOT render) — see the reentrancy note on renderFrame's
+      // declaration above; calling `render()` (which calls `controls.update()`
+      // again) here recurses into a stack overflow.
+      if (motionMq.matches) renderFrame(); // on-demand repaint only when the continuous loop is off
     }
     controls.addEventListener("change", onControlsChange);
     function onMotionChange(e: MediaQueryListEvent) {
@@ -1093,7 +1188,7 @@ function Canvas3DInner(
     async function loadAssets() {
       const characterScenes = await Promise.all(
         WORKFLOW.map((station) =>
-          loadGltf(loader, `${ASSET_BASE}${station.characterFile}`).catch((err) => {
+          loadGltf(loader, `${assetBase}${station.characterFile}`).catch((err) => {
             console.warn(`Canvas3D: character fallback for ${station.key}`, err);
             return createFallbackCharacter(ROLE_COLORS[station.key]);
           }),
@@ -1149,7 +1244,7 @@ function Canvas3DInner(
 
       const propScenes = await Promise.all(
         ROOM_PROPS.map((item) =>
-          loadGltf(loader, `${ASSET_BASE}${item.file}`).catch((err) => {
+          loadGltf(loader, `${assetBase}${item.file}`).catch((err) => {
             console.warn(`Canvas3D: prop fallback for ${item.name}`, err);
             return createFallbackProp(item.name);
           }),
