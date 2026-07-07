@@ -20,8 +20,11 @@ import { resolve } from "path";
 //   AC-8  No drift animation (transform must NOT appear in fireflyTwinkle)
 // ============================================================
 
+// CAM-372 (S1b): SCENE_CSS + the firefly-layer JSX moved verbatim from
+// campsite-scene.tsx (now the renderer-agnostic StatusMapShell) into the 2D
+// renderer campsite-canvas.tsx — read the new location.
 const src = readFileSync(
-  resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+  resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
   "utf8",
 );
 
@@ -33,7 +36,7 @@ const sceneCssEnd   = src.indexOf("// ── Sub-components");
 const sceneCss      = src.slice(sceneCssStart, sceneCssEnd);
 
 // ── Isolate JSX return (firefly layer markup) ────────────────────────────────
-const returnStart = src.indexOf('<div className="map-wrap"');
+const returnStart = src.indexOf('className="map-viewport"');
 const jsxReturn   = src.slice(returnStart);
 
 describe("CAM-181 — .firefly-layer CSS (AC-1, AC-3, AC-4, AC-8)", () => {

@@ -604,8 +604,10 @@ describe("CAM-253 SMUX-4 — payloadChanged: all edge cases", () => {
 //
 // We also parse the LAYOUT tables from source to enable numeric comparisons.
 
+// CAM-372 (S1b): LAYOUT_WIDE/LAYOUT_NARROW/YOU_POS_* moved verbatim from
+// campsite-scene.tsx (now StatusMapShell) into the 2D renderer campsite-canvas.tsx.
 const sceneSrc = readFileSync(
-  resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+  resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
   "utf8",
 );
 
@@ -706,8 +708,9 @@ describe("CAM-253 SMUX-4 — Responsive: LAYOUT_NARROW ≠ LAYOUT_WIDE (distinct
 // ============================================================
 
 describe("CAM-253 SMUX-4 — Responsive CSS: mobile <640px contracts", () => {
+  // CAM-372 (S1b): SCENE_CSS (incl. these responsive rules) moved to campsite-canvas.tsx.
   const src = readFileSync(
-    resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+    resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
     "utf8",
   );
 
@@ -753,8 +756,10 @@ describe("CAM-253 SMUX-4 — Responsive CSS: mobile <640px contracts", () => {
 // ============================================================
 
 describe("CAM-253 SMUX-4 — A11y: agent keyboard activation contract", () => {
+  // CAM-372 (S1b): AgentScoutInner/YouScout (button/testid/aria-label/tap-target)
+  // moved to the 2D renderer campsite-canvas.tsx.
   const src = readFileSync(
-    resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+    resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
     "utf8",
   );
 
@@ -810,6 +815,12 @@ describe("CAM-253 SMUX-4 — Sync: epicKey no matching board column (edge case c
     resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
     "utf8",
   );
+  // CAM-372 (S1b): the isFocused computation (agent.task?.epicKey/id checks) moved
+  // to the 2D renderer campsite-canvas.tsx (agents.map render, still reads shell props).
+  const canvasSrc = readFileSync(
+    resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
+    "utf8",
+  );
 
   it("[sync] agent with task opens board even when epicKey matches no board column (graceful fallback)", () => {
     // The handler sets setActiveEpic(agent.task.epicKey) regardless — the board
@@ -832,12 +843,12 @@ describe("CAM-253 SMUX-4 — Sync: epicKey no matching board column (edge case c
 
   it("[sync] isFocused checks agent.task?.epicKey === activeEpic (epic-level multi-agent highlight)", () => {
     // Selecting an epic highlights ALL agents working on that epic (epicKey match)
-    expect(src).toContain("agent.task?.epicKey === activeEpic");
+    expect(canvasSrc).toContain("agent.task?.epicKey === activeEpic");
   });
 
   it("[sync] isFocused also checks agent.task?.id === focusedTaskId (card-level single-agent highlight)", () => {
     // Clicking a board card focuses ONLY the single agent whose task.id matches
-    expect(src).toContain("agent.task?.id === focusedTaskId");
+    expect(canvasSrc).toContain("agent.task?.id === focusedTaskId");
   });
 
   it("[sync] handleBoardCardActivate sets focusedTaskId to the card's storyId", () => {
@@ -887,8 +898,9 @@ describe("CAM-253 SMUX-4 — Sync: board card a11y + focusable (source-inspectio
 // ============================================================
 
 describe("CAM-253 SMUX-4 — Reduced-motion: agent focus ring is static ring under reduce", () => {
+  // CAM-372 (S1b): .scout--focused::after (SCENE_CSS) moved to campsite-canvas.tsx.
   const src = readFileSync(
-    resolve(__dirname, "../app/status/map/campsite-scene.tsx"),
+    resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
     "utf8",
   );
 

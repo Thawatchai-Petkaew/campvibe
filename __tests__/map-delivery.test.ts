@@ -81,7 +81,7 @@ import {
   preSeed,
   type DeliveryItem,
 } from "@/lib/map-delivery";
-import type { MapEpicItem } from "@/app/status/map/campsite-scene";
+import type { MapEpicItem } from "@/app/status/map/map-types";
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
 

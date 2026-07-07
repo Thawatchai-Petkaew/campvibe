@@ -31,7 +31,9 @@ import { resolve } from "path";
 const root = resolve(__dirname, "..");
 const read = (rel: string) => readFileSync(resolve(root, rel), "utf8");
 
-const sceneSrc = read("app/status/map/campsite-scene.tsx");
+// CAM-372 (S1b): .you-alert (BellRing icon + CSS) lives in the 2D renderer
+// campsite-canvas.tsx now (extracted from campsite-scene.tsx, now StatusMapShell).
+const sceneSrc = read("app/status/map/campsite-canvas.tsx");
 const overlaySrc = read("app/status/map/campsite-overlays.tsx");
 
 // ── Part 1: Notification bubble (.you-alert) ─────────────────────────────────
