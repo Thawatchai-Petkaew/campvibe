@@ -847,6 +847,16 @@ function Canvas3DInner(
     }
     setSize();
 
+    // CAM-377 (S5, review fix): the canvas's bounding rect, cached instead of
+    // read via getBoundingClientRect() on every pointer event. Recomputed on
+    // resize (below) and once here at mount. The container is `position:
+    // absolute; inset: 0` inside a fixed-position ancestor (.map-wrap /
+    // .map-scene), so a page scroll never moves it — no scroll listener needed.
+    let canvasRect = canvas!.getBoundingClientRect();
+    function updateCanvasRect(): void {
+      canvasRect = canvas!.getBoundingClientRect();
+    }
+
     addLights(scene);
     addStarfield(scene);
     buildRoom(scene);
@@ -855,6 +865,11 @@ function Canvas3DInner(
     // (below); `clock` drives every character's motion timing.
     const clock = new THREE.Clock();
     const actors: CharacterActor[] = [];
+    // CAM-377 (S5, review fix): the raycaster's hit-test target list — every
+    // loaded actor's pivot, built ONCE right after `actors` is populated below
+    // (the actor set never changes after load). Read-only from then on; the
+    // raycaster never allocates a fresh `actors.map(...)` array per pointer event.
+    const raycastPivots: THREE.Object3D[] = [];
     let reducedMotion = false; // set for real by applyMotionPreference() below
 
     function render() {
@@ -927,6 +942,7 @@ function Canvas3DInner(
     // ── resize ───────────────────────────────────────────────────────────────
     function onResize() {
       setSize();
+      updateCanvasRect(); // CAM-377 (S5, review fix): keep the cached rect in sync
       if (motionMq.matches) render(); // no continuous loop to pick this up on its own
     }
     window.addEventListener("resize", onResize);
@@ -936,8 +952,17 @@ function Canvas3DInner(
     // onOpenFirstGate, unchanged contracts — see CampsiteCanvasProps). Mechanism
     // ported from atlas_web_demo/index.html's pointerdown raycaster (setFromCamera
     // + intersectObjects against the character models, walk up to the actor root).
-    // A single reused Raycaster/Vector2/scratch-intersections array — no per-move
-    // or per-tap allocation beyond what THREE.Raycaster itself needs internally.
+    // What's reused vs computed (review fix — the earlier comment here claimed
+    // zero allocation, which `actors.map(...)` per event contradicted): the
+    // Raycaster/Vector2/hitScratch array below are each a single instance reused
+    // every call; `raycastPivots` (declared with `actors` above) is the hit-test
+    // target list, built ONCE after load, never rebuilt per event; the canvas
+    // rect is cached (`canvasRect` above), not re-read per event; the tap
+    // (pointerdown/up) raycast stays immediate/unthrottled so clicks feel
+    // instant, while the hover (pointermove) raycast is throttled — see
+    // `onCanvasPointerMove` below — since a cursor swap needs no per-move
+    // precision and an unthrottled recursive raycast against 8 full-detail GLB
+    // hierarchies on every mousemove is an INP/jank risk on low-end devices.
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const hitScratch: THREE.Intersection[] = [];
@@ -945,9 +970,9 @@ function Canvas3DInner(
     function setPointerFromClientXY(clientX: number, clientY: number): void {
       // Canvas-relative (not window-relative, unlike the prototype) — this scene's
       // canvas fills its own container div, not necessarily the whole viewport.
-      const rect = canvas!.getBoundingClientRect();
-      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      // Uses the cached `canvasRect` (kept in sync by updateCanvasRect on resize).
+      pointer.x = ((clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
+      pointer.y = -((clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
     }
 
@@ -964,18 +989,14 @@ function Canvas3DInner(
       return null;
     }
 
-    // Raycasts against every loaded actor's pivot (recursive — hits the model mesh
-    // or the fake-shadow disc, both children of the pivot) and resolves the nearest
-    // hit back to its CharacterActor. Returns null before assets finish loading
-    // (actors.length === 0) or when the ray hits nothing.
+    // Raycasts against `raycastPivots` (recursive — hits the model mesh or the
+    // fake-shadow disc, both children of the pivot) and resolves the nearest hit
+    // back to its CharacterActor. Returns null before assets finish loading
+    // (raycastPivots.length === 0) or when the ray hits nothing.
     function pickActor(): CharacterActor | null {
-      if (actors.length === 0) return null;
+      if (raycastPivots.length === 0) return null;
       hitScratch.length = 0;
-      raycaster.intersectObjects(
-        actors.map((a) => a.pivot),
-        true,
-        hitScratch,
-      );
+      raycaster.intersectObjects(raycastPivots, true, hitScratch);
       return hitScratch.length > 0 ? actorForObject(hitScratch[0].object) : null;
     }
 
@@ -1004,17 +1025,26 @@ function Canvas3DInner(
     // is a camera drag and must NOT open a ticket. Neither handler calls
     // preventDefault/stopPropagation, so OrbitControls' own pointerdown/pointerup
     // listeners on this same canvas are completely unaffected.
+    // `movedBeyondTap` tracks the max path travelled at ANY point during the
+    // press, not just the net start->end displacement -- a looping camera-orbit
+    // drag that happens to end back within the threshold of where it started
+    // must still count as a drag, never a tap (checked on every pointermove
+    // while a button is held, below -- a cheap arithmetic check, no raycast).
     const TAP_MOVE_THRESHOLD_PX = 6;
     let pointerDownAt: { x: number; y: number } | null = null;
+    let movedBeyondTap = false;
 
     function onCanvasPointerDown(event: PointerEvent): void {
       if (event.button !== 0) { pointerDownAt = null; return; } // only the primary button/touch selects
       pointerDownAt = { x: event.clientX, y: event.clientY };
+      movedBeyondTap = false;
     }
     function onCanvasPointerUp(event: PointerEvent): void {
       const start = pointerDownAt;
+      const wasBeyondTap = movedBeyondTap;
       pointerDownAt = null;
-      if (!start || event.button !== 0) return;
+      movedBeyondTap = false;
+      if (!start || event.button !== 0 || wasBeyondTap) return; // dragged beyond threshold at some point -- not a tap
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
       if (Math.hypot(dx, dy) > TAP_MOVE_THRESHOLD_PX) return; // moved too far -- a camera drag, not a tap
@@ -1025,13 +1055,31 @@ function Canvas3DInner(
     // Hover affordance: a plain cursor swap, no visual/DOM change to the scene
     // itself. Skipped entirely while any button is held (`event.buttons !== 0`) so
     // it never fights OrbitControls mid-drag — orbiting the camera never raycasts.
+    // Throttled to ~12.5 Hz (review fix): a cursor swap needs no per-move
+    // precision, and an unthrottled recursive raycast against all 8 full-detail
+    // GLB character hierarchies on every mousemove is an INP/jank risk on
+    // low-end devices. The tap raycast (pointerdown/up above) stays unthrottled
+    // so a click still feels instant.
+    const HOVER_RAYCAST_THROTTLE_MS = 80;
+    let lastHoverRaycastAt = 0;
     function onCanvasPointerMove(event: PointerEvent): void {
-      if (event.buttons !== 0) return;
+      // Path-length tracking for the tap-vs-drag guard (cheap, no raycast) --
+      // runs regardless of the hover throttle below.
+      if (pointerDownAt && event.buttons !== 0 && !movedBeyondTap) {
+        const dx = event.clientX - pointerDownAt.x;
+        const dy = event.clientY - pointerDownAt.y;
+        if (Math.hypot(dx, dy) > TAP_MOVE_THRESHOLD_PX) movedBeyondTap = true;
+      }
+      if (event.buttons !== 0) return; // dragging (camera orbit) -- no hover raycast
+      const now = performance.now();
+      if (now - lastHoverRaycastAt < HOVER_RAYCAST_THROTTLE_MS) return;
+      lastHoverRaycastAt = now;
       setPointerFromClientXY(event.clientX, event.clientY);
       canvas!.style.cursor = pickActor() ? "pointer" : "default";
     }
     function onCanvasPointerLeave(): void {
       pointerDownAt = null;
+      movedBeyondTap = false;
       canvas!.style.cursor = "default";
     }
     canvas.addEventListener("pointerdown", onCanvasPointerDown);
@@ -1095,6 +1143,9 @@ function Canvas3DInner(
           light: roleLight,
         });
       });
+      // CAM-377 (S5, review fix): build the raycast target list exactly once,
+      // right after every actor exists — not per pointer event.
+      raycastPivots.push(...actors.map((a) => a.pivot));
 
       const propScenes = await Promise.all(
         ROOM_PROPS.map((item) =>
