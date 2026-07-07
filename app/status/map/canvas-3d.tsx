@@ -80,6 +80,33 @@
 // out of tab order with no keyboard trap) and this file's own design-gate
 // self-check (see the PR description for the 8-states result).
 //
+// S7 scope (CAM-379): a per-station WALL SCREEN at each of the 8 characters —
+// the "workflow board" the S2 prototype deferred (atlas_web_demo/index.html's
+// createWorkflowStations()/updateBoardDisplay(), gated behind its own
+// SHOW_WORKFLOW_BOARDS flag there, off by default). The MECHANISM is ported
+// (a dark-glass RoundedBoxGeometry backPlate + a front PlaneGeometry panel
+// carrying a THREE.CanvasTexture drawn from an offscreen 2D <canvas>); the
+// DRAWING is rewritten against this file's own live data (`agents`/`gates`,
+// already flowing in as plain props) instead of the prototype's static
+// workflow[] fixture. Board orientation is DERIVED, not hardcoded per wall:
+// `boardFacingY()` reuses the same station.pos -> station.workSpot geometry
+// the character's own facing already reads (see the `pivot.rotation.y =
+// Math.atan2(...)` assignment in loadAssets below) — verified to reproduce
+// the prototype's per-item `rotY` (0 for the 4 back-wall stations, PI/2 for
+// the 4 left-wall stations) for all 8 stations with one formula, no per-wall
+// branch. CSP-safe: a CanvasTexture built from a <canvas> you draw into is
+// uploaded to WebGL directly (no fetch/blob:/image load), so it never
+// touches the connect-src restriction the GLB webp textures needed (S2a).
+// Redraw discipline: `computeBoardsSignature(agents, gates)` is a cheap
+// string over exactly the fields the boards render (role/active/
+// activeCount/done/queued/task.id + gate count) — a `useEffect` keyed on
+// that STRING (not the `agents`/`gates` array references) redraws every
+// board's canvas + flips `texture.needsUpdate`; this mirrors the file's own
+// `gates.length`-keyed Atlas effect (S4) and the CAM-176 activeKey
+// discipline — a reconcile that changes an unrelated field (title text, url,
+// startedAt, ...) is a guaranteed no-op, and redraw NEVER happens inside the
+// rAF loop (renderFrame only re-renders the already-drawn texture).
+//
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
 // /status-3d/ was optimized with ZERO runtime WASM decoder (quantize + webp
@@ -108,6 +135,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import type { MapAgent, MapGate, RendererHandle } from "./map-types";
 import type { CampsiteCanvasProps } from "./campsite-canvas";
 import { MapProgress } from "./map-progress";
+import { ROLE_DISPLAY } from "./role-config";
 
 const COPY = {
   loading: "กำลังโหลดมุมมอง 3 มิติ…",
@@ -779,6 +807,220 @@ function addStarfield(scene: THREE.Scene): void {
   scene.add(new THREE.Points(geo, mat));
 }
 
+// ── Wall screens: per-station live-status board (CAM-379, S7) ───────────────
+// See the file-header S7 note for the full design rationale.
+const BOARD_TEXTURE_WIDTH = 512;
+const BOARD_TEXTURE_HEIGHT = 340;
+const BOARD_PANEL_WIDTH = 3.2;
+const BOARD_PANEL_HEIGHT = 2.1;
+// Same font stack this route's overlays already load for Thai copy
+// (campsite-scene.tsx's SheetTitle, campsite-overlays.tsx's HUD titles) —
+// reused here, not reinvented, so Anuphan's Thai glyphs render identically
+// on the canvas texture as they do in the DOM overlay chrome.
+const BOARD_FONT_STACK = "'Outfit', 'Anuphan', sans-serif";
+
+const BOARD_COPY = {
+  activeStatus: "กำลังทำงาน",
+  idleStatus: "ว่าง",
+  idleTask: "-",
+  countActive: "กำลังทำ",
+  countDone: "เสร็จ",
+  countQueued: "รอคิว",
+  approvalHeader: "คิวอนุมัติ",
+  approvalPending: (n: number) => `${n} รายการรออนุมัติ`,
+  approvalEmpty: "ไม่มีรายการรออนุมัติ",
+} as const;
+
+interface StationBoard {
+  key: keyof typeof ROLE_COLORS;
+  isAtlas: boolean;
+  texture: THREE.CanvasTexture;
+  ctx: CanvasRenderingContext2D;
+}
+
+function hexToCss(hex: number, alpha = 1): string {
+  const r = (hex >> 16) & 255;
+  const g = (hex >> 8) & 255;
+  const b = hex & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function clipText(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+// The board's facing angle is DERIVED from the same station.pos (wall
+// reference point) -> station.workSpot (where the character stands) pair the
+// character's own facing already reads (see loadAssets' `pivot.rotation.y`
+// assignment) — one formula covers both walls with no per-wall branch.
+// Exported (named, per code.md's util convention) for a real geometry unit
+// test, mirroring preferLowLod()'s exported-pure-predicate pattern.
+export function boardFacingY(station: WorkflowStation): number {
+  return Math.atan2(station.workSpot.x - station.pos.x, station.workSpot.z - station.pos.z);
+}
+
+/** CAM-379 (S7): a cheap per-scene signature over exactly the fields the
+ *  boards render — role/active/activeCount/done/queued/task.id + gate count.
+ *  Unrelated MapAgent/MapGate field churn (title text, url, priority,
+ *  epicKey, startedAt, ...) never changes this string, so the redraw effect
+ *  keyed on it (below, in Canvas3DInner) is a guaranteed no-op for an
+ *  irrelevant reconcile — mirrors the file's own `gates.length`-keyed Atlas
+ *  effect (S4) and the CAM-176 activeKey discipline. Exported (named) for a
+ *  real unit test instead of a source-grep guard.
+ */
+export function computeBoardsSignature(agents: MapAgent[], gates: MapGate[]): string {
+  const agentsPart = agents
+    .map((a) => `${a.role}:${a.active ? 1 : 0}:${a.activeCount}:${a.done}:${a.queued}:${a.task?.id ?? ""}`)
+    .join("|");
+  return `${agentsPart}#${gates.length}`;
+}
+
+function drawBoardShell(ctx: CanvasRenderingContext2D, w: number, h: number, accent: number): void {
+  ctx.clearRect(0, 0, w, h);
+  const bg = ctx.createLinearGradient(0, 0, w, h);
+  bg.addColorStop(0, "rgba(15, 26, 46, 0.92)");
+  bg.addColorStop(1, "rgba(7, 13, 24, 0.90)");
+  ctx.fillStyle = bg;
+  roundRectPath(ctx, 0, 0, w, h, 26);
+  ctx.fill();
+
+  ctx.strokeStyle = hexToCss(accent, 0.5);
+  ctx.lineWidth = 2;
+  roundRectPath(ctx, 3, 3, w - 6, h - 6, 22);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
+// Build-role board: role name + active/idle status + current task (or the
+// idle placeholder) + the active/done/queued counts — every field an
+// AC-traceable read of the live MapAgent for this station's canonical role.
+function drawRoleBoard(board: StationBoard, agent: MapAgent | undefined): void {
+  const { ctx } = board;
+  const w = BOARD_TEXTURE_WIDTH;
+  const h = BOARD_TEXTURE_HEIGHT;
+  const accent = ROLE_COLORS[board.key];
+  const active = !!agent?.active;
+  drawBoardShell(ctx, w, h, accent);
+
+  const roleKey = ROLE_KEY_BY_CHARACTER[board.key];
+  const displayName = (roleKey && ROLE_DISPLAY[roleKey]?.displayName) || board.key;
+  ctx.fillStyle = "#F1F6FB";
+  ctx.font = `800 34px ${BOARD_FONT_STACK}`;
+  ctx.fillText(displayName, 26, 52);
+
+  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(148, 163, 184, 0.55)";
+  ctx.beginPath();
+  ctx.arc(w - 34, 34, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(223, 234, 245, 0.55)";
+  ctx.font = `700 20px ${BOARD_FONT_STACK}`;
+  ctx.fillText(active ? BOARD_COPY.activeStatus : BOARD_COPY.idleStatus, 26, 88);
+
+  const taskTitle = agent?.task?.title ? clipText(agent.task.title, 30) : BOARD_COPY.idleTask;
+  ctx.fillStyle = "rgba(226, 240, 255, 0.85)";
+  ctx.font = `600 18px ${BOARD_FONT_STACK}`;
+  ctx.fillText(taskTitle, 26, 124);
+
+  ctx.fillStyle = "rgba(223, 234, 245, 0.7)";
+  ctx.font = `600 16px ${BOARD_FONT_STACK}`;
+  const countsLine = `${BOARD_COPY.countActive} ${agent?.activeCount ?? 0} · ${BOARD_COPY.countDone} ${agent?.done ?? 0} · ${BOARD_COPY.countQueued} ${agent?.queued ?? 0}`;
+  ctx.fillText(countsLine, 26, h - 24);
+
+  board.texture.needsUpdate = true;
+}
+
+// Atlas board: the approval queue — mirrors the S4 Atlas gates binding
+// (gates.length > 0 = pending, attention accent; 0 = calm, "no pending" copy).
+function drawAtlasBoard(board: StationBoard, gatesCount: number): void {
+  const { ctx } = board;
+  const w = BOARD_TEXTURE_WIDTH;
+  const h = BOARD_TEXTURE_HEIGHT;
+  const accent = ROLE_COLORS.atlas;
+  const pending = gatesCount > 0;
+  drawBoardShell(ctx, w, h, accent);
+
+  ctx.fillStyle = hexToCss(accent, 0.95);
+  ctx.font = `700 22px ${BOARD_FONT_STACK}`;
+  ctx.fillText(BOARD_COPY.approvalHeader, 26, 52);
+
+  ctx.fillStyle = pending ? hexToCss(accent, 1) : "rgba(148, 163, 184, 0.55)";
+  ctx.beginPath();
+  ctx.arc(w - 34, 34, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = pending ? "#F1F6FB" : "rgba(223, 234, 245, 0.6)";
+  ctx.font = `800 28px ${BOARD_FONT_STACK}`;
+  ctx.fillText(pending ? BOARD_COPY.approvalPending(gatesCount) : BOARD_COPY.approvalEmpty, 26, 106);
+
+  board.texture.needsUpdate = true;
+}
+
+// Backplate (subtle dark glass, tinted per role) + front panel (the drawn
+// CanvasTexture) at each station's `pos` — the wall/board reference point,
+// distinct from `workSpot` (where the character stands). Created once at
+// mount, independent of the async GLB load (loadAssets) — the boards never
+// wait on character/prop assets to exist. `boardFacingY()` orients the group
+// so both backPlate and panel face the room (see the file-header S7 note).
+function createStationBoards(scene: THREE.Scene): StationBoard[] {
+  return WORKFLOW.map((station) => {
+    const group = new THREE.Group();
+    group.position.copy(station.pos);
+    group.rotation.y = boardFacingY(station);
+    scene.add(group);
+
+    const accent = ROLE_COLORS[station.key];
+    const backPlate = new THREE.Mesh(
+      new RoundedBoxGeometry(3.34, 2.24, 0.12, 3, 0.05),
+      new THREE.MeshPhysicalMaterial({
+        color: accent,
+        transmission: 0.75,
+        transparent: true,
+        opacity: 0.45,
+        roughness: 0.1,
+        metalness: 0.02,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.06,
+      }),
+    );
+    backPlate.position.set(0, 0, 0.08);
+    group.add(backPlate);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = BOARD_TEXTURE_WIDTH;
+    canvas.height = BOARD_TEXTURE_HEIGHT;
+    // Non-null: a freshly created <canvas> always yields a 2D context (no
+    // prior getContext("webgl") call on this element that would conflict).
+    const ctx = canvas.getContext("2d")!;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(BOARD_PANEL_WIDTH, BOARD_PANEL_HEIGHT),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.FrontSide }),
+    );
+    panel.position.set(0, 0, 0.15);
+    group.add(panel);
+
+    return { key: station.key, isAtlas: !!station.isAtlas, texture, ctx };
+  });
+}
+
 function Canvas3DInner(
   { onReadyChange, agents, gates, onAgentActivate, onOpenGates, onOpenFirstGate }: CampsiteCanvasProps,
   ref: React.ForwardedRef<RendererHandle>,
@@ -813,6 +1055,19 @@ function Canvas3DInner(
   // at first render (already the real SSR-seeded value, never a placeholder),
   // then kept current by the effect below on every real gate-count change.
   const atlasGatesPendingRef = useRef(gates.length > 0);
+
+  // CAM-379 (S7): a THIRD internal bridge, for the wall screens — same
+  // reassign-on-mount / reset-on-cleanup shape as controllerRef/
+  // atlasControllerRef above. Unlike atlasGatesPendingRef, the boards need no
+  // parallel "pending" ref: board creation (createStationBoards) is NOT
+  // gated behind the async GLB load (loadAssets) the way the Atlas actor is —
+  // by the time any React effect can run, the mount effect below has already
+  // created every board synchronously, so the signature-keyed effect further
+  // down (which doubles as both the initial paint and every later redraw) can
+  // safely call straight into this ref with no staleness window.
+  const boardsControllerRef = useRef<{ redraw: (agents: MapAgent[], gates: MapGate[]) => void }>({
+    redraw: () => {},
+  });
 
   // CAM-377 (S5): latest-data refs for the raycaster's click handler (installed
   // once in the mount effect below, deps []). Without these, that handler would
@@ -926,6 +1181,10 @@ function Canvas3DInner(
     // call + 450 vertices on mobile/low-end devices.
     if (!lowLod) addStarfield(scene);
     buildRoom(scene);
+    // CAM-379 (S7): the wall screens — created here, synchronously, entirely
+    // independent of loadAssets() (the async GLB fetch further below). See
+    // the file-header S7 note + createStationBoards' own doc comment.
+    const boards = createStationBoards(scene);
 
     // CAM-375 (S3): live-activity state. `actors` is populated once assets load
     // (below); `clock` drives every character's motion timing.
@@ -977,6 +1236,28 @@ function Canvas3DInner(
       controls.update();
       renderFrame();
     }
+
+    // CAM-379 (S7): redraw every board's canvas + flip `texture.needsUpdate` —
+    // called ONLY from the signature-keyed effect below (never from
+    // renderFrame/the rAF loop, never per-frame). Under the continuous loop
+    // the next animation frame naturally re-renders the scene (boards
+    // included) with no extra call needed here; under reduced motion there is
+    // no continuous loop to pick up the change on its own, so this mirrors
+    // applyActivity/applyGatesPending's own "if (reducedMotion) render()"
+    // on-demand-repaint contract.
+    function redrawBoards(currentAgents: MapAgent[], currentGates: MapGate[]): void {
+      const agentByRole = new Map(currentAgents.map((a) => [a.role, a] as const));
+      boards.forEach((board) => {
+        if (board.isAtlas) {
+          drawAtlasBoard(board, currentGates.length);
+          return;
+        }
+        const roleKey = ROLE_KEY_BY_CHARACTER[board.key];
+        drawRoleBoard(board, roleKey ? agentByRole.get(roleKey) : undefined);
+      });
+      if (reducedMotion) render();
+    }
+    boardsControllerRef.current = { redraw: redrawBoards };
 
     // ── prefers-reduced-motion: continuous rAF loop vs on-demand render ──────
     const motionMq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -1363,6 +1644,7 @@ function Canvas3DInner(
       disposed = true;
       controllerRef.current = { setActivity: () => {}, setScope: () => {} };
       atlasControllerRef.current = { setGatesPending: () => {} };
+      boardsControllerRef.current = { redraw: () => {} };
       stopLoop();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -1374,6 +1656,14 @@ function Canvas3DInner(
       canvas.removeEventListener("pointermove", onCanvasPointerMove);
       canvas.removeEventListener("pointerleave", onCanvasPointerLeave);
       controls.dispose();
+      // CAM-379 (S7): disposeObject3DTree already walks the WHOLE scene graph —
+      // every board's group/backPlate/panel was added via scene.add()/
+      // group.add() above, so this single call disposes their geometries,
+      // materials, AND each panel's CanvasTexture (duck-typed `instanceof
+      // THREE.Texture` inside disposeObject3DTree — no board-specific
+      // disposal code needed). The detached offscreen <canvas> elements
+      // (never appended to the DOM) are then plain garbage once nothing
+      // references them.
       disposeObject3DTree(scene);
       renderer.renderLists.dispose();
       // forceContextLoss() BEFORE dispose(): dispose() alone frees three's own
@@ -1405,6 +1695,28 @@ function Canvas3DInner(
     atlasGatesPendingRef.current = gates.length > 0;
     atlasControllerRef.current.setGatesPending(gates.length > 0);
   }, [gates.length]);
+
+  // CAM-379 (S7): drive every wall screen from the live agents/gates — dep is
+  // `boardsSignature` (a STRING computed from exactly the fields the boards
+  // render), NOT `agents`/`gates` (new array/object references on every SSE
+  // reconcile). This is the redraw-on-signature-change discipline the file-
+  // header S7 note describes: an unrelated field changing (title text, url,
+  // startedAt, ...) never re-runs this effect, so the boards' canvases are
+  // never redrawn for a no-op change — mirrors the Atlas effect just above
+  // (keyed on `gates.length`, a primitive) and the CAM-176 activeKey
+  // discipline. This effect ALSO doubles as the initial paint: on mount, the
+  // WebGL-availability-gated effect above has already run synchronously
+  // (including its own `applyMotionPreference` call, so `reducedMotion` is
+  // already resolved) and set boardsControllerRef.current to the real
+  // `redrawBoards`, by the time this effect's first run fires — no separate
+  // "pending ref" seed is needed the way Atlas's actor needs one (that race
+  // is specific to Atlas's actor only existing once the async GLB load
+  // resolves; the boards exist synchronously at mount, independent of it).
+  const boardsSignature = computeBoardsSignature(agents, gates);
+  useEffect(() => {
+    boardsControllerRef.current.redraw(agents, gates);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardsSignature]);
 
   // CAM-375 (S3): React-owned (re-computed on every `agents` prop update,
   // independent of the WebGL rAF loop) so the scene's accessible state summary
