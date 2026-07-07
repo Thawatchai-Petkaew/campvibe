@@ -90,6 +90,15 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
+      // CAM-373 S2a: immutable cache for /status-3d GLB assets (characters/props,
+      // full + lod tiers). These are build-time, content-addressed-by-release
+      // static assets that never mutate in place — same rationale as CAM-201.
+      {
+        source: "/status-3d/:file*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
     ];
   },
 };

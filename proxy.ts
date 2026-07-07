@@ -48,6 +48,17 @@ const { auth } = NextAuth(authConfig)
  * styles would require threading the nonce through multiple Server Components
  * for minimal benefit. Standard Next.js recommendation.
  *
+ * connect-src: 'blob:' (CAM-373 S2 review) — three.js's GLTFLoader decodes
+ * each embedded glTF texture (webp, per the CAM-373 S2a WASM-free asset
+ * pipeline) via ImageBitmapLoader, which creates a same-origin `blob:` URL
+ * for the embedded image bytes and loads it with `fetch()` — governed by
+ * THIS directive, not the one covering <img>/background-image loads (that
+ * one already allows blob: too, added in CAM-239, but fetch() is separate).
+ * Without this, every texture fetch is CSP-refused, the GLB load rejects,
+ * and the 3D scene silently falls back to placeholder meshes. This is the
+ * app's OWN object URL (never a remote origin) — same low-risk allowance
+ * as the pre-existing image-loading blob: entry.
+ *
  * All other directives are identical to the SEC-2 static CSP.
  */
 function buildCsp(nonce: string): string {
@@ -60,7 +71,7 @@ function buildCsp(nonce: string): string {
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.tile.openstreetmap.org https://*.googleusercontent.com",
         "font-src 'self'",
-        "connect-src 'self' https://*.tile.openstreetmap.org",
+        "connect-src 'self' blob: https://*.tile.openstreetmap.org",
         "media-src 'self'",
         "object-src 'none'",
         "frame-ancestors 'none'",

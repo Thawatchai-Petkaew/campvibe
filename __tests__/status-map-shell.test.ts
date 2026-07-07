@@ -293,14 +293,20 @@ describe("StatusMapShell — CAM-372 (S1b) mount smoke test", () => {
     expect(sceneSrc).toContain('initialRenderer: "2d" | "3d"');
   });
 
-  // Canvas3D stub contract: RendererHandle no-ops + onReadyChange(true)/(false) on
+  // Canvas3D contract: RendererHandle no-ops + onReadyChange(true)/(false) on
   // mount/unmount (source-grep — SSR cannot observe the effect actually firing,
   // see the file-header limitation note; this proves the CODE calls it correctly).
-  it("canvas-3d.tsx reports ready on mount and not-ready on unmount", () => {
-    const stubSrc = read("../app/status/map/canvas-3d.tsx");
-    expect(stubSrc).toContain("onReadyChange(true)");
-    expect(stubSrc).toContain("onReadyChange(false)");
-    expect(stubSrc).not.toContain("from \"three\"");
-    expect(stubSrc).toContain('data-testid="scene--status-map-3d-stub"');
+  //
+  // CAM-373 (S2b): Canvas3D is no longer the S1c stub — it now imports `three`
+  // and builds the real static 3D room, still selection-gated behind React.lazy
+  // (see the "Canvas3D is imported via React.lazy" test above), so the default
+  // 2D path's first-load JS is unaffected. Updated from asserting the ABSENCE of
+  // a `three` import + the old `-stub` testid to asserting the new reality.
+  it("canvas-3d.tsx imports three, reports ready on mount, and renders the real scene testid", () => {
+    const src = read("../app/status/map/canvas-3d.tsx");
+    expect(src).toContain("onReadyChange(true)");
+    expect(src).toContain("onReadyChange(false)");
+    expect(src).toContain('from "three"');
+    expect(src).toContain('data-testid="scene--status-map-3d"');
   });
 });
