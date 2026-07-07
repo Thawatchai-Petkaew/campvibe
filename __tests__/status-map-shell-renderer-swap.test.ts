@@ -212,7 +212,7 @@ describe("StatusMapShell — CAM-372 (S1c fix): renderer-swap re-applies setActi
     // that direction always mounts synchronously, unlike the 2D→3D direction).
     fireEvent.click(screen.getByTestId("btn--map-renderer-3d"));
     await waitFor(() => {
-      expect(screen.getByTestId("scene--status-map-3d-stub")).toBeTruthy();
+      expect(screen.getByTestId("scene--status-map-3d")).toBeTruthy();
     });
     expect(engineHandleMock.stop).toHaveBeenCalledTimes(1);
 
