@@ -1,6 +1,8 @@
 // CAM-248 (LOAD-4): MapProgress — extracted from scene-loader.tsx (CAM-198).
 // Shared progress indicator for /status/map: used by SceneLoader's next/dynamic
 // loading fallback AND by app/status/map/loading.tsx (route-level loading boundary).
+// CAM-374: also reused by canvas-3d.tsx's own asset-loading cover (`label` prop
+// lets that call site show its more specific "กำลังโหลดมุมมอง 3 มิติ…" copy).
 //
 // Renders standalone — does NOT depend on page.tsx's dangerouslySetInnerHTML CSS.
 // Inline styles replicate the .map-wrap / .map-progress / .map-progress-bar tokens
@@ -12,12 +14,17 @@
 // campsite-assets.ts CSS for the scene-loader usage; the standalone CSS here mirrors it
 // with the same @media guard.
 
-export function MapProgress() {
+interface MapProgressProps {
+  /** Thai a11y label — defaults to the generic map-loading copy. */
+  label?: string;
+}
+
+export function MapProgress({ label = "กำลังโหลดแผนที่แคมป์" }: MapProgressProps = {}) {
   return (
     <div
       role="status"
       aria-live="polite"
-      aria-label="กำลังโหลดแผนที่แคมป์"
+      aria-label={label}
       style={{
         position: "fixed",
         inset: 0,
@@ -61,7 +68,7 @@ export function MapProgress() {
         data-testid="loading--status-map"
         role="progressbar"
         aria-busy="true"
-        aria-label="กำลังโหลดแผนที่แคมป์"
+        aria-label={label}
       >
         <span className="map-progress-standalone-bar" aria-hidden="true" />
       </div>

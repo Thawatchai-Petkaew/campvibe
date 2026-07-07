@@ -42,6 +42,7 @@ import { deriveCapsuleStats } from "@/lib/status-map-model";
 import { LOGO } from "../dashboard-assets";
 import { useMapReconcile } from "./use-map-reconcile";
 import { CampsiteCanvas } from "./campsite-canvas";
+import { MapProgress } from "./map-progress";
 import { ROLE_DISPLAY } from "./role-config";
 import type { MapAgent, MapModel, RendererHandle } from "./map-types";
 
@@ -601,11 +602,15 @@ export default function StatusMapShell({
           onReadyChange={handleRendererReady} (not the raw setRendererReady) — see the
           readySeq comment above the state declaration for why the plain boolean alone
           is not enough to re-gate the activity/scope effects on a same-commit swap.
-          Canvas3D is React.lazy — wrapped in its own <Suspense fallback={null}> (the
-          shell's own HUD chrome is already visible while this tiny chunk loads; see
-          the ref-forwarding note above the Canvas3D declaration for why NOT next/dynamic). */}
+          Canvas3D is React.lazy — wrapped in its own <Suspense>. CAM-374: the
+          fallback is <MapProgress/> (not null) per .claude/rules/loading.md — a
+          full-screen canvas module uses a progress indicator, never a blank gap,
+          while the `three` chunk downloads. The shell's HUD chrome (topbar/panels,
+          incl. the 2D/3D toggle) renders above MapProgress's zIndex:10 (HUD is
+          22/23), so the user can still switch back to 2D mid-load; see the
+          ref-forwarding note above the Canvas3D declaration for why NOT next/dynamic. */}
       {renderer === "3d" ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<MapProgress />}>
           <Canvas3D ref={rendererRef} {...sharedRendererProps} onReadyChange={handleRendererReady} />
         </Suspense>
       ) : (

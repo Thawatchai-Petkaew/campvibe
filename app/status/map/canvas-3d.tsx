@@ -36,6 +36,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type { RendererHandle } from "./map-types";
 import type { CampsiteCanvasProps } from "./campsite-canvas";
+import { MapProgress } from "./map-progress";
 
 const COPY = {
   loading: "กำลังโหลดมุมมอง 3 มิติ…",
@@ -577,7 +578,16 @@ function Canvas3DInner(
       data-testid="scene--status-map-3d"
     >
       <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
-      {status !== "ready" && (
+      {/* CAM-374: per .claude/rules/loading.md, a full-screen canvas module uses a
+          progress indicator (not a skeleton/text card) while assets are still
+          downloading — covers the in-progress room until it's ready, then reveals
+          it. Reuses the shared MapProgress (same component as the Suspense
+          fallback above it in campsite-scene.tsx) with a more specific label. */}
+      {status === "loading" && <MapProgress label={COPY.loading} />}
+      {/* "unavailable" is a terminal state (no WebGL), not a load-in-progress —
+          keep the informative text card telling the user to switch back to 2D
+          instead of a progress bar that would misleadingly imply it will finish. */}
+      {status === "unavailable" && (
         <div
           style={{
             position: "absolute",
@@ -590,9 +600,7 @@ function Canvas3DInner(
           }}
         >
           <div className="map-placeholder" role="status" aria-live="polite">
-            <p className="map-placeholder-text">
-              {status === "unavailable" ? COPY.unavailable : COPY.loading}
-            </p>
+            <p className="map-placeholder-text">{COPY.unavailable}</p>
           </div>
         </div>
       )}

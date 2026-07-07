@@ -1223,10 +1223,14 @@ describe("app/status/map/campsite-assets.ts — CAM-198: progress bar CSS", () =
 
 describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () => {
   const src = read("../app/status/map/campsite-scene.tsx");
-  // CAM-372 (S1b): LAYOUT_NARROW/LAYOUT_WIDE/YOU_POS_*/the matchMedia layout trigger/
-  // SCENE_CSS responsive blocks all moved to the 2D renderer campsite-canvas.tsx.
+  // CAM-372 (S1b): LAYOUT_NARROW/LAYOUT_WIDE/YOU_POS_*/the matchMedia layout trigger
+  // moved to the 2D renderer campsite-canvas.tsx.
   // Edge-tab/toolbar/sheet JSX (HUD chrome) stays in the shell — read via `src` above.
   const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: the shell-owned HUD responsive CSS blocks (position/z-index/show-hide
+  // of controls the shell renders) moved from SCENE_CSS into HUD_CSS
+  // (campsite-overlays.tsx, always injected in both 2D and 3D).
+  const overlaySrc = read("../app/status/map/campsite-overlays.tsx");
 
   // ── LAYOUT_NARROW is a genuine portrait oval (not an alias) ─────────────────
   it("LAYOUT_NARROW exports a real portrait oval with 7 role entries", () => {
@@ -1265,22 +1269,26 @@ describe("app/status/map/campsite-scene.tsx — SMUX-2: responsive layout", () =
     expect(canvasSrc).not.toContain("min-aspect-ratio: 7/5");
   });
 
-  // ── Responsive CSS blocks ────────────────────────────────────────────────────
-  it("SCENE_CSS contains a tablet @media (max-width: 1023px) block hiding side panels", () => {
-    expect(canvasSrc).toContain("@media (max-width: 1023px)");
-    expect(canvasSrc).toContain(".hud-left-panels{display:none}");
-    expect(canvasSrc).toContain(".hud-right-panels{display:none}");
+  // ── Responsive CSS blocks (CAM-374: HUD_CSS now, shell-owned chrome) ────────
+  it("HUD_CSS contains a tablet @media (max-width: 1023px) block hiding side panels", () => {
+    expect(overlaySrc).toContain("@media (max-width: 1023px)");
+    expect(overlaySrc).toContain(".hud-left-panels{display:none}");
+    expect(overlaySrc).toContain(".hud-right-panels{display:none}");
   });
 
-  it("SCENE_CSS contains a mobile @media (max-width: 639px) block with .hud-map-toolbar", () => {
-    expect(canvasSrc).toContain("@media (max-width: 639px)");
-    expect(canvasSrc).toContain(".hud-map-toolbar{");
+  it("HUD_CSS contains a mobile @media (max-width: 639px) block with .hud-map-toolbar", () => {
+    expect(overlaySrc).toContain("@media (max-width: 639px)");
+    expect(overlaySrc).toContain(".hud-map-toolbar{");
   });
 
   it("desktop @media (min-width: 1024px) hides edge tabs and mobile toolbar", () => {
-    expect(canvasSrc).toContain("@media (min-width: 1024px)");
-    expect(canvasSrc).toContain(".hud-edge-tab{display:none}");
-    expect(canvasSrc).toContain(".hud-map-toolbar{display:none}");
+    // CAM-374: HUD_CSS has multiple @media (min-width: 1024px) blocks — anchor
+    // on the unique ".hud-map-toolbar{display:none}" string.
+    const anchor = overlaySrc.indexOf(".hud-map-toolbar{display:none}");
+    const blockStart = overlaySrc.lastIndexOf("@media (min-width: 1024px)", anchor);
+    const block = overlaySrc.slice(blockStart, anchor + 60);
+    expect(block).toContain(".hud-edge-tab{display:none}");
+    expect(block).toContain(".hud-map-toolbar{display:none}");
   });
 
   // ── Edge drawer tabs (tablet) ────────────────────────────────────────────────
@@ -1625,8 +1633,9 @@ describe("campsite-scene.tsx — SMUX-3: filter reset clears focusedTaskId", () 
 
 // ---------- Fix 1: right edge-tab border-radius mirrors left (inner-rounded) ---
 describe("campsite-scene.tsx — CAM-254 Fix 1: right edge-tab border-radius", () => {
-  // CAM-372 (S1b): .hud-edge-tab CSS (SCENE_CSS) moved to campsite-canvas.tsx.
-  const src = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: .hud-edge-tab is shell-owned HUD chrome — moved from SCENE_CSS
+  // into HUD_CSS (campsite-overlays.tsx, always injected in both 2D and 3D).
+  const src = read("../app/status/map/campsite-overlays.tsx");
 
   it("right edge-tab uses border-radius:0 6px 6px 0 (rounds inner/map-facing edge after rotate(180deg))", () => {
     // After rotate(180deg), the top-right and bottom-right corners (6px) visually become
@@ -1653,8 +1662,10 @@ describe("campsite-scene.tsx — CAM-254 Fix 1: right edge-tab border-radius", (
 
 // ---------- Fix 2: mobile (<640) desktop signposts hidden, compact filter visible ---
 describe("campsite-scene.tsx — CAM-254 Fix 2: mobile header overlap", () => {
-  // CAM-372 (S1b): .hud-signposts-desktop hide rules (SCENE_CSS) moved to campsite-canvas.tsx.
-  const src = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: .hud-signposts-desktop hide rules are shell-owned HUD chrome —
+  // moved from SCENE_CSS into HUD_CSS (campsite-overlays.tsx, always injected
+  // in both 2D and 3D).
+  const src = read("../app/status/map/campsite-overlays.tsx");
 
   it("@media (max-width: 639px) hides .hud-signposts-desktop with !important to prevent bleed", () => {
     // !important ensures the rule beats any broader selector that might show it.
@@ -1736,9 +1747,9 @@ describe("campsite-scene.tsx — CAM-254 Fix 3: single close button per Sheet", 
 describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
-  // CAM-372 (S1b): the desktop/mobile hide rules for .hud-topbar-icons/.hud-env-toggle
-  // (SCENE_CSS) moved to the 2D renderer campsite-canvas.tsx.
-  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: the desktop/mobile hide rules for .hud-topbar-icons/.hud-env-toggle
+  // are shell-owned HUD chrome — moved into HUD_CSS (this same file, `overly`),
+  // always injected in both 2D and 3D.
 
   // AC-1: Icon button class exists with 44x44 sizing
   it("HUD_CSS defines .hud-icon-btn with 44px width and height for tap target", () => {
@@ -1762,17 +1773,24 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
   });
 
   // AC-1: Icon buttons container hidden on desktop ≥1024 via CSS
-  it("SCENE_CSS hides .hud-topbar-icons on desktop (min-width:1024px) with display:none", () => {
-    expect(canvasSrc).toContain("hud-topbar-icons");
-    // The min-width 1024 block should hide them
-    const minBlock = canvasSrc.slice(canvasSrc.lastIndexOf("@media (min-width: 1024px)"));
+  it("HUD_CSS hides .hud-topbar-icons on desktop (min-width:1024px) with display:none", () => {
+    expect(overly).toContain("hud-topbar-icons");
+    // The min-width 1024 block that hides them is the LAST @media(min-width:1024px)
+    // block in the file (HUD_CSS has others for unrelated selectors).
+    const minBlock = overly.slice(overly.lastIndexOf("@media (min-width: 1024px)"));
     expect(minBlock).toContain("hud-topbar-icons");
     expect(minBlock).toContain("display:none");
   });
 
   // AC-1: Original full-text env toggle hidden at <1024 via CSS
-  it("SCENE_CSS hides .hud-env-toggle on mobile/tablet (<1024px)", () => {
-    const maxBlock = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 1023px)"), canvasSrc.indexOf("@media (max-width: 639px)"));
+  it("HUD_CSS hides .hud-env-toggle on mobile/tablet (<1024px)", () => {
+    // CAM-374: anchor on the unique ".hud-env-toggle{display:none}" string and
+    // walk back to its own media-query opener — HUD_CSS has multiple
+    // @media (max-width: 1023px) blocks for unrelated selectors.
+    const hideIdx = overly.indexOf(".hud-env-toggle{display:none}");
+    expect(hideIdx).toBeGreaterThan(-1);
+    const blockStart = overly.lastIndexOf("@media (max-width: 1023px)", hideIdx);
+    const maxBlock = overly.slice(blockStart, hideIdx + 40);
     expect(maxBlock).toContain("hud-env-toggle");
     expect(maxBlock).toContain("display:none");
   });
@@ -1795,9 +1813,9 @@ describe("SMUX-6 — top bar icon buttons (<1024px)", () => {
 describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass, icon-only, parity)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
-  // CAM-372 (S1b): .hud-toolbar-btn + the ≤420px/≤380px media blocks (SCENE_CSS)
-  // moved to the 2D renderer campsite-canvas.tsx.
-  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: .hud-toolbar-btn + the ≤420px/≤380px media blocks are shell-owned
+  // HUD chrome — moved into HUD_CSS (this same file, `overly`), always
+  // injected in both 2D and 3D.
 
   // Fix 1: ทีม button renders exactly ONE icon + its label is "ทีม" (no ≡ glyph)
   it("the ทีม toolbar button label is 'ทีม' with no ≡ hamburger glyph (single icon)", () => {
@@ -1820,7 +1838,7 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
 
   // Fix 2: .hud-toolbar-btn uses the dark-green HUD glass (not the white tint)
   it(".hud-toolbar-btn uses the dark-green glass tokens, not rgba(255,255,255,.07)", () => {
-    const block = canvasSrc.slice(canvasSrc.indexOf(".hud-toolbar-btn{"));
+    const block = overly.slice(overly.indexOf(".hud-toolbar-btn{"));
     const decl = block.slice(0, 400);
     // the established glass language (matches .hud-signpost / .hud-view-toggle)
     expect(decl).toContain("background:rgba(11,30,24,.50)");
@@ -1831,24 +1849,24 @@ describe("SMUX-6-fix-3 · CAM-259 — bottom toolbar polish (double-icon, glass,
   });
 
   it(".hud-toolbar-btn keeps min-height:44px and the teal aria-expanded active state", () => {
-    const block = canvasSrc.slice(canvasSrc.indexOf(".hud-toolbar-btn{"));
+    const block = overly.slice(overly.indexOf(".hud-toolbar-btn{"));
     expect(block.slice(0, 500)).toContain("min-height:44px");
-    expect(canvasSrc).toContain('.hud-toolbar-btn[aria-expanded="true"]{');
-    const active = canvasSrc.slice(canvasSrc.indexOf('.hud-toolbar-btn[aria-expanded="true"]{'));
+    expect(overly).toContain('.hud-toolbar-btn[aria-expanded="true"]{');
+    const active = overly.slice(overly.indexOf('.hud-toolbar-btn[aria-expanded="true"]{'));
     expect(active.slice(0, 160)).toContain("#5BE9B0");
   });
 
   // Fix 3 (CAM-260): icon-only at ≤420px — labels hidden, hit area preserved; gap tightens at ≤380px
   it("at max-width:420px the toolbar button labels are hidden (CAM-260: was 380px, now 420px)", () => {
     // CAM-260: icon-only threshold raised from ≤380px to ≤420px
-    expect(canvasSrc).toContain("@media (max-width: 420px){");
-    const block = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 420px){"));
+    expect(overly).toContain("@media (max-width: 420px){");
+    const block = overly.slice(overly.indexOf("@media (max-width: 420px){"));
     expect(block.slice(0, 360)).toContain(".hud-toolbar-btn-label{display:none}");
     // ≥44px hit area kept (square icon button)
     expect(block.slice(0, 360)).toContain("width:44px");
     // gap tightens at ≤380px (separate rule)
-    expect(canvasSrc).toContain("@media (max-width: 380px){");
-    const gapBlock = canvasSrc.slice(canvasSrc.indexOf("@media (max-width: 380px){"));
+    expect(overly).toContain("@media (max-width: 380px){");
+    const gapBlock = overly.slice(overly.indexOf("@media (max-width: 380px){"));
     expect(gapBlock.slice(0, 120)).toContain("gap:6px");
   });
 
@@ -2028,15 +2046,17 @@ describe("SMUX-6 · CAM-258 — bottom filter row reuses the desktop FilterSignp
 describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", () => {
   const scene  = read("../app/status/map/campsite-scene.tsx");
   const overly = read("../app/status/map/campsite-overlays.tsx");
-  // CAM-372 (S1b): the @media (max-width: 639px) .hud-map-toolbar rule (SCENE_CSS)
-  // moved to the 2D renderer campsite-canvas.tsx.
-  const canvasSrc = read("../app/status/map/campsite-canvas.tsx");
+  // CAM-374: the @media (max-width: 639px) .hud-map-toolbar rule is shell-owned
+  // HUD chrome — moved into HUD_CSS (this same file, `overly`), always
+  // injected in both 2D and 3D. HUD_CSS already has an EARLIER @media
+  // (max-width: 639px) block (the .hud-signposts-bottom mobile-lift override)
+  // — lastIndexOf targets the toolbar block relocated here from SCENE_CSS.
 
   // AC-3: toolbar background is transparent (not rgba(...) fill)
-  it("SCENE_CSS makes .hud-map-toolbar transparent (no background fill) on <640px", () => {
-    const mobileBlock = canvasSrc.slice(
-      canvasSrc.indexOf("@media (max-width: 639px)"),
-      canvasSrc.indexOf("@media (max-width: 639px)") + 1200
+  it("HUD_CSS makes .hud-map-toolbar transparent (no background fill) on <640px", () => {
+    const mobileBlock = overly.slice(
+      overly.lastIndexOf("@media (max-width: 639px)"),
+      overly.lastIndexOf("@media (max-width: 639px)") + 1200
     );
     expect(mobileBlock).toContain("hud-map-toolbar");
     expect(mobileBlock).toContain("background:transparent");
@@ -2044,10 +2064,10 @@ describe("SMUX-6 — mobile bottom toolbar (transparent + EnvPipelineCapsule)", 
   });
 
   // AC-3: no backdrop-filter on toolbar on mobile
-  it("SCENE_CSS removes backdrop-filter from .hud-map-toolbar on mobile", () => {
-    const mobileBlock = canvasSrc.slice(
-      canvasSrc.indexOf("@media (max-width: 639px)"),
-      canvasSrc.indexOf("@media (max-width: 639px)") + 1200
+  it("HUD_CSS removes backdrop-filter from .hud-map-toolbar on mobile", () => {
+    const mobileBlock = overly.slice(
+      overly.lastIndexOf("@media (max-width: 639px)"),
+      overly.lastIndexOf("@media (max-width: 639px)") + 1200
     );
     expect(mobileBlock).toContain("backdrop-filter:none");
   });

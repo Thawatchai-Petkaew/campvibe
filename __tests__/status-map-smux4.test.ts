@@ -708,9 +708,12 @@ describe("CAM-253 SMUX-4 — Responsive: LAYOUT_NARROW ≠ LAYOUT_WIDE (distinct
 // ============================================================
 
 describe("CAM-253 SMUX-4 — Responsive CSS: mobile <640px contracts", () => {
-  // CAM-372 (S1b): SCENE_CSS (incl. these responsive rules) moved to campsite-canvas.tsx.
+  // CAM-374: these responsive rules style shell-owned HUD chrome (position/
+  // z-index/show-hide of controls the shell renders) — moved into HUD_CSS
+  // (campsite-overlays.tsx, always injected in both 2D and 3D) so the toggle +
+  // overlay cards stay correctly positioned above the 3D canvas too.
   const src = readFileSync(
-    resolve(__dirname, "../app/status/map/campsite-canvas.tsx"),
+    resolve(__dirname, "../app/status/map/campsite-overlays.tsx"),
     "utf8",
   );
 
@@ -720,10 +723,14 @@ describe("CAM-253 SMUX-4 — Responsive CSS: mobile <640px contracts", () => {
   });
 
   it("[structural] desktop @media (min-width: 1024px) has 3 separate display:none rules for edge+toolbar", () => {
-    const desktopBlock = src.slice(
-      src.indexOf("@media (min-width: 1024px)"),
-      src.indexOf("@media (min-width: 1024px)") + 400,
-    );
+    // CAM-374: HUD_CSS has THREE @media (min-width: 1024px) blocks (the
+    // pre-existing .hud-signposts-bottom desktop-hide, this one, and the
+    // relocated .hud-topbar-icons hide) — anchor on the unique
+    // ".hud-map-toolbar{display:none}" string and walk back to its own
+    // media-query opener instead of indexOf on the shared query text.
+    const toolbarHideAnchor = src.indexOf(".hud-map-toolbar{display:none}");
+    const desktopBlockStart = src.lastIndexOf("@media (min-width: 1024px)", toolbarHideAnchor);
+    const desktopBlock = src.slice(desktopBlockStart, toolbarHideAnchor + 60);
     expect(desktopBlock).toContain(".hud-edge-tab{display:none}");
     expect(desktopBlock).toContain(".hud-filter-compact{display:none}");
     expect(desktopBlock).toContain(".hud-map-toolbar{display:none}");
