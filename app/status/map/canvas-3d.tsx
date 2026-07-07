@@ -1,13 +1,23 @@
 "use client";
 
-// Canvas3D — CAM-373 (S2b): the real Three.js 3D room scene for /status/map.
+// Canvas3D — CAM-373 (S2b) static room + CAM-375 (S3) live-data character
+// animation, the real Three.js 3D room scene for /status/map.
 //
-// Scope: a STATIC room — renderer/scene/camera/controls/lights/room/props/8
+// S2b scope: a STATIC room — renderer/scene/camera/controls/lights/room/props/8
 // characters, ported (layout only) from the prototype at
-// atlas_web_demo/index.html. No live-data binding and no character motion yet
-// (S3/S6). setActivity/setScope/triggerWalk stay no-ops here — the shell calls
-// them once ready regardless of which renderer is mounted; a no-op is correct
-// until S3 wires live activity into the scene.
+// atlas_web_demo/index.html.
+//
+// S3 scope: setActivity(activeByRole) drives each of the 7 build-role
+// characters (Atlas excluded — not bound to a build role here, S4 wires Atlas
+// to gate activity) between two states: "active" = walk to / stand at its
+// workSpot with a gentle bob, facing its board; "idle" = patrol the room
+// (collision-aware, ported from the prototype's updateActorPatrols) between
+// fixed floor points. setActivity is an idempotent STATE SET — an actor whose
+// commanded mode is unchanged is never re-pathed, matching the shell's
+// activeKey-only call contract (campsite-scene.tsx only calls setActivity on a
+// genuine activity change). setScope(scope, epicRoles) dims (opacity fade)
+// characters outside the active epic's roles; also idempotent per actor.
+// triggerWalk stays a no-op (not in S3's scope).
 //
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
@@ -72,6 +82,20 @@ const ROLE_COLORS = {
   devops: 0xd8b43f,
 } as const;
 
+// CAM-375 (S3): maps a WORKFLOW character key to the canonical role key
+// MapAgent.role carries (role-config.ts / lib/status-map-model.ts). Atlas is
+// intentionally absent — S3 does not bind Atlas to a build role, it stays
+// static/idle here (S4 wires Atlas to gate activity instead).
+const ROLE_KEY_BY_CHARACTER: Partial<Record<keyof typeof ROLE_COLORS, string>> = {
+  designer: "ux-designer",
+  frontend: "frontend-engineer",
+  backend: "backend-engineer",
+  architect: "architect",
+  security: "security-reviewer",
+  qa: "qa-engineer",
+  devops: "devops-release",
+};
+
 interface WorkflowStation {
   key: keyof typeof ROLE_COLORS;
   characterFile: string;
@@ -116,6 +140,267 @@ const ROOM_PROPS: RoomPropDef[] = [
   { name: "data-vault", file: "data-vault.glb", position: new THREE.Vector3(3.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.52, radius: 1.04 },
   { name: "plant", file: "plant.glb", position: new THREE.Vector3(-2.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.02, radius: 0.72 },
 ];
+
+// ── Live-activity motion (CAM-375, S3) ───────────────────────────────────────
+// Ported from the prototype's patrolPoints — same room coordinate system as
+// WALL_*/ROOM_PROPS above (numerically identical layout), so these floor
+// points and the obstacle-avoidance below are valid as-is. The prototype's
+// bossVisitPoints ("workers periodically visit Atlas's station") is dropped —
+// out of S3 scope; Atlas stays static/idle here (S4 wires gates).
+const ROUTE_POINTS: THREE.Vector3[] = [
+  new THREE.Vector3(-4.65, 0.92, -6.05),
+  new THREE.Vector3(-2.25, 0.92, -6.25),
+  new THREE.Vector3(0.10, 0.92, -6.10),
+  new THREE.Vector3(3.55, 0.92, -6.20),
+  new THREE.Vector3(6.30, 0.92, -4.80),
+  new THREE.Vector3(7.05, 0.92, -2.85),
+  new THREE.Vector3(6.25, 0.92, 0.10),
+  new THREE.Vector3(6.55, 0.92, 4.25),
+  new THREE.Vector3(4.20, 0.92, 6.20),
+  new THREE.Vector3(1.50, 0.92, 6.78),
+  new THREE.Vector3(0.15, 0.92, 6.65),
+  new THREE.Vector3(-3.65, 0.92, 6.05),
+  new THREE.Vector3(-6.20, 0.92, 4.20),
+  new THREE.Vector3(-6.45, 0.92, 0.35),
+  new THREE.Vector3(-5.95, 0.92, -2.95),
+  new THREE.Vector3(-4.65, 0.92, -1.20),
+  new THREE.Vector3(-4.80, 0.92, 2.55),
+  new THREE.Vector3(-2.30, 0.92, 5.10),
+  new THREE.Vector3(4.85, 0.92, 2.55),
+];
+
+// Obstacle circles for collision avoidance, derived from the same ROOM_PROPS
+// radii the props render with (ported from the prototype's navigationObstacles).
+const NAVIGATION_OBSTACLES = ROOM_PROPS.map((item) => ({
+  x: item.position.x,
+  z: item.position.z,
+  radius: item.radius,
+}));
+
+interface PatrolState {
+  current: number;
+  previous: number;
+  target: number;
+  from: THREE.Vector3;
+  startTime: number;
+  duration: number;
+}
+
+// Per-character live-activity state, stored in a plain array/refs (never React
+// state — imperative, mirrors the 2D engine's ScoutState convention).
+interface CharacterActor {
+  key: keyof typeof ROLE_COLORS;
+  isAtlas: boolean;
+  pivot: THREE.Group;
+  workSpot: THREE.Vector3;
+  /** The board/reference point the character faces while "at station" (WORKFLOW's `pos`). */
+  facePos: THREE.Vector3;
+  /** Fixed idle pose position used only under prefers-reduced-motion (no patrol runs there). */
+  homePoint: THREE.Vector3;
+  /** Per-character bob-phase stagger (index-based, ported from the prototype). */
+  bobPhase: number;
+  mode: "active" | "idle";
+  dimmed: boolean;
+  patrol: PatrolState | null;
+  /** Present only while walking TO workSpot right after an idle→active flip. */
+  transit: { from: THREE.Vector3; startTime: number; duration: number } | null;
+}
+
+function isPointClear(x: number, z: number, padding: number): boolean {
+  return !NAVIGATION_OBSTACLES.some((o) => {
+    const r = o.radius + padding;
+    const dx = x - o.x;
+    const dz = z - o.z;
+    return dx * dx + dz * dz < r * r;
+  });
+}
+
+function distancePointToSegmentXZ(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
+  const vx = bx - ax;
+  const vz = bz - az;
+  const wx = px - ax;
+  const wz = pz - az;
+  const lenSq = vx * vx + vz * vz || 1;
+  const u = Math.max(0, Math.min(1, (wx * vx + wz * vz) / lenSq));
+  const cx = ax + vx * u;
+  const cz = az + vz * u;
+  const dx = px - cx;
+  const dz = pz - cz;
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
+function isSegmentClear(from: THREE.Vector3, to: THREE.Vector3, padding: number): boolean {
+  return !NAVIGATION_OBSTACLES.some(
+    (o) => distancePointToSegmentXZ(o.x, o.z, from.x, from.z, to.x, to.z) < o.radius + padding,
+  );
+}
+
+function isRoutePointOccupied(point: THREE.Vector3, self: CharacterActor, actors: CharacterActor[], radius: number): boolean {
+  if (!isPointClear(point.x, point.z, 0.22)) return true;
+  return actors.some((other) => {
+    if (other === self) return false;
+    if (other.patrol && ROUTE_POINTS[other.patrol.target]?.distanceToSquared(point) < radius * radius) return true;
+    return other.pivot.position.distanceToSquared(point) < radius * radius;
+  });
+}
+
+function findNearestRouteIndex(position: THREE.Vector3): number {
+  let idx = 0;
+  let best = Infinity;
+  ROUTE_POINTS.forEach((p, i) => {
+    const d = p.distanceToSquared(position);
+    if (d < best) { best = d; idx = i; }
+  });
+  return idx;
+}
+
+// Ported from the prototype's chooseActorPatrolTarget: forward/wider-forward/
+// side-step/backward candidates, filtered by occupancy + a clear line-of-travel;
+// falls back to the nearest clear route point if every candidate is blocked.
+function choosePatrolTarget(actor: CharacterActor, fromIndex: number, previousIndex: number, actors: CharacterActor[]): number {
+  const len = ROUTE_POINTS.length;
+  const forward = (fromIndex + 1) % len;
+  const widerForward = (fromIndex + 2) % len;
+  const sideStep = (fromIndex + 5) % len;
+  const backward = (fromIndex - 1 + len) % len;
+  const candidates = [forward, widerForward, sideStep, backward].filter(
+    (idx, pos, arr) =>
+      idx !== previousIndex &&
+      arr.indexOf(idx) === pos &&
+      idx !== fromIndex &&
+      !isRoutePointOccupied(ROUTE_POINTS[idx], actor, actors, 1.05) &&
+      isSegmentClear(actor.pivot.position, ROUTE_POINTS[idx], 0.30),
+  );
+  if (candidates.length > 0) return candidates[0];
+  const fallback = ROUTE_POINTS
+    .map((point, idx) => ({ idx, dist: point.distanceToSquared(actor.pivot.position) }))
+    .filter(({ idx }) => idx !== previousIndex && idx !== fromIndex)
+    .filter(
+      ({ idx }) =>
+        !isRoutePointOccupied(ROUTE_POINTS[idx], actor, actors, 1.05) &&
+        isSegmentClear(actor.pivot.position, ROUTE_POINTS[idx], 0.34),
+    )
+    .sort((a, b) => a.dist - b.dist);
+  return fallback[0]?.idx ?? fromIndex;
+}
+
+function startPatrol(actor: CharacterActor, t: number, actors: CharacterActor[]): void {
+  const current = findNearestRouteIndex(actor.pivot.position);
+  const previous = actor.patrol?.previous ?? -1;
+  actor.patrol = {
+    current,
+    previous,
+    target: choosePatrolTarget(actor, current, previous, actors),
+    from: actor.pivot.position.clone(),
+    startTime: t,
+    duration: 3.2,
+  };
+}
+
+// Per-frame motion for one character (Atlas is never passed in — the caller
+// skips it). "active" = walk to / stand at the workSpot with a gentle bob,
+// facing the board; "idle" = patrol the room with collision avoidance. This
+// is a pure state-ADVANCE only — it never decides active vs idle (that is
+// setActivity's job, called far less often); an unchanged actor whose mode
+// didn't flip just keeps doing whatever it was already doing.
+function updateCharacterMotion(actor: CharacterActor, t: number, index: number, actors: CharacterActor[]): void {
+  if (actor.mode === "active") {
+    if (actor.transit) {
+      const u = Math.min(1, (t - actor.transit.startTime) / actor.transit.duration);
+      const ease = u * u * (3 - 2 * u);
+      actor.pivot.position.lerpVectors(actor.transit.from, actor.workSpot, ease);
+      const dir = Math.atan2(actor.workSpot.x - actor.transit.from.x, actor.workSpot.z - actor.transit.from.z);
+      actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.12);
+      if (u >= 1) {
+        actor.pivot.position.copy(actor.workSpot);
+        actor.transit = null;
+      }
+      return;
+    }
+    actor.pivot.position.set(
+      actor.workSpot.x,
+      actor.workSpot.y + Math.sin(t * 2.8 + actor.bobPhase) * (actor.isAtlas ? 0.014 : 0.025),
+      actor.workSpot.z,
+    );
+    const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
+    actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dirToBoard, 0.16);
+    return;
+  }
+
+  // Idle: patrol the room (ported from the prototype's updateActorPatrols).
+  if (!actor.patrol) startPatrol(actor, t, actors);
+  const patrol = actor.patrol!;
+  const targetPoint = ROUTE_POINTS[patrol.target];
+  const progress = Math.min(1, (t - patrol.startTime) / patrol.duration);
+
+  if (
+    (isRoutePointOccupied(targetPoint, actor, actors, 1.05) || !isSegmentClear(actor.pivot.position, targetPoint, 0.32)) &&
+    progress < 0.82
+  ) {
+    patrol.from = actor.pivot.position.clone();
+    patrol.current = findNearestRouteIndex(actor.pivot.position);
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    return;
+  }
+
+  const end = ROUTE_POINTS[patrol.target];
+  const u = Math.min(1, (t - patrol.startTime) / patrol.duration);
+  const ease = u * u * (3 - 2 * u);
+  actor.pivot.position.lerpVectors(patrol.from, end, ease);
+  actor.pivot.position.y = 0.92 + Math.sin(t * 2.4 + index) * 0.03;
+  const dir = Math.atan2(end.x - patrol.from.x, end.z - patrol.from.z);
+  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.08);
+
+  if (u >= 1) {
+    patrol.previous = patrol.current;
+    patrol.current = patrol.target;
+    patrol.from = ROUTE_POINTS[patrol.current].clone();
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    const nextDist = ROUTE_POINTS[patrol.current].distanceTo(ROUTE_POINTS[patrol.target]);
+    patrol.duration = THREE.MathUtils.clamp(nextDist / 1.05, 2.5, 6.2);
+  }
+}
+
+// prefers-reduced-motion: freeze every character at its CURRENT commanded pose
+// with no lerp/patrol in flight — active characters stand at their workSpot,
+// idle characters sit at a fixed home point (mirrors the 2D engine's reduced-
+// motion contract: no continuous motion, but the pose still reflects state).
+function poseStaticAll(actors: CharacterActor[]): void {
+  actors.forEach((actor) => {
+    if (actor.isAtlas) return;
+    actor.patrol = null;
+    actor.transit = null;
+    if (actor.mode === "active") {
+      actor.pivot.position.copy(actor.workSpot);
+      actor.pivot.rotation.y = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
+    } else {
+      actor.pivot.position.copy(actor.homePoint);
+      actor.pivot.rotation.y = Math.atan2(actor.workSpot.x - actor.homePoint.x, actor.workSpot.z - actor.homePoint.z);
+    }
+  });
+}
+
+// setScope dimming: a minimal (non-animated) opacity fade, idempotent per actor
+// (returns false — no material write — when the dim state is already correct,
+// so a repeated setScope("all")/setScope("epic", sameRoles) call is a no-op).
+function setActorDim(actor: CharacterActor, dim: boolean): boolean {
+  if (actor.dimmed === dim) return false;
+  actor.dimmed = dim;
+  actor.pivot.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    // Every mesh's material was cloned per-instance in tuneMaterial() (called
+    // from normalizeCharacter), so mutating opacity here only ever affects
+    // this one actor, never a sibling sharing the same GLB source material.
+    if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+    const m = mesh.material as THREE.Material & { opacity: number };
+    m.transparent = dim;
+    m.opacity = dim ? 0.22 : 1;
+    m.depthWrite = !dim;
+  });
+  return true;
+}
 
 // ── WebGL availability probe (ported from the prototype's canCreateWebGL) ───
 // jsdom (unit tests) has no WebGL context either — this same probe correctly
@@ -330,19 +615,27 @@ function addStarfield(scene: THREE.Scene): void {
 }
 
 function Canvas3DInner(
-  { onReadyChange }: CampsiteCanvasProps,
+  { onReadyChange, agents }: CampsiteCanvasProps,
   ref: React.ForwardedRef<RendererHandle>,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable">("loading");
 
-  // S2b: static scene only (no live-data binding, no character motion — S3/S6
-  // add those). The shell still calls setActivity/setScope/triggerWalk once
-  // ready regardless of which renderer is mounted; no-ops are correct here.
+  // CAM-375 (S3): the mount effect (below) reassigns these once the scene/actors
+  // exist; useImperativeHandle itself has a stable (mount-once) identity, so it
+  // always delegates through the ref rather than closing over effect-scoped
+  // state directly. Reset to no-ops on unmount (the effect's cleanup) so a call
+  // that races teardown never touches a disposed scene.
+  const controllerRef = useRef<{
+    setActivity: (activeByRole: Record<string, boolean>) => void;
+    setScope: (scope: "all" | "epic", epicRoles: string[]) => void;
+  }>({ setActivity: () => {}, setScope: () => {} });
+
   useImperativeHandle(ref, () => ({
-    setActivity: () => {},
-    setScope: () => {},
+    setActivity: (activeByRole) => controllerRef.current.setActivity(activeByRole),
+    setScope: (scope, epicRoles) => controllerRef.current.setScope(scope, epicRoles),
+    // triggerWalk stays a no-op — not part of S3's scope (setActivity/setScope only).
     triggerWalk: () => {},
   }), []);
 
@@ -409,8 +702,20 @@ function Canvas3DInner(
     addStarfield(scene);
     buildRoom(scene);
 
+    // CAM-375 (S3): live-activity state. `actors` is populated once assets load
+    // (below); `clock` drives every character's motion timing.
+    const clock = new THREE.Clock();
+    const actors: CharacterActor[] = [];
+    let reducedMotion = false; // set for real by applyMotionPreference() below
+
     function render() {
       controls.update();
+      if (!reducedMotion) {
+        const t = clock.getElapsedTime();
+        actors.forEach((actor, i) => {
+          if (!actor.isAtlas) updateCharacterMotion(actor, t, i, actors);
+        });
+      }
       renderer.render(scene, camera);
     }
 
@@ -427,11 +732,16 @@ function Canvas3DInner(
     }
     function applyMotionPreference(reduced: boolean) {
       stopLoop();
+      reducedMotion = reduced;
       // Damping needs several continuous frames to decay after a drag; under
       // on-demand rendering there is no continuous loop to play that decay, so
       // disable it — each drag applies immediately with no lingering inertia.
       controls.enableDamping = !reduced;
       if (reduced) {
+        // Freeze every character at its current commanded pose (no lerp/patrol
+        // left in flight) before the one-off render — mirrors the 2D engine's
+        // reduced-motion contract (state still shown, no continuous motion).
+        poseStaticAll(actors);
         render();
       } else {
         loop();
@@ -499,6 +809,25 @@ function Canvas3DInner(
         roleLight.position.set(0, 1.12, 0.05);
         pivot.add(roleLight);
         scene.add(pivot);
+
+        // CAM-375 (S3): live-activity actor state. Default mode is "active" (the
+        // character's created position IS its workSpot already) so there is no
+        // flash-of-wandering before the shell's first real setActivity call
+        // arrives; Atlas is still pushed (poseStaticAll/setActorDim skip it via
+        // isAtlas) so array indices stay 1:1 with WORKFLOW for bobPhase.
+        actors.push({
+          key: station.key,
+          isAtlas: !!station.isAtlas,
+          pivot,
+          workSpot: station.workSpot,
+          facePos: station.pos,
+          homePoint: ROUTE_POINTS[findNearestRouteIndex(station.workSpot)].clone(),
+          bobPhase: i,
+          mode: "active",
+          dimmed: false,
+          patrol: null,
+          transit: null,
+        });
       });
 
       const propScenes = await Promise.all(
@@ -525,6 +854,15 @@ function Canvas3DInner(
       if (disposed) return;
       setStatus("ready");
       onReadyChange(true);
+      // CAM-375 (S3) fix: under reduced motion there is no continuous loop to
+      // pick up the just-added character/prop meshes on its own next tick (the
+      // only earlier render() call happened at mount, before any of this
+      // existed) — without this, the scene would stay empty (room/lights only)
+      // until the next OrbitControls drag or window resize triggers render().
+      if (reducedMotion) {
+        poseStaticAll(actors);
+        render();
+      }
     }
 
     loadAssets().catch((err) => {
@@ -536,11 +874,62 @@ function Canvas3DInner(
       if (!disposed) {
         setStatus("ready");
         onReadyChange(true);
+        if (reducedMotion) render(); // same reduced-motion gap as the success path above
       }
     });
 
+    // CAM-375 (S3): bridge the imperative handle (declared once, outside this
+    // effect) to this mount's actual scene state. setActivity is an idempotent
+    // STATE SET, never a re-path — an actor whose commanded mode is unchanged
+    // is skipped entirely (its in-flight patrol/transit is left alone), which
+    // is exactly what preserves the shell's activeKey-only call contract: even
+    // if the shell ever called setActivity twice with the same activeByRole,
+    // the second call would be a no-op here.
+    function applyActivity(activeByRole: Record<string, boolean>): void {
+      const t = clock.getElapsedTime();
+      let changed = false;
+      for (const actor of actors) {
+        if (actor.isAtlas) continue; // not bound to a build role in S3
+        const roleKey = ROLE_KEY_BY_CHARACTER[actor.key];
+        if (!roleKey) continue;
+        const nextMode: "active" | "idle" = activeByRole[roleKey] ? "active" : "idle";
+        if (nextMode === actor.mode) continue; // idempotent — unchanged actors are never re-pathed
+        changed = true;
+        actor.mode = nextMode;
+        actor.patrol = null;
+        actor.transit =
+          nextMode === "active" && !reducedMotion
+            ? {
+                from: actor.pivot.position.clone(),
+                startTime: t,
+                duration: Math.max(0.6, actor.pivot.position.distanceTo(actor.workSpot) / 2.2),
+              }
+            : null;
+      }
+      // Under reduced motion there is no continuous loop to apply the new pose
+      // on its own — re-pose + repaint once, on demand (mirrors applyMotionPreference).
+      if (changed && reducedMotion) {
+        poseStaticAll(actors);
+        render();
+      }
+    }
+
+    function applyScope(scope: "all" | "epic", epicRoles: string[]): void {
+      let changed = false;
+      for (const actor of actors) {
+        if (actor.isAtlas) continue; // Atlas is not gated by epic scope in S3 (S4 decides its own binding)
+        const roleKey = ROLE_KEY_BY_CHARACTER[actor.key];
+        const dim = scope === "epic" && !!roleKey && !epicRoles.includes(roleKey);
+        if (setActorDim(actor, dim)) changed = true;
+      }
+      if (changed && reducedMotion) render();
+    }
+
+    controllerRef.current = { setActivity: applyActivity, setScope: applyScope };
+
     return () => {
       disposed = true;
+      controllerRef.current = { setActivity: () => {}, setScope: () => {} };
       stopLoop();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -567,7 +956,13 @@ function Canvas3DInner(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sceneAriaLabel = "ห้องทำงาน 3 มิติของทีม AI delivery: Atlas และเพื่อนร่วมทีมอีก 7 คน ประจำอยู่ที่สถานีของตนเอง";
+  // CAM-375 (S3): React-owned (re-computed on every `agents` prop update,
+  // independent of the WebGL rAF loop) so the scene's accessible state summary
+  // stays accurate even under prefers-reduced-motion, where the characters'
+  // own visual motion is frozen (mirrors campsite-canvas.tsx's S7 sceneAriaLabel
+  // pattern — active count is always announced from real data, never animation).
+  const activeAgentCount = agents.filter((a) => a.active).length;
+  const sceneAriaLabel = `ห้องทำงาน 3 มิติของทีม AI delivery: Atlas และเพื่อนร่วมทีมอีก 7 คน ประจำอยู่ที่สถานีของตนเอง (กำลังทำงาน ${activeAgentCount}/7 คน)`;
 
   return (
     <div
