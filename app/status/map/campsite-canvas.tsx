@@ -202,51 +202,13 @@ const SCENE_CSS = `
   container-type: size;
 }
 .scout-layer{position:absolute;inset:0;z-index:30}
-/* Top row — NO bar background; transparent container, each item floats as its own chip. */
-.hud-topbar{
-  position:fixed;top:0;left:0;right:0;z-index:23;
-  display:flex;align-items:center;gap:12px;
-  padding:14px 18px;
-  pointer-events:none;
-  box-sizing:border-box;max-width:100vw;overflow:hidden;
-}
-.hud-topbar > *{pointer-events:auto}
-/* logo wrapped in its own green-glass chip */
-.hud-topbar-logo{
-  display:inline-flex;align-items:center;flex:none;
-  padding:7px 16px;
-  border:1px solid rgba(150,240,195,.13);border-radius:999px;
-  background:rgba(11,30,24,.50);
-  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
-  box-shadow:0 8px 24px rgba(0,0,0,.32),inset 0 1px 0 rgba(200,255,232,.12);
-}
-/* Left panel stack — summary + approval, stacked vertically */
-.hud-left-panels{
-  position:fixed;top:80px;left:18px;z-index:22;
-  display:flex;flex-direction:column;gap:8px;
-  pointer-events:none;
-  max-height:calc(100svh - 100px);overflow:hidden;
-}
-.hud-left-panels > *{pointer-events:auto}
-.hud-right-panels{position:fixed;top:80px;right:18px;z-index:22;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-height:calc(100svh - 100px);overflow:hidden}
-.hud-right-panels > *{pointer-events:auto}
-.hud-topbar-spacer{flex:1 1 0;min-width:0}
-.hud-topbar-right{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0}
-.cv-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 7px rgba(0,0,0,.4))}
-/* Ambient sound toggle — glass button inside the top bar. */
-.sound-toggle{
-  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid rgba(150,240,195,.13);border-radius:999px;
-  background:rgba(11,30,24,.50);
-  backdrop-filter:saturate(195%) blur(26px);-webkit-backdrop-filter:saturate(195%) blur(26px);
-  box-shadow:0 8px 24px rgba(0,0,0,.32);
-  color:rgba(223,234,245,.66);cursor:pointer;
-  transition:background 120ms,color 120ms,border-color 120ms;
-}
-.sound-toggle:hover{background:rgba(255,255,255,.07);color:rgba(223,234,245,.95)}
-.sound-toggle:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
-.sound-toggle.on{color:#5BE9B0;border-color:rgba(91,233,176,.4);background:rgba(91,233,176,.12)}
-.sound-toggle svg{width:20px;height:20px;display:block}
+/* CAM-374: .hud-topbar/.hud-topbar-logo/.hud-left-panels/.hud-right-panels/
+   .hud-topbar-spacer/.hud-topbar-right/.cv-logo/.sound-toggle are shell-owned
+   HUD chrome (position/z-index rendered by StatusMapShell, campsite-scene.tsx)
+   — moved to HUD_CSS (campsite-overlays.tsx, always injected in both 2D and 3D)
+   so the topbar + side panels stay correctly positioned/stacked above the 3D
+   canvas too (previously unstyled/uncovered in 3D since SCENE_CSS never loads
+   there). See HUD_CSS for the rule bodies. */
 /* Idle "waiting for work" speech bubble — engine toggles .show; text set via JS. */
 .speech{
   position:absolute;left:50%;bottom:calc(var(--bh) + 56px);
@@ -415,182 +377,12 @@ const SCENE_CSS = `
     animation:fireflyTwinkle var(--ff-dur,3.5s) ease-in-out var(--ff-delay,0s) infinite;
   }
 }
-/* ── SMUX-2: Responsive HUD — tablet 640–1023px ─────────────────────────────
-   Side panels (left + right stacks) become edge-drawer tabs; the 3-filter
-   signposts collapse to a single compact chip.
-   .hud-left-panels and .hud-right-panels are hidden in favour of Sheet drawers.
-   Bottom dock stays (simplified). */
-@media (max-width: 1023px) {
-  .hud-left-panels{display:none}
-  .hud-right-panels{display:none}
-  /* Edge drawer tabs — position:fixed strips on left and right of the viewport */
-  .hud-edge-tab{
-    position:fixed;
-    top:50%;transform:translateY(-50%);
-    z-index:24;
-    display:flex;align-items:center;justify-content:center;
-    min-height:80px;width:28px;
-    background:rgba(11,30,24,.70);
-    border:1px solid rgba(150,240,195,.18);
-    backdrop-filter:saturate(195%) blur(20px);-webkit-backdrop-filter:saturate(195%) blur(20px);
-    cursor:pointer;
-    writing-mode:vertical-rl;
-    font-size:9px;font-weight:700;letter-spacing:.08em;
-    color:rgba(223,234,245,.55);
-    padding:8px 0;
-    user-select:none;
-    transition:background 140ms,border-color 140ms,color 140ms;
-  }
-  .hud-edge-tab.left{
-    left:0;border-left:none;
-    border-radius:0 6px 6px 0;
-  }
-  .hud-edge-tab.right{
-    right:0;border-right:none;
-    border-radius:0 6px 6px 0;
-    transform:translateY(-50%) rotate(180deg);
-  }
-  .hud-edge-tab:hover{background:rgba(91,233,176,.10);border-color:rgba(91,233,176,.3)}
-  .hud-edge-tab:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
-  .hud-edge-tab[aria-expanded="true"]{background:rgba(91,233,176,.14);color:#5BE9B0;border-color:rgba(91,233,176,.4)}
-  @media(prefers-reduced-motion:no-preference){
-    .hud-edge-tab:active{background:rgba(91,233,176,.12)}
-  }
-  /* SMUX-6: filter row is a separate bottom row (FilterSignposts layout="bottom"), not in the topbar */
-  /* Hide 3-filter desktop row on tablet */
-  .hud-signposts-desktop{display:none}
-}
-/* ── CAM-260: Tablet (640–1023px) bottom toolbar ────────────────────────────
-   Same structural overflow guard as mobile. Labels + capsule lane words stay
-   visible at tablet width. Edge drawer tabs are kept for panel access. */
-@media (min-width: 640px) and (max-width: 1023px) {
-  .hud-map-toolbar{
-    position:fixed;bottom:calc(8px + env(safe-area-inset-bottom));
-    /* CAM-260: structural overflow guard — inset 12px each side */
-    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
-    z-index:25;
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    padding:4px 0;
-    min-height:52px;
-    box-sizing:border-box;max-width:100%;
-    background:transparent;
-    backdrop-filter:none;-webkit-backdrop-filter:none;
-    border-top:none;
-  }
-  .hud-map-toolbar > *{min-width:0}
-  .hud-toolbar-btn{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:0 16px;font-size:12px;font-weight:600;
-    color:rgba(223,234,245,.82);
-    background:rgba(11,30,24,.50);
-    backdrop-filter:saturate(195%) blur(26px);
-    -webkit-backdrop-filter:saturate(195%) blur(26px);
-    border:1px solid rgba(150,240,195,.13);border-radius:999px;
-    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
-    min-height:44px;min-width:44px;cursor:pointer;
-    transition:background 120ms,border-color 120ms,color 120ms;
-  }
-  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
-  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
-  .hud-toolbar-btn[aria-expanded="true"]{background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0}
-  .hud-toolbar-btn svg{display:block;flex:none}
-  @media(prefers-reduced-motion:no-preference){
-    .hud-toolbar-btn:active{transform:scale(.96)}
-  }
-  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
-  /* Lift dock above toolbar on tablet (same as mobile) */
-  .hud-dock{bottom:60px}
-  .hud-signposts-desktop{display:none !important}
-}
-/* On desktop, hide the edge tabs and mobile toolbar; show desktop filter row */
-@media (min-width: 1024px) {
-  .hud-edge-tab{display:none}
-  .hud-filter-compact{display:none}
-  .hud-map-toolbar{display:none}
-}
-/* ── SMUX-6: Mobile top-bar icon buttons — shown only at <1024 ───────────────
-   The .hud-topbar-right children that should only be visible on desktop are
-   hidden at <1024; instead the SMUX-6 icon buttons appear in the top bar. */
-@media (max-width: 1023px) {
-  /* Hide the full-text env toggle and ViewToggle text link on tablet/mobile */
-  .hud-env-toggle{display:none}
-  .hud-view-toggle{display:none}
-  /* Icon buttons are always visible; icon-only versions in .hud-topbar-icons replace them */
-}
-@media (min-width: 1024px) {
-  /* On desktop show the original full-text controls, hide icon-only versions */
-  .hud-topbar-icons{display:none !important}
-}
-
-/* ── CAM-260: Mobile + tablet bottom toolbar (<640px) ────────────────────────
-   Bottom toolbar replaces panel triggers on very small screens.
-   Dock is still visible but shifted up; toolbar floats at z-index:25.
-   SMUX-6: toolbar background removed — transparent; only the glass chips have fill.
-   CAM-260: structural overflow guard + centered layout + icon-only at ≤420px. */
-@media (max-width: 639px) {
-  .hud-edge-tab{display:none}
-  /* Bottom toolbar — structural overflow guard (CAM-260 Defect C) */
-  .hud-map-toolbar{
-    position:fixed;bottom:0;
-    /* CAM-260: structural overflow guard — inset 12px each side, never butts against edge */
-    left:var(--hud-inset-sm,12px);right:var(--hud-inset-sm,12px);width:auto;
-    z-index:25;
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    padding:6px 0 max(10px, env(safe-area-inset-bottom)) 0;
-    min-height:52px;
-    /* structural ceiling — padding is contained, cannot exceed viewport */
-    box-sizing:border-box;max-width:100%;
-    background:transparent;
-    backdrop-filter:none;-webkit-backdrop-filter:none;
-    border-top:none;
-  }
-  /* All direct flex children must be able to shrink (CAM-260) */
-  .hud-map-toolbar > *{min-width:0}
-  /* SMUX-6-fix-3 (CAM-259): same dark-green HUD glass language as .hud-signpost /
-     .hud-view-toggle (campsite-overlays.tsx) so the toolbar buttons read as one
-     family with the filter chips + the desktop dashboard chip. */
-  .hud-toolbar-btn{
-    display:inline-flex;align-items:center;gap:6px;
-    padding:0 16px;font-size:12px;font-weight:600;
-    color:rgba(223,234,245,.82);
-    background:rgba(11,30,24,.50);
-    backdrop-filter:saturate(195%) blur(26px);
-    -webkit-backdrop-filter:saturate(195%) blur(26px);
-    border:1px solid rgba(150,240,195,.13);border-radius:999px;
-    box-shadow:inset 0 1px 0 rgba(200,255,232,.10);
-    min-height:44px;min-width:44px;cursor:pointer;
-    transition:background 120ms,border-color 120ms,color 120ms;
-  }
-  .hud-toolbar-btn:hover{background:rgba(91,233,176,.12);color:rgba(223,234,245,.96);border-color:rgba(91,233,176,.22)}
-  .hud-toolbar-btn:focus-visible{outline:2px solid rgba(91,233,176,.8);outline-offset:2px}
-  .hud-toolbar-btn[aria-expanded="true"]{
-    background:rgba(91,233,176,.14);border-color:rgba(91,233,176,.4);color:#5BE9B0;
-  }
-  .hud-toolbar-btn svg{display:block;flex:none}
-  @media(prefers-reduced-motion:no-preference){
-    .hud-toolbar-btn:active{transform:scale(.96)}
-  }
-  .hud-toolbar-btn:disabled{opacity:.45;cursor:not-allowed}
-  /* CAM-260: at ≤420px collapse toolbar buttons to icon-only 44×44 (hide the
-     text label; the lucide icon + aria-label carry the meaning, ≥44px hit area kept).
-     Capsule compacts: lane words hidden, colored dots shown instead. */
-  @media (max-width: 420px){
-    .hud-toolbar-btn-label{display:none}
-    .hud-toolbar-btn{padding:0;width:44px;justify-content:center;gap:0}
-    .env-lane-word{display:none}
-    .env-lane-dot{display:inline-block}
-  }
-  /* CAM-260: at ≤380px tighten the toolbar gap further */
-  @media (max-width: 380px){
-    .hud-map-toolbar{gap:6px}
-  }
-  .hud-toolbar-center{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(223,234,245,.55);font-weight:600}
-  /* Move dock up so toolbar doesn't overlap it on mobile */
-  .hud-dock{bottom:60px}
-  /* SMUX-6: the bottom filter row (.hud-signposts-bottom) sits above the toolbar — see HUD_CSS */
-  /* Hide desktop signposts on mobile */
-  .hud-signposts-desktop{display:none !important}
-}
+/* CAM-374: the SMUX-2/CAM-260/SMUX-6 responsive HUD blocks (tablet edge-drawer
+   tabs, tablet + mobile bottom toolbar, desktop hide rules, env/view-toggle +
+   topbar-icons show/hide) all style shell-owned HUD chrome (StatusMapShell,
+   campsite-scene.tsx) — moved to HUD_CSS (campsite-overlays.tsx, always
+   injected in both 2D and 3D) so these controls stay correctly shown/hidden
+   and positioned above the 3D canvas too. See HUD_CSS for the rule bodies. */
 /* ── SMUX-3: Map↔Board/Filter bidirectional sync ────────────────────────────
    .scout--focused: a teal glow-ring on the GROUND (aligned with .shadow / .aura-ring)
    when a board card or filter selection points at this agent. Replaces the old

@@ -275,7 +275,11 @@ describe("StatusMapShell — CAM-372 (S1b) mount smoke test", () => {
     // No actual next/dynamic IMPORT remains (the string still appears in explanatory
     // comments documenting why it was replaced — that's fine, this checks the import).
     expect(sceneSrc).not.toContain('from "next/dynamic"');
-    expect(sceneSrc).toContain("<Suspense fallback={null}>");
+    // CAM-374: the Suspense fallback is <MapProgress/> (not null) — a full-screen
+    // canvas module shows a progress indicator while the `three` chunk downloads,
+    // per .claude/rules/loading.md, instead of a blank gap.
+    expect(sceneSrc).toContain("<Suspense fallback={<MapProgress />}>");
+    expect(sceneSrc).toContain('import { MapProgress } from "./map-progress"');
   });
 
   // Source-grep: initialRenderer threads server page → SceneLoader → the shell.
