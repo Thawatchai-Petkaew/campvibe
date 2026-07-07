@@ -371,23 +371,54 @@ export function parseStoredPropLayout(raw: string | null): StoredPropLayout {
   return out;
 }
 
+// Shared bounds math for clampPropPosition/clampPropPositionInto below — a
+// single source for the margin/wall formula so the two clamp entry points
+// (the allocating one-off call sites vs. the zero-allocation hot drag path)
+// can never drift apart.
+function propClampBounds(radius: number): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const margin = Math.max(0.52, radius * 0.48);
+  return {
+    minX: WALL_INNER + margin,
+    maxX: WALL_END - margin,
+    minZ: WALL_INNER + margin,
+    maxZ: WALL_END - margin,
+  };
+}
+
 // Clamps a candidate prop position to the room's floor bounds (ported from
 // the prototype's clampRoomPropPosition, reusing this file's OWN
 // WALL_INNER/WALL_END — numerically identical to the prototype's wallInner/
 // wallEnd) and to the floor/ceiling world-Y range. Exported for a real unit
-// test (boundary: exactly at a wall, exactly at the floor/ceiling).
+// test (boundary: exactly at a wall, exactly at the floor/ceiling). Used at
+// one-off call sites (restoring/resetting a layout) where allocating a small
+// plain object is fine — the per-move hot path uses clampPropPositionInto
+// below instead.
 export function clampPropPosition(
   x: number,
   y: number,
   z: number,
   radius: number,
 ): { x: number; y: number; z: number } {
-  const margin = Math.max(0.52, radius * 0.48);
+  const b = propClampBounds(radius);
   return {
-    x: THREE.MathUtils.clamp(x, WALL_INNER + margin, WALL_END - margin),
+    x: THREE.MathUtils.clamp(x, b.minX, b.maxX),
     y: THREE.MathUtils.clamp(y, OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y),
-    z: THREE.MathUtils.clamp(z, WALL_INNER + margin, WALL_END - margin),
+    z: THREE.MathUtils.clamp(z, b.minZ, b.maxZ),
   };
+}
+
+// Same clamp as clampPropPosition, written directly into an existing
+// Vector3 (the dragged prop's own group.position) instead of allocating a
+// fresh {x,y,z} literal — used by the per-pointermove drag path so a mouse
+// move never allocates. Exported (mirrors this file's export-pure-functions
+// convention) so a unit test can assert it agrees with clampPropPosition.
+export function clampPropPositionInto(target: THREE.Vector3, x: number, y: number, z: number, radius: number): void {
+  const b = propClampBounds(radius);
+  target.set(
+    THREE.MathUtils.clamp(x, b.minX, b.maxX),
+    THREE.MathUtils.clamp(y, OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y),
+    THREE.MathUtils.clamp(z, b.minZ, b.maxZ),
+  );
 }
 
 interface RoomPropRecord {
@@ -1396,6 +1427,10 @@ function Canvas3DInner(
       floorPoint: THREE.Vector3;
       dragStartClientY: number;
       dragStartY: number;
+      /** The Shift-key state the CURRENT drag is currently operating under —
+       *  set at pointerdown, then kept in sync by the rebase-on-toggle logic
+       *  in onPropPointerMove so switching axis mid-drag never teleports. */
+      dragShiftActive: boolean;
     } = {
       enabled: false,
       dragging: false,
@@ -1404,6 +1439,7 @@ function Canvas3DInner(
       floorPoint: new THREE.Vector3(),
       dragStartClientY: 0,
       dragStartY: 0,
+      dragShiftActive: false,
     };
     const editFloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     let reducedMotion = false; // set for real by applyMotionPreference() below
@@ -1757,15 +1793,22 @@ function Canvas3DInner(
       const record = pickProp();
       editState.selected = record;
       updatePropSelectionRing();
+      // Review fix (selection-ring repaint): under reduced motion there is no
+      // continuous loop to pick up the ring becoming visible/invisible on its
+      // own — repaint once, on demand, for BOTH a real selection and a
+      // click-on-empty-space deselection (mirrors applyActivity's own
+      // on-demand-repaint contract elsewhere in this file).
+      if (reducedMotion) render();
       if (!record) return;
       event.preventDefault();
       // Disable OrbitControls only while ACTIVELY dragging a prop — re-enabled
-      // on pointer-up below (and on exiting edit mode) so the user can still
-      // orbit the camera freely between drags, unlike the prototype which
-      // disabled orbit for the entire edit-mode session.
+      // on pointer-up/cancel below (and on exiting edit mode) so the user can
+      // still orbit the camera freely between drags, unlike the prototype
+      // which disabled orbit for the entire edit-mode session.
       controls.enabled = false;
       editState.dragStartClientY = event.clientY;
       editState.dragStartY = record.group.position.y;
+      editState.dragShiftActive = event.shiftKey;
       const hit = intersectFloorPlaneAtY(record.group.position.y, editState.floorPoint);
       if (hit) {
         editState.dragOffset.copy(record.group.position).sub(editState.floorPoint);
@@ -1776,6 +1819,30 @@ function Canvas3DInner(
       editState.dragging = true;
       canvas!.style.cursor = "grabbing";
       canvas!.setPointerCapture?.(event.pointerId);
+    }
+
+    // Review fix (Shift toggled mid-drag): `dragStartClientY`/`dragStartY`
+    // (vertical axis) and `dragOffset` (XZ axis) are each meaningful only
+    // relative to the axis mode active when they were captured. Toggling
+    // Shift mid-drag without rebasing makes the vertical delta suddenly
+    // measure from the ORIGINAL pointerdown position (a huge jump) and makes
+    // the XZ branch resume from a `dragOffset` computed against a stale
+    // Y-plane (also a jump) — both read as a teleport. Called once, exactly
+    // when `event.shiftKey` differs from the drag's current mode, so the
+    // prop continues smoothly from wherever it already is instead of
+    // snapping. Not called on every move — only on the transition.
+    function rebaseDragAxis(event: PointerEvent, record: RoomPropRecord): void {
+      editState.dragShiftActive = event.shiftKey;
+      if (event.shiftKey) {
+        editState.dragStartClientY = event.clientY;
+        editState.dragStartY = record.group.position.y;
+      } else {
+        const hit = intersectFloorPlaneAtY(record.group.position.y, editState.floorPoint);
+        if (hit) {
+          editState.dragOffset.copy(record.group.position).sub(editState.floorPoint);
+          editState.dragOffset.y = 0;
+        }
+      }
     }
 
     function onPropPointerMove(event: PointerEvent): void {
@@ -1789,15 +1856,25 @@ function Canvas3DInner(
         canvas!.style.cursor = pickProp() ? "grab" : "default";
         return;
       }
+      // Review fix (pointercancel/missed-release recovery): a move event with
+      // no button held means a pointerup/pointercancel was somehow missed
+      // (observed on touch when the browser steals the pointer for its own
+      // gesture) — recover exactly as if the drag had ended normally instead
+      // of continuing to drag with nothing pressed.
+      if (event.buttons === 0) {
+        endPropDrag(event);
+        return;
+      }
       const record = editState.selected;
       setPointerFromClientXY(event.clientX, event.clientY);
+      if (event.shiftKey !== editState.dragShiftActive) rebaseDragAxis(event, record);
       let nextX = record.group.position.x;
       let nextY = record.group.position.y;
       let nextZ = record.group.position.z;
       if (event.shiftKey) {
         // Raise/lower to the floor: dragging UP the screen (clientY decreasing)
-        // raises the prop; clampPropPosition below is what makes "lower"
-        // bottom out AT the surface instead of sinking through it.
+        // raises the prop; the clamp below is what makes "lower" bottom out AT
+        // the surface instead of sinking through it.
         const deltaPx = editState.dragStartClientY - event.clientY;
         nextY = editState.dragStartY + deltaPx * PROP_VERTICAL_DRAG_SCALE;
       } else {
@@ -1806,8 +1883,9 @@ function Canvas3DInner(
         nextX = editState.floorPoint.x + editState.dragOffset.x;
         nextZ = editState.floorPoint.z + editState.dragOffset.z;
       }
-      const clamped = clampPropPosition(nextX, nextY, nextZ, record.def.radius);
-      record.group.position.set(clamped.x, clamped.y, clamped.z);
+      // Review fix (per-move allocation): clamp directly into the prop's own
+      // position Vector3 — no fresh {x,y,z} literal allocated per mousemove.
+      clampPropPositionInto(record.group.position, nextX, nextY, nextZ, record.def.radius);
       syncPropObstacle(record);
       updatePropSelectionRing();
       // Repaint on-demand under reduced motion (no continuous loop to pick up
@@ -1816,7 +1894,11 @@ function Canvas3DInner(
       if (reducedMotion) renderFrame();
     }
 
-    function onPropPointerUp(event: PointerEvent): void {
+    // Shared teardown for a ended drag, regardless of HOW it ended (a normal
+    // release, a pointercancel, or the buttons===0 recovery path above) — one
+    // place clears `dragging`, re-enables OrbitControls, resets the cursor,
+    // and persists/replans if a prop was actually being moved.
+    function endPropDrag(event: PointerEvent): void {
       if (!editState.dragging) return;
       editState.dragging = false;
       controls.enabled = true; // re-enable orbit now that the drag ended
@@ -1828,9 +1910,27 @@ function Canvas3DInner(
       }
     }
 
+    function onPropPointerUp(event: PointerEvent): void {
+      endPropDrag(event);
+    }
+
+    // Review fix (FIX 1): a touch/pen drag can be interrupted by the browser
+    // (an OS-level gesture, or another touch stealing the pointer) WITHOUT
+    // ever firing pointerup — pointercancel is the only signal in that case.
+    // Without this listener, `dragging` stayed true and `controls.enabled`
+    // stayed false forever (camera stuck un-orbitable, prop stuck following
+    // the next move with no button held, and tapping empty space couldn't
+    // recover because the null-pick path returns before re-enabling
+    // controls). Listened on the SAME target as pointerup (window) and runs
+    // the identical teardown.
+    function onPropPointerCancel(event: PointerEvent): void {
+      endPropDrag(event);
+    }
+
     canvas.addEventListener("pointerdown", onPropPointerDown);
     canvas.addEventListener("pointermove", onPropPointerMove);
     window.addEventListener("pointerup", onPropPointerUp);
+    window.addEventListener("pointercancel", onPropPointerCancel);
 
     // ── assets: characters + props, in parallel, per-item fallback ──────────
     const loader = new GLTFLoader();
@@ -1914,10 +2014,24 @@ function Canvas3DInner(
         // CAM-380: Object Edit Mode record, keyed to the SAME NAVIGATION_OBSTACLES
         // entry the patrol/collision functions above already read (index-aligned
         // — both are built from ROOM_PROPS in this same order).
-        propRecords.push({ def: item, group, obstacle: NAVIGATION_OBSTACLES[i] });
+        const record: RoomPropRecord = { def: item, group, obstacle: NAVIGATION_OBSTACLES[i] };
+        propRecords.push(record);
+        // Review fix (FIX 3, stale obstacle on remount): NAVIGATION_OBSTACLES
+        // is a module-level array that outlives a single mount (a 2D<->3D
+        // toggle creates a brand-new `group` here every time but reuses the
+        // SAME obstacle entries) — reseed it to THIS fresh group's default
+        // position now, before any saved layout is applied below. Without
+        // this, a prior session's dragged obstacle position would leak into
+        // a fresh mount whose localStorage has no entry for this prop
+        // (private-mode storage, or a drag that was picked up then never
+        // released/persisted): the prop would render back at its default
+        // spot while patrols kept avoiding the OLD position — an invisible
+        // obstacle / a clipped visible prop.
+        syncPropObstacle(record);
       });
       // CAM-380: restore any saved layout now that every prop group exists —
-      // a prop with no saved entry keeps its ROOM_PROPS default position.
+      // a prop with no saved entry keeps its ROOM_PROPS default position
+      // (and the obstacle reseed just above, not a stale prior session's).
       applyStoredPropLayout(propRecords, initialStoredPropLayout);
       // CAM-377-style cached hit-test target list, built once (never rebuilt
       // per pointer event — mirrors raycastPivots just above).
@@ -2077,6 +2191,7 @@ function Canvas3DInner(
       canvas.removeEventListener("pointerdown", onPropPointerDown);
       canvas.removeEventListener("pointermove", onPropPointerMove);
       window.removeEventListener("pointerup", onPropPointerUp);
+      window.removeEventListener("pointercancel", onPropPointerCancel);
       controls.dispose();
       // CAM-379 (S7): disposeObject3DTree already walks the WHOLE scene graph —
       // every board's group/backPlate/panel was added via scene.add()/

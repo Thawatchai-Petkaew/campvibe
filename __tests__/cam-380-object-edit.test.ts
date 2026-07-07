@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { capturePropLayout, clampPropPosition, parseStoredPropLayout } from "../app/status/map/canvas-3d";
+import { capturePropLayout, clampPropPosition, clampPropPositionInto, parseStoredPropLayout } from "../app/status/map/canvas-3d";
 
 describe("parseStoredPropLayout — CAM-380 localStorage layout guard", () => {
   it("[unit] parses a well-formed layout with one entry", () => {
@@ -87,6 +87,40 @@ describe("clampPropPosition — CAM-380 room-bounds + floor/ceiling clamp", () =
 
   it("[null/empty] does not throw for a zero radius", () => {
     expect(() => clampPropPosition(0, 0.02, 0, 0)).not.toThrow();
+  });
+});
+
+// Review fix (per-move allocation): the hot drag-move path uses
+// clampPropPositionInto (writes into an existing Vector3, no allocation)
+// instead of clampPropPosition (returns a fresh literal) — this guards that
+// the two never drift apart, since they share `propClampBounds` internally
+// but that helper isn't itself exported.
+describe("clampPropPositionInto — CAM-380 zero-allocation clamp agrees with clampPropPosition", () => {
+  const cases: Array<[number, number, number, number]> = [
+    [0, 0.02, 0, 1], // inside bounds, untouched
+    [0, -5, 0, 1], // below the floor
+    [0, 999, 0, 1], // above the ceiling
+    [-100, 0.02, -100, 1.62], // west/south wall, large radius
+    [100, 0.02, 100, 0.72], // east/north wall
+  ];
+
+  it.each(cases)("[unit] matches clampPropPosition for (%d, %d, %d, r=%d)", (x, y, z, radius) => {
+    const expected = clampPropPosition(x, y, z, radius);
+    const target = new THREE.Vector3();
+    clampPropPositionInto(target, x, y, z, radius);
+    expect(target.x).toBeCloseTo(expected.x, 10);
+    expect(target.y).toBeCloseTo(expected.y, 10);
+    expect(target.z).toBeCloseTo(expected.z, 10);
+  });
+
+  it("[unit] mutates the passed-in Vector3 in place (no new object)", () => {
+    const target = new THREE.Vector3(1, 1, 1);
+    const returned = target as unknown; // clampPropPositionInto returns void
+    clampPropPositionInto(target, 0, 0.02, 0, 1);
+    expect(returned).toBe(target); // same reference — nothing re-allocated by the caller
+    expect(target.x).toBe(0);
+    expect(target.y).toBe(0.02);
+    expect(target.z).toBe(0);
   });
 });
 
