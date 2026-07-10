@@ -163,6 +163,10 @@ const COPY = {
   editModeEnter: "จัดห้อง",
   editModeExit: "เสร็จ",
   editModeReset: "รีเซ็ต",
+  // CAM-382: the on-screen turn-button labels (accessible name for ↺/↻,
+  // which are otherwise decorative glyphs) — same local-const convention.
+  rotateCcw: "หมุนทวนเข็มนาฬิกา",
+  rotateCw: "หมุนตามเข็มนาฬิกา",
 } as const;
 
 // S2a-optimized assets: quantize + webp, no meshopt/Draco/KTX2 (verified WASM-free).
@@ -291,6 +295,17 @@ const ROOM_PROPS: RoomPropDef[] = [
   { name: "plant", file: "plant.glb", position: new THREE.Vector3(-2.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.02, radius: 0.72 },
 ];
 
+// CAM-382: Thai display names for the rotate control's "which prop is
+// selected" label — same Thai-only local-const convention as COPY/BOARD_COPY
+// above (this route's copy is not sourced from locales/translations.ts).
+const PROP_DISPLAY_NAME: Record<string, string> = {
+  sofa: "โซฟา",
+  "table-oval": "โต๊ะวงรี",
+  "table-lumen": "โคมไฟตั้งโต๊ะ",
+  "data-vault": "ตู้เก็บข้อมูล",
+  plant: "ต้นไม้",
+};
+
 // CAM-381: the seated-Atlas-on-sofa decorative extra. CAM-373 S2a found only a
 // pre-compressed meshopt source for it (`atlas_sit.glb`) which the WASM-free
 // pipeline could not use at the time; this story re-encodes it (build-time
@@ -376,19 +391,37 @@ const PROP_VERTICAL_DRAG_SCALE = 0.01;
 // precision; throttling keeps the edit-mode hover raycast off the INP-risk
 // per-mousemove path the same way S5 already avoids it for character hover.
 const PROP_EDIT_HOVER_THROTTLE_MS = 80;
+// CAM-382: on-screen turn-button rotation — a fixed 15° step around Y per tap
+// (↺ = -1 step, ↻ = +1 step), applied directly to a prop's group.rotation.y.
+// A discrete DOM button click, entirely independent of the drag/Shift-height
+// canvas pointer handlers above — no new gesture on the canvas itself.
+const PROP_ROTATE_STEP_RAD = THREE.MathUtils.degToRad(15);
 
 export interface StoredPropPosition {
   x: number;
   y: number;
   z: number;
+  /** CAM-382: optional Y-axis rotation (radians) — absent on any layout saved
+   *  before this story (pre-CAM-382 {x,y,z}-only entries). Absence is NOT an
+   *  error: parseStoredPropLayout keeps the entry and applyStoredPropLayout
+   *  simply leaves the prop's current/ROOM_PROPS-default rotation untouched
+   *  when this field is missing — see both functions below. */
+  rotationY?: number;
 }
 export type StoredPropLayout = Record<string, StoredPropPosition>;
 
 // Guards a malformed/absent/corrupted localStorage value: any shape that
-// isn't a plain object of finite-number {x,y,z} triples is dropped per-entry,
-// never thrown — a bad value fails open to "no saved layout" (ROOM_PROPS
-// defaults), never a crash. Exported (named, per code.md's util convention)
-// for a real unit test, mirroring preferLowLod()/boardFacingY() above.
+// isn't a plain object of finite-number {x,y,z} triples (rotationY optional,
+// see StoredPropPosition above) is dropped per-entry, never thrown — a bad
+// value fails open to "no saved layout" (ROOM_PROPS defaults), never a
+// crash. Exported (named, per code.md's util convention) for a real unit
+// test, mirroring preferLowLod()/boardFacingY() above.
+//
+// CAM-382 backward-compat: an entry saved by the pre-rotate build has no
+// `rotationY` key at all — that shape is STILL accepted as-is (rotationY
+// simply comes out `undefined`, see applyStoredPropLayout below); only a
+// PRESENT-but-non-finite `rotationY` drops the whole entry, the same
+// malformed-entry-drop rule the x/y/z fields already use.
 export function parseStoredPropLayout(raw: string | null): StoredPropLayout {
   if (!raw) return {};
   let parsed: unknown;
@@ -401,9 +434,14 @@ export function parseStoredPropLayout(raw: string | null): StoredPropLayout {
   const out: StoredPropLayout = {};
   for (const [name, value] of Object.entries(parsed as Record<string, unknown>)) {
     const v = value as Partial<StoredPropPosition> | null;
-    if (v && typeof v === "object" && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z)) {
-      out[name] = { x: v.x as number, y: v.y as number, z: v.z as number };
-    }
+    if (!v || typeof v !== "object" || !Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.z)) continue;
+    if (v.rotationY !== undefined && !Number.isFinite(v.rotationY)) continue;
+    out[name] = {
+      x: v.x as number,
+      y: v.y as number,
+      z: v.z as number,
+      ...(v.rotationY !== undefined ? { rotationY: v.rotationY as number } : {}),
+    };
   }
   return out;
 }
@@ -458,6 +496,15 @@ export function clampPropPositionInto(target: THREE.Vector3, x: number, y: numbe
   );
 }
 
+// CAM-382: keeps a repeatedly-rotated prop's angle bounded to [0, 2π) instead
+// of growing unbounded across many ↺/↻ taps (THREE.Euler has no wrap of its
+// own). Exported (named, per code.md's util convention) for a real unit
+// test, mirroring clampPropPosition's own boundary tests above.
+export function normalizeYRotation(radians: number): number {
+  const twoPi = Math.PI * 2;
+  return ((radians % twoPi) + twoPi) % twoPi;
+}
+
 interface RoomPropRecord {
   def: RoomPropDef;
   group: THREE.Group;
@@ -477,10 +524,12 @@ function syncPropObstacle(record: RoomPropRecord): void {
   record.obstacle.z = record.group.position.z;
 }
 
-// Captures every prop's current position, keyed by name (matches the
-// prototype's captureCurrentPropLayout, minus rotationY — this port never
-// rotates a prop). Exported for a unit test (no WebGL needed: THREE.Group is
-// plain data in jsdom/node).
+// Captures every prop's current position + Y rotation, keyed by name.
+// CAM-382 extends the prototype's captureCurrentPropLayout shape: the
+// prototype dropped rotationY since it never rotated a prop; this port now
+// does, via the on-screen turn buttons, so every capture includes it.
+// Exported for a unit test (no WebGL needed: THREE.Group is plain data in
+// jsdom/node).
 export function capturePropLayout(records: RoomPropRecord[]): StoredPropLayout {
   const layout: StoredPropLayout = {};
   records.forEach((record) => {
@@ -488,6 +537,7 @@ export function capturePropLayout(records: RoomPropRecord[]): StoredPropLayout {
       x: Number(record.group.position.x.toFixed(3)),
       y: Number(record.group.position.y.toFixed(3)),
       z: Number(record.group.position.z.toFixed(3)),
+      rotationY: Number(record.group.rotation.y.toFixed(3)),
     };
   });
   return layout;
@@ -512,13 +562,20 @@ function writeStoredPropLayout(layout: StoredPropLayout): void {
 
 // Applies a saved layout onto freshly-created prop groups (called once, right
 // after propRecords is populated in loadAssets below) — a name with no saved
-// entry keeps its ROOM_PROPS default position untouched.
-function applyStoredPropLayout(records: RoomPropRecord[], layout: StoredPropLayout): void {
+// entry keeps its ROOM_PROPS default position (and rotation) untouched.
+// CAM-382 backward-compat: a saved entry with no `rotationY` (a pre-rotate
+// layout) also keeps the group's CURRENT rotation untouched — at the point
+// this runs (right after group creation in loadAssets) that current value
+// already IS the ROOM_PROPS default (`item.rotationY`, set when the group
+// was constructed), so "untouched" and "default" are the same thing here.
+// Exported for a unit test (no WebGL needed, mirrors capturePropLayout above).
+export function applyStoredPropLayout(records: RoomPropRecord[], layout: StoredPropLayout): void {
   records.forEach((record) => {
     const saved = layout[record.def.name];
     if (!saved) return;
     const clamped = clampPropPosition(saved.x, saved.y, saved.z, record.def.radius);
     record.group.position.set(clamped.x, clamped.y, clamped.z);
+    if (saved.rotationY !== undefined) record.group.rotation.y = saved.rotationY;
     syncPropObstacle(record);
   });
 }
@@ -1298,6 +1355,19 @@ function Canvas3DInner(
   });
   const [editModeOn, setEditModeOn] = useState(false);
 
+  // CAM-382: a FIFTH internal bridge, for the on-screen rotate buttons — same
+  // reassign-on-mount / reset-on-cleanup shape as editModeControllerRef above.
+  const propRotateControllerRef = useRef<{ rotate: (direction: 1 | -1) => void }>({
+    rotate: () => {},
+  });
+  // Mirrors editModeOn: real React state so the rotate buttons' visibility
+  // (JSX below) tracks which prop (if any) is currently selected in edit
+  // mode. Set from inside the mount-once effect below (onPropPointerDown /
+  // applyEditMode) — safe because useState setters have a stable identity
+  // across renders, same convention as the setStatus/onReadyChange calls
+  // already made from inside that same effect.
+  const [selectedPropName, setSelectedPropName] = useState<string | null>(null);
+
   // CAM-377 (S5): latest-data refs for the raycaster's click handler (installed
   // once in the mount effect below, deps []). Without these, that handler would
   // close over the FIRST render's `agents`/`gates`/callbacks forever — a click
@@ -1829,6 +1899,9 @@ function Canvas3DInner(
       setPointerFromClientXY(event.clientX, event.clientY);
       const record = pickProp();
       editState.selected = record;
+      // CAM-382: keeps the rotate buttons' React-owned visibility (JSX below)
+      // in sync with the imperative selection state above.
+      setSelectedPropName(record ? record.def.name : null);
       updatePropSelectionRing();
       // Review fix (selection-ring repaint): under reduced motion there is no
       // continuous loop to pick up the ring becoming visible/invisible on its
@@ -2206,6 +2279,7 @@ function Canvas3DInner(
       editState.enabled = enabled;
       editState.dragging = false;
       editState.selected = null;
+      setSelectedPropName(null); // CAM-382: hides the rotate buttons on toggle
       controls.enabled = true;
       canvas!.style.cursor = "default";
       updatePropSelectionRing();
@@ -2216,6 +2290,8 @@ function Canvas3DInner(
     // every prop to its ROOM_PROPS default position (ported from the
     // prototype's resetObjectLayout, minus its optional "set current as
     // default" companion action, which the dispatch didn't ask for).
+    // CAM-382: also restores each prop's default rotation (record.def.rotationY)
+    // — a reset undoes rotate the same way it already undoes drag/raise-lower.
     function resetPropLayout(): void {
       propRecords.forEach((record) => {
         const clamped = clampPropPosition(
@@ -2225,6 +2301,7 @@ function Canvas3DInner(
           record.def.radius,
         );
         record.group.position.set(clamped.x, clamped.y, clamped.z);
+        record.group.rotation.y = record.def.rotationY;
         syncPropObstacle(record);
       });
       writeStoredPropLayout({}); // clears the saved override — next mount reads ROOM_PROPS defaults
@@ -2233,9 +2310,30 @@ function Canvas3DInner(
       if (reducedMotion) render();
     }
 
+    // CAM-382: the on-screen ↺/↻ turn-button action — rotates the CURRENTLY
+    // SELECTED prop by one 15° step around Y (direction: -1 = ↺/CCW, +1 =
+    // ↻/CW), normalized, then persists the full layout snapshot (same
+    // capturePropLayout path the drag-release persist already uses — see
+    // persistPropLayout above). A no-op when nothing is selected (the JSX
+    // below also hides the buttons in that state, so this only guards a
+    // stray call). Rotation never touches the circular nav obstacle
+    // (radius-based, unaffected by facing) — no syncPropObstacle call here,
+    // unlike a position change.
+    function rotateSelectedProp(direction: 1 | -1): void {
+      const record = editState.selected;
+      if (!record) return;
+      record.group.rotation.y = normalizeYRotation(record.group.rotation.y + direction * PROP_ROTATE_STEP_RAD);
+      persistPropLayout();
+      // On-demand repaint under reduced motion only (mirrors resetPropLayout/
+      // applyEditMode's own contract) — the continuous rAF loop already
+      // covers this every frame under normal motion.
+      if (reducedMotion) render();
+    }
+
     controllerRef.current = { setActivity: applyActivity, setScope: applyScope };
     atlasControllerRef.current = { setGatesPending: applyGatesPending };
     editModeControllerRef.current = { setEnabled: applyEditMode, reset: resetPropLayout };
+    propRotateControllerRef.current = { rotate: rotateSelectedProp };
 
     return () => {
       disposed = true;
@@ -2243,6 +2341,7 @@ function Canvas3DInner(
       atlasControllerRef.current = { setGatesPending: () => {} };
       boardsControllerRef.current = { redraw: () => {} };
       editModeControllerRef.current = { setEnabled: () => {}, reset: () => {} };
+      propRotateControllerRef.current = { rotate: () => {} };
       stopLoop();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -2388,7 +2487,7 @@ function Canvas3DInner(
           meaningless, and the toggle would otherwise appear over the loading
           progress bar or the "unavailable" text card. */}
       {status === "ready" && (
-        <div style={{ position: "absolute", left: 16, bottom: 16, zIndex: 6, display: "flex", gap: 8 }}>
+        <div style={{ position: "absolute", left: 16, bottom: 16, zIndex: 6, display: "flex", gap: 8, alignItems: "center" }}>
           <style>{`
             .map-3d-edit-btn {
               display: inline-flex; align-items: center; justify-content: center;
@@ -2410,6 +2509,32 @@ function Canvas3DInner(
             .map-3d-edit-btn[aria-pressed="true"] {
               color: #FFB454; border-color: rgba(255, 180, 84, 0.4); background: rgba(255, 180, 84, 0.14);
             }
+            .map-3d-rotate-group {
+              display: inline-flex; align-items: center; gap: 8px;
+              min-height: 44px; padding: 0 14px 0 18px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.13);
+              background: rgba(16, 26, 42, 0.42);
+              backdrop-filter: saturate(150%) blur(20px);
+              -webkit-backdrop-filter: saturate(150%) blur(20px);
+              box-shadow: 0 14px 44px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+              color: #F1F6FB;
+              font-family: 'Outfit', 'Anuphan', sans-serif;
+              font-size: 13px; font-weight: 700;
+            }
+            .map-3d-rotate-btn {
+              display: inline-flex; align-items: center; justify-content: center;
+              min-height: 44px; min-width: 44px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.13);
+              background: rgba(255, 255, 255, 0.06);
+              color: #F1F6FB;
+              font-size: 18px; line-height: 1;
+              cursor: pointer;
+              transition: background 140ms ease, border-color 140ms ease;
+            }
+            .map-3d-rotate-btn:hover { background: rgba(255, 255, 255, 0.14); }
+            .map-3d-rotate-btn:focus-visible { outline: 2px solid #5BE9B0; outline-offset: 2px; }
           `}</style>
           <button
             type="button"
@@ -2433,6 +2558,36 @@ function Canvas3DInner(
             >
               {COPY.editModeReset}
             </button>
+          )}
+          {/* CAM-382: the rotate control — visible only while a prop is
+              selected in edit mode (selectedPropName is kept in sync by the
+              mount effect's onPropPointerDown/applyEditMode above). Two DOM
+              buttons, entirely independent of the canvas pointer handlers —
+              a click here never touches the WebGL raycaster. */}
+          {editModeOn && selectedPropName && (
+            <div className="map-3d-rotate-group" data-testid="section--map-3d-rotate">
+              <span>{PROP_DISPLAY_NAME[selectedPropName] ?? selectedPropName}</span>
+              <button
+                type="button"
+                className="map-3d-rotate-btn"
+                aria-label={COPY.rotateCcw}
+                title={COPY.rotateCcw}
+                data-testid="btn--map-3d-rotate-ccw"
+                onClick={() => propRotateControllerRef.current.rotate(-1)}
+              >
+                ↺
+              </button>
+              <button
+                type="button"
+                className="map-3d-rotate-btn"
+                aria-label={COPY.rotateCw}
+                title={COPY.rotateCw}
+                data-testid="btn--map-3d-rotate-cw"
+                onClick={() => propRotateControllerRef.current.rotate(1)}
+              >
+                ↻
+              </button>
+            </div>
           )}
         </div>
       )}

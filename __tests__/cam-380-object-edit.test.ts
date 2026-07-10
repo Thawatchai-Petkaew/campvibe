@@ -125,6 +125,10 @@ describe("clampPropPositionInto — CAM-380 zero-allocation clamp agrees with cl
 });
 
 describe("capturePropLayout — CAM-380 snapshot for localStorage persistence", () => {
+  // CAM-382 note: capturePropLayout now also captures rotation.y (rounded to
+  // 3 decimals — see cam-382-rotate-props.test.ts for the rotate-specific
+  // coverage). record() below leaves rotation.y at THREE.Group's default
+  // (0), so every assertion here includes `rotationY: 0`.
   function record(name: string, x: number, y: number, z: number): Parameters<typeof capturePropLayout>[0][number] {
     const group = new THREE.Group();
     group.position.set(x, y, z);
@@ -133,7 +137,7 @@ describe("capturePropLayout — CAM-380 snapshot for localStorage persistence", 
 
   it("[unit] captures every record's position keyed by name, rounded to 3 decimals", () => {
     const records = [record("sofa", 0.5001234, 0.02, 1.4)];
-    expect(capturePropLayout(records)).toEqual({ sofa: { x: 0.5, y: 0.02, z: 1.4 } });
+    expect(capturePropLayout(records)).toEqual({ sofa: { x: 0.5, y: 0.02, z: 1.4, rotationY: 0 } });
   });
 
   it("[null/empty] returns {} for an empty record list", () => {
@@ -143,8 +147,8 @@ describe("capturePropLayout — CAM-380 snapshot for localStorage persistence", 
   it("[unit] captures multiple props independently, one entry per name", () => {
     const records = [record("sofa", 1, 0.02, 2), record("plant", -2.6, 0.02, 1.4)];
     expect(capturePropLayout(records)).toEqual({
-      sofa: { x: 1, y: 0.02, z: 2 },
-      plant: { x: -2.6, y: 0.02, z: 1.4 },
+      sofa: { x: 1, y: 0.02, z: 2, rotationY: 0 },
+      plant: { x: -2.6, y: 0.02, z: 1.4, rotationY: 0 },
     });
   });
 });
