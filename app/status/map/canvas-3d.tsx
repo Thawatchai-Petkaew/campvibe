@@ -107,20 +107,26 @@
 // startedAt, ...) is a guaranteed no-op, and redraw NEVER happens inside the
 // rAF loop (renderFrame only re-renders the already-drawn texture).
 //
-// CAM-381 (final 3D-map item): the decorative seated Atlas on the sofa. The
-// prototype's `atlas_sit.glb` only ever existed as a meshopt-compressed file
-// (CAM-373 S2a couldn't use it, since runtime meshopt is CSP-blocked); this
-// story re-encodes it build-time (decode meshopt via the gltf-transform Node
-// CLI, then re-quantize+webp — zero runtime WASM, same as every other GLB
-// here) into `atlas-sit.glb` + a matching LOD variant, then childs it onto
-// the sofa's own RoomPropRecord.group at the prototype's local transform
-// (see SEATED_ATLAS_DEF + loadAssets below). It is static (no rAF motion),
-// purely decorative — not one of the 7 build-role characters or the 8th
-// orchestrator Atlas, not `activeByRole`/gate-driven, not in the aria active
-// count, and not clickable (excluded from both the S5 character raycaster
-// and CAM-380's prop raycaster) — but it DOES ride the sofa's own obstacle
-// and move with it under an Object Edit Mode drag, since it is a literal
-// Three.js child of that same group.
+// CAM-381: the seated Atlas on the sofa. The prototype's `atlas_sit.glb` only
+// ever existed as a meshopt-compressed file (CAM-373 S2a couldn't use it,
+// since runtime meshopt is CSP-blocked); this story re-encodes it build-time
+// (decode meshopt via the gltf-transform Node CLI, then re-quantize+webp —
+// zero runtime WASM, same as every other GLB here) into `atlas-sit.glb` + a
+// matching LOD variant. CAM-381 originally childed it onto the sofa's own
+// RoomPropRecord.group at a fixed local offset, purely decorative and
+// excluded from every raycaster.
+//
+// CAM-383 detaches it into a fully independent, editable object: it is its
+// own top-level THREE.Group in the scene (no longer a child of the sofa),
+// registered as its own RoomPropRecord (see SEATED_ATLAS_PROP_DEF + loadAssets
+// below) so it gets the SAME selection ring + XZ drag + Shift-height clamp +
+// ↺↻ rotate + persistence every other room prop already has. It is still
+// static (no rAF motion), still not one of the 7 build-role characters or the
+// 8th orchestrator Atlas, not `activeByRole`/gate-driven, and not in the aria
+// active count — and it stays OUT of the S5 character raycaster
+// (`actors`/`raycastPivots`) so a normal-mode click on it never opens a
+// ticket (only CAM-380's prop raycaster/`propPivots` picks it up, and only
+// while Object Edit Mode is enabled).
 //
 // WASM-free (non-negotiable, CAM-373 S2a): production CSP has no
 // 'wasm-unsafe-eval' outside dev and blocks blob: workers, so every GLB under
@@ -280,13 +286,28 @@ interface RoomPropDef {
   file: string;
   position: THREE.Vector3;
   rotationY: number;
-  targetSize: number;
+  /** Ordinary ROOM_PROPS entries: scaled via normalizeRoomProp (scale-to-size
+   *  + floor-align) — every ROOM_PROPS item below always sets this. Absent
+   *  on the seated-Atlas record (SEATED_ATLAS_PROP_DEF), which sets
+   *  `targetHeight` instead (CAM-383). */
+  targetSize?: number;
   radius: number;
+  /** CAM-383: present ONLY on the seated-Atlas record — its mesh is
+   *  center-normalized + scaled via normalizeCharacter (like the 8 build-
+   *  role/Atlas characters), NOT floor-aligned via normalizeRoomProp like
+   *  every ordinary prop. The group ORIGIN sits at the character's visual
+   *  vertical CENTER, not its feet — anything reading a record's "floor
+   *  height" (e.g. the selection ring, see updatePropSelectionRing) must
+   *  subtract half of this value when it is present. */
+  targetHeight?: number;
 }
 
-// Ported from the prototype's roomPropDefs (the seated-Atlas-on-sofa decorative
-// extra is handled separately below, via SEATED_ATLAS_DEF — it is not one of
-// these 5 draggable/obstacle-bearing props, see that constant's own comment).
+// Ported from the prototype's roomPropDefs. The seated-Atlas extra
+// (SEATED_ATLAS_PROP_DEF below) is a separate module-level constant — not one
+// of these 5 literal entries — purely so ROOM_PROPS keeps mirroring the
+// prototype's original list 1:1; it is still RoomPropDef-shaped and is
+// registered into the very same `propRecords`/`propPivots` machinery as these
+// 5 (CAM-383), just built in its own branch in loadAssets below.
 const ROOM_PROPS: RoomPropDef[] = [
   { name: "sofa", file: "sofa.glb", position: new THREE.Vector3(0.5, 0.02, 1.4), rotationY: -Math.PI / 2, targetSize: 2.48, radius: 1.62 },
   { name: "table-oval", file: "table-oval.glb", position: new THREE.Vector3(1.8, 0.02, 3.7), rotationY: Math.PI / 2, targetSize: 1.46, radius: 0.98 },
@@ -298,36 +319,42 @@ const ROOM_PROPS: RoomPropDef[] = [
 // CAM-382: Thai display names for the rotate control's "which prop is
 // selected" label — same Thai-only local-const convention as COPY/BOARD_COPY
 // above (this route's copy is not sourced from locales/translations.ts).
+// CAM-383 adds "seated-atlas" now that it is a selectable editable object too.
 const PROP_DISPLAY_NAME: Record<string, string> = {
   sofa: "โซฟา",
   "table-oval": "โต๊ะวงรี",
   "table-lumen": "โคมไฟตั้งโต๊ะ",
   "data-vault": "ตู้เก็บข้อมูล",
   plant: "ต้นไม้",
+  "seated-atlas": "แอตลาสนั่ง",
 };
 
-// CAM-381: the seated-Atlas-on-sofa decorative extra. CAM-373 S2a found only a
-// pre-compressed meshopt source for it (`atlas_sit.glb`) which the WASM-free
-// pipeline could not use at the time; this story re-encodes it (build-time
-// meshopt DECODE via the Node CLI, then re-quantize+webp, zero runtime WASM —
-// see the PR description for the exact command + verification) into
-// `atlas-sit.glb`, so it now ships alongside ROOM_PROPS. It is intentionally
-// NOT a RoomPropDef / not pushed into ROOM_PROPS: it is purely decorative —
-// never draggable on its own, never a nav obstacle of its own, never one of
-// the 8 build-role/Atlas characters (not in WORKFLOW/actors), and never
-// clickable (excluded from both the S5 character raycaster and CAM-380's
-// prop raycaster — see loadAssets below). It rides the sofa's own obstacle:
-// it is childed directly onto the sofa's RoomPropRecord.group, so an Object
-// Edit Mode drag of the sofa (which moves that same group) carries the
-// seated figure with it for free, via ordinary THREE.Object3D parent-child
-// transform inheritance — no separate wiring needed.
-const SEATED_ATLAS_DEF = {
+// CAM-381 shipped `atlas-sit.glb` (build-time meshopt DECODE via the
+// gltf-transform Node CLI, then re-quantize+webp, zero runtime WASM — see
+// that PR's description for the exact command + verification) childed onto
+// the sofa's own RoomPropRecord.group at a fixed local offset.
+//
+// CAM-383 detaches it: this is now a full RoomPropDef in the SAME shape
+// ROOM_PROPS entries use (`targetHeight` replaces `targetSize` — see
+// RoomPropDef's own doc comment above), registered as its own independent
+// RoomPropRecord in loadAssets below. `position`/`rotationY` here are the
+// WORLD transform the OLD local-to-sofa offset resolved to — computed once so
+// detaching it never visibly moved the figure: the sofa's own world transform
+// (position (0.5, 0.02, 1.4), rotationY -PI/2) composed with the prototype's
+// local offset (position (0.38, 0.86, -0.04), rotationY PI) resolves to
+// world position (0.54, 0.88, 1.78) and world rotationY PI/2 (see the PR
+// description for the full rotation-matrix derivation). Exported (named, per
+// code.md's util convention) so the composition itself gets a real
+// behavioral unit test (see cam-383-detach-editable-atlas.test.ts) — mirrors
+// every other exported pure constant/function in this file.
+export const SEATED_ATLAS_PROP_DEF: RoomPropDef = {
+  name: "seated-atlas",
   file: "atlas-sit.glb",
-  sofaPropName: "sofa",
+  position: new THREE.Vector3(0.54, 0.88, 1.78),
+  rotationY: Math.PI / 2,
+  radius: 0.45,
   targetHeight: 0.98,
-  localPosition: new THREE.Vector3(0.38, 0.86, -0.04),
-  localRotationY: Math.PI,
-} as const;
+};
 
 // ── Live-activity motion (CAM-375, S3) ───────────────────────────────────────
 // Ported from the prototype's patrolPoints — same room coordinate system as
@@ -359,7 +386,16 @@ const ROUTE_POINTS: THREE.Vector3[] = [
 
 // Obstacle circles for collision avoidance, derived from the same ROOM_PROPS
 // radii the props render with (ported from the prototype's navigationObstacles).
-const NAVIGATION_OBSTACLES = ROOM_PROPS.map((item) => ({
+// CAM-383: the seated Atlas is appended as a FIXED 6th slot (index
+// ROOM_PROPS.length) — computed once here at module scope from
+// SEATED_ATLAS_PROP_DEF's own default position/radius, never pushed at
+// runtime inside loadAssets. NAVIGATION_OBSTACLES is a module-level array
+// that outlives a single mount (a 2D<->3D toggle reuses these same entries —
+// see the "Review fix (FIX 3, stale obstacle on remount)" comment at this
+// array's call site below); appending a new entry at RUNTIME on every mount
+// would duplicate/grow it, so the atlas's slot is baked in here instead, the
+// same way every ROOM_PROPS slot already is.
+const NAVIGATION_OBSTACLES = [...ROOM_PROPS, SEATED_ATLAS_PROP_DEF].map((item) => ({
   x: item.position.x,
   z: item.position.z,
   radius: item.radius,
@@ -380,6 +416,17 @@ const NAVIGATION_OBSTACLES = ROOM_PROPS.map((item) => ({
 // resting-on-the-floor value (0.02) — no per-prop bounding-box recompute is
 // needed the way the prototype's updateEditableVerticalRange did for its more
 // varied prop set (this file's 5 props are simpler, single-mesh-root cases).
+//
+// CAM-383: the seated Atlas is the one editable record where this clamp means
+// something different — it is center-normalized via normalizeCharacter (see
+// RoomPropDef's `targetHeight` doc comment above), so its group ORIGIN sits
+// at the character's visual vertical CENTER, not its feet. The
+// [OBJECT_FLOOR_WORLD_Y, OBJECT_CEILING_WORLD_Y] clamp still applies to that
+// same ORIGIN, exactly as it does for every floor-aligned prop — it is just
+// clamping a different physical point (the center, not the base). This gives
+// the Atlas the SAME full floor-to-ceiling Shift-drag range as any prop, and
+// is intentional: it lets the owner freely re-seat/re-place the figure at
+// any height, not only "resting on the sofa cushion".
 const OBJECT_FLOOR_WORLD_Y = 0.02;
 const OBJECT_CEILING_WORLD_Y = 4.05;
 const PROP_LAYOUT_STORAGE_KEY = "statusmap.3d.propLayout";
@@ -1490,6 +1537,14 @@ function Canvas3DInner(
     // of loadAssets, same as the boards above); position/visibility are
     // updated on select/drag/deselect only, never per animation frame beyond
     // what an in-flight drag already touches.
+    //
+    // CAM-383 fix (owner-reported: "buried in the floor"): a flat ring fixed
+    // at y=0.03 z-fights with the floor at y=0.02 (invisible / flickering)
+    // and stays glued to the floor when the selected object is raised, fully
+    // disconnected from it. `depthTest: false` + a high `renderOrder` make
+    // the floor mesh unable to ever occlude/z-fight the ring regardless of
+    // world-Y; `updatePropSelectionRing` below now also tracks the selected
+    // object's height every update instead of a fixed y=0.03.
     const propSelectionRing = new THREE.Mesh(
       new THREE.RingGeometry(0.62, 0.74, 40),
       new THREE.MeshBasicMaterial({
@@ -1498,12 +1553,13 @@ function Canvas3DInner(
         opacity: 0.85,
         side: THREE.DoubleSide,
         depthWrite: false,
+        depthTest: false,
       }),
     );
     propSelectionRing.rotation.x = -Math.PI / 2;
     propSelectionRing.position.y = 0.03;
     propSelectionRing.visible = false;
-    propSelectionRing.renderOrder = 5;
+    propSelectionRing.renderOrder = 999;
     scene.add(propSelectionRing);
 
     // CAM-375 (S3): live-activity state. `actors` is populated once assets load
@@ -1868,12 +1924,31 @@ function Canvas3DInner(
       return raycaster.ray.intersectPlane(editFloorPlane, out);
     }
 
+    // CAM-383: how far above the selected object's own "resting surface" the
+    // ring floats — small enough to read as a halo hugging the object, large
+    // enough (combined with depthTest:false above) to never re-introduce
+    // z-fighting against the floor.
+    const PROP_SELECTION_RING_Y_OFFSET = 0.02;
+
     function updatePropSelectionRing(): void {
       const record = editState.selected;
       propSelectionRing.visible = !!record && editState.enabled;
       if (!record) return;
       propSelectionRing.position.x = record.group.position.x;
       propSelectionRing.position.z = record.group.position.z;
+      // CAM-383 fix: track the object's CURRENT height instead of a fixed
+      // y=0.03, so a raised/lowered object carries the ring with it. Every
+      // ordinary ROOM_PROPS record is floor-aligned (normalizeRoomProp), so
+      // its group.position.y already IS its resting-surface height. The
+      // seated Atlas is center-normalized (normalizeCharacter, targetHeight
+      // set — see RoomPropDef's own doc comment) — its group ORIGIN sits at
+      // the character's visual vertical center, so its resting surface is
+      // targetHeight/2 below that origin.
+      const restingSurfaceY =
+        record.def.targetHeight !== undefined
+          ? record.group.position.y - record.def.targetHeight / 2
+          : record.group.position.y;
+      propSelectionRing.position.y = restingSurfaceY + PROP_SELECTION_RING_Y_OFFSET;
       const ringBaseRadius = 0.68;
       const scale = Math.max(0.85, record.def.radius + 0.18) / ringBaseRadius;
       propSelectionRing.scale.set(scale, scale, scale);
@@ -2118,7 +2193,10 @@ function Canvas3DInner(
         const group = new THREE.Group();
         group.position.copy(item.position);
         group.rotation.y = item.rotationY;
-        group.add(normalizeRoomProp(propScenes[i], item.targetSize));
+        // ROOM_PROPS entries always set targetSize (only the seated-Atlas
+        // def, built in its own branch below via normalizeCharacter, omits
+        // it in favor of targetHeight — see RoomPropDef's own doc comment).
+        group.add(normalizeRoomProp(propScenes[i], item.targetSize!));
         group.add(createFakeShadow(item.radius * 0.72, item.radius * 0.46, 0.01, 0.09));
         scene.add(group);
         // CAM-380: Object Edit Mode record, keyed to the SAME NAVIGATION_OBSTACLES
@@ -2139,42 +2217,63 @@ function Canvas3DInner(
         // obstacle / a clipped visible prop.
         syncPropObstacle(record);
       });
-      // CAM-380: restore any saved layout now that every prop group exists —
-      // a prop with no saved entry keeps its ROOM_PROPS default position
-      // (and the obstacle reseed just above, not a stale prior session's).
+
+      // CAM-383: the seated Atlas — now a fully independent, editable object
+      // (its own scene-level THREE.Group, no longer a child of the sofa's
+      // group). Built in its OWN branch, NOT normalizeRoomProp/createFakeShadow
+      // like the 5 props above: it is center-normalized via normalizeCharacter
+      // (the same function every build-role/Atlas character uses) — no floor
+      // align, no fake shadow, matching a seated character's actual geometry.
+      // Per-asset load fallback: unlike a real character/prop, a failed load
+      // here is skipped silently (no fallback mesh, no record at all) — this
+      // is decorative-in-origin and the sofa itself already renders fine
+      // either way.
+      try {
+        const seatedAtlasScene = await loadGltf(loader, `${assetBase}${SEATED_ATLAS_PROP_DEF.file}`);
+        if (disposed) {
+          disposeObject3DTree(seatedAtlasScene);
+        } else {
+          const group = new THREE.Group();
+          group.position.copy(SEATED_ATLAS_PROP_DEF.position);
+          group.rotation.y = SEATED_ATLAS_PROP_DEF.rotationY;
+          // SEATED_ATLAS_PROP_DEF always sets targetHeight (see its own
+          // definition above) — this is the one call site that reads it.
+          group.add(normalizeCharacter(seatedAtlasScene, SEATED_ATLAS_PROP_DEF.targetHeight!));
+          scene.add(group);
+          // Registered into the SAME propRecords/propPivots machinery as the
+          // 5 ROOM_PROPS above (CAM-383) — it now gets the identical
+          // selection ring + XZ drag + Shift-height clamp + ↺↻ rotate +
+          // persistence every other room prop already has. Still stays OUT
+          // of `actors`/`raycastPivots` (the S5 character raycaster), so it
+          // is never one of the 8 build-role/Atlas characters, never
+          // activity/gate-driven, and a normal-mode click on it opens no
+          // ticket (prop-pick is gated on editState.enabled — see
+          // onPropPointerDown above).
+          const record: RoomPropRecord = {
+            def: SEATED_ATLAS_PROP_DEF,
+            group,
+            obstacle: NAVIGATION_OBSTACLES[ROOM_PROPS.length],
+          };
+          propRecords.push(record);
+          syncPropObstacle(record);
+        }
+      } catch (err) {
+        console.warn("Canvas3D: seated Atlas skipped (decorative, load failed)", err);
+      }
+
+      // CAM-380/CAM-383: restore any saved layout now that EVERY editable
+      // record exists — the 5 ROOM_PROPS plus the seated Atlas (a record with
+      // no saved entry keeps its module-level default position/rotation, and
+      // the obstacle reseed above, not a stale prior session's). Moved to
+      // run after the Atlas branch (rather than immediately after the
+      // ROOM_PROPS.forEach) specifically so the Atlas's own saved position/
+      // rotation restores too, backward-compatible with any layout saved
+      // before this story (which simply has no "seated-atlas" key).
       applyStoredPropLayout(propRecords, initialStoredPropLayout);
       // CAM-377-style cached hit-test target list, built once (never rebuilt
-      // per pointer event — mirrors raycastPivots just above).
+      // per pointer event — mirrors raycastPivots just above) — includes the
+      // seated Atlas now that it is registered above.
       propPivots.push(...propRecords.map((r) => r.group));
-
-      // CAM-381: decorative seated Atlas, childed onto the sofa's OWN group —
-      // deliberately NOT pushed into propRecords/propPivots (so it is never
-      // itself pickable/draggable/a nav obstacle in Object Edit Mode) and NOT
-      // pushed into actors/raycastPivots (so it is never one of the 8 build-
-      // role/Atlas characters, never activity/gate-driven, never clickable —
-      // see SEATED_ATLAS_DEF's comment above for the full rationale). Because
-      // it becomes a child of sofaRecord.group, an Object Edit Mode drag of
-      // the sofa (which mutates that exact group's position) carries the
-      // seated figure along for free via ordinary Object3D transform
-      // inheritance. Per-asset load fallback: unlike a real character/prop, a
-      // failed load here is skipped silently (no fallback mesh) — this is
-      // purely decorative and the sofa itself already rendered fine either way.
-      const sofaRecord = propRecords.find((r) => r.def.name === SEATED_ATLAS_DEF.sofaPropName);
-      if (sofaRecord) {
-        try {
-          const seatedAtlasScene = await loadGltf(loader, `${assetBase}${SEATED_ATLAS_DEF.file}`);
-          if (disposed) {
-            disposeObject3DTree(seatedAtlasScene);
-          } else {
-            const seatedAtlas = normalizeCharacter(seatedAtlasScene, SEATED_ATLAS_DEF.targetHeight);
-            seatedAtlas.position.copy(SEATED_ATLAS_DEF.localPosition);
-            seatedAtlas.rotation.y = SEATED_ATLAS_DEF.localRotationY;
-            sofaRecord.group.add(seatedAtlas);
-          }
-        } catch (err) {
-          console.warn("Canvas3D: seated Atlas skipped (decorative, load failed)", err);
-        }
-      }
 
       if (disposed) return;
       setStatus("ready");
