@@ -633,12 +633,17 @@ export function applyStoredPropLayout(records: RoomPropRecord[], layout: StoredP
 // (quicker bob + a scanning gaze sweep across the approval area), calm reads
 // as a slow, minimal idle breath. Values are a design call (dispatch note);
 // tune on Staging.
-const ATLAS_REVIEW_BOB_AMPLITUDE = 0.022;
-const ATLAS_REVIEW_BOB_FREQ = 3.4;
-const ATLAS_REVIEW_GAZE_SWEEP = 0.4; // radians, +/- sweep toward the approval area
-const ATLAS_REVIEW_GAZE_FREQ = 1.05;
-const ATLAS_CALM_BOB_AMPLITUDE = 0.01;
-const ATLAS_CALM_BOB_FREQ = 1.5;
+// CAM-387: Atlas now walks gentle inspection rounds (see updateAtlasMotion), so
+// the standing review/calm bob + gaze-sweep-frequency constants were removed;
+// only the reduced-motion static pose keeps a fixed gaze offset.
+const ATLAS_REVIEW_GAZE_SWEEP = 0.4; // radians, fixed gaze offset in the reduced-motion static pose
+// Gentle supervisor stroll — slower than the build-role patrol (divisor 1.05,
+// [2.5,6.2]s, bob 2.4Hz/0.03) with a smaller, slower bob so it reads as calm.
+const ATLAS_PATROL_SPEED = 0.6;
+const ATLAS_PATROL_MIN_DUR = 4.0;
+const ATLAS_PATROL_MAX_DUR = 9.0;
+const ATLAS_PATROL_BOB_FREQ = 1.6;
+const ATLAS_PATROL_BOB_AMP = 0.016;
 // Base intensity matches the PointLight created per-station at mount
 // ((station.isAtlas ? 1.2 : 0.65) * LIGHT_SCALE) — reviewing pulses around it,
 // calm sits dimmer and steady (no pulse), ported feel from the prototype's
@@ -680,6 +685,11 @@ interface CharacterActor {
    *  motion can pulse it. Unused by the 7 build-role actors (created for every
    *  actor for a uniform CharacterActor shape, cheap to hold a reference to). */
   light: THREE.PointLight;
+  /** CAM-387: the fake blob shadow (child of pivot). Its local Y is countered
+   *  every frame so its WORLD Y stays pinned to the ground — otherwise it rides
+   *  the character's vertical bob into/through the floor (flicker + only visible
+   *  when stopped). */
+  shadow: THREE.Mesh;
 }
 
 function isPointClear(x: number, z: number, padding: number): boolean {
@@ -773,6 +783,57 @@ function startPatrol(actor: CharacterActor, t: number, actors: CharacterActor[])
   };
 }
 
+// CAM-387: the shared room-patrol step (ported from the prototype's
+// updateActorPatrols). `speedDivisor` (duration = segmentLen / divisor; larger
+// = faster) + `bobFreq/bobAmp` let the caller set the pace: the 7 build roles
+// stroll at the normal pace (1.05, [2.5,6.2]s); Atlas does gentle supervisor
+// rounds (slower, smaller bob). Collision avoidance + route choice are shared.
+function runPatrol(
+  actor: CharacterActor,
+  t: number,
+  index: number,
+  actors: CharacterActor[],
+  speedDivisor: number,
+  minDur: number,
+  maxDur: number,
+  bobFreq: number,
+  bobAmp: number,
+): void {
+  if (!actor.patrol) startPatrol(actor, t, actors);
+  const patrol = actor.patrol!;
+  const targetPoint = ROUTE_POINTS[patrol.target];
+  const progress = Math.min(1, (t - patrol.startTime) / patrol.duration);
+
+  if (
+    (isRoutePointOccupied(targetPoint, actor, actors, 1.05) || !isSegmentClear(actor.pivot.position, targetPoint, 0.32)) &&
+    progress < 0.82
+  ) {
+    patrol.from = actor.pivot.position.clone();
+    patrol.current = findNearestRouteIndex(actor.pivot.position);
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    return;
+  }
+
+  const end = ROUTE_POINTS[patrol.target];
+  const u = Math.min(1, (t - patrol.startTime) / patrol.duration);
+  const ease = u * u * (3 - 2 * u);
+  actor.pivot.position.lerpVectors(patrol.from, end, ease);
+  actor.pivot.position.y = 0.92 + Math.sin(t * bobFreq + index) * bobAmp;
+  const dir = Math.atan2(end.x - patrol.from.x, end.z - patrol.from.z);
+  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.08);
+
+  if (u >= 1) {
+    patrol.previous = patrol.current;
+    patrol.current = patrol.target;
+    patrol.from = ROUTE_POINTS[patrol.current].clone();
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    const nextDist = ROUTE_POINTS[patrol.current].distanceTo(ROUTE_POINTS[patrol.target]);
+    patrol.duration = THREE.MathUtils.clamp(nextDist / speedDivisor, minDur, maxDur);
+  }
+}
+
 // Per-frame motion for one character (Atlas is never passed in — the caller
 // skips it). "active" = walk to / stand at the workSpot with a gentle bob,
 // facing the board; "idle" = patrol the room with collision avoidance. This
@@ -806,40 +867,8 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
     return;
   }
 
-  // Idle: patrol the room (ported from the prototype's updateActorPatrols).
-  if (!actor.patrol) startPatrol(actor, t, actors);
-  const patrol = actor.patrol!;
-  const targetPoint = ROUTE_POINTS[patrol.target];
-  const progress = Math.min(1, (t - patrol.startTime) / patrol.duration);
-
-  if (
-    (isRoutePointOccupied(targetPoint, actor, actors, 1.05) || !isSegmentClear(actor.pivot.position, targetPoint, 0.32)) &&
-    progress < 0.82
-  ) {
-    patrol.from = actor.pivot.position.clone();
-    patrol.current = findNearestRouteIndex(actor.pivot.position);
-    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
-    patrol.startTime = t;
-    return;
-  }
-
-  const end = ROUTE_POINTS[patrol.target];
-  const u = Math.min(1, (t - patrol.startTime) / patrol.duration);
-  const ease = u * u * (3 - 2 * u);
-  actor.pivot.position.lerpVectors(patrol.from, end, ease);
-  actor.pivot.position.y = 0.92 + Math.sin(t * 2.4 + index) * 0.03;
-  const dir = Math.atan2(end.x - patrol.from.x, end.z - patrol.from.z);
-  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.08);
-
-  if (u >= 1) {
-    patrol.previous = patrol.current;
-    patrol.current = patrol.target;
-    patrol.from = ROUTE_POINTS[patrol.current].clone();
-    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
-    patrol.startTime = t;
-    const nextDist = ROUTE_POINTS[patrol.current].distanceTo(ROUTE_POINTS[patrol.target]);
-    patrol.duration = THREE.MathUtils.clamp(nextDist / 1.05, 2.5, 6.2);
-  }
+  // Idle: gentle room patrol with collision avoidance (shared with Atlas).
+  runPatrol(actor, t, index, actors, 1.05, 2.5, 6.2, 2.4, 0.03);
 }
 
 // CAM-376 (S4): Atlas's own per-frame motion — never patrols (always at its own
@@ -847,21 +876,23 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
 // `actor.mode` ("active" == reviewing/gates pending, "idle" == calm), which is
 // driven exclusively by applyGatesPending below (never by applyActivity/
 // applyScope — those explicitly skip isAtlas actors, unchanged from S3).
-function updateAtlasMotion(actor: CharacterActor, t: number): void {
+function updateAtlasMotion(actor: CharacterActor, t: number, actors: CharacterActor[]): void {
   const reviewing = actor.mode === "active";
-  const bobAmplitude = reviewing ? ATLAS_REVIEW_BOB_AMPLITUDE : ATLAS_CALM_BOB_AMPLITUDE;
-  const bobFreq = reviewing ? ATLAS_REVIEW_BOB_FREQ : ATLAS_CALM_BOB_FREQ;
-  actor.pivot.position.set(
-    actor.workSpot.x,
-    actor.workSpot.y + Math.sin(t * bobFreq + actor.bobPhase) * bobAmplitude,
-    actor.workSpot.z,
+  // CAM-387 (owner request): Atlas strolls the room on gentle inspection rounds
+  // instead of standing at its station — slower pace + smaller bob than the
+  // build-role patrol, reading as a calm supervisor doing the rounds. The
+  // pending-approval signal now lives on its accent light (pulse when reviewing).
+  runPatrol(
+    actor,
+    t,
+    actor.bobPhase,
+    actors,
+    ATLAS_PATROL_SPEED,
+    ATLAS_PATROL_MIN_DUR,
+    ATLAS_PATROL_MAX_DUR,
+    ATLAS_PATROL_BOB_FREQ,
+    ATLAS_PATROL_BOB_AMP,
   );
-  const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
-  // Reviewing: a gaze sweep toward the approval area (reads as "surfacing
-  // work"), distinct from a build agent's steady stand-and-face. Calm: plain,
-  // steady facing — no sweep.
-  const gaze = reviewing ? Math.sin(t * ATLAS_REVIEW_GAZE_FREQ) * ATLAS_REVIEW_GAZE_SWEEP : 0;
-  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dirToBoard + gaze, reviewing ? 0.08 : 0.05);
   actor.light.intensity = reviewing
     ? ATLAS_LIGHT_BASE * (1 + Math.sin(t * ATLAS_LIGHT_PULSE_FREQ) * ATLAS_LIGHT_PULSE_AMPLITUDE)
     : ATLAS_LIGHT_BASE * ATLAS_LIGHT_CALM_SCALE;
@@ -878,6 +909,9 @@ function updateAtlasMotion(actor: CharacterActor, t: number): void {
 function poseStaticAll(actors: CharacterActor[]): void {
   actors.forEach((actor) => {
     if (actor.isAtlas) {
+      // CAM-387: Atlas patrols under normal motion now — clear any in-flight
+      // patrol so the reduced-motion pose snaps cleanly to its station.
+      actor.patrol = null;
       actor.pivot.position.copy(actor.workSpot);
       const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
       const reviewing = actor.mode === "active";
@@ -932,6 +966,29 @@ function canCreateWebGL(): boolean {
     return false;
   }
 }
+
+// CAM-387: world Y the character blob shadow is pinned to each frame (just
+// above the floor at OBJECT_FLOOR_WORLD_Y=0.02) so the character's bob never
+// drags it below/through the floor.
+const SHADOW_GROUND_Y = 0.06;
+
+// CAM-387: floating "current task" popover above each working character's head
+// (ported from atlas_web_demo's #atlasPopover). Height above the pivot origin
+// to anchor the bubble's tail; DOM element positioned by projecting this world
+// point to the canvas each frame.
+const POPOVER_HEAD_OFFSET = 1.55;
+const POPOVER_CSS = `
+.map-3d-poplayer { position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
+.map-3d-pop { position:absolute; left:0; top:0; transform:translate(-50%,-100%); opacity:0; transition:opacity .18s ease; will-change:left,top,opacity; }
+.map-3d-pop .b { position:relative; display:inline-block; background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(245,249,255,.94)); color:#0f1728; border-radius:12px; padding:6px 11px; box-shadow:0 0 7px rgba(127,214,255,.20),0 8px 18px rgba(0,0,0,.18); border:1px solid var(--pa,#7fd6ff); white-space:nowrap; font-family:'Outfit','Anuphan',sans-serif; }
+.map-3d-pop .r { display:flex; align-items:center; gap:6px; }
+.map-3d-pop .r::before { content:""; width:6px; height:6px; border-radius:999px; background:var(--pa,#7fd6ff); box-shadow:0 0 7px var(--pa,#7fd6ff); flex:none; }
+.map-3d-pop .t { font-weight:800; font-size:12px; color:#0f1728; }
+.map-3d-pop .c { font-weight:600; font-size:12px; color:#475569; }
+.map-3d-pop .b::after { content:""; position:absolute; left:50%; bottom:-5px; width:9px; height:9px; background:inherit; border-right:1px solid var(--pa,#7fd6ff); border-bottom:1px solid var(--pa,#7fd6ff); transform:translateX(-50%) rotate(45deg); border-radius:2px; }
+@media (prefers-reduced-motion:no-preference){ .map-3d-pop.show .b { animation:map3dPopBob 1.8s ease-in-out infinite; } }
+@keyframes map3dPopBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+`;
 
 // ── Fake blob shadow (perf: no real shadow maps in S2b — dispatch requirement) ──
 function createFakeShadow(radiusX: number, radiusZ: number, localY: number, opacity: number): THREE.Mesh {
@@ -1810,6 +1867,18 @@ function Canvas3DInner(
     // (the actor set never changes after load). Read-only from then on; the
     // raycaster never allocates a fresh `actors.map(...)` array per pointer event.
     const raycastPivots: THREE.Object3D[] = [];
+    // CAM-387: the floating per-character "current task" popovers (DOM, over the
+    // canvas). Index-aligned with `actors`, populated in loadAssets; positioned
+    // by projecting each head to screen in renderFrame. A reused scratch vector
+    // avoids a per-frame allocation.
+    const popoverLayer = document.createElement("div");
+    popoverLayer.className = "map-3d-poplayer";
+    const popoverStyle = document.createElement("style");
+    popoverStyle.textContent = POPOVER_CSS;
+    popoverLayer.appendChild(popoverStyle);
+    container!.appendChild(popoverLayer);
+    const characterPopovers: HTMLDivElement[] = [];
+    const popoverVec = new THREE.Vector3();
     // CAM-380: the Object Edit Mode counterpart to `actors`/`raycastPivots` —
     // populated once propScenes load (below); `propPivots` is the cached
     // hit-test target list (every prop's group), built once, never rebuilt
@@ -1869,16 +1938,66 @@ function Canvas3DInner(
     // real). The camera is already fully updated by the in-flight `update()`
     // call by the time "change" fires, so a plain repaint (no second
     // `update()` call) is correct and sufficient here — see onControlsChange.
+    // CAM-387: position + fill each character's "current task" popover by
+    // projecting its head to the canvas. Shown only for a build role that is
+    // actively working (has a task); hidden when idle or behind the camera.
+    // Content (role name is static; the task code) is only written to the DOM
+    // when it changes, so the per-frame cost is a couple of style writes.
+    function updatePopovers(): void {
+      if (!characterPopovers.length) return;
+      const w = container!.clientWidth || 1;
+      const h = container!.clientHeight || 1;
+      // Linear lookup over the (~8-entry) live agent list, not a per-frame Map —
+      // this runs every animated frame, so it follows the file's no-per-frame-
+      // allocation discipline (cf. raycastPivots / the reused popoverVec).
+      const liveAgents = agentsRef.current;
+      actors.forEach((actor, i) => {
+        const pop = characterPopovers[i];
+        if (!pop) return;
+        const roleKey = actor.isAtlas ? undefined : ROLE_KEY_BY_CHARACTER[actor.key];
+        const agent = roleKey ? liveAgents.find((a) => a.role === roleKey) : undefined;
+        if (!agent?.active) {
+          pop.classList.remove("show");
+          pop.style.opacity = "0";
+          return;
+        }
+        const code =
+          agent.task?.id ??
+          (agent.queued > 0 ? `${BOARD_COPY.countQueued} ${agent.queued}` : BOARD_COPY.activeStatus);
+        if (pop.dataset.code !== code) {
+          pop.dataset.code = code;
+          const codeEl = pop.querySelector(".c");
+          if (codeEl) codeEl.textContent = code;
+        }
+        popoverVec.copy(actor.pivot.position);
+        popoverVec.y += POPOVER_HEAD_OFFSET;
+        popoverVec.project(camera);
+        if (popoverVec.z >= 1) {
+          pop.classList.remove("show");
+          pop.style.opacity = "0";
+          return;
+        }
+        pop.style.left = `${(popoverVec.x * 0.5 + 0.5) * w}px`;
+        pop.style.top = `${(-popoverVec.y * 0.5 + 0.5) * h}px`;
+        pop.style.opacity = "1";
+        pop.classList.add("show");
+      });
+    }
+
     function renderFrame() {
       if (!reducedMotion) {
         const t = clock.getElapsedTime();
         actors.forEach((actor, i) => {
           // CAM-376 (S4): Atlas gets its own motion (reviewing/calm, never
           // patrols) instead of being skipped entirely as it was in S3.
-          if (actor.isAtlas) updateAtlasMotion(actor, t);
+          if (actor.isAtlas) updateAtlasMotion(actor, t, actors);
           else updateCharacterMotion(actor, t, i, actors);
+          // CAM-387: pin the blob shadow to the ground (counter the pivot bob)
+          // so it no longer sinks into / z-fights the floor while walking.
+          actor.shadow.position.y = SHADOW_GROUND_Y - actor.pivot.position.y;
         });
       }
+      updatePopovers();
       renderer.render(scene, camera);
     }
     function render() {
@@ -2381,7 +2500,8 @@ function Canvas3DInner(
         pivot.rotation.y = Math.atan2(station.pos.x - pivot.position.x, station.pos.z - pivot.position.z);
         const model = normalizeCharacter(characterScenes[i], station.isAtlas ? 1.55 : 1.48);
         pivot.add(model);
-        pivot.add(createFakeShadow(station.isAtlas ? 0.58 : 0.5, station.isAtlas ? 0.34 : 0.3, -0.86, 0.12));
+        const fakeShadow = createFakeShadow(station.isAtlas ? 0.58 : 0.5, station.isAtlas ? 0.34 : 0.3, -0.86, 0.12);
+        pivot.add(fakeShadow);
         const roleLight = new THREE.PointLight(ROLE_COLORS[station.key], (station.isAtlas ? 1.2 : 0.65) * LIGHT_SCALE, station.isAtlas ? 2.4 : 1.8, 2.0);
         roleLight.position.set(0, 1.12, 0.05);
         pivot.add(roleLight);
@@ -2410,11 +2530,28 @@ function Canvas3DInner(
           patrol: null,
           transit: null,
           light: roleLight,
+          shadow: fakeShadow,
         });
       });
       // CAM-377 (S5, review fix): build the raycast target list exactly once,
       // right after every actor exists — not per pointer event.
       raycastPivots.push(...actors.map((a) => a.pivot));
+
+      // CAM-387: one "current task" popover per character, index-aligned with
+      // `actors`. Atlas gets one too (kept for index alignment) but it is never
+      // shown — updatePopovers skips it (Atlas status lives on its wall board).
+      actors.forEach((actor) => {
+        const pop = document.createElement("div");
+        pop.className = "map-3d-pop";
+        pop.style.setProperty("--pa", `#${ROLE_COLORS[actor.key].toString(16).padStart(6, "0")}`);
+        const roleKey = ROLE_KEY_BY_CHARACTER[actor.key];
+        const name = (roleKey && ROLE_DISPLAY[roleKey]?.displayName) || actor.key;
+        pop.innerHTML = `<div class="b"><span class="r"><span class="t"></span><span class="c"></span></span></div>`;
+        const titleEl = pop.querySelector(".t");
+        if (titleEl) titleEl.textContent = name;
+        popoverLayer.appendChild(pop);
+        characterPopovers.push(pop);
+      });
 
       const propScenes = await Promise.all(
         ROOM_PROPS.map((item) =>
@@ -2681,6 +2818,8 @@ function Canvas3DInner(
       editModeControllerRef.current = { setEnabled: () => {}, reset: () => {} };
       propRotateControllerRef.current = { rotate: () => {} };
       stopLoop();
+      // CAM-387: tear down the floating task popovers (DOM child of container).
+      popoverLayer.remove();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       motionMq.removeEventListener("change", onMotionChange);
