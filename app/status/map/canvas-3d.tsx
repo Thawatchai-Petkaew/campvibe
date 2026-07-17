@@ -1199,9 +1199,13 @@ const BOARD_PANEL_HEIGHT = 1.94;
 // Board mesh — thick, rounded, crisp, stood off the wall (match the prototype).
 const BOARD_BACK_WIDTH = 3.18;
 const BOARD_BACK_HEIGHT = 2.14;
-const BOARD_BACK_THICKNESS = 0.42; // was 0.12 — a chunky freestanding screen, not a thin decal
-const BOARD_CORNER_RADIUS = 0.06; // was 0.05 — rounder outer edge
-const BOARD_CORNER_SEGMENTS = 5; // was 3 — smoother rounded corner (less edge aliasing)
+// CAM-388: match the prototype's screen exactly — a THIN rounded-rectangle
+// panel with BIG face-corner radius + CRISP straight edges (an ExtrudeGeometry,
+// bevelEnabled:false — see makeRoundedPanelGeometry), NOT a thick soft-beveled
+// RoundedBoxGeometry. Earlier CAM-387 had the params inverted (thick 0.42 +
+// tiny radius 0.06 + soft bevel) — the opposite of the reference.
+const BOARD_BACK_THICKNESS = 0.1; // thin (prototype ~0.06); the crisp side edge stays visible
+const BOARD_CORNER_RADIUS = 0.42; // big rounded FACE corners echoing the inner card (was 0.06 = near-square)
 const BOARD_STANDOFF = 0.34; // push the whole screen off the wall into the room
 const BOARD_MAX_ANISOTROPY = 8; // crispness at grazing angles (was: unset -> blurry)
 // Same font stack this route's overlays already load for Thai copy
@@ -1572,6 +1576,31 @@ function drawAtlasBoard(board: StationBoard, gatesCount: number): void {
   board.texture.needsUpdate = true;
 }
 
+// CAM-388: a flat rounded-RECTANGLE panel — the prototype's makeRoundedRectGeometry.
+// An ExtrudeGeometry of a rounded-rect Shape with `bevelEnabled:false`, so the
+// four FACE corners curve (radius) while every edge stays CRISP (no soft bevel)
+// and the panel is thin. This is deliberately NOT RoundedBoxGeometry, which
+// bevels every edge into a soft, chunky box (the CAM-387 mistake). `radius` is
+// clamped so it can never exceed half the smaller side.
+function makeRoundedPanelGeometry(width: number, height: number, radius: number, depth: number): THREE.ExtrudeGeometry {
+  const x = -width / 2;
+  const y = -height / 2;
+  const r = Math.min(radius, width / 2, height / 2);
+  const shape = new THREE.Shape();
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + width - r, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + r);
+  shape.lineTo(x + width, y + height - r);
+  shape.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  shape.lineTo(x + r, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 28 });
+  geo.translate(0, 0, -depth / 2);
+  return geo;
+}
+
 // Backplate (subtle dark glass, tinted per role) + front panel (the drawn
 // CanvasTexture) at each station's `pos` — the wall/board reference point,
 // distinct from `workSpot` (where the character stands). Created once at
@@ -1586,16 +1615,11 @@ function createStationBoards(scene: THREE.Scene, maxAnisotropy: number): Station
     scene.add(group);
 
     const accent = ROLE_COLORS[station.key];
-    // CAM-387: a thick, rounded glass screen (was a thin 0.12 slab that read as
-    // painted on the wall). Extra corner segments smooth the rounded edge.
+    // CAM-388: a thin rounded-rectangle glass screen — big rounded FACE corners
+    // (echoing the inner card) + crisp straight edges (no bevel), matching the
+    // prototype's makeRoundedRectGeometry.
     const backPlate = new THREE.Mesh(
-      new RoundedBoxGeometry(
-        BOARD_BACK_WIDTH,
-        BOARD_BACK_HEIGHT,
-        BOARD_BACK_THICKNESS,
-        BOARD_CORNER_SEGMENTS,
-        BOARD_CORNER_RADIUS,
-      ),
+      makeRoundedPanelGeometry(BOARD_BACK_WIDTH, BOARD_BACK_HEIGHT, BOARD_CORNER_RADIUS, BOARD_BACK_THICKNESS),
       new THREE.MeshPhysicalMaterial({
         color: accent,
         transmission: 0.72,
