@@ -308,12 +308,15 @@ interface RoomPropDef {
 // prototype's original list 1:1; it is still RoomPropDef-shaped and is
 // registered into the very same `propRecords`/`propPivots` machinery as these
 // 5 (CAM-383), just built in its own branch in loadAssets below.
+// CAM-391: default positions/rotations are the owner's arranged layout (exported
+// from their Object Edit Mode localStorage). A fresh visitor + the "รีเซ็ต" button
+// land on this arrangement. targetSize/radius/file unchanged.
 const ROOM_PROPS: RoomPropDef[] = [
-  { name: "sofa", file: "sofa.glb", position: new THREE.Vector3(0.5, 0.02, 1.4), rotationY: -Math.PI / 2, targetSize: 2.48, radius: 1.62 },
-  { name: "table-oval", file: "table-oval.glb", position: new THREE.Vector3(1.8, 0.02, 3.7), rotationY: Math.PI / 2, targetSize: 1.46, radius: 0.98 },
-  { name: "table-lumen", file: "table-lumen.glb", position: new THREE.Vector3(-0.8, 0.02, 3.7), rotationY: Math.PI / 2, targetSize: 1.92, radius: 1.26 },
-  { name: "data-vault", file: "data-vault.glb", position: new THREE.Vector3(3.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.52, radius: 1.04 },
-  { name: "plant", file: "plant.glb", position: new THREE.Vector3(-2.6, 0.02, 1.4), rotationY: Math.PI / 2, targetSize: 1.02, radius: 0.72 },
+  { name: "sofa", file: "sofa.glb", position: new THREE.Vector3(-1.652, 0.02, 0.845), rotationY: 1.571, targetSize: 2.48, radius: 1.62 },
+  { name: "table-oval", file: "table-oval.glb", position: new THREE.Vector3(0.874, 0.02, 0.97), rotationY: 3.142, targetSize: 1.46, radius: 0.98 },
+  { name: "table-lumen", file: "table-lumen.glb", position: new THREE.Vector3(0.837, 0.02, -1.55), rotationY: 0, targetSize: 1.92, radius: 1.26 },
+  { name: "data-vault", file: "data-vault.glb", position: new THREE.Vector3(-1.508, 0.02, -1.441), rotationY: 0, targetSize: 1.52, radius: 1.04 },
+  { name: "plant", file: "plant.glb", position: new THREE.Vector3(-1.602, 0.02, 3.236), rotationY: 1.571, targetSize: 1.02, radius: 0.72 },
 ];
 
 // CAM-382: Thai display names for the rotate control's "which prop is
@@ -350,8 +353,9 @@ const PROP_DISPLAY_NAME: Record<string, string> = {
 export const SEATED_ATLAS_PROP_DEF: RoomPropDef = {
   name: "seated-atlas",
   file: "atlas-sit.glb",
-  position: new THREE.Vector3(0.54, 0.88, 1.78),
-  rotationY: Math.PI / 2,
+  // CAM-391: owner's arranged position (world-Y at the figure's visual center).
+  position: new THREE.Vector3(-1.336, 0.597, 0.846),
+  rotationY: 1.571,
   radius: 0.45,
   targetHeight: 0.98,
 };

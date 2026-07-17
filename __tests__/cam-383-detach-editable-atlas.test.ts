@@ -27,45 +27,19 @@ import {
   SEATED_ATLAS_PROP_DEF,
 } from "../app/status/map/canvas-3d";
 
-// Re-derives the WORLD transform the seated Atlas's OLD (CAM-381) local-to-
-// sofa offset resolved to, using the EXACT mechanism the old code used
-// (`sofaRecord.group.add(seatedAtlas)` — ordinary THREE.Object3D parent-child
-// transform inheritance), not a hand-rolled rotation-matrix reimplementation.
-// This is the faithful "did the figure stay put on detach" check.
-function composeOldChildedWorldTransform(): { position: THREE.Vector3; rotationY: number } {
-  const sofaGroup = new THREE.Group();
-  sofaGroup.position.set(0.5, 0.02, 1.4); // ROOM_PROPS' sofa def
-  sofaGroup.rotation.y = -Math.PI / 2;
-  const seatedAtlas = new THREE.Group();
-  seatedAtlas.position.set(0.38, 0.86, -0.04); // the old CAM-381 local offset
-  seatedAtlas.rotation.y = Math.PI;
-  sofaGroup.add(seatedAtlas);
-  sofaGroup.updateMatrixWorld(true);
-
-  const worldPosition = new THREE.Vector3();
-  seatedAtlas.getWorldPosition(worldPosition);
-  const worldQuaternion = new THREE.Quaternion();
-  seatedAtlas.getWorldQuaternion(worldQuaternion);
-  const worldEuler = new THREE.Euler().setFromQuaternion(worldQuaternion, "YXZ");
-  return { position: worldPosition, rotationY: worldEuler.y };
-}
-
-describe("SEATED_ATLAS_PROP_DEF — CAM-383 detach default world transform (no visible jump)", () => {
-  it("[unit] default world position matches the old childed-to-the-sofa composition", () => {
-    const expected = composeOldChildedWorldTransform();
-    expect(SEATED_ATLAS_PROP_DEF.position.x).toBeCloseTo(expected.position.x, 5);
-    expect(SEATED_ATLAS_PROP_DEF.position.y).toBeCloseTo(expected.position.y, 5);
-    expect(SEATED_ATLAS_PROP_DEF.position.z).toBeCloseTo(expected.position.z, 5);
+describe("SEATED_ATLAS_PROP_DEF — CAM-391 default world transform (owner-arranged layout)", () => {
+  // CAM-391: the seated-Atlas default is now the owner's arranged position
+  // (baked from their exported Object Edit Mode localStorage layout),
+  // superseding the CAM-383 "detach matches the old childed-to-the-sofa
+  // position" default. This guards the baked default against accidental change.
+  it("[unit] default world position is the owner-arranged layout", () => {
+    expect(SEATED_ATLAS_PROP_DEF.position.x).toBeCloseTo(-1.336, 5);
+    expect(SEATED_ATLAS_PROP_DEF.position.y).toBeCloseTo(0.597, 5);
+    expect(SEATED_ATLAS_PROP_DEF.position.z).toBeCloseTo(0.846, 5);
   });
 
-  it("[unit] default rotationY matches the old childed-to-the-sofa composition", () => {
-    const expected = composeOldChildedWorldTransform();
-    // Compare via sin/cos (mirrors normalizeYRotation's own test approach in
-    // cam-382-rotate-props.test.ts) — robust to which side of a 2π wrap
-    // either representation happens to land on, since both describe the
-    // same physical facing.
-    expect(Math.sin(SEATED_ATLAS_PROP_DEF.rotationY)).toBeCloseTo(Math.sin(expected.rotationY), 9);
-    expect(Math.cos(SEATED_ATLAS_PROP_DEF.rotationY)).toBeCloseTo(Math.cos(expected.rotationY), 9);
+  it("[unit] default rotationY is the owner-arranged facing", () => {
+    expect(SEATED_ATLAS_PROP_DEF.rotationY).toBeCloseTo(1.571, 5);
   });
 
   it("[boundary] radius is a small positive footprint (smaller than every ROOM_PROPS radius)", () => {
