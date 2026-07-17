@@ -1003,7 +1003,7 @@ function createFakeShadow(radiusX: number, radiusZ: number, localY: number, opac
   return shadow;
 }
 
-function tuneMaterial(mesh: THREE.Mesh, roughnessCap: number, roughnessFloor: number, metalnessFloor: number): void {
+function tuneMaterial(mesh: THREE.Mesh, roughnessCap: number, roughnessFloor: number, metalnessFloor: number, maxAnisotropy: number): void {
   if (Array.isArray(mesh.material)) return; // every Meshy AI asset here is single-material; skip the rare multi-material case
   mesh.material = mesh.material.clone();
   const m = mesh.material as THREE.MeshStandardMaterial;
@@ -1012,12 +1012,22 @@ function tuneMaterial(mesh: THREE.Mesh, roughnessCap: number, roughnessFloor: nu
   m.depthWrite = true;
   if ("roughness" in m) m.roughness = Math.min(m.roughness ?? roughnessCap, roughnessCap);
   if ("metalness" in m) m.metalness = Math.max(m.metalness ?? metalnessFloor, metalnessFloor);
+  // CAM-389: GLB textures load at the GLTFLoader default anisotropy=1 → blurry at
+  // the iso camera's grazing angles. Bump every map to the GPU max so props +
+  // characters stay sharp when viewed obliquely (mipmaps are already on from the
+  // loader default, so the anisotropic filter has a mip chain to sample).
+  for (const map of [m.map, m.normalMap, m.roughnessMap, m.metalnessMap, m.emissiveMap, m.aoMap]) {
+    if (map) {
+      map.anisotropy = maxAnisotropy;
+      map.needsUpdate = true;
+    }
+  }
 }
 
 // Characters: centered on all 3 axes, then scaled to targetHeight (ported as-is
 // from the prototype's normalizeCharacter — the resulting stand height is tuned
 // by the workSpot.y constants above, not by floor-aligning the mesh here).
-function normalizeCharacter(root: THREE.Group, targetHeight: number): THREE.Group {
+function normalizeCharacter(root: THREE.Group, targetHeight: number, maxAnisotropy: number): THREE.Group {
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   const box = new THREE.Box3().setFromObject(root);
@@ -1027,14 +1037,14 @@ function normalizeCharacter(root: THREE.Group, targetHeight: number): THREE.Grou
   root.scale.setScalar(targetHeight / Math.max(size.y, 0.001));
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) tuneMaterial(mesh, 0.48, 0.35, 0.04);
+    if (mesh.isMesh) tuneMaterial(mesh, 0.48, 0.35, 0.04, maxAnisotropy);
   });
   return root;
 }
 
 // Props: scaled to targetSize, then floor-aligned (min.y -> 0) and centered on
 // X/Z only — ported as-is from the prototype's normalizeRoomProp.
-function normalizeRoomProp(root: THREE.Group, targetSize: number): THREE.Group {
+function normalizeRoomProp(root: THREE.Group, targetSize: number, maxAnisotropy: number): THREE.Group {
   const size = new THREE.Vector3();
   const box = new THREE.Box3().setFromObject(root);
   box.getSize(size);
@@ -1050,7 +1060,7 @@ function normalizeRoomProp(root: THREE.Group, targetSize: number): THREE.Group {
 
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh) tuneMaterial(mesh, 0.54, 0.42, 0.02);
+    if (mesh.isMesh) tuneMaterial(mesh, 0.54, 0.42, 0.02, maxAnisotropy);
   });
   return root;
 }
@@ -1646,8 +1656,13 @@ function createStationBoards(scene: THREE.Scene, maxAnisotropy: number): Station
     // CAM-387: anisotropy is THE fix for the pixelated/blurry text at grazing
     // angles (the board is viewed obliquely from the iso camera).
     texture.anisotropy = Math.min(maxAnisotropy, BOARD_MAX_ANISOTROPY);
-    texture.generateMipmaps = false;
-    texture.minFilter = THREE.LinearFilter;
+    // CAM-389: mipmaps + trilinear are REQUIRED for the anisotropy above to do
+    // anything under minification — without a mip chain the board text aliases
+    // into broken lines when the board is small/oblique on screen. (WebGL2
+    // handles the NPOT 640px height; the CanvasTexture regenerates mips on the
+    // rare needsUpdate redraw.)
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
 
     const panel = new THREE.Mesh(
@@ -1806,6 +1821,9 @@ function Canvas3DInner(
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowLod ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // CAM-389: the GPU's max anisotropy — applied to the board texture AND every
+    // loaded GLB texture (props + characters) so nothing blurs at grazing angles.
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
     renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = false; // perf: fake blob shadows only (see createFakeShadow)
 
@@ -1850,7 +1868,7 @@ function Canvas3DInner(
     // CAM-379 (S7): the wall screens — created here, synchronously, entirely
     // independent of loadAssets() (the async GLB fetch further below). See
     // the file-header S7 note + createStationBoards' own doc comment.
-    const boards = createStationBoards(scene, renderer.capabilities.getMaxAnisotropy());
+    const boards = createStationBoards(scene, maxAnisotropy);
 
     // CAM-380: selection affordance for Object Edit Mode — a thin glowing
     // ring under the currently-grabbed prop. Created once here (independent
@@ -2522,7 +2540,7 @@ function Canvas3DInner(
         pivot.position.copy(station.workSpot);
         // Face the board reference point (no board panel is rendered in S2b).
         pivot.rotation.y = Math.atan2(station.pos.x - pivot.position.x, station.pos.z - pivot.position.z);
-        const model = normalizeCharacter(characterScenes[i], station.isAtlas ? 1.55 : 1.48);
+        const model = normalizeCharacter(characterScenes[i], station.isAtlas ? 1.55 : 1.48, maxAnisotropy);
         pivot.add(model);
         const fakeShadow = createFakeShadow(station.isAtlas ? 0.58 : 0.5, station.isAtlas ? 0.34 : 0.3, -0.86, 0.12);
         pivot.add(fakeShadow);
@@ -2596,7 +2614,7 @@ function Canvas3DInner(
         // ROOM_PROPS entries always set targetSize (only the seated-Atlas
         // def, built in its own branch below via normalizeCharacter, omits
         // it in favor of targetHeight — see RoomPropDef's own doc comment).
-        group.add(normalizeRoomProp(propScenes[i], item.targetSize!));
+        group.add(normalizeRoomProp(propScenes[i], item.targetSize!, maxAnisotropy));
         group.add(createFakeShadow(item.radius * 0.72, item.radius * 0.46, 0.01, 0.09));
         scene.add(group);
         // CAM-380: Object Edit Mode record, keyed to the SAME NAVIGATION_OBSTACLES
@@ -2638,7 +2656,7 @@ function Canvas3DInner(
           group.rotation.y = SEATED_ATLAS_PROP_DEF.rotationY;
           // SEATED_ATLAS_PROP_DEF always sets targetHeight (see its own
           // definition above) — this is the one call site that reads it.
-          group.add(normalizeCharacter(seatedAtlasScene, SEATED_ATLAS_PROP_DEF.targetHeight!));
+          group.add(normalizeCharacter(seatedAtlasScene, SEATED_ATLAS_PROP_DEF.targetHeight!, maxAnisotropy));
           scene.add(group);
           // Registered into the SAME propRecords/propPivots machinery as the
           // 5 ROOM_PROPS above (CAM-383) — it now gets the identical
