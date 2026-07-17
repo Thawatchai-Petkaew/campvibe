@@ -41,13 +41,17 @@ export default function CampgroundDetailLoading() {
                         arrives with no layout shift: a single cover on mobile; on desktop
                         the 5-image grid (grid-cols-4 grid-rows-2, h-[480px]) with one large
                         col-span-2 row-span-2 tile + four small tiles. */}
-                    <Skeleton className="md:hidden aspect-[4/3] w-full rounded-2xl mb-8" />
-                    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px] mb-8">
-                        <Skeleton className="col-span-2 row-span-2 w-full h-full rounded-2xl" />
-                        <Skeleton className="w-full h-full rounded-2xl" />
-                        <Skeleton className="w-full h-full rounded-2xl" />
-                        <Skeleton className="w-full h-full rounded-2xl" />
-                        <Skeleton className="w-full h-full rounded-2xl" />
+                    <div className="relative rounded-3xl overflow-hidden mb-10">
+                        {/* mobile: single cover (real: md:hidden h-[300px]) */}
+                        <Skeleton className="md:hidden h-[300px] w-full rounded-none" />
+                        {/* desktop: 5-image grid (real: grid-cols-4 grid-rows-2 h-[480px]) */}
+                        <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
+                            <Skeleton className="col-span-2 row-span-2 w-full h-full rounded-none" />
+                            <Skeleton className="w-full h-full rounded-none" />
+                            <Skeleton className="w-full h-full rounded-none" />
+                            <Skeleton className="w-full h-full rounded-none" />
+                            <Skeleton className="w-full h-full rounded-none" />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">

@@ -48,8 +48,11 @@ describe("CAM-394 streaming contract — page.tsx", () => {
     // Prove-It: FAILS if reverted to a blocking `reviews={reviews}` prop.
     expect(pageSrc).toContain("reviewsPromise={reviewsPromise}");
     expect(pageSrc).not.toContain("reviews={reviews}");
-    // the stream wrapper shape (never awaited here)
-    expect(pageSrc).toContain(".then((rows) => ({ ok: true as const, reviews: rows.map(toReviewListItem) }))");
+    // the stream wrapper shape (never awaited here) — asserted loosely so a
+    // Prettier reflow of the .then() line can't fail a behaviorally-correct file.
+    expect(pageSrc).toMatch(/\.then\(/);
+    expect(pageSrc).toContain("ok: true as const");
+    expect(pageSrc).toContain("rows.map(toReviewListItem)");
   });
 
   it("[unit] AC-6: the streamed promise never rejects (resolves ok:false → isolated error)", () => {

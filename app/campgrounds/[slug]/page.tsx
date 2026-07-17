@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
 import { serializeDecimals } from "@/lib/serialize";
-import { buildReviewSummary, roundAvgRating, toReviewListItem } from "@/lib/review-summary";
+import { buildReviewSummary, toReviewListItem } from "@/lib/review-summary";
 import { canViewCampSite } from "@/lib/campsite-visibility";
 import { getCampBySlug } from "@/lib/catalog-cache";
 

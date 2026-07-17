@@ -16,16 +16,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
-
-/** CAM-394: the review-list findMany, streamed unawaited from the server page.
- *  Never rejects — resolves ok:false so a review error stays isolated (AC-6). */
-export type ReviewsListResult =
-    | { ok: true; reviews: ReviewListItem[] }
-    | { ok: false };
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -33,6 +26,12 @@ import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
+
+/** CAM-394: the review-list findMany, streamed unawaited from the server page.
+ *  Never rejects — resolves ok:false so a review error stays isolated (AC-6). */
+export type ReviewsListResult =
+    | { ok: true; reviews: ReviewListItem[] }
+    | { ok: false };
 
 const DynamicMap = dynamic(() => import("@/components/MapComponent"), {
     ssr: false,
