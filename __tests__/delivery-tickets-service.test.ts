@@ -289,8 +289,12 @@ describe("transition matrix — reject", () => {
 });
 
 describe("transition matrix — complete", () => {
+  // A completable story has rotated through the workflow incl. a Verify-stage role
+  // (QA/Security) — the Verify-coverage guard now requires it before Done.
+  const VERIFIED_CHAIN = ["FRONTEND_ENGINEER", "QA_ENGINEER", "SECURITY_REVIEWER", "DEVOPS_RELEASE"];
+
   it.each(ALL_STATES)("complete: %s", async (state) => {
-    const row = seed({ state, currentRole: "DEVOPS_RELEASE" });
+    const row = seed({ state, currentRole: "DEVOPS_RELEASE", roleHistory: VERIFIED_CHAIN });
     if (state === "AWAITING_GATE") {
       const t = await tickets.complete(row.identifier, "human");
       expect(t.state).toBe("DONE");
@@ -302,12 +306,45 @@ describe("transition matrix — complete", () => {
   });
 
   it("[notify] sends 'done', does NOT fire a repository_dispatch (terminal gate)", async () => {
-    const row = seed({ state: "AWAITING_GATE", currentRole: "DEVOPS_RELEASE" });
+    const row = seed({ state: "AWAITING_GATE", currentRole: "DEVOPS_RELEASE", roleHistory: VERIFIED_CHAIN });
     await tickets.complete(row.identifier, "human");
     expect(tg).toHaveBeenCalledTimes(1);
     const [text] = tg.mock.calls[0] as [string];
     expect(text).toContain("Completed");
     expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  // Verify-coverage guard (delivery-process): a story cannot reach Done unless it
+  // passed a Verify-stage role. Prove-It: without QA/Security in roleHistory, the
+  // terminal gate rejects — a solo frontend-only run can't silently complete.
+  it("[error] rejects no_verify_role when roleHistory never passed QA/Security", async () => {
+    const row = seed({
+      state: "AWAITING_GATE",
+      currentRole: "FRONTEND_ENGINEER",
+      roleHistory: ["FRONTEND_ENGINEER"],
+    });
+    await expect(tickets.complete(row.identifier, "human")).rejects.toMatchObject({ code: "no_verify_role" });
+    expect(fake.store.tickets.get(row.id)?.state).toBe("AWAITING_GATE"); // no transition, no DONE
+    expect(tg).not.toHaveBeenCalled(); // no 'done' notification fired
+  });
+
+  it("[boundary] a Design+Build+Ship chain that skipped Verify also rejects", async () => {
+    const row = seed({
+      state: "AWAITING_GATE",
+      currentRole: "DEVOPS_RELEASE",
+      roleHistory: ["ARCHITECT", "FRONTEND_ENGINEER", "DEVOPS_RELEASE"],
+    });
+    await expect(tickets.complete(row.identifier, "human")).rejects.toMatchObject({ code: "no_verify_role" });
+  });
+
+  it("[boundary] the Verify guard is STORY-scoped — an EPIC/TASK completes without it", async () => {
+    // Epic containers + chore/docs tasks carry no AC and aren't required to pass Verify.
+    const task = seed({ type: "TASK", state: "AWAITING_GATE", roleHistory: ["FRONTEND_ENGINEER"] });
+    const t = await tickets.complete(task.identifier, "human");
+    expect(t.state).toBe("DONE");
+    const epic = seed({ type: "EPIC", state: "AWAITING_GATE", roleHistory: [] });
+    const e = await tickets.complete(epic.identifier, "human");
+    expect(e.state).toBe("DONE");
   });
 });
 

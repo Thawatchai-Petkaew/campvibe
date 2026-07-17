@@ -793,6 +793,8 @@ async function cmdShow(id) {
   const { ticket: t, comments, events } = data;
   console.log(`${t.identifier}  ${t.title}`);
   console.log(`  type=${t.type} state=${STATE_LABEL[t.state] || t.state} role=${roleSlug(t.currentRole) || "—"} persona=${t.persona || "—"} priority=${t.priority}`);
+  const roleChain = Array.isArray(t.roleHistory) && t.roleHistory.length ? t.roleHistory.map(roleSlug).join(" → ") : "—";
+  console.log(`  roleHistory=${roleChain}`);
   console.log(`  feature=${t.featureName || "—"} epicId=${t.epicId || "—"} blocked=${t.blocked} changesRequested=${t.changesRequested} regressionRound=${t.regressionRound}`);
   console.log(`  startedAt=${t.startedAt || "—"} gateRaisedAt=${t.gateRaisedAt || "—"} completedAt=${t.completedAt || "—"} releasedAt=${t.releasedAt || "—"}`);
   if (t.description) console.log(`\n${t.description}`);

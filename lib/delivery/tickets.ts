@@ -27,6 +27,7 @@ import {
 import { getDeliveryClient } from "@/lib/delivery/client";
 import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
+import { hasPassedVerify } from "@/lib/delivery/verify-stage";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
 import { TICKET_ID_RE, type AgentModelTier } from "@/lib/delivery/validations";
 import { buildEventMessage, statusMapUrl, type EventCtx, type EventKind } from "@/lib/notify-messages";
@@ -340,6 +341,22 @@ export async function complete(id: string, actor: string): Promise<Ticket> {
   const db = getDeliveryClient();
   const ticket = await getTicketOr404(db, id);
   assertState(ticket, ["AWAITING_GATE"], "complete");
+
+  // Verify-coverage guard: a STORY cannot reach Done unless it passed through a
+  // Verify-stage role (QA or Security). Role rotation was previously pure
+  // convention — a solo, frontend-only run could complete without QA/Security ever
+  // appearing on the board or in Telegram. This makes the Verify stage enforceable.
+  // Scoped to STORY: epic containers and chore/docs tasks carry no AC and are not
+  // required to pass Verify. Transition-time only: already-Done stories are never
+  // re-checked (no retroactive backlog). Recovery for a blocked story: approve the
+  // gate to a qa-engineer/security-reviewer (AWAITING_GATE -> IN_PROGRESS, which
+  // pushes that role into roleHistory), then re-raise the gate.
+  if (ticket.type === "STORY" && !hasPassedVerify(ticket.roleHistory)) {
+    throw new TicketTransitionError(
+      "no_verify_role",
+      `cannot complete ${id}: this story never passed a Verify-stage role — route it through qa-engineer or security-reviewer (approve the gate to that role) before Done`
+    );
+  }
 
   const updated = await db.$transaction(async (tx) => {
     const u = await tx.ticket.update({
