@@ -1215,7 +1215,7 @@ const BOARD_BACK_HEIGHT = 2.14;
 // RoundedBoxGeometry. Earlier CAM-387 had the params inverted (thick 0.42 +
 // tiny radius 0.06 + soft bevel) — the opposite of the reference.
 const BOARD_BACK_THICKNESS = 0.1; // thin (prototype ~0.06); the crisp side edge stays visible
-const BOARD_CORNER_RADIUS = 0.42; // big rounded FACE corners echoing the inner card (was 0.06 = near-square)
+const BOARD_CORNER_RADIUS = 0.30; // CAM-390: was 0.42 (too round vs inner card) — 0.30 ≈ inner-card corner (~0.17) + border inset (0.11) so the outer curve sits concentric
 const BOARD_STANDOFF = 0.34; // push the whole screen off the wall into the room
 const BOARD_MAX_ANISOTROPY = 8; // crispness at grazing angles (was: unset -> blurry)
 // Same font stack this route's overlays already load for Thai copy
