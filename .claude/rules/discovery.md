@@ -84,7 +84,7 @@ Use the template exactly (v2, English framework — story.md §"story v2") — `
 - NFR stated clearly (perf/a11y/i18n/security)
 - Out-of-scope is explicit
 - Broken into an atomic story (1 small PR ≤ ~400 lines)
-- AC verifiable on the real **Staging URL** (Done = merge → `staging`, not just passing lint)
+- AC verifiable on **localhost (dev DB) before merge** and re-verifiable on the real Staging URL at G4 (Done = gate green + localhost verify + merge → `dev`, not just passing lint)
 - No open `[NEEDS CLARIFICATION: …]` marker remains in the spec — a spec carrying one is not build-ready (audit-enforced, exit 11)
 
 ### 6. Spec quality

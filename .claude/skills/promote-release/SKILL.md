@@ -1,15 +1,15 @@
 ---
 name: promote-release
-description: deploy/promote across envs (staging->prod) + migrate + smoke test + tag + changelog + rollback per promotion rules — use when you need to promote code across envs (merge→staging = Done, staging→main = Released). Do NOT use for opening a PR (use open-pr) or running the quality gate (use quality-gate)
+description: deploy/promote across envs + migrate + smoke test + tag + changelog + rollback per promotion rules — use when you need to promote code across envs (batched dev→staging = on-staging, staging→main = Released). Do NOT use for opening a story PR (use open-pr) or running the quality gate (use quality-gate)
 ---
 
-# promote-release — deploy code across envs (staging→prod) with migrate, smoke, tag, changelog, rollback
+# promote-release — deploy code across envs (dev→staging→prod) with migrate, smoke, tag, changelog, rollback
 
 ## Overview
 
-Promote a story across the 3-env pipeline (Local → Staging → Production) with database migration, smoke check, tag, changelog, and rollback. `merge→staging = Done`; `staging→main = Released`. State changes track the git event, not the env.
+Promote stories across the 4-layer pipeline (Local → Dev (no deploy) → Staging → Production) with database migration, smoke check, tag, changelog, and rollback. Stories are already **Done** on `dev`; the batched `dev`→`staging` promote adds the **`on-staging`** label; `staging`→`main` = **Released**.
 
-Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `.claude/SYNC-ARCHITECTURE.md` (Done vs Released, ticket DB sync) · 3-env: Local → Staging → Prod.
+Read first: `.claude/rules/ops.md` (pre-launch checklist, graduated rollout %, rollback thresholds, feature-flag lifecycle) · `.claude/SYNC-ARCHITECTURE.md` (Done vs Released, ticket DB sync) · 4-layer: Local → Dev → Staging → Prod.
 
 ## Quick Reference
 
@@ -22,11 +22,11 @@ The `staging`→`main` (Released) promotion, in order:
 5. Watch Sentry for N minutes per the **rollback thresholds** in `.claude/rules/ops.md` → error spike = auto-rollback + notify.
 6. `node scripts/ticket-sync.mjs release <CAM-id>` (once per story) → stamps `releasedAt` (state stays `Done`).
 
-`--to staging` is the lighter cousin: migrate staging DB → deploy → smoke → verify AC on Staging URL → state `Done`. See Workflow.
+`--to staging` is the batched promote: open the promote PR `dev`→`staging` → merge on green CI → auto deploy + migrate + smoke → `ticket-sync stage <CAM-id>` per story (the `on-staging` label). See Workflow.
 
 ## When to Use
 
-- Promoting a merged story to Staging (the "Done" criterion) — `promote-release --to staging`.
+- Batch-promoting Done stories `dev`→`staging` (the `on-staging` label) — `promote-release --to staging`.
 - Promoting `staging`→`main` to Production once G4 is signed off (the "Released" criterion) — `promote-release --to prod`.
 
 **NOT for:**
@@ -44,16 +44,17 @@ The `staging`→`main` (Released) promotion, in order:
 ## Input / preconditions
 
 1. `promote-release --to <staging|prod>` — name the CAM-id of the story in the promote cycle.
-2. `--to staging`: merged into `staging` · quality-gate fully green.
+2. `--to staging`: every story in the batch is Done on `dev` (merged + quality-gate green + AC verified on localhost).
 3. `--to prod`: Staging green + **G4 signed off** (do not skip) · rollback plan in place.
 4. Env vars: `DATABASE_URL` separate for staging/prod · `APP_BASE_URL` + `STATUS_TOKEN` (so `ticket-sync.mjs` works).
 
-## Workflow — `--to staging` (auto after merge into `staging`)
+## Workflow — `--to staging` (the batched `dev`→`staging` promote)
 
-1. Run `prisma migrate deploy` on **staging DB** + `npm run build`.
-2. Vercel deploy to Staging env (branch `staging`) + smoke/health check.
-3. **Verify AC on the real Staging URL** → `node scripts/ticket-sync.mjs set <CAM-id> --state "Done"` (state changes per git event, not tied to env; requires the ticket still `AWAITING_GATE` — see the "G4 exception" note in `.claude/agents/orchestrator.md`, this is the `complete()` verb, not the generic Approve tap).
-4. On failure at any step → stop the promote + rollback + auto-open a bug ticket in the delivery ticket DB.
+1. Confirm every story in the batch is Done on `dev` (`node scripts/ticket-sync.mjs list`) and `dev` is green.
+2. Open the promote PR `dev`→`staging` (`gh pr create --base staging --head dev`) → wait for green CI → merge.
+3. The merge auto-deploys Staging: Vercel build runs `prisma migrate deploy` on the **staging DB** → smoke/health check on the real Staging URL (confirm the NEW build is live, not a stale one).
+4. Label each story: `node scripts/ticket-sync.mjs stage <CAM-id>` (stamps `stagedAt` + `on-staging`); G4 sitting then verifies AC on the real Staging URL.
+5. On failure at any step → stop the promote + rollback + auto-open a bug ticket in the delivery ticket DB.
 
 ## Workflow — `--to prod` (promote `staging`→`main`, must pass G5)
 
@@ -66,7 +67,7 @@ The `staging`→`main` (Released) promotion, in order:
 
 ## Output / postconditions
 
-- `--to staging`: Staging deploy green + staging migration succeeded + AC verified → story ticket state `Done`.
+- `--to staging`: Staging deploy green + staging migration succeeded → each story labeled `on-staging` (state stays `Done`); G4 verifies AC on the real Staging URL.
 - `--to prod`: Production deploy green + tag `vX.Y.Z` + changelog + rollback plan → story `releasedAt` stamped.
 - On failure (either case): rolled back + a bug ticket opened into the loop.
 
@@ -82,7 +83,7 @@ The `staging`→`main` (Released) promotion, in order:
 - `.claude/rules/observability.md` — Sentry error-watch window + signals used for the rollback decision.
 - `docs/project/business.md` — cost list (which spend is owner-approval / escalation per the cost rule).
 - `delivery-artifacts` skill — the story's `release.md` where `## Staging verify` (G4) + `## Release` (G5) are written.
-- Sibling skill `open-pr` — opens the `staging`→`main` PR this skill then promotes.
+- Sibling skill `open-pr` — opens the story PR into `dev`; this skill owns the cross-env promote PRs.
 - `.claude/SYNC-ARCHITECTURE.md` — Done vs Released, ticket DB sync.
 
 ## Next Steps
@@ -93,7 +94,7 @@ After `release` stamps `releasedAt` → monitor the error window (Sentry) per `.
 
 | Rationalization | Reality |
 | --- | --- |
-| "It's Done, so it's Released." | Done = staging state `Done`; Released = `releasedAt` stamped + git tag, on prod only. |
+| "It's Done, so it's Released." | Done = merged to `dev` + localhost AC verify; `on-staging` and `released` are labels earned by the promotes. Released = `releasedAt` stamped + git tag, on prod only. |
 | "Just promote this `feature/*` straight to `main` to save a hop." | Prod must always go through Staging (Done + G4). Never promote `feature/*`→`main` directly. |
 | "The migration is fine, run it on prod." | Migration must be reversible + tested on Staging before prod. Never run a prod migrate that hasn't passed staging. |
 | "Bundle these stories into one `release` call." | Multiple `Done` stories can ship as one release train, but call `release <CAM-id>` once per story in the cycle. |
@@ -103,5 +104,5 @@ After `release` stamps `releasedAt` → monitor the error window (Sentry) per `.
 
 - [ ] Build + `prisma migrate deploy` succeed for the promoted env.
 - [ ] Smoke/health check passes on the real URL (staging or prod).
-- [ ] Ticket state/`releasedAt` correct (`Done` or stamped) — check with `node scripts/ticket-sync.mjs list`.
+- [ ] Ticket labels/timestamps correct (`on-staging`/`stagedAt` or `releasedAt`) — check with `node scripts/ticket-sync.mjs list`.
 - [ ] Prod: tag + changelog complete + Sentry watched with no error spike (per `.claude/rules/ops.md` thresholds) before closing the work.

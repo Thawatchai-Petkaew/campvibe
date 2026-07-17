@@ -1,13 +1,13 @@
 ---
 name: quality-gate
-description: Run the mandatory pre-merge quality gate — lint, typecheck, test+coverage, build, npm audit, (UI) design gate — then summarize pass/fail. Use when an atomic story is complete, before opening/merging a PR into `staging` (the "Done" criterion). Do NOT use it to decide "Released" — prod goes through `/promote-release --to prod` (smoke/tag/changelog handled separately).
+description: Run the mandatory pre-merge quality gate — lint, typecheck, test+coverage, build, npm audit, (UI) design gate — then summarize pass/fail. Use when an atomic story is complete, before opening/merging a PR into `dev` (the "Done" criterion). Do NOT use it to decide "Released" — prod goes through `/promote-release --to prod` (smoke/tag/changelog handled separately).
 ---
 
 # quality-gate
 
 ## Overview
 
-Run the mandatory gate before merging into `staging`, summarize pass/fail, and block the merge if any step is red. A green gate is the floor for "Done" — never merge while red.
+Run the mandatory gate before merging into `dev`, summarize pass/fail, and block the merge if any step is red. A green gate is the floor for "Done" — never merge while red.
 
 Read first: `CLAUDE.md` (Quality gates) · `.claude/rules/qa.md` · `.claude/rules/ops.md` (Done vs Released) · `DESIGN.md` (UI work).
 
@@ -38,8 +38,8 @@ Run in order, at the repo root, on the `feature/*` branch. Stop on the first fai
 
 ## When to Use
 
-- An atomic story is finished (code + states + validation) and you are about to open or merge a PR into `staging` (the "Done" criterion).
-- Run at the repo root, on the `feature/*` branch that will open the PR into `staging`.
+- An atomic story is finished (code + states + validation) and you are about to open or merge a PR into `dev` (the "Done" criterion).
+- Run at the repo root, on the `feature/*` branch that will open the PR into `dev`.
 - Know up front whether the work touches UI — that decides whether the design gate (step 7) must run.
 
 **NOT for:**
@@ -105,7 +105,7 @@ These are not yet enforced. List them in the summary as "planned" so reviewers k
 
 Planned (not enforced): secret-scan · a11y axe · perf scorecard · pre-prod observability. Step 3 is red → **stop**, open a defect ticket in the delivery ticket DB (repro + the failed criterion: coverage 71% < 80%, 2 tests failing), block the merge. The story does not move.
 
-❌ **Wrong — "lint passed so merge."** Treating one green step as a pass, skipping typecheck/test/build/audit/Five-Axis, and merging into `staging`. Lint is not review; a green gate requires every step above, and "Done" still needs the Staging URL verified.
+❌ **Wrong — "lint passed so merge."** Treating one green step as a pass, skipping typecheck/test/build/audit/Five-Axis, and merging into `dev`. Lint is not review; a green gate requires every step above, and "Done" still needs the AC verified on localhost (dev DB) before the merge.
 
 ## Reference Files
 
@@ -121,7 +121,7 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 
 ## Next Steps
 
-- All green → run the `open-pr` skill to open the PR into `staging`.
+- All green → run the `open-pr` skill to open the PR into `dev`.
 - Do NOT set the ticket state to `Done` until the AC is verified on the real Staging URL (see `.claude/rules/ops.md`).
 - Released is separate — promote `staging`→`main` via the `promote-release` skill (`/promote-release --to prod`), which handles smoke/tag/changelog.
 
@@ -129,11 +129,11 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 
 | Rationalization | Reality |
 | --- | --- |
-| "Lint/type pass, that's enough to merge." | A green gate is not yet "Done" — Done also requires merging into `staging` + a successful migration on staging + verifying the AC on the real Staging URL (see `.claude/rules/ops.md`). |
+| "Lint/type pass, that's enough to merge." | A green gate is not yet "Done" — Done also requires the AC verified on localhost (dev DB) BEFORE the merge + merging into `dev`; G4 re-verifies on the real Staging URL after the batched promote (see `.claude/rules/ops.md`). |
 | "Coverage is over 80% on the whole repo." | Coverage measures new code, not the whole repo. Tests must assert for real — not flaky, not over-mocked. |
 | "No UI changed, skip the design gate silently." | Step 7 may be skipped for non-UI work, but mark it in the table as "N/A — no UI work" and confirm there is no diff in `app/`/`components/`. |
 | "One step failed but the rest are green, I'll patch later." | Any fail → stop immediately, open a ticket in the delivery ticket DB (defect, repro + the failed criterion), block the merge. Never merge while red. |
-| "It passed locally, CI is just a formality." | This gate runs locally before push; CI (`.github/workflows/ci.yml`) re-runs it server-side on every PR based on `staging`/`main` — results must match. |
+| "It passed locally, CI is just a formality." | This gate runs locally before push; CI (`.github/workflows/ci.yml`) re-runs it server-side on every PR based on `dev`/`staging`/`main` — results must match. |
 | "Lint passed, so the code is fine." | Lint is not review. The Five-Axis pass (correctness/readability/architecture/security/perf) is a separate, required step. |
 
 ## Verify (exit criteria)
@@ -143,6 +143,6 @@ The Five-Axis review content is kept inline in the Workflow above — no `refere
 - [ ] No item left "skipped" without a reason; UI work that skips step 7 confirms there is no diff in `app/`/`components/`.
 - [ ] Five-Axis pass is clean across all five axes (correctness, readability, architecture, security, perf).
 - [ ] `node scripts/ticket-sync.mjs audit` exits 0 (no incomplete or status-stale scaffolded story in `docs/specs/`).
-- [ ] All green → ready for `/open-pr` into `staging`; do NOT change the ticket state to `Done` until the Staging URL is verified.
+- [ ] All green → ready for `/open-pr` into `dev`; set the ticket state to `Done` only after the localhost AC verify (dev DB) + the merge.
 - [ ] Red → defect ticket opened + merge blocked; the story does not move.
 - [ ] Before handoff: story ticket passes `node scripts/ticket-sync.mjs audit` (has `## Story` + `## AC`).

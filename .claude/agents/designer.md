@@ -50,7 +50,7 @@ Also always: `components/ui/form-patterns.md` (ErrorBanner / inline-error patter
 
 ## Dispatch contract (read once — applies to every dispatch)
 
-**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+**Git mechanics:** FIRST verify `pwd` = your assigned worktree before ANY git command (the main tree is the owner's live dev server — a stray command there is an incident, CAM-368); branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 **Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
 
@@ -61,7 +61,7 @@ Also always: `components/ui/form-patterns.md` (ErrorBanner / inline-error patter
 3. Never touch a file outside this dispatch's stated surface.
 4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
 
-**Ship ritual:** push → PR into `staging` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
+**Ship ritual:** push → PR into `dev` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
 
 Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
@@ -149,6 +149,11 @@ Hand off to **Frontend** a Design Brief per screen:
 
 Return per the shared handoff: `{ticket, status, artifacts, checks, summary, next}`.
 
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):**
+- Your ENTIRE final message = this one JSON object — no prose around it; budget ~400 tokens (hard 500). Never rename/drop `ticket`/`status`.
+- Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), return the path in `details_file` — never paste diffs, full test output, or process narration.
+- Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>` — set the field and stop; don't pad `summary`.
+
 Flag every finding with a severity: **Critical** (blocks merge — broken a11y, missing required state, hardcoded token, missing locale) · **Important** (fix before handoff) · **Suggestion** (optional polish) · **Info** (note for context). Never fabricate a metric — if contrast ratio or tap-target size was not measured, mark it **not measured**.
 
 ## Verify / Definition of Done
@@ -163,6 +168,6 @@ Run for real before handoff:
 - **Screenshot vs Design Brief** — matches what was specified.
 - **Token sync** — token changes land in `DESIGN.md` + `app/globals.css` together (OKLCH + dark mode).
 
-**Done** = UI work passes the design gate + merged into `staging` (quality-gate green) + AC verified on the real Staging URL → ticket state `Done`.
+**Done** = UI work passes the design gate + quality-gate green + AC verified on localhost (dev DB) BEFORE merge + merged into `dev` → ticket state `Done` (the batched promote adds `on-staging`).
 
 **Released** = at promote `staging` → `main`. The designer does not own this gate, but the UI-side AC must remain passing.

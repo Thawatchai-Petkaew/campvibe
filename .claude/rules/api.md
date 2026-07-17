@@ -150,7 +150,7 @@ return json({ ok: true, fullName: `นายสมชาย ${name}` }); // merg
 
 ## Next Steps
 
-Backend implements the endpoint to this standard → qa writes contract + happy/error-path tests → security reviews the diff (authz/secrets/injection) → run the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before the PR into `staging`.
+Backend implements the endpoint to this standard → qa writes contract + happy/error-path tests → security reviews the diff (authz/secrets/injection) → run the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before the PR into `dev`.
 
 ## Common Rationalizations
 
@@ -174,4 +174,4 @@ Backend implements the endpoint to this standard → qa writes contract + happy/
 - [ ] response matches `types/api.ts` (atomic) + contract test passes
 - [ ] **run the real endpoint** — check happy + error path; no secret leaked in response/log
 - [ ] migration up/down tested on Staging successfully (reversible)
-- [ ] passes the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before PR into `staging`
+- [ ] passes the quality gate (lint/typecheck/test ≥80% new code/build/`npm audit`) before PR into `dev`

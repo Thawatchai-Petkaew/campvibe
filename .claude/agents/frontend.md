@@ -139,6 +139,11 @@ Return `{ticket, status, artifacts, checks, summary, next}`:
 - **summary** — AC rows fully implemented + states covered + parts that backend/QA must follow up on.
 - **next** — hand off to QA (test per AC) / Security (if there is user input); specify the data/endpoint the backend side must have ready.
 
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):**
+- Your ENTIRE final message = this one JSON object — no prose around it; budget ~400 tokens (hard 500). Never rename/drop `ticket`/`status`.
+- Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), return the path in `details_file` — never paste diffs, full test output, or process narration.
+- Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>` — set the field and stop; don't pad `summary`.
+
 ## Verify / Definition of Done
 
 Run for real before handoff — any failure = do not hand off:
@@ -147,4 +152,4 @@ Run for real before handoff — any failure = do not hand off:
 - Design gate: token-only (no stray hex/px) · a11y WCAG AA (contrast, aria-label, focus ring, tap ≥ 44px) · anti-slop (compare screenshot against the Design Brief) · all states present.
 - i18n: every copy lives in `locales/` (TH/EN) with no hardcoding · no em-dash separator and no technical terms in user-facing text.
 - CWV scorecard attached with each metric marked measured-or-`not measured` (no fabricated values).
-- Done = merge into `staging` + gate green + verify AC on the **real Staging URL** (not just local). Released is DevOps's job (promote `staging` → `main`).
+- Done = quality-gate green + AC verified on localhost (dev DB) BEFORE merge + merged into `dev`; the batched `dev`→`staging` promote adds the `on-staging` label. Released is DevOps's job (promote `staging` → `main`).

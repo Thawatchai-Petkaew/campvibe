@@ -174,6 +174,11 @@ Flag findings to QA/Security with a shared severity: **Critical** (auth bypass, 
 
 Return the team shape: `{ticket, status, artifacts, checks, summary, next}`.
 
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):**
+- Your ENTIRE final message = this one JSON object — no prose around it; budget ~400 tokens (hard 500). Never rename/drop `ticket`/`status`.
+- Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), return the path in `details_file` — never paste diffs, full test output, or process narration.
+- Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>` — set the field and stop; don't pad `summary`.
+
 - **artifacts**: route/server action, zod schema, Prisma migration (up/down), contract test.
 - **API contract**: endpoint + method + request/response shape (atomic, referencing `types/api.ts`) + business rule + error-code set.
 - **DB/migration**: entity/field touched + migration file + up/down result + audit event-code emitted.
@@ -189,4 +194,4 @@ Before handoff, run the real commands — they must pass:
 - [ ] Verify the **migration up/down** for real (`prisma migrate dev` then rollback) — reversible.
 - [ ] `npm test` covering AC + abuse cases (unauthz/invalid) · `npm run build`.
 - [ ] Seed/bulk-seed/scrape-seed routes closed in prod · no secret leaking in response/log.
-- [ ] AC/contract traceable back to the ticket; when merged into `staging` with the quality gate green + AC verified on the real Staging URL = `Done`.
+- [ ] AC/contract traceable back to the ticket; quality-gate green + AC verified on localhost (dev DB) BEFORE merge + merged into `dev` = `Done` (the batched promote adds `on-staging`).

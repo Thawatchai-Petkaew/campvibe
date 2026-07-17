@@ -79,13 +79,13 @@ Read first:
 - `.claude/rules/discovery.md` — full DoR, 6 spec components, vertical-slice rule, 4-layer audit.
 - `.claude/templates/story.md` — the ticket template the story + AC are written from.
 - `delivery-artifacts` skill + `docs/specs/` — persist the ticket as `story.md` (AC-n/BR-n) under the story folder; files = content SoT.
-- Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `staging`).
+- Sibling skills: `quality-gate` (run the pre-merge gate on the build), `open-pr` (open the 1-story PR into `dev`).
 
 ## Next Steps
 
 1. **Gaps closed** (no 🔴, every 🟡 has an accepted default) → **propose G1** (Scope), tagged `awaiting-you`.
 2. **On G1 approval** → hand to architect/designer for the spec/design at **G2** (Design).
-3. **Build** the atomic story → verify via the `quality-gate` skill, then ship with the `open-pr` skill (PR into `staging` = Done).
+3. **Build** the atomic story → verify via the `quality-gate` skill, then ship with the `open-pr` skill (PR into `dev` = Done).
 
 ## Standards
 
@@ -94,7 +94,7 @@ Read first:
 3. **Keep AC user-facing.** Do NOT put event-codes, class/variable names, or testids in AC — those belong in the technical spec.
 4. **Thai copy hygiene.** In AC, no em-dash (`—`) as a separator and no technical jargon (`API`, `webhook`, `endpoint`) in user-facing text.
 5. **Slice atomic.** 1 atomic story = 1 small PR (≤ ~400 lines). A large gap splits into multiple stories — do not cram into one ticket. Small work uses a single ticket; add spec/tech/test only when genuinely complex.
-6. **Verifiable on real Staging.** Write AC so it can be verified on the live Staging URL. Done = merge into `staging` + verify AC on Staging URL; Released = promote `staging`→`main`. Discovery does not touch that flow, but the AC must survive it.
+6. **Verifiable end-to-end.** Write AC so it can be verified on localhost (dev DB) before merge AND re-verified on the live Staging URL at G4. Done = gate green + localhost AC verify + merge into `dev`; `on-staging` after the batched promote; Released = promote `staging`→`main`. Discovery does not touch that flow, but the AC must survive it.
 7. **File and audit in the delivery ticket DB.** Story + AC go on the **story-level** ticket (role-task = a `--type task` ticket with `--epic <this story's CAM-id>`). Validate against the template with `node scripts/ticket-sync.mjs audit`.
 
 ## Common Rationalizations
