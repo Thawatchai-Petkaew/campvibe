@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,12 @@ interface ImageWithFallbackProps extends React.HTMLAttributes<HTMLDivElement> {
  *
  * States: default image · fallback (no src) · fallback (errored)
  * Dark-safe: bg-muted + text-muted-foreground flip via .dark automatically.
+ *
+ * CAM-393: the muted frame is reserved instantly and the photo fades into it on
+ * load (opacity 0→100) so images no longer hard-pop. LCP-safe: a `priority` image
+ * (the detail hero) renders opaque immediately and never fades. The fade respects
+ * `prefers-reduced-motion` (motion-safe transition only). Already-complete images
+ * (cached/SSR) may never fire onLoad, so a ref.complete check reveals them on mount.
  */
 export function ImageWithFallback({
     src,
@@ -52,8 +58,28 @@ export function ImageWithFallback({
     ...rest
 }: ImageWithFallbackProps) {
     const [errored, setErrored] = useState(false);
+    // A priority (LCP hero) image renders opaque immediately — no fade — to protect LCP.
+    const [loaded, setLoaded] = useState(priority === true);
+    const imgRef = useRef<HTMLImageElement>(null);
+
+    // Reset the fade when the src changes, and catch already-complete (cached/SSR)
+    // images whose onLoad never fires so they don't stay stuck invisible (EC-1).
+    useEffect(() => {
+        if (!src || priority) return; // priority already opaque; nothing to manage
+        // Intentional one-time reconcile to the committed <img>'s imperative
+        // `complete` flag — cached/SSR images may never fire onLoad, and this is
+        // the only way to know it, so the extra render is the correct trade-off.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLoaded(imgRef.current?.complete === true);
+    }, [src, priority]);
 
     const showFallback = !src || errored;
+
+    // Fade the photo into its reserved frame; motion-safe so reduced-motion snaps instantly.
+    const fadeClass = cn(
+        "object-cover motion-safe:transition-opacity motion-safe:duration-500 ease-out",
+        loaded ? "opacity-100" : "opacity-0"
+    );
 
     const wrapperRole = alt ? "img" : undefined;
     const wrapperAriaLabel = alt || undefined;
@@ -89,25 +115,29 @@ export function ImageWithFallback({
                 />
             ) : isFixedMode ? (
                 <Image
+                    ref={imgRef}
                     src={src!}
                     alt={alt}
                     width={width}
                     height={height}
                     priority={priority}
                     unoptimized={isUnoptimized}
-                    className={cn("object-cover", imgClassName)}
+                    className={cn(fadeClass, imgClassName)}
+                    onLoad={() => setLoaded(true)}
                     onError={() => setErrored(true)}
                     loading={priority ? undefined : loading}
                 />
             ) : (
                 <Image
+                    ref={imgRef}
                     fill
                     src={src!}
                     alt={alt}
                     sizes={sizes}
                     priority={priority}
                     unoptimized={isUnoptimized}
-                    className={cn("object-cover", imgClassName)}
+                    className={cn(fadeClass, imgClassName)}
+                    onLoad={() => setLoaded(true)}
                     onError={() => setErrored(true)}
                     loading={priority ? undefined : loading}
                 />
