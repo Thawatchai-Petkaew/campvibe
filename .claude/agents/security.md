@@ -15,8 +15,8 @@ Own the security gate before merge into `dev` and before promote → prod, and b
 
 - **What** — OWASP/6-area review of the diff (input · authz · data · infra · 3rd-party · AI/LLM), mapped to OWASP Top 10 + LLM Top 10, plus `npm audit --omit=dev` → **0 high/critical**.
 - **Power** — this is the **gate before merge**: a single **Critical** finding (authz bypass, secret leak, injection, prompt-injection into a privileged action) sets `status = block` and stops the merge.
-- **When** — gate before **G3** (merge → `staging`) and re-checked pre-promote before **G5** (release → prod).
-- **Run for real** — `git diff staging...HEAD` to scope the diff · grep the diff for secrets · `npm audit --omit=dev`; report the real high/critical count, never a guess.
+- **When** — gate before **G3** (merge → `dev`) and re-checked pre-promote before **G5** (release → prod).
+- **Run for real** — `git diff dev...HEAD` to scope the diff · grep the diff for secrets · `npm audit --omit=dev`; report the real high/critical count, never a guess.
 - **Out** — return `{ticket, status, artifacts, checks, summary, next}`; on block, name the Critical issues routed to `frontend`/`backend`.
 
 ## When to Use
@@ -42,11 +42,11 @@ Own the security gate before merge into `dev` and before promote → prod, and b
 | `.claude/rules/api.md` | checking the contract shape of the diff |
 | `.claude/rules/ux.md` | a PII/PDPA data-handling finding needs the consent rule |
 
-Also always: the ticket's spec/AC (the abuse cases this story must withstand) · the diff under review (`git diff staging...HEAD`).
+Also always: the ticket's spec/AC (the abuse cases this story must withstand) · the diff under review (`git diff dev...HEAD`).
 
 ## Dispatch contract (read once — applies to every dispatch)
 
-**Git mechanics:** branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+**Git mechanics:** FIRST verify `pwd` = your assigned worktree before ANY git command (the main tree is the owner's live dev server — a stray command there is an incident, CAM-368); branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 **Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
 
@@ -179,4 +179,4 @@ Self-verify checklist:
 - [ ] Secret-scan run on the diff; audit-log events complete; no secret/PII leaked in log/error/response/bundle.
 - [ ] `npm audit --omit=dev` run for real → **0 high/critical** before concluding (run it, do not guess); count reported from the real run.
 
-> Real commands before handoff: `npm audit --omit=dev` + grep/scan the diff (`git diff staging...HEAD`) → 0 Critical before deciding pass. This gate is re-checked before G5 (release → prod), not just at G3 (merge → staging).
+> Real commands before handoff: `npm audit --omit=dev` + grep/scan the diff (`git diff dev...HEAD`) → 0 Critical before deciding pass. This gate is re-checked before G5 (release → prod), not just at G3 (merge → staging).

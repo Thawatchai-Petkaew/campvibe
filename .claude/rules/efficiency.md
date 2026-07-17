@@ -2,7 +2,7 @@
 
 ## Overview
 
-Savings come from process discipline, not model downgrades. Seven levers — a stable cached prefix, pointer envelopes, JSON-only returns, an inline-vs-spawn ladder, locked model tiers, selective verification, and checkpoint/resume — decide whether a story costs its Appetite or blows it. This file consolidates the informal catalogue (`.claude/note/ai-team-workflow-preview.html` §7, now superseded) into the one agent-read home; budget authority stays the feature's Appetite (`.claude/templates/feature.md`).
+Savings come from process discipline, not model downgrades. Seven levers — a stable cached prefix, pointer envelopes, JSON-only returns, an inline-vs-spawn ladder, locked model tiers, selective verification, and checkpoint/resume — decide whether a story costs its Appetite or blows it. This file consolidates the previously scattered token-discipline guidance (dispatch pointers, reading tiers, JIT skills, prefix caching) into the one agent-read home; budget authority stays the feature's Appetite (`.claude/templates/feature.md`).
 
 ## Quick Reference
 
@@ -10,7 +10,7 @@ Savings come from process discipline, not model downgrades. Seven levers — a s
 |---|---|---|---|
 | 1 | Frozen prefix | Agent files are the cached prefix — batch shared-section edits in ONE pass, never mid-dispatch; don't thrash tools/models mid-session | `.claude/agents/orchestrator.md` §Dispatch contract |
 | 2 | Dispatch envelope | Pointers + deltas + machine-checkable `done_when`; target ≤ ~300 tokens | orchestrator §Dispatch contract |
-| 3 | JSON-only return | Entire final message = ONE JSON object, ~400 tokens (hard 500); detail → file | each agent's §Output |
+| 3 | JSON-only return | Entire final message = ONE JSON object, ~400 tokens (hard 500); detail → file | each role agent's Return-discipline block |
 | 4 | Inline vs spawn | Spawn only for compression or parallelism; **deliverables ALWAYS route to their owning role** (rotation never bypassed) | this file §4 + orchestrator §Routing ladder |
 | 5 | Model tiers | LOCKED policy — pointer only, never re-decide | `docs/research/model-tier-trial.md` |
 | 6 | Selective verification | Ground truth over claims; verify exceptions, not everything green | orchestrator §Oracle-first QA · ops.md Gate v2 |

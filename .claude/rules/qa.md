@@ -12,7 +12,7 @@ paths:
 
 ## Overview
 
-A test is **evidence that an AC is true**, not a coverage ritual. Every test asserts a behavior the ticket promised to the user or the system — "the suite passes" is necessary but never sufficient, because **Done = verify the AC on the real Staging URL**. Lean means no test that doesn't guard a real regression.
+A test is **evidence that an AC is true**, not a coverage ritual. Every test asserts a behavior the ticket promised to the user or the system — "the suite passes" is necessary but never sufficient, because **Done = the AC verified on localhost (dev DB) before merge — and G4 re-verifies on the real Staging URL**. Lean means no test that doesn't guard a real regression.
 
 ## Quick Reference
 
@@ -172,4 +172,4 @@ Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage
 - [ ] Coverage ≥ 80% on new code (measured on the diff)
 - [ ] Tests pass CI (`.github/workflows/ci.yml`) server-side on a PR with base `dev`/`staging`/`main`
 - [ ] Each defect found → opened as a sub-ticket with repro + the failing AC
-- [ ] **AC verified on the real Staging URL after merge** → story ready for Linear state `Done` (≠ Released; Released = promote `staging`→`main`, see `.claude/rules/ops.md`)
+- [ ] **AC verified on localhost (dev DB) BEFORE the merge** → story state `Done` at merge into `dev`; G4 re-verifies on the real Staging URL after the batched promote (≠ Released; Released = promote `staging`→`main`, see `.claude/rules/ops.md`)

@@ -49,12 +49,12 @@ Read first: `.claude/SKILL-AUTHORING.md` (the binding house style — this skill
 3. **Draft the body** in section order (Quick Reference table above), dogfooding SKILL-AUTHORING: frontmatter `name` + `description` (third-person *what* + `Use when …` + `Do NOT use when …`, ≤1024 chars, **no steps inlined**); every official-floor section present; extras `## Standards` / `## Common Rationalizations` (one row per skippable step) / `## Verify` (every box provable).
 4. **Write** `.claude/skills/<name>/SKILL.md`. Do not create empty `references/` or `scripts/` dirs (token-conscious). If the owner asked for a command, add `.claude/commands/<name>.md` that *names* this skill (does not restate the steps).
 5. **Validate + report** against `SKILL-AUTHORING.md` §Verify: sections present and in order, frontmatter contract intact, value sections (Quick Reference, Examples) carry real content, markdown clean (blank line around every heading/list/table). Report the file path and the checklist outcome to the owner.
-6. **Ship** via the normal flow — the owner reviews the draft, then it goes through `open-pr` → CI → `staging` (config/docs change; no app code). A new skill steers agent behavior, so the owner approves the merge.
+6. **Ship** via the normal flow — the owner reviews the draft, then it goes through `open-pr` → CI → `dev` (config/docs change; no app code). A new skill steers agent behavior, so the owner approves the merge.
 
 ## Examples
 
 ✅ **A frontmatter description that fires correctly** (what + when, no steps):
-`description: Run the pre-merge quality gate — lint, typecheck, test+coverage, build, audit. Use when an atomic story is complete before opening a PR into staging. Do NOT use to decide Released (use promote-release).`
+`description: Run the pre-merge quality gate — lint, typecheck, test+coverage, build, audit. Use when an atomic story is complete before opening a PR into dev. Do NOT use to decide Released (use promote-release).`
 
 ❌ **Steps leaked into the description** — the agent then follows the summary instead of the body:
 `description: First run npm run lint, then typecheck, then npm test, then build, then audit, then …`
@@ -71,7 +71,7 @@ Read first: `.claude/SKILL-AUTHORING.md` (the binding house style — this skill
 
 ## Next Steps
 
-After validation the owner reviews the draft, then it ships via the `open-pr` skill into `staging` (config/docs only). The new skill fires on its next matching trigger; if the artifact was actually a role **rule**, route it through the `retro` skill instead.
+After validation the owner reviews the draft, then it ships via the `open-pr` skill into `dev` (config/docs only). The new skill fires on its next matching trigger; if the artifact was actually a role **rule**, route it through the `retro` skill instead.
 
 ## Standards
 
@@ -100,4 +100,4 @@ After validation the owner reviews the draft, then it ships via the `open-pr` sk
 - [ ] All official-floor sections present, in order, then the extras (Standards → Common Rationalizations → Verify); value sections carry real content, empty structural sections say `none / N/A`.
 - [ ] Workflow steps name real commands/paths/values; Examples concrete (✅/❌ or input→output), Thai product copy verbatim in backticks where user-facing.
 - [ ] Generated skill passes `SKILL-AUTHORING.md` §Verify; markdown clean (blank line around every heading/list/table); no empty `references/`/`scripts/` dir.
-- [ ] Owner reviewed the draft; ships via `open-pr` into `staging` (config/docs only).
+- [ ] Owner reviewed the draft; ships via `open-pr` into `dev` (config/docs only).

@@ -50,7 +50,7 @@ Also always: `components/ui/form-patterns.md` (ErrorBanner / inline-error patter
 
 ## Dispatch contract (read once — applies to every dispatch)
 
-**Git mechanics:** branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+**Git mechanics:** FIRST verify `pwd` = your assigned worktree before ANY git command (the main tree is the owner's live dev server — a stray command there is an incident, CAM-368); branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 **Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
 

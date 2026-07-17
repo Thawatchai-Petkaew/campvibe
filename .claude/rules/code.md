@@ -161,7 +161,7 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 
 - **Consumed by** frontend / backend at build time — read this (and `DESIGN.md` for UI) before the first line, hold to it through the diff.
 - **On completion** run self-verify, then the `quality-gate` skill (`npm run lint` · `npm run typecheck` · `npm test` ≥80% · `npm run build` · `npm audit --omit=dev` · design gate) before opening the PR into `dev`.
-- **Then** verify the AC on the real Staging URL (= Done). Review/debug uses the five-axis pass above.
+- **Then** the story is Done once the AC is verified on localhost (dev DB) before the merge into `dev`; G4 re-verifies on the real Staging URL after the batched promote. Review/debug uses the five-axis pass above.
 
 ## Common Rationalizations
 

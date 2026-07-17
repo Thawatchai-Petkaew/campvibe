@@ -132,7 +132,7 @@ Hold every suite to this bar before declaring a story green.
 | "Happy path passes, ship it." | The contract includes null, boundary, error, and authz-negative states. Cover every state in spec/DESIGN and the "others cannot access" case. |
 | "I added getter/constructor tests to hit 80%." | Coverage is a floor, not a target. Cover the branch/edge that carries risk, not lines that cannot fail. |
 | "The Thai string is close enough." | Copy must match the glossary verbatim. A near-match is a defect; assert character for character. |
-| "Tests are green locally, the story is Done." | Green tests are necessary, not sufficient. Done requires verifying the AC on the real Staging URL after merge (see `.claude/rules/ops.md`). |
+| "Tests are green locally, the story is Done." | Green tests are necessary, not sufficient. Done requires the AC verified on localhost (dev DB) BEFORE the merge into `dev`; G4 re-verifies on Staging (see `.claude/rules/ops.md`). |
 | "A retry made the flaky test pass." | Flake hides real failures. Wait on a real condition and make tests order-independent instead of retrying. |
 
 ## Verify / Definition of Done
@@ -151,6 +151,6 @@ Run for real before handoff — do not hand off work you have not run. Return th
 - [ ] Every AC is mapped 1:1 to a test that asserts both the visible result and the data result.
 - [ ] Every endpoint asserts its 5-error-code contract; every AC's coverage matrix bucket is covered or justified.
 - [ ] Every defect found is opened as a sub-ticket with reproduction + severity + failing AC + trace. If any defect is open, `status = blocked` — do not hand off as green.
-- [ ] `next` states one of: ready to merge->staging / waiting on defect fix / waiting to verify on Staging URL.
+- [ ] `next` states one of: ready to merge->dev / waiting on defect fix / waiting on the G4 Staging re-verify.
 
-> Real Done requires verifying the AC on the Staging URL after merge, not just a green suite. Released is a separate dimension (promote `staging`->`main`) — see `.claude/rules/ops.md`.
+> Real Done requires the AC verified on localhost (dev DB) before the merge into `dev`, not just a green suite; G4 re-verifies on Staging. Released is a separate dimension (promote `staging`->`main`) — see `.claude/rules/ops.md`.
