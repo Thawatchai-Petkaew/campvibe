@@ -38,9 +38,13 @@ interface ImageWithFallbackProps extends React.HTMLAttributes<HTMLDivElement> {
  *
  * CAM-393: the muted frame is reserved instantly and the photo fades into it on
  * load (opacity 0→100) so images no longer hard-pop. LCP-safe: a `priority` image
- * (the detail hero) renders opaque immediately and never fades. The fade respects
- * `prefers-reduced-motion` (motion-safe transition only). Already-complete images
- * (cached/SSR) may never fire onLoad, so a ref.complete check reveals them on mount.
+ * (the detail hero) renders opaque immediately and never fades. The fade uses an
+ * unprefixed `transition-opacity` so tailwind-merge defers to any caller `transition`
+ * in `imgClassName` (whose full property list already covers opacity) — caller hover
+ * transforms/filters keep animating instead of being narrowed to opacity-only. A
+ * one-shot opacity fade carries no movement, so it is benign under reduced-motion.
+ * Already-complete images (cached/SSR) may never fire onLoad, so a ref.complete
+ * check reveals them on mount.
  */
 export function ImageWithFallback({
     src,
@@ -75,9 +79,11 @@ export function ImageWithFallback({
 
     const showFallback = !src || errored;
 
-    // Fade the photo into its reserved frame; motion-safe so reduced-motion snaps instantly.
+    // Fade the photo into its reserved frame. Unprefixed transition-opacity so
+    // tailwind-merge defers to a caller `transition` (keeping their hover transform/
+    // filter animating); it only applies where the caller sets no transition.
     const fadeClass = cn(
-        "object-cover motion-safe:transition-opacity motion-safe:duration-500 ease-out",
+        "object-cover transition-opacity duration-500 ease-out",
         loaded ? "opacity-100" : "opacity-0"
     );
 

@@ -77,7 +77,7 @@ describe("CAM-393 ImageWithFallback — frame + fade-in (Part A: real render)", 
     );
     // Prove-It: FAILS if the opacity gate or the transition class is removed.
     expect(html).toContain("opacity-0");
-    expect(html).toContain("motion-safe:transition-opacity");
+    expect(html).toContain("transition-opacity");
   });
 
   it("[null/empty] AC-3: no src → fallback placeholder, no image opacity classes", () => {
@@ -101,8 +101,12 @@ describe("CAM-393 ImageWithFallback — fade wiring (Part B: source, effect/even
     expect(iwfSrc).toContain("ref={imgRef}");
   });
 
-  it("[unit] BR-1: the fade respects prefers-reduced-motion (motion-safe only)", () => {
-    expect(iwfSrc).toContain("motion-safe:transition-opacity");
+  it("[unit] BR-1: fade uses UNPREFIXED transition-opacity so it defers to caller transitions", () => {
+    // Prove-It: FAILS if someone re-adds a `motion-safe:` prefix — that variant no
+    // longer merges with a caller `transition` and can narrow it to opacity-only,
+    // snapping caller hover transforms (the reviewer's finding).
+    expect(iwfSrc).toContain("transition-opacity");
+    expect(iwfSrc).not.toMatch(/motion-safe:transition/);
   });
 
   it("[token] no hardcoded palette introduced (DESIGN.md, token-only)", () => {
