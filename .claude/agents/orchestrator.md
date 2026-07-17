@@ -62,7 +62,7 @@ Do not alter this loop. Each step rolls into the next; gates block progression.
 2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a story ticket (`.claude/templates/story.md`) as a story-level ticket (`node scripts/ticket-sync.mjs create --type story --epic <epic-CAM-id> --title "..." --description-file <path to the filled story.md>`).
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
-5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
+5. **G3 Merge** — open a PR into `dev`; on a green gate (quality-gate + adversarial review), request merge approval. Staging exposure comes later via the batched `dev`→`staging` promote (label `on-staging`).
 6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
 8. **Every transition** — call skill `update-status` (sync the ticket DB) and raise the gate with `node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/ticket-sync.mjs index`) so `docs/specs/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve — see **Gate continuation** below for how you detect that approval (in a chat you must poll `ticket-sync gates` yourself; the repository_dispatch only resumes the headless action). There is no autonomous gate approval.
@@ -113,9 +113,18 @@ Either way you still **never self-approve** — you only *detect* the human's de
 
 ## Dispatch contract (pointer + delta discipline)
 
-Every `.claude/agents/<role>.md` now carries its own `## Dispatch contract` (git mechanics, self-verify, STOP RULES, ship ritual) — read once by that role, applying to every dispatch. Your dispatch prompt is therefore a **pointer + delta only**: ticket id, spec file path, allowed file surface, and story-specific notes. Do not re-paste git/self-verify/STOP-RULE boilerplate into the prompt — the agent file already carries it.
+Every `.claude/agents/<role>.md` now carries its own `## Dispatch contract` (git mechanics, self-verify, STOP RULES, ship ritual) — read once by that role, applying to every dispatch. Your dispatch prompt is therefore a **pointer + delta only**: ticket id, spec file path, allowed file surface, story-specific notes (only facts that live nowhere on disk), and a machine-checkable **`done_when`** (the exact grep/command you will re-run at acceptance). Target ≤ ~300 tokens per envelope. Do not re-paste git/self-verify/STOP-RULE boilerplate or file bodies into the prompt — the agent file already carries the boilerplate and the agent reads files via the pointers. Full discipline: `.claude/rules/efficiency.md`.
 
 **Frozen-prefix cadence:** when editing a shared/invariant section across multiple agent files (e.g. a Dispatch contract update), batch all the file edits in one pass before dispatching any agent that reads them — never edit an agent file mid-flight while a dispatch against it is in progress; a partial edit mid-dispatch is an inconsistent contract.
+
+## Routing ladder (inline vs spawn)
+
+A subagent boots ~16k tokens — route before dispatching (depth: `.claude/rules/efficiency.md` §4):
+
+- **Inline in the main loop** — lookups, single greps, scratch, tooling self-files. **Non-deliverables only.**
+- **ONE agent** — large read → small verdict (research/review; compression pays for the boot), or steps that share evolving state (the interdependence test: if you can't name the independent subtask, don't spawn).
+- **Spawn in parallel** — independent partitioned stories only, under the existing max-TWO-code-writer worktree rule.
+- **Deliverable carve-out (hard):** any story deliverable routes to its owning role via `ticket-sync handoff` — inline never bypasses the Build→QA→Security→DevOps rotation (`complete()` blocks Done without a Verify-stage role).
 
 ## Stall watchdog
 
@@ -124,6 +133,8 @@ A code-writing dispatch that goes silent — no completion notification **and** 
 1. Run a ground-truth check: `git log`/`git status` on the dispatch's branch, file mtimes, and `node scripts/ticket-sync.mjs show <CAM-id>` (event history) — confirm no progress landed.
 2. If dead/stalled: kill the dispatch (TaskStop) — **never** let it run indefinitely.
 3. **Re-dispatch resuming from artifacts** — hand the next attempt the existing branch + partial work already on disk; never restart the story from scratch. Cite the artifacts explicitly in the re-dispatch prompt (branch name, files already touched, commits so far).
+
+The same rule applies at a session/usage limit: it is a **pause, not a restart** — before stopping, record a resume pointer (branch · artifacts landed · next step) in a ticket note; the next session resumes from those artifacts, never re-fires a fresh run with the same intent (`.claude/rules/efficiency.md` §7).
 
 Provenance: the CAM-268 silent-death incident (a dispatch died with no notification and no commits; the story sat invisible until a manual check).
 
@@ -162,30 +173,23 @@ Full procedure: the `retro` skill (`.claude/skills/retro/SKILL.md`).
 
 ## Examples
 
-A G3 (Merge→staging) Gate Review Packet, raised after the story's quality gate is green — the shape you hand to the human:
+A G3 (Merge) Gate Review Packet — **exception-first per Gate policy v2** (`.claude/rules/ops.md`): lead with verdict · exceptions/risks · $/story · the one-line G2 class note; the owner reads diffs only when an exception is flagged. The shape you hand to the human:
 
 ```
 {
   ticket: "CAM-128 — เพิ่มปุ่ม `จองเลย` บนการ์ดแคมป์",
   status: "in-review",
-  gate: "G3 Merge→staging",
-  artifacts: [
-    "PR #57 → staging (diff: +148 / −12, 6 files)",
-    "preview: https://campvibe-staging.vercel.app (Vercel preview build)"
-  ],
-  checks: {
-    "quality-gate": "green — lint ✓ · typecheck ✓ · test 87% new-code ✓ · build ✓ · npm audit --omit=dev 0 high/critical ✓",
-    "design-gate": "green (UI story) — tokens + a11y per DESIGN.md",
-    "change-impact": "shared UI (camp card) — Important, flagged",
-    "BR-conflict": "none",
-    "ADR-versioning": "n/a — no decision change"
-  },
-  summary: "ปุ่ม `จองเลย` ส่งผู้ใช้ไปหน้าจอง; states (default/hover/disabled) ครบ, i18n TH/EN ผ่าน. One atomic story, dev = frontend.",
-  next: "Approve → merge to staging + auto-deploy + smoke, then G4 verify AC on the Staging URL. Request changes → back to frontend."
+  gate: "G3 Merge",
+  verdict: "approve-recommended — quality-gate green, adversarial review clean",
+  exceptions: ["shared UI (camp card) touched — Important, eyeball the card hover on dev"],
+  cost: "$0.9/story",
+  g2: "standard class (criteria met)",
+  artifacts: ["PR #57 → dev (+148 / −12, 6 files)"],
+  next: "Approve → merge to dev (= Done after localhost AC verify); rides the next batched dev→staging promote. Request changes → back to frontend."
 }
 ```
 
-End with the decision ask: **Approve / Request changes.** This packet always goes to the human, who approves or requests changes; there is no autonomous gate approval.
+Checks that are green stay one line inside `verdict`; only exceptions get their own row. End with the decision ask: **Approve / Request changes.** This packet always goes to the human, who approves or requests changes; there is no autonomous gate approval.
 
 ## Reference Files
 
@@ -226,6 +230,8 @@ Return results in the same shape as every agent:
 ```
 { ticket, status, gate, artifacts: [spec/PR/preview/staging URL], checks, summary, next }
 ```
+
+For **agent→orchestrator** handoffs the entire final message is that ONE JSON object (~400 tokens, hard 500) — extension fields `needs_decision` / `blocked_on` / `details_file` are allowed; `ticket`/`status` are never renamed or dropped (they drive `ticket-sync` → the /status board). Detail goes to a file, not the message (`.claude/rules/efficiency.md` §3). Human-facing Gate Review Packets stay exception-first readable — JSON-only applies to agent returns, not to the owner.
 
 At a human gate, specify the Gate Review Packet:
 

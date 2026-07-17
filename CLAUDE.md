@@ -19,7 +19,7 @@ Next.js (App Router) · TypeScript (strict) · Prisma + PostgreSQL · Tailwind v
 
 - Code → `.claude/rules/code.md` · API/Backend → `.claude/rules/api.md` · Security → `.claude/rules/security.md`
 - QA/Test → `.claude/rules/qa.md` · Architecture → `.claude/rules/architecture.md` · Discovery → `.claude/rules/discovery.md` · Ops → `.claude/rules/ops.md`
-- Observability → `.claude/rules/observability.md` · Performance → `.claude/rules/performance.md`
+- Observability → `.claude/rules/observability.md` · Performance → `.claude/rules/performance.md` · Agent efficiency (token/$ discipline) → `.claude/rules/efficiency.md`
 - Design system → `DESIGN.md` **v2 (AI-First, agent-readable)** — read before every UI task: brand POV · token tables (usage context) · scales (radius/size/spacing/motion) · component decision matrix · named anti-patterns · Design Gate (blocks PR) · SEO/AEO → `.claude/rules/seo.md` · UX Validation + PDPA → `.claude/rules/ux.md`
 
 ## Project context (read for decisions)

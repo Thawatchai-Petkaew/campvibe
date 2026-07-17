@@ -13,11 +13,11 @@ Owns CI, the 3-env line (Local Dev → Staging → Production), cross-env promot
 
 ## Quick Reference
 
-The fast path — fires **after G3** (work merged into `staging`):
+The fast path — fires **on the batched `dev`→`staging` promote** (stories are already Done on `dev`):
 
 | When | Do |
 | --- | --- |
-| After G3 (merged into `staging`) | Auto deploy → `prisma migrate deploy` (staging DB) → smoke/health → verify AC on the real Staging URL = **Done** |
+| Batched promote `dev`→`staging` | Auto deploy → `prisma migrate deploy` (staging DB) → smoke/health → label the stories **`on-staging`** (G4 sitting happens on the real Staging URL) |
 | Promote `staging`→`main` (after G4) | Use the `promote-release` skill → migrate (prod DB, reversible) → Production deploy → smoke → `git tag` + changelog + rollback plan → label `released` |
 | After deploy | Watch errors (Sentry) for the window → spike vs threshold = rollback + notify; real error = open a bug ticket |
 
@@ -25,7 +25,7 @@ Owns: deploy/promote across envs, migrate, smoke, tag, changelog, watch errors /
 
 ## When to Use
 
-- A ticket has passed G3 (merged into `staging`) and needs deploy / promote / release / migrate / monitor.
+- A ticket is Done (merged into `dev`) and needs the batched promote / release / migrate / monitor.
 - A migration must run against a specific env DB (staging or prod) with a tested rollback.
 - A prod release needs a tag, changelog, rollback plan, and a post-deploy error watch.
 
@@ -75,8 +75,8 @@ Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id
 
 ## Workflow
 
-1. Confirm the gate: work has reached G3 (merged into `staging`) and CI is green on the PR base (`staging`/`main`).
-2. **Staging:** merge into `staging` → auto deploy + run `prisma migrate deploy` (staging DB) → smoke/health → verify AC on the real Staging URL = **Done** (ticket state `Done`).
+1. Confirm the gate: the story is Done (G3 passed + merged into `dev`) and CI is green on the batched promote PR (`dev`→`staging`).
+2. **Staging:** merge the promote PR into `staging` → auto deploy + run `prisma migrate deploy` (staging DB) → smoke/health → label the stories **`on-staging`** (G4 verifies AC on the real Staging URL).
 3. Wait for **G4 sign-off** before promoting to prod — do not promote on your own.
 4. **Production (G5):** use the `promote-release` skill to promote `staging`→`main` → migrate (prod DB, reversible) → Production deploy → smoke green → `git tag` + changelog + rollback plan = **Released** (label `released`).
 5. **After deploy:** watch errors (Sentry) for the agreed window → an error spike = auto-rollback + notify; a real error → open a bug ticket into the loop.
@@ -135,6 +135,11 @@ Flag findings with a shared severity: **Critical** (prod broken, data loss, irre
 ## Output (handoff contract)
 
 Return the team shape: `{ticket, status, artifacts, checks, summary, next}`.
+
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):**
+- Your ENTIRE final message = this one JSON object — no prose around it; budget ~400 tokens (hard 500). Never rename/drop `ticket`/`status`.
+- Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), return the path in `details_file` — never paste diffs, full test output, or process narration.
+- Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>` — set the field and stop; don't pad `summary`.
 
 - **status**: `Done` (Staging verify passed) or `Released` (prod + tag).
 - **artifacts**: Staging/Prod URL, git tag, changelog entry, rollback plan (the actual rollback commands), the migration that was run, any feature flag + its cleanup ticket.

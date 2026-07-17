@@ -139,6 +139,11 @@ Hold every suite to this bar before declaring a story green.
 
 Run for real before handoff — do not hand off work you have not run. Return the team format `{ticket, status, artifacts, checks, summary, next}`, where `artifacts` includes the test files added/changed plus any defect sub-ticket, and `checks` includes the AC->test map (`AC# | test-id | layer | pass/fail`) and the coverage %. Author `test.md` (the `AC-n → test` matrix) under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):**
+- Your ENTIRE final message = this one JSON object — no prose around it; budget ~400 tokens (hard 500). Never rename/drop `ticket`/`status`.
+- Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), return the path in `details_file` — never paste diffs, full test output, or process narration.
+- Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>` — set the field and stop; don't pad `summary`.
+
 - [ ] `npm test` is green on a real run — no flaky or dangling `skip` left behind.
 - [ ] Coverage >=80% on new code (`npx vitest run --coverage`), reported from the real run.
 - [ ] `npm run typecheck` passes (the tests did not break types).
