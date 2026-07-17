@@ -51,11 +51,12 @@ Pick the transition, then run the real command.
 
 1. **Start work** (post-G1/G2) → `node scripts/ticket-sync.mjs set <CAM-id> --state "In Progress"`
 2. **Open PR** (G3 pending) → the board derives "In Review" automatically once QA/Security is the `currentRole` or `awaiting-you` is set (`boardColumnOf()` in `lib/status-derive.ts`) — no separate command needed; include `CAM-id` / `Closes CAM-id` in the PR description for traceability.
-3. **Done** (= merged into `staging` + quality-gate green + staging migration passed + **AC verified on the real Staging URL**) → `node scripts/ticket-sync.mjs set <CAM-id> --state Done`.
-4. **Released** (= promote `staging`→`main` + prod deploy + smoke + tag + changelog via `/promote-release`) → `node scripts/ticket-sync.mjs release <CAM-id>` (stamps `releasedAt`; the ticket stays `Done`) — **released is a timestamp, not a new state**.
-5. **Reach a human gate G1–G5** → `node scripts/ticket-sync.mjs set <gate-id> --add-label awaiting-you` (maps to the `raiseGate` verb) + post a **Gate Review Packet** as a comment (`node scripts/ticket-sync.mjs comment <gate-id> --body "..."`) (G1 brief + gap · G2 spec + design · G3 PR diff + gate results + preview · G4 Staging URL + AC · G5 changelog + rollback).
-6. **Hand off to the next role** → `node scripts/ticket-sync.mjs handoff <CAM-id> --role <role>` — sets `currentRole` (so `/status` renders the `[role]` tag), pushes onto `roleHistory`, and fires a Telegram notice in the same call; never rename the title by hand.
-7. **Check whether the human has approved yet** → `node scripts/ticket-sync.mjs gates` (a ticket still `AWAITING_GATE` = waiting; a ticket with `changesRequested=true` = rejected and ready to resume, **exit 10**).
+3. **Done** (= quality-gate green + **AC verified on localhost against the dev DB BEFORE merge** + merged into `dev`) → `node scripts/ticket-sync.mjs set <CAM-id> --state Done`.
+4. **On-staging** (= the story rode a batched `dev`→`staging` promote + smoke green) → `node scripts/ticket-sync.mjs stage <CAM-id>` (stamps `stagedAt` + the `on-staging` label; G4 sitting happens on the real Staging URL).
+5. **Released** (= promote `staging`→`main` + prod deploy + smoke + tag + changelog via `/promote-release`) → `node scripts/ticket-sync.mjs release <CAM-id>` (stamps `releasedAt`; the ticket stays `Done`) — **released is a timestamp, not a new state**.
+6. **Reach a human gate G1–G5** → `node scripts/ticket-sync.mjs set <gate-id> --add-label awaiting-you` (maps to the `raiseGate` verb) + post a **Gate Review Packet** as a comment (`node scripts/ticket-sync.mjs comment <gate-id> --body "..."`) (G1 brief + gap · G2 spec + design · G3 PR diff + gate results + preview · G4 Staging URL + AC · G5 changelog + rollback).
+7. **Hand off to the next role** → `node scripts/ticket-sync.mjs handoff <CAM-id> --role <role>` — sets `currentRole` (so `/status` renders the `[role]` tag), pushes onto `roleHistory`, and fires a Telegram notice in the same call; never rename the title by hand.
+8. **Check whether the human has approved yet** → `node scripts/ticket-sync.mjs gates` (a ticket still `AWAITING_GATE` = waiting; a ticket with `changesRequested=true` = rejected and ready to resume, **exit 10**).
 8. **Human approves** — the generic Approve path (Telegram tap / `/status` / `/status/map`) always fires the `approve()` verb, which returns the ticket to `IN_PROGRESS` with `changesRequested=false` — correct for an intermediate gate (G1–G3): dispatch the next role/stage. **G4 (Staging sign-off) is different**: it is the terminal gate, reached by `complete()`, not `approve()` — the generic Approve tap cannot reach `Done`. Once the human confirms sign-off, run step 3's `set <CAM-id> --state Done` directly **while the ticket is still `AWAITING_GATE`** (before any generic Approve tap fires) to actually land it on `Done`.
 9. **Sync the artifact header.** Besides moving the ticket state, update the artifact's `status:` header in the story's `docs/specs/` files to match (the delivery ticket DB = status SoT, but the files stay in sync — see the `delivery-artifacts` skill).
 10. **Gate fail / post-deploy bug** → open a new ticket (`node scripts/ticket-sync.mjs create --type task --title "..." --epic <CAM-id>`) + link back to the original ticket (re-enter the loop).
@@ -82,7 +83,7 @@ Once status is synced and matches reality, continue the delivery loop: dispatch 
 
 ## Standards
 
-1. **Done(staging) ≠ Released(prod)** — multiple stories can be Done (on Staging) before being bundled into a prod release; the dashboard shows 2 dimensions (state `Done` + `releasedAt` stamped).
+1. **on-staging ≠ Released(prod)** — multiple stories can be Done (on Staging) before being bundled into a prod release; the dashboard shows 2 dimensions (state `Done` + `releasedAt` stamped).
 2. State changes on the **git/gate event (global), not bound to env**; `release` is called only when promoting to prod.
 3. **gate = the `AWAITING_GATE` state** — the human's `approve`/`reject` (via Telegram, `/status`, or `/status/map`) clears it; never spawn the next stage before `ticket-sync gates` confirms the ticket left `AWAITING_GATE`.
 4. Record every transition with a real command (orchestrator discipline to prevent "forgetting to sync") — not just remembered in your head.
@@ -100,10 +101,10 @@ Postconditions:
 | Rationalization | Reality |
 | --- | --- |
 | "I'll remember to sync the state later." | Drift starts the moment you skip the command. Record every transition with a real `ticket-sync.mjs` call now. |
-| "The story is on Staging, so mark it Released." | Done(staging) ≠ Released(prod). `release` stamps `releasedAt` only when promoting `staging`→`main` via `/promote-release`. |
+| "The story is on Staging, so mark it Released." | on-staging ≠ Released(prod). `release` stamps `releasedAt` only when promoting `staging`→`main` via `/promote-release`. |
 | "The human said yes in chat, so spawn the next stage." | Approval = the `approve` verb fired (ticket left `AWAITING_GATE` with `changesRequested=false`), confirmed by `ticket-sync gates`. Never proceed on chat alone. |
 | "I'll just fix `.claude/linear-snapshot.json` directly to reflect the new state." | That file is a snapshot from `tickets:pull`. Hand-editing breaks the closed loop — push the change through the ticket DB. |
-| "It's merged into `staging`, so it's Done." | Done also requires quality-gate green + staging migration passed + AC verified on the real Staging URL. |
+| "It's merged into `dev`, so it's Done." | Done also requires quality-gate green + the AC verified on localhost (dev DB) BEFORE the merge. |
 | "I moved the ticket state, the file header can lag." | After moving the state, update the artifact's `status:` header in `docs/specs/` to match — the audit flags a stale scaffolded story. |
 
 ## Verify (exit criteria)

@@ -52,7 +52,7 @@ Also always: the spec/ticket for the work in scope · `.claude/templates/story.m
 
 ## Dispatch contract (read once — applies to every dispatch)
 
-**Git mechanics:** branch `<type>/<kebab>` off `origin/staging`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+**Git mechanics:** FIRST verify `pwd` = your assigned worktree before ANY git command (the main tree is the owner's live dev server — a stray command there is an incident, CAM-368); branch `<type>/<kebab>` off `origin/dev`; pre-flight `git status` before branching (a shared tree may carry another agent's WIP — never `git add -A`, stage explicit paths); commit trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`; PR body ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 
 **Self-verify before handoff:** `npm run lint` (0 errors) · `npm run typecheck` · `npm test` (known pre-existing failure `__tests__/delivery-client.test.ts` is env-dependent — ignore it and note it in the PR, do not chase it) · `npm run build` when code changed · design-gate checks when the diff touches UI.
 
@@ -63,7 +63,7 @@ Also always: the spec/ticket for the work in scope · `.claude/templates/story.m
 3. Never touch a file outside this dispatch's stated surface.
 4. No new dependency/endpoint/schema change unless the ticket says so → if needed, stop and report.
 
-**Ship ritual:** push → PR into `staging` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
+**Ship ritual:** push → PR into `dev` → Do NOT raise the ticket gate yourself (agents have no STATUS_TOKEN) — return your report and the ORCHESTRATOR raises the gate (CAM-342 lesson).
 
 Dispatch prompts from the orchestrator are **pointers + deltas only** (ticket id, spec file path, allowed file surface, story-specific notes). This section is the invariant part — do not expect it re-stated per dispatch.
 
@@ -165,6 +165,8 @@ Post to the story-level ticket (delivery ticket DB) per `story.md`:
 - **## Out of scope** — what is not being done + a pointer to the ticket that picks it up.
 - **Delivery artifact** — author the business rules/flows (`BR-n`, each mapped to its `AC-n`) inside `story.md` under `docs/specs/<feature>/<epic>/<CAM-id>-<story>/` (from `.claude/templates/*`), keeping its `status:` header = the ticket state (files = content SoT, the delivery ticket DB = status SoT).
 - Questions and trade-offs left for a human get the `awaiting-you` label.
+
+**Return discipline (full rule: `.claude/rules/efficiency.md` §3):** return the team shape `{ticket, status, artifacts, checks, summary, next}` as your ENTIRE final message — one JSON object, no prose around it; budget ~400 tokens (hard 500); never rename/drop `ticket`/`status`. Detail → file (durable → the story's `docs/specs/...` artifact; disposable → scratchpad), path in `details_file` — never paste specs or process narration. Escape valves: `needs_decision: [options + recommendation]` · `blocked_on: <fact>`.
 
 ## Verify / Definition of Done
 

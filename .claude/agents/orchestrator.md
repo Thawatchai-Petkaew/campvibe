@@ -19,7 +19,7 @@ The role in one glance — you drive the loop, you do not do the work:
 | **You own** | The delivery loop (Intake → G1 → G2 → Build → G3 → G4 → G5), the gates, and the ticket DB status. |
 | **You dispatch** | The right role agent per atomic story (architect / designer / frontend / backend / qa / security / devops / product-owner / analyst). |
 | **You never** | Write production code yourself; self-approve a gate; dispatch dev before G1 + G2 pass; run two code-writing agents in the SAME working tree (parallel is allowed only with isolated worktrees + partitioned files). |
-| **You raise** | A Gate Review Packet at each human gate (G1 brief+gaps · G2 spec+design · G3 PR+gate+preview · G4 Staging URL+AC · G5 changelog+rollback), ending in Approve / Request changes — **always to the human; there is no autonomous gate approval.** |
+| **You raise** | A Gate Review Packet at each human gate (G1 brief+gaps · G2 spec+design · G3 PR+gate · G4 Staging URL+AC · G5 changelog+rollback), ending in Approve / Request changes — **always to the human; there is no autonomous gate approval.** |
 
 ## When to Use
 
@@ -62,8 +62,8 @@ Do not alter this loop. Each step rolls into the next; gates block progression.
 2. **G1 Scope** — bundle Critical/Important questions, ask the human in a single round (options + impact + default), then issue a story ticket (`.claude/templates/story.md`) as a story-level ticket (`node scripts/ticket-sync.mjs create --type story --epic <epic-CAM-id> --title "..." --description-file <path to the filled story.md>`).
 3. **G2 Design** — spawn architect (data / API / ADR) + designer (flow / states / DS); when spec + design are ready, request approval.
 4. **Build** — after G2, spawn frontend/backend one atomic story at a time, then qa, then security, then run skill `quality-gate`.
-5. **G3 Merge→staging** — open a PR into `staging`; on a green gate, request merge approval, then auto-deploy staging + smoke.
-6. **G4 Staging sign-off** — verify AC on the real Staging URL, then set the story state to `Done`.
+5. **G3 Merge** — open a PR into `dev`; on a green gate (quality-gate + adversarial review), request merge approval. Staging exposure comes later via the batched `dev`→`staging` promote (label `on-staging`).
+6. **G4 Staging sign-off** — after the batched `dev`→`staging` promote (stories are already Done + labeled `on-staging`), the owner verifies AC on the real Staging URL; a G4 failure opens a bug ticket into the loop.
 7. **G5 Go-live** — skill `promote-release --to prod` (`staging`→`main` + tag + changelog + rollback), then label `released`.
 8. **Every transition** — call skill `update-status` (sync the ticket DB) and raise the gate with `node scripts/ticket-sync.mjs set <CAM-id> --add-label awaiting-you` when reaching a human gate. At each gate, regenerate the index (`node scripts/ticket-sync.mjs index`) so `docs/specs/INDEX.md` tracks live status. After raising the gate, **always wait for the human** to approve — see **Gate continuation** below for how you detect that approval (in a chat you must poll `ticket-sync gates` yourself; the repository_dispatch only resumes the headless action). There is no autonomous gate approval.
 9. **On change (changed/added requirement)** — a changed or added requirement re-enters Discovery → cascade-update the artifacts: `story.md` (bump version + Changelog) → `design.md`/`tech.md`/`test.md` → `epic.md` rollup → `docs/project/product-plan.md`/`master-plan.md` if scope shifts → sync the ticket DB → regenerate the index.
@@ -78,7 +78,7 @@ The `/status` and `/status/map` boards derive their lane from `boardColumnOf()` 
 | **To Do** | Scoped (G1 passed), queued and waiting, but no one has started yet. |
 | **In Progress** | A build role (frontend / backend / devops) is actively working. |
 | **In Review** | A QA or Security role is active on this story, OR an `awaiting-you` gate is open (the human's approval is needed). |
-| **Done** | Merged to `staging`, quality-gate green, and AC verified on the real Staging URL. |
+| **Done** | Merged to `dev`, quality-gate green, and AC verified on localhost (dev DB) before the merge; `on-staging` label after the batched promote. |
 
 **Create rule:** create scoped stories in the **Todo (unstarted) state**, not Backlog. The first build handoff (`--state "In Progress"`) starts the story. QA/Security handoffs and any `awaiting-you` gate read as In Review on the board automatically (derived by `boardColumnOf`) — no separate ticket state is needed for that lane.
 
@@ -95,7 +95,7 @@ A gate decision is a real state-machine transition on the ticket (ADR-010), not 
 
 `lib/delivery/tickets.ts` is the SINGLE source of both notifications, fired **in-process at mutation time** — there is no webhook to relay from (ADR-010 "single mutation path, no webhook"; the old `app/api/linear-webhook/route.ts` is retired): "Approved — the team continues" fires inside the `approve` verb; "Sent back for changes" fires inside the `reject` verb. Only `approve` fires the `gate-approved` `repository_dispatch` that continues a headless run — `reject` does not (there is nothing to continue; the same role must rework first).
 
-**G4 exception — the generic Approve tap cannot reach `Done`.** The three approve paths above all call `approve()`, which only ever returns a ticket to `IN_PROGRESS` — correct for an intermediate gate (G1–G3), where the next role continues. G4 (Staging sign-off) is the **terminal** gate, reached by a different verb, `complete()` (`AWAITING_GATE → DONE`), which no button/tap calls. Once the human confirms Staging sign-off, run `node scripts/ticket-sync.mjs set <CAM-id> --state Done` **directly, while the ticket is still `AWAITING_GATE`** (before any generic Approve tap fires and flips it back to `IN_PROGRESS`) — this is what actually lands the ticket on `Done`.
+**Terminal-gate exception — the generic Approve tap cannot reach `Done`.** The three approve paths above all call `approve()`, which only ever returns a ticket to `IN_PROGRESS` — correct for an intermediate gate, where the next role continues. The story's **terminal** gate (the final G3 packet approval, at merge-into-`dev` time under the local-first flow) is reached by a different verb, `complete()` (`AWAITING_GATE → DONE`), which no button/tap calls — and it requires a Verify-stage role (qa-engineer/security-reviewer) in `roleHistory`. Once the owner approves that final packet, run `node scripts/ticket-sync.mjs set <CAM-id> --state Done` **directly, while the ticket is still `AWAITING_GATE`** (before any generic Approve tap fires and flips it back to `IN_PROGRESS`). After the batched promote, `ticket-sync stage` adds `on-staging`; G4 then verifies AC on the real Staging URL — a G4 failure opens a bug ticket, it does not reopen the Done story.
 
 **How you detect the outcome, by run mode:**
 
@@ -113,9 +113,18 @@ Either way you still **never self-approve** — you only *detect* the human's de
 
 ## Dispatch contract (pointer + delta discipline)
 
-Every `.claude/agents/<role>.md` now carries its own `## Dispatch contract` (git mechanics, self-verify, STOP RULES, ship ritual) — read once by that role, applying to every dispatch. Your dispatch prompt is therefore a **pointer + delta only**: ticket id, spec file path, allowed file surface, and story-specific notes. Do not re-paste git/self-verify/STOP-RULE boilerplate into the prompt — the agent file already carries it.
+Every `.claude/agents/<role>.md` now carries its own `## Dispatch contract` (git mechanics, self-verify, STOP RULES, ship ritual) — read once by that role, applying to every dispatch. Your dispatch prompt is therefore a **pointer + delta only**: ticket id, spec file path, allowed file surface, story-specific notes (only facts that live nowhere on disk), and a machine-checkable **`done_when`** (the exact grep/command you will re-run at acceptance). Target ≤ ~300 tokens per envelope. Do not re-paste git/self-verify/STOP-RULE boilerplate or file bodies into the prompt — the agent file already carries the boilerplate and the agent reads files via the pointers. Full discipline: `.claude/rules/efficiency.md`.
 
 **Frozen-prefix cadence:** when editing a shared/invariant section across multiple agent files (e.g. a Dispatch contract update), batch all the file edits in one pass before dispatching any agent that reads them — never edit an agent file mid-flight while a dispatch against it is in progress; a partial edit mid-dispatch is an inconsistent contract.
+
+## Routing ladder (inline vs spawn)
+
+A subagent boots ~16k tokens — route before dispatching (depth: `.claude/rules/efficiency.md` §4):
+
+- **Inline in the main loop** — lookups, single greps, scratch, tooling self-files. **Non-deliverables only.**
+- **ONE agent** — large read → small verdict (research/review; compression pays for the boot), or steps that share evolving state (the interdependence test: if you can't name the independent subtask, don't spawn).
+- **Spawn in parallel** — independent partitioned stories only, under the existing max-TWO-code-writer worktree rule.
+- **Deliverable carve-out (hard):** any story deliverable routes to its owning role via `ticket-sync handoff` — inline never bypasses the Build→QA→Security→DevOps rotation (`complete()` blocks Done without a Verify-stage role).
 
 ## Stall watchdog
 
@@ -124,6 +133,8 @@ A code-writing dispatch that goes silent — no completion notification **and** 
 1. Run a ground-truth check: `git log`/`git status` on the dispatch's branch, file mtimes, and `node scripts/ticket-sync.mjs show <CAM-id>` (event history) — confirm no progress landed.
 2. If dead/stalled: kill the dispatch (TaskStop) — **never** let it run indefinitely.
 3. **Re-dispatch resuming from artifacts** — hand the next attempt the existing branch + partial work already on disk; never restart the story from scratch. Cite the artifacts explicitly in the re-dispatch prompt (branch name, files already touched, commits so far).
+
+The same rule applies at a session/usage limit: it is a **pause, not a restart** — before stopping, record a resume pointer (branch · artifacts landed · next step) in a ticket note; the next session resumes from those artifacts, never re-fires a fresh run with the same intent (`.claude/rules/efficiency.md` §7).
 
 Provenance: the CAM-268 silent-death incident (a dispatch died with no notification and no commits; the story sat invisible until a manual check).
 
@@ -162,37 +173,30 @@ Full procedure: the `retro` skill (`.claude/skills/retro/SKILL.md`).
 
 ## Examples
 
-A G3 (Merge→staging) Gate Review Packet, raised after the story's quality gate is green — the shape you hand to the human:
+A G3 (Merge) Gate Review Packet — **exception-first per Gate policy v2** (`.claude/rules/ops.md`): lead with verdict · exceptions/risks · $/story · the one-line G2 class note; the owner reads diffs only when an exception is flagged. The shape you hand to the human:
 
 ```
 {
   ticket: "CAM-128 — เพิ่มปุ่ม `จองเลย` บนการ์ดแคมป์",
   status: "in-review",
-  gate: "G3 Merge→staging",
-  artifacts: [
-    "PR #57 → staging (diff: +148 / −12, 6 files)",
-    "preview: https://campvibe-staging.vercel.app (Vercel preview build)"
-  ],
-  checks: {
-    "quality-gate": "green — lint ✓ · typecheck ✓ · test 87% new-code ✓ · build ✓ · npm audit --omit=dev 0 high/critical ✓",
-    "design-gate": "green (UI story) — tokens + a11y per DESIGN.md",
-    "change-impact": "shared UI (camp card) — Important, flagged",
-    "BR-conflict": "none",
-    "ADR-versioning": "n/a — no decision change"
-  },
-  summary: "ปุ่ม `จองเลย` ส่งผู้ใช้ไปหน้าจอง; states (default/hover/disabled) ครบ, i18n TH/EN ผ่าน. One atomic story, dev = frontend.",
-  next: "Approve → merge to staging + auto-deploy + smoke, then G4 verify AC on the Staging URL. Request changes → back to frontend."
+  gate: "G3 Merge",
+  verdict: "approve-recommended — quality-gate green, adversarial review clean",
+  exceptions: ["shared UI (camp card) touched — Important, eyeball the card hover on dev"],
+  cost: "$0.9/story",
+  g2: "standard class (criteria met)",
+  artifacts: ["PR #57 → dev (+148 / −12, 6 files)"],
+  next: "Approve → merge to dev (= Done after localhost AC verify); rides the next batched dev→staging promote. Request changes → back to frontend."
 }
 ```
 
-End with the decision ask: **Approve / Request changes.** This packet always goes to the human, who approves or requests changes; there is no autonomous gate approval.
+Checks that are green stay one line inside `verdict`; only exceptions get their own row. End with the decision ask: **Approve / Request changes.** This packet always goes to the human, who approves or requests changes; there is no autonomous gate approval.
 
 ## Reference Files
 
 - `.claude/rules/discovery.md` — the 6-dimension gap loop you run at Intake / G1.
-- `.claude/rules/ops.md` — the 3-env flow (Local → Staging → Prod), Done vs Released, promotion + rollback.
+- `.claude/rules/ops.md` — the 4-layer flow (Local → Dev → Staging → Prod), Done vs Released, promotion + rollback.
 - Sibling agents — the role agents you dispatch (`architect`, `designer`, `frontend`, `backend`, `qa`, `security`, `devops`, `product-owner`, `analyst`).
-- `CLAUDE.md` — the Iron Rules + quality gates + 3-env Definition of Done that override everything here.
+- `CLAUDE.md` — the Iron Rules + quality gates + 4-layer Definition of Done that override everything here.
 
 ## Quality bar (self-verify before handoff)
 
@@ -224,14 +228,16 @@ Run these light judgment aids when rolling up a story to a gate. Tag every findi
 Return results in the same shape as every agent:
 
 ```
-{ ticket, status, gate, artifacts: [spec/PR/preview/staging URL], checks, summary, next }
+{ ticket, status, gate, artifacts: [spec/PR/staging URL], checks, summary, next }
 ```
+
+For **agent→orchestrator** handoffs the entire final message is that ONE JSON object (~400 tokens, hard 500) — extension fields `needs_decision` / `blocked_on` / `details_file` are allowed; `ticket`/`status` are never renamed or dropped (they drive `ticket-sync` → the /status board). Detail goes to a file, not the message (`.claude/rules/efficiency.md` §3). Human-facing Gate Review Packets stay exception-first readable — JSON-only applies to agent returns, not to the owner.
 
 At a human gate, specify the Gate Review Packet:
 
 - **G1** — brief + gap matrix.
 - **G2** — spec + design.
-- **G3** — PR diff + gate result + preview.
+- **G3** — PR diff + gate result.
 - **G4** — Staging URL + AC.
 - **G5** — changelog + rollback.
 
@@ -245,4 +251,4 @@ End each packet with the decision ask: Approve / Request changes.
 - [ ] Ticket passes audit: `node scripts/ticket-sync.mjs audit` (has `## Story` + `## AC`).
 - [ ] Ticket DB status synced (skill `update-status`) + `awaiting-you` added if a human gate is reached.
 - [ ] Human gate → Gate Review Packet complete; build → green via skill `quality-gate`.
-- [ ] Done references a real Staging URL; Released has tag + changelog + rollback.
+- [ ] Done references the localhost AC verify (dev DB) + the merge into `dev`; Released has tag + changelog + rollback.

@@ -1,6 +1,6 @@
 ---
 name: security-standards
-description: Standard for securing every CampVibe atomic story against OWASP, hardening, and AI/agent-layer threats. Use when adding or reviewing an API route, server action, mutation, auth flow, file upload, external fetch, or headless camper workflow. Use when running the security gate before G3 (merge→staging) or re-checking before G5 (release→prod). Use when handling secrets, dependencies, or seed/scrape routes. Memory for the Security role; pairs with .claude/rules/api.md, .claude/rules/observability.md, .claude/rules/ops.md, DESIGN.md.
+description: Standard for securing every CampVibe atomic story against OWASP, hardening, and AI/agent-layer threats. Use when adding or reviewing an API route, server action, mutation, auth flow, file upload, external fetch, or headless camper workflow. Use when running the security gate before G3 (merge→`dev`) or re-checking before G5 (release→prod). Use when handling secrets, dependencies, or seed/scrape routes. Memory for the Security role; pairs with .claude/rules/api.md, .claude/rules/observability.md, .claude/rules/ops.md, DESIGN.md.
 ---
 
 # Security Standards
@@ -30,7 +30,7 @@ Run against the diff of every atomic story. **6-area audit** — walk all six:
 - Building or reviewing any API route, server action, or Prisma mutation
 - Touching auth, sessions, secrets, dependencies, file uploads, or external fetches
 - Working on a headless `camper-adhoc` / `gate-continue` workflow that ingests Telegram/Linear input
-- Running the security gate before G3 (merge→staging) and re-checking before G5 (release→prod)
+- Running the security gate before G3 (merge→`dev`) and re-checking before G5 (release→prod)
 
 **NOT for:**
 
@@ -45,7 +45,7 @@ Read first: this file + the diff of the story under review. Have ready: the boun
 
 ## Standards
 
-Read before every task: this file + the diff of the story. Scope = a security gate against **every atomic story** before G3 (merge→staging), re-checked before G5 (release→prod).
+Read before every task: this file + the diff of the story. Scope = a security gate against **every atomic story** before G3 (merge→`dev`), re-checked before G5 (release→prod).
 
 ### Principles
 

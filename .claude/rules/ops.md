@@ -163,7 +163,7 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 | "This migration is irreversible / I'll test it first on prod." | Make it reversible + test on Staging before prod. |
 | "Ship the release without a tag/changelog/rollback." | All three are required for every prod release. |
 | "It failed, so I'll just silently retry." | Stop the promotion + auto-open a ticket. |
-| "Local/Preview passed, so call it Done." | Done means AC verified on the real Staging URL. |
+| "Local/Preview passed, so call it Done." | Done means quality-gate green + the AC verified on localhost against the dev DB BEFORE the merge into `dev` — and G4 still re-verifies on the real Staging URL. |
 | "One `DATABASE_URL` across envs is simpler." | Keep staging/prod strictly separate. |
 | "Add the new consistency/lint guard straight as blocking." | A grep guard catches forbidden STRINGS, not structural/role drift (CAM-221: ~90 drift passed `check-ds` with correct tokens but the wrong role / re-implemented). Use AST/co-occurrence heuristics for structural rules, and roll out **report-mode → clear the backlog to 0 → flip to blocking**; never ship a blocking guard with a non-zero backlog. Make supplementary CI checks (visual regression) advisory (`continue-on-error` + non-required) so they don't block the gate. |
 
@@ -171,7 +171,7 @@ After G4 Staging sign-off, run `/promote-release --to prod` (= G5) to promote `s
 
 - [ ] build + `prisma migrate deploy` succeeded on the target env
 - [ ] migration reversible + tested on Staging before prod
-- [ ] AC verified on the **real URL** (Staging→Done / Production→smoke green)
+- [ ] AC verified on the **real URL** (Staging→`on-staging`+G4 / Production→smoke green)
 - [ ] (prod) tag + changelog + rollback plan complete + G5 passed
 - [ ] errors watched after deploy; spike → auto-rollback; real error → open a bug ticket
 - [ ] Ticket DB status synced (`ticket-sync.mjs audit` passes) before closing the story

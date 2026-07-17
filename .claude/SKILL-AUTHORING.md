@@ -129,4 +129,4 @@ description: One line — what it does. Use when <trigger>. Do NOT use when <exc
 
 ## Next Steps
 
-After authoring, apply the template in the relevant round (skills → R2, rules → R3, agents/DESIGN/CLAUDE → R4), then verify each file against the checklist above before opening the PR into `staging`.
+After authoring, apply the template in the relevant round (skills → R2, rules → R3, agents/DESIGN/CLAUDE → R4), then verify each file against the checklist above before opening the PR into `dev`.

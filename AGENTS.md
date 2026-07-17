@@ -24,18 +24,18 @@ CampVibe is a Thai campground marketplace connecting campers and hosts (Next.js 
 ## Conventions (pointers only — read the source; it is not repeated here)
 
 - `CLAUDE.md` — iron rules + quality gates + the 3-env Definition of Done. Overrides everything else.
-- `.claude/rules/<domain>.md` — the standard per domain (code, api, security, qa, architecture, discovery, ops, observability, performance, seo, ux, loading). Read that file's **Quick Reference** always; open the full file only when your work triggers that domain.
+- `.claude/rules/<domain>.md` — the standard per domain (code, api, security, qa, architecture, discovery, ops, observability, performance, seo, ux, loading, efficiency). Read that file's **Quick Reference** always; open the full file only when your work triggers that domain.
 - `DESIGN.md` — the design system (tokens, components, states, Design Gate). Required for any UI task.
 - `docs/specs/<feature>/<epic>/<story>/` — durable story content (spec/design/tech/test/review); the delivery ticket DB (`/status`) is the live-status source of truth, files are the content source of truth.
 - `.claude/agents/*.md` — the 10 role playbooks (product-owner, analyst, architect, designer, frontend, backend, qa, security, devops, orchestrator). Each carries a `## Dispatch contract` — read once, applies to every dispatch of that role.
 
 ## Repo etiquette
 
-- Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) off `staging`; Conventional Commits.
+- Branch `<type>/<kebab>` (`feature/ fix/ chore/ refactor/ docs/ test/ release/ hotfix/`) off `dev`; Conventional Commits.
 - 1 PR = 1 atomic story, target ≤ ~400 lines.
-- PR into `staging` (= Done, once merged + quality-gate green + AC verified on the real Staging URL); promote `staging`→`main` (= Released) only via `/promote-release`.
+- PR into `dev` (= Done, once merged + quality-gate green + AC verified on localhost against the dev DB); batched promote `dev`→`staging` (label `on-staging`); promote `staging`→`main` (= Released) only via `/promote-release`.
 - Pre-flight `git status` before branching; stage explicit paths — never `git add -A` (a shared tree can carry another agent's WIP).
-- `main` + `staging` are protected; CI must pass before merge.
+- `main` + `staging` + `dev` are protected; CI must pass before merge.
 
 ## STOP RULES (universal — every agent, every dispatch)
 

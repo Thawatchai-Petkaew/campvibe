@@ -25,7 +25,7 @@ The standard distilled — act on this, drop to the sections below for the why:
 5. **Never touch the DB / a secret / a 3rd party from the client** — go through `lib/actions.ts`, `lib/api-client.ts`, or a server facade.
 6. **Tokens only** — every UI piece obeys `DESIGN.md`; never hardcode color/spacing/shadow.
 7. **Copy → i18n** — all user-facing strings in `locales/translations.ts`; Thai copy: no em-dash separator, no jargon.
-8. **1 PR = 1 atomic story, ≤ ~400 lines, base `staging`** — split if larger; finish every state (empty/loading/error/success) + validation + self-test.
+8. **1 PR = 1 atomic story, ≤ ~400 lines, base `dev`** — split if larger; finish every state (empty/loading/error/success) + validation + self-test.
 9. **No future-proofing / dead branches / commented-out code / `// TODO for later`.**
 10. **`data-testid` = `<type>--<module>-<detail>`** on every element QA asserts.
 11. **Self-verify green** — `npm run lint` · `npm run typecheck` · `npm test` · (UI) design gate — before handoff.
@@ -76,7 +76,7 @@ Read before working, every time:
 
 ### 3. Size / scope
 
-- **1 PR = 1 atomic story, ≤ ~400 lines** — split the story if it exceeds; PR base = `staging`.
+- **1 PR = 1 atomic story, ≤ ~400 lines** — split the story if it exceeds; PR base = `dev`.
 - Finish the story completely — **code + every state (empty/loading/error/success) + validation + self-test** — before moving on.
 - No future-proofing code / dead branches / `// TODO for later` / commented-out code.
 - **Reuse before create** — before implementing any new UI pattern or component, check `components/ui/*` and the `DESIGN.md` Component Index (§3.1) for an existing primitive. Use it. If `DESIGN.md` names a primitive as "(planned)", build that primitive first rather than hand-rolling inline. Re-implementing an existing pattern is the #1 source of UI drift (CAM-220 modal headers, CAM-221 consistency sweep).
@@ -160,8 +160,8 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 ## Next Steps
 
 - **Consumed by** frontend / backend at build time — read this (and `DESIGN.md` for UI) before the first line, hold to it through the diff.
-- **On completion** run self-verify, then the `quality-gate` skill (`npm run lint` · `npm run typecheck` · `npm test` ≥80% · `npm run build` · `npm audit --omit=dev` · design gate) before opening the PR into `staging`.
-- **Then** verify the AC on the real Staging URL (= Done). Review/debug uses the five-axis pass above.
+- **On completion** run self-verify, then the `quality-gate` skill (`npm run lint` · `npm run typecheck` · `npm test` ≥80% · `npm run build` · `npm audit --omit=dev` · design gate) before opening the PR into `dev`.
+- **Then** the story is Done once the AC is verified on localhost (dev DB) before the merge into `dev`; G4 re-verifies on the real Staging URL after the batched promote. Review/debug uses the five-axis pass above.
 
 ## Common Rationalizations
 
@@ -190,4 +190,4 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 - [ ] No unjustified `any`, no dead/commented code, copy lives in i18n
 - [ ] UI passes the design gate (token-only + a11y + anti-slop) against `DESIGN.md`
 - [ ] Self-verify is green: `npm run lint` · `npm run typecheck` · `npm test` · (UI) design gate
-- [ ] One PR = 1 story into `staging`; ready to verify AC on the real Staging URL (= Done)
+- [ ] One PR = 1 story into `dev`; AC verified on localhost (dev DB) before the merge (= Done)

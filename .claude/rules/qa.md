@@ -12,7 +12,7 @@ paths:
 
 ## Overview
 
-A test is **evidence that an AC is true**, not a coverage ritual. Every test asserts a behavior the ticket promised to the user or the system — "the suite passes" is necessary but never sufficient, because **Done = verify the AC on the real Staging URL**. Lean means no test that doesn't guard a real regression.
+A test is **evidence that an AC is true**, not a coverage ritual. Every test asserts a behavior the ticket promised to the user or the system — "the suite passes" is necessary but never sufficient, because **Done = the AC verified on localhost (dev DB) before merge — and G4 re-verifies on the real Staging URL**. Lean means no test that doesn't guard a real regression.
 
 ## Quick Reference
 
@@ -38,7 +38,7 @@ Bug fix = **Prove-It**: failing repro test first → fix → green + run suite t
 
 - Writing tests for any story — every row of the ticket's AC table needs coverage
 - Fixing a bug — reproduce it with a failing test first (Prove-It)
-- Reviewing a PR for test quality, coverage, and flakiness before merge into `staging`
+- Reviewing a PR for test quality, coverage, and flakiness before merge into `dev`
 - Deciding whether a story is Done (test-green is one gate; Staging verification is the other)
 
 **NOT for:**
@@ -145,7 +145,7 @@ it("[unit] returns 0 for a zero-night booking", () => {
 
 ## Next Steps
 
-Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage ≥ 80% · build · `npm audit --omit=dev`) → merge into `staging` → **verify the AC on the real Staging URL** → mark the story Linear state `Done`.
+Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage ≥ 80% · build · `npm audit --omit=dev`) → **verify the AC on localhost (dev DB)** → merge into `dev` → mark the story state `Done`; the batched promote adds `on-staging` and G4 re-verifies on the real Staging URL.
 
 ## Common Rationalizations
 
@@ -170,6 +170,6 @@ Tests green → run the `quality-gate` skill (lint · typecheck · test+coverage
 - [ ] Every AC row has a test (happy + boundary + error) and the Thai copy is asserted verbatim
 - [ ] The real suite runs 100% green — no flaky/skipped tests left hanging
 - [ ] Coverage ≥ 80% on new code (measured on the diff)
-- [ ] Tests pass CI (`.github/workflows/ci.yml`) server-side on a PR with base `staging`
+- [ ] Tests pass CI (`.github/workflows/ci.yml`) server-side on a PR with base `dev`/`staging`/`main`
 - [ ] Each defect found → opened as a sub-ticket with repro + the failing AC
-- [ ] **AC verified on the real Staging URL after merge** → story ready for Linear state `Done` (≠ Released; Released = promote `staging`→`main`, see `.claude/rules/ops.md`)
+- [ ] **AC verified on localhost (dev DB) BEFORE the merge** → story state `Done` at merge into `dev`; G4 re-verifies on the real Staging URL after the batched promote (≠ Released; Released = promote `staging`→`main`, see `.claude/rules/ops.md`)

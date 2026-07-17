@@ -195,4 +195,4 @@ Public-facing pages must pass this SEO check before promote — it is part of th
 - [ ] `next/image` on every image + `priority` above-the-fold + Core Web Vitals (LCP/CLS/INP) pass
 - [ ] In `app/sitemap.ts` (if `published`) + not blocked by `app/robots.ts`
 - [ ] Auth pages (dashboard/booking/wishlist) set `noindex` on purpose — confirm it doesn't slip onto public pages
-- [ ] **Verify the signal on the real Staging URL** (view-source / Rich Results / Lighthouse) before the story enters state `Done`
+- [ ] **Verify the signal on the real Staging URL** (view-source / Rich Results / Lighthouse) after the batched promote (G4) — before the story is promoted toward prod
