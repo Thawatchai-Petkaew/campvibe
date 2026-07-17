@@ -336,6 +336,16 @@ describe("transition matrix — complete", () => {
     });
     await expect(tickets.complete(row.identifier, "human")).rejects.toMatchObject({ code: "no_verify_role" });
   });
+
+  it("[boundary] the Verify guard is STORY-scoped — an EPIC/TASK completes without it", async () => {
+    // Epic containers + chore/docs tasks carry no AC and aren't required to pass Verify.
+    const task = seed({ type: "TASK", state: "AWAITING_GATE", roleHistory: ["FRONTEND_ENGINEER"] });
+    const t = await tickets.complete(task.identifier, "human");
+    expect(t.state).toBe("DONE");
+    const epic = seed({ type: "EPIC", state: "AWAITING_GATE", roleHistory: [] });
+    const e = await tickets.complete(epic.identifier, "human");
+    expect(e.state).toBe("DONE");
+  });
 });
 
 describe("release — idempotent-guarded, DONE -> DONE (stamps releasedAt only)", () => {
