@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
-import CampgroundDetailClient from "@/components/CampgroundDetailClient";
+import CampgroundDetailClient, { type ReviewsListResult } from "@/components/CampgroundDetailClient";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "@/locales/translations";
 import { serializeDecimals } from "@/lib/serialize";
-import { buildReviewSummary, roundAvgRating, toReviewListItem, type ReviewListItem } from "@/lib/review-summary";
+import { buildReviewSummary, roundAvgRating, toReviewListItem } from "@/lib/review-summary";
 import { canViewCampSite } from "@/lib/campsite-visibility";
 import { getCampBySlug } from "@/lib/catalog-cache";
 
@@ -59,44 +59,47 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
         }
     }
 
-    // CAM-79 AC-1..6: fetch review aggregate + latest 10 reviews isolated from rest of page.
-    // AC-6: a review DB error MUST NOT break images/facilities/calendar — isolated try/catch.
+    // CAM-79 / CAM-394: the review AGGREGATE (avg + count) stays on the awaited fast
+    // path — it feeds the header stars, the section count, and the SEO aggregateRating,
+    // all rendered server-side immediately so the shell is not gated on the review list.
+    // AC-6: a review DB error MUST NOT break the rest of the page — isolated try/catch.
+    const campSiteId = campSite.id;
     let avgRating: number | null = null;
     let reviewCount = 0;
-    let reviews: ReviewListItem[] = [];
     let reviewsError = false;
 
     try {
-        const campSiteId = campSite.id;
-        // CAM-269 (PREP-3) AC-3: the review list (and its rating summary) shows only
-        // verified-stay reviews — filter both queries by `verified: true` so the count
-        // shown next to the stars always matches the number of review cards rendered.
-        const [agg, latest] = await Promise.all([
-            prisma.review.aggregate({
-                where: { campSiteId, deletedAt: null, verified: true },
-                _avg: { rating: true },
-                _count: { rating: true },
-            }),
-            prisma.review.findMany({
-                where: { campSiteId, deletedAt: null, verified: true },
-                include: { author: { select: { name: true } } },
-                orderBy: { createdAt: 'desc' },
-                take: 10,
-            }),
-        ]);
-
-        const summary = buildReviewSummary({
-            avg: agg._avg.rating,
-            count: agg._count.rating,
+        // CAM-269 (PREP-3) AC-3: count only verified-stay reviews so the number next to
+        // the stars always matches the number of review cards rendered.
+        const agg = await prisma.review.aggregate({
+            where: { campSiteId, deletedAt: null, verified: true },
+            _avg: { rating: true },
+            _count: { rating: true },
         });
-
+        const summary = buildReviewSummary({ avg: agg._avg.rating, count: agg._count.rating });
         avgRating = summary.avgRating;
         reviewCount = summary.count;
-        reviews = latest.map(toReviewListItem);
     } catch {
         // AC-6: isolated — rest of page remains usable.
         reviewsError = true;
     }
+
+    // CAM-394: the review LIST is STREAMED — this promise is passed UNAWAITED to the
+    // client so the shell (name/hero/description/booking) renders first and the list
+    // fills in behind its own <Suspense> skeleton. It never rejects (resolves ok:false)
+    // so a list error stays isolated (AC-6). Only queried when there are reviews to show;
+    // a 0-review camp renders the empty state from reviewCount without touching this.
+    const reviewsPromise: Promise<ReviewsListResult> = reviewCount > 0
+        ? prisma.review
+            .findMany({
+                where: { campSiteId, deletedAt: null, verified: true },
+                include: { author: { select: { name: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+            })
+            .then((rows) => ({ ok: true as const, reviews: rows.map(toReviewListItem) }))
+            .catch(() => ({ ok: false as const }))
+        : Promise.resolve({ ok: true as const, reviews: [] });
 
     return (
         <main className="min-h-screen bg-background">
@@ -108,7 +111,7 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 isLoggedIn={!!session?.user}
                 avgRating={avgRating}
                 reviewCount={reviewCount}
-                reviews={reviews}
+                reviewsPromise={reviewsPromise}
                 reviewsError={reviewsError}
             />
         </main>

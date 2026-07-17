@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, use } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -18,7 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
+
+/** CAM-394: the review-list findMany, streamed unawaited from the server page.
+ *  Never rejects — resolves ok:false so a review error stays isolated (AC-6). */
+export type ReviewsListResult =
+    | { ok: true; reviews: ReviewListItem[] }
+    | { ok: false };
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -68,7 +75,7 @@ export default function CampgroundDetailClient({
     isLoggedIn = false,
     avgRating = null,
     reviewCount = 0,
-    reviews = [],
+    reviewsPromise,
     reviewsError = false,
 }: {
     campground: any;
@@ -79,11 +86,12 @@ export default function CampgroundDetailClient({
     isLoggedIn?: boolean;
     /** CAM-79 AC-1/AC-2: average rating rounded to 1dp, or null when no reviews. */
     avgRating?: number | null;
-    /** CAM-79 AC-1/AC-2: total review count for this campsite. */
+    /** CAM-79 AC-1/AC-2: total review count for this campsite (from the fast-path aggregate). */
     reviewCount?: number;
-    /** CAM-79 AC-3/AC-5: up to 10 newest reviews (client-safe DTOs, no authorId). */
-    reviews?: ReviewListItem[];
-    /** CAM-79 AC-6: true when the review query threw; rest of page stays usable. */
+    /** CAM-394: the review list, streamed unawaited so the shell renders first.
+     *  Unwrapped with use() inside a Suspense boundary; may be undefined when reviewCount is 0. */
+    reviewsPromise?: Promise<ReviewsListResult>;
+    /** CAM-79 AC-6: true when the review AGGREGATE query threw; rest of page stays usable. */
     reviewsError?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
@@ -1062,75 +1070,15 @@ export default function CampgroundDetailClient({
                                     {t.reviews.noReviewsSection}
                                 </p>
                             ) : (
-                                // AC-3/AC-5: has reviews
-                                <>
-                                    <ul className="space-y-6" data-testid="list--reviews">
-                                        {reviews.map((review, index) => {
-                                            const reviewDate = typeof review.createdAt === 'string'
-                                                ? new Date(review.createdAt)
-                                                : review.createdAt;
-                                            const formattedDate = format(
-                                                reviewDate,
-                                                'd MMM yyyy',
-                                                { locale: language === 'th' ? th : enUS }
-                                            );
-                                            return (
-                                                <li
-                                                    key={index}
-                                                    className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-xl -mx-1 px-1"
-                                                    data-testid={`item--review-${index}`}
-                                                >
-                                                    <p className="font-semibold text-foreground text-sm mb-1">
-                                                        {review.name}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <div
-                                                            role="img"
-                                                            aria-label={t.reviews.itemRatingAriaLabel.replace('{rating}', String(review.rating))}
-                                                            className="flex items-center gap-0.5"
-                                                        >
-                                                            {Array.from({ length: 5 }, (_, i) => (
-                                                                <Star
-                                                                    key={i}
-                                                                    className={cn(
-                                                                        "w-3.5 h-3.5",
-                                                                        i < review.rating
-                                                                            ? "fill-foreground text-foreground"
-                                                                            : "text-muted-foreground"
-                                                                    )}
-                                                                    aria-hidden="true"
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                        <span className="text-sm text-muted-foreground tabular-nums">
-                                                            {formattedDate}
-                                                        </span>
-                                                    </div>
-                                                    {review.content && review.content.trim().length > 0 && (
-                                                        <p className="text-sm text-foreground leading-relaxed mt-1">
-                                                            {review.content}
-                                                        </p>
-                                                    )}
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                    {/* AC-5: "ดูรีวิวทั้งหมด" placeholder — shown when reviewCount > 10 */}
-                                    {reviewCount > 10 && (
-                                        <div className="flex justify-center mt-4">
-                                            <Button
-                                                variant="outline"
-                                                size="default"
-                                                disabled
-                                                aria-disabled="true"
-                                                aria-label={t.reviews.viewAllAriaLabel}
-                                                data-testid="btn--reviews-view-all"
-                                            >
-                                                {t.reviews.viewAll}
-                                            </Button>
-                                        </div>
-                                    )}
-                                </>
+                                // AC-3/AC-5: has reviews — streamed behind Suspense so the shell
+                                // (name/hero/description/booking + header rating) renders first;
+                                // the list fills in when its unawaited promise resolves (CAM-394).
+                                <Suspense fallback={<ReviewsListSkeleton />}>
+                                    <ReviewsListStreamed
+                                        reviewsPromise={reviewsPromise}
+                                        reviewCount={reviewCount}
+                                    />
+                                </Suspense>
                             )}
                         </div>
 
@@ -1439,6 +1387,106 @@ export default function CampgroundDetailClient({
                 onClose={() => setLoginOpen(false)}
                 subtitle={t.wishlist.loginPromptGuest}
             />
+        </>
+    );
+}
+
+/**
+ * CAM-394: the streamed review list. The server page passes the review-list
+ * findMany as an UNAWAITED promise; this client leaf unwraps it with use()
+ * inside the parent's <Suspense> so the shell renders first and the list fills
+ * in when the promise resolves. Cards stay client-rendered (language-reactive
+ * date + copy). A resolved { ok: false } shows the isolated error (CAM-79 AC-6).
+ */
+function ReviewsListStreamed({
+    reviewsPromise,
+    reviewCount,
+}: {
+    reviewsPromise?: Promise<ReviewsListResult>;
+    reviewCount: number;
+}) {
+    const { t, language } = useLanguage();
+    // reviewsPromise is always provided when this renders (reviewCount > 0 gate),
+    // but stay defensive: a missing promise resolves to an empty list.
+    const result = reviewsPromise ? use(reviewsPromise) : { ok: true as const, reviews: [] };
+
+    if (!result.ok) {
+        // AC-6: the review list query failed — isolated, rest of page stays usable.
+        return (
+            <p className="text-muted-foreground text-sm" data-testid="error--reviews">
+                {t.reviews.loadError}
+            </p>
+        );
+    }
+
+    return (
+        <>
+            <ul className="space-y-6" data-testid="list--reviews">
+                {result.reviews.map((review, index) => {
+                    const reviewDate = typeof review.createdAt === 'string'
+                        ? new Date(review.createdAt)
+                        : review.createdAt;
+                    const formattedDate = format(
+                        reviewDate,
+                        'd MMM yyyy',
+                        { locale: language === 'th' ? th : enUS }
+                    );
+                    return (
+                        <li
+                            key={index}
+                            className="py-4 border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors rounded-xl -mx-1 px-1"
+                            data-testid={`item--review-${index}`}
+                        >
+                            <p className="font-semibold text-foreground text-sm mb-1">
+                                {review.name}
+                            </p>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div
+                                    role="img"
+                                    aria-label={t.reviews.itemRatingAriaLabel.replace('{rating}', String(review.rating))}
+                                    className="flex items-center gap-0.5"
+                                >
+                                    {Array.from({ length: 5 }, (_, i) => (
+                                        <Star
+                                            key={i}
+                                            className={cn(
+                                                "w-3.5 h-3.5",
+                                                i < review.rating
+                                                    ? "fill-foreground text-foreground"
+                                                    : "text-muted-foreground"
+                                            )}
+                                            aria-hidden="true"
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-sm text-muted-foreground tabular-nums">
+                                    {formattedDate}
+                                </span>
+                            </div>
+                            {review.content && review.content.trim().length > 0 && (
+                                <p className="text-sm text-foreground leading-relaxed mt-1">
+                                    {review.content}
+                                </p>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+            {/* AC-5: "ดูรีวิวทั้งหมด" placeholder — shown when reviewCount > 10 */}
+            {reviewCount > 10 && (
+                <div className="flex justify-center mt-4">
+                    <Button
+                        variant="outline"
+                        size="default"
+                        disabled
+                        aria-disabled="true"
+                        aria-label={t.reviews.viewAllAriaLabel}
+                        data-testid="btn--reviews-view-all"
+                    >
+                        {t.reviews.viewAll}
+                    </Button>
+                </div>
+            )}
         </>
     );
 }

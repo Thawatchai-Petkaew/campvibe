@@ -29,22 +29,25 @@ export default function CampgroundDetailLoading() {
         >
             <span className="sr-only">{SR_LABEL}</span>
 
-            <div aria-hidden="true">
+            {/* skeleton-delay-show: fade the visual skeleton in after ~300ms so a fast
+                navigation never flashes it (loading.md §4 anti-flicker). The sr-only
+                status label above still announces immediately. */}
+            <div aria-hidden="true" className="skeleton-delay-show">
                 {/* Navbar-height placeholder */}
                 <div className="h-20 border-b border-border bg-background/95" />
 
                 <div className="container mx-auto px-6 py-8 max-w-6xl">
-                    {/* Hero / cover image block — matches the ImageGallery grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
-                        {/* Main cover image */}
-                        <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
-                        {/* Secondary images grid */}
-                        <div className="hidden md:grid grid-cols-2 gap-3">
-                            <Skeleton className="aspect-square w-full rounded-2xl" />
-                            <Skeleton className="aspect-square w-full rounded-2xl" />
-                            <Skeleton className="aspect-square w-full rounded-2xl" />
-                            <Skeleton className="aspect-square w-full rounded-2xl" />
-                        </div>
+                    {/* Hero — mirrors the real hero in CampgroundDetailClient so content
+                        arrives with no layout shift: a single cover on mobile; on desktop
+                        the 5-image grid (grid-cols-4 grid-rows-2, h-[480px]) with one large
+                        col-span-2 row-span-2 tile + four small tiles. */}
+                    <Skeleton className="md:hidden aspect-[4/3] w-full rounded-2xl mb-8" />
+                    <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px] mb-8">
+                        <Skeleton className="col-span-2 row-span-2 w-full h-full rounded-2xl" />
+                        <Skeleton className="w-full h-full rounded-2xl" />
+                        <Skeleton className="w-full h-full rounded-2xl" />
+                        <Skeleton className="w-full h-full rounded-2xl" />
+                        <Skeleton className="w-full h-full rounded-2xl" />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
