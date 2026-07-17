@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { boardFacingY, computeBoardsSignature } from "../app/status/map/canvas-3d";
+import { boardFacingY, boardProgress, computeBoardsSignature } from "../app/status/map/canvas-3d";
 import type { MapAgent, MapGate } from "../app/status/map/map-types";
 
 // Mirrors the file's own WORKFLOW station geometry (canvas-3d.tsx) — the
@@ -51,6 +51,35 @@ function buildAgent(overrides: Partial<MapAgent> = {}): MapAgent {
 }
 
 const GATE: MapGate = { id: "g1", title: "a gate", url: "", epicKey: "", priority: "High" };
+
+describe("boardProgress — CAM-387 delivery-card progress bar (done / total)", () => {
+  it("[normal] returns done/total for a role mid-flight", () => {
+    // 3 done of 3+1+4 = 8 total => 0.375
+    expect(boardProgress(buildAgent({ done: 3, activeCount: 1, queued: 4 }))).toBeCloseTo(0.375, 5);
+  });
+
+  it("[boundary] returns 1 when every story is done", () => {
+    expect(boardProgress(buildAgent({ done: 5, activeCount: 0, queued: 0 }))).toBe(1);
+  });
+
+  it("[boundary] returns 0 when nothing is done yet", () => {
+    expect(boardProgress(buildAgent({ done: 0, activeCount: 2, queued: 3 }))).toBe(0);
+  });
+
+  it("[null/empty] returns 0 for an undefined agent (no crash)", () => {
+    expect(boardProgress(undefined)).toBe(0);
+  });
+
+  it("[null/empty] returns 0 when the role has no work at all (total = 0)", () => {
+    expect(boardProgress(buildAgent({ done: 0, activeCount: 0, queued: 0 }))).toBe(0);
+  });
+
+  it("[boundary] clamps to the 0..1 range and never exceeds 1", () => {
+    const p = boardProgress(buildAgent({ done: 10, activeCount: 0, queued: 0 }));
+    expect(p).toBeGreaterThanOrEqual(0);
+    expect(p).toBeLessThanOrEqual(1);
+  });
+});
 
 describe("computeBoardsSignature — CAM-379 (S7) redraw-on-signature-change discipline", () => {
   it("[unit] returns the same string for two calls with identical rendered fields", () => {

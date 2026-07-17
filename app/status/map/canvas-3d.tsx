@@ -633,12 +633,17 @@ export function applyStoredPropLayout(records: RoomPropRecord[], layout: StoredP
 // (quicker bob + a scanning gaze sweep across the approval area), calm reads
 // as a slow, minimal idle breath. Values are a design call (dispatch note);
 // tune on Staging.
-const ATLAS_REVIEW_BOB_AMPLITUDE = 0.022;
-const ATLAS_REVIEW_BOB_FREQ = 3.4;
-const ATLAS_REVIEW_GAZE_SWEEP = 0.4; // radians, +/- sweep toward the approval area
-const ATLAS_REVIEW_GAZE_FREQ = 1.05;
-const ATLAS_CALM_BOB_AMPLITUDE = 0.01;
-const ATLAS_CALM_BOB_FREQ = 1.5;
+// CAM-387: Atlas now walks gentle inspection rounds (see updateAtlasMotion), so
+// the standing review/calm bob + gaze-sweep-frequency constants were removed;
+// only the reduced-motion static pose keeps a fixed gaze offset.
+const ATLAS_REVIEW_GAZE_SWEEP = 0.4; // radians, fixed gaze offset in the reduced-motion static pose
+// Gentle supervisor stroll — slower than the build-role patrol (divisor 1.05,
+// [2.5,6.2]s, bob 2.4Hz/0.03) with a smaller, slower bob so it reads as calm.
+const ATLAS_PATROL_SPEED = 0.6;
+const ATLAS_PATROL_MIN_DUR = 4.0;
+const ATLAS_PATROL_MAX_DUR = 9.0;
+const ATLAS_PATROL_BOB_FREQ = 1.6;
+const ATLAS_PATROL_BOB_AMP = 0.016;
 // Base intensity matches the PointLight created per-station at mount
 // ((station.isAtlas ? 1.2 : 0.65) * LIGHT_SCALE) — reviewing pulses around it,
 // calm sits dimmer and steady (no pulse), ported feel from the prototype's
@@ -680,6 +685,11 @@ interface CharacterActor {
    *  motion can pulse it. Unused by the 7 build-role actors (created for every
    *  actor for a uniform CharacterActor shape, cheap to hold a reference to). */
   light: THREE.PointLight;
+  /** CAM-387: the fake blob shadow (child of pivot). Its local Y is countered
+   *  every frame so its WORLD Y stays pinned to the ground — otherwise it rides
+   *  the character's vertical bob into/through the floor (flicker + only visible
+   *  when stopped). */
+  shadow: THREE.Mesh;
 }
 
 function isPointClear(x: number, z: number, padding: number): boolean {
@@ -773,6 +783,57 @@ function startPatrol(actor: CharacterActor, t: number, actors: CharacterActor[])
   };
 }
 
+// CAM-387: the shared room-patrol step (ported from the prototype's
+// updateActorPatrols). `speedDivisor` (duration = segmentLen / divisor; larger
+// = faster) + `bobFreq/bobAmp` let the caller set the pace: the 7 build roles
+// stroll at the normal pace (1.05, [2.5,6.2]s); Atlas does gentle supervisor
+// rounds (slower, smaller bob). Collision avoidance + route choice are shared.
+function runPatrol(
+  actor: CharacterActor,
+  t: number,
+  index: number,
+  actors: CharacterActor[],
+  speedDivisor: number,
+  minDur: number,
+  maxDur: number,
+  bobFreq: number,
+  bobAmp: number,
+): void {
+  if (!actor.patrol) startPatrol(actor, t, actors);
+  const patrol = actor.patrol!;
+  const targetPoint = ROUTE_POINTS[patrol.target];
+  const progress = Math.min(1, (t - patrol.startTime) / patrol.duration);
+
+  if (
+    (isRoutePointOccupied(targetPoint, actor, actors, 1.05) || !isSegmentClear(actor.pivot.position, targetPoint, 0.32)) &&
+    progress < 0.82
+  ) {
+    patrol.from = actor.pivot.position.clone();
+    patrol.current = findNearestRouteIndex(actor.pivot.position);
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    return;
+  }
+
+  const end = ROUTE_POINTS[patrol.target];
+  const u = Math.min(1, (t - patrol.startTime) / patrol.duration);
+  const ease = u * u * (3 - 2 * u);
+  actor.pivot.position.lerpVectors(patrol.from, end, ease);
+  actor.pivot.position.y = 0.92 + Math.sin(t * bobFreq + index) * bobAmp;
+  const dir = Math.atan2(end.x - patrol.from.x, end.z - patrol.from.z);
+  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.08);
+
+  if (u >= 1) {
+    patrol.previous = patrol.current;
+    patrol.current = patrol.target;
+    patrol.from = ROUTE_POINTS[patrol.current].clone();
+    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
+    patrol.startTime = t;
+    const nextDist = ROUTE_POINTS[patrol.current].distanceTo(ROUTE_POINTS[patrol.target]);
+    patrol.duration = THREE.MathUtils.clamp(nextDist / speedDivisor, minDur, maxDur);
+  }
+}
+
 // Per-frame motion for one character (Atlas is never passed in — the caller
 // skips it). "active" = walk to / stand at the workSpot with a gentle bob,
 // facing the board; "idle" = patrol the room with collision avoidance. This
@@ -806,40 +867,8 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
     return;
   }
 
-  // Idle: patrol the room (ported from the prototype's updateActorPatrols).
-  if (!actor.patrol) startPatrol(actor, t, actors);
-  const patrol = actor.patrol!;
-  const targetPoint = ROUTE_POINTS[patrol.target];
-  const progress = Math.min(1, (t - patrol.startTime) / patrol.duration);
-
-  if (
-    (isRoutePointOccupied(targetPoint, actor, actors, 1.05) || !isSegmentClear(actor.pivot.position, targetPoint, 0.32)) &&
-    progress < 0.82
-  ) {
-    patrol.from = actor.pivot.position.clone();
-    patrol.current = findNearestRouteIndex(actor.pivot.position);
-    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
-    patrol.startTime = t;
-    return;
-  }
-
-  const end = ROUTE_POINTS[patrol.target];
-  const u = Math.min(1, (t - patrol.startTime) / patrol.duration);
-  const ease = u * u * (3 - 2 * u);
-  actor.pivot.position.lerpVectors(patrol.from, end, ease);
-  actor.pivot.position.y = 0.92 + Math.sin(t * 2.4 + index) * 0.03;
-  const dir = Math.atan2(end.x - patrol.from.x, end.z - patrol.from.z);
-  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dir, 0.08);
-
-  if (u >= 1) {
-    patrol.previous = patrol.current;
-    patrol.current = patrol.target;
-    patrol.from = ROUTE_POINTS[patrol.current].clone();
-    patrol.target = choosePatrolTarget(actor, patrol.current, patrol.previous, actors);
-    patrol.startTime = t;
-    const nextDist = ROUTE_POINTS[patrol.current].distanceTo(ROUTE_POINTS[patrol.target]);
-    patrol.duration = THREE.MathUtils.clamp(nextDist / 1.05, 2.5, 6.2);
-  }
+  // Idle: gentle room patrol with collision avoidance (shared with Atlas).
+  runPatrol(actor, t, index, actors, 1.05, 2.5, 6.2, 2.4, 0.03);
 }
 
 // CAM-376 (S4): Atlas's own per-frame motion — never patrols (always at its own
@@ -847,21 +876,23 @@ function updateCharacterMotion(actor: CharacterActor, t: number, index: number, 
 // `actor.mode` ("active" == reviewing/gates pending, "idle" == calm), which is
 // driven exclusively by applyGatesPending below (never by applyActivity/
 // applyScope — those explicitly skip isAtlas actors, unchanged from S3).
-function updateAtlasMotion(actor: CharacterActor, t: number): void {
+function updateAtlasMotion(actor: CharacterActor, t: number, actors: CharacterActor[]): void {
   const reviewing = actor.mode === "active";
-  const bobAmplitude = reviewing ? ATLAS_REVIEW_BOB_AMPLITUDE : ATLAS_CALM_BOB_AMPLITUDE;
-  const bobFreq = reviewing ? ATLAS_REVIEW_BOB_FREQ : ATLAS_CALM_BOB_FREQ;
-  actor.pivot.position.set(
-    actor.workSpot.x,
-    actor.workSpot.y + Math.sin(t * bobFreq + actor.bobPhase) * bobAmplitude,
-    actor.workSpot.z,
+  // CAM-387 (owner request): Atlas strolls the room on gentle inspection rounds
+  // instead of standing at its station — slower pace + smaller bob than the
+  // build-role patrol, reading as a calm supervisor doing the rounds. The
+  // pending-approval signal now lives on its accent light (pulse when reviewing).
+  runPatrol(
+    actor,
+    t,
+    actor.bobPhase,
+    actors,
+    ATLAS_PATROL_SPEED,
+    ATLAS_PATROL_MIN_DUR,
+    ATLAS_PATROL_MAX_DUR,
+    ATLAS_PATROL_BOB_FREQ,
+    ATLAS_PATROL_BOB_AMP,
   );
-  const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
-  // Reviewing: a gaze sweep toward the approval area (reads as "surfacing
-  // work"), distinct from a build agent's steady stand-and-face. Calm: plain,
-  // steady facing — no sweep.
-  const gaze = reviewing ? Math.sin(t * ATLAS_REVIEW_GAZE_FREQ) * ATLAS_REVIEW_GAZE_SWEEP : 0;
-  actor.pivot.rotation.y = THREE.MathUtils.lerp(actor.pivot.rotation.y, dirToBoard + gaze, reviewing ? 0.08 : 0.05);
   actor.light.intensity = reviewing
     ? ATLAS_LIGHT_BASE * (1 + Math.sin(t * ATLAS_LIGHT_PULSE_FREQ) * ATLAS_LIGHT_PULSE_AMPLITUDE)
     : ATLAS_LIGHT_BASE * ATLAS_LIGHT_CALM_SCALE;
@@ -878,6 +909,9 @@ function updateAtlasMotion(actor: CharacterActor, t: number): void {
 function poseStaticAll(actors: CharacterActor[]): void {
   actors.forEach((actor) => {
     if (actor.isAtlas) {
+      // CAM-387: Atlas patrols under normal motion now — clear any in-flight
+      // patrol so the reduced-motion pose snaps cleanly to its station.
+      actor.patrol = null;
       actor.pivot.position.copy(actor.workSpot);
       const dirToBoard = Math.atan2(actor.facePos.x - actor.workSpot.x, actor.facePos.z - actor.workSpot.z);
       const reviewing = actor.mode === "active";
@@ -932,6 +966,29 @@ function canCreateWebGL(): boolean {
     return false;
   }
 }
+
+// CAM-387: world Y the character blob shadow is pinned to each frame (just
+// above the floor at OBJECT_FLOOR_WORLD_Y=0.02) so the character's bob never
+// drags it below/through the floor.
+const SHADOW_GROUND_Y = 0.06;
+
+// CAM-387: floating "current task" popover above each working character's head
+// (ported from atlas_web_demo's #atlasPopover). Height above the pivot origin
+// to anchor the bubble's tail; DOM element positioned by projecting this world
+// point to the canvas each frame.
+const POPOVER_HEAD_OFFSET = 1.55;
+const POPOVER_CSS = `
+.map-3d-poplayer { position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; }
+.map-3d-pop { position:absolute; left:0; top:0; transform:translate(-50%,-100%); opacity:0; transition:opacity .18s ease; will-change:left,top,opacity; }
+.map-3d-pop .b { position:relative; display:inline-block; background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(245,249,255,.94)); color:#0f1728; border-radius:12px; padding:6px 11px; box-shadow:0 0 7px rgba(127,214,255,.20),0 8px 18px rgba(0,0,0,.18); border:1px solid var(--pa,#7fd6ff); white-space:nowrap; font-family:'Outfit','Anuphan',sans-serif; }
+.map-3d-pop .r { display:flex; align-items:center; gap:6px; }
+.map-3d-pop .r::before { content:""; width:6px; height:6px; border-radius:999px; background:var(--pa,#7fd6ff); box-shadow:0 0 7px var(--pa,#7fd6ff); flex:none; }
+.map-3d-pop .t { font-weight:800; font-size:12px; color:#0f1728; }
+.map-3d-pop .c { font-weight:600; font-size:12px; color:#475569; }
+.map-3d-pop .b::after { content:""; position:absolute; left:50%; bottom:-5px; width:9px; height:9px; background:inherit; border-right:1px solid var(--pa,#7fd6ff); border-bottom:1px solid var(--pa,#7fd6ff); transform:translateX(-50%) rotate(45deg); border-radius:2px; }
+@media (prefers-reduced-motion:no-preference){ .map-3d-pop.show .b { animation:map3dPopBob 1.8s ease-in-out infinite; } }
+@keyframes map3dPopBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+`;
 
 // ── Fake blob shadow (perf: no real shadow maps in S2b — dispatch requirement) ──
 function createFakeShadow(radiusX: number, radiusZ: number, localY: number, opacity: number): THREE.Mesh {
@@ -1131,10 +1188,22 @@ function addStarfield(scene: THREE.Scene): void {
 
 // ── Wall screens: per-station live-status board (CAM-379, S7) ───────────────
 // See the file-header S7 note for the full design rationale.
-const BOARD_TEXTURE_WIDTH = 512;
-const BOARD_TEXTURE_HEIGHT = 340;
-const BOARD_PANEL_WIDTH = 3.2;
-const BOARD_PANEL_HEIGHT = 2.1;
+// CAM-387: the board is a delivery CARD (ported from atlas_web_demo's
+// updateBoardDisplay) drawn crisp on a thick, rounded, off-the-wall screen.
+// Texture doubled (512->1024) + anisotropy so text/edges no longer pixelate on
+// the ~3m panel; the drawn card coords below assume this 1024x640 canvas.
+const BOARD_TEXTURE_WIDTH = 1024;
+const BOARD_TEXTURE_HEIGHT = 640;
+const BOARD_PANEL_WIDTH = 2.96;
+const BOARD_PANEL_HEIGHT = 1.94;
+// Board mesh — thick, rounded, crisp, stood off the wall (match the prototype).
+const BOARD_BACK_WIDTH = 3.18;
+const BOARD_BACK_HEIGHT = 2.14;
+const BOARD_BACK_THICKNESS = 0.42; // was 0.12 — a chunky freestanding screen, not a thin decal
+const BOARD_CORNER_RADIUS = 0.06; // was 0.05 — rounder outer edge
+const BOARD_CORNER_SEGMENTS = 5; // was 3 — smoother rounded corner (less edge aliasing)
+const BOARD_STANDOFF = 0.34; // push the whole screen off the wall into the room
+const BOARD_MAX_ANISOTROPY = 8; // crispness at grazing angles (was: unset -> blurry)
 // Same font stack this route's overlays already load for Thai copy
 // (campsite-scene.tsx's SheetTitle, campsite-overlays.tsx's HUD titles) —
 // reused here, not reinvented, so Anuphan's Thai glyphs render identically
@@ -1144,11 +1213,12 @@ const BOARD_FONT_STACK = "'Outfit', 'Anuphan', sans-serif";
 const BOARD_COPY = {
   activeStatus: "กำลังทำงาน",
   idleStatus: "ว่าง",
-  idleTask: "-",
-  countActive: "กำลังทำ",
+  queuedStatus: "มีงานรอคิว",
+  idleTask: "ยังไม่มีงานที่ทำอยู่",
   countDone: "เสร็จ",
   countQueued: "รอคิว",
   approvalHeader: "คิวอนุมัติ",
+  approvalActive: "รอคุณอนุมัติ",
   approvalPending: (n: number) => `${n} รายการรออนุมัติ`,
   approvalEmpty: "ไม่มีรายการรออนุมัติ",
 } as const;
@@ -1181,6 +1251,110 @@ function clipText(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+/** CAM-387: fraction (0..1) of this role's stories that are done — drives the
+ *  card's progress bar. total = done + active + queued; 0 when the role has no
+ *  work at all. Exported (named) for a real unit test, mirroring boardFacingY.
+ */
+export function boardProgress(agent: MapAgent | undefined): number {
+  if (!agent) return 0;
+  const total = agent.done + agent.activeCount + agent.queued;
+  if (total <= 0) return 0;
+  return Math.max(0, Math.min(1, agent.done / total));
+}
+
+// Canvas glow (shadowBlur) around a single draw — save/restore so the glow
+// never bleeds into later strokes. Ported from atlas_web_demo/index.html.
+function withGlow(ctx: CanvasRenderingContext2D, color: string, blur: number, draw: () => void): void {
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur;
+  draw();
+  ctx.restore();
+}
+
+type IconKey =
+  | "pencil"
+  | "code"
+  | "server"
+  | "arrows-exchange"
+  | "shield-check"
+  | "clipboard-check"
+  | "check"
+  | "upload";
+
+// Per-role workflow icon, matching the prototype's per-station iconKey.
+const ROLE_ICON: Record<keyof typeof ROLE_COLORS, IconKey> = {
+  designer: "pencil",
+  frontend: "code",
+  backend: "server",
+  architect: "arrows-exchange",
+  security: "shield-check",
+  atlas: "clipboard-check",
+  qa: "check",
+  devops: "upload",
+};
+
+// Minimal Tabler-style line-icon renderer (the subset the boards use), ported
+// verbatim from atlas_web_demo/index.html's drawTablerIcon — strokes only.
+function drawTablerIcon(
+  ctx: CanvasRenderingContext2D,
+  icon: IconKey,
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+  lineWidth = 3,
+): void {
+  const s = size / 24;
+  ctx.save();
+  ctx.translate(cx - 12 * s, cy - 12 * s);
+  ctx.scale(s, s);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const path = (cmd: (p: CanvasRenderingContext2D) => void) => {
+    ctx.beginPath();
+    cmd(ctx);
+    ctx.stroke();
+  };
+  if (icon === "pencil") {
+    path((p) => { p.moveTo(4, 20); p.lineTo(8, 20); p.lineTo(18.5, 9.5); p.lineTo(14.5, 5.5); p.lineTo(4, 16); p.lineTo(4, 20); });
+    path((p) => { p.moveTo(13.5, 6.5); p.lineTo(17.5, 10.5); });
+  } else if (icon === "code") {
+    path((p) => { p.moveTo(7, 8); p.lineTo(3, 12); p.lineTo(7, 16); });
+    path((p) => { p.moveTo(17, 8); p.lineTo(21, 12); p.lineTo(17, 16); });
+    path((p) => { p.moveTo(14, 4); p.lineTo(10, 20); });
+  } else if (icon === "server") {
+    path((p) => { p.rect(4, 5, 16, 6); });
+    path((p) => { p.rect(4, 13, 16, 6); });
+    path((p) => { p.moveTo(8, 8); p.lineTo(8.01, 8); });
+    path((p) => { p.moveTo(8, 16); p.lineTo(8.01, 16); });
+  } else if (icon === "arrows-exchange") {
+    path((p) => { p.moveTo(7, 7); p.lineTo(17, 7); p.lineTo(14, 4); });
+    path((p) => { p.moveTo(17, 17); p.lineTo(7, 17); p.lineTo(10, 20); });
+    path((p) => { p.moveTo(17, 7); p.lineTo(14, 10); });
+    path((p) => { p.moveTo(7, 17); p.lineTo(10, 14); });
+  } else if (icon === "check") {
+    path((p) => { p.moveTo(5, 12); p.lineTo(10, 17); p.lineTo(20, 7); });
+  } else if (icon === "upload") {
+    path((p) => { p.moveTo(12, 15); p.lineTo(12, 4); });
+    path((p) => { p.moveTo(7, 9); p.lineTo(12, 4); p.lineTo(17, 9); });
+    path((p) => { p.moveTo(5, 19); p.lineTo(19, 19); });
+  } else if (icon === "shield-check") {
+    path((p) => { p.moveTo(12, 3); p.lineTo(20, 6.5); p.lineTo(20, 12); p.bezierCurveTo(20, 16.5, 16.8, 20.2, 12, 21); });
+    path((p) => { p.moveTo(12, 3); p.lineTo(4, 6.5); p.lineTo(4, 12); p.bezierCurveTo(4, 16.5, 7.2, 20.2, 12, 21); });
+    path((p) => { p.moveTo(8.8, 12.2); p.lineTo(11.1, 14.4); p.lineTo(15.6, 9.7); });
+  } else {
+    // clipboard-check
+    path((p) => { p.rect(5, 4, 14, 17); });
+    path((p) => { p.moveTo(9, 4); p.bezierCurveTo(9, 2.7, 15, 2.7, 15, 4); });
+    path((p) => { p.moveTo(9, 4); p.lineTo(9, 6); p.lineTo(15, 6); p.lineTo(15, 4); });
+    path((p) => { p.moveTo(8.5, 13); p.lineTo(11, 15.5); p.lineTo(16, 10.5); });
+  }
+  ctx.restore();
+}
+
 // The board's facing angle is DERIVED from the same station.pos (wall
 // reference point) -> station.workSpot (where the character stands) pair the
 // character's own facing already reads (see loadAssets' `pivot.rotation.y`
@@ -1207,59 +1381,160 @@ export function computeBoardsSignature(agents: MapAgent[], gates: MapGate[]): st
   return `${agentsPart}#${gates.length}`;
 }
 
-function drawBoardShell(ctx: CanvasRenderingContext2D, w: number, h: number, accent: number): void {
+// Panel background + rounded border (brighter/accent-lit when active). Coords
+// assume the 1024x640 board texture.
+function drawBoardShell(ctx: CanvasRenderingContext2D, w: number, h: number, accent: number, active: boolean): void {
   ctx.clearRect(0, 0, w, h);
   const bg = ctx.createLinearGradient(0, 0, w, h);
-  bg.addColorStop(0, "rgba(15, 26, 46, 0.92)");
-  bg.addColorStop(1, "rgba(7, 13, 24, 0.90)");
+  bg.addColorStop(0, active ? "rgba(23, 48, 74, 0.95)" : "rgba(15, 26, 46, 0.92)");
+  bg.addColorStop(1, active ? "rgba(10, 27, 48, 0.92)" : "rgba(7, 13, 24, 0.90)");
   ctx.fillStyle = bg;
-  roundRectPath(ctx, 0, 0, w, h, 26);
+  roundRectPath(ctx, 0, 0, w, h, 60);
   ctx.fill();
 
-  ctx.strokeStyle = hexToCss(accent, 0.5);
-  ctx.lineWidth = 2;
-  roundRectPath(ctx, 3, 3, w - 6, h - 6, 22);
+  ctx.strokeStyle = hexToCss(accent, active ? 0.8 : 0.45);
+  ctx.lineWidth = active ? 4 : 3;
+  roundRectPath(ctx, 6, 6, w - 12, h - 12, 54);
   ctx.stroke();
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }
 
-// Build-role board: role name + active/idle status + current task (or the
-// idle placeholder) + the active/done/queued counts — every field an
-// AC-traceable read of the live MapAgent for this station's canonical role.
+// Header row shared by every board: icon tile + title + a status dot + a status
+// label. `iconKey` picks the per-role workflow glyph.
+function drawBoardHeader(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  accent: number,
+  active: boolean,
+  iconKey: IconKey,
+  title: string,
+  statusLabel: string,
+): void {
+  const iconCx = 96;
+  const iconCy = 104;
+  ctx.fillStyle = active ? hexToCss(accent, 0.22) : "rgba(255, 255, 255, 0.06)";
+  roundRectPath(ctx, iconCx - 58, iconCy - 58, 116, 116, 34);
+  ctx.fill();
+  ctx.strokeStyle = active ? hexToCss(accent, 0.78) : "rgba(220, 238, 255, 0.16)";
+  ctx.lineWidth = 2;
+  roundRectPath(ctx, iconCx - 58, iconCy - 58, 116, 116, 34);
+  ctx.stroke();
+  withGlow(ctx, active ? hexToCss(accent, 1) : "transparent", active ? 14 : 0, () => {
+    drawTablerIcon(ctx, iconKey, iconCx + 4, iconCy, 58, active ? "#ffffff" : "rgba(236, 247, 255, 0.92)", 3);
+  });
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#F1F6FB";
+  ctx.font = `800 56px ${BOARD_FONT_STACK}`;
+  ctx.fillText(clipText(title, 18), 190, 96);
+
+  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(223, 234, 245, 0.6)";
+  ctx.font = `700 30px ${BOARD_FONT_STACK}`;
+  ctx.fillText(statusLabel, 192, 150);
+
+  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(148, 163, 184, 0.5)";
+  withGlow(ctx, active ? hexToCss(accent, 0.9) : "transparent", active ? 16 : 0, () => {
+    ctx.beginPath();
+    ctx.arc(w - 62, 62, 15, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// The live delivery card (ported from atlas_web_demo's updateBoardDisplay):
+// pulsing-look status dot + label + main line + sub line + a progress bar
+// (bar omitted when `progress` is null, e.g. the Atlas approval card).
+function drawDeliveryCard(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  accent: number,
+  active: boolean,
+  label: string,
+  mainText: string,
+  subText: string,
+  progress: number | null,
+): void {
+  const cardX = 54;
+  const cardY = 258;
+  const cardW = w - 108;
+  const cardH = 322;
+
+  ctx.save();
+  ctx.shadowColor = hexToCss(accent, active ? 0.5 : 0.2);
+  ctx.shadowBlur = active ? 20 : 8;
+  ctx.fillStyle = hexToCss(accent, active ? 0.12 : 0.06);
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, 40);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = hexToCss(accent, active ? 0.82 : 0.4);
+  ctx.lineWidth = active ? 3 : 2;
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, 40);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = hexToCss(accent, 1);
+  withGlow(ctx, active ? hexToCss(accent, 1) : "transparent", active ? 18 : 0, () => {
+    ctx.beginPath();
+    ctx.arc(cardX + 54, cardY + 60, active ? 14 : 11, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = hexToCss(accent, 1);
+  ctx.font = `900 26px ${BOARD_FONT_STACK}`;
+  ctx.fillText(label, cardX + 94, cardY + 70);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 40px ${BOARD_FONT_STACK}`;
+  ctx.fillText(clipText(mainText, 34), cardX + 42, cardY + 154);
+
+  ctx.fillStyle = "rgba(226, 240, 255, 0.72)";
+  ctx.font = `700 30px ${BOARD_FONT_STACK}`;
+  ctx.fillText(subText, cardX + 42, cardY + 214);
+
+  if (progress !== null) {
+    const barX = cardX + 42;
+    const barY = cardY + 256;
+    const barW = cardW - 84;
+    const barH = 14;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    roundRectPath(ctx, barX, barY, barW, barH, 7);
+    ctx.fill();
+    ctx.fillStyle = hexToCss(accent, 1);
+    withGlow(ctx, active ? hexToCss(accent, 1) : "transparent", active ? 14 : 0, () => {
+      roundRectPath(ctx, barX, barY, Math.max(barH, barW * progress), barH, 7);
+      ctx.fill();
+    });
+  }
+}
+
+// Build-role board: header (role name + status) + a delivery card showing the
+// current task (or the idle placeholder), the done/queued counts, and a
+// progress bar — every field an AC-traceable read of the live MapAgent.
 function drawRoleBoard(board: StationBoard, agent: MapAgent | undefined): void {
   const { ctx } = board;
   const w = BOARD_TEXTURE_WIDTH;
   const h = BOARD_TEXTURE_HEIGHT;
   const accent = ROLE_COLORS[board.key];
   const active = !!agent?.active;
-  drawBoardShell(ctx, w, h, accent);
+
+  drawBoardShell(ctx, w, h, accent, active);
 
   const roleKey = ROLE_KEY_BY_CHARACTER[board.key];
   const displayName = (roleKey && ROLE_DISPLAY[roleKey]?.displayName) || board.key;
-  ctx.fillStyle = "#F1F6FB";
-  ctx.font = `800 34px ${BOARD_FONT_STACK}`;
-  ctx.fillText(displayName, 26, 52);
+  const statusLabel = active
+    ? BOARD_COPY.activeStatus
+    : agent && agent.queued > 0
+      ? BOARD_COPY.queuedStatus
+      : BOARD_COPY.idleStatus;
+  drawBoardHeader(ctx, w, accent, active, ROLE_ICON[board.key], displayName, statusLabel);
 
-  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(148, 163, 184, 0.55)";
-  ctx.beginPath();
-  ctx.arc(w - 34, 34, 9, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = active ? hexToCss(accent, 1) : "rgba(223, 234, 245, 0.55)";
-  ctx.font = `700 20px ${BOARD_FONT_STACK}`;
-  ctx.fillText(active ? BOARD_COPY.activeStatus : BOARD_COPY.idleStatus, 26, 88);
-
-  const taskTitle = agent?.task?.title ? clipText(agent.task.title, 30) : BOARD_COPY.idleTask;
-  ctx.fillStyle = "rgba(226, 240, 255, 0.85)";
-  ctx.font = `600 18px ${BOARD_FONT_STACK}`;
-  ctx.fillText(taskTitle, 26, 124);
-
-  ctx.fillStyle = "rgba(223, 234, 245, 0.7)";
-  ctx.font = `600 16px ${BOARD_FONT_STACK}`;
-  const countsLine = `${BOARD_COPY.countActive} ${agent?.activeCount ?? 0} · ${BOARD_COPY.countDone} ${agent?.done ?? 0} · ${BOARD_COPY.countQueued} ${agent?.queued ?? 0}`;
-  ctx.fillText(countsLine, 26, h - 24);
+  const mainText = agent?.task?.title
+    ? `${agent.task.id} · ${agent.task.title}`
+    : BOARD_COPY.idleTask;
+  const subText = `${BOARD_COPY.countDone} ${agent?.done ?? 0} · ${BOARD_COPY.countQueued} ${agent?.queued ?? 0}`;
+  drawDeliveryCard(ctx, w, accent, active, statusLabel, mainText, subText, boardProgress(agent));
 
   board.texture.needsUpdate = true;
 }
@@ -1272,20 +1547,27 @@ function drawAtlasBoard(board: StationBoard, gatesCount: number): void {
   const h = BOARD_TEXTURE_HEIGHT;
   const accent = ROLE_COLORS.atlas;
   const pending = gatesCount > 0;
-  drawBoardShell(ctx, w, h, accent);
 
-  ctx.fillStyle = hexToCss(accent, 0.95);
-  ctx.font = `700 22px ${BOARD_FONT_STACK}`;
-  ctx.fillText(BOARD_COPY.approvalHeader, 26, 52);
-
-  ctx.fillStyle = pending ? hexToCss(accent, 1) : "rgba(148, 163, 184, 0.55)";
-  ctx.beginPath();
-  ctx.arc(w - 34, 34, 9, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = pending ? "#F1F6FB" : "rgba(223, 234, 245, 0.6)";
-  ctx.font = `800 28px ${BOARD_FONT_STACK}`;
-  ctx.fillText(pending ? BOARD_COPY.approvalPending(gatesCount) : BOARD_COPY.approvalEmpty, 26, 106);
+  drawBoardShell(ctx, w, h, accent, pending);
+  drawBoardHeader(
+    ctx,
+    w,
+    accent,
+    pending,
+    "clipboard-check",
+    BOARD_COPY.approvalHeader,
+    pending ? BOARD_COPY.approvalActive : BOARD_COPY.idleStatus,
+  );
+  drawDeliveryCard(
+    ctx,
+    w,
+    accent,
+    pending,
+    pending ? BOARD_COPY.approvalActive : BOARD_COPY.approvalHeader,
+    pending ? BOARD_COPY.approvalPending(gatesCount) : BOARD_COPY.approvalEmpty,
+    "",
+    null,
+  );
 
   board.texture.needsUpdate = true;
 }
@@ -1296,7 +1578,7 @@ function drawAtlasBoard(board: StationBoard, gatesCount: number): void {
 // mount, independent of the async GLB load (loadAssets) — the boards never
 // wait on character/prop assets to exist. `boardFacingY()` orients the group
 // so both backPlate and panel face the room (see the file-header S7 note).
-function createStationBoards(scene: THREE.Scene): StationBoard[] {
+function createStationBoards(scene: THREE.Scene, maxAnisotropy: number): StationBoard[] {
   return WORKFLOW.map((station) => {
     const group = new THREE.Group();
     group.position.copy(station.pos);
@@ -1304,20 +1586,29 @@ function createStationBoards(scene: THREE.Scene): StationBoard[] {
     scene.add(group);
 
     const accent = ROLE_COLORS[station.key];
+    // CAM-387: a thick, rounded glass screen (was a thin 0.12 slab that read as
+    // painted on the wall). Extra corner segments smooth the rounded edge.
     const backPlate = new THREE.Mesh(
-      new RoundedBoxGeometry(3.34, 2.24, 0.12, 3, 0.05),
+      new RoundedBoxGeometry(
+        BOARD_BACK_WIDTH,
+        BOARD_BACK_HEIGHT,
+        BOARD_BACK_THICKNESS,
+        BOARD_CORNER_SEGMENTS,
+        BOARD_CORNER_RADIUS,
+      ),
       new THREE.MeshPhysicalMaterial({
         color: accent,
-        transmission: 0.75,
+        transmission: 0.72,
         transparent: true,
-        opacity: 0.45,
-        roughness: 0.1,
+        opacity: 0.5,
+        roughness: 0.08,
         metalness: 0.02,
         clearcoat: 1.0,
-        clearcoatRoughness: 0.06,
+        clearcoatRoughness: 0.05,
       }),
     );
-    backPlate.position.set(0, 0, 0.08);
+    // Stand the whole screen off the wall so it reads as a freestanding panel.
+    backPlate.position.set(0, 0, BOARD_STANDOFF);
     group.add(backPlate);
 
     const canvas = document.createElement("canvas");
@@ -1328,6 +1619,9 @@ function createStationBoards(scene: THREE.Scene): StationBoard[] {
     const ctx = canvas.getContext("2d")!;
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
+    // CAM-387: anisotropy is THE fix for the pixelated/blurry text at grazing
+    // angles (the board is viewed obliquely from the iso camera).
+    texture.anisotropy = Math.min(maxAnisotropy, BOARD_MAX_ANISOTROPY);
     texture.generateMipmaps = false;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
@@ -1336,7 +1630,9 @@ function createStationBoards(scene: THREE.Scene): StationBoard[] {
       new THREE.PlaneGeometry(BOARD_PANEL_WIDTH, BOARD_PANEL_HEIGHT),
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.FrontSide }),
     );
-    panel.position.set(0, 0, 0.15);
+    // Sit just in front of the thick backplate's front face so the text renders
+    // crisp on the screen surface, not buried inside the glass slab.
+    panel.position.set(0, 0, BOARD_STANDOFF + BOARD_BACK_THICKNESS / 2 + 0.012);
     group.add(panel);
 
     return { key: station.key, isAtlas: !!station.isAtlas, texture, ctx };
@@ -1530,7 +1826,7 @@ function Canvas3DInner(
     // CAM-379 (S7): the wall screens — created here, synchronously, entirely
     // independent of loadAssets() (the async GLB fetch further below). See
     // the file-header S7 note + createStationBoards' own doc comment.
-    const boards = createStationBoards(scene);
+    const boards = createStationBoards(scene, renderer.capabilities.getMaxAnisotropy());
 
     // CAM-380: selection affordance for Object Edit Mode — a thin glowing
     // ring under the currently-grabbed prop. Created once here (independent
@@ -1571,6 +1867,18 @@ function Canvas3DInner(
     // (the actor set never changes after load). Read-only from then on; the
     // raycaster never allocates a fresh `actors.map(...)` array per pointer event.
     const raycastPivots: THREE.Object3D[] = [];
+    // CAM-387: the floating per-character "current task" popovers (DOM, over the
+    // canvas). Index-aligned with `actors`, populated in loadAssets; positioned
+    // by projecting each head to screen in renderFrame. A reused scratch vector
+    // avoids a per-frame allocation.
+    const popoverLayer = document.createElement("div");
+    popoverLayer.className = "map-3d-poplayer";
+    const popoverStyle = document.createElement("style");
+    popoverStyle.textContent = POPOVER_CSS;
+    popoverLayer.appendChild(popoverStyle);
+    container!.appendChild(popoverLayer);
+    const characterPopovers: HTMLDivElement[] = [];
+    const popoverVec = new THREE.Vector3();
     // CAM-380: the Object Edit Mode counterpart to `actors`/`raycastPivots` —
     // populated once propScenes load (below); `propPivots` is the cached
     // hit-test target list (every prop's group), built once, never rebuilt
@@ -1630,16 +1938,66 @@ function Canvas3DInner(
     // real). The camera is already fully updated by the in-flight `update()`
     // call by the time "change" fires, so a plain repaint (no second
     // `update()` call) is correct and sufficient here — see onControlsChange.
+    // CAM-387: position + fill each character's "current task" popover by
+    // projecting its head to the canvas. Shown only for a build role that is
+    // actively working (has a task); hidden when idle or behind the camera.
+    // Content (role name is static; the task code) is only written to the DOM
+    // when it changes, so the per-frame cost is a couple of style writes.
+    function updatePopovers(): void {
+      if (!characterPopovers.length) return;
+      const w = container!.clientWidth || 1;
+      const h = container!.clientHeight || 1;
+      // Linear lookup over the (~8-entry) live agent list, not a per-frame Map —
+      // this runs every animated frame, so it follows the file's no-per-frame-
+      // allocation discipline (cf. raycastPivots / the reused popoverVec).
+      const liveAgents = agentsRef.current;
+      actors.forEach((actor, i) => {
+        const pop = characterPopovers[i];
+        if (!pop) return;
+        const roleKey = actor.isAtlas ? undefined : ROLE_KEY_BY_CHARACTER[actor.key];
+        const agent = roleKey ? liveAgents.find((a) => a.role === roleKey) : undefined;
+        if (!agent?.active) {
+          pop.classList.remove("show");
+          pop.style.opacity = "0";
+          return;
+        }
+        const code =
+          agent.task?.id ??
+          (agent.queued > 0 ? `${BOARD_COPY.countQueued} ${agent.queued}` : BOARD_COPY.activeStatus);
+        if (pop.dataset.code !== code) {
+          pop.dataset.code = code;
+          const codeEl = pop.querySelector(".c");
+          if (codeEl) codeEl.textContent = code;
+        }
+        popoverVec.copy(actor.pivot.position);
+        popoverVec.y += POPOVER_HEAD_OFFSET;
+        popoverVec.project(camera);
+        if (popoverVec.z >= 1) {
+          pop.classList.remove("show");
+          pop.style.opacity = "0";
+          return;
+        }
+        pop.style.left = `${(popoverVec.x * 0.5 + 0.5) * w}px`;
+        pop.style.top = `${(-popoverVec.y * 0.5 + 0.5) * h}px`;
+        pop.style.opacity = "1";
+        pop.classList.add("show");
+      });
+    }
+
     function renderFrame() {
       if (!reducedMotion) {
         const t = clock.getElapsedTime();
         actors.forEach((actor, i) => {
           // CAM-376 (S4): Atlas gets its own motion (reviewing/calm, never
           // patrols) instead of being skipped entirely as it was in S3.
-          if (actor.isAtlas) updateAtlasMotion(actor, t);
+          if (actor.isAtlas) updateAtlasMotion(actor, t, actors);
           else updateCharacterMotion(actor, t, i, actors);
+          // CAM-387: pin the blob shadow to the ground (counter the pivot bob)
+          // so it no longer sinks into / z-fights the floor while walking.
+          actor.shadow.position.y = SHADOW_GROUND_Y - actor.pivot.position.y;
         });
       }
+      updatePopovers();
       renderer.render(scene, camera);
     }
     function render() {
@@ -2142,7 +2500,8 @@ function Canvas3DInner(
         pivot.rotation.y = Math.atan2(station.pos.x - pivot.position.x, station.pos.z - pivot.position.z);
         const model = normalizeCharacter(characterScenes[i], station.isAtlas ? 1.55 : 1.48);
         pivot.add(model);
-        pivot.add(createFakeShadow(station.isAtlas ? 0.58 : 0.5, station.isAtlas ? 0.34 : 0.3, -0.86, 0.12));
+        const fakeShadow = createFakeShadow(station.isAtlas ? 0.58 : 0.5, station.isAtlas ? 0.34 : 0.3, -0.86, 0.12);
+        pivot.add(fakeShadow);
         const roleLight = new THREE.PointLight(ROLE_COLORS[station.key], (station.isAtlas ? 1.2 : 0.65) * LIGHT_SCALE, station.isAtlas ? 2.4 : 1.8, 2.0);
         roleLight.position.set(0, 1.12, 0.05);
         pivot.add(roleLight);
@@ -2171,11 +2530,28 @@ function Canvas3DInner(
           patrol: null,
           transit: null,
           light: roleLight,
+          shadow: fakeShadow,
         });
       });
       // CAM-377 (S5, review fix): build the raycast target list exactly once,
       // right after every actor exists — not per pointer event.
       raycastPivots.push(...actors.map((a) => a.pivot));
+
+      // CAM-387: one "current task" popover per character, index-aligned with
+      // `actors`. Atlas gets one too (kept for index alignment) but it is never
+      // shown — updatePopovers skips it (Atlas status lives on its wall board).
+      actors.forEach((actor) => {
+        const pop = document.createElement("div");
+        pop.className = "map-3d-pop";
+        pop.style.setProperty("--pa", `#${ROLE_COLORS[actor.key].toString(16).padStart(6, "0")}`);
+        const roleKey = ROLE_KEY_BY_CHARACTER[actor.key];
+        const name = (roleKey && ROLE_DISPLAY[roleKey]?.displayName) || actor.key;
+        pop.innerHTML = `<div class="b"><span class="r"><span class="t"></span><span class="c"></span></span></div>`;
+        const titleEl = pop.querySelector(".t");
+        if (titleEl) titleEl.textContent = name;
+        popoverLayer.appendChild(pop);
+        characterPopovers.push(pop);
+      });
 
       const propScenes = await Promise.all(
         ROOM_PROPS.map((item) =>
@@ -2442,6 +2818,8 @@ function Canvas3DInner(
       editModeControllerRef.current = { setEnabled: () => {}, reset: () => {} };
       propRotateControllerRef.current = { rotate: () => {} };
       stopLoop();
+      // CAM-387: tear down the floating task popovers (DOM child of container).
+      popoverLayer.remove();
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       motionMq.removeEventListener("change", onMotionChange);
