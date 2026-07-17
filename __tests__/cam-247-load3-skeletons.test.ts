@@ -371,9 +371,13 @@ describe('AC-4 — Campground detail loading.tsx (app/campgrounds/[slug]/loading
         expect(detailLoadingSrc).toContain('SR_LABEL');
     });
 
-    // Prove-It: FAILS if the hero cover skeleton is removed
-    it('[shape] has a cover/hero image skeleton (aspect-[4/3] or similar)', () => {
-        expect(detailLoadingSrc).toContain('aspect-[4/3]');
+    // Prove-It: FAILS if the hero cover skeleton is removed. CAM-394 aligned the
+    // detail hero skeleton to the real hero's reserved heights (mobile h-[300px],
+    // desktop grid-cols-4 grid-rows-2 h-[480px]) for an exact CLS match, replacing
+    // the earlier aspect-[4/3]; asserting the new canonical dims is not weakening.
+    it('[shape] has a cover/hero image skeleton with reserved height (CLS=0)', () => {
+        expect(detailLoadingSrc).toContain('h-[480px]');
+        expect(detailLoadingSrc).toContain('grid-cols-4 grid-rows-2');
     });
 
     // Prove-It: FAILS if the booking card skeleton is removed
