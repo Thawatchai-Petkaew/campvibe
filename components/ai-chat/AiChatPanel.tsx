@@ -28,7 +28,7 @@
 
 import { useRef, useState } from "react";
 import { Dialog as PanelPrimitive } from "radix-ui";
-import { Send, X } from "lucide-react";
+import { MessageSquarePlus, Send, X } from "lucide-react";
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,11 +48,14 @@ interface AiChatPanelProps {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
-  const { entries, sending, disabled, sendMessage, retryLast } = useAiChat();
+  const { entries, sending, disabled, resuming, isAuthenticated, sendMessage, retryLast, startNewChat } = useAiChat();
   const [draft, setDraft] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
-  const canSend = !sending && !disabled && isSendableQuestion(draft);
+  // CAM-423: the composer stays disabled while `resuming` too — a message
+  // sent before the resumed conversationId lands would create a stray NEW
+  // conversation instead of continuing the one being restored.
+  const canSend = !sending && !disabled && !resuming && isSendableQuestion(draft);
 
   function handleSend() {
     if (!canSend) return;
@@ -62,7 +65,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   }
 
   function handleSuggestion(text: string) {
-    if (sending || disabled) return;
+    if (sending || disabled || resuming) return;
     setDraft("");
     void sendMessage(text);
   }
@@ -112,20 +115,42 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t.aiChat.close}
-              data-testid="btn--ai-chat-close"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="size-5" aria-hidden="true" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {/* CAM-423 — 'เริ่มแชทใหม่': authed-only (guest stays byte-stable, D1); resets the thread client-side, the next authed send creates a fresh conversation. */}
+              {isAuthenticated && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t.aiChat.newChat}
+                  data-testid="btn--ai-chat-new"
+                  disabled={sending || resuming}
+                  onClick={startNewChat}
+                >
+                  <MessageSquarePlus className="size-5" aria-hidden="true" />
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={t.aiChat.close}
+                data-testid="btn--ai-chat-close"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="size-5" aria-hidden="true" />
+              </Button>
+            </div>
           </div>
 
           <ScrollArea className="min-h-0 flex-1">
-            <AiChatMessageList entries={entries} sending={sending} onSuggestion={handleSuggestion} onRetry={retryLast} />
+            <AiChatMessageList
+              entries={entries}
+              sending={sending}
+              resuming={resuming}
+              onSuggestion={handleSuggestion}
+              onRetry={retryLast}
+            />
           </ScrollArea>
 
           <div className="shrink-0 border-t border-border/60 p-4">

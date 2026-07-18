@@ -37,6 +37,7 @@
 import { Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
@@ -51,11 +52,13 @@ const ENTRANCE_MOTION_CLASS =
 interface AiChatMessageListProps {
   entries: ChatEntry[];
   sending: boolean;
+  /** CAM-423 — the camper's latest conversation is being fetched on open (loading.md inline indicator, not a skeleton). */
+  resuming: boolean;
   onSuggestion: (text: string) => void;
   onRetry: () => void;
 }
 
-export function AiChatMessageList({ entries, sending, onSuggestion, onRetry }: AiChatMessageListProps) {
+export function AiChatMessageList({ entries, sending, resuming, onSuggestion, onRetry }: AiChatMessageListProps) {
   const { t } = useLanguage();
 
   return (
@@ -67,7 +70,25 @@ export function AiChatMessageList({ entries, sending, onSuggestion, onRetry }: A
       data-testid="log--ai-chat-messages"
       className="flex flex-col gap-3 p-4"
     >
-      {entries.length === 0 && (
+      {resuming && (
+        // CAM-423 — fetching the camper's latest conversation on open;
+        // reuses the SAME inline-spinner override the send button already
+        // uses (loading.md: no new skeleton for an isolated module fetch).
+        // Its own scoped aria-busy + role=status/aria-live=polite (loading.md
+        // §5) — the outer log's aria-busy stays tied to `sending` only.
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy={resuming}
+          data-testid="status--ai-chat-resuming"
+          className="flex items-center gap-2 py-2 text-sm text-muted-foreground"
+        >
+          <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
+          <span>{t.aiChat.loading}</span>
+        </div>
+      )}
+
+      {!resuming && entries.length === 0 && (
         <div data-testid="empty--ai-chat-welcome" className="space-y-4 py-2">
           <div className="flex flex-col items-start gap-3">
             <AiChatAvatar size="lg" />

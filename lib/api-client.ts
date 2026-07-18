@@ -268,7 +268,7 @@ function normalizeSuggestions(value: unknown): string[] {
  * skip-rendering an unknown type is the render layer's job (out of scope:
  * no block-consuming UI exists yet).
  */
-function normalizeBlocks(value: unknown): AiChatBlock[] {
+export function normalizeBlocks(value: unknown): AiChatBlock[] {
     if (!Array.isArray(value)) return [];
     const out: AiChatBlock[] = [];
     for (const item of value) {
@@ -318,6 +318,35 @@ export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
     return outcome;
 }
 
+/**
+ * CAM-423 (ADR-013 S9) — wire shape of one persisted message returned by
+ * `GET /api/ai/conversations/[id]`, mirroring `ConversationMessageView`
+ * (lib/ai/conversation-store.ts) post-JSON (`Date` -> ISO string).
+ */
+export interface AiConversationMessageView {
+    id: string;
+    role: 'USER' | 'ASSISTANT';
+    seq: number;
+    contentText: string;
+    blocks: unknown;
+    createdAt: string;
+}
+
+/** CAM-423 — the full body of `GET /api/ai/conversations/[id]` (CAM-421 AC-2). */
+export interface AiConversationDetail {
+    id: string;
+    updatedAt: string;
+    messages: AiConversationMessageView[];
+}
+
+/** CAM-423 — one row of `GET /api/ai/conversations`'s `conversations[]` (CAM-421 AC-1). */
+export interface AiConversationSummary {
+    id: string;
+    title: string | null;
+    messageCount: number;
+    updatedAt: string;
+}
+
 export const aiChatAPI = {
     /** POST /api/ai/chat — `messages` is truncated to the last AI_CHAT_MAX_MESSAGES before sending. */
     send: async (messages: AiChatRequestMessage[]): Promise<AiChatOutcome> => {
@@ -337,5 +366,40 @@ export const aiChatAPI = {
         } catch {
             return { kind: 'error' };
         }
+    },
+
+    /**
+     * POST /api/ai/chat — CAM-420 v2 (session-bound) shape. Never called for
+     * a guest (D1); the route 401s an unauthenticated caller. Omitting
+     * `conversationId` creates a new conversation server-side; the returned
+     * `conversationId` threads the next turn (CAM-423 AC).
+     */
+    sendTurn: async (payload: { conversationId?: string; message: string }): Promise<AiChatOutcome> => {
+        try {
+            const response = await fetch(`${API_BASE}/ai/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.status === 429) return { kind: 'rate-limited' };
+            if (response.status === 503) return { kind: 'disabled' };
+            if (!response.ok) return { kind: 'error' };
+
+            const data: unknown = await response.json();
+            return parseAiChatSuccessBody(data);
+        } catch {
+            return { kind: 'error' };
+        }
+    },
+
+    /** GET /api/ai/conversations (CAM-421) — the session camper's own conversations, newest-updated-first. */
+    listConversations: async (): Promise<ApiResponse<{ conversations: AiConversationSummary[] }>> => {
+        return fetchAPI<{ conversations: AiConversationSummary[] }>('/ai/conversations');
+    },
+
+    /** GET /api/ai/conversations/[id] (CAM-421) — full ordered history for one conversation the session camper owns. */
+    getConversation: async (id: string): Promise<ApiResponse<AiConversationDetail>> => {
+        return fetchAPI<AiConversationDetail>(`/ai/conversations/${id}`);
     },
 };
