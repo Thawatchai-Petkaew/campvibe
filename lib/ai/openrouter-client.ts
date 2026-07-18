@@ -38,7 +38,7 @@
  *    round in the turn — once the turn budget is exhausted, further
  *    tool_calls (even within the per-round cap) are rejected as a handled
  *    `too_many_tool_calls` tool message, never dispatched.
- *  - A `TURN_DEADLINE_MS` (45s) wall-clock budget is checked before every
+ *  - A `TURN_DEADLINE_MS` (40s) wall-clock budget is checked before every
  *    completion call after the first (per-call `MODEL_CALL_TIMEOUT_MS`
  *    timeouts are unchanged). A breach makes NO further network call: the
  *    most recent completion's own `content` (if non-empty) becomes the final
@@ -64,7 +64,8 @@ export const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completion
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 /** BR-6 spend guard — every model call is capped at this ceiling (600 -> 680: CAM-410 headroom for 2-3 short Thai suggestion lines, the ONLY spend-guard change). */
 export const MAX_TOKENS = 680;
-const MODEL_CALL_TIMEOUT_MS = 15_000;
+/** Per-call network timeout (AbortSignal). Exported so the TURN_DEADLINE_MS invariant test can check it against the route's `maxDuration` (see TURN_DEADLINE_MS below). */
+export const MODEL_CALL_TIMEOUT_MS = 15_000;
 /** Safe, generic reason code returned to the caller — never the raw model error/status/key (AC-6, EC-6). */
 export const GENERIC_ERROR = 'assistant_unavailable';
 
@@ -457,8 +458,22 @@ export const MAX_AGENT_ITERATIONS = 4;
  * per-call `MODEL_CALL_TIMEOUT_MS` timeout. Checked before every completion
  * call after the first; a breach makes no further network call (see
  * `runTurnFromBaseMessages`).
+ *
+ * SECURITY FIX (Info, post-merge hardening) — the deadline check at the top
+ * of an iteration can pass with only a sliver of budget left (e.g. ~44.9s),
+ * and the call it then allows can itself run up to `MODEL_CALL_TIMEOUT_MS`.
+ * Without headroom, `TURN_DEADLINE_MS + MODEL_CALL_TIMEOUT_MS` can reach or
+ * exceed `app/api/ai/chat/route.ts`'s `maxDuration` (60s), surfacing a raw
+ * Vercel 504 instead of this file's own graceful 502 `assistant_unavailable`.
+ * INVARIANT (enforced by `__tests__/cam-416-agent-loop.test.ts`):
+ *   TURN_DEADLINE_MS + MODEL_CALL_TIMEOUT_MS < maxDuration * 1000
+ *   40_000        +   15_000                = 55_000 < 60_000  ✓ (5s margin)
+ * Deliberately tighter than ADR-013 D4's illustrative "45s" figure — the
+ * decision (a turn-level wall-clock cap, independent of the per-call
+ * timeout) is unchanged; only the exact budget was tightened to keep this
+ * invariant true against the route's real `maxDuration`.
  */
-export const TURN_DEADLINE_MS = 45_000;
+export const TURN_DEADLINE_MS = 40_000;
 
 const TOO_MANY_TOOL_CALLS_RESULT = { ok: false as const, code: 'too_many_tool_calls' as const };
 

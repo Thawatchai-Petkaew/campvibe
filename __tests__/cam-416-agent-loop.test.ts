@@ -46,7 +46,10 @@ const {
   MAX_AGENT_ITERATIONS,
   MAX_TOOL_CALLS_PER_ROUND,
   MAX_TOOL_CALLS_PER_TURN,
+  TURN_DEADLINE_MS,
+  MODEL_CALL_TIMEOUT_MS,
 } = await import('@/lib/ai/openrouter-client');
+const { maxDuration } = await import('@/app/api/ai/chat/route');
 
 const FAKE_KEY = 'sk-or-test-cam416-agent-loop';
 
@@ -80,6 +83,17 @@ describe('CAM-416 — constants match ADR-013 D4', () => {
     expect(MAX_AGENT_ITERATIONS).toBe(4);
     expect(MAX_TOOL_CALLS_PER_ROUND).toBe(3);
     expect(MAX_TOOL_CALLS_PER_TURN).toBe(6);
+  });
+});
+
+describe('CAM-416 — Security Info fix: TURN_DEADLINE_MS leaves headroom under route maxDuration (boundary)', () => {
+  it('[boundary] TURN_DEADLINE_MS + MODEL_CALL_TIMEOUT_MS stays strictly below maxDuration*1000 — a deadline check that JUST passes can never let its one final model call push the route past its own execution ceiling (would surface a raw Vercel 504 instead of the graceful 502 assistant_unavailable)', () => {
+    expect(TURN_DEADLINE_MS + MODEL_CALL_TIMEOUT_MS).toBeLessThan(maxDuration * 1000);
+    // Pin the real numbers too (not just the relationship) so a change to
+    // either constant is a deliberate, reviewed edit — never a silent drift.
+    expect(TURN_DEADLINE_MS).toBe(40_000);
+    expect(MODEL_CALL_TIMEOUT_MS).toBe(15_000);
+    expect(maxDuration).toBe(60);
   });
 });
 
@@ -184,7 +198,7 @@ describe('CAM-416 — turn wall-clock deadline (error/validation, Date.now() spi
     const nowSpy = vi
       .spyOn(Date, 'now')
       .mockReturnValueOnce(1_000) // turn start
-      .mockReturnValueOnce(1_000 + 46_000); // iteration-2 deadline check — breached (budget is 45s)
+      .mockReturnValueOnce(1_000 + 46_000); // iteration-2 deadline check — breached (TURN_DEADLINE_MS = 40s)
 
     const mockFetch = vi.fn().mockResolvedValueOnce(res(assistantMessage(null, [toolCall('call_1')])));
     vi.stubGlobal('fetch', mockFetch);

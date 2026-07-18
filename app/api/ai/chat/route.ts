@@ -15,8 +15,8 @@
  *  3. Build the full capped conversation into a REAL multi-turn messages
  *     array (CAM-415, `lib/ai/build-turn-messages.ts` — every user turn
  *     individually fenced, assistant history re-sanitized) and invoke the
- *     CAM-416 bounded agent loop (up to 4 completions, 45s deadline) over
- *     that array (BR-4).
+ *     CAM-416 bounded agent loop (up to 4 completions, 40s turn deadline)
+ *     over that array (BR-4).
  *  4. Map the handled result to a typed response (BR-5/BR-6) — the raw
  *     model error / status body / key is NEVER surfaced in the response or
  *     logs (security.md, CAM-270 BR-6).
@@ -28,7 +28,20 @@ import { chatRequestSchema } from '@/lib/validations/ai-chat';
 import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
 import { serializeDecimals } from '@/lib/serialize';
 
-/** CAM-416 (ADR-013 D4) — the agent loop can run up to MAX_AGENT_ITERATIONS completions within its 45s TURN_DEADLINE_MS; give the route's own execution ceiling headroom above that (Vercel default is 10s on Hobby/Edge-adjacent runtimes). */
+/**
+ * CAM-416 (ADR-013 D4) — the agent loop can run up to MAX_AGENT_ITERATIONS
+ * completions within its TURN_DEADLINE_MS; give the route's own execution
+ * ceiling headroom above that (Vercel default is 10s on Hobby/Edge-adjacent
+ * runtimes).
+ *
+ * INVARIANT (Security Info fix, post-merge) — must stay true so a deadline
+ * check that JUST passes can never let its one final model call run the
+ * route past this ceiling (which would surface a raw Vercel 504 instead of
+ * openrouter-client.ts's own graceful 502 `assistant_unavailable`):
+ *   TURN_DEADLINE_MS + MODEL_CALL_TIMEOUT_MS < maxDuration * 1000
+ *   40_000        +   15_000                = 55_000 < 60_000  ✓ (5s margin)
+ * Enforced by __tests__/cam-416-agent-loop.test.ts so it cannot silently regress.
+ */
 export const maxDuration = 60;
 
 /**
