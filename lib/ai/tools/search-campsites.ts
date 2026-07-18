@@ -33,10 +33,42 @@ export interface SearchCampsitesResult {
   cards: CampCardPayload[];
 }
 
+/** CAM-404 — a province arg containing any Thai character triggers the ThailandLocation resolve below. */
+const THAI_CHAR_PATTERN = /[ก-๙]/;
+
+/**
+ * CAM-404 — `Location.province` is stored in English (e.g. "Chiang Mai"), but
+ * the model frequently emits the Thai province name it was given by the user
+ * (e.g. "เชียงใหม่"). `buildCampSiteWhere` does an exact match on `province`,
+ * so an un-resolved Thai value matches zero rows forever even when camps
+ * exist. Resolve via `ThailandLocation` (provinceName ↔ provinceNameEn);
+ * English input is returned unchanged (no DB round-trip). Coverage is
+ * partial (~12 provinces seeded) — an unmapped Thai province, or any lookup
+ * error, falls back to the raw value unchanged (never throws), matching the
+ * search's prior behavior for those cases.
+ */
+async function resolveProvinceForSearch(province: string): Promise<string> {
+  if (!THAI_CHAR_PATTERN.test(province)) return province;
+
+  try {
+    const match = await prisma.thailandLocation.findFirst({
+      where: { provinceName: { contains: province } },
+      select: { provinceNameEn: true },
+    });
+    return match?.provinceNameEn ?? province;
+  } catch {
+    return province;
+  }
+}
+
 const jsonSchema = {
   type: 'object',
   properties: {
-    province: { type: 'string', description: 'Thai province name to filter by, e.g. เชียงใหม่' },
+    province: {
+      type: 'string',
+      description:
+        'Province name in English, e.g. "Chiang Mai". Thai province names (e.g. เชียงใหม่) are also accepted and resolved to the stored English value server-side.',
+    },
     type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
     priceMin: { type: 'number', description: 'Minimum nightly price in THB' },
     priceMax: { type: 'number', description: 'Maximum nightly price in THB' },
@@ -47,8 +79,10 @@ const jsonSchema = {
 } as const;
 
 export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise<SearchCampsitesResult> {
+  const province = args.province !== undefined ? await resolveProvinceForSearch(args.province) : undefined;
+
   const where = buildCampSiteWhere({
-    province: args.province,
+    province,
     type: args.type,
     min: args.priceMin !== undefined ? String(args.priceMin) : undefined,
     max: args.priceMax !== undefined ? String(args.priceMax) : undefined,
