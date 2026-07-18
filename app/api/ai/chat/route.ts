@@ -1,0 +1,80 @@
+/**
+ * CAM-271 — `POST /api/ai/chat`: PUBLIC (no sign-in, guest Discover funnel,
+ * BR-1). No ownership/authz check runs here because the route triggers no
+ * mutation and owns no resource (CAM-270's tools are read-only, BR-1);
+ * abuse is contained by the per-IP rate limit (BR-2) + the zod input caps
+ * (BR-3) below, not by an auth gate.
+ *
+ * Pipeline (BR-binding order):
+ *  1. Per-IP rate limit (BR-2) — runs FIRST, before body validation and
+ *     before any model/tool call. Mirrors app/api/campgrounds/route.ts's
+ *     IP-extraction + rate-limit-first layering (this route is PUBLIC, so
+ *     it drops the auth() step app/api/reviews/route.ts has).
+ *  2. zod-validate the posted conversation at the boundary (BR-3) — before
+ *     any model/tool call.
+ *  3. Serialize the full capped conversation into ONE userText (Seams & refs
+ *     — CAM-270's runAssistantTurn takes a single string, not an array) and
+ *     invoke CAM-270's single-round turn (BR-4).
+ *  4. Map the handled result to a typed response (BR-5/BR-6) — the raw
+ *     model error / status body / key is NEVER surfaced in the response or
+ *     logs (security.md, CAM-270 BR-6).
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { checkAssistantRateLimit } from '@/lib/ai/rate-limit';
+import { runAssistantTurn } from '@/lib/ai/openrouter-client';
+import { chatRequestSchema } from '@/lib/validations/ai-chat';
+import { serializeConversation, MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
+
+/** Same IP-extraction pattern as app/api/campgrounds/route.ts (Vercel proxy header). */
+function extractClientIp(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+}
+
+export async function POST(request: NextRequest) {
+  // 1. BR-2 — per-IP rate limit FIRST, before body validation, before any paid call.
+  const ip = extractClientIp(request);
+  const rl = checkAssistantRateLimit(ip);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { code: 'rate_limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
+
+  // 2. BR-3 — zod-validate at the boundary before any model/tool call. A
+  //    malformed body (not JSON, or the wrong shape) fails the same way as
+  //    a cap breach: 400 `invalid_request`.
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ code: 'invalid_request' }, { status: 400 });
+  }
+
+  const parsed = chatRequestSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json({ code: 'invalid_request' }, { status: 400 });
+  }
+
+  // 3. BR-4 — the full capped conversation, serialized, drives CAM-270's
+  //    single-round turn (exactly one tool-call round; no agent loop). The
+  //    transcript-level cap (MAX_PROMPT_CHARS) is forwarded as the
+  //    sanitizer override so a long, already-bounded transcript is not
+  //    re-truncated to the single-message default — the newest turn (the
+  //    camper's current question) always survives (functional-security fix).
+  const userText = serializeConversation(parsed.data.messages);
+  const result = await runAssistantTurn(userText, { maxPromptChars: MAX_PROMPT_CHARS });
+
+  // 4. BR-5 — handled-failure mapping. `skipped` only appears on an ok:true
+  //    result (key unset, no network call made); check it first so it is
+  //    never mistaken for the ok:false branch below.
+  if (result.skipped) {
+    return NextResponse.json({ code: 'assistant_disabled' }, { status: 503 });
+  }
+  if (!result.ok) {
+    return NextResponse.json({ code: 'assistant_error' }, { status: 502 });
+  }
+
+  // BR-6 — success body is exactly { answer, cards }; nothing else leaked.
+  return NextResponse.json({ answer: result.answer ?? '', cards: result.cards ?? [] }, { status: 200 });
+}

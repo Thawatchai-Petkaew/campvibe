@@ -44,12 +44,20 @@ function isStrippableControlChar(code: number): boolean {
  *  - strips any literal delimiter-tag occurrence (open or close, case-
  *    insensitive) — defense-in-depth against a forged closing tag
  *  - collapses runs of whitespace to a single space
- *  - trims + caps length at MAX_USER_TEXT_LENGTH
+ *  - trims + caps length at `maxLength`
  *
  * Built via a char-code walk (not a regex literal) to avoid embedding raw
  * control bytes in source.
+ *
+ * @param maxLength — CAM-271 additive override (default `MAX_USER_TEXT_LENGTH`,
+ * unchanged for every existing/default caller). The multi-turn transcript
+ * path (`lib/ai/serialize-conversation.ts`, via `runAssistantTurn`'s
+ * `maxPromptChars` option) already bounds its OWN string at a larger cap
+ * (`MAX_PROMPT_CHARS`) by dropping whole oldest messages — that string must
+ * pass through here unchanged, not get re-cut to the single-message limit
+ * (which would silently drop the newest turn, breaking multi-turn context).
  */
-export function sanitizeForPrompt(rawText: string): string {
+export function sanitizeForPrompt(rawText: string, maxLength: number = MAX_USER_TEXT_LENGTH): string {
   let withoutControlChars = '';
   for (const ch of rawText) {
     const code = ch.codePointAt(0) ?? 0;
@@ -60,7 +68,7 @@ export function sanitizeForPrompt(rawText: string): string {
   // step normalizes any doubled spaces this introduces.
   const withoutDelimiterTags = withoutControlChars.replace(DELIMITER_TAG_REGEX, ' ');
   const collapsed = withoutDelimiterTags.replace(/\s+/g, ' ').trim();
-  return collapsed.slice(0, MAX_USER_TEXT_LENGTH);
+  return collapsed.slice(0, maxLength);
 }
 
 /**
