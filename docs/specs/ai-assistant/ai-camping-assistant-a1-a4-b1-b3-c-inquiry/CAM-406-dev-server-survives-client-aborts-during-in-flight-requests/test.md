@@ -49,8 +49,19 @@ Ran entirely in the worktree on port **3005** (never touched port 3000 / the own
 
 **Honest summary:** this story could not reproduce the owner's exact real-world crash mechanism at the JS/process level after multiple realistic and one exact-shape synthetic attempt, because Next.js's own built-in exception handling already prevents a bare JS `uncaughtException`/`unhandledRejection` from killing `next dev`, for both the abort shape and unrelated real bugs. The shipped guard is therefore a safe, narrow, non-regressing defense-in-depth addition (adds a low-noise structured signal distinguishing the known client-abort class; provably does not weaken Next's own existing crash-prevention for real bugs) rather than a demonstrated fix for the two specific reported crashes — flagged to the orchestrator as `needs_decision` in the handoff (recommend capturing full terminal output, not a truncated snippet, on the next recurrence to check for a Turbopack-native panic banner, which no JS-level guard can address).
 
+## QA verdict (independent re-verify)
+
+- Diff surface: clean (`git diff origin/dev...HEAD --stat`) — only `instrumentation.ts`, `lib/observability/abort-guard.ts`, this test file, and the two spec docs; no other file touched.
+- Predicate (BR-1): confirmed exact-match only — `err instanceof Error && err.message === 'aborted' && code === 'ECONNRESET'`; 5/5 cases pass (wrong message, wrong code, missing code, non-Error string/object/undefined all rejected — no substring/partial match).
+- Never-rethrow (BR-2, the regression that mattered): re-proved red→green independently — temporarily reinstated `throw err` in the non-matching branch, reran the suite: the "does NOT rethrow… for a non-matching (real bug) error" test failed exactly as the story's narrative claims (`AssertionError: expected [Function] to not throw`); reverted the one-line change, reran: 8/8 green again. The regression guard has real teeth, not just a source-inspection assertion.
+- Idempotent registration (BR-3/EC-3): confirmed — `registerAbortGuard()` called twice adds exactly one listener.
+- `instrumentation.ts` nodejs-runtime guard (BR-4): confirmed — `if (process.env.NEXT_RUNTIME !== 'nodejs') return;` present before any `process.on` touch; no edge-runtime break.
+- `npx vitest run __tests__/cam-406-abort-guard.test.ts` → 8/8 pass. `npm run typecheck` → clean, 0 errors.
+- Coverage: not measured via `--coverage` this pass (consistent with the QA-authored note above — single new module, all paths exercised by the 8 tests). No defect found; no sub-ticket opened.
+
 ## Links
 `story.md` (AC/BR/Out-of-scope) · `.claude/rules/api.md` · `.claude/rules/observability.md`
 
 ## Changelog
 - v1 (2026-07-18) — created alongside story.md; Prove-It documents both the honest non-repro of the real incident and the real regression this story caught and fixed pre-handoff.
+- v1.1 (2026-07-18) — QA independent re-verify appended (diff-surface check + red→green re-proof of the never-rethrow regression guard); no defects.
