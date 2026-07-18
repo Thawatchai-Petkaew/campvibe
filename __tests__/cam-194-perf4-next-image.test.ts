@@ -44,6 +44,12 @@
  *
  *   AC-7  context-17 (bookings page) no-CLS wrapper
  *         app/bookings/page.tsx uses aspect-[4/3] (not h-auto) on the image wrapper div.
+ *         SUPERSEDED by CAM-398 BR-2 (G4 fix): aspect-[4/3] pinned the image to a fixed
+ *         192px height inside a taller flex row, leaving a gap under the image on desktop.
+ *         The wrapper now uses md:h-auto (stretches to the row height); object-cover on
+ *         the image absorbs the aspect-ratio mismatch, so CLS is still bounded by the
+ *         wrapper's own h-48 base height (never 0 / unbounded). See cam-398 test file's
+ *         AC-2 for the current assertions.
  *
  * Prove-It notes (verified red-before-green per story):
  *   AC-1: removing `from "next/image"` import makes the "imports from next/image" test fail.
@@ -489,20 +495,30 @@ describe('AC-6 — fallback path intact: errored state + onError wired + ImageOf
 // AC-7 — context-17 (app/bookings/page.tsx) no-CLS wrapper uses aspect-[4/3]
 // ===========================================================================
 
-describe('AC-7 — bookings page image wrapper uses aspect-[4/3] (CLS prevention, not h-auto)', () => {
+describe('AC-7 — bookings page image wrapper (CAM-398 BR-2 superseded md:h-auto, base h-48 bounds CLS)', () => {
 
-  it('[no-cls] bookings image wrapper has aspect-[4/3] class', () => {
-    // Prove-It: swapping aspect-[4/3] for h-auto makes this fail.
-    expect(bookingsSrc).toContain('aspect-[4/3]');
-  });
-
-  it('[no-cls] bookings image wrapper does NOT use h-auto (h-auto causes CLS on fill images)', () => {
-    // h-auto on a relative wrapper with fill image = zero-height container = CLS.
-    // Prove-It: adding h-auto to the wrapper class makes this fail.
+  it('[no-gap] bookings image wrapper uses md:h-auto (CAM-398 BR-2: stretches to the row height on desktop)', () => {
+    // Prove-It: removing md:h-auto from the wrapper class makes this fail.
     const wrapperLine = bookingsSrc
       .split('\n')
-      .find((line) => line.includes('aspect-[4/3]')) ?? '';
-    expect(wrapperLine).not.toContain('h-auto');
+      .find((line) => line.includes('md:w-64')) ?? '';
+    expect(wrapperLine).toContain('md:h-auto');
+  });
+
+  it('[no-gap] bookings image wrapper does NOT use aspect-[4/3] anymore (dropped per CAM-398 BR-2)', () => {
+    // aspect-[4/3] pinned the image to 192px inside a taller flex row → bottom gap.
+    // Prove-It: re-adding aspect-[4/3] to the wrapper class makes this fail.
+    const wrapperLine = bookingsSrc
+      .split('\n')
+      .find((line) => line.includes('md:w-64')) ?? '';
+    expect(wrapperLine).not.toContain('aspect-[4/3]');
+  });
+
+  it('[bounded] bookings image wrapper still has a base h-48 (CLS stays bounded below md, and until md:h-auto resolves)', () => {
+    const wrapperLine = bookingsSrc
+      .split('\n')
+      .find((line) => line.includes('md:w-64')) ?? '';
+    expect(wrapperLine).toContain('h-48');
   });
 
   it('[consumer-wired] bookings page imports and uses ImageWithFallback (adoption intact)', () => {

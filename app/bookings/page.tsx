@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -26,6 +27,7 @@ import { getBookingStatusMeta } from "@/lib/booking-status";
 
 export default function MyBookingsPage() {
     const { t, formatCurrency, language } = useLanguage();
+    const router = useRouter();
     const [bookings, setBookings] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
@@ -121,10 +123,24 @@ export default function MyBookingsPage() {
                     ) : (
                         <div className="space-y-6" data-testid="section--booking-list">
                             {bookings.map((booking) => (
-                                <div key={booking.id} className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group">
+                                // CAM-398 AC-1/BR-1: the whole card navigates to the booking detail
+                                // on click. This is a plain div (not <a>) so the real "ดูรายละเอียด"
+                                // Link + the Cancel button below can nest as valid interactive
+                                // controls (a <button>/<a> inside <a> is invalid HTML) — the Link
+                                // remains the keyboard/screen-reader-accessible equivalent action;
+                                // this div's onClick is a mouse/touch convenience layer only.
+                                <div
+                                    key={booking.id}
+                                    className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+                                    onClick={() => router.push(`/bookings/${booking.id}`)}
+                                    data-testid="card--booking-item"
+                                >
                                     <div className="flex flex-col md:flex-row">
-                                        {/* Image Section */}
-                                        <div className="md:w-64 h-48 md:aspect-[4/3] overflow-hidden relative">
+                                        {/* Image Section. CAM-398 BR-2: md:h-auto stretches the image
+                                            to the full row height on desktop (object-cover on the
+                                            image absorbs the aspect-ratio mismatch); dropped
+                                            md:aspect-[4/3] which pinned it to 192px and left a gap. */}
+                                        <div className="md:w-64 h-48 md:h-auto overflow-hidden relative">
                                             <ImageWithFallback
                                                 src={booking.campSite?.images?.[0]?.url || booking.campground?.images?.[0]?.url}
                                                 alt={booking.campSite?.nameEn || booking.campground?.nameEn || ""}
@@ -211,7 +227,12 @@ export default function MyBookingsPage() {
                                                                 disabled={cancellingId === booking.id}
                                                                 aria-label={t.bookings.cancelBookingAriaLabel}
                                                                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full font-bold px-4 h-11 flex-1 sm:flex-none transition-colors"
-                                                                onClick={() => setCancelConfirmId(booking.id)}
+                                                                onClick={(e) => {
+                                                                    // Stop the card-level onClick (router.push to the detail
+                                                                    // page) from firing when the user meant to cancel.
+                                                                    e.stopPropagation();
+                                                                    setCancelConfirmId(booking.id);
+                                                                }}
                                                             >
                                                                 {cancellingId === booking.id ? (
                                                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -235,8 +256,9 @@ export default function MyBookingsPage() {
                                                             />
                                                         </>
                                                     )}
-                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors">
-                                                        <Link href={`/campgrounds/${booking.campSite?.nameThSlug || booking.campground?.nameThSlug}`}>
+                                                    {/* CAM-398 BR-1: stopPropagation skips the duplicate card-level push (same destination). */}
+                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors" onClick={(e) => e.stopPropagation()}>
+                                                        <Link href={`/bookings/${booking.id}`} data-testid="link--booking-view-details">
                                                             {t.bookings.viewDetails} <ChevronRight className="w-4 h-4 ml-1" />
                                                         </Link>
                                                     </Button>
