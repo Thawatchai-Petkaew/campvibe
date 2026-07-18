@@ -30,7 +30,7 @@ vi.mock('@/lib/ai/tool-registry', async () => {
   };
 });
 
-const { runAssistantTurn, OPENROUTER_ENDPOINT, MAX_TOKENS, GENERIC_ERROR } = await import(
+const { runAssistantTurn, OPENROUTER_ENDPOINT, MAX_TOKENS, GENERIC_ERROR, MAX_TOOL_CALLS_PER_ROUND } = await import(
   '@/lib/ai/openrouter-client'
 );
 
@@ -177,6 +177,37 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockDispatchTool).toHaveBeenCalledOnce();
     expect(result).toEqual({ ok: true, answer: 'partial answer', cards: [] });
+  });
+
+  it('[security] a hard per-round cap rejects tool_calls beyond MAX_TOOL_CALLS_PER_ROUND without ever executing them', async () => {
+    // Build MAX_TOOL_CALLS_PER_ROUND + 2 tool_calls — more than the cap allows.
+    const toolCalls = Array.from({ length: MAX_TOOL_CALLS_PER_ROUND + 2 }, (_, i) => ({
+      id: `call_${i}`,
+      type: 'function',
+      function: { name: 'searchCampsites', arguments: '{}' },
+    }));
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(res(assistantMessage(null, toolCalls)))
+      .mockResolvedValueOnce(res(assistantMessage('done')));
+    vi.stubGlobal('fetch', mockFetch);
+    mockDispatchTool.mockResolvedValue({ ok: true, data: {} });
+
+    const result = await runAssistantTurn('question requesting many tools');
+
+    // Only the first MAX_TOOL_CALLS_PER_ROUND calls are ever dispatched —
+    // the rest are rejected as a handled result, never executed.
+    expect(mockDispatchTool).toHaveBeenCalledTimes(MAX_TOOL_CALLS_PER_ROUND);
+    expect(mockFetch).toHaveBeenCalledTimes(2); // still exactly one follow-up call
+    expect(result.ok).toBe(true);
+
+    // The follow-up call's tool messages carry a matching entry for EVERY
+    // tool_call_id (including the rejected ones) so the request stays well-formed.
+    const followUpBody = JSON.parse((mockFetch.mock.calls[1][1] as RequestInit).body as string);
+    const toolMessages = followUpBody.messages.filter((m: { role: string }) => m.role === 'tool');
+    expect(toolMessages).toHaveLength(toolCalls.length);
+    const rejectedMessage = toolMessages[toolMessages.length - 1];
+    expect(JSON.parse(rejectedMessage.content)).toEqual({ ok: false, code: 'too_many_tool_calls' });
   });
 
   it('[unit] EC-7: malformed tool-call JSON is dispatched as invalid (undefined) args, never crashes', async () => {

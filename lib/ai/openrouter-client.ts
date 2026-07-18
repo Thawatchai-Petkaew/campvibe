@@ -171,12 +171,32 @@ function collectCardsFromToolData(data: unknown, cards: unknown[]): void {
   if (Array.isArray(maybeCards)) cards.push(...maybeCards);
 }
 
-/** BR-3: exactly ONE round — every tool_call the model requested this round is validated + executed here, then never re-checked for further tool requests. */
+/**
+ * Security review nit (BR-6 spend guard, defense-in-depth): a hard cap on how
+ * many tool calls one round will ever EXECUTE, independent of however many
+ * tool_calls the model's response carries. A call beyond the cap is rejected
+ * as a handled result — dispatchTool (and therefore the tool's own
+ * execute()) is never invoked for it — it is NOT silently dropped: every
+ * tool_call_id still gets a matching tool message so the follow-up
+ * completion call stays well-formed.
+ */
+export const MAX_TOOL_CALLS_PER_ROUND = 3;
+
+const TOO_MANY_TOOL_CALLS_RESULT = { ok: false as const, code: 'too_many_tool_calls' as const };
+
+/** BR-3: exactly ONE round — every tool_call the model requested this round is validated + executed here (up to MAX_TOOL_CALLS_PER_ROUND), then never re-checked for further tool requests. */
 async function executeToolCalls(toolCalls: OutgoingToolCall[]): Promise<ExecutedToolCalls> {
   const toolMessages: OutgoingMessage[] = [];
   const cards: unknown[] = [];
 
-  for (const call of toolCalls) {
+  for (let i = 0; i < toolCalls.length; i++) {
+    const call = toolCalls[i];
+
+    if (i >= MAX_TOOL_CALLS_PER_ROUND) {
+      toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(TOO_MANY_TOOL_CALLS_RESULT) });
+      continue;
+    }
+
     const args = parseToolCallArguments(call.function.arguments);
     const result = await dispatchTool(call.function.name, args);
     if (result.ok) collectCardsFromToolData(result.data, cards);
