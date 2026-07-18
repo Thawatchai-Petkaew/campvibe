@@ -154,3 +154,97 @@ export const operatorAPI = {
         return fetchAPI<any>(`/operator/dashboard${params}`);
     },
 };
+
+// AI Chat API (CAM-272 — facade for the CAM-271 single-turn chat endpoint).
+// Security (BR-3 / .claude/rules/security.md §6): the client NEVER calls
+// OpenRouter/the model directly — every question is POSTed through this
+// server-side route only, so no model secret ever reaches the client bundle.
+export interface AiChatRequestMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
+/**
+ * The wire shape of one campsite card inside a CAM-271 `200` response —
+ * post-`serializeDecimals` + JSON (lib/serialize.ts): Decimal -> number,
+ * Date -> ISO string. Deliberately NOT the server-side `CampCardPayload`
+ * (Prisma.Decimal/Date) — those never reach a `fetch()` caller as-is.
+ * `avgRating`/`reviewCount` (CAM-272 QA Important finding): surfaced so
+ * `AiChatCampCard` can render the same rating badge `CampgroundCard` shows
+ * everywhere else (design.md "keeps the same visual language"). `images`
+ * intentionally declares only `{url}` — `sortOrder` is a server-internal
+ * ordering key, never read client-side (QA Info finding; the route no
+ * longer sends it either).
+ */
+export interface AiChatCardResponse {
+    id: string;
+    nameTh: string;
+    nameEn: string | null;
+    nameThSlug: string;
+    nameEnSlug: string;
+    priceLow: number | null;
+    createdAt: string;
+    avgRating: number | null;
+    reviewCount: number;
+    location: { province: string };
+    images?: { url: string }[];
+}
+
+export type AiChatOutcome =
+    | { kind: 'ok'; answer: string; cards: AiChatCardResponse[] }
+    | { kind: 'rate-limited' }
+    | { kind: 'disabled' }
+    | { kind: 'error' };
+
+/** Matches CAM-271's documented cap (story.md BR-2 sibling) — never send more. */
+export const AI_CHAT_MAX_MESSAGES = 10;
+
+/** Narrows an unknown value into an `AiChatCardResponse` (network I/O is an input boundary, code.md CAM-305). */
+export function isAiChatCardResponse(value: unknown): value is AiChatCardResponse {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    const location = v.location as Record<string, unknown> | undefined;
+    return (
+        typeof v.id === 'string' &&
+        typeof v.nameTh === 'string' &&
+        typeof v.nameThSlug === 'string' &&
+        typeof v.nameEnSlug === 'string' &&
+        (v.priceLow === null || typeof v.priceLow === 'number') &&
+        typeof v.createdAt === 'string' &&
+        (v.avgRating === null || typeof v.avgRating === 'number') &&
+        typeof v.reviewCount === 'number' &&
+        !!location &&
+        typeof location.province === 'string'
+    );
+}
+
+/** Validates a `200` body into an outcome; malformed cards are dropped, never crash the turn (EC-6 sibling). */
+export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
+    if (!data || typeof data !== 'object') return { kind: 'error' };
+    const { answer, cards } = data as Record<string, unknown>;
+    if (typeof answer !== 'string') return { kind: 'error' };
+    const safeCards = Array.isArray(cards) ? cards.filter(isAiChatCardResponse) : [];
+    return { kind: 'ok', answer, cards: safeCards };
+}
+
+export const aiChatAPI = {
+    /** POST /api/ai/chat — `messages` is truncated to the last AI_CHAT_MAX_MESSAGES before sending. */
+    send: async (messages: AiChatRequestMessage[]): Promise<AiChatOutcome> => {
+        try {
+            const response = await fetch(`${API_BASE}/ai/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: messages.slice(-AI_CHAT_MAX_MESSAGES) }),
+            });
+
+            if (response.status === 429) return { kind: 'rate-limited' };
+            if (response.status === 503) return { kind: 'disabled' };
+            if (!response.ok) return { kind: 'error' };
+
+            const data: unknown = await response.json();
+            return parseAiChatSuccessBody(data);
+        } catch {
+            return { kind: 'error' };
+        }
+    },
+};
