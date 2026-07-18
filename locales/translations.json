@@ -969,7 +969,12 @@
             "error": "The assistant is unavailable. Please try again.",
             "retry": "Try again",
             "rateLimited": "Too many questions right now. Please wait a moment and try again.",
-            "disabled": "The assistant is not available yet."
+            "disabled": "The assistant is not available yet.",
+            "cardsLabel": "{count} recommended campsites",
+            "cardsPrev": "Previous campsite",
+            "cardsNext": "Next campsite",
+            "cardsRoleDescription": "carousel",
+            "suggestedQuestionsLabel": "Suggested questions"
         }
     },
     "th": {
@@ -1943,7 +1948,12 @@
             "error": "ผู้ช่วยขัดข้อง กรุณาลองใหม่อีกครั้ง",
             "retry": "ลองใหม่",
             "rateLimited": "มีคำถามเข้ามามากเกินไป กรุณารอสักครู่แล้วลองใหม่",
-            "disabled": "ผู้ช่วยยังไม่เปิดใช้งาน"
+            "disabled": "ผู้ช่วยยังไม่เปิดใช้งาน",
+            "cardsLabel": "ลานกางเต็นท์ที่แนะนำ {count} แห่ง",
+            "cardsPrev": "ดูลานก่อนหน้า",
+            "cardsNext": "ดูลานถัดไป",
+            "cardsRoleDescription": "แถบเลื่อนการ์ด",
+            "suggestedQuestionsLabel": "คำถามแนะนำ"
         }
     }
 }

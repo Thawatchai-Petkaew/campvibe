@@ -15,7 +15,16 @@ import { AI_CHAT_MAX_MESSAGES } from "@/lib/api-client";
 
 export type ChatEntry =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "assistant"; kind: "answer"; text: string; cards: AiChatCardResponse[]; zeroResult: boolean }
+  | {
+      id: string;
+      role: "assistant";
+      kind: "answer";
+      text: string;
+      cards: AiChatCardResponse[];
+      zeroResult: boolean;
+      /** CAM-410 AC-1/AC-4 — 0-3 sanitized follow-up-question chips for THIS answer only; optional on the type (a fixture built before CAM-410 still compiles) but `appendOutcome` always populates a concrete array (`[]` when the turn produced none). */
+      suggestions?: string[];
+    }
   | { id: string; role: "assistant"; kind: "rate-limited" }
   | { id: string; role: "assistant"; kind: "disabled" }
   | { id: string; role: "assistant"; kind: "error"; retryQuestion: string };
@@ -69,6 +78,10 @@ export function appendOutcome(entries: ChatEntry[], outcome: AiChatOutcome, ques
           text: outcome.answer,
           cards: outcome.cards,
           zeroResult: outcome.cards.length === 0,
+          // CAM-410 AC-4: always a concrete array on the entry, even when the
+          // wire/outcome carried no `suggestions` key at all (BR-1 "absent
+          // means no chips").
+          suggestions: outcome.suggestions ?? [],
         },
       ];
     case "rate-limited":
