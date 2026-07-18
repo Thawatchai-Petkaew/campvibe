@@ -198,6 +198,15 @@ describe("aiChatAPI.listConversations / getConversation (AC-1) — fetch always 
     expect(result.error).toBeTruthy();
   });
 
+  it("[error/validation] EC-1: a genuine network throw (not just a non-2xx status) resolves to {error}, never rejects the promise", async () => {
+    stubFetch(async () => {
+      throw new Error("network down");
+    });
+    const result = await aiChatAPI.listConversations();
+    expect(result.data).toBeUndefined();
+    expect(result.error).toBeTruthy();
+  });
+
   it("[normal] getConversation GETs /ai/conversations/{id}", async () => {
     let calledUrl = "";
     stubFetch(async (url: unknown) => {
@@ -212,6 +221,15 @@ describe("aiChatAPI.listConversations / getConversation (AC-1) — fetch always 
   it("[error/validation] EC-4: a 404 (deleted between list + detail) resolves to {error}, never throws", async () => {
     stubFetch(async () => ({ ok: false, json: async () => ({ error: "Conversation not found" }) }));
     const result = await aiChatAPI.getConversation("conv-deleted");
+    expect(result.data).toBeUndefined();
+    expect(result.error).toBeTruthy();
+  });
+
+  it("[error/validation] EC-1: a genuine network throw on the detail fetch resolves to {error}, never rejects", async () => {
+    stubFetch(async () => {
+      throw new Error("network down");
+    });
+    const result = await aiChatAPI.getConversation("conv-1");
     expect(result.data).toBeUndefined();
     expect(result.error).toBeTruthy();
   });
@@ -333,6 +351,10 @@ describe("AC-1/AC-2/BR-3 — resuming indicator: loading.md inline spinner, neve
 
   it("[unit] the composer's canSend gate also blocks sending while resuming (no message during an in-flight resume)", () => {
     expect(panelSrc).toContain("!sending && !disabled && !resuming && isSendableQuestion(draft)");
+  });
+
+  it("[unit] BR-3: the welcome-state suggestion pills are also gated on `resuming` (tapping one during an in-flight resume no-ops)", () => {
+    expect(panelSrc).toContain("if (sending || disabled || resuming) return;");
   });
 });
 
