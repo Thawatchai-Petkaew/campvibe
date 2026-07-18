@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAssistantRateLimit } from '@/lib/ai/rate-limit';
 import { runAssistantTurn } from '@/lib/ai/openrouter-client';
 import { chatRequestSchema } from '@/lib/validations/ai-chat';
-import { serializeConversation } from '@/lib/ai/serialize-conversation';
+import { serializeConversation, MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
 
 /** Same IP-extraction pattern as app/api/campgrounds/route.ts (Vercel proxy header). */
 function extractClientIp(request: NextRequest): string {
@@ -57,9 +57,13 @@ export async function POST(request: NextRequest) {
   }
 
   // 3. BR-4 — the full capped conversation, serialized, drives CAM-270's
-  //    single-round turn (exactly one tool-call round; no agent loop).
+  //    single-round turn (exactly one tool-call round; no agent loop). The
+  //    transcript-level cap (MAX_PROMPT_CHARS) is forwarded as the
+  //    sanitizer override so a long, already-bounded transcript is not
+  //    re-truncated to the single-message default — the newest turn (the
+  //    camper's current question) always survives (functional-security fix).
   const userText = serializeConversation(parsed.data.messages);
-  const result = await runAssistantTurn(userText);
+  const result = await runAssistantTurn(userText, { maxPromptChars: MAX_PROMPT_CHARS });
 
   // 4. BR-5 — handled-failure mapping. `skipped` only appears on an ok:true
   //    result (key unset, no network call made); check it first so it is

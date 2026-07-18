@@ -206,20 +206,38 @@ async function executeToolCalls(toolCalls: OutgoingToolCall[]): Promise<Executed
   return { toolMessages, cards };
 }
 
+export interface RunAssistantTurnOptions {
+  /**
+   * CAM-271 functional-security fix — override the sanitizer's length cap
+   * for THIS call only. The public chat route's multi-turn path
+   * (`lib/ai/serialize-conversation.ts`) already bounds its serialized
+   * transcript at its own larger cap (`MAX_PROMPT_CHARS`) by dropping whole
+   * oldest messages, never mid-message; that already-bounded string must
+   * survive `sanitizeForPrompt` intact instead of being re-cut to the
+   * single-message default (which silently dropped the newest turn on long
+   * threads). Omit to keep the original per-input `MAX_USER_TEXT_LENGTH` cap
+   * — every other/default caller is unaffected.
+   */
+  maxPromptChars?: number;
+}
+
 /**
  * Run one assistant turn (AC-7): sanitize the camper's text, make the initial
  * (tool-schema-equipped) model call, and — only if the model requested
  * tool(s) — execute exactly one round of tool calls before a single
  * follow-up completion produces the final { answer, cards }.
  */
-export async function runAssistantTurn(userText: string): Promise<AssistantTurnResult> {
+export async function runAssistantTurn(
+  userText: string,
+  options?: RunAssistantTurnOptions
+): Promise<AssistantTurnResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.warn(JSON.stringify({ level: 'warn', event: 'ai_turn_skipped', reason: 'OPENROUTER_API_KEY not configured' }));
     return { ok: true, skipped: true };
   }
 
-  const safeText = sanitizeForPrompt(userText);
+  const safeText = sanitizeForPrompt(userText, options?.maxPromptChars);
   const baseMessages: OutgoingMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: wrapAsUserData(safeText) },

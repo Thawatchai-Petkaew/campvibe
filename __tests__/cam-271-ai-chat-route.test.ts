@@ -18,12 +18,15 @@
  *   - AC-8/EC-5 prompt injection text still yields only { answer, cards }, nothing internal
  *   - Story-specific: PUBLIC route (no auth anywhere in this file); rate-limit AND zod
  *     validation BOTH precede the paid call, and rate-limit runs FIRST (BR-2 order)
+ *   - Functional-security fix: MAX_PROMPT_CHARS is forwarded to runAssistantTurn as the
+ *     sanitizer override, so a long transcript is never re-truncated to the single-message cap
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { _store } from '@/lib/rate-limit';
 import { AI_ASSISTANT_RATE_LIMIT } from '@/lib/ai/rate-limit';
 import { MAX_CHAT_MESSAGES, MAX_CHAT_MESSAGE_LENGTH } from '@/lib/validations/ai-chat';
+import { MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
 
 const mockRunAssistantTurn = vi.fn();
 vi.mock('@/lib/ai/openrouter-client', () => ({
@@ -249,6 +252,16 @@ describe('POST /api/ai/chat — prompt injection is treated as data (AC-8, EC-5,
 /* -------------------------------------------------------------------------- */
 /* Story-specific: BR-2 order — rate limit precedes validation + the paid call */
 /* -------------------------------------------------------------------------- */
+
+describe('POST /api/ai/chat — forwards the transcript-level sanitizer cap (functional-security fix)', () => {
+  it('[security] calls runAssistantTurn with { maxPromptChars: MAX_PROMPT_CHARS } so a long transcript is never re-truncated downstream', async () => {
+    mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'ok', cards: [] });
+
+    await POST(makeRequest({ messages: [{ role: 'user', content: 'hi' }] }));
+
+    expect(mockRunAssistantTurn).toHaveBeenCalledWith(expect.any(String), { maxPromptChars: MAX_PROMPT_CHARS });
+  });
+});
 
 describe('POST /api/ai/chat — order: rate-limit AND zod validation BOTH precede the paid call', () => {
   it('[order] an over-limit IP is denied 429 even with an ALSO-invalid body — rate limit runs first (BR-2)', async () => {
