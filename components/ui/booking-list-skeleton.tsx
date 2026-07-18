@@ -23,8 +23,11 @@ function BookingCardSkeleton() {
             aria-hidden="true"
         >
             <div className="flex flex-col md:flex-row">
-                {/* Thumbnail — matches md:w-64 h-48 */}
-                <div className="md:w-64 h-48 flex-shrink-0">
+                {/* Thumbnail — CAM-402: mirrors the real card's md:w-64 h-48 md:h-auto
+                    exactly (CAM-398 BR-2 stretched the image to the row height on
+                    desktop; the skeleton must match or it shows the bottom gap
+                    CAM-398 removed from the real card). */}
+                <div className="md:w-64 h-48 md:h-auto flex-shrink-0">
                     <Skeleton className="w-full h-full rounded-none" />
                 </div>
 
