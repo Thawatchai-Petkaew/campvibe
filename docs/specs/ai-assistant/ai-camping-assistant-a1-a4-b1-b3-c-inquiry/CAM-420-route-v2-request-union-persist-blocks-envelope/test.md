@@ -5,8 +5,8 @@ epic: ai-camping-assistant-a1-a4-b1-b3-c-inquiry
 persona: platform
 artifact: test
 owner: qa-engineer
-status: Fixed — 1 defect closed by backend same-day (see Changelog v2)
-version: v2
+status: Green — fix independently re-verified by QA (see Changelog v3)
+version: v3
 updated: 2026-07-19
 ---
 # Test — Route v2: request union + optional session + persist + blocks[] envelope (CAM-420)
@@ -42,7 +42,7 @@ updated: 2026-07-19
 | BR-10/EC-8: `appendTurn` fails after success -> answer still returned, `conversationId` omitted | M | integration | `cam-420-ai-chat-route-v2.test.ts` (existing) | pass |
 | Security forward-flag: `loadWindow`'s window size cannot be induced from the request ([1,MAX] clamp is moot — no client-influenced field exists at all) | M | security (source-pinned) | **new** Part 0 — zod shape has no window/limit field; a smuggled `limit`/`window` key is stripped; route source pins `HISTORY_WINDOW_SIZE=10` as a literal, never derived from `data` | pass |
 | Item (g): authed request registers `authed`-tier tools (`getMy*`); guest does not | H | unit + integration | `cam-417-tool-registry-tiers.test.ts` (existing, tier filter) + `cam-420-ai-chat-route-v2.test.ts` AC-2 (asserts `ctx={userId}` reaches `runAssistantTurnFromMessages`) + `openrouter-client.ts` source (`buildToolSchemas`: `ctx.userId ? ['guest','authed'] : ['guest']`) | pass |
-| **DEFECT** — an authed personal tool (`getMyBookings` et al.) that throws crashes the whole turn uncaught instead of a handled `502` | H | security/reliability (Prove-It, red confirmed) | **new** Part 2, `it.fails` (pins current buggy behavior; flips to a real failure if silently "fixed" without updating the test) | **fails as documented — see Defects found** |
+| **DEFECT (fixed, independently re-verified)** — an authed personal tool (`getMyBookings` et al.) that throws crashes the whole turn uncaught instead of a handled `502` | H | security/reliability (Prove-It, red-then-green) | `cam-420-adversarial-verify.test.ts` Part 2 (flipped `it.fails`->green by backend) + **new, this re-verify pass** `cam-420-safe-dispatch-reverify.test.ts` (7 tests: all 4 REAL personal tools thrown through the REAL route+loop+registry, iteration-cap termination, not-weakened positive/negative controls) | pass |
 
 ## Validation cases
 
@@ -124,6 +124,41 @@ current and future `authed`-tier tool at once.
 fix, that assertion will start succeeding, `it.fails` will flip to reporting a FAILURE, forcing
 whoever lands the fix to remove the `.fails` modifier — the test cannot silently go stale.
 
+### Part 3 — independent QA re-verify of the backend fix (301a009), not just accepting the self-report
+
+Backend's own commit (301a009) already flipped Part 2's `it.fails` to green and added a unit test to
+`cam-270-openrouter-client.test.ts` — both mock `dispatchTool`/`tool-registry` generically. QA does not
+accept a fix on the fixer's own tests alone: `cam-420-safe-dispatch-reverify.test.ts` (new, this pass, 7
+tests) mocks ONLY `@/lib/prisma` — the real `tool-registry`, the real `openrouter-client`
+(`safeDispatchTool` included), and the REAL `getMyBookings`/`getMyBookingDetail`/`getMyProfile`/
+`getMyWishlist` implementations all run, through the REAL `POST` route handler:
+
+- **(a) all 4 real tools, real route:** `it.each` over all four tool names — each one's real Prisma call
+  rejects (`booking.findMany`/`booking.findFirst`/`user.findUnique`/`wishlist.findMany`) — every case
+  resolves `200` with the model's own graceful follow-up answer; the loop's second completion call
+  actually ran (`mockFetch` called twice), proving the throw never escaped the real route.
+- **(b) no leak, three places checked:** the injected error message (a fake secret string,
+  `internal-db-secret-abc123`) never appears in (i) the client response body, (ii) the follow-up
+  request body sent to the model, or (iii) any `console.error` line — only `{event:
+  'ai_tool_execution_threw', toolName, errorType}` is logged, exactly as the fix's own comment
+  documents.
+- **(c) iteration-cap termination:** a tool that throws on **every** round (mocked to always request
+  `getMyBookings`, always rejecting) still terminates at exactly `MAX_AGENT_ITERATIONS` (4) completion
+  calls — never spins past the cap — with the 4th call correctly forced (`tool_choice:'none'`) and a
+  graceful final answer returned.
+- **(d) not weakened — two controls:** a positive control (a real tool call that SUCCEEDS still returns
+  real data, `booking.findMany` called with the correct `where:{userId}` — `safeDispatchTool` doesn't
+  mask success) and a negative control (a wholly unregistered tool name still resolves the pre-existing
+  `unknown_tool` code, unchanged — the new catch doesn't swallow a DIFFERENT failure mode into
+  `tool_error`). Teeth check (no code reverted to prove it, per QA's own-code restriction): the
+  original scratch repro against the SAME `await realRun(...)` + `.ok` assertion shape genuinely
+  rejected pre-fix (confirmed directly during the first pass) — there is no code path where a reverted
+  fix leaves these tests green.
+
+All 7 new tests pass; combined with the fix's own 3 tests (Part 2 x2 + `cam-270` x1), the containment
+is now proven at both the generic-mock level (backend) and the real-route/real-tool level (QA,
+independent).
+
 ## Coverage
 
 Measured via `npx vitest run --coverage __tests__/cam-271-ai-chat-route.test.ts
@@ -140,17 +175,18 @@ __tests__/cam-420-*.test.ts` (real run):
   exercised by all 7 cases in `cam-420-api-client-blocks.test.ts`; the file's overall low % reflects
   large pre-existing unrelated code in that file, not this story's diff.
 
-Full repo suite (real run, last act of this pass): **212 files, 1 failed | 7227 tests, 7225 passed,
-1 expected fail (my Part-2 `it.fails`), 1 failed**. The 1 failure is the pre-existing, known
-env-dependent flake `__tests__/delivery-client.test.ts` (named in the dispatch contract — not
-chased, unrelated to this story).
+Full repo suite (real run, last act of THIS re-verify pass): **213 files, 1 failed | 7236 tests, 7235
+passed, 1 failed, 0 expected-fail markers remaining** (the `it.fails` from v1 is gone — it is a normal
+green test since the fix). The 1 failure is the pre-existing, known env-dependent flake
+`__tests__/delivery-client.test.ts` (named in the dispatch contract — not chased, unrelated to this
+story). The full AI-sibling matrix (31 files) is **516/516 green** (was 482 pre-fix; +34 from the
+fix's own 3 new tests + this pass's 7 new tests, minus the `it.fails` marker resolving to a plain pass).
 
-`npm run lint`: 0 errors (255 pre-existing warnings, none new from this pass's file).
-`npx tsc --noEmit`: clean.
+`npm run lint`: 0 errors (255 pre-existing warnings, none new). `npx tsc --noEmit`: clean.
 
 ## Defects found
 
-**1 found, FIXED same-day by backend (was Important, tracked; now closed — see Changelog v2).**
+**1 found, FIXED same-day by backend, independently re-verified by QA at the real-route/real-tool level (was Important, tracked; now closed — see Changelog v3).**
 
 - **Title:** Authed personal AI tool throw crashes the whole `/api/ai/chat` v2 turn uncaught instead
   of a handled `502`.
@@ -186,7 +222,8 @@ precedent) · `lib/ai/tools/check-availability.ts` (guest-tier try/catch precede
 `__tests__/cam-420-ai-chat-validation-union.test.ts` (existing) ·
 `__tests__/cam-420-api-client-blocks.test.ts` (existing) ·
 `__tests__/cam-420-rate-limit-per-user.test.ts` (existing) ·
-`__tests__/cam-420-adversarial-verify.test.ts` (new, this pass)
+`__tests__/cam-420-adversarial-verify.test.ts` (defect found here v1; fixed+flipped-green by backend) ·
+`__tests__/cam-420-safe-dispatch-reverify.test.ts` (new, this re-verify pass — independent real-route/real-tool proof)
 
 ## Changelog
 
@@ -203,3 +240,16 @@ precedent) · `lib/ai/tools/check-availability.ts` (guest-tier try/catch precede
   to a real green assertion (+ 1 new no-leak assertion); `cam-270-openrouter-client.test.ts` gained a
   direct unit test. Full AI-sibling suite + full repo suite re-run green. Status: fixed, ready for
   `next: security`.
+- v3 (2026-07-19) — QA independently re-verified the fix (did not accept backend's self-report on
+  backend's own tests alone). Added `cam-420-safe-dispatch-reverify.test.ts` (7 new tests, only
+  `@/lib/prisma` mocked — real tool-registry, real openrouter-client, real `getMy*` tool
+  implementations, real `POST` route): confirmed all 4 authed personal tools throwing each resolve
+  gracefully through the real route (item a); the raw error never reaches the client body, the
+  model-bound request, or the logs — only tool name + error type (item b); a tool throwing on every
+  round still terminates at exactly `MAX_AGENT_ITERATIONS` with a forced-final graceful answer, never
+  spins (item c); the fix is not weakened — a succeeding tool call still returns real data and an
+  unregistered tool name still resolves the pre-existing `unknown_tool` code unchanged, not swallowed
+  into `tool_error` (item d). Full 7-verdict AC matrix re-confirmed with no regression (item e); full
+  AI-sibling suite (31 files/516 tests) and full repo suite (213 files/7236 tests, 1 pre-existing
+  unrelated failure) re-run green as the last act. `npm run lint` 0 errors, `npx tsc --noEmit` clean.
+  Status: green, 0 open defects, ready for `next: security`.
