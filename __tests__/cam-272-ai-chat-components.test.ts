@@ -146,6 +146,22 @@ describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/
   });
 });
 
+describe("AC-3 — each in-chat card is a link to /campgrounds/{slug}, no write fires (QA gap closed)", () => {
+  it("[unit] AiChatCampCard forwards nameThSlug/nameEnSlug straight through to CampgroundCard (no synthetic slug)", () => {
+    expect(cardSrc).toContain("nameThSlug: card.nameThSlug");
+    expect(cardSrc).toContain("nameEnSlug: card.nameEnSlug");
+  });
+
+  it("[structural] CampgroundCard's Link targets /campgrounds/{slug} (nameEnSlug in EN, nameThSlug in TH) — unmodified pre-existing behaviour, AC-3 relies on it", () => {
+    expect(campgroundCardSrc).toContain('<Link href={`/campgrounds/${slug}`}');
+    expect(campgroundCardSrc).toContain("language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug");
+  });
+
+  it("[security/structural] the in-chat card mounts no mutation/write handler of its own (AiChatCampCard has no onClick/fetch/POST) — Discover-only", () => {
+    expect(cardSrc).not.toMatch(/onClick|fetch\(|POST/);
+  });
+});
+
 describe("BR-5 — endpoint status maps to exactly one conversation state", () => {
   it("[unit] 429 -> rate-limited, 503 -> disabled, other non-2xx -> error (lib/api-client.ts)", () => {
     expect(apiClientSrc).toContain("response.status === 429) return { kind: 'rate-limited' }");
@@ -227,6 +243,23 @@ describe("BR-7 — a11y wiring", () => {
     ];
     const haystack = [launcherSrc, panelSrc, listSrc].join("\n");
     for (const id of testIds) expect(haystack, id).toContain(id);
+  });
+});
+
+describe("AC-8 — Esc / close / tap-scrim closes the panel + focus returns to the launcher (QA gap closed)", () => {
+  it("[structural] no onEscapeKeyDown/onPointerDownOutside/onInteractOutside override disables Radix Dialog.Content's native Esc-closes + outside-dismiss + focus-restore-to-trigger", () => {
+    expect(panelSrc).not.toContain("onEscapeKeyDown");
+    expect(panelSrc).not.toContain("onPointerDownOutside");
+    expect(panelSrc).not.toContain("onInteractOutside");
+  });
+
+  it("[unit] the close button calls onOpenChange(false) — the same controlled prop Esc/scrim-dismiss drive natively", () => {
+    expect(panelSrc).toContain("onClick={() => onOpenChange(false)}");
+  });
+
+  it("[structural] only onOpenAutoFocus is overridden (to redirect initial focus into the composer, AC-1/BR-7) — onCloseAutoFocus is left to Radix's default restore-to-trigger", () => {
+    expect(panelSrc).toContain("onOpenAutoFocus");
+    expect(panelSrc).not.toContain("onCloseAutoFocus");
   });
 });
 

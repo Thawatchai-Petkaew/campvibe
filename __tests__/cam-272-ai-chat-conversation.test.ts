@@ -134,6 +134,13 @@ describe("appendOutcome (AC-4/EC-2 zero-result, AC-5, AC-6, AC-7)", () => {
     const next = appendOutcome([], { kind: "error" }, "หาแคมป์ริมน้ำ");
     expect(next[0]).toMatchObject({ kind: "error", retryQuestion: "หาแคมป์ริมน้ำ" });
   });
+
+  it("[boundary] QA-added (branch-coverage completion, mirrors CAM-271's BR-6 defensive-default precedent): an outcome kind outside the known union is a no-op default, never a crash — unreachable in normal flow (AiChatOutcome's discriminated union has no 5th member), covered here for completeness only", () => {
+    // AiChatOutcome only has 4 kinds; this cast simulates a value the type system
+    // otherwise prevents constructing, to exercise the switch's defensive `default:`.
+    const bogus = { kind: "unknown-future-kind" } as unknown as Parameters<typeof appendOutcome>[1];
+    expect(appendOutcome([], bogus, "q")).toEqual([]);
+  });
 });
 
 describe("entriesBeforeRetry (AC-5) — no duplicate user bubble on retry", () => {
