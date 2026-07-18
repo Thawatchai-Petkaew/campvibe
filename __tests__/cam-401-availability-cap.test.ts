@@ -209,6 +209,45 @@ describe('getCampSiteDailyAvailability — hold-loop clamp (BR-2 sweep finding)'
     expect(result['2026-09-11'].heldGuests).toBe(2);
     expect(result['2026-09-12'].heldGuests).toBe(2);
   });
+
+  it('[boundary] at the exact 366-night window (the cap boundary, comparison parity with EC-1), the clamp reaches the FULL last night — not cut short', async () => {
+    // Same ~30-year hold as above, but the requested window is now exactly
+    // MAX_STATUS_RANGE_NIGHTS wide (the same boundary Group A's EC-1 proves
+    // for the primary loop) — the clamp must traverse every night up to and
+    // including the LAST one, not stop early.
+    (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { startDate: d('2000-01-01'), endDate: d('2030-01-01'), guests: 3 },
+    ]);
+    const start = d('2026-01-01');
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + (MAX_STATUS_RANGE_NIGHTS - 1)); // inclusive span = 366 days
+
+    const setDateSpy = vi.spyOn(Date.prototype, 'setDate');
+    const result = await getCampSiteDailyAvailability(CAMP_ID, start, end);
+    const iterations = setDateSpy.mock.calls.length;
+    setDateSpy.mockRestore();
+
+    const lastKey = end.toISOString().split('T')[0];
+    expect(Object.keys(result)).toHaveLength(366);
+    expect(result[lastKey].heldGuests).toBe(3); // reaches the 366th (last) night, not truncated
+    // init loop (366) + hold loop clamped to <=366 = well under the ~10,957
+    // the hold's own unclamped span would otherwise cost.
+    expect(iterations).toBeLessThan(800);
+  });
+
+  it('[normal] a hold entirely WITHIN the requested window (no clamping needed) still counts exactly as before — no regression on the un-clamped branch', async () => {
+    // Exercises the ternary's OTHER branch (hold.startDate >= startDate) —
+    // the ordinary case this fix must never disturb.
+    (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { startDate: d('2026-09-11'), endDate: d('2026-09-13'), guests: 4 }, // endDate exclusive checkout
+    ]);
+
+    const result = await getCampSiteDailyAvailability(CAMP_ID, d('2026-09-10'), d('2026-09-12'));
+
+    expect(result['2026-09-10'].heldGuests).toBe(0); // before the hold starts
+    expect(result['2026-09-11'].heldGuests).toBe(4);
+    expect(result['2026-09-12'].heldGuests).toBe(4);
+  });
 });
 
 // ===========================================================================
@@ -233,6 +272,49 @@ describe('getAvailabilityStatusForCamps — sibling hold-loop clamp (BR-2 sweep 
     // 2 heldGuests < capacity 5 on every night — not unavailable on its own;
     // this test's point is the bounded iteration count, not the classification.
     expect(result[CAMP_ID]).toBeUndefined();
+  });
+
+  it('[boundary] at the exact 366-night window (comparison parity with the primary loop), the clamp reaches the FULL last night — not cut short', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: CAMP_ID, useSpotView: false, maxGuestsPerDay: 5 },
+    ]);
+    // heldGuests=5 + requestedGuests=1 > capacity 5 -> numerically full on
+    // EVERY night ONLY IF the clamp actually reaches that night. If the clamp
+    // were off-by-one short, the last night would read heldGuests=0 (not
+    // full) and the result would be PARTIALLY_UNAVAILABLE instead — this
+    // assertion has teeth at the boundary, not just an iteration count.
+    (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { campSiteId: CAMP_ID, startDate: d('2000-01-01'), endDate: d('2030-01-01'), guests: 5 },
+    ]);
+
+    const start = d('2026-01-01');
+    const lastNight = new Date(start);
+    lastNight.setUTCDate(lastNight.getUTCDate() + (MAX_STATUS_RANGE_NIGHTS - 1)); // 366 nights inclusive
+    const end = new Date(lastNight);
+    end.setUTCDate(end.getUTCDate() + 1); // endDate is the EXCLUSIVE checkout day for this function
+
+    const setDateSpy = vi.spyOn(Date.prototype, 'setDate');
+    const result = await getAvailabilityStatusForCamps([CAMP_ID], start, end, 1);
+    const iterations = setDateSpy.mock.calls.length;
+    setDateSpy.mockRestore();
+
+    expect(result[CAMP_ID]).toBe('FULLY_UNAVAILABLE'); // proves the 366th (last) night is populated
+    expect(iterations).toBeLessThan(800);
+  });
+
+  it('[normal] a hold entirely WITHIN the requested window (no clamping needed) still counts exactly as before — no regression on the un-clamped branch', async () => {
+    (prisma.campSite.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: CAMP_ID, useSpotView: false, maxGuestsPerDay: 5 },
+    ]);
+    (prisma.internalHold.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { campSiteId: CAMP_ID, startDate: d('2026-09-11'), endDate: d('2026-09-13'), guests: 6 },
+    ]);
+
+    const result = await getAvailabilityStatusForCamps([CAMP_ID], d('2026-09-10'), d('2026-09-13'), 1);
+
+    // 6 heldGuests + 1 requested > capacity 5 on nights 09-11/09-12 only
+    // (09-10 has no hold yet) -> some-but-not-all unavailable nights.
+    expect(result[CAMP_ID]).toBe('PARTIALLY_UNAVAILABLE');
   });
 });
 
@@ -311,6 +393,41 @@ describe('POST /api/campsites/[id]/holds — write-path span cap (BR-2 sweep fin
 
     expect(res.status).toBe(400);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('[dos][abuse-shape] an ~8000-year span (mirrors the primary-loop attack shape, 2026-01-01 -> 9999-12-31) is REJECTED 400 with ZERO prisma calls of any kind', async () => {
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() + 1);
+    const res = await holdsPOST(
+      postReq({
+        startDate: start.toISOString().split('T')[0],
+        endDate: '9999-12-31',
+        guests: 1,
+      }),
+      makeParams(CAMP_ID)
+    );
+
+    expect(res.status).toBe(400);
+    // Query-count zero: the span check runs BEFORE the spot lookup AND before
+    // the transaction — no Prisma call of any kind is reached for this shape.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.spot.findFirst).not.toHaveBeenCalled();
+    expect(prisma.internalHold.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[security] the 400 span-cap rejection leaks no internal detail (generic message, no stack/details)', async () => {
+    const res = await holdsPOST(
+      postReq({ ...futureRange(MAX_STATUS_RANGE_NIGHTS + 1), guests: 1 }),
+      makeParams(CAMP_ID)
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe(`Hold cannot exceed ${MAX_STATUS_RANGE_NIGHTS} nights`);
+    expect(body.details).toBeUndefined();
+    expect(body.stack).toBeUndefined();
+    // no stray Prisma/path/stack fragment anywhere in the response body
+    expect(JSON.stringify(body)).not.toMatch(/(prisma|\.ts:\d|node_modules|at\s+\w+\s+\()/i);
   });
 
   it('[br-1] the route reuses the SAME MAX_STATUS_RANGE_NIGHTS import — no new business-rule constant', () => {
