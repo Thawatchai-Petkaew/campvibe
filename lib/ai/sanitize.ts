@@ -63,13 +63,14 @@ function stripControlChars(rawText: string): string {
  * Built via a char-code walk (not a regex literal) to avoid embedding raw
  * control bytes in source.
  *
- * @param maxLength — CAM-271 additive override (default `MAX_USER_TEXT_LENGTH`,
- * unchanged for every existing/default caller). The multi-turn transcript
- * path (`lib/ai/serialize-conversation.ts`, via `runAssistantTurn`'s
- * `maxPromptChars` option) already bounds its OWN string at a larger cap
- * (`MAX_PROMPT_CHARS`) by dropping whole oldest messages — that string must
- * pass through here unchanged, not get re-cut to the single-message limit
- * (which would silently drop the newest turn, breaking multi-turn context).
+ * @param maxLength — optional per-call override (default `MAX_USER_TEXT_LENGTH`).
+ * CAM-415 update: the multi-turn path (`lib/ai/build-turn-messages.ts`)
+ * no longer needs this override — it sanitizes each message INDIVIDUALLY,
+ * and every message is already capped at `MAX_CHAT_MESSAGE_LENGTH` (zod,
+ * `lib/validations/ai-chat.ts`), which equals `MAX_USER_TEXT_LENGTH` (both
+ * 2000) — so the default cap never re-truncates a real message. (Superseded
+ * the CAM-271 transcript-level `maxPromptChars` override, which existed only
+ * because that era flattened the whole conversation into one string first.)
  */
 export function sanitizeForPrompt(rawText: string, maxLength: number = MAX_USER_TEXT_LENGTH): string {
   const withoutControlChars = stripControlChars(rawText);

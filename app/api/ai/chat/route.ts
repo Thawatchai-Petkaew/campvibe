@@ -12,18 +12,19 @@
  *     it drops the auth() step app/api/reviews/route.ts has).
  *  2. zod-validate the posted conversation at the boundary (BR-3) — before
  *     any model/tool call.
- *  3. Serialize the full capped conversation into ONE userText (Seams & refs
- *     — CAM-270's runAssistantTurn takes a single string, not an array) and
- *     invoke CAM-270's single-round turn (BR-4).
+ *  3. Build the full capped conversation into a REAL multi-turn messages
+ *     array (CAM-415, `lib/ai/build-turn-messages.ts` — every user turn
+ *     individually fenced, assistant history re-sanitized) and invoke
+ *     CAM-270's single-round turn engine over that array (BR-4).
  *  4. Map the handled result to a typed response (BR-5/BR-6) — the raw
  *     model error / status body / key is NEVER surfaced in the response or
  *     logs (security.md, CAM-270 BR-6).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { checkAssistantRateLimit } from '@/lib/ai/rate-limit';
-import { runAssistantTurn } from '@/lib/ai/openrouter-client';
+import { runAssistantTurnFromMessages } from '@/lib/ai/openrouter-client';
 import { chatRequestSchema } from '@/lib/validations/ai-chat';
-import { serializeConversation, MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
+import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
 import { serializeDecimals } from '@/lib/serialize';
 
 /**
@@ -90,14 +91,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'invalid_request' }, { status: 400 });
   }
 
-  // 3. BR-4 — the full capped conversation, serialized, drives CAM-270's
-  //    single-round turn (exactly one tool-call round; no agent loop). The
-  //    transcript-level cap (MAX_PROMPT_CHARS) is forwarded as the
-  //    sanitizer override so a long, already-bounded transcript is not
-  //    re-truncated to the single-message default — the newest turn (the
-  //    camper's current question) always survives (functional-security fix).
-  const userText = serializeConversation(parsed.data.messages);
-  const result = await runAssistantTurn(userText, { maxPromptChars: MAX_PROMPT_CHARS });
+  // 3. BR-4 — the full capped conversation becomes a real multi-turn
+  //    messages array (CAM-415): every user turn (history + current) is
+  //    individually sanitized + fenced in <user_message> DATA tags, and
+  //    assistant history re-enters as re-sanitized plain content. Drives
+  //    CAM-270's single-round turn engine (exactly one tool-call round; no
+  //    agent loop) over that array.
+  const turnMessages = buildTurnMessages(parsed.data.messages);
+  const result = await runAssistantTurnFromMessages(turnMessages);
 
   // 4. BR-5 — handled-failure mapping. `skipped` only appears on an ok:true
   //    result (key unset, no network call made); check it first so it is
