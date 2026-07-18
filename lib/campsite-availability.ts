@@ -152,16 +152,56 @@ export async function getActiveHoldsForRange(
 }
 
 /**
+ * CAM-401 (security finding, event-loop DoS — CAM-344 class): thrown by
+ * getCampSiteDailyAvailability when the caller-supplied [startDate, endDate]
+ * spans more nights than MAX_STATUS_RANGE_NIGHTS allows. Callers (the public,
+ * unauthenticated availability route; getRemainingCapacity) map this to a
+ * safe 400/generic response — never a stack trace or Prisma detail to the
+ * client (AC-2).
+ */
+export class AvailabilityRangeTooWideError extends Error {
+  constructor(dayCount: number) {
+    super(`Date range spans ${dayCount} days, exceeding the maximum of ${MAX_STATUS_RANGE_NIGHTS}`);
+    this.name = 'AvailabilityRangeTooWideError';
+  }
+}
+
+/**
  * Get daily availability for a camp site
  * Returns guests and tents booked for each date, plus host BlockedDate coverage
  * and held (InternalHold) guests — CAM-302, kept separate from bookedGuests
  * (ADR-012 §4: a host dashboard legitimately wants both numbers).
+ *
+ * CAM-401 BR-1 (security finding, G3 review of CAM-400): the per-day loop
+ * below iterates directly over the CALLER-SUPPLIED [startDate, endDate]
+ * range — INCLUSIVE of endDate, this function's own long-standing
+ * convention (unlike getAvailabilityStatusForCamps' exclusive-checkout
+ * convention below). The public availability route (app/api/campsites/[id]/
+ * availability/route.ts) reaches this UNAUTHENTICATED, so an absurd range
+ * (e.g. startDate=2026-01-01&endDate=9999-12-31) could otherwise hang the
+ * event loop on a single request — the same CAM-344 class of bug, just a
+ * different loop. Reuses the SAME MAX_STATUS_RANGE_NIGHTS constant (one
+ * constant, not a twin) and mirrors its comparison exactly: > MAX rejects,
+ * = MAX passes (EC-1 boundary). Checked BEFORE any Prisma call or loop —
+ * generalizing the CAM-344 principle ("protect every caller", BR-1) to
+ * every consumer of this function (getRemainingCapacity included).
+ *
+ * Non-finite/inverted ranges are LEFT UNCHANGED (EC-2, no regression): they
+ * already fall through to 0 loop iterations today because an Invalid Date
+ * or startDate > endDate makes every `<=`/`<` comparison below evaluate
+ * false — this guard only rejects a POSITIVE span wider than the cap.
  */
 export async function getCampSiteDailyAvailability(
   campSiteId: string,
   startDate: Date,
   endDate: Date
 ) {
+  const dayCount =
+    Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+  if (dayCount > MAX_STATUS_RANGE_NIGHTS) {
+    throw new AvailabilityRangeTooWideError(dayCount);
+  }
+
   const bookings = await prisma.booking.findMany({
     where: {
       campSiteId,
@@ -233,9 +273,18 @@ export async function getCampSiteDailyAvailability(
   const holds = await getActiveHoldsForRange(campSiteId, startDate, endDate);
 
   for (const hold of holds) {
-    const date = new Date(hold.startDate);
+    // CAM-401 BR-2 sweep finding: unlike Booking (capped 30 nights at create,
+    // lib/validations/booking.ts) and BlockedDate (capped 90 days at create,
+    // lib/validations/blocked-dates.ts), InternalHold has NO max-span cap at
+    // write time — a hold's own startDate/endDate could still be far wider
+    // than the (now-capped) caller range while merely OVERLAPPING it. This
+    // loop is clamped to the caller's own window (mirrors the BlockedDate
+    // loop's `&& cur <= endDate` bound just above) so its ITERATION COUNT is
+    // bounded too; the OUTPUT is unchanged — a date outside the window was
+    // already a no-op via the `if (availability[dateKey])` guard below.
+    const date = new Date(hold.startDate < startDate ? startDate : hold.startDate);
     const holdEnd = new Date(hold.endDate);
-    while (date < holdEnd) {
+    while (date < holdEnd && date <= endDate) {
       const dateKey = date.toISOString().split('T')[0];
       if (availability[dateKey]) {
         availability[dateKey].heldGuests += hold.guests;
@@ -587,9 +636,14 @@ export async function getAvailabilityStatusForCamps(
   for (const hold of holds) {
     const nights = nightsByCamp.get(hold.campSiteId);
     if (!nights) continue;
-    const cur = new Date(hold.startDate);
+    // CAM-401 BR-2 sweep finding (same gap as getCampSiteDailyAvailability's
+    // hold loop above): InternalHold has no max-span cap at write time —
+    // clamp to the already night-count-guarded [startDate, lastNight] window
+    // (mirrors the whole-camp BlockedDate loop's own `&& cur <= lastNight`
+    // bound just above). Output unchanged; only bounds the iteration count.
+    const cur = new Date(hold.startDate < startDate ? startDate : hold.startDate);
     const holdEnd = new Date(hold.endDate);
-    while (cur < holdEnd) {
+    while (cur < holdEnd && cur <= lastNight) {
       const key = cur.toISOString().split('T')[0];
       if (nights[key]) nights[key].heldGuests += hold.guests;
       cur.setDate(cur.getDate() + 1);
