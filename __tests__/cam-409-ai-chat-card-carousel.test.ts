@@ -155,7 +155,6 @@ describe("Icons — lucide only (design.md §7), no emoji", () => {
   });
 
   it("[structural] no emoji literal in the carousel source", () => {
-    // eslint-disable-next-line no-misleading-character-class
     const emojiPattern = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
     expect(emojiPattern.test(carouselSrc)).toBe(false);
   });
