@@ -197,6 +197,25 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', undefined);
     expect(result.ok).toBe(true); // the turn itself still completes — a handled tool error, not a crash
   });
+
+  it('[unit] the single follow-up completion call itself failing (non-2xx) returns a handled generic error, no crash, no re-loop', async () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'searchCampsites', arguments: '{}' },
+    };
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(res(assistantMessage(null, [toolCall]))) // initial call requests a tool
+      .mockResolvedValueOnce(res({}, false, 500)); // the ONE follow-up call fails — no fallback/retry at this step
+    vi.stubGlobal('fetch', mockFetch);
+    mockDispatchTool.mockResolvedValueOnce({ ok: true, data: { cards: [] } });
+
+    const result = await runAssistantTurn('question');
+
+    expect(mockFetch).toHaveBeenCalledTimes(2); // initial + the one follow-up — never a 3rd call
+    expect(result).toEqual({ ok: false, error: GENERIC_ERROR });
+  });
 });
 
 /* -------------------------------------------------------------------------- */

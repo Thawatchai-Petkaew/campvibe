@@ -67,6 +67,51 @@ describe('searchCampsites — normal (valid filters incl. petFriendly)', () => {
     const andEntries = call.where.AND ?? [];
     expect(andEntries).not.toContainEqual({ petFriendly: true });
   });
+
+  it('[unit] priceMin/priceMax are passed through to buildCampSiteWhere as priceLow.gte/lte (AC-1 price range)', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    const args = searchCampsitesArgsSchema.parse({ priceMin: 500, priceMax: 1500 });
+    await executeSearchCampsites(args);
+
+    const call = mockFindMany.mock.calls[0][0] as { where: { priceLow?: { gte?: number; lte?: number } } };
+    expect(call.where.priceLow?.gte).toBe(500);
+    expect(call.where.priceLow?.lte).toBe(1500);
+  });
+
+  it('[unit] type filter is passed through to buildCampSiteWhere as campSiteType (AC-1 type)', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    const args = searchCampsitesArgsSchema.parse({ type: 'GLAMP' });
+    await executeSearchCampsites(args);
+
+    const call = mockFindMany.mock.calls[0][0] as { where: { campSiteType?: string } };
+    expect(call.where.campSiteType).toBe('GLAMP');
+  });
+});
+
+describe('searchCampsites — model tries to drop the public gate (EC-1, BR-1)', () => {
+  it('[security] a model-supplied isActive/isPublished/deletedAt override is stripped by the args schema before it ever reaches the tool — the base gate always wins', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    // The model has no schema field for these — safeParse silently strips them
+    // (zod default: unknown keys dropped, not merged into the where clause).
+    const parsed = searchCampsitesArgsSchema.safeParse({
+      province: 'เชียงใหม่',
+      isActive: false,
+      isPublished: false,
+      deletedAt: null,
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data).not.toHaveProperty('isActive');
+    expect(parsed.data).not.toHaveProperty('isPublished');
+    expect(parsed.data).not.toHaveProperty('deletedAt');
+
+    await executeSearchCampsites(parsed.data);
+
+    const call = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(call.where.isActive).toBe(true);
+    expect(call.where.isPublished).toBe(true);
+    expect(call.where.deletedAt).toBeNull();
+  });
 });
 
 describe('searchCampsites — null/empty (AC-8)', () => {
