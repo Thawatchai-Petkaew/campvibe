@@ -77,6 +77,24 @@ describe("CAM-396 AC-1/EC-1, BR-1: guest tap opens the login gate before any req
         const mounts = (clientSrc.match(/<LoginModal/g) || []).length;
         expect(mounts).toBe(1);
     });
+
+    it("[unit] EC-1 (no dates chosen yet): the login gate precedes the date-selection guard", () => {
+        // Prove-It: FAILS on the pre-fix source (no isLoggedIn check → -1) and would
+        // also fail if the date guard were ever reordered ahead of the login gate —
+        // a guest must see the login modal even before picking checkIn/checkOut,
+        // not the "select dates first" toast.
+        const gateIdx = body.indexOf("if (!isLoggedIn)");
+        const dateGuardIdx = body.indexOf("if (!checkIn || !checkOut)");
+        expect(gateIdx).toBeGreaterThan(-1);
+        expect(dateGuardIdx).toBeGreaterThan(-1);
+        expect(gateIdx).toBeLessThan(dateGuardIdx);
+    });
+
+    it("[unit] null/empty: isLoggedIn defaults to false (fail-safe/default-deny) when the prop is omitted", () => {
+        // Prove-It: FAILS if the default were ever flipped to `true` — a caller that
+        // forgets to pass isLoggedIn must be treated as a guest, never as logged-in.
+        expect(clientSrc).toMatch(/isLoggedIn\s*=\s*false,/);
+    });
 });
 
 describe("CAM-396 AC-2/EC-2: logged-in booking flow is unchanged", () => {
