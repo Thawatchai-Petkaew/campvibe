@@ -1,5 +1,5 @@
 /**
- * components/ai-chat/AiChatMessageList.tsx — CAM-272
+ * components/ai-chat/AiChatMessageList.tsx — CAM-272 (cards layout: CAM-409)
  *
  * Renders the welcome/empty state, the running thread (user + assistant
  * turns), the typing indicator, and every notice state (zero-result,
@@ -10,6 +10,10 @@
  * node (`whitespace-pre-wrap`) — never `dangerouslySetInnerHTML`, never
  * markdown-to-HTML. Cards render ONLY from the entry's own `cards[]`
  * (never parsed out of `text`).
+ *
+ * CAM-409: the cards render via `AiChatCardCarousel` (horizontal snap-scroll
+ * with peek) instead of the CAM-272 vertical `space-y-3` stack — see
+ * design.md's addendum, which SUPERSEDES that single-column layout rule.
  */
 "use client";
 
@@ -17,7 +21,7 @@ import { Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AiChatCampCard } from "@/components/ai-chat/AiChatCampCard";
+import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
 
 const SUGGESTION_KEYS = ["suggestion1", "suggestion2", "suggestion3"] as const;
@@ -105,7 +109,10 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
       // CAM-407: only the text bubble is a chat-bubble width (max-w-[85%]);
       // the row itself + the cards stay w-full max-w-full so an in-chat
       // campsite card is never squeezed narrower than the panel/list column.
-      <div className="flex w-full max-w-full flex-col gap-2 self-start">
+      // CAM-409: a single grid-cols-1 track (Tailwind's minmax(0,1fr)) — not
+      // flex-col — stops the carousel's un-shrinkable track width from
+      // forcing this row (and the panel) wider than the message column.
+      <div className="grid w-full max-w-full min-w-0 grid-cols-1 gap-2 self-start">
         <div
           data-testid="msg--ai-chat-assistant"
           className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
@@ -118,15 +125,7 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
             </p>
           )}
         </div>
-        {entry.cards.length > 0 && (
-          <div className="w-full max-w-full space-y-3">
-            {entry.cards.map((card) => (
-              <div key={card.id} data-testid="card--ai-chat-campsite" className="w-full max-w-full">
-                <AiChatCampCard card={card} />
-              </div>
-            ))}
-          </div>
-        )}
+        {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} />}
       </div>
     );
   }
