@@ -29,13 +29,18 @@
  *      default {} must be refused by the REAL dispatchTool, the fake tool's
  *      own execute() spy never invoked, and the turn still completes with a
  *      normal answer (no crash, no leak of the refusal's internals).
- *  (g) PROVENANCE — source-inspection proof that `POST /api/ai/chat` (the
- *      only real caller today) passes NO ctx argument at all to
+ *  (g) PROVENANCE — source-inspection proof that `POST /api/ai/chat`'s
+ *      LEGACY branch passes NO ctx argument at all to
  *      `runAssistantTurnFromMessages` (resolves to the {} default), and that
  *      no source file under lib/ai/** ever ASSIGNS a value into `userId`
  *      from request args/body/tool-call arguments/model output — only
  *      dispatchTool's own guard READS `ctx.userId` (which is fine and
- *      expected).
+ *      expected). CAM-420 UPDATE (2026-07-19): the route now has a SECOND,
+ *      session-bound branch that legitimately DOES pass a real ctx — that is
+ *      this story's whole point (D5's tiered registry finally gets a real
+ *      caller). The invariant that actually matters, re-verified below: the
+ *      v2 branch's `ctx.userId` can ONLY ever be `session.user.id` from
+ *      `auth()` — never from the request body/args/model output.
  *
  * All tests mock `fetch` only (vi.stubGlobal) — zero real spend. `server-only`
  * is stubbed to allow importing openrouter-client.ts under Vitest's node env
@@ -240,14 +245,21 @@ describe('(c) a hallucinated call to a REGISTERED authed tool is refused by the 
 /* -------------------------------------------------------------------------- */
 
 describe('(g) provenance — ctx.userId can only ever come from a server-side session, never args/body/model output', () => {
-  it('[security] POST /api/ai/chat passes NO ctx argument to runAssistantTurnFromMessages (resolves to the {} default)', () => {
+  it('[security] the LEGACY branch (handleLegacyTurn) still passes NO ctx argument to runAssistantTurnFromMessages (resolves to the {} default)', () => {
     const routeSource = readFileSync(join(process.cwd(), 'app/api/ai/chat/route.ts'), 'utf-8');
-    const callMatch = routeSource.match(/runAssistantTurnFromMessages\(([^)]*)\)/);
-    expect(callMatch).not.toBeNull();
-    // Exactly one argument (turnMessages) — a 2nd argument here would be the
-    // ONLY way ctx could come from this request today; CAM-420 owns adding a
-    // real session-derived one.
-    expect(callMatch![1].trim()).toBe('turnMessages');
+    const legacyCallMatch = routeSource.match(/runAssistantTurnFromMessages\(turnMessages\)/);
+    expect(legacyCallMatch).not.toBeNull(); // exactly one argument, no ctx
+  });
+
+  it("[security] CAM-420 UPDATE: the v2 branch's ctx is built as `{ userId }` from a LOCAL `session`/`userId` binding — never from `data`/args/model output", () => {
+    const routeSource = readFileSync(join(process.cwd(), 'app/api/ai/chat/route.ts'), 'utf-8');
+    const v2CtxMatch = routeSource.match(/const ctx: ToolContext = \{\s*userId\s*\}/);
+    expect(v2CtxMatch).not.toBeNull();
+    // `userId` itself is destructured from `session?.user?.id` (auth()'s own
+    // return value) earlier in the SAME function — never `data.userId` or
+    // any request-body/tool-arg/model-output field.
+    expect(routeSource).toMatch(/const userId = session\?\.user\?\.id/);
+    expect(routeSource).not.toMatch(/userId\s*[:=]\s*data\./);
   });
 
   it('[security] no source file under lib/ai/** assigns a value INTO userId from args/body/model output — only dispatchTool\'s own guard READS ctx.userId', () => {
