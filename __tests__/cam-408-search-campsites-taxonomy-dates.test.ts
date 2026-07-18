@@ -35,7 +35,12 @@ vi.mock('@/lib/prisma', () => ({
 const { executeSearchCampsites, searchCampsitesArgsSchema, searchCampsitesTool } = await import(
   '@/lib/ai/tools/search-campsites'
 );
+// runAssistantTurn's module side-effect-imports '@/lib/ai/tools/index', which registers the
+// REAL searchCampsites tool into the tool-registry — importing it here (before dispatchTool
+// is used below) means the QA-added real-wiring test exercises the actual registered tool,
+// not a fake stand-in.
 const { runAssistantTurn, formatTodayContextLine } = await import('@/lib/ai/openrouter-client');
+const { dispatchTool } = await import('@/lib/ai/tool-registry');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -153,6 +158,23 @@ describe('searchCampsites — unrecognized taxonomy code (AC-3, BR-3, EC-3)', ()
     expect(searchCampsitesArgsSchema.safeParse({ access: 'FLY' }).success).toBe(false);
     expect(searchCampsitesArgsSchema.safeParse({ activities: 'NOPE' }).success).toBe(false);
   });
+
+  // QA adversarial check (b): prove the REAL registered tool — not a fake stand-in — rejects
+  // an unrecognized code through dispatchTool's actual safeParse gate, and that Prisma is
+  // never reached (AC-3 System effect: "invalid_args, no query").
+  it('[integration] dispatchTool("searchCampsites", { terrain: "KITC" }) — real registry rejects invalid_args, findMany never runs', async () => {
+    const result = await dispatchTool('searchCampsites', { terrain: 'KITC' });
+
+    expect(result).toEqual({ ok: false, code: 'invalid_args', message: expect.any(String) });
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  it('[integration] dispatchTool("searchCampsites", { facilities: "PARK" }) — real registry rejects invalid_args, findMany never runs', async () => {
+    const result = await dispatchTool('searchCampsites', { facilities: 'PARK' });
+
+    expect(result).toEqual({ ok: false, code: 'invalid_args', message: expect.any(String) });
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -192,5 +214,34 @@ describe('openrouter-client — today\'s date + guidance in the system prompt (A
     expect(systemMessage.content).toMatch(/today's date is \d{4}-\d{2}-\d{2} \(วัน.+\), asia\/bangkok time\./i);
     expect(systemMessage.content).toMatch(/compute the absolute iso date\(s\)/i);
     expect(systemMessage.content).toMatch(/use the keyword argument only for a specific campsite name/i);
+  });
+
+  // BR-4 regression guard: "computed fresh on every call ... never a cached/module-load
+  // value". Two turns at two different real-clock times must carry two different date
+  // lines — if a future edit hoisted the date line to a module-level constant (the exact
+  // class of bug this story fixes), this test would go red.
+  it('[unit] BR-4 freshness — two turns at two different clock times carry two different date lines (never cached at module load)', async () => {
+    process.env.OPENROUTER_API_KEY = 'sk-or-test-408';
+    const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ok')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-07-18T10:00:00Z')); // 2026-07-18 (Saturday) Bangkok
+      await runAssistantTurn('มีแคมป์ไหมคะ');
+      const bodyDay1 = JSON.parse((mockFetch.mock.calls[0] as [string, RequestInit])[1].body as string);
+      const systemDay1 = bodyDay1.messages.find((m: { role: string }) => m.role === 'system').content;
+
+      vi.setSystemTime(new Date('2026-08-25T10:00:00Z')); // 2026-08-25 (Tuesday) Bangkok
+      await runAssistantTurn('มีแคมป์ไหมคะ');
+      const bodyDay2 = JSON.parse((mockFetch.mock.calls[1] as [string, RequestInit])[1].body as string);
+      const systemDay2 = bodyDay2.messages.find((m: { role: string }) => m.role === 'system').content;
+
+      expect(systemDay1).toContain('2026-07-18');
+      expect(systemDay2).toContain('2026-08-25');
+      expect(systemDay1).not.toBe(systemDay2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
