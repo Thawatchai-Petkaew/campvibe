@@ -102,8 +102,14 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
 
   if (entry.kind === "answer") {
     return (
-      <div className="flex max-w-[85%] flex-col gap-2 self-start">
-        <div data-testid="msg--ai-chat-assistant" className="rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
+      // CAM-407: only the text bubble is a chat-bubble width (max-w-[85%]);
+      // the row itself + the cards stay w-full max-w-full so an in-chat
+      // campsite card is never squeezed narrower than the panel/list column.
+      <div className="flex w-full max-w-full flex-col gap-2 self-start">
+        <div
+          data-testid="msg--ai-chat-assistant"
+          className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+        >
           {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
           <p className="whitespace-pre-wrap">{entry.text}</p>
           {entry.zeroResult && (
@@ -113,9 +119,9 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
           )}
         </div>
         {entry.cards.length > 0 && (
-          <div className="space-y-3">
+          <div className="w-full max-w-full space-y-3">
             {entry.cards.map((card) => (
-              <div key={card.id} data-testid="card--ai-chat-campsite">
+              <div key={card.id} data-testid="card--ai-chat-campsite" className="w-full max-w-full">
                 <AiChatCampCard card={card} />
               </div>
             ))}
