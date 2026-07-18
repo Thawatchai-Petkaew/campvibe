@@ -5,7 +5,6 @@ import { useState, useCallback } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Heart } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CampSite } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { wishlistAPI } from "@/lib/api-client";
@@ -14,8 +13,31 @@ import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useTheme } from "next-themes";
 import type { CampAvailabilityStatus } from "@/lib/campsite-availability";
 
+/**
+ * The exact fields CampgroundCard reads, independent of the caller's full
+ * record shape — every existing caller today passes its data `as any`
+ * specifically because the real runtime value is already JSON-serialised
+ * (priceLow: number, createdAt: string), never a live `Prisma.Decimal`/`Date`
+ * (see CampgroundGrid.tsx's `CampSiteCardData`, the same convention). A full
+ * `CampSite` AND the narrower AI-chat card payload (CAM-272,
+ * `lib/read-models/camp-card.ts` `CampCardPayload` post-serialization) both
+ * satisfy this structurally — no boundary adapter object needed (CAM-272
+ * design.md §Seams).
+ */
+export interface CampgroundCardData {
+    id: string;
+    nameTh: string;
+    nameEn?: string | null;
+    nameThSlug: string;
+    nameEnSlug: string;
+    priceLow: number | null;
+    createdAt: string;
+    location: { province: string };
+    images?: { url: string }[];
+}
+
 interface CampgroundCardProps {
-    campground: CampSite & { location: { province: string }; images?: { url: string }[] };
+    campground: CampgroundCardData;
     /** Whether this camp site is already in the user's wishlist (hydrated server-side). */
     initialSaved?: boolean;
     /** True when the user has an active session. Controls heart behaviour. */
@@ -38,6 +60,12 @@ interface CampgroundCardProps {
      * Default false (lazy) for all below-the-fold cards.
      */
     priority?: boolean;
+    /**
+     * CAM-272: "compact" hides the wishlist heart + carousel arrows/dots —
+     * Discover-only surfaces (the AI chat card) show no chat-side actions.
+     * Default "default" preserves the catalog/wishlist-grid behaviour exactly.
+     */
+    variant?: "default" | "compact";
 }
 
 export function CampgroundCard({
@@ -49,6 +77,7 @@ export function CampgroundCard({
     reviewCount = 0,
     availabilityStatus,
     priority = false,
+    variant = "default",
 }: CampgroundCardProps) {
     const { t, formatCurrency, language } = useLanguage();
     const { resolvedTheme } = useTheme();
@@ -168,8 +197,8 @@ export function CampgroundCard({
                             priority={priority}
                         />
 
-                        {/* Navigation Arrows (visible on hover) */}
-                        {imageUrls.length > 1 && (
+                        {/* Navigation Arrows (visible on hover) — CAM-272: compact hides them (Discover-only, no chat-side actions). */}
+                        {variant !== "compact" && imageUrls.length > 1 && (
                             <>
                                 <button
                                     onClick={prevImage}
@@ -188,8 +217,8 @@ export function CampgroundCard({
                             </>
                         )}
 
-                        {/* Dot Indicators */}
-                        {imageUrls.length > 1 && (
+                        {/* Dot Indicators — CAM-272: hidden in compact too (no arrows means no way to navigate between them). */}
+                        {variant !== "compact" && imageUrls.length > 1 && (
                             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                                 {imageUrls.slice(0, 5).map((_, i) => (
                                     <div
@@ -236,34 +265,38 @@ export function CampgroundCard({
             {/*
               Heart button is a sibling of the Link — absolute-positioned over the image.
               It is NOT inside the Link, so tapping it does NOT navigate (AC 11).
+              CAM-272: hidden entirely in the compact variant — Discover-only
+              surfaces (the AI chat card) show no wishlist/mutation action.
             */}
-            <button
-                data-testid="btn--wishlist-toggle"
-                aria-label={heartAriaLabel}
-                aria-pressed={saved}
-                disabled={isLoading}
-                onClick={handleHeartClick}
-                className={cn(
-                    // Tap target ≥44px: w-11 h-11.
-                    "absolute top-3 right-3 z-20 w-11 h-11",
-                    "flex items-center justify-center",
-                    "rounded-full",
-                    "bg-background/20 backdrop-blur-sm",
-                    // States
-                    "transition-all duration-150",
-                    "hover:bg-background/40 hover:scale-110",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    "active:scale-95",
-                    "disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100",
-                )}
-            >
-                {saved ? (
-                    // Filled = teal (--primary), per G2 brand decision.
-                    <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
-                ) : (
-                    <Heart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
-                )}
-            </button>
+            {variant !== "compact" && (
+                <button
+                    data-testid="btn--wishlist-toggle"
+                    aria-label={heartAriaLabel}
+                    aria-pressed={saved}
+                    disabled={isLoading}
+                    onClick={handleHeartClick}
+                    className={cn(
+                        // Tap target ≥44px: w-11 h-11.
+                        "absolute top-3 right-3 z-20 w-11 h-11",
+                        "flex items-center justify-center",
+                        "rounded-full",
+                        "bg-background/20 backdrop-blur-sm",
+                        // States
+                        "transition-all duration-150",
+                        "hover:bg-background/40 hover:scale-110",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        "active:scale-95",
+                        "disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100",
+                    )}
+                >
+                    {saved ? (
+                        // Filled = teal (--primary), per G2 brand decision.
+                        <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
+                    ) : (
+                        <Heart className="w-5 h-5 text-white drop-shadow-sm" aria-hidden="true" />
+                    )}
+                </button>
+            )}
         </div>
     );
 }
