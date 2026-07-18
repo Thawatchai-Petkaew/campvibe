@@ -310,6 +310,13 @@ export default function CampgroundDetailClient({
             return;
         }
 
+        // CAM-400 BR-4/EC-3: defense-in-depth — the button is already disabled
+        // when isFullyBooked, but a direct dispatch must not slip past the
+        // banner it disagrees with. Server (write gate) stays authoritative.
+        if (isFullyBooked) {
+            return;
+        }
+
         if (!checkIn || !checkOut) {
             setHasAttemptedReserve(true);
             import("sonner").then(({ toast }) => toast.error(t.newCampground.pleaseSelectDates));
@@ -1243,7 +1250,7 @@ export default function CampgroundDetailClient({
                             <Button
                                 onClick={handleReserve}
                                 size="lg"
-                                disabled={isReserving}
+                                disabled={isReserving || isFullyBooked}
                                 aria-busy={isReserving}
                                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition mb-2 text-lg"
                             >
