@@ -124,10 +124,15 @@ describe('POST /api/ai/chat — multi-turn conversation (AC-2)', () => {
     expect(res.status).toBe(200);
     expect(mockRunAssistantTurn).toHaveBeenCalledOnce(); // exactly one tool-call round per request
     const [turnMessages] = mockRunAssistantTurn.mock.calls[0] as [Array<{ role: string; content: string }>];
-    expect(turnMessages.map((m) => m.role)).toEqual(['user', 'assistant', 'user']);
+    // CAM-415 fix (QA Critical F-1): this route's history is always
+    // CLIENT-supplied (public, unauthenticated, unpersisted) — buildTurnMessages
+    // defaults to source:"client", so EVERY turn (including the posted
+    // role:"assistant" one) is emitted as a fenced role:"user" DATA block,
+    // never a bare, elevated-trust assistant message.
+    expect(turnMessages.map((m) => m.role)).toEqual(['user', 'user', 'user']);
     expect(turnMessages[0].content).toContain('หาลานกางเต็นท์ใกล้กรุงเทพ');
-    // The assistant turn re-enters as PLAIN content, never wrapped as DATA.
-    expect(turnMessages[1].content).toBe('พบ 3 แห่งครับ');
+    expect(turnMessages[1].content).toContain('พบ 3 แห่งครับ');
+    expect(turnMessages[1].content).toContain('<user_message>');
     expect(turnMessages[2].content).toContain('แล้วอันแรกเสาร์นี้ว่างไหม');
   });
 });

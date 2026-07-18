@@ -449,6 +449,15 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
  * camper's text, wrap it as the sole `<user_message>` DATA block, and run
  * the shared engine above. Unchanged signature/behavior since CAM-270 — no
  * conversation history, single fenced user turn.
+ *
+ * @deprecated CAM-415 QA adversarial verify (F-2, Suggestion, non-blocking):
+ * this entry point now has ZERO production callers — `POST /api/ai/chat`
+ * calls `runAssistantTurnFromMessages` below. Kept intentionally for now: it
+ * still backs the CAM-270 AC-9/EC-9 regression-guard test suite
+ * (`cam-270-openrouter-client.test.ts` and siblings) and is the simpler,
+ * single-message sibling of the CAM-415b agent-loop seam. Not deleted here
+ * (many existing test call-sites) — CAM-420 owns migrating those tests off
+ * this entry point and removing it once persistence lands.
  */
 export async function runAssistantTurn(userText: string): Promise<AssistantTurnResult> {
   const safeText = sanitizeForPrompt(userText);
@@ -460,13 +469,18 @@ export async function runAssistantTurn(userText: string): Promise<AssistantTurnR
 }
 
 /**
- * CAM-415 — run one assistant turn from a REAL multi-turn messages array
- * (`lib/ai/build-turn-messages.ts` — already per-message sanitized/fenced:
- * every user turn wrapped in `<user_message>` DATA tags, assistant history
- * re-sanitized plain content). This is what `POST /api/ai/chat` calls for
- * the public multi-turn conversation path; the wire request/response shape
- * of that route is unchanged (Seams & refs, CAM-342 lesson) — only the
- * INTERNAL call target changed from a flattened string to this array.
+ * CAM-415 — run one assistant turn from a REAL multi-turn messages array,
+ * already built by `lib/ai/build-turn-messages.ts`. This function is a pure
+ * passthrough: it never re-fences or re-sanitizes `turnMessages` — the
+ * provenance decision (whether a claimed `role:"assistant"` turn is fenced
+ * as DATA or emitted as a real assistant-role message) is entirely
+ * `buildTurnMessages`'s `source` option (default `'client'` fences every
+ * turn; `source:'server'`, reserved for CAM-420, is the only mode that
+ * would ever hand this function a real assistant-role message). This is
+ * what `POST /api/ai/chat` calls for the public multi-turn conversation
+ * path; the wire request/response shape of that route is unchanged (Seams &
+ * refs, CAM-342 lesson) — only the INTERNAL call target changed from a
+ * flattened string to this array.
  */
 export async function runAssistantTurnFromMessages(turnMessages: TurnMessage[]): Promise<AssistantTurnResult> {
   const baseMessages: OutgoingMessage[] = [

@@ -2,22 +2,35 @@
  * CAM-415 — replaces lib/ai/serialize-conversation.ts (CAM-271/CAM-342
  * "traced-pipeline seam"). The old module flattened the WHOLE capped
  * conversation into a single labelled string (`user: ...\nassistant: ...`)
- * that entered `runAssistantTurn` as ONE `<user_message>` DATA block — the
- * assistant's own prior replies rode along as untrusted text inside that one
- * block, and a single sanitize/wrap pass covered the whole transcript.
+ * that entered `runAssistantTurn` as ONE `<user_message>` DATA block.
  *
- * This module instead builds a REAL multi-turn messages array: every turn
- * keeps its own role, and every USER message (history + current) is
- * individually `sanitizeForPrompt`-ed and wrapped in its own `<user_message>`
- * DATA tags (lib/ai/sanitize.ts) — per-message injection fencing, not one
- * fence around the whole thread. Assistant history re-enters as plain
- * assistant-role content, re-sanitized on load (defense-in-depth: a forged
- * delimiter tag smuggled into an earlier assistant turn — e.g. if a future
- * tool ever wrote attacker-influenced text — is stripped the same way user
- * text is, even though assistant content is never wrapped as DATA itself).
+ * CAM-415 fix (QA Critical F-1, adversarial verify pass): trust follows
+ * PROVENANCE, not the claimed `role` field. `POST /api/ai/chat` is public,
+ * unauthenticated, and unpersisted (CAM-414 persistence is out of scope) —
+ * nothing ties a posted `role:"assistant"` history turn to anything the
+ * server itself generated. Emitting it as a bare, elevated-trust
+ * `role:"assistant"` message would let any caller forge a "prior assistant
+ * reply" and have it read with materially higher compliance-trust than
+ * DATA (a known history-poisoning / fake-prior-turn jailbreak pattern) —
+ * a regression against the pre-CAM-415 design, which flattened EVERY line
+ * (any claimed role) into one DATA block.
  *
- * `runAssistantTurnFromMessages` (lib/ai/openrouter-client.ts) sends this
- * array straight through as `[system, ...turnMessages]` — the "messages
+ * So `buildTurnMessages` has two provenance modes (`source` option):
+ *  - `'client'` (DEFAULT — the only caller today, `POST /api/ai/chat`):
+ *    EVERY message is sanitized AND fenced as its own `<user_message>` DATA
+ *    block, regardless of claimed role. A message that claimed
+ *    `role:"assistant"` keeps a neutral reference label inside its own
+ *    fence (so the model still has conversational context) but is NEVER
+ *    emitted as a bare `role:"assistant"` message.
+ *  - `'server'` (reserved, no caller yet): for a FUTURE history source read
+ *    from the server's own persisted `ChatConversation`/`ChatMessage` store
+ *    (CAM-414/CAM-420) — only then is a claimed `assistant` role backed by
+ *    something the server itself generated, so it is safe to re-enter as a
+ *    real, unfenced `role:"assistant"` message (re-sanitized, defense-in-
+ *    depth against a stored-but-corrupted value).
+ *
+ * `runAssistantTurnFromMessages` (lib/ai/openrouter-client.ts) sends the
+ * result straight through as `[system, ...turnMessages]` — the "messages
  * array in" half of the seam CAM-415 leaves for CAM-415b's agent loop, which
  * will append assistant(tool_calls)/tool messages onto the SAME array shape
  * ("messages array out").
@@ -39,6 +52,29 @@ export interface TurnMessage {
   content: string;
 }
 
+/**
+ * Neutral in-fence label for a client-claimed `assistant` turn (CAM-415
+ * fix) — keeps conversational context readable to the model without ever
+ * granting it elevated, unfenced trust. Thai per code.md (user/model-facing
+ * copy convention); this is a MODEL-facing label, not end-user UI copy, so
+ * it lives here rather than `locales/` (same precedent as the system
+ * prompt's persona line, openrouter-client.ts).
+ */
+const ASSISTANT_REFERENCE_LABEL = 'คำตอบก่อนหน้าของผู้ช่วย (ข้อมูลอ้างอิง)';
+
+export type BuildTurnMessagesSource = 'client' | 'server';
+
+export interface BuildTurnMessagesOptions {
+  /**
+   * 'client' (default) — every turn arrived over the wire from an untrusted,
+   * unauthenticated, unpersisted caller; a claimed `assistant` role gets NO
+   * more trust than a claimed `user` role. 'server' — reserved for a future
+   * caller reading from the server's own persisted conversation store; no
+   * caller passes this today.
+   */
+  source?: BuildTurnMessagesSource;
+}
+
 /** Sum of raw (pre-sanitize) message content lengths — the budget CAM-415 measures the cap against, one per-message content at a time rather than one joined string. */
 function totalContentLength(messages: ChatMessage[]): number {
   return messages.reduce((sum, message) => sum + message.content.length, 0);
@@ -58,7 +94,11 @@ function totalContentLength(messages: ChatMessage[]): number {
  * structurally impossible here, not just guarded by an override the caller
  * has to remember to pass.
  */
-export function buildTurnMessages(messages: ChatMessage[]): TurnMessage[] {
+export function buildTurnMessages(
+  messages: ChatMessage[],
+  options: BuildTurnMessagesOptions = {}
+): TurnMessage[] {
+  const source = options.source ?? 'client';
   const kept = messages.slice();
   while (kept.length > 1 && totalContentLength(kept) > MAX_PROMPT_CHARS) {
     kept.shift();
@@ -70,9 +110,24 @@ export function buildTurnMessages(messages: ChatMessage[]): TurnMessage[] {
       // wrap as an explicit DATA block, exactly like the single-turn path.
       return { role: 'user', content: wrapAsUserData(sanitizeForPrompt(message.content)) };
     }
-    // Assistant history re-enters as plain assistant-role content —
-    // re-sanitized (control chars + any forged delimiter tag stripped) but
-    // never wrapped in <user_message> tags, since it was never camper data.
-    return { role: 'assistant', content: sanitizeForPrompt(message.content) };
+
+    // message.role === 'assistant'
+    if (source === 'server') {
+      // Server-sourced history (CAM-420, no caller yet): the claimed
+      // assistant role is backed by something the server itself generated —
+      // safe to re-enter as a real assistant-role message (re-sanitized,
+      // defense-in-depth against a stored-but-corrupted value).
+      return { role: 'assistant', content: sanitizeForPrompt(message.content) };
+    }
+
+    // Client-sourced (default, the only path today — CAM-415 fix, QA F-1):
+    // trust follows PROVENANCE, not the claimed role. Fenced as DATA like
+    // any user turn, never emitted as a bare assistant-role message; the
+    // reference label keeps the context legible without granting it
+    // elevated trust.
+    return {
+      role: 'user',
+      content: wrapAsUserData(sanitizeForPrompt(`${ASSISTANT_REFERENCE_LABEL}: ${message.content}`)),
+    };
   });
 }

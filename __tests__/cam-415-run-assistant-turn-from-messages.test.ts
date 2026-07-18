@@ -10,8 +10,11 @@
  *
  * Coverage matrix:
  *   - normal: [system, ...turnMessages] sent to OpenRouter in order, roles preserved
- *   - security: multiple user turns each carry their OWN <user_message> fence
- *     (not one block wrapping the whole conversation)
+ *   - security: `buildTurnMessages`'s default (client) fencing means EVERY
+ *     turn — including one that claimed role:"assistant" — carries its OWN
+ *     <user_message> fence; `runAssistantTurnFromMessages` itself is a pure
+ *     passthrough (proven separately: a caller-built array asserting
+ *     source:'server' semantics is honored verbatim, no re-fencing here)
  *   - normal: the shared engine still runs the exactly-ONE tool-call round
  *     when invoked from this entry point (parity with runAssistantTurn)
  *   - null/empty: an empty turnMessages array sends just the system message,
@@ -56,7 +59,7 @@ afterEach(() => {
 });
 
 describe('runAssistantTurnFromMessages — real multi-turn array sent to OpenRouter (normal)', () => {
-  it('[normal] sends [system, ...turnMessages] in order, roles preserved', async () => {
+  it('[normal] sends [system, ...turnMessages] in order; default (client-sourced) buildTurnMessages fences every turn as role:"user"', async () => {
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('เสาร์นี้ว่างครับ')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -71,10 +74,13 @@ describe('runAssistantTurnFromMessages — real multi-turn array sent to OpenRou
     expect(result).toEqual({ ok: true, answer: 'เสาร์นี้ว่างครับ', cards: [] });
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.messages.map((m: { role: string }) => m.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    // CAM-415 fix (QA F-1): a claimed-assistant history turn from the
+    // client-sourced (default) path is NEVER emitted as role:"assistant" —
+    // it re-enters fenced as role:"user", same trust as any camper turn.
+    expect(body.messages.map((m: { role: string }) => m.role)).toEqual(['system', 'user', 'user', 'user']);
   });
 
-  it('[security] EVERY user turn carries its OWN <user_message> fence — not one block for the whole conversation', async () => {
+  it('[security] every turn from the default (client-sourced) path carries its OWN <user_message> fence — including one that claimed role:"assistant"', async () => {
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ok')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -87,13 +93,35 @@ describe('runAssistantTurnFromMessages — real multi-turn array sent to OpenRou
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    const userMessages = body.messages.filter((m: { role: string }) => m.role === 'user');
-    expect(userMessages).toHaveLength(2);
-    for (const m of userMessages) {
+    const nonSystemTurns = body.messages.filter((m: { role: string }) => m.role !== 'system');
+    expect(nonSystemTurns).toHaveLength(3);
+    for (const m of nonSystemTurns) {
+      expect(m.role).toBe('user');
       expect(m.content).toContain('<user_message>');
       expect(m.content).toContain('</user_message>');
     }
-    // The assistant turn stays plain — never fenced as DATA.
+    // The claimed-assistant turn's original text survives INSIDE its fence,
+    // with a neutral reference label — never as a bare assistant message.
+    const formerAssistantTurn = nonSystemTurns[1];
+    expect(formerAssistantTurn.content).toContain('first answer');
+    expect(formerAssistantTurn.content).toContain('คำตอบก่อนหน้าของผู้ช่วย');
+  });
+
+  it('[normal] passthrough parity: an EXPLICIT server-sourced array (buildTurnMessages with source:"server") still reaches OpenRouter as a real, unfenced assistant-role message — runAssistantTurnFromMessages never re-fences its input', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ok')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const turnMessages = buildTurnMessages(
+      [
+        { role: 'user', content: 'first question' },
+        { role: 'assistant', content: 'first answer' },
+      ],
+      { source: 'server' }
+    );
+    await runAssistantTurnFromMessages(turnMessages);
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
     const assistantTurn = body.messages.find((m: { role: string }) => m.role === 'assistant');
     expect(assistantTurn.content).toBe('first answer');
     expect(assistantTurn.content).not.toContain('<user_message>');
