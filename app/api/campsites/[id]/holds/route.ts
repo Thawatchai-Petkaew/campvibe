@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { createHoldSchema } from '@/lib/validations/holds';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess } from '@/lib/api-utils';
-import { checkDateAvailabilityInTx } from '@/lib/campsite-availability';
+import { checkDateAvailabilityInTx, MAX_STATUS_RANGE_NIGHTS } from '@/lib/campsite-availability';
 
 /**
  * CAM-302 — Host-only InternalHold write API (create + list), reduced M1 slice
@@ -168,6 +168,26 @@ export async function POST(
     }
 
     const data = validation.data;
+
+    // CAM-401 BR-2 sweep finding: withHoldTransaction's own per-night loop
+    // (below) iterates directly over data.startDate/data.endDate — CLIENT
+    // input from this POST body — with NO upstream max-span cap (unlike
+    // Booking's 30-night limit, lib/validations/booking.ts, or BlockedDate's
+    // 90-day limit, lib/validations/blocked-dates.ts). Each iteration runs a
+    // real DB query INSIDE a serializable transaction, so an absurd span
+    // (e.g. a 10-year hold) could hold that transaction open far longer than
+    // any legitimate hold ever needs — reject BEFORE the transaction opens.
+    // Reuses the SAME MAX_STATUS_RANGE_NIGHTS constant (one shared cap, not
+    // a new business-rule value) — endDate is the EXCLUSIVE checkout day
+    // here (createHoldSchema doc comment), so the span formula matches
+    // bookingSchema's own nights computation, not the inclusive convention
+    // used by getCampSiteDailyAvailability.
+    const holdNights = Math.round(
+      (data.endDate.getTime() - data.startDate.getTime()) / (24 * 60 * 60 * 1000)
+    );
+    if (holdNights > MAX_STATUS_RANGE_NIGHTS) {
+      return apiError(`Hold cannot exceed ${MAX_STATUS_RANGE_NIGHTS} nights`, 400);
+    }
 
     // IDOR guard (BR-6/EC-6): a spot-level hold must reference a spot that
     // belongs to THIS campsite (mirrors CAM-56 blocked-dates exactly).

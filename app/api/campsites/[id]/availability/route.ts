@@ -1,7 +1,11 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiSuccess } from '@/lib/api-utils';
-import { getCampSiteDailyAvailability, getEffectiveCapacity } from '@/lib/campsite-availability';
+import {
+  getCampSiteDailyAvailability,
+  getEffectiveCapacity,
+  AvailabilityRangeTooWideError,
+} from '@/lib/campsite-availability';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 
@@ -142,6 +146,13 @@ export async function GET(
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error) {
+    // CAM-401 AC-2: an absurd startDate/endDate span (>MAX_STATUS_RANGE_NIGHTS)
+    // is rejected as a validation error, not a generic 500 — no stack/detail
+    // leaked either way (apiError only exposes `details` on 4xx, and this
+    // path never passes any).
+    if (error instanceof AvailabilityRangeTooWideError) {
+      return apiError('Date range too wide', 400);
+    }
     return apiError('Failed to fetch availability', 500, error);
   }
 }
