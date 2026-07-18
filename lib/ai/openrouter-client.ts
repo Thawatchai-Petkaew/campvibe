@@ -36,6 +36,12 @@
  * `auth()` until CAM-420) — every real request today still resolves the
  * guest-only tool list, byte-identical to pre-CAM-417 behavior.
  *
+ * CAM-419 (ADR-013 D5) — `buildSystemPrompt` now also takes `ctx`: when
+ * `ctx.userId` is present it appends ONE extra line telling the model the
+ * camper is signed in and to prefer the new `getMy*` personal tools
+ * (`getMyProfile`, `getMyWishlist`) for the camper's own data. A guest turn
+ * (still every real request today) gets the byte-identical prompt as before.
+ *
  * CAM-416 (ADR-013 D4) — `runTurnFromBaseMessages` is now a real, BOUNDED
  * agent loop:
  *  - Up to `MAX_AGENT_ITERATIONS` (4) completions per turn; the loop stops as
@@ -130,10 +136,18 @@ export function formatTodayContextLine(now: Date = new Date()): string {
  * against the real current date before the model calls checkAvailability.
  * Root-cause fix for the real-smoke defect: without today's date in-prompt,
  * the model had no reference point and could not compute an ISO date range.
+ *
+ * CAM-419 (ADR-013 D5) — takes the turn's `ToolContext` so it can append ONE
+ * additional line, ONLY when `ctx.userId` is present, telling the model the
+ * camper is signed in and pointing it at the `getMy*` personal tools
+ * (`getMyProfile`, `getMyWishlist`). A guest turn (`ctx = {}`, still every
+ * real request today — the chat route doesn't read `auth()` until CAM-420)
+ * gets byte-identical prompt text to before this story.
  */
-function buildSystemPrompt(now: Date = new Date()): string {
+function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}): string {
   return [
     'You are the CampVibe camping assistant. You help campers find campsites and check availability using ONLY the provided tools (searchCampsites, checkAvailability).',
+    ...(ctx.userId ? ['The camper is signed in; use getMy* tools for their own bookings, wishlist, and profile.'] : []),
     // CAM-411 BR-4 — the น้องกองไฟ persona/tone line (design.md §Personality
     // tone), verbatim, inserted right after the identity line and before the
     // injection-guard line so the persona frames the whole prompt. A MODEL
@@ -649,7 +663,7 @@ async function runTurnFromBaseMessages(
 export async function runAssistantTurn(userText: string, ctx: ToolContext = {}): Promise<AssistantTurnResult> {
   const safeText = sanitizeForPrompt(userText);
   const baseMessages: OutgoingMessage[] = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx) },
     { role: 'user', content: wrapAsUserData(safeText) },
   ];
   return runTurnFromBaseMessages(baseMessages, ctx);
@@ -677,7 +691,7 @@ export async function runAssistantTurnFromMessages(
   ctx: ToolContext = {}
 ): Promise<AssistantTurnResult> {
   const baseMessages: OutgoingMessage[] = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx) },
     ...turnMessages,
   ];
   return runTurnFromBaseMessages(baseMessages, ctx);
