@@ -24,6 +24,40 @@ import { checkAssistantRateLimit } from '@/lib/ai/rate-limit';
 import { runAssistantTurn } from '@/lib/ai/openrouter-client';
 import { chatRequestSchema } from '@/lib/validations/ai-chat';
 import { serializeConversation, MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
+import { serializeDecimals } from '@/lib/serialize';
+
+/**
+ * CAM-272 QA fix (Critical, contract-reconciliation.test.ts): `cards` carries
+ * real `Prisma.Decimal` (priceLow/avgRating) + `Date` (createdAt) columns —
+ * the exact `campCardSelect` shape (lib/read-models/camp-card.ts), since
+ * `searchCampsites` is the only tool that ever populates `cards`.
+ * `serializeDecimals` is the SAME convention every other route uses
+ * (app/api/bookings/route.ts, app/api/campsites/route.ts, lib/serialize.ts).
+ * Without it, `Prisma.Decimal.toJSON()` ships `priceLow`/`avgRating` as JSON
+ * STRINGS and the client's numeric guard silently drops every priced card.
+ * avgRating/reviewCount already flow through unchanged (QA Important fix —
+ * `AiChatCardResponse` + `AiChatCampCard` now read them, no route change
+ * needed for those two fields). Also drops `images[].sortOrder` (an
+ * internal ordering key, never read client-side — QA Info finding) — done
+ * defensively (only when a card actually has an `images` array) so this
+ * never assumes a full `campCardSelect` shape.
+ */
+function toWireCards(cards: unknown[]): unknown[] {
+  const serialised = serializeDecimals(cards);
+  return serialised.map((raw) => {
+    if (!raw || typeof raw !== 'object' || !Array.isArray((raw as Record<string, unknown>).images)) {
+      return raw;
+    }
+    const c = raw as Record<string, unknown>;
+    const images = c.images as unknown[];
+    return {
+      ...c,
+      images: images.map((img) =>
+        img && typeof img === 'object' ? { url: (img as Record<string, unknown>).url } : img
+      ),
+    };
+  });
+}
 
 /** Same IP-extraction pattern as app/api/campgrounds/route.ts (Vercel proxy header). */
 function extractClientIp(request: NextRequest): string {
@@ -76,5 +110,5 @@ export async function POST(request: NextRequest) {
   }
 
   // BR-6 — success body is exactly { answer, cards }; nothing else leaked.
-  return NextResponse.json({ answer: result.answer ?? '', cards: result.cards ?? [] }, { status: 200 });
+  return NextResponse.json({ answer: result.answer ?? '', cards: toWireCards(result.cards ?? []) }, { status: 200 });
 }

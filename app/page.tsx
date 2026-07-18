@@ -7,6 +7,7 @@ import { FilterModal } from "@/components/FilterModal";
 import { CampgroundGridSkeleton } from "@/components/CampgroundSkeleton";
 import CatalogResults from "@/components/CatalogResults";
 import { auth } from "@/lib/auth";
+import { AiChatLauncher } from "@/components/ai-chat/AiChatLauncher";
 
 // CACHE-1 (CAM-195): force-dynamic removed. The page is still dynamic because auth()
 // and the wishlist lookup are per-request. The default catalog read is now served from
@@ -126,6 +127,9 @@ export default async function Home({ searchParams }: HomeProps) {
           />
         </Suspense>
       </div>
+
+      {/* CAM-272: Discover-only floating chat, Home-only entry (BR-1: always rendered). */}
+      <AiChatLauncher />
     </main>
   );
 }
