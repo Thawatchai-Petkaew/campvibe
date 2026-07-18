@@ -973,7 +973,8 @@
             "cardsLabel": "{count} recommended campsites",
             "cardsPrev": "Previous campsite",
             "cardsNext": "Next campsite",
-            "cardsRoleDescription": "carousel"
+            "cardsRoleDescription": "carousel",
+            "suggestedQuestionsLabel": "Suggested questions"
         }
     },
     "th": {
@@ -1951,7 +1952,8 @@
             "cardsLabel": "ลานกางเต็นท์ที่แนะนำ {count} แห่ง",
             "cardsPrev": "ดูลานก่อนหน้า",
             "cardsNext": "ดูลานถัดไป",
-            "cardsRoleDescription": "แถบเลื่อนการ์ด"
+            "cardsRoleDescription": "แถบเลื่อนการ์ด",
+            "suggestedQuestionsLabel": "คำถามแนะนำ"
         }
     }
 }
