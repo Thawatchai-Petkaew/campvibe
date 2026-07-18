@@ -87,6 +87,15 @@ describe('POST /api/ai/chat — happy path (AC-1, AC-3)', () => {
     const res = await POST(makeRequest({ messages: [{ role: 'user', content: 'สวัสดี' }] }));
     expect(res.status).toBe(200);
   });
+
+  it('[null/empty] runAssistantTurn ok:true with NO answer/cards fields still returns a well-formed 200 body (BR-6 default)', async () => {
+    mockRunAssistantTurn.mockResolvedValueOnce({ ok: true });
+
+    const res = await POST(makeRequest({ messages: [{ role: 'user', content: 'hi' }] }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ answer: '', cards: [] });
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -258,5 +267,53 @@ describe('POST /api/ai/chat — order: rate-limit AND zod validation BOTH preced
     const res = await POST(makeRequest({ messages: [] }, '203.0.113.31'));
     expect(res.status).toBe(400);
     expect(mockRunAssistantTurn).not.toHaveBeenCalled();
+  });
+
+  it('[order] an over-limit IP is denied 429 even with a MALFORMED (non-JSON) body — RL runs before request.json() is ever attempted (BR-2)', async () => {
+    const ip = '203.0.113.32';
+    const now = Date.now();
+    _store.set(`ai-assistant:${ip}`, Array.from({ length: AI_ASSISTANT_RATE_LIMIT }, (_, i) => now - i));
+
+    const res = await POST(makeMalformedRequest('{not valid json', ip));
+
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ code: 'rate_limited' });
+    expect(mockRunAssistantTurn).not.toHaveBeenCalled();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Adversarial: IP-derivation surface (extractClientIp) — same pattern as     */
+/* app/api/campgrounds/route.ts; each rate-limit bucket is keyed off it       */
+/* -------------------------------------------------------------------------- */
+
+describe('POST /api/ai/chat — IP derivation surface (x-forwarded-for parsing, BR-2)', () => {
+  it('[boundary] a comma-separated x-forwarded-for uses the FIRST entry as the rate-limit key', async () => {
+    mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'ok', cards: [] });
+    const req = new NextRequest('http://localhost/api/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Vercel proxy shape: client, then intermediate proxies.
+        'x-forwarded-for': '203.0.113.77, 10.0.0.1, 10.0.0.2',
+      },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    });
+    await POST(req);
+    // The bucket must be keyed on the FIRST IP only, not the raw header string.
+    expect(_store.has('ai-assistant:203.0.113.77')).toBe(true);
+    expect(_store.has('ai-assistant:203.0.113.77, 10.0.0.1, 10.0.0.2')).toBe(false);
+  });
+
+  it('[null/empty] a request with NO x-forwarded-for header falls back to a shared "unknown" bucket without crashing', async () => {
+    mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'ok', cards: [] });
+    const req = new NextRequest('http://localhost/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(_store.has('ai-assistant:unknown')).toBe(true);
   });
 });
