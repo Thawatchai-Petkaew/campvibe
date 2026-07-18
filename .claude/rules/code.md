@@ -183,6 +183,7 @@ export default async function CampPage({ params }: { params: { id: string } }) {
 | "`sum || fallback` shows the stored value until the derived one exists." | An OR-fallback treats a legitimate derived 0 as "no value" and leaks the stale fallback forever. Gate derived-total displays on an explicit count (`spotCount > 0`), never on the truthiness of the sum (CAM-351). |
 | "Fetch all the section's sources in one `Promise.all` with one try/catch." | One source's failure then blanks sibling data that loaded fine (a zones-only hiccup erased a healthy spot list). Give each independent source a never-throwing safe fetch that resolves `{ok:false}` and its own scoped error/retry UI; the shared catch is only for the section's own data (CAM-362). |
 | "`res.json() as MyType` — TypeScript knows the shape." | A cast is not a check: an off-contract 200 body crashes at render instead of reaching the component's documented error state. Validate the fetched shape at runtime (zod or explicit field checks) before trusting it — network I/O is an input boundary like any other (CAM-305). |
+| "Full suite was green at build time — no test debris." | A mid-build green run proves nothing about the FINAL commit: two stories in one wave broke sibling source-inspection pins that surfaced only in a later full run (cam-302 via CAM-400, cam-194 via CAM-398). Before handoff: grep `__tests__/` for every source string the diff changes AND re-run the full suite as the LAST act after the final edit. |
 
 ## Verify (exit criteria)
 
