@@ -318,6 +318,37 @@ describe("i18n — no hardcoded copy in components (code.md §4)", () => {
   });
 });
 
+describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defect fix)", () => {
+  it("[unit] desktop panel has a definite height (not auto) so the scroll region can bound itself", () => {
+    // A flex item whose height comes only from flex-grow (no CSS `height`
+    // length) is not a "definite size" for percentage-height descendants —
+    // ScrollArea's Viewport (height:100%) silently grows to content instead
+    // of scrolling. `sm:h-auto` regresses this; it must never come back.
+    expect(panelSrc).not.toContain("sm:h-auto");
+    expect(panelSrc).toContain("sm:h-[min(37.5rem,80dvh)]");
+  });
+
+  it("[unit] desktop panel keeps its on-scale fixed width from design.md (~384px)", () => {
+    expect(panelSrc).toContain("sm:w-96");
+  });
+
+  it("[unit] header and composer never compress (shrink-0) so the scroll region is the only flexible region", () => {
+    expect(panelSrc).toContain("flex shrink-0 items-center justify-between border-b");
+    expect(panelSrc).toContain("shrink-0 border-t border-border/60 p-4");
+  });
+
+  it("[unit] the message scroll region is flex-1 + min-h-0 (bounded, not content-driven)", () => {
+    expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
+  });
+
+  it("[unit] in-chat cards are w-full max-w-full — never squeezed to the chat-bubble's max-w-[85%]", () => {
+    expect(listSrc).toContain("w-full max-w-full flex-col gap-2 self-start");
+    expect(listSrc).toContain('data-testid="card--ai-chat-campsite" className="w-full max-w-full"');
+    // only the text bubble itself keeps the chat-bubble width
+    expect(listSrc).toContain('className="max-w-[85%] rounded-2xl bg-muted');
+  });
+});
+
 describe("Performance (not measured) — the heavy panel is lazy, not in the Home bundle eagerly", () => {
   it("[unit] AiChatLauncher lazy-loads AiChatPanel via next/dynamic(ssr:false)", () => {
     expect(launcherSrc).toContain('import dynamic from "next/dynamic"');

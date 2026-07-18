@@ -84,10 +84,19 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             "fixed inset-x-0 bottom-0 z-50 flex h-[85dvh] max-h-[85dvh] flex-col overflow-hidden rounded-t-3xl border-t border-border bg-popover shadow-2xl outline-none",
             "duration-200 data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10",
             "motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
-            "sm:inset-x-auto sm:inset-y-auto sm:left-auto sm:top-auto sm:right-6 sm:bottom-24 sm:h-auto sm:max-h-[min(37.5rem,80dvh)] sm:w-96 sm:rounded-3xl sm:border sm:border-border/60"
+            // CAM-407: the previous desktop height was auto + capped by a
+            // max-height only — a flex item's height that comes purely from
+            // flex-grow (no CSS `height` length) is NOT a "definite size"
+            // per the CSS spec, so ScrollArea's inner Viewport (`height:
+            // 100%`) failed to resolve against it and grew to fit content
+            // instead of scrolling, spilling messages under the pinned
+            // composer (proved via Playwright: Viewport measured 4463px tall
+            // vs. its 432px flex box). A single fixed `h-[...]` gives every
+            // descendant a definite height to resolve percentages against.
+            "sm:inset-x-auto sm:inset-y-auto sm:left-auto sm:top-auto sm:right-6 sm:bottom-24 sm:h-[min(37.5rem,80dvh)] sm:w-96 sm:rounded-3xl sm:border sm:border-border/60"
           )}
         >
-          <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
             <p className="font-heading text-base font-medium text-foreground">{t.aiChat.title}</p>
             <Button
               type="button"
@@ -105,7 +114,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             <AiChatMessageList entries={entries} sending={sending} onSuggestion={handleSuggestion} onRetry={retryLast} />
           </ScrollArea>
 
-          <div className="border-t border-border/60 p-4">
+          <div className="shrink-0 border-t border-border/60 p-4">
             <div className="flex items-end gap-2">
               <Textarea
                 ref={composerRef}
