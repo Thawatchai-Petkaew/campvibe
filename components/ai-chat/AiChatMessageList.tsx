@@ -13,8 +13,9 @@
  */
 "use client";
 
-import { AlertCircle, Clock, Info } from "lucide-react";
+import { Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCampCard } from "@/components/ai-chat/AiChatCampCard";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
@@ -148,17 +149,11 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
     );
   }
 
-  // entry.kind === "error"
+  // entry.kind === "error" — reuse ErrorBanner (destructive tone) rather than
+  // re-implementing its tint inline (CAM-272 design-gate Important finding).
   return (
     <div className="flex max-w-[85%] flex-col gap-2 self-start">
-      <div
-        data-testid="error--ai-chat"
-        role="alert"
-        className="flex items-center gap-2 rounded-2xl bg-destructive/2 border border-destructive/20 px-4 py-2.5 text-sm text-destructive"
-      >
-        <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-        <span>{t.aiChat.error}</span>
-      </div>
+      <ErrorBanner message={t.aiChat.error} className="rounded-2xl" data-testid="error--ai-chat" />
       <Button
         type="button"
         variant="outline"

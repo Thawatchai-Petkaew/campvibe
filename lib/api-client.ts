@@ -169,6 +169,12 @@ export interface AiChatRequestMessage {
  * post-`serializeDecimals` + JSON (lib/serialize.ts): Decimal -> number,
  * Date -> ISO string. Deliberately NOT the server-side `CampCardPayload`
  * (Prisma.Decimal/Date) — those never reach a `fetch()` caller as-is.
+ * `avgRating`/`reviewCount` (CAM-272 QA Important finding): surfaced so
+ * `AiChatCampCard` can render the same rating badge `CampgroundCard` shows
+ * everywhere else (design.md "keeps the same visual language"). `images`
+ * intentionally declares only `{url}` — `sortOrder` is a server-internal
+ * ordering key, never read client-side (QA Info finding; the route no
+ * longer sends it either).
  */
 export interface AiChatCardResponse {
     id: string;
@@ -178,6 +184,8 @@ export interface AiChatCardResponse {
     nameEnSlug: string;
     priceLow: number | null;
     createdAt: string;
+    avgRating: number | null;
+    reviewCount: number;
     location: { province: string };
     images?: { url: string }[];
 }
@@ -203,6 +211,8 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
         typeof v.nameEnSlug === 'string' &&
         (v.priceLow === null || typeof v.priceLow === 'number') &&
         typeof v.createdAt === 'string' &&
+        (v.avgRating === null || typeof v.avgRating === 'number') &&
+        typeof v.reviewCount === 'number' &&
         !!location &&
         typeof location.province === 'string'
     );

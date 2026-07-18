@@ -39,6 +39,8 @@ const card = (overrides: Partial<AiChatCardResponse> = {}): AiChatCardResponse =
   nameEnSlug: "camp-en",
   priceLow: 500,
   createdAt: "2026-01-01T00:00:00.000Z",
+  avgRating: 4.5,
+  reviewCount: 12,
   location: { province: "เชียงใหม่" },
   images: [{ url: "/a.jpg" }],
   ...overrides,
@@ -188,6 +190,17 @@ describe("isAiChatCardResponse — boundary validation (code.md CAM-305: network
   });
   it("[boundary] priceLow: null is valid (free camp)", () => {
     expect(isAiChatCardResponse(card({ priceLow: null }))).toBe(true);
+  });
+  it("[boundary] avgRating: null is valid (no reviews yet, CAM-272 QA Important fix)", () => {
+    expect(isAiChatCardResponse(card({ avgRating: null }))).toBe(true);
+  });
+  it("[error/validation] avgRating as a string (Decimal never un-serialised) fails", () => {
+    const bad = { ...card(), avgRating: "4.5" };
+    expect(isAiChatCardResponse(bad)).toBe(false);
+  });
+  it("[error/validation] reviewCount missing/wrong type fails", () => {
+    const bad = { ...card(), reviewCount: "12" };
+    expect(isAiChatCardResponse(bad)).toBe(false);
   });
   it("[null/empty] null/undefined/primitive values are rejected, not thrown", () => {
     expect(isAiChatCardResponse(null)).toBe(false);

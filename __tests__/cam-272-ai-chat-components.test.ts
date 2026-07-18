@@ -144,6 +144,11 @@ describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/
   it("[unit] cards are capped by rendering whatever cards[] contains (no client-side re-slicing)", () => {
     expect(listSrc).not.toMatch(/cards\.slice\(/);
   });
+
+  it("[unit] CAM-272 QA Important fix: avgRating/reviewCount are forwarded to CampgroundCard so the rating badge renders", () => {
+    expect(cardSrc).toContain("avgRating={card.avgRating}");
+    expect(cardSrc).toContain("reviewCount={card.reviewCount}");
+  });
 });
 
 describe("AC-3 — each in-chat card is a link to /campgrounds/{slug}, no write fires (QA gap closed)", () => {
@@ -219,7 +224,16 @@ describe("BR-7 — a11y wiring", () => {
   it("[unit] color is never the only signal — every notice pairs an icon with text", () => {
     expect(listSrc).toContain("<Clock");
     expect(listSrc).toContain("<Info");
-    expect(listSrc).toContain("<AlertCircle");
+    // The error notice reuses ErrorBanner (design-gate fix) — ErrorBanner
+    // itself pairs an AlertCircle icon with text, so the icon lives there
+    // now, not re-implemented inline in AiChatMessageList.
+    expect(listSrc).toContain("<ErrorBanner");
+  });
+
+  it("[unit] design-gate fix: the error notice reuses ErrorBanner instead of re-implementing its tint inline", () => {
+    expect(listSrc).toContain('import { ErrorBanner } from "@/components/ui/error-banner"');
+    expect(listSrc).toContain('<ErrorBanner message={t.aiChat.error} className="rounded-2xl" data-testid="error--ai-chat" />');
+    expect(listSrc).not.toContain("bg-destructive/2 border border-destructive/20");
   });
 
   it("[unit] every documented data-testid from design.md is present somewhere in the feature", () => {

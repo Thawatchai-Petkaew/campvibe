@@ -7,6 +7,10 @@
  * (`AiChatCardResponse`) onto `CampgroundCardData` at this one boundary —
  * both are already the same JSON-serialised shape (lib/api-client.ts), so
  * no synthetic/placeholder fields are needed (design.md §Seams).
+ *
+ * CAM-272 QA fix (Important): passes `avgRating`/`reviewCount` through so
+ * the card shows the same rating badge every other CampgroundCard renders
+ * (design.md "keeps the same visual language").
  */
 "use client";
 
@@ -27,6 +31,8 @@ export function AiChatCampCard({ card }: { card: AiChatCardResponse }) {
         location: card.location,
         images: card.images,
       }}
+      avgRating={card.avgRating}
+      reviewCount={card.reviewCount}
       variant="compact"
       priority={false}
     />
