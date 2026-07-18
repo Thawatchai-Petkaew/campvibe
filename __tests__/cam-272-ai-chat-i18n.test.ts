@@ -12,22 +12,29 @@ const th = translations.th.aiChat;
 const en = translations.en.aiChat;
 
 describe("locales/translations.json — aiChat namespace (TH verbatim, per design.md §Copy)", () => {
-  it("AC-1/BR-1: launcherLabel", () => expect(th.launcherLabel).toBe("เปิดผู้ช่วยหาที่กางเต็นท์"));
-  it("BR-7: title (panel aria-label)", () => expect(th.title).toBe("ผู้ช่วยหาที่กางเต็นท์"));
+  it("CAM-411 BR-1: launcherLabel (renamed to the น้องกองไฟ identity)", () =>
+    expect(th.launcherLabel).toBe("คุยกับน้องกองไฟ"));
+  it("BR-7: title (kept, base role text)", () => expect(th.title).toBe("ผู้ช่วยหาที่กางเต็นท์"));
+  it("CAM-411 BR-1: name", () => expect(th.name).toBe("น้องกองไฟ"));
+  it("CAM-411 BR-1: role (reuses the title text as the header subtitle)", () =>
+    expect(th.role).toBe("ผู้ช่วยหาที่กางเต็นท์"));
   it("BR-7: close", () => expect(th.close).toBe("ปิด"));
   it("composerPlaceholder", () => expect(th.composerPlaceholder).toBe("พิมพ์คำถามเกี่ยวกับลานกางเต็นท์…"));
   it("send", () => expect(th.send).toBe("ส่งคำถาม"));
   it("BR-3: typing", () => expect(th.typing).toBe("ผู้ช่วยกำลังพิมพ์…"));
   it("loading", () => expect(th.loading).toBe("กำลังโหลด…"));
-  it("AC-1/BR-2: welcomeHeading", () => expect(th.welcomeHeading).toBe("ถามผู้ช่วยหาที่กางเต็นท์ได้เลย"));
+  it("CAM-411 AC-2: welcomeHeading (name-voiced greeting)", () =>
+    expect(th.welcomeHeading).toBe("สวัสดี เราน้องกองไฟเอง อยากได้ที่กางเต็นท์แบบไหน ลองเล่าให้ฟังได้เลย"));
+  it("CAM-411 AC-2/BR-5: welcomeExamplesLabel", () => expect(th.welcomeExamplesLabel).toBe("ลองถามแบบนี้ดู"));
   it("AC-1/BR-2: suggestion1", () => expect(th.suggestion1).toBe("หาที่แคมป์ติดน้ำ หมาเข้าได้"));
   it("BR-2: suggestion2", () => expect(th.suggestion2).toBe("ลานใกล้เชียงใหม่ งบไม่เกิน 1500 บาท"));
   it("BR-2: suggestion3", () => expect(th.suggestion3).toBe("ที่กางเต็นท์สำหรับครอบครัว มีห้องน้ำสะอาด"));
-  it("AC-4/EC-2: zeroResult", () => expect(th.zeroResult).toBe("ยังไม่พบลานที่ตรงกับที่ค้นหา ลองปรับเงื่อนไขดูนะ"));
+  it("CAM-411 AC-4: zeroResult (name-voiced)", () =>
+    expect(th.zeroResult).toBe("ยังไม่เจอที่ถูกใจเลย ลองบอกเงื่อนไขใหม่ให้น้องกองไฟช่วยหาอีกทีได้นะ"));
   it("AC-5/EC-5: error", () => expect(th.error).toBe("ผู้ช่วยขัดข้อง กรุณาลองใหม่อีกครั้ง"));
   it("AC-5: retry", () => expect(th.retry).toBe("ลองใหม่"));
   it("AC-6/EC-3: rateLimited", () => expect(th.rateLimited).toBe("มีคำถามเข้ามามากเกินไป กรุณารอสักครู่แล้วลองใหม่"));
-  it("AC-7/EC-4: disabled", () => expect(th.disabled).toBe("ผู้ช่วยยังไม่เปิดใช้งาน"));
+  it("CAM-411 EC-2: disabled (name-voiced)", () => expect(th.disabled).toBe("น้องกองไฟยังไม่พร้อมให้บริการ"));
   it("CAM-410 AC-6/BR-8: suggestedQuestionsLabel (chip group aria-label)", () =>
     expect(th.suggestedQuestionsLabel).toBe("คำถามแนะนำ"));
   it("CAM-410 BR-8: suggestedQuestionsLabel EN counterpart", () =>
