@@ -96,18 +96,20 @@ export async function GET(
     // would silently never reduce "เหลือ {n} ที่" on the calendar (the story's
     // Seams & refs "CAM-342 trap" — see lib/campsite-availability.ts).
     const formatted = Object.entries(availability).map(([date, data]) => {
-      // CAM-355 BR-8: WHOLE-CAMP keeps the EXACT pre-CAM-355 truthy-gate
-      // expression (a falsy/null column means "no cap"). PER-SPOT uses a
-      // null-check gate instead (BR-6: 0 is a REAL derived cap, never "no
-      // cap" — the same fix applied to the write gate/badge/remaining-badge).
+      // CAM-400 BR-1/BR-3: the invariant (null = unlimited, 0 = closed/full)
+      // is uniform across the whole seam now. WHOLE-CAMP previously kept the
+      // pre-CAM-355 truthy-gate (BR-8) that read a 0 column as "no cap" —
+      // disagreeing with getRemainingCapacity/getAvailabilityStatusForCamps
+      // (both already `!== null`) and the write gate (fixed alongside this).
+      // PER-SPOT was already null-check (BR-6); both branches now match.
       const isCapacityFull = campSite.useSpotView
         ? (
             (effectiveGuests !== null && (data.bookedGuests + data.heldGuests) >= effectiveGuests) ||
             (effectiveTents !== null && data.bookedTents >= effectiveTents)
           )
         : (
-            (campSite.maxGuestsPerDay && (data.bookedGuests + data.heldGuests) >= campSite.maxGuestsPerDay) ||
-            (campSite.maxTentsPerDay && data.bookedTents >= campSite.maxTentsPerDay)
+            (campSite.maxGuestsPerDay !== null && (data.bookedGuests + data.heldGuests) >= campSite.maxGuestsPerDay) ||
+            (campSite.maxTentsPerDay !== null && data.bookedTents >= campSite.maxTentsPerDay)
           );
 
       return {
@@ -120,10 +122,10 @@ export async function GET(
         available: !isCapacityFull && !data.blockedByHost,
         remainingGuests: campSite.useSpotView
           ? (effectiveGuests !== null ? effectiveGuests - (data.bookedGuests + data.heldGuests) : null)
-          : (campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null),
+          : (campSite.maxGuestsPerDay !== null ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null),
         remainingTents: campSite.useSpotView
           ? (effectiveTents !== null ? effectiveTents - data.bookedTents : null)
-          : (campSite.maxTentsPerDay ? campSite.maxTentsPerDay - data.bookedTents : null),
+          : (campSite.maxTentsPerDay !== null ? campSite.maxTentsPerDay - data.bookedTents : null),
         blockedByHost: data.blockedByHost,
       };
     });

@@ -137,12 +137,15 @@ describe('CAM-55 BR-1 — the consumed endpoint computes from getCampSiteDailyAv
     expect(routeSrc).toContain('getCampSiteDailyAvailability(id, start, end)');
   });
 
-  // CAM-355 (G3 Important-1): whole-camp keeps this EXACT pre-CAM-355 formula,
-  // now reached through a useSpotView mode gate (PER-SPOT reads the derived
-  // effective capacity instead of the stale column).
+  // CAM-355 (G3 Important-1): whole-camp keeps this formula, reached through a
+  // useSpotView mode gate (PER-SPOT reads the derived effective capacity
+  // instead of the stale column). CAM-400 BR-3 re-pin: the gate itself changed
+  // from a truthy check (`maxGuestsPerDay ? … : null`, which wrongly read a
+  // real 0-capacity column as "no cap") to a null-check (`!== null`) so 0 is
+  // treated as a real, closed capacity — the subtraction math is unchanged.
   it('remainingGuests (whole-camp branch) is derived from maxGuestsPerDay - (bookedGuests + heldGuests) — CAM-302 threads holds into the same one formula', () => {
     expect(routeSrc).toContain(
-      'campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
+      'campSite.maxGuestsPerDay !== null ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
     );
   });
 
