@@ -45,8 +45,26 @@ export const MAX_SUGGESTIONS = 3;
 /** CAM-410 BR-4 — tag the model is instructed to wrap its suggestions JSON array in, inside the SAME completion as the answer. */
 const SUGGESTIONS_OPEN_TAG = '<suggestions>';
 const SUGGESTIONS_CLOSE_TAG = '</suggestions>';
-/** Tolerant of case + stray whitespace inside the tag, mirroring sanitize.ts's DELIMITER_TAG_REGEX idiom; captures the JSON array text between the tags. */
-const SUGGESTIONS_BLOCK_REGEX = /<\s*suggestions\s*>([\s\S]*?)<\s*\/\s*suggestions\s*>/i;
+/**
+ * QA adversarial-pass hardening (3 Critical defects, all sharing one root
+ * cause: a single non-greedy, non-`g` match only ever strips the FIRST
+ * `<suggestions>...</suggestions>` span it finds). These are all tolerant of
+ * case + stray internal whitespace, mirroring sanitize.ts's DELIMITER_TAG_REGEX
+ * idiom, but deliberately kept as SEPARATE non-capturing tag matchers (never
+ * a single non-greedy capture group) so the block boundary can be resolved by
+ * JSON-validity instead of "whichever closing tag comes first textually":
+ *  - SUGGESTIONS_OPEN_TAG_REGEX / SUGGESTIONS_CLOSE_TAG_REGEX_SOURCE locate
+ *    tag positions one at a time (non-global — safe, stateless `.exec`/`test`).
+ *  - SUGGESTIONS_PAIR_REGEX_GLOBAL strips any FURTHER complete pair left in
+ *    the text after the primary block is removed (a duplicated block).
+ *  - SUGGESTIONS_ANY_TAG_REGEX(_GLOBAL) strips any stray unpaired tag
+ *    remnant; the non-global form also gates a single candidate string for a
+ *    smuggled delimiter (defense-in-depth, BR-3).
+ */
+const SUGGESTIONS_OPEN_TAG_REGEX = /<\s*suggestions\s*>/i;
+const SUGGESTIONS_PAIR_REGEX_GLOBAL = /<\s*suggestions\s*>[\s\S]*?<\s*\/\s*suggestions\s*>/gi;
+const SUGGESTIONS_ANY_TAG_REGEX = /<\s*\/?\s*suggestions\s*>/i;
+const SUGGESTIONS_ANY_TAG_REGEX_GLOBAL = /<\s*\/?\s*suggestions\s*>/gi;
 
 /**
  * CAM-408 BR-4 — `<isoDate> (<thaiWeekday>)`, Asia/Bangkok. Exported as a pure
@@ -109,6 +127,18 @@ export interface AssistantTurnResult {
   error?: string;
 }
 
+/** Every `</suggestions>` close-tag position found in `text` at or after `fromIndex` (in order). */
+function findAllCloseTagPositions(text: string, fromIndex: number): Array<{ start: number; end: number }> {
+  const slice = text.slice(fromIndex);
+  const regex = /<\s*\/\s*suggestions\s*>/gi;
+  const positions: Array<{ start: number; end: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(slice)) !== null) {
+    positions.push({ start: fromIndex + m.index, end: fromIndex + m.index + m[0].length });
+  }
+  return positions;
+}
+
 /**
  * CAM-410 BR-4/BR-5 — pulls the (optional) `<suggestions>[...]</suggestions>`
  * block out of the raw completion content, returning the answer with the
@@ -116,30 +146,85 @@ export interface AssistantTurnResult {
  * the sanitized, bounded suggestion list (BR-2/BR-3). Never throws: a
  * missing/malformed/unparsable block simply yields `suggestions: []` and the
  * answer text with the block stripped (EC-5).
+ *
+ * QA adversarial-pass hardening (3 Critical defects, one root cause — see
+ * the regex block above): a single non-greedy match only ever finds the
+ * FIRST `<suggestions>...</suggestions>` span, so any completion shape where
+ * that span isn't the one true block leaves raw markup in the answer. Fixed
+ * by resolving the block boundary on JSON-VALIDITY, not "whichever closing
+ * tag comes first textually":
+ *  1. Find the first `<suggestions>` open tag. None -> the content is
+ *     already clean prose (unchanged fast path).
+ *  2. Collect EVERY `</suggestions>` close-tag position after it. Try each,
+ *     earliest first: the first one whose span parses as a JSON array is
+ *     the TRUE block (a forged `</suggestions>` nested inside a candidate
+ *     string fails to parse there — unbalanced quotes/brackets — and is
+ *     skipped in favor of the real, later closing tag; QA defect #3).
+ *  3. No closing tag at all (a MAX_TOKENS completion cutoff mid-block, QA
+ *     defect #2) -> strip from the open tag to the END of the text; no
+ *     candidates can be parsed from an unterminated block.
+ *  4. No occurrence parses into an array (malformed JSON) -> best-effort
+ *     strip through the LAST closing tag found; `suggestions` stays absent.
+ *  5. After removing that primary span, GLOBALLY strip any further complete
+ *     pair (a duplicated block, QA defect #1) and any stray unpaired tag
+ *     remnant left in the rest of the text.
+ *  6. Per-candidate: a candidate whose OWN raw text still carries a
+ *     suggestions-tag delimiter is a smuggling/nesting attempt and is
+ *     dropped outright — never sanitized-and-kept (QA defect #3); sanitize
+ *     itself is otherwise unchanged (BR-3).
  */
 function extractSuggestions(rawContent: string): { answer: string; suggestions: string[] } {
-  const match = SUGGESTIONS_BLOCK_REGEX.exec(rawContent);
-  if (!match) return { answer: rawContent.trim(), suggestions: [] };
+  const openMatch = SUGGESTIONS_OPEN_TAG_REGEX.exec(rawContent);
+  if (!openMatch) return { answer: rawContent.trim(), suggestions: [] };
 
-  const answer = (rawContent.slice(0, match.index) + rawContent.slice(match.index + match[0].length)).trim();
+  const openStart = openMatch.index;
+  const openEnd = openMatch.index + openMatch[0].length;
+  const closeTagPositions = findAllCloseTagPositions(rawContent, openEnd);
 
-  let candidates: unknown;
-  try {
-    candidates = JSON.parse(match[1].trim());
-  } catch {
-    return { answer, suggestions: [] };
+  let blockEnd: number;
+  let candidates: unknown = null;
+
+  if (closeTagPositions.length === 0) {
+    // No closing tag anywhere — an orphaned/truncated block (EC-5, QA defect #2).
+    blockEnd = rawContent.length;
+  } else {
+    let found = false;
+    for (const close of closeTagPositions) {
+      const jsonText = rawContent.slice(openEnd, close.start).trim();
+      try {
+        const parsed: unknown = JSON.parse(jsonText);
+        if (Array.isArray(parsed)) {
+          candidates = parsed;
+          blockEnd = close.end;
+          found = true;
+          break;
+        }
+      } catch {
+        // Not the true block boundary (e.g. a forged nested closing tag) — try the next one.
+      }
+    }
+    if (!found) {
+      blockEnd = closeTagPositions[closeTagPositions.length - 1].end;
+    }
   }
-  if (!Array.isArray(candidates)) return { answer, suggestions: [] };
+
+  const primaryRemoved = rawContent.slice(0, openStart) + rawContent.slice(blockEnd!);
+  const withoutExtraPairs = primaryRemoved.replace(SUGGESTIONS_PAIR_REGEX_GLOBAL, ' ');
+  const withoutStrayTags = withoutExtraPairs.replace(SUGGESTIONS_ANY_TAG_REGEX_GLOBAL, ' ');
+  const answer = withoutStrayTags.trim();
 
   const suggestions: string[] = [];
-  const seen = new Set<string>();
-  for (const candidate of candidates) {
-    if (suggestions.length >= MAX_SUGGESTIONS) break;
-    if (typeof candidate !== 'string') continue;
-    const cleaned = sanitizeSuggestion(candidate);
-    if (!cleaned || seen.has(cleaned)) continue;
-    seen.add(cleaned);
-    suggestions.push(cleaned);
+  if (Array.isArray(candidates)) {
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (suggestions.length >= MAX_SUGGESTIONS) break;
+      if (typeof candidate !== 'string') continue;
+      if (SUGGESTIONS_ANY_TAG_REGEX.test(candidate)) continue; // smuggled delimiter — drop outright (QA defect #3)
+      const cleaned = sanitizeSuggestion(candidate);
+      if (!cleaned || seen.has(cleaned)) continue;
+      seen.add(cleaned);
+      suggestions.push(cleaned);
+    }
   }
   return { answer, suggestions };
 }
