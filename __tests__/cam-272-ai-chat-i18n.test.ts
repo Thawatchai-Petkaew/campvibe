@@ -28,6 +28,10 @@ describe("locales/translations.json — aiChat namespace (TH verbatim, per desig
   it("AC-5: retry", () => expect(th.retry).toBe("ลองใหม่"));
   it("AC-6/EC-3: rateLimited", () => expect(th.rateLimited).toBe("มีคำถามเข้ามามากเกินไป กรุณารอสักครู่แล้วลองใหม่"));
   it("AC-7/EC-4: disabled", () => expect(th.disabled).toBe("ผู้ช่วยยังไม่เปิดใช้งาน"));
+  it("CAM-410 AC-6/BR-8: suggestedQuestionsLabel (chip group aria-label)", () =>
+    expect(th.suggestedQuestionsLabel).toBe("คำถามแนะนำ"));
+  it("CAM-410 BR-8: suggestedQuestionsLabel EN counterpart", () =>
+    expect(en.suggestedQuestionsLabel).toBe("Suggested questions"));
 
   it("[structural] no em-dash separator in any TH aiChat copy (DESIGN.md §4)", () => {
     for (const [key, value] of Object.entries(th)) {

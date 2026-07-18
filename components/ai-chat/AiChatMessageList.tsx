@@ -1,5 +1,6 @@
 /**
- * components/ai-chat/AiChatMessageList.tsx — CAM-272 (cards layout: CAM-409)
+ * components/ai-chat/AiChatMessageList.tsx — CAM-272 (cards layout: CAM-409;
+ * follow-up suggestion chips: CAM-410)
  *
  * Renders the welcome/empty state, the running thread (user + assistant
  * turns), the typing indicator, and every notice state (zero-result,
@@ -14,6 +15,13 @@
  * CAM-409: the cards render via `AiChatCardCarousel` (horizontal snap-scroll
  * with peek) instead of the CAM-272 vertical `space-y-3` stack — see
  * design.md's addendum, which SUPERSEDES that single-column layout rule.
+ *
+ * CAM-410 (BR-7): follow-up-question chips render under the LATEST
+ * assistant `answer` entry only, and only once that turn is no longer in
+ * flight — both conditions are enforced by `showSuggestions` computed in the
+ * parent map (index === last && !sending), never inside the row itself.
+ * Tapping a chip reuses the exact same `onSuggestion` -> `sendMessage` path
+ * as the CAM-272 welcome pills (Seams & refs — no parallel send path).
  */
 "use client";
 
@@ -66,8 +74,14 @@ export function AiChatMessageList({ entries, sending, onSuggestion, onRetry }: A
         </div>
       )}
 
-      {entries.map((entry) => (
-        <AiChatEntryRow key={entry.id} entry={entry} onRetry={onRetry} />
+      {entries.map((entry, index) => (
+        <AiChatEntryRow
+          key={entry.id}
+          entry={entry}
+          onRetry={onRetry}
+          onSuggestion={onSuggestion}
+          showSuggestions={!sending && index === entries.length - 1}
+        />
       ))}
 
       {sending && (
@@ -90,7 +104,15 @@ export function AiChatMessageList({ entries, sending, onSuggestion, onRetry }: A
   );
 }
 
-function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => void }) {
+interface AiChatEntryRowProps {
+  entry: ChatEntry;
+  onRetry: () => void;
+  onSuggestion: (text: string) => void;
+  /** CAM-410 BR-7: true only for the newest entry while no turn is in flight. */
+  showSuggestions: boolean;
+}
+
+function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiChatEntryRowProps) {
   const { t } = useLanguage();
 
   if (entry.role === "user") {
@@ -105,6 +127,9 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
   }
 
   if (entry.kind === "answer") {
+    // CAM-410 AC-3/AC-4/AC-5/BR-7: only the newest, non-in-flight answer ever
+    // shows its chips; every other answer's `suggestions[]` is ignored here.
+    const suggestions = showSuggestions ? (entry.suggestions ?? []) : [];
     return (
       // CAM-407: only the text bubble is a chat-bubble width (max-w-[85%]);
       // the row itself + the cards stay w-full max-w-full so an in-chat
@@ -126,6 +151,28 @@ function AiChatEntryRow({ entry, onRetry }: { entry: ChatEntry; onRetry: () => v
           )}
         </div>
         {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} />}
+        {suggestions.length > 0 && (
+          <div
+            role="group"
+            aria-label={t.aiChat.suggestedQuestionsLabel}
+            data-testid="group--ai-chat-suggestion-chips"
+            className="flex flex-wrap gap-2"
+          >
+            {suggestions.map((text) => (
+              <Button
+                key={text}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-11 rounded-full motion-safe:active:scale-95"
+                data-testid="btn--ai-chat-suggestion-chip"
+                onClick={() => onSuggestion(text)}
+              >
+                {text}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

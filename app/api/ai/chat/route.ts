@@ -109,6 +109,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'assistant_error' }, { status: 502 });
   }
 
-  // BR-6 — success body is exactly { answer, cards }; nothing else leaked.
-  return NextResponse.json({ answer: result.answer ?? '', cards: toWireCards(result.cards ?? []) }, { status: 200 });
+  // BR-6 — success body is { answer, cards } plus the CAM-410 additive,
+  // optional `suggestions` (BR-1: absent means no chips — omitted, never a
+  // defined empty array, keeping the body's key set unchanged for a turn
+  // with no follow-up questions); nothing else leaked.
+  const body: { answer: string; cards: unknown[]; suggestions?: string[] } = {
+    answer: result.answer ?? '',
+    cards: toWireCards(result.cards ?? []),
+  };
+  if (result.suggestions && result.suggestions.length > 0) {
+    body.suggestions = result.suggestions;
+  }
+  return NextResponse.json(body, { status: 200 });
 }

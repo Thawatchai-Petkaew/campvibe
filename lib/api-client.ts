@@ -9,6 +9,7 @@ import type {
     WishlistWithCampSiteDTO,
     WishlistIdsResponse,
 } from '@/types/api';
+import { MAX_SUGGESTION_LENGTH } from '@/lib/ai/sanitize';
 
 const API_BASE = '/api';
 
@@ -191,13 +192,39 @@ export interface AiChatCardResponse {
 }
 
 export type AiChatOutcome =
-    | { kind: 'ok'; answer: string; cards: AiChatCardResponse[] }
+    | { kind: 'ok'; answer: string; cards: AiChatCardResponse[]; suggestions?: string[] }
     | { kind: 'rate-limited' }
     | { kind: 'disabled' }
     | { kind: 'error' };
 
 /** Matches CAM-271's documented cap (story.md BR-2 sibling) — never send more. */
 export const AI_CHAT_MAX_MESSAGES = 10;
+
+/** CAM-410 BR-2 — mirrors the server's cap; the client re-enforces it independently (defense-in-depth, code.md CAM-305: network I/O is an input boundary) rather than trusting the wire body blindly. */
+export const AI_CHAT_MAX_SUGGESTIONS = 3;
+
+/**
+ * CAM-410 seam invariant (Seams & refs): "for every response the client can
+ * receive ... the client resolves to a sanitized `string[]` of length 0-3" —
+ * true regardless of what the wire actually carried (absent, [], valid,
+ * over-count, over-length, blank, duplicate). Never truncates an
+ * over-length item mid-word; drops it instead (mirrors the server's BR-2).
+ */
+function normalizeSuggestions(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of value) {
+        if (out.length >= AI_CHAT_MAX_SUGGESTIONS) break;
+        if (typeof item !== 'string') continue;
+        const trimmed = item.trim();
+        if (trimmed.length === 0 || trimmed.length > MAX_SUGGESTION_LENGTH) continue;
+        if (seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        out.push(trimmed);
+    }
+    return out;
+}
 
 /** Narrows an unknown value into an `AiChatCardResponse` (network I/O is an input boundary, code.md CAM-305). */
 export function isAiChatCardResponse(value: unknown): value is AiChatCardResponse {
@@ -218,13 +245,22 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
     );
 }
 
-/** Validates a `200` body into an outcome; malformed cards are dropped, never crash the turn (EC-6 sibling). */
+/**
+ * Validates a `200` body into an outcome; malformed cards are dropped, never
+ * crash the turn (EC-6 sibling). CAM-410 (Seams & refs, CAM-342 lesson):
+ * `suggestions` is enumerated here explicitly — an older/unaware body simply
+ * has no such key, so `suggestions` stays absent on the outcome (BR-1
+ * "absent means no chips"; EC-6 sibling).
+ */
 export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
     if (!data || typeof data !== 'object') return { kind: 'error' };
-    const { answer, cards } = data as Record<string, unknown>;
+    const { answer, cards, suggestions } = data as Record<string, unknown>;
     if (typeof answer !== 'string') return { kind: 'error' };
     const safeCards = Array.isArray(cards) ? cards.filter(isAiChatCardResponse) : [];
-    return { kind: 'ok', answer, cards: safeCards };
+    const safeSuggestions = normalizeSuggestions(suggestions);
+    return safeSuggestions.length > 0
+        ? { kind: 'ok', answer, cards: safeCards, suggestions: safeSuggestions }
+        : { kind: 'ok', answer, cards: safeCards };
 }
 
 export const aiChatAPI = {
