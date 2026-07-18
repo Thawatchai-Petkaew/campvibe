@@ -36,11 +36,31 @@
  * lib/campsite-availability.ts (the whole-camp `!==null` back to `&&`) makes
  * the WC-2 write-gate assertion in this file go red — confirmed by hand
  * during self-verify, not re-encoded as a live revert inside this suite.
+ *
+ * Two QA-added extensions beyond the 8-cell matrix (real gaps found while
+ * proving every AC, not scope creep):
+ *
+ *  1. EC-1 INTEGRATION (mandatory oracle) — WC-2 above proves the write-GATE
+ *     FUNCTION rejects capacity=0 in isolation; it does not prove the real
+ *     POST /api/bookings ROUTE wires that verdict into a 409 + never reaches
+ *     booking.create. Added as a second describe block mirroring cam-355's
+ *     established "Group F" convention for this exact route.
+ *
+ *  2. AC-3/EC-3/BR-4 component defense-in-depth (button + handleReserve) —
+ *     components/CampgroundDetailClient.tsx had ZERO test coverage for the
+ *     `isFullyBooked` button-disable + handleReserve early-return this story
+ *     added (confirmed by a real coverage run: 0% on that file). This project
+ *     has no jsdom/RTL harness for this component (vitest environment:'node'
+ *     — see __tests__/cam-396-booking-login-gate.test.ts's own header note),
+ *     so coverage follows that file's established source-inspection Prove-It
+ *     convention rather than a render-based test.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 // ---------------------------------------------------------------------------
 // Module mocks — hoisted before imports (mirrors cam-355-per-spot-capacity-
@@ -48,9 +68,10 @@ import { Prisma } from '@prisma/client';
 // ---------------------------------------------------------------------------
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: vi.fn(),
     campSite: { findUnique: vi.fn(), findMany: vi.fn() },
-    booking: { findMany: vi.fn() },
-    blockedDate: { findMany: vi.fn() },
+    booking: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    blockedDate: { findMany: vi.fn(), findFirst: vi.fn() },
     internalHold: { findMany: vi.fn() },
     spot: { findMany: vi.fn() },
   },
@@ -62,10 +83,27 @@ vi.mock('@/lib/prisma', () => ({
 // mocked purely to avoid pulling in next-auth's runtime resolution.
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 
+// POST /api/bookings (the EC-1 mandatory-oracle group below) — mocked exactly
+// as cam-355-per-spot-capacity-enforcement.test.ts's established Group F
+// convention for this same route.
+vi.mock('@/lib/auth-utils', () => ({ requireAuth: vi.fn() }));
+vi.mock('@/lib/booking-pricing', () => ({
+  resolveUnitPrice: vi.fn(() => 500),
+  computeBookingPrice: vi.fn(() => ({
+    subtotalAmount: 500,
+    taxAmount: 0,
+    vatInclusive: false,
+    totalAmount: 500,
+  })),
+}));
+vi.mock('@/lib/serialize', () => ({ serializeDecimals: vi.fn((x) => x) }));
+
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-utils';
 import { getRemainingCapacity, checkDateAvailabilityInTx } from '@/lib/campsite-availability';
 
 const { GET: availabilityGET } = await import('@/app/api/campsites/[id]/availability/route');
+const { POST: bookingsPOST } = await import('@/app/api/bookings/route');
 
 // ---------------------------------------------------------------------------
 // Fixtures / helpers
@@ -307,5 +345,179 @@ describe('CAM-400 EC-4 — null capacity (unlimited) is unaffected by the fix, e
       requestedGuests: 6,
       expectAvailable: true,
     });
+  });
+});
+
+// ===========================================================================
+// EC-1 — INTEGRATION: the real POST /api/bookings route (the mandatory
+// oracle, cam-355 Group F convention). WC-2 above proves the write-GATE
+// FUNCTION rejects capacity=0 in isolation; that is not the same claim as
+// "a direct POST bypassing the reserve button is rejected" — the route must
+// actually WIRE checkDateAvailabilityInTx's verdict into a 409 response and
+// never reach booking.create. This is AC-1's full contract (Thai copy is a
+// client-side toast per CAM-396 BR-2 — any non-ok response renders
+// `จองไม่สำเร็จ`, asserted at the component layer, not re-derived from the
+// server's raw message here; the two System-effect facts — 409 + no Booking
+// row — are exactly what this oracle proves).
+// ===========================================================================
+
+describe('CAM-400 EC-1 — POST /api/bookings rejects a direct dispatch against a 0-capacity whole-camp, independent of any button state (the mandatory oracle)', () => {
+  const BOOKING_USER_ID = 'aaaaaaaa-0000-4000-8000-0000004000ff';
+
+  beforeEach(() => {
+    (requireAuth as ReturnType<typeof vi.fn>).mockResolvedValue({
+      error: null,
+      session: { user: { id: BOOKING_USER_ID, email: 'camper@campvibe.com', name: 'Camper' } },
+    });
+  });
+
+  function wireBookingTransaction(tx: unknown) {
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (tx: unknown) => Promise<unknown>) => cb(tx)
+    );
+  }
+
+  function makeBookingPostRequest(guests: number): NextRequest {
+    return new NextRequest('http://localhost/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({
+        campSiteId: CAMP_ID,
+        checkInDate: NIGHT_ISO,
+        checkOutDate: CHECKOUT_ISO,
+        guests,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  it('[MANDATORY ORACLE][ec-1][ac-1] a whole-camp camp with maxGuestsPerDay=0 and ZERO existing bookings -> 409 "Capacity exceeded", no Booking row created (the exact CAM-400 bug, proven at the route, not just the unit)', async () => {
+    const create = vi.fn();
+    const tx = {
+      booking: {
+        findFirst: vi.fn().mockResolvedValue(null), // no spotId supplied -> never consulted
+        findMany: vi.fn().mockResolvedValue([]), // zero pre-existing bookings — the bug needs none
+        create,
+      },
+      campSite: {
+        findUnique: vi.fn().mockResolvedValue({ useSpotView: false, maxGuestsPerDay: 0, maxTentsPerDay: null }),
+      },
+      blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+      internalHold: { findMany: vi.fn().mockResolvedValue([]) },
+      spot: { findMany: vi.fn() },
+    };
+    wireBookingTransaction(tx);
+
+    const res = await bookingsPOST(makeBookingPostRequest(1));
+    const body = await res.json();
+
+    expect(res.status, 'AC-1 system effect: server rejects').toBe(409);
+    expect(body.error).toBe('Capacity exceeded');
+    expect(body.details).toMatch(/Exceeds maximum guests per day \(0\)/);
+    expect(create, 'AC-1 system effect: no Booking row created').not.toHaveBeenCalled();
+  });
+
+  it('[regression][ec-4] the same route accepts a whole-camp camp with maxGuestsPerDay=null (unlimited) — 201, Booking row created', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'booking-400-null', status: 'PENDING' });
+    const tx = {
+      booking: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+        create,
+      },
+      campSite: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: CAMP_ID,
+          useSpotView: false,
+          nameTh: 'แคมป์ทดสอบ',
+          nameEn: 'Test Camp',
+          priceLow: 500,
+          priceCurrency: 'THB',
+          checkInTime: '14:00',
+          checkOutTime: '12:00',
+          maxGuestsPerDay: null,
+          maxTentsPerDay: null,
+          extraFeeAmount: null,
+          spots: [],
+          location: { countryRel: { vatRate: 0, timezone: 'Asia/Bangkok' } },
+        }),
+      },
+      blockedDate: { findFirst: vi.fn().mockResolvedValue(null) },
+      internalHold: { findMany: vi.fn().mockResolvedValue([]) },
+      spot: { findMany: vi.fn() },
+    };
+    wireBookingTransaction(tx);
+
+    const res = await bookingsPOST(makeBookingPostRequest(6));
+
+    expect(res.status).toBe(201);
+    expect(create).toHaveBeenCalledOnce();
+  });
+});
+
+// ===========================================================================
+// AC-3/EC-3/BR-4 — client defense-in-depth (button disabled + handleReserve
+// early-return). Source-inspection Prove-It (no jsdom harness for this
+// component — mirrors __tests__/cam-396-booking-login-gate.test.ts exactly).
+// ===========================================================================
+
+const clientSrc = readFileSync(
+  resolve(__dirname, '..', 'components/CampgroundDetailClient.tsx'),
+  'utf-8'
+);
+
+function extractHandleReserveBody(src: string): string {
+  const start = src.indexOf('const handleReserve = async () => {');
+  expect(start, 'handleReserve must exist').toBeGreaterThan(-1);
+  const end = src.indexOf('};', start);
+  expect(end, 'handleReserve must close with `};`').toBeGreaterThan(start);
+  return src.slice(start, end);
+}
+
+describe('CAM-400 AC-3/EC-3/BR-4 — reserve button disables + handleReserve early-returns when isFullyBooked (double defense)', () => {
+  const handleReserveBody = extractHandleReserveBody(clientSrc);
+
+  it('[unit][ac-3] the reserve <Button> disabled expression includes isFullyBooked (fades/disables when the banner says เต็มแล้ว)', () => {
+    // Prove-It: FAILS on the pre-CAM-400 source (`disabled={isReserving}` only)
+    // — a camp the banner calls full would still render a clickable button.
+    expect(clientSrc).toMatch(/disabled=\{isReserving\s*\|\|\s*isFullyBooked\}/);
+  });
+
+  it('[unit][ec-3] handleReserve early-returns on isFullyBooked BEFORE the /api/bookings fetch (independent of the button)', () => {
+    // Independent of any button/disabled prop — proves a direct dispatch
+    // (e.g. a stale disabled attribute, a re-enabled button, a scripted
+    // click) still cannot reach the network call.
+    const gateIdx = handleReserveBody.indexOf('if (isFullyBooked)');
+    const fetchIdx = handleReserveBody.indexOf('fetch("/api/bookings"');
+    expect(gateIdx, 'the isFullyBooked gate must exist').toBeGreaterThan(-1);
+    expect(fetchIdx, 'the /api/bookings fetch must exist').toBeGreaterThan(-1);
+    expect(gateIdx).toBeLessThan(fetchIdx);
+  });
+
+  it('[unit][ec-3] the isFullyBooked gate is a bare early return (no side effect before it)', () => {
+    const gateBlock = handleReserveBody.slice(
+      handleReserveBody.indexOf('if (isFullyBooked)'),
+      handleReserveBody.indexOf('if (isFullyBooked)') + 60
+    );
+    expect(gateBlock).toContain('return;');
+  });
+
+  it('[unit][ac-3] the isFullyBooked gate is checked AFTER the login gate but BEFORE the date-selection guard (double defense sits after auth, ahead of every other check)', () => {
+    const loginGateIdx = handleReserveBody.indexOf('if (!isLoggedInLive)');
+    const fullGateIdx = handleReserveBody.indexOf('if (isFullyBooked)');
+    const dateGuardIdx = handleReserveBody.indexOf('if (!checkIn || !checkOut)');
+    expect(loginGateIdx).toBeGreaterThan(-1);
+    expect(fullGateIdx).toBeGreaterThan(-1);
+    expect(dateGuardIdx).toBeGreaterThan(-1);
+    expect(loginGateIdx).toBeLessThan(fullGateIdx);
+    expect(fullGateIdx).toBeLessThan(dateGuardIdx);
+  });
+
+  it('[unit][br-1] isFullyBooked itself is derived server-authoritatively (remaining===0 or blockedByHost), never a client-only guess', () => {
+    // Guards the derivation this whole story depends on client-side — a
+    // regression here would silently disagree with the server invariant
+    // this suite's Layer-2/Layer-3 assertions (WC-2 etc.) already pin.
+    expect(clientSrc).toMatch(
+      /isFullyBooked\s*=\s*!!remainingCapacity\s*&&\s*\(remainingCapacity\.blockedByHost\s*\|\|\s*remainingCapacity\.remaining\s*===\s*0\)/
+    );
   });
 });
