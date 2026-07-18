@@ -643,15 +643,19 @@ export async function getAvailabilityStatusForCamps(
  * deleted-spot sum, via getEffectiveCapacity/getSpotCapacityOnceForTx above —
  * hoisted ONCE per booking/hold transaction, not once per night, BR-4 perf)
  * instead of the stale `maxGuestsPerDay`/`maxTentsPerDay` column. A zero
- * derived total is a REAL cap (BR-6 — closed for booking), unlike the
- * WHOLE-CAMP branch below where a null/0 column means "unbounded". WHOLE-CAMP
- * (`useSpotView = false`) is unchanged-by-construction (BR-8, hard regression
- * boundary) — the `&&` truthy check is intentionally IDENTICAL to
- * pre-CAM-355 behavior; no per-spot branch executes for it. A spot-sum read
- * failure (e.g. a DB error inside calculateSpotCapacity) is NOT caught here —
- * it propagates up through the serializable transaction, which rolls back,
- * so the booking/hold write path fails CLOSED (EC-5) — never a swallowed
- * error that would leave enforcement unbounded.
+ * derived total is a REAL cap (BR-6 — closed for booking).
+ *
+ * CAM-400 BR-1/BR-2: the WHOLE-CAMP branch below previously kept a `&&`
+ * truthy gate "intentionally IDENTICAL to pre-CAM-355 behavior" (a 0/null
+ * column both read as "unbounded") — the one branch of this seam that
+ * disagreed with getRemainingCapacity + getAvailabilityStatusForCamps
+ * (already `!== null`), letting a booking POST succeed 201 against a camp
+ * whose calendar/badge both said เต็มแล้ว. The invariant is now uniform
+ * across the whole seam: `null` = unlimited, `0` = closed/full, everywhere.
+ * A spot-sum read failure (e.g. a DB error inside calculateSpotCapacity) is
+ * NOT caught here — it propagates up through the serializable transaction,
+ * which rolls back, so the booking/hold write path fails CLOSED (EC-5) —
+ * never a swallowed error that would leave enforcement unbounded.
  */
 export async function checkDateAvailabilityInTx(
   tx: Prisma.TransactionClient,
@@ -748,12 +752,16 @@ export async function checkDateAvailabilityInTx(
     return { available: true };
   }
 
-  // WHOLE-CAMP — unchanged-by-construction (BR-8): byte-identical to
-  // pre-CAM-355. A null/0 column is treated as "unbounded" here exactly as
-  // it always has been; that quirk is NOT extended to the PER-SPOT branch
-  // above (BR-6 fixes it there only).
+  // WHOLE-CAMP — CAM-400 BR-1/BR-2: the invariant is null = unlimited, 0 =
+  // closed/full, in every layer. This branch previously kept a "byte-
+  // identical to pre-CAM-355" truthy gate (BR-8) that read a 0 column as
+  // "unbounded" — the one layer in the seam that disagreed with
+  // getRemainingCapacity + getAvailabilityStatusForCamps (both already
+  // `!== null`), letting a POST succeed against a camp the UI called
+  // เต็มแล้ว. BR-8's "unchanged by construction" scope is retired for this
+  // one gate; the null-check below now matches the PER-SPOT branch above.
   if (
-    campSite.maxGuestsPerDay &&
+    campSite.maxGuestsPerDay !== null &&
     bookedGuests + heldGuests + requestedGuests > campSite.maxGuestsPerDay
   ) {
     return {
@@ -762,7 +770,7 @@ export async function checkDateAvailabilityInTx(
     };
   }
 
-  if (campSite.maxTentsPerDay && requestedTents) {
+  if (campSite.maxTentsPerDay !== null && requestedTents) {
     const estimatedTents = Math.ceil(requestedGuests / 2);
     if (bookedTents + estimatedTents > campSite.maxTentsPerDay) {
       return {

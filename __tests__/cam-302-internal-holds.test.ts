@@ -877,11 +877,14 @@ describe('source-inspection — availability route threads heldGuests through (A
 
   // CAM-355 (G3 Important-1): the WHOLE-CAMP formula is now reached through a
   // useSpotView mode gate (PER-SPOT reads the derived effective capacity
-  // instead) — the exact pre-CAM-355 expression is still present verbatim as
-  // the whole-camp branch, just no longer the bare `remainingGuests:` prefix.
+  // instead). CAM-400 BR-3 re-pin: the gate changed from a truthy check
+  // (`maxGuestsPerDay ? … : null`, which wrongly read a real 0-capacity
+  // column as "no cap") to a null-check (`!== null`) so 0 is a real, closed
+  // capacity — the subtraction formula itself (and the heldGuests fold-in)
+  // is unchanged, mirroring the same re-pin in cam-55-host-month-calendar.test.ts.
   it('remainingGuests (whole-camp branch) subtracts (bookedGuests + heldGuests), not bookedGuests alone', () => {
     expect(availabilityRouteSrc).toContain(
-      'campSite.maxGuestsPerDay ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
+      'campSite.maxGuestsPerDay !== null ? campSite.maxGuestsPerDay - (data.bookedGuests + data.heldGuests) : null'
     );
   });
 
