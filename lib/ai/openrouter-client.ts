@@ -26,6 +26,16 @@
  * the answer text before it ever reaches the camper (BR-5). CAM-416: this
  * extraction runs on the FINAL completion of the loop only.
  *
+ * CAM-417 (ADR-013 D5) — an optional `ToolContext` now threads through every
+ * layer of the turn (`runAssistantTurn(FromMessages)` -> `runTurnFromBaseMessages`
+ * -> the model-call chain -> `executeToolCalls` -> `dispatchTool`), defaulting
+ * to `{}` (guest, no identity) everywhere it isn't supplied. `buildToolSchemas`
+ * now composes the tool list from the tiered registry: guest tools always,
+ * `authed` tools ADDED ONLY when `ctx.userId` is present. No caller in this
+ * codebase passes a non-default `ctx` yet (the chat route doesn't read
+ * `auth()` until CAM-420) — every real request today still resolves the
+ * guest-only tool list, byte-identical to pre-CAM-417 behavior.
+ *
  * CAM-416 (ADR-013 D4) — `runTurnFromBaseMessages` is now a real, BOUNDED
  * agent loop:
  *  - Up to `MAX_AGENT_ITERATIONS` (4) completions per turn; the loop stops as
@@ -55,7 +65,7 @@
 import "server-only";
 import { z } from 'zod';
 import { sanitizeForPrompt, sanitizeSuggestion, wrapAsUserData } from '@/lib/ai/sanitize';
-import { getRegisteredTools, dispatchTool } from '@/lib/ai/tool-registry';
+import { getRegisteredTools, dispatchTool, type ToolContext, type ToolTier } from '@/lib/ai/tool-registry';
 import type { TurnMessage } from '@/lib/ai/build-turn-messages';
 // Side-effect import: populates the tool registry (searchCampsites, checkAvailability).
 import '@/lib/ai/tools/index';
@@ -306,8 +316,11 @@ const openRouterResponseSchema = z.object({
 
 type OpenRouterMessage = z.infer<typeof openRouterMessageSchema>;
 
-function buildToolSchemas() {
-  return getRegisteredTools().map((tool) => ({
+/** CAM-417 (ADR-013 D5) — guest tools are always offered; `authed` tools are ADDED ONLY when `ctx.userId` is present. */
+function buildToolSchemas(ctx: ToolContext) {
+  const tiers: ToolTier[] = ctx.userId ? ['guest', 'authed'] : ['guest'];
+  const tools = tiers.flatMap((tier) => getRegisteredTools(tier));
+  return tools.map((tool) => ({
     type: 'function' as const,
     function: { name: tool.name, description: tool.description, parameters: tool.jsonSchema },
   }));
@@ -330,12 +343,13 @@ async function callOpenRouter(
   apiKey: string,
   model: string,
   messages: OutgoingMessage[],
+  ctx: ToolContext,
   options: CallOptions = {}
 ): Promise<Response> {
   const body: Record<string, unknown> = {
     model,
     messages,
-    tools: buildToolSchemas(),
+    tools: buildToolSchemas(ctx),
     max_tokens: MAX_TOKENS,
   };
   if (options.toolChoice) body.tool_choice = options.toolChoice;
@@ -364,10 +378,11 @@ async function callModelOnce(
   apiKey: string,
   model: string,
   messages: OutgoingMessage[],
+  ctx: ToolContext,
   options?: CallOptions
 ): Promise<ModelCallOutcome> {
   try {
-    const res = await callOpenRouter(apiKey, model, messages, options);
+    const res = await callOpenRouter(apiKey, model, messages, ctx, options);
     if (!res.ok) return { ok: false };
     const json: unknown = await res.json();
     const message = extractMessage(json);
@@ -388,15 +403,16 @@ interface FallbackCallResult {
 async function callModelWithFallback(
   apiKey: string,
   messages: OutgoingMessage[],
+  ctx: ToolContext,
   options?: CallOptions
 ): Promise<FallbackCallResult> {
   const model = resolveModel();
-  const primary = await callModelOnce(apiKey, model, messages, options);
+  const primary = await callModelOnce(apiKey, model, messages, ctx, options);
   if (primary.ok) return { outcome: primary, model };
 
   console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model }));
   const fallbackModel = resolveFallbackModel();
-  const fallback = await callModelOnce(apiKey, fallbackModel, messages, options);
+  const fallback = await callModelOnce(apiKey, fallbackModel, messages, ctx, options);
   if (!fallback.ok) {
     console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel }));
   }
@@ -485,7 +501,11 @@ const TOO_MANY_TOOL_CALLS_RESULT = { ok: false as const, code: 'too_many_tool_ca
  * it — but every tool_call_id still gets a matching tool message so the next
  * completion call stays well-formed.
  */
-async function executeToolCalls(toolCalls: OutgoingToolCall[], executeLimit: number): Promise<ExecutedToolCalls> {
+async function executeToolCalls(
+  toolCalls: OutgoingToolCall[],
+  executeLimit: number,
+  ctx: ToolContext
+): Promise<ExecutedToolCalls> {
   const toolMessages: OutgoingMessage[] = [];
   const cards: unknown[] = [];
   let executedCount = 0;
@@ -499,7 +519,7 @@ async function executeToolCalls(toolCalls: OutgoingToolCall[], executeLimit: num
     }
 
     const args = parseToolCallArguments(call.function.arguments);
-    const result = await dispatchTool(call.function.name, args);
+    const result = await dispatchTool(call.function.name, args, ctx);
     if (result.ok) collectCardsFromToolData(result.data, cards);
     toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
     executedCount++;
@@ -539,7 +559,10 @@ function finalizeAnswer(rawContent: string, cards: unknown[]): AssistantTurnResu
  *    for this turn's in-memory loop only — never persisted, never carried
  *    into another turn.
  */
-async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise<AssistantTurnResult> {
+async function runTurnFromBaseMessages(
+  baseMessages: OutgoingMessage[],
+  ctx: ToolContext = {}
+): Promise<AssistantTurnResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.warn(JSON.stringify({ level: 'warn', event: 'ai_turn_skipped', reason: 'OPENROUTER_API_KEY not configured' }));
@@ -567,11 +590,11 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
 
     let outcome: ModelCallOutcome;
     if (pinnedModel === null) {
-      const result = await callModelWithFallback(apiKey, messages, callOptions);
+      const result = await callModelWithFallback(apiKey, messages, ctx, callOptions);
       pinnedModel = result.model;
       outcome = result.outcome;
     } else {
-      outcome = await callModelOnce(apiKey, pinnedModel, messages, callOptions);
+      outcome = await callModelOnce(apiKey, pinnedModel, messages, ctx, callOptions);
     }
 
     if (!outcome.ok) return { ok: false, error: GENERIC_ERROR };
@@ -588,7 +611,7 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
     }
 
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
-    const { toolMessages, cards: roundCards, executedCount } = await executeToolCalls(toolCalls, roundLimit);
+    const { toolMessages, cards: roundCards, executedCount } = await executeToolCalls(toolCalls, roundLimit, ctx);
     toolCallsExecutedThisTurn += executedCount;
     cards.push(...roundCards);
 
@@ -619,14 +642,17 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
  * single-message entry point onto that same engine. Not deleted here (many
  * existing test call-sites) — CAM-420 owns migrating those tests off this
  * entry point and removing it once persistence lands.
+ *
+ * CAM-417 — `ctx` is optional and defaults to `{}` (guest); no existing
+ * caller passes one, so behavior is unchanged.
  */
-export async function runAssistantTurn(userText: string): Promise<AssistantTurnResult> {
+export async function runAssistantTurn(userText: string, ctx: ToolContext = {}): Promise<AssistantTurnResult> {
   const safeText = sanitizeForPrompt(userText);
   const baseMessages: OutgoingMessage[] = [
     { role: 'system', content: buildSystemPrompt() },
     { role: 'user', content: wrapAsUserData(safeText) },
   ];
-  return runTurnFromBaseMessages(baseMessages);
+  return runTurnFromBaseMessages(baseMessages, ctx);
 }
 
 /**
@@ -642,11 +668,17 @@ export async function runAssistantTurn(userText: string): Promise<AssistantTurnR
  * path; the wire request/response shape of that route is unchanged (Seams &
  * refs, CAM-342 lesson) — only the INTERNAL call target changed from a
  * flattened string to this array.
+ *
+ * CAM-417 — `ctx` is optional and defaults to `{}` (guest); `POST /api/ai/chat`
+ * does not pass one yet (auth() wiring is CAM-420), so behavior is unchanged.
  */
-export async function runAssistantTurnFromMessages(turnMessages: TurnMessage[]): Promise<AssistantTurnResult> {
+export async function runAssistantTurnFromMessages(
+  turnMessages: TurnMessage[],
+  ctx: ToolContext = {}
+): Promise<AssistantTurnResult> {
   const baseMessages: OutgoingMessage[] = [
     { role: 'system', content: buildSystemPrompt() },
     ...turnMessages,
   ];
-  return runTurnFromBaseMessages(baseMessages);
+  return runTurnFromBaseMessages(baseMessages, ctx);
 }

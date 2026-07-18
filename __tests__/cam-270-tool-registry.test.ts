@@ -1,5 +1,10 @@
 /**
  * CAM-270 AC-3/AC-4, BR-3 — lib/ai/tool-registry.ts
+ * CAM-417 (ADR-013 D5) — updated for the tiered registry: every fake tool now
+ * carries `tier: 'guest'` and `execute` accepts the (unused, here) `ToolContext`
+ * second parameter. Tier filtering / dispatch-refusal / the no-userId-in-schema
+ * invariant across the WHOLE real registry are covered separately in
+ * __tests__/cam-417-tool-registry-tiers.test.ts.
  *
  * Coverage matrix:
  *   - normal: a registered tool with valid args executes and returns { ok:true, data }
@@ -15,15 +20,19 @@ import {
   getRegisteredTools,
   _resetRegistryForTests,
   type ToolDefinition,
+  type ToolContext,
 } from '@/lib/ai/tool-registry';
 
 const fakeArgsSchema = z.object({ id: z.string().uuid() });
 type FakeArgs = z.infer<typeof fakeArgsSchema>;
 
-function makeFakeTool(execute: (args: FakeArgs) => Promise<{ echoed: string }>): ToolDefinition<FakeArgs, { echoed: string }> {
+function makeFakeTool(
+  execute: (args: FakeArgs, ctx: ToolContext) => Promise<{ echoed: string }>
+): ToolDefinition<FakeArgs, { echoed: string }> {
   return {
     name: 'fakeTool',
     description: 'a fake read-only tool for registry tests',
+    tier: 'guest',
     parameters: fakeArgsSchema,
     jsonSchema: { type: 'object', properties: { id: { type: 'string' } } },
     execute,
@@ -42,12 +51,14 @@ describe('dispatchTool — normal (valid args, registered tool)', () => {
     const result = await dispatchTool('fakeTool', { id: '123e4567-e89b-12d3-a456-426614174000' });
 
     expect(result).toEqual({ ok: true, data: { echoed: 'hi' } });
-    expect(execute).toHaveBeenCalledWith({ id: '123e4567-e89b-12d3-a456-426614174000' });
+    // CAM-417 — execute() now also receives the (server-bound) ToolContext; no ctx was passed to
+    // dispatchTool here, so it defaults to {} (guest).
+    expect(execute).toHaveBeenCalledWith({ id: '123e4567-e89b-12d3-a456-426614174000' }, {});
   });
 
-  it('[unit] getRegisteredTools lists every registered tool', () => {
+  it('[unit] getRegisteredTools(tier) lists every registered tool of that tier', () => {
     registerTool(makeFakeTool(vi.fn()));
-    const tools = getRegisteredTools();
+    const tools = getRegisteredTools('guest');
     expect(tools.map((t) => t.name)).toEqual(['fakeTool']);
   });
 });

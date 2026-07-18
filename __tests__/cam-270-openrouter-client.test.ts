@@ -152,7 +152,9 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(2); // initial + exactly one follow-up
     expect(mockDispatchTool).toHaveBeenCalledOnce();
-    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', { province: 'เชียงใหม่' });
+    // CAM-417 — dispatchTool now also receives the (server-bound) ToolContext; the
+    // route/entry point passed no ctx here, so it defaults to {} (guest).
+    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', { province: 'เชียงใหม่' }, {});
     expect(result).toEqual({ ok: true, answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ', cards: [{ id: 'c1' }, { id: 'c2' }] });
   });
 
@@ -233,7 +235,8 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
 
     const result = await runAssistantTurn('question');
 
-    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', undefined);
+    // CAM-417 — dispatchTool now also receives the (server-bound) ToolContext, default {}.
+    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', undefined, {});
     expect(result.ok).toBe(true); // the turn itself still completes — a handled tool error, not a crash
   });
 

@@ -175,7 +175,10 @@ export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCamp
   name: 'searchCampsites',
   description:
     'Search published, active CampVibe campsites by province, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards.',
+  // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
+  tier: 'guest',
   parameters: searchCampsitesArgsSchema,
   jsonSchema,
-  execute: executeSearchCampsites,
+  // CAM-417 — this tool needs no caller identity; `_ctx` is server-bound and unused here.
+  execute: (args, _ctx) => executeSearchCampsites(args),
 };

@@ -65,7 +65,10 @@ export const checkAvailabilityTool: ToolDefinition<CheckAvailabilityArgs, CheckA
   name: 'checkAvailability',
   description:
     'Check LIVE remaining capacity for a published CampVibe campsite over a date range (capacity, bookedGuests, heldGuests, remaining, blockedByHost). Never cached.',
+  // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
+  tier: 'guest',
   parameters: checkAvailabilityArgsSchema,
   jsonSchema,
-  execute: executeCheckAvailability,
+  // CAM-417 — this tool needs no caller identity; `_ctx` is server-bound and unused here.
+  execute: (args, _ctx) => executeCheckAvailability(args),
 };
