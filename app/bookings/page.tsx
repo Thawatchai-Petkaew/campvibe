@@ -100,10 +100,13 @@ export default function MyBookingsPage() {
                         </Button>
                     </div>
 
-                    {/* Async section: skeleton while loading, real content when ready */}
+                    {/* Async section: skeleton while loading, real content when ready.
+                        CAM-402 BR-2: isLoading gates the empty/error/list branches so the
+                        ~300ms delay window before showSkeleton flips true (useMinimumLoading's
+                        delay-before-show) renders nothing instead of flashing "ยังไม่มีการจอง". */}
                     {showSkeleton ? (
                         <BookingListSkeleton count={3} />
-                    ) : hasError ? (
+                    ) : isLoading ? null : hasError ? (
                         <ErrorBanner message={t.bookings.errorOccurred} />
                     ) : bookings.length === 0 ? (
                         <div className="bg-card rounded-3xl p-16 text-center border border-dashed border-border shadow-sm">
