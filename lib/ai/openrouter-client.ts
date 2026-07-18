@@ -6,11 +6,11 @@
  *
  * Spend + prompt-injection guards (BR-5/BR-6/BR-7):
  *  - `max_tokens` capped at MAX_TOKENS on every call.
- *  - Exactly ONE tool-call round per turn: if the model requests tool(s), the
- *    registry validates+executes them (lib/ai/tool-registry.ts) and exactly
- *    ONE follow-up completion call turns the tool results into the final
- *    { answer, cards } — the follow-up's own response is never re-scanned
- *    for further tool_calls (no agent loop, AC-7).
+ *  - CAM-270/415 originally ran exactly ONE tool-call round per turn (no
+ *    agent loop, AC-7 of that story). CAM-416 (ADR-013 D4) replaces that with
+ *    a real, BOUNDED agent loop — see the CAM-416 paragraph below; this file
+ *    is the shared engine both `runAssistantTurn` and
+ *    `runAssistantTurnFromMessages` delegate to.
  *  - The primary model call falls back ONCE to OPENROUTER_MODEL_FALLBACK on
  *    a non-2xx/timeout/exception; if that also fails, a handled generic
  *    error is returned — never the raw model error, status body, or key
@@ -23,7 +23,34 @@
  * encodes 0-3 follow-up-question suggestions in a `<suggestions>[...]</suggestions>`
  * JSON-array block appended after the prose; the server extracts + sanitizes
  * them out (never a second model call — BR-4) and strips the raw block from
- * the answer text before it ever reaches the camper (BR-5).
+ * the answer text before it ever reaches the camper (BR-5). CAM-416: this
+ * extraction runs on the FINAL completion of the loop only.
+ *
+ * CAM-416 (ADR-013 D4) — `runTurnFromBaseMessages` is now a real, BOUNDED
+ * agent loop:
+ *  - Up to `MAX_AGENT_ITERATIONS` (4) completions per turn; the loop stops as
+ *    soon as a completion carries no `tool_calls`. The LAST iteration is
+ *    forced to answer in prose via `tool_choice:'none'` (a real completion
+ *    call, not a client-side guess) so the loop always terminates with a
+ *    user-facing answer — superseding CAM-270/415's "no agent loop" guarantee.
+ *  - `MAX_TOOL_CALLS_PER_ROUND` (3, unchanged) still caps ONE round;
+ *    `MAX_TOOL_CALLS_PER_TURN` (6, new) caps the SUM executed across every
+ *    round in the turn — once the turn budget is exhausted, further
+ *    tool_calls (even within the per-round cap) are rejected as a handled
+ *    `too_many_tool_calls` tool message, never dispatched.
+ *  - A `TURN_DEADLINE_MS` (45s) wall-clock budget is checked before every
+ *    completion call after the first (per-call `MODEL_CALL_TIMEOUT_MS`
+ *    timeouts are unchanged). A breach makes NO further network call: the
+ *    most recent completion's own `content` (if non-empty) becomes the final
+ *    answer; otherwise the turn ends in the handled `GENERIC_ERROR`.
+ *  - Model fallback (AC-6/BR-6) runs ONLY on the turn's first completion;
+ *    whichever model actually answered (primary or fallback) is PINNED and
+ *    called directly for every later iteration in the same turn — no repeat
+ *    fallback dance per round.
+ *  - Tool-result / assistant(tool_calls) messages append onto the in-memory
+ *    `messages[]` array for THIS turn only — never persisted, never replayed
+ *    into a later turn (ADR-013 D2: only the final sanitized answer is ever a
+ *    persistence candidate, and that lands in a later story).
  */
 import "server-only";
 import { z } from 'zod';
@@ -293,19 +320,32 @@ function resolveFallbackModel(): string {
   return process.env.OPENROUTER_MODEL_FALLBACK?.trim() || DEFAULT_MODEL;
 }
 
-async function callOpenRouter(apiKey: string, model: string, messages: OutgoingMessage[]): Promise<Response> {
+/** CAM-416 — `toolChoice:'none'` forces the completion to answer in prose (no `tool_calls`): the mechanism behind the loop's forced-final iteration. */
+interface CallOptions {
+  toolChoice?: 'none';
+}
+
+async function callOpenRouter(
+  apiKey: string,
+  model: string,
+  messages: OutgoingMessage[],
+  options: CallOptions = {}
+): Promise<Response> {
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    tools: buildToolSchemas(),
+    max_tokens: MAX_TOKENS,
+  };
+  if (options.toolChoice) body.tool_choice = options.toolChoice;
+
   return fetch(OPENROUTER_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      tools: buildToolSchemas(),
-      max_tokens: MAX_TOKENS,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS),
   });
 }
@@ -319,9 +359,14 @@ function extractMessage(json: unknown): OpenRouterMessage | null {
 
 type ModelCallOutcome = { ok: true; message: OpenRouterMessage } | { ok: false };
 
-async function callModelOnce(apiKey: string, model: string, messages: OutgoingMessage[]): Promise<ModelCallOutcome> {
+async function callModelOnce(
+  apiKey: string,
+  model: string,
+  messages: OutgoingMessage[],
+  options?: CallOptions
+): Promise<ModelCallOutcome> {
   try {
-    const res = await callOpenRouter(apiKey, model, messages);
+    const res = await callOpenRouter(apiKey, model, messages, options);
     if (!res.ok) return { ok: false };
     const json: unknown = await res.json();
     const message = extractMessage(json);
@@ -332,24 +377,36 @@ async function callModelOnce(apiKey: string, model: string, messages: OutgoingMe
   }
 }
 
-/** AC-6/BR-6: primary call, falling back exactly ONCE to OPENROUTER_MODEL_FALLBACK. */
-async function callModelWithFallback(apiKey: string, messages: OutgoingMessage[]): Promise<ModelCallOutcome> {
+/** CAM-416 — the model that actually handled the call, alongside the outcome, so the loop can PIN it for the rest of the turn (D4: "fallback pins whichever answered first"). */
+interface FallbackCallResult {
+  outcome: ModelCallOutcome;
+  model: string;
+}
+
+/** AC-6/BR-6: primary call, falling back exactly ONCE to OPENROUTER_MODEL_FALLBACK. Only ever invoked for a turn's FIRST completion (CAM-416) — every later iteration calls the pinned model directly via `callModelOnce`. */
+async function callModelWithFallback(
+  apiKey: string,
+  messages: OutgoingMessage[],
+  options?: CallOptions
+): Promise<FallbackCallResult> {
   const model = resolveModel();
-  const primary = await callModelOnce(apiKey, model, messages);
-  if (primary.ok) return primary;
+  const primary = await callModelOnce(apiKey, model, messages, options);
+  if (primary.ok) return { outcome: primary, model };
 
   console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model }));
   const fallbackModel = resolveFallbackModel();
-  const fallback = await callModelOnce(apiKey, fallbackModel, messages);
+  const fallback = await callModelOnce(apiKey, fallbackModel, messages, options);
   if (!fallback.ok) {
     console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel }));
   }
-  return fallback;
+  return { outcome: fallback, model: fallbackModel };
 }
 
 interface ExecutedToolCalls {
   toolMessages: OutgoingMessage[];
   cards: unknown[];
+  /** CAM-416 — how many of `toolCalls` were actually dispatched this round (bounded by `executeLimit`); the loop sums this across rounds against `MAX_TOOL_CALLS_PER_TURN`. */
+  executedCount: number;
 }
 
 /** BR-3/EC-7: malformed tool-call JSON is treated as invalid args (parsed as `undefined`), never thrown. */
@@ -369,7 +426,7 @@ function collectCardsFromToolData(data: unknown, cards: unknown[]): void {
 
 /**
  * Security review nit (BR-6 spend guard, defense-in-depth): a hard cap on how
- * many tool calls one round will ever EXECUTE, independent of however many
+ * many tool calls one ROUND will ever EXECUTE, independent of however many
  * tool_calls the model's response carries. A call beyond the cap is rejected
  * as a handled result — dispatchTool (and therefore the tool's own
  * execute()) is never invoked for it — it is NOT silently dropped: every
@@ -378,17 +435,50 @@ function collectCardsFromToolData(data: unknown, cards: unknown[]): void {
  */
 export const MAX_TOOL_CALLS_PER_ROUND = 3;
 
+/**
+ * CAM-416 (ADR-013 D4) — the hard cap on tool calls executed across the
+ * WHOLE turn (every round combined), independent of `MAX_TOOL_CALLS_PER_ROUND`.
+ * Once this turn-level budget is spent, further tool_calls — even ones that
+ * would fit under the per-round cap — are rejected the same way: a handled
+ * `too_many_tool_calls` tool message, dispatchTool never invoked.
+ */
+export const MAX_TOOL_CALLS_PER_TURN = 6;
+
+/**
+ * CAM-416 (ADR-013 D4) — the bounded agent loop's iteration cap: at most this
+ * many completion calls per turn. The FINAL iteration is always forced to
+ * answer in prose (`tool_choice:'none'`), guaranteeing the loop terminates
+ * with a user-facing answer.
+ */
+export const MAX_AGENT_ITERATIONS = 4;
+
+/**
+ * CAM-416 (ADR-013 D4) — turn-level wall-clock budget, independent of the
+ * per-call `MODEL_CALL_TIMEOUT_MS` timeout. Checked before every completion
+ * call after the first; a breach makes no further network call (see
+ * `runTurnFromBaseMessages`).
+ */
+export const TURN_DEADLINE_MS = 45_000;
+
 const TOO_MANY_TOOL_CALLS_RESULT = { ok: false as const, code: 'too_many_tool_calls' as const };
 
-/** BR-3: exactly ONE round — every tool_call the model requested this round is validated + executed here (up to MAX_TOOL_CALLS_PER_ROUND), then never re-checked for further tool requests. */
-async function executeToolCalls(toolCalls: OutgoingToolCall[]): Promise<ExecutedToolCalls> {
+/**
+ * Validate + execute up to `executeLimit` of `toolCalls` (CAM-416: the loop
+ * computes `executeLimit = min(MAX_TOOL_CALLS_PER_ROUND, remaining turn
+ * budget)` per round). Anything beyond `executeLimit` is rejected as a
+ * handled `too_many_tool_calls` result — dispatchTool is never invoked for
+ * it — but every tool_call_id still gets a matching tool message so the next
+ * completion call stays well-formed.
+ */
+async function executeToolCalls(toolCalls: OutgoingToolCall[], executeLimit: number): Promise<ExecutedToolCalls> {
   const toolMessages: OutgoingMessage[] = [];
   const cards: unknown[] = [];
+  let executedCount = 0;
 
   for (let i = 0; i < toolCalls.length; i++) {
     const call = toolCalls[i];
 
-    if (i >= MAX_TOOL_CALLS_PER_ROUND) {
+    if (i >= executeLimit) {
       toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(TOO_MANY_TOOL_CALLS_RESULT) });
       continue;
     }
@@ -397,19 +487,42 @@ async function executeToolCalls(toolCalls: OutgoingToolCall[]): Promise<Executed
     const result = await dispatchTool(call.function.name, args);
     if (result.ok) collectCardsFromToolData(result.data, cards);
     toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
+    executedCount++;
   }
 
-  return { toolMessages, cards };
+  return { toolMessages, cards, executedCount };
+}
+
+/** A completed turn's final answer, ready for suggestion-extraction + response mapping. */
+function finalizeAnswer(rawContent: string, cards: unknown[]): AssistantTurnResult {
+  const { answer, suggestions } = extractSuggestions(rawContent);
+  return { ok: true, answer, cards, ...suggestionsField(suggestions) };
 }
 
 /**
- * CAM-415 shared engine (Seams & refs — "messages array in, messages array
- * out"): both public entry points below build their own `[system, ...turns]`
- * base array, then delegate here. Everything AC-7-relevant (the API-key
- * skip, the initial call, the exactly-ONE tool-call round, the exactly-ONE
- * follow-up call, suggestion extraction) lives in exactly one place, so a
- * future agent loop (CAM-415b) extends this same array shape rather than
- * re-deriving it.
+ * CAM-416 (ADR-013 D4) shared engine (Seams & refs — "messages array in,
+ * messages array out"): both public entry points below build their own
+ * `[system, ...turns]` base array, then delegate here. This is now a real,
+ * BOUNDED agent loop (replaces CAM-270/415's exactly-ONE-round guarantee):
+ *
+ *  - Up to `MAX_AGENT_ITERATIONS` completions; stops the instant a
+ *    completion carries no `tool_calls`. The final iteration is forced to
+ *    answer via `tool_choice:'none'` — a real completion call, so the loop
+ *    always terminates with a user-facing answer even if the model keeps
+ *    requesting tools.
+ *  - `MAX_TOOL_CALLS_PER_TURN` bounds the SUM of tool calls executed across
+ *    every round (on top of the unchanged per-round `MAX_TOOL_CALLS_PER_ROUND`
+ *    cap); once spent, further requested calls are rejected the same way
+ *    (`too_many_tool_calls`), never dispatched.
+ *  - `TURN_DEADLINE_MS` is a wall-clock budget checked before every
+ *    completion call after the first: a breach makes NO further network
+ *    call — the most recent completion's own `content` becomes the final
+ *    answer if non-empty, else the turn ends in the handled `GENERIC_ERROR`.
+ *  - Model fallback (AC-6/BR-6) runs only on the FIRST completion; whichever
+ *    model answered is PINNED and called directly thereafter.
+ *  - Tool-result / assistant(tool_calls) messages append onto `messages`
+ *    for this turn's in-memory loop only — never persisted, never carried
+ *    into another turn.
  */
 async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise<AssistantTurnResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -418,30 +531,62 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
     return { ok: true, skipped: true };
   }
 
-  const first = await callModelWithFallback(apiKey, baseMessages);
-  if (!first.ok) return { ok: false, error: GENERIC_ERROR };
+  const turnDeadline = Date.now() + TURN_DEADLINE_MS;
+  let messages: OutgoingMessage[] = baseMessages;
+  let pinnedModel: string | null = null;
+  let toolCallsExecutedThisTurn = 0;
+  let lastRawContent = '';
+  const cards: unknown[] = [];
 
-  const toolCalls = first.message.tool_calls;
-  if (!toolCalls || toolCalls.length === 0) {
-    const { answer, suggestions } = extractSuggestions(first.message.content ?? '');
-    return { ok: true, answer, cards: [], ...suggestionsField(suggestions) };
+  for (let iteration = 1; iteration <= MAX_AGENT_ITERATIONS; iteration++) {
+    // Deadline check runs BEFORE every call after the first (iteration 1 has
+    // no elapsed budget to breach yet). A breach spends no further network
+    // call — use whatever content the last completion already carried.
+    if (iteration > 1 && Date.now() >= turnDeadline) {
+      if (lastRawContent.trim().length > 0) return finalizeAnswer(lastRawContent, cards);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+
+    const isForcedFinalIteration = iteration === MAX_AGENT_ITERATIONS;
+    const callOptions: CallOptions | undefined = isForcedFinalIteration ? { toolChoice: 'none' } : undefined;
+
+    let outcome: ModelCallOutcome;
+    if (pinnedModel === null) {
+      const result = await callModelWithFallback(apiKey, messages, callOptions);
+      pinnedModel = result.model;
+      outcome = result.outcome;
+    } else {
+      outcome = await callModelOnce(apiKey, pinnedModel, messages, callOptions);
+    }
+
+    if (!outcome.ok) return { ok: false, error: GENERIC_ERROR };
+
+    lastRawContent = outcome.message.content ?? '';
+    const toolCalls = outcome.message.tool_calls;
+
+    // Stop the instant there's nothing more to do — no tool_calls, or this
+    // is the forced-final iteration (any tool_calls the model still
+    // requested here are intentionally ignored, same defense as CAM-270's
+    // "no re-loop on the follow-up's own tool_calls").
+    if (!toolCalls || toolCalls.length === 0 || isForcedFinalIteration) {
+      return finalizeAnswer(lastRawContent, cards);
+    }
+
+    const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
+    const { toolMessages, cards: roundCards, executedCount } = await executeToolCalls(toolCalls, roundLimit);
+    toolCallsExecutedThisTurn += executedCount;
+    cards.push(...roundCards);
+
+    messages = [
+      ...messages,
+      { role: 'assistant', content: outcome.message.content ?? '', tool_calls: toolCalls },
+      ...toolMessages,
+    ];
   }
 
-  const { toolMessages, cards } = await executeToolCalls(toolCalls);
-
-  const followUpMessages: OutgoingMessage[] = [
-    ...baseMessages,
-    { role: 'assistant', content: first.message.content ?? '', tool_calls: toolCalls },
-    ...toolMessages,
-  ];
-
-  // Exactly one follow-up call — its own tool_calls (if any) are intentionally
-  // ignored: this is where the "no multi-turn loop" guarantee is enforced.
-  const second = await callModelOnce(apiKey, resolveModel(), followUpMessages);
-  if (!second.ok) return { ok: false, error: GENERIC_ERROR };
-
-  const { answer, suggestions } = extractSuggestions(second.message.content ?? '');
-  return { ok: true, answer, cards, ...suggestionsField(suggestions) };
+  // Unreachable: iteration === MAX_AGENT_ITERATIONS is always a forced-final
+  // return above. Kept only to satisfy the function's return type.
+  return { ok: false, error: GENERIC_ERROR };
 }
 
 /**
@@ -454,10 +599,11 @@ async function runTurnFromBaseMessages(baseMessages: OutgoingMessage[]): Promise
  * this entry point now has ZERO production callers — `POST /api/ai/chat`
  * calls `runAssistantTurnFromMessages` below. Kept intentionally for now: it
  * still backs the CAM-270 AC-9/EC-9 regression-guard test suite
- * (`cam-270-openrouter-client.test.ts` and siblings) and is the simpler,
- * single-message sibling of the CAM-415b agent-loop seam. Not deleted here
- * (many existing test call-sites) — CAM-420 owns migrating those tests off
- * this entry point and removing it once persistence lands.
+ * (`cam-270-openrouter-client.test.ts` and siblings) and shares the CAM-416
+ * bounded agent loop via `runTurnFromBaseMessages` — it is the simpler,
+ * single-message entry point onto that same engine. Not deleted here (many
+ * existing test call-sites) — CAM-420 owns migrating those tests off this
+ * entry point and removing it once persistence lands.
  */
 export async function runAssistantTurn(userText: string): Promise<AssistantTurnResult> {
   const safeText = sanitizeForPrompt(userText);

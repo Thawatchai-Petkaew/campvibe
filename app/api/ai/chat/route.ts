@@ -14,8 +14,9 @@
  *     any model/tool call.
  *  3. Build the full capped conversation into a REAL multi-turn messages
  *     array (CAM-415, `lib/ai/build-turn-messages.ts` — every user turn
- *     individually fenced, assistant history re-sanitized) and invoke
- *     CAM-270's single-round turn engine over that array (BR-4).
+ *     individually fenced, assistant history re-sanitized) and invoke the
+ *     CAM-416 bounded agent loop (up to 4 completions, 45s deadline) over
+ *     that array (BR-4).
  *  4. Map the handled result to a typed response (BR-5/BR-6) — the raw
  *     model error / status body / key is NEVER surfaced in the response or
  *     logs (security.md, CAM-270 BR-6).
@@ -26,6 +27,9 @@ import { runAssistantTurnFromMessages } from '@/lib/ai/openrouter-client';
 import { chatRequestSchema } from '@/lib/validations/ai-chat';
 import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
 import { serializeDecimals } from '@/lib/serialize';
+
+/** CAM-416 (ADR-013 D4) — the agent loop can run up to MAX_AGENT_ITERATIONS completions within its 45s TURN_DEADLINE_MS; give the route's own execution ceiling headroom above that (Vercel default is 10s on Hobby/Edge-adjacent runtimes). */
+export const maxDuration = 60;
 
 /**
  * CAM-272 QA fix (Critical, contract-reconciliation.test.ts): `cards` carries
