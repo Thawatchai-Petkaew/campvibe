@@ -31,6 +31,47 @@ export const USER_DATA_CLOSE_TAG = `</${USER_DATA_TAG_NAME}>`;
  */
 const DELIMITER_TAG_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}\\s*>`, 'gi');
 
+/**
+ * Security fix (live repro, Important): a SINGLE `.replace()` pass of
+ * `DELIMITER_TAG_REGEX` can leave NESTED/OVERLAPPING fragments behind that
+ * only became a "complete tag" because an earlier match in the SAME pass
+ * consumed an interleaving piece — e.g. `</user_message</user_message>>`:
+ * the regex (leftmost-match, one pass) pairs the SECOND `<`/`/` with the
+ * FIRST subsequent `>`, stripping `</user_message>` and leaving
+ * `</user_message >` behind — itself a valid (whitespace-tolerant) close
+ * tag the single pass never re-checks. Loop the same replace to a FIXPOINT
+ * (until the string stops changing) so every layer gets a fresh scan;
+ * bounded so a pathological, deeply-nested input can never spin
+ * unboundedly.
+ */
+const MAX_DELIMITER_STRIP_ITERATIONS = 10;
+
+function stripDelimiterTagsToFixpoint(text: string): string {
+  let current = text;
+  for (let i = 0; i < MAX_DELIMITER_STRIP_ITERATIONS; i++) {
+    const next = current.replace(DELIMITER_TAG_REGEX, ' ');
+    if (next === current) return next;
+    current = next;
+  }
+  return current;
+}
+
+/**
+ * Final hard-strip backstop (defense-in-depth beyond the fixpoint loop
+ * above): matches the delimiter's OPENING half alone — `<` + optional `/` +
+ * the tag name — with NO requirement for a closing `>`. This is what
+ * guarantees the security invariant (no `<user_message`/`</user_message`
+ * prefix survives in ANY form) even in the theoretical case the bounded
+ * loop above is exhausted before reaching a true fixpoint (e.g. an
+ * artificially deep nesting attack): every real occurrence of the literal
+ * tag NAME immediately preceded by `<` (mod whitespace/slash) is removed
+ * outright, so it can never be re-paired with a stray leftover `>` into a
+ * reconstructed tag downstream. Deliberately does NOT touch a bare
+ * unrelated `<`/`>` (e.g. `<b>bold</b>`) since it requires the literal tag
+ * name to match.
+ */
+const DELIMITER_TAG_PREFIX_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}`, 'gi');
+
 /** Char codes considered "control" and stripped (C0 range + DEL), excluding \t \n \r. */
 function isStrippableControlChar(code: number): boolean {
   const isC0 = code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d;
@@ -55,10 +96,16 @@ function stripControlChars(rawText: string): string {
 /**
  * Normalize untrusted user text before it is placed in a prompt.
  *  - strips control characters (keeps normal whitespace: space/tab/newline)
- *  - strips any literal delimiter-tag occurrence (open or close, case-
- *    insensitive) — defense-in-depth against a forged closing tag
- *  - collapses runs of whitespace to a single space
- *  - trims + caps length at `maxLength`
+ *  - strips any literal delimiter-tag occurrence to a FIXPOINT (open or
+ *    close, case-insensitive, bounded loop) — defense-in-depth against a
+ *    forged closing tag AND against nested/overlapping fragments that only
+ *    become a complete tag once an earlier match is removed
+ *  - collapses runs of whitespace to a single space (BEFORE the final
+ *    hard-strip pass, so a whitespace-variant reconstruction is normalized
+ *    and caught)
+ *  - a final hard-strip pass removes any still-remaining opening-half
+ *    fragment (`<user_message`/`</user_message`, no closing `>` required)
+ *  - collapses whitespace once more + trims + caps length at `maxLength`
  *
  * Built via a char-code walk (not a regex literal) to avoid embedding raw
  * control bytes in source.
@@ -76,9 +123,15 @@ export function sanitizeForPrompt(rawText: string, maxLength: number = MAX_USER_
   const withoutControlChars = stripControlChars(rawText);
   // Replace (not delete) so "hello</user_message>world" stays two words,
   // not one glued-together "helloworld" — the subsequent whitespace-collapse
-  // step normalizes any doubled spaces this introduces.
-  const withoutDelimiterTags = withoutControlChars.replace(DELIMITER_TAG_REGEX, ' ');
-  const collapsed = withoutDelimiterTags.replace(/\s+/g, ' ').trim();
+  // step normalizes any doubled spaces this introduces. Looped to a
+  // FIXPOINT (bounded) — see stripDelimiterTagsToFixpoint's docblock for the
+  // nested/overlapping-fragment bug a single pass left behind.
+  const withoutDelimiterTags = stripDelimiterTagsToFixpoint(withoutControlChars);
+  const collapsedFirst = withoutDelimiterTags.replace(/\s+/g, ' ').trim();
+  // Final hard-strip backstop (defense-in-depth): remove any remaining
+  // opening-half fragment outright, regardless of a closing bracket.
+  const hardStripped = collapsedFirst.replace(DELIMITER_TAG_PREFIX_REGEX, ' ');
+  const collapsed = hardStripped.replace(/\s+/g, ' ').trim();
   return collapsed.slice(0, maxLength);
 }
 
