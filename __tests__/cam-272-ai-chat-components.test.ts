@@ -24,13 +24,14 @@ const launcherSrc = read("components/ai-chat/AiChatLauncher.tsx");
 const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 const listSrc = read("components/ai-chat/AiChatMessageList.tsx");
 const cardSrc = read("components/ai-chat/AiChatCampCard.tsx");
+const carouselSrc = read("components/ai-chat/AiChatCardCarousel.tsx"); // CAM-409
 const conversationSrc = read("components/ai-chat/conversation.ts");
 const useAiChatSrc = read("components/ai-chat/use-ai-chat.ts");
 const campgroundCardSrc = read("components/CampgroundCard.tsx");
 const apiClientSrc = read("lib/api-client.ts");
 const pageSrc = read("app/page.tsx");
 
-const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, conversationSrc, useAiChatSrc];
+const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, carouselSrc, conversationSrc, useAiChatSrc];
 
 describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HTML", () => {
   it("[security] no file in the feature actually USES the dangerouslySetInnerHTML prop (a doc comment naming it is fine)", () => {
@@ -48,8 +49,10 @@ describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HT
     expect(listSrc).toContain("{entry.text}");
   });
 
-  it("[unit] EC-6: cards render only from entry.cards — never parsed out of entry.text", () => {
-    expect(listSrc).toContain("entry.cards.map");
+  it("[unit] EC-6: cards render only from entry.cards (fed to the carousel) — never parsed out of entry.text", () => {
+    // CAM-409: the map moved into AiChatCardCarousel; the list only forwards entry.cards as a prop.
+    expect(listSrc).toContain("cards={entry.cards}");
+    expect(carouselSrc).toContain("cards.map");
     expect(listSrc).not.toMatch(/entry\.text\.(match|split|includes)\(.*card/i);
   });
 });
@@ -143,6 +146,7 @@ describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/
 
   it("[unit] cards are capped by rendering whatever cards[] contains (no client-side re-slicing)", () => {
     expect(listSrc).not.toMatch(/cards\.slice\(/);
+    expect(carouselSrc).not.toMatch(/cards\.slice\(/);
   });
 
   it("[unit] CAM-272 QA Important fix: avgRating/reviewCount are forwarded to CampgroundCard so the rating badge renders", () => {
@@ -254,8 +258,13 @@ describe("BR-7 — a11y wiring", () => {
       "error--ai-chat",
       "error--ai-chat-ratelimited",
       "info--ai-chat-disabled",
+      // CAM-409 — carousel chrome
+      "carousel--ai-chat-cards",
+      "btn--ai-chat-cards-prev",
+      "btn--ai-chat-cards-next",
+      "status--ai-chat-cards-position",
     ];
-    const haystack = [launcherSrc, panelSrc, listSrc].join("\n");
+    const haystack = [launcherSrc, panelSrc, listSrc, carouselSrc].join("\n");
     for (const id of testIds) expect(haystack, id).toContain(id);
   });
 });
@@ -311,9 +320,10 @@ describe("Icons — lucide only, no emoji (standing owner rule)", () => {
 });
 
 describe("i18n — no hardcoded copy in components (code.md §4)", () => {
-  it("[structural] the panel/list/launcher pull every user-facing string from t.aiChat.*", () => {
-    for (const src of [launcherSrc, panelSrc, listSrc]) {
+  it("[structural] the panel/list/launcher/carousel pull every user-facing string from t.aiChat.*", () => {
+    for (const src of [launcherSrc, panelSrc, listSrc, carouselSrc]) {
       expect(src).not.toMatch(/>[^<{]*[ก-๙][^<{]*</); // no raw Thai glyph inside JSX text
+      expect(src).not.toMatch(/="[^"]*[ก-๙][^"]*"/); // no raw Thai glyph inside an attribute literal
     }
   });
 });
@@ -341,11 +351,23 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
   });
 
-  it("[unit] in-chat cards are w-full max-w-full — never squeezed to the chat-bubble's max-w-[85%]", () => {
-    expect(listSrc).toContain("w-full max-w-full flex-col gap-2 self-start");
-    expect(listSrc).toContain('data-testid="card--ai-chat-campsite" className="w-full max-w-full"');
+  it("[unit] the answer row (text bubble + cards) is w-full max-w-full — never squeezed to the chat-bubble's max-w-[85%]", () => {
+    expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-2 self-start");
     // only the text bubble itself keeps the chat-bubble width
     expect(listSrc).toContain('className="max-w-[85%] rounded-2xl bg-muted');
+  });
+
+  it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {
+    expect(listSrc).toContain("grid w-full max-w-full min-w-0 grid-cols-1");
+    expect(listSrc).not.toContain("flex w-full max-w-full flex-col");
+  });
+
+  it("[unit] CAM-409: a single in-chat card still renders w-full max-w-full (no carousel chrome, EC-1)", () => {
+    expect(carouselSrc).toContain('data-testid="card--ai-chat-campsite" className="w-full max-w-full"');
+  });
+
+  it("[unit] CAM-409: carousel cards use the on-scale peek width (w-64 sm:w-60), not the full panel width", () => {
+    expect(carouselSrc).toContain('data-testid="card--ai-chat-campsite" className="w-64 shrink-0 snap-start sm:w-60"');
   });
 });
 
