@@ -25,13 +25,14 @@ const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 const listSrc = read("components/ai-chat/AiChatMessageList.tsx");
 const cardSrc = read("components/ai-chat/AiChatCampCard.tsx");
 const carouselSrc = read("components/ai-chat/AiChatCardCarousel.tsx"); // CAM-409
+const avatarSrc = read("components/ai-chat/AiChatAvatar.tsx"); // CAM-411
 const conversationSrc = read("components/ai-chat/conversation.ts");
 const useAiChatSrc = read("components/ai-chat/use-ai-chat.ts");
 const campgroundCardSrc = read("components/CampgroundCard.tsx");
 const apiClientSrc = read("lib/api-client.ts");
 const pageSrc = read("app/page.tsx");
 
-const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, carouselSrc, conversationSrc, useAiChatSrc];
+const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, carouselSrc, avatarSrc, conversationSrc, useAiChatSrc];
 
 describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HTML", () => {
   it("[security] no file in the feature actually USES the dangerouslySetInnerHTML prop (a doc comment naming it is fine)", () => {
@@ -210,8 +211,8 @@ describe("BR-7 — a11y wiring", () => {
     expect(listSrc).toContain("aria-busy={sending}");
   });
 
-  it("[unit] the panel carries an aria-label (role=dialog is native to Radix Dialog.Content)", () => {
-    expect(panelSrc).toContain("aria-label={t.aiChat.title}");
+  it("[unit] CAM-411: the panel aria-label composes {name} {role} (role=dialog is native to Radix Dialog.Content)", () => {
+    expect(panelSrc).toContain("aria-label={`${t.aiChat.name} ${t.aiChat.role}`}");
   });
 
   it("[unit] focus moves into the composer on open (onOpenAutoFocus)", () => {

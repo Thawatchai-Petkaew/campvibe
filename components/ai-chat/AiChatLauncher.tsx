@@ -13,12 +13,16 @@
  * after the first tap — the Home route's initial bundle only pays for
  * this file (a Button + an icon), matching the Navbar's own
  * modal-lazy-loading idiom.
+ *
+ * CAM-411: the mark icon changes `Sparkles → Flame` (the น้องกองไฟ identity
+ * mark shared with the header/welcome/bubble avatar — design.md §Avatar);
+ * all existing launcher states/offsets are unchanged.
  */
 "use client";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Sparkles } from "lucide-react";
+import { Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -42,7 +46,7 @@ export function AiChatLauncher() {
           className="h-12 w-12 rounded-full shadow-lg shadow-primary/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
           onClick={() => setOpen(true)}
         >
-          <Sparkles className="size-5" aria-hidden="true" />
+          <Flame className="size-5" aria-hidden="true" />
         </Button>
       </div>
       {open && <AiChatPanel open={open} onOpenChange={setOpen} />}
