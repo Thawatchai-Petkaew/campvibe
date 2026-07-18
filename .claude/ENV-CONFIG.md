@@ -33,6 +33,7 @@
 | `APP_BASE_URL` | ลิงก์ในข้อความ Telegram | ➖ ใช้ default | ➖ default = staging URL | ⚠ ควรชี้ prod ถ้า notify จาก prod |
 | `COMING_SOON` | gate ปิดหน้าเว็บ prod (`proxy.ts`, =1 คือปิด) | ➖ | ➖ ไม่ตั้ง (เปิดเต็ม) | ✅ `=1` จนกว่าจะ full launch |
 | `TICKETS_SOURCE` | delivery adapter (`db` ปัจจุบัน) | ✅ | ✅ ⚠ | ✅ ⚠ |
+| `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` + `OPENROUTER_MODEL_FALLBACK` | AI assistant tool layer (`lib/ai/openrouter-client.ts`, CAM-270) — key absent = client self-skips (no spend, no network call), safe blank in dev/CI | ➖ ยังไม่ใช้ใน dev (real spend เป็น G2 owner-gated) | ⚠ ตั้งเมื่อ owner approve ทดสอบจริง | ⚠ ตั้งเมื่อ owner approve จริง |
 | `PRISMA_QUERY_LOG` · `STATUS_STREAM_*` | debug/tuning | ➖ เปิดเฉพาะตอน debug | ➖ | ➖ |
 | `ALLOW_DB_RESET` / `ALLOW_DANGEROUS_SEED` | กันยิง seed/reset พลาด | ➖ ตั้งชั่วคราวเฉพาะตอนใช้ | ➖ **ห้ามมี** | ➖ **ห้ามมี** |
 | `.env.e2e` (แยกไฟล์, gitignored) | e2e regression (db-guard บังคับ localhost, port 3100) | ✅ — ทำงานเข้ากับ dev DB local โดยธรรมชาติ | ➖ e2e ไม่วิ่งบน Vercel | ➖ |

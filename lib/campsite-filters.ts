@@ -16,6 +16,12 @@ export interface CampSiteFilterParams {
   equipment?: string;
   activities?: string;
   terrain?: string;
+  /**
+   * CAM-270 BR-9 — additive pet-friendly filter for the AI searchCampsites
+   * tool. Only applied when explicitly `true` (absent/false = no filtering,
+   * existing behavior unchanged for every other caller of this function).
+   */
+  petFriendly?: boolean;
 }
 
 // Shared helper to build Prisma where-clause for camp site listing & counts
@@ -118,7 +124,19 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   addOptionFilter(activities);
   addOptionFilter(terrain);
 
-  // 7. (REMOVED — CAM-344, hide→badge pivot, BR-6) Dated search no longer
+  // 7. CAM-270 BR-9 — additive pet-friendly filter (AI searchCampsites tool).
+  // Only applied when explicitly requested (`petFriendly: true`); pushed into
+  // where.AND so it never clobbers the keyword OR built in step 2. Absent or
+  // false leaves pet filtering untouched — this is a pure addition, no other
+  // caller's behavior changes.
+  if (params.petFriendly) {
+    if (!where.AND) where.AND = [];
+    const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+    andArray.push({ petFriendly: true } as Prisma.CampSiteWhereInput);
+    where.AND = andArray;
+  }
+
+  // 8. (REMOVED — CAM-344, hide→badge pivot, BR-6) Dated search no longer
   // excludes any camp by date-availability. The former step 7 excluded camps
   // by Booking overlap + whole-camp BlockedDate, but was blind to InternalHold
   // (CAM-302) — a data-correctness bug fixed by construction now that no
