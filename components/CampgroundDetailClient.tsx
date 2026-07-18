@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import { ImageGallery } from "@/components/ImageGallery";
 import { AmenitiesModal } from "@/components/AmenitiesModal";
 import { LoginModal } from "@/components/LoginModal";
@@ -71,7 +72,6 @@ export default function CampgroundDetailClient({
     campground,
     isOwner = false,
     initialSaved = false,
-    isLoggedIn = false,
     avgRating = null,
     reviewCount = 0,
     reviewsPromise,
@@ -81,7 +81,14 @@ export default function CampgroundDetailClient({
     isOwner?: boolean;
     /** Server-resolved initial wishlist state (AC-2, BR-3). */
     initialSaved?: boolean;
-    /** True when there is an active user session (AC-4, BR-2). */
+    /**
+     * Server-rendered session snapshot — kept only so existing callers
+     * (app/campgrounds/[slug]/page.tsx, app/wishlist/page.tsx) don't need a
+     * prop-shape change. CAM-397 BR-1: never read as a gate input — both
+     * handleReserve and handleWishlistToggle gate on the LIVE client session
+     * (`useSession()` status === "authenticated") because this snapshot lags
+     * `router.refresh()` after a modal login (CAM-396 G4 finding).
+     */
     isLoggedIn?: boolean;
     /** CAM-79 AC-1/AC-2: average rating rounded to 1dp, or null when no reviews. */
     avgRating?: number | null;
@@ -96,6 +103,15 @@ export default function CampgroundDetailClient({
     const { t, formatCurrency, language } = useLanguage();
     const { resolvedTheme } = useTheme();
     const router = useRouter();
+
+    // CAM-397 BR-1: gate on the LIVE client session, never the server-snapshot
+    // `isLoggedIn` prop above — the prop stays stale until router.refresh()
+    // lands after a modal login, so the first press right after login re-opens
+    // the modal on a stale value (CAM-396 G4 finding). LoginModal.handleSubmit
+    // already calls update() on success (LoginModal.tsx:52-67), which flips
+    // this immediately — no refresh hack needed.
+    const { status: sessionStatus } = useSession();
+    const isLoggedInLive = sessionStatus === "authenticated";
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
     // CAM-353 AC-3: the shared photo viewer's source array — the camp hero gallery
@@ -286,8 +302,10 @@ export default function CampgroundDetailClient({
 
     // CAM-396 AC-1/EC-1, BR-1: guest tap → open the existing LoginModal (mirrors
     // the wishlist gate below), never fire the unauthenticated booking request.
+    // CAM-397 BR-1: gates on isLoggedInLive (the live client session), not the
+    // stale isLoggedIn prop — fixes the first-press-after-login bug (AC-2).
     const handleReserve = async () => {
-        if (!isLoggedIn) {
+        if (!isLoggedInLive) {
             setLoginOpen(true);
             return;
         }
@@ -334,11 +352,13 @@ export default function CampgroundDetailClient({
     // AC-1/AC-3/AC-4/AC-5, BR-1/BR-2/BR-4/BR-5 — optimistic toggle with rollback.
     // Decision logic lives in lib/wishlist-toggle.ts (runWishlistToggle); React
     // state / sonner wiring stays here.
+    // CAM-397 BR-1: pass the LIVE client session value into the gate argument,
+    // not the stale isLoggedIn prop (lib/wishlist-toggle.ts is unchanged).
     const handleWishlistToggle = useCallback(async () => {
         setIsWishlistLoading(true);
 
         const result = await runWishlistToggle({
-            isLoggedIn,
+            isLoggedIn: isLoggedInLive,
             savedBefore: saved,
             isLoading: isWishlistLoading,
             campSiteId: campground.id,
@@ -367,7 +387,7 @@ export default function CampgroundDetailClient({
         }
 
         setIsWishlistLoading(false);
-    }, [isLoggedIn, isWishlistLoading, saved, campground.id, t]);
+    }, [isLoggedInLive, isWishlistLoading, saved, campground.id, t]);
 
     // BR-5: dynamic aria-label per state.
     const wishlistAriaLabel = isWishlistLoading
