@@ -33,6 +33,15 @@
  *          ONE query — no separate ownership-check-then-fetch round trip)
  *   AC-3 → deleteConversation (HARD delete per ADR-013 D2; ownership enforced
  *          INSIDE deleteMany's WHERE — atomic, no check-then-act race)
+ *
+ * CAM-422 (ADR-013 S8 — retention cron) extends this file with the system
+ * (non-user-scoped) purge function the daily cron route calls:
+ *   AC-purge → purgeExpiredConversations (D2: hard-deletes ChatConversation
+ *          rows idle ≥180 days, PLUS any conversation whose owning User has
+ *          been soft-deleted — `onDelete: Cascade` only fires on a REAL row
+ *          delete, and `User` uses the house `deletedAt` soft-delete
+ *          convention, so a soft-deleted user's chat history is otherwise
+ *          never swept). Single `deleteMany` — no N+1, no per-row loop.
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -51,6 +60,8 @@ export const MAX_CONTENT_TEXT_LENGTH = 4000;
 export const MAX_BLOCKS_BYTES = 16 * 1024;
 /** BR-5 default window size for `loadWindow`. */
 export const DEFAULT_WINDOW_SIZE = 10;
+/** CAM-422 (ADR-013 D2) — a conversation idle this many days or longer is purged by the retention cron. */
+export const RETENTION_DAYS = 180;
 
 // ---------------------------------------------------------------------------
 // Result shape — BR-6: every function returns this, never throws raw.
@@ -393,6 +404,65 @@ export async function deleteConversation(
     return { ok: true, data: { id: conversationId } };
   } catch (error) {
     return handleUnexpectedError(error, 'deleteConversation');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// purgeExpiredConversations — CAM-422 (ADR-013 S8, D2 retention)
+// ---------------------------------------------------------------------------
+
+export interface PurgeResult {
+  purgedCount: number;
+}
+
+/**
+ * System-level retention sweep — NOT ownership-scoped to one user; this is
+ * the one function in this file that intentionally has no `userId` (it is
+ * only ever called by the secret-guarded cron route, never by a user
+ * request). HARD-deletes (D2 — no `deletedAt` flag) every `ChatConversation`
+ * matching EITHER:
+ *   1. idle ≥ `RETENTION_DAYS` (`updatedAt < now - 180d`), or
+ *   2. owned by a `User` whose `deletedAt` is set (soft-deleted) — the FK's
+ *      `onDelete: Cascade` only fires on a real row delete, and `User` never
+ *      gets one (house soft-delete convention), so this sweep is the only
+ *      path that ever removes a soft-deleted user's chat history.
+ *
+ * Both conditions run as ONE `deleteMany` (an `OR`, cascading to `ChatMessage`
+ * via the existing FK) — no per-row loop (performance.md — no N+1). Returns
+ * the purged CONVERSATION count only (never content) — the D2/retention
+ * Confirmation ("first run proves it deleted ≥1 row, never a silent skip")
+ * and observability.md field hygiene (no secret/PII in the log line).
+ *
+ * `now` is an injectable clock (mirrors `lib/rate-limit.ts`'s `now` option)
+ * so the 180-day boundary is tested deterministically, never against the
+ * real wall clock.
+ */
+export async function purgeExpiredConversations(
+  options: { now?: () => number } = {}
+): Promise<ConversationStoreResult<PurgeResult>> {
+  const now = options.now ?? Date.now;
+  try {
+    const cutoff = new Date(now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+    const { count } = await prisma.chatConversation.deleteMany({
+      where: {
+        OR: [{ updatedAt: { lt: cutoff } }, { user: { deletedAt: { not: null } } }],
+      },
+    });
+
+    // Loud, count-only line — never a silent skip (ADR-013 D2 Confirmation).
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        event: 'chat_retention_purge',
+        purgedCount: count,
+        cutoffDate: cutoff.toISOString(),
+      })
+    );
+
+    return { ok: true, data: { purgedCount: count } };
+  } catch (error) {
+    return handleUnexpectedError(error, 'purgeExpiredConversations');
   }
 }
 

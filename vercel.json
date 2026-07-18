@@ -6,5 +6,11 @@
       "main": true
     }
   },
-  "ignoreCommand": "bash scripts/vercel-ignore.sh"
+  "ignoreCommand": "bash scripts/vercel-ignore.sh",
+  "crons": [
+    {
+      "path": "/api/cron/ai-chat-retention",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
