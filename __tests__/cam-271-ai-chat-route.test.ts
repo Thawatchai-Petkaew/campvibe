@@ -18,19 +18,21 @@
  *   - AC-8/EC-5 prompt injection text still yields only { answer, cards }, nothing internal
  *   - Story-specific: PUBLIC route (no auth anywhere in this file); rate-limit AND zod
  *     validation BOTH precede the paid call, and rate-limit runs FIRST (BR-2 order)
- *   - Functional-security fix: MAX_PROMPT_CHARS is forwarded to runAssistantTurn as the
- *     sanitizer override, so a long transcript is never re-truncated to the single-message cap
+ *   - CAM-415: the route now calls `runAssistantTurnFromMessages` with a REAL
+ *     multi-turn array (`buildTurnMessages`) instead of a flattened string +
+ *     `maxPromptChars` override — that override no longer exists (per-message
+ *     fencing makes the old truncation bug structurally impossible; see
+ *     __tests__/cam-415-build-turn-messages.test.ts)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { _store } from '@/lib/rate-limit';
 import { AI_ASSISTANT_RATE_LIMIT } from '@/lib/ai/rate-limit';
 import { MAX_CHAT_MESSAGES, MAX_CHAT_MESSAGE_LENGTH } from '@/lib/validations/ai-chat';
-import { MAX_PROMPT_CHARS } from '@/lib/ai/serialize-conversation';
 
 const mockRunAssistantTurn = vi.fn();
 vi.mock('@/lib/ai/openrouter-client', () => ({
-  runAssistantTurn: (...args: unknown[]) => mockRunAssistantTurn(...args),
+  runAssistantTurnFromMessages: (...args: unknown[]) => mockRunAssistantTurn(...args),
 }));
 
 const { POST } = await import('@/app/api/ai/chat/route');
@@ -106,7 +108,7 @@ describe('POST /api/ai/chat — happy path (AC-1, AC-3)', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('POST /api/ai/chat — multi-turn conversation (AC-2)', () => {
-  it('[unit] the full capped conversation is serialized into ONE userText, in order, still one call', async () => {
+  it('[unit] the full capped conversation becomes a REAL multi-turn messages array, in order, still one call (CAM-415)', async () => {
     mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'เสาร์นี้ว่างครับ', cards: [] });
 
     const res = await POST(
@@ -121,11 +123,17 @@ describe('POST /api/ai/chat — multi-turn conversation (AC-2)', () => {
 
     expect(res.status).toBe(200);
     expect(mockRunAssistantTurn).toHaveBeenCalledOnce(); // exactly one tool-call round per request
-    const [userText] = mockRunAssistantTurn.mock.calls[0] as [string];
-    expect(userText).toContain('หาลานกางเต็นท์ใกล้กรุงเทพ');
-    expect(userText).toContain('พบ 3 แห่งครับ');
-    expect(userText).toContain('แล้วอันแรกเสาร์นี้ว่างไหม');
-    expect(userText.indexOf('หาลานกางเต็นท์')).toBeLessThan(userText.indexOf('แล้วอันแรกเสาร์นี้'));
+    const [turnMessages] = mockRunAssistantTurn.mock.calls[0] as [Array<{ role: string; content: string }>];
+    // CAM-415 fix (QA Critical F-1): this route's history is always
+    // CLIENT-supplied (public, unauthenticated, unpersisted) — buildTurnMessages
+    // defaults to source:"client", so EVERY turn (including the posted
+    // role:"assistant" one) is emitted as a fenced role:"user" DATA block,
+    // never a bare, elevated-trust assistant message.
+    expect(turnMessages.map((m) => m.role)).toEqual(['user', 'user', 'user']);
+    expect(turnMessages[0].content).toContain('หาลานกางเต็นท์ใกล้กรุงเทพ');
+    expect(turnMessages[1].content).toContain('พบ 3 แห่งครับ');
+    expect(turnMessages[1].content).toContain('<user_message>');
+    expect(turnMessages[2].content).toContain('แล้วอันแรกเสาร์นี้ว่างไหม');
   });
 });
 
@@ -253,13 +261,18 @@ describe('POST /api/ai/chat — prompt injection is treated as data (AC-8, EC-5,
 /* Story-specific: BR-2 order — rate limit precedes validation + the paid call */
 /* -------------------------------------------------------------------------- */
 
-describe('POST /api/ai/chat — forwards the transcript-level sanitizer cap (functional-security fix)', () => {
-  it('[security] calls runAssistantTurn with { maxPromptChars: MAX_PROMPT_CHARS } so a long transcript is never re-truncated downstream', async () => {
+describe('POST /api/ai/chat — builds a real messages array via buildTurnMessages (CAM-415)', () => {
+  it('[unit] calls runAssistantTurnFromMessages with a fenced array, not a flattened string or an options object', async () => {
     mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'ok', cards: [] });
 
     await POST(makeRequest({ messages: [{ role: 'user', content: 'hi' }] }));
 
-    expect(mockRunAssistantTurn).toHaveBeenCalledWith(expect.any(String), { maxPromptChars: MAX_PROMPT_CHARS });
+    expect(mockRunAssistantTurn).toHaveBeenCalledOnce();
+    const call = mockRunAssistantTurn.mock.calls[0] as unknown[];
+    expect(call).toHaveLength(1); // no second (options) argument
+    const [turnMessages] = call as [Array<{ role: string; content: string }>];
+    expect(Array.isArray(turnMessages)).toBe(true);
+    expect(turnMessages[0]).toEqual({ role: 'user', content: expect.stringContaining('<user_message>') });
   });
 });
 

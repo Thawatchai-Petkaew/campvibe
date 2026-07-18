@@ -151,6 +151,7 @@ model User {
   notifications   Notification[] // User notifications (S7)
   auditLogs       AuditLog[] // Audit events where this user is the actor (S7)
   createdHolds    InternalHold[]       @relation("HoldCreatedBy") // CAM-302: holds this user created (HostOS M1.2)
+  chatConversations ChatConversation[] // CAM-414: this user's persisted AI chat history (ADR-013)
 
   @@index([email])
   @@index([kycStatus])
@@ -853,4 +854,53 @@ model InternalHold {
   @@index([campSiteId, startDate, endDate])
   @@index([spotId])
   @@index([status])
+}
+
+// ============================================================================
+// CAM-414 — persistent AI chat history (ADR-013, reduced foundation slice).
+// Logged-in users only (guest chat stays stateless — PDPA data-minimization +
+// anti-spam on a public endpoint). Stores only sanitized display text + the
+// `blocks` JSON the camper actually saw (cards/chips) so a reopened
+// conversation renders identically — NEVER tool traces, raw model/tool
+// errors, or the system prompt.
+//
+// HARD DELETE (no `deletedAt`) — an intentional divergence from this schema's
+// usual soft-delete convention: PDPA favors real deletion for conversational
+// personal data. A 180-day retention cron is a deferred follow-up (ADR-013),
+// NOT part of this migration.
+// ============================================================================
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model ChatConversation {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt // bumped on every appended turn — drives the least-recently-updated eviction (BR-1)
+
+  @@index([userId, updatedAt])
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role        ChatRole
+  seq         Int // monotonic per conversation — orders messages without relying on createdAt tie-breaks
+  contentText String @db.Text // sanitized display text only (never a raw tool/model error)
+  blocks      Json? // the rendered UI blocks (cards/chips) the camper saw, or null when oversize/absent
+
+  createdAt DateTime @default(now())
+
+  @@unique([conversationId, seq])
+  @@index([conversationId, seq])
 }

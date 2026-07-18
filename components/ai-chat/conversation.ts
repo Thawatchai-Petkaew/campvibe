@@ -10,8 +10,8 @@
  * text), never HTML — nothing here ever builds/returns markup, only plain
  * strings + the structured `cards[]` array from the endpoint response.
  */
-import type { AiChatCardResponse, AiChatOutcome, AiChatRequestMessage } from "@/lib/api-client";
-import { AI_CHAT_MAX_MESSAGES } from "@/lib/api-client";
+import type { AiChatCardResponse, AiChatOutcome, AiChatRequestMessage, AiConversationMessageView } from "@/lib/api-client";
+import { AI_CHAT_MAX_MESSAGES, normalizeBlocks } from "@/lib/api-client";
 
 export type ChatEntry =
   | { id: string; role: "user"; text: string }
@@ -107,4 +107,49 @@ export function entriesBeforeRetry(entries: ChatEntry[]): ChatEntry[] {
 /** BR-5/EC-4: once the assistant is seen disabled, the composer stays disabled for the rest of the session. */
 export function isAssistantDisabled(entries: ChatEntry[]): boolean {
   return entries.some((e) => e.role === "assistant" && e.kind === "disabled");
+}
+
+/**
+ * CAM-423 (ADR-013 S9) — the ONLY place `use-ai-chat.ts` decides guest vs
+ * authed-resume branching, kept as a pure/testable predicate rather than an
+ * inline session check scattered across the hook (D1: a guest session never
+ * resumes/persists — this returns false for every status but `authenticated`,
+ * including the transient NextAuth `loading` status).
+ */
+export function isAuthedSession(status: "loading" | "authenticated" | "unauthenticated"): boolean {
+  return status === "authenticated";
+}
+
+/**
+ * CAM-423 AC — restores a persisted conversation's ascending-order messages
+ * (`GET /api/ai/conversations/[id]`) into the SAME `ChatEntry[]` shape a live
+ * thread already renders through `AiChatMessageList`, so resume reuses the
+ * existing renderers with no parallel display path.
+ *
+ * `blocks` is validated through the exported `normalizeBlocks` — the SAME
+ * normalizer a live turn's wire response already uses (one normalizer, not a
+ * parallel one) — so a malformed/unexpected `blocks` payload can never crash
+ * a resume. No block `type` maps to cards/suggestions yet (ADR-013 D6
+ * deliberately left that migration out of scope: `appendTurn` never
+ * persists a turn's cards/suggestions), so every restored answer resolves to
+ * `cards: []` / `suggestions: []` today — an unrecognized/absent block type
+ * is skipped, never thrown (the CAM-420 forward-compat contract extended to
+ * the restore path).
+ */
+export function restoreEntriesFromMessages(messages: AiConversationMessageView[]): ChatEntry[] {
+  return messages.map((message) => {
+    if (message.role === "USER") {
+      return { id: nextEntryId(), role: "user", text: message.contentText };
+    }
+    normalizeBlocks(message.blocks); // validate-only — see doc comment above
+    return {
+      id: nextEntryId(),
+      role: "assistant",
+      kind: "answer",
+      text: message.contentText,
+      cards: [],
+      zeroResult: true,
+      suggestions: [],
+    };
+  });
 }

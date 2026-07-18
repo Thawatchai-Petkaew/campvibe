@@ -8,7 +8,11 @@
  *   - null/empty: OPENROUTER_API_KEY unset → skipped, fetch never called (AC-5)
  *   - normal: no tool requested → one call, { answer, cards:[] }
  *   - normal: exactly ONE tool-call round → tool executed once, ONE follow-up
- *     call, follow-up's own tool_calls are ignored (no multi-turn loop, AC-7)
+ *     call, final answer with no further tool_calls (AC-7)
+ *   - normal (CAM-416): a follow-up round that ITSELF requests tool_calls now
+ *     runs as round 2 of the bounded agent loop (supersedes the old
+ *     "no agent loop" guarantee) — see __tests__/cam-416-agent-loop.test.ts
+ *     for the full loop-cap/turn-cap/deadline/fallback-pin matrix.
  *   - error/validation: malformed tool-call JSON → dispatched as invalid args (EC-7)
  *   - error/validation: primary non-2xx → falls back once, fallback succeeds (AC-6)
  *   - error/validation: primary network exception → falls back once, succeeds (AC-6)
@@ -148,11 +152,18 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(2); // initial + exactly one follow-up
     expect(mockDispatchTool).toHaveBeenCalledOnce();
-    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', { province: 'เชียงใหม่' });
+    // CAM-417 — dispatchTool now also receives the (server-bound) ToolContext; the
+    // route/entry point passed no ctx here, so it defaults to {} (guest).
+    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', { province: 'เชียงใหม่' }, {});
     expect(result).toEqual({ ok: true, answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ', cards: [{ id: 'c1' }, { id: 'c2' }] });
   });
 
-  it('[unit] no agent loop — a follow-up response that itself requests tool_calls is never re-dispatched or re-called', async () => {
+  it('[unit] CAM-416 supersedes "no agent loop": a follow-up response that itself requests tool_calls now runs as round 2 of the bounded agent loop', async () => {
+    // Historical note (was "no agent loop — never re-dispatched or re-called"
+    // under CAM-270/415's exactly-ONE-round engine): CAM-416 (ADR-013 D4)
+    // replaces that guarantee with a real, bounded loop (MAX_AGENT_ITERATIONS
+    // = 4) — a second round's tool_calls now DOES execute and DOES trigger a
+    // third completion call, as long as the iteration cap isn't hit yet.
     const firstToolCall = {
       id: 'call_1',
       type: 'function',
@@ -166,17 +177,16 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     const mockFetch = vi
       .fn()
       .mockResolvedValueOnce(res(assistantMessage(null, [firstToolCall])))
-      .mockResolvedValueOnce(res(assistantMessage('partial answer', [secondToolCall])));
+      .mockResolvedValueOnce(res(assistantMessage(null, [secondToolCall])))
+      .mockResolvedValueOnce(res(assistantMessage('final answer')));
     vi.stubGlobal('fetch', mockFetch);
-    mockDispatchTool.mockResolvedValueOnce({ ok: true, data: {} });
+    mockDispatchTool.mockResolvedValue({ ok: true, data: {} });
 
     const result = await runAssistantTurn('question');
 
-    // Only ONE round of tool execution ever happens, and only ONE follow-up
-    // completion call — the second response's own tool_calls are ignored.
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockDispatchTool).toHaveBeenCalledOnce();
-    expect(result).toEqual({ ok: true, answer: 'partial answer', cards: [] });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockDispatchTool).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ ok: true, answer: 'final answer', cards: [] });
   });
 
   it('[security] a hard per-round cap rejects tool_calls beyond MAX_TOOL_CALLS_PER_ROUND without ever executing them', async () => {
@@ -210,6 +220,34 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     expect(JSON.parse(rejectedMessage.content)).toEqual({ ok: false, code: 'too_many_tool_calls' });
   });
 
+  it('[error/validation] CAM-420 fix: dispatchTool REJECTING (e.g. an authed tool\'s own Prisma call throwing) is contained as a handled tool result, never an uncaught exception', async () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'getMyBookings', arguments: '{}' },
+    };
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(res(assistantMessage(null, [toolCall])))
+      .mockResolvedValueOnce(res(assistantMessage('ขอโทษค่ะ ไม่สามารถดึงข้อมูลได้ในตอนนี้')));
+    vi.stubGlobal('fetch', mockFetch);
+    mockDispatchTool.mockRejectedValueOnce(new Error('DB connection reset — contains no user-facing info'));
+
+    // The whole call resolves — it never rejects/throws out to the caller.
+    const result = await runAssistantTurn('มีจองล่าสุดของฉันไหม');
+
+    expect(result.ok).toBe(true); // the loop recovered gracefully and still produced a final answer
+    expect(mockFetch).toHaveBeenCalledTimes(2); // the follow-up round still ran (loop never crashed)
+
+    // The follow-up call's tool message for this call_id carries a GENERIC
+    // code only — never the raw Error's message/stack.
+    const followUpBody = JSON.parse((mockFetch.mock.calls[1][1] as RequestInit).body as string);
+    const toolMessage = followUpBody.messages.find((m: { role: string; tool_call_id?: string }) => m.role === 'tool' && m.tool_call_id === 'call_1');
+    expect(toolMessage).toBeDefined();
+    expect(JSON.parse(toolMessage.content)).toEqual({ ok: false, code: 'tool_error' });
+    expect(toolMessage.content).not.toContain('DB connection reset');
+  });
+
   it('[unit] EC-7: malformed tool-call JSON is dispatched as invalid (undefined) args, never crashes', async () => {
     const brokenToolCall = {
       id: 'call_1',
@@ -225,7 +263,8 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
 
     const result = await runAssistantTurn('question');
 
-    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', undefined);
+    // CAM-417 — dispatchTool now also receives the (server-bound) ToolContext, default {}.
+    expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', undefined, {});
     expect(result.ok).toBe(true); // the turn itself still completes — a handled tool error, not a crash
   });
 

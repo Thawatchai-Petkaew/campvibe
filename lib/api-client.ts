@@ -10,6 +10,7 @@ import type {
     WishlistIdsResponse,
 } from '@/types/api';
 import { MAX_SUGGESTION_LENGTH } from '@/lib/ai/sanitize';
+import { z } from 'zod';
 
 const API_BASE = '/api';
 
@@ -191,8 +192,37 @@ export interface AiChatCardResponse {
     images?: { url: string }[];
 }
 
+/**
+ * CAM-420 (ADR-013 D6) — forward-compat rendered-content envelope. Purely
+ * ADDITIVE and NOT populated by any route yet ("do NOT migrate cards/
+ * suggestions into blocks now" — the story deliberately ships the SHAPE
+ * only): a future block type is additive to the wire contract, never a
+ * breaking change. `data` is intentionally `unknown` — each future block
+ * type will own its own schema for `data` when it ships.
+ */
+export interface AiChatBlock {
+    type: string;
+    v: number;
+    data: unknown;
+}
+
+const aiChatBlockSchema = z.object({
+    type: z.string(),
+    v: z.number(),
+    data: z.unknown(),
+});
+
 export type AiChatOutcome =
-    | { kind: 'ok'; answer: string; cards: AiChatCardResponse[]; suggestions?: string[] }
+    | {
+          kind: 'ok';
+          answer: string;
+          cards: AiChatCardResponse[];
+          suggestions?: string[];
+          /** CAM-420 — present only when the wire body carried at least one well-formed block. */
+          blocks?: AiChatBlock[];
+          /** CAM-420 — present only on the v2 (session-bound, persisted) request path. */
+          conversationId?: string;
+      }
     | { kind: 'rate-limited' }
     | { kind: 'disabled' }
     | { kind: 'error' };
@@ -226,6 +256,28 @@ function normalizeSuggestions(value: unknown): string[] {
     return out;
 }
 
+/**
+ * CAM-420 forward-compat contract (pinned by test): keeps every
+ * STRUCTURALLY well-formed envelope regardless of its `type` value — an
+ * unrecognized type is NOT a parse failure. A client on an older build must
+ * not lose or reject a future block it simply doesn't know how to render
+ * yet; that is the whole point of a versioned, additive envelope. Only a
+ * MALFORMED entry (missing/wrong-typed `type`/`v`) is dropped — the same
+ * "drop the bad one, keep the rest" policy `isAiChatCardResponse` already
+ * applies to `cards`. No known block type is rendered anywhere yet —
+ * skip-rendering an unknown type is the render layer's job (out of scope:
+ * no block-consuming UI exists yet).
+ */
+export function normalizeBlocks(value: unknown): AiChatBlock[] {
+    if (!Array.isArray(value)) return [];
+    const out: AiChatBlock[] = [];
+    for (const item of value) {
+        const parsed = aiChatBlockSchema.safeParse(item);
+        if (parsed.success) out.push(parsed.data);
+    }
+    return out;
+}
+
 /** Narrows an unknown value into an `AiChatCardResponse` (network I/O is an input boundary, code.md CAM-305). */
 export function isAiChatCardResponse(value: unknown): value is AiChatCardResponse {
     if (!value || typeof value !== 'object') return false;
@@ -254,13 +306,45 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
  */
 export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
     if (!data || typeof data !== 'object') return { kind: 'error' };
-    const { answer, cards, suggestions } = data as Record<string, unknown>;
+    const { answer, cards, suggestions, blocks, conversationId } = data as Record<string, unknown>;
     if (typeof answer !== 'string') return { kind: 'error' };
     const safeCards = Array.isArray(cards) ? cards.filter(isAiChatCardResponse) : [];
     const safeSuggestions = normalizeSuggestions(suggestions);
-    return safeSuggestions.length > 0
-        ? { kind: 'ok', answer, cards: safeCards, suggestions: safeSuggestions }
-        : { kind: 'ok', answer, cards: safeCards };
+    const safeBlocks = normalizeBlocks(blocks);
+    const outcome: AiChatOutcome = { kind: 'ok', answer, cards: safeCards };
+    if (safeSuggestions.length > 0) outcome.suggestions = safeSuggestions;
+    if (safeBlocks.length > 0) outcome.blocks = safeBlocks;
+    if (typeof conversationId === 'string' && conversationId.length > 0) outcome.conversationId = conversationId;
+    return outcome;
+}
+
+/**
+ * CAM-423 (ADR-013 S9) — wire shape of one persisted message returned by
+ * `GET /api/ai/conversations/[id]`, mirroring `ConversationMessageView`
+ * (lib/ai/conversation-store.ts) post-JSON (`Date` -> ISO string).
+ */
+export interface AiConversationMessageView {
+    id: string;
+    role: 'USER' | 'ASSISTANT';
+    seq: number;
+    contentText: string;
+    blocks: unknown;
+    createdAt: string;
+}
+
+/** CAM-423 — the full body of `GET /api/ai/conversations/[id]` (CAM-421 AC-2). */
+export interface AiConversationDetail {
+    id: string;
+    updatedAt: string;
+    messages: AiConversationMessageView[];
+}
+
+/** CAM-423 — one row of `GET /api/ai/conversations`'s `conversations[]` (CAM-421 AC-1). */
+export interface AiConversationSummary {
+    id: string;
+    title: string | null;
+    messageCount: number;
+    updatedAt: string;
 }
 
 export const aiChatAPI = {
@@ -282,5 +366,40 @@ export const aiChatAPI = {
         } catch {
             return { kind: 'error' };
         }
+    },
+
+    /**
+     * POST /api/ai/chat — CAM-420 v2 (session-bound) shape. Never called for
+     * a guest (D1); the route 401s an unauthenticated caller. Omitting
+     * `conversationId` creates a new conversation server-side; the returned
+     * `conversationId` threads the next turn (CAM-423 AC).
+     */
+    sendTurn: async (payload: { conversationId?: string; message: string }): Promise<AiChatOutcome> => {
+        try {
+            const response = await fetch(`${API_BASE}/ai/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.status === 429) return { kind: 'rate-limited' };
+            if (response.status === 503) return { kind: 'disabled' };
+            if (!response.ok) return { kind: 'error' };
+
+            const data: unknown = await response.json();
+            return parseAiChatSuccessBody(data);
+        } catch {
+            return { kind: 'error' };
+        }
+    },
+
+    /** GET /api/ai/conversations (CAM-421) — the session camper's own conversations, newest-updated-first. */
+    listConversations: async (): Promise<ApiResponse<{ conversations: AiConversationSummary[] }>> => {
+        return fetchAPI<{ conversations: AiConversationSummary[] }>('/ai/conversations');
+    },
+
+    /** GET /api/ai/conversations/[id] (CAM-421) — full ordered history for one conversation the session camper owns. */
+    getConversation: async (id: string): Promise<ApiResponse<AiConversationDetail>> => {
+        return fetchAPI<AiConversationDetail>(`/ai/conversations/${id}`);
     },
 };
