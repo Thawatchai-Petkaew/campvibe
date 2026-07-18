@@ -284,7 +284,14 @@ export default function CampgroundDetailClient({
         return false;
     };
 
+    // CAM-396 AC-1/EC-1, BR-1: guest tap → open the existing LoginModal (mirrors
+    // the wishlist gate below), never fire the unauthenticated booking request.
     const handleReserve = async () => {
+        if (!isLoggedIn) {
+            setLoginOpen(true);
+            return;
+        }
+
         if (!checkIn || !checkOut) {
             setHasAttemptedReserve(true);
             import("sonner").then(({ toast }) => toast.error(t.newCampground.pleaseSelectDates));
@@ -311,7 +318,9 @@ export default function CampgroundDetailClient({
                 // CAM-59: redirect immediately to the confirmation page (no toast delay).
                 router.push(`/bookings/${data.id}/confirmation`);
             } else {
-                toast.error(data.error || t.newCampground.failedToReserve);
+                // CAM-396 AC-3/EC-3, BR-2: never surface the server's raw data.error
+                // (e.g. "Unauthorized", "Dates not available") — always show Thai copy.
+                toast.error(t.newCampground.failedToReserve);
             }
         } catch (error) {
             console.error(error);
@@ -1380,7 +1389,8 @@ export default function CampgroundDetailClient({
                 facilities={facilityCodes}
             />
 
-            {/* AC-4, BR-2: LoginModal for guest wishlist tap. */}
+            {/* AC-4, BR-2: LoginModal for guest wishlist tap. CAM-396 AC-1/BR-1: also
+                opened by the guest reserve tap (handleReserve) — same modal instance. */}
             <LoginModal
                 isOpen={loginOpen}
                 onClose={() => setLoginOpen(false)}
