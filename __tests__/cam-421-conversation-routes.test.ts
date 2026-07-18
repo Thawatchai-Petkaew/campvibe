@@ -134,6 +134,31 @@ describe('GET /api/ai/conversations (AC-1)', () => {
     expect(mockListConversations).toHaveBeenCalledWith(OTHER_USER_ID);
     expect(mockListConversations).not.toHaveBeenCalledWith(USER_ID);
   });
+
+  it('IDOR defense: a spoofed ?userId= query string is ignored — store is called with session.user.id only', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(USER_ID) });
+    mockListConversations.mockResolvedValueOnce({ ok: true, data: [] });
+
+    const req = new NextRequest(
+      `http://localhost/api/ai/conversations?userId=${OTHER_USER_ID}`,
+      { method: 'GET' }
+    );
+    await listGET(req);
+
+    expect(mockListConversations).toHaveBeenCalledWith(USER_ID);
+    expect(mockListConversations).not.toHaveBeenCalledWith(OTHER_USER_ID);
+  });
+
+  it('500 body is generic — no internal detail/stack leaked to the client', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(USER_ID) });
+    mockListConversations.mockResolvedValueOnce({ ok: false, code: 'internal_error' });
+
+    const res = await listGET(makeListRequest());
+    const body = await json(res);
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to load conversations' }); // no `details`, no stack
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -205,8 +230,25 @@ describe('GET /api/ai/conversations/[id] (AC-2)', () => {
     mockGetConversationWithMessages.mockResolvedValueOnce({ ok: false, code: 'internal_error' });
 
     const res = await detailGET(makeRequest('GET'), makeDetailContext());
+    const body = await json(res);
 
     expect(res.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to load conversation' }); // no `details`, no stack
+  });
+
+  it('EC-3/EC-4: the 404 body is byte-identical for "missing" and "not yours" (no existence leak)', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(USER_ID) });
+    mockGetConversationWithMessages.mockResolvedValueOnce({ ok: false, code: 'not_found' });
+    const missingRes = await detailGET(makeRequest('GET'), makeDetailContext());
+    const missingBody = await json(missingRes);
+
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(OTHER_USER_ID) });
+    mockGetConversationWithMessages.mockResolvedValueOnce({ ok: false, code: 'not_found' });
+    const wrongOwnerRes = await detailGET(makeRequest('GET'), makeDetailContext());
+    const wrongOwnerBody = await json(wrongOwnerRes);
+
+    expect(missingRes.status).toBe(wrongOwnerRes.status);
+    expect(missingBody).toEqual(wrongOwnerBody);
   });
 });
 
@@ -273,8 +315,53 @@ describe('DELETE /api/ai/conversations/[id] (AC-3)', () => {
     mockDeleteConversation.mockResolvedValueOnce({ ok: false, code: 'internal_error' });
 
     const res = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+    const body = await json(res);
 
     expect(res.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to delete conversation' }); // no `details`, no stack
+  });
+
+  it('EC-3/EC-4: the 404 body is byte-identical for "missing" and "not yours" (no existence leak)', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(USER_ID) });
+    mockDeleteConversation.mockResolvedValueOnce({ ok: false, code: 'not_found' });
+    const missingRes = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+    const missingBody = await json(missingRes);
+
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(OTHER_USER_ID) });
+    mockDeleteConversation.mockResolvedValueOnce({ ok: false, code: 'not_found' });
+    const wrongOwnerRes = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+    const wrongOwnerBody = await json(wrongOwnerRes);
+
+    expect(missingRes.status).toBe(wrongOwnerRes.status);
+    expect(missingBody).toEqual(wrongOwnerBody);
+  });
+
+  it('IDOR defense: a spoofed { userId } in the DELETE body is ignored — store is still scoped to session.user.id', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ error: null, session: makeSession(USER_ID) });
+    mockDeleteConversation.mockResolvedValueOnce({ ok: true, data: { id: CONVERSATION_ID } });
+
+    const req = new NextRequest(`http://localhost/api/ai/conversations/${CONVERSATION_ID}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId: OTHER_USER_ID }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await detailDELETE(req, makeDetailContext());
+
+    expect(mockDeleteConversation).toHaveBeenCalledWith(CONVERSATION_ID, USER_ID);
+    expect(mockDeleteConversation).not.toHaveBeenCalledWith(CONVERSATION_ID, OTHER_USER_ID);
+  });
+
+  it('repeat delete: calling DELETE twice on the same id returns 200 then 404 (mirrors the store\'s not_found on the second call)', async () => {
+    mockRequireAuth.mockResolvedValue({ error: null, session: makeSession(USER_ID) });
+    mockDeleteConversation
+      .mockResolvedValueOnce({ ok: true, data: { id: CONVERSATION_ID } })
+      .mockResolvedValueOnce({ ok: false, code: 'not_found' });
+
+    const first = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+    const second = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(404);
   });
 
   it('429 + Retry-After after the rate limit is exceeded, no delete attempted on the 31st call', async () => {
@@ -288,9 +375,30 @@ describe('DELETE /api/ai/conversations/[id] (AC-3)', () => {
     }
 
     const limited = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
+    const retryAfter = Number(limited.headers.get('Retry-After'));
+
+    expect(limited.status).toBe(429);
+    expect(retryAfter).toBeGreaterThan(0); // a real, usable Retry-After, not just truthy
+    expect(mockDeleteConversation).toHaveBeenCalledTimes(30); // the 31st never reached the store
+  });
+
+  it('BR-7: the rate limiter runs BEFORE id validation — 30 invalid-uuid DELETEs still exhaust the budget', async () => {
+    mockRequireAuth.mockResolvedValue({ error: null, session: makeSession(USER_ID) });
+
+    for (let i = 0; i < 30; i++) {
+      const res = await detailDELETE(
+        makeRequest('DELETE', 'not-a-uuid'),
+        makeDetailContext('not-a-uuid')
+      );
+      expect(res.status).toBe(400);
+    }
+    expect(mockDeleteConversation).not.toHaveBeenCalled(); // 400 on every one of the 30 — store never reached
+
+    // The 31st request — even with a VALID id — is rate-limited before validation runs.
+    const limited = await detailDELETE(makeRequest('DELETE'), makeDetailContext());
 
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBeTruthy();
-    expect(mockDeleteConversation).toHaveBeenCalledTimes(30); // the 31st never reached the store
+    expect(mockDeleteConversation).not.toHaveBeenCalled();
   });
 });

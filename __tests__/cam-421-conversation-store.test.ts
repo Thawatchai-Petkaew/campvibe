@@ -19,6 +19,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -113,6 +115,103 @@ describe('listConversations', () => {
       expect(result.data[0].title).toBeNull();
       expect(result.data[0].messageCount).toBe(0);
     }
+  });
+
+  it('boundary: a title of EXACTLY TITLE_MAX_LENGTH chars is NOT truncated (no ellipsis)', async () => {
+    const exactText = 'ก'.repeat(TITLE_MAX_LENGTH);
+    (prisma.chatConversation.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'conv-a', updatedAt: new Date(), messages: [{ contentText: exactText }], _count: { messages: 1 } },
+    ]);
+
+    const result = await listConversations(USER_ID);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data[0].title).toBe(exactText);
+      expect(result.data[0].title).not.toContain('…');
+      expect(result.data[0].title!.length).toBe(TITLE_MAX_LENGTH);
+    }
+  });
+
+  it('boundary: a title of TITLE_MAX_LENGTH + 1 chars (off-by-one) IS truncated with an ellipsis', async () => {
+    const overByOne = 'ก'.repeat(TITLE_MAX_LENGTH + 1);
+    (prisma.chatConversation.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'conv-a', updatedAt: new Date(), messages: [{ contentText: overByOne }], _count: { messages: 1 } },
+    ]);
+
+    const result = await listConversations(USER_ID);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data[0].title).toBe(`${'ก'.repeat(TITLE_MAX_LENGTH)}…`);
+    }
+  });
+
+  it('EC-7 gap: a conversation whose lowest-seq message is ASSISTANT-role still derives the title from the first USER message — proves the nested where:{role:USER} filter is real, not incidental ordering', async () => {
+    // Raw fixture simulates what a real Prisma nested `messages` select would hold
+    // BEFORE the `where: { role: 'USER' }` filter is applied — an ASSISTANT message
+    // at a lower seq than the USER message (defends the derivation against a future
+    // write-path change or an accidental filter removal; if listConversations ever
+    // fell back to "just take messages[0]" this would wrongly title from greeting text).
+    const rawMessages = [
+      { role: 'ASSISTANT', seq: 1, contentText: 'สวัสดีครับ ยินดีต้อนรับ มีอะไรให้ช่วยไหมครับ' },
+      { role: 'USER', seq: 2, contentText: 'มีแคมป์ใกล้เขาใหญ่ไหม' },
+    ];
+    (
+      prisma.chatConversation.findMany as ReturnType<typeof vi.fn>
+    ).mockImplementation(
+      async (args: {
+        select: { messages: { where: { role: string }; take: number } };
+      }) => {
+        const roleFilter = args.select.messages.where.role;
+        const filtered = rawMessages
+          .filter((m) => m.role === roleFilter)
+          .slice(0, args.select.messages.take);
+        return [
+          {
+            id: 'conv-a',
+            updatedAt: new Date(),
+            messages: filtered.map((m) => ({ contentText: m.contentText })),
+            _count: { messages: rawMessages.length },
+          },
+        ];
+      }
+    );
+
+    const result = await listConversations(USER_ID);
+
+    // Structural proof: the query itself asks Prisma to filter role:USER (not a
+    // post-fetch JS filter) — this is the assertion that would catch a regression.
+    expect(prisma.chatConversation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          messages: expect.objectContaining({ where: { role: 'USER' } }),
+        }),
+      })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data[0].title).toBe('มีแคมป์ใกล้เขาใหญ่ไหม'); // never the assistant greeting
+    }
+  });
+
+  it('BR-8: an unexpected DB error is logged WITHOUT leaking the raw error message (structured, allowlisted fields only)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const secretMarker = 'postgres://user:s3cr3t@host:5432/db LEAK-MARKER';
+    (prisma.chatConversation.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error(secretMarker)
+    );
+
+    await listConversations(USER_ID);
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = errorSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain(secretMarker);
+    const parsed = JSON.parse(logged);
+    expect(Object.keys(parsed).sort()).toEqual(
+      ['errorType', 'event', 'level', 'operation'].sort()
+    );
+    errorSpy.mockRestore();
   });
 
   it('no conversations -> returns an empty array, not an error', async () => {
@@ -266,5 +365,34 @@ describe('deleteConversation', () => {
     const result = await deleteConversation(CONVERSATION_ID, USER_ID);
 
     expect(result).toEqual({ ok: false, code: 'internal_error' });
+  });
+
+  it('repeat delete: a second delete on an already-gone id returns not_found, never re-deletes or throws', async () => {
+    (prisma.chatConversation.deleteMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ count: 1 }) // first call: real row, hard-deleted
+      .mockResolvedValueOnce({ count: 0 }); // second call: row is already gone
+
+    const first = await deleteConversation(CONVERSATION_ID, USER_ID);
+    const second = await deleteConversation(CONVERSATION_ID, USER_ID);
+
+    expect(first).toEqual({ ok: true, data: { id: CONVERSATION_ID } });
+    expect(second).toEqual({ ok: false, code: 'not_found' });
+    expect(prisma.chatConversation.deleteMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('AC-3/delete-is-hard: deleteConversation has no separate message cleanup — the cascade FK is the only removal path (schema + source guard)', () => {
+    const schemaSource = readFileSync(join(process.cwd(), 'prisma/schema.prisma'), 'utf-8');
+    const chatMessageModel = schemaSource.match(/model ChatMessage \{[\s\S]*?\n\}/)?.[0] ?? '';
+    expect(chatMessageModel).toContain('onDelete: Cascade'); // messages vanish via the FK, not app code
+
+    const storeSource = readFileSync(
+      join(process.cwd(), 'lib/ai/conversation-store.ts'),
+      'utf-8'
+    );
+    const fnBody =
+      storeSource.match(/export async function deleteConversation[\s\S]*?\n}\n/)?.[0] ?? '';
+    expect(fnBody).toContain('chatConversation.deleteMany');
+    expect(fnBody).not.toContain('chatMessage.'); // no manual per-message cleanup — cascade only
+    expect(fnBody).not.toContain('deletedAt'); // ADR-013 D2 — never a soft-delete field
   });
 });
