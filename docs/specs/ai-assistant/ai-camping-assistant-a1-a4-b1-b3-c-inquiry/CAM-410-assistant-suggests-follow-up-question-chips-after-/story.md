@@ -1,12 +1,12 @@
 ---
 linear: CAM-410
-feature: ai-camping-assistant-a1-a4-b1-b3-c-inquiry
+feature: ai-assistant
 epic: ai-camping-assistant-a1-a4-b1-b3-c-inquiry (CAM-266)
 persona: camper
 artifact: story
 owner: product-owner
 status: In Progress
-version: v1
+version: v2
 updated: 2026-07-18
 ---
 # Assistant suggests follow-up question chips after every answer (CAM-410)
@@ -76,3 +76,4 @@ Reader/writer inventory of the chat response shape (architecture.md §15b):
 
 ## Changelog
 - v1 (2026-07-18) — created
+- v2 (2026-07-18) — housekeeping: moved from the stray root-level `docs/specs/ai-camping-assistant-a1-a4-b1-b3-c-inquiry/` path (a ticket-sync resolution artifact — the ticket carried no `featureName`) into the canonical `docs/specs/ai-assistant/ai-camping-assistant-a1-a4-b1-b3-c-inquiry/` home alongside CAM-270..408; `feature:` frontmatter corrected to `ai-assistant`; no content change

@@ -18,21 +18,35 @@
  *  - User text is sanitized + wrapped as an explicit DATA block before it
  *    enters the prompt (lib/ai/sanitize.ts) — the system prompt instructs
  *    the model to never follow instructions found inside it (AC-9, EC-9).
+ *
+ * CAM-410 — the SAME completion that produces the answer also (optionally)
+ * encodes 0-3 follow-up-question suggestions in a `<suggestions>[...]</suggestions>`
+ * JSON-array block appended after the prose; the server extracts + sanitizes
+ * them out (never a second model call — BR-4) and strips the raw block from
+ * the answer text before it ever reaches the camper (BR-5).
  */
 import "server-only";
 import { z } from 'zod';
-import { sanitizeForPrompt, wrapAsUserData } from '@/lib/ai/sanitize';
+import { sanitizeForPrompt, sanitizeSuggestion, wrapAsUserData } from '@/lib/ai/sanitize';
 import { getRegisteredTools, dispatchTool } from '@/lib/ai/tool-registry';
 // Side-effect import: populates the tool registry (searchCampsites, checkAvailability).
 import '@/lib/ai/tools/index';
 
 export const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
-/** BR-6 spend guard — every model call is capped at this ceiling. */
-export const MAX_TOKENS = 600;
+/** BR-6 spend guard — every model call is capped at this ceiling (600 -> 680: CAM-410 headroom for 2-3 short Thai suggestion lines, the ONLY spend-guard change). */
+export const MAX_TOKENS = 680;
 const MODEL_CALL_TIMEOUT_MS = 15_000;
 /** Safe, generic reason code returned to the caller — never the raw model error/status/key (AC-6, EC-6). */
 export const GENERIC_ERROR = 'assistant_unavailable';
+
+/** CAM-410 BR-2 — keep at most this many well-formed, unique suggestions per turn. */
+export const MAX_SUGGESTIONS = 3;
+/** CAM-410 BR-4 — tag the model is instructed to wrap its suggestions JSON array in, inside the SAME completion as the answer. */
+const SUGGESTIONS_OPEN_TAG = '<suggestions>';
+const SUGGESTIONS_CLOSE_TAG = '</suggestions>';
+/** Tolerant of case + stray whitespace inside the tag, mirroring sanitize.ts's DELIMITER_TAG_REGEX idiom; captures the JSON array text between the tags. */
+const SUGGESTIONS_BLOCK_REGEX = /<\s*suggestions\s*>([\s\S]*?)<\s*\/\s*suggestions\s*>/i;
 
 /**
  * CAM-408 BR-4 — `<isoDate> (<thaiWeekday>)`, Asia/Bangkok. Exported as a pure
@@ -74,6 +88,11 @@ function buildSystemPrompt(now: Date = new Date()): string {
     'Write your answer as plain text only. Never use markdown syntax (no **bold**, no _italic_, no bullet or numbered lists, no headings), never include links or image URLs, and never include HTML.',
     'Do not list or enumerate the matching campsites by name or detail in your answer — the camper already sees them as cards below your answer. Only refer to the result in summary form (for example, mention how many were found or a general theme), never a per-place rundown.',
     'Keep the answer to about 2-3 short sentences.',
+    // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
+    // second call); the server extracts + sanitizes it and strips it from
+    // the answer before the camper ever sees it (BR-5).
+    `After your answer, on a new line, append EXACTLY ONE block in this exact format: ${SUGGESTIONS_OPEN_TAG}["...", "..."]${SUGGESTIONS_CLOSE_TAG} — a JSON array of 0 to 3 short, natural follow-up questions the camper might ask next, in the same language as your answer, each under 60 characters, as plain text with no markdown formatting.`,
+    `Never mention or describe the ${SUGGESTIONS_OPEN_TAG} block in your answer, and omit it entirely (write no block at all) if there is no good follow-up question.`,
   ].join(' ');
 }
 
@@ -84,8 +103,50 @@ export interface AssistantTurnResult {
   answer?: string;
   /** Card payloads collected from any tool call executed this turn (e.g. searchCampsites). Always [] when no tool ran. */
   cards?: unknown[];
+  /** CAM-410 BR-1 — 0-3 sanitized follow-up-question chips, extracted from the same completion as `answer`. Present only when non-empty ("absent means no chips", mirroring the wire contract) — omitted, never an empty array, when the turn produced none. */
+  suggestions?: string[];
   /** Present only when ok:false — a safe, generic reason code. Never the raw model error/status/key. */
   error?: string;
+}
+
+/**
+ * CAM-410 BR-4/BR-5 — pulls the (optional) `<suggestions>[...]</suggestions>`
+ * block out of the raw completion content, returning the answer with the
+ * raw block removed (BR-5: the camper never sees JSON/delimiter markup) and
+ * the sanitized, bounded suggestion list (BR-2/BR-3). Never throws: a
+ * missing/malformed/unparsable block simply yields `suggestions: []` and the
+ * answer text with the block stripped (EC-5).
+ */
+function extractSuggestions(rawContent: string): { answer: string; suggestions: string[] } {
+  const match = SUGGESTIONS_BLOCK_REGEX.exec(rawContent);
+  if (!match) return { answer: rawContent.trim(), suggestions: [] };
+
+  const answer = (rawContent.slice(0, match.index) + rawContent.slice(match.index + match[0].length)).trim();
+
+  let candidates: unknown;
+  try {
+    candidates = JSON.parse(match[1].trim());
+  } catch {
+    return { answer, suggestions: [] };
+  }
+  if (!Array.isArray(candidates)) return { answer, suggestions: [] };
+
+  const suggestions: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (suggestions.length >= MAX_SUGGESTIONS) break;
+    if (typeof candidate !== 'string') continue;
+    const cleaned = sanitizeSuggestion(candidate);
+    if (!cleaned || seen.has(cleaned)) continue;
+    seen.add(cleaned);
+    suggestions.push(cleaned);
+  }
+  return { answer, suggestions };
+}
+
+/** BR-1: "absent means no chips" — never carries a defined-but-empty `suggestions: []` key, so a mock/fixture built against the pre-CAM-410 `{ok,answer,cards}` shape keeps matching exactly. */
+function suggestionsField(suggestions: string[]): { suggestions: string[] } | Record<string, never> {
+  return suggestions.length > 0 ? { suggestions } : {};
 }
 
 interface OutgoingToolCall {
@@ -285,7 +346,8 @@ export async function runAssistantTurn(
 
   const toolCalls = first.message.tool_calls;
   if (!toolCalls || toolCalls.length === 0) {
-    return { ok: true, answer: first.message.content ?? '', cards: [] };
+    const { answer, suggestions } = extractSuggestions(first.message.content ?? '');
+    return { ok: true, answer, cards: [], ...suggestionsField(suggestions) };
   }
 
   const { toolMessages, cards } = await executeToolCalls(toolCalls);
@@ -301,5 +363,6 @@ export async function runAssistantTurn(
   const second = await callModelOnce(apiKey, resolveModel(), followUpMessages);
   if (!second.ok) return { ok: false, error: GENERIC_ERROR };
 
-  return { ok: true, answer: second.message.content ?? '', cards };
+  const { answer, suggestions } = extractSuggestions(second.message.content ?? '');
+  return { ok: true, answer, cards, ...suggestionsField(suggestions) };
 }
