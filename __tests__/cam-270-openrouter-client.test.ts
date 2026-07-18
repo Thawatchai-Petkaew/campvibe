@@ -220,6 +220,34 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     expect(JSON.parse(rejectedMessage.content)).toEqual({ ok: false, code: 'too_many_tool_calls' });
   });
 
+  it('[error/validation] CAM-420 fix: dispatchTool REJECTING (e.g. an authed tool\'s own Prisma call throwing) is contained as a handled tool result, never an uncaught exception', async () => {
+    const toolCall = {
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'getMyBookings', arguments: '{}' },
+    };
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(res(assistantMessage(null, [toolCall])))
+      .mockResolvedValueOnce(res(assistantMessage('ขอโทษค่ะ ไม่สามารถดึงข้อมูลได้ในตอนนี้')));
+    vi.stubGlobal('fetch', mockFetch);
+    mockDispatchTool.mockRejectedValueOnce(new Error('DB connection reset — contains no user-facing info'));
+
+    // The whole call resolves — it never rejects/throws out to the caller.
+    const result = await runAssistantTurn('มีจองล่าสุดของฉันไหม');
+
+    expect(result.ok).toBe(true); // the loop recovered gracefully and still produced a final answer
+    expect(mockFetch).toHaveBeenCalledTimes(2); // the follow-up round still ran (loop never crashed)
+
+    // The follow-up call's tool message for this call_id carries a GENERIC
+    // code only — never the raw Error's message/stack.
+    const followUpBody = JSON.parse((mockFetch.mock.calls[1][1] as RequestInit).body as string);
+    const toolMessage = followUpBody.messages.find((m: { role: string; tool_call_id?: string }) => m.role === 'tool' && m.tool_call_id === 'call_1');
+    expect(toolMessage).toBeDefined();
+    expect(JSON.parse(toolMessage.content)).toEqual({ ok: false, code: 'tool_error' });
+    expect(toolMessage.content).not.toContain('DB connection reset');
+  });
+
   it('[unit] EC-7: malformed tool-call JSON is dispatched as invalid (undefined) args, never crashes', async () => {
     const brokenToolCall = {
       id: 'call_1',

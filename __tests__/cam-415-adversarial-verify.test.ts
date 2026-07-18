@@ -50,6 +50,15 @@
  *       mocked) — not just the `buildTurnMessages` unit level.
  *  (c)  confirms (repo-wide grep + a source-inspection pin on route.ts) that
  *       NO code path can reach `source:'server'` from the public route.
+ *       SUPERSEDED by CAM-420 (2026-07-19, see the note below (c)'s
+ *       `describe` block): `source:'server'` is now a real, intentional
+ *       production caller for the new session-bound v2 branch — the tests
+ *       below are UPDATED, not weakened, to assert the invariant that
+ *       actually matters (it stays true): the client can never supply an
+ *       arbitrary `role` for its OWN new turn (the v2 request schema has no
+ *       `role` field at all), and `source:'server'` is only ever applied to
+ *       `history` loaded from the server's own persisted store — never to
+ *       raw client body content.
  *  (e)  the neutral reference label cannot be forged from OUTSIDE the fence:
  *       a real `role:"user"` turn containing the literal label string stays
  *       inert single-fenced data; an assistant-claimed turn whose content
@@ -62,7 +71,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildTurnMessages, MAX_PROMPT_CHARS } from '../lib/ai/build-turn-messages';
 import { USER_DATA_OPEN_TAG, USER_DATA_CLOSE_TAG, sanitizeForPrompt } from '../lib/ai/sanitize';
-import { chatRequestSchema } from '../lib/validations/ai-chat';
+import { chatRequestSchema, chatRequestV2Schema } from '../lib/validations/ai-chat';
 import { _store } from '../lib/rate-limit';
 import type { ChatMessage } from '../lib/validations/ai-chat';
 
@@ -367,28 +376,59 @@ describe('POST /api/ai/chat — ROUND 2 (b2) end-to-end: real route + real build
   });
 });
 
-/* (c) confirm NO code path can reach source:'server' from the public route */
-
-describe('ROUND 2 (c) source:"server" is unreachable from the public route (repo + source inspection)', () => {
-  it('[security] app/api/ai/chat/route.ts calls buildTurnMessages with a SINGLE argument only — no options object, so it always defaults to source:"client"', () => {
+/*
+ * (c) CAM-420 UPDATE (2026-07-19): `source:'server'` is now REACHABLE from
+ * the public route — by design, for the new session-bound v2 branch only.
+ * The invariant these tests protect did not disappear; it NARROWED to the
+ * thing that actually matters: a client can never inject an arbitrary
+ * `role:"assistant"` claim of its OWN and have it read unfenced.
+ *  - The LEGACY branch (`handleLegacyTurn`) is UNCHANGED: it still calls
+ *    `buildTurnMessages` with a single argument (default `source:'client'`),
+ *    so a client-posted `{messages}` body with a forged `role:"assistant"`
+ *    turn is fenced exactly as ROUND 1/ROUND 2 (a)/(a2)/(b2) above prove.
+ *  - The NEW v2 branch (`handleV2Turn`) legitimately calls
+ *    `buildTurnMessages(combined, { source: 'server' })` — but `combined`'s
+ *    only "assistant" entries come from `history`, loaded via
+ *    `conversation-store.loadWindow` (the server's OWN persisted rows,
+ *    written only after a real model turn already succeeded — CAM-414 D2).
+ *    The client's OWN new turn is `{ role: 'user', content: data.message }`
+ *    — hardcoded to `'user'`, not read from the request at all. Structural
+ *    proof: `chatRequestV2Schema` (the v2 zod boundary) has NO `role` field
+ *    whatsoever — there is no key a client could even populate to claim a
+ *    different role for its own message, regardless of `source`.
+ */
+describe('ROUND 2 (c) source:"server" reachability is now CAM-420-scoped, not fully unreachable (repo + source inspection)', () => {
+  it('[security] the LEGACY branch still calls buildTurnMessages with a SINGLE argument (source:"client" default) — unchanged since CAM-415', () => {
     const routeSource = readFileSync(join(__dirname, '../app/api/ai/chat/route.ts'), 'utf8');
-    const call = routeSource.match(/buildTurnMessages\(([^)]*)\)/);
-    expect(call).not.toBeNull();
-    // Exactly one argument (the messages array) — no comma, no second `{ source: ... }` object.
-    expect(call![1].trim()).toBe('parsed.data.messages');
-    expect(routeSource).not.toContain("source: 'server'");
-    expect(routeSource).not.toContain('source: "server"');
+    const legacyCall = routeSource.match(/buildTurnMessages\(data\.messages\)/);
+    expect(legacyCall).not.toBeNull(); // exactly one argument, no options object
   });
 
-  it('[security] repo-wide: source:"server" appears only in lib/ai/build-turn-messages.ts (the reserved branch) and test files — never in another production caller', () => {
-    // Re-implements the manual repo grep performed during this verify pass as
-    // a permanent guard: any FUTURE production caller passing source:"server"
-    // must show up here, not slip in silently.
+  it('[security] repo-wide: source:"server" now appears in lib/ai/build-turn-messages.ts (the branch) AND app/api/ai/chat/route.ts (CAM-420\'s intentional v2 caller) — never anywhere else in production code', () => {
     const buildTurnMessagesSource = readFileSync(join(__dirname, '../lib/ai/build-turn-messages.ts'), 'utf8');
     expect(buildTurnMessagesSource).toContain("source === 'server'");
-    // The route file (the only real production caller today) never mentions it.
     const routeSource = readFileSync(join(__dirname, '../app/api/ai/chat/route.ts'), 'utf8');
-    expect(routeSource).not.toMatch(/source\s*:\s*['"]server['"]/);
+    expect(routeSource).toMatch(/source:\s*'server'/);
+    // It is used in exactly one real buildTurnMessages(...) call — a second,
+    // undocumented call site would show up here (prose mentions of the
+    // string in comments don't count; this greps the CALL shape).
+    expect(routeSource.match(/buildTurnMessages\([^)]*source:\s*'server'[^)]*\)/g)).toHaveLength(1);
+  });
+
+  it("[security] structural proof: chatRequestV2Schema has NO `role` field — a v2 client cannot claim any role for its own turn, regardless of source", () => {
+    const parsed = chatRequestV2Schema.safeParse({ message: 'hi', role: 'assistant' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      // zod strips unknown keys by default — `role` never survives into the parsed value.
+      expect(parsed.data).not.toHaveProperty('role');
+      expect(parsed.data).toEqual({ message: 'hi' });
+    }
+  });
+
+  it('[security] the v2 branch never lets the CURRENT client message enter as source:"server" content — it is always appended as the last, hardcoded role:"user" entry', () => {
+    const routeSource = readFileSync(join(__dirname, '../app/api/ai/chat/route.ts'), 'utf8');
+    // `combined` = history (server-sourced) + exactly one hardcoded user turn built from `data.message`.
+    expect(routeSource).toMatch(/\{\s*role:\s*'user',\s*content:\s*data\.message\s*\}/);
   });
 });
 
