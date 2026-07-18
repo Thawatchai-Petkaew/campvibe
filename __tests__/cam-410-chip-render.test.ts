@@ -80,3 +80,47 @@ describe("CAM-410 security — a suggestion renders as inert plain text, never m
     expect(listSrc).toMatch(/onClick=\{\(\) => onSuggestion\(text\)\}\s*>\s*\{text\}/);
   });
 });
+
+describe("CAM-410 AC-5/EC-3 — chips are structurally absent for rate-limited/disabled/error notices (QA gap: not previously asserted)", () => {
+  /**
+   * `showSuggestions` only ever gates the `entry.kind === "answer"` branch —
+   * the three notice branches (rate-limited/disabled/error) are separate
+   * `if` blocks in `AiChatEntryRow` that never read `entry.suggestions` or
+   * render the chip group at all, regardless of `showSuggestions`/`sending`.
+   * This proves that structurally (not just "the flag would be true/false"),
+   * by isolating each notice branch's own source slice and asserting no
+   * suggestion-chip wiring leaks into it.
+   */
+  function branchSlice(fromMarker: string, toMarker: string): string {
+    const start = listSrc.indexOf(fromMarker);
+    const end = listSrc.indexOf(toMarker, start);
+    expect(start, `marker not found: ${fromMarker}`).toBeGreaterThanOrEqual(0);
+    expect(end, `marker not found: ${toMarker}`).toBeGreaterThan(start);
+    return listSrc.slice(start, end);
+  }
+
+  it('[structural] the rate-limited notice branch renders no suggestion chip/group', () => {
+    const branch = branchSlice('entry.kind === "rate-limited"', 'entry.kind === "disabled"');
+    expect(branch).not.toContain("suggestion");
+    expect(branch).not.toContain("group--ai-chat-suggestion-chips");
+  });
+
+  it('[structural] the disabled notice branch renders no suggestion chip/group', () => {
+    const branch = branchSlice('entry.kind === "disabled"', 'entry.kind === "error"');
+    expect(branch).not.toContain("suggestion");
+    expect(branch).not.toContain("group--ai-chat-suggestion-chips");
+  });
+
+  it('[structural] the error+retry notice branch renders no suggestion chip/group', () => {
+    const start = listSrc.indexOf('// entry.kind === "error"');
+    expect(start).toBeGreaterThanOrEqual(0);
+    const branch = listSrc.slice(start);
+    expect(branch).not.toContain("suggestion");
+    expect(branch).not.toContain("group--ai-chat-suggestion-chips");
+  });
+
+  it("[unit] the typing indicator (turn in flight) block also carries no suggestion wiring", () => {
+    const branch = branchSlice('data-testid="status--ai-chat-typing"', "AiChatEntryRowProps");
+    expect(branch).not.toContain("suggestion");
+  });
+});
