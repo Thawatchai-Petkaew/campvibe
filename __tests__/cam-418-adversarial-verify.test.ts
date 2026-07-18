@@ -323,12 +323,13 @@ describe('(e) Decimal never reaches the model-facing JSON as anything but a plai
     expect(wire.data.bookings[0].totalAmount).toBe(1250.5);
   });
 
-  it('[unit] getMyBookingDetail totalPrice survives the same round-trip as a number, no Prisma.Decimal residue', async () => {
+  it('[unit] getMyBookingDetail totalAmount survives the same round-trip as a number, no Prisma.Decimal residue', async () => {
     const result = await dispatchTool('getMyBookingDetail', { bookingId: BOOKING_A }, { userId: USER_A });
-    const wire = JSON.parse(JSON.stringify(result)) as { data: { booking: { totalPrice: number } } };
+    // BR-6 (data-minimization): the model-facing field is `totalAmount`, not the raw `totalPrice`.
+    const wire = JSON.parse(JSON.stringify(result)) as { data: { booking: { totalAmount: number } } };
 
-    expect(typeof wire.data.booking.totalPrice).toBe('number');
-    expect(wire.data.booking.totalPrice).toBe(1250.5);
+    expect(typeof wire.data.booking.totalAmount).toBe('number');
+    expect(wire.data.booking.totalAmount).toBe(1250.5);
   });
 });
 

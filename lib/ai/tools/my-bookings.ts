@@ -16,9 +16,15 @@
  * join needed; the crystallized `snapshotCampName` already carries the name)
  * and a tighter cap (BR-1) than that route's own `BOOKING_LIST_LIMIT`.
  *
- * getMyBookingDetail wraps `getOwnedBooking` (lib/bookings.ts) unchanged — the
- * exact same owner-scoped query + "same 404 for not-found and not-owned, no
- * existence leak" convention `app/api/bookings/[id]/route.ts` (CAM-61) uses.
+ * getMyBookingDetail wraps `getOwnedBooking` (lib/bookings.ts) UNCHANGED for the
+ * ownership query itself — the exact same owner-scoped fetch + "same 404 for
+ * not-found and not-owned, no existence leak" convention `app/api/bookings/[id]/route.ts`
+ * (CAM-61) uses. The tool's OWN result, however, is data-minimized (BR-6,
+ * Security Suggestion) down to what the assistant needs to answer in text —
+ * the host's `phone`/`lineId` and campSite image URLs are owner-entitled (the
+ * real `/bookings/[id]` page shows them) but have no reason to enter the
+ * model/LLM-provider's context window when a plain-text answer + a link to
+ * that real page is all this story ships.
  *
  * No card/rich-block rendering here — results feed the assistant as plain
  * text; the assistant links to `/bookings/[id]` for the real detail page.
@@ -27,7 +33,6 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getOwnedBooking } from '@/lib/bookings';
-import { serializeDecimals } from '@/lib/serialize';
 import type { ToolDefinition, ToolContext } from '@/lib/ai/tool-registry';
 
 /** BR-1: hard cap — the newest N bookings only. No arg exists to request more. */
@@ -61,9 +66,7 @@ function toSummary(row: MyBookingsRow): MyBookingSummary {
     checkInDate: row.checkInDate,
     checkOutDate: row.checkOutDate,
     snapshotCampName: row.snapshotCampName,
-    // Single Decimal field → plain number (BR-5). serializeDecimals is for whole-object
-    // recursion (used below on the full getMyBookingDetail payload); Decimal.toNumber()
-    // is the direct conversion for one already-typed field.
+    // Decimal → plain number (BR-5) via the field's own .toNumber().
     totalAmount: row.totalPrice.toNumber(),
   };
 }
@@ -126,9 +129,47 @@ export type GetMyBookingDetailArgs = z.infer<typeof getMyBookingDetailArgsSchema
 
 export type OwnedBookingDetail = NonNullable<Awaited<ReturnType<typeof getOwnedBooking>>>;
 
+/**
+ * BR-6 (data-minimization, Security Suggestion): the MODEL-FACING shape —
+ * only what the assistant needs to answer a booking-detail question in text,
+ * plus a link to the real page for anything else. Deliberately DROPS
+ * `campSite.phone`, `campSite.lineId`, and every image URL that
+ * `OwnedBookingDetail` carries — those are owner-entitled (the real
+ * `/bookings/[id]` page shows them) but never need to reach the LLM
+ * provider's context window.
+ */
+export interface MyBookingDetailModelView {
+  id: string;
+  status: OwnedBookingDetail['status'];
+  checkInDate: Date;
+  checkOutDate: Date;
+  guests: number;
+  totalAmount: number;
+  currency: string;
+  campSite: { nameTh: string; nameEn: string | null };
+  spotName: string | null;
+  /** Relative path to the real detail page — the assistant links here for anything beyond this summary. */
+  bookingUrl: string;
+}
+
+function toModelView(booking: OwnedBookingDetail): MyBookingDetailModelView {
+  return {
+    id: booking.id,
+    status: booking.status,
+    checkInDate: booking.checkInDate,
+    checkOutDate: booking.checkOutDate,
+    guests: booking.guests,
+    totalAmount: booking.totalPrice.toNumber(),
+    currency: booking.currency,
+    campSite: { nameTh: booking.campSite.nameTh, nameEn: booking.campSite.nameEn },
+    spotName: booking.spot?.name ?? null,
+    bookingUrl: `/bookings/${booking.id}`,
+  };
+}
+
 /** Discriminated union (api.md §11) — the caller narrows on `ok` before reading `booking`. */
 export type GetMyBookingDetailResult =
-  | { ok: true; booking: OwnedBookingDetail }
+  | { ok: true; booking: MyBookingDetailModelView }
   | { ok: false; code: 'not_found' };
 
 const getMyBookingDetailJsonSchema = {
@@ -152,16 +193,18 @@ export async function executeGetMyBookingDetail(
 
   // getOwnedBooking returns null for BOTH "doesn't exist" and "belongs to another
   // user" (CAM-61 no-existence-leak convention) — mapped identically here (EC-3).
+  // getOwnedBooking itself is unchanged; toModelView is where the result is
+  // data-minimized (BR-6) before it ever reaches the model.
   const booking = await getOwnedBooking(args.bookingId, ctx.userId);
   if (!booking) return { ok: false, code: 'not_found' };
 
-  return { ok: true, booking: serializeDecimals(booking) };
+  return { ok: true, booking: toModelView(booking) };
 }
 
 export const getMyBookingDetailTool: ToolDefinition<GetMyBookingDetailArgs, GetMyBookingDetailResult> = {
   name: 'getMyBookingDetail',
   description:
-    "Get full detail for ONE of the authenticated camper's own bookings by id (dates, guests, price, camp + spot info). Returns not_found for an id that doesn't exist or doesn't belong to the caller — never another user's booking.",
+    "Get a summary for ONE of the authenticated camper's own bookings by id (status, dates, guests, total amount, camp + spot name, and a link to the full detail page). Returns not_found for an id that doesn't exist or doesn't belong to the caller — never another user's booking.",
   tier: 'authed',
   parameters: getMyBookingDetailArgsSchema,
   jsonSchema: getMyBookingDetailJsonSchema,

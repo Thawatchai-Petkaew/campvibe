@@ -6,8 +6,8 @@
  *   - normal: getMyBookings returns the caller's own bookings, scoped query
  *     shape (where:{userId}, orderBy createdAt desc, take ≤ 10), Decimal
  *     totalPrice mapped to a plain-number totalAmount (BR-5)
- *   - normal: getMyBookingDetail owned id → full detail via getOwnedBooking,
- *     Decimal serialized
+ *   - normal: getMyBookingDetail owned id → the MINIMIZED model-facing view
+ *     (BR-6) via getOwnedBooking, Decimal serialized
  *   - null/empty: zero bookings → { bookings: [] }, not an error (EC-1)
  *   - boundary/security: a two-user fixture proves the query is scoped to
  *     ctx.userId — never another user's rows (AC-1)
@@ -19,6 +19,11 @@
  *     not_found result rather than an unscoped query (BR-4/EC-4 defense-in-depth)
  *   - security invariant: neither tool's jsonSchema nor zod parameters shape
  *     exposes a `userId` (or any caller-identity) field (AC-4/BR-3)
+ *   - security (data-minimization, BR-6): getMyBookingDetail's result is an
+ *     exact allow-listed key set AND the raw host phone/lineId/image-URL
+ *     values getOwnedBooking returns never appear anywhere in the serialized
+ *     result — proven with a Prove-It fixture that DOES carry those fields
+ *     upstream (same pattern as CAM-419's getMyProfile phone-masking test)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ZodObject } from 'zod';
@@ -132,20 +137,36 @@ describe('getMyBookings — ctx.userId absent (BR-4/EC-4 defense-in-depth)', () 
 // getMyBookingDetail
 // ---------------------------------------------------------------------------
 
-describe('getMyBookingDetail — normal (owned → full detail, Decimal serialized)', () => {
-  it('[unit] returns { ok:true, booking } via getOwnedBooking(id, ctx.userId)', async () => {
-    mockGetOwnedBooking.mockResolvedValueOnce({
-      id: BOOKING_ID,
-      checkInDate: new Date('2026-08-01'),
-      checkOutDate: new Date('2026-08-03'),
-      guests: 2,
-      totalPrice: new Prisma.Decimal('1250'),
-      currency: 'THB',
-      status: 'CONFIRMED',
-      createdAt: new Date('2026-07-01'),
-      campSite: { nameTh: 'สวนสน', nameEn: 'Pine Camp' },
-      spot: null,
-    });
+/**
+ * The full getOwnedBooking payload a REAL request would receive — carries the
+ * host's phone/lineId and campSite image URLs (owner-entitled per CAM-61) so
+ * the minimization tests below have something real to prove is dropped.
+ */
+const FULL_OWNED_BOOKING_FIXTURE = {
+  id: BOOKING_ID,
+  checkInDate: new Date('2026-08-01'),
+  checkOutDate: new Date('2026-08-03'),
+  guests: 2,
+  totalPrice: new Prisma.Decimal('1250'),
+  currency: 'THB',
+  status: 'CONFIRMED',
+  createdAt: new Date('2026-07-01'),
+  campSite: {
+    nameTh: 'สวนสน',
+    nameEn: 'Pine Camp',
+    checkInTime: '14:00',
+    checkOutTime: '11:00',
+    phone: '0891234567', // host contact — must NEVER reach the model result (BR-6)
+    lineId: '@pinecamp', // host contact — must NEVER reach the model result (BR-6)
+    images: [{ url: 'https://cdn.example.com/pine-camp-1.jpg', sortOrder: 0 }],
+    location: { province: 'Chiang Mai' },
+  },
+  spot: { name: 'Riverside A1', zone: 'North' },
+};
+
+describe('getMyBookingDetail — normal (owned → minimized model view, Decimal serialized)', () => {
+  it('[unit] returns { ok:true, booking } via getOwnedBooking(id, ctx.userId), shaped to the model-facing view', async () => {
+    mockGetOwnedBooking.mockResolvedValueOnce(FULL_OWNED_BOOKING_FIXTURE);
 
     const args = getMyBookingDetailArgsSchema.parse({ bookingId: BOOKING_ID });
     const result = await executeGetMyBookingDetail(args, { userId: USER_ID });
@@ -153,9 +174,54 @@ describe('getMyBookingDetail — normal (owned → full detail, Decimal serializ
     expect(mockGetOwnedBooking).toHaveBeenCalledWith(BOOKING_ID, USER_ID);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.booking.id).toBe(BOOKING_ID);
-      expect(result.booking.totalPrice).toBe(1250); // Decimal → number (BR-5)
+      expect(result.booking).toEqual({
+        id: BOOKING_ID,
+        status: 'CONFIRMED',
+        checkInDate: new Date('2026-08-01'),
+        checkOutDate: new Date('2026-08-03'),
+        guests: 2,
+        totalAmount: 1250, // Decimal → number (BR-5)
+        currency: 'THB',
+        campSite: { nameTh: 'สวนสน', nameEn: 'Pine Camp' },
+        spotName: 'Riverside A1',
+        bookingUrl: `/bookings/${BOOKING_ID}`,
+      });
     }
+  });
+});
+
+describe('getMyBookingDetail — data-minimization (BR-6, Security Suggestion)', () => {
+  it('[security] the model-facing result is an EXACT allow-listed key set (top-level + campSite)', async () => {
+    mockGetOwnedBooking.mockResolvedValueOnce(FULL_OWNED_BOOKING_FIXTURE);
+
+    const args = getMyBookingDetailArgsSchema.parse({ bookingId: BOOKING_ID });
+    const result = await executeGetMyBookingDetail(args, { userId: USER_ID });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(Object.keys(result.booking).sort()).toEqual(
+      ['id', 'status', 'checkInDate', 'checkOutDate', 'guests', 'totalAmount', 'currency', 'campSite', 'spotName', 'bookingUrl'].sort()
+    );
+    expect(Object.keys(result.booking.campSite).sort()).toEqual(['nameTh', 'nameEn'].sort());
+
+    // Explicit negative assertions — the exact fields this fix drops.
+    expect(result.booking).not.toHaveProperty('campSite.phone');
+    expect(result.booking).not.toHaveProperty('campSite.lineId');
+    expect(result.booking).not.toHaveProperty('campSite.images');
+    expect(result.booking).not.toHaveProperty('createdAt');
+  });
+
+  it('[security] Prove-It — the raw host phone/lineId/image-URL values never appear anywhere in the serialized result', async () => {
+    mockGetOwnedBooking.mockResolvedValueOnce(FULL_OWNED_BOOKING_FIXTURE);
+
+    const args = getMyBookingDetailArgsSchema.parse({ bookingId: BOOKING_ID });
+    const result = await executeGetMyBookingDetail(args, { userId: USER_ID });
+
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(FULL_OWNED_BOOKING_FIXTURE.campSite.phone);
+    expect(serialized).not.toContain(FULL_OWNED_BOOKING_FIXTURE.campSite.lineId);
+    expect(serialized).not.toContain(FULL_OWNED_BOOKING_FIXTURE.campSite.images[0].url);
   });
 });
 
