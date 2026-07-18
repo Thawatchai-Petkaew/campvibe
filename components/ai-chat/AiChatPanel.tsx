@@ -18,6 +18,11 @@
  * `useModalA11y` hook (built for the hand-rolled, non-Radix photo modals) is
  * intentionally NOT layered on top here; doing so would double-handle the
  * same Tab/Escape behaviour Radix already owns.
+ *
+ * CAM-411: the header title paragraph becomes an identity cluster
+ * (`AiChatAvatar` + a two-line name/role stack, design.md §Visual polish);
+ * the panel `aria-label` composes `{name} {role}` so a screen reader
+ * announces the full identity on open (BR-1, a11y).
  */
 "use client";
 
@@ -33,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAiChat } from "@/components/ai-chat/use-ai-chat";
 import { AiChatMessageList } from "@/components/ai-chat/AiChatMessageList";
+import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
 import { isSendableQuestion } from "@/components/ai-chat/conversation";
 
 interface AiChatPanelProps {
@@ -75,7 +81,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
         <PanelPrimitive.Content
           data-slot="ai-chat-panel"
           data-testid="dialog--ai-chat-panel"
-          aria-label={t.aiChat.title}
+          aria-label={`${t.aiChat.name} ${t.aiChat.role}`}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             composerRef.current?.focus();
@@ -97,7 +103,15 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           )}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
-            <p className="font-heading text-base font-medium text-foreground">{t.aiChat.title}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <AiChatAvatar size="md" />
+              <div className="min-w-0">
+                <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
+                  {t.aiChat.name}
+                </p>
+                <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+              </div>
+            </div>
             <Button
               type="button"
               variant="ghost"
