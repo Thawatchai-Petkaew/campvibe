@@ -97,6 +97,9 @@ import {
 
 const { GET: availabilityGET } = await import('@/app/api/campsites/[id]/availability/route');
 const { POST: holdsPOST } = await import('@/app/api/campsites/[id]/holds/route');
+const { GET: remainingCapacityGET } = await import(
+  '@/app/api/campsites/[id]/remaining-capacity/route'
+);
 
 // ---------------------------------------------------------------------------
 // Fixtures / helpers
@@ -491,6 +494,44 @@ describe('GET /api/campsites/[id]/availability — AC-2 range-too-wide maps to 4
 
     expect(res.status).toBe(500);
     expect(body.error).toBe('Failed to fetch availability');
+  });
+});
+
+// ===========================================================================
+// Group E2: GET /api/campsites/[id]/remaining-capacity — 400 parity with the
+// sibling availability route (Security G3 non-blocking nit)
+// ===========================================================================
+
+describe('GET /api/campsites/[id]/remaining-capacity — 400 parity with the sibling availability route', () => {
+  beforeEach(() => {
+    (prisma.campSite.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isActive: true,
+      isPublished: true,
+      deletedAt: null,
+      operatorId: 'op-1',
+    });
+  });
+
+  it('[ac-2][parity] an absurd startDate/endDate span returns 400 (not the generic 500), mirroring availability/route.ts', async () => {
+    const req = new NextRequest(
+      `http://localhost/api/campsites/${CAMP_ID}/remaining-capacity?startDate=2026-01-01&endDate=9999-12-31`
+    );
+    const res = await remainingCapacityGET(req, makeParams(CAMP_ID));
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Date range too wide');
+    expect(body.stack).toBeUndefined();
+    expect(prisma.booking.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a normal small range still returns 200 (no regression)', async () => {
+    const req = new NextRequest(
+      `http://localhost/api/campsites/${CAMP_ID}/remaining-capacity?startDate=2026-09-10&endDate=2026-09-12`
+    );
+    const res = await remainingCapacityGET(req, makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
   });
 });
 

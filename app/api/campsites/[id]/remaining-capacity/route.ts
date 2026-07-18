@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiSuccess } from '@/lib/api-utils';
-import { getRemainingCapacity } from '@/lib/campsite-availability';
+import { getRemainingCapacity, AvailabilityRangeTooWideError } from '@/lib/campsite-availability';
 import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { remainingCapacityQuerySchema } from '@/lib/validations/campsite-availability';
@@ -69,6 +69,13 @@ export async function GET(
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error) {
+    // CAM-401 parity nit (Security G3): getRemainingCapacity calls
+    // getCampSiteDailyAvailability transitively — an absurd span is a
+    // validation error, not a generic 500, mirroring the sibling
+    // availability route exactly. No stack/detail leaked either way.
+    if (error instanceof AvailabilityRangeTooWideError) {
+      return apiError('Date range too wide', 400);
+    }
     return apiError('Failed to fetch remaining capacity', 500, error);
   }
 }
