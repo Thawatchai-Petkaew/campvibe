@@ -71,7 +71,13 @@
 import "server-only";
 import { z } from 'zod';
 import { sanitizeForPrompt, sanitizeSuggestion, wrapAsUserData } from '@/lib/ai/sanitize';
-import { getRegisteredTools, dispatchTool, type ToolContext, type ToolTier } from '@/lib/ai/tool-registry';
+import {
+  getRegisteredTools,
+  dispatchTool,
+  type ToolContext,
+  type ToolTier,
+  type ToolDispatchResult,
+} from '@/lib/ai/tool-registry';
 import type { TurnMessage } from '@/lib/ai/build-turn-messages';
 // Side-effect import: populates the tool registry (searchCampsites, checkAvailability).
 import '@/lib/ai/tools/index';
@@ -508,12 +514,56 @@ export const TURN_DEADLINE_MS = 40_000;
 const TOO_MANY_TOOL_CALLS_RESULT = { ok: false as const, code: 'too_many_tool_calls' as const };
 
 /**
+ * QA fix (CAM-420 defect, Important — cam-420-adversarial-verify.test.ts
+ * Part 2): `dispatchTool` (and therefore a tool's own `execute()`, e.g. a
+ * `getMyBookings`/`getMyBookingDetail`/`getMyProfile`/`getMyWishlist`
+ * `prisma.*` call) can THROW on a transient failure (a DB blip) — unlike the
+ * guest-tier tools (`searchCampsites`/`checkAvailability`), which each wrap
+ * their own Prisma call in a local try/catch, the four `authed`-tier
+ * personal tools (CAM-418/419) do not self-guard. CAM-420 is the first story
+ * to ever route a real `ToolContext{userId}` into a live request, making
+ * this gap live-reachable in production for the first time.
+ *
+ * Fixed at THIS one seam (not per-tool) so it covers every current AND
+ * future tool at once — mirrors `callModelOnce`'s existing network-error
+ * `catch` one level up: any throw becomes a HANDLED tool result (never an
+ * uncaught exception propagating out of the agent loop), and the raw
+ * error/message is NEVER put into the tool message the model (or,
+ * transitively, the client) ever sees — only the generic `tool_error` code.
+ * The tool name + error TYPE (never the message/stack, never PII) are
+ * logged server-side for on-call triage (observability.md field hygiene).
+ */
+const TOOL_EXECUTION_ERROR_RESULT = { ok: false as const, code: 'tool_error' as const };
+
+async function safeDispatchTool(
+  name: string,
+  args: unknown,
+  ctx: ToolContext
+): Promise<ToolDispatchResult | typeof TOOL_EXECUTION_ERROR_RESULT> {
+  try {
+    return await dispatchTool(name, args, ctx);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'ai_tool_execution_threw',
+        toolName: name,
+        errorType: error instanceof Error ? error.name : typeof error,
+      })
+    );
+    return TOOL_EXECUTION_ERROR_RESULT;
+  }
+}
+
+/**
  * Validate + execute up to `executeLimit` of `toolCalls` (CAM-416: the loop
  * computes `executeLimit = min(MAX_TOOL_CALLS_PER_ROUND, remaining turn
  * budget)` per round). Anything beyond `executeLimit` is rejected as a
  * handled `too_many_tool_calls` result — dispatchTool is never invoked for
  * it — but every tool_call_id still gets a matching tool message so the next
- * completion call stays well-formed.
+ * completion call stays well-formed. `dispatchTool` itself is called via
+ * `safeDispatchTool` (above) — a throw is contained the same way an
+ * `ok:false` result already was, never an uncaught exception.
  */
 async function executeToolCalls(
   toolCalls: OutgoingToolCall[],
@@ -533,7 +583,7 @@ async function executeToolCalls(
     }
 
     const args = parseToolCallArguments(call.function.arguments);
-    const result = await dispatchTool(call.function.name, args, ctx);
+    const result = await safeDispatchTool(call.function.name, args, ctx);
     if (result.ok) collectCardsFromToolData(result.data, cards);
     toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
     executedCount++;

@@ -5,8 +5,8 @@ epic: ai-camping-assistant-a1-a4-b1-b3-c-inquiry
 persona: platform
 artifact: test
 owner: qa-engineer
-status: Blocked — 1 defect open (Important, tracked, not fixed by QA)
-version: v1
+status: Fixed — 1 defect closed by backend same-day (see Changelog v2)
+version: v2
 updated: 2026-07-19
 ---
 # Test — Route v2: request union + optional session + persist + blocks[] envelope (CAM-420)
@@ -150,24 +150,30 @@ chased, unrelated to this story).
 
 ## Defects found
 
-**1 open — Important, tracked, NOT fixed by QA (per role: defects route back to `backend`).**
+**1 found, FIXED same-day by backend (was Important, tracked; now closed — see Changelog v2).**
 
 - **Title:** Authed personal AI tool throw crashes the whole `/api/ai/chat` v2 turn uncaught instead
   of a handled `502`.
 - **Repro:** see "Part 2" above — real repro confirmed via a scratch test (deleted after
   confirmation), reproduced again as a permanent regression guard in
-  `cam-420-adversarial-verify.test.ts` (`it.fails`).
-- **Failing AC/BR reference:** violates the spirit of BR-8 (handled-failure-only persistence) and the
+  `cam-420-adversarial-verify.test.ts`.
+- **Failing AC/BR reference:** violated the spirit of BR-8 (handled-failure-only persistence) and the
   route's own documented complete error-code set (JSDoc on `handleV2Turn`); no AC in this story
-  explicitly names "tool throws" as a case, which is exactly why it slipped through the shipped
-  suite — the shipped suite only exercises `ok:false`/`skipped:true`, both HANDLED discriminated-union
+  explicitly named "tool throws" as a case, which is exactly why it slipped through the shipped
+  suite — the shipped suite only exercised `ok:false`/`skipped:true`, both HANDLED discriminated-union
   outcomes, never an actual thrown exception.
 - **Expected vs actual:** see "Part 2" above.
 - **Severity:** Important.
-- **Status impact:** per qa.md/ops.md Verify checklist ("If any defect is open, status = blocked —
-  do not hand off as green"), this story's QA status is **blocked**, not ready-to-merge, until
-  backend either fixes the containment gap or the owner explicitly accepts the risk and re-opens the
-  gate.
+- **Fix (backend, same-day):** `dispatchTool(...)` inside `executeToolCalls` (`lib/ai/openrouter-client.ts`)
+  is now called via a `safeDispatchTool` wrapper — any throw is caught and mapped to a handled
+  `{ok:false, code:'tool_error'}` tool result (mirrors `callModelOnce`'s existing network-error catch
+  one level up), fixed at the ONE shared seam so it covers every current AND future `authed`-tier tool,
+  not per-tool. The raw error message/stack never reaches the tool message or the client — only the
+  tool NAME + error TYPE are logged server-side (no PII). The regression guard in
+  `cam-420-adversarial-verify.test.ts` Part 2 was flipped from `it.fails(...)` to a normal green
+  assertion (plus a second new assertion on the no-leak property); a direct unit test was also added to
+  `cam-270-openrouter-client.test.ts`.
+- **Status impact:** defect closed; story status moves from blocked to ready — see Changelog v2.
 
 ## Links
 
@@ -190,3 +196,10 @@ precedent) · `lib/ai/tools/check-availability.ts` (guest-tier try/catch precede
   personal-tool throw propagates uncaught) — reproduced, documented, regression-guarded with
   `it.fails`, NOT fixed (QA does not write production code). Status = blocked pending a `backend`
   fix or an explicit owner risk-acceptance. `next: security` deferred until the defect is resolved.
+- v2 (2026-07-19) — backend fixed the Important defect same-day: `safeDispatchTool` wraps
+  `dispatchTool` inside `executeToolCalls` (`lib/ai/openrouter-client.ts`), containing any tool throw
+  as a handled `{ok:false, code:'tool_error'}` result at the one shared loop seam (covers every
+  current/future `authed` tool). `cam-420-adversarial-verify.test.ts` Part 2 flipped from `it.fails`
+  to a real green assertion (+ 1 new no-leak assertion); `cam-270-openrouter-client.test.ts` gained a
+  direct unit test. Full AI-sibling suite + full repo suite re-run green. Status: fixed, ready for
+  `next: security`.

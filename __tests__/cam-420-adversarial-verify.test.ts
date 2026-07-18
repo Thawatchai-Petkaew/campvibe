@@ -20,21 +20,22 @@
  *   - per-IP rate-limited (429) -> zero Prisma calls of ANY kind (real
  *     rate-limit module, before body parse even, per BR-2).
  *
- * Part 2 — DEFECT (tracked, not fixed here — QA does not write production
- * code). An authed-tier personal tool (`getMyBookings` et al., CAM-418/419)
- * that throws (e.g. a transient Prisma error) is NEVER caught anywhere in the
+ * Part 2 — FIXED (backend, same-day follow-up to QA's tracked defect). An
+ * authed-tier personal tool (`getMyBookings` et al., CAM-418/419) that
+ * throws (e.g. a transient Prisma error) is now CAUGHT at the one shared
+ * seam — `executeToolCalls`'s `safeDispatchTool` wrapper
+ * (`lib/ai/openrouter-client.ts`) — mirroring `callModelOnce`'s existing
+ * network-error catch one level up. Originally NEVER caught anywhere in the
  * call chain `dispatchTool` -> `executeToolCalls` -> `runTurnFromBaseMessages`
  * -> `runAssistantTurnFromMessages` -> `handleV2Turn` -> `POST` — unlike the
  * GUEST-tier tools (`searchCampsites`/`checkAvailability`), which each wrap
  * their own Prisma call in a local try/catch. CAM-420 is the FIRST story to
  * ever route a real, DB-backed authed tool into a live request (previously
- * dead code per CAM-417/418/419's own story text), so this gap becomes
- * live-reachable in production for the first time here. `it.fails` pins the
- * CURRENT (buggy) behavior — if a future fix makes this resolve gracefully
- * instead of throwing, this test starts unexpectedly PASSING its inner
- * assertion and vitest fails the suite, forcing an update (not a silent
- * green). See the QA return payload for the full defect writeup (repro,
- * severity, recommendation) — filed as a sub-ticket, not fixed here.
+ * dead code per CAM-417/418/419's own story text), so this gap was
+ * live-reachable in production for the first time. This test was originally
+ * `it.fails(...)`, pinning the buggy (uncaught-throw) behavior; now that the
+ * fix lands, the inner assertion holds for real and the test is a normal
+ * green regression guard (never a silent pass on a re-introduced throw).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -187,11 +188,11 @@ describe('Part 1 — real persistence integrity, end-to-end through the real sto
   });
 });
 
-describe('Part 2 — DEFECT (tracked, filed as a sub-ticket, NOT fixed by QA): an authed personal tool throwing crashes the whole turn uncaught', () => {
+describe('Part 2 — FIXED: an authed personal tool throwing no longer crashes the turn uncaught (safeDispatchTool)', () => {
   const mockDispatchTool = vi.fn();
 
-  it.fails(
-    '[security/reliability] currently THROWS uncaught instead of resolving a handled 502 — dispatchTool/executeToolCalls has no try/catch around tool.execute(), unlike the guest tools (searchCampsites/checkAvailability) which each self-guard',
+  it(
+    '[security/reliability] a tool throw resolves a handled turn failure (never an uncaught exception) — dispatchTool is wrapped in executeToolCalls via safeDispatchTool, same containment callModelOnce already gives network errors',
     async () => {
       vi.doMock('@/lib/ai/tool-registry', async () => {
         const actual = await vi.importActual<typeof import('@/lib/ai/tool-registry')>(
@@ -223,15 +224,61 @@ describe('Part 2 — DEFECT (tracked, filed as a sub-ticket, NOT fixed by QA): a
       vi.stubGlobal('fetch', mockFetch);
       mockDispatchTool.mockRejectedValueOnce(new Error('DB connection reset'));
 
-      // EXPECTED (post-fix) behavior: resolves { ok:false, ... } like every other
-      // handled failure path (BR-5/BR-8) — never an uncaught throw. This assertion
-      // is what should hold once the defect is fixed; `it.fails` means the test
-      // currently reports as passing (green suite) BECAUSE this line throws today.
+      // FIXED behavior: resolves { ok:false, ... } like every other handled
+      // failure path (BR-5/BR-8) — never an uncaught throw. `await` itself
+      // never rejects here (the whole point of the fix); the route maps this
+      // straight to the documented, graceful 502 `assistant_error`.
       const result = await realRun([{ role: 'user', content: 'hi' }], { userId: USER_ID });
       expect(result.ok).toBe(false);
+      expect(result.error).toBe('assistant_unavailable'); // the SAME generic code every other handled failure uses — no raw error/stack
 
       delete process.env.OPENROUTER_API_KEY;
       vi.unstubAllGlobals();
     }
   );
+
+  it('[security] the raw error message/stack never reaches the tool message the model sees — only the generic tool_error code', async () => {
+    vi.doMock('@/lib/ai/tool-registry', async () => {
+      const actual = await vi.importActual<typeof import('@/lib/ai/tool-registry')>(
+        '@/lib/ai/tool-registry'
+      );
+      return { ...actual, dispatchTool: (...args: unknown[]) => mockDispatchTool(...args) };
+    });
+    vi.resetModules();
+    const { runAssistantTurnFromMessages: realRun } = await vi.importActual<
+      typeof import('@/lib/ai/openrouter-client')
+    >('@/lib/ai/openrouter-client');
+
+    process.env.OPENROUTER_API_KEY = 'sk-or-test-defect-repro-2';
+    const toolRoundResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [{ id: 'c2', type: 'function', function: { name: 'getMyProfile', arguments: '{}' } }],
+            },
+          },
+        ],
+      }),
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce(toolRoundResponse);
+    vi.stubGlobal('fetch', mockFetch);
+    mockDispatchTool.mockRejectedValueOnce(new Error('a very secret internal connection string leaked here'));
+
+    await realRun([{ role: 'user', content: 'hi' }], { userId: USER_ID });
+
+    // No call this test made ever carries the raw Error's message text.
+    for (const call of mockFetch.mock.calls) {
+      const init = call[1] as RequestInit | undefined;
+      const bodyText = typeof init?.body === 'string' ? init.body : '';
+      expect(bodyText).not.toContain('secret internal connection string');
+    }
+
+    delete process.env.OPENROUTER_API_KEY;
+    vi.unstubAllGlobals();
+  });
 });
