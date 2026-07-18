@@ -11,8 +11,15 @@
  *
  *   2. Source-inspection Prove-It — assert the shape of handleReserve directly
  *      from the shipped source. Each assertion FAILS against the pre-fix source
- *      (no isLoggedIn gate; `data.error || t.newCampground.failedToReserve`) and
- *      passes against the fix — the regression guard for this bug.
+ *      (no gate; `data.error || t.newCampground.failedToReserve`) and passes
+ *      against the fix — the regression guard for this bug.
+ *
+ * CAM-397 update: the gate itself moved from the server-snapshot `isLoggedIn`
+ * prop to the live client session (`isLoggedInLive`, derived from
+ * `useSession()`) — see __tests__/cam-397-live-session-gate.test.ts for that
+ * change's own regression guard. The three tests below that pinned the exact
+ * OLD `isLoggedIn` gate string/default are updated in place (not deleted) so
+ * this file still proves AC-1/EC-1/BR-1 hold under the new mechanism.
  *
  * What is NOT covered here (requires Playwright e2e on Staging at G4):
  *  - Rendered DOM: LoginModal actually opening, sonner toast appearing on-screen
@@ -53,11 +60,13 @@ describe("i18n — Thai copy verbatim (locales/translations.json)", () => {
 describe("CAM-396 AC-1/EC-1, BR-1: guest tap opens the login gate before any request", () => {
     const body = extractHandleReserve(clientSrc);
 
-    it("[unit] handleReserve gates on isLoggedIn before the /api/bookings fetch", () => {
-        const gateIdx = body.indexOf("if (!isLoggedIn)");
+    it("[unit] handleReserve gates on the live session before the /api/bookings fetch", () => {
+        // CAM-397: the gate moved from `if (!isLoggedIn)` (server-snapshot prop)
+        // to `if (!isLoggedInLive)` (live client session). Still fails on a
+        // reverted/missing gate (→ -1) or a gate placed after the fetch.
+        const gateIdx = body.indexOf("if (!isLoggedInLive)");
         const fetchIdx = body.indexOf('fetch("/api/bookings"');
 
-        // Prove-It: FAILS on the pre-fix source (no isLoggedIn check at all → -1).
         expect(gateIdx).toBeGreaterThan(-1);
         expect(fetchIdx).toBeGreaterThan(-1);
         expect(gateIdx).toBeLessThan(fetchIdx);
@@ -65,8 +74,8 @@ describe("CAM-396 AC-1/EC-1, BR-1: guest tap opens the login gate before any req
 
     it("[unit] the guest branch opens the existing LoginModal (setLoginOpen) and returns", () => {
         const gateBlock = body.slice(
-            body.indexOf("if (!isLoggedIn)"),
-            body.indexOf("if (!isLoggedIn)") + 80,
+            body.indexOf("if (!isLoggedInLive)"),
+            body.indexOf("if (!isLoggedInLive)") + 90,
         );
         expect(gateBlock).toContain("setLoginOpen(true)");
         expect(gateBlock).toContain("return;");
@@ -79,21 +88,24 @@ describe("CAM-396 AC-1/EC-1, BR-1: guest tap opens the login gate before any req
     });
 
     it("[unit] EC-1 (no dates chosen yet): the login gate precedes the date-selection guard", () => {
-        // Prove-It: FAILS on the pre-fix source (no isLoggedIn check → -1) and would
-        // also fail if the date guard were ever reordered ahead of the login gate —
+        // Prove-It: FAILS on the pre-fix source (no gate → -1) and would also
+        // fail if the date guard were ever reordered ahead of the login gate —
         // a guest must see the login modal even before picking checkIn/checkOut,
         // not the "select dates first" toast.
-        const gateIdx = body.indexOf("if (!isLoggedIn)");
+        const gateIdx = body.indexOf("if (!isLoggedInLive)");
         const dateGuardIdx = body.indexOf("if (!checkIn || !checkOut)");
         expect(gateIdx).toBeGreaterThan(-1);
         expect(dateGuardIdx).toBeGreaterThan(-1);
         expect(gateIdx).toBeLessThan(dateGuardIdx);
     });
 
-    it("[unit] null/empty: isLoggedIn defaults to false (fail-safe/default-deny) when the prop is omitted", () => {
-        // Prove-It: FAILS if the default were ever flipped to `true` — a caller that
-        // forgets to pass isLoggedIn must be treated as a guest, never as logged-in.
-        expect(clientSrc).toMatch(/isLoggedIn\s*=\s*false,/);
+    it("[unit] CAM-397 default-deny: isLoggedInLive is only true when the session status is \"authenticated\"", () => {
+        // Replaces the old "isLoggedIn defaults to false" prop test (CAM-396) —
+        // that prop is no longer a gate input at all (see CAM-397 story.md BR-1).
+        // Prove-It: FAILS if the equality were ever loosened (e.g. `!==`) or a
+        // fallback of `true` were introduced — a session that hasn't resolved to
+        // "authenticated" yet (loading/unauthenticated) must stay gated as guest.
+        expect(clientSrc).toMatch(/isLoggedInLive\s*=\s*sessionStatus\s*===\s*["']authenticated["']/);
     });
 });
 
