@@ -31,8 +31,10 @@ import { parseAiChatSuccessBody } from "@/lib/api-client";
 import { appendOutcome } from "@/components/ai-chat/conversation";
 
 const mockRunAssistantTurn = vi.fn();
+// CAM-415: the route now calls runAssistantTurnFromMessages (a real
+// multi-turn messages array), not runAssistantTurn (a flattened string).
 vi.mock("@/lib/ai/openrouter-client", () => ({
-  runAssistantTurn: (...args: unknown[]) => mockRunAssistantTurn(...args),
+  runAssistantTurnFromMessages: (...args: unknown[]) => mockRunAssistantTurn(...args),
 }));
 
 const { POST } = await import("@/app/api/ai/chat/route");
