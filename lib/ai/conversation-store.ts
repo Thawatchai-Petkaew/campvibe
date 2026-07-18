@@ -22,6 +22,17 @@
  *   AC-1/AC-2, EC-1 → createConversation (cap + least-recently-updated evict)
  *   AC-3..AC-6, EC-2/EC-3/EC-4/EC-6/EC-7 → appendTurn (one transaction)
  *   AC-7/AC-8, EC-4/EC-5 → loadWindow (ownership-scoped, newest-N-in-order)
+ *
+ * CAM-421 (ADR-013 S7 — conversation list/view/delete endpoints) extends this
+ * file with three more ownership-scoped, typed-result functions so the new
+ * routes never query ChatConversation/ChatMessage directly:
+ *   AC-1 → listConversations (newest-updated-first + a display-only derived
+ *          title — computed at read time, NEVER stored, per architecture.md
+ *          §14 "no UI-shaped columns")
+ *   AC-2 → getConversationWithMessages (ownership + full ordered history in
+ *          ONE query — no separate ownership-check-then-fetch round trip)
+ *   AC-3 → deleteConversation (HARD delete per ADR-013 D2; ownership enforced
+ *          INSIDE deleteMany's WHERE — atomic, no check-then-act race)
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -245,8 +256,163 @@ export async function loadWindow(
 }
 
 // ---------------------------------------------------------------------------
+// listConversations — CAM-421 AC-1
+// ---------------------------------------------------------------------------
+
+/** CAM-421 BR-1 — a derived title is truncated to this many characters. */
+export const TITLE_MAX_LENGTH = 60;
+
+export interface ConversationListItem {
+  id: string;
+  /** Display-only, derived from the first USER message at read time — never stored (architecture.md §14). */
+  title: string | null;
+  messageCount: number;
+  updatedAt: Date;
+}
+
+/**
+ * Lists `userId`'s own conversations, newest-`updatedAt`-first. Each item
+ * carries a display-only `title` (the conversation's first USER message,
+ * truncated to `TITLE_MAX_LENGTH`) and a `messageCount` — both computed in
+ * the SAME query (nested `messages` select + `_count`), never a per-row
+ * follow-up query (performance.md — no N+1). Bounded by the existing
+ * `MAX_CONVERSATIONS_PER_USER` cap (BR-1 above), so no pagination is needed
+ * at this size.
+ */
+export async function listConversations(
+  userId: string
+): Promise<ConversationStoreResult<ConversationListItem[]>> {
+  try {
+    const rows = await prisma.chatConversation.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        updatedAt: true,
+        messages: {
+          where: { role: 'USER' },
+          orderBy: { seq: 'asc' },
+          take: 1,
+          select: { contentText: true },
+        },
+        _count: { select: { messages: true } },
+      },
+    });
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        title: deriveTitle(row.messages[0]?.contentText),
+        messageCount: row._count.messages,
+        updatedAt: row.updatedAt,
+      })),
+    };
+  } catch (error) {
+    return handleUnexpectedError(error, 'listConversations');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getConversationWithMessages — CAM-421 AC-2
+// ---------------------------------------------------------------------------
+
+export interface ConversationDetail {
+  id: string;
+  updatedAt: Date;
+  messages: ConversationMessageView[];
+}
+
+/**
+ * Loads `conversationId`'s full ordered message history (ascending `seq`),
+ * scoped to `userId` (BR-2 precedent — a missing/other-user conversation
+ * returns `not_found`, never a separate "forbidden" leak). Ownership check
+ * and the message fetch run as ONE query (nested `messages` select), not two.
+ */
+export async function getConversationWithMessages(
+  conversationId: string,
+  userId: string
+): Promise<ConversationStoreResult<ConversationDetail>> {
+  try {
+    const conversation = await prisma.chatConversation.findFirst({
+      where: { id: conversationId, userId },
+      select: {
+        id: true,
+        updatedAt: true,
+        messages: {
+          orderBy: { seq: 'asc' },
+          select: {
+            id: true,
+            role: true,
+            seq: true,
+            contentText: true,
+            blocks: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    if (!conversation) {
+      return { ok: false, code: 'not_found' };
+    }
+    return { ok: true, data: conversation };
+  } catch (error) {
+    return handleUnexpectedError(error, 'getConversationWithMessages');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// deleteConversation — CAM-421 AC-3
+// ---------------------------------------------------------------------------
+
+export interface DeletedConversation {
+  id: string;
+}
+
+/**
+ * HARD-deletes `conversationId` (ADR-013 D2 divergence — no `deletedAt` on
+ * this model; PDPA favors real erasure for conversational personal data).
+ * Ownership is enforced INSIDE `deleteMany`'s WHERE (`id, userId`) so the
+ * check-and-delete is ONE atomic statement, not a separate ownership read
+ * followed by a delete (no TOCTOU gap). `count === 0` covers BOTH a missing
+ * id and one owned by another user — the same `not_found` code, no
+ * existence leak (BR-2 precedent). Messages cascade via the FK
+ * (`onDelete: Cascade` on `ChatMessage.conversation`).
+ */
+export async function deleteConversation(
+  conversationId: string,
+  userId: string
+): Promise<ConversationStoreResult<DeletedConversation>> {
+  try {
+    const { count } = await prisma.chatConversation.deleteMany({
+      where: { id: conversationId, userId },
+    });
+    if (count === 0) {
+      return { ok: false, code: 'not_found' };
+    }
+    return { ok: true, data: { id: conversationId } };
+  } catch (error) {
+    return handleUnexpectedError(error, 'deleteConversation');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * CAM-421 — derives a display-only conversation title from the first USER
+ * message's `contentText`, truncated to `TITLE_MAX_LENGTH`. Returns `null`
+ * when the conversation has no USER message yet (a just-created, still-empty
+ * conversation) — the route/UI decides the empty-title fallback copy, this
+ * function never invents placeholder text.
+ */
+function deriveTitle(firstUserText: string | undefined): string | null {
+  if (!firstUserText) return null;
+  return firstUserText.length > TITLE_MAX_LENGTH
+    ? `${firstUserText.slice(0, TITLE_MAX_LENGTH)}…`
+    : firstUserText;
+}
 
 /** BR-4 — defense-in-depth cap; never throws, silently truncates. */
 function truncateContentText(text: string): string {
