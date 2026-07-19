@@ -59,12 +59,12 @@ describe("Mount point — absolute z-20 sibling of the z-10 body, no 2nd Radix D
     expect(detailSrc).not.toContain("aria-modal");
   });
 
-  it("[unit] CAM-448 geometry forks on expanded: a right-anchored drawer on desktop, a bottom sheet on mobile", () => {
+  it("[unit] CAM-450 geometry: an inset floating card on every breakpoint (never edge-flush), forking on expanded", () => {
     expect(detailSrc).toContain(
-      '"absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"'
+      '"absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"'
     );
     expect(detailSrc).toContain(
-      '"absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"'
+      '"absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"'
     );
   });
 
@@ -74,10 +74,10 @@ describe("Mount point — absolute z-20 sibling of the z-10 body, no 2nd Radix D
 });
 
 describe("Instant block — paints from the in-hand card, never gated on the fetch", () => {
-  it("[unit] hero/name/price/province/tags read straight off the `card` prop", () => {
+  it("[unit] hero name/province read straight off the `card` prop; price/tag testids still exist (CAM-450 moved them into the stat row / amenities section)", () => {
     expect(detailSrc).toContain("card.images?.[0]?.url");
     expect(detailSrc).toContain('data-testid="text--ai-chat-detail-name"');
-    expect(detailSrc).toContain('data-testid="text--ai-chat-detail-price"');
+    expect(detailSrc).toContain('"text--ai-chat-detail-price"');
     expect(detailSrc).toContain('data-testid="text--ai-chat-detail-province"');
     expect(detailSrc).toContain('data-testid="badge--ai-chat-detail-tag"');
   });
@@ -102,10 +102,10 @@ describe("Async block — fetch, loading, empty, error states (design brief §4)
     expect(detailSrc).toContain("useMinimumLoading(isLoading, { delay: 300, minDisplay: 400 })");
   });
 
-  it("[unit] the skeleton mirrors the 3 async sections (2 heading bars + 1 amenity-chip row + 2 review rows + 1 date-chip row, each row/count-array driven) and is decorative (aria-hidden)", () => {
+  it("[unit] CAM-450: the skeleton mirrors all 6 mirrored regions (stats/availability/price/amenities/reviews/travel, each row/count-array driven) and is decorative (aria-hidden)", () => {
     const skeletonBlock = detailSrc.slice(detailSrc.indexOf("showSkeleton ? ("), detailSrc.indexOf(") : detail ? ("));
     expect(skeletonBlock).toContain('aria-hidden="true"');
-    expect(skeletonBlock.match(/<Skeleton\b/g)?.length).toBe(7);
+    expect(skeletonBlock.match(/<Skeleton\b/g)?.length).toBe(11);
     expect(skeletonBlock).toContain("AMENITY_SKELETON_COUNT");
     expect(skeletonBlock).toContain("AVAILABILITY_SKELETON_COUNT");
   });
