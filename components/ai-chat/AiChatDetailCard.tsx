@@ -1,23 +1,38 @@
 /**
- * components/ai-chat/AiChatDetailCard.tsx — CAM-447
+ * components/ai-chat/AiChatDetailCard.tsx — CAM-447, refined by CAM-448
  *
- * S5: the floating, consolidated camp-detail card that materializes over
- * น้องกองไฟ's chat surface when a camper taps a result card (owner:
- * "การ์ดใหญ่ที่รวมข้อมูลลอยอยู่บนพื้นอากาศ" — NOT a plain edge drawer). Mounts
- * as an `absolute z-20` layer INSIDE `PanelPrimitive.Content` (a sibling of
- * the panel's own `relative z-10` body, see AiChatPanel.tsx) — NOT a second
- * Radix Dialog (design brief §0/§1: avoids a double focus-trap).
+ * S5: the floating, consolidated camp-detail card that opens over น้องกองไฟ's
+ * chat surface when a camper taps a result card. CAM-448 (owner, after seeing
+ * S5 live on staging) evolved the geometry to a CARD-STYLED DRAWER — it
+ * slides in from the edge (right on desktop, bottom sheet on mobile) rather
+ * than materializing centered in place, but keeps the same glass/rounded card
+ * look (`bg-ai-surface`/`shadow-ai-glow`/`border-ai-tint`/rounded corners) the
+ * original S5 brief called for — owner preference evolved from "not a plain
+ * edge drawer" to "a drawer that still reads as the card". Mounts as an
+ * `absolute z-20` layer INSIDE `PanelPrimitive.Content` (a sibling of the
+ * panel's own `relative z-10` body, see AiChatPanel.tsx) — NOT a second Radix
+ * Dialog (design brief §0/§1: avoids a double focus-trap).
  *
  * Data model (design brief §2): the hero/name/price/province/tags paint
  * INSTANTLY from the in-hand `AiChatCardResponse` the camper already saw on
  * the result card (zero fetch flash). Amenities/reviews/availability then
  * FETCH via `aiChatAPI.getCampDetail` (CAM-446) and fill their own section;
  * that async section alone carries loading/empty/error — the instant block
- * and the CTA never wait on the fetch.
+ * and the CTA never wait on the fetch. CAM-448: reviews/amenities/dates
+ * render in FULL (no client-side snippet cap) — the server (CAM-446)
+ * already bounds `reviews` at `MAX_REVIEWS_RETURNED`, so there is no
+ * unbounded-fetch risk in showing every row it returns.
  *
- * Geometry (design brief §1) is a SINGLE element, className-forked on the
- * panel's `expanded` flag (mirrors CAM-431's no-remount fork) so toggling
+ * Geometry (CAM-448) is a SINGLE element, className-forked on the panel's
+ * `expanded` flag (mirrors CAM-431's no-remount fork) so toggling
  * expand/collapse while the detail is open never remounts this component.
+ * Desktop = right-anchored drawer (`right` pinned, `left` auto, capped by
+ * `max-w-md`/`max-w-lg` so the chat stays visible to the left); mobile =
+ * bottom sheet. Both use a definite top+bottom (or top+`inset-y`) inset pair
+ * rather than an auto-height parent capped only by `max-h` — CAM-407's own
+ * lesson (see AiChatPanel.tsx) is that a percentage/`h-full` child only
+ * resolves against a parent with a DEFINITE height, not an auto one capped
+ * by `max-height` alone.
  *
  * Esc handling (design brief §5): Radix's `DismissableLayer` (the panel's
  * own Dialog.Content) registers its Escape listener on `document` with
@@ -50,9 +65,6 @@ import type { GetCampDetailResult } from "@/lib/ai/tools/get-camp-detail";
 
 /** Hoisted once — a fresh Intl formatter per render is unnecessary allocation. */
 const THB_FORMAT = new Intl.NumberFormat("th-TH");
-
-/** design brief §2 — at most 2 verified review snippets shown. */
-const MAX_REVIEW_SNIPPETS = 2;
 
 /** design brief §4 (state 2) — skeleton row counts mirroring the real sections. */
 const AMENITY_SKELETON_COUNT = 4;
@@ -130,15 +142,27 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
       aria-label={name}
       data-testid="dialog--ai-chat-detail"
       className={
+        // CAM-448 — a card-styled DRAWER, right-anchored on desktop (`right`
+        // pinned, `left` auto, width capped so the chat stays visible on the
+        // left) and a bottom sheet on mobile. `top-16` + `bottom-0` (mobile)
+        // and `inset-y-2`/`inset-y-4` (desktop) are a definite top+bottom
+        // inset pair — never an auto-height box capped only by `max-h` (see
+        // the file header's CAM-407 note).
         expanded
-          ? "absolute inset-0 z-20 grid place-items-center p-4 sm:p-8"
-          : "absolute inset-0 z-20 sm:inset-2 sm:top-14"
+          ? "absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"
+          : "absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"
       }
     >
       <div
         className={cn(
-          "ai-materialize flex h-full min-h-0 w-full flex-col overflow-hidden border border-ai-tint bg-ai-surface shadow-ai-glow backdrop-blur-xl",
-          expanded ? "h-auto max-h-full max-w-2xl rounded-3xl" : "rounded-t-3xl sm:rounded-3xl"
+          "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-t-3xl border border-ai-tint bg-ai-surface shadow-ai-glow backdrop-blur-xl sm:rounded-3xl",
+          // CAM-448 — slide-in entrance (replaces the CAM-447 centered
+          // scale-fade materialize): from the bottom on mobile, from the
+          // right on desktop (the `sm:slide-in-from-bottom-0` reset cancels
+          // the mobile Y-translate so desktop slides purely horizontally,
+          // matching the AiChatPanel.tsx bottom-sheet entrance idiom).
+          "duration-200 animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:slide-in-from-right-8",
+          "motion-reduce:animate-none"
         )}
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3">
@@ -283,7 +307,11 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                             ({t.aiChat.card.reviews.replace("{count}", String(detail.reviewSummary.count))})
                           </span>
                         </div>
-                        {detail.reviews.slice(0, MAX_REVIEW_SNIPPETS).map((review, i) => (
+                        {/* CAM-448 — every verified review the server returns
+                            (already bounded server-side at
+                            MAX_REVIEWS_RETURNED, CAM-446), full content, no
+                            client-side snippet cap or line-clamp. */}
+                        {detail.reviews.map((review, i) => (
                           <div key={i} className="space-y-1 rounded-xl bg-muted/50 p-3">
                             <p className="text-xs font-medium text-foreground">{review.name}</p>
                             <div className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
@@ -291,7 +319,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                               {review.rating}
                             </div>
                             {review.content && (
-                              <p className="line-clamp-3 text-sm text-muted-foreground">{review.content}</p>
+                              <p className="text-sm text-muted-foreground">{review.content}</p>
                             )}
                           </div>
                         ))}
