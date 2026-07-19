@@ -374,6 +374,57 @@ describe('POST /api/ai/chat — appendTurn fails after success (BR-10, EC-8)', (
 });
 
 /* -------------------------------------------------------------------------- */
+/* CAM-445 (R3 owner feedback) — the turn's rendered cards persist as a       */
+/* 'cards' block so a resumed conversation can restore them                  */
+/* -------------------------------------------------------------------------- */
+
+describe('POST /api/ai/chat — persists a cards block for resume (CAM-445)', () => {
+  it('[normal] a turn with cards persists blocks:[{type:"cards",v:1,data:[...]}]', async () => {
+    mockAuth.mockResolvedValueOnce(makeSession(USER_ID));
+    mockCreateConversation.mockResolvedValueOnce({ ok: true, data: { id: CONVERSATION_ID } });
+    mockRunAssistantTurn.mockResolvedValueOnce({
+      ok: true,
+      answer: 'พบแคมป์ 1 แห่งครับ',
+      cards: [{ id: 'c1', nameTh: 'แคมป์ริมน้ำ' }],
+    });
+    mockAppendTurn.mockResolvedValueOnce({ ok: true, data: { userMessageId: 'u', assistantMessageId: 'a' } });
+
+    await POST(makeRequest({ message: 'หาแคมป์ริมน้ำ' }));
+
+    const [, , input] = mockAppendTurn.mock.calls[0] as [string, string, { blocks?: unknown }];
+    expect(input.blocks).toEqual([{ type: 'cards', v: 1, data: [{ id: 'c1', nameTh: 'แคมป์ริมน้ำ' }] }]);
+  });
+
+  it('[null/empty] a turn with NO cards omits `blocks` entirely (absent means no signal, not an empty block)', async () => {
+    mockAuth.mockResolvedValueOnce(makeSession(USER_ID));
+    mockCreateConversation.mockResolvedValueOnce({ ok: true, data: { id: CONVERSATION_ID } });
+    mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'สวัสดีครับ', cards: [] });
+    mockAppendTurn.mockResolvedValueOnce({ ok: true, data: { userMessageId: 'u', assistantMessageId: 'a' } });
+
+    await POST(makeRequest({ message: 'สวัสดี' }));
+
+    const [, , input] = mockAppendTurn.mock.calls[0] as [string, string, { blocks?: unknown }];
+    expect(input.blocks).toBeUndefined();
+  });
+
+  it('[normal] the stored assistantText PRESERVES newlines (a multi-line/list answer is not flattened, CAM-445)', async () => {
+    mockAuth.mockResolvedValueOnce(makeSession(USER_ID));
+    mockCreateConversation.mockResolvedValueOnce({ ok: true, data: { id: CONVERSATION_ID } });
+    mockRunAssistantTurn.mockResolvedValueOnce({
+      ok: true,
+      answer: 'นี่คือลานที่แนะนำ\n1. ลานเอ\n2. ลานบี',
+      cards: [],
+    });
+    mockAppendTurn.mockResolvedValueOnce({ ok: true, data: { userMessageId: 'u', assistantMessageId: 'a' } });
+
+    await POST(makeRequest({ message: 'แนะนำลานหน่อย' }));
+
+    const [, , input] = mockAppendTurn.mock.calls[0] as [string, string, { assistantText: string }];
+    expect(input.assistantText).toBe('นี่คือลานที่แนะนำ\n1. ลานเอ\n2. ลานบี');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
 /* BR-9 — sanitize-before-store                                               */
 /* -------------------------------------------------------------------------- */
 

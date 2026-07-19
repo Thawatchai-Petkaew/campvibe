@@ -11,7 +11,7 @@
  * strings + the structured `cards[]` array from the endpoint response.
  */
 import type { AiChatCardResponse, AiChatOutcome, AiChatRequestMessage, AiConversationMessageView } from "@/lib/api-client";
-import { AI_CHAT_MAX_MESSAGES, normalizeBlocks } from "@/lib/api-client";
+import { AI_CHAT_MAX_MESSAGES, extractCardsBlock, normalizeBlocks } from "@/lib/api-client";
 
 export type ChatEntry =
   | { id: string; role: "user"; text: string }
@@ -175,26 +175,41 @@ export function isAuthedSession(status: "loading" | "authenticated" | "unauthent
  * `blocks` is validated through the exported `normalizeBlocks` — the SAME
  * normalizer a live turn's wire response already uses (one normalizer, not a
  * parallel one) — so a malformed/unexpected `blocks` payload can never crash
- * a resume. No block `type` maps to cards/suggestions yet (ADR-013 D6
- * deliberately left that migration out of scope: `appendTurn` never
- * persists a turn's cards/suggestions), so every restored answer resolves to
- * `cards: []` / `suggestions: []` today — an unrecognized/absent block type
- * is skipped, never thrown (the CAM-420 forward-compat contract extended to
- * the restore path).
+ * a resume. A well-formed 'cards' block (CAM-445: now persisted by
+ * `POST /api/ai/chat`'s v2 path) is mapped back into `entry.cards` via
+ * `extractCardsBlock`, which RE-VALIDATES each card through
+ * `isAiChatCardResponse` before it is trusted (stored JSON is an input
+ * boundary, code.md CAM-305) — a malformed card is dropped, never thrown,
+ * and `entry.cards` is the ONLY source the renderer reads (never parsed back
+ * out of `contentText`, BR-4/CAM-439). An older message with no cards block
+ * (or an unrecognized/absent block type) resolves to `cards: []`, same as
+ * before this fix.
+ *
+ * `suggestions` stays `[]` on every restored answer — CAM-445 scoped the fix
+ * to the reported symptoms (structure/cards/banner); follow-up-question
+ * chips are not persisted and remain out of scope here.
  */
 export function restoreEntriesFromMessages(messages: AiConversationMessageView[]): ChatEntry[] {
   return messages.map((message) => {
     if (message.role === "USER") {
       return { id: nextEntryId(), role: "user", text: message.contentText };
     }
-    normalizeBlocks(message.blocks); // validate-only — see doc comment above
+    const blocks = normalizeBlocks(message.blocks);
     return {
       id: nextEntryId(),
       role: "assistant",
       kind: "answer",
       text: message.contentText,
-      cards: [],
-      zeroResult: true,
+      cards: extractCardsBlock(blocks),
+      // CAM-445 (R3 owner feedback) — `zeroResult` is a LIVE-TURN-ONLY
+      // search-failure signal (computed in `appendOutcome` from that turn's
+      // own `searchAttempted` + `cards` result) and is never persisted; it
+      // must NEVER be re-derived on restore (a restored `cards.length===0`
+      // does not mean the original turn ran a search that came back empty —
+      // it may never have searched at all). Always `false` here so the
+      // "ยังไม่เจอที่ถูกใจเลย…" banner never falsely re-appears on a reopened
+      // conversation.
+      zeroResult: false,
       suggestions: [],
     };
   });
