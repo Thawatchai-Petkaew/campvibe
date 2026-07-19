@@ -46,9 +46,22 @@ describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HT
     }
   });
 
-  it("[unit] the assistant answer renders through whitespace-pre-wrap (a text node, not markup)", () => {
-    expect(listSrc).toContain("whitespace-pre-wrap");
-    expect(listSrc).toContain("{entry.text}");
+  it("[unit/Prove-It] BR-4: the assistant answer path (post-CAM-439) renders parseAnswer(entry.text)'s output as escaped React children — never entry.text interpolated directly, never dangerouslySetInnerHTML", () => {
+    // Scoped to the assistant answer row only — the USER bubble (a separate,
+    // unchanged path) still renders `{entry.text}` directly and correctly;
+    // this test asserts the ASSISTANT path specifically routes through the parser.
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).toMatch(/parseAnswer\(entry\.text\)/);
+    // entry.text is never interpolated as a bare paragraph child in this block —
+    // it only ever reaches the DOM through the parsed block.text/item strings.
+    expect(answerBlock).not.toMatch(/>\s*\{entry\.text\}\s*<\/p>/);
+    // parsed paragraph/list content still lands as a plain-text React child
+    // (whitespace-pre-wrap for paragraphs, a plain <li> for items) — a text
+    // node, never markup — and no dangerouslySetInnerHTML in this path.
+    expect(answerBlock).toMatch(/<p key=\{i\} className="whitespace-pre-wrap">\s*\{block\.text\}\s*<\/p>/);
+    expect(answerBlock).toMatch(/<li key=\{j\}>\{item\}<\/li>/);
+    // (a doc comment naming dangerouslySetInnerHTML is fine — only a real USE isn't)
+    expect(answerBlock).not.toMatch(/dangerouslySetInnerHTML\s*=/);
   });
 
   it("[unit] EC-6: cards render only from entry.cards (fed to the carousel) — never parsed out of entry.text", () => {
@@ -363,6 +376,18 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     );
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
     expect(answerBlock).not.toMatch(/className="[^"]*bg-ai-tint/);
+  });
+
+  it("[unit/Prove-It] AC-3: the answer row actually WIRES parseAnswer() into real <ol>/<ul> markup — not just the plain-paragraph path (would go RED if reverted to bare {entry.text})", () => {
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    // the call that produces typed blocks from the raw answer text
+    expect(answerBlock).toMatch(/parseAnswer\(entry\.text\)/);
+    // both list block types are actually rendered with the canonical DS classes
+    expect(answerBlock).toMatch(/<ol[^>]*className="[^"]*list-decimal[^"]*"/);
+    expect(answerBlock).toMatch(/<ul[^>]*className="[^"]*list-disc[^"]*"/);
+    // this is NOT the CAM-272-era bare-text path — a reverted `{entry.text}` in this
+    // block (with no parseAnswer call) is exactly the regression this test guards.
+    expect(answerBlock).not.toMatch(/>\s*\{entry\.text\}\s*<\/p>/);
   });
 
   it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {
