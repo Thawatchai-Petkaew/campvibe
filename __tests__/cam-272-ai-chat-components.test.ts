@@ -338,9 +338,10 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain("sm:w-96");
   });
 
-  it("[unit] header and composer never compress (shrink-0) so the scroll region is the only flexible region", () => {
-    expect(panelSrc).toContain("flex shrink-0 items-center justify-between border-b");
-    expect(panelSrc).toContain("shrink-0 border-t border-border/60 p-4");
+  it("[unit] header and composer never compress (shrink-0) so the scroll region is the only flexible region (CAM-431: className now forks on `expanded`, collapsed classes preserved byte-identical)", () => {
+    expect(panelSrc).toContain("flex shrink-0 items-center justify-between");
+    expect(panelSrc).toContain("border-b border-border/60 px-4 py-3");
+    expect(panelSrc).toContain("border-t border-border/60 p-4");
   });
 
   it("[unit] the message scroll region is flex-1 + min-h-0 (bounded, not content-driven)", () => {
