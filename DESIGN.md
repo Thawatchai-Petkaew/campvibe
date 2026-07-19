@@ -143,8 +143,9 @@ The fast path for any UI work (full rules below):
 dashboard / booking / auth) may use this exception; those keep stock tokens and standard 120–250ms motion.
 
 Within that scope, and using ONLY the closed `--ai-*` token set (`--ai-surface`, `--ai-tint`, `--ai-glow`,
-`--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star` — derived in `app/globals.css` from `--primary` teal,
-`--info` sky, and the `--warning` amber family for the warm camping accents), the assistant surface MAY:
+`--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star`, `--ai-flame-aura` — derived in `app/globals.css` from
+`--primary` teal, `--info` sky, and the `--warning` amber family for the warm camping accents), the assistant
+surface MAY:
 
 1. render a **camping-night ambient backdrop** (`.ai-aurora`, `aria-hidden`, `pointer-events-none`, behind
    content) — a subtle teal→sky gradient with a faint warm campfire horizon;
@@ -154,7 +155,10 @@ Within that scope, and using ONLY the closed `--ai-*` token set (`--ai-surface`,
 3. use a **glass surface** (`bg-ai-surface` + `backdrop-blur`) for the panel and the floating detail card, with a
    readable-content layer on top so text never sits directly on the animation;
 4. apply the **`--ai-glow`** ambient glow (`shadow-ai-glow`) to the panel, the detail card, and the avatar;
-5. tint the assistant bubble with **`bg-ai-tint`** (`text-foreground`, ≥ AA) and the avatar flame with `text-ai-ember`.
+5. tint the assistant bubble with **`bg-ai-tint`** (`text-foreground`, ≥ AA) and the avatar flame with `text-ai-ember`;
+6. render a **VISIBLE fire-toned aura halo** (**`shadow-ai-flame-aura`**, built from `--ai-ember`/`--ai-firefly` —
+   distinctly stronger than the depth-only `--ai-glow`) behind the avatar mark and the launcher FAB, paired with the
+   **`ai-flame-flicker`** loop (CAM-432, owner staging feedback + reference image).
 
 **Readability is the binding constraint:** the ambient must never reduce text legibility. Readable content sits on
 `bg-ai-surface`/`bg-card` (opaque-enough) over the blurred backdrop; contrast stays WCAG 2.1 AA and is axe-verified.
@@ -164,10 +168,12 @@ control — never `rounded-sm/md/lg`), lucide-only icons, no emoji, all copy in 
 all 8 states, WCAG 2.1 AA (contrast, visible focus ring `ring-ring`, tap ≥44px), `check:palette` + `check:ds` green.
 
 **Motion within the exception:** message entrance + panel/detail open clamp to **≤250ms** transform/opacity
-(standard). Three named loops/one-shots are permitted because they are transform/opacity only, dimmed, and no-op
-under `prefers-reduced-motion`: `ai-aurora-drift` (~18s), `ai-flame-glow` (~2.4s), and the one-shot detail-card
-`ai-materialize` (≤480ms). They were authored + justified in `CAM-426/design.md §7` and approved under the owner's
-CAM-426 autonomy delegation; any NEW motion beyond these routes back to full human G2.
+(standard). Four named loops/one-shots are permitted because they are transform/opacity only, dimmed, and no-op
+under `prefers-reduced-motion`: `ai-aurora-drift` (~18s), `ai-flame-glow` (~2.4s), `ai-flame-flicker` (~2.6s — the
+avatar/launcher fire-aura's วูบวาบ flicker; owner-requested, assistant น้องกองไฟ mark only; CAM-432), and the
+one-shot detail-card `ai-materialize` (≤480ms). The first three were authored + justified in `CAM-426/design.md §7`
+and approved under the owner's CAM-426 autonomy delegation; `ai-flame-flicker` was added under CAM-432 (owner
+staging feedback + reference image). Any NEW motion beyond these four routes back to full human G2.
 
 This exception is the record that legitimizes the camping assistant look. Anything beyond items 1–5, or any reuse of
 `--ai-*` outside the assistant surface, routes back to full human G2.
