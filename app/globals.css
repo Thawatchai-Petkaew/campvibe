@@ -271,6 +271,42 @@ h6 {
   }
 }
 
+/* ── CAM-454 — AI-chat expanded lock + scrollbar cleanup ─────────────────────
+   Manual scroll-lock (deliberately NOT Radix Dialog `modal={true}`):
+   `overflow:hidden` alone reserves no scrollbar-gutter, so it can never
+   shift layout the way Radix's `RemoveScroll` did (CAM-440's phantom
+   right "sidebar" bug). Applied to <html> only while AiChatPanel.tsx is
+   both open and expanded; collapsed mode never locks the page. */
+.ai-chat-scroll-lock {
+  overflow: hidden;
+}
+
+/* Generic reusable utility: hides the native/webkit scrollbar chrome while
+   the element stays scrollable by wheel/touch/keyboard. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Opt-in (data-scrollbar-hidden on a `<ScrollArea>`) hide of a Radix
+   ScrollArea's own visual scrollbar affordance — its custom Thumb/Track
+   (Radix already hides the native browser scrollbar on the viewport itself
+   via its own injected style; this hides the remaining cosmetic bar) — so
+   scrolling still works with no visible bar at all. */
+[data-scrollbar-hidden] [data-slot="scroll-area-viewport"] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-scrollbar-hidden] [data-slot="scroll-area-viewport"]::-webkit-scrollbar {
+  display: none;
+}
+[data-scrollbar-hidden] [data-slot="scroll-area-scrollbar"] {
+  display: none;
+}
+
 /* ── status-map HUD layout constants ─────────────────────────────────────────
    Internal layout constants for the /status/map HUD surface only.
    Not DESIGN.md semantic tokens — scoped to app/status/** (exempt from check:palette). */

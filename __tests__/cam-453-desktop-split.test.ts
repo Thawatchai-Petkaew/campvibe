@@ -31,8 +31,9 @@ describe("(a) split layout is gated by expanded + Tailwind's lg: prefix", () => 
   });
 
   it("[normal] the detail pane forks a bounded lg:w-[26rem] side-panel variant, gated the same way", () => {
-    expect(panelSrc).toContain("lg:w-[26rem] lg:border-l lg:border-border/60");
-    expect(panelSrc).toContain('selectedCamp ? "lg:w-[26rem]');
+    // CAM-454 removed the lg:border-l divider (owner: no line between the
+    // split panes) — see cam-454-expanded-card-shell.test.ts for the guard.
+    expect(panelSrc).toContain('selectedCamp ? "lg:w-[26rem]" : "lg:w-0"');
   });
 
   it("[boundary] the detail rail collapses to lg:w-0 when nothing is selected (still in-flow, not translated off)", () => {

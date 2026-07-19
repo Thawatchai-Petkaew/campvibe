@@ -16,11 +16,19 @@ const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 
 const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 
-describe("AC-1/AC-2/BR-1 — fullscreen geometry: inset-0, no card frame", () => {
-  it("[unit] the expanded branch sets inset-0 with no rounded-3xl/border at the outer edge", () => {
+describe("AC-1/AC-2/BR-1 — expanded geometry (CAM-454 supersedes CAM-431's true-fullscreen inset-0 with an inset sliding card)", () => {
+  it("[unit] CAM-454: the expanded branch is now an inset card (rounded-3xl + border), not edge-to-edge inset-0", () => {
     expect(panelSrc).toContain(
-      "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+      "inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24"
     );
+    expect(panelSrc).not.toMatch(/expanded\s*\n\s*\?\s*"inset-0 duration-200/);
+  });
+
+  it("[unit] CAM-454: the expanded entrance slides in from the right (replaces the CAM-431 zoom-in-95)", () => {
+    expect(panelSrc).toContain(
+      "duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right-10 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right-10"
+    );
+    expect(panelSrc).not.toContain("data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95");
   });
 
   it("[structural] the old near-full-page card geometry (inset-2/sm:inset-6/rounded-3xl+border) is gone", () => {
