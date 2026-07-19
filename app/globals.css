@@ -76,6 +76,12 @@ h6 {
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+    --color-ai-surface: var(--ai-surface);
+    --color-ai-tint: var(--ai-tint);
+    --color-ai-ember: var(--ai-ember);
+    --color-ai-firefly: var(--ai-firefly);
+    --color-ai-star: var(--ai-star);
+    --shadow-ai-glow: var(--ai-glow);
     --font-heading: var(--font-display);
 }
 
@@ -121,6 +127,23 @@ h6 {
     --sidebar-ring: oklch(0.723 0.014 214.4);
     --background: oklch(1 0 0);
     --foreground: oklch(0.148 0.004 228.8);
+
+    /* ── CAM-426 น้องกองไฟ AI Expression Layer — assistant surface only (see DESIGN.md §2.1) ── */
+    /* Teal 186–188 (--primary) + sky 237 (--info) + warm camping ember/firefly 55–105 (--warning family). */
+    --ai-surface: oklch(0.980 0.008 210 / 0.86);
+    --ai-tint: oklch(0.965 0.016 205);
+    --ai-ember: oklch(0.720 0.170 55);
+    --ai-firefly: oklch(0.860 0.160 100);
+    --ai-star: oklch(0.950 0.020 237);
+    --ai-glow:
+      0 0 0 1px oklch(0.511 0.096 186.391 / 0.08),
+      0 2px 8px -4px oklch(0.148 0.004 228.8 / 0.06),
+      0 16px 40px -24px oklch(0.511 0.130 237.0 / 0.18),
+      0 4px 16px -10px oklch(0.511 0.096 186.391 / 0.14);
+    --ai-gradient:
+      radial-gradient(115% 120% at 15% 0%, oklch(0.511 0.096 186.391 / 0.08) 0%, transparent 45%),
+      radial-gradient(120% 125% at 100% 5%, oklch(0.511 0.130 237.0 / 0.08) 0%, transparent 50%),
+      radial-gradient(90% 80% at 50% 100%, oklch(0.769 0.188 70.08 / 0.05) 0%, transparent 55%);
 }
 
 .dark {
@@ -162,6 +185,22 @@ h6 {
     --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.56 0.021 213.5);
+
+    /* ── CAM-426 น้องกองไฟ AI Expression Layer (dark) — night-at-camp: brighter embers/fireflies over a dim sky ── */
+    --ai-surface: oklch(0.230 0.014 222 / 0.84);
+    --ai-tint: oklch(0.305 0.024 216);
+    --ai-ember: oklch(0.780 0.180 58);
+    --ai-firefly: oklch(0.900 0.170 105);
+    --ai-star: oklch(0.970 0.030 237);
+    --ai-glow:
+      0 0 0 1px oklch(0.637 0.143 237.0 / 0.16),
+      0 2px 8px -4px oklch(0 0 0 / 0.24),
+      0 22px 56px -26px oklch(0.437 0.078 188.216 / 0.36),
+      0 0 32px -16px oklch(0.637 0.143 237.0 / 0.20);
+    --ai-gradient:
+      radial-gradient(115% 120% at 15% 0%, oklch(0.437 0.078 188.216 / 0.18) 0%, transparent 45%),
+      radial-gradient(120% 125% at 100% 5%, oklch(0.637 0.143 237.0 / 0.16) 0%, transparent 50%),
+      radial-gradient(90% 80% at 50% 100%, oklch(0.879 0.169 91.605 / 0.10) 0%, transparent 55%);
 }
 
 @layer base {
@@ -215,4 +254,52 @@ h6 {
    Not DESIGN.md semantic tokens — scoped to app/status/** (exempt from check:palette). */
 :root {
   --hud-inset-sm: 12px; /* horizontal breathing gap between a full-width HUD row and the screen edge on mobile/tablet */
+}
+
+/* ── CAM-426 น้องกองไฟ AI Expression Layer — ambient utilities (assistant surface only) ── */
+@layer components {
+  /* Static campfire-night aurora backdrop (teal→sky + warm horizon). Decorative; place behind content. */
+  .ai-aurora {
+    background-image: var(--ai-gradient);
+  }
+}
+
+/* Motion-safe only. Every loop is transform/opacity, dimmed, and no-ops under reduce-motion.
+   These are the §2.1-sanctioned ambient loops (owner-approved under the CAM-426 delegation). */
+@media (prefers-reduced-motion: no-preference) {
+  /* Slow, ~18s aurora drift — barely perceptible; reinforces the "night breathing" feel. */
+  .ai-aurora-drift {
+    animation: ai-aurora-drift 18s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+  /* Gentle flame glow on the avatar chip — dim opacity/scale pulse, ~2.4s. */
+  .ai-flame-glow {
+    animation: ai-flame-glow 2400ms ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  /* One-shot detail-card "campfire materialize" — owner-gated exception, ≤480ms (see design.md §7). */
+  .ai-materialize {
+    animation: ai-materialize 480ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    will-change: transform, opacity;
+  }
+}
+
+@keyframes ai-aurora-drift {
+  from { transform: translate3d(0, 0, 0) scale(1);        opacity: 0.85; }
+  to   { transform: translate3d(1.2%, -1.2%, 0) scale(1.03); opacity: 1; }
+}
+@keyframes ai-flame-glow {
+  0%, 100% { transform: scale(1);    opacity: 0.55; }
+  50%      { transform: scale(1.06); opacity: 0.85; }
+}
+@keyframes ai-materialize {
+  from { transform: scale(0.965); opacity: 0; }
+  to   { transform: scale(1);     opacity: 1; }
+}
+
+/* Reduce-motion: no ambient motion at all (aurora/flame static, materialize collapses to a fade the app can skip). */
+@media (prefers-reduced-motion: reduce) {
+  .ai-aurora-drift,
+  .ai-flame-glow,
+  .ai-materialize { animation: none; }
 }
