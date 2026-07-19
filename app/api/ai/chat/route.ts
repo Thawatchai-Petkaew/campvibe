@@ -96,21 +96,36 @@ export const maxDuration = 60;
  * internal ordering key, never read client-side — QA Info finding) — done
  * defensively (only when a card actually has an `images` array) so this
  * never assumes a full `campCardSelect` shape.
+ *
+ * CAM-427: `options[]` (the card's "first tag") is trimmed the same way —
+ * only `{nameTh, nameEn}` reach the wire, matching the declared
+ * `AiChatCardTag` type exactly; `code`/`group` are server-internal taxonomy
+ * fields, never read client-side. `hasReviews`/`remaining` are already plain
+ * booleans/numbers (no Decimal/Date involved) so `serializeDecimals` passes
+ * them through unchanged with no extra handling needed here.
  */
 function toWireCards(cards: unknown[]): unknown[] {
   const serialised = serializeDecimals(cards);
   return serialised.map((raw) => {
-    if (!raw || typeof raw !== 'object' || !Array.isArray((raw as Record<string, unknown>).images)) {
-      return raw;
-    }
+    if (!raw || typeof raw !== 'object') return raw;
     const c = raw as Record<string, unknown>;
-    const images = c.images as unknown[];
-    return {
-      ...c,
-      images: images.map((img) =>
+    const out: Record<string, unknown> = { ...c };
+
+    if (Array.isArray(c.images)) {
+      out.images = (c.images as unknown[]).map((img) =>
         img && typeof img === 'object' ? { url: (img as Record<string, unknown>).url } : img
-      ),
-    };
+      );
+    }
+
+    if (Array.isArray(c.options)) {
+      out.options = (c.options as unknown[]).map((opt) =>
+        opt && typeof opt === 'object'
+          ? { nameTh: (opt as Record<string, unknown>).nameTh, nameEn: (opt as Record<string, unknown>).nameEn }
+          : opt
+      );
+    }
+
+    return out;
   });
 }
 

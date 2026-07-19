@@ -31,13 +31,30 @@
  * indented under the avatar) — preserves CAM-407/CAM-409's full-width fix.
  * The welcome/empty state gains a hero avatar + a labelled examples block;
  * the 3 pills bump from h-9 to h-11 (BR-5, 44px tap target).
+ *
+ * CAM-425: the CAM-423 resuming indicator (a bare top-left inline spinner)
+ * is replaced by a centered, on-brand treatment — the shared `AiChatAvatar`
+ * (size="lg", subtle motion-safe pulse) + the Thai loading label, positioned
+ * as `absolute inset-0` centered inside the ScrollArea (which is already
+ * `position: relative` — components/ui/scroll-area.tsx). An absolute
+ * overlay sizes off the ScrollArea Root's actual rendered box regardless of
+ * Radix's internal `display: table` Viewport wrapper, where a plain
+ * percentage height (`h-full`) would not reliably resolve (same class of
+ * issue as CAM-407). Same aria-busy/role=status/aria-live=polite contract;
+ * the pulse is motion-safe (EC-1 static under prefers-reduced-motion).
+ *
+ * CAM-426 (DESIGN.md §2.1 sanctioned exception): every assistant-side bubble
+ * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
+ * (still paired with `text-foreground`, AA by token parity — see design.md
+ * §1 contrast honesty). The user bubble stays `bg-primary`/
+ * `text-primary-foreground` — unchanged, still distinguished by side + fill
+ * + avatar, never hue alone.
  */
 "use client";
 
 import { Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
@@ -71,19 +88,21 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
       className="flex flex-col gap-3 p-4"
     >
       {resuming && (
-        // CAM-423 — fetching the camper's latest conversation on open;
-        // reuses the SAME inline-spinner override the send button already
-        // uses (loading.md: no new skeleton for an isolated module fetch).
-        // Its own scoped aria-busy + role=status/aria-live=polite (loading.md
-        // §5) — the outer log's aria-busy stays tied to `sending` only.
+        // CAM-425 — fetching the camper's latest conversation on open; now
+        // centered (not top-left) via an absolute overlay sized off the
+        // ScrollArea's own box (which is `position: relative`). Its own
+        // scoped aria-busy + role=status/aria-live=polite (loading.md §5) —
+        // the outer log's aria-busy stays tied to `sending` only.
         <div
           role="status"
           aria-live="polite"
           aria-busy={resuming}
           data-testid="status--ai-chat-resuming"
-          className="flex items-center gap-2 py-2 text-sm text-muted-foreground"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
         >
-          <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
+          <div className="motion-safe:animate-pulse">
+            <AiChatAvatar size="lg" />
+          </div>
           <span>{t.aiChat.loading}</span>
         </div>
       )}
@@ -130,7 +149,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           <AiChatAvatar size="sm" />
           <div
             data-testid="status--ai-chat-typing"
-            className="flex max-w-[85%] items-center gap-1 rounded-2xl bg-muted px-4 py-2.5"
+            className="flex max-w-[85%] items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5"
           >
             <span className="sr-only">{t.aiChat.typing}</span>
             {[0, 1, 2].map((i) => (
@@ -186,7 +205,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
           <AiChatAvatar size="sm" />
           <div
             data-testid="msg--ai-chat-assistant"
-            className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+            className="max-w-[85%] rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
           >
             {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
             <p className="whitespace-pre-wrap">{entry.text}</p>
@@ -231,7 +250,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
         <AiChatAvatar size="sm" />
         <div
           data-testid="error--ai-chat-ratelimited"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
         >
           <Clock className="size-4 shrink-0 text-warning" aria-hidden="true" />
           <span>{t.aiChat.rateLimited}</span>
@@ -247,7 +266,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
         <AiChatAvatar size="sm" />
         <div
           data-testid="info--ai-chat-disabled"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
         >
           <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>{t.aiChat.disabled}</span>

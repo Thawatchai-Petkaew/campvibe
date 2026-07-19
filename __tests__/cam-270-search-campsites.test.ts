@@ -3,10 +3,15 @@
  *
  * Coverage matrix:
  *   - normal: valid filters (incl. petFriendly) → ≤10 payloads via
- *     buildCampSiteWhere + campCardSelect, public gate present in the WHERE
+ *     buildCampSiteWhere + aiCampCardSelect, public gate present in the WHERE
  *   - null/empty: zero-match search → empty cards array (AC-8), not null/error
  *   - boundary: a model-supplied limit > 10 is clamped to 10 (BR-2), never overridden
  *   - boundary: a model-supplied limit < 10 is respected
+ *
+ * CAM-427: `select` moved from the shared `campCardSelect` to the dedicated
+ * `aiCampCardSelect` (extends it, never regresses the shared one — see
+ * lib/read-models/ai-camp-card.ts) — the identity assertion below now checks
+ * the NEW select object.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -25,15 +30,18 @@ const {
   searchCampsitesArgsSchema,
   SEARCH_CAMPSITES_MAX_RESULTS,
 } = await import('@/lib/ai/tools/search-campsites');
-const { campCardSelect } = await import('@/lib/read-models/camp-card');
+const { aiCampCardSelect } = await import('@/lib/read-models/ai-camp-card');
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('searchCampsites — normal (valid filters incl. petFriendly)', () => {
-  it('[unit] queries via campCardSelect with the public gate present, take ≤ 10', async () => {
-    mockFindMany.mockResolvedValueOnce([{ id: 'c1' }, { id: 'c2' }]);
+  it('[unit] queries via aiCampCardSelect with the public gate present, take ≤ 10', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { id: 'c1', reviewCount: 0, location: { province: 'Chiang Mai' }, options: [] },
+      { id: 'c2', reviewCount: 3, location: { province: 'Rayong' }, options: [] },
+    ]);
 
     const args = searchCampsitesArgsSchema.parse({ province: 'เชียงใหม่', petFriendly: true });
     const result = await executeSearchCampsites(args);
@@ -41,7 +49,7 @@ describe('searchCampsites — normal (valid filters incl. petFriendly)', () => {
     expect(result.cards).toHaveLength(2);
     expect(mockFindMany).toHaveBeenCalledOnce();
     const call = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown>; select: unknown; take: number };
-    expect(call.select).toBe(campCardSelect);
+    expect(call.select).toBe(aiCampCardSelect);
     expect(call.where.isActive).toBe(true);
     expect(call.where.isPublished).toBe(true);
     expect(call.where.deletedAt).toBeNull();

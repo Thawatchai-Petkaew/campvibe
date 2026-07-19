@@ -16,6 +16,7 @@ import { searchCampsitesTool } from '@/lib/ai/tools/search-campsites';
 import { checkAvailabilityTool } from '@/lib/ai/tools/check-availability';
 import { getMyBookingsTool, getMyBookingDetailTool } from '@/lib/ai/tools/my-bookings';
 import { getMyProfileTool, getMyWishlistTool } from '@/lib/ai/tools/my-profile-wishlist';
+import { getCampDetailTool } from '@/lib/ai/tools/get-camp-detail';
 
 registerTool(searchCampsitesTool);
 registerTool(checkAvailabilityTool);
@@ -23,6 +24,8 @@ registerTool(getMyBookingsTool);
 registerTool(getMyBookingDetailTool);
 registerTool(getMyProfileTool);
 registerTool(getMyWishlistTool);
+// CAM-427 — the assistant's floating detail card: amenities + verified reviews + upcoming weekend dates.
+registerTool(getCampDetailTool);
 
 export {
   searchCampsitesTool,
@@ -31,4 +34,5 @@ export {
   getMyBookingDetailTool,
   getMyProfileTool,
   getMyWishlistTool,
+  getCampDetailTool,
 };

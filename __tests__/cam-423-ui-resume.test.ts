@@ -304,30 +304,18 @@ describe("AC-4/BR-5/EC-3 — guest path stays byte-stable (D1)", () => {
   });
 });
 
-describe("AC-3/BR-4 — 'เริ่มแชทใหม่' clears the thread + conversationId, authed-only control", () => {
-  it("[unit] startNewChat resets conversationIdRef and entries", () => {
+describe("AC-3/BR-4 — startNewChat hook logic (UI entry point hidden by CAM-425, single-thread)", () => {
+  it("[unit] startNewChat resets conversationIdRef and entries — kept in the hook, exported-but-unreferenced (a later conversation switcher reuses it)", () => {
     expect(useAiChatSrc).toContain("const startNewChat = useCallback(() => {");
     expect(useAiChatSrc).toContain("conversationIdRef.current = undefined;");
     expect(useAiChatSrc).toContain("setEntries([]);");
   });
 
-  it("[unit] the panel renders the new-chat button only when isAuthenticated, disabled while sending/resuming", () => {
-    expect(panelSrc).toContain("{isAuthenticated && (");
-    expect(panelSrc).toContain('data-testid="btn--ai-chat-new"');
-    expect(panelSrc).toContain("disabled={sending || resuming}");
-    expect(panelSrc).toContain("onClick={startNewChat}");
-  });
-
-  it("[unit] the button's accessible name comes from i18n (aiChat.newChat), never a hardcoded string", () => {
-    expect(panelSrc).toContain("aria-label={t.aiChat.newChat}");
-  });
-
-  it("[unit] icon is lucide-only (MessageSquarePlus), imported from lucide-react", () => {
-    expect(panelSrc).toMatch(/import\s*\{[^}]*MessageSquarePlus[^}]*\}\s*from\s*["']lucide-react["']/);
-  });
+  // CAM-425 supersedes the CAM-423 new-chat button render — see
+  // cam-425-single-thread-and-centered-loading.test.ts for the absence assertions.
 });
 
-describe("AC-1/AC-2/BR-3 — resuming indicator: loading.md inline spinner, never a new skeleton", () => {
+describe("AC-1/AC-2/BR-3 — resuming indicator: loading.md indicator, never a new skeleton", () => {
   it("[unit] AiChatMessageList accepts + forwards a `resuming` prop from the panel", () => {
     expect(panelSrc).toContain("resuming={resuming}");
     expect(listSrc).toContain("resuming: boolean");
@@ -337,8 +325,7 @@ describe("AC-1/AC-2/BR-3 — resuming indicator: loading.md inline spinner, neve
     expect(listSrc).toContain("{!resuming && entries.length === 0 && (");
   });
 
-  it("[unit] the resuming indicator reuses the SAME inline LoadingSpinner override the send button already uses (no new skeleton component)", () => {
-    expect(listSrc).toContain('<LoadingSpinner size="sm" className="h-auto w-auto gap-0" />');
+  it("[unit] the resuming indicator renders (data-testid present) — CAM-425 replaced the bare LoadingSpinner with a centered avatar treatment, see cam-425 test file", () => {
     expect(listSrc).toContain('data-testid="status--ai-chat-resuming"');
   });
 

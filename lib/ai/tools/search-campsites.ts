@@ -17,7 +17,8 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { buildCampSiteWhere } from '@/lib/campsite-filters';
-import { campCardSelect, type CampCardPayload } from '@/lib/read-models/camp-card';
+import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-models/ai-camp-card';
+import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** BR-2 — the tool NEVER returns more than this many cards, regardless of any model-requested count. */
@@ -45,6 +46,11 @@ const FACILITY_CODES = [
   'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW',
 ] as const;
 
+/** Same "is this a real calendar date" check `lib/ai/tools/check-availability.ts` already uses — no new validation concept. */
+const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
+  message: 'Invalid date',
+});
+
 export const searchCampsitesArgsSchema = z.object({
   province: z.string().trim().min(1).max(100).optional(),
   type: z.string().trim().min(1).max(20).optional(),
@@ -60,13 +66,33 @@ export const searchCampsitesArgsSchema = z.object({
   facilities: z.enum(FACILITY_CODES).optional(),
   /** Model-requested result count — clamped to SEARCH_CAMPSITES_MAX_RESULTS, never honored above it (BR-2). */
   limit: z.number().int().positive().optional(),
+  /**
+   * CAM-427 (G3) — a stay date range for LIVE "เหลือ N ที่" per card. Both
+   * fields are optional and independent of one another: providing only one,
+   * an unparseable string, or an inverted range never fails the search
+   * (fail-open, same policy `getAvailabilityStatusForCamps` already uses) —
+   * it just leaves every card's `remaining` as `null` (unknown), it never
+   * blocks/empties the result list.
+   */
+  startDate: isoDate.optional(),
+  endDate: isoDate.optional(),
 });
 
 export type SearchCampsitesArgs = z.infer<typeof searchCampsitesArgsSchema>;
 
+/**
+ * CAM-427 (G3) — `remaining` is ALWAYS present (never optional) so the card
+ * renderer never has to branch on presence: `null` = no date range was
+ * requested (or the range failed the DoS/inversion guard) — unknown, render
+ * no live-availability text; a number = live "เหลือ N ที่" (0 = "เต็ม").
+ */
+export interface SearchCampsiteCard extends AiCampCard {
+  remaining: number | null;
+}
+
 export interface SearchCampsitesResult {
   /** Never null — a zero-match search returns [] so the caller can render an empty state (AC-8). */
-  cards: CampCardPayload[];
+  cards: SearchCampsiteCard[];
 }
 
 /** CAM-404 — a province arg containing any Thai character triggers the ThailandLocation resolve below. */
@@ -139,6 +165,8 @@ const jsonSchema = {
         'A specific facility the camper asked for — pick ONE: SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี.',
     },
     limit: { type: 'number', description: `Max results to return (capped at ${SEARCH_CAMPSITES_MAX_RESULTS})` },
+    startDate: { type: 'string', description: 'Stay start date, ISO 8601 (e.g. 2026-08-01) — only when the camper gave a date range; enables a live "เหลือ N ที่" count per card.' },
+    endDate: { type: 'string', description: 'Stay checkout date (exclusive), ISO 8601 — required together with startDate.' },
   },
   additionalProperties: false,
 } as const;
@@ -162,19 +190,42 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // BR-2: hard cap, never overridden by a larger model-supplied count.
   const take = Math.min(args.limit ?? SEARCH_CAMPSITES_MAX_RESULTS, SEARCH_CAMPSITES_MAX_RESULTS);
 
-  const cards = await prisma.campSite.findMany({
+  const rows = await prisma.campSite.findMany({
     where,
-    select: campCardSelect,
+    select: aiCampCardSelect,
     take,
   });
 
-  return { cards };
+  const cards = rows.map(toAiCampCard);
+
+  // CAM-427 (G3): LIVE, batched remaining-capacity — ONE call for the WHOLE
+  // page of cards (never a per-card getRemainingCapacity loop, BR-5). Only
+  // runs when the caller supplied BOTH dates; an unparseable/inverted range
+  // fails open (getRemainingCapacityForCamps returns {}) — every card just
+  // keeps `remaining: null` (unknown), the search itself never fails.
+  let remainingByCampId: Record<string, { remaining: number | null }> = {};
+  if (args.startDate && args.endDate && cards.length > 0) {
+    const start = new Date(args.startDate);
+    const end = new Date(args.endDate);
+    remainingByCampId = await getRemainingCapacityForCamps(
+      cards.map((c) => c.id),
+      start,
+      end
+    );
+  }
+
+  return {
+    cards: cards.map((card) => ({
+      ...card,
+      remaining: remainingByCampId[card.id]?.remaining ?? null,
+    })),
+  };
 }
 
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards.',
+    'Search published, active CampVibe campsites by province, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
   tier: 'guest',
   parameters: searchCampsitesArgsSchema,
