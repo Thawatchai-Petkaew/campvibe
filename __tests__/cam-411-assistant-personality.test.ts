@@ -28,7 +28,15 @@ describe("BR-2 — AiChatAvatar: one token-tinted icon-chip mark, 3 sizes, decor
   it("[unit] renders a lucide Flame icon inside a rounded-full bg-primary/10 chip", () => {
     expect(avatarSrc).toContain('import { Flame } from "lucide-react"');
     expect(avatarSrc).toContain("rounded-full bg-primary/10");
-    expect(avatarSrc).toContain("text-primary");
+  });
+
+  // CAM-426 (DESIGN.md §2.1 sanctioned exception): the flame recolors
+  // text-primary -> text-ai-ember (warm campfire ember token) with the
+  // ai-flame-glow dim pulse; the chip background stays bg-primary/10 (above).
+  it("[unit] the flame icon uses the ai-ember token + the ai-flame-glow pulse", () => {
+    expect(avatarSrc).toContain("text-ai-ember");
+    expect(avatarSrc).toContain("ai-flame-glow");
+    expect(avatarSrc).toContain("fill-current");
   });
 
   it("[unit] the three documented sizes exist (sm 8/4, md 10/5, lg 12/6)", () => {

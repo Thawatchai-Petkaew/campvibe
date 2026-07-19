@@ -355,7 +355,8 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
   it("[unit] the answer row (text bubble + cards) is w-full max-w-full — never squeezed to the chat-bubble's max-w-[85%]", () => {
     expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-2 self-start");
     // only the text bubble itself keeps the chat-bubble width
-    expect(listSrc).toContain('className="max-w-[85%] rounded-2xl bg-muted');
+    // CAM-426: bg-muted -> bg-ai-tint (DESIGN.md §2.1 sanctioned exception) — canonical class updated in place.
+    expect(listSrc).toContain('className="max-w-[85%] rounded-2xl bg-ai-tint');
   });
 
   it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {
