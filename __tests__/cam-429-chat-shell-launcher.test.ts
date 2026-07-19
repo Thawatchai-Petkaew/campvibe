@@ -37,7 +37,8 @@ describe("AC-1 — no background dim, dismiss/a11y untouched", () => {
 
 describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
   it("[unit] a Maximize2/Minimize2 header toggle exists, aria-labelled, wired to toggleExpanded", () => {
-    expect(panelSrc).toContain('import { Maximize2, Minimize2, Send, X } from "lucide-react"');
+    // CAM-442 added Loader2 (send-button spinner) to the same import line
+    expect(panelSrc).toContain('import { Loader2, Maximize2, Minimize2, Send, X } from "lucide-react"');
     expect(panelSrc).toContain('data-testid="btn--ai-chat-expand-toggle"');
     expect(panelSrc).toContain("aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}");
     expect(panelSrc).toContain("onClick={toggleExpanded}");
