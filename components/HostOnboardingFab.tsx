@@ -1,3 +1,12 @@
+/**
+ * components/HostOnboardingFab.tsx
+ *
+ * CAM-429 (owner staging feedback): moved from `fixed bottom-6 right-6` to
+ * `fixed bottom-6 left-6` — the Home AI chat launcher
+ * (`components/ai-chat/AiChatLauncher.tsx`) resets to its own natural
+ * `bottom-6 right-6`, so the two FABs now sit in opposite corners instead of
+ * one dodging the other upward.
+ */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -39,7 +48,7 @@ export function HostOnboardingFab({ isLoggedIn }: HostOnboardingFabProps) {
   if (!isLoggedIn || !shouldShow) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-6 left-6 z-50">
       <Link href="/host">
         <Button className="rounded-full shadow-lg shadow-primary/20">
           <Store className="w-4 h-4 mr-2" />

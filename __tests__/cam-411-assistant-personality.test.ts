@@ -159,11 +159,11 @@ describe("AC-5 — launcher shows the Flame mark with the คุยกับน�
 
   it("[i18n] launcherLabel verbatim (TH)", () => expect(th.launcherLabel).toBe("คุยกับน้องกองไฟ"));
 
-  it("[unit] all existing launcher interaction states are unchanged (hover/active scale, size, offset)", () => {
+  it("[unit] launcher interaction states (hover/active scale, size) are unchanged; the offset resets per CAM-429", () => {
     expect(launcherSrc).toContain("motion-safe:hover:scale-105");
     expect(launcherSrc).toContain("motion-safe:active:scale-95");
     expect(launcherSrc).toContain("h-12 w-12");
-    expect(launcherSrc).toContain("bottom-24 right-6");
+    expect(launcherSrc).toContain("bottom-6 right-6");
   });
 });
 
