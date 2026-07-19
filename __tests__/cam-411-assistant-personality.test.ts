@@ -124,10 +124,12 @@ describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assis
     expect(listSrc).toContain('max-w-[85%] self-end'); // the user bubble, untouched
   });
 
-  it("[unit] the in-chat card carousel + suggestion chips get their own pl-4 so they line up with the bubble's own px-4 text inset", () => {
+  it("[unit] CAM-439 SUPERSEDES: the card carousel + suggestion chips no longer carry a pl-4 (the bubble's px-4 inset they matched is gone) — everything left-aligns at the log's own p-4 edge", () => {
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
-    expect(answerBlock).toContain('<div className="pl-4">');
-    expect(answerBlock).toContain('className="flex flex-wrap gap-2 pl-4"');
+    expect(answerBlock).not.toContain('<div className="pl-4">');
+    expect(answerBlock).toContain("<AiChatCardCarousel cards={entry.cards} />");
+    expect(answerBlock).toContain('className="flex flex-wrap gap-2"');
+    expect(answerBlock).not.toContain('className="flex flex-wrap gap-2 pl-4"');
   });
 
   it('[unit/EC-1] entrance motion is motion-safe-gated transform+opacity ~200ms (instant under reduced-motion)', () => {
