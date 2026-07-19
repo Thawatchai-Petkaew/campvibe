@@ -117,6 +117,7 @@ import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
 import { parseAnswer } from "@/components/ai-chat/answer-format";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
+import type { AiChatCardResponse } from "@/lib/api-client";
 
 const SUGGESTION_KEYS = ["suggestion1", "suggestion2", "suggestion3"] as const;
 
@@ -131,9 +132,18 @@ interface AiChatMessageListProps {
   resuming: boolean;
   onSuggestion: (text: string) => void;
   onRetry: () => void;
+  /** CAM-447 — opens the floating detail card for a selected result card. */
+  onSelectCamp: (card: AiChatCardResponse) => void;
 }
 
-export function AiChatMessageList({ entries, sending, resuming, onSuggestion, onRetry }: AiChatMessageListProps) {
+export function AiChatMessageList({
+  entries,
+  sending,
+  resuming,
+  onSuggestion,
+  onRetry,
+  onSelectCamp,
+}: AiChatMessageListProps) {
   const { t } = useLanguage();
   const lastEntry = entries[entries.length - 1];
   // CAM-412 BR-8: once the streaming entry exists, IT is the in-flight
@@ -201,6 +211,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           entry={entry}
           onRetry={onRetry}
           onSuggestion={onSuggestion}
+          onSelectCamp={onSelectCamp}
           showSuggestions={!sending && index === entries.length - 1}
         />
       ))}
@@ -235,11 +246,12 @@ interface AiChatEntryRowProps {
   entry: ChatEntry;
   onRetry: () => void;
   onSuggestion: (text: string) => void;
+  onSelectCamp: (card: AiChatCardResponse) => void;
   /** CAM-410 BR-7: true only for the newest entry while no turn is in flight. */
   showSuggestions: boolean;
 }
 
-function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiChatEntryRowProps) {
+function AiChatEntryRow({ entry, onRetry, onSuggestion, onSelectCamp, showSuggestions }: AiChatEntryRowProps) {
   const { t } = useLanguage();
 
   if (entry.role === "user") {
@@ -355,7 +367,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
             </p>
           )}
         </div>
-        {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} />}
+        {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} onSelectCamp={onSelectCamp} />}
         {suggestions.length > 0 && (
           <div
             role="group"

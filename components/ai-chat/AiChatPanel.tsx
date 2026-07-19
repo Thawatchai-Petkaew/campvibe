@@ -111,6 +111,16 @@
  *     Swapped for a plain `lucide-react` `Loader2`, tokened
  *     `text-primary-foreground` so it reads against the button fill, same
  *     `size-4` footprint as the `Send` icon it replaces (no layout shift).
+ *
+ * CAM-447 (S5): tapping a result card now opens a floating, in-panel detail
+ * card (`AiChatDetailCard`) instead of navigating away — the panel owns the
+ * "which camp is open" view state (`selectedCamp`, a plain `useState` here,
+ * NOT `use-ai-chat.ts`, so a thread re-render never drops the open detail)
+ * plus a ref to the ORIGINATING card button so focus can return to it on
+ * close. `AiChatDetailCard` mounts as an `absolute z-20` sibling of the
+ * `relative z-10` body below (never a second Radix Dialog); while it is
+ * open, that `z-10` body (header + message list + composer) is set `inert`
+ * so Tab/SR skip the now-covered composer entirely (design.md §1c/§4 state 8).
  */
 "use client";
 
@@ -127,7 +137,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAiChat } from "@/components/ai-chat/use-ai-chat";
 import { AiChatMessageList } from "@/components/ai-chat/AiChatMessageList";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
+import { AiChatDetailCard } from "@/components/ai-chat/AiChatDetailCard";
 import { isSendableQuestion } from "@/components/ai-chat/conversation";
+import type { AiChatCardResponse } from "@/lib/api-client";
 
 const AiAmbientCanvas = dynamic(
   () => import("@/components/ai-chat/AiAmbientCanvas").then((m) => ({ default: m.AiAmbientCanvas })),
@@ -169,6 +181,11 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  // CAM-447 — panel-level view state (not use-ai-chat.ts): which camp's
+  // floating detail card is open, plus the originating card button so
+  // closing the detail restores focus to it.
+  const [selectedCamp, setSelectedCamp] = useState<AiChatCardResponse | null>(null);
+  const detailTriggerRef = useRef<HTMLElement | null>(null);
   // CAM-442: sits on the existing flex column that already holds
   // <ScrollArea> (not a new element) so the CAM-407 definite-height chain
   // is untouched; Radix's real scrollable node has no ref of its own
@@ -256,11 +273,31 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     }
   }
 
+  // CAM-447 — captures the tapped card button (the current focused element
+  // at click time) before opening the detail, so closing it can restore
+  // focus there.
+  function handleSelectCamp(card: AiChatCardResponse) {
+    detailTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedCamp(card);
+  }
+
+  function handleCloseDetail() {
+    setSelectedCamp(null);
+    detailTriggerRef.current?.focus();
+    detailTriggerRef.current = null;
+  }
+
   // CAM-412 (BR-6/AC-7/EC-6) — every dismiss path (X button, Esc,
   // outside-pointer-dismiss) funnels through Radix's onOpenChange; aborting
   // here on the close transition covers all of them in one place.
+  // CAM-447 — closing the whole panel also clears any open detail card so a
+  // later reopen never resurrects a stale one.
   function handleOpenChange(next: boolean) {
-    if (!next) abortActiveStream();
+    if (!next) {
+      abortActiveStream();
+      setSelectedCamp(null);
+      detailTriggerRef.current = null;
+    }
     onOpenChange(next);
   }
 
@@ -331,7 +368,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           <div className="ai-aurora ai-aurora-drift pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <AiAmbientCanvas />
 
-          <div className="relative z-10 flex h-full min-h-0 flex-col">
+          {/* CAM-447: while the detail card is open, this body (header +
+              message list + composer) is set `inert` — the z-20 detail layer
+              covers it visually in every geometry mode, and `inert` keeps
+              Tab/SR from reaching the now-hidden composer/send + header
+              controls (design.md §1c/§4 state 8). */}
+          <div className="relative z-10 flex h-full min-h-0 flex-col" inert={selectedCamp !== null}>
             {/* CAM-431: fullscreen drops the bordered bar — identity cluster
                 + expand/close buttons sit lighter, directly on the ambient
                 (buttons grouped into a soft floating pill). Same nodes as
@@ -404,6 +446,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     resuming={resuming}
                     onSuggestion={handleSuggestion}
                     onRetry={retryLast}
+                    onSelectCamp={handleSelectCamp}
                   />
                 </div>
               </ScrollArea>
@@ -463,6 +506,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               </div>
             </div>
           </div>
+
+          {/* CAM-447 — the floating detail card: an absolute z-20 sibling of
+              the z-10 body above, mounted only while a camp is selected. */}
+          {selectedCamp && (
+            <AiChatDetailCard card={selectedCamp} expanded={expanded} onClose={handleCloseDetail} />
+          )}
         </PanelPrimitive.Content>
       </DialogPortal>
     </Dialog>
