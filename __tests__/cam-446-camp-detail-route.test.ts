@@ -48,12 +48,36 @@ function fullOkResult() {
     id: VALID_UUID,
     nameTh: 'ลานกางเต็นท์ริมน้ำ',
     nameEn: 'Riverside Camp',
+    description: 'ลานกางเต็นท์ริมแม่น้ำ วิวสวย',
     amenities: [
       { code: 'RIVE', group: 'Terrain', nameTh: 'แม่น้ำ ลำธาร คลองเล็ก', nameEn: 'River, stream, or creek', icon: 'Waves' },
     ],
     reviews: [{ name: 'สมชาย', rating: 5, content: 'ดีมาก', createdAt: '2026-01-01T00:00:00.000Z' }],
     reviewSummary: { hasReviews: true, avgRating: 4.5, count: 12 },
+    // CAM-449 fields:
+    price: {
+      low: 500,
+      high: 1200,
+      currency: 'THB',
+      extraFeeAmount: 50,
+      extraFeeLabel: 'ค่าเข้าอุทยาน',
+      feeInfo: null,
+      isFree: false,
+    },
+    capacity: { maxGuestsPerDay: 20, maxTentsPerDay: 10 },
+    cancellationPolicy: 'MODERATE' as const,
+    isVerified: true,
+    checkInTime: '13:00',
+    checkOutTime: '11:00',
+    minimumAge: null,
+    location: { province: 'Chiang Mai', region: 'North' },
+    directions: 'เลี้ยวขวาที่ทางแยกที่สอง',
+    distanceFromBangkokKm: 580.2,
     availableWeekendDates: ['2026-07-25', '2026-08-01'],
+    weekendAvailability: [
+      { date: '2026-07-25', remaining: 15, blockedByHost: false },
+      { date: '2026-08-01', remaining: null, blockedByHost: false },
+    ],
   };
 }
 
@@ -72,7 +96,14 @@ describe('GET /api/ai/camp-detail/[id] — normal', () => {
     expect(res.status).toBe(200);
     expect(body).toEqual(fullOkResult());
     const serialized = JSON.stringify(body).toLowerCase();
-    for (const forbidden of ['operator', 'phone', 'email', 'line', 'contact', 'host']) {
+    // CAM-449 — the wider select (description/directions/location/price/etc.)
+    // raises the leak surface; extend the forbidden-word list accordingly
+    // (still PDPA-safe). NOTE: bare 'host' is intentionally NOT checked here —
+    // `weekendAvailability[].blockedByHost` is a legitimate boolean ("this
+    // date is blocked BY the host"), not a host-contact leak; the actual
+    // contact-leak surface (phone/lineId/facebook/tiktok/operator/kyc/payout)
+    // is covered by the other words below.
+    for (const forbidden of ['operator', 'phone', 'email', 'line', 'contact', 'facebook', 'tiktok', 'kyc', 'payout']) {
       expect(serialized).not.toContain(forbidden);
     }
     expect(mockExecuteGetCampDetail).toHaveBeenCalledWith({ campSiteId: VALID_UUID });

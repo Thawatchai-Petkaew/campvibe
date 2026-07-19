@@ -7,11 +7,26 @@
  * — ADR-009 no-forked-data-path); a lean, dedicated `select` (not the heavy
  * `getCampBySlug` detail read, which over-fetches spots/full-images/operator
  * for a page render this tool doesn't need).
+ *
+ * CAM-449 (S5 enrichment): extends the same lean select with more
+ * DECISION-relevant, guest-safe fields the in-chat detail card (CAM-450)
+ * needs — description, real total price/fees, capacity, cancellation
+ * policy, verified badge, check-in/out, access, and a live per-weekend
+ * remaining-guest count (`weekendAvailability`). All fields come from OUR
+ * schema (no new external call); no operator/contact/KYC/payout field is
+ * ever selected or returned (PDPA, mirrors the CAM-427/CAM-446 boundary).
  */
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCampSiteDailyAvailability, getEffectiveCapacity } from '@/lib/campsite-availability';
+import {
+  getCampSiteDailyAvailability,
+  getEffectiveCapacity,
+  getRemainingCapacityForCamps,
+  type EffectiveCapacity,
+} from '@/lib/campsite-availability';
 import { buildReviewSummary, toReviewListItem, type ReviewListItem, type ReviewSummary } from '@/lib/review-summary';
+import type { CancellationPolicyValue } from '@/lib/cancellation-policy';
+import { distanceFromBangkokKm } from '@/lib/geo/distance';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** Bounded read — never an unbounded review dump (performance.md). */
@@ -40,12 +55,61 @@ export interface CampAmenity {
   icon: string | null;
 }
 
+/** CAM-449 — atomic price/fee fields (api.md rule 4: never a merged "฿1,250 incl VAT" string). */
+export interface CampDetailPrice {
+  low: number | null;
+  high: number | null;
+  currency: string;
+  /** One-time additive fee (e.g. park entrance), same currency as above. */
+  extraFeeAmount: number | null;
+  extraFeeLabel: string | null;
+  /** Free-text host context about fees — distinct from extraFeeAmount/Label. */
+  feeInfo: string | null;
+  isFree: boolean;
+}
+
+/**
+ * CAM-449 — the camp's advertised capacity, not the live remaining count (see
+ * `weekendAvailability`). CAM-449 QA fix: this is the EFFECTIVE capacity
+ * (`getEffectiveCapacity`, same as `availableWeekendDates`/
+ * `weekendAvailability` already use) — WHOLE-CAMP reads the raw
+ * `maxGuestsPerDay`/`maxTentsPerDay` columns unchanged, PER-SPOT
+ * (`useSpotView`) sums non-deleted spots instead. Never read the raw columns
+ * directly here — for a PER-SPOT camp they are null while the real capacity
+ * lives on its spots, which forked this field from `weekendAvailability`'s
+ * basis (CAM-355/CAM-400 class bug).
+ */
+export interface CampDetailCapacity {
+  maxGuestsPerDay: number | null;
+  maxTentsPerDay: number | null;
+}
+
+export interface CampDetailLocation {
+  province: string | null;
+  region: string | null;
+}
+
+/**
+ * CAM-449 — one upcoming Saturday's LIVE remaining-guest count, reusing the
+ * canonical `getRemainingCapacityForCamps` formula (ADR-009 no-forked-data-
+ * path) so this can never disagree with the catalog page's own badge math.
+ * `remaining` is a GUEST count: `null` when the camp has no capacity cap set
+ * (unbounded — the UI shows no number); `0` or `blockedByHost: true` both
+ * mean full (the UI shows "เต็มแล้ว").
+ */
+export interface WeekendAvailabilityEntry {
+  date: string;
+  remaining: number | null;
+  blockedByHost: boolean;
+}
+
 export type GetCampDetailResult =
   | {
       ok: true;
       id: string;
       nameTh: string;
       nameEn: string | null;
+      description: string | null;
       amenities: CampAmenity[];
       /** Verified reviews only (capped at MAX_REVIEWS_RETURNED, most recent first). */
       reviews: ReviewListItem[];
@@ -57,8 +121,26 @@ export type GetCampDetailResult =
        * `reviews.length` because `reviews` is filtered to verified-only.
        */
       reviewSummary: ReviewSummary;
+      price: CampDetailPrice;
+      capacity: CampDetailCapacity;
+      /** `null` = host has not set a policy yet (never inferred/guessed — ADR-003). */
+      cancellationPolicy: CancellationPolicyValue | null;
+      isVerified: boolean;
+      checkInTime: string;
+      checkOutTime: string;
+      minimumAge: number | null;
+      location: CampDetailLocation;
+      directions: string | null;
+      /** Haversine distance from a fixed Bangkok origin point; `null` when lat/lng is missing. */
+      distanceFromBangkokKm: number | null;
       /** ISO date strings (YYYY-MM-DD) — upcoming Saturday check-in nights that are NOT full/blocked. */
       availableWeekendDates: string[];
+      /**
+       * CAM-449 — the live, per-Saturday sibling of `availableWeekendDates`
+       * (which CAM-450 migrates to; `availableWeekendDates` stays for
+       * back-compat until a follow-up cleanup removes it).
+       */
+      weekendAvailability: WeekendAvailabilityEntry[];
     }
   | { ok: false; code: 'not_found' };
 
@@ -91,29 +173,28 @@ function nextSaturdays(count: number, from: Date): Date[] {
 /**
  * Live upcoming-weekend availability for ONE camp — a single
  * `getCampSiteDailyAvailability` call across the whole lookahead window
- * (never one call per Saturday) plus a single `getEffectiveCapacity` call,
- * both reused unchanged from `lib/campsite-availability.ts` (ADR-009). A
- * night is "available" when it is not host-blocked and (capacity is
- * unbounded OR occupied < capacity) — the same remaining>0 semantics
- * `getRemainingCapacity` already uses.
+ * (never one call per Saturday). `effectiveCapacity` is passed in (computed
+ * ONCE by the caller, `executeGetCampDetail`, via `getEffectiveCapacity` —
+ * CAM-449 QA fix: this function used to call `getEffectiveCapacity` itself,
+ * which would have meant a SECOND call once the `capacity` result field also
+ * needed it; hoisting keeps it at exactly one call total, per the perf/N+1
+ * guard test) — reused unchanged from `lib/campsite-availability.ts`
+ * (ADR-009). A night is "available" when it is not host-blocked and
+ * (capacity is unbounded OR occupied < capacity) — the same remaining>0
+ * semantics `getRemainingCapacity` already uses.
  */
-async function computeAvailableWeekendDates(campSite: {
-  id: string;
-  useSpotView: boolean;
-  maxGuestsPerDay: number | null;
-  maxTentsPerDay: number | null;
-}): Promise<string[]> {
+async function computeAvailableWeekendDates(
+  campSiteId: string,
+  effectiveCapacity: EffectiveCapacity
+): Promise<string[]> {
   const saturdays = nextSaturdays(WEEKEND_LOOKAHEAD_COUNT, new Date());
   const windowStart = saturdays[0];
   const windowEnd = new Date(saturdays[saturdays.length - 1]);
   windowEnd.setUTCDate(windowEnd.getUTCDate() + 1); // inclusive of the last Saturday night itself
 
-  const [daily, effective] = await Promise.all([
-    getCampSiteDailyAvailability(campSite.id, windowStart, windowEnd),
-    getEffectiveCapacity(prisma, campSite),
-  ]);
+  const daily = await getCampSiteDailyAvailability(campSiteId, windowStart, windowEnd);
 
-  const capacity = effective.maxGuestsPerDay;
+  const capacity = effectiveCapacity.maxGuestsPerDay;
   const out: string[] = [];
   for (const sat of saturdays) {
     const key = sat.toISOString().split('T')[0];
@@ -128,6 +209,45 @@ async function computeAvailableWeekendDates(campSite: {
   return out;
 }
 
+/**
+ * CAM-449 — the live, per-Saturday sibling of `computeAvailableWeekendDates`:
+ * a numeric remaining-guest count (not just open/full) per weekend date,
+ * reusing `getRemainingCapacityForCamps` — the EXACT same batched/canonical
+ * formula the catalog page's badge already uses (ADR-009 no-forked-data-
+ * path) — so this can never disagree with it.
+ *
+ * Bounded to WEEKEND_LOOKAHEAD_COUNT (8) calls, run in parallel — a FIXED
+ * internal constant, never client-controlled, so this is not the unbounded-
+ * loop DoS class CAM-401 guards against. `getRemainingCapacityForCamps`
+ * accepts a batch of camp ids for ONE date range (it batches across camps,
+ * not dates); since this tool is single-camp-scoped, one call per Saturday
+ * is required to get a genuinely PER-DATE number. This duplicates the query
+ * set `computeAvailableWeekendDates` above already ran for the same window —
+ * an accepted, temporary tradeoff kept ONLY until the follow-up cleanup
+ * ticket removes `availableWeekendDates` and consolidates both onto one path
+ * (see the `GetCampDetailResult.availableWeekendDates` doc comment).
+ */
+async function computeWeekendAvailability(campSiteId: string): Promise<WeekendAvailabilityEntry[]> {
+  const saturdays = nextSaturdays(WEEKEND_LOOKAHEAD_COUNT, new Date());
+
+  return Promise.all(
+    saturdays.map(async (sat) => {
+      const key = sat.toISOString().split('T')[0];
+      const nightEnd = new Date(sat);
+      nightEnd.setUTCDate(nightEnd.getUTCDate() + 1); // exclusive checkout — one night only
+
+      const byCampId = await getRemainingCapacityForCamps([campSiteId], sat, nightEnd);
+      const forThisCamp = byCampId[campSiteId];
+
+      return {
+        date: key,
+        remaining: forThisCamp ? forThisCamp.remaining : null,
+        blockedByHost: forThisCamp ? forThisCamp.blockedByHost : false,
+      };
+    })
+  );
+}
+
 export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<GetCampDetailResult> {
   const campSite = await prisma.campSite.findFirst({
     where: { id: args.campSiteId, isPublished: true, isActive: true, deletedAt: null },
@@ -135,11 +255,30 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
       id: true,
       nameTh: true,
       nameEn: true,
+      description: true,
       useSpotView: true,
       maxGuestsPerDay: true,
       maxTentsPerDay: true,
       avgRating: true,
       reviewCount: true,
+      // CAM-449 — atomic price/fee fields (guest-safe; no operator/payout data).
+      priceLow: true,
+      priceHigh: true,
+      priceCurrency: true,
+      extraFeeAmount: true,
+      extraFeeLabel: true,
+      feeInfo: true,
+      isFree: true,
+      cancellationPolicy: true,
+      isVerified: true,
+      checkInTime: true,
+      checkOutTime: true,
+      minimumAge: true,
+      directions: true,
+      latitude: true,
+      longitude: true,
+      // CAM-449 — guest-safe location fields only (never operator/contact — see the module doc comment).
+      location: { select: { province: true, region: true } },
       options: { select: { code: true, group: true, nameTh: true, nameEn: true, icon: true } },
       reviews: {
         where: { verified: true, deletedAt: null },
@@ -154,32 +293,69 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
     return { ok: false, code: 'not_found' };
   }
 
-  const availableWeekendDates = await computeAvailableWeekendDates({
+  // CAM-449 QA fix: ONE effective-capacity read, shared by the returned
+  // `capacity` field AND `computeAvailableWeekendDates`'s own full/open
+  // check — never the raw `maxGuestsPerDay`/`maxTentsPerDay` columns
+  // directly (those are null for a PER-SPOT camp; the real capacity lives
+  // on its spots). Same canonical source `weekendAvailability` already uses
+  // via `getRemainingCapacityForCamps` (ADR-009 no-forked-data-path).
+  const effectiveCapacity = await getEffectiveCapacity(prisma, {
     id: campSite.id,
     useSpotView: campSite.useSpotView,
     maxGuestsPerDay: campSite.maxGuestsPerDay,
     maxTentsPerDay: campSite.maxTentsPerDay,
   });
 
+  const [availableWeekendDates, weekendAvailability] = await Promise.all([
+    computeAvailableWeekendDates(campSite.id, effectiveCapacity),
+    computeWeekendAvailability(campSite.id),
+  ]);
+
   return {
     ok: true,
     id: campSite.id,
     nameTh: campSite.nameTh,
     nameEn: campSite.nameEn,
+    description: campSite.description,
     amenities: campSite.options,
     reviews: campSite.reviews.map(toReviewListItem),
     reviewSummary: buildReviewSummary({
       avg: campSite.avgRating ? campSite.avgRating.toNumber() : null,
       count: campSite.reviewCount,
     }),
+    price: {
+      low: campSite.priceLow ? campSite.priceLow.toNumber() : null,
+      high: campSite.priceHigh ? campSite.priceHigh.toNumber() : null,
+      currency: campSite.priceCurrency,
+      extraFeeAmount: campSite.extraFeeAmount ? campSite.extraFeeAmount.toNumber() : null,
+      extraFeeLabel: campSite.extraFeeLabel,
+      feeInfo: campSite.feeInfo,
+      isFree: campSite.isFree,
+    },
+    capacity: {
+      maxGuestsPerDay: effectiveCapacity.maxGuestsPerDay,
+      maxTentsPerDay: effectiveCapacity.maxTentsPerDay,
+    },
+    cancellationPolicy: campSite.cancellationPolicy,
+    isVerified: campSite.isVerified,
+    checkInTime: campSite.checkInTime,
+    checkOutTime: campSite.checkOutTime,
+    minimumAge: campSite.minimumAge,
+    location: {
+      province: campSite.location?.province ?? null,
+      region: campSite.location?.region ?? null,
+    },
+    directions: campSite.directions,
+    distanceFromBangkokKm: distanceFromBangkokKm(campSite.latitude, campSite.longitude),
     availableWeekendDates,
+    weekendAvailability,
   };
 }
 
 export const getCampDetailTool: ToolDefinition<GetCampDetailArgs, GetCampDetailResult> = {
   name: 'getCampDetail',
   description:
-    'Load the detail card for ONE published CampVibe campsite: amenities, verified reviews, and upcoming available weekend dates.',
+    'Load the detail card for ONE published CampVibe campsite: description, real total price/fees, capacity, cancellation policy, verified badge, check-in/out, access, amenities, verified reviews, and live per-weekend remaining-guest availability.',
   // CAM-417 (ADR-013 D5) — public campsite detail data, offered to every caller like searchCampsites/checkAvailability.
   tier: 'guest',
   parameters: getCampDetailArgsSchema,

@@ -10,8 +10,16 @@ import type {
     WishlistIdsResponse,
 } from '@/types/api';
 import { MAX_SUGGESTION_LENGTH } from '@/lib/ai/sanitize';
-import type { GetCampDetailResult, CampAmenity } from '@/lib/ai/tools/get-camp-detail';
+import type {
+    GetCampDetailResult,
+    CampAmenity,
+    CampDetailPrice,
+    CampDetailCapacity,
+    CampDetailLocation,
+    WeekendAvailabilityEntry,
+} from '@/lib/ai/tools/get-camp-detail';
 import type { ReviewListItem, ReviewSummary } from '@/lib/review-summary';
+import { isCancellationPolicyValue } from '@/lib/cancellation-policy';
 import { z } from 'zod';
 
 const API_BASE = '/api';
@@ -560,8 +568,54 @@ function isReviewSummary(value: unknown): value is ReviewSummary {
     );
 }
 
+/** CAM-449 — narrows `GetCampDetailResult.price` (atomic fields, api.md rule 4). */
+function isCampDetailPrice(value: unknown): value is CampDetailPrice {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        (v.low === null || typeof v.low === 'number') &&
+        (v.high === null || typeof v.high === 'number') &&
+        typeof v.currency === 'string' &&
+        (v.extraFeeAmount === null || typeof v.extraFeeAmount === 'number') &&
+        (v.extraFeeLabel === null || typeof v.extraFeeLabel === 'string') &&
+        (v.feeInfo === null || typeof v.feeInfo === 'string') &&
+        typeof v.isFree === 'boolean'
+    );
+}
+
+/** CAM-449 — narrows `GetCampDetailResult.capacity`. */
+function isCampDetailCapacity(value: unknown): value is CampDetailCapacity {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        (v.maxGuestsPerDay === null || typeof v.maxGuestsPerDay === 'number') &&
+        (v.maxTentsPerDay === null || typeof v.maxTentsPerDay === 'number')
+    );
+}
+
+/** CAM-449 — narrows `GetCampDetailResult.location`. PDPA: province/region only, never an address/contact field. */
+function isCampDetailLocation(value: unknown): value is CampDetailLocation {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        (v.province === null || typeof v.province === 'string') &&
+        (v.region === null || typeof v.region === 'string')
+    );
+}
+
+/** CAM-449 — narrows one `GetCampDetailResult.weekendAvailability[]` entry. */
+function isWeekendAvailabilityEntry(value: unknown): value is WeekendAvailabilityEntry {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.date === 'string' &&
+        (v.remaining === null || typeof v.remaining === 'number') &&
+        typeof v.blockedByHost === 'boolean'
+    );
+}
+
 /**
- * CAM-446 — narrows a wire body into the `ok:true` variant of
+ * CAM-446/CAM-449 — narrows a wire body into the `ok:true` variant of
  * `GetCampDetailResult`. Every field of the tool's own guest-safe shape is
  * checked explicitly; no operator/host/contact field is ever expected (PDPA)
  * so none is checked FOR here — their absence is what the server-side tool
@@ -575,13 +629,26 @@ function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult
         typeof v.id === 'string' &&
         typeof v.nameTh === 'string' &&
         (v.nameEn === null || typeof v.nameEn === 'string') &&
+        (v.description === null || typeof v.description === 'string') &&
         Array.isArray(v.amenities) &&
         v.amenities.every(isCampAmenity) &&
         Array.isArray(v.reviews) &&
         v.reviews.every(isReviewListItem) &&
         isReviewSummary(v.reviewSummary) &&
+        isCampDetailPrice(v.price) &&
+        isCampDetailCapacity(v.capacity) &&
+        (v.cancellationPolicy === null || isCancellationPolicyValue(v.cancellationPolicy)) &&
+        typeof v.isVerified === 'boolean' &&
+        typeof v.checkInTime === 'string' &&
+        typeof v.checkOutTime === 'string' &&
+        (v.minimumAge === null || typeof v.minimumAge === 'number') &&
+        isCampDetailLocation(v.location) &&
+        (v.directions === null || typeof v.directions === 'string') &&
+        (v.distanceFromBangkokKm === null || typeof v.distanceFromBangkokKm === 'number') &&
         Array.isArray(v.availableWeekendDates) &&
-        v.availableWeekendDates.every((d) => typeof d === 'string')
+        v.availableWeekendDates.every((d) => typeof d === 'string') &&
+        Array.isArray(v.weekendAvailability) &&
+        v.weekendAvailability.every(isWeekendAvailabilityEntry)
     );
 }
 
