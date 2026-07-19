@@ -22,6 +22,7 @@ import {
   getCampSiteDailyAvailability,
   getEffectiveCapacity,
   getRemainingCapacityForCamps,
+  type EffectiveCapacity,
 } from '@/lib/campsite-availability';
 import { buildReviewSummary, toReviewListItem, type ReviewListItem, type ReviewSummary } from '@/lib/review-summary';
 import type { CancellationPolicyValue } from '@/lib/cancellation-policy';
@@ -67,7 +68,17 @@ export interface CampDetailPrice {
   isFree: boolean;
 }
 
-/** CAM-449 — the camp's advertised (static) capacity, not the live remaining count (see `weekendAvailability`). */
+/**
+ * CAM-449 — the camp's advertised capacity, not the live remaining count (see
+ * `weekendAvailability`). CAM-449 QA fix: this is the EFFECTIVE capacity
+ * (`getEffectiveCapacity`, same as `availableWeekendDates`/
+ * `weekendAvailability` already use) — WHOLE-CAMP reads the raw
+ * `maxGuestsPerDay`/`maxTentsPerDay` columns unchanged, PER-SPOT
+ * (`useSpotView`) sums non-deleted spots instead. Never read the raw columns
+ * directly here — for a PER-SPOT camp they are null while the real capacity
+ * lives on its spots, which forked this field from `weekendAvailability`'s
+ * basis (CAM-355/CAM-400 class bug).
+ */
 export interface CampDetailCapacity {
   maxGuestsPerDay: number | null;
   maxTentsPerDay: number | null;
@@ -162,29 +173,28 @@ function nextSaturdays(count: number, from: Date): Date[] {
 /**
  * Live upcoming-weekend availability for ONE camp — a single
  * `getCampSiteDailyAvailability` call across the whole lookahead window
- * (never one call per Saturday) plus a single `getEffectiveCapacity` call,
- * both reused unchanged from `lib/campsite-availability.ts` (ADR-009). A
- * night is "available" when it is not host-blocked and (capacity is
- * unbounded OR occupied < capacity) — the same remaining>0 semantics
- * `getRemainingCapacity` already uses.
+ * (never one call per Saturday). `effectiveCapacity` is passed in (computed
+ * ONCE by the caller, `executeGetCampDetail`, via `getEffectiveCapacity` —
+ * CAM-449 QA fix: this function used to call `getEffectiveCapacity` itself,
+ * which would have meant a SECOND call once the `capacity` result field also
+ * needed it; hoisting keeps it at exactly one call total, per the perf/N+1
+ * guard test) — reused unchanged from `lib/campsite-availability.ts`
+ * (ADR-009). A night is "available" when it is not host-blocked and
+ * (capacity is unbounded OR occupied < capacity) — the same remaining>0
+ * semantics `getRemainingCapacity` already uses.
  */
-async function computeAvailableWeekendDates(campSite: {
-  id: string;
-  useSpotView: boolean;
-  maxGuestsPerDay: number | null;
-  maxTentsPerDay: number | null;
-}): Promise<string[]> {
+async function computeAvailableWeekendDates(
+  campSiteId: string,
+  effectiveCapacity: EffectiveCapacity
+): Promise<string[]> {
   const saturdays = nextSaturdays(WEEKEND_LOOKAHEAD_COUNT, new Date());
   const windowStart = saturdays[0];
   const windowEnd = new Date(saturdays[saturdays.length - 1]);
   windowEnd.setUTCDate(windowEnd.getUTCDate() + 1); // inclusive of the last Saturday night itself
 
-  const [daily, effective] = await Promise.all([
-    getCampSiteDailyAvailability(campSite.id, windowStart, windowEnd),
-    getEffectiveCapacity(prisma, campSite),
-  ]);
+  const daily = await getCampSiteDailyAvailability(campSiteId, windowStart, windowEnd);
 
-  const capacity = effective.maxGuestsPerDay;
+  const capacity = effectiveCapacity.maxGuestsPerDay;
   const out: string[] = [];
   for (const sat of saturdays) {
     const key = sat.toISOString().split('T')[0];
@@ -283,13 +293,21 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
     return { ok: false, code: 'not_found' };
   }
 
+  // CAM-449 QA fix: ONE effective-capacity read, shared by the returned
+  // `capacity` field AND `computeAvailableWeekendDates`'s own full/open
+  // check — never the raw `maxGuestsPerDay`/`maxTentsPerDay` columns
+  // directly (those are null for a PER-SPOT camp; the real capacity lives
+  // on its spots). Same canonical source `weekendAvailability` already uses
+  // via `getRemainingCapacityForCamps` (ADR-009 no-forked-data-path).
+  const effectiveCapacity = await getEffectiveCapacity(prisma, {
+    id: campSite.id,
+    useSpotView: campSite.useSpotView,
+    maxGuestsPerDay: campSite.maxGuestsPerDay,
+    maxTentsPerDay: campSite.maxTentsPerDay,
+  });
+
   const [availableWeekendDates, weekendAvailability] = await Promise.all([
-    computeAvailableWeekendDates({
-      id: campSite.id,
-      useSpotView: campSite.useSpotView,
-      maxGuestsPerDay: campSite.maxGuestsPerDay,
-      maxTentsPerDay: campSite.maxTentsPerDay,
-    }),
+    computeAvailableWeekendDates(campSite.id, effectiveCapacity),
     computeWeekendAvailability(campSite.id),
   ]);
 
@@ -315,8 +333,8 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
       isFree: campSite.isFree,
     },
     capacity: {
-      maxGuestsPerDay: campSite.maxGuestsPerDay,
-      maxTentsPerDay: campSite.maxTentsPerDay,
+      maxGuestsPerDay: effectiveCapacity.maxGuestsPerDay,
+      maxTentsPerDay: effectiveCapacity.maxTentsPerDay,
     },
     cancellationPolicy: campSite.cancellationPolicy,
     isVerified: campSite.isVerified,

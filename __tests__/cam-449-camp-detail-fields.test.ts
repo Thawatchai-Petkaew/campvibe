@@ -144,6 +144,35 @@ describe('getCampDetail — CAM-449 new fields (normal + Decimal serialization)'
     expect(result.distanceFromBangkokKm).toBeGreaterThan(500);
     expect(result.distanceFromBangkokKm).toBeLessThan(700);
   });
+
+  it('[Prove-It / boundary] a PER-SPOT camp (useSpotView:true, raw columns null) reports EFFECTIVE (spot-derived) capacity, not {null,null}', async () => {
+    // Bug (G3 finding): `capacity` was built straight from the raw
+    // CampSite.maxGuestsPerDay/maxTentsPerDay columns. For a useSpotView:true
+    // camp those columns are null (capacity lives on its Spot rows instead) —
+    // the same forked-data-path class as CAM-355/CAM-400. This case pins the
+    // fix: `capacity` must come from getEffectiveCapacity (mocked here to
+    // return the spot-derived sum), the SAME canonical source
+    // `weekendAvailability` already uses via getRemainingCapacityForCamps —
+    // never the raw columns directly.
+    mockFindFirst.mockResolvedValueOnce(
+      fullCampSite({ useSpotView: true, maxGuestsPerDay: null, maxTentsPerDay: null })
+    );
+    mockGetEffectiveCapacity.mockResolvedValueOnce({ maxGuestsPerDay: 20, maxTentsPerDay: 10 });
+
+    const result = await executeGetCampDetail({ campSiteId: VALID_UUID });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The raw-column bug would have returned { maxGuestsPerDay: null, maxTentsPerDay: null } here.
+    expect(result.capacity).toEqual({ maxGuestsPerDay: 20, maxTentsPerDay: 10 });
+    // getEffectiveCapacity is called with the useSpotView:true campSite (so it takes the spot-sum path).
+    expect(mockGetEffectiveCapacity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ useSpotView: true })
+    );
+    // Exactly ONE getEffectiveCapacity call for the whole request (no forked second read for `capacity`).
+    expect(mockGetEffectiveCapacity).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('getCampDetail — CAM-449 weekendAvailability (normal)', () => {
