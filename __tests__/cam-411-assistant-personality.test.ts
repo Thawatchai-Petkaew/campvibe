@@ -164,7 +164,7 @@ describe("AC-5 — launcher shows the Flame mark with the คุยกับน�
     // the old icon name may only appear in a traceability doc-comment, never as a rendered/imported icon
     expect(launcherSrc).not.toMatch(/import\s*\{\s*Sparkles/);
     expect(launcherSrc).not.toMatch(/<Sparkles\b/);
-    expect(launcherSrc).toContain("<Flame className=");
+    expect(launcherSrc).toContain("<Flame "); // rendered Flame element (CAM-435 added strokeWidth={1}; not pinning exact props)
   });
 
   it("[unit] launcher aria-label resolves through the (renamed) i18n key", () => {

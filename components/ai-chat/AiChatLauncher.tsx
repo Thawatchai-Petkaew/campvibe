@@ -98,7 +98,7 @@ export function AiChatLauncher() {
           className="h-12 w-12 rounded-full bg-ai-ember/10 hover:bg-ai-ember/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
           onClick={() => setOpen(true)}
         >
-          <Flame className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
+          <Flame strokeWidth={1} className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
         </Button>
       </div>
       {open && <AiChatPanel open={open} onOpenChange={setOpen} />}

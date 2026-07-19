@@ -62,7 +62,7 @@ export function AiChatAvatar({ size, intensity = "calm" }: AiChatAvatarProps) {
       <span className={`pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ${auraMotionClass}`} />
       {/* ai-flame-glow is itself gated inside a prefers-reduced-motion:no-preference
           media block in globals.css (static under reduce-motion) — no motion-safe: prefix needed. */}
-      <Flame className={`ai-flame-glow fill-current text-ai-ember ${icon}`} />
+      <Flame strokeWidth={1} className={`ai-flame-glow fill-current text-ai-ember ${icon}`} />
     </div>
   );
 }
