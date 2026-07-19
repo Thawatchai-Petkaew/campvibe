@@ -24,6 +24,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockFindFirst = vi.fn();
 const mockGetCampSiteDailyAvailability = vi.fn();
 const mockGetEffectiveCapacity = vi.fn();
+// CAM-449 — executeGetCampDetail also computes `weekendAvailability` via this
+// function now; its own coverage (shape/scenarios) lives in
+// __tests__/cam-449-camp-detail-fields.test.ts. A default resolved value here
+// keeps this file's PRE-EXISTING assertions (about availableWeekendDates)
+// byte-identical and green.
+const mockGetRemainingCapacityForCamps = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -36,6 +42,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/campsite-availability', () => ({
   getCampSiteDailyAvailability: (...args: unknown[]) => mockGetCampSiteDailyAvailability(...args),
   getEffectiveCapacity: (...args: unknown[]) => mockGetEffectiveCapacity(...args),
+  getRemainingCapacityForCamps: (...args: unknown[]) => mockGetRemainingCapacityForCamps(...args),
 }));
 
 const { executeGetCampDetail, getCampDetailArgsSchema } = await import('@/lib/ai/tools/get-camp-detail');
@@ -62,6 +69,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetCampSiteDailyAvailability.mockResolvedValue({});
   mockGetEffectiveCapacity.mockResolvedValue({ maxGuestsPerDay: 20, maxTentsPerDay: 10 });
+  mockGetRemainingCapacityForCamps.mockResolvedValue({
+    [VALID_UUID]: { capacity: 20, bookedGuests: 0, heldGuests: 0, remaining: 20, blockedByHost: false },
+  });
 });
 
 describe('getCampDetail — error/validation', () => {
