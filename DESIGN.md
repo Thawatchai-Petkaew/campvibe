@@ -177,6 +177,11 @@ one-shot detail-card `ai-materialize` (≤480ms). The first three were authored 
 and approved under the owner's CAM-426 autonomy delegation; `ai-flame-flicker` was added under CAM-432 (owner
 staging feedback + reference image). Any NEW motion beyond these four routes back to full human G2.
 
+**Named exception — width animation (CAM-453):** the AI-chat detail split-rail (desktop `lg:` push-aside) MAY animate
+`width` instead of transform/opacity — the only layout axis that pushes the chat aside without leaving a blank gap
+on a fixed-width flex-row sibling — bounded ≤250ms and `motion-reduce`-guarded, same as every other motion in this
+exception.
+
 This exception is the record that legitimizes the camping assistant look. Anything beyond items 1–5, or any reuse of
 `--ai-*` outside the assistant surface, routes back to full human G2.
 

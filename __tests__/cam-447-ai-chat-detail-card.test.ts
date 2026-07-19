@@ -70,7 +70,9 @@ describe("Mount point — CAM-451: in-flow pane of the push track (SUPERSEDES CA
   });
 
   it("[unit] both push-track panes (chat + detail) are absolute inset-0 siblings that translate via their own transition-transform, and the off-screen one is inert (Panel)", () => {
-    expect(panelSrc).toContain('inert={selectedCamp !== null}');
+    // CAM-453: the chat pane's inert now also excludes desktop-split mode
+    // (it stays interactive there) — same rename as cam-451/cam-453 tests.
+    expect(panelSrc).toContain('inert={!isSplitMode && selectedCamp !== null}');
     expect(panelSrc).toContain('inert={selectedCamp === null}');
     expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col transition-transform/g)?.length).toBe(2);
   });
