@@ -55,20 +55,23 @@ describe("AC-1/BR-1 — the resuming indicator is centered, not pinned top-left"
   });
 });
 
-describe("AC-1/BR-2 — on-brand treatment: AiChatAvatar + motion-safe pulse, no new component", () => {
-  it("[unit] resuming block renders AiChatAvatar size=lg wrapped in a motion-safe pulse", () => {
+describe("AC-1/BR-2 — on-brand treatment: AiChatAvatar renders directly, no new component", () => {
+  // CAM-433 (owner staging feedback C, SUPERSEDES this row's original claim):
+  // the generic motion-safe:animate-pulse wrapper is gone — AiChatAvatar's
+  // OWN ai-flame-flicker/ai-flame-glow (CAM-432) now supplies the on-brand
+  // motion directly. See cam-433-loading-flame.test.ts for the full AC set.
+  it("[unit] resuming block renders AiChatAvatar size=lg directly (no wrapper div)", () => {
     const start = listSrc.indexOf('data-testid="status--ai-chat-resuming"');
     const block = listSrc.slice(start, start + 300);
-    expect(block).toContain("motion-safe:animate-pulse");
     expect(block).toContain('<AiChatAvatar size="lg" />');
   });
 
-  it("[unit] reuses the existing aiChat.loading label — no new locale key", () => {
+  it("[unit] reuses the existing aiChat.loading label — no new locale key (now sr-only, CAM-433)", () => {
     expect(listSrc).toContain("{t.aiChat.loading}");
   });
 });
 
-describe("AC-1/BR-4/AC-3 — a11y contract unchanged; pulse is motion-safe scoped", () => {
+describe("AC-1/BR-4/AC-3 — a11y contract unchanged; label is sr-only (CAM-433)", () => {
   it("[unit] the resuming region keeps role=status + aria-live=polite + aria-busy={resuming}", () => {
     const start = listSrc.indexOf('data-testid="status--ai-chat-resuming"');
     const block = listSrc.slice(Math.max(0, start - 200), start + 50);
@@ -77,10 +80,10 @@ describe("AC-1/BR-4/AC-3 — a11y contract unchanged; pulse is motion-safe scope
     expect(block).toContain("aria-busy={resuming}");
   });
 
-  it("[unit] the pulse animation class is motion-safe:-scoped (disabled under prefers-reduced-motion)", () => {
+  it("[unit] the loading label is sr-only (CAM-433 removed the visible caption, kept the a11y announcement)", () => {
     const start = listSrc.indexOf('data-testid="status--ai-chat-resuming"');
     const block = listSrc.slice(start, start + 300);
-    expect(block).toMatch(/className="motion-safe:animate-pulse"/);
+    expect(block).toContain('<span className="sr-only">{t.aiChat.loading}</span>');
   });
 });
 

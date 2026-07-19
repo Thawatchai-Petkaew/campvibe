@@ -31,6 +31,7 @@ const useAiChatSrc = read("components/ai-chat/use-ai-chat.ts");
 const campgroundCardSrc = read("components/CampgroundCard.tsx");
 const apiClientSrc = read("lib/api-client.ts");
 const pageSrc = read("app/page.tsx");
+const layoutSrc = read("app/layout.tsx"); // CAM-434: launcher now mounts here, not in page.tsx
 
 const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, carouselSrc, avatarSrc, conversationSrc, useAiChatSrc];
 
@@ -58,8 +59,8 @@ describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HT
   });
 });
 
-describe("BR-1 — the launcher always renders on Home, including when the assistant is disabled", () => {
-  it("[structural] no conditional hides the launcher itself (it is not gated on any disabled flag)", () => {
+describe("BR-1 — the launcher always renders (root layout, every page), including when the assistant is disabled", () => {
+  it("[structural] no conditional hides the launcher itself on a disabled flag (CAM-434's route-hide guard is a separate, named exception)", () => {
     expect(launcherSrc).not.toMatch(/if\s*\(.*disabled.*\)\s*return null/);
   });
 
@@ -68,14 +69,14 @@ describe("BR-1 — the launcher always renders on Home, including when the assis
     expect(launcherSrc).toContain('data-testid="btn--ai-chat-launcher"');
   });
 
-  it("[structural] app/page.tsx mounts the launcher unconditionally on Home", () => {
-    expect(pageSrc).toContain("<AiChatLauncher");
-    expect(pageSrc).not.toMatch(/\{.*&&\s*<AiChatLauncher/);
+  it("[structural] CAM-434: app/layout.tsx mounts the launcher globally; app/page.tsx no longer mounts it", () => {
+    expect(layoutSrc).toContain("<AiChatLauncher");
+    expect(pageSrc).not.toContain("<AiChatLauncher");
   });
 
-  it("[structural] CAM-429: launcher sits at its natural bottom-6 right-6 (the FAB collision is now resolved by moving HostOnboardingFab left instead)", () => {
-    // the old bottom-24 offset may survive only in a traceability doc-comment, never as a live className
-    expect(launcherSrc).toContain('<div className="fixed bottom-6 right-6 z-50">');
+  it("[structural] CAM-432: launcher sits at bottom-10 right-6 (repositioned up from CAM-429's bottom-6; the FAB collision stays resolved by HostOnboardingFab on the left)", () => {
+    // the old bottom-24/bottom-6 offsets may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).toContain('<div className="fixed bottom-10 right-6 z-50">');
     expect(launcherSrc).not.toMatch(/className="[^"]*bottom-24[^"]*"/);
   });
 });
@@ -338,9 +339,10 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain("sm:w-96");
   });
 
-  it("[unit] header and composer never compress (shrink-0) so the scroll region is the only flexible region", () => {
-    expect(panelSrc).toContain("flex shrink-0 items-center justify-between border-b");
-    expect(panelSrc).toContain("shrink-0 border-t border-border/60 p-4");
+  it("[unit] header and composer never compress (shrink-0) so the scroll region is the only flexible region (CAM-431: className now forks on `expanded`, collapsed classes preserved byte-identical)", () => {
+    expect(panelSrc).toContain("flex shrink-0 items-center justify-between");
+    expect(panelSrc).toContain("border-b border-border/60 px-4 py-3");
+    expect(panelSrc).toContain("border-t border-border/60 p-4");
   });
 
   it("[unit] the message scroll region is flex-1 + min-h-0 (bounded, not content-driven)", () => {
