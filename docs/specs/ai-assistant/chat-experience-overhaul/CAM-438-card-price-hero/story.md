@@ -48,10 +48,15 @@ Depends on: CAM-409 (carousel track) · CAM-428 (dedicated card component).
 - Bumping price to `text-xl` (brief allows it, `text-lg` chosen — fits the 256px card without crowding the name; a follow-up ticket if the owner wants it louder after staging review).
 
 ## Self-verify
-- AC-1 → unit (`__tests__/cam-409-ai-chat-card-carousel.test.ts` extended or existing): track className contains `py-4` alongside `overflow-x-auto`/`px-4`; single-card branch className unchanged.
-- AC-2/AC-3/BR-2/BR-3/BR-4 → unit (`__tests__/cam-428-framed-chat-card.test.ts`, existing assertions re-verified): `text--ai-chat-card-price` testid still present exactly once; `text-lg`/`text-primary` present on the price line; old inline price line (duplicate testid in the meta row) removed.
+New real test file `__tests__/cam-438-card-price-hero.test.ts` (Prove-It: each assertion verified RED against the pre-fix source before the fix, GREEN after).
+
+- AC-1/BR-1 → unit: multi-card track className contains `py-4` alongside `overflow-x-auto`/`px-4`; single-card branch (no carousel chrome) has no `py-4` (was never clipped, unchanged).
+- AC-2/AC-3/BR-2/BR-4 → unit: the hero price `<p>` carries `text-lg font-semibold text-primary` (both the priced and free cases); the `/คืน` suffix is `text-xs font-normal text-muted-foreground`; the price testid appears AFTER the name and BEFORE the province row in source order (reading-order proof).
+- BR-3 (dedup, the key Prove-It) → unit: `data-testid="text--ai-chat-card-price"` occurs EXACTLY ONCE in the card source, and the shared meta row (rating/remaining) contains no price span — reintroducing the old inline price line turns this red.
+- Existing `__tests__/cam-428-framed-chat-card.test.ts` / `__tests__/cam-409-ai-chat-card-carousel.test.ts` re-run green (unaffected regression check, not this story's new coverage).
 - Manual: axe run on `text-primary` price over `bg-card` (contrast, not measured by unit test — see checks).
 - Gate = `/quality-gate` · Done = merge to `dev` + AC verified on localhost before merge.
 
 ## Changelog
+- v2 (2026-07-19) — QA bounce: added the real `cam-438-card-price-hero.test.ts` Prove-It test file (v1 shipped with no regression test for this story's own AC); corrected the Self-verify over-claim that pointed at "existing test extended."
 - v1 (2026-07-19) — created (spec-first, template v2, terse per the spec-lite class).
