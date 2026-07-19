@@ -99,6 +99,13 @@
  * carousel + suggestion chips lose their CAM-430 `pl-4` (it only existed to
  * match the now-removed bubble's `px-4` inset) so everything left-aligns at
  * the log's own `p-4` edge.
+ *
+ * CAM-443 (R3 owner staging feedback): the after-send typing indicator drops
+ * its `rounded-2xl bg-ai-tint px-4 py-2.5` frame — plain dots now, no box.
+ * `bg-ai-tint` is RETAINED on the rate-limited/disabled notice chips and
+ * `ErrorBanner` (CAM-439 already dropped it from the answer row); the typing
+ * dots are the only row losing it here. aria-live label + dot animation are
+ * unchanged.
  */
 "use client";
 
@@ -199,9 +206,15 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
       ))}
 
       {sending && !lastIsStreaming && (
+        // CAM-443 (R3 owner staging feedback, SUPERSEDES CAM-426's tinted
+        // chip for this row only): the after-send typing indicator is now
+        // plain dots with no frame — the `rounded-2xl bg-ai-tint px-4 py-2.5`
+        // container read as an unwanted box. The log's own `p-4` still
+        // supplies the inset; aria-live label + the 3 animated dots are
+        // unchanged.
         <div
           data-testid="status--ai-chat-typing"
-          className={`flex w-full items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5 ${ENTRANCE_MOTION_CLASS}`}
+          className={`flex items-center gap-1 ${ENTRANCE_MOTION_CLASS}`}
         >
           <span className="sr-only">{t.aiChat.typing}</span>
           {[0, 1, 2].map((i) => (

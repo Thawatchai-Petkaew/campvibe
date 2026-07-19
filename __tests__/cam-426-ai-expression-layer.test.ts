@@ -168,13 +168,13 @@ describe("AiChatAvatar — the flame recolors to the warm ember token + dim puls
 });
 
 describe("AiChatMessageList — assistant bubbles recolor bg-muted -> bg-ai-tint", () => {
-  it("[unit] CAM-439 SUPERSEDES for the answer row: only the typing/rate-limited/disabled NOTICE rows use bg-ai-tint (3, not 4) — the answer is plain text on the panel glass", () => {
-    // CAM-430: typing/rate-limited/disabled now interpolate ENTRANCE_MOTION_CLASS
+  it("[unit] CAM-439 + CAM-443 SUPERSEDE for the answer + typing rows: only the rate-limited/disabled NOTICE rows use bg-ai-tint (2, not 4) — the answer is plain text on the panel glass and the typing dots carry no frame", () => {
+    // CAM-430: rate-limited/disabled now interpolate ENTRANCE_MOTION_CLASS
     // straight into their own className (template-literal `className={\`...\`}`)
     // now that the avatar+bubble split is gone — match either quote style.
     const occurrences = (listSrc.match(/className="[^"]*bg-ai-tint[^"]*"|className=\{`[^`]*bg-ai-tint[^`]*`\}/g) || [])
       .length;
-    expect(occurrences).toBe(3);
+    expect(occurrences).toBe(2);
   });
 
   it("[unit] no assistant bubble still carries the old bg-muted fill", () => {

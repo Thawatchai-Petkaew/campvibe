@@ -119,7 +119,11 @@ describe("BR-3 — send disables the composer + shows an inline typing indicator
 
   it("[unit] the send button shows an inline spinner while sending (not a skeleton)", () => {
     expect(panelSrc).toContain("sending ? (");
-    expect(panelSrc).toContain("<LoadingSpinner");
+    // CAM-442: LoadingSpinner's hardcoded border-primary ring was invisible
+    // on the button's own bg-primary fill — replaced with a tokened Loader2.
+    expect(panelSrc).toContain("<Loader2");
+    expect(panelSrc).not.toContain('from "@/components/ui/loading-spinner"');
+    expect(panelSrc).not.toMatch(/<LoadingSpinner\s+\w+=/);
     expect(panelSrc).not.toContain("Skeleton");
   });
 

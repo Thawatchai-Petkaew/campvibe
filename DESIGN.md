@@ -143,9 +143,9 @@ The fast path for any UI work (full rules below):
 dashboard / booking / auth) may use this exception; those keep stock tokens and standard 120–250ms motion.
 
 Within that scope, and using ONLY the closed `--ai-*` token set (`--ai-surface`, `--ai-tint`, `--ai-glow`,
-`--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star`, `--ai-flame-aura` — derived in `app/globals.css` from
-`--primary` teal, `--info` sky, and the `--warning` amber family for the warm camping accents), the assistant
-surface MAY:
+`--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star`, `--ai-flame-aura`, `--ai-price` — derived in
+`app/globals.css` from `--primary` teal, `--info` sky, and the `--warning` amber family for the warm camping
+accents), the assistant surface MAY:
 
 1. render a **camping-night ambient backdrop** (`.ai-aurora`, `aria-hidden`, `pointer-events-none`, behind
    content) — a subtle teal→sky gradient with a faint warm campfire horizon;
@@ -158,7 +158,9 @@ surface MAY:
 5. tint the assistant bubble with **`bg-ai-tint`** (`text-foreground`, ≥ AA) and the avatar flame with `text-ai-ember`;
 6. render a **VISIBLE fire-toned aura halo** (**`shadow-ai-flame-aura`**, built from `--ai-ember`/`--ai-firefly` —
    distinctly stronger than the depth-only `--ai-glow`) behind the avatar mark and the launcher FAB, paired with the
-   **`ai-flame-flicker`** loop (CAM-432, owner staging feedback + reference image).
+   **`ai-flame-flicker`** loop (CAM-432, owner staging feedback + reference image);
+7. use **`text-ai-price`** for the card price hero (brand-accent teal, ≥ AA both themes — dark is brightened off
+   `--primary` so price text stays readable on the dark `--card` without touching `--primary` itself; CAM-444).
 
 **Readability is the binding constraint:** the ambient must never reduce text legibility. Readable content sits on
 `bg-ai-surface`/`bg-card` (opaque-enough) over the blurred backdrop; contrast stays WCAG 2.1 AA and is axe-verified.
