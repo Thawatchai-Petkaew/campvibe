@@ -45,7 +45,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
@@ -68,6 +68,25 @@ export function AiChatLauncher() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // CAM-454 (QA regression fix): the detail card's "view camp page" CTA is a
+  // real navigation (`<Link href="/campgrounds/...">`), not a panel action —
+  // the panel itself never intercepts it. Without this, the panel stayed
+  // open across the navigation and its expanded scroll-lock/inert effect
+  // (gated on `[open, expanded]`, neither of which changes on a route
+  // change) kept `.ai-chat-scroll-lock`/`.no-scrollbar` on `<html>` and the
+  // rest of the new page `inert`, stranding the camper on an unscrollable
+  // destination. Closing on every pathname change unmounts `AiChatPanel`,
+  // whose lock/inert cleanup then runs, leaving the new route clean. The
+  // `didMountRef` guard skips the very first render so this never fights
+  // the FAB's own `setOpen(true)` on first open.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    setOpen(false);
+  }, [pathname]);
 
   if (isHiddenRoute(pathname)) return null;
 
