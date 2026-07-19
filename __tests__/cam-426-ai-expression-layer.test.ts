@@ -167,7 +167,11 @@ describe("AiChatAvatar — the flame recolors to the warm ember token + dim puls
 
 describe("AiChatMessageList — assistant bubbles recolor bg-muted -> bg-ai-tint", () => {
   it("[unit] every assistant-side row (answer, typing, rate-limited, disabled) uses bg-ai-tint", () => {
-    const occurrences = (listSrc.match(/className="[^"]*bg-ai-tint/g) || []).length;
+    // CAM-430: typing/rate-limited/disabled now interpolate ENTRANCE_MOTION_CLASS
+    // straight into their own className (template-literal `className={\`...\`}`)
+    // now that the avatar+bubble split is gone — match either quote style.
+    const occurrences = (listSrc.match(/className="[^"]*bg-ai-tint[^"]*"|className=\{`[^`]*bg-ai-tint[^`]*`\}/g) || [])
+      .length;
     expect(occurrences).toBe(4);
   });
 

@@ -116,10 +116,20 @@ describe("appendOutcome (AC-4/EC-2 zero-result, AC-5, AC-6, AC-7)", () => {
     expect((next[0] as any).cards).toHaveLength(1);
   });
 
-  it("[null/empty] EC-2: an ok outcome with cards:[] renders zeroResult=true, no cards", () => {
-    const next = appendOutcome([], { kind: "ok", answer: "no matches", cards: [] }, "q");
+  it("[null/empty] EC-2/CAM-430: an ok outcome with cards:[] AND searchAttempted:true (a real empty search) renders zeroResult=true", () => {
+    const next = appendOutcome([], { kind: "ok", answer: "no matches", cards: [], searchAttempted: true }, "q");
     expect(next[0]).toMatchObject({ kind: "answer", zeroResult: true });
     expect((next[0] as any).cards).toEqual([]);
+  });
+
+  // CAM-430 (Prove-It, owner staging feedback): the OLD gate fired zeroResult
+  // whenever cards.length===0 alone — a greeting/FAQ/general-chat answer also
+  // has 0 cards, so the "no match, refine your search" banner showed on
+  // every non-search reply too. This test FAILED before the fix (asserted
+  // zeroResult:true) and passes now that the gate also requires searchAttempted.
+  it("[null/empty] CAM-430 bug fix: cards:[] with NO searchAttempted (a greeting/FAQ/general-chat turn) renders zeroResult=false — never the zero-result banner", () => {
+    const next = appendOutcome([], { kind: "ok", answer: "สวัสดีครับ", cards: [] }, "q");
+    expect(next[0]).toMatchObject({ kind: "answer", zeroResult: false });
   });
 
   it("[error/validation] EC-3: rate-limited maps to a rate-limited entry", () => {

@@ -73,8 +73,10 @@ describe("BR-1 — the launcher always renders on Home, including when the assis
     expect(pageSrc).not.toMatch(/\{.*&&\s*<AiChatLauncher/);
   });
 
-  it("[structural] design.md seam: offset avoids the HostOnboardingFab collision without editing that file", () => {
-    expect(launcherSrc).toContain("bottom-24 right-6");
+  it("[structural] CAM-429: launcher sits at its natural bottom-6 right-6 (the FAB collision is now resolved by moving HostOnboardingFab left instead)", () => {
+    // the old bottom-24 offset may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).toContain('<div className="fixed bottom-6 right-6 z-50">');
+    expect(launcherSrc).not.toMatch(/className="[^"]*bottom-24[^"]*"/);
   });
 });
 
@@ -126,22 +128,14 @@ describe("BR-3 — send disables the composer + shows an inline typing indicator
   });
 });
 
-describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/carousel)", () => {
-  it("[structural] AiChatCampCard reuses CampgroundCard — no parallel card component", () => {
-    expect(cardSrc).toContain('import { CampgroundCard } from "@/components/CampgroundCard"');
-    expect(cardSrc).toContain('variant="compact"');
+describe("BR-4 (CAM-428 SUPERSEDES) — the in-chat card is now a DEDICATED, decoupled card — no CampgroundCard reuse", () => {
+  it("[structural] AiChatCampCard no longer imports CampgroundCard (BR-4 exception, design.md §4)", () => {
+    expect(cardSrc).not.toContain('from "@/components/CampgroundCard"');
+    expect(cardSrc).not.toContain('variant="compact"');
   });
 
-  it('[unit] CampgroundCard hides the wishlist heart when variant="compact"', () => {
+  it("[unit] CampgroundCard's variant=\"compact\" branches still exist untouched (out of this story's surface; now unused by AI chat, flagged for a follow-up cleanup ticket)", () => {
     expect(campgroundCardSrc).toContain('{variant !== "compact" && (');
-    expect(campgroundCardSrc).toContain('data-testid="btn--wishlist-toggle"');
-  });
-
-  it('[unit] CampgroundCard hides the carousel arrows + dots when variant="compact"', () => {
-    expect(campgroundCardSrc).toContain('variant !== "compact" && imageUrls.length > 1');
-  });
-
-  it("[unit] compact is opt-in — default variant preserves existing catalog/wishlist behaviour", () => {
     expect(campgroundCardSrc).toContain('variant = "default"');
   });
 
@@ -150,25 +144,26 @@ describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/
     expect(carouselSrc).not.toMatch(/cards\.slice\(/);
   });
 
-  it("[unit] CAM-272 QA Important fix: avgRating/reviewCount are forwarded to CampgroundCard so the rating badge renders", () => {
-    expect(cardSrc).toContain("avgRating={card.avgRating}");
-    expect(cardSrc).toContain("reviewCount={card.reviewCount}");
+  it("[unit] CAM-428: avgRating/reviewCount are read directly on the card (no longer forwarded as CampgroundCard props)", () => {
+    expect(cardSrc).toContain("card.avgRating");
+    expect(cardSrc).toContain("card.reviewCount");
   });
 });
 
-describe("AC-3 — each in-chat card is a link to /campgrounds/{slug}, no write fires (QA gap closed)", () => {
-  it("[unit] AiChatCampCard forwards nameThSlug/nameEnSlug straight through to CampgroundCard (no synthetic slug)", () => {
-    expect(cardSrc).toContain("nameThSlug: card.nameThSlug");
-    expect(cardSrc).toContain("nameEnSlug: card.nameEnSlug");
+describe("AC-3 (CAM-428 SUPERSEDES) — the in-chat card selects via onSelect; the carousel navigates to /campgrounds/{slug}", () => {
+  it('[structural] AiChatCampCard takes an onSelect prop and calls it with the full card — no baked <Link>', () => {
+    expect(cardSrc).toContain("onSelect: (card: AiChatCardResponse) => void");
+    expect(cardSrc).toContain("onClick={() => onSelect(card)}");
+    expect(cardSrc).not.toContain("<Link");
   });
 
-  it("[structural] CampgroundCard's Link targets /campgrounds/{slug} (nameEnSlug in EN, nameThSlug in TH) — unmodified pre-existing behaviour, AC-3 relies on it", () => {
-    expect(campgroundCardSrc).toContain('<Link href={`/campgrounds/${slug}`}');
-    expect(campgroundCardSrc).toContain("language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug");
+  it("[unit] the carousel derives the slug from nameThSlug/nameEnSlug (mirrors CampgroundCard.tsx's own convention) and pushes /campgrounds/{slug}", () => {
+    expect(carouselSrc).toContain('language === "en" ? card.nameEnSlug || card.nameThSlug : card.nameThSlug');
+    expect(carouselSrc).toContain("router.push(`/campgrounds/${slug}`)");
   });
 
-  it("[security/structural] the in-chat card mounts no mutation/write handler of its own (AiChatCampCard has no onClick/fetch/POST) — Discover-only", () => {
-    expect(cardSrc).not.toMatch(/onClick|fetch\(|POST/);
+  it("[security/structural] the in-chat card mounts no mutation/write handler of its own — onClick navigates only, never fetch/POST", () => {
+    expect(cardSrc).not.toMatch(/fetch\(|POST/);
   });
 });
 
@@ -352,11 +347,14 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
   });
 
-  it("[unit] the answer row (text bubble + cards) is w-full max-w-full — never squeezed to the chat-bubble's max-w-[85%]", () => {
-    expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-2 self-start");
-    // only the text bubble itself keeps the chat-bubble width
+  it("[unit] CAM-430 (SUPERSEDES): the answer row (text bubble + cards) AND the text bubble itself are both w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
+    expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-3 self-start");
     // CAM-426: bg-muted -> bg-ai-tint (DESIGN.md §2.1 sanctioned exception) — canonical class updated in place.
-    expect(listSrc).toContain('className="max-w-[85%] rounded-2xl bg-ai-tint');
+    expect(listSrc).toContain('className="w-full max-w-full rounded-2xl bg-ai-tint');
+    // Scoped to the assistant-side answer row only — the user bubble (rendered
+    // earlier in the file) intentionally keeps its own narrower chat-bubble cap.
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).not.toMatch(/max-w-\[85%\]/);
   });
 
   it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {

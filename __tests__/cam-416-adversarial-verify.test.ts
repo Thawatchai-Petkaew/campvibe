@@ -141,7 +141,8 @@ describe('CAM-416 adversarial (a) — iteration cap under hostile behavior', () 
 
     expect(mockFetch).toHaveBeenCalledTimes(MAX_AGENT_ITERATIONS); // hard ceiling holds
     expect(mockDispatchTool).toHaveBeenCalledTimes(MAX_TOOL_CALLS_PER_TURN); // 3+3+0+0(ignored) = 6
-    expect(result).toEqual({ ok: true, answer: 'ตอบสุดท้ายจริงๆครับ', cards: [] });
+    // CAM-430: rounds 1-2 dispatched 'searchCampsites' calls (toolCall()'s default name) -> searchAttempted:true.
+    expect(result).toEqual({ ok: true, answer: 'ตอบสุดท้ายจริงๆครับ', cards: [], searchAttempted: true });
 
     const forcedFinalBody = bodyOf(mockFetch, MAX_AGENT_ITERATIONS - 1);
     expect(forcedFinalBody.tool_choice).toBe('none');
@@ -167,7 +168,8 @@ describe('CAM-416 adversarial (b) — forced-final null-content edge', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(MAX_AGENT_ITERATIONS);
     expect(mockDispatchTool).toHaveBeenCalledTimes(3); // c4 never dispatched
-    expect(result).toEqual({ ok: true, answer: '', cards: [] }); // no throw, no undefined leak
+    // CAM-430: c1-c3 dispatched 'searchCampsites' calls (toolCall()'s default name) -> searchAttempted:true.
+    expect(result).toEqual({ ok: true, answer: '', cards: [], searchAttempted: true }); // no throw, no undefined leak
   });
 });
 
@@ -229,7 +231,13 @@ describe('CAM-416 adversarial (d) — deadline breach generalizes past iteration
 
     expect(mockFetch).toHaveBeenCalledTimes(2); // never a 3rd call — the breach is caught before it
     expect(mockDispatchTool).toHaveBeenCalledTimes(2); // both prior rounds still executed
-    expect(result).toEqual({ ok: true, answer: 'เนื้อหาระหว่างทางครับ', cards: [{ id: 'a' }, { id: 'b' }] });
+    // CAM-430: both rounds dispatched 'searchCampsites' calls (toolCall()'s default name) -> searchAttempted:true.
+    expect(result).toEqual({
+      ok: true,
+      answer: 'เนื้อหาระหว่างทางครับ',
+      cards: [{ id: 'a' }, { id: 'b' }],
+      searchAttempted: true,
+    });
     nowSpy.mockRestore();
   });
 });
@@ -259,7 +267,8 @@ describe('CAM-416 adversarial (e) — fallback pin holds across every subsequent
     expect(bodyOf(mockFetch, 1).model).toBe('fallback/model');
     expect(bodyOf(mockFetch, 2).model).toBe('fallback/model'); // "ALL subsequent calls" — iteration 2
     expect(bodyOf(mockFetch, 3).model).toBe('fallback/model'); // "ALL subsequent calls" — iteration 3
-    expect(result).toEqual({ ok: true, answer: 'ตอบจากโมเดลสำรองครับ', cards: [] });
+    // CAM-430: iterations 1-2 dispatched 'searchCampsites' calls (toolCall()'s default name) -> searchAttempted:true.
+    expect(result).toEqual({ ok: true, answer: 'ตอบจากโมเดลสำรองครับ', cards: [], searchAttempted: true });
   });
 });
 

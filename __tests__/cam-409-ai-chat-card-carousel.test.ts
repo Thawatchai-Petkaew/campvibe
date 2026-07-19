@@ -141,8 +141,8 @@ describe("AC-3 — the strip is a labelled, reachable group (a11y)", () => {
   });
 });
 
-describe("AC-4 — tap-through reuses CAM-272's card link (Discover-only, no new write path)", () => {
-  it("[security/structural] no mutation/write handler on the carousel's own card wrapper (only chevrons have onClick)", () => {
+describe("AC-4 (CAM-428 SUPERSEDES) — tap-through navigates via onSelect/router.push, not a CampgroundCard link (Discover-only, no new write path)", () => {
+  it("[security/structural] no mutation/write handler on the carousel's own card wrapper (only the chevrons + the onSelect->router.push navigation have onClick/router calls, never a fetch/POST)", () => {
     const cardWrapperLine = '<div key={card.id} data-testid="card--ai-chat-campsite"';
     expect(carouselSrc).toContain(cardWrapperLine);
     expect(carouselSrc).not.toMatch(/fetch\(|POST/);
@@ -168,8 +168,11 @@ describe("Token-only — no stray hex/px (DESIGN.md §2, check:palette scope)", 
 });
 
 describe("BR-4 — copy (locales/translations.json aiChat namespace, TH verbatim + EN parity)", () => {
-  const th = translations.th.aiChat as Record<string, string>;
-  const en = translations.en.aiChat as Record<string, string>;
+  // CAM-428 added a nested `card` object under aiChat — widen to `unknown`
+  // leaves so this file's own flat-key lookups (cardsLabel/cardsPrev/etc.)
+  // still narrow fine at each call site.
+  const th = translations.th.aiChat as Record<string, unknown>;
+  const en = translations.en.aiChat as Record<string, unknown>;
 
   it("th.aiChat.cardsLabel is verbatim", () => expect(th.cardsLabel).toBe("ลานกางเต็นท์ที่แนะนำ {count} แห่ง"));
   it("th.aiChat.cardsPrev is verbatim", () => expect(th.cardsPrev).toBe("ดูลานก่อนหน้า"));
