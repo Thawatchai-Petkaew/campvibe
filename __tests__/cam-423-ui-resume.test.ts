@@ -25,7 +25,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { isAuthedSession, restoreEntriesFromMessages } from "@/components/ai-chat/conversation";
-import { aiChatAPI, type AiConversationMessageView } from "@/lib/api-client";
+import { aiChatAPI, type AiChatCardResponse, type AiConversationMessageView } from "@/lib/api-client";
 
 const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 
@@ -104,6 +104,50 @@ describe("restoreEntriesFromMessages (AC-1) — maps persisted history to ChatEn
     expect(() =>
       restoreEntriesFromMessages([msg({ role: "ASSISTANT", blocks: "not-an-array" })])
     ).not.toThrow();
+  });
+
+  // ---------------------------------------------------------------------------
+  // CAM-445 (R3 owner feedback) — cards restored from a persisted 'cards'
+  // block + zeroResult is never re-derived on restore
+  // ---------------------------------------------------------------------------
+  const sampleCard = (overrides: Partial<AiChatCardResponse> = {}): AiChatCardResponse => ({
+    id: "cs-1",
+    nameTh: "แคมป์ริมน้ำ",
+    nameEn: "Riverside Camp",
+    nameThSlug: "camp-riverside-th",
+    nameEnSlug: "riverside-camp",
+    priceLow: 500,
+    createdAt: "2026-07-19T00:00:00.000Z",
+    avgRating: 4.5,
+    reviewCount: 10,
+    location: { province: "เชียงใหม่" },
+    ...overrides,
+  });
+
+  it("[normal] a well-formed 'cards' block restores into entry.cards (CAM-445)", () => {
+    const card = sampleCard();
+    const [entry] = restoreEntriesFromMessages([
+      msg({ role: "ASSISTANT", contentText: "นี่คือลานที่แนะนำ", blocks: [{ type: "cards", v: 1, data: [card] }] }),
+    ]);
+    expect(entry).toMatchObject({ kind: "answer", cards: [card] });
+  });
+
+  it("[error/validation] a malformed card inside a 'cards' block is dropped, the well-formed ones survive, never throws", () => {
+    const good = sampleCard({ id: "cs-good" });
+    const bad = { id: "cs-bad" }; // missing every other required field
+    const entries = restoreEntriesFromMessages([
+      msg({ role: "ASSISTANT", contentText: "ok", blocks: [{ type: "cards", v: 1, data: [good, bad] }] }),
+    ]);
+    expect(entries[0]).toMatchObject({ cards: [good] });
+  });
+
+  it("[normal] zeroResult is ALWAYS false on a restored answer, regardless of cards presence (never re-derived — a live-turn-only signal)", () => {
+    const withCards = restoreEntriesFromMessages([
+      msg({ role: "ASSISTANT", blocks: [{ type: "cards", v: 1, data: [sampleCard()] }] }),
+    ])[0];
+    const withoutCards = restoreEntriesFromMessages([msg({ role: "ASSISTANT", blocks: null })])[0];
+    expect(withCards).toMatchObject({ zeroResult: false });
+    expect(withoutCards).toMatchObject({ zeroResult: false });
   });
 });
 

@@ -136,6 +136,59 @@ export function sanitizeForPrompt(rawText: string, maxLength: number = MAX_USER_
 }
 
 /**
+ * The newline-preserving sibling of `sanitizeForPrompt`'s
+ * `.replace(/\s+/g, ' ').trim()` step: collapses runs of HORIZONTAL
+ * whitespace (space/tab/CR/...) to a single space and trims each line, but
+ * never touches `\n` itself — a prompt string has no rendering concept so
+ * `sanitizeForPrompt` flattens everything to one line; `sanitizeAnswerForStore`
+ * below needs the opposite for a value that gets re-rendered as multi-line
+ * structure.
+ */
+function collapseHorizontalWhitespace(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .join('\n')
+    .trim();
+}
+
+/**
+ * CAM-445 (R3 owner feedback) — same untrusted-input guarantees as
+ * `sanitizeForPrompt` (control-char strip, `<user_message>` delimiter
+ * fixpoint strip + hard-strip backstop, length cap) but PRESERVES `\n` as a
+ * structural line break instead of collapsing it into a single space.
+ *
+ * `sanitizeForPrompt` deliberately flattens the whole string to one line —
+ * correct for a prompt (no rendering concept exists there) — but the
+ * assistant's ANSWER is stored verbatim and later re-rendered through
+ * `parseAnswer` (components/ai-chat/answer-format.ts), which splits the
+ * stored text on `\n` to rebuild ordered/unordered lists and paragraph
+ * breaks when a persisted conversation is reopened. Storing the flattened,
+ * single-line answer silently destroyed that structure on resume (R3 owner
+ * feedback, CAM-445): headers/lists rendered as one run-on paragraph and the
+ * assistant's structured formatting was gone.
+ *
+ * SECURITY (unchanged invariant, security.md AI/agent-layer): the stored
+ * answer is re-fed to the model as history on the NEXT turn
+ * (`conversation-store.loadWindow` -> route.ts's `toChatMessages` ->
+ * `buildTurnMessages`), so it must stay exactly as injection-safe as
+ * `sanitizeForPrompt` — only the newline-collapse step is relaxed to a
+ * per-line collapse (`collapseHorizontalWhitespace`); every other guard
+ * (control-char strip, delimiter fixpoint + hard-strip backstop, length cap)
+ * runs unchanged, in the same order.
+ */
+export function sanitizeAnswerForStore(rawText: string, maxLength: number = MAX_USER_TEXT_LENGTH): string {
+  const withoutControlChars = stripControlChars(rawText);
+  const withoutDelimiterTags = stripDelimiterTagsToFixpoint(withoutControlChars);
+  const collapsedFirst = collapseHorizontalWhitespace(withoutDelimiterTags);
+  // Final hard-strip backstop (defense-in-depth): remove any remaining
+  // opening-half fragment outright, regardless of a closing bracket.
+  const hardStripped = collapsedFirst.replace(DELIMITER_TAG_PREFIX_REGEX, ' ');
+  const collapsed = collapseHorizontalWhitespace(hardStripped);
+  return collapsed.slice(0, maxLength);
+}
+
+/**
  * Wrap already-sanitized text as an explicit DATA block for the prompt. The
  * system prompt (openrouter-client.ts) instructs the model that everything
  * between these tags is the camper's question text, never an instruction —

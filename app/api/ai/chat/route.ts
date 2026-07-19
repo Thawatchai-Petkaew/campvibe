@@ -58,7 +58,8 @@ import {
 } from '@/lib/ai/openrouter-client';
 import { chatRequestUnionSchema, type ChatMessage, type ChatRequest, type ChatRequestV2 } from '@/lib/validations/ai-chat';
 import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
-import { sanitizeForPrompt } from '@/lib/ai/sanitize';
+import { sanitizeForPrompt, sanitizeAnswerForStore } from '@/lib/ai/sanitize';
+import { AI_CHAT_CARDS_BLOCK_TYPE } from '@/lib/api-client';
 import { serializeDecimals } from '@/lib/serialize';
 import type { ToolContext } from '@/lib/ai/tool-registry';
 import {
@@ -166,6 +167,12 @@ function toChatMessages(history: ConversationMessageView[]): ChatMessage[] {
  * length ceiling (`MAX_CONTENT_TEXT_LENGTH`, 4000) rather than the prompt's
  * shorter 2000-char default, so this call never re-truncates a message the
  * store would otherwise have kept in full.
+ *
+ * CAM-445: used for the camper's OWN question text only. The assistant's
+ * answer uses `sanitizeAnswerForStore` (below) instead — same guarantees,
+ * but preserves `\n` so a resumed conversation can rebuild the answer's
+ * list/paragraph structure (see that function's docblock in
+ * lib/ai/sanitize.ts).
  */
 function sanitizeForStore(text: string): string {
   return sanitizeForPrompt(text, MAX_CONTENT_TEXT_LENGTH);
@@ -450,13 +457,24 @@ async function handleV2Turn(data: ChatRequestV2): Promise<NextResponse> {
     body.suggestions = result.suggestions;
   }
 
-  // D2 — atomic append, AFTER success only. `blocks` is deliberately NOT
-  // populated here (binding requirement: "do NOT migrate cards/suggestions
-  // into blocks now" — that migration is explicitly out of scope for this
-  // story), so this turn persists as a plain answer (`blocks: null`).
+  // D2 — atomic append, AFTER success only.
+  // CAM-445 (R3 owner feedback) — persist the SAME rendered cards the
+  // camper saw this turn as a 'cards' block, so a resumed conversation can
+  // restore them (components/ai-chat/conversation.ts's
+  // restoreEntriesFromMessages maps this block back into entry.cards,
+  // re-validating each card through isAiChatCardResponse — stored JSON is an
+  // input boundary, code.md CAM-305). Reuses the SAME `toWireCards` shape
+  // already sent to the client this turn (one shape, not a parallel one).
+  // Omitted (undefined) when there are no cards — mirrors the
+  // `suggestions`/`searchAttempted` "absent means no signal" convention
+  // already used above; an empty cards block is dead weight in storage.
   const appended = await appendTurn(conversationId, userId, {
     userText: sanitizeForStore(data.message),
-    assistantText: sanitizeForStore(answerText),
+    assistantText: sanitizeAnswerForStore(answerText, MAX_CONTENT_TEXT_LENGTH),
+    blocks:
+      result.cards && result.cards.length > 0
+        ? [{ type: AI_CHAT_CARDS_BLOCK_TYPE, v: 1, data: toWireCards(result.cards) }]
+        : undefined,
   });
 
   if (appended.ok) {
