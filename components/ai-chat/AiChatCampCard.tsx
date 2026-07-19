@@ -69,6 +69,18 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
           {name}
         </p>
 
+        {/* Price hero — own line, largest/boldest/accent element (reading order: name -> price). */}
+        <p className="flex items-baseline gap-1 tabular-nums" data-testid="text--ai-chat-card-price">
+          {card.priceLow && card.priceLow > 0 ? (
+            <>
+              <span className="text-lg font-semibold text-primary">฿{THB_FORMAT.format(card.priceLow)}</span>
+              <span className="text-xs font-normal text-muted-foreground">{t.aiChat.card.perNight}</span>
+            </>
+          ) : (
+            <span className="text-lg font-semibold text-primary">{t.aiChat.card.free}</span>
+          )}
+        </p>
+
         {hasProvince && (
           <p
             className="flex items-center gap-1 text-xs text-muted-foreground"
@@ -88,12 +100,6 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
           ) : (
             <span data-testid="empty--ai-chat-card-rating">{t.aiChat.card.noReviews}</span>
           )}
-
-          <span data-testid="text--ai-chat-card-price">
-            {card.priceLow && card.priceLow > 0
-              ? `฿${THB_FORMAT.format(card.priceLow)}${t.aiChat.card.perNight}`
-              : t.aiChat.card.free}
-          </span>
 
           {hasRemaining && (
             <span data-testid="chip--ai-chat-card-remaining">

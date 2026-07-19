@@ -118,7 +118,7 @@ export function AiChatCardCarousel({ cards }: AiChatCardCarouselProps) {
         aria-label={groupLabel}
         data-testid="carousel--ai-chat-cards"
         onScroll={syncFromScroll}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 no-scrollbar motion-safe:scroll-smooth"
+        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 py-4 no-scrollbar motion-safe:scroll-smooth"
       >
         {cards.map((card) => (
           <div key={card.id} data-testid="card--ai-chat-campsite" className="w-64 shrink-0 snap-start sm:w-60">
