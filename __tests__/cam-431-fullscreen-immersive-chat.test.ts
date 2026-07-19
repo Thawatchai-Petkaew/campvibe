@@ -93,7 +93,7 @@ describe("AC-6/BR-2 — header loses its border; expand/close group into a float
 
   it("[unit] BR-2 no-remount: useAiChat destructure, entries, and draft wiring are each present exactly once (unconditional, not duplicated per branch)", () => {
     expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
+      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
     );
     const entriesRefs = panelSrc.match(/entries={entries}/g) || [];
     expect(entriesRefs.length).toBe(1);

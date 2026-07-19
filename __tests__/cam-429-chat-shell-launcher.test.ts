@@ -74,7 +74,7 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
 
   it("[unit] BR-4: the useAiChat destructure is unchanged — expand/collapse never remounts the conversation", () => {
     expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
+      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
     );
     // CAM-431 nests the scroll region one level deeper (centered max-w column);
     // CAM-436 adds one more wrapper div around the list inside ScrollArea

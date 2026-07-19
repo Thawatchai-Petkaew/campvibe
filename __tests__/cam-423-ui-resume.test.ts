@@ -278,8 +278,8 @@ describe("AC-5/EC-1/EC-4 — any resume-fetch failure falls back to the fresh we
 });
 
 describe("AC-4/BR-5/EC-3 — guest path stays byte-stable (D1)", () => {
-  it("[unit] the guest branch still calls buildOutgoingHistory + aiChatAPI.send, unchanged call shape", () => {
-    expect(useAiChatSrc).toContain("aiChatAPI.send(buildOutgoingHistory(base, questionText))");
+  it("[unit] the guest branch still calls buildOutgoingHistory + aiChatAPI.send (CAM-412: now with a streaming options arg — signal + onDelta — appended, guest call SHAPE otherwise unchanged)", () => {
+    expect(useAiChatSrc).toContain("aiChatAPI.send(buildOutgoingHistory(base, questionText), {");
   });
 
   it("[unit] EC-3: runTurn branches on the LIVE `authed` value (useCallback dep [authed]) — a mid-session logout falls to the guest branch on the NEXT call, never a stale branch", () => {
@@ -288,7 +288,12 @@ describe("AC-4/BR-5/EC-3 — guest path stays byte-stable (D1)", () => {
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = useAiChatSrc.slice(start, end);
-    expect(body).toContain("authed\n        ?");
+    // CAM-412: restructured from a ternary to an early-return guard (needed
+    // room for the guest branch's own streaming-specific logic) — still
+    // branches on the SAME live `authed` closure variable, still returns
+    // early for the authed/v2 branch before ever reaching the guest path.
+    expect(body).toContain("if (authed) {");
+    expect(body).toContain("return;");
   });
 
   it("[unit] pre-existing exported guest functions are untouched call sites (byte-stable): aiChatAPI.send is still present unmodified in the api-client facade", () => {

@@ -128,6 +128,11 @@ interface AiChatMessageListProps {
 
 export function AiChatMessageList({ entries, sending, resuming, onSuggestion, onRetry }: AiChatMessageListProps) {
   const { t } = useLanguage();
+  const lastEntry = entries[entries.length - 1];
+  // CAM-412 BR-8: once the streaming entry exists, IT is the in-flight
+  // affordance (growing text + caret) — the generic typing dots below would
+  // be redundant alongside it.
+  const lastIsStreaming = lastEntry?.role === "assistant" && lastEntry.kind === "streaming";
 
   return (
     <div
@@ -193,7 +198,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
         />
       ))}
 
-      {sending && (
+      {sending && !lastIsStreaming && (
         <div
           data-testid="status--ai-chat-typing"
           className={`flex w-full items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5 ${ENTRANCE_MOTION_CLASS}`}
@@ -231,6 +236,60 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
         className={`max-w-[85%] self-end rounded-2xl bg-primary px-4 py-2.5 text-sm text-primary-foreground ${ENTRANCE_MOTION_CLASS}`}
       >
         <p className="whitespace-pre-wrap">{entry.text}</p>
+      </div>
+    );
+  }
+
+  if (entry.kind === "streaming") {
+    // CAM-412 (BR-8) — the growing answer text; a caret marks the in-flight
+    // affordance until the turn settles (into a normal "answer" entry, which
+    // is what actually renders cards/chips — never here). The whole row is
+    // `aria-hidden` while growing so the shared `role="log" aria-live="polite"`
+    // wrapper does NOT announce every delta mutation (BR-8: settled answer is
+    // announced ONCE, as a normal DOM addition, the instant this row is
+    // replaced by the finalized entry). The caret itself is decorative +
+    // respects `prefers-reduced-motion` via the existing `motion-safe:` gate.
+    const blocks = parseAnswer(entry.text);
+    const lastBlockIndex = blocks.length - 1;
+    const caret = (
+      <span
+        data-testid="caret--ai-chat-streaming"
+        className="ml-0.5 inline-block h-4 w-0.5 align-middle bg-muted-foreground motion-safe:animate-pulse"
+      />
+    );
+    return (
+      <div
+        aria-hidden="true"
+        data-testid="msg--ai-chat-streaming"
+        className={`w-full space-y-2 self-start text-sm leading-relaxed text-foreground ${ENTRANCE_MOTION_CLASS}`}
+      >
+        {blocks.length === 0 && <p className="whitespace-pre-wrap">{caret}</p>}
+        {blocks.map((block, i) =>
+          block.type === "ordered-list" ? (
+            <ol key={i} className="list-decimal space-y-1 pl-5 marker:text-muted-foreground">
+              {block.items.map((item, j) => (
+                <li key={j}>
+                  {item}
+                  {i === lastBlockIndex && j === block.items.length - 1 && caret}
+                </li>
+              ))}
+            </ol>
+          ) : block.type === "unordered-list" ? (
+            <ul key={i} className="list-disc space-y-1 pl-5 marker:text-muted-foreground">
+              {block.items.map((item, j) => (
+                <li key={j}>
+                  {item}
+                  {i === lastBlockIndex && j === block.items.length - 1 && caret}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p key={i} className="whitespace-pre-wrap">
+              {block.text}
+              {i === lastBlockIndex && caret}
+            </p>
+          )
+        )}
       </div>
     );
   }
