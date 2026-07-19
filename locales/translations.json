@@ -979,7 +979,9 @@
             "cardsRoleDescription": "carousel",
             "suggestedQuestionsLabel": "Suggested questions",
             "retentionNotice": "Your conversations are kept for up to 180 days and are deleted automatically after that. You can delete any conversation yourself at any time.",
-            "newChat": "Start new chat"
+            "newChat": "Start new chat",
+            "expand": "Expand to full screen",
+            "collapse": "Exit full screen"
         }
     },
     "th": {
@@ -1963,7 +1965,9 @@
             "cardsRoleDescription": "แถบเลื่อนการ์ด",
             "suggestedQuestionsLabel": "คำถามแนะนำ",
             "retentionNotice": "บทสนทนาของคุณจะถูกเก็บไว้ไม่เกิน 180 วัน แล้วจะถูกลบออกโดยอัตโนมัติ คุณสามารถลบบทสนทนาด้วยตัวเองได้ทุกเมื่อ",
-            "newChat": "เริ่มแชทใหม่"
+            "newChat": "เริ่มแชทใหม่",
+            "expand": "ขยายเต็มจอ",
+            "collapse": "ย่อกลับ"
         }
     }
 }

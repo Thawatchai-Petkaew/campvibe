@@ -1,0 +1,149 @@
+/**
+ * cam-429-chat-shell-launcher.test.ts — CAM-429 (owner staging feedback:
+ * no background dim, expand-to-full-page, FAB collision, campfire aura).
+ *
+ * Source-inspection coverage — this repo's Vitest config runs
+ * `environment: 'node'` with no jsdom (see cam-272-ai-chat-components.test.ts
+ * for the established convention); rendered-DOM behaviour is proven by
+ * reading the shipped source for the exact wiring the AC/BR/EC rows require.
+ */
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import translations from "../locales/translations.json";
+
+const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
+
+const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
+const launcherSrc = read("components/ai-chat/AiChatLauncher.tsx");
+const fabSrc = read("components/HostOnboardingFab.tsx");
+
+describe("AC-1 — no background dim, dismiss/a11y untouched", () => {
+  it("[unit] DialogOverlay renders bg-transparent, kept in the tree (not removed)", () => {
+    expect(panelSrc).toContain('<DialogOverlay className="bg-transparent" />');
+  });
+
+  it("[structural] no dismiss override disables Radix's native Esc/outside-dismiss/focus-trap (unchanged from CAM-272)", () => {
+    expect(panelSrc).not.toContain("onEscapeKeyDown");
+    expect(panelSrc).not.toContain("onPointerDownOutside");
+    expect(panelSrc).not.toContain("onInteractOutside");
+  });
+
+  it("[unit] the panel aria-label + onOpenAutoFocus wiring is unchanged", () => {
+    expect(panelSrc).toContain("aria-label={`${t.aiChat.name} ${t.aiChat.role}`}");
+    expect(panelSrc).toContain("onOpenAutoFocus={(e) => {");
+  });
+});
+
+describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
+  it("[unit] a Maximize2/Minimize2 header toggle exists, aria-labelled, wired to toggleExpanded", () => {
+    expect(panelSrc).toContain('import { Maximize2, Minimize2, Send, X } from "lucide-react"');
+    expect(panelSrc).toContain('data-testid="btn--ai-chat-expand-toggle"');
+    expect(panelSrc).toContain("aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}");
+    expect(panelSrc).toContain("onClick={toggleExpanded}");
+    expect(panelSrc).toContain("<Minimize2 className=");
+    expect(panelSrc).toContain("<Maximize2 className=");
+  });
+
+  it("[unit] the Content className switches between an expanded near-full-page variant and the collapsed bottom-sheet/anchored-card variant", () => {
+    expect(panelSrc).toContain("inset-2 rounded-3xl border border-border/60");
+    expect(panelSrc).toContain("sm:inset-6");
+    // the collapsed (CAM-407) sizing is preserved byte-identical
+    expect(panelSrc).toContain("sm:h-[min(37.5rem,80dvh)]");
+    expect(panelSrc).toContain("sm:w-96");
+    expect(panelSrc).toContain("h-[85dvh] max-h-[85dvh]");
+  });
+
+  it("[unit] toggleExpanded flips state and persists to sessionStorage on every toggle", () => {
+    expect(panelSrc).toContain("function toggleExpanded() {");
+    expect(panelSrc).toContain("writeExpandedToStorage(next);");
+  });
+
+  it("[unit] BR-3: sessionStorage read/write never throw (privacy-mode/quota safe, EC-2)", () => {
+    expect(panelSrc).toContain('window.sessionStorage.getItem(EXPANDED_STORAGE_KEY) === "1"');
+    expect(panelSrc).toContain("} catch {\n    return false;\n  }");
+    expect(panelSrc).toContain('window.sessionStorage.setItem(EXPANDED_STORAGE_KEY, value ? "1" : "0");');
+  });
+
+  it("[unit] BR-4: the useAiChat destructure is unchanged — expand/collapse never remounts the conversation", () => {
+    expect(panelSrc).toContain(
+      "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
+    );
+    expect(panelSrc).toContain('<AiChatMessageList\n                entries={entries}');
+  });
+});
+
+describe("AC-5/BR-5 — FAB collision resolved by moving HostOnboardingFab left", () => {
+  it("[unit] HostOnboardingFab's live wrapper div is fixed bottom-6 left-6 (moved off the right side)", () => {
+    // the old position may survive only in a traceability doc-comment, never as a live className
+    expect(fabSrc).toContain('<div className="fixed bottom-6 left-6 z-50">');
+    expect(fabSrc).not.toContain('className="fixed bottom-6 right-6 z-50"');
+  });
+
+  it("[unit] AiChatLauncher's live wrapper div resets to its natural bottom-6 right-6 (no live bottom-24 className)", () => {
+    // the old offset may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).toContain('<div className="fixed bottom-6 right-6 z-50">');
+    expect(launcherSrc).not.toMatch(/className="[^"]*bottom-24[^"]*"/);
+  });
+});
+
+describe("AC-6/BR-6 — campfire aura reuses only already-sanctioned §2.1 primitives", () => {
+  it("[unit] the launcher button uses shadow-ai-glow (not the old shadow-lg shadow-primary/20)", () => {
+    expect(launcherSrc).toContain("shadow-ai-glow");
+    expect(launcherSrc).not.toContain("shadow-lg shadow-primary/20");
+  });
+
+  it("[unit] the flame reuses the AiChatAvatar idiom: text-ai-ember + fill-current + ai-flame-glow", () => {
+    expect(launcherSrc).toContain("ai-flame-glow size-5 fill-current text-ai-ember");
+  });
+
+  it("[unit] two decorative ember/firefly <span> dots exist, aria-hidden + pointer-events-none, motion-safe/reduce gated", () => {
+    // count only the live <span aria-hidden="true" ...> elements (excludes the prose doc-comment above them)
+    const spanBlocks = launcherSrc.match(/<span\b[\s\S]*?\/>/g) || [];
+    expect(spanBlocks.length).toBe(2);
+    for (const span of spanBlocks) {
+      expect(span).toContain('aria-hidden="true"');
+      expect(span).toContain("pointer-events-none");
+      expect(span).toMatch(/motion-safe:animate-pulse motion-reduce:animate-none/);
+    }
+    expect(spanBlocks.some((s) => s.includes("bg-ai-ember"))).toBe(true);
+    expect(spanBlocks.some((s) => s.includes("bg-ai-firefly"))).toBe(true);
+  });
+
+  it("[structural] no new keyframe/inline animation is introduced — only the pre-existing ai-flame-glow loop + stock Tailwind animate-pulse are used", () => {
+    expect(launcherSrc).not.toContain("@keyframes");
+    expect(launcherSrc).not.toContain("animation:");
+    // every animation-bearing class token in the file is one of the two allowed names
+    const animTokens = launcherSrc.match(/\b(?:motion-safe:|motion-reduce:)?animate-[a-z-]+\b/g) || [];
+    for (const token of animTokens) expect(token.endsWith("animate-pulse") || token.endsWith("animate-none")).toBe(true);
+  });
+});
+
+describe("Icons/copy — lucide only, no emoji, token-only, i18n (standing rules)", () => {
+  it("[structural] no emoji literal in the touched files", () => {
+    // eslint-disable-next-line no-misleading-character-class
+    const emojiPattern = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+    for (const src of [panelSrc, launcherSrc, fabSrc]) expect(emojiPattern.test(src)).toBe(false);
+  });
+
+  it("[structural] token-only: no stray hex/px in the touched files", () => {
+    for (const src of [panelSrc, launcherSrc, fabSrc]) {
+      expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+      expect(src).not.toMatch(/\[\d+px\]/);
+    }
+  });
+
+  it("[structural] no raw Thai glyph inside JSX text or an attribute literal in the touched files", () => {
+    for (const src of [panelSrc, launcherSrc, fabSrc]) {
+      expect(src).not.toMatch(/>[^<{]*[ก-๙][^<{]*</);
+      expect(src).not.toMatch(/="[^"]*[ก-๙][^"]*"/);
+    }
+  });
+
+  it("[i18n] aiChat.expand / aiChat.collapse exist TH+EN, no hardcoded copy", () => {
+    expect(translations.en.aiChat.expand).toBe("Expand to full screen");
+    expect(translations.en.aiChat.collapse).toBe("Exit full screen");
+    expect(translations.th.aiChat.expand).toBe("ขยายเต็มจอ");
+    expect(translations.th.aiChat.collapse).toBe("ย่อกลับ");
+  });
+});
