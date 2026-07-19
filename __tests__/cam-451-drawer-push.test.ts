@@ -56,14 +56,17 @@ describe("(c) the push track applies translate/transition, forking on selectedCa
   });
 
   it("[structural] both panes are absolute inset-0 siblings inside one overflow-hidden track", () => {
-    expect(panelSrc).toContain('<div className="relative z-10 h-full min-h-0 overflow-hidden">');
+    // CAM-453: the track's className moved from a bare string literal to a
+    // cn(...) call (it now also forks a desktop-split row layout on
+    // `expanded`) — the base classes are unchanged, just no longer inlined.
+    expect(panelSrc).toContain('"relative z-10 h-full min-h-0 overflow-hidden"');
     expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col/g)?.length).toBe(2);
   });
 });
 
 describe("(d) the off-screen pane is inert in both directions", () => {
-  it("[normal] chat pane is inert while a camp is selected", () => {
-    expect(panelSrc).toContain("inert={selectedCamp !== null}");
+  it("[normal] chat pane is inert while a camp is selected, in full-push mode (CAM-453: not while desktop-split is active)", () => {
+    expect(panelSrc).toContain("inert={!isSplitMode && selectedCamp !== null}");
   });
 
   it("[normal] detail pane is inert while nothing is selected (symmetric guarantee)", () => {

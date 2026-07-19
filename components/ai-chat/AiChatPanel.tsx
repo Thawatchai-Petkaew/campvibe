@@ -132,10 +132,30 @@
  * own reading column). The off-screen pane is `inert` (extends the CAM-447
  * guarantee symmetrically to BOTH directions) so Tab/SR never reach hidden
  * controls in either pane.
+ *
+ * CAM-453 (owner staging feedback, refines CAM-451 for desktop): full-push
+ * (chat slides fully off-screen) is now MOBILE-ONLY (and the narrow
+ * collapsed 384px card, any width — too tight to split). On desktop
+ * (`sm:`+) while `expanded` (fullscreen has the room), the track becomes a
+ * DESKTOP SPLIT instead: the chat pane stays in-flow (`sm:flex-1`), visible
+ * and interactive, never translated off and never `inert`; the detail pane
+ * becomes a bounded right-hand rail (`sm:w-[22rem] lg:w-[26rem]`) that
+ * widens open / narrows shut instead of translating — a translate on a
+ * fixed-width flex sibling would still reserve its layout box and leave a
+ * blank gap, so width is the correct axis for a flex-row sibling. Every
+ * override is gated `expanded && "sm:…"` so the SAME classes fall back to
+ * the unprefixed CAM-451 full-push behaviour whenever `expanded` is false
+ * (collapsed card) or the viewport is below `sm:` (mobile) — no separate
+ * mount, no remount. `inert` is a DOM boolean, not stylable by a CSS media
+ * query, so the chat pane's `inert` value alone needs a real runtime
+ * viewport check (`useIsDesktopViewport`, SSR-safe: starts `false` and
+ * syncs after mount — this panel is already `next/dynamic(ssr:false)`, so
+ * there's no hydration mismatch to worry about); the split CSS itself still
+ * gates purely on Tailwind's `sm:` prefix + `expanded`.
  */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { Dialog as PanelPrimitive } from "radix-ui";
 import { Loader2, Maximize2, Minimize2, Send, X } from "lucide-react";
@@ -186,11 +206,47 @@ function writeExpandedToStorage(value: boolean): void {
   }
 }
 
+// CAM-453: mirrors Tailwind's `sm:` breakpoint (>=640px). Only consumed to
+// gate `inert` (a DOM boolean the `sm:` CSS classes below can't reach) —
+// the split/full-push CSS itself stays purely Tailwind-driven.
+const DESKTOP_SPLIT_QUERY = "(min-width: 640px)";
+
+function subscribeToDesktopSplitQuery(onChange: () => void): () => void {
+  const mql = window.matchMedia(DESKTOP_SPLIT_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+
+function getIsDesktopViewport(): boolean {
+  return window.matchMedia(DESKTOP_SPLIT_QUERY).matches;
+}
+
+// SSR-safe snapshot: this panel is already `next/dynamic(ssr:false)`, so
+// `false` here is never actually rendered server-side — it only covers the
+// brief pre-mount tick, matching the mobile-first default.
+function getServerIsDesktopViewport(): boolean {
+  return false;
+}
+
+function useIsDesktopViewport(): boolean {
+  return useSyncExternalStore(
+    subscribeToDesktopSplitQuery,
+    getIsDesktopViewport,
+    getServerIsDesktopViewport
+  );
+}
+
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
   const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
+  // CAM-453 — desktop split gates on `expanded` (fullscreen has the room)
+  // AND a real `sm:`-equivalent viewport check (needed only for `inert`,
+  // which a CSS media query can't drive); the split's CSS itself uses
+  // Tailwind's `sm:` prefix directly, gated by `expanded` alone.
+  const isDesktopViewport = useIsDesktopViewport();
+  const isSplitMode = expanded && isDesktopViewport;
   const composerRef = useRef<HTMLTextAreaElement>(null);
   // CAM-447 — panel-level view state (not use-ai-chat.ts): which camp's
   // floating detail card is open, plus the originating card button so
@@ -383,14 +439,25 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               holding two absolute-inset0 panes (chat | detail). Each pane's
               own translate-x moves it fully off/on screen; both share the
               same duration/easing so they read as one connected push, never
-              an overlay. */}
-          <div className="relative z-10 h-full min-h-0 overflow-hidden">
+              an overlay.
+              CAM-453: `expanded` additionally unlocks a `sm:` desktop-split
+              row layout on the SAME track (no separate mount) — see the
+              file-header doc comment for the full rationale. */}
+          <div
+            className={cn(
+              "relative z-10 h-full min-h-0 overflow-hidden",
+              expanded && "sm:flex sm:flex-row"
+            )}
+          >
             <div
               className={cn(
                 "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
-                selectedCamp ? "-translate-x-full" : "translate-x-0"
+                selectedCamp ? "-translate-x-full" : "translate-x-0",
+                // CAM-453: desktop split — the chat pane stays in-flow and
+                // visible beside the detail rail (never translated off).
+                expanded && "sm:relative sm:inset-auto sm:flex-1 sm:min-w-0 sm:translate-x-0"
               )}
-              inert={selectedCamp !== null}
+              inert={!isSplitMode && selectedCamp !== null}
             >
               {/* CAM-431: fullscreen drops the bordered bar — identity cluster
                   + expand/close buttons sit lighter, directly on the ambient
@@ -528,11 +595,24 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             {/* CAM-451 — the detail pane: off-screen right (`translate-x-full`)
                 until a camp is selected, then slides to `translate-x-0`.
                 `AiChatDetailCard` itself only mounts while selected — never
-                fetches for a pane the camper can't see. */}
+                fetches for a pane the camper can't see.
+                CAM-453 — desktop split: a bounded side rail that WIDENS
+                open / narrows shut (`sm:w-0` <-> `sm:w-[22rem] lg:w-[26rem]`)
+                instead of translating; a translated fixed-width flex sibling
+                would still reserve its box and leave a blank gap, so width
+                is the right axis here. `sm:motion-reduce:transition-none`
+                repeats the reduced-motion guard at the `sm:` variant so it
+                still wins once the transitioned property switches from
+                transform to width at that breakpoint. */}
             <div
               className={cn(
                 "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
-                selectedCamp ? "translate-x-0" : "translate-x-full"
+                selectedCamp ? "translate-x-0" : "translate-x-full",
+                expanded &&
+                  cn(
+                    "sm:relative sm:inset-auto sm:shrink-0 sm:translate-x-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 sm:ease-out sm:motion-reduce:transition-none",
+                    selectedCamp ? "sm:w-[22rem] sm:border-l sm:border-border/60 lg:w-[26rem]" : "sm:w-0"
+                  )
               )}
               inert={selectedCamp === null}
             >
