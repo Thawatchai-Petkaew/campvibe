@@ -79,15 +79,16 @@ describe("G3 — availability chip is date-range dependent: shown only when rema
   });
 });
 
-describe("Carousel wiring — onSelect navigates to /campgrounds/{slug} for THIS story (design.md: a later story repoints it)", () => {
-  it("[unit] both the single-card and multi-card render paths pass onSelect={handleSelect}", () => {
-    const occurrences = carouselSrc.match(/onSelect=\{handleSelect\}/g) ?? [];
+describe("Carousel wiring (CAM-447 SUPERSEDES) — onSelect forwards to the caller's onSelectCamp, which opens the floating detail card instead of navigating", () => {
+  it("[unit] both the single-card and multi-card render paths pass onSelect={onSelectCamp}", () => {
+    const occurrences = carouselSrc.match(/onSelect=\{onSelectCamp\}/g) ?? [];
     expect(occurrences.length).toBe(2);
   });
 
-  it("[unit] handleSelect uses next/navigation's useRouter, not a raw fetch/window.location", () => {
-    expect(carouselSrc).toContain('import { useRouter } from "next/navigation"');
-    expect(carouselSrc).toContain("const router = useRouter();");
+  it("[unit] the carousel no longer navigates itself — no useRouter/router.push/window.location", () => {
+    expect(carouselSrc).not.toContain('import { useRouter } from "next/navigation"');
+    expect(carouselSrc).not.toContain("const router = useRouter();");
+    expect(carouselSrc).not.toMatch(/router\.push\(/);
     expect(carouselSrc).not.toMatch(/window\.location/);
   });
 });

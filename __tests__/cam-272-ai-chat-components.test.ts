@@ -170,16 +170,18 @@ describe("BR-4 (CAM-428 SUPERSEDES) — the in-chat card is now a DEDICATED, dec
   });
 });
 
-describe("AC-3 (CAM-428 SUPERSEDES) — the in-chat card selects via onSelect; the carousel navigates to /campgrounds/{slug}", () => {
+describe("AC-3 (CAM-447 SUPERSEDES CAM-428) — the in-chat card selects via onSelect; the carousel forwards to onSelectCamp (opens the floating detail card, no navigation)", () => {
   it('[structural] AiChatCampCard takes an onSelect prop and calls it with the full card — no baked <Link>', () => {
     expect(cardSrc).toContain("onSelect: (card: AiChatCardResponse) => void");
     expect(cardSrc).toContain("onClick={() => onSelect(card)}");
     expect(cardSrc).not.toContain("<Link");
   });
 
-  it("[unit] the carousel derives the slug from nameThSlug/nameEnSlug (mirrors CampgroundCard.tsx's own convention) and pushes /campgrounds/{slug}", () => {
-    expect(carouselSrc).toContain('language === "en" ? card.nameEnSlug || card.nameThSlug : card.nameThSlug');
-    expect(carouselSrc).toContain("router.push(`/campgrounds/${slug}`)");
+  it("[unit] CAM-447: the carousel forwards the selected card to onSelectCamp — no more in-carousel navigation", () => {
+    expect(carouselSrc).toContain("onSelectCamp: (card: AiChatCardResponse) => void");
+    expect(carouselSrc).toContain("onSelect={onSelectCamp}");
+    expect(carouselSrc).not.toContain("useRouter");
+    expect(carouselSrc).not.toContain("router.push(");
   });
 
   it("[security/structural] the in-chat card mounts no mutation/write handler of its own — onClick navigates only, never fetch/POST", () => {

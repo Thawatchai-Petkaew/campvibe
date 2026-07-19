@@ -127,7 +127,8 @@ describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assis
   it("[unit] CAM-439 SUPERSEDES: the card carousel + suggestion chips no longer carry a pl-4 (the bubble's px-4 inset they matched is gone) — everything left-aligns at the log's own p-4 edge", () => {
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
     expect(answerBlock).not.toContain('<div className="pl-4">');
-    expect(answerBlock).toContain("<AiChatCardCarousel cards={entry.cards} />");
+    // CAM-447: the carousel now also takes onSelectCamp (opens the floating detail card)
+    expect(answerBlock).toContain("<AiChatCardCarousel cards={entry.cards} onSelectCamp={onSelectCamp} />");
     expect(answerBlock).toContain('className="flex flex-wrap gap-2"');
     expect(answerBlock).not.toContain('className="flex flex-wrap gap-2 pl-4"');
   });

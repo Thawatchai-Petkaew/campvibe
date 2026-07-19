@@ -9,10 +9,14 @@
  *
  * CAM-428: `AiChatCampCard` no longer bakes in a navigation link (it takes
  * an `onSelect` prop, BR-4 exception) — this carousel is the one call site
- * that owns "what selecting a card does" for THIS story: navigate to the
- * camp page (nameEnSlug in EN, nameThSlug in TH, mirroring the catalog
- * card's own slug convention). A later story (S5) repoints `handleSelect`
- * at an in-chat floating detail card without touching `AiChatCampCard` itself.
+ * that owns "what selecting a card does" for THIS story.
+ *
+ * CAM-447 (SUPERSEDES the CAM-428/CAM-409 navigate-on-select behavior): the
+ * carousel no longer navigates itself — selecting a card forwards the full
+ * card object to the caller-supplied `onSelectCamp` prop, which
+ * `AiChatPanel` uses to open the in-chat floating detail card
+ * (`AiChatDetailCard`). The slug/navigation logic now lives on that card's
+ * own CTA (`/campgrounds/{slug}` deep-link), not here.
  *
  * BR-1/EC-1: chrome (chevrons + indicator) renders only when cards.length > 1;
  * exactly 1 card renders with no carousel chrome at all.
@@ -25,7 +29,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -37,11 +40,12 @@ const MAX_DOTS = 5;
 
 interface AiChatCardCarouselProps {
   cards: AiChatCardResponse[];
+  /** CAM-447 — opens the floating detail card for the tapped campsite. */
+  onSelectCamp: (card: AiChatCardResponse) => void;
 }
 
-export function AiChatCardCarousel({ cards }: AiChatCardCarouselProps) {
-  const { t, language } = useLanguage();
-  const router = useRouter();
+export function AiChatCardCarousel({ cards, onSelectCamp }: AiChatCardCarouselProps) {
+  const { t } = useLanguage();
   const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [atStart, setAtStart] = useState(true);
@@ -81,25 +85,13 @@ export function AiChatCardCarousel({ cards }: AiChatCardCarouselProps) {
     track.scrollBy({ left: direction * step });
   };
 
-  // CAM-428: the carousel owns the "select" navigation for THIS story — the
-  // same slug convention the catalog card uses (nameEnSlug in EN, else
-  // nameThSlug). Mirrored per-card so an S5 detail-card repoint only touches
-  // this one function.
-  const handleSelect = useCallback(
-    (card: AiChatCardResponse) => {
-      const slug = language === "en" ? card.nameEnSlug || card.nameThSlug : card.nameThSlug;
-      router.push(`/campgrounds/${slug}`);
-    },
-    [language, router]
-  );
-
   if (cards.length === 0) return null;
 
   // EC-1/BR-1: exactly 1 card -> the single card, no carousel chrome at all.
   if (cards.length === 1) {
     return (
       <div data-testid="card--ai-chat-campsite" className="w-full max-w-full">
-        <AiChatCampCard card={cards[0]} onSelect={handleSelect} />
+        <AiChatCampCard card={cards[0]} onSelect={onSelectCamp} />
       </div>
     );
   }
@@ -122,7 +114,7 @@ export function AiChatCardCarousel({ cards }: AiChatCardCarouselProps) {
       >
         {cards.map((card) => (
           <div key={card.id} data-testid="card--ai-chat-campsite" className="w-64 shrink-0 snap-start sm:w-60">
-            <AiChatCampCard card={card} onSelect={handleSelect} />
+            <AiChatCampCard card={card} onSelect={onSelectCamp} />
           </div>
         ))}
       </div>

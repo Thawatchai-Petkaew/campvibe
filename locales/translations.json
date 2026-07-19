@@ -989,7 +989,16 @@
                 "viewDetail": "View details"
             },
             "expand": "Expand to full screen",
-            "collapse": "Exit full screen"
+            "collapse": "Exit full screen",
+            "detail": {
+                "back": "Back",
+                "amenitiesHeading": "Amenities",
+                "reviewsHeading": "Guest reviews",
+                "availabilityHeading": "Available weekends",
+                "noAmenities": "No amenities listed yet",
+                "noAvailability": "No free weekends in this period",
+                "viewCampPage": "View camp page"
+            }
         }
     },
     "th": {
@@ -1983,7 +1992,16 @@
                 "viewDetail": "ดูรายละเอียด"
             },
             "expand": "ขยายเต็มจอ",
-            "collapse": "ย่อกลับ"
+            "collapse": "ย่อกลับ",
+            "detail": {
+                "back": "ย้อนกลับ",
+                "amenitiesHeading": "สิ่งอำนวยความสะดวก",
+                "reviewsHeading": "รีวิวจากผู้เข้าพัก",
+                "availabilityHeading": "สุดสัปดาห์ที่ว่าง",
+                "noAmenities": "ยังไม่ได้ระบุสิ่งอำนวยความสะดวก",
+                "noAvailability": "ช่วงนี้ยังไม่มีสุดสัปดาห์ว่าง",
+                "viewCampPage": "ดูหน้าลาน"
+            }
         }
     }
 }
