@@ -76,8 +76,10 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     expect(panelSrc).toContain(
       "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
     );
-    // CAM-431 nests the scroll region one level deeper (centered max-w column) — indentation shifts +2.
-    expect(panelSrc).toContain('<AiChatMessageList\n                  entries={entries}');
+    // CAM-431 nests the scroll region one level deeper (centered max-w column);
+    // CAM-436 adds one more wrapper div around the list inside ScrollArea
+    // (full-width scrollbar-to-edge restructure) — indentation shifts +2 again.
+    expect(panelSrc).toContain('<AiChatMessageList\n                    entries={entries}');
   });
 });
 

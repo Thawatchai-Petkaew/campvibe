@@ -41,16 +41,23 @@ describe("AC-1/AC-2/BR-1 — fullscreen geometry: inset-0, no card frame", () =>
 });
 
 describe("AC-3/BR-3 — reading + composing centers in a max-w column with side gutters", () => {
-  it("[unit] a centered max-w-2xl/sm:max-w-3xl wrapper forks on `expanded`", () => {
+  it("[unit] the shared flex column has no width bound of its own (CAM-436 moved it onto the list wrapper + composer container so the ScrollArea spans full width)", () => {
     expect(panelSrc).toContain("mx-auto flex w-full min-h-0 flex-1 flex-col");
-    expect(panelSrc).toContain('expanded && "max-w-2xl px-4 sm:max-w-3xl sm:px-8"');
+  });
+
+  it("[unit] the message-list wrapper (inside ScrollArea) carries the centered max-w-2xl/sm:max-w-3xl column, forked on `expanded` (CAM-436)", () => {
+    expect(panelSrc).toContain('cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")');
+  });
+
+  it("[unit] the composer container also carries the centered max-w column while expanded (CAM-436)", () => {
+    expect(panelSrc).toContain("mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10");
   });
 });
 
 describe("AC-4/AC-5/BR-4 — fullscreen composer = a floating glass dock; collapsed composer unchanged", () => {
-  it("[unit] the expanded composer is a rounded-full glass dock with glow + a teal->sky gradient accent (stock primary/info tokens, no new token)", () => {
+  it("[unit] the expanded composer is a rounded-3xl glass dock with glow + a teal->sky gradient accent + a visible focus-within ring (CAM-436 supersedes the CAM-431 rounded-full pill)", () => {
     expect(panelSrc).toContain(
-      "rounded-full border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-5 shadow-ai-glow backdrop-blur-xl"
+      "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
     );
   });
 
