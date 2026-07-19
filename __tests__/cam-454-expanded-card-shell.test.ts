@@ -15,6 +15,7 @@ const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 const detailSrc = read("components/ai-chat/AiChatDetailCard.tsx");
 const globalsCss = read("app/globals.css");
+const launcherSrc = read("components/ai-chat/AiChatLauncher.tsx");
 
 describe("(1) expanded is an inset CARD, not full-bleed inset-0", () => {
   it("[normal] the expanded branch uses a bounded inset + rounded-3xl + border, not inset-0", () => {
@@ -190,9 +191,26 @@ describe("(9) AiChatDetailCard section-divider spacing is balanced (mid-turn add
   });
 });
 
+describe("(10) QA regression fix: the panel closes on route change (detail CTA navigation)", () => {
+  it("[normal] AiChatLauncher reads usePathname and calls setOpen(false) whenever the pathname changes", () => {
+    expect(launcherSrc).toContain('import { usePathname } from "next/navigation";');
+    expect(launcherSrc).toContain("const pathname = usePathname();");
+    expect(launcherSrc).toMatch(/useEffect\(\(\) => \{[\s\S]*setOpen\(false\);[\s\S]*\}, \[pathname\]\);/);
+  });
+
+  it("[boundary] the initial mount is skipped so it never fights the FAB's own setOpen(true) on first open", () => {
+    expect(launcherSrc).toContain("const didMountRef = useRef(false);");
+    expect(launcherSrc).toMatch(/if \(!didMountRef\.current\) \{\s*didMountRef\.current = true;\s*return;\s*\}/);
+  });
+
+  it("[structural] closing (not just hiding) the panel is what re-runs its scroll-lock/inert cleanup — setOpen(false) unmounts <AiChatPanel> via its existing `{open && <AiChatPanel .../>}` guard", () => {
+    expect(launcherSrc).toContain("{open && <AiChatPanel open={open} onOpenChange={setOpen} />}");
+  });
+});
+
 describe("Zero debug/demo UI (quality bar)", () => {
   it("no console.log / JSON.stringify dump in either touched file", () => {
-    for (const src of [panelSrc, detailSrc]) {
+    for (const src of [panelSrc, detailSrc, launcherSrc]) {
       expect(src).not.toContain("console.log");
       expect(src).not.toContain("JSON.stringify");
     }
