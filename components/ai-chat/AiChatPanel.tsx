@@ -136,22 +136,26 @@
  * CAM-453 (owner staging feedback, refines CAM-451 for desktop): full-push
  * (chat slides fully off-screen) is now MOBILE-ONLY (and the narrow
  * collapsed 384px card, any width — too tight to split). On desktop
- * (`sm:`+) while `expanded` (fullscreen has the room), the track becomes a
- * DESKTOP SPLIT instead: the chat pane stays in-flow (`sm:flex-1`), visible
- * and interactive, never translated off and never `inert`; the detail pane
- * becomes a bounded right-hand rail (`sm:w-[22rem] lg:w-[26rem]`) that
- * widens open / narrows shut instead of translating — a translate on a
+ * (`lg:`+, raised from `sm:` per QA follow-up — 640px left only ~224px of
+ * chat text width, too cramped) while `expanded` (fullscreen has the room),
+ * the track becomes a DESKTOP SPLIT instead: the chat pane stays in-flow
+ * (`lg:flex-1`), visible and interactive, never translated off and never
+ * `inert`; the detail pane becomes a bounded right-hand rail (`lg:w-[26rem]`)
+ * that widens open / narrows shut instead of translating — a translate on a
  * fixed-width flex sibling would still reserve its layout box and leave a
  * blank gap, so width is the correct axis for a flex-row sibling. Every
- * override is gated `expanded && "sm:…"` so the SAME classes fall back to
+ * override is gated `expanded && "lg:…"` so the SAME classes fall back to
  * the unprefixed CAM-451 full-push behaviour whenever `expanded` is false
- * (collapsed card) or the viewport is below `sm:` (mobile) — no separate
- * mount, no remount. `inert` is a DOM boolean, not stylable by a CSS media
- * query, so the chat pane's `inert` value alone needs a real runtime
- * viewport check (`useIsDesktopViewport`, SSR-safe: starts `false` and
- * syncs after mount — this panel is already `next/dynamic(ssr:false)`, so
- * there's no hydration mismatch to worry about); the split CSS itself still
- * gates purely on Tailwind's `sm:` prefix + `expanded`.
+ * (collapsed card) or the viewport is below `lg:` (mobile/tablet) — no
+ * separate mount, no remount. `inert` is a DOM boolean, not stylable by a
+ * CSS media query, so the chat pane's `inert` value alone needs a real
+ * runtime viewport check (`useIsDesktopViewport`, SSR-safe: starts `false`
+ * and syncs after mount — this panel is already `next/dynamic(ssr:false)`,
+ * so there's no hydration mismatch to worry about); the split CSS itself
+ * still gates purely on Tailwind's `lg:` prefix + `expanded`. CRITICAL: the
+ * `useIsDesktopViewport` query breakpoint MUST equal the `lg:` breakpoint
+ * (both 1024px) — a desync makes the visual split and the `inert` boolean
+ * disagree (an a11y trap, QA-verified invariant).
  */
 "use client";
 
@@ -206,10 +210,16 @@ function writeExpandedToStorage(value: boolean): void {
   }
 }
 
-// CAM-453: mirrors Tailwind's `sm:` breakpoint (>=640px). Only consumed to
-// gate `inert` (a DOM boolean the `sm:` CSS classes below can't reach) —
-// the split/full-push CSS itself stays purely Tailwind-driven.
-const DESKTOP_SPLIT_QUERY = "(min-width: 640px)";
+// CAM-453 (raised from `sm:`/640px to `lg:`/1024px, QA follow-up: 640px left
+// the chat pane only ~224px of text width, too cramped — the split should
+// only engage at genuinely-desktop width). Mirrors Tailwind's `lg:`
+// breakpoint exactly. Only consumed to gate `inert` (a DOM boolean the
+// `lg:` CSS classes below can't reach) — the split/full-push CSS itself
+// stays purely Tailwind-driven. CRITICAL: this query's breakpoint MUST
+// equal the Tailwind prefix used on every split class below (both 1024px) —
+// a desync between the two makes the visual split and the `inert` boolean
+// disagree, which is an a11y trap (QA-verified invariant).
+const DESKTOP_SPLIT_QUERY = "(min-width: 1024px)";
 
 function subscribeToDesktopSplitQuery(onChange: () => void): () => void {
   const mql = window.matchMedia(DESKTOP_SPLIT_QUERY);
@@ -242,9 +252,10 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   // CAM-453 — desktop split gates on `expanded` (fullscreen has the room)
-  // AND a real `sm:`-equivalent viewport check (needed only for `inert`,
+  // AND a real `lg:`-equivalent viewport check (needed only for `inert`,
   // which a CSS media query can't drive); the split's CSS itself uses
-  // Tailwind's `sm:` prefix directly, gated by `expanded` alone.
+  // Tailwind's `lg:` prefix directly, gated by `expanded` alone. Both MUST
+  // stay at the same 1024px breakpoint (QA-verified invariant).
   const isDesktopViewport = useIsDesktopViewport();
   const isSplitMode = expanded && isDesktopViewport;
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -440,13 +451,13 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               own translate-x moves it fully off/on screen; both share the
               same duration/easing so they read as one connected push, never
               an overlay.
-              CAM-453: `expanded` additionally unlocks a `sm:` desktop-split
+              CAM-453: `expanded` additionally unlocks a `lg:` desktop-split
               row layout on the SAME track (no separate mount) — see the
               file-header doc comment for the full rationale. */}
           <div
             className={cn(
               "relative z-10 h-full min-h-0 overflow-hidden",
-              expanded && "sm:flex sm:flex-row"
+              expanded && "lg:flex lg:flex-row"
             )}
           >
             <div
@@ -455,7 +466,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 selectedCamp ? "-translate-x-full" : "translate-x-0",
                 // CAM-453: desktop split — the chat pane stays in-flow and
                 // visible beside the detail rail (never translated off).
-                expanded && "sm:relative sm:inset-auto sm:flex-1 sm:min-w-0 sm:translate-x-0"
+                expanded && "lg:relative lg:inset-auto lg:flex-1 lg:min-w-0 lg:translate-x-0"
               )}
               inert={!isSplitMode && selectedCamp !== null}
             >
@@ -597,21 +608,21 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 `AiChatDetailCard` itself only mounts while selected — never
                 fetches for a pane the camper can't see.
                 CAM-453 — desktop split: a bounded side rail that WIDENS
-                open / narrows shut (`sm:w-0` <-> `sm:w-[22rem] lg:w-[26rem]`)
-                instead of translating; a translated fixed-width flex sibling
-                would still reserve its box and leave a blank gap, so width
-                is the right axis here. `sm:motion-reduce:transition-none`
-                repeats the reduced-motion guard at the `sm:` variant so it
-                still wins once the transitioned property switches from
-                transform to width at that breakpoint. */}
+                open / narrows shut (`lg:w-0` <-> `lg:w-[26rem]`) instead of
+                translating; a translated fixed-width flex sibling would
+                still reserve its box and leave a blank gap, so width is the
+                right axis here. `lg:motion-reduce:transition-none` repeats
+                the reduced-motion guard at the `lg:` variant so it still
+                wins once the transitioned property switches from transform
+                to width at that breakpoint. */}
             <div
               className={cn(
                 "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
                 selectedCamp ? "translate-x-0" : "translate-x-full",
                 expanded &&
                   cn(
-                    "sm:relative sm:inset-auto sm:shrink-0 sm:translate-x-0 sm:overflow-hidden sm:transition-[width] sm:duration-200 sm:ease-out sm:motion-reduce:transition-none",
-                    selectedCamp ? "sm:w-[22rem] sm:border-l sm:border-border/60 lg:w-[26rem]" : "sm:w-0"
+                    "lg:relative lg:inset-auto lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
+                    selectedCamp ? "lg:w-[26rem] lg:border-l lg:border-border/60" : "lg:w-0"
                   )
               )}
               inert={selectedCamp === null}
