@@ -10,6 +10,8 @@ import type {
     WishlistIdsResponse,
 } from '@/types/api';
 import { MAX_SUGGESTION_LENGTH } from '@/lib/ai/sanitize';
+import type { GetCampDetailResult, CampAmenity } from '@/lib/ai/tools/get-camp-detail';
+import type { ReviewListItem, ReviewSummary } from '@/lib/review-summary';
 import { z } from 'zod';
 
 const API_BASE = '/api';
@@ -522,6 +524,67 @@ export interface AiChatStreamOptions {
     signal?: AbortSignal;
 }
 
+/** CAM-446 — narrows one `GetCampDetailResult.amenities[]` entry (network I/O is an input boundary, code.md CAM-305). */
+function isCampAmenity(value: unknown): value is CampAmenity {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.code === 'string' &&
+        typeof v.group === 'string' &&
+        typeof v.nameTh === 'string' &&
+        typeof v.nameEn === 'string' &&
+        (v.icon === null || typeof v.icon === 'string')
+    );
+}
+
+/** CAM-446 — narrows one `GetCampDetailResult.reviews[]` entry. `authorId` is never expected here (PDPA — the server select never carries it). */
+function isReviewListItem(value: unknown): value is ReviewListItem {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.name === 'string' &&
+        typeof v.rating === 'number' &&
+        (v.content === null || typeof v.content === 'string') &&
+        (typeof v.createdAt === 'string' || v.createdAt instanceof Date)
+    );
+}
+
+/** CAM-446 — narrows `GetCampDetailResult.reviewSummary`. */
+function isReviewSummary(value: unknown): value is ReviewSummary {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        typeof v.hasReviews === 'boolean' &&
+        (v.avgRating === null || typeof v.avgRating === 'number') &&
+        typeof v.count === 'number'
+    );
+}
+
+/**
+ * CAM-446 — narrows a wire body into the `ok:true` variant of
+ * `GetCampDetailResult`. Every field of the tool's own guest-safe shape is
+ * checked explicitly; no operator/host/contact field is ever expected (PDPA)
+ * so none is checked FOR here — their absence is what the server-side tool
+ * (get-camp-detail.ts) + its own test already guarantee.
+ */
+function isGetCampDetailOk(value: unknown): value is Extract<GetCampDetailResult, { ok: true }> {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return (
+        v.ok === true &&
+        typeof v.id === 'string' &&
+        typeof v.nameTh === 'string' &&
+        (v.nameEn === null || typeof v.nameEn === 'string') &&
+        Array.isArray(v.amenities) &&
+        v.amenities.every(isCampAmenity) &&
+        Array.isArray(v.reviews) &&
+        v.reviews.every(isReviewListItem) &&
+        isReviewSummary(v.reviewSummary) &&
+        Array.isArray(v.availableWeekendDates) &&
+        v.availableWeekendDates.every((d) => typeof d === 'string')
+    );
+}
+
 export const aiChatAPI = {
     /** POST /api/ai/chat — `messages` is truncated to the last AI_CHAT_MAX_MESSAGES before sending. */
     send: async (messages: AiChatRequestMessage[], streamOptions?: AiChatStreamOptions): Promise<AiChatOutcome> => {
@@ -593,5 +656,28 @@ export const aiChatAPI = {
     /** GET /api/ai/conversations/[id] (CAM-421) — full ordered history for one conversation the session camper owns. */
     getConversation: async (id: string): Promise<ApiResponse<AiConversationDetail>> => {
         return fetchAPI<AiConversationDetail>(`/ai/conversations/${id}`);
+    },
+
+    /**
+     * GET /api/ai/camp-detail/[id] (CAM-446) — the floating detail card's data
+     * source: amenities + verified reviews + upcoming weekend availability for
+     * ONE published campsite. Guest-safe (no sign-in required, mirrors
+     * `send` above). Network I/O is an input boundary (code.md CAM-305): the
+     * wire body is runtime-narrowed field-by-field before it is ever trusted
+     * as a `GetCampDetailResult` — never a blind `as` cast. Any non-2xx
+     * response OR a body that fails narrowing resolves to the SAME
+     * `{ok:false, code:'not_found'}` the tool itself returns for an unknown
+     * camp — this function's return type has no other failure variant to
+     * report through (400/429/500 all collapse to "can't show detail now").
+     */
+    getCampDetail: async (id: string): Promise<GetCampDetailResult> => {
+        try {
+            const response = await fetch(`${API_BASE}/ai/camp-detail/${id}`);
+            if (!response.ok) return { ok: false, code: 'not_found' };
+            const data: unknown = await response.json();
+            return isGetCampDetailOk(data) ? data : { ok: false, code: 'not_found' };
+        } catch {
+            return { ok: false, code: 'not_found' };
+        }
     },
 };
