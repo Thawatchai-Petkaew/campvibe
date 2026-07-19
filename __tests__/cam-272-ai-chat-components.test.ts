@@ -31,6 +31,7 @@ const useAiChatSrc = read("components/ai-chat/use-ai-chat.ts");
 const campgroundCardSrc = read("components/CampgroundCard.tsx");
 const apiClientSrc = read("lib/api-client.ts");
 const pageSrc = read("app/page.tsx");
+const layoutSrc = read("app/layout.tsx"); // CAM-434: launcher now mounts here, not in page.tsx
 
 const ALL_FEATURE_SRC = [launcherSrc, panelSrc, listSrc, cardSrc, carouselSrc, avatarSrc, conversationSrc, useAiChatSrc];
 
@@ -58,8 +59,8 @@ describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HT
   });
 });
 
-describe("BR-1 — the launcher always renders on Home, including when the assistant is disabled", () => {
-  it("[structural] no conditional hides the launcher itself (it is not gated on any disabled flag)", () => {
+describe("BR-1 — the launcher always renders (root layout, every page), including when the assistant is disabled", () => {
+  it("[structural] no conditional hides the launcher itself on a disabled flag (CAM-434's route-hide guard is a separate, named exception)", () => {
     expect(launcherSrc).not.toMatch(/if\s*\(.*disabled.*\)\s*return null/);
   });
 
@@ -68,9 +69,9 @@ describe("BR-1 — the launcher always renders on Home, including when the assis
     expect(launcherSrc).toContain('data-testid="btn--ai-chat-launcher"');
   });
 
-  it("[structural] app/page.tsx mounts the launcher unconditionally on Home", () => {
-    expect(pageSrc).toContain("<AiChatLauncher");
-    expect(pageSrc).not.toMatch(/\{.*&&\s*<AiChatLauncher/);
+  it("[structural] CAM-434: app/layout.tsx mounts the launcher globally; app/page.tsx no longer mounts it", () => {
+    expect(layoutSrc).toContain("<AiChatLauncher");
+    expect(pageSrc).not.toContain("<AiChatLauncher");
   });
 
   it("[structural] CAM-432: launcher sits at bottom-10 right-6 (repositioned up from CAM-429's bottom-6; the FAB collision stays resolved by HostOnboardingFab on the left)", () => {
