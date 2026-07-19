@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/Providers";
 import VitalsReporter from "@/components/vitals-reporter";
 import { auth } from "@/lib/auth";
+import { AiChatLauncher } from "@/components/ai-chat/AiChatLauncher";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -65,6 +66,11 @@ export default async function RootLayout({
             <VitalsReporter />
             {children}
             <Toaster />
+            {/* CAM-434: global floating chat entry point — mounted once here
+                (not per-page) so it floats on every route; useLanguage() is
+                available at this depth. Panel + ambient canvas stay
+                next/dynamic(ssr:false), lazy-loaded only after the first tap. */}
+            <AiChatLauncher />
           </LanguageProvider>
         </Providers>
       </body>

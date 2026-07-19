@@ -1,8 +1,15 @@
 /**
  * components/ai-chat/AiChatLauncher.tsx — CAM-272
  *
- * Home-only floating entry point (BR-1: renders whenever Home renders,
- * including when the assistant is disabled — never hidden).
+ * CAM-434 (owner staging feedback D): moved from a Home-only mount
+ * (`app/page.tsx`) to the ROOT layout (`app/layout.tsx`) — the launcher now
+ * floats on EVERY page (BR-1: renders whenever a page renders, including
+ * when the assistant is disabled — never hidden), except two internal,
+ * non-consumer surfaces it explicitly hides on: the token-gated `/status`
+ * delivery dashboard (+ `/status/map`, fixed self-contained styling by
+ * design) and the pre-launch `/coming-soon` holding page ("users cannot
+ * navigate anywhere"). See BR-3 in this story's spec for why this list
+ * stays small and explicit rather than a general per-route config.
  *
  * CAM-429 (owner staging feedback): reset to its natural `bottom-6 right-6`
  * (the earlier `bottom-24` offset dodged `HostOnboardingFab`, which now moves
@@ -34,6 +41,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -43,9 +51,19 @@ const AiChatPanel = dynamic(
   { ssr: false, loading: () => null }
 );
 
+// CAM-434 BR-3: a small, explicit route-hide list — not a general per-route
+// config table. Both are internal/non-consumer surfaces (see header comment).
+function isHiddenRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return pathname === "/coming-soon" || pathname === "/status" || pathname.startsWith("/status/");
+}
+
 export function AiChatLauncher() {
   const { t } = useLanguage();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  if (isHiddenRoute(pathname)) return null;
 
   return (
     <>
