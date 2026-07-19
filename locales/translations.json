@@ -987,7 +987,9 @@
                 "reviews": "{count} reviews",
                 "remaining": "{count} spots left",
                 "viewDetail": "View details"
-            }
+            },
+            "expand": "Expand to full screen",
+            "collapse": "Exit full screen"
         }
     },
     "th": {
@@ -1979,7 +1981,9 @@
                 "reviews": "{count} รีวิว",
                 "remaining": "เหลือ {count} ที่",
                 "viewDetail": "ดูรายละเอียด"
-            }
+            },
+            "expand": "ขยายเต็มจอ",
+            "collapse": "ย่อกลับ"
         }
     }
 }

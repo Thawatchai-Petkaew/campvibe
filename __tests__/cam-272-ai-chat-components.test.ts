@@ -73,8 +73,10 @@ describe("BR-1 — the launcher always renders on Home, including when the assis
     expect(pageSrc).not.toMatch(/\{.*&&\s*<AiChatLauncher/);
   });
 
-  it("[structural] design.md seam: offset avoids the HostOnboardingFab collision without editing that file", () => {
-    expect(launcherSrc).toContain("bottom-24 right-6");
+  it("[structural] CAM-429: launcher sits at its natural bottom-6 right-6 (the FAB collision is now resolved by moving HostOnboardingFab left instead)", () => {
+    // the old bottom-24 offset may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).toContain('<div className="fixed bottom-6 right-6 z-50">');
+    expect(launcherSrc).not.toMatch(/className="[^"]*bottom-24[^"]*"/);
   });
 });
 
