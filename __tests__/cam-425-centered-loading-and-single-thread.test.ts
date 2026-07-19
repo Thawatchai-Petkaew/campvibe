@@ -60,10 +60,10 @@ describe("AC-1/BR-2 — on-brand treatment: AiChatAvatar renders directly, no ne
   // the generic motion-safe:animate-pulse wrapper is gone — AiChatAvatar's
   // OWN ai-flame-flicker/ai-flame-glow (CAM-432) now supplies the on-brand
   // motion directly. See cam-433-loading-flame.test.ts for the full AC set.
-  it("[unit] resuming block renders AiChatAvatar size=lg directly (no wrapper div)", () => {
+  it("[unit] resuming block renders AiChatAvatar size=lg directly (no wrapper div), intensity=\"loading\" (CAM-435: keeps the strong flicker on this genuinely-loading surface)", () => {
     const start = listSrc.indexOf('data-testid="status--ai-chat-resuming"');
     const block = listSrc.slice(start, start + 300);
-    expect(block).toContain('<AiChatAvatar size="lg" />');
+    expect(block).toContain('<AiChatAvatar size="lg" intensity="loading" />');
   });
 
   it("[unit] reuses the existing aiChat.loading label — no new locale key (now sr-only, CAM-433)", () => {
