@@ -43,13 +43,9 @@
  *
  * CAM-429 (owner staging feedback): three shell fixes.
  *  1. No background dim — `DialogOverlay` renders `bg-transparent` (kept in
- *     the tree, not removed) so Radix's modal internals — RemoveScroll body
- *     scroll-lock, `hideOthers` aria-hiding of siblings — stay wired; the
- *     focus trap, outside-pointer dismiss, and Esc dismiss are already driven
- *     by `Dialog.Content`'s own `DismissableLayer`/`FocusScope` independent of
- *     the Overlay's visual style (verified against `@radix-ui/react-dialog`
- *     source: `disableOutsidePointerEvents`/`trapFocus`/`onDismiss` all live
- *     on Content, not Overlay) — only the visible scrim disappears.
+ *     the tree, not removed) — only the visible scrim disappears; the
+ *     dismiss/focus wiring is unaffected by the Overlay's visual style
+ *     either way (see CAM-440 below for how it's actually driven now).
  *  2. Expand-to-full-page — a header toggle (`Maximize2`/`Minimize2`) grows
  *     the panel; the full-screen shape itself is CAM-431 (below). `expanded`
  *     persists in `sessionStorage` so the next open (same tab) restores the
@@ -79,6 +75,20 @@
  *    toggle still never remounts `useAiChat`, the thread, or the composer
  *    draft (extends the CAM-429 no-remount guarantee). Collapsed is
  *    byte-for-byte the pre-CAM-431 layout.
+ *
+ * CAM-440 (BUG, owner report): "a big sidebar suddenly appeared on the right
+ * of the whole website". Root cause — this Dialog was a default-MODAL Radix
+ * dialog, so opening it mounted `RemoveScroll`, which locks body scroll by
+ * injecting `body{padding-right + margin-right:<scrollbarWidth>px !important}`
+ * — a blank band down the right edge of the ENTIRE page + all content
+ * shifting left, independent of the CAM-429 transparent overlay above.
+ * CAM-434 (launcher mounted on every page) made it a site-wide symptom.
+ * Fix: `<Dialog modal={false}>` below. This is a floating, non-intrusive
+ * assistant — it must never lock page scroll or shift layout. Trade-off
+ * (intentional): no focus TRAP (Tab can leave the panel) and no background
+ * `hideOthers` aria-hiding; Esc-dismiss, outside-pointer-dismiss, and
+ * `onOpenChange(false)` all keep working unchanged (Radix's
+ * `DismissableLayer`/`FocusScope` on `Dialog.Content` don't depend on `modal`).
  */
 "use client";
 
@@ -173,12 +183,28 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogPortal>
-        {/* CAM-429: transparent, not removed — Radix's RemoveScroll/hideOthers/
-            focus-trap/outside-dismiss/Esc-dismiss all stay wired (they live on
-            Dialog.Content's DismissableLayer, independent of the Overlay's
-            visual style); only the dark scrim over the page disappears. */}
+        {/* CAM-429: transparent, not removed — only the dark scrim over the
+            page disappears; the Esc-dismiss/outside-dismiss/focus-on-open
+            wiring below lives on Dialog.Content's DismissableLayer/FocusScope,
+            independent of the Overlay's visual style either way.
+            CAM-440 (BUG): `modal={false}` above is the actual fix — a default
+            MODAL Radix Dialog mounts RemoveScroll, which injects
+            `body{padding-right + margin-right:<scrollbarWidth>px !important}`
+            on open (Radix's own scroll-lock, unrelated to this Overlay's
+            opacity) — that's the blank band down the right edge of the WHOLE
+            page + content shift the owner reported. CAM-434 (launcher on
+            every page) made the site-wide symptom visible everywhere, not
+            just this panel. `modal={false}` removes RemoveScroll + `hideOthers`
+            entirely: no body scroll-lock, no aria-hiding of siblings, no
+            focus TRAP (focus can leave the panel via Tab) — a deliberate
+            trade-off for a non-intrusive floating assistant that must never
+            perturb the rest of the page (matches the owner's "no overlay"
+            intent from CAM-429). Esc-dismiss, outside-pointer-dismiss, and
+            onOpenChange(false) are unaffected — verified against
+            @radix-ui/react-dialog source: those live on Content's
+            DismissableLayer regardless of `modal`. */}
         <DialogOverlay className="bg-transparent" />
         <PanelPrimitive.Content
           data-slot="ai-chat-panel"
