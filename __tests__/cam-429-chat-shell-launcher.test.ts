@@ -46,8 +46,8 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     expect(panelSrc).toContain("<Maximize2 className=");
   });
 
-  it("[unit] the Content className switches between the expanded variant and the collapsed bottom-sheet/anchored-card variant (CAM-431 supersedes the near-full-page geometry with true fullscreen: inset-0, no card frame)", () => {
-    expect(panelSrc).toContain("inset-0 duration-200");
+  it("[unit] the Content className switches between the expanded variant and the collapsed bottom-sheet/anchored-card variant (CAM-454 further supersedes CAM-431's true-fullscreen inset-0 with an inset sliding card — see cam-454 test)", () => {
+    expect(panelSrc).toContain("inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24");
     expect(panelSrc).not.toContain("inset-2 rounded-3xl border border-border/60");
     expect(panelSrc).not.toContain("sm:inset-6");
     // the collapsed (CAM-407) sizing is preserved byte-identical

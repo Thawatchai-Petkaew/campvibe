@@ -53,7 +53,12 @@ describe("Scrollbar-to-edge — ScrollArea spans full width in expanded mode; co
   });
 
   it("[unit] the message list is wrapped in its own centered max-w column INSIDE ScrollArea (so the ScrollArea itself, and its scrollbar, span full width)", () => {
-    const scrollAreaIdx = panelSrc.indexOf('<ScrollArea className="min-h-0 flex-1">');
+    // CAM-454 added overscroll-contain + data-scrollbar-hidden to this same
+    // ScrollArea's className (own props, no wrapper) — the anchor string
+    // updates accordingly.
+    const scrollAreaIdx = panelSrc.indexOf(
+      '<ScrollArea\n                  className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]]:overscroll-contain"'
+    );
     const messageListIdx = panelSrc.indexOf("<AiChatMessageList");
     expect(scrollAreaIdx).toBeGreaterThan(-1);
     expect(messageListIdx).toBeGreaterThan(scrollAreaIdx);

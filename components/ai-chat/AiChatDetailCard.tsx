@@ -35,6 +35,19 @@
  * Real data only (owner directive): every field below traces to a real
  * `GetCampDetailResult` field — an empty/`null` field HIDES its row/section
  * rather than rendering a blank or a fabricated placeholder.
+ *
+ * CAM-454 (owner staging feedback, part of the AiChatPanel expanded-card
+ * shell story): two small cleanups.
+ *  1. `overscroll-contain` on this ScrollArea's viewport (scrolling to the
+ *     end of the detail can no longer chain-scroll the page behind the
+ *     panel) + `data-scrollbar-hidden` (hides this ScrollArea's own visible
+ *     scrollbar affordance, app/globals.css) while scrolling itself keeps
+ *     working.
+ *  2. `DetailSection`'s divider sat flush against the content ABOVE it
+ *     (`border-t` + `pt-6` gave space only BELOW the rule) — added a
+ *     matching `pb-6` (`last:pb-0` on the final section) so every divider
+ *     now has equal-ish breathing room above and below, using the same `6`
+ *     spacing-scale value already in use, no new token.
  */
 "use client";
 
@@ -105,7 +118,10 @@ function DetailSection({
 }) {
   return (
     <section
-      className="space-y-3 border-t border-border/60 pt-6 first:border-t-0 first:pt-0"
+      // CAM-454: pb-6 balances pt-6 so the divider between two sections
+      // gets equal-ish space above and below the rule (last:pb-0 keeps the
+      // final section's trailing edge unchanged, flush with the CTA below).
+      className="space-y-3 border-t border-border/60 pt-6 pb-6 first:border-t-0 first:pt-0 last:pb-0"
       data-testid={testId}
     >
       <div className="flex items-center gap-2">
@@ -337,7 +353,10 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
         <p className="truncate font-heading text-sm text-foreground">{name}</p>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea
+        className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]]:overscroll-contain"
+        data-scrollbar-hidden
+      >
         {/* CAM-451: bounded reading column (matches the chat body's own
             `max-w-2xl sm:max-w-3xl` wrapper) — the detail now fills the
             FULL panel width, so this keeps text from reading full-bleed

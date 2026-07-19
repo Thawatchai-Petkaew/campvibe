@@ -156,6 +156,42 @@
  * `useIsDesktopViewport` query breakpoint MUST equal the `lg:` breakpoint
  * (both 1024px) — a desync makes the visual split and the `inert` boolean
  * disagree (an a11y trap, QA-verified invariant).
+ *
+ * CAM-454 (owner staging feedback): the EXPANDED panel becomes an inset
+ * sliding CARD instead of CAM-431's true-fullscreen `inset-0` surface, with
+ * the page behind it fully locked.
+ *  1. Expanded geometry: `inset-4` (mobile/tablet, all sides) widening to
+ *     `lg:inset-y-4 lg:right-4 lg:left-24` (desktop: small top/bottom/right
+ *     gap, a wide left margin so it still reads as a big card) with
+ *     `rounded-3xl border`, entering via `slide-in-from-right` (replaces the
+ *     old `zoom-in-95`). The CAM-453 desktop split (chat + detail rail)
+ *     lives INSIDE this card unchanged; only the outer Content geometry
+ *     forks.
+ *  2. Scroll containment: `overscroll-contain` on both ScrollArea
+ *     viewports (chat + `AiChatDetailCard`'s own) so scrolling to the end of
+ *     either list can never chain-scroll the page behind it.
+ *  3. Page lock, deliberately NOT Radix `modal={true}`: CAM-440 fixed this
+ *     panel to `modal={false}` precisely because Radix's modal `RemoveScroll`
+ *     injects a `body{padding-right:<scrollbarWidth>px}` compensation gap
+ *     (the phantom-sidebar bug). Re-enabling `modal` to get a scroll-lock
+ *     would regress that. Instead a manual effect adds `.ai-chat-scroll-lock`
+ *     (`overflow:hidden`, no scrollbar-gutter reservation so nothing to
+ *     compensate for, no shift) + `.no-scrollbar` to `<html>`, and marks
+ *     every OTHER `document.body` child `inert`, only while `open && expanded`
+ *     (collapsed stays fully non-modal/interactive, per CAM-429/440's
+ *     non-intrusive-floating-assistant intent). The Radix `DialogOverlay`
+ *     below is kept (CAM-429) but confirmed against `@radix-ui/react-dialog`
+ *     source, it unconditionally renders `null` whenever the Root has
+ *     `modal={false}`, so it was already inert; a plain sibling `<div>` (no
+ *     `RemoveScroll`/`hideOthers`) is the real pointer-capturing backdrop,
+ *     active only while `expanded`, so the visible gap around the inset card
+ *     can't click through to the page.
+ *  4. Chrome/scrollbar cleanup: no border-l divider rule between the
+ *     CAM-453 split panes; the chat's close/expand buttons hide while a
+ *     detail is open (`selectedCamp !== null`) so focus reads on the pane
+ *     that slid in (back/Esc still return to them); every visible Radix
+ *     ScrollArea scrollbar affordance is hidden (`data-scrollbar-hidden` +
+ *     the rules in `app/globals.css`) while scrolling itself keeps working.
  */
 "use client";
 
@@ -259,6 +295,30 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const isDesktopViewport = useIsDesktopViewport();
   const isSplitMode = expanded && isDesktopViewport;
   const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  // CAM-454: lock the page behind the panel only while open AND expanded —
+  // collapsed never locks (matches CAM-429/440's non-intrusive-floating-
+  // assistant intent). See the file-header doc comment for why this is a
+  // manual class (not Radix `modal={true}`, which would reintroduce
+  // CAM-440's scrollbar-compensation bug). `data-ai-chat-node` marks this
+  // panel's OWN portal-rendered nodes (backdrop + Content below) so they are
+  // never inerted along with the rest of the page.
+  useEffect(() => {
+    if (typeof document === "undefined" || !(open && expanded)) return;
+    const root = document.documentElement;
+    root.classList.add("ai-chat-scroll-lock", "no-scrollbar");
+    const inerted: HTMLElement[] = [];
+    for (const child of Array.from(document.body.children)) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (child.hasAttribute("data-ai-chat-node") || child.inert) continue;
+      child.inert = true;
+      inerted.push(child);
+    }
+    return () => {
+      root.classList.remove("ai-chat-scroll-lock", "no-scrollbar");
+      for (const el of inerted) el.inert = false;
+    };
+  }, [open, expanded]);
   // CAM-447 — panel-level view state (not use-ai-chat.ts): which camp's
   // floating detail card is open, plus the originating card button so
   // closing the detail restores focus to it.
@@ -403,8 +463,23 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             @radix-ui/react-dialog source: those live on Content's
             DismissableLayer regardless of `modal`. */}
         <DialogOverlay className="bg-transparent" />
+        {/* CAM-454: a plain backdrop (NOT Radix's `Dialog.Overlay` above,
+            which the library gates to `null` whenever the Root has
+            `modal={false}` — confirmed against @radix-ui/react-dialog
+            source, so that JSX line never actually renders anything today).
+            This div is the real pointer-capturing backdrop, active only
+            while `expanded`, so the visible gap around the new inset card
+            (point 3) can never click through to the page underneath. No
+            RemoveScroll/hideOthers here — the page lock is the separate
+            manual effect above, so this never reintroduces CAM-440. */}
+        <div
+          aria-hidden="true"
+          data-ai-chat-node=""
+          className={cn("fixed inset-0 z-40", expanded ? "pointer-events-auto" : "pointer-events-none")}
+        />
         <PanelPrimitive.Content
           data-slot="ai-chat-panel"
+          data-ai-chat-node=""
           data-testid="dialog--ai-chat-panel"
           aria-label={`${t.aiChat.name} ${t.aiChat.role}`}
           onOpenAutoFocus={(e) => {
@@ -414,14 +489,20 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden bg-ai-surface shadow-ai-glow outline-none backdrop-blur-xl",
             "motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
-            // CAM-431: expanded = TRUE full-screen (inset-0, no rounded/
-            // border — no card frame, the ambient fills edge-to-edge);
+            // CAM-454: expanded = an inset CARD sliding in from the right
+            // (supersedes CAM-431's true-fullscreen inset-0) — small
+            // breathing gap on every side on mobile/tablet, widening on
+            // lg:+ so the left margin grows while top/bottom/right stay
+            // compact; still reads as a big card, never edge-to-edge.
             // collapsed = the CAM-407 fixed-size bottom-sheet/anchored-card
             // (unchanged sizing, only the desktop anchor moved
             // sm:bottom-24 -> sm:bottom-6 to match AiChatLauncher's reset
             // position).
             expanded
-              ? "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+              ? cn(
+                  "inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24",
+                  "duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right-10 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right-10"
+                )
               : cn(
                   "inset-x-0 bottom-0 h-[85dvh] max-h-[85dvh] rounded-t-3xl border-t border-border",
                   "duration-200 data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10",
@@ -489,37 +570,45 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
                   </div>
                 </div>
-                <div
-                  className={cn(
-                    "flex items-center gap-1",
-                    expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
-                  )}
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}
-                    data-testid="btn--ai-chat-expand-toggle"
-                    onClick={toggleExpanded}
-                  >
-                    {expanded ? (
-                      <Minimize2 className="size-5" aria-hidden="true" />
-                    ) : (
-                      <Maximize2 className="size-5" aria-hidden="true" />
+                {/* CAM-454: hidden while a detail is open (selectedCamp) so
+                    focus reads on the pane that slid in — reappear the
+                    instant the camper backs out (setSelectedCamp(null)).
+                    Esc/back both still work: AiChatDetailCard's own back
+                    button + window-capture Esc listener close the detail
+                    unconditionally, independent of these buttons. */}
+                {selectedCamp === null && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-1",
+                      expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t.aiChat.close}
-                    data-testid="btn--ai-chat-close"
-                    onClick={() => handleOpenChange(false)}
                   >
-                    <X className="size-5" aria-hidden="true" />
-                  </Button>
-                </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}
+                      data-testid="btn--ai-chat-expand-toggle"
+                      onClick={toggleExpanded}
+                    >
+                      {expanded ? (
+                        <Minimize2 className="size-5" aria-hidden="true" />
+                      ) : (
+                        <Maximize2 className="size-5" aria-hidden="true" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t.aiChat.close}
+                      data-testid="btn--ai-chat-close"
+                      onClick={() => handleOpenChange(false)}
+                    >
+                      <X className="size-5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* CAM-431: fullscreen centers reading + composing in a column
@@ -534,7 +623,15 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   (not floating mid-screen at the column's inner edge) while
                   content still reads centered. */}
               <div ref={scrollWrapperRef} className="mx-auto flex w-full min-h-0 flex-1 flex-col">
-                <ScrollArea className="min-h-0 flex-1">
+                {/* CAM-454: overscroll-contain stops scrolling to the end of
+                    the thread from chain-scrolling the page behind it;
+                    data-scrollbar-hidden hides this ScrollArea's own visible
+                    scrollbar affordance (app/globals.css) while scrolling
+                    itself keeps working. */}
+                <ScrollArea
+                  className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]]:overscroll-contain"
+                  data-scrollbar-hidden
+                >
                   <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
                     <AiChatMessageList
                       entries={entries}
@@ -614,7 +711,9 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 right axis here. `lg:motion-reduce:transition-none` repeats
                 the reduced-motion guard at the `lg:` variant so it still
                 wins once the transitioned property switches from transform
-                to width at that breakpoint. */}
+                to width at that breakpoint.
+                CAM-454 — dropped the border-l divider rule (owner feedback:
+                no line between the two panes inside the inset card). */}
             <div
               className={cn(
                 "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
@@ -622,7 +721,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 expanded &&
                   cn(
                     "lg:relative lg:inset-auto lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
-                    selectedCamp ? "lg:w-[26rem] lg:border-l lg:border-border/60" : "lg:w-0"
+                    selectedCamp ? "lg:w-[26rem]" : "lg:w-0"
                   )
               )}
               inert={selectedCamp === null}

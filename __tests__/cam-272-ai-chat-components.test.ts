@@ -369,7 +369,9 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
   });
 
   it("[unit] the message scroll region is flex-1 + min-h-0 (bounded, not content-driven)", () => {
-    expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
+    // CAM-454 added overscroll-contain + data-scrollbar-hidden to this same
+    // ScrollArea's own className/props (no wrapper) — base classes unchanged.
+    expect(panelSrc).toContain('className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]]:overscroll-contain"');
   });
 
   it("[unit] CAM-430 (SUPERSEDES): the answer row is w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
