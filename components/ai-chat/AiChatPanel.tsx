@@ -117,10 +117,21 @@
  * "which camp is open" view state (`selectedCamp`, a plain `useState` here,
  * NOT `use-ai-chat.ts`, so a thread re-render never drops the open detail)
  * plus a ref to the ORIGINATING card button so focus can return to it on
- * close. `AiChatDetailCard` mounts as an `absolute z-20` sibling of the
- * `relative z-10` body below (never a second Radix Dialog); while it is
- * open, that `z-10` body (header + message list + composer) is set `inert`
- * so Tab/SR skip the now-covered composer entirely (design.md §1c/§4 state 8).
+ * close.
+ *
+ * CAM-451 (owner staging feedback, SUPERSEDES CAM-447/450's floating-card +
+ * scrim geometry): the detail becomes a PUSH navigation instead of an
+ * overlay. The chat body and `AiChatDetailCard` are now two full-size panes
+ * stacked via `absolute inset-0` inside one `overflow-hidden` track; each
+ * pane carries its own `transition-transform` and slides fully off/on
+ * screen (`translate-x-full` / `-translate-x-full` / `translate-x-0`) in
+ * lockstep, so the chat visibly slides out to the LEFT exactly as the detail
+ * slides in from the RIGHT — no scrim, no dim, nothing floats "on top" of
+ * the other. Identical geometry at every breakpoint (no `expanded`/mobile
+ * fork here; `AiChatDetailCard` still receives `expanded` only to bound its
+ * own reading column). The off-screen pane is `inert` (extends the CAM-447
+ * guarantee symmetrically to BOTH directions) so Tab/SR never reach hidden
+ * controls in either pane.
  */
 "use client";
 
@@ -368,150 +379,168 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           <div className="ai-aurora ai-aurora-drift pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <AiAmbientCanvas />
 
-          {/* CAM-447: while the detail card is open, this body (header +
-              message list + composer) is set `inert` — the z-20 detail layer
-              covers it visually in every geometry mode, and `inert` keeps
-              Tab/SR from reaching the now-hidden composer/send + header
-              controls (design.md §1c/§4 state 8). */}
-          <div className="relative z-10 flex h-full min-h-0 flex-col" inert={selectedCamp !== null}>
-            {/* CAM-431: fullscreen drops the bordered bar — identity cluster
-                + expand/close buttons sit lighter, directly on the ambient
-                (buttons grouped into a soft floating pill). Same nodes as
-                collapsed, only classNames fork on `expanded` — no remount. */}
+          {/* CAM-451: the push track — a single overflow-hidden viewport
+              holding two absolute-inset0 panes (chat | detail). Each pane's
+              own translate-x moves it fully off/on screen; both share the
+              same duration/easing so they read as one connected push, never
+              an overlay. */}
+          <div className="relative z-10 h-full min-h-0 overflow-hidden">
             <div
               className={cn(
-                "flex shrink-0 items-center justify-between",
-                expanded ? "px-4 pt-4 sm:px-8 sm:pt-6" : "border-b border-border/60 px-4 py-3"
+                "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
+                selectedCamp ? "-translate-x-full" : "translate-x-0"
               )}
+              inert={selectedCamp !== null}
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <AiChatAvatar size="md" />
-                <div className="min-w-0">
-                  <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
-                    {t.aiChat.name}
-                  </p>
-                  <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
-                </div>
-              </div>
+              {/* CAM-431: fullscreen drops the bordered bar — identity cluster
+                  + expand/close buttons sit lighter, directly on the ambient
+                  (buttons grouped into a soft floating pill). Same nodes as
+                  collapsed, only classNames fork on `expanded` — no remount. */}
               <div
                 className={cn(
-                  "flex items-center gap-1",
-                  expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
+                  "flex shrink-0 items-center justify-between",
+                  expanded ? "px-4 pt-4 sm:px-8 sm:pt-6" : "border-b border-border/60 px-4 py-3"
                 )}
               >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}
-                  data-testid="btn--ai-chat-expand-toggle"
-                  onClick={toggleExpanded}
-                >
-                  {expanded ? (
-                    <Minimize2 className="size-5" aria-hidden="true" />
-                  ) : (
-                    <Maximize2 className="size-5" aria-hidden="true" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t.aiChat.close}
-                  data-testid="btn--ai-chat-close"
-                  onClick={() => handleOpenChange(false)}
-                >
-                  <X className="size-5" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-
-            {/* CAM-431: fullscreen centers reading + composing in a column
-                with generous side gutters (room reserved for a future side
-                panel, owner note) instead of stretching edge-to-edge; the
-                collapsed bottom-sheet/anchored-card is already narrower than
-                the max-w bound so these classes are a no-op there.
-                CAM-436: the reading-column max-w moved OFF this shared flex
-                column (below) and onto the message-list wrapper + the
-                composer container individually, so the ScrollArea itself
-                spans full width and its scrollbar sits at the screen edge
-                (not floating mid-screen at the column's inner edge) while
-                content still reads centered. */}
-            <div ref={scrollWrapperRef} className="mx-auto flex w-full min-h-0 flex-1 flex-col">
-              <ScrollArea className="min-h-0 flex-1">
-                <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
-                  <AiChatMessageList
-                    entries={entries}
-                    sending={sending}
-                    resuming={resuming}
-                    onSuggestion={handleSuggestion}
-                    onRetry={retryLast}
-                    onSelectCamp={handleSelectCamp}
-                  />
+                <div className="flex min-w-0 items-center gap-3">
+                  <AiChatAvatar size="md" />
+                  <div className="min-w-0">
+                    <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
+                      {t.aiChat.name}
+                    </p>
+                    <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+                  </div>
                 </div>
-              </ScrollArea>
-
-              {/* CAM-431: fullscreen composer = a floating glass dock (glow +
-                  a subtle teal→sky gradient accent), not the collapsed
-                  bordered full-width bar. CAM-436: `rounded-3xl` surface (a
-                  card that grows vertically, not a stadium pill that
-                  stretches grotesquely once the textarea wraps), even
-                  `pl-4` inset (the send button now reads as part of the
-                  box, not detached far-right), and `focus-within:ring-2` so
-                  keyboard focus is visible around the whole dock instead of
-                  being swallowed by the transparent textarea. */}
-              <div
-                className={cn(
-                  "shrink-0",
-                  expanded
-                    ? "mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10"
-                    : "border-t border-border/60 p-4"
-                )}
-              >
                 <div
                   className={cn(
-                    "flex items-end gap-2",
-                    expanded &&
-                      "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
+                    "flex items-center gap-1",
+                    expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
                   )}
                 >
-                  <Textarea
-                    ref={composerRef}
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleComposerKeyDown}
-                    placeholder={t.aiChat.composerPlaceholder}
-                    aria-label={t.aiChat.composerPlaceholder}
-                    disabled={sending || disabled}
-                    rows={1}
-                    className={cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0")}
-                    data-testid="input--ai-chat-composer"
-                  />
                   <Button
                     type="button"
+                    variant="ghost"
                     size="icon"
-                    className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
-                    aria-label={t.aiChat.send}
-                    data-testid="btn--ai-chat-send"
-                    disabled={!canSend}
-                    onClick={handleSend}
+                    aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}
+                    data-testid="btn--ai-chat-expand-toggle"
+                    onClick={toggleExpanded}
                   >
-                    {sending ? (
-                      <Loader2 className="size-4 animate-spin text-primary-foreground motion-reduce:animate-none" aria-hidden="true" />
+                    {expanded ? (
+                      <Minimize2 className="size-5" aria-hidden="true" />
                     ) : (
-                      <Send className="size-4" aria-hidden="true" />
+                      <Maximize2 className="size-5" aria-hidden="true" />
                     )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t.aiChat.close}
+                    data-testid="btn--ai-chat-close"
+                    onClick={() => handleOpenChange(false)}
+                  >
+                    <X className="size-5" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
+
+              {/* CAM-431: fullscreen centers reading + composing in a column
+                  with generous side gutters (room reserved for a future side
+                  panel, owner note) instead of stretching edge-to-edge; the
+                  collapsed bottom-sheet/anchored-card is already narrower than
+                  the max-w bound so these classes are a no-op there.
+                  CAM-436: the reading-column max-w moved OFF this shared flex
+                  column (below) and onto the message-list wrapper + the
+                  composer container individually, so the ScrollArea itself
+                  spans full width and its scrollbar sits at the screen edge
+                  (not floating mid-screen at the column's inner edge) while
+                  content still reads centered. */}
+              <div ref={scrollWrapperRef} className="mx-auto flex w-full min-h-0 flex-1 flex-col">
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
+                    <AiChatMessageList
+                      entries={entries}
+                      sending={sending}
+                      resuming={resuming}
+                      onSuggestion={handleSuggestion}
+                      onRetry={retryLast}
+                      onSelectCamp={handleSelectCamp}
+                    />
+                  </div>
+                </ScrollArea>
+
+                {/* CAM-431: fullscreen composer = a floating glass dock (glow +
+                    a subtle teal→sky gradient accent), not the collapsed
+                    bordered full-width bar. CAM-436: `rounded-3xl` surface (a
+                    card that grows vertically, not a stadium pill that
+                    stretches grotesquely once the textarea wraps), even
+                    `pl-4` inset (the send button now reads as part of the
+                    box, not detached far-right), and `focus-within:ring-2` so
+                    keyboard focus is visible around the whole dock instead of
+                    being swallowed by the transparent textarea. */}
+                <div
+                  className={cn(
+                    "shrink-0",
+                    expanded
+                      ? "mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10"
+                      : "border-t border-border/60 p-4"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex items-end gap-2",
+                      expanded &&
+                        "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
+                    )}
+                  >
+                    <Textarea
+                      ref={composerRef}
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={handleComposerKeyDown}
+                      placeholder={t.aiChat.composerPlaceholder}
+                      aria-label={t.aiChat.composerPlaceholder}
+                      disabled={sending || disabled}
+                      rows={1}
+                      className={cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0")}
+                      data-testid="input--ai-chat-composer"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
+                      aria-label={t.aiChat.send}
+                      data-testid="btn--ai-chat-send"
+                      disabled={!canSend}
+                      onClick={handleSend}
+                    >
+                      {sending ? (
+                        <Loader2 className="size-4 animate-spin text-primary-foreground motion-reduce:animate-none" aria-hidden="true" />
+                      ) : (
+                        <Send className="size-4" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CAM-451 — the detail pane: off-screen right (`translate-x-full`)
+                until a camp is selected, then slides to `translate-x-0`.
+                `AiChatDetailCard` itself only mounts while selected — never
+                fetches for a pane the camper can't see. */}
+            <div
+              className={cn(
+                "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
+                selectedCamp ? "translate-x-0" : "translate-x-full"
+              )}
+              inert={selectedCamp === null}
+            >
+              {selectedCamp && (
+                <AiChatDetailCard card={selectedCamp} expanded={expanded} onClose={handleCloseDetail} />
+              )}
             </div>
           </div>
-
-          {/* CAM-447 — the floating detail card: an absolute z-20 sibling of
-              the z-10 body above, mounted only while a camp is selected. */}
-          {selectedCamp && (
-            <AiChatDetailCard card={selectedCamp} expanded={expanded} onClose={handleCloseDetail} />
-          )}
         </PanelPrimitive.Content>
       </DialogPortal>
     </Dialog>

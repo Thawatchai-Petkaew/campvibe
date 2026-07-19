@@ -79,8 +79,9 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     );
     // CAM-431 nests the scroll region one level deeper (centered max-w column);
     // CAM-436 adds one more wrapper div around the list inside ScrollArea
-    // (full-width scrollbar-to-edge restructure) — indentation shifts +2 again.
-    expect(panelSrc).toContain('<AiChatMessageList\n                    entries={entries}');
+    // (full-width scrollbar-to-edge restructure); CAM-451 wraps the whole
+    // chat body in one more push-track pane div — indentation shifts +2 again.
+    expect(panelSrc).toContain('<AiChatMessageList\n                      entries={entries}');
   });
 });
 
