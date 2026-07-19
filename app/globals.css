@@ -81,6 +81,7 @@ h6 {
     --color-ai-ember: var(--ai-ember);
     --color-ai-firefly: var(--ai-firefly);
     --color-ai-star: var(--ai-star);
+    --color-ai-price: var(--ai-price);
     --shadow-ai-glow: var(--ai-glow);
     --shadow-ai-flame-aura: var(--ai-flame-aura);
     --font-heading: var(--font-display);
@@ -136,6 +137,9 @@ h6 {
     --ai-ember: oklch(0.720 0.170 55);
     --ai-firefly: oklch(0.860 0.160 100);
     --ai-star: oklch(0.950 0.020 237);
+    /* CAM-444 (owner R3 feedback): card-price text token — light value is
+       unchanged from --primary (already ≥AA as text on the white --card). */
+    --ai-price: oklch(0.511 0.096 186.391);
     --ai-glow:
       0 0 0 1px oklch(0.511 0.096 186.391 / 0.08),
       0 2px 8px -4px oklch(0.148 0.004 228.8 / 0.06),
@@ -200,6 +204,11 @@ h6 {
     --ai-ember: oklch(0.780 0.180 58);
     --ai-firefly: oklch(0.900 0.170 105);
     --ai-star: oklch(0.970 0.030 237);
+    /* CAM-444 (owner R3 feedback): --primary (dark L=0.437) reads dim as TEXT
+       on dark --card (L=0.218, contrast 2.31:1, below AA). Brighter dedicated
+       price token — 8.52:1 on --card, axe-verified — without touching
+       --primary (would break white-on-primary buttons + the chat bubble). */
+    --ai-price: oklch(0.760 0.120 184);
     --ai-glow:
       0 0 0 1px oklch(0.637 0.143 237.0 / 0.16),
       0 2px 8px -4px oklch(0 0 0 / 0.24),

@@ -44,16 +44,19 @@ describe("AC-1 — carousel track no longer clips the card border/glow/hover-lif
 });
 
 describe("AC-2/AC-3 — price renders as its own hero line, before the province row", () => {
-  it("[unit] the price <p> carries the hero classes: text-lg, font-semibold, text-primary", () => {
+  // CAM-444 (owner R3 feedback): the price hero now reads text-ai-price, a
+  // dedicated token brightened in dark mode — --primary itself is unchanged
+  // (would break white-on-primary buttons + the chat bubble site-wide).
+  it("[unit] the price <p> carries the hero classes: text-lg, font-semibold, text-ai-price", () => {
     const priceBlockMatch = cardSrc.match(
       /<p className="flex items-baseline gap-1 tabular-nums" data-testid="text--ai-chat-card-price">([\s\S]*?)<\/p>/
     );
     expect(priceBlockMatch, "hero price <p> not found").not.toBeNull();
     const priceBlock = priceBlockMatch![1];
     // priced case
-    expect(priceBlock).toContain('<span className="text-lg font-semibold text-primary">฿{THB_FORMAT.format(card.priceLow)}</span>');
+    expect(priceBlock).toContain('<span className="text-lg font-semibold text-ai-price">฿{THB_FORMAT.format(card.priceLow)}</span>');
     // free case — same hero weight
-    expect(priceBlock).toContain('<span className="text-lg font-semibold text-primary">{t.aiChat.card.free}</span>');
+    expect(priceBlock).toContain('<span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>');
   });
 
   it("[unit] the /คืน (perNight) suffix is small + muted, not hero weight", () => {

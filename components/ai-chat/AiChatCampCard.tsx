@@ -73,11 +73,11 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
         <p className="flex items-baseline gap-1 tabular-nums" data-testid="text--ai-chat-card-price">
           {card.priceLow && card.priceLow > 0 ? (
             <>
-              <span className="text-lg font-semibold text-primary">฿{THB_FORMAT.format(card.priceLow)}</span>
+              <span className="text-lg font-semibold text-ai-price">฿{THB_FORMAT.format(card.priceLow)}</span>
               <span className="text-xs font-normal text-muted-foreground">{t.aiChat.card.perNight}</span>
             </>
           ) : (
-            <span className="text-lg font-semibold text-primary">{t.aiChat.card.free}</span>
+            <span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>
           )}
         </p>
 
