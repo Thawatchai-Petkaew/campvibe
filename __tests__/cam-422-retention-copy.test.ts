@@ -12,8 +12,11 @@
 import { describe, expect, it } from 'vitest';
 import translations from '../locales/translations.json';
 
-const th = translations.th.aiChat as Record<string, string>;
-const en = translations.en.aiChat as Record<string, string>;
+// CAM-428 added a nested `card` object under aiChat — widen to `unknown`
+// leaves so this file's own flat-key lookup (retentionNotice) still
+// narrows fine at each call site.
+const th = translations.th.aiChat as Record<string, unknown>;
+const en = translations.en.aiChat as Record<string, unknown>;
 
 describe('locales/translations.json — aiChat.retentionNotice (CAM-422, ADR-013 D2)', () => {
   it('TH copy verbatim', () =>

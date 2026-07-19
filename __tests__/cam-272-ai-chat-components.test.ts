@@ -126,22 +126,14 @@ describe("BR-3 — send disables the composer + shows an inline typing indicator
   });
 });
 
-describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/carousel)", () => {
-  it("[structural] AiChatCampCard reuses CampgroundCard — no parallel card component", () => {
-    expect(cardSrc).toContain('import { CampgroundCard } from "@/components/CampgroundCard"');
-    expect(cardSrc).toContain('variant="compact"');
+describe("BR-4 (CAM-428 SUPERSEDES) — the in-chat card is now a DEDICATED, decoupled card — no CampgroundCard reuse", () => {
+  it("[structural] AiChatCampCard no longer imports CampgroundCard (BR-4 exception, design.md §4)", () => {
+    expect(cardSrc).not.toContain('from "@/components/CampgroundCard"');
+    expect(cardSrc).not.toContain('variant="compact"');
   });
 
-  it('[unit] CampgroundCard hides the wishlist heart when variant="compact"', () => {
+  it("[unit] CampgroundCard's variant=\"compact\" branches still exist untouched (out of this story's surface; now unused by AI chat, flagged for a follow-up cleanup ticket)", () => {
     expect(campgroundCardSrc).toContain('{variant !== "compact" && (');
-    expect(campgroundCardSrc).toContain('data-testid="btn--wishlist-toggle"');
-  });
-
-  it('[unit] CampgroundCard hides the carousel arrows + dots when variant="compact"', () => {
-    expect(campgroundCardSrc).toContain('variant !== "compact" && imageUrls.length > 1');
-  });
-
-  it("[unit] compact is opt-in — default variant preserves existing catalog/wishlist behaviour", () => {
     expect(campgroundCardSrc).toContain('variant = "default"');
   });
 
@@ -150,25 +142,26 @@ describe("BR-4 — the in-chat card reuses CampgroundCard (compact, no wishlist/
     expect(carouselSrc).not.toMatch(/cards\.slice\(/);
   });
 
-  it("[unit] CAM-272 QA Important fix: avgRating/reviewCount are forwarded to CampgroundCard so the rating badge renders", () => {
-    expect(cardSrc).toContain("avgRating={card.avgRating}");
-    expect(cardSrc).toContain("reviewCount={card.reviewCount}");
+  it("[unit] CAM-428: avgRating/reviewCount are read directly on the card (no longer forwarded as CampgroundCard props)", () => {
+    expect(cardSrc).toContain("card.avgRating");
+    expect(cardSrc).toContain("card.reviewCount");
   });
 });
 
-describe("AC-3 — each in-chat card is a link to /campgrounds/{slug}, no write fires (QA gap closed)", () => {
-  it("[unit] AiChatCampCard forwards nameThSlug/nameEnSlug straight through to CampgroundCard (no synthetic slug)", () => {
-    expect(cardSrc).toContain("nameThSlug: card.nameThSlug");
-    expect(cardSrc).toContain("nameEnSlug: card.nameEnSlug");
+describe("AC-3 (CAM-428 SUPERSEDES) — the in-chat card selects via onSelect; the carousel navigates to /campgrounds/{slug}", () => {
+  it('[structural] AiChatCampCard takes an onSelect prop and calls it with the full card — no baked <Link>', () => {
+    expect(cardSrc).toContain("onSelect: (card: AiChatCardResponse) => void");
+    expect(cardSrc).toContain("onClick={() => onSelect(card)}");
+    expect(cardSrc).not.toContain("<Link");
   });
 
-  it("[structural] CampgroundCard's Link targets /campgrounds/{slug} (nameEnSlug in EN, nameThSlug in TH) — unmodified pre-existing behaviour, AC-3 relies on it", () => {
-    expect(campgroundCardSrc).toContain('<Link href={`/campgrounds/${slug}`}');
-    expect(campgroundCardSrc).toContain("language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug");
+  it("[unit] the carousel derives the slug from nameThSlug/nameEnSlug (mirrors CampgroundCard.tsx's own convention) and pushes /campgrounds/{slug}", () => {
+    expect(carouselSrc).toContain('language === "en" ? card.nameEnSlug || card.nameThSlug : card.nameThSlug');
+    expect(carouselSrc).toContain("router.push(`/campgrounds/${slug}`)");
   });
 
-  it("[security/structural] the in-chat card mounts no mutation/write handler of its own (AiChatCampCard has no onClick/fetch/POST) — Discover-only", () => {
-    expect(cardSrc).not.toMatch(/onClick|fetch\(|POST/);
+  it("[security/structural] the in-chat card mounts no mutation/write handler of its own — onClick navigates only, never fetch/POST", () => {
+    expect(cardSrc).not.toMatch(/fetch\(|POST/);
   });
 });
 
