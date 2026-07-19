@@ -26,6 +26,7 @@ const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 const listSrc = read("components/ai-chat/AiChatMessageList.tsx");
 const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 const useAiChatSrc = read("components/ai-chat/use-ai-chat.ts");
+const scrollAreaSrc = read("components/ui/scroll-area.tsx");
 
 describe("AC-1/BR-1 — the resuming indicator is centered, not pinned top-left", () => {
   it("[unit] the resuming branch is an absolute overlay centered with items-center + justify-center", () => {
@@ -41,6 +42,16 @@ describe("AC-1/BR-1 — the resuming indicator is centered, not pinned top-left"
     const start = listSrc.indexOf('data-testid="status--ai-chat-resuming"');
     const block = listSrc.slice(Math.max(0, start - 400), start + 200);
     expect(block).not.toContain("flex items-center gap-2 py-2");
+  });
+
+  // QA gap close: BR-1's centering claim depends structurally on the
+  // ScrollArea Root carrying `position: relative` (components/ui/scroll-area.tsx,
+  // untouched by this diff) — the shipped suite never pinned that load-bearing
+  // dependency. If a future refactor drops it, `absolute inset-0` would resolve
+  // against a further-up positioned ancestor and silently break centering with
+  // no test catching it.
+  it("[unit] the shared ScrollArea Root the overlay centers against still carries position:relative (BR-1's load-bearing dependency, CAM-407)", () => {
+    expect(scrollAreaSrc).toContain('className={cn("relative", className)}');
   });
 });
 
