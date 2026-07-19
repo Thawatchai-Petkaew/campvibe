@@ -51,15 +51,34 @@
  *     source: `disableOutsidePointerEvents`/`trapFocus`/`onDismiss` all live
  *     on Content, not Overlay) — only the visible scrim disappears.
  *  2. Expand-to-full-page — a header toggle (`Maximize2`/`Minimize2`) grows
- *     the panel to a near-full-page centered surface (`inset-2`/`sm:inset-6`,
- *     still `rounded-3xl` + the glass shell) or restores the bottom-sheet/
- *     anchored-card size. `expanded` persists in `sessionStorage` so the next
- *     open (same tab) restores the last size; the message list, composer, and
- *     `useAiChat` state are untouched by the toggle (no remount).
+ *     the panel; the full-screen shape itself is CAM-431 (below). `expanded`
+ *     persists in `sessionStorage` so the next open (same tab) restores the
+ *     last size; the message list, composer, and `useAiChat` state are
+ *     untouched by the toggle (no remount).
  *  3. Desktop anchor resets from `sm:bottom-24` to `sm:bottom-6` — matching
  *     `AiChatLauncher`'s own reset back to its natural `bottom-6 right-6`
  *     (the FAB collision is now resolved by moving `HostOnboardingFab` to the
  *     left instead, so the launcher no longer needs to dodge upward).
+ *
+ * CAM-431 (owner staging feedback): the CAM-429 `expanded` state becomes a
+ * TRUE full-screen immersive surface instead of a near-full-page card.
+ *  - `inset-0`, no `rounded-3xl`/border at the outer edge — the campfire-night
+ *    ambient (`.ai-aurora` + `AiAmbientCanvas`, already mounted below) fills
+ *    edge-to-edge as the backdrop; the glass shell itself (`bg-ai-surface` +
+ *    `backdrop-blur-xl` + `shadow-ai-glow`) still applies (DESIGN.md §2.1
+ *    items 3-4 bind regardless of geometry).
+ *  - Reading + composing centers in a `max-w-2xl`/`sm:max-w-3xl` column with
+ *    side gutters (room reserved for a future side panel, owner note) instead
+ *    of stretching edge-to-edge.
+ *  - The composer becomes a floating `rounded-full` glass dock (glow + a
+ *    subtle teal→sky gradient accent) instead of the collapsed bordered
+ *    full-width bar; the header loses its border and the expand/close
+ *    buttons group into a soft floating pill.
+ *  - Every element below is the SAME node in both branches — only
+ *    `className` forks on `expanded` (no conditional mount/unmount) — so the
+ *    toggle still never remounts `useAiChat`, the thread, or the composer
+ *    draft (extends the CAM-429 no-remount guarantee). Collapsed is
+ *    byte-for-byte the pre-CAM-431 layout.
  */
 "use client";
 
@@ -172,13 +191,14 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden bg-ai-surface shadow-ai-glow outline-none backdrop-blur-xl",
             "motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
-            // CAM-429: expanded = a near-full-page centered surface (safe
-            // insets on every side, still rounded + glass); collapsed = the
-            // CAM-407 fixed-size bottom-sheet/anchored-card (unchanged sizing,
-            // only the desktop anchor moved sm:bottom-24 -> sm:bottom-6 to
-            // match AiChatLauncher's reset position).
+            // CAM-431: expanded = TRUE full-screen (inset-0, no rounded/
+            // border — no card frame, the ambient fills edge-to-edge);
+            // collapsed = the CAM-407 fixed-size bottom-sheet/anchored-card
+            // (unchanged sizing, only the desktop anchor moved
+            // sm:bottom-24 -> sm:bottom-6 to match AiChatLauncher's reset
+            // position).
             expanded
-              ? "inset-2 rounded-3xl border border-border/60 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 sm:inset-6"
+              ? "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
               : cn(
                   "inset-x-0 bottom-0 h-[85dvh] max-h-[85dvh] rounded-t-3xl border-t border-border",
                   "duration-200 data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10",
@@ -204,7 +224,16 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           <AiAmbientCanvas />
 
           <div className="relative z-10 flex h-full min-h-0 flex-col">
-            <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
+            {/* CAM-431: fullscreen drops the bordered bar — identity cluster
+                + expand/close buttons sit lighter, directly on the ambient
+                (buttons grouped into a soft floating pill). Same nodes as
+                collapsed, only classNames fork on `expanded` — no remount. */}
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-between",
+                expanded ? "px-4 pt-4 sm:px-8 sm:pt-6" : "border-b border-border/60 px-4 py-3"
+              )}
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <AiChatAvatar size="md" />
                 <div className="min-w-0">
@@ -214,7 +243,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div
+                className={cn(
+                  "flex items-center gap-1",
+                  expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
+                )}
+              >
                 <Button
                   type="button"
                   variant="ghost"
@@ -242,45 +276,66 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               </div>
             </div>
 
-            <ScrollArea className="min-h-0 flex-1">
-              <AiChatMessageList
-                entries={entries}
-                sending={sending}
-                resuming={resuming}
-                onSuggestion={handleSuggestion}
-                onRetry={retryLast}
-              />
-            </ScrollArea>
-
-            <div className="shrink-0 border-t border-border/60 p-4">
-              <div className="flex items-end gap-2">
-                <Textarea
-                  ref={composerRef}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={handleComposerKeyDown}
-                  placeholder={t.aiChat.composerPlaceholder}
-                  aria-label={t.aiChat.composerPlaceholder}
-                  disabled={sending || disabled}
-                  rows={1}
-                  className="max-h-32"
-                  data-testid="input--ai-chat-composer"
+            {/* CAM-431: fullscreen centers reading + composing in a column
+                with generous side gutters (room reserved for a future side
+                panel, owner note) instead of stretching edge-to-edge; the
+                collapsed bottom-sheet/anchored-card is already narrower than
+                the max-w bound so these classes are a no-op there. */}
+            <div
+              className={cn(
+                "mx-auto flex w-full min-h-0 flex-1 flex-col",
+                expanded && "max-w-2xl px-4 sm:max-w-3xl sm:px-8"
+              )}
+            >
+              <ScrollArea className="min-h-0 flex-1">
+                <AiChatMessageList
+                  entries={entries}
+                  sending={sending}
+                  resuming={resuming}
+                  onSuggestion={handleSuggestion}
+                  onRetry={retryLast}
                 />
-                <Button
-                  type="button"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
-                  aria-label={t.aiChat.send}
-                  data-testid="btn--ai-chat-send"
-                  disabled={!canSend}
-                  onClick={handleSend}
-                >
-                  {sending ? (
-                    <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
-                  ) : (
-                    <Send className="size-4" aria-hidden="true" />
+              </ScrollArea>
+
+              {/* CAM-431: fullscreen composer = a floating glass dock (glow +
+                  a subtle teal→sky gradient accent), not the collapsed
+                  bordered full-width bar. */}
+              <div className={cn("shrink-0", expanded ? "px-0 pb-6 sm:pb-10" : "border-t border-border/60 p-4")}>
+                <div
+                  className={cn(
+                    "flex items-end gap-2",
+                    expanded &&
+                      "rounded-full border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-5 shadow-ai-glow backdrop-blur-xl"
                   )}
-                </Button>
+                >
+                  <Textarea
+                    ref={composerRef}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={handleComposerKeyDown}
+                    placeholder={t.aiChat.composerPlaceholder}
+                    aria-label={t.aiChat.composerPlaceholder}
+                    disabled={sending || disabled}
+                    rows={1}
+                    className={cn("max-h-32", expanded && "border-none bg-transparent")}
+                    data-testid="input--ai-chat-composer"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
+                    aria-label={t.aiChat.send}
+                    data-testid="btn--ai-chat-send"
+                    disabled={!canSend}
+                    onClick={handleSend}
+                  >
+                    {sending ? (
+                      <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
+                    ) : (
+                      <Send className="size-4" aria-hidden="true" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

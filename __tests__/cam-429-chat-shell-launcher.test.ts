@@ -45,9 +45,10 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     expect(panelSrc).toContain("<Maximize2 className=");
   });
 
-  it("[unit] the Content className switches between an expanded near-full-page variant and the collapsed bottom-sheet/anchored-card variant", () => {
-    expect(panelSrc).toContain("inset-2 rounded-3xl border border-border/60");
-    expect(panelSrc).toContain("sm:inset-6");
+  it("[unit] the Content className switches between the expanded variant and the collapsed bottom-sheet/anchored-card variant (CAM-431 supersedes the near-full-page geometry with true fullscreen: inset-0, no card frame)", () => {
+    expect(panelSrc).toContain("inset-0 duration-200");
+    expect(panelSrc).not.toContain("inset-2 rounded-3xl border border-border/60");
+    expect(panelSrc).not.toContain("sm:inset-6");
     // the collapsed (CAM-407) sizing is preserved byte-identical
     expect(panelSrc).toContain("sm:h-[min(37.5rem,80dvh)]");
     expect(panelSrc).toContain("sm:w-96");
@@ -75,7 +76,8 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     expect(panelSrc).toContain(
       "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
     );
-    expect(panelSrc).toContain('<AiChatMessageList\n                entries={entries}');
+    // CAM-431 nests the scroll region one level deeper (centered max-w column) — indentation shifts +2.
+    expect(panelSrc).toContain('<AiChatMessageList\n                  entries={entries}');
   });
 });
 
