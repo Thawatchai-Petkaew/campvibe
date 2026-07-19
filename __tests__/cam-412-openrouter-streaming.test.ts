@@ -26,6 +26,15 @@
  *    route fall back to JSON
  *  - concurrent/ordering: an already-aborted external signal stops the loop
  *    with no further event (BR-6)
+ *  - concurrent/ordering (QA bounce): a MID-FLIGHT abort (>=1 real delta
+ *    already yielded) drives the REAL signal chain — external AbortController
+ *    -> makeCallSignal's composed signal -> the upstream fetch's own
+ *    `signal` — and asserts the upstream fetch's signal actually fires AND
+ *    no further/fallback fetch call is ever issued (Prove-It: dropping
+ *    `externalSignal` from `makeCallSignal`'s composition turns this red)
+ *  - boundary (QA bounce): TURN_DEADLINE_MS breach mid-stream stops the loop
+ *    (no further paid call) via the deadline path, not an infinite loop —
+ *    both sub-branches (leftover content flushed vs no content -> error)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -40,7 +49,7 @@ vi.mock('@/lib/ai/tool-registry', async () => {
   };
 });
 
-const { runAssistantTurnFromMessagesStreaming, GENERIC_ERROR } = await import('@/lib/ai/openrouter-client');
+const { runAssistantTurnFromMessagesStreaming, GENERIC_ERROR, TURN_DEADLINE_MS } = await import('@/lib/ai/openrouter-client');
 
 const FAKE_KEY = 'sk-or-test-super-secret-123';
 
@@ -93,6 +102,22 @@ async function drain(gen: AsyncGenerator<{ type: string; [k: string]: unknown }>
   const events: Array<{ type: string; [k: string]: unknown }> = [];
   for await (const ev of gen) events.push(ev);
   return events;
+}
+
+/**
+ * Races a promise against a short deterministic timeout (qa.md — never a
+ * bare `sleep`-to-fix-flakiness; this is a bounded SAFETY NET around a real
+ * condition, `promise`, so a broken abort/deadline path fails FAST with a
+ * clear assertion instead of hanging until the runner's own global timeout).
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<{ timedOut: true } | { timedOut: false; value: T }> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve({ timedOut: true }), ms);
+    promise.then((value) => {
+      clearTimeout(timer);
+      resolve({ timedOut: false, value });
+    });
+  });
 }
 
 beforeEach(() => {
@@ -295,5 +320,127 @@ describe('runAssistantTurnFromMessagesStreaming — abort (BR-6/AC-7/EC-6)', () 
 
     expect(events).toEqual([]);
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('[concurrent] REAL-ENGINE mid-flight abort: external AbortController -> composed signal -> the upstream fetch signal actually fires; no further/fallback call is issued (Prove-It: drop `externalSignal` from makeCallSignal and this turns red)', async () => {
+    const controller = new AbortController();
+    let observedAbortOnUpstreamSignal = false;
+    let streamControllerRef: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+    const mockFetch = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(c) {
+          streamControllerRef = c;
+          // One real delta immediately, then the "connection" stays open
+          // (no close, no [DONE]) — simulating an in-progress upstream
+          // response still being generated when the abort happens.
+          c.enqueue(encoder.encode(dataLine(contentChunk('เริ่มตอบ'))));
+        },
+      });
+      const upstreamSignal = init?.signal as AbortSignal | undefined;
+      upstreamSignal?.addEventListener(
+        'abort',
+        () => {
+          observedAbortOnUpstreamSignal = true;
+          try {
+            streamControllerRef?.error(new DOMException('aborted', 'AbortError'));
+          } catch {
+            // already closed/errored — fine
+          }
+        },
+        { once: true }
+      );
+      return Promise.resolve(new Response(body, { status: 200 }));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const gen = runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'q' }], {}, controller.signal);
+
+    const first = await gen.next();
+    expect(first.value).toEqual({ type: 'delta', text: 'เริ่มตอบ' });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // Mid-flight: the SAME real chain the route composes (request.signal ->
+    // AbortController -> runAssistantTurnFromMessagesStreaming's externalSignal).
+    controller.abort();
+
+    const second = await withTimeout(gen.next(), 500);
+    expect(second.timedOut).toBe(false); // the upstream read settles promptly — no hang
+    if (!second.timedOut) {
+      expect(second.value.done || second.value.value.type === 'error').toBeTruthy();
+    }
+    expect(observedAbortOnUpstreamSignal).toBe(true); // the upstream fetch's OWN signal fired
+    expect(mockFetch).toHaveBeenCalledTimes(1); // no fallback / next-iteration call after abort
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* QA bounce — TURN_DEADLINE_MS breach mid-stream (streaming engine)          */
+/* -------------------------------------------------------------------------- */
+
+describe('runAssistantTurnFromMessagesStreaming — TURN_DEADLINE_MS breach (spend guard, streaming engine)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks(); // release the Date.now spy each test (afterEach above only unstubs fetch/env)
+  });
+
+  it('[boundary] no leftover content at the breach -> terminal error, NO further/second paid call (Prove-It: removing the deadline check lets a 2nd call through and this assertion goes red)', async () => {
+    mockDispatchTool.mockResolvedValueOnce({ ok: true, data: { cards: [] } });
+
+    const mockFetch = vi
+      .fn()
+      // Iteration 1: a tool round with NO content — lastRawContent stays ''.
+      .mockResolvedValueOnce(
+        sseResponse([
+          dataLine(toolCallChunk(0, { id: 'call_1', name: 'searchCampsites', args: '' })),
+          dataLine(toolCallChunk(0, { args: '{}' })),
+          'data: [DONE]\n\n',
+        ])
+      )
+      // A 2nd call would only ever be reached if the deadline guard were
+      // removed — configured so THAT failure mode is a clean assertion
+      // mismatch (toHaveBeenCalledTimes), never an unrelated crash.
+      .mockResolvedValueOnce(sseResponse([dataLine(contentChunk('ไม่ควรถึงตรงนี้')), 'data: [DONE]\n\n']));
+    vi.stubGlobal('fetch', mockFetch);
+
+    // First Date.now() call computes turnDeadline; every call AFTER that
+    // (iteration 2's check) reports comfortably past it.
+    vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(TURN_DEADLINE_MS + 1_000);
+
+    const events = await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'หาแคมป์' }]));
+
+    expect(mockFetch).toHaveBeenCalledTimes(1); // the loop STOPPED at the deadline — no 2nd/infinite call
+    expect(events).toEqual([{ type: 'error', code: GENERIC_ERROR }]);
+  });
+
+  it('[boundary] leftover content at the breach -> flushed as one delta + terminal meta, NO further/second paid call', async () => {
+    mockDispatchTool.mockResolvedValueOnce({ ok: true, data: { cards: [] } });
+
+    const mockFetch = vi
+      .fn()
+      // Iteration 1: tool_calls interleaved with SOME content — mode stays
+      // 'tool_calls' (never streamed live, matches the "tool round stays
+      // non-streamed" invariant) but rawContent still accumulates the text,
+      // so `lastRawContent` is non-empty by the time iteration 2 checks.
+      .mockResolvedValueOnce(
+        sseResponse([
+          dataLine(toolCallChunk(0, { id: 'call_1', name: 'searchCampsites', args: '' })),
+          dataLine(contentChunk('กำลังค้นหาให้อยู่')),
+          dataLine(toolCallChunk(0, { args: '{}' })),
+          'data: [DONE]\n\n',
+        ])
+      )
+      .mockResolvedValueOnce(sseResponse([dataLine(contentChunk('ไม่ควรถึงตรงนี้')), 'data: [DONE]\n\n']));
+    vi.stubGlobal('fetch', mockFetch);
+
+    vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(TURN_DEADLINE_MS + 1_000);
+
+    const events = await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'หาแคมป์' }]));
+
+    expect(mockFetch).toHaveBeenCalledTimes(1); // the loop STOPPED at the deadline — no 2nd/infinite call
+    expect(events).toEqual([
+      { type: 'delta', text: 'กำลังค้นหาให้อยู่' },
+      { type: 'meta', cards: [], searchAttempted: true }, // searchCampsites WAS dispatched in the tool round before the breach
+    ]);
   });
 });
