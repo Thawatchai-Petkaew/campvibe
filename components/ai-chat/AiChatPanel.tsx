@@ -280,32 +280,48 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 with generous side gutters (room reserved for a future side
                 panel, owner note) instead of stretching edge-to-edge; the
                 collapsed bottom-sheet/anchored-card is already narrower than
-                the max-w bound so these classes are a no-op there. */}
-            <div
-              className={cn(
-                "mx-auto flex w-full min-h-0 flex-1 flex-col",
-                expanded && "max-w-2xl px-4 sm:max-w-3xl sm:px-8"
-              )}
-            >
+                the max-w bound so these classes are a no-op there.
+                CAM-436: the reading-column max-w moved OFF this shared flex
+                column (below) and onto the message-list wrapper + the
+                composer container individually, so the ScrollArea itself
+                spans full width and its scrollbar sits at the screen edge
+                (not floating mid-screen at the column's inner edge) while
+                content still reads centered. */}
+            <div className="mx-auto flex w-full min-h-0 flex-1 flex-col">
               <ScrollArea className="min-h-0 flex-1">
-                <AiChatMessageList
-                  entries={entries}
-                  sending={sending}
-                  resuming={resuming}
-                  onSuggestion={handleSuggestion}
-                  onRetry={retryLast}
-                />
+                <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
+                  <AiChatMessageList
+                    entries={entries}
+                    sending={sending}
+                    resuming={resuming}
+                    onSuggestion={handleSuggestion}
+                    onRetry={retryLast}
+                  />
+                </div>
               </ScrollArea>
 
               {/* CAM-431: fullscreen composer = a floating glass dock (glow +
                   a subtle teal→sky gradient accent), not the collapsed
-                  bordered full-width bar. */}
-              <div className={cn("shrink-0", expanded ? "px-0 pb-6 sm:pb-10" : "border-t border-border/60 p-4")}>
+                  bordered full-width bar. CAM-436: `rounded-3xl` surface (a
+                  card that grows vertically, not a stadium pill that
+                  stretches grotesquely once the textarea wraps), even
+                  `pl-4` inset (the send button now reads as part of the
+                  box, not detached far-right), and `focus-within:ring-2` so
+                  keyboard focus is visible around the whole dock instead of
+                  being swallowed by the transparent textarea. */}
+              <div
+                className={cn(
+                  "shrink-0",
+                  expanded
+                    ? "mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10"
+                    : "border-t border-border/60 p-4"
+                )}
+              >
                 <div
                   className={cn(
                     "flex items-end gap-2",
                     expanded &&
-                      "rounded-full border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-5 shadow-ai-glow backdrop-blur-xl"
+                      "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
                   )}
                 >
                   <Textarea
@@ -317,7 +333,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     aria-label={t.aiChat.composerPlaceholder}
                     disabled={sending || disabled}
                     rows={1}
-                    className={cn("max-h-32", expanded && "border-none bg-transparent")}
+                    className={cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0")}
                     data-testid="input--ai-chat-composer"
                   />
                   <Button
