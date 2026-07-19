@@ -28,6 +28,12 @@
  * `ai-flame-flicker` loop (owner-approved, DESIGN.md §2.1's ai-flame-flicker
  * exception line; static under `prefers-reduced-motion`).
  *
+ * CAM-435 (R2 owner staging feedback): this FAB is a persistent mark (shows
+ * on every page), so its aura ring swaps `ai-flame-flicker` → the gentler
+ * `ai-flame-glow` pulse — the strong flicker is reserved for the loading
+ * surface only (`AiChatAvatar`'s `intensity="loading"`). Same token, no new
+ * keyframe; still static under `prefers-reduced-motion`.
+ *
  * PERF (not measured): the heavy panel (Sheet, message thread,
  * CampgroundCard reuse) is `next/dynamic(ssr:false)` and mounted only
  * after the first tap — the Home route's initial bundle only pays for
@@ -74,7 +80,7 @@ export function AiChatLauncher() {
             never intercepts a tap; -z-10 keeps it strictly behind the button. */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"
+          className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-glow"
         />
         <span
           aria-hidden="true"
@@ -92,7 +98,7 @@ export function AiChatLauncher() {
           className="h-12 w-12 rounded-full bg-ai-ember/10 hover:bg-ai-ember/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
           onClick={() => setOpen(true)}
         >
-          <Flame className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
+          <Flame strokeWidth={1} className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
         </Button>
       </div>
       {open && <AiChatPanel open={open} onOpenChange={setOpen} />}
