@@ -136,6 +136,42 @@ The fast path for any UI work (full rules below):
 - ❌ `ease-in` for entrance · button press `active:scale-95`.
 - ❌ motion on frequent actions (filter/search/keyboard) · ✅ respect `prefers-reduced-motion`.
 
+### §2.1 Sanctioned exception — น้องกองไฟ AI Expression Layer (CAM-426)
+
+**Scope: the assistant surface ONLY** — `components/ai-chat/*` (`AiChatPanel`, `AiChatMessageList`,
+`AiChatAvatar`, `AiAmbientCanvas`, `AiChatCampCard`, `AiChatDetailCard`). No standard page (Home / catalog /
+dashboard / booking / auth) may use this exception; those keep stock tokens and standard 120–250ms motion.
+
+Within that scope, and using ONLY the closed `--ai-*` token set (`--ai-surface`, `--ai-tint`, `--ai-glow`,
+`--ai-gradient`, `--ai-ember`, `--ai-firefly`, `--ai-star` — derived in `app/globals.css` from `--primary` teal,
+`--info` sky, and the `--warning` amber family for the warm camping accents), the assistant surface MAY:
+
+1. render a **camping-night ambient backdrop** (`.ai-aurora`, `aria-hidden`, `pointer-events-none`, behind
+   content) — a subtle teal→sky gradient with a faint warm campfire horizon;
+2. render a **decorative particle canvas** (`AiAmbientCanvas`, `aria-hidden`, `pointer-events-none`) with four
+   dimmed camping gimmicks — fireflies-follow-cursor, star sparkles, rising embers, and a small avatar flame —
+   all perf-capped (particle cap + fps throttle + pause on hidden tab) and OFF under `prefers-reduced-motion`;
+3. use a **glass surface** (`bg-ai-surface` + `backdrop-blur`) for the panel and the floating detail card, with a
+   readable-content layer on top so text never sits directly on the animation;
+4. apply the **`--ai-glow`** ambient glow (`shadow-ai-glow`) to the panel, the detail card, and the avatar;
+5. tint the assistant bubble with **`bg-ai-tint`** (`text-foreground`, ≥ AA) and the avatar flame with `text-ai-ember`.
+
+**Readability is the binding constraint:** the ambient must never reduce text legibility. Readable content sits on
+`bg-ai-surface`/`bg-card` (opaque-enough) over the blurred backdrop; contrast stays WCAG 2.1 AA and is axe-verified.
+
+**Still binding inside the exception:** role-radius (`rounded-3xl` panel/card, `rounded-2xl` bubble, `rounded-full`
+control — never `rounded-sm/md/lg`), lucide-only icons, no emoji, all copy in `locales/` (TH+EN, Thai-copy rules),
+all 8 states, WCAG 2.1 AA (contrast, visible focus ring `ring-ring`, tap ≥44px), `check:palette` + `check:ds` green.
+
+**Motion within the exception:** message entrance + panel/detail open clamp to **≤250ms** transform/opacity
+(standard). Three named loops/one-shots are permitted because they are transform/opacity only, dimmed, and no-op
+under `prefers-reduced-motion`: `ai-aurora-drift` (~18s), `ai-flame-glow` (~2.4s), and the one-shot detail-card
+`ai-materialize` (≤480ms). They were authored + justified in `CAM-426/design.md §7` and approved under the owner's
+CAM-426 autonomy delegation; any NEW motion beyond these routes back to full human G2.
+
+This exception is the record that legitimizes the camping assistant look. Anything beyond items 1–5, or any reuse of
+`--ai-*` outside the assistant surface, routes back to full human G2.
+
 ## §3 Component contracts + decision matrix (which primitive for which job)
 
 **Vocabulary = `components/ui/*` only** (28 components: button, input, input-field, input-group, label, textarea, checkbox, select, dropdown-menu, popover, command, dialog, alert-dialog, sheet, calendar, date-range-picker, tooltip, tabs, scroll-area, card, badge, skeleton, loading-spinner, loading-skeleton, error-banner, permission-tooltip, truncated-label, sonner). Do not invent components outside the system.

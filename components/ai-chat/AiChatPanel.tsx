@@ -28,10 +28,23 @@
  * camper always resumes/continues the ONE thread; a conversation switcher
  * lands in a later story. `startNewChat` stays in `use-ai-chat.ts`
  * (unreferenced here) so that later story can wire it back in.
+ *
+ * CAM-426 (DESIGN.md §2.1 sanctioned exception): the panel becomes the
+ * น้องกองไฟ glass surface — `bg-ai-surface backdrop-blur-xl shadow-ai-glow`
+ * (replacing the flat `bg-popover shadow-2xl`) with a campfire-night ambient
+ * backdrop (`.ai-aurora` + `AiAmbientCanvas`, both `aria-hidden` +
+ * `pointer-events-none`, stacked `-z-10`) behind a `relative z-10` readable
+ * wrapper. Readability is the hard constraint (design.md §6): every existing
+ * child (header/list/composer) still renders on its own opaque/tokened
+ * surface, so this only changes the panel's own shell, never the content.
+ * `AiAmbientCanvas` is `next/dynamic(ssr:false)` — same lazy idiom as this
+ * panel's own mount in `AiChatLauncher.tsx` — so it never enters the
+ * critical first-load chunk.
  */
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Dialog as PanelPrimitive } from "radix-ui";
 import { Send, X } from "lucide-react";
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
@@ -45,6 +58,11 @@ import { useAiChat } from "@/components/ai-chat/use-ai-chat";
 import { AiChatMessageList } from "@/components/ai-chat/AiChatMessageList";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
 import { isSendableQuestion } from "@/components/ai-chat/conversation";
+
+const AiAmbientCanvas = dynamic(
+  () => import("@/components/ai-chat/AiAmbientCanvas").then((m) => ({ default: m.AiAmbientCanvas })),
+  { ssr: false, loading: () => null }
+);
 
 interface AiChatPanelProps {
   open: boolean;
@@ -95,7 +113,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             composerRef.current?.focus();
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 flex h-[85dvh] max-h-[85dvh] flex-col overflow-hidden rounded-t-3xl border-t border-border bg-popover shadow-2xl outline-none",
+            "fixed inset-x-0 bottom-0 z-50 flex h-[85dvh] max-h-[85dvh] flex-col overflow-hidden rounded-t-3xl border-t border-border bg-ai-surface shadow-ai-glow outline-none backdrop-blur-xl",
             "duration-200 data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10",
             "motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
             // CAM-407: the previous desktop height was auto + capped by a
@@ -110,69 +128,78 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             "sm:inset-x-auto sm:inset-y-auto sm:left-auto sm:top-auto sm:right-6 sm:bottom-24 sm:h-[min(37.5rem,80dvh)] sm:w-96 sm:rounded-3xl sm:border sm:border-border/60"
           )}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <AiChatAvatar size="md" />
-              <div className="min-w-0">
-                <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
-                  {t.aiChat.name}
-                </p>
-                <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+          {/* CAM-426: campfire-night ambient backdrop — decorative, behind every
+              reading region (DESIGN.md §2.1). The glass shell above
+              (bg-ai-surface + backdrop-blur-xl) plus each child's own opaque
+              surface keep text legible over it; never a wash over content. */}
+          <div className="ai-aurora ai-aurora-drift pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
+          <AiAmbientCanvas />
+
+          <div className="relative z-10 flex h-full min-h-0 flex-col">
+            <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <AiChatAvatar size="md" />
+                <div className="min-w-0">
+                  <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
+                    {t.aiChat.name}
+                  </p>
+                  <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t.aiChat.close}
+                  data-testid="btn--ai-chat-close"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <X className="size-5" aria-hidden="true" />
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t.aiChat.close}
-                data-testid="btn--ai-chat-close"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="size-5" aria-hidden="true" />
-              </Button>
-            </div>
-          </div>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <AiChatMessageList
-              entries={entries}
-              sending={sending}
-              resuming={resuming}
-              onSuggestion={handleSuggestion}
-              onRetry={retryLast}
-            />
-          </ScrollArea>
-
-          <div className="shrink-0 border-t border-border/60 p-4">
-            <div className="flex items-end gap-2">
-              <Textarea
-                ref={composerRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={handleComposerKeyDown}
-                placeholder={t.aiChat.composerPlaceholder}
-                aria-label={t.aiChat.composerPlaceholder}
-                disabled={sending || disabled}
-                rows={1}
-                className="max-h-32"
-                data-testid="input--ai-chat-composer"
+            <ScrollArea className="min-h-0 flex-1">
+              <AiChatMessageList
+                entries={entries}
+                sending={sending}
+                resuming={resuming}
+                onSuggestion={handleSuggestion}
+                onRetry={retryLast}
               />
-              <Button
-                type="button"
-                size="icon"
-                className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
-                aria-label={t.aiChat.send}
-                data-testid="btn--ai-chat-send"
-                disabled={!canSend}
-                onClick={handleSend}
-              >
-                {sending ? (
-                  <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
-                ) : (
-                  <Send className="size-4" aria-hidden="true" />
-                )}
-              </Button>
+            </ScrollArea>
+
+            <div className="shrink-0 border-t border-border/60 p-4">
+              <div className="flex items-end gap-2">
+                <Textarea
+                  ref={composerRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder={t.aiChat.composerPlaceholder}
+                  aria-label={t.aiChat.composerPlaceholder}
+                  disabled={sending || disabled}
+                  rows={1}
+                  className="max-h-32"
+                  data-testid="input--ai-chat-composer"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-full motion-safe:active:scale-95"
+                  aria-label={t.aiChat.send}
+                  data-testid="btn--ai-chat-send"
+                  disabled={!canSend}
+                  onClick={handleSend}
+                >
+                  {sending ? (
+                    <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
+                  ) : (
+                    <Send className="size-4" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </PanelPrimitive.Content>

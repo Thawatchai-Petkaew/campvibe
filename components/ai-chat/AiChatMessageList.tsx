@@ -42,6 +42,13 @@
  * percentage height (`h-full`) would not reliably resolve (same class of
  * issue as CAM-407). Same aria-busy/role=status/aria-live=polite contract;
  * the pulse is motion-safe (EC-1 static under prefers-reduced-motion).
+ *
+ * CAM-426 (DESIGN.md §2.1 sanctioned exception): every assistant-side bubble
+ * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
+ * (still paired with `text-foreground`, AA by token parity — see design.md
+ * §1 contrast honesty). The user bubble stays `bg-primary`/
+ * `text-primary-foreground` — unchanged, still distinguished by side + fill
+ * + avatar, never hue alone.
  */
 "use client";
 
@@ -142,7 +149,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           <AiChatAvatar size="sm" />
           <div
             data-testid="status--ai-chat-typing"
-            className="flex max-w-[85%] items-center gap-1 rounded-2xl bg-muted px-4 py-2.5"
+            className="flex max-w-[85%] items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5"
           >
             <span className="sr-only">{t.aiChat.typing}</span>
             {[0, 1, 2].map((i) => (
@@ -198,7 +205,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
           <AiChatAvatar size="sm" />
           <div
             data-testid="msg--ai-chat-assistant"
-            className="max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+            className="max-w-[85%] rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
           >
             {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
             <p className="whitespace-pre-wrap">{entry.text}</p>
@@ -243,7 +250,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
         <AiChatAvatar size="sm" />
         <div
           data-testid="error--ai-chat-ratelimited"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
         >
           <Clock className="size-4 shrink-0 text-warning" aria-hidden="true" />
           <span>{t.aiChat.rateLimited}</span>
@@ -259,7 +266,7 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
         <AiChatAvatar size="sm" />
         <div
           data-testid="info--ai-chat-disabled"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground"
+          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
         >
           <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>{t.aiChat.disabled}</span>
