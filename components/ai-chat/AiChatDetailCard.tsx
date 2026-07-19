@@ -372,7 +372,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
               </div>
               {card.reviewCount > 0 && card.avgRating !== null && (
                 <div
-                  className="flex items-center gap-1 text-sm text-muted-foreground"
+                  className="flex items-center gap-1 text-sm text-foreground/70"
                   data-testid="text--ai-chat-detail-rating"
                 >
                   <Star className="size-4 fill-current text-foreground" aria-hidden="true" />
@@ -382,12 +382,12 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
               )}
               {(locationParts.length > 0 || distanceText) && (
                 <p
-                  className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
+                  className="flex flex-wrap items-center gap-1 text-sm text-foreground/70"
                   data-testid="text--ai-chat-detail-province"
                 >
                   {hasProvince && <MapPin className="size-4 shrink-0" aria-hidden="true" />}
                   {locationParts.length > 0 && <span>{locationParts.join(" · ")}</span>}
-                  {distanceText && <span className="text-xs text-muted-foreground/80">· {distanceText}</span>}
+                  {distanceText && <span className="text-xs text-foreground/70">· {distanceText}</span>}
                 </p>
               )}
             </div>
@@ -467,7 +467,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">{t.aiChat.detail.noAvailability}</p>
+                    <p className="text-sm text-foreground/70">{t.aiChat.detail.noAvailability}</p>
                   )}
                 </DetailSection>
 
@@ -486,7 +486,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                             <span className="text-lg font-semibold tabular-nums text-ai-price">
                               ฿{THB_FORMAT.format(detail.price.low)}
                             </span>
-                            <span className="text-xs text-muted-foreground">{t.aiChat.detail.perGuestNight}</span>
+                            <span className="text-xs text-foreground/70">{t.aiChat.detail.perGuestNight}</span>
                           </>
                         )
                       )}
@@ -498,11 +498,11 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       >
                         <span>+ {detail.price.extraFeeLabel || t.aiChat.detail.extraFeeGeneric}</span>
                         <span className="tabular-nums">฿{THB_FORMAT.format(detail.price.extraFeeAmount)}</span>
-                        <span className="text-xs text-muted-foreground">{t.aiChat.detail.extraFeeOneTime}</span>
+                        <span className="text-xs text-foreground/70">{t.aiChat.detail.extraFeeOneTime}</span>
                       </p>
                     )}
                     {detail.price.feeInfo && (
-                      <p className="text-xs text-muted-foreground">{detail.price.feeInfo}</p>
+                      <p className="text-xs text-foreground/70">{detail.price.feeInfo}</p>
                     )}
                   </DetailSection>
                 )}
@@ -533,7 +533,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       )}
                       {activityAmenities.length > 0 && (
                         <div className={cn("space-y-2", facilityAmenities.length > 0 && "pt-2")}>
-                          <p className="text-xs text-muted-foreground">{t.aiChat.detail.activitiesHeading}</p>
+                          <p className="text-xs text-foreground/70">{t.aiChat.detail.activitiesHeading}</p>
                           <div className="flex flex-wrap gap-2">
                             {activityAmenities.map((a) => {
                               const Icon = getFacilityIcon(a.code);
@@ -554,7 +554,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">{t.aiChat.detail.noAmenities}</p>
+                    <p className="text-sm text-foreground/70">{t.aiChat.detail.noAmenities}</p>
                   )}
                 </DetailSection>
 
@@ -568,7 +568,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       <div className="flex items-center gap-1 text-sm tabular-nums">
                         <Star className="size-4 fill-current text-foreground" aria-hidden="true" />
                         <span className="font-medium text-foreground">{detail.reviewSummary.avgRating}</span>
-                        <span className="text-muted-foreground">
+                        <span className="text-foreground/70">
                           ({t.aiChat.card.reviews.replace("{count}", String(detail.reviewSummary.count))})
                         </span>
                       </div>
@@ -578,16 +578,16 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       {detail.reviews.map((review, i) => (
                         <div key={i} className="space-y-1 rounded-xl bg-muted/50 p-3">
                           <p className="text-xs font-medium text-foreground">{review.name}</p>
-                          <div className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                          <div className="flex items-center gap-1 text-xs tabular-nums text-foreground/70">
                             <Star className="size-3.5 fill-current" aria-hidden="true" />
                             {review.rating}
                           </div>
-                          {review.content && <p className="text-sm text-muted-foreground">{review.content}</p>}
+                          {review.content && <p className="text-sm text-foreground/70">{review.content}</p>}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">{t.aiChat.card.noReviews}</p>
+                    <p className="text-sm text-foreground/70">{t.aiChat.card.noReviews}</p>
                   )}
                 </DetailSection>
 
@@ -604,12 +604,12 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                       </p>
                     )}
                     {detail.directions && (
-                      <p className="flex items-start gap-2 text-muted-foreground">
+                      <p className="flex items-start gap-2 text-foreground/70">
                         <MapPin className="size-4 shrink-0 text-ai-price" aria-hidden="true" />
                         <span>{detail.directions}</span>
                       </p>
                     )}
-                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-muted-foreground">
+                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-foreground/70">
                       <span>
                         {t.booking.checkIn} {detail.checkInTime}
                       </span>
@@ -658,7 +658,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
           {card.priceLow && card.priceLow > 0 ? (
             <>
               <span className="text-lg font-semibold text-ai-price">฿{THB_FORMAT.format(card.priceLow)}</span>
-              <span className="text-xs text-muted-foreground">{t.aiChat.card.perNight}</span>
+              <span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>
             </>
           ) : (
             <span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>
