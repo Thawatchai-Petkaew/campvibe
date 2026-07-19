@@ -142,8 +142,8 @@ describe("AiChatPanel — the glass surface + ambient backdrop (DESIGN.md §2.1)
     expect(panelSrc).toContain("<AiAmbientCanvas />");
   });
 
-  it("[unit] readable content (header/list/composer) sits in a relative z-10 wrapper above the ambient", () => {
-    expect(panelSrc).toContain('className="relative z-10 flex h-full min-h-0 flex-col"');
+  it("[unit] readable content (header/list/composer) sits in a relative z-10 wrapper above the ambient (CAM-451: now the push-track viewport, restructured from a single flex column into two absolute-inset panes)", () => {
+    expect(panelSrc).toContain('className="relative z-10 h-full min-h-0 overflow-hidden"');
   });
 
   it("[design-gate] no shadow-xl anywhere in the ai-chat surface (R2 off-tier shadow)", () => {
