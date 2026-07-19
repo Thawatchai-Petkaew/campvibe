@@ -144,7 +144,7 @@ function writeExpandedToStorage(value: boolean): void {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
-  const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();
+  const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -182,8 +182,16 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     }
   }
 
+  // CAM-412 (BR-6/AC-7/EC-6) — every dismiss path (X button, Esc,
+  // outside-pointer-dismiss) funnels through Radix's onOpenChange; aborting
+  // here on the close transition covers all of them in one place.
+  function handleOpenChange(next: boolean) {
+    if (!next) abortActiveStream();
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
       <DialogPortal>
         {/* CAM-429: transparent, not removed — only the dark scrim over the
             page disappears; the Esc-dismiss/outside-dismiss/focus-on-open
@@ -295,7 +303,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   size="icon"
                   aria-label={t.aiChat.close}
                   data-testid="btn--ai-chat-close"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => handleOpenChange(false)}
                 >
                   <X className="size-5" aria-hidden="true" />
                 </Button>

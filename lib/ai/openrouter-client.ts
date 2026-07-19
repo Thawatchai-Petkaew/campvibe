@@ -794,3 +794,408 @@ export async function runAssistantTurnFromMessages(
   ];
   return runTurnFromBaseMessages(baseMessages, ctx);
 }
+
+/* -------------------------------------------------------------------------- */
+/* CAM-412 — streaming mode for the FINAL completion only.                    */
+/* -------------------------------------------------------------------------- */
+/**
+ * CAM-412 (ADR-015) — streams ONLY the loop's terminal, no-tool-calls
+ * completion (the "no-tool answer call" OR the "post-tool follow-up call");
+ * every tool-deciding call + tool-execution round stays invisible to the
+ * client, exactly as the non-streaming engine above. Reuses the SAME guards
+ * (MAX_TOKENS, MAX_TOOL_CALLS_PER_ROUND/TURN, MAX_AGENT_ITERATIONS,
+ * TURN_DEADLINE_MS, model fallback) and the SAME `extractSuggestions` — no
+ * parallel spend/parsing logic.
+ *
+ * Design (the "architect/G2 decision" the story's Seams flagged as open):
+ * we cannot know ahead of a call whether its completion will carry
+ * `tool_calls` without actually making it, so EVERY completion in the loop is
+ * requested with `stream:true` uniformly (transport-only — loop semantics,
+ * iteration/tool-call counting, and MAX_TOKENS are unchanged bit-for-bit).
+ * The first meaningful delta chunk of a given call reveals its "mode":
+ *  - `tool_calls` appears first -> this is a tool-deciding round; the rest of
+ *    the stream is drained SILENTLY (never yielded to the caller) to
+ *    reconstruct the exact `{content, tool_calls}` shape the non-streaming
+ *    path already builds from one JSON body, then the loop continues exactly
+ *    like `runTurnFromBaseMessages` (executeToolCalls, append tool
+ *    messages, next iteration).
+ *  - `content` appears first -> this call IS the turn's final answer; cleaned
+ *    text chunks are forwarded live via `yield` (BR-3 tag-safe buffering
+ *    below), and the generator ends in a terminal `meta` event once the
+ *    completion finishes.
+ * Model fallback (BR-6) only ever applies to the turn's FIRST call, and only
+ * while ZERO content has been forwarded to the client for that call — once a
+ * client has seen any text, swapping models mid-answer is unsafe and any
+ * further failure is a genuine mid-stream error (AC-4), never a fallback
+ * retry. Whether a terminal `error` event is a "before-first-delta" failure
+ * (route falls back to the existing JSON body) or a "mid-stream" failure
+ * (route emits a terminal SSE event) is decided entirely by the ROUTE: it is
+ * simply whichever event this generator yields FIRST.
+ */
+export type StreamEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'meta'; cards: unknown[]; suggestions?: string[]; searchAttempted?: true }
+  | { type: 'error'; code: string }
+  | { type: 'skipped' };
+
+/** Canonical (no internal whitespace) — the model is instructed to emit this exact literal; the buffering safety margin below only needs to guard THIS shape, not the tolerant post-hoc extraction regexes. */
+const OPEN_TAG_PROBE = '<suggestions>';
+
+/**
+ * BR-3/EC-2 — incrementally computes how much of the accumulated raw
+ * completion text is SAFE to forward as a client-visible delta right now,
+ * withholding any trailing suffix that could be an in-progress
+ * `<suggestions>` open tag (including one split across two network chunks).
+ * Once a full tag is confirmed, the safe boundary is PINNED there forever —
+ * nothing at or past it is ever flushed (the block never reaches the client).
+ */
+class TagSafeFlusher {
+  private sent = 0;
+  private pinned = false;
+
+  /** Returns newly-safe-to-flush text (may be `''`) given the FULL raw content accumulated so far. */
+  next(raw: string): string {
+    if (this.pinned) return '';
+    const openIdx = raw.toLowerCase().indexOf(OPEN_TAG_PROBE);
+    let safeLength: number;
+    if (openIdx !== -1) {
+      this.pinned = true;
+      safeLength = openIdx;
+    } else {
+      let reserve = 0;
+      const maxProbe = Math.min(OPEN_TAG_PROBE.length - 1, raw.length);
+      for (let k = maxProbe; k >= 1; k--) {
+        if (OPEN_TAG_PROBE.startsWith(raw.slice(raw.length - k).toLowerCase())) {
+          reserve = k;
+          break;
+        }
+      }
+      safeLength = raw.length - reserve;
+    }
+    if (safeLength <= this.sent) return '';
+    const chunk = raw.slice(this.sent, safeLength);
+    this.sent = safeLength;
+    return chunk;
+  }
+
+  /** Called once the completion has fully ended — releases any never-resolved reserve (it can never become a real tag now). */
+  finalize(raw: string): string {
+    if (this.pinned || this.sent >= raw.length) return '';
+    const chunk = raw.slice(this.sent);
+    this.sent = raw.length;
+    return chunk;
+  }
+}
+
+const streamToolCallDeltaSchema = z.object({
+  index: z.number(),
+  id: z.string().optional(),
+  type: z.literal('function').optional(),
+  function: z.object({ name: z.string().optional(), arguments: z.string().optional() }).optional(),
+});
+const streamDeltaSchema = z.object({
+  role: z.string().optional(),
+  content: z.string().nullable().optional(),
+  tool_calls: z.array(streamToolCallDeltaSchema).optional(),
+});
+const streamChunkSchema = z.object({
+  choices: z
+    .array(z.object({ delta: streamDeltaSchema.optional(), finish_reason: z.string().nullable().optional() }))
+    .optional(),
+});
+
+interface ParsedStreamChunk {
+  content: string | null;
+  toolCallDeltas: Array<{ index: number; id?: string; name?: string; argsFragment?: string }>;
+}
+
+/** Fetched, third-party network I/O is an input boundary (code.md CAM-305) — validated, never cast. An unparseable chunk (EC-5) yields `null`, treated by the caller as "nothing this line" (a genuinely malformed/undecodable frame surfaces via the JSON.parse throw one level up, not here). */
+function parseStreamChunk(json: unknown): ParsedStreamChunk | null {
+  const parsed = streamChunkSchema.safeParse(json);
+  if (!parsed.success) return null;
+  const choice = parsed.data.choices?.[0];
+  if (!choice) return null;
+  const delta = choice.delta ?? {};
+  return {
+    content: delta.content ?? null,
+    toolCallDeltas: (delta.tool_calls ?? []).map((tc) => ({
+      index: tc.index,
+      id: tc.id,
+      name: tc.function?.name,
+      argsFragment: tc.function?.arguments,
+    })),
+  };
+}
+
+/** One JSON payload per SSE `data:` line; `[DONE]` ends the stream. A malformed line THROWS (EC-5: an unparsable frame is a stream failure, never surfaced raw to the caller). */
+async function* readSseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerator<unknown> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line.startsWith('data:')) continue;
+        const dataStr = line.slice(5).trim();
+        if (dataStr.length === 0) continue;
+        if (dataStr === '[DONE]') return;
+        yield JSON.parse(dataStr);
+      }
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // already released/cancelled (BR-6 double-abort idempotence)
+    }
+  }
+}
+
+/** Composes multiple AbortSignals into one (no `AbortSignal.any` dependency — kept portable). */
+function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  for (const s of signals) {
+    if (s.aborted) {
+      controller.abort();
+      break;
+    }
+  }
+  for (const s of signals) s.addEventListener('abort', () => controller.abort(), { once: true });
+  return controller.signal;
+}
+
+type LowLevelStreamEvent =
+  | { kind: 'content'; text: string }
+  | { kind: 'result'; ok: true; message: OpenRouterMessage }
+  | { kind: 'result'; ok: false };
+
+/** Makes ONE streaming completion call and reconstructs the exact `{content, tool_calls}` shape `callModelOnce` builds from a single JSON body — transport-only difference. Yields raw content chunks AS THEY ARRIVE only when this call's mode resolves to `content`; a `tool_calls` call is drained with zero `content` events. */
+async function* streamOneCompletion(
+  apiKey: string,
+  model: string,
+  messages: OutgoingMessage[],
+  ctx: ToolContext,
+  options: CallOptions,
+  signal: AbortSignal
+): AsyncGenerator<LowLevelStreamEvent> {
+  let res: Response;
+  try {
+    const body: Record<string, unknown> = {
+      model,
+      messages,
+      tools: buildToolSchemas(ctx),
+      max_tokens: MAX_TOKENS,
+      stream: true,
+    };
+    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    res = await fetch(OPENROUTER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch {
+    yield { kind: 'result', ok: false };
+    return;
+  }
+  if (!res.ok || !res.body) {
+    yield { kind: 'result', ok: false };
+    return;
+  }
+
+  const flusher = new TagSafeFlusher();
+  let rawContent = '';
+  const toolCallAcc = new Map<number, { id: string; name: string; args: string }>();
+  let mode: 'undetermined' | 'content' | 'tool_calls' = 'undetermined';
+
+  try {
+    for await (const json of readSseDataLines(res.body)) {
+      const chunk = parseStreamChunk(json);
+      if (!chunk) continue;
+
+      if (mode === 'undetermined') {
+        if (chunk.toolCallDeltas.length > 0) mode = 'tool_calls';
+        else if (chunk.content) mode = 'content';
+      }
+
+      for (const d of chunk.toolCallDeltas) {
+        const existing = toolCallAcc.get(d.index) ?? { id: '', name: '', args: '' };
+        if (d.id) existing.id = d.id;
+        if (d.name) existing.name = d.name;
+        if (d.argsFragment) existing.args += d.argsFragment;
+        toolCallAcc.set(d.index, existing);
+      }
+
+      if (chunk.content) {
+        rawContent += chunk.content;
+        if (mode === 'content') {
+          const safe = flusher.next(rawContent);
+          if (safe) yield { kind: 'content', text: safe };
+        }
+      }
+    }
+  } catch {
+    // Malformed frame (EC-5) or a network drop mid-stream (AC-4) — the
+    // caller distinguishes "before vs after first content" by whether it
+    // already forwarded a delta for THIS call.
+    yield { kind: 'result', ok: false };
+    return;
+  }
+
+  if (mode === 'content') {
+    const tail = flusher.finalize(rawContent);
+    if (tail) yield { kind: 'content', text: tail };
+  }
+
+  const toolCalls: OutgoingToolCall[] = Array.from(toolCallAcc.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, v]) => ({ id: v.id, type: 'function' as const, function: { name: v.name, arguments: v.args } }));
+
+  yield {
+    kind: 'result',
+    ok: true,
+    message: { content: rawContent, tool_calls: toolCalls.length > 0 ? toolCalls : undefined },
+  };
+}
+
+/** Drains one streaming call, forwarding content chunks live via `yield*` delegation from the caller, and RETURNING (not yielding) the reconstructed outcome + whether any content was ever forwarded this call. */
+async function* drainOneStreamingCall(
+  apiKey: string,
+  model: string,
+  messages: OutgoingMessage[],
+  ctx: ToolContext,
+  options: CallOptions,
+  signal: AbortSignal
+): AsyncGenerator<{ type: 'delta'; text: string }, { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean }, undefined> {
+  let contentStarted = false;
+  let ok = false;
+  let message: OpenRouterMessage | undefined;
+  for await (const ev of streamOneCompletion(apiKey, model, messages, ctx, options, signal)) {
+    if (ev.kind === 'content') {
+      contentStarted = true;
+      yield { type: 'delta', text: ev.text };
+    } else {
+      ok = ev.ok;
+      message = ev.ok ? ev.message : undefined;
+    }
+  }
+  return { ok, message, contentStarted };
+}
+
+function makeCallSignal(externalSignal?: AbortSignal): AbortSignal {
+  const signals: AbortSignal[] = [AbortSignal.timeout(MODEL_CALL_TIMEOUT_MS)];
+  if (externalSignal) signals.push(externalSignal);
+  return composeAbortSignals(signals);
+}
+
+/**
+ * CAM-412 — the streaming counterpart of `runAssistantTurnFromMessages`.
+ * `externalSignal` (the route's own AbortController, wired to the client
+ * request) propagates to every upstream OpenRouter fetch (BR-6/AC-7/EC-6) —
+ * on abort, no further network call is made and the generator ends cleanly
+ * (never throws, a second/duplicate abort is a no-op).
+ */
+export async function* runAssistantTurnFromMessagesStreaming(
+  turnMessages: TurnMessage[],
+  ctx: ToolContext = {},
+  externalSignal?: AbortSignal
+): AsyncGenerator<StreamEvent, void, undefined> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    console.warn(JSON.stringify({ level: 'warn', event: 'ai_turn_skipped', reason: 'OPENROUTER_API_KEY not configured' }));
+    yield { type: 'skipped' };
+    return;
+  }
+
+  const turnDeadline = Date.now() + TURN_DEADLINE_MS;
+  let messages: OutgoingMessage[] = [
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx) },
+    ...turnMessages,
+  ];
+  let pinnedModel: string | null = null;
+  let toolCallsExecutedThisTurn = 0;
+  let lastRawContent = '';
+  let searchAttempted = false;
+  const cards: unknown[] = [];
+
+  for (let iteration = 1; iteration <= MAX_AGENT_ITERATIONS; iteration++) {
+    if (externalSignal?.aborted) return; // BR-6 — clean no-op, no further call
+
+    if (iteration > 1 && Date.now() >= turnDeadline) {
+      if (lastRawContent.trim().length > 0) {
+        const { answer, suggestions } = extractSuggestions(lastRawContent);
+        if (answer) yield { type: 'delta', text: answer };
+        yield { type: 'meta', cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
+        return;
+      }
+      yield { type: 'error', code: GENERIC_ERROR };
+      return;
+    }
+
+    const isForcedFinalIteration = iteration === MAX_AGENT_ITERATIONS;
+    const callOptions: CallOptions = isForcedFinalIteration ? { toolChoice: 'none' } : {};
+
+    let outcome: { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean };
+    let modelUsed: string;
+
+    if (pinnedModel === null) {
+      const primaryModel = resolveModel();
+      const primary = yield* drainOneStreamingCall(apiKey, primaryModel, messages, ctx, callOptions, makeCallSignal(externalSignal));
+      if (primary.ok || primary.contentStarted) {
+        outcome = primary;
+        modelUsed = primaryModel;
+      } else {
+        console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model: primaryModel }));
+        const fallbackModel = resolveFallbackModel();
+        const fallback = yield* drainOneStreamingCall(apiKey, fallbackModel, messages, ctx, callOptions, makeCallSignal(externalSignal));
+        if (!fallback.ok) {
+          console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel }));
+        }
+        outcome = fallback;
+        modelUsed = fallbackModel;
+      }
+    } else {
+      outcome = yield* drainOneStreamingCall(apiKey, pinnedModel, messages, ctx, callOptions, makeCallSignal(externalSignal));
+      modelUsed = pinnedModel;
+    }
+
+    if (!outcome.ok) {
+      yield { type: 'error', code: GENERIC_ERROR };
+      return;
+    }
+
+    pinnedModel = modelUsed;
+    const message = outcome.message!;
+    lastRawContent = message.content ?? '';
+    const toolCalls = message.tool_calls;
+
+    if (!toolCalls || toolCalls.length === 0 || isForcedFinalIteration) {
+      const { suggestions } = extractSuggestions(lastRawContent);
+      yield { type: 'meta', cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
+      return;
+    }
+
+    const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
+    const { toolMessages, cards: roundCards, executedCount, searchAttempted: roundSearchAttempted } =
+      await executeToolCalls(toolCalls, roundLimit, ctx);
+    toolCallsExecutedThisTurn += executedCount;
+    cards.push(...roundCards);
+    searchAttempted ||= roundSearchAttempted;
+
+    messages = [
+      ...messages,
+      { role: 'assistant', content: message.content ?? '', tool_calls: toolCalls },
+      ...toolMessages,
+    ];
+  }
+
+  // Unreachable: iteration === MAX_AGENT_ITERATIONS is always a forced-final
+  // return above (tool_choice:'none' guarantees no tool_calls).
+  yield { type: 'error', code: GENERIC_ERROR };
+}

@@ -27,7 +27,15 @@ export type ChatEntry =
     }
   | { id: string; role: "assistant"; kind: "rate-limited" }
   | { id: string; role: "assistant"; kind: "disabled" }
-  | { id: string; role: "assistant"; kind: "error"; retryQuestion: string };
+  | { id: string; role: "assistant"; kind: "error"; retryQuestion: string }
+  /**
+   * CAM-412 — a transient, in-flight streaming answer: grows as `delta`
+   * events arrive, then is REPLACED (never both shown) by a settled
+   * `kind:"answer"` entry once the turn's `meta`/`error` outcome resolves
+   * (`replaceStreamingWithOutcome` below). Never persisted, never sent back
+   * as history (`buildOutgoingHistory` only ever reads settled entries).
+   */
+  | { id: string; role: "assistant"; kind: "streaming"; text: string };
 
 let seq = 0;
 /** Monotonic id generator — stable React `key`s, no dependency on `crypto.randomUUID` (jsdom-less test env). */
@@ -99,6 +107,38 @@ export function appendOutcome(entries: ChatEntry[], outcome: AiChatOutcome, ques
     default:
       return entries;
   }
+}
+
+/**
+ * CAM-412 AC-1 — appends one cleaned text delta to the in-flight streaming
+ * entry, CREATING it on the first delta (pure/idempotent: derives everything
+ * from `entries` itself, so a React Strict Mode double-invoked updater can
+ * never create two placeholder entries for one turn).
+ */
+export function appendOrStartStreamingDelta(entries: ChatEntry[], delta: string): ChatEntry[] {
+  const last = entries[entries.length - 1];
+  if (last && last.role === "assistant" && last.kind === "streaming") {
+    return [...entries.slice(0, -1), { ...last, text: last.text + delta }];
+  }
+  return [...entries, { id: nextEntryId(), role: "assistant", kind: "streaming", text: delta }];
+}
+
+/**
+ * CAM-412 AC-1/AC-4 — settles the turn: drops the transient streaming entry
+ * (if one exists — a zero-delta answer or a pre-first-delta JSON-fallback
+ * turn never created one) and appends the final outcome via the SAME
+ * `appendOutcome` every non-streaming turn already uses (no parallel finalize
+ * path). AC-4: a mid-stream `error` outcome discards the partial answer this
+ * way too — `entries.slice(0, -1)` drops it before the error entry is added.
+ */
+export function replaceStreamingWithOutcome(
+  entries: ChatEntry[],
+  outcome: AiChatOutcome,
+  questionText: string
+): ChatEntry[] {
+  const last = entries[entries.length - 1];
+  const base = last && last.role === "assistant" && last.kind === "streaming" ? entries.slice(0, -1) : entries;
+  return appendOutcome(base, outcome, questionText);
 }
 
 /** AC-5: `ลองใหม่` removes the trailing error notice before the question is resent (no duplicate user bubble). */

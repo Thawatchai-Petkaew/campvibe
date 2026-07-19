@@ -34,7 +34,9 @@ const panelSrc = readFileSync(
 
 describe("CAM-440 — the chat panel is a non-modal Dialog (no body scroll-lock band)", () => {
   it("[structural/Prove-It] the Dialog root carries modal={false} — the actual fix; regresses to the site-wide scrollbar-band bug if removed", () => {
-    expect(panelSrc).toContain("<Dialog open={open} onOpenChange={onOpenChange} modal={false}>");
+    // CAM-412: onOpenChange -> handleOpenChange (aborts an in-flight stream
+    // on every close path) — modal={false} itself is untouched.
+    expect(panelSrc).toContain("<Dialog open={open} onOpenChange={handleOpenChange} modal={false}>");
   });
 
   it("[structural] modal={false} is on the OUTER Dialog root, not just documented in a comment", () => {
@@ -55,7 +57,10 @@ describe("CAM-440 — the chat panel is a non-modal Dialog (no body scroll-lock 
   });
 
   it("[unit] the close button still drives the same controlled onOpenChange(false) Esc/scrim-dismiss uses", () => {
-    expect(panelSrc).toContain("onClick={() => onOpenChange(false)}");
+    // CAM-412: via the handleOpenChange wrapper (aborts an in-flight stream
+    // on close) — still calls the SAME onOpenChange prop underneath.
+    expect(panelSrc).toContain("onClick={() => handleOpenChange(false)}");
+    expect(panelSrc).toContain("onOpenChange(next)");
   });
 
   it("[unit] focus still moves into the composer on open (onOpenAutoFocus, unaffected by modal={false})", () => {

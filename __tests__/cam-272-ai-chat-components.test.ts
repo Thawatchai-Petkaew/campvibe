@@ -125,7 +125,9 @@ describe("BR-3 — send disables the composer + shows an inline typing indicator
 
   it("[unit] the typing indicator is gated on sending and carries the typing test id", () => {
     expect(listSrc).toContain('data-testid="status--ai-chat-typing"');
-    expect(listSrc).toContain("{sending && (");
+    // CAM-412: also suppressed once a streaming answer entry exists (BR-8 —
+    // the growing text + caret already IS the in-flight affordance then).
+    expect(listSrc).toContain("{sending && !lastIsStreaming && (");
   });
 
   it("[security] BR-3: the panel/hook never import the model/OpenRouter client directly", () => {
@@ -286,8 +288,10 @@ describe("AC-8 — Esc / close / tap-scrim closes the panel + focus returns to t
     expect(panelSrc).not.toContain("onInteractOutside");
   });
 
-  it("[unit] the close button calls onOpenChange(false) — the same controlled prop Esc/scrim-dismiss drive natively", () => {
-    expect(panelSrc).toContain("onClick={() => onOpenChange(false)}");
+  it("[unit] the close button calls handleOpenChange(false) — CAM-412: the SAME wrapper Dialog's onOpenChange (Esc/scrim-dismiss) is wired to, so every dismiss path aborts an in-flight stream identically", () => {
+    expect(panelSrc).toContain("onClick={() => handleOpenChange(false)}");
+    expect(panelSrc).toContain("<Dialog open={open} onOpenChange={handleOpenChange}");
+    expect(panelSrc).toContain("onOpenChange(next)"); // handleOpenChange still drives the real controlled prop
   });
 
   it("[structural] only onOpenAutoFocus is overridden (to redirect initial focus into the composer, AC-1/BR-7) — onCloseAutoFocus is left to Radix's default restore-to-trigger", () => {

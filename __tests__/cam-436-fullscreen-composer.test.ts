@@ -67,7 +67,7 @@ describe("Scrollbar-to-edge — ScrollArea spans full width in expanded mode; co
 describe("No-remount + standing rules", () => {
   it("[unit] useAiChat destructure, entries, and draft wiring are each present exactly once (no new conditional mount)", () => {
     expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
+      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
     );
     const entriesRefs = panelSrc.match(/entries={entries}/g) || [];
     expect(entriesRefs.length).toBe(1);

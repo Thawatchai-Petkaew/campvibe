@@ -320,19 +320,32 @@ describe('CAM-416 — AC-7/BR-7 route config (maxDuration=60, headroom above the
 });
 
 describe('CAM-416 adversarial (g) — single final-assembly point (D7 streaming seam precondition)', () => {
-  it('[architecture] extractSuggestions is defined once and called from exactly ONE place (finalizeAnswer); finalizeAnswer itself is called from exactly the two loop-exit branches', () => {
+  // CAM-412 landed the streaming engine this precondition anticipated: BR-3
+  // requires it to REUSE `extractSuggestions` (no parallel parser), not to
+  // route through `finalizeAnswer` (which returns the non-streaming
+  // `AssistantTurnResult` shape the streaming generator doesn't use). The
+  // load-bearing invariant — ONE definition, never reimplemented — still
+  // holds; the call-site COUNT legitimately grew by the streaming engine's
+  // own two exit points (mirrors the non-streaming engine's own two
+  // `finalizeAnswer` call sites, one per loop-exit branch).
+  it('[architecture] extractSuggestions is still defined exactly ONCE (no parallel parser) and called only from finalizeAnswer + the streaming engine\'s own two exit points; finalizeAnswer itself is unchanged (still exactly the two non-streaming loop-exit branches)', () => {
     const source = readFileSync(join(process.cwd(), 'lib/ai/openrouter-client.ts'), 'utf-8');
 
     const extractSuggestionsDefs = source.match(/function extractSuggestions\(/g) ?? [];
     const extractSuggestionsCalls = source.match(/\bextractSuggestions\(/g) ?? [];
-    expect(extractSuggestionsDefs).toHaveLength(1);
-    // Exactly 1 definition + 1 call site (inside finalizeAnswer) = 2 total occurrences of the identifier-with-paren.
-    expect(extractSuggestionsCalls).toHaveLength(2);
+    expect(extractSuggestionsDefs).toHaveLength(1); // BR-3 — still the ONE parser, never reimplemented
+    // 1 definition + 1 call inside finalizeAnswer (non-streaming, unchanged)
+    // + 2 calls inside runAssistantTurnFromMessagesStreaming's own exit
+    // points (the deadline-fallback branch and the main finalize/meta
+    // branch) = 4 total occurrences of the identifier-with-paren.
+    expect(extractSuggestionsCalls).toHaveLength(4);
 
     const finalizeAnswerDefs = source.match(/function finalizeAnswer\(/g) ?? [];
     const finalizeAnswerCalls = source.match(/\bfinalizeAnswer\(lastRawContent/g) ?? [];
     expect(finalizeAnswerDefs).toHaveLength(1);
-    // Exactly 2 call sites: the deadline-breach-with-content branch, and the natural/forced loop-stop branch.
+    // Unchanged by CAM-412 — the non-streaming engine still has exactly 2
+    // call sites: the deadline-breach-with-content branch, and the
+    // natural/forced loop-stop branch.
     expect(finalizeAnswerCalls).toHaveLength(2);
   });
 });

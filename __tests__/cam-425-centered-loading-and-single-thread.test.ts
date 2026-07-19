@@ -102,7 +102,10 @@ describe("AC-2/BR-3 — the '+' new-chat button is removed from the panel header
 
   it("[unit] the Close button is still present and still works the same way", () => {
     expect(panelSrc).toContain('data-testid="btn--ai-chat-close"');
-    expect(panelSrc).toContain("onClick={() => onOpenChange(false)}");
+    // CAM-412: routes through the handleOpenChange wrapper (aborts an
+    // in-flight stream on close) instead of calling the prop directly — the
+    // wrapper still drives the SAME onOpenChange prop underneath.
+    expect(panelSrc).toContain("onClick={() => handleOpenChange(false)}");
   });
 
   it("[unit] the panel no longer destructures isAuthenticated/startNewChat from useAiChat (unused-var clean)", () => {
