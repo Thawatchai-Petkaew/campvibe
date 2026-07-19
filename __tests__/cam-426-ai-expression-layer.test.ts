@@ -160,8 +160,10 @@ describe("AiChatAvatar — the flame recolors to the warm ember token + dim puls
     expect(avatarSrc).toContain("ai-flame-glow");
   });
 
-  it("[unit] the chip background stays the existing teal bg-primary/10 tint (unchanged)", () => {
-    expect(avatarSrc).toContain("rounded-full bg-primary/10");
+  it("[unit] CAM-432: the chip background retints to fire-toned bg-ai-ember/10 (was teal bg-primary/10) with a visible aura halo behind it", () => {
+    expect(avatarSrc).toContain("rounded-full bg-ai-ember/10");
+    expect(avatarSrc).toContain("shadow-ai-flame-aura");
+    expect(avatarSrc).toContain("ai-flame-flicker");
   });
 });
 

@@ -88,40 +88,53 @@ describe("AC-5/BR-5 — FAB collision resolved by moving HostOnboardingFab left"
     expect(fabSrc).not.toContain('className="fixed bottom-6 right-6 z-50"');
   });
 
-  it("[unit] AiChatLauncher's live wrapper div resets to its natural bottom-6 right-6 (no live bottom-24 className)", () => {
-    // the old offset may survive only in a traceability doc-comment, never as a live className
-    expect(launcherSrc).toContain('<div className="fixed bottom-6 right-6 z-50">');
+  it("[unit] AiChatLauncher's live wrapper div sits at bottom-10 right-6 (CAM-432 reposition, no live bottom-24/bottom-6 className)", () => {
+    // the old offsets may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).toContain('<div className="fixed bottom-10 right-6 z-50">');
     expect(launcherSrc).not.toMatch(/className="[^"]*bottom-24[^"]*"/);
+    expect(launcherSrc).not.toMatch(/className="fixed bottom-6 right-6 z-50"/);
   });
 });
 
 describe("AC-6/BR-6 — campfire aura reuses only already-sanctioned §2.1 primitives", () => {
-  it("[unit] the launcher button uses shadow-ai-glow (not the old shadow-lg shadow-primary/20)", () => {
-    expect(launcherSrc).toContain("shadow-ai-glow");
-    expect(launcherSrc).not.toContain("shadow-lg shadow-primary/20");
+  it("[unit] CAM-432: the launcher button is fire-toned (bg-ai-ember tint, not teal bg-primary/shadow-ai-glow)", () => {
+    expect(launcherSrc).toContain("bg-ai-ember/10 hover:bg-ai-ember/20");
+    // the old shadow-ai-glow may survive only in a traceability doc-comment, never as a live className
+    expect(launcherSrc).not.toMatch(/className="[^"]*shadow-ai-glow[^"]*"/);
   });
 
   it("[unit] the flame reuses the AiChatAvatar idiom: text-ai-ember + fill-current + ai-flame-glow", () => {
     expect(launcherSrc).toContain("ai-flame-glow size-5 fill-current text-ai-ember");
   });
 
-  it("[unit] two decorative ember/firefly <span> dots exist, aria-hidden + pointer-events-none, motion-safe/reduce gated", () => {
+  it("[unit] CAM-432: a visible fire-toned aura halo span (shadow-ai-flame-aura + ai-flame-flicker) sits behind the FAB, aria-hidden + pointer-events-none + -z-10", () => {
+    expect(launcherSrc).toMatch(
+      /aria-hidden="true"\s*\n\s*className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"/
+    );
+  });
+
+  it("[unit] two decorative ember/firefly <span> dots still exist, aria-hidden + pointer-events-none, motion-safe/reduce gated", () => {
     // count only the live <span aria-hidden="true" ...> elements (excludes the prose doc-comment above them)
     const spanBlocks = launcherSrc.match(/<span\b[\s\S]*?\/>/g) || [];
-    expect(spanBlocks.length).toBe(2);
+    expect(spanBlocks.length).toBe(3); // CAM-432: aura halo + the 2 pre-existing dots
+    const dotSpans = spanBlocks.filter((s) => s.includes("animate-pulse"));
+    expect(dotSpans.length).toBe(2);
     for (const span of spanBlocks) {
       expect(span).toContain('aria-hidden="true"');
       expect(span).toContain("pointer-events-none");
+    }
+    for (const span of dotSpans) {
       expect(span).toMatch(/motion-safe:animate-pulse motion-reduce:animate-none/);
     }
-    expect(spanBlocks.some((s) => s.includes("bg-ai-ember"))).toBe(true);
-    expect(spanBlocks.some((s) => s.includes("bg-ai-firefly"))).toBe(true);
+    expect(dotSpans.some((s) => s.includes("bg-ai-ember"))).toBe(true);
+    expect(dotSpans.some((s) => s.includes("bg-ai-firefly"))).toBe(true);
   });
 
-  it("[structural] no new keyframe/inline animation is introduced — only the pre-existing ai-flame-glow loop + stock Tailwind animate-pulse are used", () => {
+  it("[structural] no new inline keyframe/animation literal is introduced in this file — only class-name references to globals.css loops + stock Tailwind animate-pulse", () => {
     expect(launcherSrc).not.toContain("@keyframes");
     expect(launcherSrc).not.toContain("animation:");
-    // every animation-bearing class token in the file is one of the two allowed names
+    // every stock Tailwind animate- token in the file is one of the two allowed names
+    // (ai-flame-flicker/ai-flame-glow are globals.css class names, not animate- tokens)
     const animTokens = launcherSrc.match(/\b(?:motion-safe:|motion-reduce:)?animate-[a-z-]+\b/g) || [];
     for (const token of animTokens) expect(token.endsWith("animate-pulse") || token.endsWith("animate-none")).toBe(true);
   });

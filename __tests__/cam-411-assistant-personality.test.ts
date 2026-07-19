@@ -25,14 +25,15 @@ const th = translations.th.aiChat;
 const en = translations.en.aiChat;
 
 describe("BR-2 — AiChatAvatar: one token-tinted icon-chip mark, 3 sizes, decorative", () => {
-  it("[unit] renders a lucide Flame icon inside a rounded-full bg-primary/10 chip", () => {
+  it("[unit] renders a lucide Flame icon inside a rounded-full bg-ai-ember/10 chip (CAM-432: fire-toned, was teal bg-primary/10)", () => {
     expect(avatarSrc).toContain('import { Flame } from "lucide-react"');
-    expect(avatarSrc).toContain("rounded-full bg-primary/10");
+    expect(avatarSrc).toContain("rounded-full bg-ai-ember/10");
   });
 
   // CAM-426 (DESIGN.md §2.1 sanctioned exception): the flame recolors
   // text-primary -> text-ai-ember (warm campfire ember token) with the
-  // ai-flame-glow dim pulse; the chip background stays bg-primary/10 (above).
+  // ai-flame-glow dim pulse; CAM-432 then retints the chip itself to
+  // bg-ai-ember/10 (see above) and adds a flickering aura halo.
   it("[unit] the flame icon uses the ai-ember token + the ai-flame-glow pulse", () => {
     expect(avatarSrc).toContain("text-ai-ember");
     expect(avatarSrc).toContain("ai-flame-glow");
@@ -168,11 +169,11 @@ describe("AC-5 — launcher shows the Flame mark with the คุยกับน�
 
   it("[i18n] launcherLabel verbatim (TH)", () => expect(th.launcherLabel).toBe("คุยกับน้องกองไฟ"));
 
-  it("[unit] launcher interaction states (hover/active scale, size) are unchanged; the offset resets per CAM-429", () => {
+  it("[unit] launcher interaction states (hover/active scale, size) are unchanged; the offset is bottom-10 right-6 per CAM-432", () => {
     expect(launcherSrc).toContain("motion-safe:hover:scale-105");
     expect(launcherSrc).toContain("motion-safe:active:scale-95");
     expect(launcherSrc).toContain("h-12 w-12");
-    expect(launcherSrc).toContain("bottom-6 right-6");
+    expect(launcherSrc).toContain("bottom-10 right-6");
   });
 });
 

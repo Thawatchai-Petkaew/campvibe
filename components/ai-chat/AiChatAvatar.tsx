@@ -1,17 +1,23 @@
 /**
- * components/ai-chat/AiChatAvatar.tsx — CAM-411 (flame recolor: CAM-426)
+ * components/ai-chat/AiChatAvatar.tsx — CAM-411 (flame recolor: CAM-426;
+ * fire-toned chip + aura halo: CAM-432)
  *
  * The single น้องกองไฟ (Kongfai) identity mark reused everywhere (launcher
  * FAB, panel header, welcome hero, every assistant-side bubble/notice) — a
- * composition of the DESIGN.md §3 icon-chip pattern (rounded-full
- * bg-primary/10 tint chip), NOT a new primitive (design.md §Avatar).
+ * composition of the DESIGN.md §3 icon-chip pattern (rounded-full tint
+ * chip), NOT a new primitive (design.md §Avatar).
  *
  * CAM-426 (DESIGN.md §2.1 sanctioned exception): the flame itself now reads
  * as a small gentle campfire — `fill-current text-ai-ember` (the warm ember
  * token, not literal orange) with the `ai-flame-glow` dim opacity/scale
- * pulse (motion-safe, no-op under `prefers-reduced-motion`) — while the chip
- * background stays the existing teal `bg-primary/10` tint, so the mark holds
- * both the teal calm-confidence POV (BR-2) and the campfire warmth.
+ * pulse (motion-safe, no-op under `prefers-reduced-motion`).
+ *
+ * CAM-432 (owner staging feedback + reference image): the chip moves from
+ * the CAM-426 teal `bg-primary/10` to a fire-toned `bg-ai-ember/10` (the
+ * mark read "plain" against teal per the owner's screenshot review) and
+ * gains a VISIBLE flickering aura halo behind it — a decorative `-z-10` span
+ * carrying `shadow-ai-flame-aura` + `ai-flame-flicker` (static under
+ * `prefers-reduced-motion`, DESIGN.md §2.1's ai-flame-flicker exception line).
  *
  * Decorative only: `aria-hidden` — the name/role text carries the meaning,
  * per `.claude/rules/loading.md` §5 ("decorative shapes aria-hidden").
@@ -34,8 +40,12 @@ export function AiChatAvatar({ size }: AiChatAvatarProps) {
     <div
       aria-hidden="true"
       data-testid="img--ai-chat-avatar"
-      className={`flex shrink-0 items-center justify-center rounded-full bg-primary/10 ${wrapper}`}
+      className={`relative flex shrink-0 items-center justify-center rounded-full bg-ai-ember/10 ${wrapper}`}
     >
+      {/* CAM-432 fire aura: visible radial halo behind the chip. -z-10 keeps
+          it strictly behind the flame; static under prefers-reduced-motion
+          (gated in globals.css, see the ai-flame-flicker keyframe). */}
+      <span className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker" />
       {/* ai-flame-glow is itself gated inside a prefers-reduced-motion:no-preference
           media block in globals.css (static under reduce-motion) — no motion-safe: prefix needed. */}
       <Flame className={`ai-flame-glow fill-current text-ai-ember ${icon}`} />

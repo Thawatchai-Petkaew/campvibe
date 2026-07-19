@@ -7,19 +7,24 @@
  * CAM-429 (owner staging feedback): reset to its natural `bottom-6 right-6`
  * (the earlier `bottom-24` offset dodged `HostOnboardingFab`, which now moves
  * to `bottom-6 left-6` instead — see `components/HostOnboardingFab.tsx`) and
- * gained a campfire aura: `shadow-ai-glow` on the button plus the flame
- * recoloring to `text-ai-ember` with the already-sanctioned `ai-flame-glow`
- * pulse (same idiom as `AiChatAvatar`, DESIGN.md §2.1) and two small
- * decorative ember/firefly dots. No new keyframe is introduced — the dots
- * reuse Tailwind's stock `animate-pulse` (the same motion-safe/reduce idiom
- * already used site-wide, e.g. `components/ui/skeleton.tsx`), since any
- * brand-new motion inside the §2.1 exception would route back to full human
- * G2.
+ * gained a campfire aura: the flame recoloring to `text-ai-ember` with the
+ * already-sanctioned `ai-flame-glow` pulse (same idiom as `AiChatAvatar`,
+ * DESIGN.md §2.1) and two small decorative ember/firefly dots (Tailwind's
+ * stock `animate-pulse`, motion-safe/reduce gated).
+ *
+ * CAM-432 (owner staging feedback + reference image): repositioned up to
+ * `bottom-10 right-6` (easier thumb reach; `HostOnboardingFab` lives at
+ * `bottom-6 left-6`, no collision). The disc moves from teal (the default
+ * Button variant's `bg-primary`) to a fire-toned `bg-ai-ember/10`, and the
+ * flat `shadow-ai-glow` is replaced by a VISIBLE flickering aura halo — a
+ * decorative `-z-10` span carrying `shadow-ai-flame-aura` + the
+ * `ai-flame-flicker` loop (owner-approved, DESIGN.md §2.1's ai-flame-flicker
+ * exception line; static under `prefers-reduced-motion`).
  *
  * PERF (not measured): the heavy panel (Sheet, message thread,
  * CampgroundCard reuse) is `next/dynamic(ssr:false)` and mounted only
  * after the first tap — the Home route's initial bundle only pays for
- * this file (a Button + an icon + 2 decorative dots), matching the Navbar's
+ * this file (a Button + an icon + 3 decorative spans), matching the Navbar's
  * own modal-lazy-loading idiom.
  *
  * CAM-411: the mark icon changes `Sparkles → Flame` (the น้องกองไฟ identity
@@ -44,10 +49,15 @@ export function AiChatLauncher() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
-        {/* Decorative campfire aura (DESIGN.md §2.1 closed --ai-* token set,
-            reused — not new). aria-hidden + pointer-events-none: carries no
-            information, never intercepts a tap. */}
+      <div className="fixed bottom-10 right-6 z-50">
+        {/* CAM-432 fire aura: visible radial halo behind the FAB (DESIGN.md
+            §2.1 closed --ai-* token set + the ai-flame-flicker exception
+            line). aria-hidden + pointer-events-none: carries no information,
+            never intercepts a tap; -z-10 keeps it strictly behind the button. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"
+        />
         <span
           aria-hidden="true"
           className="pointer-events-none absolute -top-1 -right-1 size-1.5 rounded-full bg-ai-ember motion-safe:animate-pulse motion-reduce:animate-none"
@@ -61,7 +71,7 @@ export function AiChatLauncher() {
           size="icon-lg"
           aria-label={t.aiChat.launcherLabel}
           data-testid="btn--ai-chat-launcher"
-          className="h-12 w-12 rounded-full shadow-ai-glow motion-safe:hover:scale-105 motion-safe:active:scale-95"
+          className="h-12 w-12 rounded-full bg-ai-ember/10 hover:bg-ai-ember/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
           onClick={() => setOpen(true)}
         >
           <Flame className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
