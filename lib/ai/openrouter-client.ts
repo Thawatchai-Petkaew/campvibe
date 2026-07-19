@@ -42,6 +42,17 @@
  * (`getMyProfile`, `getMyWishlist`) for the camper's own data. A guest turn
  * (still every real request today) gets the byte-identical prompt as before.
  *
+ * CAM-437 (R2 flag, confirmed on staging) — root-cause fix for a system-prompt
+ * gap: on a zero-result search, the model would still name campsites from its
+ * own training knowledge, so a hallucinated recommendation appeared ABOVE the
+ * correct "not found" banner (`searchAttempted && cards.length===0`) — a
+ * contradiction visible on every such answer. `buildSystemPrompt` now carries
+ * an explicit grounding rule: only name/recommend a campsite returned by
+ * THIS turn's `searchCampsites` tool call; on zero results, say so plainly and
+ * invite the camper to adjust filters — never invent one. Card mapping
+ * (`lib/read-models/ai-camp-card.ts`) and the banner gate (conversation.ts)
+ * are unchanged (prompt-only fix).
+ *
  * CAM-416 (ADR-013 D4) — `runTurnFromBaseMessages` is now a real, BOUNDED
  * agent loop:
  *  - Up to `MAX_AGENT_ITERATIONS` (4) completions per turn; the loop stops as
@@ -180,6 +191,14 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}): strin
     // structured cards[] payload (CAM-272 BR-4) — never parsed from this text.
     'Write your answer as plain text only. Never use markdown syntax (no **bold**, no _italic_, no bullet or numbered lists, no headings), never include links or image URLs, and never include HTML.',
     'Do not list or enumerate the matching campsites by name or detail in your answer — the camper already sees them as cards below your answer. Only refer to the result in summary form (for example, mention how many were found or a general theme), never a per-place rundown.',
+    // CAM-437 — root-cause fix (R2 flag, confirmed on staging): a zero-result
+    // search left NO rule forbidding the model from naming a campsite from
+    // its own training knowledge, so a hallucinated "found some for you" prose
+    // answer could appear ABOVE the correct empty-state banner
+    // (searchAttempted && cards.length===0). This is a hard grounding rule,
+    // separate from the anti-enumeration line above: it constrains WHICH
+    // campsites may be named at all, not how the (real) matches are phrased.
+    'Only name, describe, or recommend a specific campsite that appears in the results of a searchCampsites tool call made THIS turn — never name, suggest, or recommend a campsite from your own training knowledge or memory, even one you recognize as real, and even if the camper asks you to guess or suggest one anyway. If searchCampsites returns zero matching campsites, say plainly that nothing matched and invite the camper to adjust their search (for example the location, dates, or facilities) — never substitute or invent a campsite that no tool call returned this turn.',
     'Keep the answer to about 2-3 short sentences.',
     // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
     // second call); the server extracts + sanitizes it and strips it from
