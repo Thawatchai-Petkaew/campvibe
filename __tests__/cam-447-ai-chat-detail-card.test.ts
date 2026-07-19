@@ -59,9 +59,13 @@ describe("Mount point — absolute z-20 sibling of the z-10 body, no 2nd Radix D
     expect(detailSrc).not.toContain("aria-modal");
   });
 
-  it("[unit] geometry forks on expanded, exact classes per the design brief", () => {
-    expect(detailSrc).toContain('"absolute inset-0 z-20 grid place-items-center p-4 sm:p-8"');
-    expect(detailSrc).toContain('"absolute inset-0 z-20 sm:inset-2 sm:top-14"');
+  it("[unit] CAM-448 geometry forks on expanded: a right-anchored drawer on desktop, a bottom sheet on mobile", () => {
+    expect(detailSrc).toContain(
+      '"absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"'
+    );
+    expect(detailSrc).toContain(
+      '"absolute inset-x-0 bottom-0 top-16 z-20 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"'
+    );
   });
 
   it("[unit] the underlying z-10 body is set inert while the detail is open (Panel)", () => {
@@ -127,6 +131,13 @@ describe("Async block — fetch, loading, empty, error states (design brief §4)
     expect(detailSrc).toContain("t.aiChat.loading");
   });
 
+  it("[unit] CAM-448: renders every review the server returns, no client-side cap or line-clamp truncation", () => {
+    expect(detailSrc).toContain("detail.reviews.map((review, i) =>");
+    expect(detailSrc).not.toContain("MAX_REVIEW_SNIPPETS");
+    expect(detailSrc).not.toContain(".slice(0,");
+    expect(detailSrc).not.toContain("line-clamp-3");
+  });
+
   it("[unit] the CTA is a Link — stays enabled through loading/error (no fetched data required)", () => {
     const ctaLine = detailSrc.slice(detailSrc.indexOf("CTA is a deep-link"));
     expect(ctaLine).toContain("btn--ai-chat-detail-cta");
@@ -180,8 +191,10 @@ describe("Token-only (DESIGN.md §2, check:palette scope) + reused glass idiom",
     expect(detailSrc).not.toContain("shadow-ai-flame-aura");
   });
 
-  it("[unit] entrance uses the sanctioned ai-materialize class (no new motion class)", () => {
-    expect(detailSrc).toContain("ai-materialize");
+  it("[unit] CAM-448: entrance slides in (bottom on mobile, right on desktop), no more ai-materialize", () => {
+    expect(detailSrc).toContain("animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:slide-in-from-right-8");
+    expect(detailSrc).toContain("motion-reduce:animate-none");
+    expect(detailSrc).not.toContain("ai-materialize");
   });
 
   it("[structural] no emoji literal in the detail card source", () => {
