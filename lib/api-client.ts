@@ -217,18 +217,25 @@ export interface AiChatCardResponse {
 }
 
 /**
- * CAM-420 (ADR-013 D6) — forward-compat rendered-content envelope. Purely
- * ADDITIVE and NOT populated by any route yet ("do NOT migrate cards/
- * suggestions into blocks now" — the story deliberately ships the SHAPE
- * only): a future block type is additive to the wire contract, never a
- * breaking change. `data` is intentionally `unknown` — each future block
- * type will own its own schema for `data` when it ships.
+ * CAM-420 (ADR-013 D6) — forward-compat rendered-content envelope. A future
+ * block type is additive to the wire contract, never a breaking change.
+ * `data` is intentionally `unknown` at this generic level — each block type
+ * owns its own schema for `data` (e.g. `AI_CHAT_CARDS_BLOCK_TYPE` below,
+ * validated via `extractCardsBlock`).
+ *
+ * CAM-445 (R3 owner feedback) — the 'cards' type IS now populated, by
+ * `POST /api/ai/chat`'s v2 (session-bound) path only: it persists the SAME
+ * rendered cards the camper saw as `{type:'cards', v:1, data:AiChatCardResponse[]}`
+ * so a resumed conversation can restore them (see `extractCardsBlock`).
  */
 export interface AiChatBlock {
     type: string;
     v: number;
     data: unknown;
 }
+
+/** CAM-445 — the well-known block `type` string for a turn's rendered campsite cards; shared by the write side (route.ts) and the read side (`extractCardsBlock`) so neither can drift from the other. */
+export const AI_CHAT_CARDS_BLOCK_TYPE = 'cards';
 
 const aiChatBlockSchema = z.object({
     type: z.string(),
@@ -316,6 +323,23 @@ export function normalizeBlocks(value: unknown): AiChatBlock[] {
         if (parsed.success) out.push(parsed.data);
     }
     return out;
+}
+
+/**
+ * CAM-445 (R3 owner feedback) — extracts + validates the `cards[]` payload
+ * from an ALREADY-`normalizeBlocks`'d array (structurally well-formed
+ * envelopes only). Stored/wire JSON is an input boundary (code.md CAM-305):
+ * every entry is re-validated through `isAiChatCardResponse` before it is
+ * trusted as a real `AiChatCardResponse` — a malformed entry is dropped, the
+ * rest of the array survives (the same "drop the bad one, keep the rest"
+ * policy `parseAiChatSuccessBody`'s own `cards` handling already uses).
+ * Returns `[]` when no well-formed 'cards' block is present (absent means no
+ * cards, not a parse failure) — never throws.
+ */
+export function extractCardsBlock(blocks: AiChatBlock[]): AiChatCardResponse[] {
+    const cardsBlock = blocks.find((b) => b.type === AI_CHAT_CARDS_BLOCK_TYPE);
+    if (!cardsBlock || !Array.isArray(cardsBlock.data)) return [];
+    return cardsBlock.data.filter(isAiChatCardResponse);
 }
 
 /** CAM-427 — one `options` entry is well-formed only when both display names are strings. */

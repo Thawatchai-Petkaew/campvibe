@@ -47,7 +47,9 @@ describe("Composer shape — rounded-3xl surface (not a stadium pill), even inse
 
 describe("Scrollbar-to-edge — ScrollArea spans full width in expanded mode; content stays centered", () => {
   it("[unit] the shared flex column carries no width bound of its own anymore (plain className, not a cn(...) fork)", () => {
-    expect(panelSrc).toContain('<div className="mx-auto flex w-full min-h-0 flex-1 flex-col">');
+    // CAM-442 added scrollWrapperRef (auto-scroll fix) directly on this same
+    // existing element — no new wrapper, className untouched.
+    expect(panelSrc).toContain('<div ref={scrollWrapperRef} className="mx-auto flex w-full min-h-0 flex-1 flex-col">');
   });
 
   it("[unit] the message list is wrapped in its own centered max-w column INSIDE ScrollArea (so the ScrollArea itself, and its scrollbar, span full width)", () => {

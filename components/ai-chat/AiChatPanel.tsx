@@ -89,18 +89,39 @@
  * `hideOthers` aria-hiding; Esc-dismiss, outside-pointer-dismiss, and
  * `onOpenChange(false)` all keep working unchanged (Radix's
  * `DismissableLayer`/`FocusScope` on `Dialog.Content` don't depend on `modal`).
+ *
+ * CAM-442 (R3 owner feedback, 2 fixes):
+ *  1. Auto-scroll: the thread never followed new content, so the view froze
+ *     wherever Enter was pressed. `scrollWrapperRef` sits on the existing
+ *     flex column that already holds `<ScrollArea>` (no new wrapper element,
+ *     keeps the CAM-407 definite-height chain untouched) and resolves
+ *     Radix's real scrollable node via
+ *     `querySelector('[data-radix-scroll-area-viewport]')` (the one node
+ *     `components/ui/scroll-area.tsx` doesn't expose a ref for; that shared
+ *     primitive stays untouched). `stickToBottomRef` defaults `true` and
+ *     flips `false` only once the camper scrolls away from the last
+ *     ~120px (an intentional read-history override); it is forced back to
+ *     `true` on every camper-initiated send (`handleSend`/`handleSuggestion`)
+ *     so pressing Enter always jumps to the newest turn, while a growing
+ *     assistant answer only pulls the view along when the camper hadn't
+ *     already scrolled up to read.
+ *  2. Send spinner: `<LoadingSpinner>`'s ring color (`border-primary`,
+ *     hardcoded in that shared primitive) matched the button's own
+ *     `bg-primary` fill, so the spinner was invisible while sending.
+ *     Swapped for a plain `lucide-react` `Loader2`, tokened
+ *     `text-primary-foreground` so it reads against the button fill, same
+ *     `size-4` footprint as the `Send` icon it replaces (no layout shift).
  */
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Dialog as PanelPrimitive } from "radix-ui";
-import { Maximize2, Minimize2, Send, X } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, Send, X } from "lucide-react";
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAiChat } from "@/components/ai-chat/use-ai-chat";
@@ -148,16 +169,68 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  // CAM-442: sits on the existing flex column that already holds
+  // <ScrollArea> (not a new element) so the CAM-407 definite-height chain
+  // is untouched; Radix's real scrollable node has no ref of its own
+  // exposed by components/ui/scroll-area.tsx, so it's resolved via
+  // querySelector below instead of editing that shared primitive.
+  const scrollWrapperRef = useRef<HTMLDivElement>(null);
+  // True while the view should follow new content; false once the camper
+  // scrolls up to read history. Reset to true on every camper-initiated
+  // send so Enter always jumps to the newest turn.
+  const stickToBottomRef = useRef(true);
 
   // CAM-423: the composer stays disabled while `resuming` too — a message
   // sent before the resumed conversationId lands would create a stray NEW
   // conversation instead of continuing the one being restored.
   const canSend = !sending && !disabled && !resuming && isSendableQuestion(draft);
 
+  // CAM-442: the last assistant entry's growing text length — included in
+  // the auto-scroll effect's deps below so a streaming/answer turn that's
+  // still growing keeps pulling the view along (while `stickToBottomRef`
+  // stays true).
+  const lastEntry = entries[entries.length - 1];
+  const lastAssistantTextLength =
+    lastEntry && lastEntry.role === "assistant" && (lastEntry.kind === "answer" || lastEntry.kind === "streaming")
+      ? lastEntry.text.length
+      : 0;
+
+  function getScrollViewport(): HTMLElement | null {
+    return scrollWrapperRef.current?.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
+  }
+
+  // Tracks how close to the bottom the camper is; scrolling away from the
+  // last ~120px is read as "reading history" and pauses the auto-follow.
+  useEffect(() => {
+    const viewport = getScrollViewport();
+    if (!viewport) return;
+    function handleScroll() {
+      if (!viewport) return;
+      stickToBottomRef.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 120;
+    }
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Follows the newest turn: fires on a new entry, the sending/resuming
+  // transition, or the in-flight answer growing. `requestAnimationFrame`
+  // measures `scrollHeight` after the appended DOM has actually committed.
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const raf = requestAnimationFrame(() => {
+      const viewport = getScrollViewport();
+      if (!viewport) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [entries.length, sending, lastAssistantTextLength, resuming]);
+
   function handleSend() {
     if (!canSend) return;
     const text = draft;
     setDraft("");
+    stickToBottomRef.current = true; // camper-initiated send always jumps to the newest turn
     void sendMessage(text);
   }
 
@@ -172,6 +245,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   function handleSuggestion(text: string) {
     if (sending || disabled || resuming) return;
     setDraft("");
+    stickToBottomRef.current = true; // camper-initiated send always jumps to the newest turn
     void sendMessage(text);
   }
 
@@ -321,7 +395,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 spans full width and its scrollbar sits at the screen edge
                 (not floating mid-screen at the column's inner edge) while
                 content still reads centered. */}
-            <div className="mx-auto flex w-full min-h-0 flex-1 flex-col">
+            <div ref={scrollWrapperRef} className="mx-auto flex w-full min-h-0 flex-1 flex-col">
               <ScrollArea className="min-h-0 flex-1">
                 <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
                   <AiChatMessageList
@@ -380,7 +454,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     onClick={handleSend}
                   >
                     {sending ? (
-                      <LoadingSpinner size="sm" className="h-auto w-auto gap-0" />
+                      <Loader2 className="size-4 animate-spin text-primary-foreground motion-reduce:animate-none" aria-hidden="true" />
                     ) : (
                       <Send className="size-4" aria-hidden="true" />
                     )}

@@ -18,7 +18,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { describe, it, expect } from 'vitest';
-import { parseAiChatSuccessBody } from '@/lib/api-client';
+import { parseAiChatSuccessBody, extractCardsBlock, normalizeBlocks, type AiChatCardResponse } from '@/lib/api-client';
 
 describe('parseAiChatSuccessBody — blocks[] envelope (AC-8, EC-7)', () => {
   it('[normal] absent blocks -> outcome has no `blocks` key (byte-identical to pre-CAM-420 shape)', () => {
@@ -68,5 +68,53 @@ describe('parseAiChatSuccessBody — blocks[] envelope (AC-8, EC-7)', () => {
   it('[null/empty] `conversationId` absent (legacy response) -> outcome has no `conversationId` key', () => {
     const outcome = parseAiChatSuccessBody({ answer: 'ok', cards: [] });
     expect(outcome).not.toHaveProperty('conversationId');
+  });
+});
+
+/**
+ * CAM-445 (R3 owner feedback) — `extractCardsBlock` extracts + re-validates
+ * the `cards[]` payload from an already-`normalizeBlocks`'d array, the read
+ * side of the 'cards' block a resumed conversation restores through.
+ */
+describe('extractCardsBlock (CAM-445)', () => {
+  const card = (overrides: Partial<AiChatCardResponse> = {}): AiChatCardResponse => ({
+    id: 'cs-1',
+    nameTh: 'แคมป์ริมน้ำ',
+    nameEn: 'Riverside Camp',
+    nameThSlug: 'camp-riverside-th',
+    nameEnSlug: 'riverside-camp',
+    priceLow: 500,
+    createdAt: '2026-07-19T00:00:00.000Z',
+    avgRating: 4.5,
+    reviewCount: 10,
+    location: { province: 'เชียงใหม่' },
+    ...overrides,
+  });
+
+  it('[normal] extracts a well-formed cards[] from a normalized blocks array', () => {
+    const c = card();
+    const blocks = normalizeBlocks([{ type: 'cards', v: 1, data: [c] }]);
+    expect(extractCardsBlock(blocks)).toEqual([c]);
+  });
+
+  it('[null/empty] no "cards"-typed block present -> []', () => {
+    const blocks = normalizeBlocks([{ type: 'other', v: 1, data: [] }]);
+    expect(extractCardsBlock(blocks)).toEqual([]);
+  });
+
+  it('[null/empty] an empty blocks array -> []', () => {
+    expect(extractCardsBlock([])).toEqual([]);
+  });
+
+  it('[error/validation] a malformed card entry is dropped; a well-formed sibling survives, never throws', () => {
+    const good = card({ id: 'cs-good' });
+    const blocks = normalizeBlocks([{ type: 'cards', v: 1, data: [good, { id: 'cs-bad' }] }]);
+    expect(() => extractCardsBlock(blocks)).not.toThrow();
+    expect(extractCardsBlock(blocks)).toEqual([good]);
+  });
+
+  it('[boundary] a "cards" block whose `data` is not an array -> [] (never throws)', () => {
+    const blocks = normalizeBlocks([{ type: 'cards', v: 1, data: 'not-an-array' }]);
+    expect(extractCardsBlock(blocks)).toEqual([]);
   });
 });
