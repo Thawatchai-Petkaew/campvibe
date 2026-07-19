@@ -111,7 +111,13 @@ describe('CAM-416 — multi-round chain (normal)', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(3);
     expect(mockDispatchTool).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ok: true, answer: 'พบแคมป์ที่ว่างครับ', cards: [{ id: 'c1' }, { id: 'c1' }] });
+    // CAM-430: round 1 dispatched a 'searchCampsites' call -> searchAttempted:true.
+    expect(result).toEqual({
+      ok: true,
+      answer: 'พบแคมป์ที่ว่างครับ',
+      cards: [{ id: 'c1' }, { id: 'c1' }],
+      searchAttempted: true,
+    });
 
     // The natural-stop call (iteration 3, not the iteration cap) never forces tool_choice.
     const thirdBody = JSON.parse((mockFetch.mock.calls[2][1] as RequestInit).body as string);
@@ -150,7 +156,8 @@ describe('CAM-416 — 4-round forced final (boundary, AC iteration cap)', () => 
 
     expect(mockFetch).toHaveBeenCalledTimes(MAX_AGENT_ITERATIONS);
     expect(mockDispatchTool).toHaveBeenCalledTimes(3); // rounds 1-3 only — call_4 is never dispatched
-    expect(result).toEqual({ ok: true, answer: 'คำตอบสุดท้ายครับ', cards: [] });
+    // CAM-430: rounds 1-3 all dispatched 'searchCampsites' calls (toolCall()'s default name) -> searchAttempted:true.
+    expect(result).toEqual({ ok: true, answer: 'คำตอบสุดท้ายครับ', cards: [], searchAttempted: true });
 
     const forcedFinalBody = JSON.parse(
       (mockFetch.mock.calls[MAX_AGENT_ITERATIONS - 1][1] as RequestInit).body as string
@@ -227,7 +234,13 @@ describe('CAM-416 — turn wall-clock deadline (error/validation, Date.now() spi
 
     expect(mockFetch).toHaveBeenCalledOnce();
     expect(mockDispatchTool).toHaveBeenCalledOnce(); // iteration 1's round still executes before the NEXT call is skipped
-    expect(result).toEqual({ ok: true, answer: 'เท่าที่เจอตอนนี้ครับ', cards: [{ id: 'partial' }] });
+    // CAM-430: iteration 1 dispatched a 'searchCampsites' call -> searchAttempted:true.
+    expect(result).toEqual({
+      ok: true,
+      answer: 'เท่าที่เจอตอนนี้ครับ',
+      cards: [{ id: 'partial' }],
+      searchAttempted: true,
+    });
     nowSpy.mockRestore();
   });
 });
@@ -252,6 +265,7 @@ describe('CAM-416 — model fallback pins whichever model answered first (normal
     expect(mockFetch).toHaveBeenCalledTimes(3);
     const iteration2Body = JSON.parse((mockFetch.mock.calls[2][1] as RequestInit).body as string);
     expect(iteration2Body.model).toBe('fallback/model');
-    expect(result).toEqual({ ok: true, answer: 'ตอบจากโมเดลสำรองครับ', cards: [] });
+    // CAM-430: iteration 1 dispatched a 'searchCampsites' call -> searchAttempted:true.
+    expect(result).toEqual({ ok: true, answer: 'ตอบจากโมเดลสำรองครับ', cards: [], searchAttempted: true });
   });
 });

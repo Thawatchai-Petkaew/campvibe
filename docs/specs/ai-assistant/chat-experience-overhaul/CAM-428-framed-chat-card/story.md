@@ -47,3 +47,4 @@ No schema/API change — reads only the CAM-427 wire fields already on `AiChatCa
 
 ## Changelog
 - v1 (2026-07-19) — created
+- v1.1 (2026-07-19) — bundled CAM-430 (message-layout + zero-result gate fix, owner staging feedback) into this same PR; see `docs/specs/ai-assistant/chat-experience-overhaul/CAM-430-message-layout-and-zero-result-gate/story.md`
