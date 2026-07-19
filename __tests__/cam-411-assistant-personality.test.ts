@@ -109,9 +109,13 @@ describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assis
   it("[unit] CAM-430: the answer, typing, rate-limited, disabled and error rows no longer render a per-message AiChatAvatar (size=sm) — the mark is decorative identity, now only in the panel header + resuming/welcome hero", () => {
     const occurrences = listSrc.split('<AiChatAvatar size="sm" />').length - 1;
     expect(occurrences).toBe(0);
-    // size=lg still renders exactly twice: the CAM-425 resuming indicator + the welcome hero (both kept, unchanged).
-    const largeOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
-    expect(largeOccurrences).toBe(2);
+    // size=lg still renders exactly twice: the welcome hero (calm, default intensity)
+    // and the CAM-425 resuming indicator, which since CAM-435 explicitly passes
+    // intensity="loading" (a distinct literal) — counted separately below.
+    const welcomeHeroOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
+    expect(welcomeHeroOccurrences).toBe(1);
+    const resumingOccurrences = listSrc.split('<AiChatAvatar size="lg" intensity="loading" />').length - 1;
+    expect(resumingOccurrences).toBe(1);
   });
 
   it("[unit] CAM-430: every assistant-side bubble/notice is w-full (was capped to the narrower chat-bubble width, sized to leave room for the avatar that no longer exists) — the USER bubble keeps its own cap, unaffected", () => {

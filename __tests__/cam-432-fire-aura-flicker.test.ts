@@ -93,17 +93,23 @@ describe("AC-3 — ai-flame-flicker keyframe: visible วูบวาบ loop, s
 });
 
 describe("AC-4 — both surfaces wire a decorative aura span behind the mark", () => {
-  it("[unit] AiChatAvatar: a -z-10 aria-hidden-parent, pointer-events-none span carries shadow-ai-flame-aura + ai-flame-flicker", () => {
+  // CAM-435 (R2 owner staging feedback, SUPERSEDES this AC's ai-flame-flicker-by-default):
+  // persistent marks (this avatar's default 'calm' intensity, the launcher FAB) now use the
+  // gentler ai-flame-glow aura; ai-flame-flicker is reserved for AiChatAvatar's
+  // intensity="loading" branch only (asserted in cam-433-loading-flame.test.ts / the
+  // resuming indicator). Same shadow-ai-flame-aura token, no new keyframe/token.
+  it("[unit] AiChatAvatar: a -z-10 aria-hidden-parent, pointer-events-none span carries shadow-ai-flame-aura + a motion class driven by the intensity prop (ai-flame-glow default, ai-flame-flicker when loading)", () => {
     expect(avatarSrc).toContain(
-      'className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"'
+      'className={`pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ${auraMotionClass}`}'
     );
+    expect(avatarSrc).toContain('intensity === "loading" ? "ai-flame-flicker" : "ai-flame-glow"');
     // the outer wrapper is already aria-hidden, and must be position:relative so inset-0 resolves correctly
     expect(avatarSrc).toContain('className={`relative flex shrink-0 items-center justify-center rounded-full bg-ai-ember/10 ${wrapper}`}');
   });
 
-  it("[unit] AiChatLauncher: a -z-10 aria-hidden + pointer-events-none span carries shadow-ai-flame-aura + ai-flame-flicker", () => {
+  it("[unit] AiChatLauncher: a -z-10 aria-hidden + pointer-events-none span carries shadow-ai-flame-aura + the calm ai-flame-glow pulse (persistent FAB, CAM-435)", () => {
     expect(launcherSrc).toMatch(
-      /aria-hidden="true"\s*\n\s*className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"/
+      /aria-hidden="true"\s*\n\s*className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-glow"/
     );
   });
 

@@ -66,6 +66,13 @@
  * role=status/aria-live=polite/aria-busy contract, just no longer painted
  * on screen.
  *
+ * CAM-435 (R2 owner staging feedback): this resuming avatar is the one
+ * genuinely-loading surface, so it explicitly passes
+ * `intensity="loading"` to keep the strong `ai-flame-flicker` aura here
+ * (owner: intense flicker is fine while loading) — `AiChatAvatar` now
+ * defaults to a gentler `ai-flame-glow` aura everywhere else (persistent
+ * header/launcher marks).
+ *
  * CAM-426 (DESIGN.md §2.1 sanctioned exception): every assistant-side bubble
  * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
  * (still paired with `text-foreground`, AA by token parity — see design.md
@@ -123,7 +130,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           data-testid="status--ai-chat-resuming"
           className="absolute inset-0 flex flex-col items-center justify-center"
         >
-          <AiChatAvatar size="lg" />
+          <AiChatAvatar size="lg" intensity="loading" />
           <span className="sr-only">{t.aiChat.loading}</span>
         </div>
       )}

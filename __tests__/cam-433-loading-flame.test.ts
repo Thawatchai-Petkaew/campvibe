@@ -27,8 +27,8 @@ describe("AC-1/EC-1 — the centered flame flickers on its own; no generic pulse
     expect(resumingBlock).not.toContain("motion-safe:animate-pulse");
   });
 
-  it("[unit] AiChatAvatar size=lg is rendered directly (not nested inside an extra wrapper div)", () => {
-    expect(resumingBlock).toContain('<AiChatAvatar size="lg" />');
+  it("[unit] AiChatAvatar size=lg is rendered directly (not nested inside an extra wrapper div), with intensity=\"loading\" (CAM-435: keeps the strong ai-flame-flicker aura on this genuinely-loading surface, now that AiChatAvatar defaults to a calmer glow elsewhere)", () => {
+    expect(resumingBlock).toContain('<AiChatAvatar size="lg" intensity="loading" />');
   });
 });
 
