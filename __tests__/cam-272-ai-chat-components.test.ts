@@ -349,14 +349,20 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
   });
 
-  it("[unit] CAM-430 (SUPERSEDES): the answer row (text bubble + cards) AND the text bubble itself are both w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
+  it("[unit] CAM-430 (SUPERSEDES): the answer row is w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
     expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-3 self-start");
-    // CAM-426: bg-muted -> bg-ai-tint (DESIGN.md §2.1 sanctioned exception) — canonical class updated in place.
-    expect(listSrc).toContain('className="w-full max-w-full rounded-2xl bg-ai-tint');
     // Scoped to the assistant-side answer row only — the user bubble (rendered
     // earlier in the file) intentionally keeps its own narrower chat-bubble cap.
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
     expect(answerBlock).not.toMatch(/max-w-\[85%\]/);
+  });
+
+  it("[unit] CAM-439 (SUPERSEDES CAM-426 for the answer only): the answer text is plain text on the panel glass — no bg-ai-tint bubble — while typing/rate-limited/disabled notices keep bg-ai-tint", () => {
+    expect(listSrc).toContain(
+      'data-testid="msg--ai-chat-assistant" className="space-y-2 text-sm leading-relaxed text-foreground"'
+    );
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).not.toMatch(/className="[^"]*bg-ai-tint/);
   });
 
   it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {
