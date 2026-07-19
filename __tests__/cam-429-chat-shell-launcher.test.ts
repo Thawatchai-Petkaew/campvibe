@@ -54,6 +54,12 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
     expect(panelSrc).toContain("h-[85dvh] max-h-[85dvh]");
   });
 
+  it("[unit] the collapsed desktop anchor resets from sm:bottom-24 to sm:bottom-6 (matches AiChatLauncher's own reset, item 3)", () => {
+    expect(panelSrc).toContain("sm:right-6 sm:bottom-6 sm:h-[min(37.5rem,80dvh)]");
+    // the old anchor may survive only in a traceability doc-comment, never as the live class literal
+    expect(panelSrc).not.toContain("sm:right-6 sm:bottom-24 sm:h-[min(37.5rem,80dvh)]");
+  });
+
   it("[unit] toggleExpanded flips state and persists to sessionStorage on every toggle", () => {
     expect(panelSrc).toContain("function toggleExpanded() {");
     expect(panelSrc).toContain("writeExpandedToStorage(next);");
@@ -121,7 +127,6 @@ describe("AC-6/BR-6 — campfire aura reuses only already-sanctioned §2.1 primi
 
 describe("Icons/copy — lucide only, no emoji, token-only, i18n (standing rules)", () => {
   it("[structural] no emoji literal in the touched files", () => {
-    // eslint-disable-next-line no-misleading-character-class
     const emojiPattern = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
     for (const src of [panelSrc, launcherSrc, fabSrc]) expect(emojiPattern.test(src)).toBe(false);
   });
