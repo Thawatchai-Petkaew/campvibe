@@ -47,15 +47,24 @@
  * edge-to-edge feel — only the SETTLED position moved right to align).
  *
  * CAM-425: the CAM-423 resuming indicator (a bare top-left inline spinner)
- * is replaced by a centered, on-brand treatment — the shared `AiChatAvatar`
- * (size="lg", subtle motion-safe pulse) + the Thai loading label, positioned
- * as `absolute inset-0` centered inside the ScrollArea (which is already
- * `position: relative` — components/ui/scroll-area.tsx). An absolute
+ * is replaced by a centered, on-brand treatment — the shared `AiChatAvatar`,
+ * positioned as `absolute inset-0` centered inside the ScrollArea (which is
+ * already `position: relative` — components/ui/scroll-area.tsx). An absolute
  * overlay sizes off the ScrollArea Root's actual rendered box regardless of
  * Radix's internal `display: table` Viewport wrapper, where a plain
  * percentage height (`h-full`) would not reliably resolve (same class of
- * issue as CAM-407). Same aria-busy/role=status/aria-live=polite contract;
- * the pulse is motion-safe (EC-1 static under prefers-reduced-motion).
+ * issue as CAM-407). Same aria-busy/role=status/aria-live=polite contract.
+ *
+ * CAM-433 (owner staging feedback C, SUPERSEDES CAM-425's generic
+ * `motion-safe:animate-pulse` wrapper + VISIBLE loading label): the centered
+ * indicator is now the น้องกองไฟ flame itself flickering — `AiChatAvatar`
+ * already carries its own on-brand `ai-flame-flicker` aura + `ai-flame-glow`
+ * icon pulse internally (CAM-432), both already static under
+ * `prefers-reduced-motion` (gated in globals.css), so no extra wrapper
+ * animation is layered on top. The Thai `t.aiChat.loading` label is now
+ * `sr-only` — still announced to screen readers via the unchanged
+ * role=status/aria-live=polite/aria-busy contract, just no longer painted
+ * on screen.
  *
  * CAM-426 (DESIGN.md §2.1 sanctioned exception): every assistant-side bubble
  * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
@@ -112,12 +121,10 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           aria-live="polite"
           aria-busy={resuming}
           data-testid="status--ai-chat-resuming"
-          className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
+          className="absolute inset-0 flex flex-col items-center justify-center"
         >
-          <div className="motion-safe:animate-pulse">
-            <AiChatAvatar size="lg" />
-          </div>
-          <span>{t.aiChat.loading}</span>
+          <AiChatAvatar size="lg" />
+          <span className="sr-only">{t.aiChat.loading}</span>
         </div>
       )}
 
