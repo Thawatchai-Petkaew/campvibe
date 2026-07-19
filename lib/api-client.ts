@@ -166,6 +166,12 @@ export interface AiChatRequestMessage {
     content: string;
 }
 
+/** CAM-427 — one "first tag" entry (the camp's primary Terrain-group descriptor, e.g. ริมน้ำ/ป่า/ภูเขา/ชายหาด). */
+export interface AiChatCardTag {
+    nameTh: string;
+    nameEn: string;
+}
+
 /**
  * The wire shape of one campsite card inside a CAM-271 `200` response —
  * post-`serializeDecimals` + JSON (lib/serialize.ts): Decimal -> number,
@@ -177,6 +183,21 @@ export interface AiChatRequestMessage {
  * intentionally declares only `{url}` — `sortOrder` is a server-internal
  * ordering key, never read client-side (QA Info finding; the route no
  * longer sends it either).
+ *
+ * CAM-427 additive fields (api.md rule 12 — backward-compatible by
+ * addition; `location.province` intentionally STAYS a required `string`,
+ * never widened to `string | null`, to avoid a breaking change for the
+ * existing `AiChatCampCard`/`CampgroundCardData` consumers — the server-side
+ * mapper (`lib/read-models/ai-camp-card.ts` `toAiCampCard`) coerces a null
+ * `Location.province` to `''` before it ever reaches this wire shape, the
+ * SAME convention `app/wishlist/page.tsx` already uses for the identical
+ * nullable-province case):
+ *   - `options` — the card's "first tag" (≤1 entry), G3/first-tag real field.
+ *   - `hasReviews` — G7: true only when `reviewCount > 0`; lets the card
+ *     renderer show "ยังไม่มีรีวิว" instead of a misleading 0.0-star row.
+ *   - `remaining` — G3: LIVE batched remaining-capacity count for the stay
+ *     dates the assistant search was given; `null`/absent = no date range
+ *     was requested (unknown), never fabricated.
  */
 export interface AiChatCardResponse {
     id: string;
@@ -190,6 +211,9 @@ export interface AiChatCardResponse {
     reviewCount: number;
     location: { province: string };
     images?: { url: string }[];
+    options?: AiChatCardTag[];
+    hasReviews?: boolean;
+    remaining?: number | null;
 }
 
 /**
@@ -278,6 +302,13 @@ export function normalizeBlocks(value: unknown): AiChatBlock[] {
     return out;
 }
 
+/** CAM-427 — one `options` entry is well-formed only when both display names are strings. */
+function isCardTag(value: unknown): value is AiChatCardTag {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return typeof v.nameTh === 'string' && typeof v.nameEn === 'string';
+}
+
 /** Narrows an unknown value into an `AiChatCardResponse` (network I/O is an input boundary, code.md CAM-305). */
 export function isAiChatCardResponse(value: unknown): value is AiChatCardResponse {
     if (!value || typeof value !== 'object') return false;
@@ -293,7 +324,12 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
         (v.avgRating === null || typeof v.avgRating === 'number') &&
         typeof v.reviewCount === 'number' &&
         !!location &&
-        typeof location.province === 'string'
+        typeof location.province === 'string' &&
+        // CAM-427 additive fields — each is either absent or well-formed
+        // (api.md rule 12: an older/unaware body simply lacks the key).
+        (v.options === undefined || (Array.isArray(v.options) && v.options.every(isCardTag))) &&
+        (v.hasReviews === undefined || typeof v.hasReviews === 'boolean') &&
+        (v.remaining === undefined || v.remaining === null || typeof v.remaining === 'number')
     );
 }
 

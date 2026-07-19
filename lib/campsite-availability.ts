@@ -439,79 +439,63 @@ export type CampAvailabilityStatus = 'FULLY_UNAVAILABLE' | 'PARTIALLY_UNAVAILABL
 export const MAX_STATUS_RANGE_NIGHTS = 366;
 
 /**
- * CAM-344 — batched per-camp availability status for a page of dated catalog
- * search results (BR-1/BR-2/BR-3/BR-5, ADR-009 no-forked-data-path).
- *
- * Derives from the EXACT SAME predicates as getCampSiteDailyAvailability /
- * getBlockedDatesForRange / getActiveHoldsForRange: Booking `CONFIRMED`/
- * `PENDING` overlap, whole-camp BlockedDate (`spotId` null, `deletedAt` null)
- * overlap, InternalHold `ACTIVE` + `expiresAt > now` overlap. Nights only —
- * `endDate` is the EXCLUSIVE checkout day; `lastNight = endDate - 1 day` is
- * used as the upper query bound for all three predicates, mirroring exactly
- * how getRemainingCapacity calls getCampSiteDailyAvailability with an
- * already-adjusted exclusive bound (same night-exclusive shape as the
- * booking write path).
- *
- * Batched shape: 5 grouped queries total for the WHOLE page, run in
- * parallel — one CampSite.useSpotView/maxGuestsPerDay side-select over the
- * page ids (capacity is intentionally NOT added to campCardSelect: every
- * date-less consumer of CampSiteCardData — wishlist, similar-camps — would
- * otherwise over-fetch a field it never renders, the exact anti-pattern
- * lib/read-models/camp-card.ts already documents) plus the 3 predicate
- * queries (Booking / BlockedDate / InternalHold) plus ONE more — CAM-355
- * BR-4c: a grouped, non-deleted Spot sum over the SAME page ids, feeding the
- * mode-aware effective-capacity map below (lib/spot-aggregation.ts
- * sumSpotCapacity — the SAME summing formula calculateSpotCapacity uses,
- * ADR-009 no-forked-data-path). Each query is
- * `WHERE campSiteId IN [pageIds]`. Classification runs in memory afterwards.
- * NEVER calls calculateSpotCapacity/getCampSiteDailyAvailability/
- * getRemainingCapacity per camp (BR-5 — O(1) queries per page, not O(N)).
- *
- * Returns a map of campId → status. A camp with ZERO unavailable nights is
- * OMITTED from the map entirely (fully available = no badge, BR-3).
- *
- * DoS guard: a non-finite date (Invalid Date), an inverted/zero-night range,
- * or a span wider than MAX_STATUS_RANGE_NIGHTS returns {} immediately — no
- * query, no loop. This is checked BEFORE any Prisma call, so it protects both
- * attach points (CatalogResults.tsx SSR + app/api/campsites/route.ts cursor
- * GET) from a single shared choke point.
- *
- * Fail-open contract (AC-9/EC-8): this function does NOT catch its own
- * Prisma errors — callers (CatalogResults.tsx, app/api/campsites/route.ts)
- * must wrap the call in try/catch and treat a throw as "no status computed"
- * (empty map), never blocking/blanking/emptying the result list.
+ * Per-night occupancy state accumulated for one camp inside the batched core
+ * below — shared by every batched consumer (status classification, remaining-
+ * count) so the two never disagree on what a "night" looked like.
  */
-export async function getAvailabilityStatusForCamps(
+interface NightState {
+  bookedGuests: number;
+  heldGuests: number;
+  blockedByHost: boolean;
+}
+
+/** Shared batched result: per-camp effective capacity + per-camp per-night occupancy. */
+interface BatchedNightlyOccupancy {
+  capacityById: Map<string, number | null>;
+  nightsByCamp: Map<string, Record<string, NightState>>;
+}
+
+/**
+ * CAM-344 (extracted for CAM-427 BR-2/BR-5): the ONE batched query set + per-
+ * night accumulation both `getAvailabilityStatusForCamps` (2-state badge) and
+ * `getRemainingCapacityForCamps` (CAM-427, numeric "เหลือ N ที่" for the AI
+ * card) build on — ADR-009 no-forked-data-path. Extracted verbatim from the
+ * pre-CAM-427 body of `getAvailabilityStatusForCamps` (same guards, same 5
+ * queries, same accumulation loops, same order) so that function's behavior
+ * is byte-identical after this refactor; only the classification step moved
+ * out into the caller. Returns `null` on any of the same fail-open guard
+ * conditions the old function used to `return {}` on directly (empty
+ * `campIds`, non-finite dates, inverted/zero-night range, range wider than
+ * `MAX_STATUS_RANGE_NIGHTS`) — every caller maps `null` to its own empty
+ * result shape.
+ */
+async function computeBatchedNightlyOccupancy(
   campIds: string[],
   startDate: Date,
-  endDate: Date,
-  requestedGuests: number = 1
-): Promise<Record<string, CampAvailabilityStatus>> {
-  if (campIds.length === 0) return {};
+  endDate: Date
+): Promise<BatchedNightlyOccupancy | null> {
+  if (campIds.length === 0) return null;
 
   // Reject non-finite dates (Invalid Date, e.g. from an unparseable query
   // string) BEFORE any arithmetic/query — an Invalid Date compares as
   // neither < nor >= anything, so the lastNight/startDate check below would
   // silently pass a NaN-backed date straight into 4 Prisma calls that throw.
   if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
-    return {};
+    return null;
   }
 
   // Nights only: exclude the checkout day (BR-1, EC-6). A same-day/inverted
   // range has no night to classify — nothing to compute, no badge.
   const lastNight = new Date(endDate);
   lastNight.setDate(lastNight.getDate() - 1);
-  if (lastNight < startDate) return {};
+  if (lastNight < startDate) return null;
 
   // DoS guard: cap the per-night in-memory loop width (see
   // MAX_STATUS_RANGE_NIGHTS doc comment above). Computed from whole days —
   // safe here since startDate/lastNight are always UTC midnight Dates.
   const nightCount =
     Math.round((lastNight.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-  if (nightCount > MAX_STATUS_RANGE_NIGHTS) return {};
-
-  // BR-2: requestedGuests defaults to 1 when absent/invalid.
-  const guests = Number.isFinite(requestedGuests) && requestedGuests > 0 ? requestedGuests : 1;
+  if (nightCount > MAX_STATUS_RANGE_NIGHTS) return null;
 
   const [campSites, bookings, blockedRanges, holds, spotRows] = await Promise.all([
     prisma.campSite.findMany({
@@ -582,12 +566,6 @@ export async function getAvailabilityStatusForCamps(
     ])
   );
 
-  interface NightState {
-    bookedGuests: number;
-    heldGuests: number;
-    blockedByHost: boolean;
-  }
-
   const initNights = (): Record<string, NightState> => {
     const nights: Record<string, NightState> = {};
     const cur = new Date(startDate);
@@ -650,11 +628,58 @@ export async function getAvailabilityStatusForCamps(
     }
   }
 
+  return { capacityById, nightsByCamp };
+}
+
+/**
+ * CAM-344 — batched per-camp availability status for a page of dated catalog
+ * search results (BR-1/BR-2/BR-3/BR-5, ADR-009 no-forked-data-path).
+ *
+ * CAM-427: now a thin classifier over `computeBatchedNightlyOccupancy` (the
+ * extracted shared core) — the guard conditions, the 5 batched queries, and
+ * the per-night accumulation are UNCHANGED from before this refactor (moved,
+ * not rewritten), so this function's behavior/output is byte-identical.
+ *
+ * Derives from the EXACT SAME predicates as getCampSiteDailyAvailability /
+ * getBlockedDatesForRange / getActiveHoldsForRange: Booking `CONFIRMED`/
+ * `PENDING` overlap, whole-camp BlockedDate (`spotId` null, `deletedAt` null)
+ * overlap, InternalHold `ACTIVE` + `expiresAt > now` overlap. Nights only —
+ * `endDate` is the EXCLUSIVE checkout day.
+ *
+ * Batched shape: 5 grouped queries total for the WHOLE page, run in
+ * parallel (see computeBatchedNightlyOccupancy) — NEVER calls
+ * calculateSpotCapacity/getCampSiteDailyAvailability/getRemainingCapacity per
+ * camp (BR-5 — O(1) queries per page, not O(N)).
+ *
+ * Returns a map of campId → status. A camp with ZERO unavailable nights is
+ * OMITTED from the map entirely (fully available = no badge, BR-3).
+ *
+ * DoS guard: a non-finite date (Invalid Date), an inverted/zero-night range,
+ * or a span wider than MAX_STATUS_RANGE_NIGHTS returns {} immediately — no
+ * query, no loop (enforced inside the shared core).
+ *
+ * Fail-open contract (AC-9/EC-8): this function does NOT catch its own
+ * Prisma errors — callers (CatalogResults.tsx, app/api/campsites/route.ts)
+ * must wrap the call in try/catch and treat a throw as "no status computed"
+ * (empty map), never blocking/blanking/emptying the result list.
+ */
+export async function getAvailabilityStatusForCamps(
+  campIds: string[],
+  startDate: Date,
+  endDate: Date,
+  requestedGuests: number = 1
+): Promise<Record<string, CampAvailabilityStatus>> {
+  const core = await computeBatchedNightlyOccupancy(campIds, startDate, endDate);
+  if (!core) return {};
+
+  // BR-2: requestedGuests defaults to 1 when absent/invalid.
+  const guests = Number.isFinite(requestedGuests) && requestedGuests > 0 ? requestedGuests : 1;
+
   // Classify per BR-2 (night unavailable when host-blocked OR numerically
   // full) / BR-3 (0 unavailable → no entry; some → PARTIALLY; all → FULLY).
   const result: Record<string, CampAvailabilityStatus> = {};
-  for (const [campId, nights] of nightsByCamp.entries()) {
-    const capacity = capacityById.get(campId) ?? null;
+  for (const [campId, nights] of core.nightsByCamp.entries()) {
+    const capacity = core.capacityById.get(campId) ?? null;
     const nightStates = Object.values(nights);
     let unavailableCount = 0;
     for (const night of nightStates) {
@@ -665,6 +690,68 @@ export async function getAvailabilityStatusForCamps(
     if (unavailableCount === 0) continue; // fully available — omitted (no badge)
     result[campId] =
       unavailableCount === nightStates.length ? 'FULLY_UNAVAILABLE' : 'PARTIALLY_UNAVAILABLE';
+  }
+
+  return result;
+}
+
+/**
+ * CAM-427 (G3 — the AI assistant card's live "เหลือ N ที่" / "เต็ม" text):
+ * the numeric sibling of `getAvailabilityStatusForCamps`, sharing the exact
+ * same batched core (`computeBatchedNightlyOccupancy` — same 5 queries, same
+ * guards, same DoS cap) so the two can NEVER disagree on what a night looked
+ * like. Where the status function classifies each camp into a 2-state enum,
+ * this one returns the same per-camp bottleneck-night math
+ * `getRemainingCapacity` (single-camp) already uses — the night with the
+ * highest combined bookedGuests+heldGuests drives `remaining`, and ANY
+ * blocked night forces `remaining` to 0 — just batched across a whole page
+ * of cards in the SAME 5 queries instead of one `getRemainingCapacity` call
+ * per card (BR-5 — never a per-card loop, ADR-009 no-forked-data-path: same
+ * formula as getRemainingCapacity, reused not re-derived).
+ *
+ * Unlike getAvailabilityStatusForCamps, EVERY requested campId that exists
+ * gets an entry here (never omitted for being fully open) — the AI card
+ * renderer needs "เหลือ 20 ที่" on an open camp just as much as "เต็ม" on a
+ * full one; a campId Prisma didn't find (deleted/unknown) is simply absent
+ * from the result map, left for the caller to treat as "unknown".
+ *
+ * Live, never cached (CAM-270 ADR-009 tool-use principle) — call fresh on
+ * every search.
+ */
+export async function getRemainingCapacityForCamps(
+  campIds: string[],
+  startDate: Date,
+  endDate: Date
+): Promise<Record<string, RemainingCapacityResult>> {
+  const core = await computeBatchedNightlyOccupancy(campIds, startDate, endDate);
+  if (!core) return {};
+
+  const result: Record<string, RemainingCapacityResult> = {};
+  for (const [campId, nights] of core.nightsByCamp.entries()) {
+    if (!core.capacityById.has(campId)) continue; // campId not found by the batched CampSite query — unknown, omitted
+    const capacity = core.capacityById.get(campId) ?? null;
+
+    let bookedGuests = 0;
+    let heldGuests = 0;
+    let blockedByHost = false;
+    let maxCombined = -1;
+    for (const night of Object.values(nights)) {
+      const combined = night.bookedGuests + night.heldGuests;
+      if (combined > maxCombined) {
+        maxCombined = combined;
+        bookedGuests = night.bookedGuests;
+        heldGuests = night.heldGuests;
+      }
+      if (night.blockedByHost) blockedByHost = true;
+    }
+
+    const remaining = blockedByHost
+      ? 0
+      : capacity !== null
+        ? Math.max(0, capacity - (bookedGuests + heldGuests))
+        : null;
+
+    result[campId] = { capacity, bookedGuests, heldGuests, remaining, blockedByHost };
   }
 
   return result;
