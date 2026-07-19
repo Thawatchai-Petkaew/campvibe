@@ -23,12 +23,17 @@
  * (`AiChatAvatar` + a two-line name/role stack, design.md §Visual polish);
  * the panel `aria-label` composes `{name} {role}` so a screen reader
  * announces the full identity on open (BR-1, a11y).
+ *
+ * CAM-425: the CAM-423 '+' new-chat button is hidden (single-thread) — a
+ * camper always resumes/continues the ONE thread; a conversation switcher
+ * lands in a later story. `startNewChat` stays in `use-ai-chat.ts`
+ * (unreferenced here) so that later story can wire it back in.
  */
 "use client";
 
 import { useRef, useState } from "react";
 import { Dialog as PanelPrimitive } from "radix-ui";
-import { MessageSquarePlus, Send, X } from "lucide-react";
+import { Send, X } from "lucide-react";
 import { Dialog, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +53,7 @@ interface AiChatPanelProps {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
-  const { entries, sending, disabled, resuming, isAuthenticated, sendMessage, retryLast, startNewChat } = useAiChat();
+  const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();
   const [draft, setDraft] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -116,20 +121,6 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {/* CAM-423 — 'เริ่มแชทใหม่': authed-only (guest stays byte-stable, D1); resets the thread client-side, the next authed send creates a fresh conversation. */}
-              {isAuthenticated && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t.aiChat.newChat}
-                  data-testid="btn--ai-chat-new"
-                  disabled={sending || resuming}
-                  onClick={startNewChat}
-                >
-                  <MessageSquarePlus className="size-5" aria-hidden="true" />
-                </Button>
-              )}
               <Button
                 type="button"
                 variant="ghost"
