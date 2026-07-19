@@ -161,7 +161,13 @@ describe('runAssistantTurnFromMessages — shared engine parity: exactly ONE too
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockDispatchTool).toHaveBeenCalledOnce();
-    expect(result).toEqual({ ok: true, answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ', cards: [{ id: 'c1' }, { id: 'c2' }] });
+    // CAM-430: searchAttempted:true — the dispatched call was named 'searchCampsites'.
+    expect(result).toEqual({
+      ok: true,
+      answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ',
+      cards: [{ id: 'c1' }, { id: 'c2' }],
+      searchAttempted: true,
+    });
   });
 });
 

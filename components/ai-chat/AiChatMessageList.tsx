@@ -23,14 +23,28 @@
  * Tapping a chip reuses the exact same `onSuggestion` -> `sendMessage` path
  * as the CAM-272 welcome pills (Seams & refs — no parallel send path).
  *
- * CAM-411: every assistant-side row (answer, typing, notices) now shows the
- * shared `AiChatAvatar` (size="sm") to its left via `flex items-start
- * gap-2`, and every turn (user + assistant) eases in once on mount via
+ * CAM-411: every turn (user + assistant) eases in once on mount via
  * ENTRANCE_MOTION_CLASS (motion-safe, EC-1 instant under reduced-motion).
- * The in-chat card block stays a sibling of the avatar+bubble row (never
- * indented under the avatar) — preserves CAM-407/CAM-409's full-width fix.
  * The welcome/empty state gains a hero avatar + a labelled examples block;
  * the 3 pills bump from h-9 to h-11 (BR-5, 44px tap target).
+ *
+ * CAM-430 (message-layout follow-up, owner staging feedback — SUPERSEDES the
+ * CAM-411 per-row avatar): the shared `AiChatAvatar` no longer renders next
+ * to every individual assistant-side row (answer/typing/notices) — dropping
+ * it gives the answer text the full row width instead of `[avatar][body]`.
+ * The assistant identity still lives in the panel HEADER (AiChatPanel.tsx,
+ * untouched here) plus the CAM-425 centered resuming avatar and the
+ * welcome-state hero avatar below — both kept unchanged. Every bot-side
+ * bubble/notice is now `w-full` (was capped to the narrower chat-bubble
+ * width, sized to leave room for the avatar that no longer exists); the
+ * USER bubble keeps its own narrower chat-bubble cap unchanged. User vs
+ * assistant stays distinguished by side + fill (never hue alone —
+ * DESIGN.md §color-rules).
+ * The in-chat card carousel + follow-up chips get their own `pl-4` so their
+ * left edge lines up with the bubble's own `px-4` text inset (was flush at
+ * the row's true left edge, CAM-409's `-mx-4/px-4` panel-edge bleed on the
+ * carousel's OWN track is untouched and still gives the peek/scroll clip its
+ * edge-to-edge feel — only the SETTLED position moved right to align).
  *
  * CAM-425: the CAM-423 resuming indicator (a bare top-left inline spinner)
  * is replaced by a centered, on-brand treatment — the shared `AiChatAvatar`
@@ -47,8 +61,8 @@
  * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
  * (still paired with `text-foreground`, AA by token parity — see design.md
  * §1 contrast honesty). The user bubble stays `bg-primary`/
- * `text-primary-foreground` — unchanged, still distinguished by side + fill
- * + avatar, never hue alone.
+ * `text-primary-foreground` — unchanged, still distinguished by side + fill,
+ * never hue alone.
  */
 "use client";
 
@@ -145,22 +159,19 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
       ))}
 
       {sending && (
-        <div className={`flex items-start gap-2 self-start ${ENTRANCE_MOTION_CLASS}`}>
-          <AiChatAvatar size="sm" />
-          <div
-            data-testid="status--ai-chat-typing"
-            className="flex max-w-[85%] items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5"
-          >
-            <span className="sr-only">{t.aiChat.typing}</span>
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                aria-hidden="true"
-                style={{ animationDelay: `${i * 150}ms` }}
-                className="size-1.5 rounded-full bg-muted-foreground motion-safe:animate-pulse"
-              />
-            ))}
-          </div>
+        <div
+          data-testid="status--ai-chat-typing"
+          className={`flex w-full items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5 ${ENTRANCE_MOTION_CLASS}`}
+        >
+          <span className="sr-only">{t.aiChat.typing}</span>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              style={{ animationDelay: `${i * 150}ms` }}
+              className="size-1.5 rounded-full bg-muted-foreground motion-safe:animate-pulse"
+            />
+          ))}
         </div>
       )}
     </div>
@@ -194,35 +205,40 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
     // shows its chips; every other answer's `suggestions[]` is ignored here.
     const suggestions = showSuggestions ? (entry.suggestions ?? []) : [];
     return (
-      // CAM-407: only the text bubble is a chat-bubble width (max-w-[85%]);
-      // the row itself + the cards stay w-full max-w-full so an in-chat
-      // campsite card is never squeezed narrower than the panel/list column.
+      // CAM-430: the avatar is gone (BR-4/CAM-411 SUPERSEDED) so the answer
+      // bubble is now w-full (was capped to the narrower chat-bubble width, a
+      // cap sized to leave room for the avatar) — "more text space" per
+      // owner staging feedback.
       // CAM-409: a single grid-cols-1 track (Tailwind's minmax(0,1fr)) — not
       // flex-col — stops the carousel's un-shrinkable track width from
       // forcing this row (and the panel) wider than the message column.
-      <div className={`grid w-full max-w-full min-w-0 grid-cols-1 gap-2 self-start ${ENTRANCE_MOTION_CLASS}`}>
-        <div className="flex items-start gap-2">
-          <AiChatAvatar size="sm" />
-          <div
-            data-testid="msg--ai-chat-assistant"
-            className="max-w-[85%] rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
-          >
-            {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
-            <p className="whitespace-pre-wrap">{entry.text}</p>
-            {entry.zeroResult && (
-              <p data-testid="empty--ai-chat-zero-result" className="mt-1 text-muted-foreground">
-                {t.aiChat.zeroResult}
-              </p>
-            )}
-          </div>
+      // gap-3 (was gap-2) gives clearer vertical separation between the
+      // text -> cards -> chips stack; cards/chips get pl-4 so their left
+      // edge lines up with the bubble's own px-4 text inset.
+      <div className={`grid w-full max-w-full min-w-0 grid-cols-1 gap-3 self-start ${ENTRANCE_MOTION_CLASS}`}>
+        <div
+          data-testid="msg--ai-chat-assistant"
+          className="w-full max-w-full rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
+        >
+          {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
+          <p className="whitespace-pre-wrap">{entry.text}</p>
+          {entry.zeroResult && (
+            <p data-testid="empty--ai-chat-zero-result" className="mt-1 text-muted-foreground">
+              {t.aiChat.zeroResult}
+            </p>
+          )}
         </div>
-        {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} />}
+        {entry.cards.length > 0 && (
+          <div className="pl-4">
+            <AiChatCardCarousel cards={entry.cards} />
+          </div>
+        )}
         {suggestions.length > 0 && (
           <div
             role="group"
             aria-label={t.aiChat.suggestedQuestionsLabel}
             data-testid="group--ai-chat-suggestion-chips"
-            className="flex flex-wrap gap-2"
+            className="flex flex-wrap gap-2 pl-4"
           >
             {suggestions.map((text) => (
               <Button
@@ -245,53 +261,47 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
 
   if (entry.kind === "rate-limited") {
     return (
-      // CAM-411 EC-2: every notice bubble carries the avatar for identity consistency.
-      <div className={`flex items-start gap-2 self-start ${ENTRANCE_MOTION_CLASS}`}>
-        <AiChatAvatar size="sm" />
-        <div
-          data-testid="error--ai-chat-ratelimited"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
-        >
-          <Clock className="size-4 shrink-0 text-warning" aria-hidden="true" />
-          <span>{t.aiChat.rateLimited}</span>
-        </div>
+      // CAM-430 (SUPERSEDES CAM-411 EC-2's per-notice avatar): the notice
+      // fills the row now — assistant identity lives in the panel header.
+      <div
+        data-testid="error--ai-chat-ratelimited"
+        className={`flex w-full items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground ${ENTRANCE_MOTION_CLASS}`}
+      >
+        <Clock className="size-4 shrink-0 text-warning" aria-hidden="true" />
+        <span>{t.aiChat.rateLimited}</span>
       </div>
     );
   }
 
   if (entry.kind === "disabled") {
     return (
-      // CAM-411 EC-2: name-voiced disabled copy still shows the avatar.
-      <div className={`flex items-start gap-2 self-start ${ENTRANCE_MOTION_CLASS}`}>
-        <AiChatAvatar size="sm" />
-        <div
-          data-testid="info--ai-chat-disabled"
-          className="flex max-w-[85%] items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
-        >
-          <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span>{t.aiChat.disabled}</span>
-        </div>
+      // CAM-430 (SUPERSEDES CAM-411 EC-2's per-notice avatar): same full-row
+      // treatment as the rate-limited notice above.
+      <div
+        data-testid="info--ai-chat-disabled"
+        className={`flex w-full items-center gap-2 rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground ${ENTRANCE_MOTION_CLASS}`}
+      >
+        <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span>{t.aiChat.disabled}</span>
       </div>
     );
   }
 
   // entry.kind === "error" — reuse ErrorBanner (destructive tone) rather than
   // re-implementing its tint inline (CAM-272 design-gate Important finding).
+  // CAM-430: no more per-notice avatar wrapper — ErrorBanner + retry fill the row.
   return (
-    <div className={`flex items-start gap-2 self-start ${ENTRANCE_MOTION_CLASS}`}>
-      <AiChatAvatar size="sm" />
-      <div className="flex max-w-[85%] flex-col gap-2">
-        <ErrorBanner message={t.aiChat.error} className="rounded-2xl" data-testid="error--ai-chat" />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid="btn--ai-chat-retry"
-          onClick={onRetry}
-        >
-          {t.aiChat.retry}
-        </Button>
-      </div>
+    <div className={`flex w-full flex-col gap-2 ${ENTRANCE_MOTION_CLASS}`}>
+      <ErrorBanner message={t.aiChat.error} className="rounded-2xl" data-testid="error--ai-chat" />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        data-testid="btn--ai-chat-retry"
+        onClick={onRetry}
+      >
+        {t.aiChat.retry}
+      </Button>
     </div>
   );
 }

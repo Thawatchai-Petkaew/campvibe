@@ -104,16 +104,25 @@ describe("AC-2/BR-5 — richer welcome: avatar hero, name-voiced greeting, label
   });
 });
 
-describe("AC-3/BR-3/EC-1 — avatar beside every assistant-side row + motion-safe entrance", () => {
-  it("[unit] the answer, typing, rate-limited, disabled and error rows all render AiChatAvatar size=sm", () => {
+describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assistant-side row is w-full + motion-safe entrance", () => {
+  it("[unit] CAM-430: the answer, typing, rate-limited, disabled and error rows no longer render a per-message AiChatAvatar (size=sm) — the mark is decorative identity, now only in the panel header + resuming/welcome hero", () => {
     const occurrences = listSrc.split('<AiChatAvatar size="sm" />').length - 1;
-    expect(occurrences).toBe(5); // answer, typing, rate-limited, disabled, error
+    expect(occurrences).toBe(0);
+    // size=lg still renders exactly twice: the CAM-425 resuming indicator + the welcome hero (both kept, unchanged).
+    const largeOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
+    expect(largeOccurrences).toBe(2);
   });
 
-  it("[unit] the in-chat card block stays a sibling of the avatar+bubble row, never indented under the avatar", () => {
-    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf("entry.cards.length > 0"));
-    // the avatar+bubble flex row closes before the cards line is reached
-    expect(answerBlock).toContain('<div className="flex items-start gap-2">');
+  it("[unit] CAM-430: every assistant-side bubble/notice is w-full (was capped to the narrower chat-bubble width, sized to leave room for the avatar that no longer exists) — the USER bubble keeps its own cap, unaffected", () => {
+    const assistantRowsBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'));
+    expect(assistantRowsBlock).not.toMatch(/max-w-\[85%\]/);
+    expect(listSrc).toContain('max-w-[85%] self-end'); // the user bubble, untouched
+  });
+
+  it("[unit] the in-chat card carousel + suggestion chips get their own pl-4 so they line up with the bubble's own px-4 text inset", () => {
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).toContain('<div className="pl-4">');
+    expect(answerBlock).toContain('className="flex flex-wrap gap-2 pl-4"');
   });
 
   it('[unit/EC-1] entrance motion is motion-safe-gated transform+opacity ~200ms (instant under reduced-motion)', () => {
@@ -132,7 +141,7 @@ describe("AC-3/BR-3/EC-1 — avatar beside every assistant-side row + motion-saf
   });
 });
 
-describe("EC-2 — notice bubbles keep the avatar for identity consistency; disabled copy is name-voiced", () => {
+describe("EC-2 (CAM-430: notices no longer carry a per-row avatar, see AC-3 block above) — disabled copy is name-voiced", () => {
   it("[i18n] disabled copy is name-voiced; error/rateLimited copy is unchanged (out of scope)", () => {
     expect(th.disabled).toBe("น้องกองไฟยังไม่พร้อมให้บริการ");
     expect(th.error).toBe("ผู้ช่วยขัดข้อง กรุณาลองใหม่อีกครั้ง");

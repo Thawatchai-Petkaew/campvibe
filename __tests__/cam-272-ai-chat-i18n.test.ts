@@ -42,7 +42,13 @@ describe("locales/translations.json — aiChat namespace (TH verbatim, per desig
 
   it("[structural] no em-dash separator in any TH aiChat copy (DESIGN.md §4)", () => {
     for (const [key, value] of Object.entries(th)) {
-      expect(value, `th.aiChat.${key}`).not.toContain("—");
+      // CAM-428: `card` nests one level of its own string keys.
+      const leaves =
+        value && typeof value === "object" ? Object.entries(value as Record<string, unknown>) : [[key, value]];
+      for (const [leafKey, leafValue] of leaves) {
+        const path = value && typeof value === "object" ? `th.aiChat.${key}.${leafKey}` : `th.aiChat.${key}`;
+        expect(leafValue, path).not.toContain("—");
+      }
     }
   });
 });
@@ -52,10 +58,18 @@ describe("locales/translations.json — aiChat namespace has an EN counterpart f
     expect(Object.keys(en).sort()).toEqual(Object.keys(th).sort());
   });
 
-  it("[normal] EN copy is non-empty for every key", () => {
+  it("[normal] EN copy is non-empty for every key (CAM-428: `card` is one level of nested string keys)", () => {
     for (const [key, value] of Object.entries(en)) {
-      expect(typeof value, `en.aiChat.${key}`).toBe("string");
-      expect((value as string).length, `en.aiChat.${key}`).toBeGreaterThan(0);
+      // CAM-428 added `aiChat.card.*` as a nested namespace (its own
+      // dedicated copy set, see cam-428-framed-chat-card.test.ts) — flatten
+      // one level so this generic loop still asserts every leaf string.
+      const leaves =
+        value && typeof value === "object" ? Object.entries(value as Record<string, unknown>) : [[key, value]];
+      for (const [leafKey, leafValue] of leaves) {
+        const path = value && typeof value === "object" ? `en.aiChat.${key}.${leafKey}` : `en.aiChat.${key}`;
+        expect(typeof leafValue, path).toBe("string");
+        expect((leafValue as string).length, path).toBeGreaterThan(0);
+      }
     }
   });
 });

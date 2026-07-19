@@ -246,6 +246,15 @@ export type AiChatOutcome =
           blocks?: AiChatBlock[];
           /** CAM-420 — present only on the v2 (session-bound, persisted) request path. */
           conversationId?: string;
+          /**
+           * CAM-430 — present (true) only when the turn actually ran
+           * `searchCampsites` (regardless of how many cards it returned);
+           * ABSENT for a greeting/FAQ/general-chat turn that ran no search,
+           * or an older/unaware wire body (BR-1-style "absent means no
+           * signal", same convention `suggestions`/`blocks` already use) —
+           * a consumer must treat "absent" the same as `false`, never `true`.
+           */
+          searchAttempted?: true;
       }
     | { kind: 'rate-limited' }
     | { kind: 'disabled' }
@@ -342,7 +351,7 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
  */
 export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
     if (!data || typeof data !== 'object') return { kind: 'error' };
-    const { answer, cards, suggestions, blocks, conversationId } = data as Record<string, unknown>;
+    const { answer, cards, suggestions, blocks, conversationId, searchAttempted } = data as Record<string, unknown>;
     if (typeof answer !== 'string') return { kind: 'error' };
     const safeCards = Array.isArray(cards) ? cards.filter(isAiChatCardResponse) : [];
     const safeSuggestions = normalizeSuggestions(suggestions);
@@ -351,6 +360,10 @@ export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
     if (safeSuggestions.length > 0) outcome.suggestions = safeSuggestions;
     if (safeBlocks.length > 0) outcome.blocks = safeBlocks;
     if (typeof conversationId === 'string' && conversationId.length > 0) outcome.conversationId = conversationId;
+    // CAM-430: an older/unaware body simply lacks the key -> stays absent
+    // (never fabricate a "search happened" signal that wasn't sent; a
+    // consumer treats absent the same as false, same convention as `suggestions`).
+    if (searchAttempted === true) outcome.searchAttempted = true;
     return outcome;
 }
 

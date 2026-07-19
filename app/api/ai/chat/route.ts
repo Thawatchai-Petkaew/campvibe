@@ -194,10 +194,20 @@ async function handleLegacyTurn(data: ChatRequest): Promise<NextResponse> {
   // optional `suggestions` (BR-1: absent means no chips — omitted, never a
   // defined empty array, keeping the body's key set unchanged for a turn
   // with no follow-up questions); nothing else leaked.
-  const body: { answer: string; cards: unknown[]; suggestions?: string[] } = {
+  // CAM-430 — additive, optional `searchAttempted` (api.md rule 12, same
+  // "absent means no signal" convention as `suggestions` above): present
+  // (true) only when `searchCampsites` actually ran this turn, so the
+  // client can tell "a real search came back empty" apart from "no search
+  // ran at all" (greeting/FAQ) without parsing the answer text. Omitting it
+  // for every non-search turn keeps that body's key set byte-identical to
+  // the pre-CAM-430 shape.
+  const body: { answer: string; cards: unknown[]; suggestions?: string[]; searchAttempted?: true } = {
     answer: result.answer ?? '',
     cards: toWireCards(result.cards ?? []),
   };
+  if (result.searchAttempted === true) {
+    body.searchAttempted = true;
+  }
   if (result.suggestions && result.suggestions.length > 0) {
     body.suggestions = result.suggestions;
   }
@@ -286,10 +296,20 @@ async function handleV2Turn(data: ChatRequestV2): Promise<NextResponse> {
   }
 
   const answerText = result.answer ?? '';
-  const body: { answer: string; cards: unknown[]; suggestions?: string[]; conversationId?: string } = {
+  // CAM-430 — same additive, optional `searchAttempted` signal as the legacy branch above.
+  const body: {
+    answer: string;
+    cards: unknown[];
+    suggestions?: string[];
+    conversationId?: string;
+    searchAttempted?: true;
+  } = {
     answer: answerText,
     cards: toWireCards(result.cards ?? []),
   };
+  if (result.searchAttempted === true) {
+    body.searchAttempted = true;
+  }
   if (result.suggestions && result.suggestions.length > 0) {
     body.suggestions = result.suggestions;
   }

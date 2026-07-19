@@ -77,7 +77,13 @@ export function appendOutcome(entries: ChatEntry[], outcome: AiChatOutcome, ques
           kind: "answer",
           text: outcome.answer,
           cards: outcome.cards,
-          zeroResult: outcome.cards.length === 0,
+          // CAM-430: the "no match, refine your search" banner is a search-
+          // specific failure state — it must NOT fire for a greeting/FAQ/
+          // general-chat answer that legitimately has 0 cards. Gate on the
+          // server's `searchAttempted` signal (was `searchCampsites` really
+          // dispatched this turn) AND an empty result, never on
+          // `cards.length === 0` alone.
+          zeroResult: outcome.searchAttempted === true && outcome.cards.length === 0,
           // CAM-410 AC-4: always a concrete array on the entry, even when the
           // wire/outcome carried no `suggestions` key at all (BR-1 "absent
           // means no chips").

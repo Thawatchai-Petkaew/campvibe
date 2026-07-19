@@ -81,6 +81,10 @@ import {
 import type { TurnMessage } from '@/lib/ai/build-turn-messages';
 // Side-effect import: populates the tool registry (searchCampsites, checkAvailability).
 import '@/lib/ai/tools/index';
+// CAM-430 — named import (not a hardcoded 'searchCampsites' string) so the
+// "was a real search attempted this turn" check can never drift from the
+// tool's own registered name.
+import { searchCampsitesTool } from '@/lib/ai/tools/search-campsites';
 
 export const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
@@ -194,6 +198,18 @@ export interface AssistantTurnResult {
   cards?: unknown[];
   /** CAM-410 BR-1 — 0-3 sanitized follow-up-question chips, extracted from the same completion as `answer`. Present only when non-empty ("absent means no chips", mirroring the wire contract) — omitted, never an empty array, when the turn produced none. */
   suggestions?: string[];
+  /**
+   * CAM-430 (message-layout follow-up) — true when `searchCampsites` was
+   * actually dispatched at least once this turn (regardless of how many
+   * cards it returned); ABSENT (never `false`) for a turn with no search
+   * (greeting/FAQ/general chat) or one that only called a non-card tool —
+   * same "absent means no signal" convention `suggestionsField` already
+   * uses, so every existing fixture with no search stays byte-identical to
+   * the pre-CAM-430 shape. Lets the wire consumer distinguish "a real
+   * search came back empty" from "no search ran at all" without parsing the
+   * answer text (`cards.length === 0` alone cannot tell those apart).
+   */
+  searchAttempted?: true;
   /** Present only when ok:false — a safe, generic reason code. Never the raw model error/status/key. */
   error?: string;
 }
@@ -303,6 +319,11 @@ function extractSuggestions(rawContent: string): { answer: string; suggestions: 
 /** BR-1: "absent means no chips" — never carries a defined-but-empty `suggestions: []` key, so a mock/fixture built against the pre-CAM-410 `{ok,answer,cards}` shape keeps matching exactly. */
 function suggestionsField(suggestions: string[]): { suggestions: string[] } | Record<string, never> {
   return suggestions.length > 0 ? { suggestions } : {};
+}
+
+/** CAM-430 — same "absent means false" convention as `suggestionsField` above: keeps every existing `.toEqual`-pinned fixture (no tool called) byte-identical to the pre-CAM-430 shape. */
+function searchAttemptedField(searchAttempted: boolean): { searchAttempted: true } | Record<string, never> {
+  return searchAttempted ? { searchAttempted: true } : {};
 }
 
 interface OutgoingToolCall {
@@ -444,6 +465,8 @@ interface ExecutedToolCalls {
   cards: unknown[];
   /** CAM-416 — how many of `toolCalls` were actually dispatched this round (bounded by `executeLimit`); the loop sums this across rounds against `MAX_TOOL_CALLS_PER_TURN`. */
   executedCount: number;
+  /** CAM-430 — true when `searchCampsites` was among the calls actually dispatched this round (i < executeLimit), independent of whether the dispatch succeeded or returned any cards. */
+  searchAttempted: boolean;
 }
 
 /** BR-3/EC-7: malformed tool-call JSON is treated as invalid args (parsed as `undefined`), never thrown. */
@@ -573,6 +596,7 @@ async function executeToolCalls(
   const toolMessages: OutgoingMessage[] = [];
   const cards: unknown[] = [];
   let executedCount = 0;
+  let searchAttempted = false;
 
   for (let i = 0; i < toolCalls.length; i++) {
     const call = toolCalls[i];
@@ -582,6 +606,8 @@ async function executeToolCalls(
       continue;
     }
 
+    if (call.function.name === searchCampsitesTool.name) searchAttempted = true;
+
     const args = parseToolCallArguments(call.function.arguments);
     const result = await safeDispatchTool(call.function.name, args, ctx);
     if (result.ok) collectCardsFromToolData(result.data, cards);
@@ -589,13 +615,13 @@ async function executeToolCalls(
     executedCount++;
   }
 
-  return { toolMessages, cards, executedCount };
+  return { toolMessages, cards, executedCount, searchAttempted };
 }
 
 /** A completed turn's final answer, ready for suggestion-extraction + response mapping. */
-function finalizeAnswer(rawContent: string, cards: unknown[]): AssistantTurnResult {
+function finalizeAnswer(rawContent: string, cards: unknown[], searchAttempted: boolean): AssistantTurnResult {
   const { answer, suggestions } = extractSuggestions(rawContent);
-  return { ok: true, answer, cards, ...suggestionsField(suggestions) };
+  return { ok: true, answer, cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
 }
 
 /**
@@ -638,6 +664,7 @@ async function runTurnFromBaseMessages(
   let pinnedModel: string | null = null;
   let toolCallsExecutedThisTurn = 0;
   let lastRawContent = '';
+  let searchAttempted = false;
   const cards: unknown[] = [];
 
   for (let iteration = 1; iteration <= MAX_AGENT_ITERATIONS; iteration++) {
@@ -645,7 +672,7 @@ async function runTurnFromBaseMessages(
     // no elapsed budget to breach yet). A breach spends no further network
     // call — use whatever content the last completion already carried.
     if (iteration > 1 && Date.now() >= turnDeadline) {
-      if (lastRawContent.trim().length > 0) return finalizeAnswer(lastRawContent, cards);
+      if (lastRawContent.trim().length > 0) return finalizeAnswer(lastRawContent, cards, searchAttempted);
       return { ok: false, error: GENERIC_ERROR };
     }
 
@@ -671,13 +698,15 @@ async function runTurnFromBaseMessages(
     // requested here are intentionally ignored, same defense as CAM-270's
     // "no re-loop on the follow-up's own tool_calls").
     if (!toolCalls || toolCalls.length === 0 || isForcedFinalIteration) {
-      return finalizeAnswer(lastRawContent, cards);
+      return finalizeAnswer(lastRawContent, cards, searchAttempted);
     }
 
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
-    const { toolMessages, cards: roundCards, executedCount } = await executeToolCalls(toolCalls, roundLimit, ctx);
+    const { toolMessages, cards: roundCards, executedCount, searchAttempted: roundSearchAttempted } =
+      await executeToolCalls(toolCalls, roundLimit, ctx);
     toolCallsExecutedThisTurn += executedCount;
     cards.push(...roundCards);
+    searchAttempted ||= roundSearchAttempted;
 
     messages = [
       ...messages,

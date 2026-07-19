@@ -155,7 +155,13 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
     // CAM-417 — dispatchTool now also receives the (server-bound) ToolContext; the
     // route/entry point passed no ctx here, so it defaults to {} (guest).
     expect(mockDispatchTool).toHaveBeenCalledWith('searchCampsites', { province: 'เชียงใหม่' }, {});
-    expect(result).toEqual({ ok: true, answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ', cards: [{ id: 'c1' }, { id: 'c2' }] });
+    // CAM-430: searchAttempted:true — the dispatched call was named 'searchCampsites'.
+    expect(result).toEqual({
+      ok: true,
+      answer: 'พบแคมป์ 2 แห่งในเชียงใหม่ครับ',
+      cards: [{ id: 'c1' }, { id: 'c2' }],
+      searchAttempted: true,
+    });
   });
 
   it('[unit] CAM-416 supersedes "no agent loop": a follow-up response that itself requests tool_calls now runs as round 2 of the bounded agent loop', async () => {
@@ -186,7 +192,8 @@ describe('runAssistantTurn — exactly ONE tool-call round', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(3);
     expect(mockDispatchTool).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ok: true, answer: 'final answer', cards: [] });
+    // CAM-430: searchAttempted:true — round 1 dispatched a 'searchCampsites' call.
+    expect(result).toEqual({ ok: true, answer: 'final answer', cards: [], searchAttempted: true });
   });
 
   it('[security] a hard per-round cap rejects tool_calls beyond MAX_TOOL_CALLS_PER_ROUND without ever executing them', async () => {
