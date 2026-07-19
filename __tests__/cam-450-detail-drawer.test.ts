@@ -159,20 +159,22 @@ describe("[unit] cancellation policy — bottom-most, always rendered via the sh
   });
 });
 
-describe("[unit] floating glass card geometry — inset on every side, all corners rounded, dimmed scrim", () => {
-  it("mobile inset (mx-2/mb-2 equivalent) + desktop inset, no edge-flush geometry left", () => {
-    expect(src).not.toContain("inset-x-0 bottom-0");
-    expect(src).toContain("inset-x-2 bottom-2 top-16");
+describe("[unit] CAM-451: in-flow push pane (SUPERSEDES CAM-450's floating-card + scrim geometry)", () => {
+  it("no more absolute/floating inset positioning or a scrim on this component (the push track in AiChatPanel.tsx now owns on/off-screen motion)", () => {
+    expect(src).not.toContain("absolute inset-0 z-20");
+    expect(src).not.toContain('data-testid="scrim--ai-chat-detail"');
+    expect(src).not.toContain("bg-background/70 backdrop-blur-sm");
+    expect(src).not.toContain("inset-x-2 bottom-2 top-16");
+  });
+
+  it("renders as an in-flow h-full w-full column (fills whatever pane the push track gives it)", () => {
+    expect(src).toContain('data-testid="dialog--ai-chat-detail"');
+    expect(src).toContain("flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-ai-tint bg-ai-surface shadow-ai-glow backdrop-blur-xl");
   });
 
   it("rounded-3xl on all corners unconditionally (no mobile-only rounded-t-3xl exception)", () => {
     expect(src).toContain("rounded-3xl border border-ai-tint bg-ai-surface shadow-ai-glow backdrop-blur-xl");
     expect(src).not.toContain("rounded-t-3xl");
-  });
-
-  it("a dimmed + blurred decorative scrim sits behind the card", () => {
-    expect(src).toContain('data-testid="scrim--ai-chat-detail"');
-    expect(src).toContain("bg-background/70 backdrop-blur-sm");
   });
 
   it("token-only: no stray hex or px literal introduced", () => {

@@ -49,7 +49,7 @@ describe("Wiring — onSelectCamp threads Carousel -> MessageList -> Panel, repl
   });
 });
 
-describe("Mount point — absolute z-20 sibling of the z-10 body, no 2nd Radix Dialog", () => {
+describe("Mount point — CAM-451: in-flow pane of the push track (SUPERSEDES CAM-447's absolute z-20 mount), no 2nd Radix Dialog", () => {
   it("[structural] the detail card is a plain div layer, not another Dialog/DialogPortal", () => {
     // (the header doc-comment names PanelPrimitive/radix-ui only to explain
     // the mount point — no such import/JSX usage exists in the real code)
@@ -59,17 +59,20 @@ describe("Mount point — absolute z-20 sibling of the z-10 body, no 2nd Radix D
     expect(detailSrc).not.toContain("aria-modal");
   });
 
-  it("[unit] CAM-450 geometry: an inset floating card on every breakpoint (never edge-flush), forking on expanded", () => {
-    expect(detailSrc).toContain(
-      '"absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"'
+  it("[unit] CAM-451: no more absolute/floating inset geometry on the detail card itself (the push track in AiChatPanel.tsx now owns on/off-screen position)", () => {
+    expect(detailSrc).not.toContain("absolute inset-0 z-20");
+    expect(detailSrc).not.toContain(
+      "absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-4 sm:left-auto sm:right-4 sm:w-full sm:max-w-lg lg:max-w-xl"
     );
-    expect(detailSrc).toContain(
-      '"absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"'
+    expect(detailSrc).not.toContain(
+      "absolute inset-x-2 bottom-2 top-16 sm:inset-x-auto sm:inset-y-2 sm:left-auto sm:right-2 sm:w-full sm:max-w-md"
     );
   });
 
-  it("[unit] the underlying z-10 body is set inert while the detail is open (Panel)", () => {
+  it("[unit] both push-track panes (chat + detail) are absolute inset-0 siblings that translate via their own transition-transform, and the off-screen one is inert (Panel)", () => {
     expect(panelSrc).toContain('inert={selectedCamp !== null}');
+    expect(panelSrc).toContain('inert={selectedCamp === null}');
+    expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col transition-transform/g)?.length).toBe(2);
   });
 });
 
@@ -191,9 +194,8 @@ describe("Token-only (DESIGN.md §2, check:palette scope) + reused glass idiom",
     expect(detailSrc).not.toContain("shadow-ai-flame-aura");
   });
 
-  it("[unit] CAM-448: entrance slides in (bottom on mobile, right on desktop), no more ai-materialize", () => {
-    expect(detailSrc).toContain("animate-in slide-in-from-bottom-8 sm:slide-in-from-bottom-0 sm:slide-in-from-right-8");
-    expect(detailSrc).toContain("motion-reduce:animate-none");
+  it("[unit] CAM-451: entrance motion moved to the push track (AiChatPanel.tsx) — the detail card itself carries no independent animate-in anymore", () => {
+    expect(detailSrc).not.toContain("animate-in slide-in-from-bottom-8");
     expect(detailSrc).not.toContain("ai-materialize");
   });
 
