@@ -51,7 +51,11 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { checkAssistantRateLimit, checkAssistantRateLimitForUser } from '@/lib/ai/rate-limit';
-import { runAssistantTurnFromMessages } from '@/lib/ai/openrouter-client';
+import {
+  runAssistantTurnFromMessages,
+  runAssistantTurnFromMessagesStreaming,
+  type StreamEvent,
+} from '@/lib/ai/openrouter-client';
 import { chatRequestUnionSchema, type ChatMessage, type ChatRequest, type ChatRequestV2 } from '@/lib/validations/ai-chat';
 import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
 import { sanitizeForPrompt } from '@/lib/ai/sanitize';
@@ -215,6 +219,138 @@ async function handleLegacyTurn(data: ChatRequest): Promise<NextResponse> {
 }
 
 /**
+ * CAM-412 (ADR-015) — streaming counterpart of `handleLegacyTurn`, used only
+ * when the caller sends `Accept: text/event-stream` AND this is the legacy
+ * `{messages}` shape (guest, stateless — the story's "guest Discover funnel"
+ * scope; the v2 session-bound/persisted branch below does not stream, a
+ * deliberate scope decision — see ADR-015). Guard order is UNCHANGED and has
+ * already run in `POST()` below (rate limit -> zod) BEFORE this is ever
+ * called — no guard runs here.
+ *
+ * BR-2: stream headers are committed only once the generator's FIRST event
+ * is a `delta`/`meta` (a real success); a `skipped`/`error` FIRST event means
+ * NOTHING was ever shown to the client, so this returns the exact same JSON
+ * body/status the non-streaming path would (byte-stable fallback, AC-3).
+ */
+async function handleLegacyTurnStreaming(data: ChatRequest, request: NextRequest): Promise<Response> {
+  const turnMessages = buildTurnMessages(data.messages);
+
+  // BR-6/AC-7/EC-6 — one AbortController per turn, wired to the request's
+  // own signal AND to the ReadableStream's `cancel()` below, so a client
+  // disconnect (panel close/reader cancel) tears down the upstream
+  // OpenRouter call regardless of which path noticed the disconnect first.
+  // `AbortController.abort()` is itself idempotent — a second call is a no-op.
+  const controller = new AbortController();
+  if (request.signal.aborted) controller.abort();
+  request.signal.addEventListener('abort', () => controller.abort(), { once: true });
+
+  const gen = runAssistantTurnFromMessagesStreaming(turnMessages, {}, controller.signal);
+  const first = await gen.next();
+  if (first.done) {
+    return NextResponse.json({ code: 'assistant_error' }, { status: 502 });
+  }
+  const firstEvent = first.value;
+  if (firstEvent.type === 'skipped') {
+    return NextResponse.json({ code: 'assistant_disabled' }, { status: 503 });
+  }
+  if (firstEvent.type === 'error') {
+    return NextResponse.json({ code: 'assistant_error' }, { status: 502 });
+  }
+
+  const encoder = new TextEncoder();
+  function frame(event: string, payload: unknown): Uint8Array {
+    return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+  }
+
+  // BR-6/EC-6 (CAM-406 "never crashes" guard) — once `cancel()` has run, the
+  // underlying controller may already be closed; a late `enqueue()`/`close()`
+  // call racing an in-flight `gen.next()` (which itself only resolves after
+  // the abort propagates) must never throw an unhandled error. `cancelled`
+  // makes every write after cancel a silent no-op instead.
+  let cancelled = false;
+  function safeEnqueue(streamController: ReadableStreamDefaultController<Uint8Array>, chunk: Uint8Array): void {
+    if (cancelled) return;
+    try {
+      streamController.enqueue(chunk);
+    } catch {
+      // Controller already closed/cancelled by the consumer — ignore.
+    }
+  }
+  function safeClose(streamController: ReadableStreamDefaultController<Uint8Array>): void {
+    if (cancelled) return;
+    try {
+      streamController.close();
+    } catch {
+      // Already closed — ignore.
+    }
+  }
+
+  /** BR-4 event framing: `delta` carries cleaned text only; `meta` carries the CAM-427 wire card shape (`toWireCards`, reused) + optional suggestions/searchAttempted; `error` carries a stable code only — never the raw model error/status/key. Every write goes through `safeEnqueue` (never throws post-cancel). */
+  function emit(streamController: ReadableStreamDefaultController<Uint8Array>, ev: StreamEvent): void {
+    if (ev.type === 'delta') {
+      safeEnqueue(streamController, frame('delta', { text: ev.text }));
+    } else if (ev.type === 'meta') {
+      const metaBody: { cards: unknown[]; suggestions?: string[]; searchAttempted?: true } = {
+        cards: toWireCards(ev.cards),
+      };
+      if (ev.suggestions && ev.suggestions.length > 0) metaBody.suggestions = ev.suggestions;
+      if (ev.searchAttempted) metaBody.searchAttempted = true;
+      safeEnqueue(streamController, frame('meta', metaBody));
+    } else if (ev.type === 'error') {
+      safeEnqueue(streamController, frame('error', { code: ev.code }));
+    }
+    // 'skipped' never appears past the first event (already handled above).
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(streamController) {
+      try {
+        emit(streamController, firstEvent);
+        if (firstEvent.type === 'meta') {
+          safeEnqueue(streamController, frame('done', {}));
+          return;
+        }
+        // firstEvent.type === 'delta' here (skipped/error already returned
+        // as JSON above, before the stream was ever created) — keep pulling.
+
+        let result = await gen.next();
+        while (!result.done) {
+          emit(streamController, result.value);
+          if (result.value.type === 'meta') {
+            safeEnqueue(streamController, frame('done', {}));
+            break;
+          }
+          if (result.value.type === 'error') break;
+          result = await gen.next();
+        }
+      } catch {
+        // Never leak a raw internal error to the client (security.md) — a
+        // terminal error event, same as a handled mid-stream failure.
+        safeEnqueue(streamController, frame('error', { code: 'assistant_error' }));
+      } finally {
+        safeClose(streamController);
+      }
+    },
+    cancel() {
+      // AC-7/EC-6 — panel closed / reader cancelled: tear down the upstream
+      // call (spend bounded) and stop pulling further events. Idempotent.
+      cancelled = true;
+      controller.abort();
+      void gen.return(undefined);
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    },
+  });
+}
+
+/**
  * V2 branch (CAM-420, ADR-013 D6/D5) — session-bound, persisted, tiered.
  * Error-code set: 401 `unauthenticated` · 404 `conversation_not_found` ·
  * 429 `rate_limited` · 500 `internal_error` · 502 `assistant_error` ·
@@ -369,6 +505,13 @@ export async function POST(request: NextRequest) {
   // sound discriminant (legacy has `messages`; v2 has `message`, never
   // `messages`).
   if ('messages' in parsed.data) {
+    // CAM-412 (ADR-015, BR-1) — opt-in by content negotiation: only a caller
+    // that asks for `text/event-stream` on the legacy (guest) shape gets the
+    // streamed response; every other request (Accept absent/`application/json`,
+    // or the v2 session-bound shape) keeps the existing JSON body byte-stable.
+    if (request.headers.get('accept') === 'text/event-stream') {
+      return handleLegacyTurnStreaming(parsed.data, request);
+    }
     return handleLegacyTurn(parsed.data);
   }
   return handleV2Turn(parsed.data);

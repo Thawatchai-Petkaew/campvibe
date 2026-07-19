@@ -109,9 +109,13 @@ describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assis
   it("[unit] CAM-430: the answer, typing, rate-limited, disabled and error rows no longer render a per-message AiChatAvatar (size=sm) — the mark is decorative identity, now only in the panel header + resuming/welcome hero", () => {
     const occurrences = listSrc.split('<AiChatAvatar size="sm" />').length - 1;
     expect(occurrences).toBe(0);
-    // size=lg still renders exactly twice: the CAM-425 resuming indicator + the welcome hero (both kept, unchanged).
-    const largeOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
-    expect(largeOccurrences).toBe(2);
+    // size=lg still renders exactly twice: the welcome hero (calm, default intensity)
+    // and the CAM-425 resuming indicator, which since CAM-435 explicitly passes
+    // intensity="loading" (a distinct literal) — counted separately below.
+    const welcomeHeroOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
+    expect(welcomeHeroOccurrences).toBe(1);
+    const resumingOccurrences = listSrc.split('<AiChatAvatar size="lg" intensity="loading" />').length - 1;
+    expect(resumingOccurrences).toBe(1);
   });
 
   it("[unit] CAM-430: every assistant-side bubble/notice is w-full (was capped to the narrower chat-bubble width, sized to leave room for the avatar that no longer exists) — the USER bubble keeps its own cap, unaffected", () => {
@@ -120,10 +124,12 @@ describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assis
     expect(listSrc).toContain('max-w-[85%] self-end'); // the user bubble, untouched
   });
 
-  it("[unit] the in-chat card carousel + suggestion chips get their own pl-4 so they line up with the bubble's own px-4 text inset", () => {
+  it("[unit] CAM-439 SUPERSEDES: the card carousel + suggestion chips no longer carry a pl-4 (the bubble's px-4 inset they matched is gone) — everything left-aligns at the log's own p-4 edge", () => {
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
-    expect(answerBlock).toContain('<div className="pl-4">');
-    expect(answerBlock).toContain('className="flex flex-wrap gap-2 pl-4"');
+    expect(answerBlock).not.toContain('<div className="pl-4">');
+    expect(answerBlock).toContain("<AiChatCardCarousel cards={entry.cards} />");
+    expect(answerBlock).toContain('className="flex flex-wrap gap-2"');
+    expect(answerBlock).not.toContain('className="flex flex-wrap gap-2 pl-4"');
   });
 
   it('[unit/EC-1] entrance motion is motion-safe-gated transform+opacity ~200ms (instant under reduced-motion)', () => {
@@ -160,7 +166,7 @@ describe("AC-5 — launcher shows the Flame mark with the คุยกับน�
     // the old icon name may only appear in a traceability doc-comment, never as a rendered/imported icon
     expect(launcherSrc).not.toMatch(/import\s*\{\s*Sparkles/);
     expect(launcherSrc).not.toMatch(/<Sparkles\b/);
-    expect(launcherSrc).toContain("<Flame className=");
+    expect(launcherSrc).toContain("<Flame "); // rendered Flame element (CAM-435 added strokeWidth={1}; not pinning exact props)
   });
 
   it("[unit] launcher aria-label resolves through the (renamed) i18n key", () => {

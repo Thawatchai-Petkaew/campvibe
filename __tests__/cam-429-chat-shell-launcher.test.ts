@@ -74,10 +74,12 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
 
   it("[unit] BR-4: the useAiChat destructure is unchanged — expand/collapse never remounts the conversation", () => {
     expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();"
+      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
     );
-    // CAM-431 nests the scroll region one level deeper (centered max-w column) — indentation shifts +2.
-    expect(panelSrc).toContain('<AiChatMessageList\n                  entries={entries}');
+    // CAM-431 nests the scroll region one level deeper (centered max-w column);
+    // CAM-436 adds one more wrapper div around the list inside ScrollArea
+    // (full-width scrollbar-to-edge restructure) — indentation shifts +2 again.
+    expect(panelSrc).toContain('<AiChatMessageList\n                    entries={entries}');
   });
 });
 
@@ -107,9 +109,9 @@ describe("AC-6/BR-6 — campfire aura reuses only already-sanctioned §2.1 primi
     expect(launcherSrc).toContain("ai-flame-glow size-5 fill-current text-ai-ember");
   });
 
-  it("[unit] CAM-432: a visible fire-toned aura halo span (shadow-ai-flame-aura + ai-flame-flicker) sits behind the FAB, aria-hidden + pointer-events-none + -z-10", () => {
+  it("[unit] CAM-432/CAM-435: a visible fire-toned aura halo span (shadow-ai-flame-aura + the calm ai-flame-glow pulse, R2 supersedes the CAM-432 flicker for this persistent FAB) sits behind the FAB, aria-hidden + pointer-events-none + -z-10", () => {
     expect(launcherSrc).toMatch(
-      /aria-hidden="true"\s*\n\s*className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-flicker"/
+      /aria-hidden="true"\s*\n\s*className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-glow"/
     );
   });
 

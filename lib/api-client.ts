@@ -258,7 +258,14 @@ export type AiChatOutcome =
       }
     | { kind: 'rate-limited' }
     | { kind: 'disabled' }
-    | { kind: 'error' };
+    | { kind: 'error' }
+    /**
+     * CAM-412 — client-internal only (never a wire status): the caller's OWN
+     * `AbortSignal` fired (panel closed / reader cancelled) while a stream
+     * was in flight. Distinguished from `'error'` so the UI can discard the
+     * partial silently (AC-7/EC-6) instead of showing the error notice.
+     */
+    | { kind: 'aborted' };
 
 /** Matches CAM-271's documented cap (story.md BR-2 sibling) — never send more. */
 export const AI_CHAT_MAX_MESSAGES = 10;
@@ -368,6 +375,86 @@ export function parseAiChatSuccessBody(data: unknown): AiChatOutcome {
 }
 
 /**
+ * CAM-412 (ADR-015) — consumes the `text/event-stream` body of `POST /api/ai/chat`
+ * (legacy/guest shape only). Reuses `isAiChatCardResponse` + `normalizeSuggestions`
+ * for the `meta` event (Seams & refs: no parallel validation). `onDelta` fires
+ * for each cleaned text chunk (progressive rendering); the returned outcome's
+ * `answer` is the FULL accumulated text, so the caller can treat the result
+ * exactly like the non-streaming path once the stream settles.
+ *
+ * EC-5 — an undecodable/malformed frame after the stream has started
+ * resolves to `{kind:'error'}` (never surfaces raw frame text). A stream that
+ * ends with no `meta`/`error` event at all (truncated) is the same EC-5
+ * sibling — also `{kind:'error'}`.
+ */
+async function consumeAiChatStream(
+  body: ReadableStream<Uint8Array>,
+  onDelta?: (text: string) => void
+): Promise<AiChatOutcome> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = 'message';
+  let accumulated = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+          currentEvent = 'message';
+          continue;
+        }
+        if (trimmed.startsWith('event:')) {
+          currentEvent = trimmed.slice(6).trim();
+          continue;
+        }
+        if (!trimmed.startsWith('data:')) continue;
+        const dataStr = trimmed.slice(5).trim();
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(dataStr);
+        } catch {
+          return { kind: 'error' }; // EC-5 — undecodable frame
+        }
+
+        if (currentEvent === 'delta') {
+          const text = (parsed as { text?: unknown }).text;
+          if (typeof text === 'string' && text.length > 0) {
+            accumulated += text;
+            onDelta?.(text);
+          }
+        } else if (currentEvent === 'meta') {
+          const raw = parsed as Record<string, unknown>;
+          const safeCards = Array.isArray(raw.cards) ? raw.cards.filter(isAiChatCardResponse) : [];
+          const safeSuggestions = normalizeSuggestions(raw.suggestions);
+          const outcome: AiChatOutcome = { kind: 'ok', answer: accumulated, cards: safeCards };
+          if (safeSuggestions.length > 0) outcome.suggestions = safeSuggestions;
+          if (raw.searchAttempted === true) outcome.searchAttempted = true;
+          return outcome;
+        } else if (currentEvent === 'error') {
+          return { kind: 'error' };
+        }
+      }
+    }
+    return { kind: 'error' }; // stream ended with no meta/error (truncated) — EC-5 sibling
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // already released/cancelled (BR-6 double-abort idempotence)
+    }
+  }
+}
+
+/**
  * CAM-423 (ADR-013 S9) — wire shape of one persisted message returned by
  * `GET /api/ai/conversations/[id]`, mirroring `ConversationMessageView`
  * (lib/ai/conversation-store.ts) post-JSON (`Date` -> ISO string).
@@ -396,23 +483,55 @@ export interface AiConversationSummary {
     updatedAt: string;
 }
 
+/**
+ * CAM-412 — opt-in streaming for `aiChatAPI.send` (legacy/guest shape only;
+ * `sendTurn`'s v2 session-bound path does not stream — ADR-015 scope note).
+ * Passing this makes the request carry `Accept: text/event-stream`; a
+ * non-streaming-capable response (the server's own JSON fallback, BR-2/AC-3)
+ * is detected via `Content-Type` and parsed through the existing
+ * `parseAiChatSuccessBody` path unchanged.
+ */
+export interface AiChatStreamOptions {
+    /** Fires once per cleaned text chunk as it arrives (progressive render). */
+    onDelta?: (text: string) => void;
+    /** BR-6/AC-7/EC-6 — abort tears the upstream fetch (and OpenRouter call) down. */
+    signal?: AbortSignal;
+}
+
 export const aiChatAPI = {
     /** POST /api/ai/chat — `messages` is truncated to the last AI_CHAT_MAX_MESSAGES before sending. */
-    send: async (messages: AiChatRequestMessage[]): Promise<AiChatOutcome> => {
+    send: async (messages: AiChatRequestMessage[], streamOptions?: AiChatStreamOptions): Promise<AiChatOutcome> => {
         try {
             const response = await fetch(`${API_BASE}/ai/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(streamOptions ? { Accept: 'text/event-stream' } : {}),
+                },
                 body: JSON.stringify({ messages: messages.slice(-AI_CHAT_MAX_MESSAGES) }),
+                signal: streamOptions?.signal,
             });
 
             if (response.status === 429) return { kind: 'rate-limited' };
             if (response.status === 503) return { kind: 'disabled' };
             if (!response.ok) return { kind: 'error' };
 
+            // AC-3/BR-1 — content negotiation: only consume as a stream when
+            // BOTH we asked for one AND the server actually committed to one
+            // (BR-2: a failure before the first delta returns ordinary JSON).
+            // `.headers` is read lazily, only when we asked to stream, so a
+            // plain non-streaming caller's response mock never needs one.
+            if (streamOptions) {
+                const contentType = response.headers.get('content-type') ?? '';
+                if (contentType.includes('text/event-stream') && response.body) {
+                    return await consumeAiChatStream(response.body, streamOptions.onDelta);
+                }
+            }
+
             const data: unknown = await response.json();
             return parseAiChatSuccessBody(data);
         } catch {
+            if (streamOptions?.signal?.aborted) return { kind: 'aborted' };
             return { kind: 'error' };
         }
     },

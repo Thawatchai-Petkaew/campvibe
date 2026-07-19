@@ -46,9 +46,22 @@ describe("BR-4 (Critical/security) — the answer is ALWAYS plain text, never HT
     }
   });
 
-  it("[unit] the assistant answer renders through whitespace-pre-wrap (a text node, not markup)", () => {
-    expect(listSrc).toContain("whitespace-pre-wrap");
-    expect(listSrc).toContain("{entry.text}");
+  it("[unit/Prove-It] BR-4: the assistant answer path (post-CAM-439) renders parseAnswer(entry.text)'s output as escaped React children — never entry.text interpolated directly, never dangerouslySetInnerHTML", () => {
+    // Scoped to the assistant answer row only — the USER bubble (a separate,
+    // unchanged path) still renders `{entry.text}` directly and correctly;
+    // this test asserts the ASSISTANT path specifically routes through the parser.
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).toMatch(/parseAnswer\(entry\.text\)/);
+    // entry.text is never interpolated as a bare paragraph child in this block —
+    // it only ever reaches the DOM through the parsed block.text/item strings.
+    expect(answerBlock).not.toMatch(/>\s*\{entry\.text\}\s*<\/p>/);
+    // parsed paragraph/list content still lands as a plain-text React child
+    // (whitespace-pre-wrap for paragraphs, a plain <li> for items) — a text
+    // node, never markup — and no dangerouslySetInnerHTML in this path.
+    expect(answerBlock).toMatch(/<p key=\{i\} className="whitespace-pre-wrap">\s*\{block\.text\}\s*<\/p>/);
+    expect(answerBlock).toMatch(/<li key=\{j\}>\{item\}<\/li>/);
+    // (a doc comment naming dangerouslySetInnerHTML is fine — only a real USE isn't)
+    expect(answerBlock).not.toMatch(/dangerouslySetInnerHTML\s*=/);
   });
 
   it("[unit] EC-6: cards render only from entry.cards (fed to the carousel) — never parsed out of entry.text", () => {
@@ -112,7 +125,9 @@ describe("BR-3 — send disables the composer + shows an inline typing indicator
 
   it("[unit] the typing indicator is gated on sending and carries the typing test id", () => {
     expect(listSrc).toContain('data-testid="status--ai-chat-typing"');
-    expect(listSrc).toContain("{sending && (");
+    // CAM-412: also suppressed once a streaming answer entry exists (BR-8 —
+    // the growing text + caret already IS the in-flight affordance then).
+    expect(listSrc).toContain("{sending && !lastIsStreaming && (");
   });
 
   it("[security] BR-3: the panel/hook never import the model/OpenRouter client directly", () => {
@@ -273,8 +288,10 @@ describe("AC-8 — Esc / close / tap-scrim closes the panel + focus returns to t
     expect(panelSrc).not.toContain("onInteractOutside");
   });
 
-  it("[unit] the close button calls onOpenChange(false) — the same controlled prop Esc/scrim-dismiss drive natively", () => {
-    expect(panelSrc).toContain("onClick={() => onOpenChange(false)}");
+  it("[unit] the close button calls handleOpenChange(false) — CAM-412: the SAME wrapper Dialog's onOpenChange (Esc/scrim-dismiss) is wired to, so every dismiss path aborts an in-flight stream identically", () => {
+    expect(panelSrc).toContain("onClick={() => handleOpenChange(false)}");
+    expect(panelSrc).toContain("<Dialog open={open} onOpenChange={handleOpenChange}");
+    expect(panelSrc).toContain("onOpenChange(next)"); // handleOpenChange still drives the real controlled prop
   });
 
   it("[structural] only onOpenAutoFocus is overridden (to redirect initial focus into the composer, AC-1/BR-7) — onCloseAutoFocus is left to Radix's default restore-to-trigger", () => {
@@ -349,14 +366,32 @@ describe("CAM-407 — desktop panel keeps a fixed size + bounded scroll (G4 defe
     expect(panelSrc).toContain('<ScrollArea className="min-h-0 flex-1">');
   });
 
-  it("[unit] CAM-430 (SUPERSEDES): the answer row (text bubble + cards) AND the text bubble itself are both w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
+  it("[unit] CAM-430 (SUPERSEDES): the answer row is w-full max-w-full now — the avatar that justified the assistant bubble's narrower cap is gone (the USER bubble keeps its own cap, unaffected)", () => {
     expect(listSrc).toContain("w-full max-w-full min-w-0 grid-cols-1 gap-3 self-start");
-    // CAM-426: bg-muted -> bg-ai-tint (DESIGN.md §2.1 sanctioned exception) — canonical class updated in place.
-    expect(listSrc).toContain('className="w-full max-w-full rounded-2xl bg-ai-tint');
     // Scoped to the assistant-side answer row only — the user bubble (rendered
     // earlier in the file) intentionally keeps its own narrower chat-bubble cap.
     const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
     expect(answerBlock).not.toMatch(/max-w-\[85%\]/);
+  });
+
+  it("[unit] CAM-439 (SUPERSEDES CAM-426 for the answer only): the answer text is plain text on the panel glass — no bg-ai-tint bubble — while typing/rate-limited/disabled notices keep bg-ai-tint", () => {
+    expect(listSrc).toContain(
+      'data-testid="msg--ai-chat-assistant" className="space-y-2 text-sm leading-relaxed text-foreground"'
+    );
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    expect(answerBlock).not.toMatch(/className="[^"]*bg-ai-tint/);
+  });
+
+  it("[unit/Prove-It] AC-3: the answer row actually WIRES parseAnswer() into real <ol>/<ul> markup — not just the plain-paragraph path (would go RED if reverted to bare {entry.text})", () => {
+    const answerBlock = listSrc.slice(listSrc.indexOf('entry.kind === "answer"'), listSrc.indexOf('if (entry.kind === "rate-limited"'));
+    // the call that produces typed blocks from the raw answer text
+    expect(answerBlock).toMatch(/parseAnswer\(entry\.text\)/);
+    // both list block types are actually rendered with the canonical DS classes
+    expect(answerBlock).toMatch(/<ol[^>]*className="[^"]*list-decimal[^"]*"/);
+    expect(answerBlock).toMatch(/<ul[^>]*className="[^"]*list-disc[^"]*"/);
+    // this is NOT the CAM-272-era bare-text path — a reverted `{entry.text}` in this
+    // block (with no parseAnswer call) is exactly the regression this test guards.
+    expect(answerBlock).not.toMatch(/>\s*\{entry\.text\}\s*<\/p>/);
   });
 
   it("[unit] CAM-409: the row uses grid-cols-1 (min-w-0), not flex-col — stops the carousel's un-shrinkable track width from forcing the row/panel wider (real bug caught by empirical measurement)", () => {

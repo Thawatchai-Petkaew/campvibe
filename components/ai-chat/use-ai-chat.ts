@@ -10,9 +10,13 @@
  * client.
  *
  * CAM-423 session branch (D1: guest stays stateless, byte-stable):
- *  - guest (`isAuthedSession(status)` false) — UNCHANGED: `buildOutgoingHistory`
- *    + `aiChatAPI.send` (legacy `{messages}` body), nothing ever loaded or
- *    persisted.
+ *  - guest (`isAuthedSession(status)` false) — `buildOutgoingHistory` +
+ *    `aiChatAPI.send` (legacy `{messages}` body), nothing ever loaded or
+ *    persisted. CAM-412: this is the ONLY path that streams (guest Discover
+ *    funnel scope, ADR-015) — a transient `kind:"streaming"` entry grows via
+ *    `onDelta` and settles into the normal `kind:"answer"` entry once the
+ *    turn resolves; a client-supported-but-server-fallback turn (or the
+ *    server's own pre-delta JSON fallback) resolves identically either way.
  *  - authed — on first open, loads the camper's latest conversation
  *    (`aiChatAPI.listConversations` -> `aiChatAPI.getConversation`) and
  *    restores it via `restoreEntriesFromMessages`; every history-fetch
@@ -20,18 +24,22 @@
  *    back to the fresh welcome state, never a crash (EC). Sends thread
  *    through the v2 shape (`aiChatAPI.sendTurn({conversationId, message})`);
  *    the returned `conversationId` (new or unchanged) threads the next turn.
+ *    This path never streams (ADR-015 scope note — the persisted/tiered v2
+ *    route branch does not honor `Accept: text/event-stream`).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { aiChatAPI } from "@/lib/api-client";
 import {
   appendOutcome,
+  appendOrStartStreamingDelta,
   appendUserQuestion,
   buildOutgoingHistory,
   entriesBeforeRetry,
   isAssistantDisabled,
   isAuthedSession,
   isSendableQuestion,
+  replaceStreamingWithOutcome,
   restoreEntriesFromMessages,
   type ChatEntry,
 } from "@/components/ai-chat/conversation";
@@ -50,6 +58,8 @@ export interface UseAiChatResult {
   retryLast: () => Promise<void>;
   /** CAM-423 — 'เริ่มแชทใหม่': clears the thread + conversationId; the next authed send creates a fresh conversation. */
   startNewChat: () => void;
+  /** CAM-412 (BR-6/AC-7/EC-6) — aborts the in-flight guest stream, if any; a no-op otherwise (idempotent). Called by AiChatPanel on close. */
+  abortActiveStream: () => void;
 }
 
 export function useAiChat(): UseAiChatResult {
@@ -60,6 +70,8 @@ export function useAiChat(): UseAiChatResult {
   const [resuming, setResuming] = useState(false);
   const conversationIdRef = useRef<string | undefined>(undefined);
   const hasResumedRef = useRef(false);
+  /** CAM-412 BR-6 — the guest stream's own AbortController, live only while a guest turn is in flight. */
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!authed || hasResumedRef.current) return;
@@ -87,13 +99,33 @@ export function useAiChat(): UseAiChatResult {
   const runTurn = useCallback(
     async (base: ChatEntry[], questionText: string) => {
       setSending(true);
-      const outcome = authed
-        ? await aiChatAPI.sendTurn({ conversationId: conversationIdRef.current, message: questionText })
-        : await aiChatAPI.send(buildOutgoingHistory(base, questionText));
-      if (outcome.kind === "ok" && outcome.conversationId) {
-        conversationIdRef.current = outcome.conversationId;
+
+      if (authed) {
+        // v2 (session-bound, persisted) — unchanged, never streams (ADR-015).
+        const outcome = await aiChatAPI.sendTurn({ conversationId: conversationIdRef.current, message: questionText });
+        if (outcome.kind === "ok" && outcome.conversationId) {
+          conversationIdRef.current = outcome.conversationId;
+        }
+        setEntries(appendOutcome(base, outcome, questionText));
+        setSending(false);
+        return;
       }
-      setEntries(appendOutcome(base, outcome, questionText));
+
+      // Guest — streaming-capable path (BR-1..BR-8). The in-flight guard
+      // (`sending`) already covers the whole call below (BR-7).
+      const controller = new AbortController();
+      streamAbortRef.current = controller;
+
+      const outcome = await aiChatAPI.send(buildOutgoingHistory(base, questionText), {
+        signal: controller.signal,
+        onDelta: (text) => setEntries((prev) => appendOrStartStreamingDelta(prev, text)),
+      });
+
+      streamAbortRef.current = null;
+      // AC-7/EC-6 — `outcome.kind === "aborted"` falls through `appendOutcome`'s
+      // `default` (a no-op) here, so an aborted turn just discards the
+      // partial streaming entry silently, no error notice.
+      setEntries((prev) => replaceStreamingWithOutcome(prev, outcome, questionText));
       setSending(false);
     },
     [authed]
@@ -124,6 +156,11 @@ export function useAiChat(): UseAiChatResult {
     setEntries([]);
   }, []);
 
+  /** CAM-412 BR-6 — idempotent: aborting an already-settled/absent controller is a safe no-op. */
+  const abortActiveStream = useCallback(() => {
+    streamAbortRef.current?.abort();
+  }, []);
+
   return {
     entries,
     sending,
@@ -133,5 +170,6 @@ export function useAiChat(): UseAiChatResult {
     sendMessage,
     retryLast,
     startNewChat,
+    abortActiveStream,
   };
 }

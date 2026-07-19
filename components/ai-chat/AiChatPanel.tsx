@@ -43,13 +43,9 @@
  *
  * CAM-429 (owner staging feedback): three shell fixes.
  *  1. No background dim — `DialogOverlay` renders `bg-transparent` (kept in
- *     the tree, not removed) so Radix's modal internals — RemoveScroll body
- *     scroll-lock, `hideOthers` aria-hiding of siblings — stay wired; the
- *     focus trap, outside-pointer dismiss, and Esc dismiss are already driven
- *     by `Dialog.Content`'s own `DismissableLayer`/`FocusScope` independent of
- *     the Overlay's visual style (verified against `@radix-ui/react-dialog`
- *     source: `disableOutsidePointerEvents`/`trapFocus`/`onDismiss` all live
- *     on Content, not Overlay) — only the visible scrim disappears.
+ *     the tree, not removed) — only the visible scrim disappears; the
+ *     dismiss/focus wiring is unaffected by the Overlay's visual style
+ *     either way (see CAM-440 below for how it's actually driven now).
  *  2. Expand-to-full-page — a header toggle (`Maximize2`/`Minimize2`) grows
  *     the panel; the full-screen shape itself is CAM-431 (below). `expanded`
  *     persists in `sessionStorage` so the next open (same tab) restores the
@@ -79,6 +75,20 @@
  *    toggle still never remounts `useAiChat`, the thread, or the composer
  *    draft (extends the CAM-429 no-remount guarantee). Collapsed is
  *    byte-for-byte the pre-CAM-431 layout.
+ *
+ * CAM-440 (BUG, owner report): "a big sidebar suddenly appeared on the right
+ * of the whole website". Root cause — this Dialog was a default-MODAL Radix
+ * dialog, so opening it mounted `RemoveScroll`, which locks body scroll by
+ * injecting `body{padding-right + margin-right:<scrollbarWidth>px !important}`
+ * — a blank band down the right edge of the ENTIRE page + all content
+ * shifting left, independent of the CAM-429 transparent overlay above.
+ * CAM-434 (launcher mounted on every page) made it a site-wide symptom.
+ * Fix: `<Dialog modal={false}>` below. This is a floating, non-intrusive
+ * assistant — it must never lock page scroll or shift layout. Trade-off
+ * (intentional): no focus TRAP (Tab can leave the panel) and no background
+ * `hideOthers` aria-hiding; Esc-dismiss, outside-pointer-dismiss, and
+ * `onOpenChange(false)` all keep working unchanged (Radix's
+ * `DismissableLayer`/`FocusScope` on `Dialog.Content` don't depend on `modal`).
  */
 "use client";
 
@@ -134,7 +144,7 @@ function writeExpandedToStorage(value: boolean): void {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
-  const { entries, sending, disabled, resuming, sendMessage, retryLast } = useAiChat();
+  const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -172,13 +182,37 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     }
   }
 
+  // CAM-412 (BR-6/AC-7/EC-6) — every dismiss path (X button, Esc,
+  // outside-pointer-dismiss) funnels through Radix's onOpenChange; aborting
+  // here on the close transition covers all of them in one place.
+  function handleOpenChange(next: boolean) {
+    if (!next) abortActiveStream();
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
       <DialogPortal>
-        {/* CAM-429: transparent, not removed — Radix's RemoveScroll/hideOthers/
-            focus-trap/outside-dismiss/Esc-dismiss all stay wired (they live on
-            Dialog.Content's DismissableLayer, independent of the Overlay's
-            visual style); only the dark scrim over the page disappears. */}
+        {/* CAM-429: transparent, not removed — only the dark scrim over the
+            page disappears; the Esc-dismiss/outside-dismiss/focus-on-open
+            wiring below lives on Dialog.Content's DismissableLayer/FocusScope,
+            independent of the Overlay's visual style either way.
+            CAM-440 (BUG): `modal={false}` above is the actual fix — a default
+            MODAL Radix Dialog mounts RemoveScroll, which injects
+            `body{padding-right + margin-right:<scrollbarWidth>px !important}`
+            on open (Radix's own scroll-lock, unrelated to this Overlay's
+            opacity) — that's the blank band down the right edge of the WHOLE
+            page + content shift the owner reported. CAM-434 (launcher on
+            every page) made the site-wide symptom visible everywhere, not
+            just this panel. `modal={false}` removes RemoveScroll + `hideOthers`
+            entirely: no body scroll-lock, no aria-hiding of siblings, no
+            focus TRAP (focus can leave the panel via Tab) — a deliberate
+            trade-off for a non-intrusive floating assistant that must never
+            perturb the rest of the page (matches the owner's "no overlay"
+            intent from CAM-429). Esc-dismiss, outside-pointer-dismiss, and
+            onOpenChange(false) are unaffected — verified against
+            @radix-ui/react-dialog source: those live on Content's
+            DismissableLayer regardless of `modal`. */}
         <DialogOverlay className="bg-transparent" />
         <PanelPrimitive.Content
           data-slot="ai-chat-panel"
@@ -269,7 +303,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   size="icon"
                   aria-label={t.aiChat.close}
                   data-testid="btn--ai-chat-close"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => handleOpenChange(false)}
                 >
                   <X className="size-5" aria-hidden="true" />
                 </Button>
@@ -280,32 +314,48 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 with generous side gutters (room reserved for a future side
                 panel, owner note) instead of stretching edge-to-edge; the
                 collapsed bottom-sheet/anchored-card is already narrower than
-                the max-w bound so these classes are a no-op there. */}
-            <div
-              className={cn(
-                "mx-auto flex w-full min-h-0 flex-1 flex-col",
-                expanded && "max-w-2xl px-4 sm:max-w-3xl sm:px-8"
-              )}
-            >
+                the max-w bound so these classes are a no-op there.
+                CAM-436: the reading-column max-w moved OFF this shared flex
+                column (below) and onto the message-list wrapper + the
+                composer container individually, so the ScrollArea itself
+                spans full width and its scrollbar sits at the screen edge
+                (not floating mid-screen at the column's inner edge) while
+                content still reads centered. */}
+            <div className="mx-auto flex w-full min-h-0 flex-1 flex-col">
               <ScrollArea className="min-h-0 flex-1">
-                <AiChatMessageList
-                  entries={entries}
-                  sending={sending}
-                  resuming={resuming}
-                  onSuggestion={handleSuggestion}
-                  onRetry={retryLast}
-                />
+                <div className={cn(expanded && "mx-auto max-w-2xl px-4 sm:max-w-3xl sm:px-8")}>
+                  <AiChatMessageList
+                    entries={entries}
+                    sending={sending}
+                    resuming={resuming}
+                    onSuggestion={handleSuggestion}
+                    onRetry={retryLast}
+                  />
+                </div>
               </ScrollArea>
 
               {/* CAM-431: fullscreen composer = a floating glass dock (glow +
                   a subtle teal→sky gradient accent), not the collapsed
-                  bordered full-width bar. */}
-              <div className={cn("shrink-0", expanded ? "px-0 pb-6 sm:pb-10" : "border-t border-border/60 p-4")}>
+                  bordered full-width bar. CAM-436: `rounded-3xl` surface (a
+                  card that grows vertically, not a stadium pill that
+                  stretches grotesquely once the textarea wraps), even
+                  `pl-4` inset (the send button now reads as part of the
+                  box, not detached far-right), and `focus-within:ring-2` so
+                  keyboard focus is visible around the whole dock instead of
+                  being swallowed by the transparent textarea. */}
+              <div
+                className={cn(
+                  "shrink-0",
+                  expanded
+                    ? "mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10"
+                    : "border-t border-border/60 p-4"
+                )}
+              >
                 <div
                   className={cn(
                     "flex items-end gap-2",
                     expanded &&
-                      "rounded-full border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-5 shadow-ai-glow backdrop-blur-xl"
+                      "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
                   )}
                 >
                   <Textarea
@@ -317,7 +367,7 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     aria-label={t.aiChat.composerPlaceholder}
                     disabled={sending || disabled}
                     rows={1}
-                    className={cn("max-h-32", expanded && "border-none bg-transparent")}
+                    className={cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0")}
                     data-testid="input--ai-chat-composer"
                   />
                   <Button

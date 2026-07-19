@@ -7,10 +7,13 @@
  * rate-limited, disabled, error+retry). All 8 interactive/conversation
  * states from design.md §States live here.
  *
- * BR-4 (Critical, security): an assistant `answer` is ALWAYS a plain text
- * node (`whitespace-pre-wrap`) — never `dangerouslySetInnerHTML`, never
- * markdown-to-HTML. Cards render ONLY from the entry's own `cards[]`
- * (never parsed out of `text`).
+ * BR-4 (Critical, security): an assistant `answer` is ALWAYS rendered from
+ * plain text nodes — never `dangerouslySetInnerHTML`, never markdown-to-HTML.
+ * Since CAM-439, `entry.text` is split into typed blocks by `parseAnswer()`
+ * (./answer-format.ts, returns strings only) and mapped to real paragraph/
+ * ordered-list/unordered-list elements, which React auto-escapes; see that
+ * file's own header for the full security note. Cards render ONLY from the entry's own
+ * `cards[]` (never parsed out of `text`).
  *
  * CAM-409: the cards render via `AiChatCardCarousel` (horizontal snap-scroll
  * with peek) instead of the CAM-272 vertical `space-y-3` stack — see
@@ -45,6 +48,8 @@
  * the row's true left edge, CAM-409's `-mx-4/px-4` panel-edge bleed on the
  * carousel's OWN track is untouched and still gives the peek/scroll clip its
  * edge-to-edge feel — only the SETTLED position moved right to align).
+ * (CAM-439 SUPERSEDES this `pl-4`: once the bubble/its `px-4` inset is gone,
+ * the `pl-4` is dropped too — see the CAM-439 note below.)
  *
  * CAM-425: the CAM-423 resuming indicator (a bare top-left inline spinner)
  * is replaced by a centered, on-brand treatment — the shared `AiChatAvatar`,
@@ -66,12 +71,34 @@
  * role=status/aria-live=polite/aria-busy contract, just no longer painted
  * on screen.
  *
+ * CAM-435 (R2 owner staging feedback): this resuming avatar is the one
+ * genuinely-loading surface, so it explicitly passes
+ * `intensity="loading"` to keep the strong `ai-flame-flicker` aura here
+ * (owner: intense flicker is fine while loading) — `AiChatAvatar` now
+ * defaults to a gentler `ai-flame-glow` aura everywhere else (persistent
+ * header/launcher marks).
+ *
  * CAM-426 (DESIGN.md §2.1 sanctioned exception): every assistant-side bubble
  * (answer, typing, rate-limited, disabled) recolors `bg-muted` → `bg-ai-tint`
  * (still paired with `text-foreground`, AA by token parity — see design.md
  * §1 contrast honesty). The user bubble stays `bg-primary`/
  * `text-primary-foreground` — unchanged, still distinguished by side + fill,
  * never hue alone.
+ *
+ * CAM-439 (R2 owner staging feedback, SUPERSEDES the CAM-426 answer-row tint
+ * + the CAM-430 cards/chips `pl-4`): the `bg-ai-tint` bubble is dropped for
+ * the ANSWER text only — it read cluttered on staging. The answer now
+ * renders as plain `text-foreground` directly on the panel's own
+ * `bg-ai-surface` glass (DESIGN.md §2.1 item 5, amended — see this story's
+ * design.md). `bg-ai-tint` is RETAINED on the typing/rate-limited/disabled
+ * notice chips below (system notices still benefit from a container) and on
+ * `ErrorBanner`. Answer text also now parses through `parseAnswer()`
+ * (./answer-format.ts) into typed blocks so a numbered/bulleted answer
+ * renders as a real ordered/unordered list instead of one run-on paragraph —
+ * see BR-4 there for why this returns strings only, never markup. The cards
+ * carousel + suggestion chips lose their CAM-430 `pl-4` (it only existed to
+ * match the now-removed bubble's `px-4` inset) so everything left-aligns at
+ * the log's own `p-4` edge.
  */
 "use client";
 
@@ -81,6 +108,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
+import { parseAnswer } from "@/components/ai-chat/answer-format";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
 
 const SUGGESTION_KEYS = ["suggestion1", "suggestion2", "suggestion3"] as const;
@@ -100,6 +128,11 @@ interface AiChatMessageListProps {
 
 export function AiChatMessageList({ entries, sending, resuming, onSuggestion, onRetry }: AiChatMessageListProps) {
   const { t } = useLanguage();
+  const lastEntry = entries[entries.length - 1];
+  // CAM-412 BR-8: once the streaming entry exists, IT is the in-flight
+  // affordance (growing text + caret) — the generic typing dots below would
+  // be redundant alongside it.
+  const lastIsStreaming = lastEntry?.role === "assistant" && lastEntry.kind === "streaming";
 
   return (
     <div
@@ -123,7 +156,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
           data-testid="status--ai-chat-resuming"
           className="absolute inset-0 flex flex-col items-center justify-center"
         >
-          <AiChatAvatar size="lg" />
+          <AiChatAvatar size="lg" intensity="loading" />
           <span className="sr-only">{t.aiChat.loading}</span>
         </div>
       )}
@@ -165,7 +198,7 @@ export function AiChatMessageList({ entries, sending, resuming, onSuggestion, on
         />
       ))}
 
-      {sending && (
+      {sending && !lastIsStreaming && (
         <div
           data-testid="status--ai-chat-typing"
           className={`flex w-full items-center gap-1 rounded-2xl bg-ai-tint px-4 py-2.5 ${ENTRANCE_MOTION_CLASS}`}
@@ -207,45 +240,115 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, showSuggestions }: AiCha
     );
   }
 
+  if (entry.kind === "streaming") {
+    // CAM-412 (BR-8) — the growing answer text; a caret marks the in-flight
+    // affordance until the turn settles (into a normal "answer" entry, which
+    // is what actually renders cards/chips — never here). The whole row is
+    // `aria-hidden` while growing so the shared `role="log" aria-live="polite"`
+    // wrapper does NOT announce every delta mutation (BR-8: settled answer is
+    // announced ONCE, as a normal DOM addition, the instant this row is
+    // replaced by the finalized entry). The caret itself is decorative +
+    // respects `prefers-reduced-motion` via the existing `motion-safe:` gate.
+    const blocks = parseAnswer(entry.text);
+    const lastBlockIndex = blocks.length - 1;
+    const caret = (
+      <span
+        data-testid="caret--ai-chat-streaming"
+        className="ml-0.5 inline-block h-4 w-0.5 align-middle bg-muted-foreground motion-safe:animate-pulse"
+      />
+    );
+    return (
+      <div
+        aria-hidden="true"
+        data-testid="msg--ai-chat-streaming"
+        className={`w-full space-y-2 self-start text-sm leading-relaxed text-foreground ${ENTRANCE_MOTION_CLASS}`}
+      >
+        {blocks.length === 0 && <p className="whitespace-pre-wrap">{caret}</p>}
+        {blocks.map((block, i) =>
+          block.type === "ordered-list" ? (
+            <ol key={i} className="list-decimal space-y-1 pl-5 marker:text-muted-foreground">
+              {block.items.map((item, j) => (
+                <li key={j}>
+                  {item}
+                  {i === lastBlockIndex && j === block.items.length - 1 && caret}
+                </li>
+              ))}
+            </ol>
+          ) : block.type === "unordered-list" ? (
+            <ul key={i} className="list-disc space-y-1 pl-5 marker:text-muted-foreground">
+              {block.items.map((item, j) => (
+                <li key={j}>
+                  {item}
+                  {i === lastBlockIndex && j === block.items.length - 1 && caret}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p key={i} className="whitespace-pre-wrap">
+              {block.text}
+              {i === lastBlockIndex && caret}
+            </p>
+          )
+        )}
+      </div>
+    );
+  }
+
   if (entry.kind === "answer") {
     // CAM-410 AC-3/AC-4/AC-5/BR-7: only the newest, non-in-flight answer ever
     // shows its chips; every other answer's `suggestions[]` is ignored here.
     const suggestions = showSuggestions ? (entry.suggestions ?? []) : [];
     return (
       // CAM-430: the avatar is gone (BR-4/CAM-411 SUPERSEDED) so the answer
-      // bubble is now w-full (was capped to the narrower chat-bubble width, a
+      // row is now w-full (was capped to the narrower chat-bubble width, a
       // cap sized to leave room for the avatar) — "more text space" per
       // owner staging feedback.
       // CAM-409: a single grid-cols-1 track (Tailwind's minmax(0,1fr)) — not
       // flex-col — stops the carousel's un-shrinkable track width from
       // forcing this row (and the panel) wider than the message column.
-      // gap-3 (was gap-2) gives clearer vertical separation between the
-      // text -> cards -> chips stack; cards/chips get pl-4 so their left
-      // edge lines up with the bubble's own px-4 text inset.
+      // CAM-439: the bg-ai-tint bubble + its px-4 inset are gone (plain text
+      // on the panel glass), so cards/chips drop their matching pl-4 too —
+      // everything left-aligns at the log's own p-4 edge. gap-3 keeps clear
+      // separation in the text -> cards -> chips stack.
       <div className={`grid w-full max-w-full min-w-0 grid-cols-1 gap-3 self-start ${ENTRANCE_MOTION_CLASS}`}>
-        <div
-          data-testid="msg--ai-chat-assistant"
-          className="w-full max-w-full rounded-2xl bg-ai-tint px-4 py-2.5 text-sm text-foreground"
-        >
-          {/* BR-4/EC-6: plain text node only — no dangerouslySetInnerHTML, no markdown-to-HTML. */}
-          <p className="whitespace-pre-wrap">{entry.text}</p>
+        {/* CAM-439: bubble dropped — plain text on the panel glass (§2.1);
+            list-shaped answers render as real semantic lists, never markup. */}
+        <div data-testid="msg--ai-chat-assistant" className="space-y-2 text-sm leading-relaxed text-foreground">
+          {/* BR-4/EC-6: parseAnswer returns strings only — mapped to React
+              children, which auto-escape. No dangerouslySetInnerHTML, no
+              markdown-to-HTML. */}
+          {parseAnswer(entry.text).map((block, i) =>
+            block.type === "ordered-list" ? (
+              <ol key={i} className="list-decimal space-y-1 pl-5 marker:text-muted-foreground">
+                {block.items.map((item, j) => (
+                  <li key={j}>{item}</li>
+                ))}
+              </ol>
+            ) : block.type === "unordered-list" ? (
+              <ul key={i} className="list-disc space-y-1 pl-5 marker:text-muted-foreground">
+                {block.items.map((item, j) => (
+                  <li key={j}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p key={i} className="whitespace-pre-wrap">
+                {block.text}
+              </p>
+            )
+          )}
           {entry.zeroResult && (
-            <p data-testid="empty--ai-chat-zero-result" className="mt-1 text-muted-foreground">
+            <p data-testid="empty--ai-chat-zero-result" className="text-muted-foreground">
               {t.aiChat.zeroResult}
             </p>
           )}
         </div>
-        {entry.cards.length > 0 && (
-          <div className="pl-4">
-            <AiChatCardCarousel cards={entry.cards} />
-          </div>
-        )}
+        {entry.cards.length > 0 && <AiChatCardCarousel cards={entry.cards} />}
         {suggestions.length > 0 && (
           <div
             role="group"
             aria-label={t.aiChat.suggestedQuestionsLabel}
             data-testid="group--ai-chat-suggestion-chips"
-            className="flex flex-wrap gap-2 pl-4"
+            className="flex flex-wrap gap-2"
           >
             {suggestions.map((text) => (
               <Button
