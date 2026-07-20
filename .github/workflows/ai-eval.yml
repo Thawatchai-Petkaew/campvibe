@@ -11,6 +11,12 @@ name: AI Eval (advisory)
 on:
   workflow_dispatch:
 
+# Security hardening nit: least-privilege GITHUB_TOKEN — this job only
+# checks out the repo and uploads an artifact (no PR/issue/status writes),
+# so it never needs more than read access to repo contents.
+permissions:
+  contents: read
+
 jobs:
   ai-eval:
     runs-on: ubuntu-latest
