@@ -11,6 +11,7 @@
     "postinstall": "prisma generate && npm run delivery:generate",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "ai:eval": "vitest run --config vitest.eval.config.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:regression": "playwright test --project=regression",
     "status:linear": "node scripts/ticket-sync.mjs list",
