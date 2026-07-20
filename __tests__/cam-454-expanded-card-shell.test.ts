@@ -49,17 +49,27 @@ describe("(1) [CAM-455 SUPERSEDES] expanded chat is fullscreen inset-0 again —
   });
 });
 
-describe("(1b) [CAM-455] the detail pane is the floating inset card instead", () => {
-  it("[normal] the full-push (mobile/collapsed) detail pane carries top/bottom + horizontal margin", () => {
+describe("(1b) [CAM-455, margin gated selectedCamp per QA follow-up] the detail pane is the floating inset card instead", () => {
+  it("[normal] the base detail-pane string no longer inlines the margin (QA fix: an unconditional margin reserved a dead strip in split mode)", () => {
     expect(panelSrc).toContain(
-      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+      "absolute inset-0 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     );
   });
 
-  it("[normal] the desktop split detail rail carries top/bottom + right margin", () => {
+  it("[normal] the full-push (mobile/collapsed) margin only applies when selectedCamp is truthy, alongside translate-x-0", () => {
+    expect(panelSrc).toContain('selectedCamp ? "my-3 mx-2 translate-x-0" : "translate-x-full"');
+  });
+
+  it("[normal] the desktop split base lg: string carries no margin; the margin joins lg:w-[26rem] only when selectedCamp is truthy", () => {
     expect(panelSrc).toContain(
-      "lg:relative lg:inset-auto lg:my-4 lg:mr-4 lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none"
+      "lg:relative lg:inset-auto lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none"
     );
+    expect(panelSrc).toContain('selectedCamp ? "lg:my-4 lg:mr-4 lg:w-[26rem]" : "lg:w-0"');
+  });
+
+  it("[boundary] when nothing is selected, the split rail carries no reserved margin (lg:w-0 alone) — the fullscreen chat reaches the right edge", () => {
+    expect(panelSrc).not.toMatch(/"lg:w-0[^"]*lg:my-4/);
+    expect(panelSrc).not.toMatch(/"lg:w-0[^"]*lg:mr-4/);
   });
 
   it("[structural] the detail pane drops h-full (kept on the chat pane) so the added margin doesn't over-constrain an absolutely-positioned box with both height and inset set", () => {
@@ -67,7 +77,7 @@ describe("(1b) [CAM-455] the detail pane is the floating inset card instead", ()
       "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     ); // chat pane keeps h-full, unaffected
     expect(panelSrc).not.toContain(
-      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none\",\n                selectedCamp ? \"translate-x-0\""
+      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none\",\n                selectedCamp ? \"my-3 mx-2 translate-x-0\""
     ); // detail pane no longer shares that exact (h-full) string
   });
 
@@ -148,8 +158,8 @@ describe("(6) no divider between the chat and detail split panes", () => {
     expect(panelSrc).not.toContain("lg:border-l lg:border-border/60");
   });
 
-  it("[normal] the detail rail's width fork is otherwise unchanged (lg:w-[26rem] / lg:w-0)", () => {
-    expect(panelSrc).toContain('selectedCamp ? "lg:w-[26rem]" : "lg:w-0"');
+  it("[normal] the detail rail's width fork is otherwise unchanged (lg:w-[26rem] / lg:w-0, now paired with the CAM-455 gated margin)", () => {
+    expect(panelSrc).toContain('selectedCamp ? "lg:my-4 lg:mr-4 lg:w-[26rem]" : "lg:w-0"');
   });
 });
 

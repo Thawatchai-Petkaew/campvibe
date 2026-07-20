@@ -218,7 +218,13 @@
  *     the insets/stretch minus the margin, which is what the CAM-407
  *     definite-height chain needs for `AiChatDetailCard`'s own `h-full`
  *     child to resolve against. The margin gap itself is what visually
- *     separates chat vs detail now — no divider line is reintroduced.
+ *     separates chat vs detail now — no divider line is reintroduced. Both
+ *     margin pairs are gated on `selectedCamp !== null` (QA/design gate
+ *     follow-up): applying `lg:mr-4`/`mx-2` unconditionally would still
+ *     reserve that margin in the split flex row even at `lg:w-0` (nothing
+ *     selected), leaving a small permanent dead strip on the right of the
+ *     otherwise-fullscreen chat pane — the default, most-often-seen view.
+ *     The margin now exists only while there is an actual card to float.
  *  3. Everything else from CAM-451/453/454 (`modal={false}`, the manual
  *     scroll-lock + inert-background effect, `overscroll-contain`, hidden
  *     scrollbars, chrome-hide while a detail is open, the pathname-close
@@ -749,15 +755,22 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 mx-2` (full-push) / `lg:my-4 lg:mr-4` (split) reserve the gap
                 that reads as a card floating inside the fullscreen chat;
                 `h-full` is dropped (see file-header doc comment) so the
-                margin doesn't over-constrain the box. */}
+                margin doesn't over-constrain the box. Both margin pairs are
+                gated on `selectedCamp` (not applied unconditionally) — in
+                split mode the rail is `lg:w-0` when nothing is selected, and
+                an unconditional `lg:mr-4`/`mx-2` would still reserve that
+                margin in the flex row, leaving a small dead strip on the
+                right of the otherwise-fullscreen chat pane even with no
+                detail open (owner staging feedback). Margin only exists
+                while there is an actual card to float. */}
             <div
               className={cn(
-                "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
-                selectedCamp ? "translate-x-0" : "translate-x-full",
+                "absolute inset-0 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
+                selectedCamp ? "my-3 mx-2 translate-x-0" : "translate-x-full",
                 expanded &&
                   cn(
-                    "lg:relative lg:inset-auto lg:my-4 lg:mr-4 lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
-                    selectedCamp ? "lg:w-[26rem]" : "lg:w-0"
+                    "lg:relative lg:inset-auto lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
+                    selectedCamp ? "lg:my-4 lg:mr-4 lg:w-[26rem]" : "lg:w-0"
                   )
               )}
               inert={selectedCamp === null}

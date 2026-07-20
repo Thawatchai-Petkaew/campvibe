@@ -33,11 +33,13 @@ describe("(a) split layout is gated by expanded + Tailwind's lg: prefix", () => 
   it("[normal] the detail pane forks a bounded lg:w-[26rem] side-panel variant, gated the same way", () => {
     // CAM-454 removed the lg:border-l divider (owner: no line between the
     // split panes) — see cam-454-expanded-card-shell.test.ts for the guard.
-    expect(panelSrc).toContain('selectedCamp ? "lg:w-[26rem]" : "lg:w-0"');
+    // CAM-455 (QA follow-up): the lg:my-4/lg:mr-4 card-margin only applies
+    // alongside lg:w-[26rem] (a camp IS selected) — see cam-455's gating test.
+    expect(panelSrc).toContain('selectedCamp ? "lg:my-4 lg:mr-4 lg:w-[26rem]" : "lg:w-0"');
   });
 
-  it("[boundary] the detail rail collapses to lg:w-0 when nothing is selected (still in-flow, not translated off)", () => {
-    expect(panelSrc).toMatch(/selectedCamp\s*\?\s*"lg:w-\[26rem\][^"]*"\s*:\s*"lg:w-0"/);
+  it("[boundary] the detail rail collapses to lg:w-0 when nothing is selected (still in-flow, not translated off, no reserved margin)", () => {
+    expect(panelSrc).toMatch(/selectedCamp\s*\?\s*"lg:my-4 lg:mr-4 lg:w-\[26rem\][^"]*"\s*:\s*"lg:w-0"/);
   });
 
   it("[structural] every split override is wrapped in `expanded &&`, never bare on its own", () => {
@@ -46,7 +48,7 @@ describe("(a) split layout is gated by expanded + Tailwind's lg: prefix", () => 
     // The detail rail's width fork sits behind `expanded && cn(...)`, with
     // the actual `lg:w-[26rem]` literal nested inside that same cn() call.
     expect(panelSrc).toMatch(
-      /expanded &&\s*cn\(\s*"lg:relative[^"]*lg:motion-reduce:transition-none",\s*selectedCamp \? "lg:w-\[26rem\]/
+      /expanded &&\s*cn\(\s*"lg:relative[^"]*lg:motion-reduce:transition-none",\s*selectedCamp \? "lg:my-4 lg:mr-4 lg:w-\[26rem\]/
     );
   });
 
@@ -62,18 +64,22 @@ describe("(b) full-push variant (CAM-451) is retained unprefixed for mobile + co
     expect(panelSrc).toContain('selectedCamp ? "-translate-x-full" : "translate-x-0"');
   });
 
-  it("[normal] the detail pane's unprefixed translate fork is unchanged (mobile / !expanded fallback)", () => {
-    expect(panelSrc).toContain('selectedCamp ? "translate-x-0" : "translate-x-full"');
+  it("[normal] the detail pane's unprefixed translate fork carries the CAM-455 selectedCamp-gated margin alongside translate-x-0", () => {
+    // CAM-455 QA follow-up: the my-3/mx-2 margin only applies when a camp
+    // is actually selected (never unconditionally) — see cam-455's gating
+    // test for the full rationale (avoids a dead strip in split mode).
+    expect(panelSrc).toContain('selectedCamp ? "my-3 mx-2 translate-x-0" : "translate-x-full"');
   });
 
   it("[normal] both panes still carry the base absolute inset-0 + transition-transform classes with no lg: prefix", () => {
-    // CAM-455: the detail pane dropped `h-full` in favor of a margin gap
-    // (floating inset card) — the chat pane's own literal is unchanged.
+    // CAM-455: the detail pane dropped `h-full` in favor of a selectedCamp-
+    // gated margin (floating inset card) — the chat pane's own literal is
+    // unchanged.
     expect(panelSrc).toContain(
       "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     );
     expect(panelSrc).toContain(
-      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+      "absolute inset-0 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     );
   });
 });

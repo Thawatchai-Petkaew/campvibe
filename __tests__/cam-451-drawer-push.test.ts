@@ -51,8 +51,8 @@ describe("(c) the push track applies translate/transition, forking on selectedCa
     expect(panelSrc).toContain('selectedCamp ? "-translate-x-full" : "translate-x-0"');
   });
 
-  it("[normal] the detail pane translates translate-x-0 when selected, translate-x-full when not (opposite direction, same track)", () => {
-    expect(panelSrc).toContain('selectedCamp ? "translate-x-0" : "translate-x-full"');
+  it("[normal] the detail pane translates translate-x-0 when selected, translate-x-full when not (opposite direction, same track); CAM-455: the floating-card margin (my-3 mx-2) is gated onto the same selected branch, not applied unconditionally", () => {
+    expect(panelSrc).toContain('selectedCamp ? "my-3 mx-2 translate-x-0" : "translate-x-full"');
   });
 
   it("[structural] both panes are absolute inset-0 siblings inside one overflow-hidden track", () => {
@@ -63,12 +63,14 @@ describe("(c) the push track applies translate/transition, forking on selectedCa
     // CAM-455: the detail pane became the floating inset card and dropped
     // `h-full` (an explicit height:100% fights an added margin on an
     // absolutely-positioned box — see cam-455's test for the guard); the
-    // chat pane is unaffected and still carries h-full edge-to-edge.
+    // chat pane is unaffected and still carries h-full edge-to-edge. The
+    // margin itself is gated on selectedCamp (QA follow-up — see cam-455's
+    // gating test) so the base string here no longer inlines it.
     expect(panelSrc).toContain(
       "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     );
     expect(panelSrc).toContain(
-      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+      "absolute inset-0 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
     );
   });
 });
