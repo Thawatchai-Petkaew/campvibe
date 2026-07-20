@@ -16,19 +16,19 @@ const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 
 const panelSrc = read("components/ai-chat/AiChatPanel.tsx");
 
-describe("AC-1/AC-2/BR-1 — expanded geometry (CAM-454 supersedes CAM-431's true-fullscreen inset-0 with an inset sliding card)", () => {
-  it("[unit] CAM-454: the expanded branch is now an inset card (rounded-3xl + border), not edge-to-edge inset-0", () => {
-    expect(panelSrc).toContain(
+describe("AC-1/AC-2/BR-1 — expanded geometry (CAM-454 briefly superseded CAM-431's true-fullscreen inset-0 with an inset sliding card; CAM-455 reverts it back to fullscreen per owner clarification)", () => {
+  it("[unit] CAM-455: the expanded branch is edge-to-edge inset-0 again, not the CAM-454 inset card", () => {
+    expect(panelSrc).toMatch(/expanded\s*\n\s*\?\s*"inset-0 duration-200/);
+    expect(panelSrc).not.toContain(
       "inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24"
     );
-    expect(panelSrc).not.toMatch(/expanded\s*\n\s*\?\s*"inset-0 duration-200/);
   });
 
-  it("[unit] CAM-454: the expanded entrance slides in from the right (replaces the CAM-431 zoom-in-95)", () => {
+  it("[unit] CAM-455: the expanded entrance is the calmer zoom-in-95/zoom-out-95 + fade again (replaces the CAM-454 slide-in-from-right)", () => {
     expect(panelSrc).toContain(
-      "duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right-10 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right-10"
+      "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
     );
-    expect(panelSrc).not.toContain("data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95");
+    expect(panelSrc).not.toContain("data-open:slide-in-from-right-10");
   });
 
   it("[structural] the old near-full-page card geometry (inset-2/sm:inset-6/rounded-3xl+border) is gone", () => {

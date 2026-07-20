@@ -74,7 +74,12 @@ describe("Mount point — CAM-451: in-flow pane of the push track (SUPERSEDES CA
     // (it stays interactive there) — same rename as cam-451/cam-453 tests.
     expect(panelSrc).toContain('inert={!isSplitMode && selectedCamp !== null}');
     expect(panelSrc).toContain('inert={selectedCamp === null}');
-    expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col transition-transform/g)?.length).toBe(2);
+    // CAM-455: the detail pane became the floating inset card and dropped
+    // `h-full` (a selectedCamp-gated margin now reserves the card's spacing,
+    // never unconditionally — QA follow-up) — the chat pane is unaffected
+    // and still carries the original literal.
+    expect(panelSrc).toContain("absolute inset-0 flex h-full min-h-0 flex-col transition-transform");
+    expect(panelSrc).toContain("absolute inset-0 flex min-h-0 flex-col transition-transform");
   });
 });
 
