@@ -11,6 +11,11 @@
 # concurrent build slot, NOT quota. Quota relief comes entirely from
 # git.deploymentEnabled in vercel.json, which stops non-staging/main
 # branches from creating deployments at all.
+#
+# Build-retrigger note (2026-07-21): STATUS_TOKEN was added to the Vercel env.
+# Env vars only take effect on a NEW build, and a same-commit redeploy is
+# skipped by this script by design - this comment line forces one real
+# staging build to bake the token in. Safe to drop in any later cleanup.
 set -euo pipefail
 
 # VERCEL_GIT_PREVIOUS_SHA is only exposed when an ignore step is configured
