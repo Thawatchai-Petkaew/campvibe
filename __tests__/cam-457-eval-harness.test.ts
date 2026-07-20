@@ -23,7 +23,7 @@
  *  - tech.md §3     report: JSON + Markdown render from ONE object, numbers never diverge
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -47,7 +47,7 @@ import {
   GUARDRAIL_THRESHOLD,
   type CaseResult,
 } from '../scripts/ai-eval/score';
-import { renderJson, renderMarkdown, type EvalReport } from '../scripts/ai-eval/report';
+import { renderJson, renderMarkdown, writeReports, type EvalReport } from '../scripts/ai-eval/report';
 import type { GoldenCase } from '../scripts/ai-eval/case-schema';
 import evalGlobalSetup from '../scripts/ai-eval/global-setup';
 
@@ -102,6 +102,53 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     expect(cases.length).toBeLessThanOrEqual(8);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Independent QA adversarial pass (CAM-457 verify) — malformed fixture rows, */
+/* duplicate ids, empty file, over-cap boundary (per dispatch step 3)        */
+/* -------------------------------------------------------------------------- */
+
+describe('CAM-457 load-cases — adversarial gap-fill (QA re-derivation)', () => {
+  it('[edge] duplicate case ids both load without crashing (BR-1 does not enforce id uniqueness)', () => {
+    const raw = [
+      { id: 'dup', group: 'G', zone: 'A', utterance: 'a', expected: { kind: 'no_tool' } },
+      { id: 'dup', group: 'G', zone: 'A', utterance: 'b', expected: { kind: 'no_tool' } },
+    ];
+    const { cases, loadErrors } = loadCases(raw);
+    expect(cases).toHaveLength(2);
+    expect(loadErrors).toHaveLength(0);
+    expect(cases[0].id).toBe(cases[1].id);
+  });
+
+  it('[null/empty] a valid empty-array fixture loads as zero cases with zero load errors (never a crash)', () => {
+    const { cases, loadErrors } = loadCases([]);
+    expect(cases).toHaveLength(0);
+    expect(loadErrors).toHaveLength(0);
+  });
+
+  it('[edge] a genuinely empty (0-byte) fixture FILE is a load error, never a throw', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'cam-457-empty-'));
+    const emptyPath = path.join(dir, 'empty.json');
+    writeFileSync(emptyPath, '');
+    const { cases, loadErrors } = loadCasesFromFile(emptyPath);
+    expect(cases).toHaveLength(0);
+    expect(loadErrors).toHaveLength(1);
+    expect(loadErrors[0].message).toMatch(/failed to read\/parse/);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('[edge] an invalid `expected.kind` discriminant value is a named load error, batch continues', () => {
+    const raw = [
+      { id: 'bad-kind', group: 'G', zone: 'A', utterance: 'x', expected: { kind: 'bogus' } },
+      { id: 'good', group: 'G', zone: 'A', utterance: 'y', expected: { kind: 'no_tool' } },
+    ];
+    const { cases, loadErrors } = loadCases(raw);
+    expect(cases).toHaveLength(1);
+    expect(cases[0].id).toBe('good');
+    expect(loadErrors).toHaveLength(1);
+    expect(loadErrors[0].id).toBe('bad-kind');
   });
 });
 
@@ -379,6 +426,66 @@ describe('CAM-457 score — BR-3/AC-4 verdict + guardrail flip', () => {
   });
 });
 
+describe('CAM-457 score — BR-2 deep-equal on nested/object param values (adversarial gap-fill)', () => {
+  it('[normal] a nested object param matches when every nested key/value is deep-equal', () => {
+    const kase = toolCase({
+      expected: { kind: 'tool', tool: 'searchCampsites', params: { filters: { minRating: 4, petFriendly: true } } },
+    });
+    const result = scoreCase(kase, [{ tool: 'searchCampsites', args: { filters: { minRating: 4, petFriendly: true } } }]);
+    expect(result.result).toBe('pass');
+  });
+
+  it('[edge] a nested object param with one differing nested value fails the match', () => {
+    const kase = toolCase({ expected: { kind: 'tool', tool: 'searchCampsites', params: { filters: { minRating: 4 } } } });
+    const result = scoreCase(kase, [{ tool: 'searchCampsites', args: { filters: { minRating: 3 } } }]);
+    expect(result.result).toBe('fail');
+  });
+
+  it('[edge] a type mismatch (string expected, number actual) on the same key fails the match', () => {
+    const kase = toolCase({ expected: { kind: 'tool', tool: 'searchCampsites', params: { province: 'เชียงใหม่' } } });
+    const result = scoreCase(kase, [{ tool: 'searchCampsites', args: { province: 123 } }]);
+    expect(result.result).toBe('fail');
+  });
+
+  it('[edge] a null actual value vs a non-null object expected value fails the match', () => {
+    const kase = toolCase({ expected: { kind: 'tool', tool: 'searchCampsites', params: { filters: { minRating: 4 } } } });
+    const result = scoreCase(kase, [{ tool: 'searchCampsites', args: { filters: null } }]);
+    expect(result.result).toBe('fail');
+  });
+
+  it('[edge] same-type differing primitive values fail the match', () => {
+    const kase = toolCase({ expected: { kind: 'tool', tool: 'searchCampsites', params: { maxPrice: 500 } } });
+    const result = scoreCase(kase, [{ tool: 'searchCampsites', args: { maxPrice: 900 } }]);
+    expect(result.result).toBe('fail');
+  });
+});
+
+describe('CAM-457 score — multiple dispatched calls + guardrail/error interaction (adversarial gap-fill)', () => {
+  it('[concurrent/ordering] scoreCase finds the matching call among several dispatched tool calls, order-independent', () => {
+    const kase = toolCase();
+    const result = scoreCase(kase, [
+      { tool: 'getMyProfile', args: {} },
+      { tool: 'searchCampsites', args: { province: 'เชียงใหม่', extra: 1 } },
+    ]);
+    expect(result.result).toBe('pass');
+  });
+
+  it('[edge] an ERRORED guardrail case also flips the verdict (guardrailPassPct < 1.0, distinct from a guardrail fail)', () => {
+    const kase = toolCase({ guardrail: true });
+    const errored = errorResult(kase, [], 'model call failed: timeout');
+    const rollup = computeRollup([errored]);
+    expect(rollup.counts.error).toBe(1);
+    expect(rollup.guardrailPassPct).toBeLessThan(GUARDRAIL_THRESHOLD);
+    expect(rollup.verdict).toBe('REPORTING');
+  });
+
+  it('[boundary] computeRollup on zero cases is the vacuous PASS (0/0 -> 1); documented, not a bug (real corpus never ships empty)', () => {
+    const rollup = computeRollup([]);
+    expect(rollup.counts.total).toBe(0);
+    expect(rollup.verdict).toBe('PASS');
+  });
+});
+
 describe('CAM-457 score — EC-3 error bucket', () => {
   it('[edge] a model-call error is its own bucket, kept in the denominator, never silently dropped', () => {
     const kase = toolCase();
@@ -424,6 +531,68 @@ describe('CAM-457 report — JSON + Markdown render from ONE object, never diver
     expect(md).toContain('P1-01');
     expect(md).toContain('P1-02');
     expect(md).toContain(report.header.model);
+  });
+});
+
+describe('CAM-457 report — writeReports persists both files to disk (AC-1 gap-fill)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), 'cam-457-report-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('[normal] writes baseline-report.json + baseline-report.md whose numbers match the source object', () => {
+    const results: CaseResult[] = [
+      { id: 'X1', group: 'G', zone: 'B', guardrail: false, expected: { kind: 'no_tool' }, actual: { dispatched: [] }, result: 'pass', reason: 'ok' },
+    ];
+    const rollup = computeRollup(results);
+    const report: EvalReport = {
+      header: {
+        model: 'openai/gpt-4o-mini',
+        generatedAt: '2026-07-21T00:00:00.000Z',
+        gitSha: 'abc1234',
+        caseCount: 1,
+        thresholds: { toolCallCorrectness: TOOL_CALL_CORRECTNESS_THRESHOLD, guardrail: GUARDRAIL_THRESHOLD },
+      },
+      rollups: { overall: rollup, byGroup: computeGroupRollups(results), byZone: computeZoneRollups(results) },
+      cases: results,
+      loadErrors: [{ index: 2, id: 'bad-1', message: 'zone: Invalid enum value' }],
+    };
+
+    writeReports(dir, report);
+
+    const jsonOnDisk = JSON.parse(readFileSync(path.join(dir, 'baseline-report.json'), 'utf-8')) as EvalReport;
+    const mdOnDisk = readFileSync(path.join(dir, 'baseline-report.md'), 'utf-8');
+
+    expect(jsonOnDisk.rollups.overall.counts.pass).toBe(rollup.counts.pass);
+    expect(mdOnDisk).toContain('## Load errors');
+    expect(mdOnDisk).toContain('bad-1');
+  });
+
+  it('[boundary] creates a nested report directory that does not yet exist', () => {
+    const nestedDir = path.join(dir, 'nested', 'deep');
+    const rollup = computeRollup([]);
+    const report: EvalReport = {
+      header: {
+        model: 'openai/gpt-4o-mini',
+        generatedAt: '2026-07-21T00:00:00.000Z',
+        gitSha: 'abc1234',
+        caseCount: 0,
+        thresholds: { toolCallCorrectness: TOOL_CALL_CORRECTNESS_THRESHOLD, guardrail: GUARDRAIL_THRESHOLD },
+      },
+      rollups: { overall: rollup, byGroup: {}, byZone: {} },
+      cases: [],
+      loadErrors: [],
+    };
+
+    writeReports(nestedDir, report);
+
+    expect(readFileSync(path.join(nestedDir, 'baseline-report.json'), 'utf-8')).toBeTruthy();
+    expect(readFileSync(path.join(nestedDir, 'baseline-report.md'), 'utf-8')).toContain('AI eval baseline report');
   });
 });
 
