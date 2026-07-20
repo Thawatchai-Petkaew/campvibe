@@ -49,6 +49,7 @@ import {
 } from '../scripts/ai-eval/score';
 import { renderJson, renderMarkdown, type EvalReport } from '../scripts/ai-eval/report';
 import type { GoldenCase } from '../scripts/ai-eval/case-schema';
+import evalGlobalSetup from '../scripts/ai-eval/global-setup';
 
 /* -------------------------------------------------------------------------- */
 /* load-cases.ts (BR-1/EC-1) — pure, no mocking needed                        */
@@ -118,6 +119,34 @@ describe('CAM-457 guards — BR-5/AC-5/EC-4 self-skip', () => {
   it('[normal] a present key -> does not skip', () => {
     const result = checkApiKeyGuard({ [API_KEY_ENV_VAR]: 'sk-or-fake' });
     expect(result.skip).toBe(false);
+  });
+});
+
+describe('CAM-457 global-setup — pins the loud-skip banner reaching raw stdout (EC-4 defect fix)', () => {
+  const originalKey = process.env[API_KEY_ENV_VAR];
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    if (originalKey === undefined) delete process.env[API_KEY_ENV_VAR];
+    else process.env[API_KEY_ENV_VAR] = originalKey;
+  });
+
+  it('[edge] unset OPENROUTER_API_KEY -> globalSetup console.logs a banner naming the variable (Vitest globalSetup output is never swallowed by the default reporter, unlike a passing test\'s own console.log)', () => {
+    delete process.env[API_KEY_ENV_VAR];
+    evalGlobalSetup();
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logSpy.mock.calls[0][0]).toContain(API_KEY_ENV_VAR);
+  });
+
+  it('[normal] a present key -> globalSetup logs nothing', () => {
+    process.env[API_KEY_ENV_VAR] = 'sk-or-fake';
+    evalGlobalSetup();
+    expect(logSpy).not.toHaveBeenCalled();
   });
 });
 

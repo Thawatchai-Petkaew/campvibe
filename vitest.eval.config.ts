@@ -13,6 +13,12 @@ import path from 'path';
  * setup stubs `next/cache` for the app's own unit tests, unrelated to this
  * dev-tooling runner. This config does NOT stub `fetch` — `ai:eval` makes
  * real OpenRouter model calls.
+ *
+ * `globalSetup` runs the self-skip banner (`global-setup.ts`) OUTSIDE the
+ * test sandbox, so `OPENROUTER_API_KEY not set` always reaches the raw
+ * terminal — a passing test's own console output is otherwise swallowed by
+ * Vitest's default reporter (only shown on `--reporter=verbose` or on a
+ * failing test), which was a "silent green" defect against EC-4.
  */
 export default defineConfig({
   test: {
@@ -20,6 +26,7 @@ export default defineConfig({
     include: ['scripts/ai-eval/**/*.eval.ts'],
     exclude: ['node_modules', '.next', 'e2e/**', '.claude/**'],
     testTimeout: 120_000,
+    globalSetup: ['./scripts/ai-eval/global-setup.ts'],
   },
   resolve: {
     alias: {
