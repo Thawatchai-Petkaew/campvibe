@@ -157,16 +157,17 @@
  * (both 1024px) — a desync makes the visual split and the `inert` boolean
  * disagree (an a11y trap, QA-verified invariant).
  *
- * CAM-454 (owner staging feedback): the EXPANDED panel becomes an inset
- * sliding CARD instead of CAM-431's true-fullscreen `inset-0` surface, with
- * the page behind it fully locked.
- *  1. Expanded geometry: `inset-4` (mobile/tablet, all sides) widening to
- *     `lg:inset-y-4 lg:right-4 lg:left-24` (desktop: small top/bottom/right
- *     gap, a wide left margin so it still reads as a big card) with
- *     `rounded-3xl border`, entering via `slide-in-from-right` (replaces the
- *     old `zoom-in-95`). The CAM-453 desktop split (chat + detail rail)
- *     lives INSIDE this card unchanged; only the outer Content geometry
- *     forks.
+ * CAM-454 (owner staging feedback, LATER REVERTED by CAM-455 — see that note
+ * below for the corrected geometry): the EXPANDED panel briefly became an
+ * inset sliding CARD instead of CAM-431's true-fullscreen surface, with the
+ * page behind it fully locked.
+ *  1. Expanded geometry (superseded): a small four-unit inset on every side
+ *     on mobile/tablet, widening on desktop to a small top/bottom/right gap
+ *     with a wide left margin so it still read as a big card, rounded
+ *     corners + a border, entering via a slide-from-the-right (replacing the
+ *     earlier zoom entrance). The CAM-453 desktop split (chat + detail rail)
+ *     lived INSIDE this card unchanged; only the outer Content geometry
+ *     forked. CAM-455 reverted point 1 only — points 2-4 below still apply.
  *  2. Scroll containment: `overscroll-contain` on both ScrollArea
  *     viewports (chat + `AiChatDetailCard`'s own) so scrolling to the end of
  *     either list can never chain-scroll the page behind it.
@@ -192,6 +193,36 @@
  *     that slid in (back/Esc still return to them); every visible Radix
  *     ScrollArea scrollbar affordance is hidden (`data-scrollbar-hidden` +
  *     the rules in `app/globals.css`) while scrolling itself keeps working.
+ *
+ * CAM-455 (owner clarification, corrects a CAM-454 misread): CAM-454 point 1
+ * wrongly turned the whole EXPANDED CHAT into an inset card. The owner's
+ * actual ask — "an inset card with top/bottom spacing that slides in" —
+ * was always about the DETAIL panel, not the chat.
+ *  1. Expanded chat geometry reverts to CAM-431's true fullscreen: `inset-0`,
+ *     no `rounded-3xl`/border at the outer edge, entrance back to the
+ *     pre-454 `zoom-in-95`/`zoom-out-95` + fade (calmer than a fullscreen
+ *     slide, still <=250ms + motion-reduce safe). Collapsed mode (384px
+ *     desktop card / mobile bottom-sheet) is untouched.
+ *  2. The detail pane (both the CAM-451 mobile/collapsed full-push pane and
+ *     the CAM-453 desktop split rail) becomes the floating inset card: a
+ *     margin gap (`my-3 mx-2` full-push, `lg:my-4 lg:mr-4` split) around the
+ *     pane wrapper, so `AiChatDetailCard`'s own `rounded-3xl border
+ *     border-ai-tint bg-ai-surface shadow-ai-glow` reads as a card floating
+ *     inside the fullscreen chat rather than filling it edge-to-edge. The
+ *     wrapper drops `h-full` (kept since CAM-451) in favor of `inset-0` (or,
+ *     split-mode, flex `stretch`) + an explicit non-auto margin — pairing an
+ *     explicit `height:100%` with top+bottom+margin is CSS-over-constrained
+ *     (CSS2.1 10.6.4: the browser recomputes `bottom` to satisfy the
+ *     equation and the box overflows by the margin amount); dropping the
+ *     explicit height lets the browser derive a correct definite height from
+ *     the insets/stretch minus the margin, which is what the CAM-407
+ *     definite-height chain needs for `AiChatDetailCard`'s own `h-full`
+ *     child to resolve against. The margin gap itself is what visually
+ *     separates chat vs detail now — no divider line is reintroduced.
+ *  3. Everything else from CAM-451/453/454 (`modal={false}`, the manual
+ *     scroll-lock + inert-background effect, `overscroll-contain`, hidden
+ *     scrollbars, chrome-hide while a detail is open, the pathname-close
+ *     effect) is unchanged.
  */
 "use client";
 
@@ -468,10 +499,13 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
             `modal={false}` — confirmed against @radix-ui/react-dialog
             source, so that JSX line never actually renders anything today).
             This div is the real pointer-capturing backdrop, active only
-            while `expanded`, so the visible gap around the new inset card
-            (point 3) can never click through to the page underneath. No
-            RemoveScroll/hideOthers here — the page lock is the separate
-            manual effect above, so this never reintroduces CAM-440. */}
+            while `expanded`. CAM-455: the expanded Content is fullscreen
+            again (inset-0) so there is no longer a visible gap around it to
+            click through — this backdrop is now a defensive no-op layer
+            beneath the fullscreen Content, kept for the collapsed-toggle
+            transition frame rather than removed. No RemoveScroll/hideOthers
+            here — the page lock is the separate manual effect above, so
+            this never reintroduces CAM-440. */}
         <div
           aria-hidden="true"
           data-ai-chat-node=""
@@ -489,20 +523,17 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden bg-ai-surface shadow-ai-glow outline-none backdrop-blur-xl",
             "motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
-            // CAM-454: expanded = an inset CARD sliding in from the right
-            // (supersedes CAM-431's true-fullscreen inset-0) — small
-            // breathing gap on every side on mobile/tablet, widening on
-            // lg:+ so the left margin grows while top/bottom/right stay
-            // compact; still reads as a big card, never edge-to-edge.
-            // collapsed = the CAM-407 fixed-size bottom-sheet/anchored-card
-            // (unchanged sizing, only the desktop anchor moved
-            // sm:bottom-24 -> sm:bottom-6 to match AiChatLauncher's reset
-            // position).
+            // CAM-455 (reverts CAM-454 point 1 — owner clarification: the
+            // inset-card treatment belongs to the DETAIL pane, not the
+            // chat): expanded = TRUE full-screen again (inset-0, no
+            // rounded/border at the outer edge — the ambient fills
+            // edge-to-edge), entrance back to the calmer pre-454
+            // zoom-in-95/zoom-out-95 + fade. collapsed = the CAM-407
+            // fixed-size bottom-sheet/anchored-card (unchanged sizing, only
+            // the desktop anchor moved sm:bottom-24 -> sm:bottom-6 to match
+            // AiChatLauncher's reset position).
             expanded
-              ? cn(
-                  "inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24",
-                  "duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right-10 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right-10"
-                )
+              ? "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
               : cn(
                   "inset-x-0 bottom-0 h-[85dvh] max-h-[85dvh] rounded-t-3xl border-t border-border",
                   "duration-200 data-open:animate-in data-open:slide-in-from-bottom-10 data-closed:animate-out data-closed:slide-out-to-bottom-10",
@@ -713,14 +744,19 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                 wins once the transitioned property switches from transform
                 to width at that breakpoint.
                 CAM-454 — dropped the border-l divider rule (owner feedback:
-                no line between the two panes inside the inset card). */}
+                no line between the two panes inside the inset card).
+                CAM-455 — this pane is now the floating inset card: `my-3
+                mx-2` (full-push) / `lg:my-4 lg:mr-4` (split) reserve the gap
+                that reads as a card floating inside the fullscreen chat;
+                `h-full` is dropped (see file-header doc comment) so the
+                margin doesn't over-constrain the box. */}
             <div
               className={cn(
-                "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
+                "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none",
                 selectedCamp ? "translate-x-0" : "translate-x-full",
                 expanded &&
                   cn(
-                    "lg:relative lg:inset-auto lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
+                    "lg:relative lg:inset-auto lg:my-4 lg:mr-4 lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none",
                     selectedCamp ? "lg:w-[26rem]" : "lg:w-0"
                   )
               )}

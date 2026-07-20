@@ -17,24 +17,24 @@ const detailSrc = read("components/ai-chat/AiChatDetailCard.tsx");
 const globalsCss = read("app/globals.css");
 const launcherSrc = read("components/ai-chat/AiChatLauncher.tsx");
 
-describe("(1) expanded is an inset CARD, not full-bleed inset-0", () => {
-  it("[normal] the expanded branch uses a bounded inset + rounded-3xl + border, not inset-0", () => {
+describe("(1) [CAM-455 SUPERSEDES] expanded chat is fullscreen inset-0 again — the inset-card treatment moved to the detail pane", () => {
+  it("[normal] the expanded branch is a bare inset-0, not the CAM-454 bounded inset/rounded/border", () => {
     expect(panelSrc).toContain(
+      "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+    );
+  });
+
+  it("[structural] the CAM-454 bounded-inset/rounded/border geometry is gone", () => {
+    expect(panelSrc).not.toContain(
       "inset-4 rounded-3xl border border-border/60 lg:inset-y-4 lg:right-4 lg:left-24"
     );
   });
 
-  it("[structural] the expanded branch no longer opens with a bare inset-0", () => {
-    expect(panelSrc).not.toMatch(/expanded\s*\n?\s*\?\s*"inset-0 duration-200/);
-    expect(panelSrc).not.toContain(
-      "inset-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95"
-    );
-  });
-
-  it("[normal] the entrance slides in from the right (replaces the old zoom-in-95/zoom-out-95)", () => {
-    expect(panelSrc).toContain("data-open:slide-in-from-right-10");
-    expect(panelSrc).toContain("data-closed:slide-out-to-right-10");
-    expect(panelSrc).not.toContain("data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95");
+  it("[normal] the entrance is the calmer zoom-in-95/zoom-out-95 + fade (replaces CAM-454's slide-in-from-right)", () => {
+    expect(panelSrc).toContain("data-open:zoom-in-95");
+    expect(panelSrc).toContain("data-closed:zoom-out-95");
+    expect(panelSrc).not.toContain("data-open:slide-in-from-right-10");
+    expect(panelSrc).not.toContain("data-closed:slide-out-to-right-10");
   });
 
   it("[boundary] motion stays <=250ms (duration-200) and the shared motion-reduce guard is untouched", () => {
@@ -46,6 +46,35 @@ describe("(1) expanded is an inset CARD, not full-bleed inset-0", () => {
 
   it("[normal] the desktop split (CAM-453 chat+detail rail) still lives inside this same Content — the track div is untouched", () => {
     expect(panelSrc).toContain('expanded && "lg:flex lg:flex-row"');
+  });
+});
+
+describe("(1b) [CAM-455] the detail pane is the floating inset card instead", () => {
+  it("[normal] the full-push (mobile/collapsed) detail pane carries top/bottom + horizontal margin", () => {
+    expect(panelSrc).toContain(
+      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    );
+  });
+
+  it("[normal] the desktop split detail rail carries top/bottom + right margin", () => {
+    expect(panelSrc).toContain(
+      "lg:relative lg:inset-auto lg:my-4 lg:mr-4 lg:shrink-0 lg:translate-x-0 lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out lg:motion-reduce:transition-none"
+    );
+  });
+
+  it("[structural] the detail pane drops h-full (kept on the chat pane) so the added margin doesn't over-constrain an absolutely-positioned box with both height and inset set", () => {
+    expect(panelSrc).toContain(
+      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    ); // chat pane keeps h-full, unaffected
+    expect(panelSrc).not.toContain(
+      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none\",\n                selectedCamp ? \"translate-x-0\""
+    ); // detail pane no longer shares that exact (h-full) string
+  });
+
+  it("[normal] AiChatDetailCard's own card surface (rounded-3xl/border/shadow-ai-glow) is unchanged — the card look comes from the child, the wrapper only reserves the gap", () => {
+    expect(detailSrc).toContain(
+      'className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-ai-tint bg-ai-surface shadow-ai-glow backdrop-blur-xl"'
+    );
   });
 });
 

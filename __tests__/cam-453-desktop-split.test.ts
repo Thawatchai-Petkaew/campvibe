@@ -67,7 +67,14 @@ describe("(b) full-push variant (CAM-451) is retained unprefixed for mobile + co
   });
 
   it("[normal] both panes still carry the base absolute inset-0 + transition-transform classes with no lg: prefix", () => {
-    expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none/g)?.length).toBe(2);
+    // CAM-455: the detail pane dropped `h-full` in favor of a margin gap
+    // (floating inset card) — the chat pane's own literal is unchanged.
+    expect(panelSrc).toContain(
+      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    );
+    expect(panelSrc).toContain(
+      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    );
   });
 });
 

@@ -60,7 +60,16 @@ describe("(c) the push track applies translate/transition, forking on selectedCa
     // cn(...) call (it now also forks a desktop-split row layout on
     // `expanded`) — the base classes are unchanged, just no longer inlined.
     expect(panelSrc).toContain('"relative z-10 h-full min-h-0 overflow-hidden"');
-    expect(panelSrc.match(/absolute inset-0 flex h-full min-h-0 flex-col/g)?.length).toBe(2);
+    // CAM-455: the detail pane became the floating inset card and dropped
+    // `h-full` (an explicit height:100% fights an added margin on an
+    // absolutely-positioned box — see cam-455's test for the guard); the
+    // chat pane is unaffected and still carries h-full edge-to-edge.
+    expect(panelSrc).toContain(
+      "absolute inset-0 flex h-full min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    );
+    expect(panelSrc).toContain(
+      "absolute inset-0 my-3 mx-2 flex min-h-0 flex-col transition-transform duration-200 ease-out motion-reduce:transition-none"
+    );
   });
 });
 
