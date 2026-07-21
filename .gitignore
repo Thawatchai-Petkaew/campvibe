@@ -82,6 +82,7 @@ next-env.d.ts
 !/scripts/reconcile-ratings.mjs
 !/scripts/import-linear.mjs
 !/scripts/parity-check.mjs
+!/scripts/ai-eval/
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

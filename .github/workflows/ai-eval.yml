@@ -1,0 +1,51 @@
+name: AI Eval (advisory)
+
+# CAM-457 (tech.md §5) — manual-only, real model spend on every run, so this
+# NEVER triggers on push/pull_request (unlike ci.yml) — only a human-invoked
+# workflow_dispatch. Kept as its OWN workflow file rather than a job inside
+# ci.yml so it never touches ci.yml's existing push/pull_request-triggered
+# required check (this story's file surface forbids editing ci.yml).
+# `continue-on-error: true` + not a required check = report-mode per
+# ops.md Gate v2 (advisory -> clear the backlog to threshold -> a LATER
+# story flips to blocking; BR-6). Below-threshold NEVER blocks.
+on:
+  workflow_dispatch:
+
+# Security hardening nit: least-privilege GITHUB_TOKEN — this job only
+# checks out the repo and uploads an artifact (no PR/issue/status writes),
+# so it never needs more than read access to repo contents.
+permissions:
+  contents: read
+
+jobs:
+  ai-eval:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      # Owner opt-in: add the OPENROUTER_API_KEY secret to enable a real run.
+      # Unset (default) -> the harness self-skips loudly (BR-5/AC-5/EC-4).
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      # Smoke fixture is ~7 cases; the real 40-case corpus lands later — both
+      # stay well under the MAX_EVAL_CASES=500 default (BR-7).
+      MAX_EVAL_CASES: "60"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - name: AI eval (self-skips loudly if OPENROUTER_API_KEY unset)
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::notice::OPENROUTER_API_KEY not set — skipping AI eval (zero network, zero spend)."
+            exit 0
+          fi
+          npm run ai:eval
+      - name: Upload baseline report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-baseline-report
+          path: docs/specs/ai-assistant/assistant-answers-real-camper-asks-gap-closure-w1/CAM-457-eval-harness-golden-cases-gate-assistant-changes/baseline-report.*
+          retention-days: 30
