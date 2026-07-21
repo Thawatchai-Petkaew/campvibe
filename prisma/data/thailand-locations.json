@@ -239,5 +239,460 @@
                 "nameEn": "Ko Chang"
             }
         ]
+    },
+    {
+        "id": 13,
+        "code": "12",
+        "nameTh": "นนทบุรี",
+        "nameEn": "Nonthaburi",
+        "districts": []
+    },
+    {
+        "id": 14,
+        "code": "13",
+        "nameTh": "ปทุมธานี",
+        "nameEn": "Pathum Thani",
+        "districts": []
+    },
+    {
+        "id": 15,
+        "code": "14",
+        "nameTh": "พระนครศรีอยุธยา",
+        "nameEn": "Phra Nakhon Si Ayutthaya",
+        "districts": []
+    },
+    {
+        "id": 16,
+        "code": "15",
+        "nameTh": "อ่างทอง",
+        "nameEn": "Ang Thong",
+        "districts": []
+    },
+    {
+        "id": 17,
+        "code": "16",
+        "nameTh": "ลพบุรี",
+        "nameEn": "Lop Buri",
+        "districts": []
+    },
+    {
+        "id": 18,
+        "code": "17",
+        "nameTh": "สิงห์บุรี",
+        "nameEn": "Sing Buri",
+        "districts": []
+    },
+    {
+        "id": 19,
+        "code": "18",
+        "nameTh": "ชัยนาท",
+        "nameEn": "Chai Nat",
+        "districts": []
+    },
+    {
+        "id": 20,
+        "code": "19",
+        "nameTh": "สระบุรี",
+        "nameEn": "Saraburi",
+        "districts": []
+    },
+    {
+        "id": 21,
+        "code": "20",
+        "nameTh": "ชลบุรี",
+        "nameEn": "Chon Buri",
+        "districts": []
+    },
+    {
+        "id": 22,
+        "code": "21",
+        "nameTh": "ระยอง",
+        "nameEn": "Rayong",
+        "districts": []
+    },
+    {
+        "id": 23,
+        "code": "22",
+        "nameTh": "จันทบุรี",
+        "nameEn": "Chanthaburi",
+        "districts": []
+    },
+    {
+        "id": 24,
+        "code": "24",
+        "nameTh": "ฉะเชิงเทรา",
+        "nameEn": "Chachoengsao",
+        "districts": []
+    },
+    {
+        "id": 25,
+        "code": "25",
+        "nameTh": "ปราจีนบุรี",
+        "nameEn": "Prachin Buri",
+        "districts": []
+    },
+    {
+        "id": 26,
+        "code": "26",
+        "nameTh": "นครนายก",
+        "nameEn": "Nakhon Nayok",
+        "districts": []
+    },
+    {
+        "id": 27,
+        "code": "27",
+        "nameTh": "สระแก้ว",
+        "nameEn": "Sa Kaeo",
+        "districts": []
+    },
+    {
+        "id": 28,
+        "code": "31",
+        "nameTh": "บุรีรัมย์",
+        "nameEn": "Buri Ram",
+        "districts": []
+    },
+    {
+        "id": 29,
+        "code": "32",
+        "nameTh": "สุรินทร์",
+        "nameEn": "Surin",
+        "districts": []
+    },
+    {
+        "id": 30,
+        "code": "33",
+        "nameTh": "ศรีสะเกษ",
+        "nameEn": "Si Sa Ket",
+        "districts": []
+    },
+    {
+        "id": 31,
+        "code": "34",
+        "nameTh": "อุบลราชธานี",
+        "nameEn": "Ubon Ratchathani",
+        "districts": []
+    },
+    {
+        "id": 32,
+        "code": "35",
+        "nameTh": "ยโสธร",
+        "nameEn": "Yasothon",
+        "districts": []
+    },
+    {
+        "id": 33,
+        "code": "36",
+        "nameTh": "ชัยภูมิ",
+        "nameEn": "Chaiyaphum",
+        "districts": []
+    },
+    {
+        "id": 34,
+        "code": "37",
+        "nameTh": "อำนาจเจริญ",
+        "nameEn": "Amnat Charoen",
+        "districts": []
+    },
+    {
+        "id": 35,
+        "code": "38",
+        "nameTh": "บึงกาฬ",
+        "nameEn": "Bueng Kan",
+        "districts": []
+    },
+    {
+        "id": 36,
+        "code": "39",
+        "nameTh": "หนองบัวลำภู",
+        "nameEn": "Nong Bua Lam Phu",
+        "districts": []
+    },
+    {
+        "id": 37,
+        "code": "40",
+        "nameTh": "ขอนแก่น",
+        "nameEn": "Khon Kaen",
+        "districts": []
+    },
+    {
+        "id": 38,
+        "code": "41",
+        "nameTh": "อุดรธานี",
+        "nameEn": "Udon Thani",
+        "districts": []
+    },
+    {
+        "id": 39,
+        "code": "43",
+        "nameTh": "หนองคาย",
+        "nameEn": "Nong Khai",
+        "districts": []
+    },
+    {
+        "id": 40,
+        "code": "44",
+        "nameTh": "มหาสารคาม",
+        "nameEn": "Maha Sarakham",
+        "districts": []
+    },
+    {
+        "id": 41,
+        "code": "45",
+        "nameTh": "ร้อยเอ็ด",
+        "nameEn": "Roi Et",
+        "districts": []
+    },
+    {
+        "id": 42,
+        "code": "46",
+        "nameTh": "กาฬสินธุ์",
+        "nameEn": "Kalasin",
+        "districts": []
+    },
+    {
+        "id": 43,
+        "code": "47",
+        "nameTh": "สกลนคร",
+        "nameEn": "Sakon Nakhon",
+        "districts": []
+    },
+    {
+        "id": 44,
+        "code": "48",
+        "nameTh": "นครพนม",
+        "nameEn": "Nakhon Phanom",
+        "districts": []
+    },
+    {
+        "id": 45,
+        "code": "49",
+        "nameTh": "มุกดาหาร",
+        "nameEn": "Mukdahan",
+        "districts": []
+    },
+    {
+        "id": 46,
+        "code": "51",
+        "nameTh": "ลำพูน",
+        "nameEn": "Lamphun",
+        "districts": []
+    },
+    {
+        "id": 47,
+        "code": "52",
+        "nameTh": "ลำปาง",
+        "nameEn": "Lampang",
+        "districts": []
+    },
+    {
+        "id": 48,
+        "code": "53",
+        "nameTh": "อุตรดิตถ์",
+        "nameEn": "Uttaradit",
+        "districts": []
+    },
+    {
+        "id": 49,
+        "code": "54",
+        "nameTh": "แพร่",
+        "nameEn": "Phrae",
+        "districts": []
+    },
+    {
+        "id": 50,
+        "code": "55",
+        "nameTh": "น่าน",
+        "nameEn": "Nan",
+        "districts": []
+    },
+    {
+        "id": 51,
+        "code": "56",
+        "nameTh": "พะเยา",
+        "nameEn": "Phayao",
+        "districts": []
+    },
+    {
+        "id": 52,
+        "code": "60",
+        "nameTh": "นครสวรรค์",
+        "nameEn": "Nakhon Sawan",
+        "districts": []
+    },
+    {
+        "id": 53,
+        "code": "61",
+        "nameTh": "อุทัยธานี",
+        "nameEn": "Uthai Thani",
+        "districts": []
+    },
+    {
+        "id": 54,
+        "code": "62",
+        "nameTh": "กำแพงเพชร",
+        "nameEn": "Kamphaeng Phet",
+        "districts": []
+    },
+    {
+        "id": 55,
+        "code": "63",
+        "nameTh": "ตาก",
+        "nameEn": "Tak",
+        "districts": []
+    },
+    {
+        "id": 56,
+        "code": "64",
+        "nameTh": "สุโขทัย",
+        "nameEn": "Sukhothai",
+        "districts": []
+    },
+    {
+        "id": 57,
+        "code": "65",
+        "nameTh": "พิษณุโลก",
+        "nameEn": "Phitsanulok",
+        "districts": []
+    },
+    {
+        "id": 58,
+        "code": "66",
+        "nameTh": "พิจิตร",
+        "nameEn": "Phichit",
+        "districts": []
+    },
+    {
+        "id": 59,
+        "code": "70",
+        "nameTh": "ราชบุรี",
+        "nameEn": "Ratchaburi",
+        "districts": []
+    },
+    {
+        "id": 60,
+        "code": "71",
+        "nameTh": "กาญจนบุรี",
+        "nameEn": "Kanchanaburi",
+        "districts": []
+    },
+    {
+        "id": 61,
+        "code": "72",
+        "nameTh": "สุพรรณบุรี",
+        "nameEn": "Suphan Buri",
+        "districts": []
+    },
+    {
+        "id": 62,
+        "code": "73",
+        "nameTh": "นครปฐม",
+        "nameEn": "Nakhon Pathom",
+        "districts": []
+    },
+    {
+        "id": 63,
+        "code": "74",
+        "nameTh": "สมุทรสาคร",
+        "nameEn": "Samut Sakhon",
+        "districts": []
+    },
+    {
+        "id": 64,
+        "code": "75",
+        "nameTh": "สมุทรสงคราม",
+        "nameEn": "Samut Songkhram",
+        "districts": []
+    },
+    {
+        "id": 65,
+        "code": "76",
+        "nameTh": "เพชรบุรี",
+        "nameEn": "Phetchaburi",
+        "districts": []
+    },
+    {
+        "id": 66,
+        "code": "77",
+        "nameTh": "ประจวบคีรีขันธ์",
+        "nameEn": "Prachuap Khiri Khan",
+        "districts": []
+    },
+    {
+        "id": 67,
+        "code": "80",
+        "nameTh": "นครศรีธรรมราช",
+        "nameEn": "Nakhon Si Thammarat",
+        "districts": []
+    },
+    {
+        "id": 68,
+        "code": "82",
+        "nameTh": "พังงา",
+        "nameEn": "Phang Nga",
+        "districts": []
+    },
+    {
+        "id": 69,
+        "code": "85",
+        "nameTh": "ระนอง",
+        "nameEn": "Ranong",
+        "districts": []
+    },
+    {
+        "id": 70,
+        "code": "86",
+        "nameTh": "ชุมพร",
+        "nameEn": "Chumphon",
+        "districts": []
+    },
+    {
+        "id": 71,
+        "code": "90",
+        "nameTh": "สงขลา",
+        "nameEn": "Songkhla",
+        "districts": []
+    },
+    {
+        "id": 72,
+        "code": "91",
+        "nameTh": "สตูล",
+        "nameEn": "Satun",
+        "districts": []
+    },
+    {
+        "id": 73,
+        "code": "92",
+        "nameTh": "ตรัง",
+        "nameEn": "Trang",
+        "districts": []
+    },
+    {
+        "id": 74,
+        "code": "93",
+        "nameTh": "พัทลุง",
+        "nameEn": "Phatthalung",
+        "districts": []
+    },
+    {
+        "id": 75,
+        "code": "94",
+        "nameTh": "ปัตตานี",
+        "nameEn": "Pattani",
+        "districts": []
+    },
+    {
+        "id": 76,
+        "code": "95",
+        "nameTh": "ยะลา",
+        "nameEn": "Yala",
+        "districts": []
+    },
+    {
+        "id": 77,
+        "code": "96",
+        "nameTh": "นราธิวาส",
+        "nameEn": "Narathiwat",
+        "districts": []
     }
 ]
