@@ -99,22 +99,40 @@ export interface SearchCampsitesResult {
 const THAI_CHAR_PATTERN = /[ก-๙]/;
 
 /**
+ * CAM-458 BR-3/D1 — canonical Bangkok-variant alias map (exact-key), applied
+ * BEFORE the `ThailandLocation` lookup below. Covers the high-frequency,
+ * non-substring ways campers refer to Bangkok; substring forms (e.g.
+ * `กรุงเทพ`) already resolve via the existing `contains` query and need no
+ * entry. Pure + deterministic (no DB round-trip for the alias step itself);
+ * scope is Bangkok only — provincial nicknames/slang are phase-2 (out of
+ * scope, see story Out-of-scope).
+ */
+const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  'กทม': 'กรุงเทพมหานคร',
+  'กทม.': 'กรุงเทพมหานคร',
+  'กรุงเทพฯ': 'กรุงเทพมหานคร',
+  'บางกอก': 'กรุงเทพมหานคร',
+});
+
+/**
  * CAM-404 — `Location.province` is stored in English (e.g. "Chiang Mai"), but
  * the model frequently emits the Thai province name it was given by the user
  * (e.g. "เชียงใหม่"). `buildCampSiteWhere` does an exact match on `province`,
  * so an un-resolved Thai value matches zero rows forever even when camps
  * exist. Resolve via `ThailandLocation` (provinceName ↔ provinceNameEn);
- * English input is returned unchanged (no DB round-trip). Coverage is
- * partial (~12 provinces seeded) — an unmapped Thai province, or any lookup
- * error, falls back to the raw value unchanged (never throws), matching the
- * search's prior behavior for those cases.
+ * English input is returned unchanged (no DB round-trip). CAM-458 seeds all
+ * 77 provinces (was ~12) and adds the Bangkok-alias normalization above — an
+ * unmapped Thai word, or any lookup error, still falls back to the raw value
+ * unchanged (never throws), matching the search's prior behavior.
  */
 async function resolveProvinceForSearch(province: string): Promise<string> {
   if (!THAI_CHAR_PATTERN.test(province)) return province;
 
+  const normalized = BANGKOK_ALIASES[province] ?? province;
+
   try {
     const match = await prisma.thailandLocation.findFirst({
-      where: { provinceName: { contains: province } },
+      where: { provinceName: { contains: normalized } },
       select: { provinceNameEn: true },
     });
     return match?.provinceNameEn ?? province;

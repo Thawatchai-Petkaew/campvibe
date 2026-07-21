@@ -3,7 +3,7 @@ artifact: story
 feature: ai-assistant
 epic: assistant-answers-real-camper-asks-gap-closure-w1 (CAM-456)
 story: eval-harness-golden-suite (CAM-457)
-status: In Progress — build (backend-engineer); G1+G2 approved in-chat 2026-07-21
+status: Done (merged PR #537, 2026-07-21)
 version: v2
 updated: 2026-07-21
 ---
