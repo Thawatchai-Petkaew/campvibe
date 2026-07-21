@@ -16,6 +16,14 @@
  *     raw original value and never throws (BR-4).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import thailandLocations from '@/prisma/data/thailand-locations.json';
+
+interface ProvinceEntry {
+  code: string;
+  nameTh: string;
+  nameEn: string;
+}
+const ALL_PROVINCES = thailandLocations as ProvinceEntry[];
 
 const mockFindMany = vi.fn();
 const mockThailandLocationFindFirst = vi.fn();
@@ -107,5 +115,106 @@ describe('searchCampsites — lookup error after alias normalization (CAM-458 BR
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
     // raw ORIGINAL value (the alias itself), not the normalized canonical name
     expect(queryCall.where.location?.province).toBe('กทม');
+  });
+});
+
+/**
+ * QA gap-fill (independent verify) — AC-1 self-verify explicitly calls for a
+ * table-driven test across ALL 77 real provinces ("mirrors
+ * __tests__/cam-404-search-campsites-province-resolve.test.ts"); the pinned
+ * suite only exercised Bangkok aliases + one generic non-Bangkok Thai word,
+ * never swept the real `thailand-locations.json` file. Table-driven from the
+ * REAL data (not hardcoded) so a future data edit cannot silently drift from
+ * this test. This also proves `THAI_CHAR_PATTERN` (the "is this Thai" gate)
+ * matches every real Thai province name — if it didn't, the function would
+ * short-circuit and never call `thailandLocation.findFirst` at all.
+ */
+describe('searchCampsites — table-driven resolve across ALL 77 real provinces (CAM-458 AC-1 normal)', () => {
+  it.each(ALL_PROVINCES)('[unit] "$nameTh" (code $code) resolves to the stored English value "$nameEn"', async ({ nameTh, nameEn }) => {
+    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: nameEn });
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const args = searchCampsitesArgsSchema.parse({ province: nameTh });
+    await executeSearchCampsites(args);
+
+    // the THAI_CHAR_PATTERN gate fired (a miss would skip the lookup entirely)
+    expect(mockThailandLocationFindFirst).toHaveBeenCalledOnce();
+    const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
+    expect(queryCall.where.location?.province).toBe(nameEn);
+  });
+});
+
+/**
+ * QA gap-fill — AC-3 direct proof at the tool layer: a resolved (new, CAM-458)
+ * province with genuinely zero matching camps returns `{ cards: [] }` — the
+ * honest-empty system effect the banner (owned by CAM-437/frontend,
+ * unchanged) renders from. Story self-verify names this an
+ * integration+owner-verify item; this unit-level slice proves the tool's own
+ * contribution to that AC without a DB.
+ */
+describe('searchCampsites — resolved province with zero camps returns honest empty (CAM-458 AC-3)', () => {
+  it('[unit] a resolvable new province (Bueng Kan) with no matching camps returns { cards: [] }', async () => {
+    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: 'Bueng Kan' });
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const args = searchCampsitesArgsSchema.parse({ province: 'บึงกาฬ' });
+    const result = await executeSearchCampsites(args);
+
+    expect(result).toEqual({ cards: [] });
+    const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
+    expect(queryCall.where.location?.province).toBe('Bueng Kan');
+  });
+});
+
+/**
+ * QA gap-fill — adversarial negative: a near-miss word that CONTAINS "บางกอก"
+ * as a substring (บางกอกน้อย, a real Thonburi-side district name) must NOT
+ * resolve to Bangkok via the exact-key alias map — `BANGKOK_ALIASES` is a
+ * plain object keyed by exact string, so JS property lookup on a longer
+ * string that merely contains a key can never accidentally hit (proven here,
+ * not just asserted by construction). It still falls through to the
+ * unchanged CAM-404 `contains` lookup like any other unmapped word (EC-2).
+ */
+describe('searchCampsites — near-miss Bangkok substring does not exact-key-match the alias map (QA gap-fill, adversarial)', () => {
+  it('[unit] "บางกอกน้อย" is NOT normalized by BANGKOK_ALIASES (passed through as-is to the contains lookup)', async () => {
+    mockThailandLocationFindFirst.mockResolvedValueOnce(null);
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const args = searchCampsitesArgsSchema.parse({ province: 'บางกอกน้อย' });
+    await executeSearchCampsites(args);
+
+    const lookupCall = mockThailandLocationFindFirst.mock.calls[0][0] as {
+      where: { provinceName: { contains: string } };
+    };
+    // NOT normalized to กรุงเทพมหานคร — the exact-key map missed, as it must
+    expect(lookupCall.where.provinceName.contains).toBe('บางกอกน้อย');
+
+    const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: string } } };
+    expect(queryCall.where.location?.province).toBe('บางกอกน้อย');
+  });
+});
+
+/**
+ * QA gap-fill — whitespace variant. `searchCampsitesArgsSchema` already
+ * applies `z.string().trim()` to `province` at the zod boundary (BEFORE
+ * `resolveProvinceForSearch` ever runs), so a Bangkok alias typed with
+ * incidental surrounding whitespace still exact-key-matches. Confirms the
+ * trim+alias combination end-to-end rather than assuming it from reading
+ * two separate pieces of code.
+ */
+describe('searchCampsites — Bangkok alias with surrounding whitespace still resolves (QA gap-fill, boundary)', () => {
+  it('[unit] "  กทม  " (padded) trims at the zod boundary then exact-key-matches the alias map', async () => {
+    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: 'Bangkok' });
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const args = searchCampsitesArgsSchema.parse({ province: '  กทม  ' });
+    expect(args.province).toBe('กทม'); // zod .trim() already fired
+
+    await executeSearchCampsites(args);
+
+    const lookupCall = mockThailandLocationFindFirst.mock.calls[0][0] as {
+      where: { provinceName: { contains: string } };
+    };
+    expect(lookupCall.where.provinceName.contains).toBe('กรุงเทพมหานคร');
   });
 });

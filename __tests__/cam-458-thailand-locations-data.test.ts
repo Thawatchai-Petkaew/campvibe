@@ -96,3 +96,81 @@ describe('thailand-locations.json — no row lost from the original 12 (CAM-458 
     expect(row?.nameEn).toBe(nameEn);
   });
 });
+
+/**
+ * QA gap-fill (independent verify) — DATA AUTHORITY spot-audit. The pinned
+ * suite proved count=77 + uniqueness + 2 spot-checks (Bangkok, Bueng Kan) but
+ * never pinned the exact RTGS/DOPA spelling of the historically error-prone
+ * province names (two-word vs one-word conventions, e.g. "Chon Buri" not
+ * "Chonburi", "Buri Ram" not "Buriram"). A typo here would still pass every
+ * pinned test (non-empty + unique) while silently breaking the AC-1 seam
+ * invariant against a real `Location.province` value entered with the
+ * standard spelling. Cross-checked against ISO 3166-2:TH / TIS 1099-2548.
+ * Prove-It: flipping any one expected string below to a plausible wrong
+ * spelling (e.g. "Buriram") fails this test — verified by hand before commit.
+ */
+describe('thailand-locations.json — RTGS/DOPA spelling spot-audit (QA gap-fill, BR-1 normal)', () => {
+  const SPELLING_TRAPS: Array<{ code: string; nameTh: string; nameEn: string }> = [
+    { code: '14', nameTh: 'พระนครศรีอยุธยา', nameEn: 'Phra Nakhon Si Ayutthaya' },
+    { code: '33', nameTh: 'ศรีสะเกษ', nameEn: 'Si Sa Ket' },
+    { code: '20', nameTh: 'ชลบุรี', nameEn: 'Chon Buri' },
+    { code: '25', nameTh: 'ปราจีนบุรี', nameEn: 'Prachin Buri' },
+    { code: '80', nameTh: 'นครศรีธรรมราช', nameEn: 'Nakhon Si Thammarat' },
+    { code: '31', nameTh: 'บุรีรัมย์', nameEn: 'Buri Ram' },
+    { code: '39', nameTh: 'หนองบัวลำภู', nameEn: 'Nong Bua Lam Phu' },
+    { code: '24', nameTh: 'ฉะเชิงเทรา', nameEn: 'Chachoengsao' },
+    { code: '18', nameTh: 'ชัยนาท', nameEn: 'Chai Nat' },
+    { code: '58', nameTh: 'แม่ฮ่องสอน', nameEn: 'Mae Hong Son' },
+    { code: '93', nameTh: 'พัทลุง', nameEn: 'Phatthalung' },
+    { code: '91', nameTh: 'สตูล', nameEn: 'Satun' },
+    { code: '34', nameTh: 'อุบลราชธานี', nameEn: 'Ubon Ratchathani' },
+    { code: '75', nameTh: 'สมุทรสงคราม', nameEn: 'Samut Songkhram' },
+    { code: '16', nameTh: 'ลพบุรี', nameEn: 'Lop Buri' },
+  ];
+
+  it.each(SPELLING_TRAPS)(
+    '[unit] province code $code resolves to the exact RTGS spelling "$nameEn" ($nameTh)',
+    ({ code, nameTh, nameEn }) => {
+      const row = provinces.find((p) => p.code === code);
+      expect(row).toBeDefined();
+      expect(row?.nameTh).toBe(nameTh);
+      expect(row?.nameEn).toBe(nameEn);
+    }
+  );
+});
+
+/**
+ * QA gap-fill — case-insensitive nameEn duplicate guard. The pinned
+ * uniqueness test (`new Set(names).size === 77`) is CASE-SENSITIVE: a
+ * differently-cased duplicate (e.g. "Bueng Kan" + "bueng kan") would pass
+ * that Set check silently while still colliding as the same
+ * `Location.province` value at query time. Prove-It: verified by hand this
+ * fails when a case-variant duplicate is injected (see verify notes).
+ */
+describe('thailand-locations.json — case-insensitive nameEn duplicate guard (QA gap-fill, boundary)', () => {
+  it('[unit] no two provinces share the same nameEn when case is ignored', () => {
+    const lower = provinces.map((p) => p.nameEn.toLowerCase());
+    expect(new Set(lower).size).toBe(provinces.length);
+  });
+});
+
+/**
+ * QA gap-fill — substring-ambiguity seam invariant. `resolveProvinceForSearch`
+ * matches via `ThailandLocation.findFirst({ where: { provinceName: {
+ * contains } } })` with NO `orderBy` — if a camper's exact province word were
+ * a substring of more than one stored `provinceName`, `findFirst` would
+ * return a NONDETERMINISTIC row (adversarial risk named at verify time:
+ * "เชียงใหม่" vs "เชียงราย"). This asserts the real 77-row data never
+ * produces that ambiguity for a full province-name query: every full nameTh
+ * is a substring of ONLY its own row. Prove-It: verified by hand this fails
+ * when a fragment like "เชียง" is injected as its own row.
+ */
+describe('thailand-locations.json — no full province name is an ambiguous substring of another (QA gap-fill, seam invariant)', () => {
+  it('[unit] every full nameTh matches exactly one row under a `contains`-style lookup', () => {
+    for (const p of provinces) {
+      const matches = provinces.filter((q) => q.nameTh.includes(p.nameTh));
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.code).toBe(p.code);
+    }
+  });
+});
