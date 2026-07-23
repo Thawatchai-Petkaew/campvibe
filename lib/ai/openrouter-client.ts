@@ -53,6 +53,16 @@
  * (`lib/read-models/ai-camp-card.ts`) and the banner gate (conversation.ts)
  * are unchanged (prompt-only fix).
  *
+ * CAM-459 — replaces the implicit "use ONLY the provided tools" guidance with
+ * an explicit 3-zone answer policy so the model no longer guesses per turn
+ * when to call a tool: Zone A (general camping knowledge) answers with ZERO
+ * tools and ends with one bridge back to real data; Zone B (camp-specific
+ * fact) stays tool-only and generalizes the CAM-437 grounding rule's honest
+ * no-data line from "zero-result search" to every per-camp fact; Zone C
+ * (transactional) never claims to have executed a booking/edit/cancel since
+ * no write tool is registered today. Prompt-only change — all three
+ * `buildSystemPrompt` call paths inherit it for free.
+ *
  * CAM-416 (ADR-013 D4) — `runTurnFromBaseMessages` is now a real, BOUNDED
  * agent loop:
  *  - Up to `MAX_AGENT_ITERATIONS` (4) completions per turn; the loop stops as
@@ -185,6 +195,17 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}): strin
     formatTodayContextLine(now),
     'When the camper uses a relative Thai date or date range (for example "พรุ่งนี้", "สุดสัปดาห์หน้า", "เสาร์อาทิตย์นี้"), compute the absolute ISO date(s) from today\'s date above before calling checkAvailability. Never state or assume availability yourself — always call checkAvailability and report only what it returns.',
     'Prefer the structured filter arguments on searchCampsites (province, type, terrain, access, activities, facilities, petFriendly, priceMin/priceMax) to match a characteristic the camper described. Use the keyword argument ONLY for a specific campsite name — a keyword search on a general word (for example a terrain or facility word) searches only the name/description text and will usually miss camps that have it tagged as structured data instead.',
+    // CAM-459 (BR-1) — explicit 3-zone answer policy. Replaces the implicit
+    // "use ONLY the provided tools" guidance above with a concrete rule for
+    // WHEN to call a tool at all, so the model no longer guesses per turn
+    // (research §4.2). Zone B's honest no-data instruction is the SAME
+    // no-hallucination seam the CAM-437 grounding rule below extends from
+    // "zero-result search" to "every per-camp fact" (BR-3).
+    'Classify every camper question into one of three zones before answering. Zone A - general camping knowledge (basic gear, overall seasons, beginner how-to) that is not tied to a specific campsite: answer directly from general knowledge and dispatch ZERO tools. Zone B - a camp-specific fact (availability, price, policy, facilities, or terrain of a named or filtered campsite): you MUST call the matching tool (searchCampsites or checkAvailability) for it and never answer a per-camp fact from training knowledge alone. Zone C - a transactional request to book, edit, or cancel: there is no booking tool available today, so never execute it or claim it was done — tell the camper to complete it themselves in the normal flow. If a question mixes a general part with a camp-specific fact, treat the specific part as Zone B and call the tool for it.',
+    // CAM-459 (BR-2) — every Zone A answer must end with exactly ONE bridge
+    // back to real data; the example phrasing is representative wording, not
+    // a fixed string the model must reproduce verbatim (BR-5).
+    'End every Zone A general-knowledge answer with exactly ONE offer to check real data, as your final sentence or as a suggestion chip - for example "อยากให้ช่วยเช็กว่าลานไหนมีเต็นท์ให้เช่าไหม" - so a general question always has a way back into finding a real campsite.',
     'Answer in the same language the camper used. Keep answers short and concrete.',
     // CAM-405 — output-style rules (BR-1/BR-2/BR-3): the UI renders the answer as
     // inert plain text and renders matching campsites as separate cards from the
@@ -199,6 +220,9 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}): strin
     // separate from the anti-enumeration line above: it constrains WHICH
     // campsites may be named at all, not how the (real) matches are phrased.
     'Only name, describe, or recommend a specific campsite that appears in the results of a searchCampsites tool call made THIS turn — never name, suggest, or recommend a campsite from your own training knowledge or memory, even one you recognize as real, and even if the camper asks you to guess or suggest one anyway. If searchCampsites returns zero matching campsites, say plainly that nothing matched and invite the camper to adjust their search (for example the location, dates, or facilities) — never substitute or invent a campsite that no tool call returned this turn.',
+    // CAM-459 (BR-3) — generalizes the CAM-437 grounding rule above from
+    // "zero-result search" to every Zone B per-camp fact with no data.
+    'For any Zone B camp-specific fact the app genuinely has no data for, say plainly "ยังไม่มีข้อมูลส่วนนี้" — never invent or guess a fact or campsite; this covers every per-camp fact, not only a zero-result search.',
     'Keep the answer to about 2-3 short sentences.',
     // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
     // second call); the server extracts + sanitizes it and strips it from

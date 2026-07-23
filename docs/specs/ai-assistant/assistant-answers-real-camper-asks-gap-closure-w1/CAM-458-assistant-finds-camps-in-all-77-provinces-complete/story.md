@@ -3,7 +3,7 @@ artifact: story
 feature: ai-assistant
 epic: assistant-answers-real-camper-asks-gap-closure-w1 (CAM-456)
 story: assistant-finds-camps-in-all-77-provinces (CAM-458)
-status: In Progress — spec (product-owner); G1-wave scope approved 2026-07-21, per-story G1 tap pending
+status: Done (merged, 2026-07-21)
 version: v1
 updated: 2026-07-21
 ---

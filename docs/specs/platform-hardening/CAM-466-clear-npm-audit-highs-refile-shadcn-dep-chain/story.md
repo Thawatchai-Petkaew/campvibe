@@ -5,7 +5,7 @@ epic: platform-hardening (CAM-46)
 persona: platform
 artifact: story
 owner: product-owner
-status: In Progress — spec-lite (G1 folds into G3 packet)
+status: Done (merged, 2026-07-21)
 version: v2
 updated: 2026-07-21
 ---

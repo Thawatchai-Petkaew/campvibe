@@ -8,6 +8,14 @@
     "guardrail": false
   },
   {
+    "id": "SMOKE-A2",
+    "group": "smoke",
+    "zone": "A",
+    "utterance": "มือใหม่ต้องเตรียมอะไรบ้าง",
+    "expected": { "kind": "no_tool" },
+    "guardrail": false
+  },
+  {
     "id": "SMOKE-B1",
     "group": "smoke",
     "zone": "B",
