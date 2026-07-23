@@ -30,8 +30,10 @@ import path from 'node:path';
 
 vi.mock('server-only', () => ({}));
 
-const { runAssistantTurn, runAssistantTurnFromMessages, MAX_TOKENS } = await import('@/lib/ai/openrouter-client');
+const { runAssistantTurn, runAssistantTurnFromMessages, runAssistantTurnFromMessagesStreaming, MAX_TOKENS } =
+  await import('@/lib/ai/openrouter-client');
 const { loadCasesFromFile } = await import('../scripts/ai-eval/load-cases');
+const { getRegisteredTools } = await import('@/lib/ai/tool-registry');
 
 const FAKE_KEY = 'sk-or-test-cam-459';
 
@@ -47,6 +49,30 @@ function stubFetch() {
   const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ok')));
   vi.stubGlobal('fetch', mockFetch);
   return mockFetch;
+}
+
+/** Minimal single-chunk SSE stream (mirrors __tests__/cam-412-openrouter-streaming.test.ts's helper), only used to exercise the 3rd `buildSystemPrompt` call path (Seams & refs). */
+function stubStreamingFetch() {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: 'ok' }, finish_reason: null }] })}\n\n`)
+      );
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+  const response = new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+  const mockFetch = vi.fn().mockResolvedValue(response);
+  vi.stubGlobal('fetch', mockFetch);
+  return mockFetch;
+}
+
+async function drainStream(gen: AsyncGenerator<unknown>) {
+  for await (const _ev of gen) {
+    // drain only — this test asserts the OUTGOING request body, not the stream events
+  }
 }
 
 async function getSystemPromptFor(userText: string, ctx: { userId?: string } = {}): Promise<string> {
@@ -156,6 +182,74 @@ describe('buildSystemPrompt — CAM-459 explicit 3-zone answer policy (authed pa
 
     expect(content).toContain(ZONE_C_MARKER);
     expect(content).toMatch(/never execute it or claim it was done/i);
+  });
+});
+
+describe('buildSystemPrompt — CAM-459 3rd call path (runAssistantTurnFromMessagesStreaming, Seams & refs)', () => {
+  // QA gap-fill (independent verify): the two describe blocks above prove the
+  // policy is present via `runAssistantTurn` and `runAssistantTurnFromMessages`
+  // (guest + authed). Neither exercises `runAssistantTurnFromMessagesStreaming`
+  // — the story's own Seams & refs names it as the 3rd of exactly THREE
+  // `buildSystemPrompt` call paths ("each builds its own [system, ...] array
+  // from the same function"). Source inspection confirms all three call the
+  // identical `buildSystemPrompt(new Date(), ctx)` unconditionally (no branch
+  // omits the new zone lines for either path) — this test closes the loop at
+  // runtime so a future edit that diverges the streaming path's own array
+  // construction fails loudly here, not silently in prod.
+  it('[unit] the 3-zone policy + bridge + honest no-data + signed-in line are present on the streaming call path (ctx.userId set)', async () => {
+    const mockFetch = stubStreamingFetch();
+    await drainStream(
+      runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'มือใหม่ต้องเตรียมอะไรบ้าง' }], { userId: 'user-1' })
+    );
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    const content = body.messages.find((m: { role: string }) => m.role === 'system').content as string;
+
+    expect(content).toContain(ZONE_A_MARKER);
+    expect(content).toContain(ZONE_B_MARKER);
+    expect(content).toContain(ZONE_C_MARKER);
+    expect(content).toContain(BRIDGE_COPY);
+    expect(content).toContain(HONEST_NO_DATA_COPY);
+    expect(content).toContain('The camper is signed in; use getMy* tools for their own bookings, wishlist, and profile.');
+  });
+});
+
+describe('CAM-459 zone-C invariant — the "no booking tool exists today" claim (BR-1/AC-5/EC-5) is a checkable regression guard', () => {
+  // QA gap-fill (independent verify, dispatch item "c"): the Zone C prompt
+  // line is truthful ONLY as long as the real tool registry carries zero
+  // write-capable tools. `ToolTier` (lib/ai/tool-registry.ts) is presently
+  // `'guest' | 'authed'` only — no `'write'` member exists yet, so this
+  // cannot be asserted as "a write tier is rejected by the type system"
+  // (there is nothing of that shape to reject). The checkable regression
+  // surface is: enumerate every tool the app actually registers
+  // (lib/ai/tools/index.ts, imported transitively by openrouter-client.ts
+  // above) and assert each one's tier is still in the current safe set. The
+  // day someone adds a `'write'` tier AND registers a tool at it, this test
+  // goes red — forcing the Zone C prompt line + this story's AC-5 code
+  // comment to be revisited in the SAME change, not silently drift apart.
+  it('[security] every currently registered tool (guest + authed) has a tier in the known-safe set; none is write-capable', () => {
+    const allTools = [...getRegisteredTools('guest'), ...getRegisteredTools('authed')];
+    expect(allTools.length).toBeGreaterThan(0); // sanity: the registry is actually populated
+    for (const tool of allTools) {
+      expect(['guest', 'authed']).toContain(tool.tier);
+    }
+  });
+
+  it('[normal] the exact set of registered tool names matches the known read-only roster (fails loudly if a tool is added/removed)', () => {
+    const names = [...getRegisteredTools('guest'), ...getRegisteredTools('authed')].map((t) => t.name).sort();
+    expect(names).toEqual(
+      [
+        'checkAvailability',
+        'getCampDetail',
+        'getMyBookingDetail',
+        'getMyBookings',
+        'getMyProfile',
+        'getMyWishlist',
+        'searchCampsites',
+      ].sort()
+    );
   });
 });
 
