@@ -97,19 +97,21 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   // 3. Location filter
   // CAM-463 Decision 4 — `province` is now `string | string[]`. The `string`
   // branch is UNCHANGED — byte-identical equality shape for every existing
-  // catalog caller (regression-pinned in cam-463 tests). The `string[]`
-  // branch (NEW, AI tool region-expansion only) emits an `in`-set; an empty
-  // array means "no province filter" (mirrors `addOptionFilter`'s EC guard
-  // below), never a zero-match query.
+  // catalog caller, INCLUDING the falsy guard: an empty string ('') means
+  // "no province filter", exactly like the pre-CAM-463 `if (province) …`
+  // (regression CAM-463 QA found: a widened `province !== undefined` guard
+  // let '' through and set `where.location.province = ''`, matching zero
+  // camps instead of falling through — fixed by keeping the truthy check on
+  // the string path). The `string[]` branch (NEW, AI tool region-expansion
+  // only) emits an `in`-set; an empty array means "no province filter"
+  // (mirrors `addOptionFilter`'s EC guard below), never a zero-match query.
   if (province || district) {
     where.location = where.location || {};
-    if (province !== undefined) {
-      if (Array.isArray(province)) {
-        const names = province.filter(Boolean);
-        if (names.length > 0) where.location.province = { in: names };
-      } else {
-        where.location.province = province; // UNCHANGED — byte-identical for every catalog caller
-      }
+    if (Array.isArray(province)) {
+      const names = province.filter(Boolean);
+      if (names.length > 0) where.location.province = { in: names };
+    } else if (province) {
+      where.location.province = province; // UNCHANGED — byte-identical for every catalog caller ('' falls through, no filter)
     }
     if (district) where.location.district = district;
   }
