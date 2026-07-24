@@ -94,12 +94,19 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     expect(loadErrors[0].message).toMatch(/failed to read\/parse/);
   });
 
-  it('[normal] the shipped smoke fixture (golden-cases.json) itself parses clean with zero load errors', () => {
+  it('[normal] the shipped golden fixture (golden-cases.json) itself parses clean with zero load errors', () => {
+    // CAM-475 — raised from the original 6-8 smoke-only ceiling to the real
+    // fixture size once the full 40-case research §5 corpus was added
+    // (8 retained smoke cases + 40 corpus cases, 9 of the 40 tagged
+    // `group:"deferred"` for a not-yet-built capability). `DEFAULT_MAX_EVAL_CASES`
+    // (guards.ts, BR-7/CAM-344 spend cap) is the real ceiling this must never
+    // approach — asserted separately so a future fixture growth is caught
+    // long before it risks the spend-cap guard.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBeGreaterThanOrEqual(6);
-    expect(cases.length).toBeLessThanOrEqual(8);
+    expect(cases.length).toBe(48);
+    expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
   });
