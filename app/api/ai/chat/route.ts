@@ -181,9 +181,20 @@ function toChatMessages(history: ConversationMessageView[]): ChatMessage[] {
  * must keep the prompt byte-identical to before this story, exactly like
  * every other caller that never passes the param. Only a request that
  * explicitly resends `lastResults: []` asserts "nothing shown yet" (EC-4).
+ *
+ * CAM-460 rework (Defect #2) — `priceLow` passes through unchanged (a number
+ * needs no sanitization, only the `name` string is a prompt-injection sink):
+ * `undefined` (an older/not-yet-updated guest body) stays `undefined` (no
+ * price data, never coerced to 0/free), `null` stays `null` (free), a number
+ * stays a number (the starting price the guest's card displayed).
  */
 function toShownResults(wire: ShownResultWire[] | undefined): ShownResult[] | undefined {
-  return wire?.map((entry) => ({ ordinal: entry.ordinal, campId: entry.campSiteId, name: entry.name }));
+  return wire?.map((entry) => ({
+    ordinal: entry.ordinal,
+    campId: entry.campSiteId,
+    name: entry.name,
+    priceLow: entry.priceLow,
+  }));
 }
 
 /**

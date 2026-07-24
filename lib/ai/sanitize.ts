@@ -219,6 +219,34 @@ export const MAX_SUGGESTION_LENGTH = 60;
 /** Matches any `<...>` tag (HTML or a forged delimiter) — replaced with a space, never deleted, so words don't glue together. */
 const HTML_TAG_REGEX = /<[^>]*>/g;
 
+/**
+ * CAM-460 rework (BE fix, Defect #1 — QA independent-verify, Important,
+ * cam-460-conversation-state.test.ts "[DEFECT]" case): `HTML_TAG_REGEX`
+ * requires a literal closing `>` to match at all, so an UNCLOSED forged
+ * fragment (no `>` anywhere in the string, e.g. `</shown_results` or
+ * `<user_message`) survives it untouched. That gap is exploitable here
+ * specifically because `sanitizeShownResultName`'s output is embedded inside
+ * the `<shown_results>...</shown_results>` fence (`lib/ai/openrouter-client.ts`
+ * `buildShownResultsBlock`) immediately BEFORE the block's own real closing
+ * tag — an unclosed `</shown_results` fragment can "borrow" the `>` off that
+ * real tag and read, to the model, as an early/ambiguous close.
+ *
+ * Mirrors `DELIMITER_TAG_PREFIX_REGEX`'s proven pattern above (open/close,
+ * optional whitespace, NO closing `>` required) but is deliberately
+ * GENERALIZED from one fixed tag-name literal to any tag-name-shaped token —
+ * unlike `sanitizeForPrompt` (which only ever needs to guard the ONE
+ * `user_message` delimiter; other angle-bracket text in free user text is
+ * legitimate), this function's own contract above is broader: "a shown-result
+ * name has no legitimate reason to carry ANY tag-like markup at all". The
+ * value is also embedded in a DIFFERENT fence (`shown_results`, not
+ * `user_message`) than `DELIMITER_TAG_PREFIX_REGEX` targets, so reusing that
+ * constant verbatim would close only the `<user_message` half of the gap and
+ * leave an unclosed `</shown_results` fragment live. `HTML_TAG_REGEX` above
+ * already strips ANY closed tag regardless of name; this is its unclosed-tag
+ * sibling, kept equally name-agnostic for the same reason.
+ */
+const UNCLOSED_TAG_PREFIX_REGEX = /<\s*\/?\s*[a-zA-Z][\w-]*/g;
+
 /** Common markdown syntax markers (bold/italic/inline-code/heading/bullet/numbered-list) — stripped, the underlying words are kept. */
 const MARKDOWN_SYNTAX_REGEX = /(\*\*|__|\*|_|`+|^#{1,6}\s*|^[-*+]\s+|^\d+\.\s+)/gm;
 
@@ -248,10 +276,21 @@ export function sanitizeSuggestion(rawText: string): string | null {
  * (this is defense-in-depth; the real bound is zod at the wire boundary,
  * `lib/validations/ai-chat.ts`) — truncates at `maxLength`, the same
  * never-reject convention `sanitizeForPrompt` uses.
+ *
+ * CAM-460 rework (BE fix, Defect #1) — after the closed-tag pass + whitespace
+ * collapse, a final hard-strip pass (`UNCLOSED_TAG_PREFIX_REGEX`) removes any
+ * still-remaining UNCLOSED opening-half tag fragment (no closing `>` required)
+ * of ANY tag name, mirroring `sanitizeForPrompt`'s `DELIMITER_TAG_PREFIX_REGEX`
+ * backstop but generalized (see that constant's docblock above for why one
+ * fixed tag-name literal is not enough here).
  */
 export function sanitizeShownResultName(rawText: string, maxLength: number): string {
   const withoutControlChars = stripControlChars(rawText);
   const withoutTags = withoutControlChars.replace(HTML_TAG_REGEX, ' ');
-  const collapsed = withoutTags.replace(/\s+/g, ' ').trim();
+  const collapsedFirst = withoutTags.replace(/\s+/g, ' ').trim();
+  // Final hard-strip backstop (defense-in-depth): remove any remaining
+  // unclosed opening-half tag fragment outright, regardless of tag name.
+  const hardStripped = collapsedFirst.replace(UNCLOSED_TAG_PREFIX_REGEX, ' ');
+  const collapsed = hardStripped.replace(/\s+/g, ' ').trim();
   return collapsed.slice(0, maxLength);
 }

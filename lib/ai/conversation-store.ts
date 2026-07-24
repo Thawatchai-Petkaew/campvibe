@@ -292,11 +292,30 @@ export async function loadWindow(
  * (matches `getCampDetail`'s arg name + `card.id`) — the prompt-injection
  * point (`lib/ai/openrouter-client.ts`) accepts this ONE internal shape
  * regardless of which path produced it.
+ *
+ * CAM-460 rework (Defect #2, owner domain correction 2026-07-24) —
+ * `priceLow` added for AC-2/BR-2 price-superlative resolution ("อันที่
+ * ถูกกว่า"/"ถูกที่สุด" over the shown set). This is the DISPLAYED starting
+ * price — the exact `AiChatCardResponse.priceLow` the camper's card already
+ * showed (`components/ai-chat/AiChatCampCard.tsx` renders it as `card.priceLow`
+ * + "/คืน") — NOT "the" price: a camp's real price is a RANGE
+ * (`priceLow`/`priceHigh`) and a `useSpotView` camp prices PER SPOT
+ * (`Spot.pricePerNight` varies), so this field is a FROM/starting price kept
+ * strictly for CARD PARITY ("remember what was shown") — never widened to
+ * `priceHigh` or a spot price the camper never saw (that would show the
+ * camper a number they never actually saw, worse than not comparing at all).
+ * `null`/`0` = free (same "no price = free" convention the card already
+ * uses). `undefined` = no price data available for this entry (e.g. an
+ * older/not-yet-updated guest wire body that hasn't resent it) — MUST be
+ * treated as "unknown", never coerced to 0/free. The authed derive path
+ * below always sets a defined value (`card.priceLow` is never `undefined`);
+ * only the guest wire path can leave it `undefined`.
  */
 export interface ShownResult {
   ordinal: number;
   campId: string;
   name: string;
+  priceLow?: number | null;
 }
 
 /**
@@ -342,6 +361,9 @@ export function deriveShownState(history: ConversationMessageView[]): Conversati
       ordinal: index + 1,
       campId: card.id,
       name: card.nameTh,
+      // CAM-460 rework (Defect #2) — card-parity: the SAME priceLow the
+      // camper's card already displayed, never a range/spot price never shown.
+      priceLow: card.priceLow,
     }));
     for (const card of cards) shownIds.add(card.id);
   }

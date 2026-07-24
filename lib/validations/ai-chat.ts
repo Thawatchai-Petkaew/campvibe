@@ -79,11 +79,22 @@ const chatMessageSchema = z.object({
  * out-of-range/malformed entry fails HERE (400 `invalid_request`, before any
  * paid model call) — it never reaches the prompt (D2 security review point
  * 3).
+ *
+ * CAM-460 rework (Defect #2, owner domain correction 2026-07-24) — `priceLow`
+ * is ADDITIVE and OPTIONAL (api.md rule 12: backward-compatible by addition):
+ * an existing/older guest body that hasn't resent it still parses byte-
+ * identically (no client sends `lastResults` at all yet — this wire is not
+ * yet consumed by any shipped client). `null` = free (same "no price = free"
+ * convention `AiChatCardResponse.priceLow` already uses); a number = the
+ * STARTING/from price the guest's card displayed (never coerced from/to a
+ * range or a per-spot price); absent = no price data for this entry, never
+ * treated as 0/free.
  */
 export const shownResultSchema = z.object({
   ordinal: z.number().int().positive().max(MAX_SHOWN_RESULTS),
   campSiteId: z.string().uuid(),
   name: z.string().trim().min(1).max(SHOWN_RESULT_NAME_MAX),
+  priceLow: z.number().nullable().optional(),
 });
 
 export type ShownResultWire = z.infer<typeof shownResultSchema>;
