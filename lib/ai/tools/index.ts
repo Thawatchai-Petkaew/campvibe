@@ -14,6 +14,11 @@
  * CAM-465 adds `bulkAvailability` — a NEW read-only `guest`-tier tool (a camp
  * x date-range LIVE availability matrix, hard-capped); an ADDITION only, the
  * read-only-registry invariant (BR-1 above) is unchanged.
+ *
+ * CAM-473 adds `compareCamps` — a NEW read-only `guest`-tier tool (2-4
+ * published camps side by side on named criteria, hard-capped, with a
+ * dedicated lean batch read that leaves `getCampDetail` untouched); another
+ * ADDITION only, the read-only-registry invariant is unchanged.
  */
 import { registerTool } from '@/lib/ai/tool-registry';
 import { searchCampsitesTool } from '@/lib/ai/tools/search-campsites';
@@ -23,6 +28,7 @@ import { getMyProfileTool, getMyWishlistTool } from '@/lib/ai/tools/my-profile-w
 import { getCampDetailTool } from '@/lib/ai/tools/get-camp-detail';
 import { resolveDatesTool } from '@/lib/ai/tools/resolve-dates';
 import { bulkAvailabilityTool } from '@/lib/ai/tools/bulk-availability';
+import { compareCampsTool } from '@/lib/ai/tools/compare-camps';
 
 registerTool(searchCampsitesTool);
 registerTool(checkAvailabilityTool);
@@ -36,6 +42,8 @@ registerTool(getCampDetailTool);
 registerTool(resolveDatesTool);
 // CAM-465 — live-batch, hard-capped camp x date-range availability matrix.
 registerTool(bulkAvailabilityTool);
+// CAM-473 — 2-4 camps side by side on named criteria, hard-capped, dedicated lean batch read.
+registerTool(compareCampsTool);
 
 export {
   searchCampsitesTool,
@@ -47,4 +55,5 @@ export {
   getCampDetailTool,
   resolveDatesTool,
   bulkAvailabilityTool,
+  compareCampsTool,
 };
