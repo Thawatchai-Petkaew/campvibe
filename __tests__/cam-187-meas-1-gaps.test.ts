@@ -726,9 +726,18 @@ describe('load-mock-staging.mjs — static source assertions (gap 4)', () => {
 
 describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
   /**
-   * Prove-It: if the JSON had been generated with wrong counts (e.g. 64 hosts
-   * instead of 65), this test would fail immediately — it is a real guard on
+   * Prove-It: if the JSON had been generated with wrong counts (e.g. 70 hosts
+   * instead of 71), this test would fail immediately — it is a real guard on
    * the fixture being correct.
+   *
+   * CAM demand-seeding toolkit (Stage 0, province coverage 10→77) — the counts
+   * below were bumped from the pre-Stage-0 baseline (65 hosts / 128 campsites /
+   * 10 provinces) to the post-merge reality (71 hosts / 298 campsites / 77
+   * provinces): scripts/gen-mock-data.mjs + scripts/merge-mock-data.mjs
+   * regenerated prisma/data/mock-staging-all.json to add camps for the 67
+   * previously-uncovered provinces on top of the unchanged historical baseline
+   * (see merge-mock-data.mjs's module doc comment). This IS the fixture this
+   * test guards — the counts must track it, not freeze it.
    */
 
   const DATA_PATH = resolve(root, 'prisma/data/mock-staging-all.json');
@@ -746,24 +755,24 @@ describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
     }>;
   };
 
-  it('meta reports 65 hosts', () => {
-    expect(data.meta.totalHosts).toBe(65);
+  it('meta reports 71 hosts', () => {
+    expect(data.meta.totalHosts).toBe(71);
   });
 
-  it('meta reports 128 campsites', () => {
-    expect(data.meta.totalCampsites).toBe(128);
+  it('meta reports 298 campsites', () => {
+    expect(data.meta.totalCampsites).toBe(298);
   });
 
-  it('hosts array has exactly 65 entries', () => {
-    expect(data.hosts).toHaveLength(65);
+  it('hosts array has exactly 71 entries', () => {
+    expect(data.hosts).toHaveLength(71);
   });
 
-  it('total campsite entries across all hosts equals 128', () => {
+  it('total campsite entries across all hosts equals 298', () => {
     const total = data.hosts.reduce(
       (sum, h) => sum + (h.campsites?.length ?? 0),
       0,
     );
-    expect(total).toBe(128);
+    expect(total).toBe(298);
   });
 
   it('every campsite has a non-empty nameThSlug (upsert key must be present)', () => {
