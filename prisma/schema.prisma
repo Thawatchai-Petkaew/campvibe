@@ -904,3 +904,18 @@ model ChatMessage {
   @@unique([conversationId, seq])
   @@index([conversationId, seq])
 }
+
+// ============================================================================
+// CAM-462 — reference/seed table of official Thai public holidays, read by
+// the resolveDates tool (lib/ai/tools/resolve-dates.ts) to resolve holiday
+// Thai date phrases (e.g. "วันหยุดยาวหน้า"). Seeded current + next calendar
+// year (prisma/data/thai-holidays.json). Isolated — no FK, no relation to any
+// existing model — so the migration is a clean additive create/drop (D2/D6).
+// ============================================================================
+
+model ThaiHoliday {
+  date          DateTime @id @db.Date // [Geo/Public] holiday civil date — natural PK, date-only (no time/tz drift)
+  nameTh        String // [Public] official Thai holiday name
+  isLongWeekend Boolean  @default(false) // [Public] part of a contiguous >=3-day non-working span (BR-4), STORED + test-guarded (D2)
+  createdAt     DateTime @default(now())
+}

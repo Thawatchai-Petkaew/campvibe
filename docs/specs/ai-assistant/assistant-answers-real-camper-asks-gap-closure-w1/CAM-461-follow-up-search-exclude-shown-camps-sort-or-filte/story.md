@@ -1,0 +1,73 @@
+---
+artifact: story
+feature: ai-assistant
+epic: assistant-answers-real-camper-asks-gap-closure-w1 (CAM-456)
+story: CAM-461 — Follow-up search refines instead of restarts (excludeIds + sort + OR-within-facet-group)
+status: Discovery (spec authored, awaiting G1 → G2 architect)
+version: v1
+updated: 2026-07-24
+---
+
+<!--
+Answers are model-generated per turn, so Thai in the AC "Then" column is REPRESENTATIVE copy the model is instructed to produce, not a fixed locales string (same convention as CAM-460 BR-6). The testable contract is the eval BEHAVIOR (correct tool + params: excludeIds set / sort value / OR-array) + owner-verify reading a real answer. See BR-6.
+This story is NOT spec-lite: it CHANGES the `searchCampsites` tool contract AND the SHARED `buildCampSiteWhere` where-builder (6+ callers) — full G1 → G2 (architect) → build.
+SCOPE CALL (PO, atomicity Iron Rule): the epic's story-5 line bundled FOUR capabilities. Three of them (excludeIds + sort + OR-within-group) are ONE atomic unit — they all extend the SAME `searchCampsites` tool + its where-builder ("refine the follow-up search"). The fourth, `compareCamps` (a NEW tool + batch `getCampDetails` read, P2 comparative), is a separate capability that touches `searchCampsites` not at all; bundling it pushes the PR well past ~400 lines. It is moved to Out-of-scope → a sibling follow-up story. See the handoff `needs_decision`.
+-->
+
+## Story
+As a **Camper**, I want a follow-up search to refine what I already saw — hide the camps just shown, sort them my way, and match either of two options in one group — so that "ขออีก", "เรียงจากถูกไปแพง", and "ริมน้ำหรือชายหาด" return NEW/correct camps instead of the same list or an empty one.
+Why: today `searchCampsites` has no `excludeIds` and no `sort`, and each facet group takes ONE code that is AND-ed — so "ขออีก / ไม่เอาที่แสดงไปแล้ว" re-returns the same camps, "เรียงจากถูกไปแพง" is ignored, and "ริมน้ำหรือชายหาด" silently AND-s two terrains and matches nothing (research §2 P4/P5, code comment `search-campsites.ts` line 35-39).
+Scope: three additive refinements to `searchCampsites` — (1) `excludeIds` (exclude the shown-set from CAM-460 state so a re-search returns new camps), (2) `sort` (reuse the catalog's `related`/`price_asc`/`price_desc`/`rating` vocabulary), (3) OR-within-a-facet-group (each terrain/access/activities/facilities group accepts multiple codes OR-ed, still AND across groups). No new tool, no new screen.
+Depends on: CAM-460 (`shownIds` — the accumulated shown-set that feeds `excludeIds`) · CAM-457 (eval harness — the golden-case format P4/P5 cases attach to) · research `docs/research/campvibe-ai-gap-closure-data-layer.md` §5 phase-1 item 1-2 + §2 (P2/P4/P5) · ADR-009 (no-forked-data-path — reuse `buildCampSiteWhere`/`orderByFor`, no parallel query)
+
+## AC
+<!-- Then = what the camper sees (representative Thai, model-generated) · System effect = tool/data outcome, plain language · Neg/edge = failure twin. -->
+| # | Given | When | Then (user sees, Thai representative) | System effect | Neg/edge |
+|---|---|---|---|---|---|
+| AC-1 | The assistant just showed N camps this conversation (CAM-460 `shownIds` non-empty) | The camper asks for more, e.g. `ขออีก` / `ไม่เอาที่แสดงไปแล้ว` / `มีที่อื่นอีกไหม` | A list of DIFFERENT camps, none repeating the ones already shown (e.g. `เจอเพิ่มอีก 3 ลานที่ยังไม่ได้แสดงนะ...`) | `searchCampsites` is called with `excludeIds` = the shown set; the result excludes every already-shown camp id | EC-1 |
+| AC-2 | Camps match the camper's criteria | The camper asks to order them, e.g. `เรียงจากถูกไปแพง` | The cards are returned cheapest-first (e.g. `เรียงจากราคาถูกไปแพงให้แล้ว...`) | `searchCampsites` is called with `sort: "price_asc"`; results ordered by starting price ascending (free camps first), id tiebreaker | EC-2 |
+| AC-3 | Camps match the camper's criteria | The camper asks for best-reviewed, e.g. `เรียงตามรีวิวดีสุด` / `เรตติ้งสูงก่อน` | The cards are returned best-rated-first (e.g. `เรียงตามรีวิวให้แล้ว...`) | `searchCampsites` is called with `sort: "rating"`; results ordered by rating descending, no-review camps last | EC-2 |
+| AC-4 | The camper names two options within one facet group | The camper asks either/or in a group, e.g. `ริมน้ำหรือชายหาด` | Camps that are riverside OR beach (the union), not only camps that are both (e.g. `เจอทั้งลานริมน้ำและลานชายหาดรวมกัน...`) | `searchCampsites` is called with that group as an array (e.g. `terrain: ["RIVE","BEAC"]`); the group matches ANY code (OR within group), still AND across groups | EC-3 |
+| AC-5 | Every camp the criteria could match has already been shown | The camper asks `ขออีก` when nothing new remains | An honest "no more" answer, e.g. `แสดงครบทุกลานที่ตรงกับที่หาแล้วนะ ไม่มีเพิ่มอีก ลองปรับเงื่อนไขดูไหม` — no camp is invented or repeated | `searchCampsites` returns `[]` (all matches excluded); the assistant states there are none left and offers to change the filter, never re-shows an excluded camp | EC-1 |
+
+## Rules
+- BR-1 `excludeIds`: a new optional `searchCampsites` arg — an array of camp id strings the search must NOT return (`buildCampSiteWhere` gains an id-exclusion, `NOT id IN (...)`). Bounded by `MAX_EXCLUDE_IDS` (default 50 — a state/model-controlled array length gets a hard cap checked BEFORE the query, CAM-344 lesson); over the cap → keep the first `MAX_EXCLUDE_IDS`, never fail the search. Empty/absent = no exclusion (unchanged behavior for every other caller). The id set = CAM-460's accumulated `shownIds` (proves AC-1/AC-5).
+- BR-2 `sort`: a new optional `searchCampsites` arg, `z.enum(['related','price_asc','price_desc','rating'])` — the SAME `VALID_SORTS` vocabulary the catalog uses (`lib/catalog-cursor.ts`); ordering is applied via the SAME `orderByFor(sort)` (ADR-009, no parallel sort logic). Thai intent → value: `ถูกไปแพง`→`price_asc`, `แพงไปถูก`→`price_desc`, `รีวิว/เรตติ้งดีสุด`→`rating`. Absent → default `related` (newest-first; today the tool applies NO explicit order — this makes results deterministic). 🟡 Default `related` — confirm at G2 the tool should not stay order-unspecified (proves AC-2/AC-3).
+- BR-3 OR-within-facet-group: each of `terrain`/`access`/`activities`/`facilities` accepts an ARRAY of codes; multiple codes in ONE group match ANY of them (OR = union, `options: { some: { code: { in: [...] } } }`); groups are still AND-ed against each other (a camp must satisfy every named group). This REPLACES today's "one code per group, AND-ed" so `ริมน้ำหรือชายหาด` returns the union, not the impossible intersection (proves AC-4).
+- BR-4 The three refinements are independent and additive — any subset may appear on one call (e.g. `excludeIds` + `sort: price_asc` together for "ขออีก เรียงจากถูกไปแพง"). Each unrecognized sort value / unknown facet code fails the tool's zod schema BEFORE any query runs (existing `dispatchTool` → `invalid_args`, no DB hit — same as CAM-408 BR-3).
+- BR-5 The `SEARCH_CAMPSITES_MAX_RESULTS = 10` hard cap (BR-2 of CAM-270) is unchanged — `excludeIds`/`sort` refine WITHIN that cap, never widen it.
+- BR-6 Model wording is generated per turn, so Thai in the AC "Then" column is representative, not char-for-char; the testable contract = eval BEHAVIOR (P4/P5 golden cases: correct tool + `excludeIds`/`sort`/facet-array params) + owner-verify on localhost. `excludeIds` carries only camp ids the camper was already shown (public data, no new PII surface).
+
+## Edge cases
+- EC-1 IF `excludeIds` covers every camp the criteria match THEN `searchCampsites` returns `[]` and the assistant says there are none left (AC-5) — it MUST NOT re-show an excluded camp or invent one (CAM-437 grounding); IF `excludeIds` exceeds `MAX_EXCLUDE_IDS` THEN keep the first `MAX_EXCLUDE_IDS`, never error (BR-1).
+- EC-2 IF `sort` is an unrecognized value THEN the tool's zod enum rejects it as `invalid_args` before any query (no silent fallback to a wrong order) (BR-2/BR-4).
+- EC-3 IF a facet group array is empty `[]` THEN treat it as "group not specified" (no filter for that group), never a query that matches zero rows; IF a code in the array is not a real MasterData code THEN zod rejects the whole call as `invalid_args` (BR-3/BR-4).
+- EC-4 IF a guest (stateless `{messages}` path) asks `ขออีก` with no carried shown-set THEN there is no `excludeIds` to apply → the search runs unfiltered (may repeat camps); the shown-set source is CAM-460's guest wire — this story consumes it, does not create it (BR-1).
+- EC-5 IF `buildCampSiteWhere`'s new OR-within-group semantics would change an EXISTING catalog caller's behavior (today multi-code = AND) THEN the change MUST be opt-in / non-breaking for those 6+ callers — STOP and resolve at G2, do not flip shared semantics (architecture.md 15b, see Seams & refs).
+
+## Data
+- No schema change, no migration — all three refinements are query-shape changes: `searchCampsites` args (`excludeIds`/`sort`/facet-arrays) → `buildCampSiteWhere` (id-exclusion + OR-within-group) + `orderByFor` (sort). Reads the SAME `CampSite` rows via the SAME `aiCampCardSelect`.
+- `excludeIds` is bounded input (`MAX_EXCLUDE_IDS`) — no unbounded scan.
+
+## Seams & refs
+<!-- This story changes how the shared where-builder + the AI search tool derive results — grep-inventory of every caller (architecture.md 15b, CAM-355 lesson). -->
+- Reuse: `lib/campsite-filters.ts` `buildCampSiteWhere` (add `excludeIds` id-exclusion + change each facet group from AND-per-code to OR-within-group) · `lib/catalog-cursor.ts` `orderByFor`/`VALID_SORTS` (reuse the catalog's sort vocabulary + orderBy — pure, ADR-009, no forked sort) · `lib/ai/tools/search-campsites.ts` (the tool contract: new args + jsonSchema descriptions + pass-through to the where-builder) · CAM-460 `shownIds` (`lib/ai/conversation-store.ts` `ConversationShownState.shownIds`) = the `excludeIds` source, injected/carried per CAM-460's mechanism.
+- Grep-inventory of `buildCampSiteWhere` callers (all inherit any semantics change — tag for G2): `lib/ai/tools/search-campsites.ts` = **CHANGE** (new args) · `app/api/campsites/route.ts` + `app/api/campgrounds/route.ts` + `app/actions/getCampSiteCount.ts` + `app/actions/getCampgroundCount.ts` + `lib/catalog-cursor.ts` (keyset merge) = **MUST-STAY-UNCHANGED in behavior**: the OR-within-group change is only safe if it is ADDITIVE for these (e.g. the AI tool passes arrays while the string/comma path keeps its current AND meaning, OR the semantics flip is explicitly ratified for the catalog too). This is the architect's G2 call — flagged, not decided here (🟡). `orderByFor` caller `app/api/campsites/route.ts` = **NO-CHANGE** (pure reuse).
+- Eval: `scripts/ai-eval/golden-cases.json` + `scripts/ai-eval/case-schema.ts` — P4 (sort) + P5 (exclusion/negation) golden cases are ADDED the same way CAM-459/CAM-460 added theirs; the fixture is currently 8 SMOKE cases and `DEFAULT_MAX_EVAL_CASES = 500` (`scripts/ai-eval/guards.ts`), so no ceiling blocks adding them. The real corpus cases are not yet seeded — a SOFT dependency on CAM-457's format, not a hard block (flag only if a later corpus-freeze story lands first).
+- Refs: research §5 phase-1 item 1-2 + §2 (P2/P4/P5) · ADR-009 (no-forked-data-path) · CAM-270 (`SEARCH_CAMPSITES_MAX_RESULTS`, BR-2) · CAM-408 (facet-code zod-enum precedent) · CAM-344 (cap a state/model-controlled array before the query) · CAM-460 (`shownIds`).
+
+## Out of scope
+- `compareCamps(ids[], criteria[])` — a NEW tool that returns two-or-more shown camps side-by-side by named criteria (price/capacity/facilities/…) for `เทียบสองอันนี้` (P2 comparative), backed by a batch `getCampDetails(ids[])` read (today `getCampDetail` is single-id). This is a separate capability (a new tool + a batch read model, not a `searchCampsites` refinement) and would push this PR past ~400 lines → its own sibling story (id TBD by orchestrator at G1; see handoff `needs_decision`). Batch `getCampDetails` ships WITH that story (it is the read under `compareCamps`, no other caller yet).
+- Slot editing / multi-search history / any schema or facet-score change → CAM-460 out-of-scope + phase 2/3.
+- No new UI — refinements ride the existing card surface.
+
+## Self-verify
+- AC-1, AC-5 → eval (P5 exclusion golden cases: `ขออีก` → `searchCampsites` with `excludeIds` = shown set; all-excluded → `[]` + no-more clarify) + owner-verify on localhost (dev DB).
+- AC-2, AC-3 → eval (P4 sort cases: `เรียงจากถูกไปแพง`→`sort:price_asc`, `รีวิวดีสุด`→`sort:rating`) + owner-verify.
+- AC-4 → eval (P5 OR case: `ริมน้ำหรือชายหาด`→`terrain:["RIVE","BEAC"]`, union returned) + a `buildCampSiteWhere` unit test asserting OR-within-group / AND-across-groups.
+- Story-specific: `excludeIds` bounded by `MAX_EXCLUDE_IDS`, capped BEFORE the query (unit) · `SEARCH_CAMPSITES_MAX_RESULTS` cap unchanged · the 6+ `buildCampSiteWhere` callers keep their current behavior (regression test / architect-confirmed at G2, EC-5) · unrecognized sort/code → `invalid_args`, no query (EC-2/EC-3) · IF the architect's G2 approach to the shared where-builder or the `excludeIds` delivery mechanism contradicts these AC THEN STOP and re-open at G2 — do not improvise.
+- Gate = /quality-gate (lint · typecheck · test · build) + eval smoke green · Done = every AC verified on localhost (dev DB) before merge; re-verifiable on the real Staging URL at G4.
+- Hand-off at G1 approval: **architect G2** owns — (a) HOW `excludeIds` reaches the tool (model emits it from CAM-460's injected shown-set state vs a server-injected mechanism; 🟡 default = model-emits-from-state, behavior/AC fixed either way) · (b) making the `buildCampSiteWhere` OR-within-group change non-breaking for the 6+ existing callers (opt-in vs ratified semantics flip) · (c) the default sort decision (BR-2) · (d) prompt-instruction updates so the model sets `excludeIds`/`sort`/facet-arrays from intent. **security G2** reviews `excludeIds` as bounded/validated input (already zod string-array + cap).
+
+## Changelog
+- v1 (2026-07-24) — created; 6-dimension Discovery (PO owns Business + Functional). Researched real code: `searchCampsites` today has no `excludeIds`/`sort` and each facet group takes ONE AND-ed code (`search-campsites.ts` line 35-39); `buildCampSiteWhere` (`lib/campsite-filters.ts`) is SHARED by 6+ callers (grep-inventory above) → OR-within-group is the CAM-355 shared-function risk, flagged for architect G2; `orderByFor`/`VALID_SORTS` (`lib/catalog-cursor.ts`) reused for sort (ADR-009); `shownIds` (CAM-460) is the `excludeIds` source. Scope call: `compareCamps` + batch `getCampDetails` split to a sibling story (atomicity) — see `needs_decision`. Zero open clarification markers.

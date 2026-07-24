@@ -51,6 +51,10 @@ vi.mock('@/lib/ai/conversation-store', () => ({
   createConversation: (...args: unknown[]) => mockCreateConversation(...args),
   loadWindow: (...args: unknown[]) => mockLoadWindow(...args),
   appendTurn: (...args: unknown[]) => mockAppendTurn(...args),
+  // CAM-460 (D1) — handleV2Turn now calls deriveShownState(history) on every
+  // v2 turn (the ADR-015 scope-check test below); a static "nothing shown"
+  // stub keeps every existing assertion in this file unchanged.
+  deriveShownState: () => ({ lastResults: [], shownIds: [] }),
   MAX_CONTENT_TEXT_LENGTH: 4000,
 }));
 

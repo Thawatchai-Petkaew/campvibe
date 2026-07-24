@@ -19,10 +19,20 @@ import { prisma } from '@/lib/prisma';
 import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-models/ai-camp-card';
 import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
+import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
+import { resolveRegionForSearch } from '@/lib/thai-regions';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** BR-2 — the tool NEVER returns more than this many cards, regardless of any model-requested count. */
 export const SEARCH_CAMPSITES_MAX_RESULTS = 10;
+
+/**
+ * CAM-461 BR-1 — the model-emitted `excludeIds` array is sliced to this many
+ * ids BEFORE `buildCampSiteWhere`/`findMany` ever runs (CAM-344 lesson: cap a
+ * model-controlled array length before the query, never after). Over the cap
+ * → keep the first MAX_EXCLUDE_IDS, never fail the search (BR-1/EC-1).
+ */
+export const MAX_EXCLUDE_IDS = 50;
 
 /**
  * CAM-408 BR-3 — real MasterData taxonomy codes (source: `prisma/seed.ts`
@@ -53,17 +63,55 @@ const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTi
 
 export const searchCampsitesArgsSchema = z.object({
   province: z.string().trim().min(1).max(100).optional(),
+  /**
+   * CAM-463 Decision 2 — a plain STRING (like `province`), NOT `z.enum(6)`.
+   * BR-2 mandates a code alias map (`อีสาน`→NORTHEAST) and BR-4/AC-6 mandate
+   * the honest-fallback (an unrecognized word never fails validation — it
+   * falls through to 0 rows + the banner). A hard enum would push alias
+   * normalization into model judgement and turn AC-6's `ภาคสวรรค์` into
+   * `invalid_args` instead of the required 0-rows-and-banner. Resolved
+   * server-side by `resolveRegionForSearch` (lib/thai-regions.ts) — the model
+   * never needs to know which provinces are "northern".
+   */
+  region: z.string().trim().min(1).max(50).optional(),
   type: z.string().trim().min(1).max(20).optional(),
   /** A specific campsite NAME for an exact-phrase text match — NOT for a general characteristic (see jsonSchema description). */
   keyword: z.string().trim().min(1).max(100).optional(),
   priceMin: z.number().nonnegative().optional(),
   priceMax: z.number().nonnegative().optional(),
   petFriendly: z.boolean().optional(),
-  /** CAM-408 BR-3 — an unrecognized code fails zod validation before this ever reaches Prisma (dispatchTool → invalid_args, no query runs). */
-  terrain: z.enum(TERRAIN_CODES).optional(),
-  access: z.enum(ACCESS_CODES).optional(),
-  activities: z.enum(ACTIVITY_CODES).optional(),
-  facilities: z.enum(FACILITY_CODES).optional(),
+  /**
+   * CAM-408 BR-3 — an unrecognized code fails zod validation before this
+   * ever reaches Prisma (dispatchTool → invalid_args, no query runs).
+   * CAM-461 Decision 4/BR-3 — each group now ALSO accepts an array of codes
+   * (`.or(z.array(...))`), backward-compatible by addition: a today-shaped
+   * single-string call still matches the first union member and validates
+   * byte-identically. Pass an ARRAY only when the camper names two-or-more
+   * options in ONE group (OR-within-group, e.g. "ริมน้ำหรือชายหาด" →
+   * `terrain:["RIVE","BEAC"]"`); a single string stays a single string
+   * (never auto-wrapped) so `buildCampSiteWhere`'s AND-per-code shape for
+   * one code is preserved exactly (see campsite-filters.ts Decision 1).
+   */
+  terrain: z.enum(TERRAIN_CODES).or(z.array(z.enum(TERRAIN_CODES))).optional(),
+  access: z.enum(ACCESS_CODES).or(z.array(z.enum(ACCESS_CODES))).optional(),
+  activities: z.enum(ACTIVITY_CODES).or(z.array(z.enum(ACTIVITY_CODES))).optional(),
+  facilities: z.enum(FACILITY_CODES).or(z.array(z.enum(FACILITY_CODES))).optional(),
+  /**
+   * CAM-461 BR-2 — reuses the catalog's `VALID_SORTS` vocabulary verbatim
+   * (ADR-009, no forked sort). Absent → `related` (BR-2 default, applied in
+   * executeSearchCampsites below) — deterministic, matches the catalog default.
+   */
+  sort: z.enum(VALID_SORTS).optional(),
+  /**
+   * CAM-461 BR-1 — the model reads shown ids from the CAM-460
+   * `<shown_results>` state and passes them here for "ขออีก" / "ไม่เอาที่
+   * แสดงไปแล้ว". Deliberately `z.array(z.string())` — NOT `.uuid()` — a
+   * mis-transcribed id simply excludes nothing (graceful under-exclude,
+   * never `invalid_args`). No rejecting `.max()`: over-cap is sliced to
+   * MAX_EXCLUDE_IDS in executeSearchCampsites (BR-1: "keep the first N,
+   * never fail").
+   */
+  excludeIds: z.array(z.string()).optional(),
   /** Model-requested result count — clamped to SEARCH_CAMPSITES_MAX_RESULTS, never honored above it (BR-2). */
   limit: z.number().int().positive().optional(),
   /**
@@ -99,22 +147,40 @@ export interface SearchCampsitesResult {
 const THAI_CHAR_PATTERN = /[ก-๙]/;
 
 /**
+ * CAM-458 BR-3/D1 — canonical Bangkok-variant alias map (exact-key), applied
+ * BEFORE the `ThailandLocation` lookup below. Covers the high-frequency,
+ * non-substring ways campers refer to Bangkok; substring forms (e.g.
+ * `กรุงเทพ`) already resolve via the existing `contains` query and need no
+ * entry. Pure + deterministic (no DB round-trip for the alias step itself);
+ * scope is Bangkok only — provincial nicknames/slang are phase-2 (out of
+ * scope, see story Out-of-scope).
+ */
+const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  'กทม': 'กรุงเทพมหานคร',
+  'กทม.': 'กรุงเทพมหานคร',
+  'กรุงเทพฯ': 'กรุงเทพมหานคร',
+  'บางกอก': 'กรุงเทพมหานคร',
+});
+
+/**
  * CAM-404 — `Location.province` is stored in English (e.g. "Chiang Mai"), but
  * the model frequently emits the Thai province name it was given by the user
  * (e.g. "เชียงใหม่"). `buildCampSiteWhere` does an exact match on `province`,
  * so an un-resolved Thai value matches zero rows forever even when camps
  * exist. Resolve via `ThailandLocation` (provinceName ↔ provinceNameEn);
- * English input is returned unchanged (no DB round-trip). Coverage is
- * partial (~12 provinces seeded) — an unmapped Thai province, or any lookup
- * error, falls back to the raw value unchanged (never throws), matching the
- * search's prior behavior for those cases.
+ * English input is returned unchanged (no DB round-trip). CAM-458 seeds all
+ * 77 provinces (was ~12) and adds the Bangkok-alias normalization above — an
+ * unmapped Thai word, or any lookup error, still falls back to the raw value
+ * unchanged (never throws), matching the search's prior behavior.
  */
 async function resolveProvinceForSearch(province: string): Promise<string> {
   if (!THAI_CHAR_PATTERN.test(province)) return province;
 
+  const normalized = BANGKOK_ALIASES[province] ?? province;
+
   try {
     const match = await prisma.thailandLocation.findFirst({
-      where: { provinceName: { contains: province } },
+      where: { provinceName: { contains: normalized } },
       select: { provinceNameEn: true },
     });
     return match?.provinceNameEn ?? province;
@@ -131,6 +197,11 @@ const jsonSchema = {
       description:
         'Province name in English, e.g. "Chiang Mai". Thai province names (e.g. เชียงใหม่) are also accepted and resolved to the stored English value server-side.',
     },
+    region: {
+      type: 'string',
+      description:
+        'A Thai geographic region (ภาค) the camper asked about, e.g. "ภาคเหนือ" (North), "อีสาน"/"ภาคตะวันออกเฉียงเหนือ" (Northeast), "ภาคกลาง" (Central), "ภาคตะวันออก" (East), "ภาคตะวันตก" (West), "ภาคใต้" (South). Pass this when the camper names a REGION rather than a single province (e.g. "ภาคเหนือมีลานกางเต็นท์ที่ไหนบ้าง", "อยากไปแคมป์แถวอีสาน") — resolved server-side to every province in that region. If BOTH province and region are given, province wins and region is ignored.',
+    },
     type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
     keyword: {
       type: 'string',
@@ -140,29 +211,51 @@ const jsonSchema = {
     priceMin: { type: 'number', description: 'Minimum nightly price in THB' },
     priceMax: { type: 'number', description: 'Maximum nightly price in THB' },
     petFriendly: { type: 'boolean', description: 'Only include pet-friendly camps when true' },
+    /**
+     * CAM-461 Decision 4 — each taxonomy prop keeps its EXISTING `type:
+     * 'string', enum: CODES` shape (preserves the CAM-408 jsonSchema pin,
+     * `__tests__/cam-408-*.test.ts` "jsonSchema advertises real MasterData
+     * codes"); the description is extended (rather than the shape switched
+     * to a formal `oneOf`) so the model knows it MAY also pass an ARRAY of
+     * the same codes for an OR-within-group ask. The real validation gate
+     * is zod (`z.enum(...).or(z.array(...))`, BR-4) — this jsonSchema is
+     * advisory to the model only, never enforced server-side.
+     */
     terrain: {
       type: 'string',
       enum: TERRAIN_CODES,
       description:
-        'Terrain the campsite is set in — pick ONE that best matches the camper\'s description: RIVE = แม่น้ำ ลำธาร คลองเล็ก (river/stream/creek, e.g. "ติดน้ำ"/"ริมน้ำ"), BEAC = ชายหาด (beach/sea), MTNS = ภูเขา (mountain/surrounded by mountains, e.g. "วิวภูเขา"), FORE = ป่า (forest).',
+        'Terrain the campsite is set in — pick ONE that best matches the camper\'s description, or pass an ARRAY of codes when the camper names two-or-more options in one group (e.g. "ริมน้ำหรือชายหาด" → ["RIVE","BEAC"], matches EITHER). RIVE = แม่น้ำ ลำธาร คลองเล็ก (river/stream/creek, e.g. "ติดน้ำ"/"ริมน้ำ"), BEAC = ชายหาด (beach/sea), MTNS = ภูเขา (mountain/surrounded by mountains, e.g. "วิวภูเขา"), FORE = ป่า (forest).',
     },
     access: {
       type: 'string',
       enum: ACCESS_CODES,
       description:
-        'How campers reach the site — pick ONE: DRIV = ขับรถ (drive up), WALK = เดิน (walk in), HIKE = ไต่เขา (hike in), BAOT = เรือ (boat access only).',
+        'How campers reach the site — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): DRIV = ขับรถ (drive up), WALK = เดิน (walk in), HIKE = ไต่เขา (hike in), BAOT = เรือ (boat access only).',
     },
     activities: {
       type: 'string',
       enum: ACTIVITY_CODES,
       description:
-        'A specific on-site activity the camper asked for — pick ONE: SWIM ว่ายน้ำ, HIKI เดินเล่น, SURF เล่นเซิร์ฟ, FISH ตกปลา, WILD ส่องสัตว์ป่า, BOAT พายเรือ, HORS ขี่ม้า, OFFR ออฟโรด, LIVE ดนตรีสด, CLIM ปีนเขา.',
+        'A specific on-site activity the camper asked for — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): SWIM ว่ายน้ำ, HIKI เดินเล่น, SURF เล่นเซิร์ฟ, FISH ตกปลา, WILD ส่องสัตว์ป่า, BOAT พายเรือ, HORS ขี่ม้า, OFFR ออฟโรด, LIVE ดนตรีสด, CLIM ปีนเขา.',
     },
     facilities: {
       type: 'string',
       enum: FACILITY_CODES,
       description:
-        'A specific facility the camper asked for — pick ONE: SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี.',
+        'A specific facility the camper asked for — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี.',
+    },
+    sort: {
+      type: 'string',
+      enum: VALID_SORTS,
+      description:
+        'How to order the results — related (default, newest first), price_asc (ถูกไปแพง — cheapest first, free camps first), price_desc (แพงไปถูก — most expensive first), rating (รีวิว/เรตติ้งดีสุด — best-rated first, no-review camps last).',
+    },
+    excludeIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Campsite ids to EXCLUDE from the results — pass the ids listed in <shown_results> when the camper asks for more/other/different camps (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") so the search returns camps NOT already shown this conversation. Omit for a normal search.',
     },
     limit: { type: 'number', description: `Max results to return (capped at ${SEARCH_CAMPSITES_MAX_RESULTS})` },
     startDate: { type: 'string', description: 'Stay start date, ISO 8601 (e.g. 2026-08-01) — only when the camper gave a date range; enables a live "เหลือ N ที่" count per card.' },
@@ -172,10 +265,26 @@ const jsonSchema = {
 } as const;
 
 export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise<SearchCampsitesResult> {
-  const province = args.province !== undefined ? await resolveProvinceForSearch(args.province) : undefined;
+  // CAM-463 Decision 2/BR-3 — province is consulted FIRST: when both province
+  // and region are supplied, region is dropped (never AND-ed against the
+  // single province, which would empty the result — AC-4). Region alone
+  // expands to its province set via the pure, synchronous
+  // `resolveRegionForSearch` (no DB round-trip, unlike resolveProvinceForSearch).
+  let provinceFilter: string | string[] | undefined;
+  if (args.province !== undefined) {
+    provinceFilter = await resolveProvinceForSearch(args.province);
+  } else if (args.region !== undefined) {
+    provinceFilter = resolveRegionForSearch(args.region);
+  }
+
+  // CAM-461 BR-1/EC-1 — bound the model-controlled excludeIds array BEFORE
+  // buildCampSiteWhere/findMany ever runs (CAM-344 lesson: cap before the
+  // query, never after). Over the cap → keep the first MAX_EXCLUDE_IDS,
+  // never fail the search.
+  const excludeIds = args.excludeIds !== undefined ? args.excludeIds.slice(0, MAX_EXCLUDE_IDS) : undefined;
 
   const where = buildCampSiteWhere({
-    province,
+    province: provinceFilter,
     type: args.type,
     keyword: args.keyword,
     min: args.priceMin !== undefined ? String(args.priceMin) : undefined,
@@ -185,14 +294,19 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     access: args.access,
     activities: args.activities,
     facilities: args.facilities,
+    excludeIds,
   });
 
   // BR-2: hard cap, never overridden by a larger model-supplied count.
   const take = Math.min(args.limit ?? SEARCH_CAMPSITES_MAX_RESULTS, SEARCH_CAMPSITES_MAX_RESULTS);
 
+  // CAM-461 BR-2/Decision 3 — reuse orderByFor verbatim (ADR-009, no forked
+  // sort). Absent `sort` defaults to 'related' — makes the previously
+  // order-unspecified findMany deterministic (BR-2 default, ratified at G2).
   const rows = await prisma.campSite.findMany({
     where,
     select: aiCampCardSelect,
+    orderBy: orderByFor(args.sort ?? 'related'),
     take,
   });
 
@@ -225,7 +339,10 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card.',
+    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
+    'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first). ' +
+    'When the camper asks for MORE, OTHER, or DIFFERENT camps than what was already shown this conversation (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") — re-call this tool with the SAME filters plus `excludeIds` set to the campSiteIds listed in <shown_results>, so the search returns camps not already shown.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
   tier: 'guest',
   parameters: searchCampsitesArgsSchema,

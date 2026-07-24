@@ -42,9 +42,22 @@
  *          delete, and `User` uses the house `deletedAt` soft-delete
  *          convention, so a soft-deleted user's chat history is otherwise
  *          never swept). Single `deleteMany` — no N+1, no per-row loop.
+ *
+ * CAM-460 (D1, tech.md — conversation state for follow-up references) extends
+ * this file with a PURE, read-time projection function (no schema change, no
+ * migration):
+ *   AC-1/AC-2/AC-5/AC-6, EC-7 → deriveShownState (projects `lastResults` +
+ *          `shownIds` from the already-persisted 'cards' blocks in a loaded
+ *          window; hooked right after `loadWindow` by its caller)
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+// Aliased: this file already declares its OWN private `normalizeBlocks`
+// below (the `appendTurn` write-side helper, a different signature —
+// `(blocks, conversationId) => Prisma.InputJsonValue | undefined`) — importing
+// the read-side validator under the same bare name would silently collide
+// with it (TS module scope), so it is imported under a distinct name here.
+import { extractCardsBlock, normalizeBlocks as normalizeCardsBlocks } from '@/lib/api-client';
 
 // ---------------------------------------------------------------------------
 // Caps (BR-1, BR-3, BR-4) — every cap lives here, never re-derived elsewhere.
@@ -264,6 +277,98 @@ export async function loadWindow(
   } catch (error) {
     return handleUnexpectedError(error, 'loadWindow');
   }
+}
+
+// ---------------------------------------------------------------------------
+// deriveShownState — CAM-460 (D1, tech.md) — hooked right after loadWindow
+// ---------------------------------------------------------------------------
+
+/**
+ * CAM-460 (D1/D4) — one entry of the "shown results" state injected into the
+ * system prompt each turn. Shared shape for BOTH paths: the authed derive
+ * below projects it from the persisted `ChatMessage.blocks` (CAM-445 cards);
+ * the guest wire (D2, `lib/validations/ai-chat.ts` `shownResultSchema`)
+ * carries the SAME concept client-side under the field name `campSiteId`
+ * (matches `getCampDetail`'s arg name + `card.id`) — the prompt-injection
+ * point (`lib/ai/openrouter-client.ts`) accepts this ONE internal shape
+ * regardless of which path produced it.
+ *
+ * CAM-460 rework (Defect #2, owner domain correction 2026-07-24) —
+ * `priceLow` added for AC-2/BR-2 price-superlative resolution ("อันที่
+ * ถูกกว่า"/"ถูกที่สุด" over the shown set). This is the DISPLAYED starting
+ * price — the exact `AiChatCardResponse.priceLow` the camper's card already
+ * showed (`components/ai-chat/AiChatCampCard.tsx` renders it as `card.priceLow`
+ * + "/คืน") — NOT "the" price: a camp's real price is a RANGE
+ * (`priceLow`/`priceHigh`) and a `useSpotView` camp prices PER SPOT
+ * (`Spot.pricePerNight` varies), so this field is a FROM/starting price kept
+ * strictly for CARD PARITY ("remember what was shown") — never widened to
+ * `priceHigh` or a spot price the camper never saw (that would show the
+ * camper a number they never actually saw, worse than not comparing at all).
+ * `null`/`0` = free (same "no price = free" convention the card already
+ * uses). `undefined` = no price data available for this entry (e.g. an
+ * older/not-yet-updated guest wire body that hasn't resent it) — MUST be
+ * treated as "unknown", never coerced to 0/free. The authed derive path
+ * below always sets a defined value (`card.priceLow` is never `undefined`);
+ * only the guest wire path can leave it `undefined`.
+ */
+export interface ShownResult {
+  ordinal: number;
+  campId: string;
+  name: string;
+  priceLow?: number | null;
+}
+
+/**
+ * CAM-460 (D1) — `lastResults` = the most-recent search only (single slot,
+ * overwritten per search — BR-1/BR-5/AC-5); `shownIds` accumulates across
+ * the whole loaded window (BR-1) — captured here as CAM-461's future
+ * `excludeIds` input; USING it to exclude is out of this story's scope.
+ */
+export interface ConversationShownState {
+  lastResults: ShownResult[];
+  shownIds: string[];
+}
+
+/**
+ * CAM-460 (D1) — pure, read-time PROJECTION of the persisted 'cards' blocks
+ * already in `history` (compute-on-the-fly, architecture.md §12 — never a
+ * stored second copy of the same fact; no migration, no schema change).
+ * Reuses `lib/api-client.ts`'s `normalizeBlocks`/`extractCardsBlock` (stored
+ * JSON is an input boundary, code.md CAM-305 — never a parallel validator):
+ * a `null`/legacy/oversize-dropped `blocks` value simply yields no cards for
+ * that message and this function never throws — EC-7 (an unavailable/
+ * oversize-dropped state degrades to no-memory) falls out for free, with no
+ * extra code.
+ *
+ * `lastResults` is derived from the MOST-RECENT ASSISTANT cards block found
+ * while walking `history` in its given (ascending/chronological) order — a
+ * later block overwrites an earlier one (BR-5/AC-5, "a newer search replaces
+ * the shown set"). `shownIds` is the UNION of every card id across every
+ * cards block in the window (BR-1, accumulates). `ordinal = index + 1`,
+ * matching the card display order the camper saw (`toWireCards` preserves
+ * array order) — never re-sorted here.
+ */
+export function deriveShownState(history: ConversationMessageView[]): ConversationShownState {
+  const shownIds = new Set<string>();
+  let lastResults: ShownResult[] = [];
+
+  for (const message of history) {
+    if (message.role !== 'ASSISTANT') continue;
+    const cards = extractCardsBlock(normalizeCardsBlocks(message.blocks));
+    if (cards.length === 0) continue;
+
+    lastResults = cards.map((card, index) => ({
+      ordinal: index + 1,
+      campId: card.id,
+      name: card.nameTh,
+      // CAM-460 rework (Defect #2) — card-parity: the SAME priceLow the
+      // camper's card already displayed, never a range/spot price never shown.
+      priceLow: card.priceLow,
+    }));
+    for (const card of cards) shownIds.add(card.id);
+  }
+
+  return { lastResults, shownIds: [...shownIds] };
 }
 
 // ---------------------------------------------------------------------------

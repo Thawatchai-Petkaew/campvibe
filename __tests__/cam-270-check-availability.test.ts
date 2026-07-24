@@ -8,10 +8,19 @@
  *   - error/validation: an over-wide range (AvailabilityRangeTooWideError)
  *     → handled { ok:false, code:'RANGE_TOO_WIDE' }, no throw to the caller
  *   - error/validation: invalid campSiteId (not a uuid) → rejected by zod
+ *
+ * CAM-469 — the tool now runs a public-visibility gate (prisma.campSite.
+ * findFirst) BEFORE calling getRemainingCapacity. Every scenario in THIS file
+ * represents an already-public camp, so `mockFindFirst` defaults to resolving
+ * a row (visible) in `beforeEach` — keeping these pre-existing passthrough
+ * assertions byte-identical (regression guard, AC-1). The gate's own
+ * unpublished/inactive/deleted/nonexistent behavior is covered in
+ * __tests__/cam-469-check-availability-gate.test.ts.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockGetRemainingCapacity = vi.fn();
+const mockFindFirst = vi.fn();
 
 vi.mock('@/lib/campsite-availability', async () => {
   const actual = await vi.importActual<typeof import('@/lib/campsite-availability')>(
@@ -23,6 +32,14 @@ vi.mock('@/lib/campsite-availability', async () => {
   };
 });
 
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    campSite: {
+      findFirst: (...args: unknown[]) => mockFindFirst(...args),
+    },
+  },
+}));
+
 const {
   executeCheckAvailability,
   checkAvailabilityArgsSchema,
@@ -33,6 +50,8 @@ const VALID_UUID = '123e4567-e89b-12d3-a456-426614174000';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // CAM-469 — every test in this file is a public-camp scenario.
+  mockFindFirst.mockResolvedValue({ id: VALID_UUID });
 });
 
 describe('checkAvailability — normal (LIVE passthrough)', () => {
