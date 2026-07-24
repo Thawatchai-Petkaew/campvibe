@@ -17,6 +17,7 @@ import { checkAvailabilityTool } from '@/lib/ai/tools/check-availability';
 import { getMyBookingsTool, getMyBookingDetailTool } from '@/lib/ai/tools/my-bookings';
 import { getMyProfileTool, getMyWishlistTool } from '@/lib/ai/tools/my-profile-wishlist';
 import { getCampDetailTool } from '@/lib/ai/tools/get-camp-detail';
+import { resolveDatesTool } from '@/lib/ai/tools/resolve-dates';
 
 registerTool(searchCampsitesTool);
 registerTool(checkAvailabilityTool);
@@ -26,6 +27,8 @@ registerTool(getMyProfileTool);
 registerTool(getMyWishlistTool);
 // CAM-427 — the assistant's floating detail card: amenities + verified reviews + upcoming weekend dates.
 registerTool(getCampDetailTool);
+// CAM-462 — deterministic Thai date-phrase resolver (replaces the CAM-408 prompt-arithmetic instruction).
+registerTool(resolveDatesTool);
 
 export {
   searchCampsitesTool,
@@ -35,4 +38,5 @@ export {
   getMyProfileTool,
   getMyWishlistTool,
   getCampDetailTool,
+  resolveDatesTool,
 };

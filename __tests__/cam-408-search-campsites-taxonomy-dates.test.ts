@@ -212,7 +212,10 @@ describe('openrouter-client — today\'s date + guidance in the system prompt (A
     const body = JSON.parse(init.body as string);
     const systemMessage = body.messages.find((m: { role: string }) => m.role === 'system');
     expect(systemMessage.content).toMatch(/today's date is \d{4}-\d{2}-\d{2} \(วัน.+\), asia\/bangkok time\./i);
-    expect(systemMessage.content).toMatch(/compute the absolute iso date\(s\)/i);
+    // CAM-462 (BR-6) — the model no longer computes ISO dates itself; it
+    // calls the resolveDates tool for a relative/holiday Thai date phrase
+    // (see __tests__/cam-462-prompt-date-tool.test.ts for the full pin).
+    expect(systemMessage.content).toMatch(/call resolvedates and use the ranges it returns/i);
     expect(systemMessage.content).toMatch(/use the keyword argument only for a specific campsite name/i);
   });
 

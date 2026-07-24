@@ -176,6 +176,21 @@ async function main() {
     }
     console.log('✅ Country + AdminArea seeded')
 
+    // CAM-462 — ThaiHoliday reference data (resolveDates tool, BR-4/D2).
+    // Pure reference data (no FK) — idempotent upsert keyed on the date PK.
+    console.log('📅 Seeding Thai public holidays...')
+    const thaiHolidays: Array<{ date: string; nameTh: string; isLongWeekend: boolean }> = JSON.parse(
+        fs.readFileSync(path.join(__dirname, 'data/thai-holidays.json'), 'utf8')
+    )
+    for (const h of thaiHolidays) {
+        await prisma.thaiHoliday.upsert({
+            where: { date: new Date(h.date) },
+            update: { nameTh: h.nameTh, isLongWeekend: h.isLongWeekend },
+            create: { date: new Date(h.date), nameTh: h.nameTh, isLongWeekend: h.isLongWeekend },
+        })
+    }
+    console.log('✅ Thai public holidays seeded')
+
     // 3. Create Test Users
     console.log('👥 Creating test users...')
     const hashedPassword = await bcrypt.hash('password123', 12)
