@@ -25,7 +25,7 @@ export default defineConfig({
     environment: 'node',
     include: ['scripts/ai-eval/**/*.eval.ts'],
     exclude: ['node_modules', '.next', 'e2e/**', '.claude/**'],
-    testTimeout: 120_000,
+    testTimeout: 1_200_000, // CAM-476: sized for the full 48-case real-model corpus (was 120_000 for the 8-case smoke fixture); parallel replay is the follow-up
     globalSetup: ['./scripts/ai-eval/global-setup.ts'],
   },
   resolve: {
