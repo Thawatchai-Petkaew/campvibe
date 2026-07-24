@@ -119,6 +119,23 @@ describe('computeFacetScores — FAMILY (BR-1, proves AC-1)', () => {
     const family = findFacet(result, 'family');
     expect(family?.evidence).toEqual([{ type: 'field', ref: 'WATE', effect: 'supports' }]);
   });
+
+  it('[boundary] independent gap-fill: zero support slots BUT minimumAge >= 12 ⇒ NOT absent (the age-cap "limits" entry is itself real evidence) — score 0, confidence 0, answerable false, never silently dropped', () => {
+    // Distinguishes true absence (EC-1: no evidence at all) from an honest
+    // zero-with-a-reason: the camp genuinely restricts young kids AND has no
+    // recorded family comforts. The limits entry is real evidence (not fake),
+    // so BR-5 does not drop the facet — but confidence=0 correctly gates
+    // `answerable:false` so the assistant still hedges to "ข้อมูลไม่พอ".
+    const input: FacetScoreInput = { options: [], minimumAge: 15 };
+    const result = computeFacetScores(input);
+    const family = findFacet(result, 'family');
+
+    expect(family).toBeDefined(); // NOT absent — real evidence exists (the age restriction)
+    expect(family?.score).toBe(0);
+    expect(family?.confidence).toBe(0);
+    expect(family?.answerable).toBe(false);
+    expect(family?.evidence).toEqual([{ type: 'field', ref: 'minimumAge', effect: 'limits' }]);
+  });
 });
 
 describe('computeFacetScores — BEGINNER (BR-2, proves AC-2)', () => {
@@ -181,6 +198,18 @@ describe('computeFacetScores — BEGINNER (BR-2, proves AC-2)', () => {
     const result = computeFacetScores({ options: [], minimumAge: null });
     expect(findFacet(result, 'beginner')).toBeUndefined();
   });
+
+  it('[boundary] independent gap-fill: zero support slots BUT a hard-access code (HIKE-only, no DRIV/comforts) ⇒ NOT absent — the cap\'s "limits" entry is real evidence, score 0, confidence 0, answerable false', () => {
+    const input: FacetScoreInput = { options: [opt('HIKE', ACCESS)], minimumAge: null };
+    const result = computeFacetScores(input);
+    const beginner = findFacet(result, 'beginner');
+
+    expect(beginner).toBeDefined(); // NOT absent — the hard-access cap names a real reason
+    expect(beginner?.score).toBe(0);
+    expect(beginner?.confidence).toBe(0);
+    expect(beginner?.answerable).toBe(false);
+    expect(beginner?.evidence).toEqual([{ type: 'field', ref: 'HIKE', effect: 'limits' }]);
+  });
 });
 
 describe('computeFacetScores — ROAD_ACCESS (BR-3/BR-4, proves AC-3/EC-3, the P13 honesty demo)', () => {
@@ -221,6 +250,17 @@ describe('computeFacetScores — ROAD_ACCESS (BR-3/BR-4, proves AC-3/EC-3, the P
   it('[null/empty] no access codes at all ⇒ road_access is ABSENT (AC-4)', () => {
     const result = computeFacetScores({ options: [opt('TOIL', FACILITY)], minimumAge: null });
     expect(findFacet(result, 'road_access')).toBeUndefined();
+  });
+
+  it('[boundary] independent gap-fill: DRIV takes precedence over co-present BAOT/HIKE/WALK — never a mixed/averaged outcome, never leaks the other codes into evidence', () => {
+    const result = computeFacetScores({
+      options: [opt('BAOT', ACCESS), opt('HIKE', ACCESS), opt('WALK', ACCESS), opt('DRIV', ACCESS)],
+      minimumAge: null,
+    });
+    const roadAccess = findFacet(result, 'road_access');
+
+    expect(roadAccess?.score).toBe(ROAD_DRIVABLE_SCORE); // 0.70, not the not-drivable 0.15
+    expect(roadAccess?.evidence).toEqual([{ type: 'field', ref: 'DRIV', effect: 'supports', note: 'vehicle_class_unknown' }]);
   });
 
   it('[boundary] confidence NEVER exceeds ROAD_ACCESS_CONFIDENCE_CAP (0.50) for ANY input that produces road_access (BR-4)', () => {
