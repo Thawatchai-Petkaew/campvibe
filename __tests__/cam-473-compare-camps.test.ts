@@ -37,8 +37,25 @@
  *     fabricated comparison
  *   - normal: tool registration shape (tier guest, name compareCamps) + the
  *     registered execute() wrapper actually dispatches
+ *
+ * Added by independent QA verify (gap-fill, all Prove-It'd):
+ *   - error/validation: a malformed (non-uuid) campId is rejected by zod
+ *     (BR-1 per-id uuid guard) — no test previously exercised this branch
+ *   - concurrent/ordering: EC-5/AC-6 determinism — the SAME campIds+criteria
+ *     against unchanged source rows returns byte-identical matrix data
+ *     across two independent calls (no drift)
+ *   - null/empty: `facilities` cell — the analyst value-mapping row (tech.md
+ *     Decision 3 table) was untested: a populated amenity list is atomic,
+ *     and an EMPTY options list is the honest no-data cell, never fabricated
+ *   - null/empty: `capacity` cell when `getEffectiveCapacity` itself resolves
+ *     null (host never set a value) -> honest null cell, not a crash/0
+ *   - normal: `verified` cell surfaces `true` (only the `false` default was
+ *     exercised elsewhere)
+ *   - normal: `beginner`/`road_access` facet cells each map to their OWN facet
+ *     (only `family` was exercised elsewhere — closes a branch-coverage gap)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { CriterionId } from '@/lib/ai/tools/compare-camps';
 
 const mockFindMany = vi.fn();
 const mockGetEffectiveCapacity = vi.fn();
@@ -433,5 +450,93 @@ describe('compareCamps — tool registration (BR-1, Decision 5)', () => {
     const result = await compareCampsTool.execute(args, {});
 
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('compareCamps — QA gap-fill: input validation (BR-1 per-id uuid guard)', () => {
+  it('[error/validation] a malformed (non-uuid) campId is rejected by zod, no read', () => {
+    const parsed = compareCampsArgsSchema.safeParse({ campIds: ['not-a-uuid', CAMP_2] });
+    expect(parsed.success).toBe(false);
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('compareCamps — QA gap-fill: determinism (EC-5/AC-6)', () => {
+  it('[concurrent/ordering] the SAME campIds + criteria over unchanged source rows returns identical matrix data across two calls', async () => {
+    const rows = [row(CAMP_1, { avgRating: decimal(4.5) }), row(CAMP_2)];
+    mockFindMany.mockResolvedValueOnce(rows).mockResolvedValueOnce(rows);
+    mockComputeFacetScores.mockReturnValue([
+      { facet: 'family', score: 0.7, confidence: 0.6, answerable: true, evidence: [{ type: 'field', ref: 'TOIL', effect: 'supports' }], source: 'rules' },
+    ]);
+
+    const args = { campIds: [CAMP_1, CAMP_2], criteria: ['price', 'family', 'rating'] as CriterionId[] };
+    const first = await executeCompareCamps(args);
+    const second = await executeCompareCamps(args);
+
+    expect(first).toEqual(second);
+  });
+});
+
+describe('compareCamps — QA gap-fill: facilities cell (untested analyst value-mapping row)', () => {
+  it('[normal] a populated options list -> an atomic amenities list (code/group/nameTh/nameEn/icon), never a merged string', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      row(CAMP_1, { options: [{ code: 'TOIL', group: 'Internal facility', nameTh: 'ห้องน้ำ', nameEn: 'Toilet', icon: 'toilet' }] }),
+      row(CAMP_2),
+    ]);
+
+    const result = await executeCompareCamps({ campIds: [CAMP_1, CAMP_2], criteria: ['facilities'] });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.camps[0].cells.facilities).toEqual({
+      amenities: [{ code: 'TOIL', group: 'Internal facility', nameTh: 'ห้องน้ำ', nameEn: 'Toilet', icon: 'toilet' }],
+    });
+  });
+
+  it('[null/empty] no amenities set -> an empty list, the honest no-data cell (never fabricated)', async () => {
+    mockFindMany.mockResolvedValueOnce([row(CAMP_1, { options: [] }), row(CAMP_2)]);
+
+    const result = await executeCompareCamps({ campIds: [CAMP_1, CAMP_2], criteria: ['facilities'] });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.camps[0].cells.facilities).toEqual({ amenities: [] });
+  });
+});
+
+describe('compareCamps — QA gap-fill: capacity no-data + verified true (untested branches)', () => {
+  it('[null/empty] getEffectiveCapacity itself resolves null values (host never set a capacity) -> honest null cell, not a crash/0', async () => {
+    mockFindMany.mockResolvedValueOnce([row(CAMP_1), row(CAMP_2)]);
+    mockGetEffectiveCapacity.mockResolvedValue({ maxGuestsPerDay: null, maxTentsPerDay: null });
+
+    const result = await executeCompareCamps({ campIds: [CAMP_1, CAMP_2], criteria: ['capacity'] });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.camps[0].cells.capacity).toEqual({ maxGuestsPerDay: null, maxTentsPerDay: null });
+  });
+
+  it('[normal] verified cell surfaces true (only false was exercised elsewhere)', async () => {
+    mockFindMany.mockResolvedValueOnce([row(CAMP_1, { isVerified: true }), row(CAMP_2)]);
+
+    const result = await executeCompareCamps({ campIds: [CAMP_1, CAMP_2], criteria: ['verified'] });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.camps[0].cells.verified).toEqual({ isVerified: true });
+  });
+});
+
+describe('compareCamps — QA gap-fill: beginner/road_access facet cells (branch coverage, mirrors family)', () => {
+  it('[normal] beginner and road_access each map to their OWN facet from computeFacetScores — never cross-wired', async () => {
+    mockFindMany.mockResolvedValueOnce([row(CAMP_1), row(CAMP_2)]);
+    mockComputeFacetScores.mockReturnValue([
+      { facet: 'beginner', score: 0.6, confidence: 0.5, answerable: true, evidence: [{ type: 'field', ref: 'TOIL', effect: 'supports' }], source: 'rules' },
+      { facet: 'road_access', score: 0.7, confidence: 0.5, answerable: true, evidence: [{ type: 'field', ref: 'PAVED', effect: 'supports' }], source: 'rules' },
+    ]);
+
+    const result = await executeCompareCamps({ campIds: [CAMP_1, CAMP_2], criteria: ['beginner', 'road_access'] });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.camps[0].cells.beginner?.facet).toBe('beginner');
+    expect(result.camps[0].cells.road_access?.facet).toBe('road_access');
   });
 });
