@@ -283,14 +283,43 @@ export function sanitizeSuggestion(rawText: string): string | null {
  * of ANY tag name, mirroring `sanitizeForPrompt`'s `DELIMITER_TAG_PREFIX_REGEX`
  * backstop but generalized (see that constant's docblock above for why one
  * fixed tag-name literal is not enough here).
+ *
+ * CAM-460 Defect #3 (QA independent re-verify of the Defect #1 rework,
+ * Important) — `UNCLOSED_TAG_PREFIX_REGEX` still requires a literal
+ * `[a-zA-Z]` immediately after `<` (mod its own `\s*`/`/`/`\s*` prefix zone);
+ * a character that is NOT an ASCII letter there — a plain digit
+ * (`</9shown_results`) or an invisible zero-width codepoint (U+200B, which
+ * `\s` does NOT match) — makes the WHOLE match attempt fail, so the entire
+ * fragment (including the literal `<`) survives untouched. This is the same
+ * exploit shape as Defect #1: another regex requiring a specific character
+ * class right after `<`. Patching the character class again (allow digits,
+ * allow U+200B/U+200C/U+200D/U+FEFF, ...) is regex whack-a-mole — the next
+ * unlisted invisible/combining codepoint reopens the same gap.
+ *
+ * DURABLE FIX (owner-aligned, ends the whack-a-mole for this field): after
+ * every pass above, strip every literal `<` and `>` CHARACTER outright, then
+ * re-collapse whitespace. A campsite NAME has no legitimate reason to carry
+ * an angle bracket at all — removing the delimiter characters themselves
+ * makes ANY tag-shaped forgery structurally impossible, because there is no
+ * longer a `<`/`>` in the string for a regex to match (or fail to match) in
+ * the first place. This also structurally closes the "truncation resurrects
+ * a fragment near maxLength" risk: since no bracket survives pre-slice,
+ * `.slice(maxLength)` can never expose or reconstruct one. The passes above
+ * are kept (defense-in-depth, and they still normalize real closed/unclosed
+ * tags and the whitespace they leave behind) — this bracket-strip is the
+ * final backstop. CAM-471 tracks the analogous gap in `sanitizeForPrompt`,
+ * which CANNOT use this fix (free user text legitimately contains `<`/`>`).
  */
 export function sanitizeShownResultName(rawText: string, maxLength: number): string {
   const withoutControlChars = stripControlChars(rawText);
   const withoutTags = withoutControlChars.replace(HTML_TAG_REGEX, ' ');
   const collapsedFirst = withoutTags.replace(/\s+/g, ' ').trim();
-  // Final hard-strip backstop (defense-in-depth): remove any remaining
-  // unclosed opening-half tag fragment outright, regardless of tag name.
+  // Hard-strip backstop (defense-in-depth): remove any remaining unclosed
+  // opening-half tag fragment outright, regardless of tag name.
   const hardStripped = collapsedFirst.replace(UNCLOSED_TAG_PREFIX_REGEX, ' ');
-  const collapsed = hardStripped.replace(/\s+/g, ' ').trim();
+  // Final backstop (Defect #3 durable fix): strip every literal `<`/`>`
+  // character outright — no tag-name/character-class regex to bypass.
+  const bracketsStripped = hardStripped.replace(/[<>]/g, ' ');
+  const collapsed = bracketsStripped.replace(/\s+/g, ' ').trim();
   return collapsed.slice(0, maxLength);
 }

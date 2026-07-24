@@ -6,7 +6,7 @@ persona: Camper
 artifact: tech
 owner: architect
 status: Design (G2 — architect); amended at build by backend per owner-approved rework
-version: v1.1
+version: v1.2
 updated: 2026-07-24
 ---
 # Tech — Assistant remembers shown results (conversation state for follow-ups) (CAM-460)
@@ -312,6 +312,15 @@ unchanged) · `story.md` · `lib/ai/conversation-store.ts` · `lib/ai/openrouter
 `scripts/ai-eval/case-schema.ts` (CAM-457) · ADR-013.
 
 ## Changelog
+- v1.2 (2026-07-24) — Defect #3 (QA independent re-verify of the Defect #1 rework, Important):
+  `UNCLOSED_TAG_PREFIX_REGEX` still required a letter right after `<`, so a digit or an invisible
+  zero-width codepoint (U+200B etc., not matched by `\s`) defeated it — same exploit shape as Defect
+  #1 (regex whack-a-mole); durable fix (not another pattern patch): `sanitizeShownResultName` now
+  strips every literal `<`/`>` CHARACTER outright as a final backstop, because a shown-result name
+  has no legitimate use for an angle bracket at all — this makes any tag-shaped forgery structurally
+  impossible (no regex left to bypass) and also closes the truncation-boundary resurrection risk.
+  `sanitizeForPrompt`'s analogous gap (same regex shape, main user-message fence) is OUT of this
+  fix's surface — free user text legitimately contains `<`/`>` — tracked separately as **CAM-471**.
 - v1.1 (2026-07-24) — amended at build (backend rework, owner-approved) closing 2 QA independent-
   verify findings from the initial merge attempt:
   (Defect #1, Important) `sanitizeShownResultName` gained a hard-strip backstop
