@@ -33,7 +33,15 @@
  *     (never once per camp) for a multi-camp x multi-range request
  *   - error: a thrown live read -> { ok:false, reason:'error' }, never a
  *     fabricated free/partial result (EC-4/BR-6)
- *   - normal: tool registration shape (tier guest, name bulkAvailability)
+ *   - error/ordering: a throw on the SECOND of two ranges fails the WHOLE
+ *     call, never leaking a partial matrix built from range 1 (BR-6, added
+ *     by independent QA verify — gap-fill)
+ *   - normal: province wins over region when both given, and region ALONE
+ *     expands via resolveRegionForSearch (Decision 3, added by independent QA
+ *     verify — gap-fill, closes a branch-coverage gap)
+ *   - normal: tool registration shape (tier guest, name bulkAvailability) +
+ *     the registered execute() wrapper actually dispatches (wiring, added by
+ *     independent QA verify — gap-fill, closes a branch-coverage gap)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -270,11 +278,73 @@ describe('bulkAvailability — error honesty (EC-4/BR-6)', () => {
 
     expect(result).toEqual({ ok: false, reason: 'error' });
   });
+
+  it('[error/ordering] a throw on the SECOND of two ranges fails the WHOLE call — never leaks a partial matrix built from range 1', async () => {
+    mockFindMany.mockResolvedValueOnce([candidateRow('c1')]);
+    mockGetRemainingCapacityForCamps
+      .mockResolvedValueOnce({ c1: { capacity: 10, bookedGuests: 0, heldGuests: 0, remaining: 10, blockedByHost: false } })
+      .mockRejectedValueOnce(new Error('db down on range 2'));
+
+    const args = bulkAvailabilityArgsSchema.parse({ dates: [dateRange(0), dateRange(7)] });
+    const result = await executeBulkAvailability(args);
+
+    // BR-6 — a total honest failure, NOT { ok:true, camps:[{cells:[free, ...]}] }
+    // with range 1's data silently exposed and range 2 dropped/guessed.
+    expect(result).toEqual({ ok: false, reason: 'error' });
+  });
+});
+
+describe('bulkAvailability — region/province precedence (Decision 3, tech.md)', () => {
+  it('[normal] province WINS over region when both are given (same rule searchCampsites uses)', async () => {
+    mockFindMany.mockResolvedValueOnce([candidateRow('c1')]);
+    mockGetRemainingCapacityForCamps.mockResolvedValue({});
+
+    const args = bulkAvailabilityArgsSchema.parse({
+      province: 'Chiang Mai',
+      region: 'ภาคใต้',
+      dates: [dateRange(0)],
+    });
+    await executeBulkAvailability(args);
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ location: expect.objectContaining({ province: 'Chiang Mai' }) }),
+      })
+    );
+  });
+
+  it('[normal] region ALONE (no province given) expands to its province set via resolveRegionForSearch', async () => {
+    mockFindMany.mockResolvedValueOnce([candidateRow('c1')]);
+    mockGetRemainingCapacityForCamps.mockResolvedValue({});
+
+    const args = bulkAvailabilityArgsSchema.parse({ region: 'ภาคใต้', dates: [dateRange(0)] });
+    await executeBulkAvailability(args);
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          location: expect.objectContaining({ province: { in: expect.arrayContaining(['Phuket', 'Krabi']) } }),
+        }),
+      })
+    );
+  });
 });
 
 describe('bulkAvailability — tool registration (BR-1)', () => {
   it('[normal] guest-tier, read-only, no identity required', () => {
     expect(bulkAvailabilityTool.name).toBe('bulkAvailability');
     expect(bulkAvailabilityTool.tier).toBe('guest');
+  });
+
+  it('[normal] the registered execute() wrapper actually dispatches to executeBulkAvailability (wiring, not just the standalone function)', async () => {
+    mockFindMany.mockResolvedValueOnce([candidateRow('c1')]);
+    mockGetRemainingCapacityForCamps.mockResolvedValue({
+      c1: { capacity: 10, bookedGuests: 0, heldGuests: 0, remaining: 10, blockedByHost: false },
+    });
+
+    const args = bulkAvailabilityArgsSchema.parse({ dates: [dateRange(0)] });
+    const result = await bulkAvailabilityTool.execute(args, {});
+
+    expect(result.ok).toBe(true);
   });
 });
