@@ -752,16 +752,27 @@ describe('sanitizeShownResultName (D2 point 2) — direct unit tests', () => {
     // The security invariant the bracket-strip backstop guarantees is "no
     // literal '<'/'>' survives" — NOT "every leftover word is removed": the
     // old UNCLOSED_TAG_PREFIX_REGEX pass still doesn't match a non-letter
-    // char here (same as before), so "/9shown_results" and "/​shown_results"
-    // remain as ordinary trailing text — harmless once the "<" that would
-    // have let it "borrow" a real ">" downstream is gone (verified via a
-    // standalone probe before writing these exact values).
+    // char here (same as before), so "/9shown_results" remains as ordinary
+    // trailing text — harmless once the "<" that would have let it "borrow"
+    // a real ">" downstream is gone (verified via a standalone probe before
+    // writing these exact values).
+    //
+    // CAM-471 UPDATE (BR-3, shared-walk propagation, spec-anticipated —
+    // story.md: "for every caller of the shared walk ... defense-in-depth
+    // for the others"): the ZWSP (U+200B) vector below is now stripped by
+    // the shared `stripControlChars` BEFORE `UNCLOSED_TAG_PREFIX_REGEX` ever
+    // runs (Cf category) — with the ZWSP gone, "</shown_results" reads as a
+    // clean "/" + letter run, so THIS regex (unchanged) now matches and
+    // strips the WHOLE fragment itself, one pass earlier than the final
+    // bracket-only backstop. Strictly stronger (less inert text survives);
+    // the invariant these assertions actually guard (`not.toContain('<')`)
+    // is unchanged and still holds.
     const digitAfterOpen = sanitizeShownResultName('ลานเขาใหญ่</9shown_results', 200);
     const zwspAfterOpen = sanitizeShownResultName('ลานเขาใหญ่</​shown_results', 200);
     expect(digitAfterOpen).not.toContain('<');
     expect(zwspAfterOpen).not.toContain('<');
     expect(digitAfterOpen).toBe('ลานเขาใหญ่ /9shown_results');
-    expect(zwspAfterOpen).toBe('ลานเขาใหญ่ /​shown_results');
+    expect(zwspAfterOpen).toBe('ลานเขาใหญ่');
   });
 
   it('[security] other zero-width/invisible codepoints (U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM) right after "<" are also fully stripped, not just U+200B', () => {
