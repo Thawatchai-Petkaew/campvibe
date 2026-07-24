@@ -163,4 +163,111 @@ describe('resolveDatesCore — single weekday (F1/CAM-479)', () => {
     const result = resolveDatesCore('เมื่อวาน', new Date('2026-07-22T10:00:00Z'), []);
     expect(result).toEqual({ ok: false, reason: 'unsupported' });
   });
+
+  it('[unchanged] a garbage/vague phrase with no weekday or known rule remains unsupported', () => {
+    const result = resolveDatesCore('จะไปไหนดีคะ', new Date('2026-07-22T10:00:00Z'), []);
+    expect(result).toEqual({ ok: false, reason: 'unsupported' });
+  });
+
+  // --- AC-4 coverage gap-fill (QA verify): the story/AC claims "all 7 Thai
+  // weekday names" but the original test file only exercised เสาร์/ศุกร์/
+  // พฤหัส(บดี). Closing the remaining 4 individually so AC-4's claim is
+  // actually proven, not just implied by the THAI_WEEKDAY_INDEX map. ---
+  it('[edge][AC-4] "จันทร์นี้" resolves to this week\'s Monday', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('จันทร์นี้ว่างไหม', now, []);
+    // Monday this week (2026-07-20) already passed relative to Wed 22nd, so
+    // "on or after today" rolls to NEXT Monday, 2026-07-27.
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-07-27', endDate: '2026-07-28' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  it('[edge][AC-4] "อังคารหน้า" resolves to next week\'s Tuesday', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('อังคารหน้าไปได้ไหม', now, []);
+    // Tuesday this week already passed (2026-07-21); "นี้" occurrence rolls
+    // to 2026-07-28; "หน้า" = +7 = 2026-08-04.
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-08-04', endDate: '2026-08-05' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  it('[edge][AC-4] "พุธนี้" on the exact matching weekday counts TODAY', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('พุธนี้ว่างไหม', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-07-22', endDate: '2026-07-23' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  it('[edge][AC-4] "อาทิตย์นี้" (bare) resolves to the day Sunday, not a past Sunday', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('อาทิตย์นี้ว่างไหม', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-07-26', endDate: '2026-07-27' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  it('[boundary] week-boundary math also holds when `now` IS a Saturday (not just Wednesday): "เสาร์หน้า" = today + 7', () => {
+    const now = new Date('2026-07-25T10:00:00Z'); // Bangkok Saturday 2026-07-25
+    const result = resolveDatesCore('เสาร์หน้าว่างไหม', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-08-01', endDate: '2026-08-02' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  it('[boundary] from a Saturday `now`, a different weekday\'s "นี้" crosses into the following week correctly (e.g. "จันทร์นี้" = the upcoming Monday, 2 days later)', () => {
+    const now = new Date('2026-07-25T10:00:00Z'); // Saturday
+    const result = resolveDatesCore('จันทร์นี้ว่างไหม', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-07-27', endDate: '2026-07-28' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  // --- KNOWN LIMITATION (QA finding, reported not fixed here — see the QA
+  // verify report): bare "อาทิตย์" is genuinely ambiguous in colloquial Thai
+  // between "Sunday" (a day) and "week" (a duration unit, e.g. "อาทิตย์หน้า"
+  // very commonly means "next week", not "next Sunday"). BR-1 explicitly
+  // requires อาทิตย์ to be matched as one of the 7 weekday names, so this is
+  // spec-conformant, not a code defect — but it is a real production risk
+  // this pins deliberately so a future change is a conscious decision, not
+  // an accidental behavior change. ---
+  it('[documented-limitation] "อาทิตย์หน้า" resolves as "next Sunday" (day), NOT "next week" (duration) — matches BR-1 as written; flagged as a QA finding for follow-up', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('อาทิตย์หน้าไปเที่ยวกัน', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-08-02', endDate: '2026-08-03' }],
+      interpretation: expect.any(String),
+    });
+  });
+
+  // --- KNOWN LIMITATION (QA finding): a two-weekday RANGE phrase ("Monday
+  // to next Friday") is not recognized as a range at all — the unanchored
+  // regex matches only the FIRST weekday name it finds and silently drops
+  // the rest of the phrase, producing a single-night date instead of
+  // signaling unsupported/ambiguous. Pinned so a future change here is
+  // deliberate, not accidental. ---
+  it('[documented-limitation] a two-weekday RANGE phrase ("จันทร์ถึงศุกร์หน้า") silently collapses to just the FIRST weekday as a single night, dropping the range', () => {
+    const now = new Date('2026-07-22T10:00:00Z'); // Wednesday
+    const result = resolveDatesCore('จันทร์ถึงศุกร์หน้า', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-07-27', endDate: '2026-07-28' }],
+      interpretation: expect.any(String),
+    });
+  });
 });
