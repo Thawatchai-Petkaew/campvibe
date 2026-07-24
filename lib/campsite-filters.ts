@@ -10,18 +10,35 @@ export interface CampSiteFilterParams {
   guests?: string;
   min?: string;
   max?: string;
-  access?: string;
-  facilities?: string;
-  external?: string;
-  equipment?: string;
-  activities?: string;
-  terrain?: string;
+  /**
+   * CAM-461 Decision 1 — each taxonomy group now accepts EITHER a `string`
+   * (unchanged — comma-separated codes, AND-per-code, byte-identical to
+   * today for every existing caller) OR a `string[]` (NEW — the AI tool
+   * only: OR-within-group, `{ code: { in: [...] } }`). See
+   * `addOptionFilter` below for the exact branch. Widening from `string` to
+   * `string | string[]` is an input-type widening — every existing string
+   * caller still type-checks unchanged.
+   */
+  access?: string | string[];
+  facilities?: string | string[];
+  external?: string | string[];
+  equipment?: string | string[];
+  activities?: string | string[];
+  terrain?: string | string[];
   /**
    * CAM-270 BR-9 — additive pet-friendly filter for the AI searchCampsites
    * tool. Only applied when explicitly `true` (absent/false = no filtering,
    * existing behavior unchanged for every other caller of this function).
    */
   petFriendly?: boolean;
+  /**
+   * CAM-461 BR-1 — id-exclusion for the AI searchCampsites tool's `excludeIds`
+   * ("ขออีก" — hide already-shown camps). Empty/absent = no exclusion
+   * (unchanged behavior for every other caller). Bounding to MAX_EXCLUDE_IDS
+   * happens in the caller (search-campsites.ts), BEFORE this function runs
+   * (CAM-344 — cap a model-controlled array length before the query).
+   */
+  excludeIds?: string[];
 }
 
 // Shared helper to build Prisma where-clause for camp site listing & counts
@@ -101,11 +118,36 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     where.AND = andArray;
   }
 
-  // 6. Multi-select taxonomy filters (AND logic) — S4a: taxonomy now lives in the `options`
-  // MasterData relation. Each selected code must be present, so AND one
-  // `options: { some: { code } }` per code. Codes are globally unique (MasterData.code is the
-  // PK) so the group is implied and need not be matched.
-  const addOptionFilter = (param?: string) => {
+  // 6. Multi-select taxonomy filters — S4a: taxonomy now lives in the `options`
+  // MasterData relation.
+  //
+  // CAM-461 Decision 1 — `param` is now `string | string[]`:
+  //   - `string` (unchanged, EVERY existing catalog caller): comma-split, ONE
+  //     `{ options: { some: { code } } }` element PER code pushed onto
+  //     where.AND (AND-per-code) — byte-identical to the pre-CAM-461 shape
+  //     (see `__tests__/cam-408-*.test.ts:61`, pinned).
+  //   - `string[]` (NEW, the AI tool only): ONE
+  //     `{ options: { some: { code: { in: [...] } } } }` element (OR-within-
+  //     group — a camp matching ANY of the listed codes satisfies this
+  //     group). Groups still stay AND-ed against each other because both
+  //     branches push onto the SAME where.AND array.
+  // Codes are globally unique (MasterData.code is the PK) so the group is
+  // implied and need not be matched.
+  const addOptionFilter = (param?: string | string[]) => {
+    if (param === undefined) return;
+    if (Array.isArray(param)) {
+      // NEW: OR-within-group (CAM-461 BR-3). EC-3 — an empty array means
+      // "group not specified" (no filter for that group), never a
+      // zero-match query.
+      const codes = param.filter(Boolean);
+      if (codes.length === 0) return;
+      if (!where.AND) where.AND = [];
+      const andArray = Array.isArray(where.AND) ? where.AND : [where.AND];
+      andArray.push({ options: { some: { code: { in: codes } } } } as Prisma.CampSiteWhereInput);
+      where.AND = andArray;
+      return;
+    }
+    // UNCHANGED string path — equality shape preserved exactly.
     if (!param) return;
     const codes = param.split(",").filter(Boolean);
     if (codes.length === 0) return;
@@ -136,7 +178,17 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     where.AND = andArray;
   }
 
-  // 8. (REMOVED — CAM-344, hide→badge pivot, BR-6) Dated search no longer
+  // 8. CAM-461 BR-1 — additive id-exclusion (AI searchCampsites tool's
+  // `excludeIds`, "ขออีก"/"ไม่เอาที่แสดงไปแล้ว"). Only applied when a
+  // non-empty array is supplied; absent/[] leaves every other caller
+  // untouched. Bounding to MAX_EXCLUDE_IDS happens in the caller BEFORE this
+  // function runs (CAM-344 — cap a model-controlled array length before the
+  // query), so `where.id.notIn` here is already bounded.
+  if (params.excludeIds && params.excludeIds.length > 0) {
+    where.id = { notIn: params.excludeIds };
+  }
+
+  // 9. (REMOVED — CAM-344, hide→badge pivot, BR-6) Dated search no longer
   // excludes any camp by date-availability. The former step 7 excluded camps
   // by Booking overlap + whole-camp BlockedDate, but was blind to InternalHold
   // (CAM-302) — a data-correctness bug fixed by construction now that no
