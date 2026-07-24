@@ -241,6 +241,9 @@ describe('CAM-459 zone-C invariant — the "no booking tool exists today" claim 
     const names = [...getRegisteredTools('guest'), ...getRegisteredTools('authed')].map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        // CAM-465 — new read-only guest-tier tool (live-batch camp x date-range
+        // availability matrix, hard-capped; no write capability).
+        'bulkAvailability',
         'checkAvailability',
         'getCampDetail',
         'getMyBookingDetail',

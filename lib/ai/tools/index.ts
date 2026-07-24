@@ -10,6 +10,10 @@
  * (getMyBookings, getMyBookingDetail); CAM-419 (S5b) adds the other two
  * personal tools (getMyProfile, getMyWishlist) alongside them. The two
  * original tools (searchCampsites, checkAvailability) stay `guest`.
+ *
+ * CAM-465 adds `bulkAvailability` — a NEW read-only `guest`-tier tool (a camp
+ * x date-range LIVE availability matrix, hard-capped); an ADDITION only, the
+ * read-only-registry invariant (BR-1 above) is unchanged.
  */
 import { registerTool } from '@/lib/ai/tool-registry';
 import { searchCampsitesTool } from '@/lib/ai/tools/search-campsites';
@@ -18,6 +22,7 @@ import { getMyBookingsTool, getMyBookingDetailTool } from '@/lib/ai/tools/my-boo
 import { getMyProfileTool, getMyWishlistTool } from '@/lib/ai/tools/my-profile-wishlist';
 import { getCampDetailTool } from '@/lib/ai/tools/get-camp-detail';
 import { resolveDatesTool } from '@/lib/ai/tools/resolve-dates';
+import { bulkAvailabilityTool } from '@/lib/ai/tools/bulk-availability';
 
 registerTool(searchCampsitesTool);
 registerTool(checkAvailabilityTool);
@@ -29,6 +34,8 @@ registerTool(getMyWishlistTool);
 registerTool(getCampDetailTool);
 // CAM-462 — deterministic Thai date-phrase resolver (replaces the CAM-408 prompt-arithmetic instruction).
 registerTool(resolveDatesTool);
+// CAM-465 — live-batch, hard-capped camp x date-range availability matrix.
+registerTool(bulkAvailabilityTool);
 
 export {
   searchCampsitesTool,
@@ -39,4 +46,5 @@ export {
   getMyWishlistTool,
   getCampDetailTool,
   resolveDatesTool,
+  bulkAvailabilityTool,
 };
