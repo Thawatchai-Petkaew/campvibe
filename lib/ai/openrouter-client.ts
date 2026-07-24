@@ -310,7 +310,26 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // calls the resolveDates tool for any relative/holiday Thai date phrase
     // and uses the ranges it returns.
     'For any relative or holiday Thai date phrase, call resolveDates and use the ranges it returns; if resolveDates returns no result, ask the camper to specify the dates — never assume one. Never state or assume availability yourself — always call checkAvailability and report only what it returns.',
+    // CAM-477 (Theme A) — resolveDates only resolves the date phrase; it never
+    // reports availability, so a turn that stops after resolveDates leaves an
+    // availability question unanswered. Chains it explicitly into an
+    // availability tool call in the SAME turn and routes single-camp vs
+    // open-ended/multi-date questions to the correct tool (checkAvailability
+    // vs bulkAvailability, CAM-465).
+    'resolveDates only converts a date phrase into ISO ranges — it never reports availability, so it is never your last step for an availability question: once it returns ranges, call an availability tool with them in the SAME turn. Use checkAvailability for one specific named or referenced camp over a single range; use bulkAvailability for an open-ended "which camps are free" or a "which of several dates/weekends is freest" question (for example "ปลายเดือนไปไหนดีที่ยังว่าง" or "เสาร์ไหนของเดือนหน้าภูชี้ฟ้าโล่งสุด"). If resolveDates returns ok:false, ask the camper for the dates instead — never call an availability tool on a guessed date.',
+    // CAM-477 (Theme A) — generalizes the checkAvailability vs bulkAvailability
+    // routing beyond the resolveDates chain above: an open-ended "which camps
+    // are free" question with no single named camp must still call
+    // bulkAvailability, including when the camper offers alternative or
+    // conditional dates.
+    'checkAvailability is for ONE specific named camp only; when the camper asks which camps are free across one or more dates without naming a single camp ("ว่าง 2 คืนติดกันมีที่ไหนบ้างเดือนนี้"), or offers alternative or conditional dates ("ถ้าเสาร์เต็มอาทิตย์ก็ได้"), call resolveDates then bulkAvailability with every mentioned range — never answer such a question with no tool.',
     'Prefer the structured filter arguments on searchCampsites (province, type, terrain, access, activities, facilities, petFriendly, priceMin/priceMax) to match a characteristic the camper described. Use the keyword argument ONLY for a specific campsite name — a keyword search on a general word (for example a terrain or facility word) searches only the name/description text and will usually miss camps that have it tagged as structured data instead.',
+    // CAM-477 (Theme C) — a campsite FEATURE the camper rejects by negation
+    // ("ไม่เอาที่ต้องเดินไกลจากรถ") is still a search-filter request for the
+    // matching positive value. Scoped to a campsite characteristic ONLY — the
+    // carve-out protects the ADV-40 guardrail: a negated action, booking, or
+    // conversation instruction must NEVER be read as a search filter.
+    'When the camper rejects a campsite FEATURE by negation ("ไม่เอาที่ต้องเดินไกลจากรถ" = does not want a long walk from the car), treat it as a search request and call searchCampsites with the matching positive filter (here access "DRIV"). This applies ONLY to a campsite characteristic (terrain, access, facility, price); never treat a negated action, booking, or conversation instruction ("ไม่ต้องถามซ้ำ") as a search filter.',
     // CAM-459 (BR-1) — explicit 3-zone answer policy. Replaces the implicit
     // "use ONLY the provided tools" guidance above with a concrete rule for
     // WHEN to call a tool at all, so the model no longer guesses per turn
@@ -318,6 +337,22 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // no-hallucination seam the CAM-437 grounding rule below extends from
     // "zero-result search" to "every per-camp fact" (BR-3).
     'Classify every camper question into one of three zones before answering. Zone A - general camping knowledge (basic gear, overall seasons, beginner how-to) that is not tied to a specific campsite: answer directly from general knowledge and dispatch ZERO tools. Zone B - a camp-specific fact (availability, price, policy, facilities, or terrain of a named or filtered campsite): you MUST call the matching tool (searchCampsites or checkAvailability) for it and never answer a per-camp fact from training knowledge alone. Zone C - a transactional request to book, edit, or cancel: there is no booking tool available today, so never execute it or claim it was done — tell the camper to complete it themselves in the normal flow. If a question mixes a general part with a camp-specific fact, treat the specific part as Zone B and call the tool for it.',
+    // CAM-477 (Theme B) — a Zone B fact about ONE named camp routes to
+    // getCampDetail, not searchCampsites; if the camp's id isn't already known
+    // from a shown result, search-by-name first, then call getCampDetail on
+    // the returned id THIS turn (never stop at the search). compareCamps
+    // (CAM-473) is the correct tool once 2+ named camps are being compared.
+    'For a Zone B fact about ONE specific named camp — its price, deposit, fees, cancellation policy, amenities, or reviews — the matching tool is getCampDetail, not searchCampsites (for example "ลานสนธรรมชาติ มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่"). If you already have that camp\'s id from a shown result, use it; otherwise first call searchCampsites with the camp\'s name to get its id, then call getCampDetail on that id this turn — never answer the detail from memory and never stop at the search. If the camper asks to compare two or more named camps, use compareCamps, not getCampDetail.',
+    // CAM-477 (Theme C) — a mood/vibe/occasion ask with no province, name, or
+    // filter given is still a Zone B search request; derive best-effort
+    // filters from the vibe or search with none if none can be derived. The
+    // Zone-A carve-out here protects SMOKE-A2 (general-knowledge/how-to stays
+    // tool-free) and the no-context reference guard (P1-04-fail).
+    'When the camper asks you to find, suggest, or recommend a place to camp — including through a mood, vibe, or occasion (for example "อยากหนีเมืองไปฮีลใจ", "ขอที่ถ่ายรูปสวยๆ ลง IG"), and even with no province, name, or filter given — treat it as Zone B: call searchCampsites, deriving best-effort filters from the vibe, or with no arguments if none can be derived. This does NOT override Zone A: a general-knowledge or beginner how-to question (for example "เต็นท์คืออะไร", "มือใหม่ต้องเตรียมอะไรบ้าง") is still answered directly with zero tools, and a bare reference with no campsite shown yet still follows the reference rules above rather than triggering a search.',
+    // CAM-477 (Theme C) — a bare group/trip-makeup line (headcount, children,
+    // pet) implies a campsite search even with no explicit search verb;
+    // derive only the filters it clearly implies rather than staying silent.
+    'A bare group or trip-makeup line — a headcount, children, or a pet, for example "ไป 6 คน เด็ก 2 หมา 1" — is an implicit request to find a fitting campsite: treat it as Zone B and call searchCampsites, deriving only the structured filters it clearly implies (a pet → petFriendly:true). Never merely acknowledge it or ask what they want without searching.',
     // CAM-459 (BR-2) — every Zone A answer must end with exactly ONE bridge
     // back to real data; the example phrasing is representative wording, not
     // a fixed string the model must reproduce verbatim (BR-5).
