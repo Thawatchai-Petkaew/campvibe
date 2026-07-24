@@ -62,6 +62,25 @@ describe('buildCampSiteWhere — OR-within-facet-group (CAM-461 Decision 1, AC-4
     expect(and).toContainEqual({ options: { some: { code: { in: ['RIVE', 'BEAC'] } } } });
     expect(and.length).toBe(4);
   });
+
+  it('[unit][boundary][QA gap-fill] a single-element array (length 1) still takes the array/OR branch, not the string branch', () => {
+    // Boundary: array size 1 is the smallest non-empty array — must still emit
+    // the `{ code: { in: [...] } }` shape (not silently collapse to the plain
+    // string-equality shape `{ code: 'RIVE' }`), so a model emitting a
+    // single-item array (rather than a bare string) still gets a correct query.
+    const where = buildCampSiteWhere({ terrain: ['RIVE'] });
+    expect(where.AND).toContainEqual({ options: { some: { code: { in: ['RIVE'] } } } });
+    expect(where.AND).not.toContainEqual({ options: { some: { code: 'RIVE' } } });
+  });
+
+  it('[unit][boundary][QA gap-fill] a falsy entry inside an array is filtered out before deciding "empty" (defense for non-zod callers of buildCampSiteWhere)', () => {
+    // buildCampSiteWhere is a shared fn callable below the AI tool's zod gate;
+    // `.filter(Boolean)` on the array input is a defensive guard against a
+    // stray empty-string element reaching this far. One real code + one
+    // falsy entry must still apply the filter for the real code only.
+    const where = buildCampSiteWhere({ terrain: ['RIVE', ''] });
+    expect(where.AND).toContainEqual({ options: { some: { code: { in: ['RIVE'] } } } });
+  });
 });
 
 describe('buildCampSiteWhere — string branch stays byte-identical (regression, CAM-355 shared-fn risk)', () => {
