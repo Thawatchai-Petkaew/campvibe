@@ -12,11 +12,27 @@
  */
 import { z } from 'zod';
 import type { ChatMessage } from '@/lib/validations/ai-chat';
+import type { ShownResult } from '@/lib/ai/conversation-store';
 
 /** Structurally == ChatMessage (annotated so a future drift in either shape fails to compile, not silently). */
 const turnMessageSchema: z.ZodType<ChatMessage> = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
+});
+
+/**
+ * Structurally == ShownResult (`lib/ai/conversation-store.ts`) — annotated so a
+ * future drift in either shape fails to compile, not silently. Seeds the
+ * CAM-460 `<shown_results>` state block for a CONTEXT case whose prior assistant
+ * turn showed camps from a search, so a "the one you showed me" reference
+ * ("อันที่สอง", "อันแรก", "อันที่บอกว่า…") can resolve to a real campSiteId —
+ * exactly the state production derives from the prior searchCampsites results.
+ */
+const shownResultSchema: z.ZodType<ShownResult> = z.object({
+  ordinal: z.number(),
+  campId: z.string().min(1),
+  name: z.string(),
+  priceLow: z.number().nullable().optional(),
 });
 
 const expectedToolSchema = z.object({
@@ -40,6 +56,15 @@ export const goldenCaseSchema = z.object({
   utterance: z.union([z.string().min(1), z.array(turnMessageSchema).min(1)]),
   /** Canned tool-result the mocked `dispatchTool` returns for every dispatched call this case makes (BR-4). Optional — defaults to a generic `{ok:true,data:{}}` when absent. */
   seededState: z.unknown().optional(),
+  /**
+   * Harness-fidelity seed for a CONTEXT case: the shown-results state to pass to
+   * `runAssistantTurnFromMessages` as `shownResults` (CAM-460 D4). Mirrors what
+   * production derives from the prior turn's searchCampsites results, so a
+   * reference to a previously shown camp resolves to a real campSiteId instead
+   * of replaying with EMPTY state (which left the model unable to call
+   * getCampDetail/checkAvailability by id — a harness artefact, not a model gap).
+   */
+  seededShownResults: z.array(shownResultSchema).optional(),
   expected: z.discriminatedUnion('kind', [expectedToolSchema, expectedNoToolSchema]),
   /** BR-3/AC-4 — a single failing guardrail case flips the whole run's verdict, independent of the ≥95% tool-call threshold. */
   guardrail: z.boolean().optional(),
