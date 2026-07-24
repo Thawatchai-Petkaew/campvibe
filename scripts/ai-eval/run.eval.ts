@@ -122,7 +122,13 @@ describe('AI eval harness (CAM-457) — advisory real-model replay', () => {
       // AC-6/BR-6 — advisory: below-threshold NEVER fails this test; this
       // only proves the run completed and produced a verdict.
       expect(overall.verdict).toBeDefined();
-    },
-    120_000
+    }
+    // CAM-476 — NO inline 3rd-arg timeout here. Vitest's per-test 3rd-arg
+    // timeout OVERRIDES the config `testTimeout`, so the inline 120_000 that
+    // lived here silently kept the effective timeout at 120s even after #552
+    // raised `vitest.eval.config.ts` testTimeout to 1_200_000 (a no-op) — the
+    // real-model run over the full corpus needs >120s and was killed before
+    // writeReports. The config is now the SINGLE source of truth; never
+    // re-add an inline timeout that can drift from it.
   );
 });
