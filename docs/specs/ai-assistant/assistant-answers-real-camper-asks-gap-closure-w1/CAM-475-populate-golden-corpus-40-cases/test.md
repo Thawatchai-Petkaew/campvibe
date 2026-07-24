@@ -91,9 +91,9 @@ Three cases (#6, #7, #19, #24, #34) deviate from the dispatch's literal wording 
 - Every other assertion in that test (zero load errors, ≥1 zone-A `no_tool` case, ≥1 `guardrail:true` case) is untouched and still passes — both are satisfied by the retained `smoke` cases (SMOKE-A1/A2, SMOKE-GUARDRAIL-1); none of the 40 new corpus cases are zone-A (the corpus §5 is scoped to booking-conversation patterns P1-P16 only — zone-A general-knowledge coverage lives in CAM-459's separate smoke suite, by design).
 - No other assertion in `cam-457-eval-harness.test.ts` (score/guards/plan-run/replay-case/report tests) was touched.
 
-## Cross-story collision found (EC-3, story.md) — NOT fixed, reported
+## Cross-story collision found (EC-3, story.md) — reported, then fixed under an expanded surface
 
-Running the full suite (`npm test`) after the fixture change surfaced ONE failing test **outside this story's allowed file surface**:
+Running the full suite (`npm test`) after the fixture change surfaced ONE failing test **outside this story's ORIGINAL allowed file surface**:
 
 ```
 FAIL __tests__/cam-459-answer-policy-3-zones.test.ts >
@@ -103,7 +103,9 @@ AssertionError: expected 48 to be less than or equal to 8
   at __tests__/cam-459-answer-policy-3-zones.test.ts:280
 ```
 
-That story's own test comment (lines 19-23 of that file) explains it deliberately stayed within the *then*-current CAM-457 8-case bound rather than touch a file outside ITS surface — i.e. it is a snapshot assertion scoped to CAM-459's own diff, not an intentional permanent ceiling. Per this story's STOP RULES (never touch a file outside the stated dispatch surface), `cam-459-answer-policy-3-zones.test.ts` was **not edited**. Recommended fast-follow (1-line, same pattern as this story's own CAM-457 ceiling-lift): raise that assertion's bound from `8` to `48` (or to `DEFAULT_MAX_EVAL_CASES`) with an updated comment. Flagged to the orchestrator as `needs_decision`.
+That story's own test comment explained it deliberately stayed within the *then*-current CAM-457 8-case bound rather than touch a file outside ITS surface — i.e. it was a snapshot assertion scoped to CAM-459's own diff, not an intentional permanent ceiling. Per this story's STOP RULES (never touch a file outside the stated dispatch surface), `cam-459-answer-policy-3-zones.test.ts` was initially **not edited** and reported to the orchestrator as `needs_decision`.
+
+**Resolution:** the orchestrator expanded this story's allowed surface by exactly that one file. Fixed the same way as the CAM-457 ceiling-lift: the assertion now reads `expect(cases.length).toBe(48)` bounded by `expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES)` (new import from `scripts/ai-eval/guards.ts`), with the test name and the file's header comment updated to describe the CAM-475 fixture growth. No other assertion in `cam-459-answer-policy-3-zones.test.ts` was touched. `npx vitest run __tests__/cam-457-eval-harness.test.ts __tests__/cam-459-answer-policy-3-zones.test.ts` → 66/66 pass; full `npm test` → 277/277 files, 8366/8366 tests green.
 
 ## Baseline run — explicitly owner-gated, NOT run this story
 

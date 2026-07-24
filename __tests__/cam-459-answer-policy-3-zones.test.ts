@@ -16,17 +16,22 @@
  * is proven by the golden suite (scripts/ai-eval/golden-cases.json,
  * CAM-457's harness) — not re-tested here (BR-5).
  *
- * golden-cases.json note: only ONE new zone-A case (SMOKE-A2) was added, not
- * 2-3 as the story's guidance suggested, because CAM-457's own frozen
- * regression test (`__tests__/cam-457-eval-harness.test.ts`, out of this
- * story's file surface) hardcodes `cases.length` <= 8 for the shipped
- * fixture; 7 existing + 1 new = 8 stays within that bound. A zone-C golden
- * case was deliberately NOT added for the same reason — story.md's own
- * Self-verify section proves AC-5 via owner-verify + code-confirm, not a
- * golden-eval case, so this is not a scope gap.
+ * golden-cases.json note: only ONE new zone-A case (SMOKE-A2) was added at
+ * the time this story shipped, not 2-3 as the story's guidance suggested,
+ * because CAM-457's fixture-size ceiling was 8 back then; 7 existing + 1 new
+ * = 8 stayed within that bound. A zone-C golden case was deliberately NOT
+ * added for the same reason — story.md's own Self-verify section proves AC-5
+ * via owner-verify + code-confirm, not a golden-eval case, so this was not a
+ * scope gap.
+ *
+ * CAM-475 update: the golden-case fixture has since grown to 48 (8 smoke +
+ * the full 40-case research §5 corpus) — the boundary test below now asserts
+ * the real count bounded by `DEFAULT_MAX_EVAL_CASES` (guards.ts, BR-7/CAM-344
+ * spend cap) instead of the original, now-stale `<=8` snapshot.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
+import { DEFAULT_MAX_EVAL_CASES } from '../scripts/ai-eval/guards';
 
 vi.mock('server-only', () => ({}));
 
@@ -274,9 +279,10 @@ describe('scripts/ai-eval/golden-cases.json — CAM-459 new zone-A smoke case', 
     expect(smokeA2?.group).toBe('smoke');
   });
 
-  it('[boundary] total case count stays within the CAM-457 harness fixture bound (<=8), unchanged from this story', () => {
+  it('[boundary] total case count is the real fixture size (48, CAM-475), bounded by DEFAULT_MAX_EVAL_CASES', () => {
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases } = loadCasesFromFile(fixturePath);
-    expect(cases.length).toBeLessThanOrEqual(8);
+    expect(cases.length).toBe(48);
+    expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
   });
 });
