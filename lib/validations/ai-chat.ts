@@ -89,12 +89,23 @@ const chatMessageSchema = z.object({
  * STARTING/from price the guest's card displayed (never coerced from/to a
  * range or a per-spot price); absent = no price data for this entry, never
  * treated as 0/free.
+ *
+ * Security review nit (Suggestion, numeric bounds): a bare `z.number()`
+ * accepts `Infinity`/`-Infinity` (JSON `1e999` overflows to `Infinity` on
+ * parse), negative values, and `Number.MAX_VALUE`-class unsafe integers —
+ * all of which interpolate raw into the prompt as e.g. `฿Infinity`/`฿-500`
+ * via `formatStartingPriceSuffix` (`lib/ai/openrouter-client.ts`). Tightened
+ * to `.finite().nonnegative().safe()`: rejects Infinity/NaN, rejects
+ * negative, and rejects any integer beyond `Number.MAX_SAFE_INTEGER` — a
+ * malformed entry fails HERE (400 `invalid_request`) instead of reaching the
+ * prompt. `.nullable().optional()` unchanged — `null`/absent still mean
+ * exactly what they meant before this tightening.
  */
 export const shownResultSchema = z.object({
   ordinal: z.number().int().positive().max(MAX_SHOWN_RESULTS),
   campSiteId: z.string().uuid(),
   name: z.string().trim().min(1).max(SHOWN_RESULT_NAME_MAX),
-  priceLow: z.number().nullable().optional(),
+  priceLow: z.number().finite().nonnegative().safe().nullable().optional(),
 });
 
 export type ShownResultWire = z.infer<typeof shownResultSchema>;

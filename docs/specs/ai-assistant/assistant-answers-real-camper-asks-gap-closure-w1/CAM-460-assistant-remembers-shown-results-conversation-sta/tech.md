@@ -312,6 +312,18 @@ unchanged) · `story.md` · `lib/ai/conversation-store.ts` · `lib/ai/openrouter
 `scripts/ai-eval/case-schema.ts` (CAM-457) · ADR-013.
 
 ## Changelog
+- v1.3 (2026-07-24) — G3 APPROVED-WITH-NITS (owner), 2 fixes, no second tap:
+  (Nit 1, Important, defect #4 — same family as #1/#3) `isStrippableControlChar`/`stripControlChars`
+  (`lib/ai/sanitize.ts`) stripped C0 + DEL only; ALL 32 C1 codepoints (U+0080-U+009F) survived,
+  notably U+0085 NEL — a Unicode-MANDATORY line break `\s` does not match and zod `.trim()` does not
+  remove, letting a guest name forge a pseudo-line inside the `<shown_results>` fence. Fixed by
+  extending the ONE shared helper every sanitizer in the module reuses (one condition, `code >= 0x80
+  && code <= 0x9f`) — proven against both `sanitizeShownResultName` and `sanitizeForPrompt`. Does
+  NOT resolve CAM-471 (zero-width/Cf codepoints defeating the delimiter regex) — different bug class.
+  (Nit 2, Suggestion) `shownResultSchema.priceLow` (`lib/validations/ai-chat.ts`) was a bare
+  `z.number()`, accepting `Infinity` (JSON `1e999`), negatives, and unsafe integers that interpolate
+  raw into the prompt as `฿Infinity`/`฿-500`. Tightened to `.finite().nonnegative().safe()`,
+  `.nullable().optional()` unchanged. Tests: `__tests__/cam-460-g3-security-nits.test.ts` (12 cases).
 - v1.2 (2026-07-24) — Defect #3 (QA independent re-verify of the Defect #1 rework, Important):
   `UNCLOSED_TAG_PREFIX_REGEX` still required a letter right after `<`, so a digit or an invisible
   zero-width codepoint (U+200B etc., not matched by `\s`) defeated it — same exploit shape as Defect

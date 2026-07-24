@@ -72,11 +72,32 @@ function stripDelimiterTagsToFixpoint(text: string): string {
  */
 const DELIMITER_TAG_PREFIX_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}`, 'gi');
 
-/** Char codes considered "control" and stripped (C0 range + DEL), excluding \t \n \r. */
+/**
+ * Char codes considered "control" and stripped: C0 range + DEL (excluding
+ * \t \n \r) AND the full C1 range (U+0080-U+009F).
+ *
+ * Security review nit (Important, defect #4 — same family as #1/#3): the
+ * original C0-only strip left ALL 32 C1 codepoints untouched, notably
+ * U+0085 NEL (Next Line) — a Unicode-defined MANDATORY line break that
+ * JS's `\s` does NOT match and zod's `.trim()` does not remove either. A
+ * guest-controlled name (`shownResultSchema.name`, only `.trim().min(1)`)
+ * could therefore carry a real line break into the `<shown_results>`
+ * prompt fence and forge a pseudo-line the model reads as a fresh row.
+ * This is the SHARED char-code walk every sanitizer in this module reuses
+ * (see `stripControlChars` below) — extending it here strictly improves
+ * every caller, including `sanitizeForPrompt`, which is intended
+ * defense-in-depth for free user text too.
+ *
+ * Does NOT close CAM-471 (tracked separately): that gap is zero-width/Cf
+ * codepoints (e.g. U+200B ZERO WIDTH SPACE) defeating the DELIMITER regex's
+ * character-class match — a different bug class from a raw control/line-break
+ * byte surviving unstripped. Do not assume this fix covers it.
+ */
 function isStrippableControlChar(code: number): boolean {
   const isC0 = code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d;
   const isDel = code === 0x7f;
-  return isC0 || isDel;
+  const isC1 = code >= 0x80 && code <= 0x9f;
+  return isC0 || isDel || isC1;
 }
 
 /**
