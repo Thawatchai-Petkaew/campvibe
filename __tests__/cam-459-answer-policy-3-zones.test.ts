@@ -245,6 +245,9 @@ describe('CAM-459 zone-C invariant — the "no booking tool exists today" claim 
         // availability matrix, hard-capped; no write capability).
         'bulkAvailability',
         'checkAvailability',
+        // CAM-473 — new read-only guest-tier tool (2-4 camps side by side on
+        // named criteria, hard-capped; no write capability).
+        'compareCamps',
         'getCampDetail',
         'getMyBookingDetail',
         'getMyBookings',
