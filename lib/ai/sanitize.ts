@@ -392,3 +392,107 @@ export function sanitizeShownResultName(rawText: string, maxLength: number): str
   const collapsed = bracketsStripped.replace(/\s+/g, ' ').trim();
   return collapsed.slice(0, maxLength);
 }
+
+/**
+ * CAM-480 (F2, production bug) — gpt-4o-mini sometimes emits raw markdown in
+ * the answer text despite the CAM-405 prompt rule against it (image links
+ * `![alt](url)`, `**bold**`, numbered/bulleted enumerations of camps by
+ * name). The UI's `parseAnswer` (components/ai-chat/answer-format.ts) is a
+ * PLAIN-TEXT parser — it builds paragraph/ordered-list/unordered-list blocks
+ * from line-leading markers, it does NOT interpret markdown syntax — so any
+ * markdown that slips past the prompt rule renders as ugly literal text
+ * (a broken image tag, literal double-asterisks) instead of being hidden or
+ * formatted.
+ *
+ * This is a pure, idempotent, never-throwing SERVER-SIDE strip — the last
+ * line of defense on top of the CAM-405 prompt rule, not a replacement for
+ * it (the model can still be told not to emit markdown; this guarantees the
+ * client never sees it even when the model slips). Applied in
+ * `finalizeAnswer` (openrouter-client.ts) to the non-streaming answer only —
+ * see that call site for why the streaming path is out of scope here.
+ *
+ * Runs strictly LINE BY LINE (never across a `\n`): every regex character
+ * class below explicitly excludes `\n`, and structural markers (heading
+ * hashes, list markers) are anchored to a single line's start. This is
+ * deliberate — a naive multi-line-spanning regex (e.g. matching a single
+ * `*` ... content ... `*` pair for "italic") can otherwise consume TWO
+ * separate list items' leading `* ` markers as if they were one italic span
+ * (`* item one\n* item two` -> `\*([^*]+)\*` greedily pairs the FIRST `*`
+ * with the second line's `*`), corrupting content instead of cleaning it.
+ * Processing one line at a time makes that cross-line pairing structurally
+ * impossible.
+ *
+ * Order per line (each step operates on the previous step's output):
+ *  1. Image markdown `![alt](url)` -> removed ENTIRELY (the worst offender:
+ *     a raw image tag never renders as an image client-side and camps are
+ *     already presented via result cards, so the alt text/url add nothing).
+ *  2. Link markdown `[text](url)` -> unwrapped to `text` (run AFTER images,
+ *     so an image's `[alt](url)` half is never re-matched as a plain link
+ *     once the image is already gone — order here does not matter since
+ *     images are fully removed first, but keeping it explicit avoids a
+ *     future refactor silently reordering these two).
+ *  3. Bold `**x**` / `__x__` -> unwrapped to `x`, run BEFORE italic so a
+ *     bold span is not first mis-split by the single-marker italic regex
+ *     (verified: running italic-star first on `**bold**` leaves stray
+ *     single asterisks behind — double-marker passes must run first).
+ *  4. Italic `*x*` / `_x_` -> unwrapped to `x`. A single unmatched list
+ *     marker (`* item`, exactly one `*` on the line) never pairs with
+ *     anything here since the regex requires TWO occurrences on the same
+ *     line — it survives unchanged to step 6.
+ *  5. Leading heading hashes (`#`/`##`/`###` at line start) -> removed,
+ *     keeping the heading text as a plain line.
+ *  6. Leading list marker at line start (`1.` `2)` `-` `*`, each followed by
+ *     whitespace) -> removed, keeping the line's text. The answer is meant
+ *     to read as 2-3 sentence prose (result cards already enumerate the
+ *     camps by name) so an enumerated list collapses to a plain line rather
+ *     than staying a numbered/bulleted item.
+ *  7. Trim the line's own leading/trailing whitespace only. Deliberately NO
+ *     internal whitespace collapse — a removed inline token (e.g. an image
+ *     sitting between two spaces) can leave a doubled space behind, and that
+ *     is left as-is rather than renormalized: this function's contract is
+ *     "remove markdown syntax", not "renormalize whitespace it didn't
+ *     introduce a reason to touch" (an unrelated upstream step, e.g.
+ *     `extractSuggestions` removing an inline `<suggestions>` block, can
+ *     leave its own documented double-space artifact — this function must
+ *     not silently rewrite that). Never touches `\n` itself, and a line with
+ *     no markdown and no leading/trailing whitespace round-trips unchanged
+ *     (idempotent, safe to call more than once).
+ *
+ * Deliberately leaves alone: a bare `(url)` with no preceding `[text]`
+ * (not a link — normal parenthetical prose); a lone `#`/`*`/`_` that is not
+ * part of a recognized marker/pair; anything mid-line that doesn't match one
+ * of the patterns above; any internal double space left behind by a removed
+ * token.
+ */
+const IMAGE_MARKDOWN_REGEX = /!\[[^\]\n]*\]\([^)\n]*\)/g;
+const LINK_MARKDOWN_REGEX = /\[([^\]\n]*)\]\([^)\n]*\)/g;
+const BOLD_DOUBLE_STAR_REGEX = /\*\*([^*\n]+)\*\*/g;
+const BOLD_DOUBLE_UNDERSCORE_REGEX = /__([^_\n]+)__/g;
+const ITALIC_STAR_REGEX = /\*([^*\n]+)\*/g;
+const ITALIC_UNDERSCORE_REGEX = /_([^_\n]+)_/g;
+const HEADING_MARKER_REGEX = /^#{1,6}\s*/;
+const LIST_MARKER_REGEX = /^\s*(?:\d+[.)]|[-*])\s+/;
+
+function stripMarkdownFromLine(line: string): string {
+  const withoutImages = line.replace(IMAGE_MARKDOWN_REGEX, '');
+  const withoutLinks = withoutImages.replace(LINK_MARKDOWN_REGEX, '$1');
+  const withoutBoldStar = withoutLinks.replace(BOLD_DOUBLE_STAR_REGEX, '$1');
+  const withoutBoldUnderscore = withoutBoldStar.replace(BOLD_DOUBLE_UNDERSCORE_REGEX, '$1');
+  const withoutItalicStar = withoutBoldUnderscore.replace(ITALIC_STAR_REGEX, '$1');
+  const withoutItalicUnderscore = withoutItalicStar.replace(ITALIC_UNDERSCORE_REGEX, '$1');
+  const withoutHeading = withoutItalicUnderscore.replace(HEADING_MARKER_REGEX, '');
+  const withoutListMarker = withoutHeading.replace(LIST_MARKER_REGEX, '');
+  // Deliberately NO internal whitespace collapse here (beyond trimming the
+  // line's own leading/trailing ends): a blanket "collapse 2+ spaces" pass
+  // would also rewrite spacing on lines that carry NO markdown at all (e.g.
+  // a leftover double space from an unrelated upstream strip, such as
+  // extractSuggestions' own documented double-space artifact when it removes
+  // an inline `<suggestions>` block — see cam-410-adversarial-seam.test.ts).
+  // This function's job is removing markdown SYNTAX, not renormalizing
+  // whitespace it didn't introduce a reason to touch.
+  return withoutListMarker.trim();
+}
+
+export function stripAnswerMarkdown(text: string): string {
+  return text.split('\n').map(stripMarkdownFromLine).join('\n');
+}
