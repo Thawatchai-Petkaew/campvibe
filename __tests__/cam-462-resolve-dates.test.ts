@@ -113,11 +113,43 @@ describe('resolveDatesCore — holiday long-weekend phrase (AC-3, BR-4)', () => 
     }
   });
 
+  it('[unit] TWO separate (non-contiguous) flagged holiday runs resolve to the NEARER one only, never merged', () => {
+    // A single-Monday run 30 days out plus a Songkran-style run 90 days out —
+    // groupContiguousRuns must split these into two distinct runs and
+    // nextLongWeekendSpan must pick runs[0] (the nearer one), proving the
+    // "not contiguous -> push and start a new run" branch.
+    const now = new Date('2026-03-01T10:00:00Z');
+    const holidays = [
+      { date: '2026-04-06', nameTh: 'วันจักรี', isLongWeekend: true }, // nearer
+      { date: '2026-05-04', nameTh: 'วันฉัตรมงคล', isLongWeekend: true }, // farther, unrelated Monday
+    ];
+    const result = resolveDatesCore('วันหยุดยาวหน้า', now, holidays);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-04-04', endDate: '2026-04-07' }], // the nearer วันจักรี span only
+      interpretation: expect.any(String),
+    });
+  });
+
   it('[unit] a non-flagged holiday row is never treated as a long weekend', () => {
     const now = new Date('2026-08-01T10:00:00Z');
     const holidays = [{ date: '2026-08-12', nameTh: 'วันแม่แห่งชาติ', isLongWeekend: false }];
     const result = resolveDatesCore('วันหยุดยาวหน้า', now, holidays);
     expect(result).toEqual({ ok: false, reason: 'no_match' });
+  });
+
+  it('[boundary] a flagged holiday falling on a Friday expands FORWARD through the following Sat+Sun (not just backward)', () => {
+    // 2026-05-01 is a Friday — every prior test's holiday run ends on a
+    // weekday, so the forward-extension branch was never exercised; this
+    // pins the symmetric case (backward extension already covered above).
+    const now = new Date('2026-04-01T10:00:00Z');
+    const holidays = [{ date: '2026-05-01', nameTh: 'วันแรงงานแห่งชาติ', isLongWeekend: true }];
+    const result = resolveDatesCore('วันหยุดยาวหน้า', now, holidays);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-05-01', endDate: '2026-05-04' }],
+      interpretation: expect.any(String),
+    });
   });
 });
 
@@ -136,6 +168,27 @@ describe('resolveDatesCore — date-SET (AC-4) + MAX cap (EC-4/BR-8/CAM-344)', (
     }
   });
 
+  it('[boundary] a "year" scope near year-end with only ONE weekend left still succeeds (year scope is not always over-cap)', () => {
+    // Every other "ปีนี้/ทุกวันเสาร์" test in this file lands well over the
+    // MAX_DATE_SET_RANGES cap (asked from January); this pins the OTHER real
+    // branch of the year-scope path — asked in late December, few enough
+    // weekends remain that it resolves normally (interpretation label "ปีนี้").
+    const now = new Date('2026-12-20T10:00:00Z'); // Sunday, 1 Saturday left in 2026
+    const result = resolveDatesCore('ทุกวันเสาร์ปีนี้', now, []);
+    expect(result).toEqual({
+      ok: true,
+      dates: [{ startDate: '2026-12-26', endDate: '2026-12-28' }],
+      interpretation: '1 สุดสัปดาห์ในปีนี้',
+    });
+  });
+
+  it('[error/validation] a multi-weekend phrase with NO recognized scope qualifier (no เดือนนี้/ปีนี้) is unsupported, never guessed (BR-5)', () => {
+    // "เสาร์อาทิตย์ทุกสัปดาห์" alone names a set but not a window; the dispatcher
+    // must not silently assume "this month" — it falls through to unsupported.
+    const result = resolveDatesCore('เสาร์อาทิตย์ทุกสัปดาห์', new Date('2026-07-01T10:00:00Z'), []);
+    expect(result).toEqual({ ok: false, reason: 'unsupported' });
+  });
+
   it('[unit] MAX_DATE_SET_RANGES is 12 (the CAM-344 pre-loop cap)', () => {
     expect(MAX_DATE_SET_RANGES).toBe(12);
   });
@@ -144,6 +197,14 @@ describe('resolveDatesCore — date-SET (AC-4) + MAX cap (EC-4/BR-8/CAM-344)', (
     const now = new Date('2026-01-01T10:00:00Z');
     const result = resolveDatesCore('ทุกวันเสาร์ปีนี้', now, []);
     expect(result).toEqual({ ok: false, reason: 'too_many' });
+  });
+
+  it('[null/empty] a date-SET phrase with ZERO remaining weekends this month is a graceful no_match, never `ok:true` with an empty array (BR-2)', () => {
+    // 2026-03-31 (Tue) is the last day of March; the last Saturday of March
+    // (03-28) has already passed, so zero Saturdays remain in "this month".
+    const now = new Date('2026-03-31T10:00:00Z');
+    const result = resolveDatesCore('เสาร์อาทิตย์ทุกสัปดาห์ของเดือนนี้', now, []);
+    expect(result).toEqual({ ok: false, reason: 'no_match' });
   });
 });
 

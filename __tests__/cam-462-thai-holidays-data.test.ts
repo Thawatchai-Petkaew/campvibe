@@ -159,3 +159,32 @@ describe('thai-holidays.json — spot checks (CAM-462 normal)', () => {
     }
   });
 });
+
+/**
+ * DATA ACCURACY (do NOT block): the lunar holiday dates (Makha Bucha, Visakha
+ * Bucha, Asalha Bucha, Khao Phansa) are best-effort and tracked in CAM-474 —
+ * these tests assert STRUCTURE only (relative ordering / adjacency rules
+ * that hold regardless of which exact lunar date the Buddhist calendar
+ * lands on), never a specific lunar date as ground truth.
+ */
+describe('thai-holidays.json — lunar-holiday STRUCTURE only, not ground-truth dates (CAM-462 item 7, CAM-474 tracks accuracy)', () => {
+  it('[unit] Asalha Bucha (วันอาสาฬหบูชา) immediately precedes Khao Phansa (วันเข้าพรรษา) in every seeded year', () => {
+    for (const year of ['2026', '2027']) {
+      const asalha = rows.find((r) => r.nameTh === 'วันอาสาฬหบูชา' && r.date.startsWith(year));
+      const khaoPhansa = rows.find((r) => r.nameTh === 'วันเข้าพรรษา' && r.date.startsWith(year));
+      expect(asalha, `no วันอาสาฬหบูชา row for ${year}`).toBeDefined();
+      expect(khaoPhansa, `no วันเข้าพรรษา row for ${year}`).toBeDefined();
+      expect(addDaysISO(asalha!.date, 1)).toBe(khaoPhansa!.date);
+    }
+  });
+
+  it('[unit] every substitution ("ชดเชย") day falls strictly after the holiday it substitutes for', () => {
+    const subRows = rows.filter((r) => r.nameTh.includes('ชดเชย'));
+    expect(subRows.length).toBeGreaterThan(0); // guard: invariant meaningless with zero substitution rows
+    for (const sub of subRows) {
+      const baseName = sub.nameTh.replace('วันหยุดชดเชย', '');
+      const earlierMatch = rows.find((r) => r.nameTh === baseName && r.date < sub.date);
+      expect(earlierMatch, `no earlier "${baseName}" row found before substitution ${sub.date}`).toBeDefined();
+    }
+  });
+});
