@@ -22,14 +22,39 @@ export const USER_DATA_OPEN_TAG = `<${USER_DATA_TAG_NAME}>`;
 export const USER_DATA_CLOSE_TAG = `</${USER_DATA_TAG_NAME}>`;
 
 /**
+ * CAM-471 BR-2 (primary mechanism) — the interstitial-junk zone between "<"
+ * (optionally "/") and the literal tag name. This used to be `\s*` (stray
+ * WHITESPACE only), which a near-miss forged tag defeats with ANY other
+ * junk character sitting right after "<": an ASCII digit
+ * (`<9user_message>`) or a combining mark (`<́user_message>`) is not
+ * `\s`, so the character class failed to match at all and the tag-name
+ * match never even started — the entire forged fragment survived untouched
+ * (same defect shape as CAM-460 Defect #3, a different regex/field).
+ *
+ * Fix: widen the junk zone to "any run of characters that are NEITHER a
+ * Unicode letter (`\p{L}`) NOR the tag's own closing character (`>`)" —
+ * deliberately un-enumerated (no per-codepoint whack-a-mole). It covers
+ * whitespace, ASCII/Unicode digits, zero-width/format codepoints,
+ * combining marks, underscores, slashes, punctuation — anything that
+ * isn't literally spelling out a DIFFERENT word right where the tag name
+ * must start. A bare "<"/">" still never matches: the literal tag name
+ * (`user_message`) is still required immediately after the junk run, so
+ * free camper text with an unrelated "<"/">" (e.g. "<2000 บาท", "<b>")
+ * never trips this — the run stops the instant it hits a REAL letter that
+ * isn't part of the tag name itself (AC-4/EC-5).
+ */
+const DELIMITER_JUNK = '[^>\\p{L}]*';
+
+/**
  * Security review nit (defense-in-depth): matches a literal occurrence of the
  * open OR close delimiter tag anywhere in untrusted user text — case-
- * insensitive, tolerant of stray whitespace inside the tag (e.g.
- * `</ USER_MESSAGE >`) — so a payload cannot forge a fake closing tag and
- * "escape" the `<user_message>` DATA boundary before the real wrapper is
- * applied in openrouter-client.ts.
+ * insensitive, tolerant of stray junk inside the tag (whitespace, digits,
+ * zero-width/format codepoints, combining marks — e.g. `</ USER_MESSAGE >`,
+ * `</9user_message>`, `<​user_message>`) — so a payload cannot forge a
+ * fake closing tag and "escape" the `<user_message>` DATA boundary before
+ * the real wrapper is applied in openrouter-client.ts.
  */
-const DELIMITER_TAG_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}\\s*>`, 'gi');
+const DELIMITER_TAG_REGEX = new RegExp(`<${DELIMITER_JUNK}${USER_DATA_TAG_NAME}${DELIMITER_JUNK}>`, 'giu');
 
 /**
  * Security fix (live repro, Important): a SINGLE `.replace()` pass of
@@ -64,54 +89,77 @@ function stripDelimiterTagsToFixpoint(text: string): string {
  * prefix survives in ANY form) even in the theoretical case the bounded
  * loop above is exhausted before reaching a true fixpoint (e.g. an
  * artificially deep nesting attack): every real occurrence of the literal
- * tag NAME immediately preceded by `<` (mod whitespace/slash) is removed
+ * tag NAME immediately preceded by `<` (mod the BR-2 junk zone — whitespace,
+ * slash, digit, zero-width/format codepoint, combining mark, ...) is removed
  * outright, so it can never be re-paired with a stray leftover `>` into a
  * reconstructed tag downstream. Deliberately does NOT touch a bare
  * unrelated `<`/`>` (e.g. `<b>bold</b>`) since it requires the literal tag
  * name to match.
  */
-const DELIMITER_TAG_PREFIX_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}`, 'gi');
+const DELIMITER_TAG_PREFIX_REGEX = new RegExp(`<${DELIMITER_JUNK}${USER_DATA_TAG_NAME}`, 'giu');
 
 /**
- * Char codes considered "control" and stripped: C0 range + DEL (excluding
- * \t \n \r) AND the full C1 range (U+0080-U+009F).
+ * CAM-471 BR-3 (complementary hardening) — matches any codepoint in Unicode
+ * category C (`Cc` control, `Cf` format/zero-width, `Co` private-use, `Cs`
+ * surrogate, `Cn` unassigned), EXCEPT `\t` `\n` `\r` (excluded via the
+ * leading negative lookahead — those three ARE technically `Cc` but are
+ * legitimate whitespace this module always keeps).
  *
- * Security review nit (Important, defect #4 — same family as #1/#3): the
- * original C0-only strip left ALL 32 C1 codepoints untouched, notably
- * U+0085 NEL (Next Line) — a Unicode-defined MANDATORY line break that
- * JS's `\s` does NOT match and zod's `.trim()` does not remove either. A
- * guest-controlled name (`shownResultSchema.name`, only `.trim().min(1)`)
- * could therefore carry a real line break into the `<shown_results>`
- * prompt fence and forge a pseudo-line the model reads as a fresh row.
- * This is the SHARED char-code walk every sanitizer in this module reuses
- * (see `stripControlChars` below) — extending it here strictly improves
- * every caller, including `sanitizeForPrompt`, which is intended
- * defense-in-depth for free user text too.
+ * `Cc` alone is exactly the original C0 range + DEL + the full C1 range
+ * (U+0080-U+009F) — the CAM-460 defect #4 fix (NEL, other C1 codepoints)
+ * is preserved unchanged by folding into this single category test.
  *
- * Does NOT close CAM-471 (tracked separately): that gap is zero-width/Cf
- * codepoints (e.g. U+200B ZERO WIDTH SPACE) defeating the DELIMITER regex's
- * character-class match — a different bug class from a raw control/line-break
- * byte surviving unstripped. Do not assume this fix covers it.
+ * `Cf` is the NEW coverage this rule adds: zero-width/format codepoints
+ * (U+200B ZERO WIDTH SPACE, U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM, bidi
+ * control marks, ...) that `\s` does NOT match and that used to defeat the
+ * DELIMITER_TAG_REGEX/DELIMITER_TAG_PREFIX_REGEX character-class match by
+ * surviving all the way to the tag-match step. Stripping them HERE, at the
+ * very front of the shared char walk, closes the vector at the source for
+ * every caller (`sanitizeForPrompt`, `sanitizeAnswerForStore`, and
+ * defense-in-depth for `sanitizeSuggestion`/`sanitizeShownResultName`).
+ *
+ * Deliberately does NOT touch a lone combining mark (`\p{M}`, e.g. U+0301):
+ * a combining mark is not `\p{C}` (EC-3) — that vector is closed by BR-2's
+ * tolerant delimiter match instead, not here. This is intentional: a
+ * combining mark can legitimately decorate real text (accented Latin, Thai
+ * tone marks), so this pass must not strip it as if it were invisible junk.
+ *
+ * NFKC-normalize is deliberately NOT run ahead of this strip — see
+ * `stripControlChars`'s docblock below for the proven Thai-text regression
+ * (SARA AM decomposition) that ruled it out.
  */
-function isStrippableControlChar(code: number): boolean {
-  const isC0 = code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d;
-  const isDel = code === 0x7f;
-  const isC1 = code >= 0x80 && code <= 0x9f;
-  return isC0 || isDel || isC1;
-}
+const INVISIBLE_OR_CONTROL_REGEX = /(?![\t\n\r])[\p{Cc}\p{Cf}\p{Co}\p{Cs}\p{Cn}]/gu;
 
 /**
  * Char-code walk shared by every sanitizer in this module (CAM-410 Seams &
  * refs: "extend/reuse the sanitize idiom, do not hand-roll a second
- * sanitizer") — strips control characters, keeping normal whitespace intact.
+ * sanitizer") — strips control/invisible characters, keeping normal
+ * whitespace intact.
+ *
+ * CAM-471 BR-3 deviation (documented, flagged to the owner — see the PR/
+ * handoff `needs_decision`): the story's BR-3 text specifies an NFKC-
+ * normalize pre-pass. A REAL end-to-end probe against this exact codebase
+ * proved `'น้ำ'.normalize('NFKC')` silently rewrites U+0E33 THAI CHARACTER
+ * SARA AM into the decomposed U+0E4D U+0E32 pair — a DIFFERENT byte
+ * sequence than the camper typed, and NOT reversible by a follow-up NFC
+ * pass (SARA AM's decomposition is `<compat>`, not canonical, so
+ * composition never folds it back). This silently corrupts an enormous
+ * fraction of ordinary Thai text (น้ำ, ทำ, จำ, สำหรับ, กำลัง, ประจำ, ...) —
+ * exactly the "no over-strip regression" invariant AC-4/EC-5 protect, and
+ * the existing CAM-460 regression suite caught it immediately (a plain Thai
+ * camp-name fixture failed byte-for-byte). NFKC in this story exists ONLY
+ * as a partial mitigation for an explicitly OUT-OF-SCOPE concern (homoglyph
+ * substitution of the tag letters themselves — see story.md "Out of
+ * scope"); it is not required by ANY in-scope AC/EC (BR-2's tolerant
+ * delimiter match + the Cf/invisible strip below fully close AC-1..AC-5/
+ * EC-1..EC-6 without it — verified in `__tests__/cam-471-*`). Given a
+ * proven, severe product regression vs. an already-deferred, partial,
+ * out-of-scope benefit, this implementation OMITS the NFKC pre-pass and
+ * keeps only the invisible/control strip. Flagged for owner ratification;
+ * revert this note + add NFKC back if the owner overrides.
  */
 function stripControlChars(rawText: string): string {
-  let out = '';
-  for (const ch of rawText) {
-    const code = ch.codePointAt(0) ?? 0;
-    if (!isStrippableControlChar(code)) out += ch;
-  }
-  return out;
+  return rawText.replace(INVISIBLE_OR_CONTROL_REGEX, '');
 }
 
 /**
