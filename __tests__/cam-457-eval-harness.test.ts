@@ -708,6 +708,56 @@ describe('CAM-457 replay-case — the real dispatchTool observation seam', () =>
     expect(body.messages[1].content).toContain('<user_message>');
   });
 
+  it('[normal] harness fidelity: seededShownResults injects the CAM-460 <shown_results> state (with campId) into the system prompt, so a "the one you showed me" reference can resolve to a real id', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ได้เลยค่ะ')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const kase: GoldenCase = {
+      id: 'FID1',
+      group: 'P1',
+      zone: 'B',
+      utterance: [
+        { role: 'user', content: 'หาแคมป์ในเชียงใหม่ให้หน่อย' },
+        { role: 'assistant', content: 'พบ 2 แคมป์ค่ะ 1) ลานสนธรรมชาติ 2) ริมธารแคมป์' },
+        { role: 'user', content: 'เอาอันที่สอง' },
+      ],
+      seededShownResults: [
+        { ordinal: 1, campId: 'eval-camp-pine', name: 'ลานสนธรรมชาติ', priceLow: 500 },
+        { ordinal: 2, campId: 'eval-camp-river', name: 'ริมธารแคมป์', priceLow: 800 },
+      ],
+      expected: { kind: 'tool', tool: 'getCampDetail', params: {} },
+    };
+    await replayCase(kase);
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    const systemPrompt = body.messages[0].content as string;
+    expect(systemPrompt).toContain('<shown_results>');
+    // the id the reference "อันที่สอง" must resolve to — absent before this fix.
+    expect(systemPrompt).toContain('eval-camp-river');
+  });
+
+  it('[normal] harness fidelity: the SAME context case WITHOUT seededShownResults omits the <shown_results> block entirely (byte-identical to pre-seed; regression guard for every non-reference context case)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ได้เลยค่ะ')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const kase: GoldenCase = {
+      id: 'FID2',
+      group: 'P1',
+      zone: 'B',
+      utterance: [
+        { role: 'user', content: 'หาแคมป์ในเชียงใหม่ให้หน่อย' },
+        { role: 'assistant', content: 'พบ 2 แคมป์ค่ะ' },
+        { role: 'user', content: 'เอาอันที่สอง' },
+      ],
+      expected: { kind: 'tool', tool: 'getCampDetail', params: {} },
+    };
+    await replayCase(kase);
+
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    const systemPrompt = body.messages[0].content as string;
+    expect(systemPrompt).not.toContain('<shown_results>');
+  });
+
   it('[normal] CAM-417 tiering: auth:true offers the authed getMyProfile schema; absent does not', async () => {
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('นี่คือโปรไฟล์ของคุณครับ')));
     vi.stubGlobal('fetch', mockFetch);

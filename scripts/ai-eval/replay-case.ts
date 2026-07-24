@@ -26,6 +26,14 @@ export function contextForCase(kase: GoldenCase): ToolContext {
  * case -> build the prod-identical `TurnMessage[]` via the real
  * `buildTurnMessages`, then `runAssistantTurnFromMessages` — never a
  * hand-rolled message array.
+ *
+ * A CONTEXT case may carry `seededShownResults` — the shown-results state
+ * production would have derived from the prior turn's searchCampsites results.
+ * Passing it as the `shownResults` arg (CAM-460 D4) makes the `<shown_results>`
+ * fence appear in the system prompt exactly as it does in production, so a
+ * reference to a previously shown camp can resolve to a real campSiteId. Absent
+ * (`undefined`) keeps the prompt byte-identical to before (every non-reference
+ * case), matching the pre-CAM-460 default.
  */
 export async function replayCase(kase: GoldenCase): Promise<AssistantTurnResult> {
   const ctx = contextForCase(kase);
@@ -33,5 +41,5 @@ export async function replayCase(kase: GoldenCase): Promise<AssistantTurnResult>
     return runAssistantTurn(kase.utterance, ctx);
   }
   const turnMessages = buildTurnMessages(kase.utterance);
-  return runAssistantTurnFromMessages(turnMessages, ctx);
+  return runAssistantTurnFromMessages(turnMessages, ctx, kase.seededShownResults);
 }

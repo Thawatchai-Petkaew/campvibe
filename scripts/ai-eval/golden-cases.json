@@ -23,7 +23,7 @@
     "expected": {
       "kind": "tool",
       "tool": "searchCampsites",
-      "params": { "province": "เชียงใหม่" }
+      "params": { "province": "Chiang Mai" }
     },
     "guardrail": false
   },
@@ -35,7 +35,7 @@
     "expected": {
       "kind": "tool",
       "tool": "searchCampsites",
-      "params": { "province": "เชียงใหม่", "petFriendly": true },
+      "params": { "province": "Chiang Mai", "petFriendly": true },
       "strictParams": true
     },
     "guardrail": false
@@ -48,7 +48,7 @@
     "expected": {
       "kind": "tool",
       "tool": "searchCampsites",
-      "params": { "province": "เชียงใหม่", "terrain": "RIVE" }
+      "params": { "province": "Chiang Mai", "terrain": "RIVE" }
     },
     "guardrail": false
   },
@@ -98,6 +98,10 @@
       { "role": "assistant", "content": "พบ 2 แคมป์ในเชียงใหม่ค่ะ 1) ลานสนธรรมชาติ ราคา 500 บาท 2) ริมธารแคมป์ ราคา 800 บาท" },
       { "role": "user", "content": "เอาอันที่สอง" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ", "priceLow": 500 },
+      { "ordinal": 2, "campId": "eval-camp-river", "name": "ริมธารแคมป์", "priceLow": 800 }
+    ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
   },
@@ -122,6 +126,9 @@
       { "role": "assistant", "content": "ลานดอยหมอกงาม เป็นลานที่หมอกลงสวยมากตอนเช้าค่ะ" },
       { "role": "user", "content": "อันที่บอกว่าหมอกสวยอ่ะ ว่างเสาร์นี้ไหม" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-fog", "name": "ลานดอยหมอกงาม" }
+    ],
     "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
     "guardrail": false
   },
@@ -142,6 +149,10 @@
       { "role": "assistant", "content": "พบ 2 แคมป์ในเชียงใหม่ค่ะ 1) ลานสนธรรมชาติ 2) ริมธารแคมป์" },
       { "role": "user", "content": "เปรียบเทียบอันที่ 1 กับ 2 อันไหนเหมาะกับครอบครัว" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" },
+      { "ordinal": 2, "campId": "eval-camp-river", "name": "ริมธารแคมป์" }
+    ],
     "expected": { "kind": "tool", "tool": "compareCamps", "params": { "criteria": ["family"] } },
     "guardrail": false
   },
@@ -153,6 +164,9 @@
       { "role": "user", "content": "หาแคมป์ในเชียงใหม่ให้หน่อย" },
       { "role": "assistant", "content": "พบแคมป์ในเชียงใหม่ค่ะ อันแรกคือลานสนธรรมชาติ" },
       { "role": "user", "content": "พาแม่อายุ 60 ไปได้ไหมอันแรก" }
+    ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
     ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
@@ -388,6 +402,9 @@
       { "role": "assistant", "content": "แนะนำลานสนธรรมชาติค่ะ" },
       { "role": "user", "content": "ทำไมถึงแนะนำอันนี้" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
+    ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
   },
@@ -399,6 +416,9 @@
       { "role": "user", "content": "หาแคมป์ในเชียงใหม่ให้หน่อย" },
       { "role": "assistant", "content": "ลานสนธรรมชาติ รีวิวดีมากค่ะ" },
       { "role": "user", "content": "รีวิวที่ว่าดีเชื่อได้แค่ไหน" }
+    ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
     ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
@@ -467,6 +487,10 @@
       { "role": "user", "content": "มีลานไหนว่างช่วงวีคเอนด์นี้บ้างในเชียงใหม่" },
       { "role": "assistant", "content": "ว่างอยู่ 2 ลานค่ะ 1) ลานสนธรรมชาติ 2) ริมธารแคมป์" },
       { "role": "user", "content": "เทียบ 2 อันที่ว่างวีคเอนด์นี้ อันไหนเหมาะพาเด็กไป" }
+    ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" },
+      { "ordinal": 2, "campId": "eval-camp-river", "name": "ริมธารแคมป์" }
     ],
     "expected": { "kind": "tool", "tool": "compareCamps", "params": { "criteria": ["family"] } },
     "guardrail": false
