@@ -56,24 +56,37 @@ export const REGION_TO_PROVINCES: Readonly<Record<ThaiRegion, readonly string[]>
  * are substrings of `ตะวันออกเฉียงเหนือ`, so an exact match on the whole
  * trimmed word avoids that collision. Additive only — a form outside this
  * set is not an error (falls through to the raw-passthrough below, BR-4).
+ *
+ * CAM-463 security hardening — built via `Object.create(null)` (no
+ * `Object.prototype` in the chain) rather than an object literal. A plain
+ * `{}` literal inherits `Object.prototype`, so a client-supplied lookup key
+ * of `'__proto__'` / `'constructor'` / `'toString'` / `'valueOf'` /
+ * `'hasOwnProperty'` would return an INHERITED truthy value (an object or
+ * function) instead of `undefined`, which `resolveRegionForSearch` would
+ * then wrongly treat as a resolved region — defeating its "never throws"
+ * contract (BR-4/AC-6). A null-prototype map has no inherited properties at
+ * all, so every one of those adversarial keys correctly misses and falls
+ * through to the raw-passthrough below.
  */
-const REGION_ALIASES: Readonly<Record<string, ThaiRegion>> = Object.freeze({
-  ภาคเหนือ: 'NORTH',
-  เหนือ: 'NORTH',
-  ทางเหนือ: 'NORTH',
-  ภาคตะวันออกเฉียงเหนือ: 'NORTHEAST',
-  ภาคอีสาน: 'NORTHEAST',
-  อีสาน: 'NORTHEAST',
-  ภาคกลาง: 'CENTRAL',
-  กลาง: 'CENTRAL',
-  ภาคตะวันออก: 'EAST',
-  ตะวันออก: 'EAST',
-  ภาคตะวันตก: 'WEST',
-  ตะวันตก: 'WEST',
-  ภาคใต้: 'SOUTH',
-  ใต้: 'SOUTH',
-  ปักษ์ใต้: 'SOUTH',
-});
+const REGION_ALIASES: Readonly<Record<string, ThaiRegion>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<string, ThaiRegion>, {
+    ภาคเหนือ: 'NORTH',
+    เหนือ: 'NORTH',
+    ทางเหนือ: 'NORTH',
+    ภาคตะวันออกเฉียงเหนือ: 'NORTHEAST',
+    ภาคอีสาน: 'NORTHEAST',
+    อีสาน: 'NORTHEAST',
+    ภาคกลาง: 'CENTRAL',
+    กลาง: 'CENTRAL',
+    ภาคตะวันออก: 'EAST',
+    ตะวันออก: 'EAST',
+    ภาคตะวันตก: 'WEST',
+    ตะวันตก: 'WEST',
+    ภาคใต้: 'SOUTH',
+    ใต้: 'SOUTH',
+    ปักษ์ใต้: 'SOUTH',
+  } satisfies Record<string, ThaiRegion>),
+);
 
 /**
  * CAM-463 Decision 2/3 — resolves a Thai region phrase (formal name or BR-2
