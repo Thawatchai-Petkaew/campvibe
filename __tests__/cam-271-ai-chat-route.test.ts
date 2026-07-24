@@ -262,17 +262,22 @@ describe('POST /api/ai/chat — prompt injection is treated as data (AC-8, EC-5,
 /* -------------------------------------------------------------------------- */
 
 describe('POST /api/ai/chat — builds a real messages array via buildTurnMessages (CAM-415)', () => {
-  it('[unit] calls runAssistantTurnFromMessages with a fenced array, not a flattened string or an options object', async () => {
+  it('[unit] calls runAssistantTurnFromMessages with a fenced array, an empty ctx, and no shownResults (CAM-420/CAM-460 additive params, still inert here)', async () => {
     mockRunAssistantTurn.mockResolvedValueOnce({ ok: true, answer: 'ok', cards: [] });
 
     await POST(makeRequest({ messages: [{ role: 'user', content: 'hi' }] }));
 
     expect(mockRunAssistantTurn).toHaveBeenCalledOnce();
     const call = mockRunAssistantTurn.mock.calls[0] as unknown[];
-    expect(call).toHaveLength(1); // no second (options) argument
-    const [turnMessages] = call as [Array<{ role: string; content: string }>];
+    // CAM-460 (D4) added a 3rd (shownResults) param alongside CAM-420's ctx;
+    // this request carries no lastResults, so ctx stays an empty object and
+    // shownResults stays undefined — no real options/data snuck into either.
+    expect(call).toHaveLength(3);
+    const [turnMessages, ctx, shownResults] = call as [Array<{ role: string; content: string }>, object, unknown];
     expect(Array.isArray(turnMessages)).toBe(true);
     expect(turnMessages[0]).toEqual({ role: 'user', content: expect.stringContaining('<user_message>') });
+    expect(ctx).toEqual({});
+    expect(shownResults).toBeUndefined();
   });
 });
 

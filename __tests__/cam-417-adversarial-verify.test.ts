@@ -245,10 +245,17 @@ describe('(c) a hallucinated call to a REGISTERED authed tool is refused by the 
 /* -------------------------------------------------------------------------- */
 
 describe('(g) provenance — ctx.userId can only ever come from a server-side session, never args/body/model output', () => {
-  it('[security] the LEGACY branch (handleLegacyTurn) still passes NO ctx argument to runAssistantTurnFromMessages (resolves to the {} default)', () => {
+  it('[security] the LEGACY branch (handleLegacyTurn) passes a LITERAL empty ctx `{}` to runAssistantTurnFromMessages — never sourced from data/args/model output', () => {
+    // CAM-460 (D4) — the legacy call gained a 3rd param (shownResults) so it
+    // can thread the guest's own lastResults field, but the 2nd param (ctx)
+    // is unchanged: still a literal `{}`, never `data.*`/args/model output.
+    // The invariant this test guards is "ctx carries no userId channel on the
+    // legacy path" — that holds regardless of arity; only the literal source
+    // text moved from an omitted 2nd arg (implicit {} default) to an explicit
+    // one (still `{}`, still inert).
     const routeSource = readFileSync(join(process.cwd(), 'app/api/ai/chat/route.ts'), 'utf-8');
-    const legacyCallMatch = routeSource.match(/runAssistantTurnFromMessages\(turnMessages\)/);
-    expect(legacyCallMatch).not.toBeNull(); // exactly one argument, no ctx
+    const legacyCallMatch = routeSource.match(/runAssistantTurnFromMessages\(turnMessages,\s*\{\},\s*shownResults\)/);
+    expect(legacyCallMatch).not.toBeNull(); // ctx is a literal {} — never data/args/model-output derived
   });
 
   it("[security] CAM-420 UPDATE: the v2 branch's ctx is built as `{ userId }` from a LOCAL `session`/`userId` binding — never from `data`/args/model output", () => {

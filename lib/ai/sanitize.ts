@@ -72,11 +72,32 @@ function stripDelimiterTagsToFixpoint(text: string): string {
  */
 const DELIMITER_TAG_PREFIX_REGEX = new RegExp(`<\\s*/?\\s*${USER_DATA_TAG_NAME}`, 'gi');
 
-/** Char codes considered "control" and stripped (C0 range + DEL), excluding \t \n \r. */
+/**
+ * Char codes considered "control" and stripped: C0 range + DEL (excluding
+ * \t \n \r) AND the full C1 range (U+0080-U+009F).
+ *
+ * Security review nit (Important, defect #4 — same family as #1/#3): the
+ * original C0-only strip left ALL 32 C1 codepoints untouched, notably
+ * U+0085 NEL (Next Line) — a Unicode-defined MANDATORY line break that
+ * JS's `\s` does NOT match and zod's `.trim()` does not remove either. A
+ * guest-controlled name (`shownResultSchema.name`, only `.trim().min(1)`)
+ * could therefore carry a real line break into the `<shown_results>`
+ * prompt fence and forge a pseudo-line the model reads as a fresh row.
+ * This is the SHARED char-code walk every sanitizer in this module reuses
+ * (see `stripControlChars` below) — extending it here strictly improves
+ * every caller, including `sanitizeForPrompt`, which is intended
+ * defense-in-depth for free user text too.
+ *
+ * Does NOT close CAM-471 (tracked separately): that gap is zero-width/Cf
+ * codepoints (e.g. U+200B ZERO WIDTH SPACE) defeating the DELIMITER regex's
+ * character-class match — a different bug class from a raw control/line-break
+ * byte surviving unstripped. Do not assume this fix covers it.
+ */
 function isStrippableControlChar(code: number): boolean {
   const isC0 = code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d;
   const isDel = code === 0x7f;
-  return isC0 || isDel;
+  const isC1 = code >= 0x80 && code <= 0x9f;
+  return isC0 || isDel || isC1;
 }
 
 /**
@@ -219,6 +240,34 @@ export const MAX_SUGGESTION_LENGTH = 60;
 /** Matches any `<...>` tag (HTML or a forged delimiter) — replaced with a space, never deleted, so words don't glue together. */
 const HTML_TAG_REGEX = /<[^>]*>/g;
 
+/**
+ * CAM-460 rework (BE fix, Defect #1 — QA independent-verify, Important,
+ * cam-460-conversation-state.test.ts "[DEFECT]" case): `HTML_TAG_REGEX`
+ * requires a literal closing `>` to match at all, so an UNCLOSED forged
+ * fragment (no `>` anywhere in the string, e.g. `</shown_results` or
+ * `<user_message`) survives it untouched. That gap is exploitable here
+ * specifically because `sanitizeShownResultName`'s output is embedded inside
+ * the `<shown_results>...</shown_results>` fence (`lib/ai/openrouter-client.ts`
+ * `buildShownResultsBlock`) immediately BEFORE the block's own real closing
+ * tag — an unclosed `</shown_results` fragment can "borrow" the `>` off that
+ * real tag and read, to the model, as an early/ambiguous close.
+ *
+ * Mirrors `DELIMITER_TAG_PREFIX_REGEX`'s proven pattern above (open/close,
+ * optional whitespace, NO closing `>` required) but is deliberately
+ * GENERALIZED from one fixed tag-name literal to any tag-name-shaped token —
+ * unlike `sanitizeForPrompt` (which only ever needs to guard the ONE
+ * `user_message` delimiter; other angle-bracket text in free user text is
+ * legitimate), this function's own contract above is broader: "a shown-result
+ * name has no legitimate reason to carry ANY tag-like markup at all". The
+ * value is also embedded in a DIFFERENT fence (`shown_results`, not
+ * `user_message`) than `DELIMITER_TAG_PREFIX_REGEX` targets, so reusing that
+ * constant verbatim would close only the `<user_message` half of the gap and
+ * leave an unclosed `</shown_results` fragment live. `HTML_TAG_REGEX` above
+ * already strips ANY closed tag regardless of name; this is its unclosed-tag
+ * sibling, kept equally name-agnostic for the same reason.
+ */
+const UNCLOSED_TAG_PREFIX_REGEX = /<\s*\/?\s*[a-zA-Z][\w-]*/g;
+
 /** Common markdown syntax markers (bold/italic/inline-code/heading/bullet/numbered-list) — stripped, the underlying words are kept. */
 const MARKDOWN_SYNTAX_REGEX = /(\*\*|__|\*|_|`+|^#{1,6}\s*|^[-*+]\s+|^\d+\.\s+)/gm;
 
@@ -229,4 +278,69 @@ export function sanitizeSuggestion(rawText: string): string | null {
   const collapsed = withoutMarkdown.replace(/\s+/g, ' ').trim();
   if (collapsed.length === 0 || collapsed.length > MAX_SUGGESTION_LENGTH) return null;
   return collapsed;
+}
+
+/**
+ * CAM-460 (D2 security review point 2) — sanitizes a campsite NAME reaching
+ * the system prompt inside the `<shown_results>` DATA fence
+ * (`lib/ai/openrouter-client.ts`), from EITHER path: the authed derive's own
+ * DB `nameTh` (defense-in-depth) or a guest's client-resent
+ * `lastResults[].name` (genuinely untrusted — the client controls this
+ * string). `sanitizeForPrompt` deliberately only strips the ONE
+ * `<user_message>` delimiter (a camper's free-text question may legitimately
+ * contain other angle-bracket text) — that is NOT enough here: a shown-result
+ * name has no legitimate reason to carry ANY tag-like markup, and without
+ * stripping every tag, a forged `</shown_results>` inside `name` could escape
+ * the fence. Reuses the SAME "strip any `<...>` tag" idiom `sanitizeSuggestion`
+ * already applies to model output (`HTML_TAG_REGEX`) — never a parallel
+ * sanitizer. Unlike `sanitizeSuggestion`, never returns null/drops the value
+ * (this is defense-in-depth; the real bound is zod at the wire boundary,
+ * `lib/validations/ai-chat.ts`) — truncates at `maxLength`, the same
+ * never-reject convention `sanitizeForPrompt` uses.
+ *
+ * CAM-460 rework (BE fix, Defect #1) — after the closed-tag pass + whitespace
+ * collapse, a final hard-strip pass (`UNCLOSED_TAG_PREFIX_REGEX`) removes any
+ * still-remaining UNCLOSED opening-half tag fragment (no closing `>` required)
+ * of ANY tag name, mirroring `sanitizeForPrompt`'s `DELIMITER_TAG_PREFIX_REGEX`
+ * backstop but generalized (see that constant's docblock above for why one
+ * fixed tag-name literal is not enough here).
+ *
+ * CAM-460 Defect #3 (QA independent re-verify of the Defect #1 rework,
+ * Important) — `UNCLOSED_TAG_PREFIX_REGEX` still requires a literal
+ * `[a-zA-Z]` immediately after `<` (mod its own `\s*`/`/`/`\s*` prefix zone);
+ * a character that is NOT an ASCII letter there — a plain digit
+ * (`</9shown_results`) or an invisible zero-width codepoint (U+200B, which
+ * `\s` does NOT match) — makes the WHOLE match attempt fail, so the entire
+ * fragment (including the literal `<`) survives untouched. This is the same
+ * exploit shape as Defect #1: another regex requiring a specific character
+ * class right after `<`. Patching the character class again (allow digits,
+ * allow U+200B/U+200C/U+200D/U+FEFF, ...) is regex whack-a-mole — the next
+ * unlisted invisible/combining codepoint reopens the same gap.
+ *
+ * DURABLE FIX (owner-aligned, ends the whack-a-mole for this field): after
+ * every pass above, strip every literal `<` and `>` CHARACTER outright, then
+ * re-collapse whitespace. A campsite NAME has no legitimate reason to carry
+ * an angle bracket at all — removing the delimiter characters themselves
+ * makes ANY tag-shaped forgery structurally impossible, because there is no
+ * longer a `<`/`>` in the string for a regex to match (or fail to match) in
+ * the first place. This also structurally closes the "truncation resurrects
+ * a fragment near maxLength" risk: since no bracket survives pre-slice,
+ * `.slice(maxLength)` can never expose or reconstruct one. The passes above
+ * are kept (defense-in-depth, and they still normalize real closed/unclosed
+ * tags and the whitespace they leave behind) — this bracket-strip is the
+ * final backstop. CAM-471 tracks the analogous gap in `sanitizeForPrompt`,
+ * which CANNOT use this fix (free user text legitimately contains `<`/`>`).
+ */
+export function sanitizeShownResultName(rawText: string, maxLength: number): string {
+  const withoutControlChars = stripControlChars(rawText);
+  const withoutTags = withoutControlChars.replace(HTML_TAG_REGEX, ' ');
+  const collapsedFirst = withoutTags.replace(/\s+/g, ' ').trim();
+  // Hard-strip backstop (defense-in-depth): remove any remaining unclosed
+  // opening-half tag fragment outright, regardless of tag name.
+  const hardStripped = collapsedFirst.replace(UNCLOSED_TAG_PREFIX_REGEX, ' ');
+  // Final backstop (Defect #3 durable fix): strip every literal `<`/`>`
+  // character outright — no tag-name/character-class regex to bypass.
+  const bracketsStripped = hardStripped.replace(/[<>]/g, ' ');
+  const collapsed = bracketsStripped.replace(/\s+/g, ' ').trim();
+  return collapsed.slice(0, maxLength);
 }
