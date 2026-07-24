@@ -247,6 +247,8 @@ describe('CAM-459 zone-C invariant — the "no booking tool exists today" claim 
         'getMyBookings',
         'getMyProfile',
         'getMyWishlist',
+        // CAM-462 — new deterministic, read-only guest-tier tool (no write capability).
+        'resolveDates',
         'searchCampsites',
       ].sort()
     );
