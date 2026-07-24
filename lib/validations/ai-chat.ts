@@ -16,6 +16,21 @@
  *    schema only bounds shape/size (`message` at most MAX_CHAT_MESSAGE_LENGTH
  *    chars, matching the legacy per-message cap; `conversationId`, when
  *    present, must be the real `ChatConversation.id` UUID shape).
+ *
+ * CAM-460 (D2, tech.md — conversation state for follow-up references) adds
+ * ONE additive, optional field to `chatRequestSchema` (legacy/guest only —
+ * the authed v2 path derives its state server-side, `lib/ai/conversation-
+ * store.ts` `deriveShownState`, never over the wire): `lastResults`, the
+ * client-resent "shown results" state. A guest has NO server-side memory
+ * (the `{messages}` path persists nothing), so this is the guest's ONLY path
+ * to a back-reference resolving correctly (story.md BR-4/AC-4). This is
+ * UNTRUSTED input — bounded/shape-checked here (zod); SANITIZED + wrapped in
+ * a DATA fence at the prompt-injection boundary
+ * (`lib/ai/openrouter-client.ts`'s `buildSystemPrompt` shownResults param,
+ * the SAME seam that fences the camper's own message text) before it ever
+ * reaches the model. Absent (the byte-identical default for every existing
+ * body) → the turn has no prior-shown memory → falls to the clarify path
+ * (EC-4) — never fabricates a prior result.
  */
 import { z } from 'zod';
 
@@ -23,6 +38,30 @@ import { z } from 'zod';
 export const MAX_CHAT_MESSAGES = 10;
 /** BR-3 cap — at most this many characters per message. */
 export const MAX_CHAT_MESSAGE_LENGTH = 2000;
+/**
+ * CAM-460 (D2/D3) — a shown-result entry's `name` is capped at this many
+ * characters: enforced here (the guest wire zod boundary) AND again, as
+ * defense-in-depth, at the prompt-injection truncation
+ * (`lib/ai/openrouter-client.ts` imports this SAME constant — one cap, not
+ * two independently-chosen numbers).
+ */
+export const SHOWN_RESULT_NAME_MAX = 80;
+/**
+ * CAM-460 (D2/D3) — mirrors `SEARCH_CAMPSITES_MAX_RESULTS`
+ * (`lib/ai/tools/search-campsites.ts`, currently 10): the guest can never
+ * legitimately have been shown more campsites than that tool ever returns in
+ * one search, so `lastResults`/each `ordinal` is bounded to the same number.
+ * DELIBERATELY a local, independently-declared constant rather than an
+ * import of the tool's own export: this file is a lean, dependency-free
+ * (beyond zod) validation boundary that several tests statically import
+ * BEFORE their own `vi.mock('@/lib/prisma', ...)` variable declarations —
+ * pulling in the tool (which transitively imports `@/lib/prisma`) here would
+ * invoke that hoisted mock factory too early (a real regression this exact
+ * change caused and was reverted from, cam-420-adversarial-verify.test.ts).
+ * If the tool's cap ever changes, update this value too (co-location note,
+ * not a live cross-reference).
+ */
+export const MAX_SHOWN_RESULTS = 10;
 
 const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -30,14 +69,42 @@ const chatMessageSchema = z.object({
 });
 
 /**
+ * CAM-460 (D2) — one entry of the guest-resent "shown results" state.
+ * `ordinal` mirrors the card's 1-based display position (bounded to
+ * `MAX_SHOWN_RESULTS` — no card list this client could have shown
+ * is ever longer); `campSiteId` matches `getCampDetail`/`checkAvailability`'s
+ * own arg name + `card.id` (a real campsite id shape, uuid); `name` is
+ * capped at `SHOWN_RESULT_NAME_MAX` (also the truncation length applied
+ * again at the prompt-injection boundary, defense-in-depth). An
+ * out-of-range/malformed entry fails HERE (400 `invalid_request`, before any
+ * paid model call) — it never reaches the prompt (D2 security review point
+ * 3).
+ */
+export const shownResultSchema = z.object({
+  ordinal: z.number().int().positive().max(MAX_SHOWN_RESULTS),
+  campSiteId: z.string().uuid(),
+  name: z.string().trim().min(1).max(SHOWN_RESULT_NAME_MAX),
+});
+
+export type ShownResultWire = z.infer<typeof shownResultSchema>;
+
+/**
  * BR-3: at most MAX_CHAT_MESSAGES messages, each role user|assistant, each
  * content at most MAX_CHAT_MESSAGE_LENGTH chars, and at least one `user`
  * message present (a conversation with only assistant turns is malformed —
  * there is nothing for the assistant to answer).
+ *
+ * CAM-460 (D2) — `lastResults` is ADDITIVE and OPTIONAL (api.md §12 —
+ * backward-compatible by addition): every existing `{messages}` body matches
+ * byte-identically with the field absent. Capped at
+ * `MAX_SHOWN_RESULTS` entries (the same "single most-recent
+ * search" bound the authed derive path is naturally bounded to already,
+ * story.md BR-5).
  */
 export const chatRequestSchema = z
   .object({
     messages: z.array(chatMessageSchema).min(1).max(MAX_CHAT_MESSAGES),
+    lastResults: z.array(shownResultSchema).max(MAX_SHOWN_RESULTS).optional(),
   })
   .refine((body) => body.messages.some((message) => message.role === 'user'), {
     message: 'at least one user message is required',

@@ -230,3 +230,28 @@ export function sanitizeSuggestion(rawText: string): string | null {
   if (collapsed.length === 0 || collapsed.length > MAX_SUGGESTION_LENGTH) return null;
   return collapsed;
 }
+
+/**
+ * CAM-460 (D2 security review point 2) — sanitizes a campsite NAME reaching
+ * the system prompt inside the `<shown_results>` DATA fence
+ * (`lib/ai/openrouter-client.ts`), from EITHER path: the authed derive's own
+ * DB `nameTh` (defense-in-depth) or a guest's client-resent
+ * `lastResults[].name` (genuinely untrusted — the client controls this
+ * string). `sanitizeForPrompt` deliberately only strips the ONE
+ * `<user_message>` delimiter (a camper's free-text question may legitimately
+ * contain other angle-bracket text) — that is NOT enough here: a shown-result
+ * name has no legitimate reason to carry ANY tag-like markup, and without
+ * stripping every tag, a forged `</shown_results>` inside `name` could escape
+ * the fence. Reuses the SAME "strip any `<...>` tag" idiom `sanitizeSuggestion`
+ * already applies to model output (`HTML_TAG_REGEX`) — never a parallel
+ * sanitizer. Unlike `sanitizeSuggestion`, never returns null/drops the value
+ * (this is defense-in-depth; the real bound is zod at the wire boundary,
+ * `lib/validations/ai-chat.ts`) — truncates at `maxLength`, the same
+ * never-reject convention `sanitizeForPrompt` uses.
+ */
+export function sanitizeShownResultName(rawText: string, maxLength: number): string {
+  const withoutControlChars = stripControlChars(rawText);
+  const withoutTags = withoutControlChars.replace(HTML_TAG_REGEX, ' ');
+  const collapsed = withoutTags.replace(/\s+/g, ' ').trim();
+  return collapsed.slice(0, maxLength);
+}
