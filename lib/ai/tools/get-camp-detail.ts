@@ -15,6 +15,12 @@
  * remaining-guest count (`weekendAvailability`). All fields come from OUR
  * schema (no new external call); no operator/contact/KYC/payout field is
  * ever selected or returned (PDPA, mirrors the CAM-427/CAM-446 boundary).
+ *
+ * CAM-464 (D4): additive `facets: FacetScore[]` — derived family/beginner/
+ * road_access scores computed on-read (`computeFacetScores`, rules-only v1,
+ * NO table/NO migration) from the ALREADY-SELECTED `options{code,group}` +
+ * `minimumAge` fields. Zero added DB cost, backward-compatible (existing
+ * consumers ignore the new field).
  */
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
@@ -27,6 +33,7 @@ import {
 import { buildReviewSummary, toReviewListItem, type ReviewListItem, type ReviewSummary } from '@/lib/review-summary';
 import type { CancellationPolicyValue } from '@/lib/cancellation-policy';
 import { distanceFromBangkokKm } from '@/lib/geo/distance';
+import { computeFacetScores, type FacetScore } from '@/lib/facet-scores';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** Bounded read — never an unbounded review dump (performance.md). */
@@ -141,6 +148,14 @@ export type GetCampDetailResult =
        * back-compat until a follow-up cleanup removes it).
        */
       weekendAvailability: WeekendAvailabilityEntry[];
+      /**
+       * CAM-464 (D4) — derived family/beginner/road_access scores, computed
+       * on-read from the fields already selected above (`options`,
+       * `minimumAge`). A facet with no supporting evidence is OMITTED (BR-5,
+       * never a fake 0-score) — the assistant answers "ข้อมูลไม่พอ" for any
+       * facet absent from this array. ADDITIVE field only (api.md rule 12).
+       */
+      facets: FacetScore[];
     }
   | { ok: false; code: 'not_found' };
 
@@ -311,6 +326,13 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
     computeWeekendAvailability(campSite.id),
   ]);
 
+  // CAM-464 (D4) — pure, synchronous, computed on already-fetched fields
+  // (options/minimumAge); NOT a DB call, so no Promise.all batching needed.
+  const facets = computeFacetScores({
+    options: campSite.options.map((o) => ({ code: o.code, group: o.group })),
+    minimumAge: campSite.minimumAge,
+  });
+
   return {
     ok: true,
     id: campSite.id,
@@ -349,13 +371,14 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
     distanceFromBangkokKm: distanceFromBangkokKm(campSite.latitude, campSite.longitude),
     availableWeekendDates,
     weekendAvailability,
+    facets,
   };
 }
 
 export const getCampDetailTool: ToolDefinition<GetCampDetailArgs, GetCampDetailResult> = {
   name: 'getCampDetail',
   description:
-    'Load the detail card for ONE published CampVibe campsite: description, real total price/fees, capacity, cancellation policy, verified badge, check-in/out, access, amenities, verified reviews, and live per-weekend remaining-guest availability.',
+    'Load the detail card for ONE published CampVibe campsite: description, real total price/fees, capacity, cancellation policy, verified badge, check-in/out, access, amenities, verified reviews, live per-weekend remaining-guest availability, and derived family/beginner/road_access facet scores. Answer facet questions ONLY from a facet\'s `evidence` field; when a facet is absent from `facets` or `answerable` is false, say the data is insufficient — never guess. For `road_access`, never claim a sedan specifically can enter (the source field cannot distinguish vehicle class).',
   // CAM-417 (ADR-013 D5) — public campsite detail data, offered to every caller like searchCampsites/checkAvailability.
   tier: 'guest',
   parameters: getCampDetailArgsSchema,
