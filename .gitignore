@@ -82,6 +82,11 @@ next-env.d.ts
 !/scripts/reconcile-ratings.mjs
 !/scripts/import-linear.mjs
 !/scripts/parity-check.mjs
+# CAM demand-seeding toolkit — tracked so Stage 0/1 are reproducible + reviewable
+!/scripts/gen-mock-data.mjs
+!/scripts/merge-mock-data.mjs
+!/scripts/seed-demand.mjs
+!/scripts/gen-review-text.mjs
 !/scripts/ai-eval/
 .claude/linear-snapshot.json
 

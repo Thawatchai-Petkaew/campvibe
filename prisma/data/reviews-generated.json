@@ -1,0 +1,4 @@
+{
+  "_comment": "CAM demand-seeding toolkit — committed LLM review-text cache, written ONLY by scripts/gen-review-text.mjs (OpenRouter, owner-gated: requires OPENROUTER_API_KEY, never called automatically). Keyed by campSiteSlug -> content-hash-keyed entries. Empty until the owner runs `npm run reviews:gen` with a key; scripts/seed-demand.mjs prefers a cache hit here and falls back to prisma/data/aspect-bank.json for every camp not present.",
+  "camps": {}
+}

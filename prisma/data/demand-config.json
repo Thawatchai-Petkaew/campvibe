@@ -1,0 +1,31 @@
+{
+  "_comment": "CAM demand-seeding toolkit (Stage 1) — tuning knobs consumed by scripts/seed-demand.mjs. Default volume ~150 campers / ~2,600 bookings / ~1,050 reviews per the plan. Every count here is a TARGET the seeder allocates toward deterministically (seeded PRNG) — the real run may land within a few units of these due to persona/camp-fit filtering, never exactly random.",
+  "camperCount": 150,
+  "heroEmail": "camper@campvibe.com",
+  "sharedDevPassword": "CampVibe-dev-2025!",
+  "cohorts": {
+    "reviewedCompleted": 1050,
+    "unreviewedCompleted": 800,
+    "future": 450,
+    "cancelled": 300
+  },
+  "totalBookingsTarget": 2600,
+  "totalReviewsTarget": 1050,
+  "zeroReviewCampCount": 7,
+  "pastWindowDaysMin": 7,
+  "pastWindowDaysMax": 540,
+  "futureWindowDaysMin": 3,
+  "futureWindowDaysMax": 120,
+  "cancelledWindowDaysMin": -180,
+  "cancelledWindowDaysMax": 90,
+  "nightsMin": 1,
+  "nightsMax": 4,
+  "ratingDistribution": { "5": 0.55, "4": 0.25, "3": 0.12, "2": 0.06, "1": 0.02 },
+  "zipfExponent": 1.0,
+  "futureStatusWeights": { "CONFIRMED": 0.5, "PAID": 0.35, "PENDING": 0.15 },
+  "heroCamps": {
+    "_comment": "4 stable, well-known curated slugs (idx 1/23/32/43 in the C array of scripts/gen-mock-data.mjs — never renumbered since the curated block is append-only) used to hand-pin camper@campvibe.com's booking history: 3 completed+reviewed + 1 upcoming.",
+    "completedSlugs": ["phu-thap-boek-mist-1", "railay-beach-camp-23", "pang-ung-lakeside-32"],
+    "upcomingSlug": "khao-yai-jungle-camp-43"
+  }
+}
