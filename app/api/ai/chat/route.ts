@@ -56,7 +56,13 @@ import {
   runAssistantTurnFromMessagesStreaming,
   type StreamEvent,
 } from '@/lib/ai/openrouter-client';
-import { chatRequestUnionSchema, type ChatMessage, type ChatRequest, type ChatRequestV2 } from '@/lib/validations/ai-chat';
+import {
+  chatRequestUnionSchema,
+  type ChatMessage,
+  type ChatRequest,
+  type ChatRequestV2,
+  type ShownResultWire,
+} from '@/lib/validations/ai-chat';
 import { buildTurnMessages } from '@/lib/ai/build-turn-messages';
 import { sanitizeForPrompt, sanitizeAnswerForStore } from '@/lib/ai/sanitize';
 import { AI_CHAT_CARDS_BLOCK_TYPE } from '@/lib/api-client';
@@ -65,9 +71,11 @@ import type { ToolContext } from '@/lib/ai/tool-registry';
 import {
   appendTurn,
   createConversation,
+  deriveShownState,
   loadWindow,
   MAX_CONTENT_TEXT_LENGTH,
   type ConversationMessageView,
+  type ShownResult,
 } from '@/lib/ai/conversation-store';
 
 /**
@@ -158,6 +166,27 @@ function toChatMessages(history: ConversationMessageView[]): ChatMessage[] {
 }
 
 /**
+ * CAM-460 (D2) — maps the guest wire shape (`ShownResultWire`, field
+ * `campSiteId`) to the internal `ShownResult` shape (field `campId`) that
+ * `buildSystemPrompt`'s injection point accepts — the SAME internal shape the
+ * authed path gets from `deriveShownState` (conversation-store.ts D1
+ * docblock: one shape, either origin). This is a SHAPE mapping only, never a
+ * sanitizer: an adversarial `name` is sanitized downstream, inside
+ * `buildSystemPrompt` (`sanitizeShownResultName`, D2 security point 2 / D3) —
+ * duplicating that here would be a second, drift-prone sanitizer.
+ *
+ * `undefined` stays `undefined` (never defaulted to `[]`): the guest wire
+ * field is OPTIONAL/additive (D2/D6) — a request that never carried
+ * `lastResults` this turn (no state to report, not "confirmed nothing shown")
+ * must keep the prompt byte-identical to before this story, exactly like
+ * every other caller that never passes the param. Only a request that
+ * explicitly resends `lastResults: []` asserts "nothing shown yet" (EC-4).
+ */
+function toShownResults(wire: ShownResultWire[] | undefined): ShownResult[] | undefined {
+  return wire?.map((entry) => ({ ordinal: entry.ordinal, campId: entry.campSiteId, name: entry.name }));
+}
+
+/**
  * Security forward-flag (v2 binding requirement) — the route owns
  * sanitize-BEFORE-store: `conversation-store`'s own `truncateContentText`
  * only bounds LENGTH, it does not strip control characters or a forged
@@ -189,7 +218,12 @@ async function handleLegacyTurn(data: ChatRequest): Promise<NextResponse> {
   // re-enters as re-sanitized plain content. Drives CAM-416's bounded agent
   // loop over that array.
   const turnMessages = buildTurnMessages(data.messages);
-  const result = await runAssistantTurnFromMessages(turnMessages);
+  // CAM-460 (D2/D4) — the guest's client-resent shown-results state (already
+  // zod-bounded/untrusted at the boundary, `lib/validations/ai-chat.ts`),
+  // shape-mapped and threaded through as this turn's shownResults; absent ->
+  // undefined (byte-identical prompt, D6).
+  const shownResults = toShownResults(data.lastResults);
+  const result = await runAssistantTurnFromMessages(turnMessages, {}, shownResults);
 
   // BR-5 — handled-failure mapping. `skipped` only appears on an ok:true
   // result (key unset, no network call made); check it first so it is
@@ -241,6 +275,9 @@ async function handleLegacyTurn(data: ChatRequest): Promise<NextResponse> {
  */
 async function handleLegacyTurnStreaming(data: ChatRequest, request: NextRequest): Promise<Response> {
   const turnMessages = buildTurnMessages(data.messages);
+  // CAM-460 (D2/D4) — same guest shownResults mapping as the non-streaming
+  // sibling (handleLegacyTurn); absent -> undefined (byte-identical, D6).
+  const shownResults = toShownResults(data.lastResults);
 
   // BR-6/AC-7/EC-6 — one AbortController per turn, wired to the request's
   // own signal AND to the ReadableStream's `cancel()` below, so a client
@@ -251,7 +288,7 @@ async function handleLegacyTurnStreaming(data: ChatRequest, request: NextRequest
   if (request.signal.aborted) controller.abort();
   request.signal.addEventListener('abort', () => controller.abort(), { once: true });
 
-  const gen = runAssistantTurnFromMessagesStreaming(turnMessages, {}, controller.signal);
+  const gen = runAssistantTurnFromMessagesStreaming(turnMessages, {}, controller.signal, shownResults);
   const first = await gen.next();
   if (first.done) {
     return NextResponse.json({ code: 'assistant_error' }, { status: 502 });
@@ -416,6 +453,15 @@ async function handleV2Turn(data: ChatRequestV2): Promise<NextResponse> {
     conversationId = created.data.id;
   }
 
+  // CAM-460 (D1/D4) — the authed path ALWAYS derives the shown-results state
+  // from the just-resolved history (compute-on-the-fly projection of the
+  // persisted `blocks`, conversation-store.ts `deriveShownState`; a brand-new
+  // conversation naturally derives an empty state). Unlike the guest path,
+  // this is never left `undefined`: the server-persisted history IS the
+  // authoritative record, so an empty result is a real, confirmed "nothing
+  // shown yet" signal (AC-3/EC-3) — not merely absent data.
+  const shown = deriveShownState(history);
+
   // Tiered registry (ADR-013 D5) — a real ToolContext offers the `authed`
   // tools too (openrouter-client's `buildToolSchemas`), and the system
   // prompt gains its signed-in-camper line (CAM-419). `source:'server'`
@@ -427,7 +473,7 @@ async function handleV2Turn(data: ChatRequestV2): Promise<NextResponse> {
   const combined: ChatMessage[] = [...toChatMessages(history), { role: 'user', content: data.message }];
   const turnMessages = buildTurnMessages(combined, { source: 'server' });
 
-  const result = await runAssistantTurnFromMessages(turnMessages, ctx);
+  const result = await runAssistantTurnFromMessages(turnMessages, ctx, shown.lastResults);
 
   if (result.skipped) {
     return NextResponse.json({ code: 'assistant_disabled' }, { status: 503 });
