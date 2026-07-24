@@ -264,6 +264,76 @@ function detectMultiWeekendScope(text: string): 'month' | 'year' | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Single-weekday math (F1/CAM-479 fix) — the resolver previously had NO rule
+// for a lone Thai weekday name ("เสาร์หน้า"/"เสาร์นี้"/"ศุกร์ที่จะถึง"), so it
+// fell through all the way to `unsupported` and the assistant looped asking
+// the camper for an explicit date. Deterministic weekday math anchored at
+// `todayISO`, the same UTC-noon idiom (`weekdayOfISO`/`addDaysISO`) as the
+// weekend rules above.
+// ---------------------------------------------------------------------------
+
+/** 0=Sun..6=Sat — matches `weekdayOfISO`'s convention. Longer alternative
+ * (`พฤหัสบดี`) listed BEFORE its short form (`พฤหัส`) in `SINGLE_WEEKDAY_RE` so
+ * the alternation never stops short and leaves the modifier unmatched. */
+const THAI_WEEKDAY_INDEX: Record<string, number> = {
+  อาทิตย์: 0,
+  จันทร์: 1,
+  อังคาร: 2,
+  พุธ: 3,
+  พฤหัสบดี: 4,
+  พฤหัส: 4,
+  ศุกร์: 5,
+  เสาร์: 6,
+};
+
+const THAI_WEEKDAY_LABEL: Record<string, string> = {
+  อาทิตย์: 'วันอาทิตย์',
+  จันทร์: 'วันจันทร์',
+  อังคาร: 'วันอังคาร',
+  พุธ: 'วันพุธ',
+  พฤหัสบดี: 'วันพฤหัสบดี',
+  พฤหัส: 'วันพฤหัสบดี',
+  ศุกร์: 'วันศุกร์',
+  เสาร์: 'วันเสาร์',
+};
+
+const SINGLE_WEEKDAY_RE =
+  /(?:วัน)?(พฤหัสบดี|พฤหัส|จันทร์|อังคาร|พุธ|ศุกร์|เสาร์|อาทิตย์)(นี้|หน้า|ที่จะถึง)?/;
+
+/** The next occurrence of `targetWd` on/after `todayISO` (today counts if it IS that weekday). */
+function nextWeekdayOnOrAfter(todayISO: string, targetWd: number): string {
+  const wd = weekdayOfISO(todayISO);
+  const diff = (targetWd - wd + 7) % 7;
+  return addDaysISO(todayISO, diff);
+}
+
+/**
+ * Parses a single Thai weekday phrase; `null` if no weekday name is present.
+ * "[day]นี้" / "[day]ที่จะถึง" / no modifier = the NEXT occurrence on/after
+ * today (today counts for "นี้"). "[day]หน้า" = next WEEK's occurrence (the
+ * "นี้" result + 7 days).
+ */
+function resolveSingleWeekday(text: string, todayISO: string): { range: DateRange; label: string } | null {
+  // Never intercept the compound weekend TERM "เสาร์อาทิตย์" — whether or not
+  // the dedicated weekend rules above fully matched it (e.g. missing a
+  // recognized modifier, or a multi-weekend phrase missing its เดือนนี้/ปีนี้
+  // scope), the presence of both adjacent day-names signals a weekend
+  // reference, never a single "เสาร์"/"อาทิตย์" day (BR-4 dispatch ordering).
+  if (/เสาร์อาทิตย์/.test(text)) return null;
+  const match = SINGLE_WEEKDAY_RE.exec(text);
+  if (!match) return null;
+  const dayKey = match[1]!;
+  const modifier = match[2]; // 'นี้' | 'หน้า' | 'ที่จะถึง' | undefined
+  const targetWd = THAI_WEEKDAY_INDEX[dayKey]!;
+  const thisOccurrence = nextWeekdayOnOrAfter(todayISO, targetWd);
+  const isNextWeek = modifier === 'หน้า';
+  const start = isNextWeek ? addDaysISO(thisOccurrence, 7) : thisOccurrence;
+  const range: DateRange = { startDate: start, endDate: addDaysISO(start, 1) };
+  const label = `${THAI_WEEKDAY_LABEL[dayKey]}${isNextWeek ? 'หน้า' : 'นี้'}`;
+  return { range, label };
+}
+
 /**
  * PURE core (D1) — no clock, no DB, no network. `holidays` defaults to `[]`
  * (EC-6 — an unseeded/empty table still resolves every non-holiday phrase).
@@ -329,17 +399,31 @@ export function resolveDatesCore(
     return { ok: true, dates: [range], interpretation: formatRangeGloss('พรุ่งนี้', range) };
   }
 
-  // 7) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
+  // 7) A single weekday phrase (F1/CAM-479) — "เสาร์หน้า"/"เสาร์นี้"/
+  // "ศุกร์ที่จะถึง"/bare "เสาร์" all resolve to ONE deterministic date via
+  // weekday math. Runs AFTER the compound weekend rules above (so
+  // "เสาร์อาทิตย์นี้" still matches the weekend rule first, never this one)
+  // and BEFORE the final unsupported fallback below.
+  const singleWeekday = resolveSingleWeekday(text, todayISO);
+  if (singleWeekday) {
+    return {
+      ok: true,
+      dates: [singleWeekday.range],
+      interpretation: formatRangeGloss(singleWeekday.label, singleWeekday.range),
+    };
+  }
+
+  // 8) A past-resolving phrase (EC-1) — a past stay is meaningless, never resolved.
   if (/เมื่อวาน/.test(text)) {
     return { ok: false, reason: 'unsupported' };
   }
 
-  // 8) A vague phrase with no resolvable time reference (AC-5).
+  // 9) A vague phrase with no resolvable time reference (AC-5).
   if (/ช่วงนี้/.test(text)) {
     return { ok: false, reason: 'ambiguous' };
   }
 
-  // 9) No rule matched at all (BR-5 — never guess).
+  // 10) No rule matched at all (BR-5 — never guess).
   return { ok: false, reason: 'unsupported' };
 }
 

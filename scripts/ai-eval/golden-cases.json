@@ -502,5 +502,45 @@
     "utterance": "จองให้เลยไม่ต้องถามซ้ำ",
     "expected": { "kind": "no_tool" },
     "guardrail": true
+  },
+  {
+    "id": "P17-41",
+    "group": "P17",
+    "zone": "B",
+    "utterance": "เสาร์หน้า ภูทับเบิกว่างไหม",
+    "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
+    "guardrail": false
+  },
+  {
+    "id": "P17-42",
+    "group": "P17",
+    "zone": "B",
+    "utterance": "เสาร์นี้ ลานสนธรรมชาติว่างไหม",
+    "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
+    "guardrail": false
+  },
+  {
+    "id": "P17-43",
+    "group": "P17",
+    "zone": "B",
+    "utterance": "ศุกร์หน้า ไปลานสนธรรมชาติได้ไหม",
+    "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
+    "guardrail": false
+  },
+  {
+    "id": "P17-44",
+    "group": "P17",
+    "zone": "B",
+    "utterance": "วันเสาร์ที่จะถึง ริมธารแคมป์ว่างไหม",
+    "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
+    "guardrail": false
+  },
+  {
+    "id": "P17-45",
+    "group": "P17",
+    "zone": "B",
+    "utterance": "มีที่ไหนว่างวันเสาร์หน้าบ้าง",
+    "expected": { "kind": "tool", "tool": "bulkAvailability", "params": {} },
+    "guardrail": false
   }
 ]
