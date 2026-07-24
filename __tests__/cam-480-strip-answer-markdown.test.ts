@@ -170,38 +170,35 @@ describe('stripAnswerMarkdown — each markdown kind in isolation', () => {
 });
 
 /**
- * QA ADVERSARIAL DEFECTS (OPEN — reported, not fixed here; routes back to
- * backend per qa.md §"does NOT write production code"). Root cause in both:
- * `IMAGE_MARKDOWN_REGEX`/`LINK_MARKDOWN_REGEX` character classes exclude `]`
- * in the alt/link-text group and `)` in the URL group. When either a
- * nested `]` (alt/link text) or a `)` (inside the URL, e.g. a Wikipedia-style
- * `_(disambiguation)` path or a query string) appears, the regex cannot find
- * a valid close, so it either fails to match at all (raw markdown leaks —
- * the exact original bug) or matches a WRONG, shorter span and leaves a
- * corrupted fragment behind (worse than the original bug: silently mangles
- * otherwise-clean prose, violating this function's own "strip, not
- * redaction" contract). `it.fails()` per the cam-410-adversarial-seam.test.ts
- * convention — flip to `it()` once fixed (backend ticket, see QA report).
+ * QA ADVERSARIAL DEFECTS (FIXED — CAM-480 re-verify). Root cause was the
+ * regex-based `IMAGE_MARKDOWN_REGEX`/`LINK_MARKDOWN_REGEX` character classes
+ * excluding `]`/`)` from the label/URL groups entirely, so either could
+ * never appear NESTED one level inside without breaking the match. Fixed by
+ * replacing both regexes with a hand-written bracket/paren-depth scanner
+ * (`scanImagesAndLinks`/`scanBracketConstruct`, `lib/ai/sanitize.ts`) that
+ * tracks real nesting depth instead of a character class. Flipped from
+ * `it.fails()` to `it()` now that the fix lands (cam-410-adversarial-seam.test.ts
+ * convention).
  */
-describe('QA DEFECT (OPEN, Important) — a nested "]" inside image alt-text or link-text is NOT stripped at all, leaking raw markdown', () => {
-  it.fails('[security/correctness] image alt-text containing a nested "[...]" still strips to plain prose (currently leaks the whole raw tag)', () => {
+describe('QA DEFECT (FIXED, was Important) — a nested "]" inside image alt-text or link-text now strips cleanly', () => {
+  it('[security/correctness] image alt-text containing a nested "[...]" strips to plain prose (no raw tag leaks)', () => {
     const cleaned = stripAnswerMarkdown('รูปนี้ ![แคมป์ [ยอดนิยม]](https://x/i.jpg) สวยมาก');
     expect(cleaned).not.toContain('![');
     expect(cleaned).not.toContain('](');
   });
 
-  it.fails('[correctness] link-text containing a nested "[...]" still strips to its inner text (currently leaks the whole raw markdown)', () => {
+  it('[correctness] link-text containing a nested "[...]" strips to its inner text (no raw markdown leaks)', () => {
     const cleaned = stripAnswerMarkdown('อ่านที่ [หน้า [1]](https://x/page) นะ');
     expect(cleaned).not.toContain('](');
     expect(cleaned).not.toMatch(/\[หน้า/);
   });
 });
 
-describe('QA DEFECT (OPEN, Critical) — a ")" inside the URL (image or link) corrupts the surrounding sentence with a stray leftover fragment', () => {
-  it.fails('[correctness] an image URL containing "(...)" (e.g. Wikipedia-style path) is fully removed, no stray fragment left behind', () => {
+describe('QA DEFECT (FIXED, was Critical) — a ")" inside the URL (image or link) no longer corrupts the surrounding sentence', () => {
+  it('[correctness] an image URL containing "(...)" (e.g. Wikipedia-style path) is fully removed, no stray fragment left behind', () => {
     const cleaned = stripAnswerMarkdown('รูป ![แคมป์](https://en.wikipedia.org/wiki/Camp_(recreation).jpg) จบ');
-    // Actual (buggy) output today: "รูป .jpg) จบ" — a stray ".jpg)" fragment
-    // leaks into otherwise-clean prose. Correct behavior: the whole image
+    // Previously (buggy) output: "รูป .jpg) จบ" — a stray ".jpg)" fragment
+    // leaked into otherwise-clean prose. Correct behavior: the whole image
     // markdown is gone, "รูป" and "จบ" survive with no orphaned punctuation.
     expect(cleaned).not.toContain(')');
     expect(cleaned).not.toContain('.jpg');
@@ -209,10 +206,10 @@ describe('QA DEFECT (OPEN, Critical) — a ")" inside the URL (image or link) co
     expect(cleaned).toContain('จบ');
   });
 
-  it.fails('[correctness] a link URL containing "(...)" is unwrapped to its link text with no stray leftover punctuation', () => {
+  it('[correctness] a link URL containing "(...)" is unwrapped to its link text with no stray leftover punctuation', () => {
     const cleaned = stripAnswerMarkdown('อ่านที่ [หน้านี้](https://en.wikipedia.org/wiki/Camp_(recreation)) นะ');
-    // Actual (buggy) output today: "อ่านที่ หน้านี้) นะ" — a stray trailing
-    // ")" leaks into the sentence.
+    // Previously (buggy) output: "อ่านที่ หน้านี้) นะ" — a stray trailing
+    // ")" leaked into the sentence.
     expect(cleaned).toBe('อ่านที่ หน้านี้ นะ');
   });
 });
