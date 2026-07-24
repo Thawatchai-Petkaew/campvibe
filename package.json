@@ -101,6 +101,8 @@
   },
   "overrides": {
     "@emnapi/core": "1.11.1",
-    "@emnapi/runtime": "1.11.1"
+    "@emnapi/runtime": "1.11.1",
+    "postcss": ">=8.5.12",
+    "sharp": ">=0.35.0"
   }
 }
