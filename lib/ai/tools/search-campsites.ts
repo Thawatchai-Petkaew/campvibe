@@ -20,6 +20,7 @@ import { buildCampSiteWhere } from '@/lib/campsite-filters';
 import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-models/ai-camp-card';
 import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
+import { resolveRegionForSearch } from '@/lib/thai-regions';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** BR-2 — the tool NEVER returns more than this many cards, regardless of any model-requested count. */
@@ -62,6 +63,17 @@ const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTi
 
 export const searchCampsitesArgsSchema = z.object({
   province: z.string().trim().min(1).max(100).optional(),
+  /**
+   * CAM-463 Decision 2 — a plain STRING (like `province`), NOT `z.enum(6)`.
+   * BR-2 mandates a code alias map (`อีสาน`→NORTHEAST) and BR-4/AC-6 mandate
+   * the honest-fallback (an unrecognized word never fails validation — it
+   * falls through to 0 rows + the banner). A hard enum would push alias
+   * normalization into model judgement and turn AC-6's `ภาคสวรรค์` into
+   * `invalid_args` instead of the required 0-rows-and-banner. Resolved
+   * server-side by `resolveRegionForSearch` (lib/thai-regions.ts) — the model
+   * never needs to know which provinces are "northern".
+   */
+  region: z.string().trim().min(1).max(50).optional(),
   type: z.string().trim().min(1).max(20).optional(),
   /** A specific campsite NAME for an exact-phrase text match — NOT for a general characteristic (see jsonSchema description). */
   keyword: z.string().trim().min(1).max(100).optional(),
@@ -185,6 +197,11 @@ const jsonSchema = {
       description:
         'Province name in English, e.g. "Chiang Mai". Thai province names (e.g. เชียงใหม่) are also accepted and resolved to the stored English value server-side.',
     },
+    region: {
+      type: 'string',
+      description:
+        'A Thai geographic region (ภาค) the camper asked about, e.g. "ภาคเหนือ" (North), "อีสาน"/"ภาคตะวันออกเฉียงเหนือ" (Northeast), "ภาคกลาง" (Central), "ภาคตะวันออก" (East), "ภาคตะวันตก" (West), "ภาคใต้" (South). Pass this when the camper names a REGION rather than a single province (e.g. "ภาคเหนือมีลานกางเต็นท์ที่ไหนบ้าง", "อยากไปแคมป์แถวอีสาน") — resolved server-side to every province in that region. If BOTH province and region are given, province wins and region is ignored.',
+    },
     type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
     keyword: {
       type: 'string',
@@ -248,7 +265,17 @@ const jsonSchema = {
 } as const;
 
 export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise<SearchCampsitesResult> {
-  const province = args.province !== undefined ? await resolveProvinceForSearch(args.province) : undefined;
+  // CAM-463 Decision 2/BR-3 — province is consulted FIRST: when both province
+  // and region are supplied, region is dropped (never AND-ed against the
+  // single province, which would empty the result — AC-4). Region alone
+  // expands to its province set via the pure, synchronous
+  // `resolveRegionForSearch` (no DB round-trip, unlike resolveProvinceForSearch).
+  let provinceFilter: string | string[] | undefined;
+  if (args.province !== undefined) {
+    provinceFilter = await resolveProvinceForSearch(args.province);
+  } else if (args.region !== undefined) {
+    provinceFilter = resolveRegionForSearch(args.region);
+  }
 
   // CAM-461 BR-1/EC-1 — bound the model-controlled excludeIds array BEFORE
   // buildCampSiteWhere/findMany ever runs (CAM-344 lesson: cap before the
@@ -257,7 +284,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   const excludeIds = args.excludeIds !== undefined ? args.excludeIds.slice(0, MAX_EXCLUDE_IDS) : undefined;
 
   const where = buildCampSiteWhere({
-    province,
+    province: provinceFilter,
     type: args.type,
     keyword: args.keyword,
     min: args.priceMin !== undefined ? String(args.priceMin) : undefined,
@@ -312,7 +339,8 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first). ' +
     'When the camper asks for MORE, OTHER, or DIFFERENT camps than what was already shown this conversation (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") — re-call this tool with the SAME filters plus `excludeIds` set to the campSiteIds listed in <shown_results>, so the search returns camps not already shown.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
