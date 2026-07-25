@@ -663,7 +663,6 @@ async function callModelWithFallback(
 
 interface ExecutedToolCalls {
   toolMessages: OutgoingMessage[];
-  cards: unknown[];
   /** CAM-416 — how many of `toolCalls` were actually dispatched this round (bounded by `executeLimit`); the loop sums this across rounds against `MAX_TOOL_CALLS_PER_TURN`. */
   executedCount: number;
   /** CAM-430 — true when `searchCampsites` was among the calls actually dispatched this round (i < executeLimit), independent of whether the dispatch succeeded or returned any cards. */
@@ -679,10 +678,44 @@ function parseToolCallArguments(raw: string): unknown {
   }
 }
 
+/** CAM-485 BR-3 — a card's `id`, read defensively; anything but a real string is "no readable id" (EC-5). */
+function readCardId(card: unknown): string | undefined {
+  if (!card || typeof card !== 'object') return undefined;
+  const id = (card as { id?: unknown }).id;
+  return typeof id === 'string' ? id : undefined;
+}
+
+/**
+ * CAM-485 BR-3 (AC-3/EC-4) — dedup by `id` across EVERY call this turn shares
+ * (both `runTurnFromBaseMessages` and its streaming twin call this via
+ * `executeToolCalls`, one edit covers all 3 request paths). `cards` is the
+ * running accumulator across the whole tool-call round loop, so the
+ * "already seen" set is rebuilt from it on every call rather than kept as
+ * separate module state — first-seen order is preserved (a later duplicate
+ * is dropped, never replaces the earlier card). A card with no readable
+ * `id` (EC-5, a malformed/foreign shape) is pushed unconditionally — dedup
+ * is a courtesy on top of the union, never a filter that can drop or throw
+ * on a legitimate card.
+ */
 function collectCardsFromToolData(data: unknown, cards: unknown[]): void {
   if (!data || typeof data !== 'object') return;
   const maybeCards = (data as { cards?: unknown }).cards;
-  if (Array.isArray(maybeCards)) cards.push(...maybeCards);
+  if (!Array.isArray(maybeCards)) return;
+
+  const seenIds = new Set<string>();
+  for (const existing of cards) {
+    const id = readCardId(existing);
+    if (id !== undefined) seenIds.add(id);
+  }
+
+  for (const card of maybeCards) {
+    const id = readCardId(card);
+    if (id !== undefined) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+    }
+    cards.push(card);
+  }
 }
 
 /**
@@ -788,14 +821,22 @@ async function safeDispatchTool(
  * completion call stays well-formed. `dispatchTool` itself is called via
  * `safeDispatchTool` (above) — a throw is contained the same way an
  * `ok:false` result already was, never an uncaught exception.
+ *
+ * CAM-485 BR-3 — `cards` is the CALLER's turn-level accumulator (owned by
+ * `runTurnFromBaseMessages` / the streaming twin), passed in and mutated in
+ * place rather than built fresh per round and merged back after. This is
+ * what makes `collectCardsFromToolData`'s dedup-by-id see EVERY prior
+ * round's cards, not just this round's — a model that chains searchCampsites
+ * then bulkAvailability across two separate iterations (AC-3/EC-4) dedups
+ * exactly the same as two tool_calls inside one iteration.
  */
 async function executeToolCalls(
   toolCalls: OutgoingToolCall[],
   executeLimit: number,
-  ctx: ToolContext
+  ctx: ToolContext,
+  cards: unknown[]
 ): Promise<ExecutedToolCalls> {
   const toolMessages: OutgoingMessage[] = [];
-  const cards: unknown[] = [];
   let executedCount = 0;
   let searchAttempted = false;
 
@@ -816,7 +857,7 @@ async function executeToolCalls(
     executedCount++;
   }
 
-  return { toolMessages, cards, executedCount, searchAttempted };
+  return { toolMessages, executedCount, searchAttempted };
 }
 
 /**
@@ -918,10 +959,11 @@ async function runTurnFromBaseMessages(
     }
 
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
-    const { toolMessages, cards: roundCards, executedCount, searchAttempted: roundSearchAttempted } =
-      await executeToolCalls(toolCalls, roundLimit, ctx);
+    // CAM-485 BR-3 — `cards` (the turn-level accumulator) is passed in and
+    // mutated directly, so cross-round dedup-by-id sees every prior round.
+    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted } =
+      await executeToolCalls(toolCalls, roundLimit, ctx, cards);
     toolCallsExecutedThisTurn += executedCount;
-    cards.push(...roundCards);
     searchAttempted ||= roundSearchAttempted;
 
     messages = [
@@ -1390,10 +1432,11 @@ export async function* runAssistantTurnFromMessagesStreaming(
     }
 
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
-    const { toolMessages, cards: roundCards, executedCount, searchAttempted: roundSearchAttempted } =
-      await executeToolCalls(toolCalls, roundLimit, ctx);
+    // CAM-485 BR-3 — `cards` (the turn-level accumulator) is passed in and
+    // mutated directly, so cross-round dedup-by-id sees every prior round.
+    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted } =
+      await executeToolCalls(toolCalls, roundLimit, ctx, cards);
     toolCallsExecutedThisTurn += executedCount;
-    cards.push(...roundCards);
     searchAttempted ||= roundSearchAttempted;
 
     messages = [

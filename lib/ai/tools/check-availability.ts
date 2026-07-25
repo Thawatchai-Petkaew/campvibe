@@ -30,6 +30,8 @@ import {
   AvailabilityRangeTooWideError,
   type RemainingCapacityResult,
 } from '@/lib/campsite-availability';
+import { aiCampCardSelect, toAiCampCard } from '@/lib/read-models/ai-camp-card';
+import type { SearchCampsiteCard } from '@/lib/ai/tools/search-campsites';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
@@ -60,7 +62,17 @@ export type CheckAvailabilityArgs = z.infer<typeof checkAvailabilityArgsSchema>;
 
 /** Discriminated union (api.md §11) — the caller narrows on `ok` before reading fields. */
 export type CheckAvailabilityResult =
-  | ({ ok: true } & RemainingCapacityResult)
+  | ({
+      ok: true;
+      /**
+       * CAM-485 BR-2 — present ONLY on the real success path (after the
+       * visibility gate AND a real `getRemainingCapacity` result); absent on
+       * `NO_DATA_RESULT` (EC-2, no existence oracle) and on `RANGE_TOO_WIDE`
+       * (EC-3). Optional (not `[]`) so the pre-CAM-485 key set is preserved
+       * byte-for-byte on every path that doesn't add it (BR-4).
+       */
+      cards?: SearchCampsiteCard[];
+    } & RemainingCapacityResult)
   | { ok: false; code: 'RANGE_TOO_WIDE' };
 
 const jsonSchema = {
@@ -92,7 +104,23 @@ export async function executeCheckAvailability(args: CheckAvailabilityArgs): Pro
 
   try {
     const result = await getRemainingCapacity(args.campSiteId, startDate, endDate);
-    return { ok: true, ...result };
+
+    // CAM-485 BR-2 — success path ONLY: attach a tappable card for the ONE
+    // camp asked about. Reuses the same select/mapper every other AI tool
+    // uses (aiCampCardSelect + toAiCampCard, ADR-009 no-forked-data-path) and
+    // the `remaining` figure JUST computed above — no second capacity calc.
+    // A SEPARATE query from the visibility gate above (deliberately — the
+    // gate stays `select:{id:true}` so it never widens what an unpublished/
+    // gated id can leak). A row that vanishes between the two queries (rare
+    // race) fails open: no `cards` key, never a throw (EC-2/EC-3 posture).
+    const cardRow = await prisma.campSite.findFirst({
+      where: { id: args.campSiteId },
+      select: aiCampCardSelect,
+    });
+
+    return cardRow
+      ? { ok: true, ...result, cards: [{ ...toAiCampCard(cardRow), remaining: result.remaining }] }
+      : { ok: true, ...result };
   } catch (err) {
     if (err instanceof AvailabilityRangeTooWideError) {
       // EC-4/BR-4: the shipped guard's safe result — no per-night loop, no throw to the caller.

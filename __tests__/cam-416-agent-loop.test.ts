@@ -112,10 +112,12 @@ describe('CAM-416 — multi-round chain (normal)', () => {
     expect(mockFetch).toHaveBeenCalledTimes(3);
     expect(mockDispatchTool).toHaveBeenCalledTimes(2);
     // CAM-430: round 1 dispatched a 'searchCampsites' call -> searchAttempted:true.
+    // CAM-485: the SAME camp (id 'c1') surfaced by both round 1 (search) and
+    // round 2 (checkAvailability) is deduped by id -> renders ONCE, not twice.
     expect(result).toEqual({
       ok: true,
       answer: 'พบแคมป์ที่ว่างครับ',
-      cards: [{ id: 'c1' }, { id: 'c1' }],
+      cards: [{ id: 'c1' }],
       searchAttempted: true,
     });
 

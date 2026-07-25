@@ -71,7 +71,12 @@ describe('checkAvailability — normal (LIVE passthrough)', () => {
     });
     const result = await executeCheckAvailability(args);
 
-    expect(result).toEqual({
+    // CAM-485 BR-2: the capacity numbers still flatten EXACTLY as before —
+    // strict, not weakened — a tappable card is ADDITIVE on top of this
+    // shape (asserted separately below), not folded into a full AiCampCard
+    // fixture here (this file's concern is the capacity passthrough, not
+    // card shape/select fields — that's __tests__/cam-485-*.test.ts's job).
+    expect(result).toMatchObject({
       ok: true,
       capacity: 20,
       bookedGuests: 5,
@@ -79,6 +84,8 @@ describe('checkAvailability — normal (LIVE passthrough)', () => {
       remaining: 13,
       blockedByHost: false,
     });
+    expect(result.ok && result.cards).toHaveLength(1);
+    expect(result.ok && result.cards?.[0]).toMatchObject({ remaining: 13 });
     expect(mockGetRemainingCapacity).toHaveBeenCalledOnce();
   });
 });
