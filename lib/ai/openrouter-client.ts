@@ -285,6 +285,21 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
  * prompt to before this story.
  */
 function buildPlaceHintBlock(place: ResolvedPlace): string | null {
+  // CAM-502 (P2 geo proximity) BR-3 — checked FIRST: `resolvePlace` never
+  // sets both `near` and `province` on the same ResolvedPlace (mutually
+  // exclusive, EC-3), so this branch and the `place.province` branch below
+  // never both apply to the same turn.
+  if (place.near) {
+    return (
+      `The camper asked for campsites NEAR the province "${place.near}" — a proximity word (for example ` +
+      'ใกล้, แถว, รอบๆ, ย่าน, บริเวณ) was detected together with that province in their latest message ' +
+      `(detected deterministically server-side, not a guess). When you call searchCampsites this turn, you ` +
+      `MUST set near="${place.near}" — do NOT set \`province\` for this place instead (that would wrongly ` +
+      'narrow the search to strictly inside it), never change it to a different province, and never drop it ' +
+      'just because the message also names a terrain/facility word. A terrain word (for example ริมน้ำ, ' +
+      'ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this proximity target.'
+    );
+  }
   if (place.province) {
     return (
       `The camper explicitly named the province "${place.province}" in their latest message ` +
@@ -461,7 +476,11 @@ function buildSystemPrompt(
     // call, yet the answer still claimed the RIVE results were "ในเชียงใหม่").
     // A camper-named place with zero real results must be reported honestly,
     // not silently swapped for an unfiltered, mislabeled answer (AC-1/AC-3/EC-1).
-    'When your searchCampsites or bulkAvailability call this turn applied a location or terrain filter (province, region, or terrain such as ริมทะเล/ริมแม่น้ำ/ภูเขา/ป่า), mention that scope naturally in your answer in plain Thai — say which province, region, or terrain you searched (for example "ลานริมทะเล" or the province name) — so the camper can see what you searched without guessing. State ONLY the scope that was actually applied as a filter argument on this tool call — never claim, imply, or word your answer so it sounds like the results come from a province or region that was NOT set as a filter this turn, even if the camper named one earlier or elsewhere in the message. If a place the camper explicitly asked for returns zero results, say so plainly and honestly (for example "ไม่มีลานริมน้ำในเชียงใหม่ค่ะ") — you may then mention results from elsewhere only if you label them clearly as being from another place, never as if they were the requested one. Skip the scope-mention sentence itself when no location or terrain filter was applied.',
+    // CAM-502 (P2) BR-4 — extends the same honest-scope line to `near`
+    // (proximity): a "ใกล้X" search must say it searched NEAR X (not that the
+    // results are all "in" X), and a zero-result proximity search must be
+    // reported honestly, exactly like a zero-result exact-province search.
+    'When your searchCampsites or bulkAvailability call this turn applied a location or terrain filter (province, region, near/proximity, or terrain such as ริมทะเล/ริมแม่น้ำ/ภูเขา/ป่า), mention that scope naturally in your answer in plain Thai — say which province, region, or terrain you searched, or that you searched NEAR a province when `near` was set (for example "ลานริมทะเล", the province name, or "ลานรอบๆ<province>") — so the camper can see what you searched without guessing. State ONLY the scope that was actually applied as a filter argument on this tool call — never claim, imply, or word your answer so it sounds like the results come from a province or region that was NOT set as a filter this turn, even if the camper named one earlier or elsewhere in the message, and never describe a `near` (proximity) result as being strictly "in"/"ใน" that province. If a place the camper explicitly asked for returns zero results — including a proximity search with nothing within range — say so plainly and honestly (for example "ไม่มีลานริมน้ำในเชียงใหม่ค่ะ" or "ไม่พบลานใกล้จุดนั้นเลยค่ะ") — you may then mention results from elsewhere only if you label them clearly as being from another place, never as if they were the requested one. Skip the scope-mention sentence itself when no location or terrain filter was applied.',
     'Keep the answer to about 2-3 short sentences.',
     // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
     // second call); the server extracts + sanitizes it and strips it from

@@ -21,7 +21,65 @@ import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-mode
 import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
 import { resolveRegionForSearch } from '@/lib/thai-regions';
+import { haversineDistanceKm } from '@/lib/geo/distance';
+import provinceCentroidsData from '@/prisma/data/province-centroids.json';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
+
+/**
+ * CAM-502 (P2 geo proximity) BR-1 — the committed, build-step-derived
+ * province centroid table (`scripts/build-province-centroids.mjs`), keyed
+ * by the SAME `Location.province` English canonical value
+ * `resolveProvinceForSearch` already resolves to. A province backed by too
+ * few real camps at build time is OMITTED from this table entirely (sparse
+ * guard) — treated below as "no centroid available", never a crash.
+ */
+const PROVINCE_CENTROIDS: Readonly<
+  Record<string, { lat: number; lng: number; campCount: number }>
+> = provinceCentroidsData;
+
+/**
+ * CAM-502 BR-2 — "ใกล้X" caps at this radius so a proximity search never
+ * silently drifts into "basically the whole country" territory. Tunable
+ * const (not a magic number inline) — ~250km covers a realistic weekend-trip
+ * radius from a major province without dragging in unrelated regions.
+ */
+export const MAX_NEAR_KM = 250;
+
+/**
+ * CAM-502 BR-2/EC-4 (CAM-344 lesson) — the candidate set pulled by the bbox
+ * pre-filter is capped BEFORE the haversine sort/distance-filter ever runs,
+ * independent of how many camps a real province's bbox happens to contain.
+ * 475 camps exist in total today; this cap is a defensive ceiling, not a
+ * tuned-to-today's-count value.
+ */
+export const NEAR_CANDIDATE_CAP = 500;
+
+const KM_PER_DEG_LAT = 111.32;
+
+/**
+ * A rectangular lat/lng bbox that FULLY CONTAINS the circle of radius
+ * `radiusKm` around `center` — a cheap Prisma-level pre-filter (candidates),
+ * never the final circular cut (that's the haversine distance-filter next
+ * to this bbox's only caller, `executeSearchCampsites`'s near-path).
+ * Exported (pure math, no DB) so `__tests__/cam-502-geo-proximity.test.ts`
+ * can assert the exact bounds deterministically.
+ */
+export function bboxForRadius(
+  center: { lat: number; lng: number },
+  radiusKm: number
+): { latMin: number; latMax: number; lngMin: number; lngMax: number } {
+  const latDelta = radiusKm / KM_PER_DEG_LAT;
+  const cosLat = Math.cos((center.lat * Math.PI) / 180);
+  // Guard a near-zero cosine (would only occur at the poles — never a real
+  // Thai province) so this never divides by ~0.
+  const lngDelta = radiusKm / (KM_PER_DEG_LAT * (Math.abs(cosLat) > 1e-6 ? cosLat : 1e-6));
+  return {
+    latMin: center.lat - latDelta,
+    latMax: center.lat + latDelta,
+    lngMin: center.lng - lngDelta,
+    lngMax: center.lng + lngDelta,
+  };
+}
 
 /** BR-2 — the tool NEVER returns more than this many cards, regardless of any model-requested count. */
 export const SEARCH_CAMPSITES_MAX_RESULTS = 10;
@@ -63,6 +121,17 @@ const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTi
 
 export const searchCampsitesArgsSchema = z.object({
   province: z.string().trim().min(1).max(100).optional(),
+  /**
+   * CAM-502 (P2 geo proximity) BR-2 — proximity search: "ใกล้/แถว X" is NOT
+   * the same as `province` ("ใน X" exact-inside only) — this returns camps
+   * NEAR X (including camps IN X), sorted nearest-first. Thai/English
+   * accepted, same as `province` (resolved via the same
+   * `resolveProvinceForSearch`). Mutually exclusive with `province`/`region`
+   * in intent — when set, `near` takes precedence (EC-3) and `province`/
+   * `region` are ignored for the location filter (still consulted by their
+   * own non-location args, e.g. terrain, unaffected).
+   */
+  near: z.string().trim().min(1).max(100).optional(),
   /**
    * CAM-463 Decision 2 — a plain STRING (like `province`), NOT `z.enum(6)`.
    * BR-2 mandates a code alias map (`อีสาน`→NORTHEAST) and BR-4/AC-6 mandate
@@ -204,6 +273,11 @@ const jsonSchema = {
       description:
         'A Thai geographic region (ภาค) the camper asked about, e.g. "ภาคเหนือ" (North), "อีสาน"/"ภาคตะวันออกเฉียงเหนือ" (Northeast), "ภาคกลาง" (Central), "ภาคตะวันออก" (East), "ภาคตะวันตก" (West), "ภาคใต้" (South). Pass this when the camper names a REGION rather than a single province (e.g. "ภาคเหนือมีลานกางเต็นท์ที่ไหนบ้าง", "อยากไปแคมป์แถวอีสาน") — resolved server-side to every province in that region. If BOTH province and region are given, province wins and region is ignored.',
     },
+    near: {
+      type: 'string',
+      description:
+        'Province name (Thai or English) for a PROXIMITY search — use this instead of `province` when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ลานกางเต็นท์ใกล้กรุงเทพ", "แคมป์แถวโคราช", "รอบๆเชียงใหม่", "ย่าน/บริเวณ" + a province). Returns camps around that province (including camps in it), sorted nearest-first. Do NOT set `province` at the same time for the same place — use `near` alone. Use `province` instead when the camper says "ใน X" (exactly inside X) or just names a province with no proximity word.',
+    },
     type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
     keyword: {
       type: 'string',
@@ -267,13 +341,28 @@ const jsonSchema = {
 } as const;
 
 export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise<SearchCampsitesResult> {
-  // CAM-463 Decision 2/BR-3 — province is consulted FIRST: when both province
-  // and region are supplied, region is dropped (never AND-ed against the
-  // single province, which would empty the result — AC-4). Region alone
-  // expands to its province set via the pure, synchronous
-  // `resolveRegionForSearch` (no DB round-trip, unlike resolveProvinceForSearch).
+  // CAM-502 (P2) BR-2/EC-3 — `near` (proximity intent) is consulted FIRST and
+  // wins over both `province` and `region` when present: a camper who said
+  // "ใกล้/แถว X" wants camps AROUND X, not narrowed to exactly-X or an
+  // unrelated region. `near`'s own resolution below decides whether that
+  // becomes a geo (bbox+haversine) search or falls back to an exact-province
+  // filter (EC-2 — no centroid for that province).
   let provinceFilter: string | string[] | undefined;
-  if (args.province !== undefined) {
+  let nearCentroid: { lat: number; lng: number } | undefined;
+  if (args.near !== undefined) {
+    const resolvedNear = await resolveProvinceForSearch(args.near);
+    const centroid = PROVINCE_CENTROIDS[resolvedNear];
+    if (centroid) {
+      nearCentroid = { lat: centroid.lat, lng: centroid.lng };
+      // Geo path: the location filter is the bbox pushed onto `where` below,
+      // NOT an exact-province equality — `provinceFilter` stays unset.
+    } else {
+      // EC-2 — sparse/unknown centroid: fall back to an exact-province
+      // filter on the resolved value itself (never crash, never a
+      // fabricated point).
+      provinceFilter = resolvedNear;
+    }
+  } else if (args.province !== undefined) {
     provinceFilter = await resolveProvinceForSearch(args.province);
   } else if (args.region !== undefined) {
     provinceFilter = resolveRegionForSearch(args.region);
@@ -302,17 +391,66 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // BR-2: hard cap, never overridden by a larger model-supplied count.
   const take = Math.min(args.limit ?? SEARCH_CAMPSITES_MAX_RESULTS, SEARCH_CAMPSITES_MAX_RESULTS);
 
-  // CAM-461 BR-2/Decision 3 — reuse orderByFor verbatim (ADR-009, no forked
-  // sort). Absent `sort` defaults to 'related' — makes the previously
-  // order-unspecified findMany deterministic (BR-2 default, ratified at G2).
-  const rows = await prisma.campSite.findMany({
-    where,
-    select: aiCampCardSelect,
-    orderBy: orderByFor(args.sort ?? 'related'),
-    take,
-  });
+  let cards: AiCampCard[];
 
-  const cards = rows.map(toAiCampCard);
+  if (nearCentroid) {
+    // CAM-502 (P2) BR-2 geo path — ADR-009: `where` here is `buildCampSiteWhere`'s
+    // OWN output with a bbox AND-clause appended (an EXTENSION, never a
+    // forked where-builder), so terrain/access/activities/facilities/etc.
+    // still apply exactly as they do on every other path.
+    const bbox = bboxForRadius(nearCentroid, MAX_NEAR_KM);
+    const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
+    andArray.push({
+      latitude: { gte: bbox.latMin, lte: bbox.latMax },
+      longitude: { gte: bbox.lngMin, lte: bbox.lngMax },
+    });
+    where.AND = andArray;
+
+    // CAM-344 lesson (EC-4) — cap the candidate set BEFORE the haversine
+    // sort/filter runs, independent of how many camps the bbox matches.
+    const candidates = await prisma.campSite.findMany({
+      where,
+      select: { id: true, latitude: true, longitude: true },
+      take: NEAR_CANDIDATE_CAP,
+    });
+
+    // Exact circular cut (the bbox above is only a rectangular superset) +
+    // ascending haversine sort + page-size cap, in that order (BR-2).
+    const ranked = candidates
+      .map((c) => ({ id: c.id, distanceKm: haversineDistanceKm(nearCentroid!, { lat: c.latitude, lng: c.longitude }) }))
+      .filter((c) => c.distanceKm <= MAX_NEAR_KM)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, take);
+
+    if (ranked.length === 0) {
+      // AC-4 — honest empty: no camp within radius, never mislabel/crash.
+      cards = [];
+    } else {
+      const rankedIds = ranked.map((c) => c.id);
+      const rows = await prisma.campSite.findMany({
+        where: { id: { in: rankedIds } },
+        select: aiCampCardSelect,
+      });
+      // Prisma's `id: { in: [...] }` does not preserve array order — restore
+      // the haversine-ascending order explicitly (BR-2 "sort by distance").
+      const rowById = new Map(rows.map((r) => [r.id, r]));
+      cards = rankedIds
+        .map((id) => rowById.get(id))
+        .filter((row): row is (typeof rows)[number] => row !== undefined)
+        .map(toAiCampCard);
+    }
+  } else {
+    // CAM-461 BR-2/Decision 3 — reuse orderByFor verbatim (ADR-009, no forked
+    // sort). Absent `sort` defaults to 'related' — makes the previously
+    // order-unspecified findMany deterministic (BR-2 default, ratified at G2).
+    const rows = await prisma.campSite.findMany({
+      where,
+      select: aiCampCardSelect,
+      orderBy: orderByFor(args.sort ?? 'related'),
+      take,
+    });
+    cards = rows.map(toAiCampCard);
+  }
 
   // CAM-427 (G3): LIVE, batched remaining-capacity — ONE call for the WHOLE
   // page of cards (never a per-card getRemainingCapacity loop, BR-5). Only
@@ -343,7 +481,8 @@ export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCamp
   description:
     'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
-    'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first). ' +
+    'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. ' +
+    'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first) — `sort` is ignored when `near` is set, since a proximity search is always ordered by distance. ' +
     'When the camper asks for MORE, OTHER, or DIFFERENT camps than what was already shown this conversation (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") — re-call this tool with the SAME filters plus `excludeIds` set to the campSiteIds listed in <shown_results>, so the search returns camps not already shown.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
   tier: 'guest',

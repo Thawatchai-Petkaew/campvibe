@@ -33,6 +33,18 @@ export interface ResolvedPlace {
    * raw-passthrough / zero-rows path).
    */
   region?: string;
+  /**
+   * CAM-502 (P2 geo proximity) BR-3 — a PROXIMITY mention: "ใกล้/แถว/รอบๆ/
+   * ย่าน/บริเวณ" + a province ("ใกล้กรุงเทพ" != "ในกรุงเทพ" — the camper wants
+   * camps AROUND that province, not narrowed to exactly-inside it). Mutually
+   * exclusive with `province` on the same resolved place — `resolvePlace`
+   * never sets both. Left as the RAW province text the camper used (not
+   * pre-resolved to the DB-canonical English form the way `province` above
+   * is) — `near`'s downstream Thai/English resolution already happens in
+   * `executeSearchCampsites` via the same `resolveProvinceForSearch` reuse
+   * (BR-2), so this pre-pass has no need to duplicate that DB round-trip.
+   */
+  near?: string;
 }
 
 interface ProvinceEntry {
@@ -193,15 +205,58 @@ function detectRegion(text: string): string | undefined {
 }
 
 /**
- * BR-1 — the resolver itself. Province wins when both a province and a
- * region are found in the same text (EC-3); neither is set when neither is
- * found (AC-4 — a bare terrain/facility word resolves to `{}`).
+ * CAM-502 (P2 geo proximity) BR-3 — a proximity preposition immediately
+ * signals "camps AROUND X", not "camps IN X". Kept deliberately as a plain
+ * substring scan (the same EC-4-accepted tolerance `detectProvince` already
+ * has) since each of these five words/compounds is distinctive enough on
+ * its own that a stray match is an acceptable false-positive rate for a
+ * pre-pass this narrow in scope (mirrors the acceptance already recorded on
+ * `detectProvince`'s own docblock, not a new risk category introduced here).
+ */
+const PROXIMITY_MARKERS_TH = ['ใกล้', 'แถว', 'รอบๆ', 'ย่าน', 'บริเวณ'] as const;
+
+function hasProximityMarker(text: string): boolean {
+  return PROXIMITY_MARKERS_TH.some((marker) => text.includes(marker));
+}
+
+/**
+ * CAM-502 — bare "กรุงเทพ" (no ฯ/มหานคร suffix) is the highest-frequency way
+ * campers write Bangkok in casual proximity phrasing ("ใกล้กรุงเทพ", the
+ * story's own AC-1 example). `detectProvince` cannot catch this form: its
+ * substring check requires the FULL formal name ("กรุงเทพมหานคร") to appear
+ * IN the text, which "กรุงเทพ" alone never satisfies (the substring
+ * relationship runs the other way). This mirrors the `BANGKOK_ALIASES`
+ * precedent in `lib/ai/tools/search-campsites.ts` (Bangkok is the one
+ * curated exception in that file too) — scoped to Bangkok only, checked
+ * ONLY under proximity mode so a bare "กรุงเทพ" with no proximity marker
+ * stays unresolved here exactly as it already did before this story (BR-3
+ * "ใน X"/"X เฉยๆ" stays คงเดิม — unchanged — since the model's own general
+ * knowledge already maps "กรุงเทพ" to "Bangkok" for the exact-province path
+ * without this pre-pass needing to fire).
+ */
+function isBareBangkokMention(text: string): boolean {
+  return text.includes('กรุงเทพ');
+}
+
+/**
+ * BR-1/BR-3 — the resolver itself. `near` (proximity) is checked FIRST — a
+ * proximity marker + a province mention resolves to `near`, never `province`
+ * (EC-3, mutually exclusive). Absent a proximity marker, behavior is
+ * BYTE-IDENTICAL to before this story: province wins over region when both
+ * are found (EC-3 from CAM-501); neither is set when neither is found
+ * (AC-4 — a bare terrain/facility word resolves to `{}`).
  */
 export function resolvePlace(text: string): ResolvedPlace {
   if (!text) return {};
 
+  const proximity = hasProximityMarker(text);
+
+  if (proximity && isBareBangkokMention(text)) {
+    return { near: 'กรุงเทพ' };
+  }
+
   const province = detectProvince(text);
-  if (province) return { province };
+  if (province) return proximity ? { near: province } : { province };
 
   const region = detectRegion(text);
   if (region) return { region };
