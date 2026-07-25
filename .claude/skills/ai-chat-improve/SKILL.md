@@ -15,13 +15,17 @@ Read first: `docs/research/ai-chat/campvibe-capability-loop-plan.md` (the SEE→
 
 ## Quick Reference
 
-The five steps, in order:
+The steps, in order:
 
 1. **PULL** — `npm run ai:pull-turns` (or `node scripts/ai-triage/pull-turns.mjs [days]`) → writes `scratch/ai-triage-export.json` (summary + every miss turn + a clean sample). Reads the local dev DB by default; refuses a prod-looking DB unless explicitly overridden.
-2. **ANALYZE** — read the export. Open-code the miss turns into groups (wrong tool · no-chain · zero-result the user meant to find · honest "no data" for a table we don't have · off-topic). Rank by frequency. This is your judgment on the subscription — no LLM call, no `ai:eval` yet.
-3. **FIX** — pick the **single** highest-frequency, in-scope group. Route it to one FIX lane (see below). Implement it as one small atomic change with a **strictParams golden case** added for the exact miss (behavioral, per CAM-500).
-4. **PROVE** — `npm run ai:eval` (paid, ~$0.05). Confirm core correctness moved the right way, **guardrail stays 100%**, no regression. The guardrail gate (`ai-guardrail-gate`, CAM-507) also blocks the PR automatically.
-5. **DEPLOY** — normal flow: PR into `dev` (G3) → batched `dev`→`staging` promote (`/promote-release --to staging`) → G4 → release.
+2. **ANALYZE + GROUP** — read the export. Open-code the miss turns into groups (wrong tool · no-chain · **concept-keyword that got 0** · honest "no data" for a table we don't have · off-topic). Rank. Subscription judgment — no LLM call, no `ai:eval` yet.
+3. **RESEARCH (multi-angle + multi-locale)** — for a **concept miss** (a Thai concept word the model searched literally: มือใหม่/สายลุย/ฟินสุด…), go out and research what it MEANS from **several angles and contexts** — Thai camping vernacular (Pantip/TrueID/Kapook/camp blogs) AND international sources (the same concept can mean different things per locale, e.g. "beginner" abroad = developed campground; in TH the #1 barrier is not owning gear). Several `WebSearch` queries, not one. Ground the meaning before mapping.
+4. **MAP — existing-data-FIRST, then decompose** — BEFORE deciding anything is missing, **walk the existing data structure**: every MasterData group (facilities, **equipment-for-rent**, activities, terrain), every relation, every CampSite/Spot field. Run a REAL query (`campSite.count` with candidate filters) to see if existing data already answers it. Only then branch:
+   - **existing data answers it (a DISCRIMINATING subset — not 0, not ~475/475)** → a concept-map entry (+ add a filter param if the surface is missing, as with `equipment`). This is the DEFAULT — most "we need new data" hunches are wrong.
+   - **existing data genuinely can't serve it (proven by the query)** → only NOW **SUGGEST a composable attribute-GROUP** (primitive fields that combine — never a denormalised concept-flag), naming each attribute's **data group / entity**, appended to `docs/specs/ai-chat-capability-loop/data-suggestions.md` (owner picks → L3). Never suggest new data before analysing what exists (cycle-1 wrongly suggested comfort attributes before discovering the equipment data already existed).
+5. **FIX** — pick the **single** highest-value in-scope item. Implement one small atomic change (a concept-map entry, a prompt/tool-desc nudge, or a knowledge pack) with a **behavioral golden case** for the exact miss (CAM-500). Guard any Thai substring matching (CAM-501/503).
+6. **PROVE** — `npm run ai:eval` (paid, ~$0.05). Core correctness moved the right way, **guardrail 100%**, no regression. The `ai-guardrail-gate` (CAM-507) also blocks the PR automatically.
+7. **DEPLOY** — PR into `dev` (G3) → batched `dev`→`staging` promote → G4 → release. Record the cycle's ranked misses + the one fix + any data-suggestions logged, in the PR body.
 
 ## When to Use
 
@@ -52,12 +56,22 @@ To analyze staging usage instead, set `AI_TRIAGE_DATABASE_URL` to the staging co
 ### 2. ANALYZE (subscription, $0)
 Read `scratch/ai-triage-export.json`. Start from `summary.missCounts` (the cheap deterministic flags: `zero_result`, `deferred_tool`, `no_tool`), then read the `missTurns` themselves — the deterministic flags only find the obvious misses; the **semantic** ones (wrong tool chosen, an honest "no data" that a table would fix, a mis-parsed Thai place name) you find by reading `userText` + `toolCalls` + `assistantText`. Group them (open coding), count each group, and pick the largest **actionable** one. Write the ranked list into the cycle's notes.
 
-### 3. FIX (one lane, one change)
+### 3. RESEARCH & MAP (concept misses — subscription, $0)
+When the miss is a **concept keyword** the model searched literally and got 0:
+1. **RESEARCH — multi-angle + multi-locale.** Research the concept from several angles and contexts with several `WebSearch` queries: Thai camping vernacular AND international sources. The concept can mean different things per locale — e.g. "มือใหม่": international guides say developed car-accessible campground; Thai content shows the #1 barrier is not owning gear → gear-rental is the strongest discriminator. Don't stop at one search or one locale.
+2. **MAP — existing-data-FIRST.** BEFORE deciding anything is missing, walk the existing structure: every MasterData group (facilities, **equipment-for-rent**, activities, terrain), relations, CampSite/Spot fields. Run a REAL query (`campSite.count` with candidate filters) — a subset that returns neither 0 nor ~everything (e.g. TENT+LEDL+POWE = 23/475) is a good map.
+   - **existing data answers it** → a `prisma/data/concept-map.json` entry consumed by a deterministic concept pre-pass (sibling of `place-resolver`/`resolve-dates`); add a filter param if the search surface lacks one (e.g. an `equipment` filter over the options m2m). **This is the DEFAULT — check before suggesting.**
+   - **existing data genuinely can't serve it (proven by the query)** → only NOW **SUGGEST** a **composable attribute-group** (primitives that combine — never a `beginnerFriendly` flag) in `docs/specs/ai-chat-capability-loop/data-suggestions.md`, naming each attribute's **data group / entity** (which entity it hangs off + whether it extends an existing registry cluster or forms a new pixel-group). Owner picks → L3.
+
+> Cycle-1 lesson: the workflow first SUGGESTED new comfort attributes for "มือใหม่", then the existing-data-first check found the **equipment-for-rent** data already exists (TENT/LEDL/POWE, 23 discriminating camps) — the gear slice is mappable now, no new data. Analyse existing structure before inventing data.
+
+### 4. FIX (one lane, one change)
 | Lane | When | Touches |
 |---|---|---|
 | **L1 prompt / tool-desc** | the model has the tool but chose wrong / didn't chain | `lib/ai/openrouter-client.ts` system prompt, tool descriptions |
+| **L2-concept map** | a concept word that DOES decompose to existing discriminating filters | `prisma/data/concept-map.json` + the concept pre-pass |
 | **L2 knowledge pack** | a general-knowledge answer (gear, season) with no table needed | a curated `prisma/data/*.json` + a read-only tool |
-| **L3 data table** | a real miss needs data we don't store — becomes a **schema story** (G1/G2), ranked by this cycle's demand, not built here | (separate ticket) |
+| **L3 data table** | a concept that could NOT map — a suggested composable group the owner picked; a **schema story** (G1/G2) ranked by `data-suggestions.md` demand | (separate ticket) |
 | **L4 deferred tool** | a capability with no tool yet | (separate ticket) |
 
 Implement exactly one L1/L2 change per cycle. Add a `strictParams` golden case reproducing the miss (behavioral proof — a diff read cannot catch an LLM behavior change, CAM-500). Guard any Thai substring/lexicon matching (boundary/context marker + a red test first, CAM-501/503).
@@ -81,6 +95,8 @@ One PR into `dev` (the `ai-guardrail-gate` runs the 6 guardrails on the real mod
 ## Reference Files
 
 - `scripts/ai-triage/pull-turns.mjs` — the PULL step (deterministic, no LLM).
+- `docs/specs/ai-chat-capability-loop/data-suggestions.md` — the composable-attribute-group suggestion ledger (the MAP "can't map → suggest" output; owner picks → L3).
+- `prisma/data/concept-map.json` + the concept pre-pass — the L2-concept map (once stood up; sibling of `lib/ai/place-resolver.ts`).
 - `lib/ai/turn-log.ts` — the S2 capture + `deleteTurnLogsOlderThan` retention helper.
 - `scripts/ai-eval/*` + `npm run ai:eval` — the PROVE step (golden eval + core-vs-deferred verdict, CAM-506).
 - `.github/workflows/ai-guardrail-gate.yml` — the blocking guardrail gate (CAM-507).
