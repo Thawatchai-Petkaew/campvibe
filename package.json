@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "ai:eval": "vitest run --config vitest.eval.config.ts",
+    "ai:guardrail-gate": "vitest run --config vitest.guardrail.config.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:regression": "playwright test --project=regression",
     "status:linear": "node scripts/ticket-sync.mjs list",

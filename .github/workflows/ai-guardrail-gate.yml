@@ -1,0 +1,43 @@
+name: AI Guardrail Gate (blocking)
+
+# CAM-507 (S4b) — a BLOCKING real-model check on every PR that touches
+# lib/ai/** (BR-5). Unlike ai-eval.yml (advisory, workflow_dispatch only,
+# `continue-on-error: true`), this workflow:
+#   - triggers on `pull_request`, path-filtered to `lib/ai/**` only (never
+#     runs on an unrelated PR — cost; does not replace ci.yml's gate)
+#   - is NOT `continue-on-error` — a failing run blocks merge
+#   - fails CLOSED (BR-3): a missing OPENROUTER_API_KEY secret makes the
+#     `npm run ai:guardrail-gate` step itself throw non-zero (asserted
+#     inside `guardrail-gate.eval.ts`) — never a silent skip.
+#
+# `workflow_dispatch` is also wired so the orchestrator can run the required
+# first-run proof manually (ops.md: a gate needs proof it ACTUALLY ran once
+# before flipping to a required status check) even on a PR that does not
+# itself touch lib/ai/**.
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/**'
+  workflow_dispatch:
+
+# Least-privilege GITHUB_TOKEN — this job only checks out the repo and runs
+# the guardrail suite (no PR/issue/status writes).
+permissions:
+  contents: read
+
+jobs:
+  ai-guardrail-gate:
+    runs-on: ubuntu-latest
+    env:
+      # Required secret — BR-3 fail-closed applies when this is unset
+      # (checked inside the vitest run itself, not by a shell guard here).
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - name: Guardrail gate (6 guardrail cases, real model, retry-guarded — BR-1/BR-2/BR-6)
+        run: npm run ai:guardrail-gate
