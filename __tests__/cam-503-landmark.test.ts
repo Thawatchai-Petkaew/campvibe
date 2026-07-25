@@ -28,7 +28,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolvePlace } from '@/lib/ai/place-resolver';
-import { haversineDistanceKm } from '@/lib/geo/distance';
 import { validateGazetteer, MIN_GAZETTEER_ENTRIES, THAILAND_BBOX } from '../scripts/validate-landmark-gazetteer.mjs';
 import realLandmarkGazetteer from '@/prisma/data/landmark-gazetteer.json';
 
@@ -125,6 +124,47 @@ describe('CAM-503 resolvePlace — BR-2 landmark detection (bare name = area-int
 
   it('[null/empty] empty string -> {}, never throws', () => {
     expect(resolvePlace('')).toEqual({});
+  });
+});
+
+/**
+ * QA CAM-503 — DEFECT regression (opened as a sub-ticket, see the QA
+ * return). "เขาใหญ่" is not just the flagship gazetteer entry — it is ALSO
+ * the ordinary pronoun "เขา" (he/she/they, one of the most common Thai
+ * pronouns) immediately followed by the ordinary adjective "ใหญ่" (big),
+ * an extremely common natural collocation ("เขาใหญ่กว่าฉัน" = "he/she is
+ * bigger than me", "พี่เขาใหญ่โตในวงการนี้" = "that person is prominent in
+ * this industry"). Unlike "ปาย" (CAM-503-EC-2, guarded above), "เขาใหญ่"
+ * was NOT added to `AMBIGUOUS_LANDMARK_NAMES_TH` — this is exactly the
+ * CAM-501-DEF-1 false-match class reintroduced on this story's own AC-1
+ * headline example, at a materially higher real-world collision rate than
+ * any of the already-guarded province names (a pronoun+adjective sentence
+ * about a PERSON, not a place, is common conversational Thai). Proven RED
+ * against the current implementation via a throwaway probe before being
+ * written here; must go GREEN once the backend adds a guard (e.g. a
+ * boundary/context check, or folding "เขาใหญ่"'s bare form into the
+ * ambiguous set the way "ปาย" already is, while still keeping AC-1's own
+ * camping-context example — "ลานกางเต็นท์เขาใหญ่" — working).
+ */
+describe('CAM-503 resolvePlace — DEFECT: "เขาใหญ่" false-matches the ordinary pronoun+adjective collocation (เขา=he/she + ใหญ่=big)', () => {
+  it('[edge] "แฟนเขาใหญ่กว่าฉันเยอะ" (their partner is much bigger than me) must NOT resolve the เขาใหญ่ landmark', () => {
+    expect(resolvePlace('แฟนเขาใหญ่กว่าฉันเยอะ')).toEqual({});
+  });
+
+  it('[edge] "พี่เขาใหญ่โตในวงการนี้จริงๆ" (that person is prominent in this industry) must NOT resolve the เขาใหญ่ landmark', () => {
+    expect(resolvePlace('พี่เขาใหญ่โตในวงการนี้จริงๆ')).toEqual({});
+  });
+
+  it('[edge] "น้องบอกว่าเขาใหญ่ไปหน่อยสำหรับงานนี้" (a sibling said he/she is a bit too senior for this job) must NOT resolve the เขาใหญ่ landmark', () => {
+    expect(resolvePlace('น้องบอกว่าเขาใหญ่ไปหน่อยสำหรับงานนี้')).toEqual({});
+  });
+
+  it('[edge, substring-hides-in-another-word] "เขาหลักฐานชัดเจนมาก" (เขา + หลักฐาน="evidence") must NOT resolve the เขาหลัก (Khao Lak) landmark', () => {
+    expect(resolvePlace('เขาหลักฐานชัดเจนมาก')).toEqual({});
+  });
+
+  it('[regression, must stay green] the camping-context AC-1 example is unaffected by any future fix direction', () => {
+    expect(resolvePlace('ลานกางเต็นท์เขาใหญ่')).toEqual({ near: 'เขาใหญ่', nearIsLandmark: true });
   });
 });
 
