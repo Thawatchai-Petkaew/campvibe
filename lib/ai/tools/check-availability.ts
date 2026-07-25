@@ -133,7 +133,11 @@ export async function executeCheckAvailability(args: CheckAvailabilityArgs): Pro
 export const checkAvailabilityTool: ToolDefinition<CheckAvailabilityArgs, CheckAvailabilityResult> = {
   name: 'checkAvailability',
   description:
-    'Check LIVE remaining capacity for a published CampVibe campsite over a date range (capacity, bookedGuests, heldGuests, remaining, blockedByHost). Never cached.',
+    'Check LIVE remaining capacity for a published CampVibe campsite over ONE date range (capacity, bookedGuests, heldGuests, remaining, blockedByHost). Never cached. ' +
+    // CAM-505 — reinforces the buildSystemPrompt tool-selection nudge at the
+    // schema level: a superlative over several candidate dates for one named
+    // camp still needs bulkAvailability, not repeated checkAvailability calls.
+    'For MULTIPLE date ranges, or a "which date is best/freest" question — even for this one camp — use bulkAvailability instead (with `keyword` set to this camp\'s name).',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
   tier: 'guest',
   parameters: checkAvailabilityArgsSchema,
