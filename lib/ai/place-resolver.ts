@@ -60,20 +60,53 @@ function escapeRegExp(value: string): string {
 }
 
 /**
+ * CAM-501-DEF-1 (QA Important defect) — a curated set of province Thai
+ * names that are ALSO ordinary, high-frequency Thai vocabulary unrelated to
+ * a place: "เลย" is one of the most common emphasis particles in casual
+ * Thai (เยอะเลย, ดีเลย — "a lot", "great!") and also Loei province; "ตาก" is
+ * the ordinary verb "to sun-dry / expose to the sun/wind" (ตากแดด, ตากผ้า —
+ * "sunbathe", "hang laundry") and also Tak province; "ตราด"/"น่าน"/"แพร่"/
+ * "ตรัง"/"ยะลา" are similarly short (≤4-char) names with no distinctive
+ * marker of their own. A plain substring scan (or even a "context word
+ * immediately before it" check — "ไป"/"ที่" precede both "ไปตากแดด" and a
+ * genuine "ไปจังหวัดตาก" identically, since Thai has no spaces) cannot
+ * reliably tell these apart from the ordinary word without a real
+ * tokenizer, which this deterministic pre-pass deliberately does not carry
+ * (BR-1 "pure function", not an NLP dependency). Per story fix-direction
+ * decision: SKIP free-text substring matching for this curated set
+ * entirely — a false MANDATORY province hint corrupting an unrelated
+ * search is worse than missing the (rare) genuine ambiguous-province
+ * mention, which still falls back to the model's own general BR-2
+ * non-infer guidance already in the system prompt.
+ */
+const AMBIGUOUS_PROVINCE_NAMES_TH: ReadonlySet<string> = new Set([
+  'เลย', // Loei — collides with the emphasis particle เลย
+  'ตาก', // Tak — collides with the verb ตาก (sun-dry/expose to sun/wind)
+  'ตราด', // Trat
+  'น่าน', // Nan
+  'แพร่', // Phrae
+  'ตรัง', // Trang
+  'ยะลา', // Yala
+]);
+
+/**
  * EC-4 (MVP-accepted): Thai has no built-in word-boundary marker, so a
- * province's Thai name is matched as a plain substring — the SAME tolerance
- * `resolveProvinceForSearch`'s own DB `contains` lookup already has in
- * production; a minor over-match (a camp NAME that happens to contain a
- * province's Thai name) is accepted per story EC-4, not solved here.
+ * (non-ambiguous) province's Thai name is matched as a plain substring —
+ * the SAME tolerance `resolveProvinceForSearch`'s own DB `contains` lookup
+ * already has in production; a minor over-match (a camp NAME that happens
+ * to contain a province's Thai name) is accepted per story EC-4, not
+ * solved here. CAM-501-DEF-1 carves the curated ambiguous set above OUT of
+ * this scan entirely (see its own docblock).
  *
  * English names get an explicit `\b...\b` word-boundary check instead
  * (English text IS space-delimited, so this is free precision this file
  * doesn't have to give up) — guards common short names like "Tak" or "Nan"
- * from firing inside an unrelated English word (e.g. "attack").
+ * from firing inside an unrelated English word (e.g. "mistake").
  */
 function detectProvince(text: string): string | undefined {
   for (const p of PROVINCES_BY_TH_LENGTH_DESC) {
-    if (p.nameTh.length > 0 && text.includes(p.nameTh)) return p.nameEn;
+    if (p.nameTh.length === 0 || AMBIGUOUS_PROVINCE_NAMES_TH.has(p.nameTh)) continue;
+    if (text.includes(p.nameTh)) return p.nameEn;
   }
 
   const lower = text.toLowerCase();
@@ -108,6 +141,26 @@ interface RegionAlias {
  * that table; `__tests__/cam-501-place-resolver.test.ts` asserts every
  * `canonical` value here round-trips through the real
  * `resolveRegionForSearch` so the two can never silently drift apart.
+ *
+ * CAM-501-DEF-1 (QA Important defect) — this list is deliberately narrower
+ * than `lib/thai-regions.ts`'s own `REGION_ALIASES`: that table is safe
+ * because it is EXACT-match against an already-isolated, trimmed word (a
+ * model-emitted `region` argument); a free-text SCANNER over arbitrary
+ * camper sentences is a different, riskier match surface. The bare, short
+ * aliases "เหนือ"/"กลาง"/"ตะวันออก"/"ตะวันตก"/"ใต้" (and "ทางเหนือ") are
+ * ordinary Thai vocabulary on their own — "เหนือ" alone means "above/over"
+ * (เหนือกว่า = "better than"), "กลาง" means "middle" (กลางคืน = "nighttime",
+ * กลางแจ้ง = "outdoors"), "ใต้" means "under/below" (ใต้ต้นไม้ = "under a
+ * tree") — so a naive substring scan false-positives a region hint onto a
+ * completely unrelated sentence. Kept here ONLY: the six formal
+ * `ภาค`-prefixed names (each unambiguous — no ordinary Thai word starts
+ * with "ภาค") plus two standalone aliases that are themselves distinctive
+ * compounds with no ordinary-vocabulary meaning ("อีสาน", "ปักษ์ใต้") and
+ * the bare Northeast form ("ตะวันออกเฉียงเหนือ", long/distinctive enough on
+ * its own). This intentionally narrows real-world recall (a bare "ไปเที่ยว
+ * เหนือกันไหม" no longer sets a region hint) in exchange for eliminating
+ * the false-positive class QA found — the model's own general guidance
+ * still applies on a turn with no hint.
  */
 const REGION_ALIASES: readonly RegionAlias[] = [
   { alias: 'ภาคตะวันออกเฉียงเหนือ', canonical: 'ภาคตะวันออกเฉียงเหนือ', region: 'NORTHEAST' },
@@ -115,17 +168,11 @@ const REGION_ALIASES: readonly RegionAlias[] = [
   { alias: 'ภาคอีสาน', canonical: 'ภาคอีสาน', region: 'NORTHEAST' },
   { alias: 'อีสาน', canonical: 'ภาคอีสาน', region: 'NORTHEAST' },
   { alias: 'ภาคเหนือ', canonical: 'ภาคเหนือ', region: 'NORTH' },
-  { alias: 'ทางเหนือ', canonical: 'ภาคเหนือ', region: 'NORTH' },
-  { alias: 'เหนือ', canonical: 'ภาคเหนือ', region: 'NORTH' },
   { alias: 'ภาคกลาง', canonical: 'ภาคกลาง', region: 'CENTRAL' },
-  { alias: 'กลาง', canonical: 'ภาคกลาง', region: 'CENTRAL' },
   { alias: 'ภาคตะวันออก', canonical: 'ภาคตะวันออก', region: 'EAST' },
-  { alias: 'ตะวันออก', canonical: 'ภาคตะวันออก', region: 'EAST' },
   { alias: 'ภาคตะวันตก', canonical: 'ภาคตะวันตก', region: 'WEST' },
-  { alias: 'ตะวันตก', canonical: 'ภาคตะวันตก', region: 'WEST' },
   { alias: 'ปักษ์ใต้', canonical: 'ภาคใต้', region: 'SOUTH' },
   { alias: 'ภาคใต้', canonical: 'ภาคใต้', region: 'SOUTH' },
-  { alias: 'ใต้', canonical: 'ภาคใต้', region: 'SOUTH' },
 ];
 
 /**
