@@ -15,13 +15,17 @@ Read first: `docs/research/ai-chat/campvibe-capability-loop-plan.md` (the SEE→
 
 ## Quick Reference
 
-The five steps, in order:
+The steps, in order:
 
 1. **PULL** — `npm run ai:pull-turns` (or `node scripts/ai-triage/pull-turns.mjs [days]`) → writes `scratch/ai-triage-export.json` (summary + every miss turn + a clean sample). Reads the local dev DB by default; refuses a prod-looking DB unless explicitly overridden.
-2. **ANALYZE** — read the export. Open-code the miss turns into groups (wrong tool · no-chain · zero-result the user meant to find · honest "no data" for a table we don't have · off-topic). Rank by frequency. This is your judgment on the subscription — no LLM call, no `ai:eval` yet.
-3. **FIX** — pick the **single** highest-frequency, in-scope group. Route it to one FIX lane (see below). Implement it as one small atomic change with a **strictParams golden case** added for the exact miss (behavioral, per CAM-500).
-4. **PROVE** — `npm run ai:eval` (paid, ~$0.05). Confirm core correctness moved the right way, **guardrail stays 100%**, no regression. The guardrail gate (`ai-guardrail-gate`, CAM-507) also blocks the PR automatically.
-5. **DEPLOY** — normal flow: PR into `dev` (G3) → batched `dev`→`staging` promote (`/promote-release --to staging`) → G4 → release.
+2. **ANALYZE + GROUP** — read the export. Open-code the miss turns into groups (wrong tool · no-chain · **concept-keyword that got 0** · honest "no data" for a table we don't have · off-topic). Rank. Subscription judgment — no LLM call, no `ai:eval` yet.
+3. **RESEARCH** — for a **concept miss** (a Thai concept word the model searched literally: มือใหม่/สายลุย/ฟินสุด…), go out and research what it actually MEANS in the camping context — `WebSearch` for real vernacular, not a guess. Ground the meaning before mapping.
+4. **MAP** — decompose the researched concept into our REAL filter vocabulary (`TERRAIN_CODES`/`ACTIVITY_CODES`/`FACILITY_CODES`/`campSiteType`/price/petFriendly). Then branch:
+   - **maps cleanly + returns DISCRIMINATING data** → add a `prisma/data/concept-map.json` entry (implement in FIX).
+   - **can't map / the map returns ~everything (non-discriminating)** → do NOT force a weak map. **SUGGEST a composable attribute-GROUP** (primitive fields that combine to serve the intent — never a denormalised concept-flag) and **append it to `docs/specs/ai-chat-capability-loop/data-suggestions.md`** (owner picks/declines; a pick becomes an L3 schema story). Verify the map against real data (`campSite.count` with the filters) — a map that returns 0 or 475/475 is not a map.
+5. **FIX** — pick the **single** highest-value in-scope item. Implement one small atomic change (a concept-map entry, a prompt/tool-desc nudge, or a knowledge pack) with a **behavioral golden case** for the exact miss (CAM-500). Guard any Thai substring matching (CAM-501/503).
+6. **PROVE** — `npm run ai:eval` (paid, ~$0.05). Core correctness moved the right way, **guardrail 100%**, no regression. The `ai-guardrail-gate` (CAM-507) also blocks the PR automatically.
+7. **DEPLOY** — PR into `dev` (G3) → batched `dev`→`staging` promote → G4 → release. Record the cycle's ranked misses + the one fix + any data-suggestions logged, in the PR body.
 
 ## When to Use
 
@@ -52,12 +56,20 @@ To analyze staging usage instead, set `AI_TRIAGE_DATABASE_URL` to the staging co
 ### 2. ANALYZE (subscription, $0)
 Read `scratch/ai-triage-export.json`. Start from `summary.missCounts` (the cheap deterministic flags: `zero_result`, `deferred_tool`, `no_tool`), then read the `missTurns` themselves — the deterministic flags only find the obvious misses; the **semantic** ones (wrong tool chosen, an honest "no data" that a table would fix, a mis-parsed Thai place name) you find by reading `userText` + `toolCalls` + `assistantText`. Group them (open coding), count each group, and pick the largest **actionable** one. Write the ranked list into the cycle's notes.
 
-### 3. FIX (one lane, one change)
+### 3. RESEARCH & MAP (concept misses — subscription, $0)
+When the miss is a **concept keyword** the model searched literally and got 0:
+1. **RESEARCH** the concept with `WebSearch` (real vernacular, not a guess) — e.g. "มือใหม่" beginner-camping → hot showers, flat ground, on-site host, developed car-accessible campground.
+2. **MAP** it onto the REAL filter vocabulary and **verify against data** (`campSite.count` with the mapped filters):
+   - a discriminating map (returns a meaningful subset) → a `prisma/data/concept-map.json` entry, consumed by a deterministic concept pre-pass (sibling of `place-resolver`/`resolve-dates`) that injects the filters — L2-concept lane below.
+   - a non-map (returns 0, or ~everything like 475/475) → **SUGGEST**, don't force it: append a **composable attribute-group** (primitive fields that combine — never a `beginnerFriendly` flag) to `docs/specs/ai-chat-capability-loop/data-suggestions.md`. Owner picks → L3.
+
+### 4. FIX (one lane, one change)
 | Lane | When | Touches |
 |---|---|---|
 | **L1 prompt / tool-desc** | the model has the tool but chose wrong / didn't chain | `lib/ai/openrouter-client.ts` system prompt, tool descriptions |
+| **L2-concept map** | a concept word that DOES decompose to existing discriminating filters | `prisma/data/concept-map.json` + the concept pre-pass |
 | **L2 knowledge pack** | a general-knowledge answer (gear, season) with no table needed | a curated `prisma/data/*.json` + a read-only tool |
-| **L3 data table** | a real miss needs data we don't store — becomes a **schema story** (G1/G2), ranked by this cycle's demand, not built here | (separate ticket) |
+| **L3 data table** | a concept that could NOT map — a suggested composable group the owner picked; a **schema story** (G1/G2) ranked by `data-suggestions.md` demand | (separate ticket) |
 | **L4 deferred tool** | a capability with no tool yet | (separate ticket) |
 
 Implement exactly one L1/L2 change per cycle. Add a `strictParams` golden case reproducing the miss (behavioral proof — a diff read cannot catch an LLM behavior change, CAM-500). Guard any Thai substring/lexicon matching (boundary/context marker + a red test first, CAM-501/503).
@@ -81,6 +93,8 @@ One PR into `dev` (the `ai-guardrail-gate` runs the 6 guardrails on the real mod
 ## Reference Files
 
 - `scripts/ai-triage/pull-turns.mjs` — the PULL step (deterministic, no LLM).
+- `docs/specs/ai-chat-capability-loop/data-suggestions.md` — the composable-attribute-group suggestion ledger (the MAP "can't map → suggest" output; owner picks → L3).
+- `prisma/data/concept-map.json` + the concept pre-pass — the L2-concept map (once stood up; sibling of `lib/ai/place-resolver.ts`).
 - `lib/ai/turn-log.ts` — the S2 capture + `deleteTurnLogsOlderThan` retention helper.
 - `scripts/ai-eval/*` + `npm run ai:eval` — the PROVE step (golden eval + core-vs-deferred verdict, CAM-506).
 - `.github/workflows/ai-guardrail-gate.yml` — the blocking guardrail gate (CAM-507).
