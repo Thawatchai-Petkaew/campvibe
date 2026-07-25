@@ -69,6 +69,15 @@ const masterData = [
     { code: 'FORE', group: 'Terrain', nameTh: 'ป่า', nameEn: 'Forest', icon: 'Trees' },
     { code: 'RIVE', group: 'Terrain', nameTh: 'แม่น้ำ ลำธาร คลองเล็ก', nameEn: 'River, stream, or creek', icon: 'Waves' },
     { code: 'MTNS', group: 'Terrain', nameTh: 'ภูเขา (ล้อมรอบด้วยภูเขา)', nameEn: 'Mountainous', icon: 'Mountain' },
+    // CAM-513 (S1) — Terrain expansion, 8 new codes (BR-1/BR-2, no collision with existing codes)
+    { code: 'SEA', group: 'Terrain', nameTh: 'ทะเล', nameEn: 'Sea', icon: 'Sailboat' },
+    { code: 'COAS', group: 'Terrain', nameTh: 'ริมชายฝั่ง', nameEn: 'Coastal', icon: 'Anchor' },
+    { code: 'LAKE', group: 'Terrain', nameTh: 'ทะเลสาบ', nameEn: 'Lake', icon: 'Waves' },
+    { code: 'WATF', group: 'Terrain', nameTh: 'น้ำตก', nameEn: 'Waterfall', icon: 'Droplets' },
+    { code: 'SWMH', group: 'Terrain', nameTh: 'แอ่งเล่นน้ำ', nameEn: 'Swimming hole', icon: 'Droplet' },
+    { code: 'FILD', group: 'Terrain', nameTh: 'ทุ่ง', nameEn: 'Field', icon: 'Flower2' },
+    { code: 'CAVE', group: 'Terrain', nameTh: 'ถ้ำ', nameEn: 'Cave', icon: 'Mountain' },
+    { code: 'FARM', group: 'Terrain', nameTh: 'ไร่ / ฟาร์มสเตย์', nameEn: 'Farm', icon: 'Wheat' },
 ]
 
 import fs from 'fs';
