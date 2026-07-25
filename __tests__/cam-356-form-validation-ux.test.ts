@@ -152,6 +152,40 @@ describe("getFieldLabel (AC-1, EC-1)", () => {
     expect(getFieldLabel(th, "someBrandNewField")).toBe("someBrandNewField");
     expect(getFieldLabel(en, "operatorId")).toBe("operatorId");
   });
+
+  // CAM-515 (S3) — the FIRST new MasterData group's FIELD_LABEL_RESOLVERS
+  // entry, exercised through the real exported fn (not a source regex) —
+  // proves the map entry actually resolves, in both languages.
+  it("[normal] annotatedFeatures resolves to the SAME 'Annotated features' group-heading label the amenities card renders (TH + EN)", () => {
+    expect(getFieldLabel(th, "annotatedFeatures")).toBe(th.filter["Annotated features"]);
+    expect(getFieldLabel(en, "annotatedFeatures")).toBe(en.filter["Annotated features"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CAM-515 (S3) — campSiteSchema.annotatedFeatures + the CampgroundForm.tsx
+// source touchpoints (source-inspection, same precedent this file/CAM-341/
+// CAM-348 already use for CampgroundForm — no jsdom render harness here).
+// ---------------------------------------------------------------------------
+describe("CAM-515 (S3) — Annotated features host-form wiring (AC-2, EC-2)", () => {
+  it("[normal] campSiteSchema accepts an annotatedFeatures code array (host-form payload shape)", () => {
+    const result = campSiteSchema.partial().safeParse({
+      nameTh: "test",
+      annotatedFeatures: ["ALCO", "FIRE"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("[normal] CampgroundForm.tsx source carries all 6 annotatedFeatures touchpoints (state field, renderOptionGroup call, edit-prefill _byGroup, payload line, FIELD_SECTION_ID map, publish-completeness Set)", () => {
+    expect(formSrc).toMatch(/annotatedFeatures:\s*\[\]\s*as\s*string\[\]/);
+    expect(formSrc).toContain(
+      `renderOptionGroup(t.filter["Annotated features"], "Annotated features", "annotatedFeatures")`
+    );
+    expect(formSrc).toContain(`annotatedFeatures: _byGroup('Annotated features')`);
+    expect(formSrc).toContain("annotatedFeatures: formData.annotatedFeatures,");
+    expect(formSrc).toMatch(/annotatedFeatures:\s*"amenities"/);
+    expect(formSrc).toContain("...formData.annotatedFeatures,");
+  });
 });
 
 // ---------------------------------------------------------------------------

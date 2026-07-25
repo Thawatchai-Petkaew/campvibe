@@ -16,7 +16,7 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -413,6 +413,8 @@ export default function CampgroundDetailClient({
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
+    // CAM-515 (S3) — the FIRST new MasterData group (ALCO/FIRE/FIWD/ADAA/RESV).
+    const annotatedCodes = codesByGroup('Annotated features');
 
     // Parse images from relation
     const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
@@ -538,6 +540,12 @@ export default function CampgroundDetailClient({
         'SSTV': Utensils,
         'POWE': Zap,
         'TFAN': Wind, // Wind for fan
+        // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
+        'ALCO': Wine,
+        'FIRE': Flame,
+        'FIWD': Logs,
+        'ADAA': Accessibility,
+        'RESV': CalendarCheck,
         // Fallbacks
         'default': ShieldCheck
     };
@@ -1083,6 +1091,25 @@ export default function CampgroundDetailClient({
                                             {getIcon(item)}
                                             <span className="font-normal text-base capitalize text-foreground/80">
                                                 {t.filter[item as keyof typeof t.filter] || item}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 6. CAM-515 (S3) — Annotated features (คุณลักษณะ): rules/rights
+                            the camp carries (alcohol/fire/firewood/accessible/reservable),
+                            the FIRST new MasterData group added post-launch. */}
+                        {annotatedCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Annotated features"]}</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
+                                    {annotatedCodes.map((code: string) => (
+                                        <div key={code} className="flex flex-col items-start gap-3">
+                                            {getIcon(code)}
+                                            <span className="font-medium text-foreground capitalize text-base">
+                                                {t.filter[code as keyof typeof t.filter] || code}
                                             </span>
                                         </div>
                                     ))}

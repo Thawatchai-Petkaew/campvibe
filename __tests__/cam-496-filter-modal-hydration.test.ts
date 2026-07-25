@@ -64,6 +64,11 @@ vi.mock("@/app/actions/getFilterOptions", () => ({
     "External facility": [
       { code: "EFCA", group: "External facility", icon: "Car", nameEn: "Parking", nameTh: "ที่จอดรถ" },
     ],
+    // CAM-515 (S3) — the FIRST new MasterData group (renders via the SAME
+    // default checkbox-grid branch as Internal/External facility above).
+    "Annotated features": [
+      { code: "ALCO", group: "Annotated features", icon: "Wine", nameEn: "Alcohol allowed", nameTh: "ดื่มแอลกอฮอล์ได้" },
+    ],
   })),
 }));
 
@@ -152,6 +157,35 @@ describe("CAM-496 AC-3 — facilities CSV hydrates into its owning sub-section",
 
     expect(internalCheckbox.getAttribute("aria-checked")).toBe("true");
     expect(externalCheckbox.getAttribute("aria-checked")).toBe("true");
+  });
+});
+
+describe("CAM-515 (S3) — Annotated features: hydrates from the URL + apply preserves it (same CAM-496 AC-1/AC-2 wiring, new group)", () => {
+  it("opening the modal with annotatedFeatures=ALCO in the URL marks the matching checkbox checked", async () => {
+    currentParams = new URLSearchParams("annotatedFeatures=ALCO");
+    renderModal();
+    await openModal();
+
+    const alcoCheckbox = await screen.findByRole("checkbox", { name: /alcohol allowed/i });
+    expect(alcoCheckbox.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("pressing 'Show Campgrounds' with no edits preserves annotatedFeatures already in the URL (the exact CAM-496 regression class, proven for the new group)", async () => {
+    currentParams = new URLSearchParams("annotatedFeatures=ALCO");
+    renderModal();
+    await openModal();
+
+    // sanity: hydration actually happened before we apply
+    await screen.findByRole("checkbox", { name: /alcohol allowed/i });
+    expect(screen.getByRole("checkbox", { name: /alcohol allowed/i }).getAttribute("aria-checked")).toBe("true");
+
+    await waitForApplyEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /show/i }));
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const pushedUrl = pushMock.mock.calls[0][0] as string;
+    const pushedParams = new URLSearchParams(pushedUrl.split("?")[1] ?? "");
+    expect(pushedParams.get("annotatedFeatures")).toBe("ALCO");
   });
 });
 

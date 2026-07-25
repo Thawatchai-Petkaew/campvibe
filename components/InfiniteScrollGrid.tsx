@@ -72,6 +72,8 @@ interface ActiveFilters {
   facilities?: string;
   activities?: string;
   terrain?: string;
+  /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
+  annotatedFeatures?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +138,7 @@ export default function InfiniteScrollGrid({
         "type", "keyword", "province", "district",
         "startDate", "endDate", "guests", "min", "max",
         "access", "facilities", "activities", "terrain",
+        "annotatedFeatures",
       ] as const;
 
       for (const key of filterKeys) {

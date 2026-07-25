@@ -183,6 +183,16 @@ const FACILITY_CODES = [
  */
 const EQUIPMENT_CODES = ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV', 'LSTV', 'CHAI', 'FYST', 'ICBK'] as const;
 
+/**
+ * CAM-515 (S3) — the 5 real `Annotated features` MasterData codes (source:
+ * `prisma/seed.ts` masterData, same sourcing discipline as the CAM-408
+ * taxonomy consts above — no code that doesn't exist in the real table).
+ * The FIRST new MasterData group added post-launch (rules/rights the camp
+ * carries, not a physical facility): ALCO ดื่มแอลกอฮอล์ได้, FIRE ก่อไฟได้,
+ * FIWD มีฟืนขาย/บริการ, ADAA รองรับผู้พิการ, RESV จองล่วงหน้าได้.
+ */
+const ANNOTATED_CODES = ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] as const;
+
 /** Same "is this a real calendar date" check `lib/ai/tools/check-availability.ts` already uses — no new validation concept. */
 const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
   message: 'Invalid date',
@@ -247,6 +257,12 @@ export const searchCampsitesArgsSchema = z.object({
    * rather than routed through its newer array-OR branch.
    */
   equipment: z.enum(EQUIPMENT_CODES).or(z.array(z.enum(EQUIPMENT_CODES))).optional(),
+  /**
+   * CAM-515 (S3) — OR-within-group semantics (CAM-461 Decision 4), same as
+   * terrain/access/activities/facilities above: "ลานจิบเบียร์ริมธาร" ->
+   * ALCO, "ลานก่อไฟได้" -> FIRE, "รองรับผู้พิการ"/"wheelchair" -> ADAA.
+   */
+  annotatedFeatures: z.enum(ANNOTATED_CODES).or(z.array(z.enum(ANNOTATED_CODES))).optional(),
   /**
    * CAM-461 BR-2 — reuses the catalog's `VALID_SORTS` vocabulary verbatim
    * (ADR-009, no forked sort). Absent → `related` (BR-2 default, applied in
@@ -414,6 +430,17 @@ const jsonSchema = {
       description:
         'Rentable equipment/gear the camp must offer, for a camper who has no gear of their own or wants to rent — pass an ARRAY of codes when the camper needs MULTIPLE items (an array means the camp must offer ALL listed items, e.g. a beginner arriving empty-handed needs a full rental kit — this is AND, unlike the OR-within-group arrays above). TENT เต็นท์, POWE ปลั๊กสนาม, TFAN พัดลม, BLKT ผ้าห่ม, LEDL หลอดไฟ LED, GDST ผ้าปูรองเต็นท์, SSTV เตาถ่านขนาดเล็ก, LSTV เตาถ่านขนาดใหญ่, CHAI เก้าอี้, FYST ผ้าฟลายชีท, ICBK กระติกน้ำแข็ง.',
     },
+    annotatedFeatures: {
+      type: 'string',
+      enum: ANNOTATED_CODES,
+      description:
+        'A rule/right the camp carries (not a physical facility) — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): ' +
+        'ALCO = ดื่มแอลกอฮอล์ได้ (alcohol allowed, e.g. "จิบเบียร์"/"ดื่มเบียร์"/"กินเหล้าได้ไหม"/"แอลกอฮอล์"), ' +
+        'FIRE = ก่อไฟได้ (fires/campfires allowed, e.g. "ก่อไฟได้ไหม"/"กองไฟ"), ' +
+        'FIWD = มีฟืนขาย/บริการ (firewood available/for sale, e.g. "มีฟืนขายไหม"/"ฟืน"), ' +
+        'ADAA = รองรับผู้พิการ (wheelchair/disability accessible, e.g. "ผู้พิการ"/"wheelchair"/"รถเข็น"), ' +
+        'RESV = จองล่วงหน้าได้ (can reserve/book ahead, e.g. "จองล่วงหน้าได้ไหม").',
+    },
     sort: {
       type: 'string',
       enum: VALID_SORTS,
@@ -504,6 +531,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     // semantics, deliberately different from terrain/access/activities/
     // facilities above.
     equipment: Array.isArray(args.equipment) ? args.equipment.join(',') : args.equipment,
+    annotatedFeatures: args.annotatedFeatures,
     excludeIds,
   });
 
@@ -602,7 +630,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, and rentable equipment. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, rentable equipment, and annotated features (rules/rights like alcohol-allowed, fires-allowed, firewood, wheelchair-accessible, reservable). Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
     'Pass `equipment` when the camper needs rental gear — a beginner with no equipment of their own ("มือใหม่", "ไม่มีอุปกรณ์", "มาตัวเปล่า") or anyone asking what a camp rents out. An array means the camp must offer ALL listed items (AND, not OR like the other taxonomy filters). ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +

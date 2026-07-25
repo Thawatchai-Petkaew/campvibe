@@ -85,6 +85,10 @@ const THEMES = {
     equip: ['TENT', 'BLKT', 'TFAN', 'LEDL', 'GDST', 'CHAI', 'POWE'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI', 'DISP'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common in this rustic
+    // mountain-forest theme (ก่อไฟ/ฟืนหน้าหนาว), RESV mixed, ADAA rare
+    // (undeveloped mountain terrain rarely accessible).
+    annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.3, ADAA: 0.12 },
     tags: ['ทะเลหมอก', 'วิวภูเขา', 'อากาศเย็น', 'พระอาทิตย์ขึ้น'],
     desc: 'อากาศหนาวเย็นและทะเลหมอกยามเช้า เหมาะกับสายธรรมชาติที่หลงรักวิวภูเขา',
     scene: 'misty mountain ridge campsite at dawn, a sea of clouds filling the valley below, pine trees',
@@ -104,6 +108,11 @@ const THEMES = {
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
     ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'RECR', 'CABI'],
+    // CAM-515 (S3) — Annotated features: ALCO common (chill beach-bar vibe,
+    // "จิบเบียร์ริมหาด"), RESV common (resort-style booking), ADAA more
+    // likely here than most themes (developed beach resorts), FIRE lower
+    // (fewer beach camps allow open fires) but still plausible.
+    annotated: { ALCO: 0.45, RESV: 0.35, ADAA: 0.4, FIRE: 0.15 },
     tags: ['ริมทะเล', 'วิวทะเล', 'พระอาทิตย์ตก', 'เล่นน้ำทะเล'],
     desc: 'กางเต็นท์ริมหาดฟังเสียงคลื่น ชมพระอาทิตย์ตกเหนือผืนทะเล',
     scene: 'beachfront campsite on white sand, turquoise sea, palm trees, tents facing the water',
@@ -119,6 +128,10 @@ const THEMES = {
     equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [350, 900], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common (riverside
+    // campfire is a classic combo), RESV mixed, ALCO occasional, ADAA a
+    // modest minority (a maintained riverside path can be level/accessible).
+    annotated: { FIRE: 0.5, FIWD: 0.45, RESV: 0.25, ALCO: 0.1, ADAA: 0.15 },
     tags: ['ริมน้ำ', 'ลำธารใส', 'ร่มรื่น', 'พายเรือ'],
     desc: 'ลานกางเต็นท์ริมลำธารน้ำใส ใต้ร่มไม้ร่มรื่น เสียงน้ำไหลทั้งวัน',
     scene: 'campsite beside a clear shallow stream over smooth rocks, shady riverbank forest',
@@ -133,6 +146,10 @@ const THEMES = {
     equip: ['TENT', 'GDST', 'LEDL', 'LSTV'], ext: ['MAKT'],
     ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD'],
     accomm: ['TENT', 'DISP', 'GROU'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common (deep-forest/
+    // adventure camping leans rustic campfire), RESV lower (less structured
+    // booking), ADAA rarest (undeveloped jungle terrain).
+    annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.15, ADAA: 0.12 },
     tags: ['ป่าธรรมชาติ', 'ส่องสัตว์ป่า', 'เดินป่า', 'ร่มครึ้ม'],
     desc: 'โอบล้อมด้วยป่าใหญ่ที่อุดมสมบูรณ์ เหมาะกับการเดินป่าและส่องสัตว์',
     scene: 'deep jungle clearing campsite, towering rainforest canopy, morning mist between trees',
@@ -147,6 +164,10 @@ const THEMES = {
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
     ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI', 'RECR'],
+    // CAM-515 (S3) — Annotated features: ALCO/RESV common (calm lakeside
+    // resort-style stay), ADAA more likely (developed lakeside sites),
+    // FIRE mixed.
+    annotated: { ALCO: 0.4, RESV: 0.35, ADAA: 0.35, FIRE: 0.2 },
     tags: ['ริมทะเลสาบ', 'วิวน้ำสงบ', 'บรรยากาศสงบ', 'แพกลางน้ำ'],
     desc: 'ริมทะเลสาบน้ำนิ่งสะท้อนเงาภูเขา บรรยากาศเงียบสงบราวกับต่างแดน',
     scene: 'lakeside campsite, calm mirror-like water reflecting limestone karst hills, floating raft houses',
@@ -162,6 +183,10 @@ const THEMES = {
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD'],
     accomm: ['TENT', 'GROU', 'HORS'],
+    // CAM-515 (S3) — Annotated features: ALCO/FIRE common (evening bonfire +
+    // drinks under the stars is the meadow theme's signature scene), RESV
+    // mixed, ADAA rarer.
+    annotated: { ALCO: 0.35, FIRE: 0.35, RESV: 0.3, ADAA: 0.2 },
     tags: ['ทุ่งหญ้ากว้าง', 'กางเต็นท์ชมดาว', 'วิวเขากว้าง', 'ลมเย็น'],
     desc: 'ลานหญ้ากว้างเปิดโล่งรับลม กลางคืนนอนนับดาวเต็มท้องฟ้า',
     scene: 'wide open grassy meadow campground in a mountain valley, rows of glowing tents under a starry milky-way sky',
@@ -310,6 +335,15 @@ function buildCamp(concept, idx) {
   // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/HORS/
   // RECR/TENT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
   const accommodationTypes = pickN(T.accomm, ri(1, Math.min(2, T.accomm.length))).join(',');
+  // CAM-515 (S3) — Annotated features (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights
+  // the camp carries, not a physical facility. Per-code independent chance()
+  // draw (not pickN) — each theme's `annotated` map gives every candidate
+  // code its OWN realistic probability (a rare code like ADAA must not be
+  // forced to co-occur with a common one), unlike the other taxonomies above
+  // which always draw a fixed COUNT of codes.
+  const annotatedFeatures = Object.entries(T.annotated || {})
+    .filter(([, p]) => chance(p))
+    .map(([code]) => code);
 
   // pricing by tier × business type
   let lo = T.tier[0], hi = T.tier[1];
@@ -399,6 +433,7 @@ function buildCamp(concept, idx) {
     accessTypes: accessTypes.join(','), facilities: facilities.join(','),
     externalFacilities: externalFacilities.join(','), equipment: equipment.join(','),
     activities: activities.join(','), terrain: terrain.join(','),
+    annotatedFeatures: annotatedFeatures.join(','),
     province: prov,
     address: `${areaTh} อ.${areaTh} จ.${P.th} ${P.zip}`,
     directions: `เดินทางสู่${areaTh} จ.${P.th} แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง`,
@@ -536,6 +571,10 @@ const MASTERDATA_GROUPS = [
   // natural presence already comes from the theme pools above; this only fires if a
   // code somehow drew 0 camps, same safety-net role BEAC already had here).
   { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS', 'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM'] },
+  // CAM-515 (S3) — Annotated features, the FIRST new MasterData group. Belt-
+  // and-suspenders floor (natural presence already comes from each theme's
+  // `annotated` chance-map above).
+  { field: 'annotatedFeatures', codes: ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] },
 ];
 const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
 // Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts

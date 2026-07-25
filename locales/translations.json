@@ -638,7 +638,13 @@
             "CAVE": "Cave",
             "FARM": "Farm",
             "HOTW": "Hot water",
-            "LIGT": "Night lighting"
+            "LIGT": "Night lighting",
+            "Annotated features": "Annotated Features",
+            "ALCO": "Alcohol allowed",
+            "FIRE": "Fires allowed",
+            "FIWD": "Firewood",
+            "ADAA": "Accessible (ADA)",
+            "RESV": "Reservable"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1662,7 +1668,13 @@
             "CAVE": "ถ้ำ",
             "FARM": "ไร่ / ฟาร์มสเตย์",
             "HOTW": "น้ำอุ่น",
-            "LIGT": "ไฟส่องสว่างตลอดคืน"
+            "LIGT": "ไฟส่องสว่างตลอดคืน",
+            "Annotated features": "คุณลักษณะ",
+            "ALCO": "ดื่มแอลกอฮอล์ได้",
+            "FIRE": "ก่อไฟได้",
+            "FIWD": "มีฟืนขาย/บริการ",
+            "ADAA": "รองรับผู้พิการ",
+            "RESV": "จองล่วงหน้าได้"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",
