@@ -26,6 +26,15 @@
  * The delivery-ticket DB (DELIVERY_DATABASE_URL) is a different database and
  * is never touched; a guard below refuses to run if it points at the same
  * database as the target.
+ *
+ * CAM-497: Prisma.dmmf.datamodel.models only lists explicit models — an
+ * IMPLICIT many-to-many relation (no `@relation(fields: ...)` on either
+ * side, e.g. `CampSite.options MasterData[]`) has no delegate, so the
+ * findMany/createMany loop below silently never touches its hidden `_Xxx`
+ * join table. TRUNCATE ... CASCADE on the target still empties that join
+ * table (it carries FKs onto the truncated model tables), so a synced dev DB
+ * was left with every camp's options wiped to zero rows. IMPLICIT_M2M_TABLES
+ * below is copied explicitly, via raw SQL, after the model loop.
  */
 import "dotenv/config";
 import { PrismaClient, Prisma } from "@prisma/client";
@@ -102,6 +111,27 @@ const tableOf = (m) => m.dbName || m.name;
 
 const BATCH = 500;
 
+// Implicit many-to-many join tables — Prisma generates these but they carry
+// no model/delegate, so they are invisible to `Prisma.dmmf.datamodel.models`
+// and must be copied by hand via raw SQL. Audited every `Model[]` field pair
+// in prisma/schema.prisma against every `CREATE TABLE "_..."` in
+// prisma/migrations/*/migration.sql (implicit m2m tables are always named
+// with a leading underscore) — `_CampSiteToMasterData` is the ONLY implicit
+// m2m table in the schema today; every other `Model[]` field is a normal
+// one-to-many with an explicit FK column on the "many" side, already
+// covered by the model loop above. If a future migration adds another
+// implicit m2m relation, add its table here too (same audit method).
+const IMPLICIT_M2M_TABLES = [
+  {
+    // CampSite.options <-> MasterData.campSites (ADR-003 taxonomy relation).
+    table: "_CampSiteToMasterData",
+    // A -> CampSite.id, B -> MasterData.code (see migration.sql fkeys); the
+    // "A" column always references the model that sorts first
+    // alphabetically, per Prisma's implicit-relation naming convention.
+    columns: ["A", "B"],
+  },
+];
+
 try {
   console.log(
     `Syncing ${models.length} tables: ${sourceHost} -> ${targetHost} (one-way)`
@@ -110,9 +140,13 @@ try {
   // Disable FK enforcement for this session so truncate+copy order is free.
   await target.$executeRawUnsafe(`SET session_replication_role = replica`);
 
-  const tableList = models
-    .map((m) => `"${tableOf(m).replace(/"/g, "")}"`)
-    .join(", ");
+  // Explicit models + implicit m2m join tables both get truncated up front —
+  // CASCADE would empty the join tables anyway (they FK onto the model
+  // tables), but listing them is explicit and idempotent either way.
+  const tableList = [
+    ...models.map((m) => `"${tableOf(m).replace(/"/g, "")}"`),
+    ...IMPLICIT_M2M_TABLES.map((t) => `"${t.table.replace(/"/g, "")}"`),
+  ].join(", ");
   await target.$executeRawUnsafe(
     `TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`
   );
@@ -126,6 +160,29 @@ try {
     }
     total += rows.length;
     console.log(`  ${model.name}: ${rows.length}`);
+  }
+
+  // Implicit m2m join tables copy AFTER every model table above so both
+  // endpoint tables' rows already exist in the target (FK enforcement is
+  // off for this session either way, but this keeps the copy order
+  // logically correct regardless of that session setting).
+  for (const { table, columns } of IMPLICIT_M2M_TABLES) {
+    const colList = columns.map((c) => `"${c}"`).join(", ");
+    const rows = await source.$queryRawUnsafe(
+      `SELECT ${colList} FROM "${table}"`
+    );
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH);
+      if (batch.length === 0) continue;
+      const values = Prisma.join(
+        batch.map((row) => Prisma.sql`(${row[columns[0]]}, ${row[columns[1]]})`)
+      );
+      await target.$executeRaw(
+        Prisma.sql`INSERT INTO ${Prisma.raw(`"${table}"`)} (${Prisma.raw(colList)}) VALUES ${values}`
+      );
+    }
+    total += rows.length;
+    console.log(`  ${table} (join): ${rows.length}`);
   }
 
   await target.$executeRawUnsafe(`SET session_replication_role = origin`);

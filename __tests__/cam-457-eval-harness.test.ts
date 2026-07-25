@@ -114,10 +114,15 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // CAM-503 — +1 landmark geo case (GEO-3): "ลานกางเต็นท์เขาใหญ่" -> a bare
     // landmark name (no proximity marker) resolves to near="เขาใหญ่" via the
     // curated gazetteer, closing the Place Resolver epic (CAM-498).
+    // CAM-504 — +1 bare-province geo case (GEO-4): "กรุงเทพมีลานกางเต็นท์ไหม"
+    // (bare province, no "ใน", no proximity marker) -> province="Bangkok",
+    // strictParams:true so an over-eager `near` fails it — closes the GEO-2
+    // regression where a bare/exact Bangkok mention resolved to no hint at
+    // all, leaving the model free to reach for `near`.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(59);
+    expect(cases.length).toBe(60);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);

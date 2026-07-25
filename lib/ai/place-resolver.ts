@@ -233,18 +233,26 @@ function hasProximityMarker(text: string): boolean {
 
 /**
  * CAM-502 — bare "กรุงเทพ" (no ฯ/มหานคร suffix) is the highest-frequency way
- * campers write Bangkok in casual proximity phrasing ("ใกล้กรุงเทพ", the
- * story's own AC-1 example). `detectProvince` cannot catch this form: its
+ * campers write Bangkok, in BOTH proximity phrasing ("ใกล้กรุงเทพ", the P2
+ * story's own AC-1 example) and exact phrasing ("ในกรุงเทพ", a bare mention
+ * with no proximity marker). `detectProvince` cannot catch either form: its
  * substring check requires the FULL formal name ("กรุงเทพมหานคร") to appear
  * IN the text, which "กรุงเทพ" alone never satisfies (the substring
  * relationship runs the other way). This mirrors the `BANGKOK_ALIASES`
  * precedent in `lib/ai/tools/search-campsites.ts` (Bangkok is the one
- * curated exception in that file too) — scoped to Bangkok only, checked
- * ONLY under proximity mode so a bare "กรุงเทพ" with no proximity marker
- * stays unresolved here exactly as it already did before this story (BR-3
- * "ใน X"/"X เฉยๆ" stays คงเดิม — unchanged — since the model's own general
- * knowledge already maps "กรุงเทพ" to "Bangkok" for the exact-province path
- * without this pre-pass needing to fire).
+ * curated exception in that file too) — scoped to Bangkok only.
+ *
+ * CAM-504 (GEO-2 fix) — originally this pre-pass fired ONLY under proximity
+ * mode, leaving a bare/exact "ในกรุงเทพ" mention fully unresolved (`{}`, no
+ * hint at all). With P2's `near` capability now in the system prompt, an
+ * un-hinted turn let the model reach for `near` even when the camper meant
+ * an EXACT province — the GEO-2 regression this story fixes. `resolvePlace`
+ * below now calls this check UNCONDITIONALLY (both with and without a
+ * proximity marker) so a bare Bangkok mention always resolves to a
+ * deterministic hint — `near` under proximity, `province="Bangkok"`
+ * otherwise — exactly mirroring how every other province already resolves
+ * to `province` by default (BR-3 "ใน X"/bare province -> exact, never
+ * inferred as `near`).
  */
 function isBareBangkokMention(text: string): boolean {
   return text.includes('กรุงเทพ');
@@ -420,8 +428,12 @@ export function resolvePlace(text: string): ResolvedPlace {
 
   const proximity = hasProximityMarker(text);
 
-  if (proximity && isBareBangkokMention(text)) {
-    return { near: 'กรุงเทพ' };
+  // CAM-504 — checked unconditionally (not just under proximity): a bare
+  // "กรุงเทพ" mention with NO proximity marker is an EXACT province mention
+  // ("ในกรุงเทพ", or the province name on its own), same as every other
+  // province already resolves to `province` by default below.
+  if (isBareBangkokMention(text)) {
+    return proximity ? { near: 'กรุงเทพ' } : { province: 'Bangkok' };
   }
 
   const province = detectProvince(text);

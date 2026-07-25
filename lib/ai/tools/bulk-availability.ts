@@ -296,6 +296,10 @@ export const bulkAvailabilityTool: ToolDefinition<BulkAvailabilityArgs, BulkAvai
   name: 'bulkAvailability',
   description:
     'Check LIVE availability for MANY published CampVibe campsites across MULTIPLE date ranges in ONE call — use this instead of calling checkAvailability repeatedly when the camper asks about several dates or wants to know which camps (matching a filter) are free. ' +
+    // CAM-505 — names the ONE-camp-many-dates case explicitly: even one
+    // named camp still routes here (via `keyword`) once the question spans
+    // multiple candidate dates or asks a superlative ("which date is best").
+    'This also applies to ONE specific named camp when the question spans multiple candidate dates or asks a superlative ("which Saturday is freest") — set `keyword` to that camp\'s name rather than calling checkAvailability once per date. ' +
     `Accepts a candidate-camp filter (same vocabulary as searchCampsites) plus a \`dates\` array (pass the resolveDates tool's output directly, up to ${MAX_DATE_SET_RANGES} ranges — over that the tool refuses and asks to narrow the dates). ` +
     `Returns at most ${SEARCH_CAMPSITES_MAX_RESULTS} candidate camps (the top matches for the filter) x every requested range, with each cell free/full/unknown. A camp full for every range is still shown, never omitted.`,
   // Read-only, no identity needed — same tier as searchCampsites/checkAvailability/resolveDates.
