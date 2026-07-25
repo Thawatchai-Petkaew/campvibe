@@ -149,6 +149,24 @@ describe('CAM-502 resolvePlace — BR-3 proximity ("ใกล้/แถว X") v
   it('[null/empty] empty string -> {}, never throws', () => {
     expect(resolvePlace('')).toEqual({});
   });
+
+  // CAM-501-DEF-1 regression, now under PROXIMITY mode — QA verify (CAM-502):
+  // the ambiguous-province skip-set (เลย/ตาก/ตราด/น่าน/แพร่/ตรัง/ยะลา) must
+  // still be honored when a proximity marker is ALSO present in the same
+  // sentence; `detectProvince` runs unconditionally on the proximity path
+  // too (no separate/looser matcher), so these must stay {} exactly as they
+  // do without a proximity marker.
+  it('[regression/DEF-1 x proximity] "ไปตากผ้าใกล้ๆ บ้าน" (ตาก=sun-dry verb + ใกล้ๆ) -> {} not near="Tak"', () => {
+    expect(resolvePlace('ไปตากผ้าใกล้ๆ บ้าน')).toEqual({});
+  });
+
+  it('[regression/DEF-1 x proximity] "เยอะเลยแถวนี้" (เลย=emphasis particle + แถว) -> {} not near="Loei"', () => {
+    expect(resolvePlace('เยอะเลยแถวนี้')).toEqual({});
+  });
+
+  it('[regression/DEF-1 x proximity] "แถวน่านน้ำ" (น่าน is a substring of the unrelated word น่านน้ำ="territorial waters", + แถว) -> {} not near="Nan"', () => {
+    expect(resolvePlace('แถวน่านน้ำ')).toEqual({});
+  });
 });
 
 // ---------------------------------------------------------------------------
