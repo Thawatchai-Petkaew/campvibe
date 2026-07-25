@@ -1,0 +1,75 @@
+name: AI Guardrail Gate (blocking)
+
+# CAM-507 (S4b, v2) — a BLOCKING real-model check, safe to mark REQUIRED in
+# branch protection. Unlike ai-eval.yml (advisory, workflow_dispatch only,
+# `continue-on-error: true`), this workflow is NOT `continue-on-error` and
+# fails CLOSED (BR-3) when the model actually runs.
+#
+# v2 (CAM-390 trap fix): a top-level `on.pull_request.paths` filter means
+# GitHub NEVER reports this check on a PR that doesn't touch the filtered
+# paths — a required check with no report strands the PR at "Expected"
+# forever. So this workflow now has NO top-level `paths` filter — it ALWAYS
+# runs on every `pull_request` — and instead computes the lib/ai/** diff
+# INSIDE the job (`git diff --name-only` against the PR's base). A PR with
+# no lib/ai/** change green-skips IN-JOB (reports success in seconds, $0);
+# a PR that does touch lib/ai/** runs the real 6-case guardrail suite. This
+# is a correct green-skip (nothing to guard), not the silent-skip trap —
+# the trap is a gate that SHOULD run but doesn't report at all; this gate
+# ALWAYS reports, every PR.
+#
+# `workflow_dispatch` stays wired for a manual re-run / first-run proof.
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Least-privilege GITHUB_TOKEN — this job only checks out the repo (with
+# history, to diff against the base ref) and runs the guardrail suite (no
+# PR/issue/status writes).
+permissions:
+  contents: read
+
+jobs:
+  ai-guardrail-gate:
+    runs-on: ubuntu-latest
+    env:
+      # Required secret — BR-3 fail-closed applies when this is unset AND
+      # lib/ai/** actually changed (checked inside the vitest run itself,
+      # not by a shell guard here).
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 — full history needed to diff against the PR's base ref.
+          fetch-depth: 0
+
+      - name: Detect lib/ai/** changes (in-job path filter — v2 CAM-390 fix)
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            # workflow_dispatch (manual run / first-run proof) — always treat as changed.
+            echo "ai_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^lib/ai/'; then
+            echo "ai_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ai_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: No lib/ai changes — guardrail gate not required for this PR (green skip)
+        if: steps.detect.outputs.ai_changed == 'false'
+        run: echo "::notice::no lib/ai changes — guardrail gate not required for this PR (green skip)"
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.ai_changed == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install --no-audit --no-fund
+        if: steps.detect.outputs.ai_changed == 'true'
+
+      - name: Guardrail gate (6 guardrail cases, real model, retry-guarded — BR-1/BR-2/BR-6)
+        if: steps.detect.outputs.ai_changed == 'true'
+        run: npm run ai:guardrail-gate

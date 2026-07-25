@@ -25,9 +25,42 @@ interface Dispatched {
   args: unknown;
 }
 let observed: Dispatched[] = [];
+
+/**
+ * Eval-fidelity fix (availability tail): the mock must hand back a *chainable*
+ * result for the name->id resolve step, or a single-turn "is <named camp>
+ * available on <date>?" can never reach `checkAvailability` INSIDE the harness.
+ * `checkAvailability` requires a `campSiteId` (uuid); with a camp referenced by
+ * NAME and no seeded shown-result, the model's correct first move is
+ * `searchCampsites(keyword=<name>)` to resolve name->id, then chain to
+ * `checkAvailability(campSiteId=<resolved>)`. When every tool returns empty
+ * `data: {}`, that chain is starved — the model gets no id back, so
+ * `checkAvailability` is unreachable here even though it chains fine in
+ * production (where searchCampsites returns real cards). Returning ONE minimal
+ * card with a stable uuid restores production-identical chaining.
+ *
+ * Blast radius is nil: `scoreCase` scans the WHOLE dispatched sequence with
+ * `.find()`, so a longer chain can never drop an already-expected match, and a
+ * matched call's own params are recorded at call-time — canned data only ever
+ * influences a SUBSEQUENT model call, never the params of the call that
+ * matched. That covers every case shape: a `no_tool` guardrail dispatches
+ * nothing so the mock is never invoked; a `tool`-kind (strictParams) guardrail
+ * DOES invoke the mock on its first call, but that first call's params — the
+ * ones scored — are already captured before the canned data is returned. Only
+ * `searchCampsites` is made chainable — the exact starved step — every other
+ * tool keeps the neutral `{}`.
+ */
+const STABLE_EVAL_CAMP_ID = '00000000-0000-4000-8000-000000000001';
+function cannedToolData(name: string): unknown {
+  if (name === 'searchCampsites') {
+    return { cards: [{ id: STABLE_EVAL_CAMP_ID, name: 'ตัวอย่างแคมป์', remaining: 5 }] };
+  }
+  return {};
+}
+
 const mockDispatchTool = vi.fn(async (name: string, args: unknown) => {
   observed.push({ name, args });
-  return { ok: true, data: {} };
+  return { ok: true, data: cannedToolData(name) };
 });
 vi.mock('@/lib/ai/tool-registry', async () => {
   const actual = await vi.importActual<typeof import('@/lib/ai/tool-registry')>('@/lib/ai/tool-registry');

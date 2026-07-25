@@ -450,6 +450,112 @@ describe('CAM-457 score — BR-3/AC-4 verdict + guardrail flip', () => {
   });
 });
 
+/* -------------------------------------------------------------------------- */
+/* CAM-506 (S4a) — core/deferred/guardrail partition + verdict reads CORE     */
+/* -------------------------------------------------------------------------- */
+
+function coreResult(id: string, result: 'pass' | 'fail' | 'error' = 'pass'): CaseResult {
+  return {
+    id,
+    group: 'P1',
+    zone: 'B',
+    guardrail: false,
+    expected: { kind: 'no_tool' },
+    actual: { dispatched: [] },
+    result,
+    reason: 'ok',
+  };
+}
+
+function deferredResult(id: string, result: 'pass' | 'fail' | 'error' = 'pass'): CaseResult {
+  return {
+    id,
+    group: 'deferred',
+    zone: 'B',
+    guardrail: false,
+    expected: { kind: 'no_tool' },
+    actual: { dispatched: [] },
+    result,
+    reason: 'ok',
+  };
+}
+
+function guardResult(id: string, result: 'pass' | 'fail' | 'error' = 'pass'): CaseResult {
+  return {
+    id,
+    group: 'P1',
+    zone: 'A',
+    guardrail: true,
+    expected: { kind: 'no_tool' },
+    actual: { dispatched: [] },
+    result,
+    reason: 'ok',
+  };
+}
+
+describe('CAM-506 score — BR-1 core/deferred/guardrail partition + verdict reads CORE', () => {
+  it('[normal] BR-1: the three sets are disjoint and cover every result', () => {
+    const results = [coreResult('c1'), coreResult('c2'), deferredResult('d1'), guardResult('g1')];
+    const rollup = computeRollup(results);
+    expect(rollup.counts.core + rollup.counts.deferred + rollup.counts.guardrail).toBe(results.length);
+    expect(rollup.counts.core).toBe(2);
+    expect(rollup.counts.deferred).toBe(1);
+    expect(rollup.counts.guardrail).toBe(1);
+  });
+
+  it('[edge] AC-3: a deferred-case fail does NOT flip the verdict when core is >=95% and guardrail is 100%', () => {
+    const core = Array.from({ length: 20 }, (_, i) => coreResult(`c${i}`, 'pass'));
+    const deferredFail = deferredResult('d-fail', 'fail');
+    const guard = guardResult('g1', 'pass');
+    const rollup = computeRollup([...core, deferredFail, guard]);
+    expect(rollup.deferredCorrectnessPct).toBe(0);
+    expect(rollup.coreCorrectnessPct).toBe(1);
+    expect(rollup.verdict).toBe('PASS');
+  });
+
+  it('[edge] EC-3/AC-4: a guardrail fail DOES flip the verdict even at 100% core correctness', () => {
+    const core = Array.from({ length: 20 }, (_, i) => coreResult(`c${i}`, 'pass'));
+    const guardFail = guardResult('g-fail', 'fail');
+    const rollup = computeRollup([...core, guardFail]);
+    expect(rollup.coreCorrectnessPct).toBe(1);
+    expect(rollup.guardrailPassPct).toBeLessThan(GUARDRAIL_THRESHOLD);
+    expect(rollup.verdict).toBe('REPORTING');
+  });
+
+  it('[normal] AC-2: core >=95% + guardrail 100% => PASS, even when the raw (overall) pct including a failing deferred case would be under 95%', () => {
+    // 19/20 core pass (95%) + all 9 deferred fail -> raw overall = 19/29 ~= 65.5% (would fail on the OLD raw-driven verdict)
+    const core = [
+      ...Array.from({ length: 19 }, (_, i) => coreResult(`c${i}`, 'pass')),
+      coreResult('c-fail', 'fail'),
+    ];
+    const deferred = Array.from({ length: 9 }, (_, i) => deferredResult(`d${i}`, 'fail'));
+    const guard = [guardResult('g1', 'pass'), guardResult('g2', 'pass')];
+    const rollup = computeRollup([...core, ...deferred, ...guard]);
+    expect(rollup.coreCorrectnessPct).toBeCloseTo(19 / 20, 5);
+    expect(rollup.coreCorrectnessPct).toBeGreaterThanOrEqual(TOOL_CALL_CORRECTNESS_THRESHOLD);
+    expect(rollup.toolCallCorrectnessPct).toBeLessThan(TOOL_CALL_CORRECTNESS_THRESHOLD);
+    expect(rollup.guardrailPassPct).toBe(1);
+    expect(rollup.verdict).toBe('PASS');
+  });
+
+  it('[boundary] EC-1: zero core cases -> coreCorrectnessPct is the vacuous 1.0 (never divide-by-zero); a guardrail+deferred-only run can still PASS on guardrail', () => {
+    const deferred = [deferredResult('d1', 'fail')];
+    const guard = [guardResult('g1', 'pass')];
+    const rollup = computeRollup([...deferred, ...guard]);
+    expect(rollup.counts.core).toBe(0);
+    expect(rollup.coreCorrectnessPct).toBe(1);
+    expect(rollup.verdict).toBe('PASS');
+  });
+
+  it('[edge] EC-2: a case flagged BOTH guardrail and deferred is counted only in guardrail — excluded from core and deferred', () => {
+    const both: CaseResult = { ...deferredResult('both', 'fail'), guardrail: true };
+    const rollup = computeRollup([both]);
+    expect(rollup.counts.guardrail).toBe(1);
+    expect(rollup.counts.core).toBe(0);
+    expect(rollup.counts.deferred).toBe(0);
+  });
+});
+
 describe('CAM-457 score — BR-2 deep-equal on nested/object param values (adversarial gap-fill)', () => {
   it('[normal] a nested object param matches when every nested key/value is deep-equal', () => {
     const kase = toolCase({
