@@ -293,6 +293,13 @@ async function main() {
           logo: extractLogo(camp.imageManifest, camp.nameThSlug),
           options: { set: resolvedOptions },
           operatorId: host.id,
+          // CAM-495: CAM-492 populated these atomic Pixels in the JSON but the
+          // loader never upserted them — surface on both create+update so a
+          // reload refreshes existing camps too. Safe fallback: absent in the
+          // JSON → null (never inferred/guessed, per PREP-2/ADR-003).
+          extraFeeAmount: camp.extraFeeAmount ?? null,
+          extraFeeLabel: camp.extraFeeLabel ?? null,
+          cancellationPolicy: camp.cancellationPolicy ?? null,
         },
         create: {
           nameTh: camp.nameTh,
@@ -331,6 +338,10 @@ async function main() {
           logo: extractLogo(camp.imageManifest, camp.nameThSlug),
           options: { connect: resolvedOptions },
           operator: { connect: { id: host.id } },
+          // CAM-495: see the matching comment in the `update` block above.
+          extraFeeAmount: camp.extraFeeAmount ?? null,
+          extraFeeLabel: camp.extraFeeLabel ?? null,
+          cancellationPolicy: camp.cancellationPolicy ?? null,
           // Location — create inline on first upsert
           location: {
             create: {
@@ -373,6 +384,9 @@ async function main() {
               maxTents: spot.maxTents ?? null,
               environment: spot.environment ?? null,
               pricePerNight: spot.pricePerNight ?? 0,
+              // CAM-495: pricePerSite was populated in the JSON (CAM-492) but
+              // never read by the loader — safe fallback: absent → null.
+              pricePerSite: spot.pricePerSite ?? null,
               priceCurrency: spot.priceCurrency ?? 'THB',
               nearFacilities: spot.nearFacilities ?? null,
               campSiteId: campSite.id,
