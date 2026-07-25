@@ -100,11 +100,19 @@ describe('CAM-503 resolvePlace — BR-2 landmark detection (bare name = area-int
     expect(resolvePlace('พักที่เมืองปาย')).toEqual({ near: 'ปาย', nearIsLandmark: true });
   });
 
-  it('[EC-2 guard, mirrors CAM-501-DEF-1] a bare short/ambiguous landmark name ("ปาย" alone, no distinctive alias) does NOT false-match', () => {
-    // "ปาย" is curated as ambiguous (short, collision risk) — this pre-pass
-    // deliberately does not fire on the bare name; the model's own BR-4
-    // keyword-fallback guidance (system prompt) covers this case instead.
-    expect(resolvePlace('แคมป์ปาย')).toEqual({});
+  it('[DEF-2 fix] a context-guarded bare landmark name ("ปาย") WITH a camping-context marker DOES resolve (a bare skip would defeat P3\'s own point)', () => {
+    // "ปาย" is curated as context-guarded (short, collision risk) — unlike
+    // a bare skip, a genuine camping query ("แคมป์ปาย") still resolves once
+    // a camping-context marker ("แคมป์") is present alongside it.
+    expect(resolvePlace('แคมป์ปาย')).toEqual({ near: 'ปาย', nearIsLandmark: true });
+    expect(resolvePlace('ลานกางเต็นท์ปาย')).toEqual({ near: 'ปาย', nearIsLandmark: true });
+  });
+
+  it('[DEF-2 guard holds] a bare "ปาย" mention with NO camping-context marker does NOT false-match', () => {
+    // No camping/place-search marker present -> the context-guard withholds
+    // the hint (the model's own BR-4 keyword-fallback guidance covers a
+    // genuine, un-markered mention instead).
+    expect(resolvePlace('ไม่รู้จักปายเลยสักนิด')).toEqual({});
   });
 
   it('[AC-3/BR-4 territory] a landmark name NOT in the gazetteer -> {} (no false match, never guessed)', () => {
