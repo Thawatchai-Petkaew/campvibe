@@ -77,7 +77,9 @@ function provThZip(nameEn) {
 // GUARANTEES ≥1 each regardless of luck — see "closeDeadCodes").
 const THEMES = {
   mist: {
-    label: 'ทะเลหมอกภูเขา', terrain: ['MTNS', 'FORE'], view: 'MOUNTAIN',
+    // CAM-513 (S1): WATF/SWMH/CAVE added (mist=mountain/forest terrain — waterfalls,
+    // swimming holes, and caves are plausible in the same misty-mountain setting).
+    label: 'ทะเลหมอกภูเขา', terrain: ['MTNS', 'FORE', 'WATF', 'SWMH', 'CAVE'], view: 'MOUNTAIN',
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'ELEC', 'REST', 'PICN', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'TFAN', 'LEDL', 'GDST', 'CHAI', 'POWE'], ext: ['SVEL', 'MAKT'],
@@ -89,7 +91,11 @@ const THEMES = {
     time: 'golden sunrise with low fog',
   },
   beach: {
-    label: 'ริมทะเล/ชายหาด', terrain: ['BEAC'], view: 'BEACH',
+    // CAM-513 (S1) BR-3 — SEA + COAS gated to COASTAL_PROVINCES exactly like BEAC: the
+    // 'beach' theme is only ever drawn for isCoastal provinces (see the province-fill
+    // loop below), so adding these to the theme's fixed terrain array inherits the same
+    // coastal discipline as BEAC — never a flat region-wide pool.
+    label: 'ริมทะเล/ชายหาด', terrain: ['BEAC', 'SEA', 'COAS'], view: 'BEACH',
     activities: ['SWIM', 'SURF', 'BOAT', 'FISH'], access: ['DRIV', 'BAOT'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART'],
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
@@ -101,7 +107,9 @@ const THEMES = {
     time: 'warm sunset over the sea',
   },
   river: {
-    label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE'], view: 'RIVER',
+    // CAM-513 (S1): WATF/SWMH added (river/stream setting is a natural fit for a
+    // waterfall or a natural swimming hole).
+    label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE', 'WATF', 'SWMH'], view: 'RIVER',
     activities: ['BOAT', 'FISH', 'SWIM', 'HIKI'], access: ['DRIV', 'WALK'],
     facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE'],
     equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
@@ -113,7 +121,9 @@ const THEMES = {
     time: 'soft morning light through trees',
   },
   forest: {
-    label: 'ป่าลึก/ผจญภัย', terrain: ['FORE', 'MTNS'], view: 'FOREST',
+    // CAM-513 (S1): WATF/SWMH/CAVE added (deep forest/mountain terrain plausibly
+    // contains a waterfall, a swimming hole, or a cave).
+    label: 'ป่าลึก/ผจญภัย', terrain: ['FORE', 'MTNS', 'WATF', 'SWMH', 'CAVE'], view: 'FOREST',
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'POTA'], facExtra: ['SHOW', 'PICN', 'TRAS', 'SANI', 'FEDW'],
     equip: ['TENT', 'GDST', 'LEDL', 'LSTV'], ext: ['MAKT'],
@@ -125,7 +135,8 @@ const THEMES = {
     time: 'misty early morning',
   },
   lake: {
-    label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE'], view: 'LAKE',
+    // CAM-513 (S1): LAKE (the theme's own terrain code) + WATF/SWMH added.
+    label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE', 'LAKE', 'WATF', 'SWMH'], view: 'LAKE',
     activities: ['BOAT', 'FISH', 'SWIM', 'WILD'], access: ['DRIV', 'BAOT'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART'],
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
@@ -137,7 +148,9 @@ const THEMES = {
     time: 'still dawn with mist on the water',
   },
   meadow: {
-    label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE'], view: 'GENERAL',
+    // CAM-513 (S1): FILD/FARM added (ทุ่งหญ้า meadow theme is the natural fit for
+    // an open field or a farm/farmstay).
+    label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE', 'FILD', 'FARM'], view: 'GENERAL',
     activities: ['HIKI', 'HORS', 'WILD', 'LIVE'], access: ['DRIV'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
@@ -511,7 +524,10 @@ const MASTERDATA_GROUPS = [
   { field: 'externalFacilities', codes: ['SVEL', 'LOTS', 'MAKT', 'MIBC'] },
   { field: 'accessTypes', codes: ['BAOT', 'DRIV', 'HIKE', 'WALK'] },
   { field: 'activities', codes: ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] },
-  { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS'] },
+  // CAM-513 (S1): the 8 new codes added to the floor list too (belt-and-suspenders —
+  // natural presence already comes from the theme pools above; this only fires if a
+  // code somehow drew 0 camps, same safety-net role BEAC already had here).
+  { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS', 'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM'] },
 ];
 const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
 // Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts

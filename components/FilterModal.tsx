@@ -18,27 +18,27 @@ import { cn } from "@/lib/utils";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
-// DB-driven icon resolver — named imports only for the 39 icons that MasterData.icon
+// DB-driven icon resolver — named imports only for the 42 icons that MasterData.icon
 // can ever hold (sourced from prisma/seed.ts). HelpCircle is the fallback for any
 // future DB icon not yet in the map. This replaces the previous wildcard import that
 // bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
 import {
   Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Droplet, Droplets, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
-  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
   Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
-  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  UtensilsCrossed, Waves, Wheat, Wifi, Zap, HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
+  Droplet, Droplets, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
-  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
   Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
-  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  UtensilsCrossed, Waves, Wheat, Wifi, Zap, HelpCircle,
 };
 
 // CAM-496 — section ids that share the single `facilities` URL param (see

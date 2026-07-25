@@ -153,7 +153,15 @@ export const MAX_EXCLUDE_IDS = 50;
  * silently AND them and likely match nothing. Single-value sidesteps that;
  * combining multiple codes per group is out of scope for this fix.
  */
-const TERRAIN_CODES = ['BEAC', 'FORE', 'RIVE', 'MTNS'] as const;
+/**
+ * CAM-513 (S1) — 8 codes added to the original 4 (source: `prisma/seed.ts`
+ * `masterData`, same sourcing discipline as the CAM-408 comment above — no
+ * code that doesn't exist in the real seeded MasterData table).
+ */
+const TERRAIN_CODES = [
+  'BEAC', 'FORE', 'RIVE', 'MTNS',
+  'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM',
+] as const;
 const ACCESS_CODES = ['BAOT', 'DRIV', 'HIKE', 'WALK'] as const;
 const ACTIVITY_CODES = ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] as const;
 const FACILITY_CODES = [
@@ -370,7 +378,10 @@ const jsonSchema = {
       type: 'string',
       enum: TERRAIN_CODES,
       description:
-        'Terrain the campsite is set in — pick ONE that best matches the camper\'s description, or pass an ARRAY of codes when the camper names two-or-more options in one group (e.g. "ริมน้ำหรือชายหาด" → ["RIVE","BEAC"], matches EITHER). RIVE = แม่น้ำ ลำธาร คลองเล็ก (river/stream/creek, e.g. "ติดน้ำ"/"ริมน้ำ"), BEAC = ชายหาด (beach/sea), MTNS = ภูเขา (mountain/surrounded by mountains, e.g. "วิวภูเขา"), FORE = ป่า (forest).',
+        'Terrain the campsite is set in — pick ONE that best matches the camper\'s description, or pass an ARRAY of codes when the camper names two-or-more options in one group (e.g. "ริมน้ำหรือชายหาด" → ["RIVE","BEAC"], matches EITHER). ' +
+        'RIVE = แม่น้ำ ลำธาร คลองเล็ก (river/stream/creek, e.g. "ติดน้ำ"/"ริมน้ำ"), BEAC = ชายหาด (a sandy beach specifically, e.g. "หาดทราย"), MTNS = ภูเขา (mountain/surrounded by mountains, e.g. "วิวภูเขา"), FORE = ป่า (forest), ' +
+        'SEA = ทะเล (the sea generally — use this rather than BEAC when the camper just says "ทะเล"/"ริมทะเล"/"วิวทะเล" without naming a sandy beach), COAS = ริมชายฝั่ง (a coastal/shoreline area, broader than one beach), LAKE = ทะเลสาบ (lake), ' +
+        'WATF = น้ำตก (waterfall, e.g. "มีน้ำตก"/"ลานริมน้ำตก"), SWMH = แอ่งเล่นน้ำ (a natural swimming hole/pool, e.g. "แอ่งน้ำ"/"เด็กเล่นน้ำ"), FILD = ทุ่ง (an open field/meadow, e.g. "ทุ่งหญ้า"), CAVE = ถ้ำ (cave), FARM = ไร่ / ฟาร์มสเตย์ (farm/farmstay).',
     },
     access: {
       type: 'string',

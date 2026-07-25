@@ -375,7 +375,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,GDST,TFAN",
           "activities": "CLIM,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Mai",
           "address": "ดอยอ่างขาง อ.ดอยอ่างขาง จ.เชียงใหม่ 50100",
           "directions": "เดินทางสู่ดอยอ่างขาง จ.เชียงใหม่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -510,7 +510,7 @@
           "externalFacilities": "SVEL",
           "equipment": "BLKT,TENT,GDST,TFAN,CHAI,POWE",
           "activities": "CLIM,OFFR,WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Mai",
           "address": "ม่อนแจ่ม อ.ม่อนแจ่ม จ.เชียงใหม่ 50100",
           "directions": "เดินทางสู่ม่อนแจ่ม จ.เชียงใหม่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -649,7 +649,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TFAN,CHAI,GDST,POWE,BLKT",
           "activities": "HIKI,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Mai",
           "address": "ม่อนล้าน อ.ม่อนล้าน จ.เชียงใหม่ 50100",
           "directions": "เดินทางสู่ม่อนล้าน จ.เชียงใหม่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -791,7 +791,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ดอยม่อนล้านทะเลหมอก",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ม่อนล้าน Chiang Mai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ม่อนล้าน Chiang Mai (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/doi-mon-lan-sea-of-mist-10/06.jpg",
@@ -799,7 +799,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ดอยม่อนล้านทะเลหมอก",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ม่อนล้าน, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ม่อนล้าน, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=doi-mon-10"
@@ -817,7 +817,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TFAN,LEDL,TENT,BLKT,POWE",
           "activities": "WILD,CLIM,OFFR,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Mai",
           "address": "ม่อนเงาะ อ.ม่อนเงาะ จ.เชียงใหม่ 50100",
           "directions": "เดินทางสู่ม่อนเงาะ จ.เชียงใหม่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1225,7 +1225,7 @@
           "externalFacilities": "MIBC,LOTS,SVEL",
           "equipment": "POWE,CHAI,ICBK,TENT",
           "activities": "SWIM,SURF,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Krabi",
           "address": "หาดไร่เลย์ อ.หาดไร่เลย์ จ.กระบี่ 81000",
           "directions": "เดินทางสู่หาดไร่เลย์ จ.กระบี่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1337,7 +1337,7 @@
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "CHAI,FYST,POWE",
           "activities": "BOAT,SURF,SWIM,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Krabi",
           "address": "อ่าวนาง อ.อ่าวนาง จ.กระบี่ 81000",
           "directions": "เดินทางสู่อ่าวนาง จ.กระบี่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1489,7 +1489,7 @@
           "externalFacilities": "LOTS,MIBC",
           "equipment": "POWE,CHAI,FYST,ICBK",
           "activities": "BOAT,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Phuket",
           "address": "หาดในหาน อ.หาดในหาน จ.ภูเก็ต 83100",
           "directions": "เดินทางสู่หาดในหาน จ.ภูเก็ต แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1607,7 +1607,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ หาดในหานภูเก็ต",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at หาดในหาน Phuket (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at หาดในหาน Phuket (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nai-harn-beach-phuket-26/06.jpg",
@@ -1615,7 +1615,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง หาดในหานภูเก็ต",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at หาดในหาน, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at หาดในหาน, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             }
           ]
         },
@@ -1632,7 +1632,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,TENT,ICBK",
           "activities": "FISH,SWIM,BOAT,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Phuket",
           "address": "หาดไม้ขาว อ.หาดไม้ขาว จ.ภูเก็ต 83100",
           "directions": "เดินทางสู่หาดไม้ขาว จ.ภูเก็ต แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1743,7 +1743,7 @@
           "externalFacilities": "LOTS",
           "equipment": "CHAI,TENT,ICBK,POWE,FYST",
           "activities": "BOAT,FISH,SURF,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Trat",
           "address": "เกาะกูด อ.เกาะกูด จ.ตราด 23170",
           "directions": "เดินทางสู่เกาะกูด จ.ตราด แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -1878,7 +1878,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,CHAI,TENT",
           "activities": "FISH,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Trat",
           "address": "เกาะช้าง อ.เกาะช้าง จ.ตราด 23170",
           "directions": "เดินทางสู่เกาะช้าง จ.ตราด แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -2020,7 +2020,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ หาดทรายเกาะช้าง",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at เกาะช้าง Trat (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at เกาะช้าง Trat (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/koh-chang-sandy-bay-30/06.jpg",
@@ -2028,7 +2028,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง หาดทรายเกาะช้าง",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at เกาะช้าง, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at เกาะช้าง, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/koh-chang-sandy-bay-30/07.jpg",
@@ -2054,7 +2054,7 @@
           "externalFacilities": "LOTS,MIBC",
           "equipment": "ICBK,TENT,FYST,CHAI,POWE",
           "activities": "SWIM,FISH,BOAT",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Surat Thani",
           "address": "เกาะเต่า อ.เกาะเต่า จ.สุราษฎร์ธานี 84250",
           "directions": "เดินทางสู่เกาะเต่า จ.สุราษฎร์ธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -2421,7 +2421,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,CHAI,LEDL",
           "activities": "CLIM,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Mae Hong Son",
           "address": "บ้านรักไทย อ.บ้านรักไทย จ.แม่ฮ่องสอน 58000",
           "directions": "เดินทางสู่บ้านรักไทย จ.แม่ฮ่องสอน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -2539,7 +2539,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ บ้านรักไทยม่านหมอก",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at บ้านรักไทย Mae Hong Son (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at บ้านรักไทย Mae Hong Son (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/ban-rak-thai-misty-7/06.jpg",
@@ -2547,7 +2547,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง บ้านรักไทยม่านหมอก",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at บ้านรักไทย, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at บ้านรักไทย, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             },
             {
               "path": "/seed/camps/ban-rak-thai-misty-7/07.jpg",
@@ -2572,7 +2572,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,GDST,TENT,ICBK",
           "activities": "FISH,WILD,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Mae Hong Son",
           "address": "ปางอุ๋ง อ.ปางอุ๋ง จ.แม่ฮ่องสอน 58000",
           "directions": "เดินทางสู่ปางอุ๋ง จ.แม่ฮ่องสอน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -2714,7 +2714,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ปางอุ๋งริมทะเลสาบ",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ปางอุ๋ง Mae Hong Son (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ปางอุ๋ง Mae Hong Son (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@pangunglakeside",
@@ -2733,7 +2733,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,TENT,FYST,GDST",
           "activities": "WILD,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Mae Hong Son",
           "address": "ปางอุ๋ง อ.ปางอุ๋ง จ.แม่ฮ่องสอน 58000",
           "directions": "เดินทางสู่ปางอุ๋ง จ.แม่ฮ่องสอน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -2885,7 +2885,7 @@
           "externalFacilities": "MAKT",
           "equipment": "ICBK,LSTV,TENT,CHAI,GDST,SSTV,FYST",
           "activities": "FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Mae Hong Son",
           "address": "ปาย อ.ปาย จ.แม่ฮ่องสอน 58000",
           "directions": "เดินทางสู่ปาย จ.แม่ฮ่องสอน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -3016,7 +3016,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,FYST,LSTV",
           "activities": "SWIM,HIKI,BOAT,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Mae Hong Son",
           "address": "ห้วยน้ำดัง อ.ห้วยน้ำดัง จ.แม่ฮ่องสอน 58000",
           "directions": "เดินทางสู่ห้วยน้ำดัง จ.แม่ฮ่องสอน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -9637,7 +9637,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TFAN,GDST,BLKT",
           "activities": "WILD,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Phetchabun",
           "address": "ภูทับเบิก อ.ภูทับเบิก จ.เพชรบูรณ์ 67270",
           "directions": "เดินทางสู่ภูทับเบิก จ.เพชรบูรณ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -9765,7 +9765,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TFAN,BLKT,LEDL,POWE",
           "activities": "HIKI,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Phetchabun",
           "address": "เขาค้อ อ.เขาค้อ จ.เพชรบูรณ์ 67270",
           "directions": "เดินทางสู่เขาค้อ จ.เพชรบูรณ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -9883,7 +9883,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ระเบียงดาวเขาค้อ",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at เขาค้อ Phetchabun (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at เขาค้อ Phetchabun (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/khao-kho-star-terrace-2/06.jpg",
@@ -9891,7 +9891,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ระเบียงดาวเขาค้อ",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at เขาค้อ, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at เขาค้อ, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             }
           ]
         },
@@ -9908,7 +9908,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TFAN,TENT,CHAI,LEDL,BLKT",
           "activities": "HIKI,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Phetchabun",
           "address": "ภูลมโล อ.ภูลมโล จ.เพชรบูรณ์ 67270",
           "directions": "เดินทางสู่ภูลมโล จ.เพชรบูรณ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10026,7 +10026,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ภูลมโลทุ่งหมอก",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูลมโล Phetchabun (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูลมโล Phetchabun (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phu-lom-lo-mist-field-11/06.jpg",
@@ -10034,7 +10034,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ภูลมโลทุ่งหมอก",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูลมโล, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูลมโล, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             },
             {
               "path": "/seed/camps/phu-lom-lo-mist-field-11/07.jpg",
@@ -10059,7 +10059,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,BLKT,POWE,TFAN,CHAI,LEDL",
           "activities": "LIVE,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Phetchabun",
           "address": "เขาค้อ อ.เขาค้อ จ.เพชรบูรณ์ 67270",
           "directions": "เดินทางสู่เขาค้อ จ.เพชรบูรณ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10179,7 +10179,7 @@
           "externalFacilities": "SVEL",
           "equipment": "POWE,BLKT,CHAI,TFAN,TENT,LEDL",
           "activities": "HORS,WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nakhon Ratchasima",
           "address": "วังน้ำเขียว อ.วังน้ำเขียว จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่วังน้ำเขียว จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10335,7 +10335,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TFAN,POWE,LEDL,TENT,CHAI",
           "activities": "HORS,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nakhon Ratchasima",
           "address": "วังน้ำเขียว อ.วังน้ำเขียว จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่วังน้ำเขียว จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10498,7 +10498,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,SSTV,GDST,LSTV,FYST",
           "activities": "FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Ratchasima",
           "address": "วังน้ำเขียว อ.วังน้ำเขียว จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่วังน้ำเขียว จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10629,7 +10629,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,FYST",
           "activities": "BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Ratchasima",
           "address": "ปากช่อง อ.ปากช่อง จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่ปากช่อง จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10752,7 +10752,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LSTV",
           "activities": "OFFR,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Ratchasima",
           "address": "เขาใหญ่ อ.เขาใหญ่ จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่เขาใหญ่ จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -10906,7 +10906,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าใหญ่เขาใหญ่แคมป์",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาใหญ่ Nakhon Ratchasima (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาใหญ่ Nakhon Ratchasima (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/khao-yai-jungle-camp-43/06.jpg",
@@ -10914,7 +10914,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าใหญ่เขาใหญ่แคมป์",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at เขาใหญ่, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at เขาใหญ่, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/khao-yai-jungle-camp-43/07.jpg",
@@ -10939,7 +10939,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LSTV,GDST,LEDL",
           "activities": "OFFR,CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Ratchasima",
           "address": "เขาใหญ่ อ.เขาใหญ่ จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่เขาใหญ่ จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11074,7 +11074,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI,FYST,ICBK",
           "activities": "SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Surat Thani",
           "address": "เขื่อนเชี่ยวหลาน อ.เขื่อนเชี่ยวหลาน จ.สุราษฎร์ธานี 84250",
           "directions": "เดินทางสู่เขื่อนเชี่ยวหลาน จ.สุราษฎร์ธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11228,7 +11228,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เชี่ยวหลานกุ้ยหลินเมืองไทย",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at เขื่อนเชี่ยวหลาน Surat Thani (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at เขื่อนเชี่ยวหลาน Surat Thani (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -11245,7 +11245,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST,ICBK",
           "activities": "SWIM,FISH,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Surat Thani",
           "address": "เขื่อนเชี่ยวหลาน อ.เขื่อนเชี่ยวหลาน จ.สุราษฎร์ธานี 84250",
           "directions": "เดินทางสู่เขื่อนเชี่ยวหลาน จ.สุราษฎร์ธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11373,7 +11373,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,GDST,LSTV",
           "activities": "OFFR,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Surat Thani",
           "address": "เขาสก อ.เขาสก จ.สุราษฎร์ธานี 84250",
           "directions": "เดินทางสู่เขาสก จ.สุราษฎร์ธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11491,7 +11491,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เขาสกป่าฝนแคมป์",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาสก Surat Thani (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาสก Surat Thani (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=khao-sok44"
@@ -11509,7 +11509,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,LEDL,GDST",
           "activities": "CLIM,OFFR,HIKI,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Surat Thani",
           "address": "เขาสก อ.เขาสก จ.สุราษฎร์ธานี 84250",
           "directions": "เดินทางสู่เขาสก จ.สุราษฎร์ธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11663,7 +11663,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าดิบชื้นเขาสก",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาสก Surat Thani (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at เขาสก Surat Thani (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=khao-sok47"
@@ -11697,7 +11697,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LEDL,GDST,BLKT,TENT,CHAI",
           "activities": "OFFR,HIKI,CLIM,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Loei",
           "address": "ภูเรือ อ.ภูเรือ จ.เลย 42000",
           "directions": "เดินทางสู่ภูเรือ จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11812,7 +11812,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,GDST,TENT",
           "activities": "OFFR,WILD,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Loei",
           "address": "ภูป่าเปาะ อ.ภูป่าเปาะ จ.เลย 42000",
           "directions": "เดินทางสู่ภูป่าเปาะ จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -11930,7 +11930,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ภูป่าเปาะฟูจิเมืองเลย",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูป่าเปาะ Loei (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูป่าเปาะ Loei (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phu-pa-po-fuji-9/06.jpg",
@@ -11938,7 +11938,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ภูป่าเปาะฟูจิเมืองเลย",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูป่าเปาะ, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูป่าเปาะ, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             },
             {
               "path": "/seed/camps/phu-pa-po-fuji-9/07.jpg",
@@ -11963,7 +11963,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,POWE,LEDL,CHAI,BLKT,TFAN",
           "activities": "HORS,WILD,HIKI,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Loei",
           "address": "ภูสวนทราย อ.ภูสวนทราย จ.เลย 42000",
           "directions": "เดินทางสู่ภูสวนทราย จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12081,7 +12081,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งหญ้าภูสวนทราย",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ภูสวนทราย Loei (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ภูสวนทราย Loei (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phu-suan-sai-meadow-17/06.jpg",
@@ -12089,7 +12089,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งหญ้าภูสวนทราย",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ภูสวนทราย, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ภูสวนทราย, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@phusuansaimeadow"
@@ -12107,7 +12107,7 @@
           "externalFacilities": "SVEL",
           "equipment": "ICBK,GDST,TENT,CHAI,FYST",
           "activities": "BOAT,FISH,SWIM,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Loei",
           "address": "ภูสวรรค์ อ.ภูสวรรค์ จ.เลย 42000",
           "directions": "เดินทางสู่ภูสวรรค์ จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12222,7 +12222,7 @@
           "externalFacilities": "MAKT",
           "equipment": "FYST,TENT,GDST,LSTV,ICBK",
           "activities": "FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Loei",
           "address": "ภูกระดึง อ.ภูกระดึง จ.เลย 42000",
           "directions": "เดินทางสู่ภูกระดึง จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12352,7 +12352,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมธารภูกระดึงน้อย",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ภูกระดึง Loei (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ภูกระดึง Loei (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/little-phu-kradueng-stream-41/06.jpg",
@@ -12360,7 +12360,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมธารภูกระดึงน้อย",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ภูกระดึง, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ภูกระดึง, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ]
         },
@@ -12377,7 +12377,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,GDST,LSTV,TENT",
           "activities": "HIKI,CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Loei",
           "address": "ภูกระดึง อ.ภูกระดึง จ.เลย 42000",
           "directions": "เดินทางสู่ภูกระดึง จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12529,7 +12529,7 @@
           "externalFacilities": "SVEL",
           "equipment": "BLKT,GDST,LEDL",
           "activities": "HIKI,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Rai",
           "address": "ภูชี้ฟ้า อ.ภูชี้ฟ้า จ.เชียงราย 57000",
           "directions": "เดินทางสู่ภูชี้ฟ้า จ.เชียงราย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12671,7 +12671,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ภูชี้ฟ้าอรุณรุ่ง",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูชี้ฟ้า Chiang Rai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ภูชี้ฟ้า Chiang Rai (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phu-chi-fa-sunrise-5/06.jpg",
@@ -12679,7 +12679,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ภูชี้ฟ้าอรุณรุ่ง",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูชี้ฟ้า, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ภูชี้ฟ้า, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             },
             {
               "path": "/seed/camps/phu-chi-fa-sunrise-5/07.jpg",
@@ -12704,7 +12704,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TFAN,BLKT,TENT,CHAI",
           "activities": "HIKI,WILD,OFFR,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Rai",
           "address": "ดอยแม่สลอง อ.ดอยแม่สลอง จ.เชียงราย 57000",
           "directions": "เดินทางสู่ดอยแม่สลอง จ.เชียงราย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -12834,7 +12834,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ดอยแม่สลองหมอกเช้า",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ดอยแม่สลอง Chiang Rai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at ดอยแม่สลอง Chiang Rai (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/doi-mae-salong-morning-mist-6/06.jpg",
@@ -12842,7 +12842,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ดอยแม่สลองหมอกเช้า",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ดอยแม่สลอง, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at ดอยแม่สลอง, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=doi-mae-6"
@@ -12860,7 +12860,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,TFAN,TENT,LEDL,CHAI",
           "activities": "WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Rai",
           "address": "ผาตั้ง อ.ผาตั้ง จ.เชียงราย 57000",
           "directions": "เดินทางสู่ผาตั้ง จ.เชียงราย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13012,7 +13012,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,POWE,BLKT,TFAN,TENT",
           "activities": "LIVE,HORS,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Chiang Rai",
           "address": "ดอยช้าง อ.ดอยช้าง จ.เชียงราย 57000",
           "directions": "เดินทางสู่ดอยช้าง จ.เชียงราย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13139,7 +13139,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TFAN,BLKT,LEDL,POWE,TENT",
           "activities": "LIVE,HIKI,HORS,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Chiang Rai",
           "address": "ดอยตุง อ.ดอยตุง จ.เชียงราย 57000",
           "directions": "เดินทางสู่ดอยตุง จ.เชียงราย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13257,7 +13257,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งหญ้าเลี้ยงดาวเชียงราย",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ดอยตุง Chiang Rai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ดอยตุง Chiang Rai (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@chiangraistarpasture"
@@ -13291,7 +13291,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,TFAN,POWE",
           "activities": "LIVE,HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Phetchabun",
           "address": "เขาค้อ อ.เขาค้อ จ.เพชรบูรณ์ 67270",
           "directions": "เดินทางสู่เขาค้อ จ.เพชรบูรณ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13397,7 +13397,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งดอกไม้เขาค้อ",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เขาค้อ Phetchabun (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เขาค้อ Phetchabun (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/khao-kho-flower-field-19/06.jpg",
@@ -13405,7 +13405,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งดอกไม้เขาค้อ",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เขาค้อ, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เขาค้อ, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@khaokhoflowerfield"
@@ -13439,7 +13439,7 @@
           "externalFacilities": "MAKT",
           "equipment": "BLKT,CHAI",
           "activities": "HIKI,CLIM,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Chiang Mai",
           "address": "ดอยสุเทพ อ.ดอยสุเทพ จ.เชียงใหม่ 50100",
           "directions": "เดินทางสู่ดอยสุเทพ จ.เชียงใหม่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13546,7 +13546,7 @@
           "externalFacilities": "MIBC",
           "equipment": "FYST,TENT",
           "activities": "BOAT,FISH,SWIM,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Krabi",
           "address": "เกาะลันตา อ.เกาะลันตา จ.กระบี่ 81000",
           "directions": "เดินทางสู่เกาะลันตา จ.กระบี่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13652,7 +13652,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เกาะลันตาซันเซ็ต",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at เกาะลันตา Krabi (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at เกาะลันตา Krabi (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/koh-lanta-sunset-25/06.jpg",
@@ -13660,7 +13660,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง เกาะลันตาซันเซ็ต",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at เกาะลันตา, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at เกาะลันตา, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             }
           ]
         },
@@ -13677,7 +13677,7 @@
           "externalFacilities": "LOTS,MIBC,SVEL",
           "equipment": "ICBK,POWE,CHAI",
           "activities": "FISH,SWIM,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Trat",
           "address": "เกาะหมาก อ.เกาะหมาก จ.ตราด 23170",
           "directions": "เดินทางสู่เกาะหมาก จ.ตราด แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13786,7 +13786,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,GDST,LEDL",
           "activities": "CLIM,OFFR,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Ratchasima",
           "address": "วังน้ำเขียว อ.วังน้ำเขียว จ.นครราชสีมา 30130",
           "directions": "เดินทางสู่วังน้ำเขียว จ.นครราชสีมา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -13904,7 +13904,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ไพรพนาวังน้ำเขียว",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at วังน้ำเขียว Nakhon Ratchasima (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at วังน้ำเขียว Nakhon Ratchasima (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/wang-nam-khiao-woodland-46/06.jpg",
@@ -13912,7 +13912,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ไพรพนาวังน้ำเขียว",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at วังน้ำเขียว, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at วังน้ำเขียว, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/wang-nam-khiao-woodland-46/07.jpg",
@@ -13955,7 +13955,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,LEDL",
           "activities": "WILD,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Loei",
           "address": "ภูเรือ อ.ภูเรือ จ.เลย 42000",
           "directions": "เดินทางสู่ภูเรือ จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14073,7 +14073,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ลานตะวันรอนภูเรือ",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ภูเรือ Loei (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ภูเรือ Loei (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phu-ruea-sunset-lawn-21/06.jpg",
@@ -14081,7 +14081,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ลานตะวันรอนภูเรือ",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ภูเรือ, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ภูเรือ, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=phu-ruea21"
@@ -14099,7 +14099,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "ICBK,GDST,FYST",
           "activities": "BOAT,SWIM,FISH,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Loei",
           "address": "เชียงคาน อ.เชียงคาน จ.เลย 42000",
           "directions": "เดินทางสู่เชียงคาน จ.เลย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14227,7 +14227,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,GDST,POWE,BLKT,TFAN,CHAI,LEDL",
           "activities": "OFFR,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Lamphun",
           "address": "ดอยชายแดน อ.ดอยชายแดน จ.ลำพูน 51000",
           "directions": "เดินทางสู่ดอยชายแดน จ.ลำพูน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14392,7 +14392,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,SSTV,LSTV,TENT,GDST,CHAI,FYST",
           "activities": "SWIM,HIKI,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Lamphun",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.ลำพูน 51000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.ลำพูน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14496,7 +14496,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TFAN,GDST,TENT,BLKT,LEDL,CHAI",
           "activities": "OFFR,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Lamphun",
           "address": "ดอยชายแดน อ.ดอยชายแดน จ.ลำพูน 51000",
           "directions": "เดินทางสู่ดอยชายแดน จ.ลำพูน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14635,7 +14635,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,TENT",
           "activities": "OFFR,WILD,HIKI,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Lampang",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.ลำปาง 52000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.ลำปาง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14765,7 +14765,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าชุมชนใกล้เมืองลำปาง",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Lampang (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Lampang (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/lampang-forest-camp-1-140/06.jpg",
@@ -14773,7 +14773,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าชุมชนใกล้เมืองลำปาง",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าชุมชนใกล้เมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าชุมชนใกล้เมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/lampang-forest-camp-1-140/07.jpg",
@@ -14799,7 +14799,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,CHAI,TFAN,LEDL",
           "activities": "WILD,CLIM,OFFR",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Lampang",
           "address": "สันเขาเหนือหมู่บ้าน อ.สันเขาเหนือหมู่บ้าน จ.ลำปาง 52000",
           "directions": "เดินทางสู่สันเขาเหนือหมู่บ้าน จ.ลำปาง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -14941,7 +14941,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ สันเขาเหนือหมู่บ้านลำปาง",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Lampang (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Lampang (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/lampang-misty-highland-camp-2-141/06.jpg",
@@ -14949,7 +14949,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง สันเขาเหนือหมู่บ้านลำปาง",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at สันเขาเหนือหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at สันเขาเหนือหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             }
           ]
         },
@@ -14966,7 +14966,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,GDST,LEDL,POWE",
           "activities": "WILD,OFFR,CLIM,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Lampang",
           "address": "สันเขาเหนือหมู่บ้าน อ.สันเขาเหนือหมู่บ้าน จ.ลำปาง 52000",
           "directions": "เดินทางสู่สันเขาเหนือหมู่บ้าน จ.ลำปาง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15108,7 +15108,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ สันเขาเหนือหมู่บ้านลำปาง",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Lampang (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Lampang (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@lampangmistyhighlandcamp3",
@@ -15127,7 +15127,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,BLKT,LEDL",
           "activities": "HIKI,OFFR",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Uttaradit",
           "address": "สันเขาเหนือหมู่บ้าน อ.สันเขาเหนือหมู่บ้าน จ.อุตรดิตถ์ 53000",
           "directions": "เดินทางสู่สันเขาเหนือหมู่บ้าน จ.อุตรดิตถ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15269,7 +15269,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ สันเขาเหนือหมู่บ้านอุตรดิตถ์",
-              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Uttaradit (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทะเลหมอกภูเขา surroundings at สันเขาเหนือหมู่บ้าน Uttaradit (MTNS+FORE+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/uttaradit-misty-highland-camp-1-143/06.jpg",
@@ -15277,7 +15277,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง สันเขาเหนือหมู่บ้านอุตรดิตถ์",
-              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at สันเขาเหนือหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE landscape, golden sunrise with low fog, 16:9"
+              "prompt": "aerial drone top-down view of the ทะเลหมอกภูเขา campsite at สันเขาเหนือหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE and WATF and SWMH and CAVE landscape, golden sunrise with low fog, 16:9"
             },
             {
               "path": "/seed/camps/uttaradit-misty-highland-camp-1-143/07.jpg",
@@ -15303,7 +15303,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,TENT,POWE,BLKT",
           "activities": "HIKI,OFFR,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Uttaradit",
           "address": "ยอดดอยเงียบสงบ อ.ยอดดอยเงียบสงบ จ.อุตรดิตถ์ 53000",
           "directions": "เดินทางสู่ยอดดอยเงียบสงบ จ.อุตรดิตถ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15459,7 +15459,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LSTV,GDST",
           "activities": "CLIM,HIKI,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phrae",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.แพร่ 54000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.แพร่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15610,7 +15610,7 @@
           "externalFacilities": "SVEL",
           "equipment": "POWE,LEDL,BLKT,CHAI,GDST,TENT",
           "activities": "CLIM,WILD,OFFR",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Phrae",
           "address": "เนินเขาแนวชายป่า อ.เนินเขาแนวชายป่า จ.แพร่ 54000",
           "directions": "เดินทางสู่เนินเขาแนวชายป่า จ.แพร่ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15726,7 +15726,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LEDL,GDST,CHAI,BLKT",
           "activities": "WILD,OFFR,CLIM",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Nan",
           "address": "สันเขาเหนือหมู่บ้าน อ.สันเขาเหนือหมู่บ้าน จ.น่าน 55000",
           "directions": "เดินทางสู่สันเขาเหนือหมู่บ้าน จ.น่าน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -15874,7 +15874,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,TENT",
           "activities": "OFFR,WILD,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nan",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.น่าน 55000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.น่าน แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16004,7 +16004,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์น่าน",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nan (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nan (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nan-forest-camp-2-148/06.jpg",
@@ -16012,7 +16012,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ชายป่าอนุรักษ์น่าน",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/nan-forest-camp-2-148/07.jpg",
@@ -16037,7 +16037,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,GDST,TENT",
           "activities": "OFFR,CLIM,WILD,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phayao",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.พะเยา 56000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.พะเยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16155,7 +16155,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองพะเยา",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Phayao (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Phayao (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phayao-forest-camp-1-149/06.jpg",
@@ -16163,7 +16163,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าเบญจพรรณชานเมืองพะเยา",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/phayao-forest-camp-1-149/07.jpg",
@@ -16188,7 +16188,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,GDST",
           "activities": "HIKI,WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phayao",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.พะเยา 56000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.พะเยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16330,7 +16330,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าชุมชนใกล้เมืองพะเยา",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Phayao (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Phayao (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -16347,7 +16347,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "CHAI,FYST,GDST,TENT,LSTV,ICBK,SSTV",
           "activities": "HIKI,BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Phayao",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.พะเยา 56000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.พะเยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16477,7 +16477,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ต้นน้ำชานเมืองพะเยา",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Phayao (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Phayao (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phayao-riverside-camp-3-151/06.jpg",
@@ -16485,7 +16485,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ต้นน้ำชานเมืองพะเยา",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/phayao-riverside-camp-3-151/07.jpg",
@@ -16527,7 +16527,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,TENT,LEDL",
           "activities": "WILD,OFFR,HIKI,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Buri Ram",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.บุรีรัมย์ 31000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.บุรีรัมย์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16655,7 +16655,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LEDL,POWE,TFAN",
           "activities": "WILD,LIVE,HORS,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Buri Ram",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.บุรีรัมย์ 31000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.บุรีรัมย์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16783,7 +16783,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,POWE,LEDL",
           "activities": "HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Surin",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.สุรินทร์ 32000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.สุรินทร์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -16935,7 +16935,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,CHAI,BLKT,TFAN,LEDL,POWE",
           "activities": "WILD,LIVE,HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Surin",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.สุรินทร์ 32000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.สุรินทร์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17077,7 +17077,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งกว้างริมหมู่บ้านสุรินทร์",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Surin (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Surin (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -17094,7 +17094,7 @@
           "externalFacilities": "MAKT",
           "equipment": "BLKT,CHAI,POWE",
           "activities": "HIKI,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Surin",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.สุรินทร์ 32000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.สุรินทร์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17239,7 +17239,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,BLKT,CHAI,POWE",
           "activities": "HORS,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Si Sa Ket",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.ศรีสะเกษ 33000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.ศรีสะเกษ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17367,7 +17367,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,LSTV",
           "activities": "OFFR,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Si Sa Ket",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.ศรีสะเกษ 33000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.ศรีสะเกษ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17485,7 +17485,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์ศรีสะเกษ",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Si Sa Ket (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Si Sa Ket (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/si-sa-ket-forest-camp-2-97/06.jpg",
@@ -17493,7 +17493,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ชายป่าอนุรักษ์ศรีสะเกษ",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/si-sa-ket-forest-camp-2-97/07.jpg",
@@ -17519,7 +17519,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,ICBK,TENT",
           "activities": "BOAT,HIKI,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Si Sa Ket",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ศรีสะเกษ 33000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ศรีสะเกษ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17650,7 +17650,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,GDST,TENT",
           "activities": "WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Ubon Ratchathani",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.อุบลราชธานี 34000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.อุบลราชธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17792,7 +17792,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์อุบลราชธานี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Ubon Ratchathani (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Ubon Ratchathani (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -17809,7 +17809,7 @@
           "externalFacilities": "MAKT",
           "equipment": "POWE,CHAI,LEDL,TFAN,BLKT,TENT",
           "activities": "LIVE,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Ubon Ratchathani",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.อุบลราชธานี 34000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.อุบลราชธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -17933,7 +17933,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,TENT,CHAI,LSTV,ICBK,SSTV,FYST",
           "activities": "HIKI,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Yasothon",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ยโสธร 35000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ยโสธร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18065,7 +18065,7 @@
           "externalFacilities": "MAKT",
           "equipment": "POWE,BLKT,LEDL",
           "activities": "HIKI,HORS,WILD,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Yasothon",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.ยโสธร 35000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.ยโสธร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18195,7 +18195,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งกว้างริมหมู่บ้านยโสธร",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Yasothon (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Yasothon (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/yasothon-meadow-camp-2-102/06.jpg",
@@ -18203,7 +18203,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งกว้างริมหมู่บ้านยโสธร",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งกว้างริมหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งกว้างริมหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             },
             {
               "path": "/seed/camps/yasothon-meadow-camp-2-102/07.jpg",
@@ -18229,7 +18229,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,POWE,BLKT,TFAN,LEDL,TENT",
           "activities": "LIVE,HORS,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Yasothon",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.ยโสธร 35000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.ยโสธร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18347,7 +18347,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เนินหญ้าชายทุ่งยโสธร",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Yasothon (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Yasothon (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/yasothon-meadow-camp-3-103/06.jpg",
@@ -18355,7 +18355,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง เนินหญ้าชายทุ่งยโสธร",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เนินหญ้าชายทุ่ง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เนินหญ้าชายทุ่ง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=yasothon103"
@@ -18373,7 +18373,7 @@
           "externalFacilities": "SVEL",
           "equipment": "BLKT,POWE,TFAN,TENT",
           "activities": "HORS,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Chaiyaphum",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.ชัยภูมิ 36000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.ชัยภูมิ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18476,7 +18476,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,SSTV,ICBK",
           "activities": "BOAT,HIKI,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Chaiyaphum",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ชัยภูมิ 36000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ชัยภูมิ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18603,7 +18603,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,ICBK,GDST",
           "activities": "HIKI,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Chaiyaphum",
           "address": "ริมคลองร่มรื่น อ.ริมคลองร่มรื่น จ.ชัยภูมิ 36000",
           "directions": "เดินทางสู่ริมคลองร่มรื่น จ.ชัยภูมิ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18738,7 +18738,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,LEDL",
           "activities": "CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Amnat Charoen",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.อำนาจเจริญ 37000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.อำนาจเจริญ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -18856,7 +18856,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์อำนาจเจริญ",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Amnat Charoen (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Amnat Charoen (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -18873,7 +18873,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,LEDL,POWE,TFAN,BLKT,CHAI",
           "activities": "LIVE,HIKI,WILD,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Amnat Charoen",
           "address": "ที่ราบเชิงเขา อ.ที่ราบเชิงเขา จ.อำนาจเจริญ 37000",
           "directions": "เดินทางสู่ที่ราบเชิงเขา จ.อำนาจเจริญ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19000,7 +19000,7 @@
           "externalFacilities": "SVEL",
           "equipment": "BLKT,TFAN,LEDL,CHAI",
           "activities": "HORS,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Amnat Charoen",
           "address": "ที่ราบเชิงเขา อ.ที่ราบเชิงเขา จ.อำนาจเจริญ 37000",
           "directions": "เดินทางสู่ที่ราบเชิงเขา จ.อำนาจเจริญ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19118,7 +19118,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ที่ราบเชิงเขาอำนาจเจริญ",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ที่ราบเชิงเขา Amnat Charoen (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ที่ราบเชิงเขา Amnat Charoen (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/amnat-charoen-meadow-camp-3-109/06.jpg",
@@ -19126,7 +19126,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ที่ราบเชิงเขาอำนาจเจริญ",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ที่ราบเชิงเขา, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ที่ราบเชิงเขา, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ]
         },
@@ -19143,7 +19143,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,TENT,LSTV,GDST,FYST,CHAI",
           "activities": "BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Bueng Kan",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.บึงกาฬ 38000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.บึงกาฬ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19258,7 +19258,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,TFAN,LEDL",
           "activities": "HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Bueng Kan",
           "address": "ที่ราบเชิงเขา อ.ที่ราบเชิงเขา จ.บึงกาฬ 38000",
           "directions": "เดินทางสู่ที่ราบเชิงเขา จ.บึงกาฬ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19397,7 +19397,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,GDST,LSTV,FYST",
           "activities": "HIKI,BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Bueng Kan",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.บึงกาฬ 38000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.บึงกาฬ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19525,7 +19525,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,GDST",
           "activities": "OFFR,CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nong Bua Lam Phu",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.หนองบัวลำภู 39000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.หนองบัวลำภู แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19652,7 +19652,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TFAN,LEDL,CHAI",
           "activities": "HORS,WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nong Bua Lam Phu",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.หนองบัวลำภู 39000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.หนองบัวลำภู แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19788,7 +19788,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,GDST,LEDL",
           "activities": "OFFR,HIKI,WILD,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Khon Kaen",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.ขอนแก่น 40000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.ขอนแก่น แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -19917,7 +19917,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI,LSTV,FYST",
           "activities": "BOAT,HIKI,SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Khon Kaen",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ขอนแก่น 40000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ขอนแก่น แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20035,7 +20035,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักขอนแก่น",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Khon Kaen (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Khon Kaen (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -20052,7 +20052,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,ICBK,TENT",
           "activities": "BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Khon Kaen",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.ขอนแก่น 40000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.ขอนแก่น แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20179,7 +20179,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,TENT,LEDL",
           "activities": "CLIM,HIKI,WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Udon Thani",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.อุดรธานี 41000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.อุดรธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20307,7 +20307,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,LEDL",
           "activities": "HIKI,WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Udon Thani",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.อุดรธานี 41000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.อุดรธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20460,7 +20460,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,TENT,ICBK,LSTV,CHAI,SSTV",
           "activities": "BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Udon Thani",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.อุดรธานี 41000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.อุดรธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20612,7 +20612,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,TFAN,POWE,BLKT",
           "activities": "LIVE,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nong Khai",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.หนองคาย 43000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.หนองคาย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20742,7 +20742,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งโล่งชานเมืองหนองคาย",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Nong Khai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Nong Khai (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nong-khai-meadow-camp-1-121/06.jpg",
@@ -20750,7 +20750,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งโล่งชานเมืองหนองคาย",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@nongkhaimeadowcamp1"
@@ -20768,7 +20768,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,ICBK,SSTV,FYST",
           "activities": "HIKI,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nong Khai",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.หนองคาย 43000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.หนองคาย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -20920,7 +20920,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LEDL,TENT,LSTV",
           "activities": "CLIM,WILD,HIKI,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Maha Sarakham",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.มหาสารคาม 44000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.มหาสารคาม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21062,7 +21062,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าชุมชนใกล้เมืองมหาสารคาม",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Maha Sarakham (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Maha Sarakham (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=maha-sar123"
@@ -21080,7 +21080,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,BLKT,TFAN,LEDL",
           "activities": "WILD,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Maha Sarakham",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.มหาสารคาม 44000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.มหาสารคาม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21184,7 +21184,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,POWE,LEDL,TFAN,BLKT,CHAI",
           "activities": "HIKI,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Roi Et",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.ร้อยเอ็ด 45000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.ร้อยเอ็ด แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21288,7 +21288,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST,FYST",
           "activities": "SWIM,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Roi Et",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.ร้อยเอ็ด 45000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.ร้อยเอ็ด แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21406,7 +21406,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ฝั่งลำธารชนบทร้อยเอ็ด",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Roi Et (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Roi Et (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/roi-et-riverside-camp-2-126/06.jpg",
@@ -21414,7 +21414,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ฝั่งลำธารชนบทร้อยเอ็ด",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/roi-et-riverside-camp-2-126/07.jpg",
@@ -21441,7 +21441,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,ICBK,GDST",
           "activities": "FISH,SWIM,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Kalasin",
           "address": "ริมคลองร่มรื่น อ.ริมคลองร่มรื่น จ.กาฬสินธุ์ 46000",
           "directions": "เดินทางสู่ริมคลองร่มรื่น จ.กาฬสินธุ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21571,7 +21571,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมคลองร่มรื่นกาฬสินธุ์",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมคลองร่มรื่น Kalasin (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมคลองร่มรื่น Kalasin (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/kalasin-riverside-camp-1-127/06.jpg",
@@ -21579,7 +21579,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมคลองร่มรื่นกาฬสินธุ์",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมคลองร่มรื่น, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมคลองร่มรื่น, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ]
         },
@@ -21596,7 +21596,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,LSTV,SSTV",
           "activities": "BOAT,SWIM,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Kalasin",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.กาฬสินธุ์ 46000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.กาฬสินธุ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21715,7 +21715,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "FYST,ICBK,GDST,TENT,CHAI,LSTV",
           "activities": "HIKI,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Sakon Nakhon",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.สกลนคร 47000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.สกลนคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21845,7 +21845,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ต้นน้ำชานเมืองสกลนคร",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Sakon Nakhon (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Sakon Nakhon (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/sakon-nakhon-riverside-camp-1-129/06.jpg",
@@ -21853,7 +21853,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ต้นน้ำชานเมืองสกลนคร",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/sakon-nakhon-riverside-camp-1-129/07.jpg",
@@ -21879,7 +21879,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LSTV",
           "activities": "OFFR,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Sakon Nakhon",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.สกลนคร 47000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.สกลนคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -21994,7 +21994,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,TENT,LSTV,GDST",
           "activities": "HIKI,WILD,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Sakon Nakhon",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.สกลนคร 47000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.สกลนคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22110,7 +22110,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,GDST,LEDL",
           "activities": "WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Phanom",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.นครพนม 48000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.นครพนม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22252,7 +22252,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์นครพนม",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nakhon Phanom (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nakhon Phanom (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nakhon-phanom-forest-camp-1-132/06.jpg",
@@ -22260,7 +22260,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ชายป่าอนุรักษ์นครพนม",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@nakhonphanomforestcamp1"
@@ -22278,7 +22278,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,BLKT,LEDL",
           "activities": "LIVE,HORS,HIKI,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nakhon Phanom",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.นครพนม 48000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.นครพนม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22408,7 +22408,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เนินหญ้าชายทุ่งนครพนม",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Nakhon Phanom (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Nakhon Phanom (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=nakhon-p133"
@@ -22426,7 +22426,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LEDL,LSTV",
           "activities": "OFFR,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Phanom",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.นครพนม 48000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.นครพนม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22569,7 +22569,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LEDL,TENT",
           "activities": "CLIM,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Mukdahan",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.มุกดาหาร 49000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.มุกดาหาร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22711,7 +22711,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าชุมชนใกล้เมืองมุกดาหาร",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Mukdahan (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Mukdahan (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=mukdahan135"
@@ -22729,7 +22729,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,GDST,LSTV",
           "activities": "WILD,HIKI,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Mukdahan",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.มุกดาหาร 49000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.มุกดาหาร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22849,7 +22849,7 @@
           "externalFacilities": "SVEL,LOTS",
           "equipment": "TENT,CHAI,FYST",
           "activities": "BOAT,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Bangkok",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.กรุงเทพมหานคร 10000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.กรุงเทพมหานคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -22976,7 +22976,7 @@
           "externalFacilities": "LOTS",
           "equipment": "TENT,FYST,CHAI",
           "activities": "BOAT,FISH,SURF,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Bangkok",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.กรุงเทพมหานคร 10000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.กรุงเทพมหานคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23092,7 +23092,7 @@
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "CHAI,ICBK,POWE",
           "activities": "SURF,FISH,BOAT,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Samut Prakan",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.สมุทรปราการ 11000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.สมุทรปราการ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23192,7 +23192,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "FYST,LSTV",
           "activities": "BOAT,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Samut Prakan",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.สมุทรปราการ 11000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.สมุทรปราการ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23300,7 +23300,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,LSTV,TENT",
           "activities": "CLIM,HIKI,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nonthaburi",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.นนทบุรี 12000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.นนทบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23418,7 +23418,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์นนทบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nonthaburi (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Nonthaburi (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nonthaburi-forest-camp-1-53/06.jpg",
@@ -23426,7 +23426,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ชายป่าอนุรักษ์นนทบุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ชายป่าอนุรักษ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/nonthaburi-forest-camp-1-53/07.jpg",
@@ -23451,7 +23451,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,FYST",
           "activities": "FISH,WILD,SWIM,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Nonthaburi",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.นนทบุรี 12000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.นนทบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23569,7 +23569,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่างเก็บน้ำชานเมืองนนทบุรี",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Nonthaburi (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Nonthaburi (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nonthaburi-lakeside-camp-2-54/06.jpg",
@@ -23577,7 +23577,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง อ่างเก็บน้ำชานเมืองนนทบุรี",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=nonthabu54"
@@ -23595,7 +23595,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LSTV",
           "activities": "WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nonthaburi",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.นนทบุรี 12000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.นนทบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23701,7 +23701,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองนนทบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Nonthaburi (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Nonthaburi (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@nonthaburiforestcamp3",
@@ -23720,7 +23720,7 @@
           "externalFacilities": "MAKT",
           "equipment": "BLKT,TENT",
           "activities": "LIVE,HORS,HIKI,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Pathum Thani",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.ปทุมธานี 13000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.ปทุมธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23826,7 +23826,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งโล่งชานเมืองปทุมธานี",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Pathum Thani (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Pathum Thani (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/pathum-thani-meadow-camp-1-56/06.jpg",
@@ -23834,7 +23834,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งโล่งชานเมืองปทุมธานี",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=pathum-t56"
@@ -23852,7 +23852,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TFAN,POWE,TENT",
           "activities": "HIKI,WILD",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Pathum Thani",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.ปทุมธานี 13000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.ปทุมธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -23970,7 +23970,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งโล่งชานเมืองปทุมธานี",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Pathum Thani (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Pathum Thani (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/pathum-thani-meadow-camp-2-57/06.jpg",
@@ -23978,7 +23978,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งโล่งชานเมืองปทุมธานี",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ]
         },
@@ -23995,7 +23995,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST,SSTV",
           "activities": "HIKI,BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Phra Nakhon Si Ayutthaya",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.พระนครศรีอยุธยา 14000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.พระนครศรีอยุธยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24106,7 +24106,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,TENT",
           "activities": "HIKI,CLIM,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phra Nakhon Si Ayutthaya",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.พระนครศรีอยุธยา 14000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.พระนครศรีอยุธยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24206,7 +24206,7 @@
           "externalFacilities": "SVEL",
           "equipment": "BLKT,LEDL",
           "activities": "HORS,HIKI,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Phra Nakhon Si Ayutthaya",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.พระนครศรีอยุธยา 14000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.พระนครศรีอยุธยา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24333,7 +24333,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,FYST",
           "activities": "FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Ang Thong",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.อ่างทอง 15000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.อ่างทอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24439,7 +24439,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักอ่างทอง",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Ang Thong (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Ang Thong (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/ang-thong-riverside-camp-1-61/06.jpg",
@@ -24447,7 +24447,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมแม่น้ำสายหลักอ่างทอง",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/ang-thong-riverside-camp-1-61/07.jpg",
@@ -24472,7 +24472,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT",
           "activities": "WILD,SWIM,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Ang Thong",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.อ่างทอง 15000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.อ่างทอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24590,7 +24590,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทะเลสาบเขื่อนอ่างทอง",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Ang Thong (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Ang Thong (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/ang-thong-lakeside-camp-2-62/06.jpg",
@@ -24598,7 +24598,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทะเลสาบเขื่อนอ่างทอง",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ทะเลสาบเขื่อน, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ทะเลสาบเขื่อน, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             },
             {
               "path": "/seed/camps/ang-thong-lakeside-camp-2-62/07.jpg",
@@ -24623,7 +24623,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,FYST,LSTV",
           "activities": "SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Lop Buri",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ลพบุรี 16000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ลพบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24740,7 +24740,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,GDST,LEDL",
           "activities": "HIKI,CLIM,WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Lop Buri",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.ลพบุรี 16000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.ลพบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24846,7 +24846,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์ลพบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Lop Buri (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Lop Buri (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@lopburiforestcamp2",
@@ -24865,7 +24865,7 @@
           "externalFacilities": "SVEL",
           "equipment": "SSTV,LSTV,ICBK",
           "activities": "SWIM,HIKI,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Lop Buri",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ลพบุรี 16000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ลพบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -24983,7 +24983,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักลพบุรี",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Lop Buri (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Lop Buri (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/lop-buri-riverside-camp-3-65/06.jpg",
@@ -24991,7 +24991,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมแม่น้ำสายหลักลพบุรี",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@lopbuririversidecamp3"
@@ -25009,7 +25009,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,GDST",
           "activities": "BOAT,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Sing Buri",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.สิงห์บุรี 17000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.สิงห์บุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25115,7 +25115,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่างเก็บน้ำชานเมืองสิงห์บุรี",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Sing Buri (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Sing Buri (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/sing-buri-lakeside-camp-1-66/06.jpg",
@@ -25123,7 +25123,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง อ่างเก็บน้ำชานเมืองสิงห์บุรี",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             },
             {
               "path": "/seed/camps/sing-buri-lakeside-camp-1-66/07.jpg",
@@ -25148,7 +25148,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI",
           "activities": "BOAT,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Sing Buri",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.สิงห์บุรี 17000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.สิงห์บุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25256,7 +25256,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,GDST",
           "activities": "OFFR,CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Sing Buri",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.สิงห์บุรี 17000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.สิงห์บุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25362,7 +25362,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองสิงห์บุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Sing Buri (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Sing Buri (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/sing-buri-forest-camp-3-68/06.jpg",
@@ -25370,7 +25370,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าเบญจพรรณชานเมืองสิงห์บุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/sing-buri-forest-camp-3-68/07.jpg",
@@ -25396,7 +25396,7 @@
           "externalFacilities": "SVEL",
           "equipment": "POWE,TENT",
           "activities": "HORS,LIVE,WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Chai Nat",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.ชัยนาท 18000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.ชัยนาท แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25514,7 +25514,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งโล่งชานเมืองชัยนาท",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Chai Nat (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งโล่งชานเมือง Chai Nat (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/chai-nat-meadow-camp-1-69/06.jpg",
@@ -25522,7 +25522,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งโล่งชานเมืองชัยนาท",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งโล่งชานเมือง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ]
         },
@@ -25539,7 +25539,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT,FYST",
           "activities": "BOAT,FISH,SWIM,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Chai Nat",
           "address": "แหล่งน้ำใหญ่กลางหุบเขา อ.แหล่งน้ำใหญ่กลางหุบเขา จ.ชัยนาท 18000",
           "directions": "เดินทางสู่แหล่งน้ำใหญ่กลางหุบเขา จ.ชัยนาท แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25645,7 +25645,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แหล่งน้ำใหญ่กลางหุบเขาชัยนาท",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at แหล่งน้ำใหญ่กลางหุบเขา Chai Nat (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at แหล่งน้ำใหญ่กลางหุบเขา Chai Nat (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@chainatlakesidecamp2",
@@ -25664,7 +25664,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,TENT,LSTV",
           "activities": "HIKI,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Saraburi",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.สระบุรี 19000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.สระบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25770,7 +25770,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองสระบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Saraburi (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Saraburi (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/saraburi-forest-camp-1-71/06.jpg",
@@ -25778,7 +25778,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าเบญจพรรณชานเมืองสระบุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/saraburi-forest-camp-1-71/07.jpg",
@@ -25804,7 +25804,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,TFAN",
           "activities": "HIKI,LIVE,WILD,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Saraburi",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.สระบุรี 19000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.สระบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -25896,7 +25896,7 @@
           "externalFacilities": "SVEL",
           "equipment": "ICBK,TENT",
           "activities": "BOAT,HIKI,SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Saraburi",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.สระบุรี 19000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.สระบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26004,7 +26004,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,ICBK,FYST",
           "activities": "SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Nakhon Nayok",
           "address": "ริมบึงธรรมชาติ อ.ริมบึงธรรมชาติ จ.นครนายก 26000",
           "directions": "เดินทางสู่ริมบึงธรรมชาติ จ.นครนายก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26108,7 +26108,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LSTV,TENT,GDST",
           "activities": "BOAT,FISH,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Nayok",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.นครนายก 26000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.นครนายก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26219,7 +26219,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TFAN,LEDL",
           "activities": "LIVE,HORS,WILD,HIKI",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Nakhon Sawan",
           "address": "ทุ่งโล่งชานเมือง อ.ทุ่งโล่งชานเมือง จ.นครสวรรค์ 60000",
           "directions": "เดินทางสู่ทุ่งโล่งชานเมือง จ.นครสวรรค์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26334,7 +26334,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,ICBK,TENT",
           "activities": "WILD,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Nakhon Sawan",
           "address": "แหล่งน้ำใหญ่กลางหุบเขา อ.แหล่งน้ำใหญ่กลางหุบเขา จ.นครสวรรค์ 60000",
           "directions": "เดินทางสู่แหล่งน้ำใหญ่กลางหุบเขา จ.นครสวรรค์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26438,7 +26438,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LEDL",
           "activities": "CLIM,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Uthai Thani",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.อุทัยธานี 61000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.อุทัยธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26554,7 +26554,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,LEDL,GDST",
           "activities": "OFFR,WILD,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Uthai Thani",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.อุทัยธานี 61000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.อุทัยธานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26658,7 +26658,7 @@
           "externalFacilities": "MAKT",
           "equipment": "POWE,TENT,LEDL",
           "activities": "LIVE,HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Kamphaeng Phet",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.กำแพงเพชร 62000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.กำแพงเพชร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26785,7 +26785,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LSTV,ICBK",
           "activities": "FISH,HIKI,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Kamphaeng Phet",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.กำแพงเพชร 62000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.กำแพงเพชร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -26903,7 +26903,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักกำแพงเพชร",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Kamphaeng Phet (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Kamphaeng Phet (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/kamphaeng-phet-riverside-camp-2-157/06.jpg",
@@ -26911,7 +26911,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมแม่น้ำสายหลักกำแพงเพชร",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/kamphaeng-phet-riverside-camp-2-157/07.jpg",
@@ -26937,7 +26937,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,LEDL,TFAN",
           "activities": "HIKI,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Sukhothai",
           "address": "ทุ่งกว้างริมหมู่บ้าน อ.ทุ่งกว้างริมหมู่บ้าน จ.สุโขทัย 64000",
           "directions": "เดินทางสู่ทุ่งกว้างริมหมู่บ้าน จ.สุโขทัย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27055,7 +27055,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทุ่งกว้างริมหมู่บ้านสุโขทัย",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Sukhothai (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at ทุ่งกว้างริมหมู่บ้าน Sukhothai (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/sukhothai-meadow-camp-1-161/06.jpg",
@@ -27063,7 +27063,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทุ่งกว้างริมหมู่บ้านสุโขทัย",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งกว้างริมหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at ทุ่งกว้างริมหมู่บ้าน, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@sukhothaimeadowcamp1",
@@ -27082,7 +27082,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST",
           "activities": "WILD,BOAT,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Sukhothai",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.สุโขทัย 64000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.สุโขทัย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27186,7 +27186,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,TENT",
           "activities": "WILD,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Sukhothai",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.สุโขทัย 64000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.สุโขทัย แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27304,7 +27304,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ชายป่าอนุรักษ์สุโขทัย",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Sukhothai (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ชายป่าอนุรักษ์ Sukhothai (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -27321,7 +27321,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LEDL,LSTV",
           "activities": "WILD,CLIM,HIKI,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phitsanulok",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.พิษณุโลก 65000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.พิษณุโลก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27427,7 +27427,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์พิษณุโลก",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Phitsanulok (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Phitsanulok (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phitsanulok-forest-camp-1-164/06.jpg",
@@ -27435,7 +27435,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง แนวป่าเขตรักษาพันธุ์พิษณุโลก",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at แนวป่าเขตรักษาพันธุ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at แนวป่าเขตรักษาพันธุ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/phitsanulok-forest-camp-1-164/07.jpg",
@@ -27460,7 +27460,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LSTV",
           "activities": "WILD,OFFR,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phitsanulok",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.พิษณุโลก 65000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.พิษณุโลก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27564,7 +27564,7 @@
           "externalFacilities": "SVEL",
           "equipment": "FYST,GDST,TENT",
           "activities": "WILD,FISH,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Phichit",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.พิจิตร 66000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.พิจิตร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27682,7 +27682,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทะเลสาบเขื่อนพิจิตร",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Phichit (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Phichit (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phichit-lakeside-camp-1-166/06.jpg",
@@ -27690,7 +27690,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ทะเลสาบเขื่อนพิจิตร",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ทะเลสาบเขื่อน, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ทะเลสาบเขื่อน, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             },
             {
               "path": "/seed/camps/phichit-lakeside-camp-1-166/07.jpg",
@@ -27716,7 +27716,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,ICBK,SSTV",
           "activities": "BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Phichit",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.พิจิตร 66000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.พิจิตร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27807,7 +27807,7 @@
           "externalFacilities": "MAKT",
           "equipment": "POWE,TFAN",
           "activities": "HORS,LIVE",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Suphan Buri",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.สุพรรณบุรี 72000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.สุพรรณบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -27926,7 +27926,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST",
           "activities": "WILD,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Suphan Buri",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.สุพรรณบุรี 72000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.สุพรรณบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28045,7 +28045,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LEDL,TENT",
           "activities": "WILD,CLIM,OFFR,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Nakhon Pathom",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.นครปฐม 73000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.นครปฐม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28151,7 +28151,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์นครปฐม",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Nakhon Pathom (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Nakhon Pathom (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@nakhonpathomforestcamp1",
@@ -28170,7 +28170,7 @@
           "externalFacilities": "SVEL",
           "equipment": "SSTV,FYST",
           "activities": "FISH,HIKI,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Pathom",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.นครปฐม 73000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.นครปฐม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28269,7 +28269,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,TENT,FYST",
           "activities": "HIKI,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Pathom",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.นครปฐม 73000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.นครปฐม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28369,7 +28369,7 @@
           "externalFacilities": "SVEL,MIBC",
           "equipment": "ICBK,POWE,CHAI",
           "activities": "BOAT,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Samut Sakhon",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.สมุทรสาคร 74000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.สมุทรสาคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28475,7 +28475,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่าวเล็กปลายแหลมสมุทรสาคร",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Samut Sakhon (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Samut Sakhon (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@samutsakhonbeachsidecamp1",
@@ -28494,7 +28494,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST",
           "activities": "WILD,BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Samut Sakhon",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.สมุทรสาคร 74000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.สมุทรสาคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28605,7 +28605,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LEDL,TFAN,BLKT",
           "activities": "LIVE,WILD,HORS",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,FILD,FARM",
           "province": "Samut Sakhon",
           "address": "เนินหญ้าชายทุ่ง อ.เนินหญ้าชายทุ่ง จ.สมุทรสาคร 74000",
           "directions": "เดินทางสู่เนินหญ้าชายทุ่ง จ.สมุทรสาคร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28711,7 +28711,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ เนินหญ้าชายทุ่งสมุทรสาคร",
-              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Samut Sakhon (MTNS+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ทุ่งหญ้า/ชมดาว surroundings at เนินหญ้าชายทุ่ง Samut Sakhon (MTNS+FORE+FILD+FARM terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/samut-sakhon-meadow-camp-3-181/06.jpg",
@@ -28719,7 +28719,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง เนินหญ้าชายทุ่งสมุทรสาคร",
-              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เนินหญ้าชายทุ่ง, tents arranged on the ground, surrounding MTNS and FORE landscape, clear starry night, 16:9"
+              "prompt": "aerial drone top-down view of the ทุ่งหญ้า/ชมดาว campsite at เนินหญ้าชายทุ่ง, tents arranged on the ground, surrounding MTNS and FORE and FILD and FARM landscape, clear starry night, 16:9"
             }
           ]
         },
@@ -28736,7 +28736,7 @@
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "TENT,ICBK",
           "activities": "SURF,FISH,BOAT",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Samut Songkhram",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.สมุทรสงคราม 75000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.สมุทรสงคราม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28842,7 +28842,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่าวเล็กปลายแหลมสมุทรสงคราม",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Samut Songkhram (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Samut Songkhram (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/samut-songkhram-beachside-camp-1-182/06.jpg",
@@ -28850,7 +28850,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง อ่าวเล็กปลายแหลมสมุทรสงคราม",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at อ่าวเล็กปลายแหลม, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at อ่าวเล็กปลายแหลม, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/samut-songkhram-beachside-camp-1-182/07.jpg",
@@ -28875,7 +28875,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST",
           "activities": "WILD,BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Samut Songkhram",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.สมุทรสงคราม 75000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.สมุทรสงคราม แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -28993,7 +28993,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่างเก็บน้ำชานเมืองสมุทรสงคราม",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Samut Songkhram (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Samut Songkhram (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/samut-songkhram-lakeside-camp-2-183/06.jpg",
@@ -29001,7 +29001,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง อ่างเก็บน้ำชานเมืองสมุทรสงคราม",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at อ่างเก็บน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             },
             {
               "path": "/seed/camps/samut-songkhram-lakeside-camp-2-183/07.jpg",
@@ -29042,7 +29042,7 @@
           "externalFacilities": "SVEL,MIBC",
           "equipment": "CHAI,ICBK,POWE,TENT,FYST",
           "activities": "SWIM,BOAT,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Chon Buri",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.ชลบุรี 20000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.ชลบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29162,7 +29162,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,TENT,LEDL",
           "activities": "CLIM,HIKI,OFFR,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Chon Buri",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.ชลบุรี 20000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.ชลบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29310,7 +29310,7 @@
           "externalFacilities": "SVEL,LOTS",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "SURF,BOAT,FISH,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Rayong",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.ระยอง 21000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.ระยอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29449,7 +29449,7 @@
           "externalFacilities": "MAKT",
           "equipment": "SSTV,ICBK,GDST",
           "activities": "BOAT,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Rayong",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.ระยอง 21000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.ระยอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29567,7 +29567,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ฝั่งลำธารชนบทระยอง",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Rayong (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Rayong (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/rayong-riverside-camp-2-77/06.jpg",
@@ -29575,7 +29575,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ฝั่งลำธารชนบทระยอง",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/rayong-riverside-camp-2-77/07.jpg",
@@ -29600,7 +29600,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,TENT,LSTV,ICBK,CHAI,FYST,SSTV",
           "activities": "SWIM,HIKI,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Rayong",
           "address": "ฝั่งลำธารชนบท อ.ฝั่งลำธารชนบท จ.ระยอง 21000",
           "directions": "เดินทางสู่ฝั่งลำธารชนบท จ.ระยอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29718,7 +29718,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ฝั่งลำธารชนบทระยอง",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Rayong (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ฝั่งลำธารชนบท Rayong (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/rayong-riverside-camp-3-78/06.jpg",
@@ -29726,7 +29726,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ฝั่งลำธารชนบทระยอง",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ฝั่งลำธารชนบท, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/rayong-riverside-camp-3-78/07.jpg",
@@ -29752,7 +29752,7 @@
           "externalFacilities": "LOTS",
           "equipment": "FYST,ICBK,TENT",
           "activities": "SWIM,BOAT,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Chanthaburi",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.จันทบุรี 22000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.จันทบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29856,7 +29856,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,LEDL",
           "activities": "OFFR,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Chanthaburi",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.จันทบุรี 22000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.จันทบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -29998,7 +29998,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าชุมชนใกล้เมืองจันทบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Chanthaburi (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าชุมชนใกล้เมือง Chanthaburi (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/chanthaburi-forest-camp-2-80/06.jpg",
@@ -30006,7 +30006,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าชุมชนใกล้เมืองจันทบุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าชุมชนใกล้เมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าชุมชนใกล้เมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             },
             {
               "path": "/seed/camps/chanthaburi-forest-camp-2-80/07.jpg",
@@ -30032,7 +30032,7 @@
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "TENT,CHAI,FYST",
           "activities": "FISH,BOAT,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Chachoengsao",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.ฉะเชิงเทรา 24000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.ฉะเชิงเทรา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30151,7 +30151,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST,TENT,ICBK",
           "activities": "SWIM,WILD,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Chachoengsao",
           "address": "ริมบึงธรรมชาติ อ.ริมบึงธรรมชาติ จ.ฉะเชิงเทรา 24000",
           "directions": "เดินทางสู่ริมบึงธรรมชาติ จ.ฉะเชิงเทรา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30295,7 +30295,7 @@
           "externalFacilities": "SVEL,LOTS,MIBC",
           "equipment": "TENT,CHAI,POWE,FYST",
           "activities": "SURF,BOAT",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Chachoengsao",
           "address": "อ่าวเล็กปลายแหลม อ.อ่าวเล็กปลายแหลม จ.ฉะเชิงเทรา 24000",
           "directions": "เดินทางสู่อ่าวเล็กปลายแหลม จ.ฉะเชิงเทรา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30449,7 +30449,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่าวเล็กปลายแหลมฉะเชิงเทรา",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Chachoengsao (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at อ่าวเล็กปลายแหลม Chachoengsao (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -30466,7 +30466,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,FYST,CHAI,ICBK,GDST,TENT,SSTV",
           "activities": "SWIM,BOAT,HIKI,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Prachin Buri",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ปราจีนบุรี 25000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ปราจีนบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30596,7 +30596,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักปราจีนบุรี",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Prachin Buri (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Prachin Buri (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -30613,7 +30613,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,LSTV",
           "activities": "OFFR,CLIM,WILD,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Prachin Buri",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.ปราจีนบุรี 25000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.ปราจีนบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30755,7 +30755,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์ปราจีนบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Prachin Buri (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Prachin Buri (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/prachin-buri-forest-camp-2-85/06.jpg",
@@ -30763,7 +30763,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง แนวป่าเขตรักษาพันธุ์ปราจีนบุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at แนวป่าเขตรักษาพันธุ์, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at แนวป่าเขตรักษาพันธุ์, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@prachinburiforestcamp2",
@@ -30782,7 +30782,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,ICBK,CHAI,TENT,FYST",
           "activities": "SWIM,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Sa Kaeo",
           "address": "ริมบึงธรรมชาติ อ.ริมบึงธรรมชาติ จ.สระแก้ว 27000",
           "directions": "เดินทางสู่ริมบึงธรรมชาติ จ.สระแก้ว แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -30936,7 +30936,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมบึงธรรมชาติสระแก้ว",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ริมบึงธรรมชาติ Sa Kaeo (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ริมบึงธรรมชาติ Sa Kaeo (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "videoUrl": "https://www.youtube.com/watch?v=sa-kaeo-88"
@@ -30954,7 +30954,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,TENT,FYST",
           "activities": "FISH,SWIM,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Sa Kaeo",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.สระแก้ว 27000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.สระแก้ว แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31108,7 +31108,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ทะเลสาบเขื่อนสระแก้ว",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Sa Kaeo (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ทะเลสาบเขื่อน Sa Kaeo (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@sakaeolakesidecamp2"
@@ -31126,7 +31126,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,GDST,LSTV,LEDL",
           "activities": "WILD,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Sa Kaeo",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.สระแก้ว 27000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.สระแก้ว แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31286,7 +31286,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,TENT,GDST,LSTV",
           "activities": "HIKI,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Tak",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.ตาก 63000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.ตาก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31402,7 +31402,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,LEDL",
           "activities": "HIKI,CLIM,WILD,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Tak",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.ตาก 63000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.ตาก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31544,7 +31544,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองตาก",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Tak (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Tak (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/tak-forest-camp-2-159/06.jpg",
@@ -31552,7 +31552,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าเบญจพรรณชานเมืองตาก",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             }
           ]
         },
@@ -31569,7 +31569,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV,TENT,LEDL",
           "activities": "WILD,HIKI,OFFR,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Tak",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.ตาก 63000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.ตาก แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31711,7 +31711,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แนวป่าเขตรักษาพันธุ์ตาก",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Tak (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at แนวป่าเขตรักษาพันธุ์ Tak (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@takforestcamp3"
@@ -31729,7 +31729,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,TENT,CHAI,ICBK,FYST,GDST",
           "activities": "HIKI,FISH,SWIM,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Ratchaburi",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ราชบุรี 70000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ราชบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31857,7 +31857,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,FYST,ICBK,SSTV",
           "activities": "HIKI,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Ratchaburi",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ราชบุรี 70000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ราชบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -31986,7 +31986,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,TENT,CHAI",
           "activities": "FISH,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Ratchaburi",
           "address": "อ่างเก็บน้ำชานเมือง อ.อ่างเก็บน้ำชานเมือง จ.ราชบุรี 70000",
           "directions": "เดินทางสู่อ่างเก็บน้ำชานเมือง จ.ราชบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32116,7 +32116,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ อ่างเก็บน้ำชานเมืองราชบุรี",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Ratchaburi (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at อ่างเก็บน้ำชานเมือง Ratchaburi (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -32133,7 +32133,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,SSTV,CHAI,LSTV",
           "activities": "FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Kanchanaburi",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.กาญจนบุรี 71000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.กาญจนบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32251,7 +32251,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ต้นน้ำชานเมืองกาญจนบุรี",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Kanchanaburi (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Kanchanaburi (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/kanchanaburi-riverside-camp-1-171/06.jpg",
@@ -32259,7 +32259,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ต้นน้ำชานเมืองกาญจนบุรี",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ต้นน้ำชานเมือง, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@kanchanabuririversidecamp1",
@@ -32278,7 +32278,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LSTV,GDST",
           "activities": "OFFR,WILD,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Kanchanaburi",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.กาญจนบุรี 71000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.กาญจนบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32414,7 +32414,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LEDL,TFAN,POWE,GDST",
           "activities": "CLIM,WILD,OFFR",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Kanchanaburi",
           "address": "ยอดดอยเงียบสงบ อ.ยอดดอยเงียบสงบ จ.กาญจนบุรี 71000",
           "directions": "เดินทางสู่ยอดดอยเงียบสงบ จ.กาญจนบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32526,7 +32526,7 @@
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "SURF,BOAT,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Phetchaburi",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.เพชรบุรี 76000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.เพชรบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32668,7 +32668,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แหลมหาดทรายเพชรบุรี",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Phetchaburi (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Phetchaburi (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@phetchaburibeachsidecamp1",
@@ -32687,7 +32687,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LSTV,TENT,LEDL,GDST",
           "activities": "OFFR,CLIM,WILD",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phetchaburi",
           "address": "ป่าเบญจพรรณชานเมือง อ.ป่าเบญจพรรณชานเมือง จ.เพชรบุรี 76000",
           "directions": "เดินทางสู่ป่าเบญจพรรณชานเมือง จ.เพชรบุรี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32829,7 +32829,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ป่าเบญจพรรณชานเมืองเพชรบุรี",
-              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Phetchaburi (FORE+MTNS terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ป่าลึก/ผจญภัย surroundings at ป่าเบญจพรรณชานเมือง Phetchaburi (FORE+MTNS+WATF+SWMH+CAVE terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/phetchaburi-forest-camp-2-185/06.jpg",
@@ -32837,7 +32837,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ป่าเบญจพรรณชานเมืองเพชรบุรี",
-              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS landscape, misty early morning, 16:9"
+              "prompt": "aerial drone top-down view of the ป่าลึก/ผจญภัย campsite at ป่าเบญจพรรณชานเมือง, tents arranged on the ground, surrounding FORE and MTNS and WATF and SWMH and CAVE landscape, misty early morning, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@phetchaburiforestcamp2"
@@ -32855,7 +32855,7 @@
           "externalFacilities": "SVEL,MIBC",
           "equipment": "FYST,POWE,TENT,ICBK,CHAI",
           "activities": "BOAT,SWIM,SURF,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Prachuap Khiri Khan",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.ประจวบคีรีขันธ์ 77000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.ประจวบคีรีขันธ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -32970,7 +32970,7 @@
           "externalFacilities": "SVEL",
           "equipment": "GDST,TENT,CHAI,BLKT",
           "activities": "WILD,HIKI,OFFR",
-          "terrain": "MTNS,FORE",
+          "terrain": "MTNS,FORE,WATF,SWMH,CAVE",
           "province": "Prachuap Khiri Khan",
           "address": "ดอยชายแดน อ.ดอยชายแดน จ.ประจวบคีรีขันธ์ 77000",
           "directions": "เดินทางสู่ดอยชายแดน จ.ประจวบคีรีขันธ์ แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33130,7 +33130,7 @@
           "externalFacilities": "LOTS,SVEL",
           "equipment": "CHAI,FYST,POWE",
           "activities": "SWIM,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Nakhon Si Thammarat",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.นครศรีธรรมราช 80000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.นครศรีธรรมราช แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33242,7 +33242,7 @@
           "externalFacilities": "MIBC",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "FISH,BOAT,SURF,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Nakhon Si Thammarat",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.นครศรีธรรมราช 80000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.นครศรีธรรมราช แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33360,7 +33360,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แหลมหาดทรายนครศรีธรรมราช",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Nakhon Si Thammarat (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Nakhon Si Thammarat (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nakhon-si-thammarat-beachside-camp-2-189/06.jpg",
@@ -33368,7 +33368,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง แหลมหาดทรายนครศรีธรรมราช",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at แหลมหาดทราย, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at แหลมหาดทราย, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/nakhon-si-thammarat-beachside-camp-2-189/07.jpg",
@@ -33393,7 +33393,7 @@
           "externalFacilities": "MAKT",
           "equipment": "CHAI,SSTV,LSTV",
           "activities": "FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Nakhon Si Thammarat",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.นครศรีธรรมราช 80000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.นครศรีธรรมราช แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33499,7 +33499,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักนครศรีธรรมราช",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Nakhon Si Thammarat (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Nakhon Si Thammarat (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/nakhon-si-thammarat-riverside-camp-3-190/06.jpg",
@@ -33507,7 +33507,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมแม่น้ำสายหลักนครศรีธรรมราช",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             },
             {
               "path": "/seed/camps/nakhon-si-thammarat-riverside-camp-3-190/07.jpg",
@@ -33533,7 +33533,7 @@
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "POWE,TENT,FYST",
           "activities": "SWIM,FISH,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Phang Nga",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.พังงา 82000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.พังงา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33649,7 +33649,7 @@
           "externalFacilities": "MAKT",
           "equipment": "LEDL,LSTV",
           "activities": "WILD,HIKI,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Phang Nga",
           "address": "ป่าชุมชนใกล้เมือง อ.ป่าชุมชนใกล้เมือง จ.พังงา 82000",
           "directions": "เดินทางสู่ป่าชุมชนใกล้เมือง จ.พังงา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33777,7 +33777,7 @@
           "externalFacilities": "LOTS",
           "equipment": "TENT,CHAI",
           "activities": "FISH,BOAT",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Ranong",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.ระนอง 85000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.ระนอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -33885,7 +33885,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,POWE",
           "activities": "SURF,BOAT,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Ranong",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.ระนอง 85000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.ระนอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34004,7 +34004,7 @@
           "externalFacilities": "LOTS",
           "equipment": "TENT,ICBK",
           "activities": "SURF,BOAT,SWIM,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Ranong",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.ระนอง 85000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.ระนอง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34111,7 +34111,7 @@
           "externalFacilities": "SVEL",
           "equipment": "TENT,POWE",
           "activities": "BOAT,SWIM,FISH,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Chumphon",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.ชุมพร 86000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.ชุมพร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34239,7 +34239,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "FYST,TENT",
           "activities": "BOAT,HIKI,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Chumphon",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ชุมพร 86000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ชุมพร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34357,7 +34357,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ต้นน้ำชานเมืองชุมพร",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Chumphon (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ต้นน้ำชานเมือง Chumphon (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -34374,7 +34374,7 @@
           "externalFacilities": "MAKT",
           "equipment": "TENT,LEDL,GDST",
           "activities": "CLIM,HIKI",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Chumphon",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.ชุมพร 86000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.ชุมพร แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34474,7 +34474,7 @@
           "externalFacilities": "LOTS",
           "equipment": "TENT,FYST,CHAI",
           "activities": "FISH,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Songkhla",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.สงขลา 90000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.สงขลา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34592,7 +34592,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ หาดชายฝั่งเงียบสงขลา",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at หาดชายฝั่งเงียบ Songkhla (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at หาดชายฝั่งเงียบ Songkhla (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/songkhla-beachside-camp-1-199/06.jpg",
@@ -34600,7 +34600,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง หาดชายฝั่งเงียบสงขลา",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at หาดชายฝั่งเงียบ, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at หาดชายฝั่งเงียบ, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@songkhlabeachsidecamp1"
@@ -34618,7 +34618,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,TENT,LSTV",
           "activities": "HIKI,CLIM",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Songkhla",
           "address": "แนวป่าเขตรักษาพันธุ์ อ.แนวป่าเขตรักษาพันธุ์ จ.สงขลา 90000",
           "directions": "เดินทางสู่แนวป่าเขตรักษาพันธุ์ จ.สงขลา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34729,7 +34729,7 @@
           "externalFacilities": "LOTS,MIBC,SVEL",
           "equipment": "ICBK,TENT,POWE",
           "activities": "BOAT,SWIM",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Satun",
           "address": "หาดชายฝั่งเงียบ อ.หาดชายฝั่งเงียบ จ.สตูล 91000",
           "directions": "เดินทางสู่หาดชายฝั่งเงียบ จ.สตูล แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34856,7 +34856,7 @@
           "externalFacilities": "MAKT",
           "equipment": "FYST,CHAI,LSTV",
           "activities": "SWIM,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Satun",
           "address": "ริมคลองร่มรื่น อ.ริมคลองร่มรื่น จ.สตูล 91000",
           "directions": "เดินทางสู่ริมคลองร่มรื่น จ.สตูล แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -34962,7 +34962,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมคลองร่มรื่นสตูล",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมคลองร่มรื่น Satun (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมคลองร่มรื่น Satun (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/satun-riverside-camp-2-202/06.jpg",
@@ -34970,7 +34970,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมคลองร่มรื่นสตูล",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมคลองร่มรื่น, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมคลองร่มรื่น, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ],
           "tiktokUrl": "https://tiktok.com/@satunriversidecamp2",
@@ -34989,7 +34989,7 @@
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "POWE,TENT",
           "activities": "SWIM,FISH",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Trang",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.ตรัง 92000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.ตรัง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35095,7 +35095,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมทะเลนอกเมืองตรัง",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at ริมทะเลนอกเมือง Trang (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at ริมทะเลนอกเมือง Trang (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/trang-beachside-camp-1-203/06.jpg",
@@ -35103,7 +35103,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมทะเลนอกเมืองตรัง",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at ริมทะเลนอกเมือง, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at ริมทะเลนอกเมือง, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/trang-beachside-camp-1-203/07.jpg",
@@ -35129,7 +35129,7 @@
           "externalFacilities": "MIBC,LOTS,SVEL",
           "equipment": "CHAI,ICBK,POWE",
           "activities": "BOAT,FISH,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Trang",
           "address": "แหลมหาดทราย อ.แหลมหาดทราย จ.ตรัง 92000",
           "directions": "เดินทางสู่แหลมหาดทราย จ.ตรัง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35247,7 +35247,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ แหลมหาดทรายตรัง",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Trang (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at แหลมหาดทราย Trang (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/trang-beachside-camp-2-204/06.jpg",
@@ -35255,7 +35255,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง แหลมหาดทรายตรัง",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at แหลมหาดทราย, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at แหลมหาดทราย, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/trang-beachside-camp-2-204/07.jpg",
@@ -35282,7 +35282,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,GDST,TENT",
           "activities": "SWIM,BOAT,WILD",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Phatthalung",
           "address": "ริมบึงธรรมชาติ อ.ริมบึงธรรมชาติ จ.พัทลุง 93000",
           "directions": "เดินทางสู่ริมบึงธรรมชาติ จ.พัทลุง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35394,7 +35394,7 @@
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT,ICBK",
           "activities": "SWIM,WILD,FISH,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Phatthalung",
           "address": "ทะเลสาบเขื่อน อ.ทะเลสาบเขื่อน จ.พัทลุง 93000",
           "directions": "เดินทางสู่ทะเลสาบเขื่อน จ.พัทลุง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35505,7 +35505,7 @@
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,GDST,SSTV",
           "activities": "SWIM,FISH,BOAT,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Phatthalung",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.พัทลุง 93000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.พัทลุง แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35632,7 +35632,7 @@
           "externalFacilities": "SVEL,MIBC,LOTS",
           "equipment": "FYST,POWE",
           "activities": "SURF,FISH,BOAT",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Pattani",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.ปัตตานี 94000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.ปัตตานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35738,7 +35738,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมทะเลนอกเมืองปัตตานี",
-              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at ริมทะเลนอกเมือง Pattani (BEAC terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเล/ชายหาด surroundings at ริมทะเลนอกเมือง Pattani (BEAC+SEA+COAS terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/pattani-beachside-camp-1-208/06.jpg",
@@ -35746,7 +35746,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมทะเลนอกเมืองปัตตานี",
-              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at ริมทะเลนอกเมือง, tents arranged on the ground, surrounding BEAC landscape, warm sunset over the sea, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเล/ชายหาด campsite at ริมทะเลนอกเมือง, tents arranged on the ground, surrounding BEAC and SEA and COAS landscape, warm sunset over the sea, 16:9"
             },
             {
               "path": "/seed/camps/pattani-beachside-camp-1-208/07.jpg",
@@ -35771,7 +35771,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LSTV,FYST,CHAI",
           "activities": "SWIM,FISH,HIKI,BOAT",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Pattani",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.ปัตตานี 94000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.ปัตตานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -35889,7 +35889,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักปัตตานี",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Pattani (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Pattani (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             }
           ]
         },
@@ -35906,7 +35906,7 @@
           "externalFacilities": "MAKT",
           "equipment": "GDST,LSTV",
           "activities": "HIKI,OFFR",
-          "terrain": "FORE,MTNS",
+          "terrain": "FORE,MTNS,WATF,SWMH,CAVE",
           "province": "Pattani",
           "address": "ชายป่าอนุรักษ์ อ.ชายป่าอนุรักษ์ จ.ปัตตานี 94000",
           "directions": "เดินทางสู่ชายป่าอนุรักษ์ จ.ปัตตานี แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -36017,7 +36017,7 @@
           "externalFacilities": "MAKT",
           "equipment": "SSTV,TENT",
           "activities": "FISH,BOAT,SWIM,HIKI",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Yala",
           "address": "ต้นน้ำชานเมือง อ.ต้นน้ำชานเมือง จ.ยะลา 95000",
           "directions": "เดินทางสู่ต้นน้ำชานเมือง จ.ยะลา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -36136,7 +36136,7 @@
           "externalFacilities": "SVEL",
           "equipment": "ICBK,CHAI,FYST",
           "activities": "BOAT,FISH,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,LAKE,WATF,SWMH",
           "province": "Yala",
           "address": "ริมบึงธรรมชาติ อ.ริมบึงธรรมชาติ จ.ยะลา 95000",
           "directions": "เดินทางสู่ริมบึงธรรมชาติ จ.ยะลา แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -36242,7 +36242,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมบึงธรรมชาติยะลา",
-              "prompt": "close detail of the ริมทะเลสาบ surroundings at ริมบึงธรรมชาติ Yala (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมทะเลสาบ surroundings at ริมบึงธรรมชาติ Yala (RIVE+FORE+LAKE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/yala-lakeside-camp-2-212/06.jpg",
@@ -36250,7 +36250,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมบึงธรรมชาติยะลา",
-              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ริมบึงธรรมชาติ, tents arranged on the ground, surrounding RIVE and FORE landscape, still dawn with mist on the water, 16:9"
+              "prompt": "aerial drone top-down view of the ริมทะเลสาบ campsite at ริมบึงธรรมชาติ, tents arranged on the ground, surrounding RIVE and FORE and LAKE and WATF and SWMH landscape, still dawn with mist on the water, 16:9"
             },
             {
               "path": "/seed/camps/yala-lakeside-camp-2-212/07.jpg",
@@ -36276,7 +36276,7 @@
           "externalFacilities": "LOTS",
           "equipment": "POWE,FYST,CHAI",
           "activities": "SWIM,BOAT,FISH,SURF",
-          "terrain": "BEAC",
+          "terrain": "BEAC,SEA,COAS",
           "province": "Narathiwat",
           "address": "ริมทะเลนอกเมือง อ.ริมทะเลนอกเมือง จ.นราธิวาส 96000",
           "directions": "เดินทางสู่ริมทะเลนอกเมือง จ.นราธิวาส แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -36376,7 +36376,7 @@
           "externalFacilities": "SVEL",
           "equipment": "LSTV,FYST,TENT",
           "activities": "FISH,BOAT,HIKI,SWIM",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Narathiwat",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.นราธิวาส 96000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.นราธิวาส แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",
@@ -36494,7 +36494,7 @@
               "aspect": "16:9",
               "tag": "detail",
               "alt": "รายละเอียดธรรมชาติ ริมแม่น้ำสายหลักนราธิวาส",
-              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Narathiwat (RIVE+FORE terrain), natural textures and foliage, soft light, 16:9"
+              "prompt": "close detail of the ริมน้ำ/ลำธาร surroundings at ริมแม่น้ำสายหลัก Narathiwat (RIVE+FORE+WATF+SWMH terrain), natural textures and foliage, soft light, 16:9"
             },
             {
               "path": "/seed/camps/narathiwat-riverside-camp-2-214/06.jpg",
@@ -36502,7 +36502,7 @@
               "aspect": "16:9",
               "tag": "aerial",
               "alt": "มุมสูง ริมแม่น้ำสายหลักนราธิวาส",
-              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE landscape, soft morning light through trees, 16:9"
+              "prompt": "aerial drone top-down view of the ริมน้ำ/ลำธาร campsite at ริมแม่น้ำสายหลัก, tents arranged on the ground, surrounding RIVE and FORE and WATF and SWMH landscape, soft morning light through trees, 16:9"
             }
           ]
         },
@@ -36519,7 +36519,7 @@
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,TENT",
           "activities": "BOAT,SWIM,HIKI,FISH",
-          "terrain": "RIVE,FORE",
+          "terrain": "RIVE,FORE,WATF,SWMH",
           "province": "Narathiwat",
           "address": "ริมแม่น้ำสายหลัก อ.ริมแม่น้ำสายหลัก จ.นราธิวาส 96000",
           "directions": "เดินทางสู่ริมแม่น้ำสายหลัก จ.นราธิวาส แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง",

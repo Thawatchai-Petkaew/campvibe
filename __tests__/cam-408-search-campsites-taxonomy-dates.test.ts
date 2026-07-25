@@ -118,11 +118,27 @@ describe('searchCampsitesTool — jsonSchema advertises real MasterData codes (A
     const schema = searchCampsitesTool.jsonSchema as {
       properties: { terrain: { enum: readonly string[]; description: string } };
     };
-    expect(schema.properties.terrain.enum).toEqual(expect.arrayContaining(['BEAC', 'FORE', 'RIVE', 'MTNS']));
+    // CAM-513 (S1) — bumped from 4 to the full 12 real seeded Terrain codes.
+    expect(schema.properties.terrain.enum).toEqual(
+      expect.arrayContaining([
+        'BEAC', 'FORE', 'RIVE', 'MTNS',
+        'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM',
+      ])
+    );
+    expect(schema.properties.terrain.enum).toHaveLength(12);
     expect(schema.properties.terrain.description).toContain('แม่น้ำ');
     expect(schema.properties.terrain.description).toContain('ภูเขา');
     expect(schema.properties.terrain.description).toContain('ชายหาด');
     expect(schema.properties.terrain.description).toContain('ป่า');
+    // CAM-513 (S1) — new codes' Thai trigger words taught in the description.
+    expect(schema.properties.terrain.description).toContain('ทะเล');
+    expect(schema.properties.terrain.description).toContain('น้ำตก');
+    expect(schema.properties.terrain.description).toContain('แอ่งเล่นน้ำ');
+    expect(schema.properties.terrain.description).toContain('ทุ่ง');
+    expect(schema.properties.terrain.description).toContain('ถ้ำ');
+    expect(schema.properties.terrain.description).toContain('ไร่');
+    expect(schema.properties.terrain.description).toContain('ริมชายฝั่ง');
+    expect(schema.properties.terrain.description).toContain('ทะเลสาบ');
   });
 
   it('[unit] access/activities/facilities enums are present with the real seeded codes', () => {

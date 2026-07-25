@@ -48,14 +48,18 @@ const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTi
 });
 
 /**
- * Duplicated verbatim from `search-campsites.ts` (CAM-408 BR-3) — the real
- * MasterData taxonomy codes. NOT re-exported from that file (kept module-
- * private there), so the code LIST is repeated here rather than importing a
- * private symbol from a sibling tool; this is the same taxonomy vocabulary,
- * not a new concept (ADR-009). If a 3rd tool needs these, extracting them to
- * a shared module is a follow-up, not required by this atomic story.
+ * Duplicated verbatim from `search-campsites.ts` (CAM-408 BR-3, kept in sync
+ * for the CAM-513 (S1) 8-code Terrain expansion) — the real MasterData
+ * taxonomy codes. NOT re-exported from that file (kept module-private
+ * there), so the code LIST is repeated here rather than importing a private
+ * symbol from a sibling tool; this is the same taxonomy vocabulary, not a
+ * new concept (ADR-009). If a 3rd tool needs these, extracting them to a
+ * shared module is a follow-up, not required by this atomic story.
  */
-const TERRAIN_CODES = ['BEAC', 'FORE', 'RIVE', 'MTNS'] as const;
+const TERRAIN_CODES = [
+  'BEAC', 'FORE', 'RIVE', 'MTNS',
+  'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM',
+] as const;
 const ACCESS_CODES = ['BAOT', 'DRIV', 'HIKE', 'WALK'] as const;
 const ACTIVITY_CODES = ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] as const;
 const FACILITY_CODES = [

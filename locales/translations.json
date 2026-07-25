@@ -629,7 +629,14 @@
             "FORE": "Forest",
             "MOUN": "Mountain",
             "BEAC": "Beach",
-            "LAKE": "Lakeside"
+            "LAKE": "Lakeside",
+            "SEA": "Sea",
+            "COAS": "Coastal",
+            "WATF": "Waterfall",
+            "SWMH": "Swimming hole",
+            "FILD": "Field",
+            "CAVE": "Cave",
+            "FARM": "Farm"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1644,7 +1651,14 @@
             "FORE": "ป่าไม้",
             "MOUN": "ภูเขา",
             "BEAC": "ชายหาด",
-            "LAKE": "ริมทะเลสาบ"
+            "LAKE": "ริมทะเลสาบ",
+            "SEA": "ทะเล",
+            "COAS": "ริมชายฝั่ง",
+            "WATF": "น้ำตก",
+            "SWMH": "แอ่งเล่นน้ำ",
+            "FILD": "ทุ่ง",
+            "CAVE": "ถ้ำ",
+            "FARM": "ไร่ / ฟาร์มสเตย์"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",
