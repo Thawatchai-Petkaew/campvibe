@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Car, Soup, Mountain, Trees, Waves, Palmtree, Map } from "lucide-react";
+import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Caravan, Mountain, Trees, Waves, Palmtree, Map } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PROVINCES, THAILAND_DATA } from "@/lib/thailand-data";
 import { format } from "date-fns";
@@ -31,16 +31,42 @@ interface SearchModalProps {
     onClose: () => void;
 }
 
-const CAMPGROUND_TYPES = [
-    { id: 'ALL', labelKey: 'all', icon: Map },
-    { id: 'CAGD', labelKey: 'campgrounds', icon: Tent },
-    { id: 'CACP', labelKey: 'carCamping', icon: Car },
-    { id: 'GLAMP', labelKey: 'glamping', icon: Soup },
-    { id: 'LAKE', labelKey: 'lakefront', icon: Waves },
-    { id: 'FOREST', labelKey: 'forest', icon: Trees },
-    { id: 'VIEW', labelKey: 'views', icon: Mountain },
-    { id: 'BAOT', labelKey: 'boatAccess', icon: Palmtree },
+/**
+ * CAM-494 — same fix as CAM-491 (CategoryBar): pills must drive the query
+ * param whose backing field actually exists (`type` for campSiteType,
+ * `terrain` for Terrain codes), not always `type`. See
+ * `components/CategoryBar.tsx` for the reference implementation this
+ * mirrors.
+ */
+interface ExperienceType {
+    labelKey: string;
+    icon: any;
+    param: "type" | "terrain" | null;
+    value: string | null;
+}
+
+const EXPERIENCE_TYPES: ExperienceType[] = [
+    { labelKey: 'all', icon: Map, param: null, value: null },
+    { labelKey: 'campground', icon: Tent, param: 'type', value: 'CAGD' },
+    { labelKey: 'carCamping', icon: Caravan, param: 'type', value: 'CACP' },
+    { labelKey: 'beach', icon: Palmtree, param: 'terrain', value: 'BEAC' },
+    { labelKey: 'forest', icon: Trees, param: 'terrain', value: 'FORE' },
+    { labelKey: 'mountain', icon: Mountain, param: 'terrain', value: 'MTNS' },
+    { labelKey: 'riverside', icon: Waves, param: 'terrain', value: 'RIVE' },
 ];
+
+// Resolve the pill matching the current `type`/`terrain` URL params (or
+// "all" when neither is set / matches nothing).
+function resolveSelectedExperience(searchParams: URLSearchParams): string {
+    const typeParam = searchParams.get("type");
+    const terrainParam = searchParams.get("terrain");
+    const match = EXPERIENCE_TYPES.find((item) => {
+        if (item.param === "type") return typeParam === item.value;
+        if (item.param === "terrain") return terrainParam === item.value;
+        return false;
+    });
+    return match ? match.labelKey : "all";
+}
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     const { t } = useLanguage();
@@ -48,7 +74,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     const searchParams = useSearchParams();
 
     const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
-    const [type, setType] = useState(searchParams.get("type") || "ALL");
+    const [experienceType, setExperienceType] = useState(() => resolveSelectedExperience(searchParams));
     const [province, setProvince] = useState(searchParams.get("province") || "");
     const [district, setDistrict] = useState(searchParams.get("district") || "");
     const [startDate, setStartDate] = useState<Date | undefined>(
@@ -70,7 +96,17 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         const params = new URLSearchParams(searchParams.toString());
 
         if (keyword) params.set("keyword", keyword); else params.delete("keyword");
-        if (type && type !== 'ALL') params.set("type", type); else params.delete("type");
+
+        // CAM-494 — a selected pill owns EXACTLY ONE category param (`type`
+        // OR `terrain`, never both); clear the other so a stale value never
+        // sticks under the newly-selected dimension.
+        const selected = EXPERIENCE_TYPES.find((item) => item.labelKey === experienceType);
+        params.delete("type");
+        params.delete("terrain");
+        if (selected?.param && selected.value) {
+            params.set(selected.param, selected.value);
+        }
+
         if (province && province !== " ") params.set("province", province); else params.delete("province");
         if (district && district !== " ") params.set("district", district); else params.delete("district");
         if (startDate) params.set("startDate", format(startDate, "yyyy-MM-dd")); else params.delete("startDate");
@@ -83,7 +119,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     const handleReset = () => {
         setKeyword("");
-        setType("ALL");
+        setExperienceType("all");
         setProvince("");
         setDistrict("");
         setStartDate(undefined);
@@ -108,21 +144,27 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         <div className="space-y-2">
                             <h3 className="text-lg font-bold px-1 text-foreground">{t.searchModal.experienceType}</h3>
                             <div className="flex flex-wrap gap-2">
-                                {CAMPGROUND_TYPES.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setType(item.id)}
-                                        className={cn(
-                                            "flex items-center gap-2 px-5 h-11 rounded-full border transition-all text-sm font-medium",
-                                            type === item.id
-                                                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                                                : "bg-background text-muted-foreground border-border hover:border-foreground"
-                                        )}
-                                    >
-                                        <item.icon className={cn("w-3.5 h-3.5", type === item.id ? "text-primary-foreground" : "text-muted-foreground")} />
-                                        <span>{(t.categories as any)[item.labelKey]}</span>
-                                    </button>
-                                ))}
+                                {EXPERIENCE_TYPES.map((item) => {
+                                    const active = experienceType === item.labelKey;
+                                    return (
+                                        <button
+                                            key={item.labelKey}
+                                            type="button"
+                                            aria-pressed={active}
+                                            onClick={() => setExperienceType(item.labelKey)}
+                                            className={cn(
+                                                "flex items-center gap-2 px-5 h-11 rounded-full border transition-all text-sm font-medium",
+                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                                                active
+                                                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                                                    : "bg-background text-muted-foreground border-border hover:border-foreground"
+                                            )}
+                                        >
+                                            <item.icon className={cn("w-3.5 h-3.5", active ? "text-primary-foreground" : "text-muted-foreground")} />
+                                            <span>{(t.categories as any)[item.labelKey]}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
