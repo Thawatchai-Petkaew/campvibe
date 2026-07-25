@@ -161,6 +161,14 @@ const FACILITY_CODES = [
   'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW',
 ] as const;
 
+/**
+ * CAM-511 BR-1 — the 11 real `Equipment for rent` MasterData codes (source:
+ * `prisma/seed.ts` masterData, same sourcing discipline as the CAM-408
+ * taxonomy consts above — no code that doesn't exist in the real table).
+ * Rentable gear a camper without their own equipment can still book with.
+ */
+const EQUIPMENT_CODES = ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV', 'LSTV', 'CHAI', 'FYST', 'ICBK'] as const;
+
 /** Same "is this a real calendar date" check `lib/ai/tools/check-availability.ts` already uses — no new validation concept. */
 const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
   message: 'Invalid date',
@@ -212,6 +220,19 @@ export const searchCampsitesArgsSchema = z.object({
   access: z.enum(ACCESS_CODES).or(z.array(z.enum(ACCESS_CODES))).optional(),
   activities: z.enum(ACTIVITY_CODES).or(z.array(z.enum(ACTIVITY_CODES))).optional(),
   facilities: z.enum(FACILITY_CODES).or(z.array(z.enum(FACILITY_CODES))).optional(),
+  /**
+   * CAM-511 BR-1 — rentable equipment the camp must offer. UNLIKE the
+   * terrain/access/activities/facilities groups above (whose array form is
+   * OR-within-group, "matches EITHER" — CAM-461 Decision 4), an `equipment`
+   * ARRAY is AND semantics — the camp must offer ALL listed items (a
+   * "rents the full kit" query, e.g. a beginner with no gear needs a camp
+   * that rents a tent AND a light AND power, not just one of the three).
+   * See executeSearchCampsites below: an array is joined into the SAME
+   * comma-separated shape `buildCampSiteWhere` already AND-per-codes for its
+   * pre-CAM-461 string callers (the real "multi-facility" AND semantics),
+   * rather than routed through its newer array-OR branch.
+   */
+  equipment: z.enum(EQUIPMENT_CODES).or(z.array(z.enum(EQUIPMENT_CODES))).optional(),
   /**
    * CAM-461 BR-2 — reuses the catalog's `VALID_SORTS` vocabulary verbatim
    * (ADR-009, no forked sort). Absent → `related` (BR-2 default, applied in
@@ -369,6 +390,12 @@ const jsonSchema = {
       description:
         'A specific facility the camper asked for — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี.',
     },
+    equipment: {
+      type: 'string',
+      enum: EQUIPMENT_CODES,
+      description:
+        'Rentable equipment/gear the camp must offer, for a camper who has no gear of their own or wants to rent — pass an ARRAY of codes when the camper needs MULTIPLE items (an array means the camp must offer ALL listed items, e.g. a beginner arriving empty-handed needs a full rental kit — this is AND, unlike the OR-within-group arrays above). TENT เต็นท์, POWE ปลั๊กสนาม, TFAN พัดลม, BLKT ผ้าห่ม, LEDL หลอดไฟ LED, GDST ผ้าปูรองเต็นท์, SSTV เตาถ่านขนาดเล็ก, LSTV เตาถ่านขนาดใหญ่, CHAI เก้าอี้, FYST ผ้าฟลายชีท, ICBK กระติกน้ำแข็ง.',
+    },
     sort: {
       type: 'string',
       enum: VALID_SORTS,
@@ -452,6 +479,13 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     access: args.access,
     activities: args.activities,
     facilities: args.facilities,
+    // CAM-511 BR-1 — an array is joined into `buildCampSiteWhere`'s
+    // comma-separated STRING shape (AND-per-code, its pre-CAM-461 path),
+    // never left as an array (which would hit the newer array-OR branch) —
+    // this is what gives `equipment` its "must offer ALL listed items"
+    // semantics, deliberately different from terrain/access/activities/
+    // facilities above.
+    equipment: Array.isArray(args.equipment) ? args.equipment.join(',') : args.equipment,
     excludeIds,
   });
 
@@ -550,7 +584,8 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, and rentable equipment. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Pass `equipment` when the camper needs rental gear — a beginner with no equipment of their own ("มือใหม่", "ไม่มีอุปกรณ์", "มาตัวเปล่า") or anyone asking what a camp rents out. An array means the camp must offer ALL listed items (AND, not OR like the other taxonomy filters). ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +
     'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first) — `sort` is ignored when `near` is set, since a proximity search is always ordered by distance. ' +
