@@ -69,13 +69,20 @@ function provThZip(nameEn) {
 }
 
 // ---- theme config (valid codes only, per spec §4/§5) ---------------------------
+// CAM-492: every theme now also carries `accomm` (accommodationTypes pool — real
+// codes from lib/validations/campsite.ts AccommodationTypeEnum: CABI/DISP/GROU/
+// HORS/RECR/TENT, NOT a MasterData group) and enough facExtra/equip/activities/ext
+// spread that all 5 previously-dead MasterData codes (WATE/CART/MIMT/LSTV/OFFR)
+// get a natural chance of being drawn (a deterministic closing pass below still
+// GUARANTEES ≥1 each regardless of luck — see "closeDeadCodes").
 const THEMES = {
   mist: {
     label: 'ทะเลหมอกภูเขา', terrain: ['MTNS', 'FORE'], view: 'MOUNTAIN',
-    activities: ['HIKI', 'WILD', 'CLIM'], access: ['DRIV', 'HIKE'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'ELEC', 'REST', 'PICN', 'FEDW', 'GRIL'],
+    activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'ELEC', 'REST', 'PICN', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'TFAN', 'LEDL', 'GDST', 'CHAI', 'POWE'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP'],
+    accomm: ['TENT', 'CABI', 'DISP'],
     tags: ['ทะเลหมอก', 'วิวภูเขา', 'อากาศเย็น', 'พระอาทิตย์ขึ้น'],
     desc: 'อากาศหนาวเย็นและทะเลหมอกยามเช้า เหมาะกับสายธรรมชาติที่หลงรักวิวภูเขา',
     scene: 'misty mountain ridge campsite at dawn, a sea of clouds filling the valley below, pine trees',
@@ -84,9 +91,10 @@ const THEMES = {
   beach: {
     label: 'ริมทะเล/ชายหาด', terrain: ['BEAC'], view: 'BEACH',
     activities: ['SWIM', 'SURF', 'BOAT', 'FISH'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL'],
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART'],
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
     ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP'],
+    accomm: ['TENT', 'RECR', 'CABI'],
     tags: ['ริมทะเล', 'วิวทะเล', 'พระอาทิตย์ตก', 'เล่นน้ำทะเล'],
     desc: 'กางเต็นท์ริมหาดฟังเสียงคลื่น ชมพระอาทิตย์ตกเหนือผืนทะเล',
     scene: 'beachfront campsite on white sand, turquoise sea, palm trees, tents facing the water',
@@ -95,9 +103,10 @@ const THEMES = {
   river: {
     label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE'], view: 'RIVER',
     activities: ['BOAT', 'FISH', 'SWIM', 'HIKI'], access: ['DRIV', 'WALK'],
-    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW'],
-    equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST'], ext: ['SVEL', 'MAKT'],
+    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE'],
+    equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [350, 900], type: ['CAGD', 'CACP'],
+    accomm: ['TENT', 'CABI'],
     tags: ['ริมน้ำ', 'ลำธารใส', 'ร่มรื่น', 'พายเรือ'],
     desc: 'ลานกางเต็นท์ริมลำธารน้ำใส ใต้ร่มไม้ร่มรื่น เสียงน้ำไหลทั้งวัน',
     scene: 'campsite beside a clear shallow stream over smooth rocks, shady riverbank forest',
@@ -105,10 +114,11 @@ const THEMES = {
   },
   forest: {
     label: 'ป่าลึก/ผจญภัย', terrain: ['FORE', 'MTNS'], view: 'FOREST',
-    activities: ['HIKI', 'WILD', 'CLIM'], access: ['DRIV', 'HIKE'],
+    activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'POTA'], facExtra: ['SHOW', 'PICN', 'TRAS', 'SANI', 'FEDW'],
-    equip: ['TENT', 'GDST', 'LEDL'], ext: [],
+    equip: ['TENT', 'GDST', 'LEDL', 'LSTV'], ext: ['MAKT'],
     ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD'],
+    accomm: ['TENT', 'DISP', 'GROU'],
     tags: ['ป่าธรรมชาติ', 'ส่องสัตว์ป่า', 'เดินป่า', 'ร่มครึ้ม'],
     desc: 'โอบล้อมด้วยป่าใหญ่ที่อุดมสมบูรณ์ เหมาะกับการเดินป่าและส่องสัตว์',
     scene: 'deep jungle clearing campsite, towering rainforest canopy, morning mist between trees',
@@ -117,9 +127,10 @@ const THEMES = {
   lake: {
     label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE'], view: 'LAKE',
     activities: ['BOAT', 'FISH', 'SWIM', 'WILD'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW'],
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART'],
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
     ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP'],
+    accomm: ['TENT', 'CABI', 'RECR'],
     tags: ['ริมทะเลสาบ', 'วิวน้ำสงบ', 'บรรยากาศสงบ', 'แพกลางน้ำ'],
     desc: 'ริมทะเลสาบน้ำนิ่งสะท้อนเงาภูเขา บรรยากาศเงียบสงบราวกับต่างแดน',
     scene: 'lakeside campsite, calm mirror-like water reflecting limestone karst hills, floating raft houses',
@@ -128,9 +139,10 @@ const THEMES = {
   meadow: {
     label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE'], view: 'GENERAL',
     activities: ['HIKI', 'HORS', 'WILD', 'LIVE'], access: ['DRIV'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL'],
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD'],
+    accomm: ['TENT', 'GROU', 'HORS'],
     tags: ['ทุ่งหญ้ากว้าง', 'กางเต็นท์ชมดาว', 'วิวเขากว้าง', 'ลมเย็น'],
     desc: 'ลานหญ้ากว้างเปิดโล่งรับลม กลางคืนนอนนับดาวเต็มท้องฟ้า',
     scene: 'wide open grassy meadow campground in a mountain valley, rows of glowing tents under a starry milky-way sky',
@@ -272,8 +284,13 @@ function buildCamp(concept, idx) {
   const equipment = small ? pickN(T.equip, ri(2, 3)) : pickN(T.equip, ri(3, T.equip.length));
   const activities = pickN(T.activities, ri(2, T.activities.length));
   const accessTypes = pickN(T.access, T.access.length === 1 ? 1 : ri(1, 2));
-  const externalFacilities = T.ext.length ? pickN(T.ext, ri(0, T.ext.length)) : [];
+  // BR-5: min 1 (was ri(0, …)) — externalFacilities must never be blank (was 44%/50% blank
+  // because `forest` had an empty ext[] and every theme allowed a 0-pick draw).
+  const externalFacilities = pickN(T.ext, ri(1, T.ext.length));
   const terrain = T.terrain;
+  // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/HORS/
+  // RECR/TENT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
+  const accommodationTypes = pickN(T.accomm, ri(1, Math.min(2, T.accomm.length))).join(',');
 
   // pricing by tier × business type
   let lo = T.tier[0], hi = T.tier[1];
@@ -282,6 +299,15 @@ function buildCamp(concept, idx) {
   let priceHigh = round50(Math.max(priceLow + 200, hi * fac * (0.85 + rnd() * 0.3)));
   let isFree = false;
   if (own !== 'NATIONAL_PARK' && small && freeLeft > 0 && chance(0.5)) { isFree = true; freeLeft--; priceLow = 0; priceHigh = 0; }
+  // BR-4: premium tier — a slice of COMPANY-run camps (glamping/rimtalay-หรู reality) push
+  // the ceiling well past the old ~2350 cap so a >3,000 price filter has real results
+  // (AC-4: priceHigh ceiling ≥ ~15,000 for some).
+  let isPremium = false;
+  if (!isFree && big && chance(0.16)) {
+    isPremium = true;
+    priceLow = round50(priceLow * ri(3, 5));
+    priceHigh = round50(Math.max(priceLow + 3000, priceHigh * ri(7, 13)));
+  }
 
   // ground type
   const gk = pickN(T.ground, ri(1, T.ground.length));
@@ -291,16 +317,21 @@ function buildCamp(concept, idx) {
   const nSpots = big ? ri(3, 6) : small ? ri(2, 3) : ri(3, 5);
   const zonePool = ['โซน A', 'โซน B', 'โซน C', 'ริมน้ำ', 'วิวหลัก', 'โซนเงียบ', 'โซนครอบครัว', 'โซน VIP'];
   const zones = pickN(zonePool, nSpots);
+  // BR-5: nearFacilities was drawn only from T.facBase (4 codes total across every theme,
+  // dataset-wide). Widen to facBase+facExtra so the distinct-code count actually varies.
+  const nearPool = [...new Set([...T.facBase, ...T.facExtra])];
   const spots = [];
   for (let s = 0; s < nSpots; s++) {
     const base = isFree ? 0 : Math.max(150, round50(priceLow * (0.85 + rnd() * 0.5)));
+    // BR-5: pricePerSite (Spot, optional flat per-site rate) — populate on most paid spots.
+    const pricePerSite = (!isFree && chance(0.65)) ? round50(base * (1.3 + rnd() * 0.9)) : null;
     spots.push({
       zone: zones[s], name: `จุด ${String.fromCharCode(65 + s)}${ri(1, 4)}`,
       viewType: chance(0.75) ? T.view : 'GENERAL',
       maxCampers: ri(2, big ? 8 : 5), maxTents: ri(1, 4),
       environment: pick(['ใต้ร่มไม้ใหญ่', 'พื้นที่เปิดโล่งรับวิว', 'มุมเงียบสงบ', 'ติดวิวหลักของลาน', 'ใกล้สิ่งอำนวยความสะดวก']),
-      pricePerNight: base, priceCurrency: 'THB',
-      nearFacilities: pickN(T.facBase, ri(1, T.facBase.length)).join(','),
+      pricePerNight: base, pricePerSite, priceCurrency: 'THB',
+      nearFacilities: pickN(nearPool, ri(1, Math.min(4, nearPool.length))).join(','),
     });
   }
 
@@ -327,10 +358,25 @@ function buildCamp(concept, idx) {
   const checkIn = pick(['13:00', '14:00']);
   const checkOut = pick(['10:00', '11:00', '12:00']);
   const remote = themeKey === 'beach' && /เกาะ/.test(areaTh);
+  // BR-5: cancellationPolicy (null = host hasn't set one yet, per schema comment — kept as a
+  // deliberate minority so that state is still represented, not eliminated).
+  const cancellationPolicy = chance(0.9) ? pick(['FLEXIBLE', 'MODERATE', 'STRICT', 'NON_REFUNDABLE']) : null;
+  // BR-5: extraFeeAmount/extraFeeLabel — a one-time additive fee. NATIONAL_PARK camps always
+  // carry the real Thai park-entrance fee (deterministic, guarantees non-zero coverage);
+  // other paid camps get one by a coin flip from a plausible label pool; free camps never do.
+  const EXTRA_FEE_POOL = [
+    ['ค่าทำความสะอาดพื้นที่', 50, 150],
+    ['ค่าไฟฟ้าเพิ่มเติม', 30, 100],
+    ['ค่าฟืน/ถ่านสำหรับก่อไฟ', 50, 100],
+    ['ค่าจอดรถเพิ่มเติม', 50, 100],
+  ];
+  let extraFeeAmount = null, extraFeeLabel = null;
+  if (own === 'NATIONAL_PARK') { extraFeeAmount = ri(40, 400); extraFeeLabel = 'ค่าธรรมเนียมเข้าอุทยานแห่งชาติ'; }
+  else if (!isFree && chance(0.5)) { const [label, lo2, hi2] = pick(EXTRA_FEE_POOL); extraFeeAmount = ri(lo2, hi2); extraFeeLabel = label; }
   const camp = {
     nameTh: th, nameEn: en, nameThSlug: slugTh, nameEnSlug: slug,
     description: `${tagline} ${T.desc}`,
-    campSiteType: pick(T.type), accommodationTypes: 'TENT',
+    campSiteType: pick(T.type), accommodationTypes,
     accessTypes: accessTypes.join(','), facilities: facilities.join(','),
     externalFacilities: externalFacilities.join(','), equipment: equipment.join(','),
     activities: activities.join(','), terrain: terrain.join(','),
@@ -340,9 +386,12 @@ function buildCamp(concept, idx) {
     latitude: coord[0], longitude: coord[1],
     checkInTime: checkIn, checkOutTime: checkOut,
     bookingMethod: remote ? pick(['ONCA', 'ONLI']) : (chance(0.8) ? 'ONLI' : pick(['ONCA', 'ONST'])),
-    priceLow, priceHigh, priceCurrency: 'THB',
+    priceLow, priceHigh, priceCurrency: 'THB', isPremium,
+    cancellationPolicy, extraFeeAmount, extraFeeLabel,
     ownershipType: own || 'PRIVATE', isFree, petFriendly: chance(0.5),
-    minimumAge: chance(0.7) ? 0 : pick([7, 12, 15, 18]),
+    // BR-5: minimumAge — was chance(0.7)→0 (67% clustered at 0). Widened value set (8
+    // distinct incl. 3/5) and cut the zero-cluster to ~35%.
+    minimumAge: chance(0.35) ? 0 : pick([3, 5, 7, 10, 12, 15, 18]),
     maxGuestsPerDay: round50(ri(30, big ? 120 : 60)), maxTentsPerDay: ri(15, big ? 60 : 30),
     groundType: JSON.stringify(ground),
     feeInfo: isFree ? 'ไม่มีค่าบริการ กางเต็นท์ฟรี' : `ค่าพื้นที่กางเต็นท์เริ่มต้น ${priceLow} บาทต่อคืน สอบถามโปรโมชั่นเพิ่มเติมได้`,
@@ -373,17 +422,37 @@ C.forEach((row, i) => buildCamp(row, i + 1));
 
 // ---- Stage 0: province-fill — 2-3 camps for each of the 67 uncovered provinces -
 const THEME_EN_LABEL = { mist: 'Misty Highland', beach: 'Beachside', river: 'Riverside', forest: 'Forest', lake: 'Lakeside', meadow: 'Meadow' };
-// Region-appropriate theme pools (SOUTH→beach/lake/forest, NORTH→mist/river/forest,
-// NORTHEAST→meadow/river/forest, CENTRAL/EAST/WEST→a river/forest/meadow/beach mix
-// per the plan) — a per-camp deterministic pick, not a 1:1 province→theme mapping.
+// CAM-492 (BR-2 realism fix): 'beach' is NEVER in a region's base pool anymore — the old
+// pool put 'beach' in the whole CENTRAL/EAST/WEST/SOUTH bucket, which included landlocked
+// provinces (e.g. Nonthaburi, Lop Buri, Saraburi, Sa Kaeo, Phatthalung) getting "beach" camps,
+// which is geographically wrong. 'beach' is added ONLY per-province, ONLY when the province is
+// in COASTAL_PROVINCES (real Thai coastline — verified against the standard 23-province coastal
+// list), via the guarantee below. 'lake' (เขื่อน/อ่างเก็บน้ำ) is added to CENTRAL/EAST/WEST for
+// the "กลาง/ตะวันตก→แม่น้ำ/เขื่อน/ป่า" realism the spec calls for (BR-2).
 const REGION_THEME_POOL = {
   NORTH: ['mist', 'river', 'forest'],
   NORTHEAST: ['meadow', 'river', 'forest'],
-  CENTRAL: ['river', 'forest', 'meadow', 'beach'],
-  EAST: ['river', 'forest', 'beach'],
-  WEST: ['river', 'forest', 'mist'],
-  SOUTH: ['beach', 'lake', 'forest'],
+  CENTRAL: ['river', 'forest', 'meadow', 'lake'],
+  EAST: ['river', 'forest', 'lake'],
+  WEST: ['river', 'forest', 'mist', 'lake'],
+  SOUTH: ['lake', 'forest', 'river'],
 };
+// The real Thai coastal provinces (Gulf of Thailand + Andaman Sea) among the 67 province-fill
+// provinces (the curated 10 already cover Krabi/Phuket/Surat Thani/Trat with real beach concepts).
+// Every coastal province below is GUARANTEED at least one 'beach' camp (see the k===0 branch)
+// so AC-2 (≥25 beach camps, spread across real sea provinces incl. ชุมพร/ประจวบ/สงขลา) never
+// depends on PRNG luck.
+const COASTAL_PROVINCES = new Set([
+  // CENTRAL (Bangkok Metropolitan coastline on the upper Gulf of Thailand)
+  'Bangkok', 'Samut Prakan', 'Samut Sakhon', 'Samut Songkhram',
+  // WEST (Gulf of Thailand)
+  'Phetchaburi', 'Prachuap Khiri Khan',
+  // EAST (Gulf of Thailand, eastern seaboard)
+  'Chon Buri', 'Rayong', 'Chanthaburi', 'Trat', 'Chachoengsao',
+  // SOUTH (Gulf side + Andaman side) — Phatthalung and Yala are landlocked, deliberately excluded
+  'Nakhon Si Thammarat', 'Krabi', 'Phang Nga', 'Phuket', 'Surat Thani',
+  'Ranong', 'Chumphon', 'Songkhla', 'Satun', 'Trang', 'Pattani', 'Narathiwat',
+]);
 // Real districts are only seeded for the original 12 (10 curated + Bangkok/Samut
 // Prakan) provinces in thailand-locations.json — the other 65 have an empty
 // `districts` array, so generated area names use a generic per-theme Thai label
@@ -411,9 +480,15 @@ for (const provEn of MISSING_PROVINCES) {
   if (!region || !center) { pfSkipped.push(provEn); continue; } // defensive — should never fire if the two reference maps stay in sync
   const { th: provTh } = provThZip(provEn);
   const nCamps = ri(2, 3);
+  const isCoastal = COASTAL_PROVINCES.has(provEn);
+  // BR-2/AC-2: a coastal province's FIRST camp is deterministically 'beach' — guarantees
+  // real-sea-province beach coverage regardless of PRNG luck; later camps in the same
+  // province draw from the region pool + 'beach' (coastal provinces get extra beach variety,
+  // landlocked provinces never see 'beach' at all).
+  const pool = isCoastal ? [...REGION_THEME_POOL[region], 'beach'] : REGION_THEME_POOL[region];
   for (let k = 0; k < nCamps; k++) {
     globalIdx++; pfCamps++;
-    const themeKey = pick(REGION_THEME_POOL[region]);
+    const themeKey = (isCoastal && k === 0) ? 'beach' : pick(pool);
     const hostKey = REGION_HOST_KEY[region];
     const areaTh = pick(AREA_LABELS[themeKey]);
     const nameTh = `${areaTh}${provTh}`;
@@ -424,6 +499,41 @@ for (const provEn of MISSING_PROVINCES) {
   }
 }
 if (pfSkipped.length) console.warn(`⚠️  province-fill skipped (no region/center mapping): ${pfSkipped.join(', ')}`);
+
+// ---- BR-3 closing pass: GUARANTEE every MasterData filter-option code has ≥1 camp ---------
+// Deterministic (no rnd() — fixed array-index selection), so re-runs are always identical
+// (EC-3) regardless of how the probabilistic theme pools above land. This is the actual
+// AC-3 guarantee; the pool tweaks above (WATE/CART/MIMT/LSTV/OFFR added into theme facExtra/
+// equip/activities) just give them a *natural*, non-forced presence too.
+const MASTERDATA_GROUPS = [
+  { field: 'facilities', codes: ['SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK', 'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW'] },
+  { field: 'equipment', codes: ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV', 'LSTV', 'CHAI', 'FYST', 'ICBK'] },
+  { field: 'externalFacilities', codes: ['SVEL', 'LOTS', 'MAKT', 'MIBC'] },
+  { field: 'accessTypes', codes: ['BAOT', 'DRIV', 'HIKE', 'WALK'] },
+  { field: 'activities', codes: ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] },
+  { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS'] },
+];
+const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
+// Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts
+// stay byte-identical to their PRNG-drawn taxonomy (per the file-header invariant above);
+// there are 170+ province-fill camps, plenty of room to close a code without ever touching one.
+const pfPool = allCamps.filter((c) => !c.curated);
+let closedDeadCodes = 0;
+for (const { field, codes } of MASTERDATA_GROUPS) {
+  for (const code of codes) {
+    const has = allCamps.some((c) => (c[field] || '').split(',').includes(code));
+    if (has) continue;
+    closedDeadCodes++;
+    // Deterministic target: spread across up to 5 camps (idx spaced by pfPool.length/5)
+    // so the closed code gets a modest, non-single-camp presence, not just one occurrence.
+    const nTargets = Math.min(5, pfPool.length);
+    for (let t = 0; t < nTargets; t++) {
+      const camp = pfPool[Math.floor((t * pfPool.length) / nTargets)];
+      const cur = camp[field] ? camp[field].split(',').filter(Boolean) : [];
+      if (!cur.includes(code)) { cur.push(code); camp[field] = cur.join(','); }
+    }
+  }
+}
 
 // ---- emit JSON ----------------------------------------------------------------
 const hosts = Object.values(hostObj);
@@ -490,3 +600,6 @@ console.log('camps by theme (curated only):', byTheme);
 console.log(`gallery per camp = random 1..7 →`, galleryHist, `(total gallery=${nGallery})`);
 console.log(`images total = ${nGallery} gallery + ${totalCampsites} logos + ${hosts.length} avatars = ${nGallery + totalCampsites + hosts.length}  (manifest entries=${nImgs})  | spots=${nSpots}  free=${nFree}  nationalPark=${nNP}`);
 console.log(`STAGE 0 — distinct provinces = ${provincesSeen.size}/77  | camps by region:`, byRegion);
+const beachCamps = allCamps.filter((c) => (c.terrain || '').includes('BEAC')).length;
+const premiumCamps = allCamps.filter((c) => c.isPremium).length;
+console.log(`CAM-492 — beach terrain camps=${beachCamps}  premium-tier camps=${premiumCamps}  MasterData codes force-closed=${closedDeadCodes}`);

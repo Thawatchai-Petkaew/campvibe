@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR-013 — โครงสร้างระบบแชท AI (ฉบับคุยกัน)</title>
+<style>
+  :root {
+    --bg: #F7FAF9; --surface: #FFFFFF; --card-alt: #F0F7F4;
+    --ink: #16241F; --ink-soft: #4C6156; --line: #D8E5DF; --line-strong: #B9CFC6;
+    --primary: #0E9C79; --primary-dim: #E2F3EC; --primary-ink: #0A6D55;
+    --warn: #C77D2E; --warn-dim: #FBEFE0;
+    --new: #2E6FC7; --new-dim: #E4EEFB;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --r-card: 22px; --r-inner: 14px; --r-ctrl: 999px;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Noto Sans Thai", "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.65; color: var(--ink);
+    max-width: 920px; margin: 0 auto; padding: 40px 20px 96px;
+  }
+  h1, h2, h3 { line-height: 1.3; margin: 0; }
+  h1 { font-size: 1.7rem; font-weight: 800; }
+  h2 { font-size: 1.18rem; font-weight: 750; }
+  h3 { font-size: 1rem; font-weight: 700; }
+  p { margin: 0; }
+  .eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--primary-ink); margin-bottom: 6px; }
+  header.top { display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); padding: 3px 12px; font-size: .78rem; font-weight: 600; color: var(--ink-soft); background: var(--surface); }
+  .chip.hot { background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
+  .chip.ok { background: var(--primary-dim); border-color: var(--primary); color: var(--primary-ink); }
+  .chip.new { background: var(--new-dim); border-color: var(--new); color: var(--new); }
+  .lede { color: var(--ink-soft); max-width: 62ch; }
+  section { margin-top: 44px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px 22px; }
+  .card.alt { background: var(--card-alt); }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+  tr:last-child td { border-bottom: none; }
+  .tablewrap { overflow-x: auto; }
+  code { font-family: var(--mono); font-size: .84em; background: var(--card-alt); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  ul.clean { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* ---- layer diagram (pure CSS, house style) ---- */
+  .flow { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
+  .lane { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: stretch; padding: 12px 0; }
+  .lane + .lane { border-top: 1px dashed var(--line); }
+  .lane-label { font-size: .76rem; font-weight: 750; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; padding-top: 10px; }
+  .boxes { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+  .box { border: 1.5px solid var(--line-strong); background: var(--surface); border-radius: var(--r-inner); padding: 10px 14px; font-size: .86rem; min-width: 150px; flex: 1; }
+  .box b { display: block; font-size: .9rem; }
+  .box small { color: var(--ink-soft); }
+  .box.new { border-color: var(--new); background: var(--new-dim); }
+  .box.mem { border-color: var(--primary); background: var(--primary-dim); }
+  .down { text-align: center; color: var(--ink-soft); font-size: 1.1rem; line-height: 1; padding: 2px 0 2px 164px; }
+
+  /* ---- sequence steps ---- */
+  .seq { counter-reset: step; display: flex; flex-direction: column; gap: 8px; }
+  .step { display: grid; grid-template-columns: 34px 150px 1fr; gap: 12px; align-items: start; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--r-inner); background: var(--surface); font-size: .88rem; }
+  .step::before { counter-increment: step; content: counter(step); width: 26px; height: 26px; border-radius: var(--r-ctrl); background: var(--primary-dim); color: var(--primary-ink); font-weight: 800; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+  .step .actor { font-weight: 700; font-size: .8rem; color: var(--ink-soft); padding-top: 2px; }
+  .step.hl { border-color: var(--primary); }
+
+  /* ---- ER ---- */
+  .er { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+  .ent { flex: 1; min-width: 250px; border: 1.5px solid var(--line-strong); border-radius: var(--r-inner); background: var(--surface); overflow: hidden; }
+  .ent header { background: var(--card-alt); padding: 8px 14px; font-weight: 750; font-size: .9rem; border-bottom: 1px solid var(--line); }
+  .ent ul { list-style: none; margin: 0; padding: 8px 14px; display: flex; flex-direction: column; gap: 4px; font-size: .84rem; font-family: var(--mono); }
+  .ent li small { font-family: ui-sans-serif, system-ui, "Noto Sans Thai", sans-serif; color: var(--ink-soft); }
+  .rel { align-self: center; text-align: center; color: var(--ink-soft); font-size: .78rem; min-width: 110px; }
+
+  /* ---- decisions ---- */
+  .decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+  .decision { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .decision .num { width: 30px; height: 30px; border-radius: var(--r-ctrl); background: var(--warn-dim); color: var(--warn); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .decision .head { display: flex; align-items: center; gap: 10px; }
+  .kv { display: grid; grid-template-columns: 86px 1fr; gap: 4px 10px; font-size: .87rem; margin: 0; }
+  .kv dt { color: var(--ink-soft); font-weight: 650; }
+  .kv dd { margin: 0; }
+
+  /* ---- story map ---- */
+  .storymap { display: flex; flex-direction: column; gap: 8px; }
+  .story { display: grid; grid-template-columns: 84px 1fr auto; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--r-inner); background: var(--surface); font-size: .88rem; }
+  .story .id { font-family: var(--mono); font-size: .8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .st { font-size: .72rem; font-weight: 750; border-radius: var(--r-ctrl); padding: 2px 10px; white-space: nowrap; }
+  .st.doing { background: var(--warn-dim); color: var(--warn); }
+  .st.queue { background: var(--card-alt); color: var(--ink-soft); border: 1px solid var(--line); }
+  footer { margin-top: 56px; font-size: .8rem; color: var(--ink-soft); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="eyebrow">CampVibe · ADR-013 · เอกสารประกอบการคุย ก่อนตัดสินใจ</div>
+    <h1>โครงสร้างระบบแชท AI — จำได้ · รู้จักผู้ใช้ · ทำงานได้จริง</h1>
+  </div>
+  <p class="lede">สรุปสถาปัตยกรรมที่เสนอสำหรับยกระดับน้องกองไฟตามความต้องการ 3 ข้อ: มีประวัติการคุยถาวร, personalized ตามผู้ใช้ที่ล็อกอิน, และคิดงานหลายขั้นได้ในคำถามเดียว — ทุกการตัดสินใจในหน้านี้ยังแก้ได้ (ยังไม่มีอะไร merge)</p>
+  <div class="chips">
+    <span class="chip hot">สถานะ: PROPOSED — รอคุยกับเจ้าของ</span>
+    <span class="chip">ต่อยอด ADR-009 ไม่รื้อของเดิม</span>
+    <span class="chip new">กล่องสีน้ำเงิน = ของใหม่</span>
+    <span class="chip ok">กล่องสีเขียว = หน่วยความจำใหม่</span>
+  </div>
+</header>
+
+<section>
+  <div>
+    <div class="eyebrow">ภาพที่ 1</div>
+    <h2>ภาพรวมชั้นของระบบ — เพิ่ม 3 ชิ้นใหม่บนของเดิม</h2>
+  </div>
+  <div class="card">
+    <div class="flow">
+      <div class="lane">
+        <div class="lane-label">หน้าบ้าน<br>(มีแล้ว)</div>
+        <div class="boxes">
+          <div class="box"><b>แชท UI</b><small>carousel การ์ด · ชิปคำถามต่อ · น้องกองไฟ — ship บน staging แล้ว</small></div>
+        </div>
+      </div>
+      <div class="down">↓</div>
+      <div class="lane">
+        <div class="lane-label">ประตูเข้า<br>POST /api/ai/chat</div>
+        <div class="boxes">
+          <div class="box"><b>ด่านเดิม</b><small>rate limit → ตรวจ payload (zod) → กติกาความปลอดภัยครบ</small></div>
+          <div class="box new"><b>ใหม่: อ่าน session (ถ้ามี)</b><small>guest ใช้ได้เหมือนเดิมทุกอย่าง · ผู้ล็อกอินปลดล็อกชั้นข้อมูลตัวเอง</small></div>
+        </div>
+      </div>
+      <div class="down">↓</div>
+      <div class="lane">
+        <div class="lane-label">สมอง</div>
+        <div class="boxes">
+          <div class="box new"><b>ใหม่: agent loop สูงสุด 4 รอบ</b><small>คิด → เรียกเครื่องมือ → ดูผล → คิดต่อ จนตอบได้ (เดิมคิดได้รอบเดียว) · มีเพดาน token/เครื่องมือ/เวลา ทุกชั้น</small></div>
+        </div>
+      </div>
+      <div class="down">↓</div>
+      <div class="lane">
+        <div class="lane-label">เครื่องมือ</div>
+        <div class="boxes">
+          <div class="box"><b>ชั้น guest (มีแล้ว)</b><small>ค้นแคมป์ · เช็ควันว่างสด</small></div>
+          <div class="box new"><b>ใหม่: ชั้น login</b><small>การจองของฉัน · โปรไฟล์ (เบอร์ mask) · wishlist — userId ผูกจาก session ฝั่ง server เท่านั้น</small></div>
+        </div>
+      </div>
+      <div class="down">↓</div>
+      <div class="lane">
+        <div class="lane-label">ข้อมูล</div>
+        <div class="boxes">
+          <div class="box"><b>ตารางเดิมทั้งหมด</b><small>CampSite · Booking · Review · … (ไม่แตะโครง — AI ไม่ query ตรง ผ่านเครื่องมือเสมอ)</small></div>
+          <div class="box mem"><b>ใหม่: ประวัติการคุย</b><small>ChatConversation + ChatMessage — โหลด 10 ข้อความล่าสุดตอนเริ่ม / บันทึกเมื่อจบ turn สำเร็จ</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card alt">
+    <p><strong>หลักที่ไม่เปลี่ยน (ADR-009 ยังยืนทุกข้อ):</strong> AI ไม่แตะฐานข้อมูลตรง — ผ่านเครื่องมือที่ตรวจ schema ก่อนเสมอ · วันว่าง/ความจุ query สดเสมอ ห้าม cache · เครื่องมือทั้งหมด<u>อ่านอย่างเดียว</u> (การกระทำอย่างยกเลิกการจอง = เฟสถัดไป และต้องมีปุ่มยืนยันจริงเสมอ)</p>
+  </div>
+</section>
+
+<section>
+  <div>
+    <div class="eyebrow">ภาพที่ 2</div>
+    <h2>หนึ่งคำถามเกิดอะไรขึ้นบ้าง — ตัวอย่างผู้ใช้ที่ล็อกอิน</h2>
+  </div>
+  <div class="card">
+    <p style="margin-bottom:12px"><em>"ทริปหน้าของผมคือเมื่อไหร่นะ แล้วแถวนั้นมีลานติดน้ำเพิ่มอีกไหม"</em></p>
+    <div class="seq">
+      <div class="step"><span class="actor">ประตูเข้า</span><span>rate limit → ตรวจ payload → อ่าน session (รู้ว่าเป็นใคร)</span></div>
+      <div class="step"><span class="actor">หน่วยความจำ</span><span>โหลด 10 ข้อความล่าสุดของบทสนทนานี้จาก DB (client ไม่ต้องส่งประวัติมาเองอีกแล้ว)</span></div>
+      <div class="step hl"><span class="actor">สมอง รอบ 1</span><span>เห็นคำว่า "ทริปหน้าของผม" → เรียก <code>getMyBookings</code> (userId มาจาก session ไม่ใช่จากโมเดล) → ได้: ดอยม่อนแคมป์ 25–27 ก.ค.</span></div>
+      <div class="step hl"><span class="actor">สมอง รอบ 2</span><span>รู้จังหวัดแล้ว → เรียก <code>searchCampsites</code> (terrain = แม่น้ำลำธาร, จังหวัดเดียวกัน) → ได้การ์ด 6 ใบ</span></div>
+      <div class="step hl"><span class="actor">สมอง รอบ 3</span><span>ข้อมูลครบ → เขียนคำตอบภาษาไทย + เลือกชิปคำถามต่อ (ไม่เรียกเครื่องมือแล้ว = จบ loop)</span></div>
+      <div class="step"><span class="actor">หน่วยความจำ</span><span>บันทึกคำถาม+คำตอบ+การ์ดที่แสดง ใน transaction เดียว — turn ล้มเหลว = ไม่เขียนอะไรเลย</span></div>
+      <div class="step"><span class="actor">ผู้ใช้</span><span>เห็นคำตอบ + การ์ด — <strong>ปิดแอปแล้วกลับมาพรุ่งนี้ เปิดแชทเจอบทสนทนานี้ต่อได้เลย</strong></span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <div class="eyebrow">ภาพที่ 3</div>
+    <h2>โมเดลข้อมูลประวัติการคุย — เพิ่ม 2 ตาราง ไม่แตะของเดิม</h2>
+  </div>
+  <div class="card">
+    <div class="er">
+      <div class="ent">
+        <header>User (เดิม)</header>
+        <ul><li>id <small>— ลบ user = ลบแชทตามอัตโนมัติ</small></li></ul>
+      </div>
+      <div class="rel">1 ── หลาย<br>▶</div>
+      <div class="ent">
+        <header>ChatConversation (ใหม่)</header>
+        <ul>
+          <li>id</li>
+          <li>userId <small>— เฉพาะผู้ล็อกอิน</small></li>
+          <li>updatedAt <small>— ใช้เรียง + ใช้ลบตามอายุ</small></li>
+        </ul>
+      </div>
+      <div class="rel">1 ── หลาย<br>▶</div>
+      <div class="ent">
+        <header>ChatMessage (ใหม่)</header>
+        <ul>
+          <li>role <small>— USER / ASSISTANT</small></li>
+          <li>seq <small>— ลำดับในบทสนทนา</small></li>
+          <li>contentText <small>— ข้อความ (ผ่าน sanitize แล้ว)</small></li>
+          <li>blocks <small>— การ์ด/ชิปที่เห็นจริง เปิดกลับมา render ได้เลย</small></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>สิ่งที่จงใจ "ไม่เก็บ"</h3>
+    <ul class="clean">
+      <li>ร่องรอยการเรียกเครื่องมือ — ผลการจอง/โปรไฟล์ไม่ถูกก๊อปไปนอนอยู่นอกที่ของมัน</li>
+      <li>error ดิบจากโมเดล, system prompt — turn ที่ล้มเหลวไม่เขียนอะไรลง DB แม้แต่แถวเดียว</li>
+      <li>ข้อมูลของผู้ใช้คนอื่น — เป็นไปไม่ได้เชิงโครงสร้าง เพราะเครื่องมือส่วนตัวรับ userId จาก session เท่านั้น</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div>
+    <div class="eyebrow">ตาราง</div>
+    <h2>เครื่องมือ 3 ชั้น — หัวใจความปลอดภัยของ "agency"</h2>
+  </div>
+  <div class="card tablewrap">
+    <table>
+      <tr><th>ชั้น</th><th>ใครใช้ได้</th><th>เครื่องมือ</th><th>เกราะ</th></tr>
+      <tr>
+        <td><strong>guest</strong></td><td>ทุกคน</td>
+        <td>ค้นแคมป์ · เช็ควันว่าง</td>
+        <td>อ่านเฉพาะแคมป์ที่เผยแพร่ · จำกัด 10 ใบ · ตรวจ schema ก่อนรันเสมอ</td>
+      </tr>
+      <tr>
+        <td><strong>authed</strong></td><td>ผู้ล็อกอิน</td>
+        <td>การจองของฉัน · รายละเอียดการจอง · โปรไฟล์ (เบอร์ mask <code>081-•••-••XX</code>) · wishlist</td>
+        <td>userId ผูกจาก session ฝั่ง server — <u>ไม่มีช่อง userId ใน schema ที่โมเดลเห็นเลย</u> (มี test ยืนยันถาวร) → โมเดลขอข้อมูลคนอื่นไม่ได้แม้ถูกหลอกด้วย prompt injection</td>
+      </tr>
+      <tr>
+        <td><strong>write</strong> <span class="chip hot" style="font-size:.68rem">อนาคต</span></td><td>ผู้ล็อกอิน + กดยืนยัน</td>
+        <td>เช่น ยกเลิกการจอง (เฟสหลัง)</td>
+        <td>AI ได้แค่ "เสนอ" เป็นการ์ดยืนยัน — การกระทำจริงเกิดเมื่อมนุษย์กดปุ่มผ่านเส้นทางปกติที่ตรวจสิทธิ์เต็ม (แนว OWASP: AI เสนอ มนุษย์อนุมัติ)</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div>
+    <div class="eyebrow">จุดที่อยากให้ช่วยตัดสิน</div>
+    <h2>5 การตัดสินใจที่เปิดคุย — มี default ให้แล้ว เปลี่ยนได้ทุกข้อ</h2>
+  </div>
+  <div class="decisions">
+    <div class="decision">
+      <div class="head"><span class="num">1</span><h3>guest ไม่เก็บประวัติ</h3></div>
+      <dl class="kv">
+        <dt>เสนอ</dt><dd>เก็บเฉพาะผู้ล็อกอิน — guest เหมือนวันนี้ (ปิดแล้วหาย)</dd>
+        <dt>เพราะ</dt><dd>PDPA เก็บน้อยที่สุด + กัน spam เขียน DB จาก endpoint สาธารณะ + guest ไม่มีอะไรให้ personalize</dd>
+        <dt>ทางเลือก</dt><dd>เก็บ guest ด้วย cookie นิรนาม แล้ว merge ตอน login — ทำทีหลังได้ (เผื่อ seam ไว้แล้ว)</dd>
+      </dl>
+    </div>
+    <div class="decision">
+      <div class="head"><span class="num">2</span><h3>ลบจริง + เก็บ 180 วัน</h3></div>
+      <dl class="kv">
+        <dt>เสนอ</dt><dd>บทสนทนาที่เงียบเกิน 180 วันถูกลบถาวรอัตโนมัติ · ผู้ใช้กดลบเองได้ทุกเมื่อ</dd>
+        <dt>เพราะ</dt><dd>แชทเป็นข้อมูลส่วนบุคคล — การลบจริงคือท่าที่ปลอดภัยสุดตาม PDPA (จงใจต่างจากธรรมเนียม soft-delete ของระบบ)</dd>
+        <dt>ทางเลือก</dt><dd>ขยาย/ลดอายุ หรือเก็บถาวรจนกว่าผู้ใช้ลบเอง</dd>
+      </dl>
+    </div>
+    <div class="decision">
+      <div class="head"><span class="num">3</span><h3>เพดานเก็บ 200 / 20</h3></div>
+      <dl class="kv">
+        <dt>เสนอ</dt><dd>200 ข้อความต่อบทสนทนา · 20 บทสนทนาต่อคน (เกิน = ลบอันเก่าสุดอัตโนมัติ)</dd>
+        <dt>เพราะ</dt><dd>คุมขนาด DB บน free tier + เกินพอสำหรับการใช้จริง</dd>
+        <dt>ทางเลือก</dt><dd>ปรับตัวเลขได้อิสระ (เป็นค่าคงที่ ไม่ใช่โครงสร้าง)</dd>
+      </dl>
+    </div>
+    <div class="decision">
+      <div class="head"><span class="num">4</span><h3>ค่าใช้จ่ายต่อคำถาม ~2 เท่า</h3></div>
+      <dl class="kv">
+        <dt>เสนอ</dt><dd>loop 4 รอบ = แย่สุด ~2 เท่าของวันนี้ต่อคำถามซับซ้อน (ยังหลักสตางค์–สิบสตางค์ต่อคำถาม)</dd>
+        <dt>เพราะ</dt><dd>นี่คือราคาของ "ความฉลาด" ที่ขอ — มีเพดาน token/เครื่องมือ/เวลาครบทุกชั้น</dd>
+        <dt>ทางเลือก</dt><dd>ลด cap เหลือ 3 หรือคุมด้วยเพดานเครดิตที่ตัว key OpenRouter (แนะนำตั้งคู่กันอยู่แล้ว)</dd>
+      </dl>
+    </div>
+    <div class="decision">
+      <div class="head"><span class="num">5</span><h3>ภาษาการ์ดแบบ "blocks"</h3></div>
+      <dl class="kv">
+        <dt>เสนอ</dt><dd>เพิ่มช่อง <code>blocks[]</code> ระบุ type — client เจอ type ที่ไม่รู้จัก = ข้าม ไม่พัง</dd>
+        <dt>เพราะ</dt><dd>ฟองล้ำทุกแบบใน journeys (ตารางเทียบ · แผนทริป · ปุ่ม CTA) เพิ่มได้เรื่อย ๆ โดยไม่รื้ออะไรเลย</dd>
+        <dt>ทางเลือก</dt><dd>รื้อ contract ใหม่ทั้งชุดตอนนี้ — ไม่แนะนำ (UI 3 ชิ้นที่เพิ่ง ship ใช้ contract เดิมอยู่)</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <div class="eyebrow">แผนสร้าง</div>
+    <h2>11 ชิ้นงาน — เรียงตามการพึ่งพา (3 ชิ้นแรกกำลังร่าง ยังไม่ merge)</h2>
+  </div>
+  <div class="storymap">
+    <div class="story"><span class="id">CAM-413</span><span>ADR-013 ฉบับทางการ — จุด tap ของเจ้าของ (spend + retention)</span><span class="st doing">ร่างเสร็จ รอคุย</span></div>
+    <div class="story"><span class="id">CAM-414</span><span>ตารางประวัติ + store service (เขียนแบบ atomic, มีเพดาน)</span><span class="st doing">กำลังร่าง</span></div>
+    <div class="story"><span class="id">CAM-415</span><span>โครงข้อความหลาย role + เกราะ injection รายข้อความ</span><span class="st doing">กำลังร่าง</span></div>
+    <div class="story"><span class="id">CAM-416</span><span>สมอง loop สูงสุด 4 รอบ</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-417</span><span>เครื่องมือแบ่งชั้น guest / login</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-418</span><span>เครื่องมือ: การจองของฉัน + รายละเอียด</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-419</span><span>เครื่องมือ: โปรไฟล์ (mask เบอร์) + wishlist</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-420</span><span>route v2: จำบทสนทนา + blocks envelope</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-421</span><span>รายการบทสนทนา: เปิดดู / ลบ</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-422</span><span>cron ลบตามอายุ + ข้อความ privacy</span><span class="st queue">คิว</span></div>
+    <div class="story"><span class="id">CAM-423</span><span>UI: login แล้วเปิดแชทเจอบทสนทนาเดิม + ปุ่มเริ่มใหม่</span><span class="st queue">คิว</span></div>
+  </div>
+  <div class="card alt">
+    <p><strong>หลังรากฐานเสร็จ ต่อยอดได้ทันทีแบบไม่รื้อ:</strong> streaming พิมพ์ทีละคำ (spec เสร็จแล้ว รอเสียบ) · ฟองตารางเทียบ/แผนทริป/CTA ตาม journeys · การกระทำแบบมีปุ่มยืนยัน (ยกเลิกการจอง — ต้องอุดช่องโหว่ cancel ฝั่ง server ก่อน) · Track D เตรียมความพร้อมข้อมูล (scorecard ตาม gap ที่ไฟล์ journeys ระบุ)</p>
+  </div>
+</section>
+
+<footer>
+  CampVibe · ADR-013 (PROPOSED) · อัปเดต 2026-07-19 · อ้างอิง: ADR-009 · docs/design/ai-search-architecture.html · docs/design/ai-assistant-journeys.html · OWASP LLM Excessive Agency · ฉบับเต็ม: docs/adr/ADR-013-ai-chat-persistence-agency-foundation.md (PR #480)
+</footer>
+</body>
+</html>

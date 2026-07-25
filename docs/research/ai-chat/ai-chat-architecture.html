@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>CampVibe AI Chat — Architecture Baseline</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ground:#F4F5F3; --surface:#FFFFFF; --surface-2:#FAFAF7; --panel:#F0F1EE;
+    --ink:#1C221F; --ink-soft:#525C57; --ink-faint:#87908A; --hairline:#E4E5DF;
+    --ember:#C2410C;
+    --prin:#5B4BC4; --prin-bg:#ECE9FA;      /* หลักการ / principle */
+    --tool:#0E7C7B; --tool-bg:#DDF1F0;      /* tech / tool */
+    --read:#1D5F9E; --read-bg:#E4EDF7;
+    --write:#9A6212; --write-bg:#F6ECD6;
+    --none:#6B7280; --none-bg:#EAECEE;
+    --warn:#A5281B; --warn-bg:#F7E1DD;
+    --code:#264;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --maxw:1180px;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#121517; --surface:#1A1E21; --surface-2:#1E2327; --panel:#20262B;
+    --ink:#E9E9E3; --ink-soft:#9BA49E; --ink-faint:#69726C; --hairline:#2C3238;
+    --ember:#F97316;
+    --prin:#A99BF3; --prin-bg:#26224A; --tool:#5FCFCC; --tool-bg:#123433;
+    --read:#8FBBEC; --read-bg:#172a40; --write:#E7B44E; --write-bg:#3a2f16;
+    --none:#9AA3AD; --none-bg:#262b30; --warn:#F4948A; --warn-bg:#3a211e;
+  }}
+  :root[data-theme="light"]{--ground:#F4F5F3;--surface:#FFFFFF;--surface-2:#FAFAF7;--panel:#F0F1EE;--ink:#1C221F;--ink-soft:#525C57;--ink-faint:#87908A;--hairline:#E4E5DF;--ember:#C2410C;--prin:#5B4BC4;--prin-bg:#ECE9FA;--tool:#0E7C7B;--tool-bg:#DDF1F0;--read:#1D5F9E;--read-bg:#E4EDF7;--write:#9A6212;--write-bg:#F6ECD6;--none:#6B7280;--none-bg:#EAECEE;--warn:#A5281B;--warn-bg:#F7E1DD;}
+  :root[data-theme="dark"]{--ground:#121517;--surface:#1A1E21;--surface-2:#1E2327;--panel:#20262B;--ink:#E9E9E3;--ink-soft:#9BA49E;--ink-faint:#69726C;--hairline:#2C3238;--ember:#F97316;--prin:#A99BF3;--prin-bg:#26224A;--tool:#5FCFCC;--tool-bg:#123433;--read:#8FBBEC;--read-bg:#172a40;--write:#E7B44E;--write-bg:#3a2f16;--none:#9AA3AD;--none-bg:#262b30;--warn:#F4948A;--warn-bg:#3a211e;}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  code,.m{font-family:var(--mono);font-variant-ligatures:none}
+  .layout{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns:220px 1fr;gap:32px;padding:clamp(18px,3vw,40px) clamp(14px,3vw,32px) 80px}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;gap:8px}}
+
+  /* nav */
+  nav{position:sticky;top:20px;align-self:start;font-size:13px;max-height:calc(100vh - 40px);overflow:auto}
+  @media (max-width:860px){nav{position:static;max-height:none;border:1px solid var(--hairline);border-radius:12px;padding:12px 14px;background:var(--surface);margin-bottom:12px}}
+  nav .brand{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+  nav .flame{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:17px;background:radial-gradient(120% 120% at 50% 20%,color-mix(in srgb,var(--ember) 28%,transparent),transparent),var(--surface);border:1px solid var(--hairline)}
+  nav a{display:block;color:var(--ink-soft);text-decoration:none;padding:4px 8px;border-radius:6px;border-left:2px solid transparent}
+  nav a:hover{color:var(--ink);background:var(--surface-2)}
+  nav a .n{font-family:var(--mono);color:var(--ink-faint);font-size:11px;margin-right:6px}
+
+  header.top{margin-bottom:6px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ember);font-weight:700}
+  h1{font-family:var(--serif);font-weight:600;font-size:clamp(26px,4.4vw,40px);line-height:1.05;margin:.28em 0 .12em;letter-spacing:-.01em;text-wrap:balance}
+  .sub{color:var(--ink-soft);font-size:15px;max-width:70ch}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:12.5px;color:var(--ink-faint);font-family:var(--mono)}
+  .meta b{color:var(--ink-soft);font-weight:600}
+
+  section{margin-top:38px;scroll-margin-top:20px}
+  h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0 0 4px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-family:var(--mono);font-size:14px;color:var(--ember);font-weight:700}
+  h3{font-size:14.5px;margin:22px 0 8px;color:var(--ink);font-weight:700}
+  p{margin:.5em 0}
+  .lead{color:var(--ink-soft)}
+
+  /* principle + tool chip rows */
+  .tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 4px}
+  .tags .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-right:2px}
+  .chip{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+  .chip.prin{color:var(--prin);background:var(--prin-bg);border-color:color-mix(in srgb,var(--prin) 22%,transparent)}
+  .chip.tool{color:var(--tool);background:var(--tool-bg);border-color:color-mix(in srgb,var(--tool) 22%,transparent);font-family:var(--mono)}
+
+  .card{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:18px 20px;margin-top:14px}
+  .callout{border-left:3px solid var(--ember);background:var(--surface-2);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0;font-size:14px;color:var(--ink-soft)}
+  .callout b{color:var(--ink)}
+
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:12px 0;border:1px solid var(--hairline);border-radius:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--hairline);vertical-align:top}
+  thead th{background:var(--panel);color:var(--ink-soft);font-size:11px;letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0;font-weight:700}
+  tbody tr:last-child td{border-bottom:0}
+  td .m,td code{font-size:12px;color:var(--ink)}
+  .num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  .pill{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.03em}
+  .pill.read{color:var(--read);background:var(--read-bg)} .pill.write{color:var(--write);background:var(--write-bg)}
+  .pill.none{color:var(--none);background:var(--none-bg)} .pill.guest{color:var(--tool);background:var(--tool-bg)}
+  .pill.authed{color:var(--ember);background:color-mix(in srgb,var(--ember) 14%,transparent)}
+
+  pre.mermaid{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:16px;overflow-x:auto;text-align:center;line-height:1.2}
+
+  ol.flow{counter-reset:s;list-style:none;padding:0;margin:12px 0}
+  ol.flow li{position:relative;padding:8px 0 8px 40px;border-bottom:1px dashed var(--hairline);font-size:14px;color:var(--ink-soft)}
+  ol.flow li:last-child{border-bottom:0}
+  ol.flow li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:7px;background:var(--panel);color:var(--ember);font-family:var(--mono);font-weight:700;font-size:12px;display:grid;place-items:center;border:1px solid var(--hairline)}
+  ol.flow li b{color:var(--ink)}
+
+  .prompt-block{display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--hairline);font-size:13.5px;align-items:baseline}
+  .prompt-block:last-child{border-bottom:0}
+  .prompt-block .tag{font-family:var(--mono);font-size:11px;color:var(--ember);flex:none;width:96px}
+  .prompt-block .d{color:var(--ink-soft)}
+  .prompt-block .d b{color:var(--ink)}
+
+  .lim{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;padding:11px 0;border-bottom:1px solid var(--hairline)}
+  .lim:last-child{border-bottom:0}
+  .lim .sev{grid-row:span 2;align-self:start;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em;font-family:var(--mono)}
+  .sev.crit{color:var(--warn);background:var(--warn-bg)} .sev.high{color:var(--write);background:var(--write-bg)} .sev.med{color:var(--none);background:var(--none-bg)}
+  .lim .t{font-weight:600;color:var(--ink)} .lim .f{font-size:13px;color:var(--ink-soft)}
+  .lim .fix{font-size:12.5px;color:var(--tool);margin-top:2px}
+
+  footer{grid-column:1/-1;margin-top:44px;padding-top:20px;border-top:1px solid var(--hairline);color:var(--ink-faint);font-size:12px;line-height:1.7}
+  a.src{color:var(--ember);text-decoration:none;border-bottom:1px dotted color-mix(in srgb,var(--ember) 50%,transparent)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav aria-label="Table of contents">
+    <div class="brand"><div class="flame" aria-hidden="true">🔥</div><div><div style="font-weight:700;font-size:14px">น้องกองไฟ</div><div style="color:var(--ink-faint);font-size:11px">AI Chat Architecture</div></div></div>
+    <a href="#overview"><span class="n">01</span>ภาพรวม + Stack</a>
+    <a href="#flow"><span class="n">02</span>Request flow (3 paths)</a>
+    <a href="#loop"><span class="n">03</span>Bounded agent loop</a>
+    <a href="#prompt"><span class="n">04</span>System prompt</a>
+    <a href="#fence"><span class="n">05</span>Injection defense</a>
+    <a href="#tools"><span class="n">06</span>10 Tools + data</a>
+    <a href="#data"><span class="n">07</span>ทุก Table (data model)</a>
+    <a href="#derived"><span class="n">08</span>Availability + derived</a>
+    <a href="#persist"><span class="n">09</span>Persistence + memory</a>
+    <a href="#limits"><span class="n">10</span>Rate limit + caps</a>
+    <a href="#render"><span class="n">11</span>Render layer</a>
+    <a href="#security"><span class="n">12</span>Security summary</a>
+    <a href="#gaps"><span class="n">13</span>ข้อจำกัด (baseline)</a>
+    <a href="#caploop"><span class="n">14</span>Capability Loop (planned)</a>
+  </nav>
+
+  <main>
+    <header class="top">
+      <span class="eyebrow">Current-state architecture · pre-improvement baseline</span>
+      <h1>CampVibe AI Chat — สถาปัตยกรรมปัจจุบัน</h1>
+      <p class="sub">โครงทั้งหมดของผู้ช่วย "น้องกองไฟ" — flow การทำงาน, prompt, 10 tools, ทุก table ที่ใช้, การเก็บข้อมูล, ความปลอดภัย, การ render และข้อจำกัดที่เจอ ก่อนจะ improve. แต่ละส่วนติดป้าย <span class="chip prin">หลักการ</span> และ <span class="chip tool">tech</span> ให้ไปศึกษาต่อ.</p>
+      <div class="meta"><span>model <b>openai/gpt-4o-mini</b></span><span>via <b>OpenRouter</b></span><span>ADR-013 · CAM-414/416/460/477</span><span>read-only tool layer</span><span>2026-07-25</span></div>
+    </header>
+
+    <section id="overview">
+      <h2><span class="n">01</span>ภาพรวม + Stack</h2>
+      <p class="lead">น้องกองไฟ = <b>discovery→inquiry front-end</b> (M2): เข้าใจภาษาไทยธรรมชาติ → เรียก read-only tools → คืนคำตอบ + การ์ด. หลักการแกน: <b>"AI เสนอ, deterministic core เป็นเจ้าของเงิน/ความว่าง"</b> — LLM ไม่แตะการคำนวณความว่าง/ราคา ทุกอย่างมาจาก tool ที่คิดแบบ deterministic.</p>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">LLM agent + tool-calling</span><span class="chip prin">Deterministic core owns money/availability</span><span class="chip prin">Read-only capability layer</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">OpenRouter</span><span class="chip tool">gpt-4o-mini</span><span class="chip tool">Next.js App Router</span><span class="chip tool">TypeScript</span><span class="chip tool">Prisma + PostgreSQL</span><span class="chip tool">zod</span><span class="chip tool">NextAuth</span><span class="chip tool">Vercel</span></div>
+      <div class="callout">อ่านต่อจากที่ควรศึกษา: <b>Function/Tool calling</b> (OpenAI/OpenRouter), <b>ReAct pattern</b> (reason+act loop), <b>ADR-013</b> (bounded loop เขียนเองแทน LangChain).</div>
+    </section>
+
+    <section id="flow">
+      <h2><span class="n">02</span>Request flow — 1 route, 3 paths</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Route handler = controller</span><span class="chip prin">Discriminated-union / versioned request</span><span class="chip prin">Defense-in-depth (rate-limit ก่อน parse)</span><span class="chip prin">SSE streaming</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">Next.js Route Handler</span><span class="chip tool">zod safeParse</span><span class="chip tool">NextAuth auth()</span><span class="chip tool">ReadableStream / AbortController</span><span class="chip tool">Server-Sent Events</span></div>
+      <p class="lead"><code>POST /api/ai/chat</code> ตัวเดียว (<code>maxDuration=60</code>) แยก 3 เส้นด้วย <b>shape ของ body</b> (มี <code>messages</code>=legacy guest / ไม่มี=v2 authed) และ <code>Accept</code> header.</p>
+      <pre class="mermaid">
+flowchart TD
+  C([Client]) --> RL{per-IP<br/>rate limit}
+  RL -->|429| X1[rate_limited]
+  RL -->|ok| V{zod validate<br/>+ shape}
+  V -->|messages, Accept≠SSE| A[Path A<br/>guest · non-stream]
+  V -->|messages, Accept:SSE| B[Path B<br/>guest · streaming]
+  V -->|no messages| K{auth session?}
+  K -->|no| X2[401]
+  K -->|yes| RU{per-user<br/>rate limit} --> LW[loadWindow /<br/>createConversation] --> DS[deriveShownState]
+  A --> L
+  B --> L
+  DS --> L[[Bounded agent loop]]
+  L <-->|tool_calls → Prisma reads| T[dispatchTool]
+  L --> OR[[OpenRouter · gpt-4o-mini]]
+  L --> F[finalize + suggestions]
+  F -->|A / C| J[JSON: answer + cards]
+  F -->|B| S[SSE: delta / meta / done]
+  DS -.->|Path C only| P[(persist appendTurn<br/>after success)]
+      </pre>
+      <div class="scroll"><table>
+        <thead><tr><th>Path</th><th>Trigger</th><th>ctx / tools</th><th>History source</th><th>Persist</th><th>Transport</th></tr></thead>
+        <tbody>
+          <tr><td><b>A</b> guest non-stream</td><td><code>{messages}</code>, Accept≠SSE</td><td><span class="pill guest">guest</span> <code>ctx={}</code></td><td>client-resent (fenced as DATA)</td><td>—</td><td>JSON</td></tr>
+          <tr><td><b>B</b> guest streaming</td><td><code>{messages}</code>, <code>Accept:text/event-stream</code></td><td><span class="pill guest">guest</span> <code>ctx={}</code></td><td>client-resent</td><td>—</td><td>SSE delta/meta/done</td></tr>
+          <tr><td><b>C</b> authed v2</td><td><code>{conversationId?, message}</code></td><td><span class="pill guest">guest</span>+<span class="pill authed">authed</span> <code>ctx={userId}</code></td><td>server <code>loadWindow</code> (unfenced)</td><td><span class="pill write">WRITE</span> after success</td><td>JSON</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:13px;color:var(--ink-faint)">ต้นทาง: <span class="m">app/api/ai/chat/route.ts:552</span> · streaming เฉพาะ Path B (v2 ไม่ stream, ตั้งใจ ADR-015) · header ของ SSE commit หลัง event แรก (fallback เป็น JSON ถ้า event แรกคือ skipped/error).</p>
+    </section>
+
+    <section id="loop">
+      <h2><span class="n">03</span>Bounded agent loop</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Bounded/guarded agent loop</span><span class="chip prin">tool_choice forcing</span><span class="chip prin">Circuit breaker / model fallback</span><span class="chip prin">Wall-clock deadline</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">OpenRouter chat/completions</span><span class="chip tool">function-calling (tools schema)</span><span class="chip tool">AbortSignal.timeout</span></div>
+      <ol class="flow">
+        <li><b>Self-skip</b>: ไม่มี <code>OPENROUTER_API_KEY</code> → คืน <code>{ok:true, skipped:true}</code> ไม่ยิง network</li>
+        <li>วน <code>iteration = 1..4</code> — เช็ค <b>deadline</b> (>40s) ก่อนยิงรอบใหม่</li>
+        <li>รอบสุดท้าย (iter 4) = <b>forced</b> <code>tool_choice:'none'</code> → บังคับตอบเป็น prose</li>
+        <li>รอบ 1 เท่านั้น: <b>model fallback</b> ครั้งเดียว (primary→fallback) แล้ว <b>pin</b> โมเดลที่ตอบ</li>
+        <li>ไม่มี <code>tool_calls</code> / ว่าง / forced → <b>finalize</b> (ดึง suggestions ออก)</li>
+        <li>มี tool_calls → <code>executeToolCalls</code> ด้วย <code>roundLimit = min(3, 6 − executed)</code> → append ผลลง messages → วนต่อ</li>
+      </ol>
+      <div class="scroll"><table>
+        <thead><tr><th>Constant</th><th>Value</th><th>ความหมาย</th></tr></thead>
+        <tbody>
+          <tr><td class="m">MAX_AGENT_ITERATIONS</td><td class="num">4</td><td>รอบ completion สูงสุดต่อ turn</td></tr>
+          <tr><td class="m">MAX_TOOL_CALLS_PER_ROUND</td><td class="num">3</td><td>tool call ต่อรอบ</td></tr>
+          <tr><td class="m">MAX_TOOL_CALLS_PER_TURN</td><td class="num">6</td><td>tool call รวมต่อ turn</td></tr>
+          <tr><td class="m">TURN_DEADLINE_MS</td><td class="num">40 000</td><td>เพดานเวลารวมต่อ turn</td></tr>
+          <tr><td class="m">MODEL_CALL_TIMEOUT_MS</td><td class="num">15 000</td><td>timeout ต่อ 1 completion</td></tr>
+          <tr><td class="m">MAX_TOKENS</td><td class="num">680</td><td>output token ต่อ completion</td></tr>
+          <tr><td class="m">maxDuration</td><td class="num">60</td><td>เพดาน Vercel (40+15 &lt; 60)</td></tr>
+          <tr><td class="m">temperature</td><td class="num">—</td><td><b>ไม่ส่ง</b> (ใช้ default; = เหตุผลที่ผลไม่ deterministic)</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:13px;color:var(--ink-faint)"><span class="m">lib/ai/openrouter-client.ts:818</span> (non-stream) / <span class="m">:1261</span> (stream, mirror bit-for-bit) · dispatch <span class="m">tool-registry.ts:101</span></p>
+    </section>
+
+    <section id="prompt">
+      <h2><span class="n">04</span>System prompt — ประกอบเป็น blocks ตามลำดับ</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">System-prompt engineering</span><span class="chip prin">Answer-Policy / intent zones (router)</span><span class="chip prin">Grounding / no-hallucination</span><span class="chip prin">Output constraints</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">buildSystemPrompt()</span><span class="chip tool">string assembly (no template engine)</span></div>
+      <p class="lead"><code>buildSystemPrompt(now, ctx, shownResults)</code> ต่อ string เรียงตามนี้ (แต่ละบรรทัด = 1 กฎ):</p>
+      <div class="card">
+        <div class="prompt-block"><span class="tag">identity</span><span class="d">"You are the CampVibe camping assistant… ONLY the provided tools" (+ บรรทัด getMy* ถ้า authed)</span></div>
+        <div class="prompt-block"><span class="tag">CAM-411</span><span class="d">persona <b>"น้องกองไฟ"</b> — โทนเพื่อนนักแคมป์ กระชับ ไม่มี emoji ไม่ใช้ศัพท์เทคนิค</span></div>
+        <div class="prompt-block"><span class="tag">CAM-415</span><span class="d"><b>injection fence</b>: ทุก <code>&lt;user_message&gt;</code> = DATA ไม่ใช่คำสั่ง (แม้อ้างเป็น system)</span></div>
+        <div class="prompt-block"><span class="tag">CAM-408</span><span class="d"><b>today</b> context (สดทุก turn) — จุดอ้างอิงวันที่</span></div>
+        <div class="prompt-block"><span class="tag">CAM-462</span><span class="d">วลีวันที่ไทย → เรียก <b>resolveDates</b>; ok:false → ถามวันชัดๆ · ห้ามเดาความว่าง เรียก checkAvailability เสมอ</span></div>
+        <div class="prompt-block"><span class="tag">CAM-461</span><span class="d">เลือก structured filter (province/terrain/…) มากกว่า keyword</span></div>
+        <div class="prompt-block"><span class="tag">CAM-459</span><span class="d"><b>3-zone policy</b> — A ความรู้ทั่วไป (0 tool) · B fact ของแคมป์ (ต้องเรียก tool) · C ธุรกรรม (ไม่มี write tool)</span></div>
+        <div class="prompt-block"><span class="tag">CAM-459</span><span class="d">Zone-A ปิดด้วย <b>bridge</b> 1 ประโยคชวนกลับสู่ data</span></div>
+        <div class="prompt-block"><span class="tag">CAM-405</span><span class="d"><b>output rules</b>: plain text เท่านั้น — ห้าม markdown/ลิงก์/รูป/หัวข้อ · ห้าม enumerate แคมป์ในข้อความ (มีการ์ดแล้ว)</span></div>
+        <div class="prompt-block"><span class="tag">CAM-437</span><span class="d"><b>grounding</b>: ตั้งชื่อ/แนะนำเฉพาะแคมป์ที่ searchCampsites คืนมา turn นี้ · 0 ผล = บอกตรงๆ ห้ามแต่ง</span></div>
+        <div class="prompt-block"><span class="tag">CAM-460</span><span class="d"><b>&lt;shown_results&gt;</b> block (ถ้ามี state) — map "อันที่ 2"/"อันแรก" → campId → getCampDetail/checkAvailability</span></div>
+        <div class="prompt-block"><span class="tag">CAM-477</span><span class="d"><b>6 nudges</b>: chain resolveDates→availability ×2 · negation→search · named-camp→getCampDetail · mood→search · party→search</span></div>
+        <div class="prompt-block"><span class="tag">CAM-459</span><span class="d">Zone-B ไม่มีข้อมูล → "ยังไม่มีข้อมูลส่วนนี้" · ตอบ ~2-3 ประโยค</span></div>
+        <div class="prompt-block"><span class="tag">CAM-410</span><span class="d"><code>&lt;suggestions&gt;[…]&lt;/suggestions&gt;</code> — 0-3 คำถามต่อ (server ดึงออก+ล้างก่อนถึงผู้ใช้)</span></div>
+      </div>
+    </section>
+
+    <section id="fence">
+      <h2><span class="n">05</span>Injection defense &amp; provenance fencing</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Prompt-injection defense</span><span class="chip prin">Data ≠ instruction separation</span><span class="chip prin">Provenance labeling</span><span class="chip prin">Anti history-poisoning</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">sanitizeForPrompt</span><span class="chip tool">wrapAsUserData (&lt;user_message&gt;)</span><span class="chip tool">zod bounds</span></div>
+      <ul style="font-size:14px;color:var(--ink-soft);line-height:1.7">
+        <li>ทุก <b>user turn</b> → <code>wrapAsUserData(sanitizeForPrompt(text))</code> = ห่อใน <code>&lt;user_message&gt;</code> fence (data เสมอ)</li>
+        <li><b>assistant turn (guest/client mode)</b> → ห่อเป็น DATA + ป้าย "คำตอบก่อนหน้า (อ้างอิง)" — client อ้าง assistant reply ไม่ได้ trust สูงขึ้น (anti-poisoning)</li>
+        <li><b>assistant turn (server mode, Path C)</b> → เป็น real assistant message (เพราะมาจาก DB ที่เรา persist เอง = เชื่อได้)</li>
+        <li>NFKC <b>ไม่ใช้</b> (ทำ SARA-AM ไทยเพี้ยน) · fence regex ทน zero-width/digit bypass (CAM-471)</li>
+      </ul>
+      <div class="callout">ศึกษาต่อ: <b>OWASP LLM01 Prompt Injection</b> · <b>data/instruction separation</b> · <b>content provenance</b>.</div>
+    </section>
+
+    <section id="tools">
+      <h2><span class="n">06</span>10 Tools + ข้อมูลที่อ่าน</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Tool registry + capability tiering (RBAC)</span><span class="chip prin">Server-authoritative identity</span><span class="chip prin">Deterministic tools behind LLM</span><span class="chip prin">Ownership scoping (anti-IDOR)</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">zod params</span><span class="chip tool">Prisma select/where</span><span class="chip tool">registry Map</span></div>
+      <p class="lead">Identity มาจาก <code>ctx.userId</code> ที่ server ใส่จาก session <b>เท่านั้น</b> — ไม่เคยเป็น param ที่โมเดลเห็น/ปลอมได้. <code>dispatchTool</code> เช็ค: unknown → <code>unknown_tool</code> · authed แต่ไม่มี userId → <code>unauthorized_tool</code> · args ผิด zod → <code>invalid_args</code>.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Tool</th><th>Tier</th><th>ทำอะไร</th><th>Tables/fields ที่อ่าน</th></tr></thead>
+        <tbody>
+          <tr><td class="m">searchCampsites</td><td><span class="pill guest">guest</span></td><td>ค้นแคมป์ตาม filter ≤10 การ์ด</td><td><b>CampSite</b> (aiCampCardSelect) · <b>ThailandLocation</b> (ไทย→อังกฤษ) · <b>MasterData</b>(options) · <b>Image</b> · availability core ถ้าให้ dates</td></tr>
+          <tr><td class="m">checkAvailability</td><td><span class="pill guest">guest</span></td><td>ความว่างจริงของ 1 แคมป์ตามช่วงวัน</td><td><b>CampSite</b>(gate) → live capacity: <b>Booking</b>+<b>BlockedDate</b>+<b>InternalHold</b>+<b>Spot</b></td></tr>
+          <tr><td class="m">getCampDetail</td><td><span class="pill guest">guest</span></td><td>การ์ดรายละเอียด 1 แคมป์ + รีวิว + facets</td><td><b>CampSite</b>(สเกลาร์เยอะ) · <b>Location</b> · <b>MasterData</b> · <b>Review</b>(verified, +author <b>User</b>) · availability core</td></tr>
+          <tr><td class="m">resolveDates</td><td><span class="pill guest">guest</span></td><td>วลีวันที่ไทย → ISO (deterministic)</td><td><b>ThaiHoliday</b> (เฉพาะวลี "วันหยุดยาว") · ที่เหลือ pure ไม่แตะ DB</td></tr>
+          <tr><td class="m">bulkAvailability</td><td><span class="pill guest">guest</span></td><td>candidate × date-set → free/full matrix (cap 10×12)</td><td><b>CampSite</b>(aiCampCardSelect) · availability core ต่อช่วงวัน</td></tr>
+          <tr><td class="m">compareCamps</td><td><span class="pill guest">guest</span></td><td>เทียบ 2-4 แคมป์ (ค่า+หลักฐาน ไม่ตัดสิน)</td><td><b>CampSite</b>(compareCampsSelect) · <b>MasterData</b> · getEffectiveCapacity(<b>Spot</b>)</td></tr>
+          <tr><td class="m">getMyBookings</td><td><span class="pill authed">authed</span></td><td>การจองของฉัน 10 ล่าสุด</td><td><b>Booking</b> <code>where:{userId}</code> (snapshotCampName, ไม่ join แคมป์)</td></tr>
+          <tr><td class="m">getMyBookingDetail</td><td><span class="pill authed">authed</span></td><td>รายละเอียดการจอง 1 อัน (ของตัวเอง)</td><td><b>Booking</b> <code>where:{id,userId}</code> +<b>CampSite</b>/<b>Spot</b>/<b>Location</b>/<b>Image</b> (PII ถูก data-minimize ออก)</td></tr>
+          <tr><td class="m">getMyProfile</td><td><span class="pill authed">authed</span></td><td>โปรไฟล์ฉัน (phone masked)</td><td><b>User</b> <code>{name,email,phone,createdAt}</code> — phone → <code>081-•••-••XX</code></td></tr>
+          <tr><td class="m">getMyWishlist</td><td><span class="pill authed">authed</span></td><td>แคมป์ที่บันทึกไว้ ≤10</td><td><b>Wishlist</b> <code>where:{userId}</code> → <b>CampSite</b>(campCardSelect)</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="data">
+      <h2><span class="n">07</span>ทุก Table ที่ AI chat แตะ (data model)</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Read model / projection (CQRS-lite)</span><span class="chip prin">Select-only (no over-fetch)</span><span class="chip prin">Atomic data (Pixel · Set · Buffet)</span></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Table</th><th>R/W</th><th>ใครแตะ</th><th>เพื่ออะไร</th></tr></thead>
+        <tbody>
+          <tr><td><b>CampSite</b></td><td><span class="pill read">read</span></td><td>ทุก tool ค้นหา/รายละเอียด</td><td>catalog แกน — การ์ด, gate (isActive/isPublished/deletedAt), ราคา/fee, rating, geo, นโยบายยกเลิก</td></tr>
+          <tr><td><b>Spot</b></td><td><span class="pill read">read</span></td><td>detail/compare/availability</td><td>ความจุต่อ spot (maxCampers/maxTents) สำหรับแคมป์ per-spot</td></tr>
+          <tr><td><b>Location</b></td><td><span class="pill read">read</span></td><td>detail/search/wishlist/booking-detail</td><td>province/region แสดง + filter</td></tr>
+          <tr><td><b>ThailandLocation</b></td><td><span class="pill read">read</span></td><td>searchCampsites เท่านั้น</td><td>ชื่อจังหวัดไทย → provinceNameEn ที่เก็บจริง</td></tr>
+          <tr><td><b>MasterData</b></td><td><span class="pill read">read</span></td><td>detail/compare/search</td><td>taxonomy amenity (terrain/facility/activity) — facet + filter + amenity list</td></tr>
+          <tr><td><b>Image</b></td><td><span class="pill read">read</span></td><td>card select (take 5)</td><td>รูป thumbnail การ์ด (booking-detail ดึงแล้วตัดทิ้ง)</td></tr>
+          <tr><td><b>Review</b></td><td><span class="pill read">read</span></td><td>getCampDetail เท่านั้น</td><td>รีวิว verified (rating/content/author.name, ล่าสุด 10) · avgRating/reviewCount เป็นคอลัมน์ denorm บน CampSite</td></tr>
+          <tr><td><b>Booking</b></td><td><span class="pill read">read</span></td><td>getMy* + availability core</td><td>การจองของตัวเอง + คำนวณ occupancy (CONFIRMED/PENDING)</td></tr>
+          <tr><td><b>BlockedDate</b></td><td><span class="pill read">read</span></td><td>availability core</td><td>วันที่ host ปิด (spotId:null, deletedAt:null)</td></tr>
+          <tr><td><b>InternalHold</b></td><td><span class="pill read">read</span></td><td>availability core</td><td>hold ที่ยัง active (expiresAt&gt;now)</td></tr>
+          <tr><td><b>ThaiHoliday</b></td><td><span class="pill read">read</span></td><td>resolveDates (วลีวันหยุด)</td><td>แปลง "วันหยุดยาว" (isLongWeekend)</td></tr>
+          <tr><td><b>User</b></td><td><span class="pill read">read</span></td><td>getMyProfile · review author · keyword operator</td><td>โปรไฟล์ (phone mask) · ชื่อผู้รีวิว · ค้นชื่อผู้ประกอบการ</td></tr>
+          <tr><td><b>Wishlist</b></td><td><span class="pill read">read</span></td><td>getMyWishlist</td><td>แคมป์ที่บันทึก</td></tr>
+          <tr><td><b>ChatConversation</b></td><td><span class="pill write">R + W</span></td><td>persistence layer (ไม่ใช่ tool)</td><td>บทสนทนา authed — create / bump updatedAt / LRU evict</td></tr>
+          <tr><td><b>ChatMessage</b></td><td><span class="pill write">R + W</span></td><td>persistence layer (ไม่ใช่ tool)</td><td>ข้อความ (role, seq, contentText, blocks JSON)</td></tr>
+          <tr><td><b>Zone</b></td><td><span class="pill none">not used</span></td><td>—</td><td>โมเดล Zone ไม่ถูก query เลย (มีแค่คอลัมน์ deprecated Spot.zone ที่ดึงแล้วตัดทิ้ง)</td></tr>
+        </tbody>
+      </table></div>
+      <div class="callout"><b>ทั้ง tool layer เป็น read-only</b> — ไม่มี tool ไหนเขียน DB. write มีแค่ที่ persistence (ChatConversation/ChatMessage) เท่านั้น (invariant BR-1).</div>
+    </section>
+
+    <section id="derived">
+      <h2><span class="n">08</span>Availability + derived data</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Compute-on-read (ไม่ cache เป็น source-of-truth)</span><span class="chip prin">Haversine great-circle distance</span><span class="chip prin">Evidence-mandatory derived facets</span><span class="chip prin">Batched query (กัน N+1)</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">lib/campsite-availability.ts</span><span class="chip tool">lib/geo/distance.ts</span><span class="chip tool">lib/facet-scores.ts</span></div>
+      <ul style="font-size:14px;color:var(--ink-soft);line-height:1.7">
+        <li><b>ความว่าง (live)</b> = capacity − booked(<b>Booking</b>) − blocked(<b>BlockedDate</b>) − held(<b>InternalHold</b>) — คิดสดทุกครั้ง <b>ไม่มี AvailabilityCalendar table</b> (compute-on-read, สถาปัตยกรรม rule 12)</li>
+        <li><b>ระยะทาง</b> = <code>haversineDistanceKm</code> จาก lat/lon (pure, ไม่ใช้ geocoding API) — ตอนนี้มีแค่ <code>distanceFromBangkokKm</code> (origin ตายตัว)</li>
+        <li><b>Facet scores</b> (family/beginner/road_access) = pure จาก options+minimumAge, <b>ไม่มี table</b>, มี evidence บังคับ (facet ว่าง = ไม่มี ไม่แต่ง 0)</li>
+      </ul>
+    </section>
+
+    <section id="persist">
+      <h2><span class="n">09</span>Persistence + memory</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Windowed conversation memory</span><span class="chip prin">Server-derived state vs untrusted client state</span><span class="chip prin">Snapshot/crystallization (booking)</span><span class="chip prin">LRU eviction + TTL retention</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">Prisma $transaction</span><span class="chip tool">ChatConversation / ChatMessage</span><span class="chip tool">deriveShownState()</span></div>
+      <p class="lead"><b>Guest</b> = ไม่ persist, memory มาจาก client resend <code>lastResults</code> (untrusted, zod-bounded). <b>Authed</b> = persist เต็ม + server derive state (authoritative).</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Cap</th><th>Value</th><th></th><th>Cap</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td class="m">HISTORY_WINDOW_SIZE</td><td class="num">10</td><td></td><td class="m">MAX_CONVERSATIONS/user</td><td class="num">20</td></tr>
+          <tr><td class="m">MAX_PROMPT_CHARS</td><td class="num">12 000</td><td></td><td class="m">MAX_MESSAGES/conv</td><td class="num">200</td></tr>
+          <tr><td class="m">MAX_CHAT_MESSAGES</td><td class="num">10</td><td></td><td class="m">MAX_CONTENT_TEXT</td><td class="num">4 000</td></tr>
+          <tr><td class="m">MAX_CHAT_MESSAGE_LEN</td><td class="num">2 000</td><td></td><td class="m">MAX_BLOCKS_BYTES</td><td class="num">16 KiB</td></tr>
+          <tr><td class="m">SEARCH…_MAX_RESULTS</td><td class="num">10</td><td></td><td class="m">RETENTION_DAYS</td><td class="num">180</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:13px;color:var(--ink-faint)"><b>deriveShownState</b>: อ่าน blocks ของ assistant message ล่าสุด → <code>lastResults[{ordinal,campId,name,priceLow}]</code> ให้โมเดล resolve "อันที่ 2" ได้ (pure projection, ไม่มีคอลัมน์ state).</p>
+    </section>
+
+    <section id="limits">
+      <h2><span class="n">10</span>Rate limiting + spend caps</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Sliding-window rate limit</span><span class="chip prin">Layered limits (per-IP + per-user)</span><span class="chip prin">Defense-in-depth spend caps</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">in-process Map (มีข้อจำกัด)</span><span class="chip tool">zod (prompt-size cap)</span></div>
+      <ul style="font-size:14px;color:var(--ink-soft);line-height:1.7">
+        <li><b>Rate limit</b> 30 req / 15 นาที — per-IP (ทุก request) + per-user (Path C) เพิ่มอีกชั้น</li>
+        <li>⚠️ เก็บใน <b>in-process Map</b> → บน serverless เป็น per-instance, reset ตอน cold start, ไม่ shared ข้าม instance (best-effort — จุดที่ควร improve เป็น shared KV)</li>
+        <li><b>Spend caps</b> ซ้อนชั้น: zod prompt-size (ก่อนยิงเงิน) → MAX_PROMPT_CHARS → MAX_TOKENS/iterations/deadline → tool result cap. <b>ไม่มี</b> ledger นับเงินจริง</li>
+      </ul>
+    </section>
+
+    <section id="render">
+      <h2><span class="n">11</span>Render layer (chat UI)</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Structured output → typed UI (server cards, ไม่ parse markup จากโมเดล)</span><span class="chip prin">Inert plain-text answer (XSS-safe)</span><span class="chip prin">Discriminated-union render switch</span><span class="chip prin">8 UI states</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">React</span><span class="chip tool">ChatEntry union</span><span class="chip tool">AiChatMessageList / CampCard / DetailCard</span></div>
+      <p class="lead">UI switch จาก <code>entry.kind</code> (ไม่ใช่ typed-blocks): <b>answer · streaming · rate-limited · disabled · error</b> (+user). answer text parse แค่ paragraph/ordered-list/unordered-list — <b>plain string ล้วน ไม่มี markdown→HTML</b> (ไม่มี <code>dangerouslySetInnerHTML</code>).</p>
+      <div class="scroll"><table>
+        <thead><tr><th></th><th>Render เป็น UI จริง</th><th>ตกเป็น plain text / ไม่มี</th></tr></thead>
+        <tbody>
+          <tr><td><b>มี</b></td><td>การ์ดแคมป์ (carousel: รูป/ชื่อ/ราคา/⭐/chip ว่าง/แท็ก) · suggestion chips · detail card (weekend availability chips, price breakdown, รีวิว, amenities) · zero-result / rate-limited / disabled / error / typing / resuming</td><td>—</td></tr>
+          <tr><td><b>ไม่มี</b></td><td>—</td><td>comparison (compareCamps → text) · facet/"ทำไม" · แผนที่ (มีแค่ไอคอน) · พาโนรามาในแชท · weather</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="security">
+      <h2><span class="n">12</span>Security &amp; guardrails (สรุป)</h2>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">No-hallucination grounding</span><span class="chip prin">Least-privilege (read-only tools)</span><span class="chip prin">Ownership scoping (anti-IDOR)</span><span class="chip prin">PII masking / data-minimization (PDPA)</span><span class="chip prin">No existence oracle</span></div>
+      <ul style="font-size:14px;color:var(--ink-soft);line-height:1.7">
+        <li>Identity server-only (ctx.userId ไม่มาจากโมเดล) · authed tool เช็ค 2 ชั้น (schema tier + dispatch guard)</li>
+        <li>getMyBookingDetail/getMyBookings/getMyWishlist scope <code>where:{userId}</code> ทุกครั้ง (IDOR-safe) · phone masked · booking-detail data-minimize (ตัด phone/lineId/รูป)</li>
+        <li>availability คืน no-data แทนบอก "ไม่มีแคมป์นี้" (ไม่เป็น existence oracle) · error ไม่ leak stack</li>
+        <li>guardrail (injection/no-fake) วัดโดย eval = <b>100%</b> ทุก iteration</li>
+      </ul>
+    </section>
+
+    <section id="gaps">
+      <h2><span class="n">13</span>ข้อจำกัดปัจจุบัน (baseline ก่อน improve)</h2>
+      <p class="lead">สิ่งที่เจอจากการเทสต์จริง + eval — เรียงตามความรุนแรง. แต่ละอันมีทิศทางแก้ (หลักการที่จะใช้).</p>
+      <div class="card">
+        <div class="lim"><span class="sev crit">critical</span><span class="t">resolveDates ไม่รองรับวันเดียว ("เสาร์หน้า") <span class="pill guest">✓ แก้แล้ว CAM-479 · on-staging</span></span><div class="f">parser มีแค่ "เสาร์อาทิตย์" (คู่) → วันเดียวตกเป็น unsupported → ถามซ้ำ 4 รอบ</div><div class="fix">→ ขยาย deterministic parser: 7 วัน × นี้/หน้า/ที่จะถึง</div></div>
+        <div class="lim"><span class="sev high">high</span><span class="t">Markdown/enumerate ปนใน answer <span class="pill guest">✓ แก้แล้ว CAM-480 · on-staging</span></span><div class="f">โมเดลพ่น <code>![img](url)</code>+<code>**</code>+list ทั้งที่ prompt ห้าม → โชว์ลิงก์ดิบ</div><div class="fix">→ server-side strip (bracket-depth scanner)</div></div>
+        <div class="lim"><span class="sev high">high</span><span class="t">ไม่มี distance/"ใกล้" filter</span><div class="f">search มีแค่ province+sort — haversine+coords มีแล้วแต่ไม่ต่อเข้า search</div><div class="fix">→ resolver (anchor: named place / IP-geo) + nearLat/lon/radius/sort</div></div>
+        <div class="lim"><span class="sev high">high</span><span class="t">ไม่มี data: sound-policy / ยุง / เช่าเต็นท์</span><div class="f">"เปิดเพลงทั้งคืน"/"ยุงไม่เยอะ"/"มีเต็นท์เช่า" ตอบไม่ได้ (ไม่มี field)</div><div class="fix">→ Policy Pixels + CampSeasonCondition + EquipmentRental + ConceptMapping (วลี→filter)</div></div>
+        <div class="lim"><span class="sev med">med</span><span class="t">search-vs-refine สับสน</span><div class="f">"วิวทะเล" ไปกรองการ์ดเดิมแทนค้นใหม่</div><div class="fix">→ ปรับ shown-state / reference-vs-search logic</div></div>
+        <div class="lim"><span class="sev med">med</span><span class="t">ติดหนึบจังหวัดเดิม · banner ไทย/อังกฤษปนกัน · เทียบไม่มีตาราง UI · rate-limit per-instance</span><div class="f">constraint stickiness · i18n locale · comparison render · shared KV</div><div class="fix">→ งานย่อยตามลำดับ</div></div>
+      </div>
+      <div class="callout" style="margin-top:16px"><b>eval ปัจจุบัน 65.2%</b> tool-call correctness (guardrails 100%) · blind-spot: golden cases ใช้ "เสาร์อาทิตย์" ไม่ใช่ "เสาร์หน้า" → ต้องเพิ่มเคส single-weekday. ทิศทาง improve = <b>distributed inference layer</b> (deterministic resolvers + lexicon/ConceptMapping + rich tool params) ไม่ใช่ LLM classifier ก้อนใหม่.</div>
+    </section>
+
+    <section id="caploop">
+      <h2><span class="n">14</span>Capability Loop — จาก "ไล่แก้ทีละเรื่อง" สู่ closed-loop <span class="pill authed" style="font-size:11px;vertical-align:middle">PLANNED · ยังไม่ build</span></h2>
+      <p class="lead">คำตอบของคำถาม <b>"เจอ use case ที่ไม่ support ต้องไล่แก้ทีละเรื่องแบบนี้ตลอดไหม?"</b> — วันนี้ใช่ เพราะระบบตาบอด 3 จุด ไม่ใช่เพราะสถาปัตยกรรมผิด. วิธีที่ดีกว่า = <b>error-analysis flywheel</b> มาตรฐานอุตสาหกรรม: ทุก turn จริงกลายเป็นข้อมูล → จัดกลุ่มอัตโนมัติ → เข้าเลนแก้ที่ถูกต้อง → eval กัน regress. ลงทุนครั้งเดียว use case พังอันต่อไป "โผล่ในทะเบียนเอง" ไม่ต้องรอ screenshot.</p>
+      <div class="tags"><span class="lbl">หลักการ</span><span class="chip prin">Eval-driven development</span><span class="chip prin">Error-analysis flywheel (open→axial coding)</span><span class="chip prin">Telemetry-first / observability</span><span class="chip prin">Demand-ranked roadmap (ไม่เดา)</span><span class="chip prin">Honest no-data answer + miss-beacon</span></div>
+      <div class="tags"><span class="lbl">tech</span><span class="chip tool">Prisma (AssistantTurnLog)</span><span class="chip tool">deterministic lexicon miner (.mjs)</span><span class="chip tool">vitest eval harness (CAM-457)</span><span class="chip tool">CI required-check (guardrail subset)</span></div>
+
+      <pre class="mermaid">
+flowchart LR
+  U["Production turn<br/>(guest + authed ทั้ง 3 paths)"] --> T["SEE<br/>AssistantTurnLog<br/>fire-and-forget · 90 วัน"]
+  T --> M["SORT<br/>miner จัดกลุ่ม P1–P18<br/>+ นับ demand"]
+  M --> R["Capability Registry<br/>✅ / 🟡 / 🔴 / ⏸ + demand"]
+  R --> L1["FIX L1<br/>prompt/tool-desc"]
+  R --> L2["FIX L2<br/>knowledge packs (JSON)"]
+  R --> L3["FIX L3<br/>data tables ตาม demand"]
+  R --> L4["FIX L4<br/>deferred tools"]
+  L1 --> E["PROVE<br/>golden eval + miner เพิ่มเคสจริง"]
+  L2 --> E
+  L3 --> E
+  L4 --> E
+  E --> G{"CI gate<br/>guardrail = blocking"}
+  G -->|ship| U
+      </pre>
+
+      <h3>3 จุดตาบอดวันนี้ → ชิ้นที่แก้</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>จุดตาบอด</th><th>สภาพวันนี้ (verify จากโค้ด)</th><th>ชิ้นที่แก้</th></tr></thead>
+        <tbody>
+          <tr><td><b>มองไม่เห็น</b></td><td>authed เก็บเฉพาะ turn สำเร็จ · guest ไม่เก็บเลย · ไม่มี log ว่า tool ไหนถูกเรียก / ตอบ "ยังไม่มีข้อมูล" กี่ครั้ง → รู้จัก use case พังจาก screenshot เท่านั้น</td><td><b>SEE</b> — <code>AssistantTurnLog</code> ทุก turn ทั้ง 3 paths (สำเร็จ+พัง), utterance เต็ม + ลบอัตโนมัติ 90 วัน</td></tr>
+          <tr><td><b>ไม่มีทะเบียน</b></td><td>ช่องว่างข้อมูล 13 ตาราง + 2 pixel clusters รู้แล้วแต่กระจายใน docs/research ไม่มี status/demand</td><td><b>SORT</b> — <code>capability-registry.md</code> (files=SoT) + miner อัปเดต demand จาก log จริง</td></tr>
+          <tr><td><b>ไม่มีประตูกัน regress</b></td><td>eval 53 เคสเป็น advisory + กดรันมือ · 9 เคส deferred กดเพดานคะแนน (65.2% raw = ~80% บนสิ่งที่สร้างแล้ว)</td><td><b>PROVE</b> — แยก core/deferred + guardrail subset เป็น blocking CI เฉพาะ PR แตะ <code>lib/ai/**</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>4 เลนแก้ (FIX) — ตอบ 3 กรณีของ owner ตรงๆ</h3>
+      <div class="scroll"><table>
+        <thead><tr><th>เลน</th><th>กรณี</th><th>ตัวอย่าง use case จริง</th><th>วิธีแก้</th><th>schema?</th></tr></thead>
+        <tbody>
+          <tr><td><b>L1</b> prompt/tool-desc</td><td>ข้อมูล<b>มี</b>แต่ route พลาด 🟡</td><td>"เอาอันที่สอง" → ไปค้นใหม่แทนเจาะแคมป์เดิม (multi-turn cluster 4 เคสจาก bake-off)</td><td>prompt block + turn-hint pre-pass (deterministic, ไม่ใช่ classifier)</td><td><span class="pill none">no</span></td></tr>
+          <tr><td><b>L2</b> knowledge packs</td><td><b>general knowledge</b> (Zone A)</td><td>"มือใหม่ต้องเตรียมอะไร" (P17) · "ภาคใต้ช่วงนี้ฝนไหม" (P18)</td><td>GearItem + RegionSeasonProfile เป็น <b>JSON ใน repo + read tool</b> — ไม่ต้อง migration</td><td><span class="pill none">no</span></td></tr>
+          <tr><td><b>L3</b> data tables</td><td>intent→ข้อมูลที่<b>ไม่มี</b> 🔴</td><td>"เปิดเพลงได้ทั้งคืนไหม" → Policy Pixels · "ใกล้ฉัน" → geo wiring · "เช่าเต็นท์เท่าไหร่" → EquipmentRental price</td><td>ระหว่างรอ = ตอบ honest + miss-beacon นับเข้า registry → สร้างตารางตาม <b>demand จริง</b></td><td><span class="pill write">yes · G1/G2</span></td></tr>
+          <tr><td><b>L4</b> deferred tools</td><td>ฟีเจอร์ใหญ่ ⏸</td><td>"ถ้ามีคนยกเลิกบอกด้วย" → setWatch · "3 วันเชียงใหม่-ปาย" → planTrip</td><td>registry สะสม demand → สร้างเมื่อคุ้ม</td><td><span class="pill write">yes</span></td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="callout"><b>ตัดสินใจแล้ว: ไม่สร้าง intent-classifier แยก.</b> หลักฐาน bake-off (4 models): ที่พังคือ "หยุดเร็ว/ไม่ chain" กับ multi-turn — ไม่ใช่จับ intent ผิด; classifier เพิ่ม = +1 model call + จุดพังใหม่ และ tool schemas คือ intent layer ของ function-calling อยู่แล้ว. ใช้ <b>deterministic turn-hint pre-pass</b> แทน (pattern เดียวกับ shown-results block · latency ศูนย์ · unit-test ได้).</div>
+
+      <h3>Roadmap + decisions (owner ตอบแล้ว 2026-07-25)</h3>
+      <ol class="flow">
+        <li><b>Phase 1 — สร้าง loop (4 stories):</b> S1 registry seed · S2 AssistantTurnLog (schema→G1) · S3 miner · S4 eval hardening + guardrail CI</li>
+        <li><b>Phase 2 — cluster ที่รู้แล้ว:</b> S5 multi-turn + hint pre-pass · S6 geo "ใกล้ฉัน" (ต่อ haversine เข้า search) · S7 knowledge packs P17/P18 · CAM-483 relaxation</li>
+        <li><b>Phase 3 — L3 tables ตาม demand rank:</b> คาด Policy Pixels → EquipmentRental price → CancellationTier → SeasonCondition → ReviewAspect/FacetScore</li>
+      </ol>
+      <p style="font-size:13px;color:var(--ink-faint)">Decisions: PDPA = เก็บ utterance เต็ม + ลบ 90 วัน · Scope = Phase 1+2 พร้อมกัน · CI guardrail = blocking (&lt;$0.01/run). สถานะ = <b>อนุมัติหลักการแล้ว ยังไม่ execute</b> — แผนฉบับเต็ม + registry seed list 13 ตาราง: <span class="m">docs/research/ai-chat/campvibe-capability-loop-plan.md</span></p>
+    </section>
+
+    <footer>
+      สร้างจากการอ่านโค้ดจริง (read-only): <span class="m">app/api/ai/chat/route.ts</span> · <span class="m">lib/ai/{openrouter-client,build-turn-messages,conversation-store,tool-registry,rate-limit}.ts</span> · <span class="m">lib/ai/tools/*</span> · <span class="m">lib/{campsite-availability,campsite-filters,facet-scores,geo/distance,thai-regions}.ts</span> · <span class="m">prisma/schema.prisma</span> · components <span class="m">ai-chat/*</span>. Baseline ณ 2026-07-25 ก่อน improve. ป้าย <span class="chip prin">หลักการ</span>=แนวคิดไปศึกษาต่อ · <span class="chip tool">tech</span>=เครื่องมือ/เทคโนโลยีที่ใช้.
+    </footer>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  (function(){
+    function themeFor(){ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default'; }
+    if (window.mermaid) { mermaid.initialize({ startOnLoad: true, theme: themeFor() }); }
+  })();
+</script>
+</body>
+</html>

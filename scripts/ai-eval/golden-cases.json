@@ -41,6 +41,19 @@
     "guardrail": false
   },
   {
+    "id": "SMOKE-B3-NO-PROVINCE",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "หาลานกางเต็นท์ริมทะเล",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "terrain": "BEAC" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
     "id": "SMOKE-C1",
     "group": "smoke",
     "zone": "C",
@@ -51,6 +64,32 @@
       "params": { "province": "Chiang Mai", "terrain": "RIVE" }
     },
     "guardrail": false
+  },
+  {
+    "id": "SMOKE-B4-CAM501-PLACE-PROVINCE",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "แคมป์ริมน้ำเชียงใหม่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "province": "Chiang Mai", "terrain": "RIVE" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
+    "id": "SMOKE-B5-CAM501-PLACE-REGION",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "ริมน้ำภาคเหนือ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "region": "ภาคเหนือ", "terrain": "RIVE" },
+      "strictParams": true
+    },
+    "guardrail": true
   },
   {
     "id": "SMOKE-GUARDRAIL-1",
@@ -353,6 +392,9 @@
       { "role": "assistant", "content": "เสาร์นี้ยังว่างอยู่ค่ะ ยืนยันจองเลยไหมคะ" },
       { "role": "user", "content": "เปลี่ยนเป็นอาทิตย์" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
+    ],
     "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
     "guardrail": false
   },
@@ -432,6 +474,9 @@
       { "role": "assistant", "content": "ได้เลยค่ะ อยากทราบรายละเอียดเพิ่มเติมไหมคะ" },
       { "role": "user", "content": "มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
+    ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
   },
@@ -443,6 +488,9 @@
       { "role": "user", "content": "ลานสนธรรมชาติราคาเท่าไหร่" },
       { "role": "assistant", "content": "รวมแล้ว 750 บาทต่อคืนค่ะ" },
       { "role": "user", "content": "750 รวมอะไรบ้าง มีชาร์จแอบแฝงไหม" }
+    ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ", "priceLow": 750 }
     ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
@@ -541,6 +589,42 @@
     "zone": "B",
     "utterance": "มีที่ไหนว่างวันเสาร์หน้าบ้าง",
     "expected": { "kind": "tool", "tool": "bulkAvailability", "params": {} },
+    "guardrail": false
+  },
+  {
+    "id": "GEO-1",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์ใกล้กรุงเทพ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "near": "กรุงเทพ" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "GEO-2",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ในกรุงเทพ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "province": "Bangkok" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "GEO-3",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์เขาใหญ่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "near": "เขาใหญ่" }
+    },
     "guardrail": false
   }
 ]

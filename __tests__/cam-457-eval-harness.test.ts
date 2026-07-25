@@ -18,7 +18,7 @@
  *  - BR-7/CAM-344   guards+plan-run: over-cap refused BEFORE any model call, fetch never called
  *  - BR-4/tech.md §1 replay-case (real seam): zone-A leaves `observed` empty; zone-B records {name,args}
  *  - CAM-417 tiering   replay-case: `auth:true` offers the authed tool schema; absent does not
- *  - BR-8           openrouter-client (existing prod code): outgoing body carries no `temperature` key
+ *  - BR-8 (CAM-484) openrouter-client (existing prod code): outgoing body carries `temperature: 0.2` (pinned)
  *  - EC-3           error bucket: a failed model call is scored as `error`, not silently dropped
  *  - tech.md §3     report: JSON + Markdown render from ONE object, numbers never diverge
  */
@@ -103,10 +103,21 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // approach — asserted separately so a future fixture growth is caught
     // long before it risks the spend-cap guard.
     // CAM-479 — +5 single-weekday cases (group "P17") covering the F1 fix.
+    // CAM-500 — +1 regression guardrail case (SMOKE-B3-NO-PROVINCE): a
+    // terrain-only, no-province utterance must not have the model inject a
+    // province (strictParams:true so an over-eager province param fails it).
+    // CAM-501 — +2 regression guardrail cases (SMOKE-B4/B5): the P0
+    // over-correction that dropped a user-named province/region must not
+    // recur — the Place Resolver's mandatory hint keeps province/region set.
+    // CAM-502 — +2 geo-proximity cases (GEO-1/GEO-2): proves the
+    // proximity-vs-exact split ("ใกล้กรุงเทพ" -> near, "ในกรุงเทพ" -> province).
+    // CAM-503 — +1 landmark geo case (GEO-3): "ลานกางเต็นท์เขาใหญ่" -> a bare
+    // landmark name (no proximity marker) resolves to near="เขาใหญ่" via the
+    // curated gazetteer, closing the Place Resolver epic (CAM-498).
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(53);
+    expect(cases.length).toBe(59);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
@@ -782,7 +793,7 @@ describe('CAM-457 replay-case — the real dispatchTool observation seam', () =>
     expect(guestToolNames).not.toContain('getMyProfile');
   });
 
-  it('[normal] BR-8: the outgoing request body carries no `temperature` key (temperature deliberately not pinned)', async () => {
+  it('[normal] BR-8 (CAM-484): the outgoing request body carries `temperature: 0.2` (pinned for deterministic tool routing)', async () => {
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('สวัสดีครับ')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -790,7 +801,7 @@ describe('CAM-457 replay-case — the real dispatchTool observation seam', () =>
     await replayCase(kase);
 
     const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
-    expect(body).not.toHaveProperty('temperature');
+    expect(body.temperature).toBe(0.2);
   });
 
   it('[edge] EC-3: a failed model call (no key, or a network error) yields ok:false, scored as `error` by the runner (not silently dropped)', async () => {
