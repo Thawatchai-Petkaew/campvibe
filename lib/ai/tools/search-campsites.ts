@@ -163,9 +163,9 @@ const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 /**
- * CAM-404 — `Location.province` is stored in English (e.g. "Chiang Mai"), but
+ * CAM-404 — `Location.province` is stored in English (e.g. "Kanchanaburi"), but
  * the model frequently emits the Thai province name it was given by the user
- * (e.g. "เชียงใหม่"). `buildCampSiteWhere` does an exact match on `province`,
+ * (e.g. "กาญจนบุรี"). `buildCampSiteWhere` does an exact match on `province`,
  * so an un-resolved Thai value matches zero rows forever even when camps
  * exist. Resolve via `ThailandLocation` (provinceName ↔ provinceNameEn);
  * English input is returned unchanged (no DB round-trip). CAM-458 seeds all
@@ -195,7 +195,9 @@ const jsonSchema = {
     province: {
       type: 'string',
       description:
-        'Province name in English, e.g. "Chiang Mai". Thai province names (e.g. เชียงใหม่) are also accepted and resolved to the stored English value server-side.',
+        'Province name in English. Thai province names are also accepted and resolved to the stored English value server-side. ' +
+        'OPTIONAL — set this ONLY when the camper has explicitly named a specific province, either in this message or earlier in this conversation. ' +
+        'NEVER infer, guess, or default a province from a terrain/region/facility/activity word (e.g. "ริมทะเล", "ริมแม่น้ำ", "ภาคเหนือ") — those are NOT province names; leave this field unset and use `terrain`/`region`/the other filters instead.',
     },
     region: {
       type: 'string',
