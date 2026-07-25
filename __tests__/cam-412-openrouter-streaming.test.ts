@@ -444,3 +444,23 @@ describe('runAssistantTurnFromMessagesStreaming — TURN_DEADLINE_MS breach (spe
     ]);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* CAM-484 BR-2 — streaming body carries the pinned temperature               */
+/* -------------------------------------------------------------------------- */
+
+describe('runAssistantTurnFromMessagesStreaming — CAM-484 BR-2: pinned temperature', () => {
+  it('[normal] the outgoing STREAMING request body carries `temperature: 0.2` (pinned)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      sseResponse([dataLine(contentChunk('สวัสดีครับ')), 'data: [DONE]\n\n'])
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'หาแคมป์' }]));
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.temperature).toBe(0.2);
+    expect(body.stream).toBe(true); // still the streaming payload, not the non-stream one
+  });
+});

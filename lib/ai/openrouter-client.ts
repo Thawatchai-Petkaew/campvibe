@@ -121,6 +121,8 @@ export const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completion
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 /** BR-6 spend guard — every model call is capped at this ceiling (600 -> 680: CAM-410 headroom for 2-3 short Thai suggestion lines, the ONLY spend-guard change). */
 export const MAX_TOKENS = 680;
+/** CAM-484 BR-1/BR-3 — pinned on every model call (non-streaming + streaming, including the fallback call) for deterministic tool routing; reverses the earlier "temperature deliberately not pinned" decision. */
+export const TEMPERATURE = 0.2;
 /** Per-call network timeout (AbortSignal). Exported so the TURN_DEADLINE_MS invariant test can check it against the route's `maxDuration` (see TURN_DEADLINE_MS below). */
 export const MODEL_CALL_TIMEOUT_MS = 15_000;
 /** Safe, generic reason code returned to the caller — never the raw model error/status/key (AC-6, EC-6). */
@@ -593,6 +595,7 @@ async function callOpenRouter(
     messages,
     tools: buildToolSchemas(ctx),
     max_tokens: MAX_TOKENS,
+    temperature: TEMPERATURE,
   };
   if (options.toolChoice) body.tool_choice = options.toolChoice;
 
@@ -1236,6 +1239,7 @@ async function* streamOneCompletion(
       messages,
       tools: buildToolSchemas(ctx),
       max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
       stream: true,
     };
     if (options.toolChoice) body.tool_choice = options.toolChoice;
