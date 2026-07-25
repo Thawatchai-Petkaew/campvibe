@@ -41,6 +41,12 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
 };
 
+// CAM-496 — section ids that share the single `facilities` URL param (see
+// handleShowCampgrounds below, which merges all three into one CSV on
+// write). Module-level constant (not per-render) since the hydration effect
+// below reads it without needing it in its dependency array.
+const FACILITY_SECTION_IDS = ['Internal facility', 'External facility', 'Equipment for rent'];
+
 export function FilterModal() {
     const { t, language } = useLanguage();
     const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
@@ -138,28 +144,49 @@ export function FilterModal() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Initialize from URL
+    // CAM-496 — Initialize selectedFilters/priceRange from the CURRENT URL on
+    // every modal open (and if the URL changes while open), so reopening the
+    // modal shows the active selections instead of starting empty. Mirrors
+    // exactly the param<->section mapping handleShowCampgrounds writes, so an
+    // apply -> reopen -> apply round-trip is loss-less. Guarded on `isOpen`
+    // (never on selectedFilters/priceRange) to avoid an infinite loop and to
+    // avoid clobbering the URL update handleShowCampgrounds triggers on close.
     useEffect(() => {
-        const newFilters: Record<string, string[]> = {};
+        if (!isOpen) return;
 
-        // Parse CSV params
-        const parseArray = (key: string) => {
-            const val = searchParams.get(key);
-            if (val) newFilters[key] = val.split(',');
-        };
+        const newFilters: Record<string, string[]> = {};
 
         const type = searchParams.get('type');
         if (type && type !== 'ALL') {
-            // Mapping UI section 'Campground type' to param 'type' is tricky without reverse map
-            // But checking our section IDs: "Campground type", "Terrain", etc.
-            // Actually, better to just map generic params back to sections
+            newFilters['Campground type'] = [type];
         }
 
-        // Simpler approach: Just reset state if closed? Or keep sync?
-        // For now, let's just ensure we start clean or preserve if strictly needed.
-        // But user might expect filters to persist.
-        // Let's implement reading from URL for "Edit" mode later if requested.
-    }, []);
+        const terrain = searchParams.get('terrain');
+        if (terrain) newFilters['Terrain'] = terrain.split(',').filter(Boolean);
+
+        const activities = searchParams.get('activities');
+        if (activities) newFilters['Activity'] = activities.split(',').filter(Boolean);
+
+        const access = searchParams.get('access');
+        if (access) newFilters['Access type'] = access.split(',').filter(Boolean);
+
+        const facilities = searchParams.get('facilities');
+        if (facilities) {
+            facilities.split(',').filter(Boolean).forEach(code => {
+                const owningSection = filterSections.find(
+                    (s) => FACILITY_SECTION_IDS.includes(s.id) && s.options.some((o: any) => o.id === code)
+                );
+                const sectionId = owningSection?.id ?? FACILITY_SECTION_IDS[0];
+                newFilters[sectionId] = [...(newFilters[sectionId] || []), code];
+            });
+        }
+
+        setSelectedFilters(newFilters);
+        setPriceRange({
+            min: searchParams.get('min') || '',
+            max: searchParams.get('max') || '',
+        });
+    }, [isOpen, searchParams, filterSections]);
 
     const handleShowCampgrounds = () => {
         setIsOpen(false);
