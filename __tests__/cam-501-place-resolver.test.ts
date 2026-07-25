@@ -127,3 +127,53 @@ describe('CAM-501 resolvePlace — EC-2 false-match guard (the thai-regions.ts:5
     expect(resolvePlace('แคมป์ภาคตะวันออกใกล้ทะเล')).toEqual({ region: 'ภาคตะวันออก' });
   });
 });
+
+/**
+ * QA CAM-501 — DEFECT regression (opened as a sub-ticket, see the QA return).
+ * `detectRegion`/`detectProvince` do plain `text.includes(...)` free-text
+ * substring scanning against generic, single/short Thai words that are
+ * common VOCABULARY unrelated to a place ("ใต้"=under/south, "กลาง"=middle,
+ * "เหนือ"=above/north, "เลย"=a very common emphasis particle that is ALSO
+ * Loei province, "ตาก"=to sun-dry/expose to sun that is ALSO Tak province).
+ * `lib/thai-regions.ts`'s OWN `REGION_ALIASES` (the table BR-1 says to
+ * mirror) is explicitly EXACT-match on an already-isolated trimmed word for
+ * this exact reason (see its comment above `REGION_ALIASES`) — it is NOT
+ * safe to scan as a free-text substring the way this resolver does. These
+ * cases are proven RED against the current implementation (verified via a
+ * throwaway probe before being written here); they must go GREEN once the
+ * backend fix lands (e.g. Thai word-boundary check, same idea already
+ * applied to English province names here).
+ */
+describe('CAM-501 resolvePlace — DEFECT: free-text substring false-match on ordinary Thai vocabulary (EC-2 not fully closed)', () => {
+  it('[edge] "ใต้ต้นไม้" (under a tree) must NOT resolve South region', () => {
+    expect(resolvePlace('อยากได้ลานกางเต็นท์ใต้ต้นไม้ร่มรื่น')).toEqual({});
+  });
+
+  it('[edge] "กลางคืน" (nighttime) must NOT resolve Central region', () => {
+    expect(resolvePlace('แคมป์กลางคืนดูดาวสวยมาก')).toEqual({});
+  });
+
+  it('[edge] "กลางแจ้ง" (open-air) must NOT resolve Central region', () => {
+    expect(resolvePlace('อยากได้ที่กางเต็นท์กลางแจ้งวิวดี')).toEqual({});
+  });
+
+  it('[edge] "เหนือกว่า" (better than) must NOT resolve North region', () => {
+    expect(resolvePlace('ดีเหนือกว่าที่อื่นจริงๆ ค่ะ').region).toBeUndefined();
+  });
+
+  it('[edge] a sentence ending in the very common emphasis particle "เลย" must NOT resolve Loei province', () => {
+    expect(resolvePlace('อยากได้ลานกว้างเยอะเลยค่ะ')).toEqual({});
+  });
+
+  it('[edge] "ดีเลย" (great!) must NOT resolve Loei province', () => {
+    expect(resolvePlace('ลานนี้ดีเลยครับ ติดต่อยังไง')).toEqual({});
+  });
+
+  it('[edge] "ตากแดด" (sunbathe) must NOT resolve Tak province', () => {
+    expect(resolvePlace('อยากไปตากแดดที่แคมป์ริมทะเล')).toEqual({});
+  });
+
+  it('[edge] "ตากผ้า" (dry laundry) must NOT resolve Tak province', () => {
+    expect(resolvePlace('มีที่ตากผ้าไหมคะ')).toEqual({});
+  });
+});
