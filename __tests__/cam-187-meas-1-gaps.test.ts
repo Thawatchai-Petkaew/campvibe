@@ -732,12 +732,16 @@ describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
    *
    * CAM demand-seeding toolkit (Stage 0, province coverage 10→77) — the counts
    * below were bumped from the pre-Stage-0 baseline (65 hosts / 128 campsites /
-   * 10 provinces) to the post-merge reality (71 hosts / 298 campsites / 77
+   * 10 provinces) to the post-merge reality (71 hosts / 295 campsites / 77
    * provinces): scripts/gen-mock-data.mjs + scripts/merge-mock-data.mjs
    * regenerated prisma/data/mock-staging-all.json to add camps for the 67
    * previously-uncovered provinces on top of the unchanged historical baseline
-   * (see merge-mock-data.mjs's module doc comment). This IS the fixture this
-   * test guards — the counts must track it, not freeze it.
+   * (see merge-mock-data.mjs's module doc comment). CAM-492 re-regenerated
+   * this fixture (full filter diversity + a real beach/landlocked bugfix,
+   * region-host-identity replace on merge) — hosts stayed at 71 but the total
+   * campsite count shifted 298→295 (PRNG-sequence drift once new theme/pool
+   * branches were added upstream of the province-fill draws). This IS the
+   * fixture this test guards — the counts must track it, not freeze it.
    */
 
   const DATA_PATH = resolve(root, 'prisma/data/mock-staging-all.json');
@@ -759,20 +763,20 @@ describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
     expect(data.meta.totalHosts).toBe(71);
   });
 
-  it('meta reports 298 campsites', () => {
-    expect(data.meta.totalCampsites).toBe(298);
+  it('meta reports 295 campsites', () => {
+    expect(data.meta.totalCampsites).toBe(295);
   });
 
   it('hosts array has exactly 71 entries', () => {
     expect(data.hosts).toHaveLength(71);
   });
 
-  it('total campsite entries across all hosts equals 298', () => {
+  it('total campsite entries across all hosts equals 295', () => {
     const total = data.hosts.reduce(
       (sum, h) => sum + (h.campsites?.length ?? 0),
       0,
     );
-    expect(total).toBe(298);
+    expect(total).toBe(295);
   });
 
   it('every campsite has a non-empty nameThSlug (upsert key must be present)', () => {
