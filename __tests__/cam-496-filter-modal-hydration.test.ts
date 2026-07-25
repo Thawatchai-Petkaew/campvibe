@@ -69,6 +69,10 @@ vi.mock("@/app/actions/getFilterOptions", () => ({
     "Annotated features": [
       { code: "ALCO", group: "Annotated features", icon: "Wine", nameEn: "Alcohol allowed", nameTh: "ดื่มแอลกอฮอล์ได้" },
     ],
+    // CAM-516 (S4) — the SECOND new MasterData group (same default branch).
+    "Camper style": [
+      { code: "CHIC", group: "Camper style", icon: "Sparkles", nameEn: "Chic", nameTh: "สบาย (สายคุณหนู)" },
+    ],
   })),
 }));
 
@@ -186,6 +190,35 @@ describe("CAM-515 (S3) — Annotated features: hydrates from the URL + apply pre
     const pushedUrl = pushMock.mock.calls[0][0] as string;
     const pushedParams = new URLSearchParams(pushedUrl.split("?")[1] ?? "");
     expect(pushedParams.get("annotatedFeatures")).toBe("ALCO");
+  });
+});
+
+describe("CAM-516 (S4) — Camper style: hydrates from the URL + apply preserves it (same CAM-496 AC-1/AC-2 wiring, new group)", () => {
+  it("opening the modal with camperStyle=CHIC in the URL marks the matching checkbox checked", async () => {
+    currentParams = new URLSearchParams("camperStyle=CHIC");
+    renderModal();
+    await openModal();
+
+    const chicCheckbox = await screen.findByRole("checkbox", { name: /chic/i });
+    expect(chicCheckbox.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("pressing 'Show Campgrounds' with no edits preserves camperStyle already in the URL (the exact CAM-496 regression class, proven for the new group)", async () => {
+    currentParams = new URLSearchParams("camperStyle=CHIC");
+    renderModal();
+    await openModal();
+
+    // sanity: hydration actually happened before we apply
+    await screen.findByRole("checkbox", { name: /chic/i });
+    expect(screen.getByRole("checkbox", { name: /chic/i }).getAttribute("aria-checked")).toBe("true");
+
+    await waitForApplyEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /show/i }));
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const pushedUrl = pushMock.mock.calls[0][0] as string;
+    const pushedParams = new URLSearchParams(pushedUrl.split("?")[1] ?? "");
+    expect(pushedParams.get("camperStyle")).toBe("CHIC");
   });
 });
 

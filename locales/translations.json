@@ -644,7 +644,12 @@
             "FIRE": "Fires allowed",
             "FIWD": "Firewood",
             "ADAA": "Accessible (ADA)",
-            "RESV": "Reservable"
+            "RESV": "Reservable",
+            "Camper style": "Camper Style",
+            "CHIC": "Chic",
+            "GENR": "General",
+            "DIFT": "Difficult",
+            "IDMT": "Indomitable"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1674,7 +1679,12 @@
             "FIRE": "ก่อไฟได้",
             "FIWD": "มีฟืนขาย/บริการ",
             "ADAA": "รองรับผู้พิการ",
-            "RESV": "จองล่วงหน้าได้"
+            "RESV": "จองล่วงหน้าได้",
+            "Camper style": "รูปแบบแคมป์",
+            "CHIC": "สบาย (สายคุณหนู)",
+            "GENR": "ทั่วไป",
+            "DIFT": "ลำบาก",
+            "IDMT": "ทรหด"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",

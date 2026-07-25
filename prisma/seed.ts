@@ -89,6 +89,14 @@ const masterData = [
     { code: 'FIWD', group: 'Annotated features', nameTh: 'มีฟืนขาย/บริการ', nameEn: 'Firewood', icon: 'Logs' },
     { code: 'ADAA', group: 'Annotated features', nameTh: 'รองรับผู้พิการ', nameEn: 'Accessible (ADA)', icon: 'Accessibility' },
     { code: 'RESV', group: 'Annotated features', nameTh: 'จองล่วงหน้าได้', nameEn: 'Reservable', icon: 'CalendarCheck' },
+
+    // CAM-516 (S4) — Camper style, a NEW MasterData group (4 codes, BR-1/BR-2,
+    // no collision with existing codes). Mirrors CAM-515 (S3)'s wiring exactly:
+    // a host-declared vibe/style (not a rule/right like Annotated features).
+    { code: 'CHIC', group: 'Camper style', nameTh: 'สบาย (สายคุณหนู)', nameEn: 'Chic', icon: 'Sparkles' },
+    { code: 'GENR', group: 'Camper style', nameTh: 'ทั่วไป', nameEn: 'General', icon: 'Users' },
+    { code: 'DIFT', group: 'Camper style', nameTh: 'ลำบาก', nameEn: 'Difficult', icon: 'TrendingUp' },
+    { code: 'IDMT', group: 'Camper style', nameTh: 'ทรหด', nameEn: 'Indomitable', icon: 'Dumbbell' },
 ]
 
 import fs from 'fs';
@@ -729,12 +737,12 @@ async function main() {
         // S4a: the 6 multi-value CSV taxonomies are now the `options` MasterData relation.
         // Extract their codes, then strip the CSV keys before the spread write.
         const optionCodes: string[] = [...new Set(
-            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures'] as const)
+            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'] as const)
                 .map((k) => campSiteData[k])
                 .filter(Boolean)
                 .flatMap((csv: string) => csv.split(',').map((c) => c.trim()).filter(Boolean))
         )];
-        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures']) {
+        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle']) {
             delete campSiteData[k];
         }
         const optionsConnect = optionCodes.map((code) => ({ code }));

@@ -20,6 +20,7 @@ import {
   Coffee,
   Droplet,
   Droplets,
+  Dumbbell,
   Fish,
   Flame,
   Flower2,
@@ -35,13 +36,16 @@ import {
   ShoppingBasket,
   ShowerHead,
   Snowflake,
+  Sparkles,
   Store,
   Table,
   Tent,
   ThermometerSun,
   Trash2,
+  TrendingUp,
   Truck,
   Umbrella,
+  Users,
   Utensils,
   Waves,
   Wheat,
@@ -124,6 +128,11 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   FIWD: Logs,
   ADAA: Accessibility,
   RESV: CalendarCheck,
+  // CAM-516 (S4) — Camper style, the SECOND new MasterData group
+  CHIC: Sparkles,
+  GENR: Users,
+  DIFT: TrendingUp,
+  IDMT: Dumbbell,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */

@@ -160,6 +160,12 @@ describe("getFieldLabel (AC-1, EC-1)", () => {
     expect(getFieldLabel(th, "annotatedFeatures")).toBe(th.filter["Annotated features"]);
     expect(getFieldLabel(en, "annotatedFeatures")).toBe(en.filter["Annotated features"]);
   });
+
+  // CAM-516 (S4) — the SECOND new MasterData group's FIELD_LABEL_RESOLVERS entry.
+  it("[normal] camperStyle resolves to the SAME 'Camper style' group-heading label the amenities card renders (TH + EN)", () => {
+    expect(getFieldLabel(th, "camperStyle")).toBe(th.filter["Camper style"]);
+    expect(getFieldLabel(en, "camperStyle")).toBe(en.filter["Camper style"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -185,6 +191,31 @@ describe("CAM-515 (S3) — Annotated features host-form wiring (AC-2, EC-2)", ()
     expect(formSrc).toContain("annotatedFeatures: formData.annotatedFeatures,");
     expect(formSrc).toMatch(/annotatedFeatures:\s*"amenities"/);
     expect(formSrc).toContain("...formData.annotatedFeatures,");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CAM-516 (S4) — campSiteSchema.camperStyle + the CampgroundForm.tsx source
+// touchpoints (source-inspection, same precedent as the CAM-515 block above).
+// ---------------------------------------------------------------------------
+describe("CAM-516 (S4) — Camper style host-form wiring (AC-2, EC-2)", () => {
+  it("[normal] campSiteSchema accepts a camperStyle code array (host-form payload shape)", () => {
+    const result = campSiteSchema.partial().safeParse({
+      nameTh: "test",
+      camperStyle: ["CHIC", "GENR"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("[normal] CampgroundForm.tsx source carries all 6 camperStyle touchpoints (state field, renderOptionGroup call, edit-prefill _byGroup, payload line, FIELD_SECTION_ID map, publish-completeness Set)", () => {
+    expect(formSrc).toMatch(/camperStyle:\s*\[\]\s*as\s*string\[\]/);
+    expect(formSrc).toContain(
+      `renderOptionGroup(t.filter["Camper style"], "Camper style", "camperStyle")`
+    );
+    expect(formSrc).toContain(`camperStyle: _byGroup('Camper style')`);
+    expect(formSrc).toContain("camperStyle: formData.camperStyle,");
+    expect(formSrc).toMatch(/camperStyle:\s*"amenities"/);
+    expect(formSrc).toContain("...formData.camperStyle,");
   });
 });
 

@@ -33,6 +33,18 @@ const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
 const pick = (a) => a[Math.floor(rnd() * a.length)];
 const chance = (p) => rnd() < p;
 const pickN = (a, n) => { const c = [...a]; const out = []; n = Math.min(n, c.length); for (let i = 0; i < n; i++) out.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return out; };
+// CAM-516 (S4) — weighted single-pick (ONE rnd() draw): given a {code: weight} map
+// (weights need not pre-sum to 1 — normalized against their own total), returns ONE
+// code proportional to its weight. Used for Camper style (BR-6: "seed ~1 per camp",
+// a dominant vibe rather than the independent-chance()-per-code draw annotatedFeatures
+// uses above).
+const wpick = (weights) => {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let r = rnd() * total;
+  for (const [code, w] of entries) { r -= w; if (r <= 0) return code; }
+  return entries[entries.length - 1][0];
+};
 const round50 = (x) => Math.round(x / 50) * 50;
 const round4 = (x) => Math.round(x * 10000) / 10000;
 
@@ -89,6 +101,10 @@ const THEMES = {
     // mountain-forest theme (ก่อไฟ/ฟืนหน้าหนาว), RESV mixed, ADAA rare
     // (undeveloped mountain terrain rarely accessible).
     annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.3, ADAA: 0.12 },
+    // CAM-516 (S4) — Camper style (BR-6, weighted single-pick): rugged misty-
+    // mountain theme skews DIFT/IDMT (steep climbs, cold, no paved access),
+    // GENR still the plurality, CHIC rarest here.
+    camperStyle: { CHIC: 0.10, GENR: 0.30, DIFT: 0.35, IDMT: 0.25 },
     tags: ['ทะเลหมอก', 'วิวภูเขา', 'อากาศเย็น', 'พระอาทิตย์ขึ้น'],
     desc: 'อากาศหนาวเย็นและทะเลหมอกยามเช้า เหมาะกับสายธรรมชาติที่หลงรักวิวภูเขา',
     scene: 'misty mountain ridge campsite at dawn, a sea of clouds filling the valley below, pine trees',
@@ -113,6 +129,10 @@ const THEMES = {
     // likely here than most themes (developed beach resorts), FIRE lower
     // (fewer beach camps allow open fires) but still plausible.
     annotated: { ALCO: 0.45, RESV: 0.35, ADAA: 0.4, FIRE: 0.15 },
+    // CAM-516 (S4) — Camper style: beach-resort glamping vibe skews CHIC,
+    // GENR close behind, DIFT/IDMT rarest (developed beach camps are the
+    // opposite of "ลำบาก/ทรหด").
+    camperStyle: { CHIC: 0.40, GENR: 0.35, DIFT: 0.15, IDMT: 0.10 },
     tags: ['ริมทะเล', 'วิวทะเล', 'พระอาทิตย์ตก', 'เล่นน้ำทะเล'],
     desc: 'กางเต็นท์ริมหาดฟังเสียงคลื่น ชมพระอาทิตย์ตกเหนือผืนทะเล',
     scene: 'beachfront campsite on white sand, turquoise sea, palm trees, tents facing the water',
@@ -132,6 +152,10 @@ const THEMES = {
     // campfire is a classic combo), RESV mixed, ALCO occasional, ADAA a
     // modest minority (a maintained riverside path can be level/accessible).
     annotated: { FIRE: 0.5, FIWD: 0.45, RESV: 0.25, ALCO: 0.1, ADAA: 0.15 },
+    // CAM-516 (S4) — Camper style: riverside is the "middle of the road"
+    // theme, GENR the plurality, DIFT ahead of CHIC/IDMT (a rocky riverbank
+    // can be a bit of a scramble, but not rugged enough for IDMT to dominate).
+    camperStyle: { CHIC: 0.20, GENR: 0.40, DIFT: 0.25, IDMT: 0.15 },
     tags: ['ริมน้ำ', 'ลำธารใส', 'ร่มรื่น', 'พายเรือ'],
     desc: 'ลานกางเต็นท์ริมลำธารน้ำใส ใต้ร่มไม้ร่มรื่น เสียงน้ำไหลทั้งวัน',
     scene: 'campsite beside a clear shallow stream over smooth rocks, shady riverbank forest',
@@ -150,6 +174,10 @@ const THEMES = {
     // adventure camping leans rustic campfire), RESV lower (less structured
     // booking), ADAA rarest (undeveloped jungle terrain).
     annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.15, ADAA: 0.12 },
+    // CAM-516 (S4) — Camper style: deep-forest/adventure theme skews IDMT/
+    // DIFT hardest of every theme (undeveloped jungle terrain, off-road
+    // access), CHIC rarest.
+    camperStyle: { CHIC: 0.10, GENR: 0.25, DIFT: 0.30, IDMT: 0.35 },
     tags: ['ป่าธรรมชาติ', 'ส่องสัตว์ป่า', 'เดินป่า', 'ร่มครึ้ม'],
     desc: 'โอบล้อมด้วยป่าใหญ่ที่อุดมสมบูรณ์ เหมาะกับการเดินป่าและส่องสัตว์',
     scene: 'deep jungle clearing campsite, towering rainforest canopy, morning mist between trees',
@@ -168,6 +196,10 @@ const THEMES = {
     // resort-style stay), ADAA more likely (developed lakeside sites),
     // FIRE mixed.
     annotated: { ALCO: 0.4, RESV: 0.35, ADAA: 0.35, FIRE: 0.2 },
+    // CAM-516 (S4) — Camper style: calm lakeside resort-style stay skews
+    // GENR/CHIC (mirrors beach's comfort lean but less extreme), DIFT/IDMT
+    // rarest.
+    camperStyle: { CHIC: 0.35, GENR: 0.40, DIFT: 0.15, IDMT: 0.10 },
     tags: ['ริมทะเลสาบ', 'วิวน้ำสงบ', 'บรรยากาศสงบ', 'แพกลางน้ำ'],
     desc: 'ริมทะเลสาบน้ำนิ่งสะท้อนเงาภูเขา บรรยากาศเงียบสงบราวกับต่างแดน',
     scene: 'lakeside campsite, calm mirror-like water reflecting limestone karst hills, floating raft houses',
@@ -187,6 +219,10 @@ const THEMES = {
     // drinks under the stars is the meadow theme's signature scene), RESV
     // mixed, ADAA rarer.
     annotated: { ALCO: 0.35, FIRE: 0.35, RESV: 0.3, ADAA: 0.2 },
+    // CAM-516 (S4) — Camper style: open meadow is the widest-appeal theme,
+    // GENR the plurality, CHIC/DIFT nearly even, IDMT lowest (open ground is
+    // rarely "ทรหด").
+    camperStyle: { CHIC: 0.25, GENR: 0.40, DIFT: 0.20, IDMT: 0.15 },
     tags: ['ทุ่งหญ้ากว้าง', 'กางเต็นท์ชมดาว', 'วิวเขากว้าง', 'ลมเย็น'],
     desc: 'ลานหญ้ากว้างเปิดโล่งรับลม กลางคืนนอนนับดาวเต็มท้องฟ้า',
     scene: 'wide open grassy meadow campground in a mountain valley, rows of glowing tents under a starry milky-way sky',
@@ -344,6 +380,11 @@ function buildCamp(concept, idx) {
   const annotatedFeatures = Object.entries(T.annotated || {})
     .filter(([, p]) => chance(p))
     .map(([code]) => code);
+  // CAM-516 (S4) — Camper style (CHIC/GENR/DIFT/IDMT): a host-declared vibe/
+  // style, BR-6 "one dominant style per camp" — a SINGLE weighted pick (not
+  // pickN/chance-per-code like annotatedFeatures above), theme-correlated via
+  // each theme's `camperStyle` weight map.
+  const camperStyle = [wpick(T.camperStyle)];
 
   // pricing by tier × business type
   let lo = T.tier[0], hi = T.tier[1];
@@ -434,6 +475,7 @@ function buildCamp(concept, idx) {
     externalFacilities: externalFacilities.join(','), equipment: equipment.join(','),
     activities: activities.join(','), terrain: terrain.join(','),
     annotatedFeatures: annotatedFeatures.join(','),
+    camperStyle: camperStyle.join(','),
     province: prov,
     address: `${areaTh} อ.${areaTh} จ.${P.th} ${P.zip}`,
     directions: `เดินทางสู่${areaTh} จ.${P.th} แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง`,
@@ -575,6 +617,10 @@ const MASTERDATA_GROUPS = [
   // and-suspenders floor (natural presence already comes from each theme's
   // `annotated` chance-map above).
   { field: 'annotatedFeatures', codes: ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] },
+  // CAM-516 (S4) — Camper style, the SECOND new MasterData group. Belt-and-
+  // suspenders floor (natural presence already comes from each theme's
+  // `camperStyle` weighted-pick above).
+  { field: 'camperStyle', codes: ['CHIC', 'GENR', 'DIFT', 'IDMT'] },
 ];
 const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
 // Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts

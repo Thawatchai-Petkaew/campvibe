@@ -34,6 +34,8 @@ interface HomeSearchParams {
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
   annotatedFeatures?: string;
+  /** CAM-516 (S4) — the SECOND new MasterData group (Camper style). */
+  camperStyle?: string;
 }
 
 interface HomeProps {
@@ -61,6 +63,7 @@ export default async function Home({ searchParams }: HomeProps) {
     activities,
     terrain,
     annotatedFeatures,
+    camperStyle,
   } = sp;
 
   // Compose the Suspense key from all params that can change the results set.
@@ -82,6 +85,7 @@ export default async function Home({ searchParams }: HomeProps) {
     activities ?? "",
     terrain ?? "",
     annotatedFeatures ?? "",
+    camperStyle ?? "",
   ].join("|");
 
   return (
@@ -126,6 +130,7 @@ export default async function Home({ searchParams }: HomeProps) {
             activities={activities}
             terrain={terrain}
             annotatedFeatures={annotatedFeatures}
+            camperStyle={camperStyle}
             userId={session?.user?.id}
             isLoggedIn={!!session?.user?.id}
           />

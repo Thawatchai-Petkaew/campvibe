@@ -44,6 +44,8 @@ interface CatalogResultsProps {
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
   annotatedFeatures?: string;
+  /** CAM-516 (S4) — the SECOND new MasterData group (Camper style). */
+  camperStyle?: string;
   userId?: string;
   isLoggedIn: boolean;
 }
@@ -68,6 +70,7 @@ export default async function CatalogResults({
   activities,
   terrain,
   annotatedFeatures,
+  camperStyle,
   userId,
   isLoggedIn,
 }: CatalogResultsProps) {
@@ -75,7 +78,7 @@ export default async function CatalogResults({
   // Mirrors the logic that was in page.tsx verbatim.
   const isSearchActive = !!(
     keyword || province || district || startDate || endDate || guests ||
-    (type && type !== "ALL") || min || max || access || facilities || activities || terrain || annotatedFeatures
+    (type && type !== "ALL") || min || max || access || facilities || activities || terrain || annotatedFeatures || camperStyle
   );
   const isDefaultSort = !sort || sort === "related";
   const useCache = !isSearchActive && isDefaultSort;
@@ -107,6 +110,7 @@ export default async function CatalogResults({
       activities,
       terrain,
       annotatedFeatures,
+      camperStyle,
     });
 
     const sanitizedSort: CatalogSort =
@@ -219,7 +223,7 @@ export default async function CatalogResults({
 
   return (
     <InfiniteScrollGrid
-      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}`}
+      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}|${camperStyle ?? ""}`}
       initialItems={serialisedCamps}
       initialCursor={initialCursor}
       sort={activeSortForCursor}
@@ -238,6 +242,7 @@ export default async function CatalogResults({
         activities: activities ?? undefined,
         terrain: terrain ?? undefined,
         annotatedFeatures: annotatedFeatures ?? undefined,
+        camperStyle: camperStyle ?? undefined,
       }}
       savedIds={savedCampSiteIds}
       isLoggedIn={isLoggedIn}
