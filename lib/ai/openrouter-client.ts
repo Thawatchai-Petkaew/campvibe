@@ -433,6 +433,33 @@ function buildSystemPrompt(
     // checkAvailability can only report ONE date range per call.
     'checkAvailability is for ONE specific named camp over ONE single date range only. Use bulkAvailability instead whenever the question involves MANY camps (no single camp named, or a filter/characteristic instead of a name), MANY dates (multiple ranges, or an alternative/conditional date like "ถ้าเสาร์เต็มอาทิตย์ก็ได้"), or a superlative over dates or camps (โล่งสุด/ว่างสุด/ถูกสุด, or "เสาร์ไหน...ว่าง/โล่ง" asking which of several Saturdays is best) — this holds even when only ONE camp is named: for example "เสาร์ไหนของเดือนหน้าภูชี้ฟ้าโล่งสุด" (one named camp, many candidate Saturdays) still calls bulkAvailability with keyword set to that camp\'s name, never checkAvailability, because checkAvailability can only report ONE date range per call. Likewise "ว่าง 2 คืนติดกันมีที่ไหนบ้างเดือนนี้" (no camp named) calls bulkAvailability, and call resolveDates first if the dates need conversion. Never answer such a question with no tool call at all.',
     'Prefer the structured filter arguments on searchCampsites (province, type, terrain, access, activities, facilities, petFriendly, priceMin/priceMax) to match a characteristic the camper described. Use the keyword argument ONLY for a specific campsite name — a keyword search on a general word (for example a terrain or facility word) searches only the name/description text and will usually miss camps that have it tagged as structured data instead.',
+    // CAM-510 BR-1 — a request to find/recommend/list a campsite by ANY
+    // characteristic must actually call searchCampsites before the model
+    // answers; without this, the model could dead-end straight into the
+    // honest not-found line above without ever having searched. Scoped to
+    // find/recommend/list intents only (EC-1) so it never forces a tool on a
+    // greeting/thanks or on an availability question about a named camp.
+    'If the camper asks you to find, recommend, or list a campsite by any characteristic (even a specific or compound one), you MUST call searchCampsites this turn — with your best-guess structured filters — before answering. Never reply "ไม่พบ"/"ไม่มี"/not-found for a camp-finding request without having called searchCampsites this turn. This does not apply to a greeting, thanks, or an availability question about an already-named camp.',
+    // CAM-511 BR-2 — concept-map: the non-obvious mappings from an abstract
+    // camper phrase to the structured filter the data can actually answer.
+    // The model cannot derive these on its own (a keyword search on "มือใหม่"
+    // matches zero camps even though 23 discriminating camps exist once
+    // mapped to equipment) — teach the specific mapping instead of hoping
+    // the model infers it. Kept short and inline (a handful of entries); do
+    // NOT build a concept-map.json + resolver pre-pass for this one entry —
+    // that infra is deferred until the list actually grows (out of scope).
+    'Concept map — a few camper phrases map to a filter you would not otherwise derive: "มือใหม่" / "ไม่มีอุปกรณ์" / "มาตัวเปล่า" (a beginner with no gear of their own) means call searchCampsites with equipment set to ["TENT","LEDL","POWE"] (the essential rental kit: tent, light, power) — never a keyword search on "มือใหม่" itself, since no camp\'s name/description contains that word.',
+    // CAM-511 BR-3/BR-4 — drop-unmappable: extends CAM-510's always-search
+    // rule (never dead-end into "ไม่พบ" without searching) to a MIXED
+    // request that names both a real filterable characteristic and a
+    // concept the data has no field for (a mood word, an amenity CampVibe
+    // doesn't track, e.g. "จิบเบียร์", "เด็ก" with no matching filter).
+    // Searching the mappable part alone (e.g. terrain=RIVE, facility=PICN)
+    // still answers the request; keyword-searching the unmappable word
+    // instead would just return zero rows for a search that could have
+    // succeeded. Keeps the existing keyword rule intact (keyword is for a
+    // specific campsite NAME only, never a concept word).
+    'When a request mixes a characteristic you CAN map to a filter (terrain, access, activities, facilities, equipment, price, pet-friendliness, location) with one you cannot (a mood word, an amenity CampVibe has no data field for, e.g. "จิบเบียร์" or "เด็ก" with no matching filter), map every characteristic you can and call searchCampsites with just those — drop the unmappable term rather than keyword-searching it or refusing to search. Never dead-end into "ไม่พบ"/"ไม่มี" because part of the request had no filter; search the mappable part instead.',
     // CAM-500 BR-2 (non-inference, the core fix) — a terrain/region/facility
     // word ("ริมทะเล", "ริมแม่น้ำ") is NOT a province; over-anchoring the
     // model into inferring or defaulting a province on those searches was

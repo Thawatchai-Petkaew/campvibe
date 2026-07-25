@@ -119,10 +119,16 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // strictParams:true so an over-eager `near` fails it — closes the GEO-2
     // regression where a bare/exact Bangkok mention resolved to no hint at
     // all, leaving the model free to reach for `near`.
+    // CAM-510 — +1 case (P18-47): "ลานกางเต็นท์เด็กลงเล่นน้ำได้" must call
+    // searchCampsites (subset params) rather than dead-ending into a
+    // not-found answer with no search — the real staging miss this fixes.
+    // CAM-511 — +1 case (P19-48): "ลานกางเต็นท์สำหรับมือใหม่" must call
+    // searchCampsites (the equipment concept-map) rather than a keyword
+    // search on "มือใหม่" or a dead-end not-found.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(60);
+    expect(cases.length).toBe(62);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
