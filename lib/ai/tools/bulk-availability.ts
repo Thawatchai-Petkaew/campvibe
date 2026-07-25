@@ -145,7 +145,10 @@ const jsonSchema = {
   properties: {
     province: {
       type: 'string',
-      description: 'Province name in English, e.g. "Chiang Mai", to filter candidate campsites.',
+      description:
+        'Province name in English, to filter candidate campsites. ' +
+        'OPTIONAL — set this ONLY when the camper has explicitly named a specific province, either in this message or earlier in this conversation. ' +
+        'NEVER infer, guess, or default a province from a terrain/region/facility/activity word — leave this field unset and use `terrain`/`region`/the other filters instead.',
     },
     region: {
       type: 'string',

@@ -103,10 +103,13 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // approach — asserted separately so a future fixture growth is caught
     // long before it risks the spend-cap guard.
     // CAM-479 — +5 single-weekday cases (group "P17") covering the F1 fix.
+    // CAM-500 — +1 regression guardrail case (SMOKE-B3-NO-PROVINCE): a
+    // terrain-only, no-province utterance must not have the model inject a
+    // province (strictParams:true so an over-eager province param fails it).
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(53);
+    expect(cases.length).toBe(54);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);

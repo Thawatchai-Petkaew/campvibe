@@ -279,10 +279,10 @@ describe('scripts/ai-eval/golden-cases.json — CAM-459 new zone-A smoke case', 
     expect(smokeA2?.group).toBe('smoke');
   });
 
-  it('[boundary] total case count is the real fixture size (53: 48 + 5 CAM-479 single-weekday cases), bounded by DEFAULT_MAX_EVAL_CASES', () => {
+  it('[boundary] total case count is the real fixture size (54: 48 + 5 CAM-479 single-weekday cases + 1 CAM-500 no-province regression case), bounded by DEFAULT_MAX_EVAL_CASES', () => {
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases } = loadCasesFromFile(fixturePath);
-    expect(cases.length).toBe(53);
+    expect(cases.length).toBe(54);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
   });
 });

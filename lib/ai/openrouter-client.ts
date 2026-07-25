@@ -326,6 +326,15 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // conditional dates.
     'checkAvailability is for ONE specific named camp only; when the camper asks which camps are free across one or more dates without naming a single camp ("ว่าง 2 คืนติดกันมีที่ไหนบ้างเดือนนี้"), or offers alternative or conditional dates ("ถ้าเสาร์เต็มอาทิตย์ก็ได้"), call resolveDates then bulkAvailability with every mentioned range — never answer such a question with no tool.',
     'Prefer the structured filter arguments on searchCampsites (province, type, terrain, access, activities, facilities, petFriendly, priceMin/priceMax) to match a characteristic the camper described. Use the keyword argument ONLY for a specific campsite name — a keyword search on a general word (for example a terrain or facility word) searches only the name/description text and will usually miss camps that have it tagged as structured data instead.',
+    // CAM-500 BR-2 (non-inference, the core fix) — a terrain/region/facility
+    // word ("ริมทะเล", "ริมแม่น้ำ") is NOT a province; over-anchoring the
+    // model into inferring or defaulting a province on those searches was
+    // causing real, in-stock results (e.g. beach/river camps) to come back
+    // empty because the guessed province ANDed against the true filter.
+    // Reinforces the province param's own jsonSchema instruction at the
+    // system-prompt level so the rule holds regardless of which tool call
+    // the model is composing.
+    'The searchCampsites/bulkAvailability `province` argument is OPTIONAL — set it ONLY when the camper has explicitly named a specific province, this message or earlier in this conversation. Never infer, guess, or default a province from a terrain, region, facility, or activity word (for example "ริมทะเล" = beach terrain, not a province; "ริมแม่น้ำ" = river terrain, not a province); when the camper names a general characteristic instead of a place, leave `province` unset and use `terrain`/`region`/the matching filter argument instead.',
     // CAM-477 (Theme C) — a campsite FEATURE the camper rejects by negation
     // ("ไม่เอาที่ต้องเดินไกลจากรถ") is still a search-filter request for the
     // matching positive value. Scoped to a campsite characteristic ONLY — the
@@ -383,6 +392,12 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // CAM-459 (BR-3) — generalizes the CAM-437 grounding rule above from
     // "zero-result search" to every Zone B per-camp fact with no data.
     'For any Zone B camp-specific fact the app genuinely has no data for, say plainly "ยังไม่มีข้อมูลส่วนนี้" — never invent or guess a fact or campsite; this covers every per-camp fact, not only a zero-result search.',
+    // CAM-500 BR-3 (state-scope-in-answer) — replaces the cut scope-chip UI:
+    // when a searchCampsites/bulkAvailability call this turn actually applied
+    // a location or terrain filter, the answer itself must say so in plain
+    // Thai, so the camper can see what scope was searched without a separate
+    // UI element.
+    'When your searchCampsites or bulkAvailability call this turn applied a location or terrain filter (province, region, or terrain such as ริมทะเล/ริมแม่น้ำ/ภูเขา/ป่า), mention that scope naturally in your answer in plain Thai — say which province, region, or terrain you searched (for example "ลานริมทะเล" or the province name) — so the camper can see what you searched without guessing. Skip this when no such filter was applied.',
     'Keep the answer to about 2-3 short sentences.',
     // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
     // second call); the server extracts + sanitizes it and strips it from

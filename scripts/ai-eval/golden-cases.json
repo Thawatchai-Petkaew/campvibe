@@ -41,6 +41,19 @@
     "guardrail": false
   },
   {
+    "id": "SMOKE-B3-NO-PROVINCE",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "หาลานกางเต็นท์ริมทะเล",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "terrain": "BEAC" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
     "id": "SMOKE-C1",
     "group": "smoke",
     "zone": "C",
