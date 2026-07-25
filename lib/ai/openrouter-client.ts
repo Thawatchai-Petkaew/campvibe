@@ -91,7 +91,15 @@
  */
 import "server-only";
 import { z } from 'zod';
-import { sanitizeForPrompt, sanitizeSuggestion, sanitizeShownResultName, wrapAsUserData, stripAnswerMarkdown } from '@/lib/ai/sanitize';
+import {
+  sanitizeForPrompt,
+  sanitizeSuggestion,
+  sanitizeShownResultName,
+  wrapAsUserData,
+  stripAnswerMarkdown,
+  USER_DATA_OPEN_TAG,
+  USER_DATA_CLOSE_TAG,
+} from '@/lib/ai/sanitize';
 import {
   getRegisteredTools,
   dispatchTool,
@@ -99,6 +107,11 @@ import {
   type ToolTier,
   type ToolDispatchResult,
 } from '@/lib/ai/tool-registry';
+// CAM-509 (S2/SEE) — capture-only telemetry write at the two turn-completion
+// seams below (`runAssistantTurnFromMessages` + the streaming twin). STORE
+// ONLY (BR-2): this file only assembles the record from data already in
+// scope at completion; all write/hash/miss-flag logic lives in turn-log.ts.
+import { logAssistantTurn, hashUserId, computeMissFlags, type AssistantTurnToolCall } from '@/lib/ai/turn-log';
 import type { TurnMessage } from '@/lib/ai/build-turn-messages';
 // Side-effect import: populates the tool registry (searchCampsites, checkAvailability).
 import '@/lib/ai/tools/index';
@@ -549,6 +562,25 @@ function extractLatestUserMessageText(turnMessages: TurnMessage[]): string {
   return '';
 }
 
+/**
+ * CAM-509 — every user `TurnMessage.content` is fenced by `wrapAsUserData`
+ * (`${USER_DATA_OPEN_TAG}\n...\n${USER_DATA_CLOSE_TAG}`, build-turn-messages.ts)
+ * before it ever reaches this file. The `AssistantTurnLog.userText` column
+ * stores the camper's clean question text, not internal prompt-engineering
+ * markup, so this strips the fence back off. Defensive no-op (returns the
+ * input unchanged) when the text isn't fenced in that exact shape — never
+ * throws, this is a display-text convenience only, never a security
+ * boundary.
+ */
+function stripUserDataFence(text: string): string {
+  const open = `${USER_DATA_OPEN_TAG}\n`;
+  const close = `\n${USER_DATA_CLOSE_TAG}`;
+  if (text.startsWith(open) && text.endsWith(close)) {
+    return text.slice(open.length, text.length - close.length);
+  }
+  return text;
+}
+
 export interface AssistantTurnResult {
   ok: boolean;
   /** true when OPENROUTER_API_KEY is unset — no network call was made (AC-5). */
@@ -827,6 +859,16 @@ interface ExecutedToolCalls {
   executedCount: number;
   /** CAM-430 — true when `searchCampsites` was among the calls actually dispatched this round (i < executeLimit), independent of whether the dispatch succeeded or returned any cards. */
   searchAttempted: boolean;
+  /**
+   * CAM-509 — one entry per call actually DISPATCHED this round (i <
+   * executeLimit; a call rejected as `too_many_tool_calls` never reaches
+   * `dispatchTool` and is never logged here). `unknownTool` mirrors
+   * `dispatchTool`'s own `unknown_tool` code (tool-registry.ts) — the
+   * deterministic `deferred_tool` miss-flag signal (BR-3); it is transient
+   * turn-log bookkeeping ONLY, never part of the `{tool, params}` shape
+   * actually persisted to `AssistantTurnLog.toolCalls`.
+   */
+  callLog: Array<{ tool: string; params: unknown; unknownTool: boolean }>;
 }
 
 /** BR-3/EC-7: malformed tool-call JSON is treated as invalid args (parsed as `undefined`), never thrown. */
@@ -999,6 +1041,7 @@ async function executeToolCalls(
   const toolMessages: OutgoingMessage[] = [];
   let executedCount = 0;
   let searchAttempted = false;
+  const callLog: Array<{ tool: string; params: unknown; unknownTool: boolean }> = [];
 
   for (let i = 0; i < toolCalls.length; i++) {
     const call = toolCalls[i];
@@ -1015,9 +1058,41 @@ async function executeToolCalls(
     if (result.ok) collectCardsFromToolData(result.data, cards);
     toolMessages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
     executedCount++;
+    callLog.push({ tool: call.function.name, params: args, unknownTool: !result.ok && result.code === 'unknown_tool' });
   }
 
-  return { toolMessages, executedCount, searchAttempted };
+  return { toolMessages, executedCount, searchAttempted, callLog };
+}
+
+/**
+ * CAM-509 — INTERNAL-ONLY turn-completion metadata (never part of the public
+ * `AssistantTurnResult` contract every existing `.toEqual`-pinned fixture
+ * checks): the resolved model, how many agent-loop rounds the turn took, and
+ * every tool call actually dispatched this turn (for the `AssistantTurnLog`
+ * row). Both public entry points below (`runAssistantTurn`,
+ * `runAssistantTurnFromMessages`) destructure this key back OFF the result
+ * before returning it to their own caller — see the "byte-identical return
+ * shape" comment at each call site.
+ */
+interface TurnMeta {
+  model: string;
+  roundCount: number;
+  toolCalls: AssistantTurnToolCall[];
+  /** BR-3 `deferred_tool` — true when any dispatched call this turn hit `dispatchTool`'s `unknown_tool` code. */
+  deferredTool: boolean;
+}
+
+function buildTurnMeta(
+  model: string,
+  roundCount: number,
+  toolCallLog: Array<{ tool: string; params: unknown; unknownTool: boolean }>
+): TurnMeta {
+  return {
+    model,
+    roundCount,
+    toolCalls: toolCallLog.map(({ tool, params }) => ({ tool, params })),
+    deferredTool: toolCallLog.some((entry) => entry.unknownTool),
+  };
 }
 
 /**
@@ -1034,11 +1109,27 @@ async function executeToolCalls(
  * (`runAssistantTurnFromMessagesStreaming`) emits deltas live as they arrive
  * from the model and is NOT covered here — a full mid-stream markdown strip
  * is a follow-up (out of scope for this fix).
+ *
+ * CAM-509 — carries the turn's `turnMeta` (INTERNAL-only, see the interface
+ * above) so `runTurnFromBaseMessages`'s callers can assemble an
+ * `AssistantTurnLog` row without re-deriving model/round/tool-call state.
  */
-function finalizeAnswer(rawContent: string, cards: unknown[], searchAttempted: boolean): AssistantTurnResult {
+function finalizeAnswer(
+  rawContent: string,
+  cards: unknown[],
+  searchAttempted: boolean,
+  turnMeta: TurnMeta
+): AssistantTurnResult & { turnMeta: TurnMeta } {
   const { answer, suggestions } = extractSuggestions(rawContent);
   const cleanedAnswer = stripAnswerMarkdown(answer);
-  return { ok: true, answer: cleanedAnswer, cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
+  return {
+    ok: true,
+    answer: cleanedAnswer,
+    cards,
+    ...searchAttemptedField(searchAttempted),
+    ...suggestionsField(suggestions),
+    turnMeta,
+  };
 }
 
 /**
@@ -1069,7 +1160,7 @@ function finalizeAnswer(rawContent: string, cards: unknown[], searchAttempted: b
 async function runTurnFromBaseMessages(
   baseMessages: OutgoingMessage[],
   ctx: ToolContext = {}
-): Promise<AssistantTurnResult> {
+): Promise<AssistantTurnResult & { turnMeta?: TurnMeta }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.warn(JSON.stringify({ level: 'warn', event: 'ai_turn_skipped', reason: 'OPENROUTER_API_KEY not configured' }));
@@ -1083,13 +1174,19 @@ async function runTurnFromBaseMessages(
   let lastRawContent = '';
   let searchAttempted = false;
   const cards: unknown[] = [];
+  // CAM-509 — turn-level accumulator (mirrors `cards`' cross-round pattern):
+  // every call actually dispatched across every round this turn, for the
+  // AssistantTurnLog row's `toolCalls`/`deferred_tool` fields.
+  const toolCallLog: Array<{ tool: string; params: unknown; unknownTool: boolean }> = [];
 
   for (let iteration = 1; iteration <= MAX_AGENT_ITERATIONS; iteration++) {
     // Deadline check runs BEFORE every call after the first (iteration 1 has
     // no elapsed budget to breach yet). A breach spends no further network
     // call — use whatever content the last completion already carried.
     if (iteration > 1 && Date.now() >= turnDeadline) {
-      if (lastRawContent.trim().length > 0) return finalizeAnswer(lastRawContent, cards, searchAttempted);
+      if (lastRawContent.trim().length > 0) {
+        return finalizeAnswer(lastRawContent, cards, searchAttempted, buildTurnMeta(pinnedModel ?? resolveModel(), iteration, toolCallLog));
+      }
       return { ok: false, error: GENERIC_ERROR };
     }
 
@@ -1115,16 +1212,17 @@ async function runTurnFromBaseMessages(
     // requested here are intentionally ignored, same defense as CAM-270's
     // "no re-loop on the follow-up's own tool_calls").
     if (!toolCalls || toolCalls.length === 0 || isForcedFinalIteration) {
-      return finalizeAnswer(lastRawContent, cards, searchAttempted);
+      return finalizeAnswer(lastRawContent, cards, searchAttempted, buildTurnMeta(pinnedModel, iteration, toolCallLog));
     }
 
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
     // CAM-485 BR-3 — `cards` (the turn-level accumulator) is passed in and
     // mutated directly, so cross-round dedup-by-id sees every prior round.
-    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted } =
+    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted, callLog } =
       await executeToolCalls(toolCalls, roundLimit, ctx, cards);
     toolCallsExecutedThisTurn += executedCount;
     searchAttempted ||= roundSearchAttempted;
+    toolCallLog.push(...callLog);
 
     messages = [
       ...messages,
@@ -1165,7 +1263,13 @@ export async function runAssistantTurn(userText: string, ctx: ToolContext = {}):
     { role: 'system', content: buildSystemPrompt(new Date(), ctx, undefined, placeHint) },
     { role: 'user', content: wrapAsUserData(safeText) },
   ];
-  return runTurnFromBaseMessages(baseMessages, ctx);
+  // CAM-509 — this entry point has ZERO production callers (see the
+  // @deprecated note above) and is NOT one of the two turn-log seams; strip
+  // `turnMeta` (INTERNAL-only, see `runTurnFromBaseMessages`) so the returned
+  // shape stays byte-identical to before this story for every existing test
+  // that pins the exact `AssistantTurnResult` object.
+  const { turnMeta: _turnMeta, ...publicResult } = await runTurnFromBaseMessages(baseMessages, ctx);
+  return publicResult;
 }
 
 /**
@@ -1196,12 +1300,48 @@ export async function runAssistantTurnFromMessages(
   shownResults?: ShownResult[]
 ): Promise<AssistantTurnResult> {
   // CAM-501 BR-2 — pre-pass on the latest user turn only.
+  const questionText = stripUserDataFence(extractLatestUserMessageText(turnMessages));
   const placeHint = resolvePlace(extractLatestUserMessageText(turnMessages));
   const baseMessages: OutgoingMessage[] = [
     { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults, placeHint) },
     ...turnMessages,
   ];
-  return runTurnFromBaseMessages(baseMessages, ctx);
+
+  // CAM-509 (AC-1/AC-2/AC-3, BR-5) — this seam backs BOTH guest_nonstream
+  // (`ctx.userId` absent, `handleLegacyTurn`) and authed (`ctx.userId`
+  // present, `handleV2Turn`) — the same "derived from entrypoint + whether
+  // ctx.userId was present" rule BR-5 states. The streaming twin below is
+  // the ONLY caller that ever produces "guest_sse".
+  const path = ctx.userId ? 'authed' : 'guest_nonstream';
+  const startedAt = Date.now();
+  const { turnMeta, ...publicResult } = await runTurnFromBaseMessages(baseMessages, ctx);
+
+  // AC-1/AC-2/AC-3 — only a turn that actually completed with an answer is
+  // logged (every AC in the story describes a completed turn); BR-1/EC-3
+  // guarantee this call itself can never throw into — or delay — the
+  // response already assembled above.
+  if (publicResult.ok && !publicResult.skipped) {
+    const toolCalls = turnMeta?.toolCalls ?? [];
+    logAssistantTurn({
+      path,
+      userIdHash: ctx.userId ? hashUserId(ctx.userId) : null,
+      userText: questionText,
+      toolCalls,
+      assistantText: publicResult.answer ?? null,
+      missFlags: computeMissFlags({
+        searchAttempted: publicResult.searchAttempted === true,
+        cardCount: publicResult.cards?.length ?? 0,
+        toolCallCount: toolCalls.length,
+        deferredTool: turnMeta?.deferredTool ?? false,
+        userText: questionText,
+      }),
+      roundCount: turnMeta?.roundCount ?? 0,
+      latencyMs: Date.now() - startedAt,
+      model: turnMeta?.model ?? resolveModel(),
+    });
+  }
+
+  return publicResult;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1530,7 +1670,25 @@ export async function* runAssistantTurnFromMessagesStreaming(
 
   // CAM-501 BR-2 — pre-pass on the latest user turn only.
   const placeHint = resolvePlace(extractLatestUserMessageText(turnMessages));
-  const turnDeadline = Date.now() + TURN_DEADLINE_MS;
+  // CAM-509 (AC-2, BR-5) — this seam is the ONLY caller that ever produces
+  // "guest_sse" (the v2/authed branch does not stream, ADR-015 — see the
+  // route.ts docblock); `questionText`/`startedAt`/`toolCallLog` feed the
+  // AssistantTurnLog row assembled at each `meta` yield point below.
+  //
+  // CAM-509 regression fix (QA bounce, cam-412's deadline-breach Prove-It
+  // tests) — `startedAt` and `turnDeadline` MUST share the exact same
+  // `Date.now()` call: `__tests__/cam-412-openrouter-streaming.test.ts`
+  // stubs `Date.now` with `mockReturnValueOnce(0).mockReturnValue(...)`,
+  // i.e. exactly ONE call returns the "turn start" value and every call
+  // after that returns the "already past deadline" value. An extra,
+  // earlier `Date.now()` call here would consume that one-time value first
+  // and silently push `turnDeadline` itself past the mocked "now", making
+  // the deadline guard never fire — never add a second, separate call.
+  const questionText = stripUserDataFence(extractLatestUserMessageText(turnMessages));
+  const toolCallLog: Array<{ tool: string; params: unknown; unknownTool: boolean }> = [];
+  const turnStartedAt = Date.now();
+  const startedAt = turnStartedAt;
+  const turnDeadline = turnStartedAt + TURN_DEADLINE_MS;
   let messages: OutgoingMessage[] = [
     { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults, placeHint) },
     ...turnMessages,
@@ -1548,6 +1706,23 @@ export async function* runAssistantTurnFromMessagesStreaming(
       if (lastRawContent.trim().length > 0) {
         const { answer, suggestions } = extractSuggestions(lastRawContent);
         if (answer) yield { type: 'delta', text: answer };
+        logAssistantTurn({
+          path: 'guest_sse',
+          userIdHash: ctx.userId ? hashUserId(ctx.userId) : null,
+          userText: questionText,
+          toolCalls: toolCallLog.map(({ tool, params }) => ({ tool, params })),
+          assistantText: answer,
+          missFlags: computeMissFlags({
+            searchAttempted,
+            cardCount: cards.length,
+            toolCallCount: toolCallLog.length,
+            deferredTool: toolCallLog.some((entry) => entry.unknownTool),
+            userText: questionText,
+          }),
+          roundCount: iteration,
+          latencyMs: Date.now() - startedAt,
+          model: pinnedModel ?? resolveModel(),
+        });
         yield { type: 'meta', cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
         return;
       }
@@ -1593,7 +1768,24 @@ export async function* runAssistantTurnFromMessagesStreaming(
     const toolCalls = message.tool_calls;
 
     if (!toolCalls || toolCalls.length === 0 || isForcedFinalIteration) {
-      const { suggestions } = extractSuggestions(lastRawContent);
+      const { answer, suggestions } = extractSuggestions(lastRawContent);
+      logAssistantTurn({
+        path: 'guest_sse',
+        userIdHash: ctx.userId ? hashUserId(ctx.userId) : null,
+        userText: questionText,
+        toolCalls: toolCallLog.map(({ tool, params }) => ({ tool, params })),
+        assistantText: answer,
+        missFlags: computeMissFlags({
+          searchAttempted,
+          cardCount: cards.length,
+          toolCallCount: toolCallLog.length,
+          deferredTool: toolCallLog.some((entry) => entry.unknownTool),
+          userText: questionText,
+        }),
+        roundCount: iteration,
+        latencyMs: Date.now() - startedAt,
+        model: pinnedModel ?? resolveModel(),
+      });
       yield { type: 'meta', cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
       return;
     }
@@ -1601,10 +1793,11 @@ export async function* runAssistantTurnFromMessagesStreaming(
     const roundLimit = Math.max(0, Math.min(MAX_TOOL_CALLS_PER_ROUND, MAX_TOOL_CALLS_PER_TURN - toolCallsExecutedThisTurn));
     // CAM-485 BR-3 — `cards` (the turn-level accumulator) is passed in and
     // mutated directly, so cross-round dedup-by-id sees every prior round.
-    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted } =
+    const { toolMessages, executedCount, searchAttempted: roundSearchAttempted, callLog } =
       await executeToolCalls(toolCalls, roundLimit, ctx, cards);
     toolCallsExecutedThisTurn += executedCount;
     searchAttempted ||= roundSearchAttempted;
+    toolCallLog.push(...callLog);
 
     messages = [
       ...messages,

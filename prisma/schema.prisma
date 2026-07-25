@@ -919,3 +919,39 @@ model ThaiHoliday {
   isLongWeekend Boolean  @default(false) // [Public] part of a contiguous >=3-day non-working span (BR-4), STORED + test-guarded (D2)
   createdAt     DateTime @default(now())
 }
+
+// ============================================================================
+// CAM-509 (S2/SEE pillar) — capture-only telemetry for every assistant turn
+// across all 3 request paths (guest_nonstream, guest_sse, authed), read later
+// by the weekly `/ai-chat-improve` skill (a separate follow-up, no card) on
+// the Claude subscription (zero paid API) instead of owner screenshots.
+// STORE ONLY — no analysis/classification/LLM runs at write time (BR-2).
+// Isolated — no FK, no relation to any existing model — so the migration is a
+// clean additive create/drop (Data section, story.md).
+// PDPA (BR-4): `userIdHash` is a stable salted hash, NEVER the raw userId;
+// guest turns store null. `userText`/`assistantText` are stored in full
+// (owner decision: full capture, 90-day retention via
+// lib/ai/turn-log.ts#deleteTurnLogsOlderThan).
+// ============================================================================
+
+model AssistantTurnLog {
+  id String @id @default(cuid())
+
+  createdAt DateTime @default(now())
+  path      String // "guest_nonstream" | "guest_sse" | "authed" (BR-5)
+
+  userIdHash String? // sha256(userId + SALT), truncated — never the raw id (BR-4/EC-2); null for a guest turn
+
+  userText      String // the camper's question text this turn, full (owner decision)
+  toolCalls     Json // array of {tool, params} — every tool the model actually dispatched this turn (BR-2)
+  assistantText String? // the assistant's final answer text, full (owner decision); absent on a turn with no answer
+
+  missFlags String[] // deterministic, cheap flags only (BR-3): "zero_result" | "deferred_tool" | "no_tool"
+
+  roundCount Int // agent-loop rounds this turn took (BR-6)
+  latencyMs  Int? // turn wall-clock, ms (BR-6)
+  model      String // the resolved model id that produced the final answer (BR-6)
+
+  @@index([createdAt])
+  @@index([path])
+}
