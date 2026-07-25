@@ -39,7 +39,7 @@ import { getRemainingCapacityForCamps, type RemainingCapacityResult } from '@/li
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
 import { resolveRegionForSearch } from '@/lib/thai-regions';
 import { MAX_DATE_SET_RANGES, type DateRange } from '@/lib/ai/tools/resolve-dates';
-import { SEARCH_CAMPSITES_MAX_RESULTS } from '@/lib/ai/tools/search-campsites';
+import { SEARCH_CAMPSITES_MAX_RESULTS, type SearchCampsiteCard } from '@/lib/ai/tools/search-campsites';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /** Same "is this a real calendar date" check every sibling tool uses (search-campsites.ts, check-availability.ts) — no new validation concept. */
@@ -127,6 +127,16 @@ export type BulkAvailabilityResult =
       ranges: { startDate: string; endDate: string }[];
       /** EVERY candidate camp is present (AC-2) — a camp full for every range still appears, never omitted. */
       camps: BulkAvailabilityCamp[];
+      /**
+       * CAM-485 BR-1 — top-level, tappable cards (additive, `camps` above is
+       * UNCHANGED): only the camps that have >=1 `free` cell, each carrying
+       * `remaining` from that camp's FIRST free cell (deterministic — a
+       * multi-range ask never averages/aggregates). A camp full/unknown
+       * across every range is correctly omitted here (EC-1) even though it
+       * still appears in `camps`. Built from data already queried above
+       * (`aiCampCardSelect` + `toAiCampCard`) — no extra query.
+       */
+      cards: SearchCampsiteCard[];
     }
   | { ok: false; reason: 'over_cap' | 'no_match' | 'error' };
 
@@ -257,12 +267,25 @@ export async function executeBulkAvailability(args: BulkAvailabilityArgs): Promi
     return { ok: false, reason: 'error' };
   }
 
+  // CAM-485 BR-1 — top-level `cards[]`: only camps with >=1 free cell,
+  // `remaining` from the FIRST free cell (deterministic). Reuses the SAME
+  // `cards` (AiCampCard[]) already queried above — no second query.
+  const availableCards: SearchCampsiteCard[] = [];
+  for (const card of cards) {
+    const cells = cellsByCampId.get(card.id) ?? [];
+    const firstFree = cells.find(
+      (cell): cell is Extract<CellStatus, { status: 'free' }> => cell.status === 'free'
+    );
+    if (firstFree) availableCards.push({ ...card, remaining: firstFree.remaining });
+  }
+
   return {
     ok: true,
     ranges: args.dates.map((r) => ({ startDate: r.startDate, endDate: r.endDate })),
     // AC-2/AC-3/EC-1 — every candidate camp row is emitted, full-everywhere
     // camps included; per-range status is preserved, never collapsed.
     camps: cards.map((card) => ({ ...card, cells: cellsByCampId.get(card.id) ?? [] })),
+    cards: availableCards,
   };
 }
 
