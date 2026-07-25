@@ -116,6 +116,26 @@ async function writeTurnLog(record: AssistantTurnLogRecord): Promise<void> {
 }
 
 /**
+ * QA fix (post-merge-review, Important — proven, not theoretical): ~15
+ * pre-existing test files call the openrouter-client seams without mocking
+ * `@/lib/prisma`; Prisma auto-loads `.env`, so during `npm test` the
+ * fire-and-forget write would otherwise land real synthetic rows (fake Thai
+ * test strings, "connection refused" fixtures) in the SAME local dev DB the
+ * owner's dev server reads and the future `/ai-chat-improve` skill mines for
+ * real signal — silently polluting the corpus. Telemetry must never write
+ * under the test runner, so this is a hard, unconditional guard, checked
+ * BEFORE anything else in this function. `VITEST` and `NODE_ENV==='test'`
+ * are both set by Vitest by default (never by `next dev`/`next build`, which
+ * are `development`/`production`) — this can never disable real dev/prod
+ * logging, only a real test run. A test that needs to prove the write path
+ * itself (against a mocked `@/lib/prisma`) explicitly stubs both env vars
+ * away first (`vi.stubEnv`) — see cam-509-assistant-turn-log.test.ts.
+ */
+function isTestRunner(): boolean {
+  return Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+}
+
+/**
  * BR-1 — fire-and-forget: the caller never awaits this (a `void`-returning
  * function, not a Promise), so a slow or failing write can never add latency
  * to — or break — the chat response (AC-4, EC-1). Prefers `after()`
@@ -128,6 +148,7 @@ async function writeTurnLog(record: AssistantTurnLogRecord): Promise<void> {
  * fallback can never produce an unhandled promise rejection either.
  */
 export function logAssistantTurn(record: AssistantTurnLogRecord): void {
+  if (isTestRunner()) return;
   try {
     after(() => writeTurnLog(record));
   } catch {

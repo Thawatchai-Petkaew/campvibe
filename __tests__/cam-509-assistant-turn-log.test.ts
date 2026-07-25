@@ -60,7 +60,36 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 const { runAssistantTurnFromMessages, runAssistantTurnFromMessagesStreaming } = await import('@/lib/ai/openrouter-client');
-const { hashUserId, computeMissFlags, deleteTurnLogsOlderThan } = await import('@/lib/ai/turn-log');
+const { hashUserId, computeMissFlags, deleteTurnLogsOlderThan, logAssistantTurn } = await import('@/lib/ai/turn-log');
+
+/**
+ * QA fix (post-merge-review, Important) — `logAssistantTurn` is a hard
+ * no-op under the test runner (`VITEST` / `NODE_ENV==='test'`, both set by
+ * Vitest by default — see turn-log.ts's `isTestRunner`), so every test in
+ * THIS file that means to prove the real write path (against the mocked
+ * `@/lib/prisma` above) must explicitly stub both env vars away first. Kept
+ * as one shared helper so every such call site is visibly opting IN to the
+ * real path, rather than the guard being silently bypassed ad hoc.
+ */
+function enableRealWritesForThisTest(): void {
+  vi.stubEnv('VITEST', '');
+  vi.stubEnv('NODE_ENV', 'development');
+}
+
+/** A minimal, valid AssistantTurnLogRecord — used by the guard-proof tests below, which call `logAssistantTurn` directly rather than through a full turn. */
+function minimalRecord() {
+  return {
+    path: 'guest_nonstream' as const,
+    userIdHash: null,
+    userText: 'สวัสดี',
+    toolCalls: [],
+    assistantText: 'สวัสดีครับ',
+    missFlags: [],
+    roundCount: 1,
+    latencyMs: 10,
+    model: 'openai/gpt-4o-mini',
+  };
+}
 
 const FAKE_KEY = 'sk-or-test-cam509-turn-log';
 const USER_ID = '550e8400-e29b-41d4-a716-446655440099';
@@ -108,6 +137,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs(); // releases any enableRealWritesForThisTest() stub (VITEST/NODE_ENV) before the next test
   delete process.env.OPENROUTER_API_KEY;
   delete process.env.OPENROUTER_MODEL;
   delete process.env.OPENROUTER_MODEL_FALLBACK;
@@ -205,6 +235,7 @@ describe('deleteTurnLogsOlderThan (BR-4 retention)', () => {
 
 describe('runAssistantTurnFromMessages — AssistantTurnLog capture (AC-1/AC-3/BR-5)', () => {
   it('[normal] a guest turn (ctx.userId absent) writes exactly one row: path="guest_nonstream", userIdHash=null, clean userText (no <user_message> fence)', async () => {
+    enableRealWritesForThisTest(); // QA fix — bypass the test-runner no-op guard so this test can prove the real write path
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('สวัสดีครับ มีอะไรให้ช่วยไหมครับ')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -226,6 +257,7 @@ describe('runAssistantTurnFromMessages — AssistantTurnLog capture (AC-1/AC-3/B
   });
 
   it('[normal] an authed turn (ctx.userId present) writes path="authed" with a HASHED userIdHash, never the raw id', async () => {
+    enableRealWritesForThisTest();
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ตกลงครับ')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -259,6 +291,7 @@ describe('runAssistantTurnFromMessages — AssistantTurnLog capture (AC-1/AC-3/B
 
 describe('runAssistantTurnFromMessagesStreaming — AssistantTurnLog capture (AC-2)', () => {
   it('[normal] a streamed guest turn writes exactly one row: path="guest_sse"', async () => {
+    enableRealWritesForThisTest();
     const mockFetch = vi.fn().mockResolvedValue(
       sseResponse([dataLine(contentChunk('พบแคมป์ 2 แห่งครับ')), 'data: [DONE]\n\n'])
     );
@@ -282,6 +315,7 @@ describe('runAssistantTurnFromMessagesStreaming — AssistantTurnLog capture (AC
 
 describe('AC-4/EC-3 — a forced AssistantTurnLog write failure never breaks the chat response', () => {
   it('[error/validation] runAssistantTurnFromMessages still returns the normal answer when the DB insert throws', async () => {
+    enableRealWritesForThisTest(); // must actually reach the write to prove the swallow-on-throw behavior
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockCreate.mockRejectedValueOnce(new Error('connection refused'));
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('คำตอบปกติครับ')));
@@ -304,6 +338,7 @@ describe('AC-4/EC-3 — a forced AssistantTurnLog write failure never breaks the
   });
 
   it('[error/validation] a rejected write never produces an unhandled promise rejection (no secret/PII in the swallowed log line)', async () => {
+    enableRealWritesForThisTest();
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockCreate.mockRejectedValueOnce(new Error('super-secret-connection-string-should-never-leak'));
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('ok')));
@@ -326,6 +361,7 @@ describe('AC-4/EC-3 — a forced AssistantTurnLog write failure never breaks the
 
 describe('AC-5 — zero_result miss flag (a search tool ran, 0 cards back)', () => {
   it('[normal] a searchCampsites call that returns 0 cards sets missFlags to include "zero_result"', async () => {
+    enableRealWritesForThisTest();
     const mockFetch = vi
       .fn()
       .mockResolvedValueOnce(res(assistantMessage(null, [toolCall('call_1', 'searchCampsites')])))
@@ -352,6 +388,7 @@ describe('AC-5 — zero_result miss flag (a search tool ran, 0 cards back)', () 
 
 describe('AC-6 — deferred_tool miss flag (the model requested a tool that does not exist)', () => {
   it('[normal] dispatchTool reporting unknown_tool sets missFlags to include "deferred_tool"', async () => {
+    enableRealWritesForThisTest();
     const mockFetch = vi
       .fn()
       .mockResolvedValueOnce(res(assistantMessage(null, [toolCall('call_1', 'bookCampsiteNow')])))
@@ -369,5 +406,67 @@ describe('AC-6 — deferred_tool miss flag (the model requested a tool that does
     // the transient `unknownTool` bookkeeping field never leaks into storage.
     expect(data.toolCalls).toEqual([{ tool: 'bookCampsiteNow', params: {} }]);
     expect(Object.keys(data.toolCalls[0]).sort()).toEqual(['params', 'tool']);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* QA fix (post-merge-review, Important) — logAssistantTurn no-ops under the  */
+/* test runner, so a full `npm test` run never pollutes the local dev DB      */
+/* with synthetic rows from the ~15 pre-existing unmocked-prisma suites that  */
+/* exercise these seams.                                                     */
+/* -------------------------------------------------------------------------- */
+
+describe('QA fix — logAssistantTurn is a no-op under the test runner (VITEST/NODE_ENV=test)', () => {
+  it('[security/hygiene] calling logAssistantTurn directly under the default test env writes ZERO rows', async () => {
+    // Deliberately NOT calling enableRealWritesForThisTest() here — this
+    // proves the guard fires under the environment every other test file in
+    // this suite (and CI) actually runs under, by default.
+    expect(process.env.VITEST || process.env.NODE_ENV === 'test').toBeTruthy();
+
+    logAssistantTurn(minimalRecord());
+
+    // Give any stray microtask a chance to run, then assert nothing fired —
+    // there's no promise to `vi.waitFor` on here since a true no-op never
+    // schedules one.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('[security/hygiene] a full turn through runAssistantTurnFromMessages under the default test env writes ZERO rows (the exact defect QA proved)', async () => {
+    // No enableRealWritesForThisTest() — this is the unmocked-prisma shape
+    // every pre-existing cam-270/412/415/416/417/420/430/459/... test file
+    // has: it calls the seam directly, with no opinion at all about
+    // AssistantTurnLog. Before the guard, this landed a real synthetic row.
+    const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('คำตอบปกติครับ')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await runAssistantTurnFromMessages([{ role: 'user', content: 'สวัสดี' }]);
+    expect(result).toEqual({ ok: true, answer: 'คำตอบปกติครับ', cards: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('[security/hygiene] a full streamed turn through runAssistantTurnFromMessagesStreaming under the default test env writes ZERO rows', async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      sseResponse([dataLine(contentChunk('พบแคมป์ครับ')), 'data: [DONE]\n\n'])
+    );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const events = await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'หาแคมป์' }]));
+    expect(events.some((e) => e.type === 'meta')).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('[boundary] enableRealWritesForThisTest() (VITEST/NODE_ENV stubbed away) genuinely re-enables the write — proves the guard test above isn\'t vacuously green', async () => {
+    enableRealWritesForThisTest();
+    expect(process.env.VITEST).toBe('');
+    expect(process.env.NODE_ENV).toBe('development');
+
+    logAssistantTurn(minimalRecord());
+
+    await vi.waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
   });
 });
