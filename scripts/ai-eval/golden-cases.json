@@ -651,5 +651,17 @@
       "params": {}
     },
     "guardrail": false
+  },
+  {
+    "id": "P19-48",
+    "group": "P19",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์สำหรับมือใหม่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": {}
+    },
+    "guardrail": false
   }
 ]
