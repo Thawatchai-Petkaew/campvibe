@@ -67,7 +67,7 @@ vi.mock("@/app/actions/getFilterOptions", () => ({
   })),
 }));
 
-const countMock = vi.fn(async () => 5);
+const countMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 5);
 vi.mock("@/app/actions/getCampSiteCount", () => ({
   getCampSiteCount: (...args: unknown[]) => countMock(...args),
 }));
