@@ -76,7 +76,7 @@ vi.mock('@/lib/ai/tool-registry', async () => {
 const { executeBulkAvailability, bulkAvailabilityArgsSchema } = await import('@/lib/ai/tools/bulk-availability');
 const { executeCheckAvailability, checkAvailabilityArgsSchema } = await import('@/lib/ai/tools/check-availability');
 const { AvailabilityRangeTooWideError } = await import('@/lib/campsite-availability');
-const { runAssistantTurn } = await import('@/lib/ai/openrouter-client');
+const { runAssistantTurn, runAssistantTurnFromMessagesStreaming } = await import('@/lib/ai/openrouter-client');
 
 // ---------------------------------------------------------------------------
 // Shared fixtures / helpers
@@ -358,5 +358,151 @@ describe('engine — collectCardsFromToolData dedup by id (CAM-485 BR-3/AC-3/EC-
 
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.cards).toEqual([{ id: 'c1' }, { id: 'c2' }]);
+  });
+
+  it('[EC-5] a card whose `id` is present but non-string (e.g. a number) is "no readable id" -> pushed unconditionally, never used to dedup', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(res(assistantMessage(null, [toolCall('call_1', 'searchCampsites')])))
+      .mockResolvedValueOnce(res(assistantMessage('พบแคมป์ครับ')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    // id:123 is not a string -> readCardId returns undefined for BOTH -> neither
+    // participates in the seen-set, so both pass through untouched (never dropped).
+    mockDispatchTool.mockResolvedValueOnce({ ok: true, data: { cards: [{ id: 123 }, { id: 123 }] } });
+
+    const result = await runAssistantTurn('หาแคมป์');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.cards).toEqual([{ id: 123 }, { id: 123 }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-3/EC-4/EC-5 — the SAME dedup guarantee on the STREAMING path
+// (runAssistantTurnFromMessagesStreaming), which goes through
+// executeToolCalls/collectCardsFromToolData via a completely separate
+// generator function from runAssistantTurn — story.md explicitly calls out
+// "ทั้ง runTurnFromBaseMessages และ streaming twin ใช้ผ่าน executeToolCalls",
+// so the non-streaming coverage above proves nothing about this path.
+// ---------------------------------------------------------------------------
+describe('engine (streaming) — collectCardsFromToolData dedup by id (CAM-485 BR-3/AC-3/EC-4/EC-5)', () => {
+  const encoder = new TextEncoder();
+
+  function sseResponse(rawFragments: string[]): Response {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const frag of rawFragments) controller.enqueue(encoder.encode(frag));
+        controller.close();
+      },
+    });
+    return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+  }
+
+  function dataLine(obj: unknown): string {
+    return `data: ${JSON.stringify(obj)}\n\n`;
+  }
+
+  function contentChunk(text: string) {
+    return { choices: [{ delta: { content: text }, finish_reason: null }] };
+  }
+
+  function toolCallChunk(name: string, id: string) {
+    return {
+      choices: [
+        {
+          delta: { tool_calls: [{ index: 0, id, type: 'function', function: { name, arguments: '{}' } }] },
+          finish_reason: null,
+        },
+      ],
+    };
+  }
+
+  async function drain(gen: AsyncGenerator<{ type: string; [k: string]: unknown }>) {
+    const events: Array<{ type: string; [k: string]: unknown }> = [];
+    for await (const ev of gen) events.push(ev);
+    return events;
+  }
+
+  it('[AC-3/EC-4] two tool rounds (searchCampsites then bulkAvailability) return overlapping ids -> the terminal meta lists each camp ONCE, first-seen order kept', async () => {
+    const mockFetch = vi
+      .fn()
+      // Round 1: model calls searchCampsites.
+      .mockResolvedValueOnce(sseResponse([dataLine(toolCallChunk('searchCampsites', 'call_1')), 'data: [DONE]\n\n']))
+      // Round 2: model calls bulkAvailability.
+      .mockResolvedValueOnce(sseResponse([dataLine(toolCallChunk('bulkAvailability', 'call_2')), 'data: [DONE]\n\n']))
+      // Round 3: natural stop, prose answer.
+      .mockResolvedValueOnce(sseResponse([dataLine(contentChunk('เจอลานที่ว่างให้แล้วค่ะ')), 'data: [DONE]\n\n']));
+    vi.stubGlobal('fetch', mockFetch);
+
+    mockDispatchTool
+      .mockResolvedValueOnce({ ok: true, data: { cards: [{ id: 'a' }, { id: 'b' }] } }) // search -> A, B
+      .mockResolvedValueOnce({ ok: true, data: { cards: [{ id: 'b' }, { id: 'c' }] } }); // bulk -> B (dup), C
+
+    const events = await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'เสาร์หน้ามีลานไหนว่าง' }]));
+
+    const meta = events.find((e) => e.type === 'meta');
+    expect(meta).toBeDefined();
+    // B kept ONCE — never A,B,B,C — in first-seen order (A,B,C). Proves the
+    // streaming twin shares the SAME turn-level accumulator as non-streaming.
+    expect(meta?.cards).toEqual([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+  });
+
+  it('[EC-5] a streaming-path card with no readable id is pushed unconditionally — never dropped, never thrown', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse([dataLine(toolCallChunk('searchCampsites', 'call_1')), 'data: [DONE]\n\n']))
+      .mockResolvedValueOnce(sseResponse([dataLine(contentChunk('พบแคมป์ครับ')), 'data: [DONE]\n\n']));
+    vi.stubGlobal('fetch', mockFetch);
+
+    mockDispatchTool.mockResolvedValueOnce({
+      ok: true,
+      data: { cards: [{ id: 'a' }, { name: 'ผิดรูป ไม่มี id' }, { id: 'a' }] },
+    });
+
+    const events = await drain(runAssistantTurnFromMessagesStreaming([{ role: 'user', content: 'หาแคมป์ในเชียงใหม่' }]));
+
+    const meta = events.find((e) => e.type === 'meta');
+    expect(meta?.cards).toEqual([{ id: 'a' }, { name: 'ผิดรูป ไม่มี id' }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BR-4 — bulkAvailability's `ok:false` results never fabricate a stray
+// `cards` key (the discriminated-union type FORBIDS it at compile time, but
+// TS types are erased at runtime — assert the actual returned object shape).
+// ---------------------------------------------------------------------------
+describe('bulkAvailability — ok:false paths never leak a `cards` key (CAM-485 BR-4 regression)', () => {
+  it('[error/validation] over_cap (dates.length > MAX_DATE_SET_RANGES) -> plain {ok:false,reason}, no cards key, no DB call', async () => {
+    const dates = Array.from({ length: 13 }, (_, i) => dateRange(i));
+    const args = bulkAvailabilityArgsSchema.parse({ dates });
+
+    const result = await executeBulkAvailability(args);
+
+    expect(result).toEqual({ ok: false, reason: 'over_cap' });
+    expect(result).not.toHaveProperty('cards');
+    expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  it('[error/validation] no_match (empty candidate set) -> plain {ok:false,reason}, no cards key, no availability query', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+    const args = bulkAvailabilityArgsSchema.parse({ dates: [dateRange(0)] });
+
+    const result = await executeBulkAvailability(args);
+
+    expect(result).toEqual({ ok: false, reason: 'no_match' });
+    expect(result).not.toHaveProperty('cards');
+    expect(mockGetRemainingCapacityForCamps).not.toHaveBeenCalled();
+  });
+
+  it('[error/validation] a live-read throw -> plain {ok:false,reason:"error"}, no cards key, never fabricates free', async () => {
+    mockFindMany.mockResolvedValueOnce([candidateRow('c1')]);
+    mockGetRemainingCapacityForCamps.mockRejectedValueOnce(new Error('db down'));
+    const args = bulkAvailabilityArgsSchema.parse({ dates: [dateRange(0)] });
+
+    const result = await executeBulkAvailability(args);
+
+    expect(result).toEqual({ ok: false, reason: 'error' });
+    expect(result).not.toHaveProperty('cards');
   });
 });
