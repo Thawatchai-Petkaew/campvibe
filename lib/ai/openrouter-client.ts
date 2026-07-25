@@ -320,11 +320,14 @@ function buildPlaceHintBlock(place: ResolvedPlace): string | null {
   }
   if (place.province) {
     return (
-      `The camper explicitly named the province "${place.province}" in their latest message ` +
-      '(detected deterministically server-side, not a guess). When you call searchCampsites or bulkAvailability ' +
-      `this turn, you MUST set province="${place.province}" — never omit it, never change it to a different ` +
-      'province, and never drop it just because the message also names a terrain/facility word. A terrain word ' +
-      '(for example ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this province.'
+      `The camper explicitly named the province "${place.province}" in their latest message, with NO proximity ` +
+      'word (ใกล้, แถว, รอบๆ, ย่าน, บริเวณ) present — this is an EXACT place, whether phrased as "ใน' +
+      `${place.province}" or just the bare province name (detected deterministically server-side, not a guess). ` +
+      `When you call searchCampsites or bulkAvailability this turn, you MUST set province="${place.province}" — ` +
+      'do NOT set `near` for this place instead (near is ONLY for a proximity word like ใกล้/แถว/รอบๆ/ย่าน/บริเวณ, ' +
+      'which this message does NOT contain), never omit `province`, never change it to a different province, and ' +
+      'never drop it just because the message also names a terrain/facility word. A terrain word (for example ' +
+      'ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this province.'
     );
   }
   if (place.region) {
