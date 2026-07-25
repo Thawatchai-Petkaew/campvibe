@@ -61,7 +61,7 @@ When the miss is a **concept keyword** the model searched literally and got 0:
 1. **RESEARCH** the concept with `WebSearch` (real vernacular, not a guess) — e.g. "มือใหม่" beginner-camping → hot showers, flat ground, on-site host, developed car-accessible campground.
 2. **MAP** it onto the REAL filter vocabulary and **verify against data** (`campSite.count` with the mapped filters):
    - a discriminating map (returns a meaningful subset) → a `prisma/data/concept-map.json` entry, consumed by a deterministic concept pre-pass (sibling of `place-resolver`/`resolve-dates`) that injects the filters — L2-concept lane below.
-   - a non-map (returns 0, or ~everything like 475/475) → **SUGGEST**, don't force it: append a **composable attribute-group** (primitive fields that combine — never a `beginnerFriendly` flag) to `docs/specs/ai-chat-capability-loop/data-suggestions.md`. Owner picks → L3.
+   - a non-map (returns 0, or ~everything like 475/475) → **SUGGEST**, don't force it: append a **composable attribute-group** (primitive fields that combine — never a `beginnerFriendly` flag) to `docs/specs/ai-chat-capability-loop/data-suggestions.md`. Every suggestion MUST name its **data group / entity** — which entity each attribute hangs off (CampSite/Booking/Operator/Spot) and whether it extends an EXISTING registry cluster (e.g. add a Facility MasterData code) or forms a new named pixel-group — so attributes are captured together, not scattered. Owner picks → L3.
 
 ### 4. FIX (one lane, one change)
 | Lane | When | Touches |
