@@ -121,9 +121,23 @@ export function errorResult(kase: GoldenCase, dispatched: DispatchedCall[], reas
 
 export interface Rollup {
   verdict: 'PASS' | 'REPORTING';
+  /** raw/overall tool-call correctness over ALL non-guardrail cases (core + deferred) — kept for continuity (BR-4), no longer drives the verdict. */
   toolCallCorrectnessPct: number;
+  /** CAM-506 BR-1/BR-2 — correctness over the core set only (non-guardrail, non-deferred); drives the verdict. */
+  coreCorrectnessPct: number;
+  /** CAM-506 BR-1 — correctness over the deferred set (`group === "deferred"`, non-guardrail); informational only, never enters the verdict. */
+  deferredCorrectnessPct: number;
   guardrailPassPct: number;
-  counts: { pass: number; fail: number; error: number; total: number };
+  counts: {
+    pass: number;
+    fail: number;
+    error: number;
+    total: number;
+    /** CAM-506 BR-1 — the three disjoint partitions (core + deferred + guardrail === total). */
+    core: number;
+    deferred: number;
+    guardrail: number;
+  };
 }
 
 function pctPass(results: CaseResult[]): number {
@@ -131,23 +145,39 @@ function pctPass(results: CaseResult[]): number {
   return results.filter((r) => r.result === 'pass').length / results.length;
 }
 
-/** BR-3/AC-4 — verdict = PASS only when BOTH thresholds are met; a single guardrail fail flips the verdict even at >=95% tool-call correctness. */
+/**
+ * BR-3/AC-4 — verdict = PASS only when BOTH thresholds are met; a single guardrail fail flips
+ * the verdict even at >=95% tool-call correctness.
+ * CAM-506 BR-1/BR-2/BR-3 — the verdict now reads CORE correctness (excludes `group:"deferred"`
+ * cases, EC-1 vacuous 1.0 on zero core), not the raw/overall pct. Deferred pct is informational
+ * only (AC-3) and never enters the verdict. EC-2 — guardrail wins ties: a case flagged BOTH
+ * guardrail and deferred is counted only in the guardrail set, excluded from core and deferred.
+ */
 export function computeRollup(results: CaseResult[]): Rollup {
   const guardrailResults = results.filter((r) => r.guardrail);
   const nonGuardrailResults = results.filter((r) => !r.guardrail);
+  const deferredResults = nonGuardrailResults.filter((r) => r.group === 'deferred');
+  const coreResults = nonGuardrailResults.filter((r) => r.group !== 'deferred');
+
   const toolCallCorrectnessPct = pctPass(nonGuardrailResults);
+  const coreCorrectnessPct = pctPass(coreResults);
+  const deferredCorrectnessPct = pctPass(deferredResults);
   const guardrailPassPct = pctPass(guardrailResults);
+
   const counts = {
     pass: results.filter((r) => r.result === 'pass').length,
     fail: results.filter((r) => r.result === 'fail').length,
     error: results.filter((r) => r.result === 'error').length,
     total: results.length,
+    core: coreResults.length,
+    deferred: deferredResults.length,
+    guardrail: guardrailResults.length,
   };
   const verdict: Rollup['verdict'] =
-    toolCallCorrectnessPct >= TOOL_CALL_CORRECTNESS_THRESHOLD && guardrailPassPct >= GUARDRAIL_THRESHOLD
+    coreCorrectnessPct >= TOOL_CALL_CORRECTNESS_THRESHOLD && guardrailPassPct >= GUARDRAIL_THRESHOLD
       ? 'PASS'
       : 'REPORTING';
-  return { verdict, toolCallCorrectnessPct, guardrailPassPct, counts };
+  return { verdict, toolCallCorrectnessPct, coreCorrectnessPct, deferredCorrectnessPct, guardrailPassPct, counts };
 }
 
 export interface GroupRollup {
