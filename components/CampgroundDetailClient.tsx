@@ -16,7 +16,7 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -410,6 +410,10 @@ export default function CampgroundDetailClient({
     const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
     const accessCodes = codesByGroup('Access type');
     const terrainCodes = codesByGroup('Terrain');
+    // CAM-517 (S5) — campSiteType is a scalar column (single value, e.g. CAGD/
+    // GLAMP/VIEW), NOT part of the `options` MasterData relation above — read
+    // it directly off the camp row.
+    const campSiteTypeCode: string | undefined = campground.campSiteType;
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
@@ -553,6 +557,13 @@ export default function CampgroundDetailClient({
         'GENR': Users,
         'DIFT': TrendingUp,
         'IDMT': Dumbbell,
+        // CAM-517 (S5) — Campground type (campSiteType scalar, not an `options`
+        // MasterData group) — CAGD/CACP had no icon here since this field was
+        // never rendered on the detail page before this story.
+        'CAGD': Tent,
+        'CACP': Car,
+        'GLAMP': Sparkles,
+        'VIEW': Eye,
         // Fallbacks
         'default': ShieldCheck
     };
@@ -1023,10 +1034,19 @@ export default function CampgroundDetailClient({
                         )}
 
                         {/* 3. Site Types */}
-                        {terrainCodes.length > 0 && (
+                        {(!!campSiteTypeCode || terrainCodes.length > 0) && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
+                                    {/* CAM-517 (S5) AC-3 — campSiteType (single scalar: CAGD/CACP/GLAMP/VIEW) */}
+                                    {campSiteTypeCode && (
+                                        <div className="flex flex-col items-start gap-3" data-testid="text--campground-sitetype">
+                                            {getIcon(campSiteTypeCode)}
+                                            <span className="font-medium text-foreground capitalize text-base">
+                                                {t.filter[campSiteTypeCode as keyof typeof t.filter] || campSiteTypeCode}
+                                            </span>
+                                        </div>
+                                    )}
                                     {terrainCodes.map((terrain: string) => (
                                         <div key={terrain} className="flex flex-col items-start gap-3">
                                             {getIcon(terrain)}

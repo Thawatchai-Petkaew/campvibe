@@ -393,7 +393,12 @@ const jsonSchema = {
         'Province name (Thai or English) for a PROXIMITY search — use this instead of `province` when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ลานกางเต็นท์ใกล้กรุงเทพ", "แคมป์แถวโคราช", "รอบๆเชียงใหม่", "ย่าน/บริเวณ" + a province). Returns camps around that province (including camps in it), sorted nearest-first. Do NOT set `province` at the same time for the same place — use `near` alone. Use `province` instead when the camper says "ใน X" (exactly inside X) or just names a province with no proximity word. ' +
         'ALSO accepts a well-known landmark/area name (a national park, mountain, or popular camping region that spans multiple provinces, e.g. "เขาใหญ่", "ปาย", "เขาค้อ", "ดอยอินทนนท์") — no proximity word is needed for a landmark, its name alone means "camps around here" (e.g. "ลานกางเต็นท์เขาใหญ่" -> near="เขาใหญ่"). Never set `province` for a landmark that spans multiple provinces. If the camper names a landmark you do not recognize, do not set `near` for it — use `keyword` instead.',
     },
-    type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
+    type: {
+      type: 'string',
+      description:
+        'Camp site type code — CAGD (ลานกางเต็นท์ทั่วไป), CACP (รถเต็นท์), GLAMP (กลามปิ้ง — เต็นท์เซ็ตพร้อม สะดวกสบาย ไม่ต้องแบกอุปกรณ์), VIEW (จุดวิวสวย), LAKE, FOREST. ' +
+        'Trigger words: "แกลมปิ้ง"/"กลามปิ้ง"/"glamping" → GLAMP; "วิวสวย"/"วิวดี" → VIEW. Single value only (not an array).',
+    },
     keyword: {
       type: 'string',
       description:

@@ -95,7 +95,9 @@ const THEMES = {
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'ELEC', 'REST', 'PICN', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'TFAN', 'LEDL', 'GDST', 'CHAI', 'POWE'], ext: ['SVEL', 'MAKT'],
-    ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — VIEW added (mist = the mountain-ridge/ทะเลหมอก scenic theme;
+    // 1/3 pick share, ~9/27 mist camps expected — a discriminating VIEW slice).
+    ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP', 'VIEW'],
     accomm: ['TENT', 'CABI', 'DISP'],
     // CAM-515 (S3) — Annotated features: FIRE/FIWD common in this rustic
     // mountain-forest theme (ก่อไฟ/ฟืนหน้าหนาว), RESV mixed, ADAA rare
@@ -122,7 +124,9 @@ const THEMES = {
     // spread from ~14.2% to the 15-40% target band) + night lighting (LIGT, facExtra).
     facBase: ['TOIL', 'SHOW', 'POTA', 'HOTW'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART', 'LIGT'],
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
-    ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — GLAMP added (beach = a comfort/resort theme, a natural fit
+    // for a fully-set-up glamping tent; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP', 'GLAMP'],
     accomm: ['TENT', 'RECR', 'CABI'],
     // CAM-515 (S3) — Annotated features: ALCO common (chill beach-bar vibe,
     // "จิบเบียร์ริมหาด"), RESV common (resort-style booking), ADAA more
@@ -168,7 +172,9 @@ const THEMES = {
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'POTA'], facExtra: ['SHOW', 'PICN', 'TRAS', 'SANI', 'FEDW'],
     equip: ['TENT', 'GDST', 'LEDL', 'LSTV'], ext: ['MAKT'],
-    ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD'],
+    // CAM-517 (S5) — VIEW added (deep-forest/mountain terrain plausibly has a
+    // jungle-canopy lookout point; 50/50 share since forest never had CACP).
+    ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD', 'VIEW'],
     accomm: ['TENT', 'DISP', 'GROU'],
     // CAM-515 (S3) — Annotated features: FIRE/FIWD common (deep-forest/
     // adventure camping leans rustic campfire), RESV lower (less structured
@@ -190,7 +196,9 @@ const THEMES = {
     // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART', 'HOTW', 'LIGT'],
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
-    ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — GLAMP added (calm lakeside resort-style stay, a comfort theme
+    // like beach/meadow; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP', 'GLAMP'],
     accomm: ['TENT', 'CABI', 'RECR'],
     // CAM-515 (S3) — Annotated features: ALCO/RESV common (calm lakeside
     // resort-style stay), ADAA more likely (developed lakeside sites),
@@ -213,7 +221,9 @@ const THEMES = {
     // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT', 'HOTW', 'LIGT'],
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
-    ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD'],
+    // CAM-517 (S5) — GLAMP added (open-meadow glamping-under-the-stars is a
+    // comfort theme like beach/lake; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD', 'GLAMP'],
     accomm: ['TENT', 'GROU', 'HORS'],
     // CAM-515 (S3) — Annotated features: ALCO/FIRE common (evening bonfire +
     // drinks under the stars is the meadow theme's signature scene), RESV

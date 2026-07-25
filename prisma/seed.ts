@@ -48,6 +48,10 @@ const masterData = [
     // Campground Type
     { code: 'CAGD', group: 'Campground type', nameTh: 'ลานกางกับพื้น', nameEn: 'Campground', icon: 'Tent' },
     { code: 'CACP', group: 'Campground type', nameTh: 'รถเต็นท์', nameEn: 'Car camp', icon: 'Car' },
+    // CAM-517 (S5) — reconcile with CampSiteTypeEnum (already had GLAMP/VIEW): 2 new
+    // rows so hosts can pick them + campers see labels. Codes match the enum verbatim.
+    { code: 'GLAMP', group: 'Campground type', nameTh: 'กลามปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
+    { code: 'VIEW', group: 'Campground type', nameTh: 'วิวสวย', nameEn: 'Scenic view', icon: 'Eye' },
 
     // Access Types
     { code: 'BAOT', group: 'Access type', nameTh: 'เรือ', nameEn: 'boat', icon: 'Anchor' },
