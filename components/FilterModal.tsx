@@ -24,7 +24,7 @@ import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
 // bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
 import {
   Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
-  Droplet, Droplets, Dumbbell, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Droplet, Droplets, Dumbbell, Eye, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
   Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
   Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,
@@ -34,7 +34,7 @@ import {
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
-  Droplet, Droplets, Dumbbell, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Droplet, Droplets, Dumbbell, Eye, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
   Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
   Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,

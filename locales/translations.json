@@ -649,7 +649,11 @@
             "CHIC": "Chic",
             "GENR": "General",
             "DIFT": "Difficult",
-            "IDMT": "Indomitable"
+            "IDMT": "Indomitable",
+            "CAGD": "Campground",
+            "CACP": "Car camp",
+            "GLAMP": "Glamping",
+            "VIEW": "Scenic view"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1684,7 +1688,11 @@
             "CHIC": "สบาย (สายคุณหนู)",
             "GENR": "ทั่วไป",
             "DIFT": "ลำบาก",
-            "IDMT": "ทรหด"
+            "IDMT": "ทรหด",
+            "CAGD": "ลานกางกับพื้น",
+            "CACP": "รถเต็นท์",
+            "GLAMP": "กลามปิ้ง",
+            "VIEW": "วิวสวย"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",

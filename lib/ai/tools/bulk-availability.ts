@@ -178,7 +178,12 @@ const jsonSchema = {
       description:
         'A Thai geographic region (ภาค) the camper asked about, e.g. "ภาคเหนือ", "อีสาน", "ภาคใต้" — resolved server-side to every province in that region. If BOTH province and region are given, province wins.',
     },
-    type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
+    type: {
+      type: 'string',
+      description:
+        'Camp site type code — CAGD (ลานกางเต็นท์ทั่วไป), CACP (รถเต็นท์), GLAMP (กลามปิ้ง — เต็นท์เซ็ตพร้อม สะดวกสบาย ไม่ต้องแบกอุปกรณ์), VIEW (จุดวิวสวย), LAKE, FOREST. ' +
+        'Trigger words: "แกลมปิ้ง"/"กลามปิ้ง"/"glamping" → GLAMP; "วิวสวย"/"วิวดี" → VIEW. Single value only (not an array).',
+    },
     keyword: { type: 'string', description: 'A specific campsite NAME for an exact-phrase match.' },
     priceMin: { type: 'number', description: 'Minimum nightly price in THB' },
     priceMax: { type: 'number', description: 'Maximum nightly price in THB' },
