@@ -204,6 +204,9 @@ const compareCampsSelect = {
   latitude: true,
   longitude: true,
   minimumAge: true,
+  // CAM-518 (S6) — read for computeFacetScores' enriched beginner + derived
+  // camper_type GLAMP comfort signal; zero new query (same select).
+  campSiteType: true,
   options: { select: { code: true, group: true, nameTh: true, nameEn: true, icon: true } },
 } satisfies Prisma.CampSiteSelect;
 
@@ -334,6 +337,7 @@ export async function executeCompareCamps(args: CompareCampsArgs): Promise<Compa
         ? computeFacetScores({
             options: row.options.map((o) => ({ code: o.code, group: o.group })),
             minimumAge: row.minimumAge,
+            campSiteType: row.campSiteType,
           })
         : [];
 
