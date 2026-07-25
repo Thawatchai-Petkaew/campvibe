@@ -353,6 +353,9 @@
       { "role": "assistant", "content": "เสาร์นี้ยังว่างอยู่ค่ะ ยืนยันจองเลยไหมคะ" },
       { "role": "user", "content": "เปลี่ยนเป็นอาทิตย์" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
+    ],
     "expected": { "kind": "tool", "tool": "checkAvailability", "params": {} },
     "guardrail": false
   },
@@ -432,6 +435,9 @@
       { "role": "assistant", "content": "ได้เลยค่ะ อยากทราบรายละเอียดเพิ่มเติมไหมคะ" },
       { "role": "user", "content": "มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่" }
     ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ" }
+    ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
   },
@@ -443,6 +449,9 @@
       { "role": "user", "content": "ลานสนธรรมชาติราคาเท่าไหร่" },
       { "role": "assistant", "content": "รวมแล้ว 750 บาทต่อคืนค่ะ" },
       { "role": "user", "content": "750 รวมอะไรบ้าง มีชาร์จแอบแฝงไหม" }
+    ],
+    "seededShownResults": [
+      { "ordinal": 1, "campId": "eval-camp-pine", "name": "ลานสนธรรมชาติ", "priceLow": 750 }
     ],
     "expected": { "kind": "tool", "tool": "getCampDetail", "params": {} },
     "guardrail": false
