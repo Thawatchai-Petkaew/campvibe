@@ -1,0 +1,387 @@
+{
+  "Amnat Charoen": {
+    "lat": 15.864333,
+    "lng": 104.653567,
+    "campCount": 6
+  },
+  "Ang Thong": {
+    "lat": 14.58946,
+    "lng": 100.3472,
+    "campCount": 5
+  },
+  "Bangkok": {
+    "lat": 13.72725,
+    "lng": 100.573625,
+    "campCount": 4
+  },
+  "Bueng Kan": {
+    "lat": 18.35326,
+    "lng": 103.63594,
+    "campCount": 5
+  },
+  "Buri Ram": {
+    "lat": 15.03854,
+    "lng": 103.09614,
+    "campCount": 5
+  },
+  "Chachoengsao": {
+    "lat": 13.74074,
+    "lng": 101.15252,
+    "campCount": 5
+  },
+  "Chai Nat": {
+    "lat": 15.188925,
+    "lng": 100.0502,
+    "campCount": 4
+  },
+  "Chaiyaphum": {
+    "lat": 15.7418,
+    "lng": 102.07564,
+    "campCount": 5
+  },
+  "Chanthaburi": {
+    "lat": 12.57735,
+    "lng": 102.09425,
+    "campCount": 4
+  },
+  "Chiang Mai": {
+    "lat": 19.039072,
+    "lng": 98.912517,
+    "campCount": 18
+  },
+  "Chiang Rai": {
+    "lat": 20.062847,
+    "lng": 100.053553,
+    "campCount": 15
+  },
+  "Chon Buri": {
+    "lat": 13.392925,
+    "lng": 100.962625,
+    "campCount": 4
+  },
+  "Chumphon": {
+    "lat": 10.432217,
+    "lng": 99.183467,
+    "campCount": 6
+  },
+  "Kalasin": {
+    "lat": 16.48484,
+    "lng": 103.54914,
+    "campCount": 5
+  },
+  "Kamphaeng Phet": {
+    "lat": 16.502675,
+    "lng": 99.5204,
+    "campCount": 4
+  },
+  "Kanchanaburi": {
+    "lat": 13.985117,
+    "lng": 99.496433,
+    "campCount": 6
+  },
+  "Khon Kaen": {
+    "lat": 16.4038,
+    "lng": 102.862633,
+    "campCount": 6
+  },
+  "Krabi": {
+    "lat": 7.902863,
+    "lng": 98.841925,
+    "campCount": 8
+  },
+  "Lampang": {
+    "lat": 18.32694,
+    "lng": 99.54326,
+    "campCount": 5
+  },
+  "Lamphun": {
+    "lat": 18.5662,
+    "lng": 99.05802,
+    "campCount": 5
+  },
+  "Loei": {
+    "lat": 17.35378,
+    "lng": 101.551067,
+    "campCount": 15
+  },
+  "Lop Buri": {
+    "lat": 14.794467,
+    "lng": 100.721883,
+    "campCount": 6
+  },
+  "Mae Hong Son": {
+    "lat": 19.406729,
+    "lng": 98.14089,
+    "campCount": 21
+  },
+  "Maha Sarakham": {
+    "lat": 16.2426,
+    "lng": 103.3654,
+    "campCount": 5
+  },
+  "Mukdahan": {
+    "lat": 16.54734,
+    "lng": 104.6551,
+    "campCount": 5
+  },
+  "Nakhon Nayok": {
+    "lat": 14.164025,
+    "lng": 101.1227,
+    "campCount": 4
+  },
+  "Nakhon Pathom": {
+    "lat": 13.850083,
+    "lng": 100.097317,
+    "campCount": 6
+  },
+  "Nakhon Phanom": {
+    "lat": 17.378983,
+    "lng": 104.8013,
+    "campCount": 6
+  },
+  "Nakhon Ratchasima": {
+    "lat": 14.454383,
+    "lng": 101.548808,
+    "campCount": 12
+  },
+  "Nakhon Sawan": {
+    "lat": 15.69845,
+    "lng": 100.123075,
+    "campCount": 4
+  },
+  "Nakhon Si Thammarat": {
+    "lat": 8.4906,
+    "lng": 99.91528,
+    "campCount": 5
+  },
+  "Nan": {
+    "lat": 18.77148,
+    "lng": 100.81712,
+    "campCount": 5
+  },
+  "Narathiwat": {
+    "lat": 6.41056,
+    "lng": 101.80784,
+    "campCount": 5
+  },
+  "Nong Bua Lam Phu": {
+    "lat": 17.22145,
+    "lng": 102.388025,
+    "campCount": 4
+  },
+  "Nong Khai": {
+    "lat": 17.9002,
+    "lng": 102.7164,
+    "campCount": 4
+  },
+  "Nonthaburi": {
+    "lat": 13.7909,
+    "lng": 100.60084,
+    "campCount": 5
+  },
+  "Pathum Thani": {
+    "lat": 14.07646,
+    "lng": 100.5013,
+    "campCount": 5
+  },
+  "Pattani": {
+    "lat": 6.875717,
+    "lng": 101.296267,
+    "campCount": 6
+  },
+  "Phang Nga": {
+    "lat": 8.3096,
+    "lng": 98.5004,
+    "campCount": 5
+  },
+  "Phatthalung": {
+    "lat": 7.5882,
+    "lng": 100.0375,
+    "campCount": 6
+  },
+  "Phayao": {
+    "lat": 19.1583,
+    "lng": 99.914117,
+    "campCount": 6
+  },
+  "Phetchabun": {
+    "lat": 16.814509,
+    "lng": 101.183396,
+    "campCount": 23
+  },
+  "Phetchaburi": {
+    "lat": 13.13668,
+    "lng": 99.99004,
+    "campCount": 5
+  },
+  "Phichit": {
+    "lat": 16.481225,
+    "lng": 100.363475,
+    "campCount": 4
+  },
+  "Phitsanulok": {
+    "lat": 16.84,
+    "lng": 100.3122,
+    "campCount": 4
+  },
+  "Phra Nakhon Si Ayutthaya": {
+    "lat": 14.3445,
+    "lng": 100.632767,
+    "campCount": 3
+  },
+  "Phrae": {
+    "lat": 18.051675,
+    "lng": 100.13325,
+    "campCount": 4
+  },
+  "Phuket": {
+    "lat": 7.862583,
+    "lng": 98.303083,
+    "campCount": 6
+  },
+  "Prachin Buri": {
+    "lat": 14.156225,
+    "lng": 101.355625,
+    "campCount": 4
+  },
+  "Prachuap Khiri Khan": {
+    "lat": 11.80146,
+    "lng": 99.81702,
+    "campCount": 5
+  },
+  "Ranong": {
+    "lat": 9.977167,
+    "lng": 98.64275,
+    "campCount": 6
+  },
+  "Ratchaburi": {
+    "lat": 13.48465,
+    "lng": 99.831083,
+    "campCount": 6
+  },
+  "Rayong": {
+    "lat": 12.639717,
+    "lng": 101.280233,
+    "campCount": 6
+  },
+  "Roi Et": {
+    "lat": 15.9483,
+    "lng": 103.6005,
+    "campCount": 4
+  },
+  "Sa Kaeo": {
+    "lat": 13.79308,
+    "lng": 102.05012,
+    "campCount": 5
+  },
+  "Sakon Nakhon": {
+    "lat": 17.09786,
+    "lng": 104.10956,
+    "campCount": 5
+  },
+  "Samut Prakan": {
+    "lat": 13.495575,
+    "lng": 100.627725,
+    "campCount": 4
+  },
+  "Samut Sakhon": {
+    "lat": 13.468217,
+    "lng": 100.329683,
+    "campCount": 6
+  },
+  "Samut Songkhram": {
+    "lat": 13.4502,
+    "lng": 99.9608,
+    "campCount": 5
+  },
+  "Saraburi": {
+    "lat": 14.50114,
+    "lng": 100.95982,
+    "campCount": 5
+  },
+  "Satun": {
+    "lat": 6.604525,
+    "lng": 100.125625,
+    "campCount": 4
+  },
+  "Si Sa Ket": {
+    "lat": 15.124917,
+    "lng": 104.400333,
+    "campCount": 6
+  },
+  "Sing Buri": {
+    "lat": 14.938667,
+    "lng": 100.346617,
+    "campCount": 6
+  },
+  "Songkhla": {
+    "lat": 7.15602,
+    "lng": 100.64136,
+    "campCount": 5
+  },
+  "Sukhothai": {
+    "lat": 17.02345,
+    "lng": 99.8365,
+    "campCount": 6
+  },
+  "Suphan Buri": {
+    "lat": 14.4912,
+    "lng": 100.142875,
+    "campCount": 4
+  },
+  "Surat Thani": {
+    "lat": 9.324043,
+    "lng": 99.158814,
+    "campCount": 14
+  },
+  "Surin": {
+    "lat": 14.9095,
+    "lng": 103.43545,
+    "campCount": 6
+  },
+  "Tak": {
+    "lat": 16.891533,
+    "lng": 99.142383,
+    "campCount": 6
+  },
+  "Trang": {
+    "lat": 7.55224,
+    "lng": 99.62188,
+    "campCount": 5
+  },
+  "Trat": {
+    "lat": 11.978263,
+    "lng": 102.4501,
+    "campCount": 8
+  },
+  "Ubon Ratchathani": {
+    "lat": 15.253025,
+    "lng": 104.83705,
+    "campCount": 4
+  },
+  "Udon Thani": {
+    "lat": 17.430233,
+    "lng": 102.7368,
+    "campCount": 6
+  },
+  "Uthai Thani": {
+    "lat": 15.42866,
+    "lng": 99.97006,
+    "campCount": 5
+  },
+  "Uttaradit": {
+    "lat": 17.68016,
+    "lng": 100.07006,
+    "campCount": 5
+  },
+  "Yala": {
+    "lat": 6.60732,
+    "lng": 101.26268,
+    "campCount": 5
+  },
+  "Yasothon": {
+    "lat": 15.71862,
+    "lng": 104.1402,
+    "campCount": 5
+  }
+}

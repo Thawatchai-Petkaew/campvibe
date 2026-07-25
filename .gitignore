@@ -82,6 +82,8 @@ next-env.d.ts
 !/scripts/reconcile-ratings.mjs
 !/scripts/import-linear.mjs
 !/scripts/parity-check.mjs
+# CAM-502 — build-step script for the committed prisma/data/province-centroids.json
+!/scripts/build-province-centroids.mjs
 # CAM demand-seeding toolkit — tracked so Stage 0/1 are reproducible + reviewable
 !/scripts/gen-mock-data.mjs
 !/scripts/merge-mock-data.mjs

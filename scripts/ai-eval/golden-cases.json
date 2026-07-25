@@ -590,5 +590,29 @@
     "utterance": "มีที่ไหนว่างวันเสาร์หน้าบ้าง",
     "expected": { "kind": "tool", "tool": "bulkAvailability", "params": {} },
     "guardrail": false
+  },
+  {
+    "id": "GEO-1",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์ใกล้กรุงเทพ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "near": "กรุงเทพ" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "GEO-2",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ในกรุงเทพ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "province": "Bangkok" }
+    },
+    "guardrail": false
   }
 ]
