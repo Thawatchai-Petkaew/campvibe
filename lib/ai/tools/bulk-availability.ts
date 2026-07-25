@@ -49,12 +49,13 @@ const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTi
 
 /**
  * Duplicated verbatim from `search-campsites.ts` (CAM-408 BR-3, kept in sync
- * for the CAM-513 (S1) 8-code Terrain expansion) — the real MasterData
- * taxonomy codes. NOT re-exported from that file (kept module-private
- * there), so the code LIST is repeated here rather than importing a private
- * symbol from a sibling tool; this is the same taxonomy vocabulary, not a
- * new concept (ADR-009). If a 3rd tool needs these, extracting them to a
- * shared module is a follow-up, not required by this atomic story.
+ * for the CAM-513 (S1) 8-code Terrain expansion and the CAM-514 (S2) 2-code
+ * Facility expansion) — the real MasterData taxonomy codes. NOT re-exported
+ * from that file (kept module-private there), so the code LIST is repeated
+ * here rather than importing a private symbol from a sibling tool; this is
+ * the same taxonomy vocabulary, not a new concept (ADR-009). If a 3rd tool
+ * needs these, extracting them to a shared module is a follow-up, not
+ * required by this atomic story.
  */
 const TERRAIN_CODES = [
   'BEAC', 'FORE', 'RIVE', 'MTNS',
@@ -65,6 +66,7 @@ const ACTIVITY_CODES = ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 
 const FACILITY_CODES = [
   'SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK',
   'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW',
+  'HOTW', 'LIGT',
 ] as const;
 
 /**

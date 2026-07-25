@@ -97,7 +97,10 @@ const THEMES = {
     // coastal discipline as BEAC — never a flat region-wide pool.
     label: 'ริมทะเล/ชายหาด', terrain: ['BEAC', 'SEA', 'COAS'], view: 'BEACH',
     activities: ['SWIM', 'SURF', 'BOAT', 'FISH'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART'],
+    // CAM-514 (S2) BR-3 — a developed beach resort camp plausibly always has hot
+    // showers (HOTW promoted to facBase, guaranteed — nudges the dataset-wide HOTW
+    // spread from ~14.2% to the 15-40% target band) + night lighting (LIGT, facExtra).
+    facBase: ['TOIL', 'SHOW', 'POTA', 'HOTW'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART', 'LIGT'],
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
     ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'RECR', 'CABI'],
@@ -111,7 +114,8 @@ const THEMES = {
     // waterfall or a natural swimming hole).
     label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE', 'WATF', 'SWMH'], view: 'RIVER',
     activities: ['BOAT', 'FISH', 'SWIM', 'HIKI'], access: ['DRIV', 'WALK'],
-    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE', 'HOTW', 'LIGT'],
     equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [350, 900], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI'],
@@ -138,7 +142,8 @@ const THEMES = {
     // CAM-513 (S1): LAKE (the theme's own terrain code) + WATF/SWMH added.
     label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE', 'LAKE', 'WATF', 'SWMH'], view: 'LAKE',
     activities: ['BOAT', 'FISH', 'SWIM', 'WILD'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART', 'HOTW', 'LIGT'],
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
     ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI', 'RECR'],
@@ -152,7 +157,8 @@ const THEMES = {
     // an open field or a farm/farmstay).
     label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE', 'FILD', 'FARM'], view: 'GENERAL',
     activities: ['HIKI', 'HORS', 'WILD', 'LIVE'], access: ['DRIV'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT', 'HOTW', 'LIGT'],
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD'],
     accomm: ['TENT', 'GROU', 'HORS'],
@@ -519,7 +525,9 @@ if (pfSkipped.length) console.warn(`⚠️  province-fill skipped (no region/cen
 // AC-3 guarantee; the pool tweaks above (WATE/CART/MIMT/LSTV/OFFR added into theme facExtra/
 // equip/activities) just give them a *natural*, non-forced presence too.
 const MASTERDATA_GROUPS = [
-  { field: 'facilities', codes: ['SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK', 'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW'] },
+  // CAM-514 (S2): HOTW/LIGT added to the floor list too (belt-and-suspenders — natural
+  // presence already comes from the beach/river/lake/meadow facExtra pools above).
+  { field: 'facilities', codes: ['SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK', 'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW', 'HOTW', 'LIGT'] },
   { field: 'equipment', codes: ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV', 'LSTV', 'CHAI', 'FYST', 'ICBK'] },
   { field: 'externalFacilities', codes: ['SVEL', 'LOTS', 'MAKT', 'MIBC'] },
   { field: 'accessTypes', codes: ['BAOT', 'DRIV', 'HIKE', 'WALK'] },
