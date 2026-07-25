@@ -614,5 +614,17 @@
       "params": { "province": "Bangkok" }
     },
     "guardrail": false
+  },
+  {
+    "id": "GEO-3",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์เขาใหญ่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "near": "เขาใหญ่" }
+    },
+    "guardrail": false
   }
 ]

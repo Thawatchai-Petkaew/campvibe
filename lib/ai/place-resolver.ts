@@ -22,6 +22,7 @@
  * place (AC-4) — it simply never appears in either candidate list below.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
+import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
 
 export interface ResolvedPlace {
   /** DB-canonical English province name (`Location.province` / `ThailandLocation.provinceNameEn`), e.g. "Chiang Mai". */
@@ -43,8 +44,19 @@ export interface ResolvedPlace {
    * is) — `near`'s downstream Thai/English resolution already happens in
    * `executeSearchCampsites` via the same `resolveProvinceForSearch` reuse
    * (BR-2), so this pre-pass has no need to duplicate that DB round-trip.
+   *
+   * CAM-503 (P3 landmark) BR-2 — ALSO set (with `nearIsLandmark: true`) when
+   * the camper named a curated landmark/area (e.g. "เขาใหญ่", "ปาย") — a
+   * landmark spans multiple provinces so it is never a `province` value, and
+   * unlike a province proximity mention it needs NO proximity marker (a bare
+   * landmark name already implies area-intent). Left as the landmark's
+   * canonical `nameTh` from `prisma/data/landmark-gazetteer.json` — the
+   * downstream gazetteer-first lookup in `executeSearchCampsites` (BR-3)
+   * matches on that exact value.
    */
   near?: string;
+  /** CAM-503 BR-2 — true when `near` above came from the landmark gazetteer, not a province proximity mention. Absent/false = province. */
+  nearIsLandmark?: boolean;
 }
 
 interface ProvinceEntry {
@@ -239,15 +251,103 @@ function isBareBangkokMention(text: string): boolean {
 }
 
 /**
- * BR-1/BR-3 — the resolver itself. `near` (proximity) is checked FIRST — a
- * proximity marker + a province mention resolves to `near`, never `province`
- * (EC-3, mutually exclusive). Absent a proximity marker, behavior is
- * BYTE-IDENTICAL to before this story: province wins over region when both
- * are found (EC-3 from CAM-501); neither is set when neither is found
- * (AC-4 — a bare terrain/facility word resolves to `{}`).
+ * CAM-503 (P3 landmark search) BR-1 — the curated gazetteer entry shape
+ * (`prisma/data/landmark-gazetteer.json`). Only the fields this pre-pass
+ * scans (`nameTh`/`aliases`) are typed here; the geo fields (`lat`/`lng`/
+ * `radiusKm`) are consumed downstream by `executeSearchCampsites`, not by
+ * this pure text-detection module.
+ */
+interface LandmarkGazetteerEntry {
+  id: string;
+  nameTh: string;
+  aliases: string[];
+}
+
+const LANDMARK_GAZETTEER: readonly LandmarkGazetteerEntry[] = landmarkGazetteerData as LandmarkGazetteerEntry[];
+
+/**
+ * CAM-503-EC-2 (mirrors CAM-501-DEF-1's curated-ambiguous-set idiom) — a
+ * landmark whose bare `nameTh` is short enough to risk colliding with
+ * ordinary Thai vocabulary or another word's substring is excluded from
+ * this pre-pass's PRIMARY (bare nameTh) match; it is still detected via its
+ * longer, more distinctive `aliases` (e.g. "อำเภอปาย", "เมืองปาย") — same
+ * "false MANDATORY hint is worse than a missed rare mention" tradeoff the
+ * province guard already documents. "ปาย" (3 Thai chars) is the one entry
+ * in the current 25-item gazetteer short enough to warrant this.
+ */
+const AMBIGUOUS_LANDMARK_NAMES_TH: ReadonlySet<string> = new Set([
+  'ปาย', // Pai — short; matched only via its longer aliases below
+]);
+
+/** Same Thai-Unicode-range test `lib/ai/tools/search-campsites.ts` uses (not imported — that file's constant is private) — mirrored here for this module's own, narrower purpose: filtering an English/ASCII alias out of this Thai free-text scanner. */
+const THAI_CHAR_PATTERN = /[ก-๙]/;
+
+/** True only when `text` contains at least one Thai character — used to skip an English/ASCII alias in this Thai free-text scanner (that alias still matches downstream, in `executeSearchCampsites`'s exact-string gazetteer lookup, when the MODEL itself emits it). */
+function containsThaiChar(text: string): boolean {
+  return THAI_CHAR_PATTERN.test(text);
+}
+
+interface LandmarkCandidate {
+  /** The exact substring this pre-pass scans camper text for. */
+  matchText: string;
+  /** The landmark's canonical `nameTh` to hand back as `near` (matches the gazetteer's own key, BR-3). */
+  canonical: string;
+}
+
+/**
+ * Every landmark nameTh (guard-filtered) + every Thai-language alias,
+ * flattened once at module load and sorted longest-match-first — the same
+ * "longer/more-specific wins" ordering `detectProvince`/`detectRegion`
+ * already use, so e.g. "อุทยานแห่งชาติเขาใหญ่" never partially matches on a
+ * shorter, unrelated candidate first.
+ */
+const LANDMARK_CANDIDATES: readonly LandmarkCandidate[] = LANDMARK_GAZETTEER.flatMap((entry) => {
+  const candidates: LandmarkCandidate[] = [];
+  if (!AMBIGUOUS_LANDMARK_NAMES_TH.has(entry.nameTh)) {
+    candidates.push({ matchText: entry.nameTh, canonical: entry.nameTh });
+  }
+  for (const alias of entry.aliases) {
+    if (containsThaiChar(alias)) {
+      candidates.push({ matchText: alias, canonical: entry.nameTh });
+    }
+  }
+  return candidates;
+}).sort((a, b) => b.matchText.length - a.matchText.length);
+
+/**
+ * CAM-503 BR-2/EC-4 — a bare landmark mention (no proximity marker needed;
+ * the landmark name itself already implies area-intent). Same EC-4-accepted
+ * plain-substring tolerance `detectProvince` documents (no real tokenizer);
+ * the curated ambiguous-name guard above is this file's DEF-1-style
+ * mitigation for the one short entry that needs it.
+ */
+function detectLandmark(text: string): string | undefined {
+  for (const candidate of LANDMARK_CANDIDATES) {
+    if (text.includes(candidate.matchText)) return candidate.canonical;
+  }
+  return undefined;
+}
+
+/**
+ * BR-1/BR-3 — the resolver itself. CAM-503 BR-2/EC-4 — a landmark match is
+ * checked FIRST, ahead of the proximity/province/region checks below: a
+ * landmark name already implies area-intent on its own (no proximity marker
+ * required), and per EC-4 a landmark match takes precedence when the text
+ * names a specific landmark (the current gazetteer has no nameTh collision
+ * with a real province's full name, so this ordering never shadows a
+ * genuine province mention today). Below the landmark check, behavior is
+ * BYTE-IDENTICAL to before this story: `near` (proximity) is checked next —
+ * a proximity marker + a province mention resolves to `near`, never
+ * `province` (EC-3, mutually exclusive). Absent a proximity marker, province
+ * wins over region when both are found (EC-3 from CAM-501); neither is set
+ * when neither is found (AC-4 — a bare terrain/facility word resolves to
+ * `{}`).
  */
 export function resolvePlace(text: string): ResolvedPlace {
   if (!text) return {};
+
+  const landmark = detectLandmark(text);
+  if (landmark) return { near: landmark, nearIsLandmark: true };
 
   const proximity = hasProximityMarker(text);
 

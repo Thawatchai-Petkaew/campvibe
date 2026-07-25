@@ -1,0 +1,227 @@
+[
+  {
+    "id": "khao-yai",
+    "nameTh": "เขาใหญ่",
+    "aliases": ["อุทยานแห่งชาติเขาใหญ่", "เขาใหญ่นครราชสีมา", "khao yai"],
+    "lat": 14.4409,
+    "lng": 101.3728,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "pai",
+    "nameTh": "ปาย",
+    "aliases": ["อำเภอปาย", "เมืองปาย", "ปายแม่ฮ่องสอน"],
+    "lat": 19.3583,
+    "lng": 98.4358,
+    "radiusKm": 25,
+    "kind": "town"
+  },
+  {
+    "id": "khao-kho",
+    "nameTh": "เขาค้อ",
+    "aliases": ["อำเภอเขาค้อ", "เขาค้อเพชรบูรณ์"],
+    "lat": 16.6459,
+    "lng": 101.0801,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "doi-inthanon",
+    "nameTh": "ดอยอินทนนท์",
+    "aliases": ["อุทยานแห่งชาติดอยอินทนนท์", "ดอยอินทนนท์เชียงใหม่"],
+    "lat": 18.5896,
+    "lng": 98.4867,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "phu-thap-boek",
+    "nameTh": "ภูทับเบิก",
+    "aliases": ["ภูทับเบิกเพชรบูรณ์"],
+    "lat": 16.9333,
+    "lng": 101.0167,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "pang-ung",
+    "nameTh": "ปางอุ๋ง",
+    "aliases": ["ปางตองปางอุ๋ง", "ปางอุ๋งแม่ฮ่องสอน"],
+    "lat": 19.5236,
+    "lng": 97.9219,
+    "radiusKm": 30,
+    "kind": "area"
+  },
+  {
+    "id": "khao-sok",
+    "nameTh": "เขาสก",
+    "aliases": ["อุทยานแห่งชาติเขาสก", "เขาสกสุราษฎร์ธานี"],
+    "lat": 8.9167,
+    "lng": 98.5333,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "doi-ang-khang",
+    "nameTh": "ดอยอ่างขาง",
+    "aliases": ["ดอยอ่างขางเชียงใหม่", "สถานีเกษตรดอยอ่างขาง"],
+    "lat": 19.9319,
+    "lng": 99.045,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "phu-chi-fa",
+    "nameTh": "ภูชี้ฟ้า",
+    "aliases": ["ภูชี้ฟ้าเชียงราย"],
+    "lat": 19.8998,
+    "lng": 100.3327,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "suan-phueng",
+    "nameTh": "สวนผึ้ง",
+    "aliases": ["อำเภอสวนผึ้ง", "สวนผึ้งราชบุรี"],
+    "lat": 13.5731,
+    "lng": 99.2814,
+    "radiusKm": 30,
+    "kind": "area"
+  },
+  {
+    "id": "wang-nam-khiao",
+    "nameTh": "วังน้ำเขียว",
+    "aliases": ["อำเภอวังน้ำเขียว", "วังน้ำเขียวนครราชสีมา"],
+    "lat": 14.5697,
+    "lng": 101.9106,
+    "radiusKm": 30,
+    "kind": "area"
+  },
+  {
+    "id": "phu-kradueng",
+    "nameTh": "ภูกระดึง",
+    "aliases": ["อุทยานแห่งชาติภูกระดึง", "ภูกระดึงเลย"],
+    "lat": 16.8825,
+    "lng": 101.8294,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "phu-hin-rong-kla",
+    "nameTh": "ภูหินร่องกล้า",
+    "aliases": ["อุทยานแห่งชาติภูหินร่องกล้า"],
+    "lat": 17.1667,
+    "lng": 100.9833,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "doi-tung",
+    "nameTh": "ดอยตุง",
+    "aliases": ["ดอยตุงเชียงราย", "พระตำหนักดอยตุง"],
+    "lat": 20.2833,
+    "lng": 99.8167,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "doi-mae-salong",
+    "nameTh": "ดอยแม่สลอง",
+    "aliases": ["แม่สลอง", "ดอยแม่สลองเชียงราย"],
+    "lat": 20.1667,
+    "lng": 99.6667,
+    "radiusKm": 25,
+    "kind": "town"
+  },
+  {
+    "id": "khao-lak",
+    "nameTh": "เขาหลัก",
+    "aliases": ["เขาหลักพังงา"],
+    "lat": 8.6667,
+    "lng": 98.25,
+    "radiusKm": 25,
+    "kind": "town"
+  },
+  {
+    "id": "khao-khitchakut",
+    "nameTh": "เขาคิชฌกูฏ",
+    "aliases": ["อุทยานแห่งชาติเขาคิชฌกูฏ", "เขาคิชฌกูฏจันทบุรี"],
+    "lat": 12.85,
+    "lng": 102.15,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "erawan-waterfall",
+    "nameTh": "น้ำตกเอราวัณ",
+    "aliases": ["อุทยานแห่งชาติเอราวัณ", "น้ำตกเอราวัณกาญจนบุรี"],
+    "lat": 14.3672,
+    "lng": 99.1444,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "srinagarind-dam",
+    "nameTh": "เขื่อนศรีนครินทร์",
+    "aliases": ["เขื่อนศรีนครินทร์กาญจนบุรี"],
+    "lat": 14.4,
+    "lng": 98.9667,
+    "radiusKm": 30,
+    "kind": "area"
+  },
+  {
+    "id": "thale-bua-daeng",
+    "nameTh": "ทะเลบัวแดง",
+    "aliases": ["ทะเลบัวแดงอุดรธานี", "หนองหานกุมภวาปี"],
+    "lat": 16.5333,
+    "lng": 102.9833,
+    "radiusKm": 30,
+    "kind": "area"
+  },
+  {
+    "id": "phu-thok",
+    "nameTh": "ภูทอก",
+    "aliases": ["ภูทอกบึงกาฬ", "วัดเจติยาคีรีวิหาร"],
+    "lat": 18.3167,
+    "lng": 103.9667,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "kaeng-krachan",
+    "nameTh": "แก่งกระจาน",
+    "aliases": ["อุทยานแห่งชาติแก่งกระจาน", "แก่งกระจานเพชรบุรี"],
+    "lat": 12.8167,
+    "lng": 99.4667,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "pha-taem",
+    "nameTh": "ผาแต้ม",
+    "aliases": ["อุทยานแห่งชาติผาแต้ม", "ผาแต้มอุบลราชธานี"],
+    "lat": 15.85,
+    "lng": 105.5667,
+    "radiusKm": 40,
+    "kind": "park"
+  },
+  {
+    "id": "doi-luang-chiang-dao",
+    "nameTh": "ดอยหลวงเชียงดาว",
+    "aliases": ["เชียงดาว", "ดอยหลวงเชียงดาวเชียงใหม่"],
+    "lat": 19.4167,
+    "lng": 98.9167,
+    "radiusKm": 40,
+    "kind": "mountain"
+  },
+  {
+    "id": "thi-lo-su",
+    "nameTh": "ทีลอซู",
+    "aliases": ["น้ำตกทีลอซู", "ทีลอซูตาก"],
+    "lat": 15.9333,
+    "lng": 98.6167,
+    "radiusKm": 40,
+    "kind": "park"
+  }
+]

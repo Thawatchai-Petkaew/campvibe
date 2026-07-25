@@ -23,6 +23,7 @@ import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
 import { resolveRegionForSearch } from '@/lib/thai-regions';
 import { haversineDistanceKm } from '@/lib/geo/distance';
 import provinceCentroidsData from '@/prisma/data/province-centroids.json';
+import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
 
 /**
@@ -53,6 +54,52 @@ export const MAX_NEAR_KM = 250;
  * tuned-to-today's-count value.
  */
 export const NEAR_CANDIDATE_CAP = 500;
+
+/**
+ * CAM-503 (P3 landmark search) BR-1/BR-3 — the curated, committed landmark
+ * gazetteer (`prisma/data/landmark-gazetteer.json`; hand-authored, NOT
+ * data-derived the way `province-centroids.json` is, since a landmark's
+ * "center" is a real-world place, not a mean of camp rows). Looked up
+ * FIRST in the `near` resolution below — a landmark like เขาใหญ่ spans
+ * multiple provinces and therefore has no `PROVINCE_CENTROIDS` entry of its
+ * own; checking the gazetteer first is what makes that geo-radius search
+ * possible at all, not merely an optimization over the province path.
+ */
+interface LandmarkGazetteerEntry {
+  id: string;
+  nameTh: string;
+  aliases: string[];
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  kind: string;
+}
+
+const LANDMARK_GAZETTEER: readonly LandmarkGazetteerEntry[] = landmarkGazetteerData as LandmarkGazetteerEntry[];
+
+/**
+ * Keyed by every `nameTh` + alias (+ a lowercased variant for an ASCII
+ * alias, e.g. "khao yai") so an exact-string `near` value the model emits —
+ * whether the resolver's own hint (BR-2, always the canonical `nameTh`) or
+ * a value the model composed from its own general knowledge — resolves to
+ * the same gazetteer entry. Built once at module load (pure, no DB).
+ */
+const LANDMARK_BY_NAME: ReadonlyMap<string, LandmarkGazetteerEntry> = (() => {
+  const map = new Map<string, LandmarkGazetteerEntry>();
+  for (const entry of LANDMARK_GAZETTEER) {
+    for (const key of [entry.nameTh, ...entry.aliases]) {
+      map.set(key, entry);
+      const lower = key.toLowerCase();
+      if (lower !== key) map.set(lower, entry);
+    }
+  }
+  return map;
+})();
+
+/** CAM-503 BR-3 — exact-string gazetteer lookup (falls back to a lowercase match for an ASCII alias); undefined = not a known landmark, caller falls through to the province-centroid path. */
+function findLandmark(near: string): LandmarkGazetteerEntry | undefined {
+  return LANDMARK_BY_NAME.get(near) ?? LANDMARK_BY_NAME.get(near.toLowerCase());
+}
 
 const KM_PER_DEG_LAT = 111.32;
 
@@ -276,7 +323,8 @@ const jsonSchema = {
     near: {
       type: 'string',
       description:
-        'Province name (Thai or English) for a PROXIMITY search — use this instead of `province` when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ลานกางเต็นท์ใกล้กรุงเทพ", "แคมป์แถวโคราช", "รอบๆเชียงใหม่", "ย่าน/บริเวณ" + a province). Returns camps around that province (including camps in it), sorted nearest-first. Do NOT set `province` at the same time for the same place — use `near` alone. Use `province` instead when the camper says "ใน X" (exactly inside X) or just names a province with no proximity word.',
+        'Province name (Thai or English) for a PROXIMITY search — use this instead of `province` when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ลานกางเต็นท์ใกล้กรุงเทพ", "แคมป์แถวโคราช", "รอบๆเชียงใหม่", "ย่าน/บริเวณ" + a province). Returns camps around that province (including camps in it), sorted nearest-first. Do NOT set `province` at the same time for the same place — use `near` alone. Use `province` instead when the camper says "ใน X" (exactly inside X) or just names a province with no proximity word. ' +
+        'ALSO accepts a well-known landmark/area name (a national park, mountain, or popular camping region that spans multiple provinces, e.g. "เขาใหญ่", "ปาย", "เขาค้อ", "ดอยอินทนนท์") — no proximity word is needed for a landmark, its name alone means "camps around here" (e.g. "ลานกางเต็นท์เขาใหญ่" -> near="เขาใหญ่"). Never set `province` for a landmark that spans multiple provinces. If the camper names a landmark you do not recognize, do not set `near` for it — use `keyword` instead.',
     },
     type: { type: 'string', description: 'Camp site type code, e.g. CAGD, GLAMP, LAKE' },
     keyword: {
@@ -349,18 +397,37 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // filter (EC-2 — no centroid for that province).
   let provinceFilter: string | string[] | undefined;
   let nearCentroid: { lat: number; lng: number } | undefined;
+  // CAM-503 (P3) BR-3 — the effective search radius for the geo path below;
+  // defaults to the province-proximity radius (MAX_NEAR_KM) and is
+  // overridden to the landmark's own curated `radiusKm` only on the
+  // landmark branch just below. Declared here (not inline at each branch)
+  // so the single geo-path block further down needs no `near`-kind branch
+  // of its own — bbox+haversine+cap stays the ONE near-path (BR-3 "do not
+  // fork"), only its origin+radius differ per source.
+  let nearRadiusKm: number = MAX_NEAR_KM;
   if (args.near !== undefined) {
-    const resolvedNear = await resolveProvinceForSearch(args.near);
-    const centroid = PROVINCE_CENTROIDS[resolvedNear];
-    if (centroid) {
-      nearCentroid = { lat: centroid.lat, lng: centroid.lng };
-      // Geo path: the location filter is the bbox pushed onto `where` below,
-      // NOT an exact-province equality — `provinceFilter` stays unset.
+    // BR-3 — try the landmark gazetteer FIRST: a landmark (e.g. เขาใหญ่)
+    // spans multiple provinces and has no `PROVINCE_CENTROIDS` entry, so
+    // checking the province path first would always miss it, not just find
+    // it more slowly.
+    const landmark = findLandmark(args.near);
+    if (landmark) {
+      nearCentroid = { lat: landmark.lat, lng: landmark.lng };
+      nearRadiusKm = landmark.radiusKm;
     } else {
-      // EC-2 — sparse/unknown centroid: fall back to an exact-province
-      // filter on the resolved value itself (never crash, never a
-      // fabricated point).
-      provinceFilter = resolvedNear;
+      const resolvedNear = await resolveProvinceForSearch(args.near);
+      const centroid = PROVINCE_CENTROIDS[resolvedNear];
+      if (centroid) {
+        nearCentroid = { lat: centroid.lat, lng: centroid.lng };
+        // Geo path: the location filter is the bbox pushed onto `where`
+        // below, NOT an exact-province equality — `provinceFilter` stays
+        // unset.
+      } else {
+        // EC-2 — sparse/unknown centroid AND not a known landmark: fall
+        // back to an exact-province filter on the resolved value itself
+        // (never crash, never a fabricated point).
+        provinceFilter = resolvedNear;
+      }
     }
   } else if (args.province !== undefined) {
     provinceFilter = await resolveProvinceForSearch(args.province);
@@ -398,7 +465,11 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     // OWN output with a bbox AND-clause appended (an EXTENSION, never a
     // forked where-builder), so terrain/access/activities/facilities/etc.
     // still apply exactly as they do on every other path.
-    const bbox = bboxForRadius(nearCentroid, MAX_NEAR_KM);
+    // CAM-503 BR-3 — `nearRadiusKm` is the landmark's own curated radius
+    // when `nearCentroid` came from the gazetteer, else MAX_NEAR_KM (P2,
+    // province proximity) — the bbox/haversine/cap logic itself is
+    // unchanged, only the radius input differs (no forked near-path).
+    const bbox = bboxForRadius(nearCentroid, nearRadiusKm);
     const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
     andArray.push({
       latitude: { gte: bbox.latMin, lte: bbox.latMax },
@@ -418,7 +489,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     // ascending haversine sort + page-size cap, in that order (BR-2).
     const ranked = candidates
       .map((c) => ({ id: c.id, distanceKm: haversineDistanceKm(nearCentroid!, { lat: c.latitude, lng: c.longitude }) }))
-      .filter((c) => c.distanceKm <= MAX_NEAR_KM)
+      .filter((c) => c.distanceKm <= nearRadiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, take);
 
@@ -481,7 +552,7 @@ export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCamp
   description:
     'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, and facilities. Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
-    'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. ' +
+    'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +
     'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first) — `sort` is ignored when `near` is set, since a proximity search is always ordered by distance. ' +
     'When the camper asks for MORE, OTHER, or DIFFERENT camps than what was already shown this conversation (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") — re-call this tool with the SAME filters plus `excludeIds` set to the campSiteIds listed in <shown_results>, so the search returns camps not already shown.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
