@@ -119,12 +119,7 @@
             "beach": "Beach",
             "forest": "Forest",
             "mountain": "Mountain",
-            "riverside": "Riverside",
-            "campgrounds": "Campgrounds",
-            "glamping": "Glamping",
-            "lakefront": "Lakefront",
-            "views": "Views",
-            "boatAccess": "Boat Access"
+            "riverside": "Riverside"
         },
         "campground": {
             "hostedBy": "Hosted by",
@@ -1138,12 +1133,7 @@
             "beach": "ชายหาด",
             "forest": "ป่า",
             "mountain": "ภูเขา",
-            "riverside": "ริมน้ำ",
-            "campgrounds": "แคมป์กราวด์",
-            "glamping": "แกลมปิ้ง",
-            "lakefront": "ริมทะเลสาบ",
-            "views": "วิวสวย",
-            "boatAccess": "เข้าถึงด้วยเรือ"
+            "riverside": "ริมน้ำ"
         },
         "campground": {
             "hostedBy": "โฮสต์โดย",
