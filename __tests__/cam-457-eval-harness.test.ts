@@ -18,7 +18,7 @@
  *  - BR-7/CAM-344   guards+plan-run: over-cap refused BEFORE any model call, fetch never called
  *  - BR-4/tech.md §1 replay-case (real seam): zone-A leaves `observed` empty; zone-B records {name,args}
  *  - CAM-417 tiering   replay-case: `auth:true` offers the authed tool schema; absent does not
- *  - BR-8           openrouter-client (existing prod code): outgoing body carries no `temperature` key
+ *  - BR-8 (CAM-484) openrouter-client (existing prod code): outgoing body carries `temperature: 0.2` (pinned)
  *  - EC-3           error bucket: a failed model call is scored as `error`, not silently dropped
  *  - tech.md §3     report: JSON + Markdown render from ONE object, numbers never diverge
  */
@@ -782,7 +782,7 @@ describe('CAM-457 replay-case — the real dispatchTool observation seam', () =>
     expect(guestToolNames).not.toContain('getMyProfile');
   });
 
-  it('[normal] BR-8: the outgoing request body carries no `temperature` key (temperature deliberately not pinned)', async () => {
+  it('[normal] BR-8 (CAM-484): the outgoing request body carries `temperature: 0.2` (pinned for deterministic tool routing)', async () => {
     const mockFetch = vi.fn().mockResolvedValue(res(assistantMessage('สวัสดีครับ')));
     vi.stubGlobal('fetch', mockFetch);
 
@@ -790,7 +790,7 @@ describe('CAM-457 replay-case — the real dispatchTool observation seam', () =>
     await replayCase(kase);
 
     const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
-    expect(body).not.toHaveProperty('temperature');
+    expect(body.temperature).toBe(0.2);
   });
 
   it('[edge] EC-3: a failed model call (no key, or a network error) yields ok:false, scored as `error` by the runner (not silently dropped)', async () => {
