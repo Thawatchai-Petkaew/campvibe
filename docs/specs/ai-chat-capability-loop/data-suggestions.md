@@ -1,0 +1,18 @@
+# Data-gap suggestion ledger — AI Chat Capability Loop
+
+Append-only log of **composable attribute-group** suggestions raised by the `/ai-chat-improve` MAP step, when a real concept-miss could NOT be served by mapping to existing filter data.
+
+**Rules (owner, 2026-07-25):**
+- A suggestion fires only when a concept **cannot** map cleanly to existing codes, OR the existing map is non-discriminating (returns ~everything).
+- **Never a standalone concept-flag.** Suggest a **group of primitive, composable attributes** that combine at query time to serve the intent — so the same primitives serve other intents too. (e.g. suggest `hasHotWater` + `isFlatGround` + `hasOnSiteHost`, never a `beginnerFriendly` boolean.)
+- **Always name the data group / entity** each attribute belongs to (which entity it hangs off + which existing registry cluster it extends, or a new named cluster) — so related attributes are captured together, not scattered, and it slots into the Capability Registry structure (Policy Pixels / Party Pixels / …). If an attribute extends an EXISTING group (e.g. a Facility code), say so instead of inventing a new field.
+- Each suggestion is **optional** — the owner picks or declines. A picked suggestion becomes an L3 schema story (G1/G2). This ledger is the audit trail of what was ever suggested, and the demand rank for Phase 3.
+- Status: `suggested` → `picked` (→ links to the CAM story) / `declined` (with a one-line reason).
+
+| Date | Concept (source miss) | Why it can't map today | Suggested composable attribute-group (primitives) | Data group / entity | Serves-also | Freq (cycles) | Status |
+|---|---|---|---|---|---|---|---|
+| 2026-07-25 | **มือใหม่** (cycle-1, staging: "ลานกางเต้นสำหรับมือใหม่" → `keyword:มือใหม่` → 0) | **Correction after existing-data-first check:** the strongest slice (gear rental) is NOT missing — the `Equipment for rent` MasterData group already exists and camps are tagged (TENT/LEDL/POWE = **23 discriminating camps**). Only the comfort/safety/access attributes are genuinely absent. | ~~gear rental~~ → **MAPPABLE now** (add an `equipment` filter + concept-map "มือใหม่/ไม่มีอุปกรณ์" → `[TENT,LEDL,POWE]`; L1/L2, see the FIX queue, not this ledger). **Still genuinely missing (→ suggest):** `hasHotShower` (น้ำอุ่น) · `hasDishWashStation` · `hasNightLighting` · `hasOnSiteHost` · `hasSecurity` · `isFlatSpaciousGround` · `accessDifficulty` · `hasRealBed`/`hasFanOrAC` | For the still-missing set: **`hasHotShower`/`hasDishWashStation`/`hasNightLighting` → EXTEND the Facility MasterData group** (add `HOTW`/`DISH`/`LIGT` codes). **`hasOnSiteHost`/`hasSecurity` → new "Service & Safety" cluster on `CampSite`.** **`isFlatSpaciousGround`/`accessDifficulty` → new "Site & Access" cluster on `CampSite`/`Spot`.** **`hasRealBed`/`hasFanOrAC` → EXTEND `accommodationTypes` (glamping) on `CampSite`.** | "สายสบาย", "พาผู้ใหญ่/เด็กเล็กไป", "ครั้งแรก", glamping intents | 1 | partially-mappable (gear→FIX queue; comfort→suggested) |
+
+> Research provenance for มือใหม่ (two rounds, 2026-07-25):
+> 1. Beginner-camp guidance (Hipcamp / ReserveAmerica / Virginia DCR) — hot showers, flat ground, on-site host, developed car-accessible campground, potable water, electric hookups.
+> 2. Deeper round — glamping/comfort (Westgate / Campsaround: pre-pitched, real bed, electricity+fan/AC, hot shower + private bathroom, gear provided) + Thai context (TrueID / Kapook / Pantip / Hintok River Camp: พื้นกว้างเดินสะดวก, ห้องน้ำ+จุดล้างจานสะอาด, ไฟส่องสว่างตลอดคืน, and — the key insight — Thai beginner content centres on GEAR, so gear-rental / pre-pitched is the strongest single discriminator and maps to the existing EquipmentRental item).
