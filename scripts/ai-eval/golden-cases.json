@@ -639,5 +639,17 @@
       "strictParams": true
     },
     "guardrail": true
+  },
+  {
+    "id": "P18-47",
+    "group": "P18",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์เด็กลงเล่นน้ำได้",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": {}
+    },
+    "guardrail": false
   }
 ]
