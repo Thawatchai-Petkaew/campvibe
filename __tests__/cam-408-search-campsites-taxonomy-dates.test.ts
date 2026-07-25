@@ -153,6 +153,22 @@ describe('searchCampsitesTool — jsonSchema advertises real MasterData codes (A
     expect(schema.properties.activities.enum).toEqual(expect.arrayContaining(['SWIM', 'FISH', 'CLIM']));
     expect(schema.properties.facilities.enum).toEqual(expect.arrayContaining(['WIFI', 'SHOW', 'TOIL']));
   });
+
+  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features).
+  it('[unit] annotatedFeatures enum matches the 5 real seeded Annotated features codes with a Thai gloss in the description', () => {
+    const schema = searchCampsitesTool.jsonSchema as {
+      properties: { annotatedFeatures: { enum: readonly string[]; description: string } };
+    };
+    expect(schema.properties.annotatedFeatures.enum).toEqual(
+      expect.arrayContaining(['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'])
+    );
+    expect(schema.properties.annotatedFeatures.enum).toHaveLength(5);
+    expect(schema.properties.annotatedFeatures.description).toContain('ดื่มแอลกอฮอล์ได้');
+    expect(schema.properties.annotatedFeatures.description).toContain('ก่อไฟได้');
+    expect(schema.properties.annotatedFeatures.description).toContain('มีฟืนขาย/บริการ');
+    expect(schema.properties.annotatedFeatures.description).toContain('รองรับผู้พิการ');
+    expect(schema.properties.annotatedFeatures.description).toContain('จองล่วงหน้าได้');
+  });
 });
 
 /* -------------------------------------------------------------------------- */
