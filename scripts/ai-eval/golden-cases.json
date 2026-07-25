@@ -66,6 +66,32 @@
     "guardrail": false
   },
   {
+    "id": "SMOKE-B4-CAM501-PLACE-PROVINCE",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "แคมป์ริมน้ำเชียงใหม่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "province": "Chiang Mai", "terrain": "RIVE" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
+    "id": "SMOKE-B5-CAM501-PLACE-REGION",
+    "group": "smoke",
+    "zone": "B",
+    "utterance": "ริมน้ำภาคเหนือ",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "region": "ภาคเหนือ", "terrain": "RIVE" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
     "id": "SMOKE-GUARDRAIL-1",
     "group": "smoke",
     "zone": "A",

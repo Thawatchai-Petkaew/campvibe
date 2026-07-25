@@ -116,6 +116,10 @@ import type { ShownResult } from '@/lib/ai/conversation-store';
 // own zod bound (`lib/validations/ai-chat.ts` `shownResultSchema`) so both
 // enforcement points share ONE number.
 import { SHOWN_RESULT_NAME_MAX } from '@/lib/validations/ai-chat';
+// CAM-501 (P1 Place Resolver) BR-2 — the deterministic pre-pass that parses
+// an explicit province/region out of the latest user message, so the model
+// is never left to infer/drop the place the camper actually named.
+import { resolvePlace, type ResolvedPlace } from '@/lib/ai/place-resolver';
 
 export const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_MODEL = 'openai/gpt-4o-mini';
@@ -269,6 +273,40 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
 }
 
 /**
+ * CAM-501 (P1 Place Resolver) BR-2 — the MANDATORY hint block: when the
+ * deterministic `resolvePlace` pre-pass (place-resolver.ts) found a
+ * province/region in the camper's LATEST message, this instructs the model
+ * it MUST carry that exact value on any `searchCampsites`/`bulkAvailability`
+ * call it makes this turn — the guess is taken off the model entirely,
+ * root-causing the CAM-500 regression where the model silently dropped a
+ * camper-named province while composing a terrain filter. Mirrors
+ * `buildShownResultsBlock`'s own "no place resolved -> null, contributes
+ * NOTHING" idiom, so a turn with no detected place keeps a byte-identical
+ * prompt to before this story.
+ */
+function buildPlaceHintBlock(place: ResolvedPlace): string | null {
+  if (place.province) {
+    return (
+      `The camper explicitly named the province "${place.province}" in their latest message ` +
+      '(detected deterministically server-side, not a guess). When you call searchCampsites or bulkAvailability ' +
+      `this turn, you MUST set province="${place.province}" — never omit it, never change it to a different ` +
+      'province, and never drop it just because the message also names a terrain/facility word. A terrain word ' +
+      '(for example ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this province.'
+    );
+  }
+  if (place.region) {
+    return (
+      `The camper explicitly named the region "${place.region}" in their latest message ` +
+      '(detected deterministically server-side, not a guess). When you call searchCampsites or bulkAvailability ' +
+      `this turn, you MUST set region="${place.region}" — never omit it, never change it to a different region, ` +
+      'and never invent a province instead. A terrain word (for example ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place ' +
+      'and never overrides or replaces this region.'
+    );
+  }
+  return null;
+}
+
+/**
  * CAM-408 — built fresh per turn (never a stale module-load string) so a
  * relative Thai date the camper uses ("พรุ่งนี้", "เสาร์อาทิตย์หน้า") resolves
  * against the real current date before the model calls checkAvailability.
@@ -288,8 +326,17 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
  * lib/validations/ai-chat.ts `shownResultSchema`); `undefined` (no caller
  * passes it yet) keeps the prompt byte-identical to before this story.
  */
-function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownResults?: ShownResult[]): string {
+function buildSystemPrompt(
+  now: Date = new Date(),
+  ctx: ToolContext = {},
+  shownResults?: ShownResult[],
+  placeHint?: ResolvedPlace
+): string {
   const shownResultsBlock = buildShownResultsBlock(shownResults);
+  // CAM-501 (P1 Place Resolver) BR-2 — `placeHint` absent/empty -> null,
+  // contributing NOTHING (byte-identical prompt to before this story for
+  // every turn where resolvePlace found no province/region).
+  const placeHintBlock = buildPlaceHintBlock(placeHint ?? {});
   return [
     'You are the CampVibe camping assistant. You help campers find campsites and check availability using ONLY the provided tools (searchCampsites, checkAvailability).',
     ...(ctx.userId ? ['The camper is signed in; use getMy* tools for their own bookings, wishlist, and profile.'] : []),
@@ -335,6 +382,16 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // system-prompt level so the rule holds regardless of which tool call
     // the model is composing.
     'The searchCampsites/bulkAvailability `province` argument is OPTIONAL — set it ONLY when the camper has explicitly named a specific province, this message or earlier in this conversation. Never infer, guess, or default a province from a terrain, region, facility, or activity word (for example "ริมทะเล" = beach terrain, not a province; "ริมแม่น้ำ" = river terrain, not a province); when the camper names a general characteristic instead of a place, leave `province` unset and use `terrain`/`region`/the matching filter argument instead.',
+    // CAM-501 (P1 Place Resolver) BR-2 — the deterministic mandatory hint:
+    // when `resolvePlace` (server-side, not the model) found a province or
+    // region in the camper's LATEST message, this OVERRIDES the general
+    // "never infer" caution above for THAT specific, already-confirmed
+    // place — the line above stops the model from GUESSING a province from
+    // a terrain word; this line stops the model from mistakenly DROPPING a
+    // real, camper-named place while it obeys that same caution (the exact
+    // CAM-500 P0 over-correction this story fixes). `null` (no place
+    // resolved this turn) contributes NOTHING — byte-identical prompt.
+    ...(placeHintBlock !== null ? [placeHintBlock] : []),
     // CAM-477 (Theme C) — a campsite FEATURE the camper rejects by negation
     // ("ไม่เอาที่ต้องเดินไกลจากรถ") is still a search-filter request for the
     // matching positive value. Scoped to a campsite characteristic ONLY — the
@@ -397,7 +454,14 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     // a location or terrain filter, the answer itself must say so in plain
     // Thai, so the camper can see what scope was searched without a separate
     // UI element.
-    'When your searchCampsites or bulkAvailability call this turn applied a location or terrain filter (province, region, or terrain such as ริมทะเล/ริมแม่น้ำ/ภูเขา/ป่า), mention that scope naturally in your answer in plain Thai — say which province, region, or terrain you searched (for example "ลานริมทะเล" or the province name) — so the camper can see what you searched without guessing. Skip this when no such filter was applied.',
+    // CAM-501 BR-3 (honest scope, root-causes the P0 hallucination) —
+    // extends the same line: the model must state ONLY the scope actually
+    // applied on THIS tool call, never a place it didn't filter on — the
+    // exact production regression (province=เชียงใหม่ dropped from the
+    // call, yet the answer still claimed the RIVE results were "ในเชียงใหม่").
+    // A camper-named place with zero real results must be reported honestly,
+    // not silently swapped for an unfiltered, mislabeled answer (AC-1/AC-3/EC-1).
+    'When your searchCampsites or bulkAvailability call this turn applied a location or terrain filter (province, region, or terrain such as ริมทะเล/ริมแม่น้ำ/ภูเขา/ป่า), mention that scope naturally in your answer in plain Thai — say which province, region, or terrain you searched (for example "ลานริมทะเล" or the province name) — so the camper can see what you searched without guessing. State ONLY the scope that was actually applied as a filter argument on this tool call — never claim, imply, or word your answer so it sounds like the results come from a province or region that was NOT set as a filter this turn, even if the camper named one earlier or elsewhere in the message. If a place the camper explicitly asked for returns zero results, say so plainly and honestly (for example "ไม่มีลานริมน้ำในเชียงใหม่ค่ะ") — you may then mention results from elsewhere only if you label them clearly as being from another place, never as if they were the requested one. Skip the scope-mention sentence itself when no location or terrain filter was applied.',
     'Keep the answer to about 2-3 short sentences.',
     // CAM-410 BR-4 — the suggestions block rides in the SAME completion (no
     // second call); the server extracts + sanitizes it and strips it from
@@ -405,6 +469,24 @@ function buildSystemPrompt(now: Date = new Date(), ctx: ToolContext = {}, shownR
     `After your answer, on a new line, append EXACTLY ONE block in this exact format: ${SUGGESTIONS_OPEN_TAG}["...", "..."]${SUGGESTIONS_CLOSE_TAG} — a JSON array of 0 to 3 short, natural follow-up questions the camper might ask next, in the same language as your answer, each under 60 characters, as plain text with no markdown formatting.`,
     `Never mention or describe the ${SUGGESTIONS_OPEN_TAG} block in your answer, and omit it entirely (write no block at all) if there is no good follow-up question.`,
   ].join(' ');
+}
+
+/**
+ * CAM-501 (P1 Place Resolver) BR-2 — the pre-pass runs against the LATEST
+ * user turn only (not the whole conversation): the last `role:'user'`
+ * entry in `turnMessages` is always the camper's current message
+ * (`buildTurnMessages` / the chat route always append it last — see
+ * `app/api/ai/chat/route.ts`'s `combined` array). Running it on the
+ * already-fenced `<user_message>...</user_message>` content is safe: the
+ * fence tags are plain ASCII and never collide with a Thai province/region
+ * match. Returns `''` (no place resolved) when no user turn exists at all
+ * (never throws).
+ */
+function extractLatestUserMessageText(turnMessages: TurnMessage[]): string {
+  for (let i = turnMessages.length - 1; i >= 0; i--) {
+    if (turnMessages[i].role === 'user') return turnMessages[i].content;
+  }
+  return '';
 }
 
 export interface AssistantTurnResult {
@@ -1017,8 +1099,10 @@ async function runTurnFromBaseMessages(
  */
 export async function runAssistantTurn(userText: string, ctx: ToolContext = {}): Promise<AssistantTurnResult> {
   const safeText = sanitizeForPrompt(userText);
+  // CAM-501 BR-2 — this entry point's sole message IS the latest (and only) user turn.
+  const placeHint = resolvePlace(safeText);
   const baseMessages: OutgoingMessage[] = [
-    { role: 'system', content: buildSystemPrompt(new Date(), ctx) },
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx, undefined, placeHint) },
     { role: 'user', content: wrapAsUserData(safeText) },
   ];
   return runTurnFromBaseMessages(baseMessages, ctx);
@@ -1051,8 +1135,10 @@ export async function runAssistantTurnFromMessages(
   ctx: ToolContext = {},
   shownResults?: ShownResult[]
 ): Promise<AssistantTurnResult> {
+  // CAM-501 BR-2 — pre-pass on the latest user turn only.
+  const placeHint = resolvePlace(extractLatestUserMessageText(turnMessages));
   const baseMessages: OutgoingMessage[] = [
-    { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults) },
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults, placeHint) },
     ...turnMessages,
   ];
   return runTurnFromBaseMessages(baseMessages, ctx);
@@ -1382,9 +1468,11 @@ export async function* runAssistantTurnFromMessagesStreaming(
     return;
   }
 
+  // CAM-501 BR-2 — pre-pass on the latest user turn only.
+  const placeHint = resolvePlace(extractLatestUserMessageText(turnMessages));
   const turnDeadline = Date.now() + TURN_DEADLINE_MS;
   let messages: OutgoingMessage[] = [
-    { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults) },
+    { role: 'system', content: buildSystemPrompt(new Date(), ctx, shownResults, placeHint) },
     ...turnMessages,
   ];
   let pinnedModel: string | null = null;
