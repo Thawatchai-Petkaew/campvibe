@@ -42,6 +42,8 @@ interface CatalogResultsProps {
   facilities?: string;
   activities?: string;
   terrain?: string;
+  /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
+  annotatedFeatures?: string;
   userId?: string;
   isLoggedIn: boolean;
 }
@@ -65,6 +67,7 @@ export default async function CatalogResults({
   facilities,
   activities,
   terrain,
+  annotatedFeatures,
   userId,
   isLoggedIn,
 }: CatalogResultsProps) {
@@ -72,7 +75,7 @@ export default async function CatalogResults({
   // Mirrors the logic that was in page.tsx verbatim.
   const isSearchActive = !!(
     keyword || province || district || startDate || endDate || guests ||
-    (type && type !== "ALL") || min || max || access || facilities || activities || terrain
+    (type && type !== "ALL") || min || max || access || facilities || activities || terrain || annotatedFeatures
   );
   const isDefaultSort = !sort || sort === "related";
   const useCache = !isSearchActive && isDefaultSort;
@@ -103,6 +106,7 @@ export default async function CatalogResults({
       facilities,
       activities,
       terrain,
+      annotatedFeatures,
     });
 
     const sanitizedSort: CatalogSort =
@@ -215,7 +219,7 @@ export default async function CatalogResults({
 
   return (
     <InfiniteScrollGrid
-      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}`}
+      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}`}
       initialItems={serialisedCamps}
       initialCursor={initialCursor}
       sort={activeSortForCursor}
@@ -233,6 +237,7 @@ export default async function CatalogResults({
         facilities: facilities ?? undefined,
         activities: activities ?? undefined,
         terrain: terrain ?? undefined,
+        annotatedFeatures: annotatedFeatures ?? undefined,
       }}
       savedIds={savedCampSiteIds}
       isLoggedIn={isLoggedIn}

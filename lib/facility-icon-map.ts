@@ -11,19 +11,23 @@
  * cleanup can point it at this shared map too.
  */
 import {
+  Accessibility,
   Anchor,
   Armchair,
   Bath,
+  CalendarCheck,
   Car,
   Coffee,
   Droplet,
   Droplets,
   Fish,
+  Flame,
   Flower2,
   type LucideIcon,
   Home,
   Lamp,
   Layers,
+  Logs,
   Mountain,
   Music,
   Sailboat,
@@ -43,6 +47,7 @@ import {
   Wheat,
   Wifi,
   Wind,
+  Wine,
   Zap,
 } from 'lucide-react';
 
@@ -113,6 +118,12 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   SSTV: Utensils,
   POWE: Zap,
   TFAN: Wind,
+  // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
+  ALCO: Wine,
+  FIRE: Flame,
+  FIWD: Logs,
+  ADAA: Accessibility,
+  RESV: CalendarCheck,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */

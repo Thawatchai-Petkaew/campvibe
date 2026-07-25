@@ -32,6 +32,8 @@ interface HomeSearchParams {
   facilities?: string;
   activities?: string;
   terrain?: string;
+  /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
+  annotatedFeatures?: string;
 }
 
 interface HomeProps {
@@ -58,6 +60,7 @@ export default async function Home({ searchParams }: HomeProps) {
     facilities,
     activities,
     terrain,
+    annotatedFeatures,
   } = sp;
 
   // Compose the Suspense key from all params that can change the results set.
@@ -78,6 +81,7 @@ export default async function Home({ searchParams }: HomeProps) {
     facilities ?? "",
     activities ?? "",
     terrain ?? "",
+    annotatedFeatures ?? "",
   ].join("|");
 
   return (
@@ -121,6 +125,7 @@ export default async function Home({ searchParams }: HomeProps) {
             facilities={facilities}
             activities={activities}
             terrain={terrain}
+            annotatedFeatures={annotatedFeatures}
             userId={session?.user?.id}
             isLoggedIn={!!session?.user?.id}
           />

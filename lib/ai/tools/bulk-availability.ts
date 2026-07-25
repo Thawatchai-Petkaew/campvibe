@@ -68,6 +68,13 @@ const FACILITY_CODES = [
   'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW',
   'HOTW', 'LIGT',
 ] as const;
+/**
+ * CAM-515 (S3) — the 5 real `Annotated features` MasterData codes, kept in
+ * sync with `search-campsites.ts`'s own `ANNOTATED_CODES` (same
+ * not-re-exported, repeated-list discipline as the other taxonomy consts
+ * above — see the file-header comment).
+ */
+const ANNOTATED_CODES = ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] as const;
 
 /**
  * BR-1 (tech.md Decision 3) — a candidate-camp FILTER (the same vocabulary
@@ -99,6 +106,8 @@ export const bulkAvailabilityArgsSchema = z.object({
   access: z.enum(ACCESS_CODES).or(z.array(z.enum(ACCESS_CODES))).optional(),
   activities: z.enum(ACTIVITY_CODES).or(z.array(z.enum(ACTIVITY_CODES))).optional(),
   facilities: z.enum(FACILITY_CODES).or(z.array(z.enum(FACILITY_CODES))).optional(),
+  /** CAM-515 (S3) — mirrors search-campsites.ts's own field (OR-within-group, CAM-461 Decision 4). */
+  annotatedFeatures: z.enum(ANNOTATED_CODES).or(z.array(z.enum(ANNOTATED_CODES))).optional(),
   sort: z.enum(VALID_SORTS).optional(),
   /** BR-7 — the party size a cell is judged "free" against; default 1 (applied in executeBulkAvailability below). A projection comparison only, never a candidate-set filter. */
   guests: z.number().int().positive().optional(),
@@ -170,6 +179,7 @@ const jsonSchema = {
     access: { type: 'string', enum: ACCESS_CODES, description: 'Access filter — pick ONE, or an array for OR-within-group.' },
     activities: { type: 'string', enum: ACTIVITY_CODES, description: 'Activity filter — pick ONE, or an array for OR-within-group.' },
     facilities: { type: 'string', enum: FACILITY_CODES, description: 'Facility filter — pick ONE, or an array for OR-within-group.' },
+    annotatedFeatures: { type: 'string', enum: ANNOTATED_CODES, description: 'Annotated-feature (rule/right) filter — ALCO alcohol-allowed, FIRE fires-allowed, FIWD firewood, ADAA wheelchair-accessible, RESV reservable — pick ONE, or an array for OR-within-group.' },
     sort: { type: 'string', enum: VALID_SORTS, description: 'How to order the candidate camps (default: related).' },
     guests: { type: 'number', description: 'Party size a cell is judged "free" against (default 1).' },
     dates: {
@@ -232,6 +242,7 @@ export async function executeBulkAvailability(args: BulkAvailabilityArgs): Promi
     access: args.access,
     activities: args.activities,
     facilities: args.facilities,
+    annotatedFeatures: args.annotatedFeatures,
   });
 
   // Decision 2/BR-3 — CANDIDATE CAMPS is a filter-RESULT page: take-BOUND,
