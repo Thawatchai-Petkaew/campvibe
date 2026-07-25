@@ -289,6 +289,24 @@ function buildPlaceHintBlock(place: ResolvedPlace): string | null {
   // sets both `near` and `province` on the same ResolvedPlace (mutually
   // exclusive, EC-3), so this branch and the `place.province` branch below
   // never both apply to the same turn.
+  //
+  // CAM-503 (P3 landmark) BR-2 — `place.nearIsLandmark` splits this into two
+  // wordings: a landmark (e.g. เขาใหญ่, ปาย) needs no proximity-marker
+  // framing (a bare landmark name already implies area-intent, BR-2) and
+  // explicitly explains WHY `province` is wrong for it (spans multiple
+  // provinces) rather than "would narrow the search"; a province proximity
+  // mention keeps its original CAM-502 wording byte-identical.
+  if (place.near && place.nearIsLandmark) {
+    return (
+      `The camper named the landmark/area "${place.near}" (for example a national park, mountain, or ` +
+      'well-known camping region — not a province) in their latest message (detected deterministically ' +
+      `server-side, not a guess). When you call searchCampsites this turn, you MUST set near="${place.near}" — ` +
+      'do NOT set `province` for this place instead (a landmark like this can span multiple provinces, so ' +
+      '`province` would wrongly exclude real matches), never change it to a different place, and never drop it ' +
+      'just because the message also names a terrain/facility word. A terrain word (for example ริมน้ำ, ริมทะเล, ' +
+      'ภูเขา, ป่า) is NOT a place and never overrides or replaces this landmark target.'
+    );
+  }
   if (place.near) {
     return (
       `The camper asked for campsites NEAR the province "${place.near}" — a proximity word (for example ` +
@@ -407,6 +425,15 @@ function buildSystemPrompt(
     // CAM-500 P0 over-correction this story fixes). `null` (no place
     // resolved this turn) contributes NOTHING — byte-identical prompt.
     ...(placeHintBlock !== null ? [placeHintBlock] : []),
+    // CAM-503 (P3 landmark) BR-4 — closes the gap for a landmark/area name
+    // the camper uses that is NOT in the curated gazetteer (so no `near`
+    // hint fired above): `near` and `province` are both DB-backed lookups
+    // (a province table / the committed gazetteer), so setting either to an
+    // unrecognized landmark name matches zero rows every time. `keyword`
+    // (a free-text name/description match) is the correct fallback instead
+    // — and an honest empty result, never a fabricated province guess, when
+    // even that finds nothing.
+    'If the camper names a specific place (for example a national park, mountain, or well-known camping area — like "เขาใหญ่" or "ปาย") that you do NOT see confirmed by a place hint above and that is not a province or region you can resolve, do NOT guess a `province`/`near` value for it — pass it as `keyword` instead (a text match against the camp name/description) and report honestly if nothing matches.',
     // CAM-477 (Theme C) — a campsite FEATURE the camper rejects by negation
     // ("ไม่เอาที่ต้องเดินไกลจากรถ") is still a search-filter request for the
     // matching positive value. Scoped to a campsite characteristic ONLY — the

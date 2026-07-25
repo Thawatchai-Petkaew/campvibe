@@ -111,10 +111,13 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // recur — the Place Resolver's mandatory hint keeps province/region set.
     // CAM-502 — +2 geo-proximity cases (GEO-1/GEO-2): proves the
     // proximity-vs-exact split ("ใกล้กรุงเทพ" -> near, "ในกรุงเทพ" -> province).
+    // CAM-503 — +1 landmark geo case (GEO-3): "ลานกางเต็นท์เขาใหญ่" -> a bare
+    // landmark name (no proximity marker) resolves to near="เขาใหญ่" via the
+    // curated gazetteer, closing the Place Resolver epic (CAM-498).
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(58);
+    expect(cases.length).toBe(59);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
