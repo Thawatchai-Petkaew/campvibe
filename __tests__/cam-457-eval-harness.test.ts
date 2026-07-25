@@ -125,10 +125,14 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // CAM-511 — +1 case (P19-48): "ลานกางเต็นท์สำหรับมือใหม่" must call
     // searchCampsites (the equipment concept-map) rather than a keyword
     // search on "มือใหม่" or a dead-end not-found.
+    // CAM-519 (S7) — +5 composite cases (group "S7"): the upgraded
+    // มือใหม่->camperStyle=CHIC concept-map + the new-taxonomy intent lookups
+    // (annotatedFeatures/terrain/type/facilities), each a subset match on a
+    // single strongest filter (BR-4, never a strict multi-AND).
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(62);
+    expect(cases.length).toBe(67);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
