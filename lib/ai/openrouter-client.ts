@@ -401,13 +401,24 @@ function buildSystemPrompt(
     // availability tool call in the SAME turn and routes single-camp vs
     // open-ended/multi-date questions to the correct tool (checkAvailability
     // vs bulkAvailability, CAM-465).
-    'resolveDates only converts a date phrase into ISO ranges — it never reports availability, so it is never your last step for an availability question: once it returns ranges, call an availability tool with them in the SAME turn. Use checkAvailability for one specific named or referenced camp over a single range; use bulkAvailability for an open-ended "which camps are free" or a "which of several dates/weekends is freest" question (for example "ปลายเดือนไปไหนดีที่ยังว่าง" or "เสาร์ไหนของเดือนหน้าภูชี้ฟ้าโล่งสุด"). If resolveDates returns ok:false, ask the camper for the dates instead — never call an availability tool on a guessed date.',
+    // CAM-505 — strengthens the same chaining rule after the golden eval kept
+    // showing the model stop right after resolveDates (P3-09/P4-12/P12-30/
+    // P17-*): names the trigger words up front and states the "never stop"
+    // rule as its own sentence, ahead of the tool-choice detail, so it reads
+    // as a hard requirement rather than a side note.
+    'Any question about availability or openness — for example using words like "ว่างไหม", "วันไหนว่าง", "โล่งสุด", "ช่วงไหนว่าง", or "เต็มไหม" — MUST end this turn with a checkAvailability or bulkAvailability call; resolveDates only converts a date phrase into ISO ranges, it never reports availability, and it is NEVER a sufficient final step for such a question by itself. If the question needs date conversion, call resolveDates first, then IMMEDIATELY chain into checkAvailability or bulkAvailability with the ranges it returned — never stop, summarize, or answer after resolveDates alone. Use checkAvailability for one specific named or referenced camp over a single date range; use bulkAvailability for an open-ended "which camps are free" or a "which of several dates/weekends is freest" question (for example "ปลายเดือนไปไหนดีที่ยังว่าง"). If resolveDates returns ok:false, ask the camper for the dates instead — never call an availability tool on a guessed date.',
     // CAM-477 (Theme A) — generalizes the checkAvailability vs bulkAvailability
     // routing beyond the resolveDates chain above: an open-ended "which camps
     // are free" question with no single named camp must still call
     // bulkAvailability, including when the camper offers alternative or
     // conditional dates.
-    'checkAvailability is for ONE specific named camp only; when the camper asks which camps are free across one or more dates without naming a single camp ("ว่าง 2 คืนติดกันมีที่ไหนบ้างเดือนนี้"), or offers alternative or conditional dates ("ถ้าเสาร์เต็มอาทิตย์ก็ได้"), call resolveDates then bulkAvailability with every mentioned range — never answer such a question with no tool.',
+    // CAM-505 — adds the ONE-camp-many-dates case the golden eval exposed
+    // (P4-12 "เสาร์ไหนของเดือนหน้าภูชี้ฟ้าโล่งสุด"): a single named camp is not
+    // by itself enough to pick checkAvailability when the question is a
+    // superlative over MULTIPLE candidate dates — that still needs
+    // bulkAvailability (with `keyword` set to the camp name) because
+    // checkAvailability can only report ONE date range per call.
+    'checkAvailability is for ONE specific named camp over ONE single date range only. Use bulkAvailability instead whenever the question involves MANY camps (no single camp named, or a filter/characteristic instead of a name), MANY dates (multiple ranges, or an alternative/conditional date like "ถ้าเสาร์เต็มอาทิตย์ก็ได้"), or a superlative over dates or camps (โล่งสุด/ว่างสุด/ถูกสุด, or "เสาร์ไหน...ว่าง/โล่ง" asking which of several Saturdays is best) — this holds even when only ONE camp is named: for example "เสาร์ไหนของเดือนหน้าภูชี้ฟ้าโล่งสุด" (one named camp, many candidate Saturdays) still calls bulkAvailability with keyword set to that camp\'s name, never checkAvailability, because checkAvailability can only report ONE date range per call. Likewise "ว่าง 2 คืนติดกันมีที่ไหนบ้างเดือนนี้" (no camp named) calls bulkAvailability, and call resolveDates first if the dates need conversion. Never answer such a question with no tool call at all.',
     'Prefer the structured filter arguments on searchCampsites (province, type, terrain, access, activities, facilities, petFriendly, priceMin/priceMax) to match a characteristic the camper described. Use the keyword argument ONLY for a specific campsite name — a keyword search on a general word (for example a terrain or facility word) searches only the name/description text and will usually miss camps that have it tagged as structured data instead.',
     // CAM-500 BR-2 (non-inference, the core fix) — a terrain/region/facility
     // word ("ริมทะเล", "ริมแม่น้ำ") is NOT a province; over-anchoring the
