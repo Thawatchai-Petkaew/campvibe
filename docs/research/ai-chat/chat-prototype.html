@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CampVibe ✦ AI ผู้ช่วยแคมป์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#090b0c;
+  --ink:#f9fbfb;
+  --ink-dim:#9ca8ab;
+  --ink-faint:#6b7a7e;
+  --glass:rgba(255,255,255,.045);
+  --glass-strong:rgba(255,255,255,.08);
+  --line:rgba(255,255,255,.09);
+  --acc:#2dd4bf;
+  --acc2:#38bdf8;
+  --acc3:#99f6e4;
+  --radius:22px;
+  font-size:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Sarabun','Outfit',system-ui,sans-serif;
+  background:var(--bg);color:var(--ink);
+  overflow:hidden;
+}
+::selection{background:rgba(45,212,191,.3)}
+/* ---------- ambient aurora ---------- */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;filter:blur(90px) saturate(130%);opacity:.55}
+.aurora i{position:absolute;border-radius:50%;mix-blend-mode:screen}
+.aurora i:nth-child(1){width:55vmax;height:55vmax;left:-15vmax;top:-20vmax;background:radial-gradient(circle,#0e4d43,transparent 65%);animation:drift1 26s ease-in-out infinite alternate}
+.aurora i:nth-child(2){width:45vmax;height:45vmax;right:-12vmax;top:-8vmax;background:radial-gradient(circle,#0c3b54,transparent 65%);animation:drift2 31s ease-in-out infinite alternate}
+.aurora i:nth-child(3){width:40vmax;height:40vmax;left:30vw;bottom:-22vmax;background:radial-gradient(circle,#06413a,transparent 65%);animation:drift3 24s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(9vmax,7vmax) scale(1.15)}}
+@keyframes drift2{to{transform:translate(-8vmax,10vmax) scale(.9)}}
+@keyframes drift3{to{transform:translate(-10vmax,-6vmax) scale(1.2)}}
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,.5),transparent),radial-gradient(1px 1px at 70% 15%,rgba(255,255,255,.4),transparent),radial-gradient(1.5px 1.5px at 85% 60%,rgba(255,255,255,.35),transparent),radial-gradient(1px 1px at 40% 75%,rgba(255,255,255,.3),transparent),radial-gradient(1px 1px at 10% 85%,rgba(255,255,255,.35),transparent),radial-gradient(1.5px 1.5px at 55% 45%,rgba(255,255,255,.25),transparent);opacity:.5}
+
+/* ---------- layout ---------- */
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;transition:margin-right .55s cubic-bezier(.32,.72,0,1)}
+body.panel-open #app{margin-right:min(440px,100vw)}
+@media(max-width:860px){body.panel-open #app{margin-right:0}}
+
+/* ---------- hero ---------- */
+#hero{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;padding:24px;transition:opacity .6s ease,transform .6s ease;z-index:2}
+#hero.gone{opacity:0;transform:translateY(-26px);pointer-events:none}
+.logo{font-family:'Outfit',sans-serif;font-size:.8rem;letter-spacing:.55em;color:var(--acc);text-transform:uppercase;margin-bottom:26px;animation:fadeUp .8s .1s both}
+.logo b{color:var(--ink)}
+#greet{font-size:clamp(1.7rem,4.6vw,2.9rem);font-weight:600;line-height:1.3;letter-spacing:-.01em;animation:fadeUp .8s .25s both}
+#greet .grad{background:linear-gradient(100deg,var(--acc) 10%,var(--acc2) 55%,var(--acc3) 95%);-webkit-background-clip:text;background-clip:text;color:transparent}
+#heroSub{margin-top:14px;color:var(--ink-dim);font-weight:300;font-size:1.02rem;animation:fadeUp .8s .4s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* ---------- chat stream ---------- */
+#stream{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:88px max(18px,calc(50vw - 380px)) 190px;scroll-behavior:smooth;opacity:0;transition:opacity .5s .2s}
+body.chatting #stream{opacity:1}
+#stream::-webkit-scrollbar{width:0}
+.msg{margin:26px 0;animation:msgIn .45s cubic-bezier(.21,.9,.35,1) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.msg.user{display:flex;justify-content:flex-end}
+.msg.user .bub{max-width:78%;background:linear-gradient(120deg,rgba(45,212,191,.14),rgba(56,189,248,.14));border:1px solid rgba(45,212,191,.22);padding:11px 18px;border-radius:20px 20px 6px 20px;font-size:1rem;backdrop-filter:blur(8px)}
+.msg.bot{display:flex}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bot-body{flex:1;min-width:0;padding-top:4px}
+.bot-text{font-size:1.02rem;line-height:1.85;font-weight:300;color:#e2ecec}
+.bot-text b,.bot-text strong{font-weight:600;color:var(--ink)}
+.bot-text .hl{color:var(--acc);font-weight:500}
+.bot-text small{color:var(--ink-dim)}
+/* typing */
+.typing{display:inline-flex;gap:5px;padding:8px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--acc);opacity:.4;animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+
+/* ---------- chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.chip{border:1px solid var(--line);background:var(--glass);color:#c3d1d3;padding:8px 16px;border-radius:100px;font-size:.88rem;font-family:inherit;cursor:pointer;backdrop-filter:blur(6px);transition:all .2s cubic-bezier(.23,1,.32,1);animation:msgIn .4s both}
+.chip:hover{border-color:rgba(45,212,191,.55);color:var(--acc);background:rgba(45,212,191,.07);transform:translateY(-1px)}
+.chip.primary{background:linear-gradient(120deg,rgba(45,212,191,.16),rgba(56,189,248,.16));border-color:rgba(45,212,191,.4);color:var(--acc)}
+
+/* ---------- result cards ---------- */
+.cards{display:flex;gap:14px;overflow-x:auto;margin:16px -6px 4px;padding:6px;scroll-snap-type:x mandatory}
+.cards::-webkit-scrollbar{height:0}
+.card{scroll-snap-align:start;flex:0 0 236px;border-radius:var(--radius);background:var(--glass);border:1px solid var(--line);overflow:hidden;cursor:pointer;backdrop-filter:blur(10px);transition:transform .28s cubic-bezier(.21,.9,.35,1),border-color .28s,box-shadow .28s;animation:cardIn .5s both}
+.card:nth-child(2){animation-delay:.07s}.card:nth-child(3){animation-delay:.14s}.card:nth-child(4){animation-delay:.21s}.card:nth-child(5){animation-delay:.28s}
+@keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+.card:hover{transform:translateY(-5px);border-color:rgba(45,212,191,.45);box-shadow:0 18px 40px -18px rgba(45,212,191,.35)}
+.card .visual{height:108px;position:relative;display:flex;align-items:center;justify-content:center;font-size:2.6rem}
+.card .visual::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(9,11,12,.72),transparent 60%)}
+.card .badge{position:absolute;top:10px;left:10px;z-index:2;font-size:.68rem;background:rgba(9,11,12,.55);border:1px solid var(--line);padding:3px 9px;border-radius:100px;backdrop-filter:blur(6px);color:#d5e0e1}
+.card .body{padding:13px 15px 15px}
+.card h4{font-size:.97rem;font-weight:600;line-height:1.35}
+.card .loc{font-size:.78rem;color:var(--ink-dim);margin-top:3px}
+.card .foot{display:flex;align-items:center;justify-content:space-between;margin-top:11px}
+.card .price{font-family:'Outfit';font-weight:700;color:var(--acc);font-size:1rem}
+.card .price small{font-size:.68rem;color:var(--ink-faint);font-weight:400;font-family:'Sarabun'}
+.card .rate{font-size:.78rem;color:#ffd230}
+
+/* ---------- rich blocks in chat ---------- */
+.block{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(10px)}
+.block .rowline{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:.94rem;border-bottom:1px dashed rgba(255,255,255,.07)}
+.block .rowline:last-child{border-bottom:0}
+.block .rowline span:first-child{color:var(--ink-dim)}
+.block .total{font-weight:700;color:var(--acc);font-family:'Outfit';font-size:1.05rem}
+.ticket{margin-top:14px;border-radius:var(--radius);overflow:hidden;border:1px solid rgba(45,212,191,.35);background:linear-gradient(135deg,rgba(45,212,191,.09),rgba(56,189,248,.09));backdrop-filter:blur(10px);animation:cardIn .5s both}
+.ticket .t-top{padding:18px 20px 14px;border-bottom:1px dashed rgba(255,255,255,.18);display:flex;gap:14px;align-items:center}
+.ticket .t-emoji{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.25);color:var(--acc)}
+/* line-art icon system */
+.ic{width:20px;height:20px;flex:0 0 auto;vertical-align:-4px}
+.ic.tiny{width:14px;height:14px;vertical-align:-2px}
+.cicon{width:54px;height:54px;color:rgba(255,255,255,.92);filter:drop-shadow(0 4px 14px rgba(0,0,0,.45))}
+.cicon.big{width:88px;height:88px}
+.cicon.mid{width:26px;height:26px;color:var(--acc);filter:none}
+.amen div::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--acc);flex:0 0 auto;box-shadow:0 0 8px rgba(45,212,191,.7)}
+.ticket .t-top h4{font-size:1.02rem}
+.ticket .t-top .sub{font-size:.8rem;color:var(--ink-dim);margin-top:2px}
+.ticket .t-code{padding:13px 20px;display:flex;justify-content:space-between;align-items:center}
+.ticket .code{font-family:'Outfit';letter-spacing:.18em;font-weight:700;color:var(--acc);font-size:1.05rem}
+.ticket .qr,.cticket .qr{width:44px;height:44px;border-radius:8px;background:repeating-conic-gradient(var(--ink) 0 25%,transparent 0 50%) 0 0/10px 10px;opacity:.85;flex:0 0 auto}
+
+/* ---------- dock (input) ---------- */
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:44%;width:min(680px,calc(100vw - 32px));z-index:5;transition:bottom .7s cubic-bezier(.32,.72,0,1),width .5s}
+body.chatting #dock{bottom:26px}
+@media(min-width:861px){
+  body.panel-open #dock{left:calc((100vw - 440px)/2);width:min(680px,calc(100vw - 440px - 36px))}
+  body.panel-open #stream{padding-left:max(18px,calc((100vw - 440px)/2 - 380px));padding-right:max(18px,calc((100vw - 440px)/2 - 380px))}
+  body.panel-open .hint{left:calc((100vw - 440px)/2)}
+}
+.dock-glow{position:absolute;inset:0;border-radius:100px;background:linear-gradient(100deg,var(--acc),var(--acc2),var(--acc3),var(--acc));background-size:300% 100%;animation:glowmove 6s linear infinite;opacity:.28;filter:blur(14px);z-index:-1;transition:opacity .3s}
+#dock:focus-within .dock-glow{opacity:.5}
+@keyframes glowmove{to{background-position:300% 0}}
+.dock-inner{display:flex;align-items:center;gap:6px;background:rgba(15,21,23,.82);border:1px solid rgba(255,255,255,.14);border-radius:100px;padding:8px 10px 8px 22px;backdrop-filter:blur(22px) saturate(150%);box-shadow:0 20px 50px -20px rgba(0,0,0,.8)}
+#inp{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font-family:inherit;font-size:1.02rem;font-weight:300;min-width:0}
+#inp::placeholder{color:var(--ink-faint)}
+.iconbtn{width:42px;height:42px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:transparent;color:var(--ink-dim);transition:all .2s cubic-bezier(.23,1,.32,1);flex:0 0 auto}
+.iconbtn:hover{color:var(--acc);background:rgba(45,212,191,.08)}
+#sendBtn{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#003330}
+#sendBtn:hover{transform:scale(1.06);color:#003330}
+#sendBtn svg,.iconbtn svg{width:19px;height:19px}
+.hero-chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:132px;max-width:640px;animation:fadeUp .8s .55s both}
+.hint{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:.68rem;color:var(--ink-faint);z-index:5;opacity:0;transition:opacity .5s}
+body.chatting .hint{opacity:.7}
+
+/* ---------- side panel ---------- */
+#panel{position:fixed;top:0;right:0;height:100%;width:min(440px,100vw);z-index:20;background:rgba(13,18,20,.88);backdrop-filter:blur(28px) saturate(160%);border-left:1px solid var(--line);transform:translateX(102%);transition:transform .55s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;box-shadow:-30px 0 80px -30px rgba(0,0,0,.7)}
+#panel.open{transform:none}
+.p-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.p-scroll::-webkit-scrollbar{width:0}
+.p-hero{height:230px;position:relative;display:flex;align-items:center;justify-content:center;font-size:4.6rem}
+.p-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(13,18,20,1),transparent 55%)}
+.p-close{position:absolute;top:16px;right:16px;z-index:30;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(9,11,12,.5);color:var(--ink);font-size:1rem;cursor:pointer;backdrop-filter:blur(8px);transition:all .2s}
+.p-close:hover{background:rgba(255,80,80,.15);border-color:rgba(255,120,120,.4)}
+.p-body{padding:0 24px 130px;margin-top:-34px;position:relative}
+.p-body h2{font-size:1.45rem;font-weight:700;letter-spacing:-.01em}
+.p-loc{color:var(--ink-dim);font-size:.88rem;margin-top:4px}
+.p-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tag{font-size:.74rem;padding:4px 11px;border-radius:100px;border:1px solid var(--line);background:var(--glass);color:#b6c4c6}
+.tag.gold{color:#ffd230;border-color:rgba(255,210,48,.35)}
+.p-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+.stat{border:1px solid var(--line);background:var(--glass);border-radius:16px;padding:12px 8px;text-align:center}
+.stat b{display:block;font-family:'Outfit';font-size:1.02rem;color:var(--acc)}
+.stat span{font-size:.68rem;color:var(--ink-dim)}
+.p-sec{margin-top:26px}
+.p-sec h5{font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;font-family:'Outfit'}
+.p-desc{font-size:.94rem;line-height:1.9;font-weight:300;color:#c3d1d3}
+.amen{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.amen div{font-size:.85rem;color:#b6c4c6;display:flex;gap:9px;align-items:center;padding:9px 12px;border-radius:13px;background:var(--glass);border:1px solid rgba(255,255,255,.05)}
+.avail{display:flex;gap:9px;flex-wrap:wrap}
+.slot{border:1px solid var(--line);background:var(--glass);border-radius:14px;padding:9px 13px;font-size:.8rem;cursor:pointer;color:#c3d1d3;transition:all .2s cubic-bezier(.23,1,.32,1);font-family:inherit;text-align:left}
+.slot:hover{border-color:rgba(45,212,191,.5);background:rgba(45,212,191,.07)}
+.slot b{display:block;font-size:.86rem;color:var(--ink)}
+.slot span{color:var(--acc);font-size:.7rem}
+.slot.full{opacity:.38;cursor:not-allowed}
+.slot.full span{color:#ff6467}
+.review{border-left:2px solid rgba(45,212,191,.4);padding:2px 0 2px 14px;margin-bottom:14px}
+.review p{font-size:.87rem;font-weight:300;color:#c3d1d3;line-height:1.7}
+.review .who{font-size:.72rem;color:var(--ink-faint);margin-top:5px}
+.p-foot{position:absolute;bottom:0;left:0;right:0;padding:16px 24px 22px;background:linear-gradient(to top,rgba(13,18,20,.98) 62%,transparent);display:flex;align-items:center;gap:14px}
+.p-price{flex:1}
+.p-price b{font-family:'Outfit';font-size:1.35rem;color:var(--acc)}
+.p-price span{font-size:.72rem;color:var(--ink-dim);display:block}
+.bookbtn{border:0;border-radius:100px;padding:14px 30px;font-family:inherit;font-size:.98rem;font-weight:600;cursor:pointer;background:linear-gradient(120deg,var(--acc),var(--acc2));color:#003330;transition:all .2s cubic-bezier(.23,1,.32,1);box-shadow:0 10px 30px -10px rgba(45,212,191,.5)}
+.bookbtn:hover{transform:translateY(-2px);box-shadow:0 16px 36px -10px rgba(45,212,191,.65)}
+
+/* ---------- LIVE VOICE MODE ---------- */
+#live{position:fixed;inset:0;z-index:19;background:radial-gradient(130% 100% at 50% 0%,#10181b,#090b0c 62%);transform:translateY(103%);transition:transform .65s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;overflow:hidden}
+#live.open{transform:none}
+#live::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 45% at 50% 32%,rgba(45,212,191,.09),transparent 70%);pointer-events:none;transition:opacity .5s}
+#live.speaking::before{background:radial-gradient(60% 45% at 50% 32%,rgba(56,189,248,.12),transparent 70%)}
+.lv-top{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;flex:0 0 auto}
+.lv-badge{font-family:'Outfit';font-size:.64rem;letter-spacing:.4em;color:var(--acc);display:flex;gap:8px;align-items:center}
+.lv-badge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--acc);animation:blink 1.4s infinite}
+#lvStatus{font-size:.76rem;color:var(--ink-dim);transition:color .3s}
+#live.listening #lvStatus{color:var(--acc)}
+#live.speaking #lvStatus{color:#38bdf8}
+/* orb — firefly constellation */
+.lv-orb-wrap{flex:0 0 auto;display:flex;justify-content:center;padding:0;position:relative}
+#lvCanvas{width:min(560px,92vw);height:260px}
+/* generative stage */
+#lvStage{flex:1;min-height:0;overflow-y:auto;padding:8px max(20px,calc(50vw - 380px));opacity:1;transition:opacity .35s,transform .35s;overscroll-behavior:contain}
+#lvStage::-webkit-scrollbar{width:0}
+#lvStage.swap{opacity:0;transform:translateY(14px)}
+#lvStage .cards{margin-top:4px}
+#lvStage .fogcal,#lvStage .block,#lvStage .ticket{margin-top:6px}
+.lv-hintstage{text-align:center;color:var(--ink-faint);font-size:.8rem;padding-top:36px;font-weight:300;line-height:2}
+/* captions */
+.lv-caps{flex:0 0 auto;text-align:center;padding:6px 24px 10px;min-height:86px}
+#lvUserCap{font-size:.85rem;color:var(--ink-dim);min-height:22px;font-weight:300}
+#lvUserCap b{color:var(--ink-faint);font-weight:500;font-size:.7rem;letter-spacing:.1em;margin-right:8px}
+#lvAICap{font-size:1.05rem;color:var(--ink);margin-top:6px;font-weight:300;line-height:1.7;max-width:720px;margin-inline:auto}
+#lvAICap .hl{color:var(--acc)}
+#lvAICap .cap{opacity:.3;transition:opacity .35s,color .35s}
+#lvAICap .cap.seen{opacity:.6}
+#lvAICap .cap.on{opacity:1;color:var(--ink);text-shadow:0 0 24px rgba(45,212,191,.25)}
+/* controls */
+.lv-ctl{flex:0 0 auto;display:flex;justify-content:center;align-items:center;gap:22px;padding:10px 0 30px}
+.lv-side{border:1px solid var(--line);background:var(--glass);color:var(--ink-dim);border-radius:100px;padding:11px 20px;font-family:inherit;font-size:.8rem;cursor:pointer;backdrop-filter:blur(8px);transition:all .2s cubic-bezier(.23,1,.32,1)}
+.lv-side:hover{border-color:var(--acc);color:var(--acc)}
+#lvMic{width:72px;height:72px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;background:linear-gradient(130deg,var(--acc),#38bdf8);color:#003330;box-shadow:0 14px 40px -12px rgba(45,212,191,.65);transition:all .25s cubic-bezier(.23,1,.32,1)}
+#lvMic:hover{transform:scale(1.06)}
+#lvMic svg{width:26px;height:26px}
+#live.listening #lvMic{background:#ff6467;color:#fff;animation:recpulse 1.2s infinite}
+#lvEnd{width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,100,103,.45);background:rgba(255,100,103,.1);color:#ff6467;cursor:pointer;display:grid;place-items:center;transition:all .2s cubic-bezier(.23,1,.32,1)}
+#lvEnd:hover{background:rgba(255,100,103,.22)}
+#lvEnd svg{width:20px;height:20px}
+@media(max-width:640px){.lv-orb{width:88px;height:88px}#lvStage{padding:8px 16px}}
+
+/* ---------- toast & confetti ---------- */
+#toast{position:fixed;top:22px;left:50%;transform:translate(-50%,-70px);z-index:60;background:rgba(15,21,23,.9);border:1px solid var(--line);padding:11px 22px;border-radius:100px;font-size:.86rem;backdrop-filter:blur(14px);transition:transform .45s cubic-bezier(.21,.9,.35,1)}
+#toast.show{transform:translate(-50%,0)}
+.confetti{position:fixed;top:-12px;z-index:70;width:8px;height:8px;border-radius:2px;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.2}}
+
+/* ---------- seamless / futuristic layer ---------- */
+#spot{position:fixed;inset:0;z-index:2;pointer-events:none;mix-blend-mode:screen;background:radial-gradient(540px at var(--mx,50%) var(--my,38%),rgba(45,212,191,.075),transparent 70%)}
+#tint{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1s ease,background 1.2s ease;mix-blend-mode:screen;filter:blur(130px)}
+body.panel-open #tint{opacity:.55}
+.aurora i{will-change:translate;transition:translate 1.4s cubic-bezier(.2,.8,.2,1)}
+.bot-text.reveal{-webkit-mask-image:linear-gradient(100deg,#000 45%,transparent 62%);mask-image:linear-gradient(100deg,#000 45%,transparent 62%);-webkit-mask-size:280% 100%;mask-size:280% 100%;animation:sweep 1.1s cubic-bezier(.3,.7,.3,1) forwards}
+@keyframes sweep{from{-webkit-mask-position:100% 0;mask-position:100% 0;filter:blur(3px)}to{-webkit-mask-position:0 0;mask-position:0 0;filter:blur(0)}}
+.card{transform-style:preserve-3d;will-change:transform}
+.chips.used .chip{opacity:.3;pointer-events:none;filter:saturate(.2)}
+.morph{position:fixed;z-index:60;border-radius:22px;pointer-events:none;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:3rem;transition:all .58s cubic-bezier(.32,.72,0,1);box-shadow:0 30px 80px -20px rgba(0,0,0,.7)}
+/* booking progress — floats above dock */
+#steps{display:flex;gap:6px;justify-content:center;margin-bottom:11px;opacity:0;transform:translateY(8px);transition:all .45s cubic-bezier(.21,.9,.35,1);pointer-events:none}
+#steps.on{opacity:1;transform:none}
+#steps span{font-size:.7rem;color:var(--ink-faint);padding:4px 13px;border:1px solid transparent;border-radius:100px;transition:all .4s;background:rgba(15,21,23,.6);backdrop-filter:blur(10px)}
+#steps span.act{color:var(--acc);border-color:rgba(45,212,191,.45);background:rgba(45,212,191,.1);box-shadow:0 0 16px -4px rgba(45,212,191,.7)}
+#steps span.done{color:var(--ink-dim);text-decoration:line-through;text-decoration-color:rgba(45,212,191,.5)}
+/* fake voice waveform */
+#wave{display:none;flex:1;align-items:center;gap:3px;height:30px;padding:0 6px;min-width:0}
+body.listening #wave{display:flex}
+body.listening #inp{display:none}
+#wave i{flex:1;background:linear-gradient(180deg,var(--acc),var(--acc2));border-radius:3px;animation:wv .5s ease-in-out infinite alternate}
+@keyframes wv{from{height:12%}to{height:96%}}
+#micBtn.rec{color:#ff6467!important;animation:recpulse 1s infinite}
+@keyframes recpulse{50%{transform:scale(1.18)}}
+#sendBtn:active{transform:scale(.88)}
+
+/* ---------- availability chip on cards (A3) — success token ---------- */
+.avl{margin-top:9px;font-size:.7rem;color:#2ec27e;display:flex;align-items:center;gap:6px}
+.avl::before{content:"";width:6px;height:6px;border-radius:50%;background:#1ca953;box-shadow:0 0 8px rgba(28,169,83,.8)}
+.avl.full{color:#ff6467}
+.avl.full::before{background:#ff6467;box-shadow:0 0 8px rgba(255,100,103,.7)}
+
+/* ---------- compare block (B1) ---------- */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.cmp-col{border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);overflow:hidden;backdrop-filter:blur(10px);animation:cardIn .5s both;display:flex;flex-direction:column}
+.cmp-col:nth-child(2){animation-delay:.08s}
+.cmp-head{height:64px;display:flex;align-items:center;justify-content:center}
+.cmp-col>b{padding:12px 14px 4px;font-size:.92rem;line-height:1.4}
+.cmp-row{display:flex;justify-content:space-between;gap:8px;padding:7px 14px;font-size:.8rem;border-bottom:1px dashed rgba(255,255,255,.06)}
+.cmp-row span{color:var(--ink-dim)}
+.cmp-row b{text-align:right}
+.cmp-col .chip{margin:12px 14px 14px;text-align:center;justify-content:center}
+.cmp-win{font-size:.68rem;color:var(--acc2);padding:0 14px 4px}
+
+/* ---------- trip planner (D1) ---------- */
+.trip{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(10px);animation:cardIn .5s both}
+.trip .t-route{font-family:'Outfit';font-size:.7rem;letter-spacing:.2em;color:var(--ink-faint);margin-bottom:14px}
+.tnode{display:flex;gap:13px;align-items:flex-start;padding:4px 0}
+.tnode .tdot{width:12px;height:12px;border-radius:50%;background:linear-gradient(120deg,var(--acc),var(--acc2));margin-top:5px;flex:0 0 auto;box-shadow:0 0 10px rgba(45,212,191,.6)}
+.tnode .tbody{flex:1}
+.tnode b{font-size:.94rem}
+.tnode .tsub{font-size:.76rem;color:var(--ink-dim);margin-top:2px}
+.tnode .tprice{font-family:'Outfit';color:var(--acc);font-size:.9rem}
+.tdrive{margin:2px 0 2px 5px;border-left:2px dashed rgba(255,255,255,.18);padding:8px 0 8px 18px;font-size:.74rem;color:var(--ink-faint)}
+.tsum{margin-top:12px;padding-top:12px;border-top:1px dashed rgba(255,255,255,.14);display:flex;justify-content:space-between;font-size:.9rem}
+.tsum b{font-family:'Outfit';color:var(--acc)}
+.tsum .ok{color:var(--acc);font-size:.76rem}
+
+/* ---------- interactive packing checklist (D2) ---------- */
+.clist{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:14px 18px;backdrop-filter:blur(10px);display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.clist label{display:flex;gap:10px;align-items:center;padding:7px 0;font-size:.88rem;color:#c3d1d3;cursor:pointer;font-weight:300}
+.clist input{appearance:none;width:18px;height:18px;border:1px solid rgba(255,255,255,.25);border-radius:6px;cursor:pointer;flex:0 0 auto;position:relative;transition:.2s;background:transparent}
+.clist input:checked{background:var(--acc);border-color:var(--acc)}
+.clist input:checked::after{content:"";position:absolute;inset:4px 3px 5px;border:solid #003330;border-width:0 0 2px 2px;transform:rotate(-45deg) translateY(-1px)}
+.clist input:checked+span{color:var(--ink-faint);text-decoration:line-through;text-decoration-color:rgba(45,212,191,.5)}
+@media(max-width:560px){.clist{grid-template-columns:1fr}.cmp{grid-template-columns:1fr}}
+
+/* ---------- group trip vote (live) ---------- */
+.vote{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(10px);animation:cardIn .5s both}
+.vhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.vhead b{font-family:'Outfit';font-size:.68rem;letter-spacing:.22em;color:var(--ink-faint)}
+.vlive{display:flex;gap:6px;align-items:center;font-size:.66rem;color:var(--acc)}
+.vlive::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--acc);animation:blink 1.2s infinite}
+.vrow{display:flex;align-items:center;gap:10px;padding:7px 0}
+.vrow .vname{width:122px;font-size:.82rem;flex:0 0 auto}
+.vrow .vbar{flex:1;height:10px;border-radius:100px;background:rgba(255,255,255,.07);overflow:hidden}
+.vrow .vbar i{display:block;height:100%;border-radius:100px;background:linear-gradient(90deg,var(--acc),#38bdf8);transform-origin:left;transform:scaleX(0);transition:transform .6s cubic-bezier(.23,1,.32,1)}
+.vrow .vn{width:22px;text-align:right;font-family:'Outfit';font-size:.85rem;color:var(--acc);font-variant-numeric:tabular-nums}
+.avas{display:flex;align-items:center;margin-top:13px}
+.ava{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:.6rem;font-weight:600;border:2px solid #10181b;margin-left:-8px;color:#003330}
+.ava:first-child{margin-left:0}
+.ava.wait{background:rgba(255,255,255,.1);color:var(--ink-faint);border-style:dashed}
+.avas span{margin-left:10px;font-size:.7rem;color:var(--ink-faint)}
+.vlink{margin-top:12px;display:flex;gap:8px;align-items:center;border:1px dashed rgba(255,255,255,.18);border-radius:100px;padding:8px 14px;font-size:.72rem;color:var(--ink-dim);cursor:pointer;transition:all .2s cubic-bezier(.23,1,.32,1)}
+.vlink:hover{border-color:var(--acc);color:var(--acc)}
+
+/* ---------- camp passport ---------- */
+.pass{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(10px);animation:cardIn .5s both}
+.pass .phead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.pass .phead b{font-family:'Outfit';font-size:.7rem;letter-spacing:.24em;color:var(--acc)}
+.pass .pts{font-family:'Outfit';font-size:.8rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stamp{aspect-ratio:1;border-radius:50%;border:2px solid rgba(45,212,191,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;padding:8px;background:rgba(45,212,191,.05);transform:rotate(-3deg)}
+.stamp:nth-child(2n){transform:rotate(2.5deg)}
+.stamp:nth-child(3n){transform:rotate(-1.5deg)}
+.stamp .ic{width:20px;height:20px;color:var(--acc)}
+.stamp b{font-size:.58rem;line-height:1.25}
+.stamp span{font-size:.5rem;color:var(--ink-faint)}
+.stamp.pend{border-color:rgba(255,210,48,.5);background:rgba(255,210,48,.05)}
+.stamp.pend .ic{color:#ffd230}
+.stamp.empty{border-style:dashed;border-color:rgba(255,255,255,.14);background:transparent;transform:none}
+.stamp.empty span{font-size:.56rem}
+.badgerow{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.8rem;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+.badgerow:last-child{border-bottom:0}
+.badgerow .bp{font-family:'Outfit';color:var(--acc);font-size:.72rem;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.badgerow .done{color:#2ec27e}
+
+/* ---------- host insight ---------- */
+.insight{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(10px);animation:cardIn .5s both}
+.irow{display:flex;align-items:center;gap:12px;padding:6px 0;font-size:.82rem}
+.irow .il{width:128px;color:var(--ink-dim);flex:0 0 auto}
+.irow .ibar{flex:1;height:8px;border-radius:100px;background:rgba(255,255,255,.07);overflow:hidden}
+.irow .ibar i{display:block;height:100%;border-radius:100px;background:linear-gradient(90deg,var(--acc),#38bdf8);transform-origin:left;animation:ibar 1s cubic-bezier(.23,1,.32,1) both}
+.irow .ibar i.warn{background:#ffd230}
+@keyframes ibar{from{transform:scaleX(0)}}
+.irow .iv{font-family:'Outfit';font-size:.82rem;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.irow .iv.bad{color:#ffd230}
+
+/* ---------- pitch-spot mini map in chat ---------- */
+.spotmap{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:16px 18px;backdrop-filter:blur(10px)}
+.spotmap .pmap{grid-template-columns:repeat(6,1fr);gap:6px}
+.spotmap .pspot{border-radius:9px;font-size:.55rem}
+.spotmap .pspot.prem{border:1px solid rgba(255,210,48,.5);color:#ffd230;background:rgba(255,210,48,.05)}
+.slegend{display:flex;gap:14px;margin-top:11px;font-size:.64rem;color:var(--ink-faint);flex-wrap:wrap}
+.slegend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* ---------- fog heat calendar (sequential, single hue) ---------- */
+.fogcal{margin-top:14px;border:1px solid var(--line);background:var(--glass);border-radius:var(--radius);padding:18px;backdrop-filter:blur(10px);animation:cardIn .5s both}
+.fogcal .fhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:16px}
+.fogcal .fhead b{font-size:.93rem}
+.fogcal .fhead small{color:var(--ink-faint);font-size:.66rem;letter-spacing:.18em;font-family:'Outfit'}
+.fgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.fcell{position:relative;border-radius:12px;padding:8px 2px 7px;text-align:center;border:1px solid rgba(255,255,255,.05);transition:transform .2s}
+.fcell:hover{transform:translateY(-2px)}
+.fcell .dw{font-size:.58rem;color:var(--ink-faint)}
+.fcell .dd{font-family:'Outfit';font-size:.9rem;font-weight:600;margin:2px 0;color:var(--ink)}
+.fcell .pp{font-size:.6rem;color:var(--ink-dim);font-family:'Outfit';min-height:12px}
+.fcell.peak .dw,.fcell.peak .dd,.fcell.peak .pp{color:#003d38}
+.fcell.best{border-color:rgba(56,189,248,.85);box-shadow:0 0 0 1px rgba(56,189,248,.5),0 0 18px -4px rgba(56,189,248,.8)}
+.fcell.best::after{content:"แนะนำ";position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:.55rem;background:var(--acc2);color:#00332f;padding:1px 8px;border-radius:100px;white-space:nowrap}
+.flegend{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.62rem;color:var(--ink-faint)}
+.fbar{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,rgba(45,212,191,.06),rgba(45,212,191,.9))}
+.fnote{margin-top:9px;font-size:.64rem;color:var(--ink-faint)}
+
+/* ---------- companion mode ---------- */
+#comp{position:fixed;inset:0;z-index:30;background:radial-gradient(120% 90% at 50% 0%,#10181b,#090b0c 62%);transform:translateY(103%);transition:transform .65s cubic-bezier(.32,.72,0,1),background .8s;overflow-y:auto;--ca:#2dd4bf}
+#comp.open{transform:none}
+#comp.night{--ca:#ff6467;background:radial-gradient(120% 90% at 50% 0%,#1c0b0b,#0b0505 62%)}
+#comp.night *{text-shadow:none}
+.cwrap{max-width:800px;margin:0 auto;padding:26px 20px 60px}
+.cbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.cmode{font-family:'Outfit';font-size:.64rem;letter-spacing:.42em;color:var(--ca)}
+.cnight{display:flex;gap:10px;align-items:center}
+.cnight span{font-size:.68rem;color:var(--ink-dim)}
+.ctitle h1{font-size:1.55rem;letter-spacing:-.01em}
+.ctitle .csub{color:var(--ink-dim);font-size:.84rem;margin-top:5px}
+.cticket{margin:18px 0 6px;border:1px solid rgba(255,255,255,.12);display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 20px;border-radius:18px;background:var(--glass);backdrop-filter:blur(10px)}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:12px;margin-top:14px}
+.ctile{border:1px solid var(--line);background:var(--glass);border-radius:18px;padding:15px;backdrop-filter:blur(8px)}
+.ctile .th{display:flex;gap:8px;align-items:center;color:var(--ink-dim);font-size:.7rem;margin-bottom:10px}
+.ctile .th .ic{color:var(--ca);width:16px;height:16px}
+.ctile .vv{font-family:'Outfit';font-size:1.28rem;font-weight:700;color:var(--ink)}
+.ctile .vs{font-size:.68rem;color:var(--ink-faint);margin-top:3px;line-height:1.55}
+.tg{width:44px;height:24px;border-radius:100px;background:rgba(255,255,255,.14);position:relative;cursor:pointer;transition:.3s;border:0;flex:0 0 auto}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#e9f2f2;transition:.3s}
+.tg.on{background:var(--ca)}
+.tg.on::after{left:23px;background:#090b0c}
+.sigrow{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:#b6c4c6;padding:3px 0}
+.sig{display:flex;gap:2px;align-items:flex-end;height:14px}
+.sig i{width:4px;border-radius:1px;background:var(--ca)}
+.sig i.off{background:rgba(255,255,255,.15)}
+.csec{margin-top:24px}
+.csec h5{font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;font-family:'Outfit'}
+.pmap{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.pspot{aspect-ratio:1;border-radius:11px;border:1px dashed rgba(255,255,255,.18);display:grid;place-items:center;font-size:.6rem;color:var(--ink-faint);font-family:'Outfit'}
+.pspot.occ{background:rgba(255,255,255,.06);border-style:solid;color:var(--ink-dim)}
+.pspot.you{border:1px solid var(--ca);color:var(--ca);box-shadow:0 0 14px -4px var(--ca);animation:youpulse 2.2s infinite}
+@keyframes youpulse{50%{box-shadow:0 0 26px -2px var(--ca)}}
+.cbtn{border:1px solid var(--line);background:var(--glass);color:#c3d1d3;border-radius:100px;padding:10px 20px;font-family:inherit;cursor:pointer;font-size:.84rem;transition:.25s}
+.cbtn:hover{border-color:var(--ca);color:var(--ca)}
+.cbtn.danger{border-color:rgba(255,100,103,.5);color:#ff6467}
+.cbtn.sm{padding:7px 14px;font-size:.74rem;margin-top:9px}
+.cfoot{display:flex;gap:10px;justify-content:center;margin-top:32px}
+.cbanner{position:fixed;top:18px;left:50%;transform:translate(-50%,-100px);z-index:80;display:flex;gap:13px;align-items:center;background:rgba(15,21,23,.94);border:1px solid rgba(45,212,191,.4);border-radius:18px;padding:14px 20px;backdrop-filter:blur(16px);transition:transform .5s cubic-bezier(.21,.9,.35,1);max-width:min(480px,92vw)}
+.cbanner.show{transform:translate(-50%,0)}
+.cbanner .ic{color:var(--acc);width:26px;height:26px}
+.cbanner .bt{font-size:.85rem;line-height:1.55}
+.cbanner .bt b{color:var(--acc)}
+
+@media(max-width:640px){
+  #stream{padding:70px 16px 175px}
+  .hero-chips{margin-top:120px}
+  .card{flex-basis:210px}
+  .pmap{grid-template-columns:repeat(6,1fr);gap:6px}
+}
+/* CampVibe: ราคา/วันที่/ตัวเลขสถิติ = tabular-nums เสมอ */
+.price,.p-price b,.stat b,.ticket .code,.tprice,.tsum b,.fcell .dd,.fcell .pp,.ctile .vv,.rowline b,.t-code .code{font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+</style>
+</head>
+<body>
+
+<div class="aurora"><i></i><i></i><i></i></div>
+<div class="stars"></div>
+<div id="tint"></div>
+<div id="spot"></div>
+
+<div id="app">
+  <!-- HERO / zero-ui landing -->
+  <section id="hero">
+    <div class="logo">C A M P V I B E <b>✦</b></div>
+    <h1 id="greet"></h1>
+    <p id="heroSub">พิมพ์คุยได้เหมือนคุยกับเพื่อน — ค้นหา · เช็ควันว่าง · จอง · ถามอะไรก็ได้</p>
+    <div class="hero-chips" id="heroChips"></div>
+  </section>
+
+  <!-- CHAT STREAM -->
+  <main id="stream" aria-live="polite"></main>
+</div>
+
+<!-- INPUT DOCK -->
+<div id="dock">
+  <div id="steps"><span>วัน</span><span>คน</span><span>เต็นท์</span><span>จุดกาง</span><span>ยืนยัน</span></div>
+  <div class="dock-glow"></div>
+  <div class="dock-inner">
+    <input id="inp" autocomplete="off" placeholder="ลองพิมพ์: หาลานทะเลหมอก งบไม่เกิน 200…" aria-label="พิมพ์ข้อความ">
+    <div id="wave"></div>
+    <button class="iconbtn" id="attachBtn" title="ค้นหาจากรูป (เดโม)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.6"/><path d="M21 15.5 16 10.5 5 21"/></svg>
+    </button>
+    <button class="iconbtn" id="micBtn" title="โหมดเสียง (เดโม)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg>
+    </button>
+    <button class="iconbtn" id="sendBtn" title="ส่ง">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</div>
+<div class="hint">กด / เพื่อพิมพ์ · Enter เพื่อส่ง</div>
+
+<!-- SIDE PANEL -->
+<aside id="panel" aria-label="รายละเอียดลานกางเต็นท์">
+  <button class="p-close" id="panelClose" title="ปิด">✕</button>
+  <div class="p-scroll" id="panelScroll"></div>
+  <div class="p-foot" id="panelFoot"></div>
+</aside>
+
+<!-- LIVE VOICE MODE -->
+<div id="live" aria-label="โหมดสนทนาด้วยเสียง">
+  <div class="lv-top">
+    <span class="lv-badge">LIVE VOICE</span>
+    <span id="lvStatus">แตะไมค์แล้วพูดได้เลย หรือกดเล่นเดโม</span>
+    <button class="p-close" style="position:static" id="lvClose">✕</button>
+  </div>
+  <div class="lv-orb-wrap">
+    <canvas id="lvCanvas" width="480" height="300" aria-hidden="true"></canvas>
+  </div>
+  <div id="lvStage"><div class="lv-hintstage">ลองพูดว่า "หาลานทะเลหมอกให้หน่อย" · "หมอกจะมาวันไหน" · "จองภูชี้ฟ้าเสาร์นี้"<br>UI จะเปลี่ยนตามเรื่องที่คุยกันเอง — ไม่ต้องกดอะไรเลย</div></div>
+  <div class="lv-caps">
+    <div id="lvUserCap"></div>
+    <div id="lvAICap"></div>
+  </div>
+  <div class="lv-ctl">
+    <button class="lv-side" id="lvDemo">เล่นเดโมบทสนทนา</button>
+    <button id="lvMic" title="พูด">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg>
+    </button>
+    <button id="lvEnd" title="วางสาย">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.5 2.9.6a2 2 0 0 1 1.7 2.1z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= MOCK DATA ================= */
+const CAMPS = [
+  {id:1,name:"ภูทับเบิก สกายแคมป์",prov:"เพชรบูรณ์",region:"เหนือ",price:150,rating:4.8,rv:412,emoji:"",
+   g:["#134e4a","#0f2f3f"],tags:["ทะเลหมอก","อากาศหนาว","จุดชมวิว"],alt:"1,768 ม.",dist:"389 กม.",slots:[6,2,8,0],
+   desc:"ลานกางเต็นท์บนจุดสูงสุดของภูทับเบิก วิวทะเลหมอกยามเช้าแบบพาโนรามา 180° อุณหภูมิหน้าหนาวต่ำสุด 4°C ท่ามกลางไร่กะหล่ำปลีที่ใหญ่ที่สุดในประเทศ",
+   amen:[" ห้องน้ำ-น้ำอุ่น"," เช่าเต็นท์ได้"," ร้านอาหารเช้า"," ที่จอดรถติดลาน"," จุดชาร์จส่วนกลาง"," จุดชมพระอาทิตย์ขึ้น"],
+   feat:{tent:true,elec:false,pet:false,water:false,near:false},
+   reviews:[["หมอกมาเต็มตั้งแต่ตี 5 คุ้มมาก ที่ลานสะอาด","ต้นน้ำ · ธ.ค. 68"],["หนาวจริง เตรียมเสื้อไป 3 ชั้น วิวสวยสุดในชีวิต","Mind J. · ม.ค. 69"]]},
+  {id:2,name:"ม่อนแจ่ม เมาน์เทนวิว",prov:"เชียงใหม่",region:"เหนือ",price:200,rating:4.7,rv:388,emoji:"",
+   g:["#1e3a5f","#0c3b54"],tags:["ทะเลหมอก","วิวภูเขา","คาเฟ่ใกล้ๆ"],alt:"1,350 ม.",dist:"690 กม.",slots:[4,0,5,7],
+   desc:"ลานกางเต็นท์ริมสันเขาม่อนแจ่ม วิวหุบเขาสลับซับซ้อน มีคาเฟ่และสวนดอกไม้เดินถึง เหมาะทั้งสายชิลและสายถ่ายรูป",
+   amen:[" ห้องน้ำสะอาด"," เช่าเต็นท์ได้"," คาเฟ่ในลาน"," มีไฟฟ้าถึงจุดกาง"," ร้านสะดวกซื้อ 500 ม."," สวนดอกไม้"],
+   feat:{tent:true,elec:true,pet:false,water:false,near:false},
+   reviews:[["วิวหลักล้าน กาแฟอร่อย ครบจบในที่เดียว","Poom · พ.ย. 68"],["คนเยอะหน่อยช่วงเสาร์ แนะนำมาวันธรรมดา","แพรว · ธ.ค. 68"]]},
+  {id:3,name:"แก่งกระจาน ริเวอร์แคมป์",prov:"เพชรบุรี",region:"ตะวันตก",price:120,rating:4.5,rv:265,emoji:"",
+   g:["#14532d","#134e4a"],tags:["ริมน้ำ","ใกล้กรุงเทพ","พายเรือ"],alt:"120 ม.",dist:"163 กม.",slots:[10,8,12,6],
+   desc:"กางเต็นท์ริมแม่น้ำเพชรบุรีในเขตอุทยานฯ แก่งกระจาน เล่นน้ำหน้าลานได้เลย มีกิจกรรมพายเรือคายัคและส่องนกเงือกยามเช้า",
+   amen:[" ห้องน้ำรวม"," เช่าเรือคายัค"," เช่าชุดบาร์บีคิว"," จอดรถติดจุดกาง"," ทัวร์ส่องนก"," เล่นน้ำได้"],
+   feat:{tent:true,elec:false,pet:true,water:true,near:true},
+   reviews:[["ใกล้กรุงเทพ ขับ 2 ชม.ถึง น้ำใสมาก เด็กๆ ชอบ","ครอบครัวตั้ม · ต.ค. 68"],["เสียงน้ำไหลฟังทั้งคืน ฟินสุด","Bee · พ.ย. 68"]]},
+  {id:4,name:"เขาใหญ่ ไพน์ฟอเรสต์",prov:"นครราชสีมา",region:"อีสาน",price:180,rating:4.6,rv:341,emoji:"",
+   g:["#166534","#1a2e05"],tags:["ป่าสน","สัตว์เลี้ยงได้","ครอบครัว"],alt:"760 ม.",dist:"205 กม.",slots:[3,5,0,9],
+   desc:"ลานกว้างใต้แนวป่าสนสามใบ อากาศเย็นตลอดปี พาน้องหมาน้องแมวมาได้ มีโซนครอบครัวและโซนเงียบแยกกันชัดเจน",
+   amen:[" น้ำอุ่น 24 ชม."," Pet friendly"," มีไฟฟ้ารายจุด"," ลานบาร์บีคิว"," สนามเด็กเล่น"," มินิมาร์ท"],
+   feat:{tent:true,elec:true,pet:true,water:false,near:true},
+   reviews:[["พาโกลเด้นไป 2 ตัว มีโซนหมาวิ่งเล่น ประทับใจ","Nan & Latte · ธ.ค. 68"],["ป่าสนสวยเหมือนเมืองนอก กลิ่นสนหอมมาก","วิว · ม.ค. 69"]]},
+  {id:5,name:"ภูชี้ฟ้า ซันไรส์พอยต์",prov:"เชียงราย",region:"เหนือ",price:100,rating:4.9,rv:502,emoji:"",
+   g:["#7c2d12","#0c3b54"],tags:["ทะเลหมอก","พระอาทิตย์ขึ้น","ราคาประหยัด"],alt:"1,628 ม.",dist:"817 กม.",slots:[2,6,4,3],
+   desc:"ตำนานทะเลหมอกของไทย เดินจากลานถึงยอดภูชี้ฟ้าเพียง 20 นาที ชมพระอาทิตย์ขึ้นเหนือทะเลหมอกฝั่งลาว ราคาย่อมเยาที่สุดในย่านนี้",
+   amen:[" ห้องน้ำพื้นฐาน"," เช่าเต็นท์ได้"," เช่าถุงนอน-ผ้าห่ม"," ร้านโจ๊ก-กาแฟเช้า"," ทางเดินขึ้นยอด"," ไฟส่องทางกลางคืน"],
+   feat:{tent:true,elec:false,pet:false,water:false,near:false},
+   reviews:[["พระอาทิตย์ขึ้นสวยที่สุดที่เคยเห็น ร้องไห้","กิ๊ฟ · ม.ค. 69"],["100 บาทกับวิวแบบนี้ ไม่มีที่ไหนให้แล้ว","Ohm · ธ.ค. 68"]]},
+  {id:6,name:"ไทรโยค ริมแคว แคมป์",prov:"กาญจนบุรี",region:"ตะวันตก",price:250,rating:4.4,rv:198,emoji:"",
+   g:["#0e7490","#134e4a"],tags:["ริมน้ำ","มีไฟฟ้า","แพลอยน้ำ"],alt:"90 ม.",dist:"180 กม.",slots:[7,7,9,4],
+   desc:"กางเต็นท์บนสนามหญ้าริมแม่น้ำแควน้อย มีไฟฟ้าถึงทุกจุดกาง เล่นน้ำหน้าลาน หรืออัปเกรดนอนแพลอยน้ำก็ได้",
+   amen:[" ไฟฟ้าทุกจุดกาง"," น้ำอุ่นส่วนตัว"," ท่าน้ำเล่นน้ำ"," มีแพพักลอยน้ำ"," ครัวกลางให้ใช้"," ตกปลาได้"],
+   feat:{tent:true,elec:true,pet:true,water:true,near:true},
+   reviews:[["สายไฟถึงเต็นท์ เปิดพัดลมนอนสบาย","ต้า · เม.ย. 69"],["น้ำแควใสกว่าที่คิด บรรยากาศดีมาก","Fern · มี.ค. 69"]]},
+  {id:7,name:"ดอยอินทนนท์ ไฮแลนด์",prov:"เชียงใหม่",region:"เหนือ",price:220,rating:4.7,rv:356,emoji:"",
+   g:["#0c4a6e","#0f2f3f"],tags:["อากาศหนาว","ทะเลหมอก","ยอดดอย"],alt:"2,100 ม.",dist:"755 กม.",slots:[5,3,6,2],
+   desc:"ลานกางเต็นท์ที่สูงที่สุดในลิสต์ ใกล้ยอดดอยอินทนนท์ อุณหภูมิหน้าหนาวติดลบได้ เห็นน้ำค้างแข็ง (แม่คะนิ้ง) ช่วง ธ.ค.–ม.ค.",
+   amen:[" น้ำอุ่นถังต้ม"," เช่าเต็นท์กันหนาว"," เช่าถุงนอน -10°C"," กาแฟดอยแท้"," จุดดูดาว"," เส้นเดินศึกษาธรรมชาติ"],
+   feat:{tent:true,elec:false,pet:false,water:false,near:false},
+   reviews:[["เจอแม่คะนิ้งจริง หนาวสะใจมาก","บอส · ม.ค. 69"],["ดาวเต็มฟ้าแบบไม่ต้องแหงนหา","มายด์ · ธ.ค. 68"]]},
+  {id:8,name:"เขาค้อ วินด์มิลล์ กลามป์",prov:"เพชรบูรณ์",region:"เหนือ",price:300,rating:4.6,rv:277,emoji:"",
+   g:["#0c4a6e","#06413a"],tags:["กลามปิ้ง","กังหันลม","วิว 360°"],alt:"1,050 ม.",dist:"365 กม.",slots:[8,4,10,5],
+   desc:"ลานพรีเมียมใต้ทุ่งกังหันลมเขาค้อ วิวเปิดโล่ง 360° มีทั้งโซนกางเต็นท์เองและเต็นท์กลามปิ้งพร้อมที่นอนสไตล์โรงแรม",
+   amen:[" เต็นท์กลามปิ้งพร้อมเข้าพัก"," ไฟฟ้า + Wi-Fi"," ห้องน้ำส่วนตัว (โซนกลามป์)"," อาหารเช้าเสิร์ฟถึงเต็นท์"," ทุ่งดอกไม้ตามฤดู"," มุมถ่ายรูปกังหันลม"],
+   feat:{tent:true,elec:true,pet:false,water:false,near:false,glamp:true},
+   reviews:[["กลามปิ้งคุ้มราคา นอนสบายเหมือนโรงแรม","เจน · ก.พ. 69"],["กังหันลมตอนพระอาทิตย์ตก ถ่ายรูปสวยทุกมุม","Krit · มี.ค. 69"]]},
+  {id:9,name:"ปางอุ๋ง เลคไซด์",prov:"แม่ฮ่องสอน",region:"เหนือ",price:150,rating:4.8,rv:294,emoji:"",
+   g:["#134e4a","#14532d"],tags:["ริมน้ำ","ป่าสน","สวิตเซอร์แลนด์เมืองไทย"],alt:"1,100 ม.",dist:"900 กม.",slots:[3,1,5,4],
+   desc:"กางเต็นท์ริมอ่างเก็บน้ำล้อมด้วยป่าสน หมอกลอยเหนือผิวน้ำยามเช้าพร้อมหงส์ว่ายผ่าน ฉายา 'สวิตเซอร์แลนด์เมืองไทย'",
+   amen:[" ห้องน้ำรวม"," เช่าเต็นท์ได้"," ล่องแพไม้ไผ่"," กาแฟริมน้ำ"," ชมหงส์ยามเช้า"," เดินป่าสน"],
+   feat:{tent:true,elec:false,pet:false,water:true,near:false},
+   reviews:[["หมอกบนผิวน้ำ + แสงเช้า = ภาพติดตาไปทั้งชีวิต","ปาล์ม · ธ.ค. 68"],["เงียบสงบมาก เหมาะมาฮีลใจ","อิ๋ง · พ.ย. 68"]]},
+];
+
+/* ================= ICON SYSTEM (line-art SVG, no emoji) ================= */
+const IPATH={
+  mountain:'M3 20h18M3 20 10 6l4 7M13.5 12.5 17 7l4 13M8.5 9l1.5-1.5L11.5 9',
+  ridge:'M2 20h20M2 20 8 8l4 7M10.5 12.5 15 5l7 15',
+  kayak:'M3 11c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0M9 6l6-2-1.5 4',
+  pine:'M12 3 7.5 9.5h2.5L6.5 15h4v6h3v-6h4l-3.5-5.5H16.5L12 3z',
+  sunrise:'M4 17h16M7 21h10M12 13a4 4 0 0 1 4 4H8a4 4 0 0 1 4-4zM12 5v3M5.6 8.6l2 2M18.4 8.6l-2 2',
+  river:'M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 19c2-2 4-2 6 0s4 2 6 0 4-2 6 0',
+  snow:'M12 3v18M5 7.5l14 9M19 7.5l-14 9M12 3l-2 2.5M12 3l2 2.5M12 21l-2-2.5M12 21l2-2.5',
+  wind:'M12 21v-8M12 13 6.5 9.5M12 13l5.5-3.5M12 13l1-6.5M9 21h6',
+  lake:'M4 15c2-2 5-2 8 0s6 2 8 0M6 19c2-1.5 4-1.5 6 0s4 1.5 6 0M12 4 9 9h6l-3-5z',
+  tent:'M12 4 3 20h18L12 4zM12 12l-4 8M12 12l4 8',
+  star:'M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 5.9L12 16.4 6.7 19.3l1.2-5.9L3.4 9.3l6-.7L12 3z',
+  pin:'M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10zM12 12.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+  bell:'M6 16V11a6 6 0 1 1 12 0v5l2 3H4l2-3zM10 19a2 2 0 0 0 4 0',
+  sun:'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4',
+  moon:'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
+  thermo:'M10 4a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0V4zM12 17.5v-6',
+  signal:'M5 19v-3M9.5 19v-6M14 19v-9M18.5 19V7',
+  sos:'M12 3l9 16.5H3L12 3zM12 9.5v4M12 17.2v.3',
+  users:'M8 12a3.2 3.2 0 1 0 0-6.5A3.2 3.2 0 0 0 8 12zM2.5 20c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M16 11.5a3 3 0 1 0-.01-6M21.5 20c-.5-2.8-2.1-4.5-4.3-4.9',
+  compass:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM15.5 8.5 13.7 13.7 8.5 15.5l1.8-5.2 5.2-1.8z',
+  check:'M4.5 12.5 10 18 19.5 6.5',
+  fog:'M4 9h13M7 13h13M4 17h10M17.5 17h2.5',
+  cal:'M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 4v4M16 4v4',
+  fire:'M12 21c-3.6 0-6-2.3-6-5.4C6 11.5 9 9.8 9.6 6c2.6 1.6 3 3.8 2.7 5.7 1.1-.4 1.9-1.3 2.2-2.7C16.6 10.5 18 12.6 18 15.6c0 3.1-2.4 5.4-6 5.4z',
+};
+const CAMP_ICON={1:'mountain',2:'ridge',3:'kayak',4:'pine',5:'sunrise',6:'river',7:'snow',8:'wind',9:'lake'};
+function ico(name,cls=''){return `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="${IPATH[name]}"/></svg>`;}
+function campIcon(c,cls='cicon'){return ico(CAMP_ICON[c.id]||'tent',cls);}
+
+/* ================= STATE ================= */
+const S = {chatting:false, lastCamps:null, camp:null, booking:null, bookings:[]};
+const $ = s => document.querySelector(s);
+const stream = $('#stream'), inp = $('#inp');
+const THB = n => n.toLocaleString('th-TH');
+
+/* ================= GREETING ================= */
+(function(){
+  const h = new Date().getHours();
+  const t = h<11?'อรุณสวัสดิ์':h<17?'สวัสดีตอนบ่าย':'สวัสดียามค่ำ';
+  $('#greet').innerHTML = `${t} ✦<br>คืนนี้อยากนอน<span class="grad">ใต้ดาว</span>ที่ไหนดี?`;
+  const chips = ['คุยด้วยเสียงแบบเรียลไทม์','เหนื่อยๆ อยากหนีเมืองไปฮีลใจ','หาลานหมาได้ ใกล้กรุงเทพ ขับไม่เกิน 2 ชม.','ช่วงนี้ธรรมชาติมีอะไรพีค','ชวนเพื่อนโหวตทริปกลุ่ม','จองภูทับเบิก 12-14 ก.ค. 4 คน','โหมดเจ้าของลาน'];
+  $('#heroChips').innerHTML = chips.map(c=>`<button class="chip" onclick="send('${c}')">${c}</button>`).join('');
+})();
+
+/* ================= CHAT CORE ================= */
+function enterChat(){
+  if(S.chatting) return;
+  S.chatting = true;
+  $('#hero').classList.add('gone');
+  document.body.classList.add('chatting');
+}
+function scrollEnd(){ requestAnimationFrame(()=> stream.scrollTo({top:stream.scrollHeight,behavior:'smooth'})); }
+
+function userSay(text){
+  const d = document.createElement('div');
+  d.className='msg user'; d.innerHTML=`<div class="bub"></div>`;
+  d.querySelector('.bub').textContent=text;
+  stream.appendChild(d); scrollEnd();
+}
+function botMsg(){
+  const d = document.createElement('div');
+  d.className='msg bot';
+  d.innerHTML=`<div class="bot-body"><div class="bot-text"><span class="typing"><i></i><i></i><i></i></span></div></div>`;
+  stream.appendChild(d); scrollEnd();
+  return d.querySelector('.bot-body');
+}
+function botSay(html,{chips=null,cards=null,delay=700,extra=null}={}){
+  const body = botMsg();
+  setTimeout(()=>{
+    const bt = body.querySelector('.bot-text');
+    bt.innerHTML = html;
+    bt.classList.add('reveal');
+    if(cards) body.appendChild(renderCards(cards));
+    if(extra) body.appendChild(extra);
+    if(chips){
+      const c=document.createElement('div'); c.className='chips';
+      chips.forEach((label,i)=>{
+        const b=document.createElement('button');
+        b.className='chip'+(i===0&&chips.primaryFirst?' primary':'');
+        b.textContent=label.trim(); b.style.animationDelay=(i*.06)+'s';
+        b.onclick=()=>send(label);
+        c.appendChild(b);
+      });
+      body.appendChild(c);
+    }
+    scrollEnd();
+  },delay);
+}
+
+function send(text){
+  text=(text||'').trim(); if(!text) return;
+  enterChat();
+  stream.querySelectorAll('.chips:not(.used)').forEach(c=>c.classList.add('used'));
+  userSay(text);
+  inp.value='';
+  setTimeout(()=>{route(text); updateSteps();},160);
+}
+function updateSteps(){
+  const el=$('#steps');
+  if(!S.booking){ el.classList.remove('on'); return; }
+  el.classList.add('on');
+  const order=['date','people','gear','spot','confirm'];
+  const idx=order.indexOf(S.booking.step);
+  [...el.children].forEach((s,i)=>{ s.className = i<idx?'done':i===idx?'act':''; });
+}
+$('#sendBtn').onclick=()=>send(inp.value);
+inp.addEventListener('keydown',e=>{ if(e.key==='Enter') send(inp.value); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&document.activeElement!==inp){e.preventDefault();inp.focus();}
+  if(e.key==='Escape'){ if(L&&L.active) closeLive(); else closePanel(); }
+});
+/* ---- photo-to-camp (mock attach) ---- */
+$('#attachBtn').onclick=()=>{
+  toast('แนบรูปแล้ว 1 รูป (เดโม — จำลองการวิเคราะห์ภาพ)');
+  send('ส่งรูปที่เห็นใน IG มาให้ดูหน่อย ที่นี่คือที่ไหน');
+};
+
+/* ---- mic → Live Voice Mode (คุยเรียลไทม์) ---- */
+$('#micBtn').onclick=()=>openLive();
+
+/* ---- ambient parallax + cursor spotlight ---- */
+addEventListener('pointermove',e=>{
+  const x=e.clientX/innerWidth, y=e.clientY/innerHeight;
+  const sp=$('#spot');
+  sp.style.setProperty('--mx',(x*100)+'%');
+  sp.style.setProperty('--my',(y*100)+'%');
+  document.querySelectorAll('.aurora i').forEach((b,i)=>{
+    const f=(i+1)*7;
+    b.style.translate=`${(x-.5)*f}px ${(y-.5)*f}px`;
+  });
+},{passive:true});
+
+/* ---- 3D tilt on cards (delegated) ---- */
+stream.addEventListener('pointermove',e=>{
+  const card=e.target.closest('.card'); if(!card) return;
+  const r=card.getBoundingClientRect();
+  const rx=((e.clientY-r.top)/r.height-.5)*-9;
+  const ry=((e.clientX-r.left)/r.width-.5)*11;
+  card.style.transform=`translateY(-5px) perspective(650px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+},{passive:true});
+stream.addEventListener('pointerout',e=>{
+  const card=e.target.closest('.card'); if(card) card.style.transform='';
+},{passive:true});
+
+function toast(m){
+  const t=$('#toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ================= CARDS ================= */
+function renderCards(camps){
+  const w=document.createElement('div'); w.className='cards';
+  camps.forEach(c=>{
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML=`
+      <div class="visual" style="background:linear-gradient(135deg,${c.g[0]},${c.g[1]})">
+        <span class="badge">★ ${c.rating} · ${c.rv} รีวิว</span>${campIcon(c)}
+      </div>
+      <div class="body">
+        <h4>${c.name}</h4>
+        <div class="loc">${c.prov} · สูง ${c.alt}</div>
+        <div class="foot">
+          <span class="price">฿${THB(c.price)}<small>/คน/คืน</small></span>
+          <span class="rate">${c.tags[0]}</span>
+        </div>
+        <div class="avl ${c.slots[0]===0?'full':''}">${c.slots[0]>0?`เสาร์นี้เหลือ ${c.slots[0]} ที่`:'เสาร์นี้เต็ม — มีวันอื่นว่าง'}</div>
+      </div>`;
+    el.onclick=()=>openPanel(c,el);
+    w.appendChild(el);
+  });
+  return w;
+}
+
+/* ================= SIDE PANEL ================= */
+const weekends = (()=>{ // next 4 saturdays
+  const out=[],d=new Date();
+  d.setDate(d.getDate()+((6-d.getDay()+7)%7||7));
+  const M=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  for(let i=0;i<4;i++){ out.push(`ส. ${d.getDate()} ${M[d.getMonth()]}`); d.setDate(d.getDate()+7); }
+  return out;
+})();
+
+function morphTo(fromEl,c){
+  const r=fromEl.getBoundingClientRect();
+  const m=document.createElement('div');
+  m.className='morph'; m.innerHTML=campIcon(c,'cicon big');
+  m.style.cssText+=`;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:linear-gradient(135deg,${c.g[0]},${c.g[1]})`;
+  document.body.appendChild(m);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const pw=Math.min(440,innerWidth);
+    m.style.left=(innerWidth-pw)+'px'; m.style.top='0px';
+    m.style.width=pw+'px'; m.style.height='230px';
+    m.style.borderRadius='0'; m.style.fontSize='4.6rem';
+  }));
+  setTimeout(()=>{ m.style.opacity='0'; setTimeout(()=>m.remove(),350); },580);
+}
+function openPanel(c,fromEl){
+  S.camp=c;
+  if(fromEl) morphTo(fromEl,c);
+  $('#tint').style.background=`radial-gradient(55% 60% at 72% 38%, ${c.g[0]}, transparent 70%)`;
+  $('#panelScroll').innerHTML=`
+    <div class="p-hero" style="background:linear-gradient(135deg,${c.g[0]},${c.g[1]})">${campIcon(c,'cicon big')}</div>
+    <div class="p-body">
+      <h2>${c.name}</h2>
+      <div class="p-loc">${ico('pin','tiny')} จ.${c.prov} · ภาค${c.region} · ห่าง กทม. ${c.dist}</div>
+      <div class="p-meta">
+        <span class="tag gold">★ ${c.rating} (${c.rv} รีวิว)</span>
+        ${c.tags.map(t=>`<span class="tag">${t}</span>`).join('')}
+      </div>
+      <div class="p-stats">
+        <div class="stat"><b>฿${THB(c.price)}</b><span>ต่อคน/คืน</span></div>
+        <div class="stat"><b>${c.alt}</b><span>ความสูง</span></div>
+        <div class="stat"><b>${c.dist}</b><span>จาก กทม.</span></div>
+      </div>
+      <div class="p-sec"><h5>About</h5><p class="p-desc">${c.desc}</p></div>
+      <div class="p-sec"><h5>Facilities</h5>
+        <div class="amen">${c.amen.map(a=>`<div>${a.trim()}</div>`).join('')}</div>
+      </div>
+      <div class="p-sec"><h5>วันว่างเสาร์นี้ →</h5>
+        <div class="avail">
+          ${weekends.map((w,i)=>{
+            const n=c.slots[i];
+            return n===0
+              ? `<button class="slot full" disabled><b>${w}</b><span>เต็มแล้ว</span></button>`
+              : `<button class="slot" onclick="bookFromPanel(${i})"><b>${w}</b><span>ว่าง ${n} จุดกาง</span></button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="p-sec"><h5>Reviews</h5>
+        ${c.reviews.map(r=>`<div class="review"><p>“${r[0]}”</p><div class="who">— ${r[1]}</div></div>`).join('')}
+      </div>
+    </div>`;
+  $('#panelFoot').innerHTML=`
+    <div class="p-price"><b>฿${THB(c.price)}</b><span>ต่อคน / คืน · ยังไม่รวมอุปกรณ์เช่า</span></div>
+    <button class="bookbtn" onclick="bookFromPanel()">จองเลย </button>`;
+  $('#panel').classList.add('open');
+  document.body.classList.add('panel-open');
+}
+function closePanel(){ $('#panel').classList.remove('open'); document.body.classList.remove('panel-open'); }
+$('#panelClose').onclick=closePanel;
+function bookFromPanel(dateIdx){
+  if(window.innerWidth<860) closePanel();
+  enterChat();
+  startBooking(S.camp, typeof dateIdx==='number'?dateIdx:null);
+}
+
+/* ================= BOOKING FLOW ================= */
+function gearChipsFor(camp){
+  const g=['ใช้เต็นท์ตัวเอง','เช่าเต็นท์ (+฿350)'];
+  if(camp.feat.glamp) g.push('กลามปิ้งเต็นท์ (+฿1,500)');
+  return g;
+}
+function startBooking(camp,dateIdx=null,pre=null){
+  S.camp=camp;
+  S.booking={camp,step:'date',date:null,people:null,gear:null,nights:1};
+  if(pre&&!pre.date&&pre.people){ S.booking.people=Math.min(pre.people,10); pre=null; }
+  if(pre){ /* C2 booking prep — วัน/คนถูกพิมพ์มาแล้วในประโยคเดียว */
+    S.booking.date=pre.date; S.booking.nights=pre.nights||1;
+    if(pre.people){
+      S.booking.people=Math.min(pre.people,10); S.booking.step='gear';
+      botSay(`เช็คแล้ว <span class="hl">${pre.date}</span> ว่างสำหรับ ${S.booking.people} คนครับ (${S.booking.nights} คืน ที่ <b>${camp.name}</b>)<br>เหลือแค่เรื่องเต็นท์ — เลือกได้เลย`,
+        {chips:[...gearChipsFor(camp),'ยกเลิกการจอง']});
+    }else{
+      S.booking.step='people';
+      botSay(`เช็คแล้ว <span class="hl">${pre.date}</span> ที่ <b>${camp.name}</b> ยังว่างครับ (${S.booking.nights} คืน)<br>ไปกันกี่คน?`,
+        {chips:['1 คน','2 คน','3 คน','4 คน','มากกว่า 5 คน']});
+    }
+    updateSteps(); return;
+  }
+  if(dateIdx!==null && camp.slots[dateIdx]>0){
+    S.booking.date=weekends[dateIdx]; S.booking.step='people';
+    botSay(`เยี่ยม! จอง <b>${camp.name}</b> วัน<span class="hl">${weekends[dateIdx]}</span> <br>ไปกันกี่คนครับ?`,
+      {chips:['1 คน','2 คน','3 คน','4 คน','มากกว่า 5 คน']});
+    updateSteps();
+    return;
+  }
+  const opts=weekends.filter((w,i)=>camp.slots[i]>0);
+  botSay(`ได้เลย! เริ่มจอง <b>${camp.name}</b>  <small>(฿${THB(camp.price)}/คน/คืน)</small><br>อยากไปวันไหนครับ? เสาร์ที่ว่างเร็วสุดมีดังนี้`,
+    {chips:[...opts,'ยกเลิกการจอง']});
+  updateSteps();
+}
+function bookingRoute(text){
+  const bk=S.booking, camp=bk.camp;
+  if(/ยกเลิก/.test(text)){
+    S.booking=null;
+    botSay(`โอเค ยกเลิกขั้นตอนการจองให้แล้วครับ  อยากดูลานอื่นต่อไหม?`,
+      {chips:['หาลานทะเลหมอก','ลานใกล้กรุงเทพ','ดูลานยอดนิยม']});
+    return true;
+  }
+  if(bk.step==='date'){
+    const hit=weekends.find(w=>text.includes(w))||weekends.find(w=>text.includes(w.split(' ')[1]));
+    if(hit){
+      const i=weekends.indexOf(hit);
+      if(camp.slots[i]===0){ botSay(`วัน${hit} ที่ <b>${camp.name}</b> เต็มแล้วครับ  ลองวันอื่นดูไหม?`,{chips:weekends.filter((w,j)=>camp.slots[j]>0)}); return true; }
+      bk.date=hit;
+      if(bk.people){ bk.step='gear';
+        botSay(`รับทราบ — วัน<span class="hl">${hit}</span> ✓ (${bk.people} คน ตามที่บอกไว้)<br>เรื่องเต็นท์ล่ะครับ?`,{chips:gearChipsFor(camp)});
+      }else{ bk.step='people';
+        botSay(`รับทราบ — วัน<span class="hl">${hit}</span> ✓<br>ไปกันกี่คนครับ?`,{chips:['1 คน','2 คน','3 คน','4 คน','มากกว่า 5 คน']});
+      }
+    } else botSay(`เลือกจากวันเสาร์ที่ว่างด้านล่างได้เลยครับ`,{chips:[...weekends.filter((w,i)=>camp.slots[i]>0),'ยกเลิกการจอง']});
+    return true;
+  }
+  if(bk.step==='people'){
+    const m=text.match(/\d+/); const n=m?+m[0]:(/มากกว่า/.test(text)?6:null);
+    if(n){ bk.people=Math.min(n,10); bk.step='gear';
+      botSay(`${bk.people} คน ✓ แล้วเรื่องเต็นท์ล่ะครับ?`,{chips:gearChipsFor(camp)});
+    } else botSay(`บอกเป็นตัวเลขได้เลยครับ เช่น "2 คน"`,{chips:['1 คน','2 คน','3 คน','4 คน']});
+    return true;
+  }
+  if(bk.step==='gear'){
+    let gear=null,fee=0;
+    if(/ตัวเอง/.test(text)){gear='ใช้เต็นท์ตัวเอง';fee=0;}
+    else if(/กลามป์|กลามปิ้ง|glamp/i.test(text)){gear='กลามปิ้งเต็นท์';fee=1500;}
+    else if(/เช่า/.test(text)){gear='เช่าเต็นท์';fee=350;}
+    if(!gear){ botSay(`เลือกจากตัวเลือกด้านล่างได้เลยครับ`,{chips:[' ใช้เต็นท์ตัวเอง',' เช่าเต็นท์ (+฿350)']}); return true; }
+    bk.gear=gear; bk.fee=fee; bk.step='spot';
+    /* pitch-spot selection — เลือกจุดกางเหมือนเลือกที่นั่งเครื่องบิน */
+    const sm=document.createElement('div'); sm.className='spotmap';
+    const occ=new Set(['A1','B4','C2']);
+    sm.innerHTML=`<div class="pmap">${['A1','A2','A3','A4','A5','A6','B1','B2','B3','B4','B5','B6','C1','C2','C3','C4','C5','C6'].map(s=>
+      `<div class="pspot ${s[0]==='A'&&!occ.has(s)?'prem':''} ${occ.has(s)?'occ':''}">${s}</div>`).join('')}</div>
+      <div class="slegend"><span><i style="background:rgba(255,210,48,.6)"></i>แถว A ริมผา วิวเปิด +฿100</span><span><i style="background:rgba(255,255,255,.25)"></i>แถว B โซนกลาง</span><span><i style="background:rgba(56,189,248,.5)"></i>แถว C ใกล้ห้องน้ำ</span></div>`;
+    botSay(`${gear} ✓ ขั้นสุดท้าย — เลือกจุดกางครับ จุดริมผาเห็นพระอาทิตย์ขึ้นโดยไม่ต้องลุกจากเต็นท์`,
+      {extra:sm,chips:['A3 ริมผา วิวเปิด (+฿100)','B2 โซนกลาง','C1 ใกล้ห้องน้ำ']});
+    return true;
+  }
+  if(bk.step==='spot'){
+    let spot=null,sfee=0;
+    const m=text.match(/([ABCabc])\s?([1-6])/);
+    if(m){ const L=m[1].toUpperCase(); spot=`${L}${m[2]} · ${L==='A'?'ริมผา วิวเปิด':L==='B'?'โซนกลาง':'ใกล้ห้องน้ำ'}`; sfee=L==='A'?100:0; }
+    else if(/ริมผา|วิวเปิด/.test(text)){ spot='A3 · ริมผา วิวเปิด'; sfee=100; }
+    else if(/โซนกลาง/.test(text)){ spot='B2 · โซนกลาง'; }
+    else if(/ห้องน้ำ/.test(text)){ spot='C1 · ใกล้ห้องน้ำ'; }
+    if(!spot){ botSay(`เลือกจุดกางจากตัวเลือกได้เลยครับ`,{chips:['A3 ริมผา วิวเปิด (+฿100)','B2 โซนกลาง','C1 ใกล้ห้องน้ำ']}); return true; }
+    bk.spot=spot; bk.spotFee=sfee; bk.step='confirm';
+    const total=camp.price*bk.people*(bk.nights||1)+bk.fee+sfee;
+    bk.total=total;
+    const block=document.createElement('div'); block.className='block';
+    block.innerHTML=`
+      <div class="rowline"><span>ลาน</span><b>${camp.name}</b></div>
+      <div class="rowline"><span>วันเข้าพัก</span><b>${bk.date} (${bk.nights||1} คืน)</b></div>
+      <div class="rowline"><span>จำนวนคน</span><b>${bk.people} คน × ฿${THB(camp.price)}${(bk.nights||1)>1?` × ${bk.nights} คืน`:''}</b></div>
+      <div class="rowline"><span>อุปกรณ์</span><b>${bk.gear}${bk.fee?` (+฿${THB(bk.fee)})`:''}</b></div>
+      <div class="rowline"><span>จุดกาง</span><b>${spot}${sfee?` (+฿${THB(sfee)})`:''}</b></div>
+      <div class="rowline"><span>รวมทั้งหมด</span><span class="total">฿${THB(total)}</span></div>`;
+    botSay(`สรุปรายการจองครับ  เช็คอิน 14:00 · เช็คเอาท์ 12:00`,
+      {chips:[' ยืนยันการจอง',' แก้ไขวัน','ยกเลิกการจอง'],extra:null, delay:700, cards:null, });
+    setTimeout(()=>{ // attach block above chips
+      const bodies=stream.querySelectorAll('.msg.bot .bot-body');
+      const last=bodies[bodies.length-1];
+      last.insertBefore(block,last.querySelector('.chips'));
+      scrollEnd();
+    },760);
+    return true;
+  }
+  if(bk.step==='confirm'){
+    if(/ยืนยัน/.test(text)){
+      const code='CV-'+String(camp.id).padStart(2,'0')+Math.floor(1000+Math.random()*9000);
+      S.bookings.push({...bk,code});
+      S.booking=null;
+      const tk=document.createElement('div'); tk.className='ticket';
+      tk.innerHTML=`
+        <div class="t-top"><div class="t-emoji">${campIcon(camp,'cicon mid')}</div>
+          <div><h4>${camp.name}</h4><div class="sub">${bk.date} · ${bk.people} คน · ${bk.gear}</div></div>
+        </div>
+        <div class="t-code"><div><div style="font-size:.66rem;color:var(--ink-faint);letter-spacing:.2em">BOOKING CODE</div><div class="code">${code}</div></div><div class="qr"></div></div>`;
+      botSay(` <b>จองสำเร็จแล้ว!</b> ยอดชำระ <span class="hl">฿${THB(bk.total)}</span> <small>(เดโม — ยังไม่ตัดเงินจริง)</small><br>บันทึกโค้ดไว้แสดงตอนเช็คอินได้เลยครับ — ตราปั๊มลานนี้จะเข้า Camp Passport ตอนเช็คอิน`,
+        {chips:['เปิดโหมดทริป (จำลองวันเข้าพัก)','Camp Passport ของฉัน','เส้นทางไปลานนี้'],extra:tk});
+      confetti();
+      /* weather-driven rebooking: แจ้งเตือนเชิงรุกเมื่อพยากรณ์เปลี่ยน (จำลอง) */
+      if(!S.rebookShown){
+        S.rebookShown=true;
+        const rbCamp=camp, rbDate=bk.date;
+        setTimeout(()=>{
+          if(S.booking||S.review) return;
+          botSay(`<b>แจ้งเตือนเชิงรุก</b> <small>(จำลอง — ระบบเฝ้าพยากรณ์ให้ทุกการจอง)</small><br>พยากรณ์เพิ่งอัปเดต: วัน<span class="hl">${rbDate}</span> ที่ ${rbCamp.name.split(' ')[0]} มีโอกาสฝนตกหนัก <b>90%</b> ช่วงบ่ายถึงค่ำ อยากให้ผมจัดการยังไงครับ?`,
+            {chips:['เลื่อนเป็นเสาร์ถัดไปฟรี','ย้ายไปลานที่ฟ้าเปิดกว่า','คงแผนเดิม เอาหมอกหลังฝน']});
+        },11000);
+      }
+      return true;
+    }
+    if(/แก้ไข/.test(text)){ bk.step='date';
+      botSay(`ได้ครับ เลือกวันใหม่เลย`,{chips:weekends.filter((w,i)=>camp.slots[i]>0)}); return true; }
+    botSay(`พิมพ์ "ยืนยัน" เพื่อจอง หรือ "ยกเลิก" ได้เลยครับ`,{chips:[' ยืนยันการจอง','ยกเลิกการจอง']});
+    return true;
+  }
+  return false;
+}
+function confetti(){
+  const colors=['#2dd4bf','#38bdf8','#99f6e4','#ffd230','#60a5fa'];
+  for(let i=0;i<46;i++){
+    const c=document.createElement('i'); c.className='confetti';
+    c.style.left=Math.random()*100+'vw';
+    c.style.background=colors[i%colors.length];
+    c.style.animationDuration=(2.2+Math.random()*1.8)+'s';
+    c.style.animationDelay=(Math.random()*.6)+'s';
+    c.style.width=c.style.height=(5+Math.random()*6)+'px';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),4500);
+  }
+}
+
+/* ================= WEATHER WINDOW (fog probability) ================= */
+const THDAY=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function fogSeries(camp){
+  const out=[]; const d=new Date(); d.setDate(d.getDate()+1);
+  const alt=parseInt(camp.alt.replace(/,/g,''))||100;
+  const base=(camp.tags.includes('ทะเลหมอก')?32:14)+(alt>1400?12:alt>800?6:0)+(camp.feat.water?5:0);
+  for(let i=0;i<14;i++){
+    const r=Math.abs(Math.sin(camp.id*39.7+i*12.31));
+    const p=Math.max(6,Math.min(96,Math.round(base+r*54-(i%4===1?15:0))));
+    out.push({dw:THDAY[d.getDay()],dd:d.getDate(),mo:THMON[d.getMonth()],p});
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function fogCal(camp){
+  const s=fogSeries(camp);
+  const best=s.reduce((a,b)=>b.p>a.p?b:a);
+  const el=document.createElement('div'); el.className='fogcal';
+  el.innerHTML=`
+    <div class="fhead"><b>โอกาสเจอทะเลหมอก — ${camp.name}</b><small>14 DAYS</small></div>
+    <div class="fgrid">${s.map(c=>{
+      const a=(c.p/115).toFixed(2);
+      const peak=c.p>=80, isBest=c===best;
+      return `<div class="fcell${peak?' peak':''}${isBest?' best':''}" title="${c.dw} ${c.dd} ${c.mo} · โอกาสหมอก ${c.p}%" style="background:rgba(45,212,191,${a})">
+        <div class="dw">${c.dw}</div><div class="dd">${c.dd}</div><div class="pp">${(c.p>=60||isBest)?c.p+'%':''}</div></div>`;
+    }).join('')}</div>
+    <div class="flegend"><span>โอกาสน้อย</span><div class="fbar"></div><span>โอกาสมาก</span></div>
+    <div class="fnote">คำนวณจากความชื้น อุณหภูมิ ความสูง และสถิติรายงานหมอกของ community (ข้อมูลจำลอง) — ชี้ที่ช่องเพื่อดูค่า</div>`;
+  return {el,best};
+}
+
+/* ================= COMPANION MODE ================= */
+function banner(iconName,html){
+  let b=$('#cban');
+  if(!b){ b=document.createElement('div'); b.id='cban'; b.className='cbanner'; document.body.appendChild(b); }
+  b.innerHTML=`${ico(iconName)}<div class="bt">${html}</div>`;
+  setTimeout(()=>b.classList.add('show'),30);
+  clearTimeout(b._h); b._h=setTimeout(()=>b.classList.remove('show'),4600);
+}
+function openCompanion(){
+  const bk=S.bookings[S.bookings.length-1]||{camp:CAMPS[0],date:weekends[0],people:2,gear:'ใช้เต็นท์ตัวเอง',code:'CV-01DEMO'};
+  const c=bk.camp;
+  const alt=parseInt(c.alt.replace(/,/g,''))||100;
+  const low=Math.max(3,Math.round(26-alt/110));
+  let comp=$('#comp');
+  if(!comp){ comp=document.createElement('div'); comp.id='comp'; document.body.appendChild(comp); }
+  const h=new Date().getHours();
+  const night=h>=19||h<6;
+  comp.className=night?'night':'';
+  const spots=['A1','A2','A3','A4','A5','A6','B1','B2','B3','B4','B5','B6','C1','C2','C3','C4','C5','C6'];
+  const occ=new Set(['A1','A5','B2','B4','C1','C6']);
+  const sig=(n)=>`<span class="sig">${[1,2,3,4].map(i=>`<i class="${i<=n?'':'off'}" style="height:${3+i*3}px"></i>`).join('')}</span>`;
+  comp.innerHTML=`<div class="cwrap">
+    <div class="cbar">
+      <div class="cmode">COMPANION MODE — เช็คอินวันนี้</div>
+      <div class="cnight"><span>โหมดถนอมสายตา</span><button class="tg ${night?'on':''}" id="nightTg" aria-label="โหมดกลางคืน"></button>
+      <button class="p-close" style="position:static" id="compClose">✕</button></div>
+    </div>
+    <div class="ctitle"><h1>${c.name}</h1><div class="csub">${bk.date} · ${bk.people} คน · ${bk.gear} · จุดกาง ${(bk.spot||'A3').split(' ')[0]}</div></div>
+    <div class="cticket">
+      <div><div style="font-size:.6rem;letter-spacing:.28em;color:var(--ink-faint);font-family:'Outfit'">BOOKING CODE</div>
+      <div style="font-family:'Outfit';letter-spacing:.16em;font-weight:700;color:var(--ca);font-size:1.12rem">${bk.code}</div>
+      <div class="vs">แสดงที่จุดเช็คอิน · ใช้งานได้แม้ไม่มีสัญญาณ</div></div>
+      <div class="qr"></div>
+    </div>
+    <div class="cgrid">
+      <div class="ctile"><div class="th">${ico('sun')}พระอาทิตย์ขึ้น</div><div class="vv">05:58</div><div class="vs">จุดชมวิวเดิน 6 นาทีจากจุดกางของคุณ</div></div>
+      <div class="ctile"><div class="th">${ico('moon')}พระอาทิตย์ตก</div><div class="vv">18:47</div><div class="vs">งดเสียงดังหลัง 22:00</div></div>
+      <div class="ctile"><div class="th">${ico('thermo')}อุณหภูมิคืนนี้</div><div class="vv">${low}°C</div><div class="vs">ต่ำสุดช่วงตี 4 — เตรียมถุงนอนให้พร้อม</div></div>
+      <div class="ctile"><div class="th">${ico('bell')}ปลุกเมื่อหมอกมา</div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span class="vs" style="margin:0">ปลุกเฉพาะเมื่อหมอกมาจริง</span><button class="tg" id="fogTg" aria-label="เปิดปลุกหมอก"></button></div>
+        <div class="vs">อิงเซ็นเซอร์ที่ลาน + รายงานจากคนที่ตื่นก่อน</div></div>
+      <div class="ctile"><div class="th">${ico('signal')}สัญญาณมือถือในลาน</div>
+        <div class="sigrow"><span>AIS</span>${sig(3)}</div>
+        <div class="sigrow"><span>True</span>${sig(2)}</div>
+        <div class="sigrow"><span>Dtac</span>${sig(1)}</div>
+        <div class="vs">จุดสัญญาณแรงสุด: ศาลากลางลาน</div></div>
+      <div class="ctile"><div class="th">${ico('users')}เพื่อนบ้านคืนนี้</div><div class="vv">12 กลุ่ม</div>
+        <div class="vs">วงส่องดาว 20:30 ที่ลานกิจกรรม · เปิดรับผู้ร่วม</div>
+        <button class="cbtn sm" id="joinBtn">ขอเข้าร่วมวงส่องดาว</button></div>
+      <div class="ctile"><div class="th">${ico('sos')}เหตุฉุกเฉิน</div>
+        <div class="vs">ส่งพิกัดของคุณถึงเจ้าของลานและหน่วยกู้ภัยใกล้สุด</div>
+        <button class="cbtn danger sm" id="sosBtn">ส่งสัญญาณขอความช่วยเหลือ</button></div>
+    </div>
+    <div class="csec"><h5>ผังลาน · จุดของคุณคือ A3</h5>
+      <div class="pmap">${spots.map(s=>`<div class="pspot ${s==='A3'?'you':occ.has(s)?'occ':''}">${s}</div>`).join('')}</div>
+    </div>
+    <div class="cfoot"><button class="cbtn" id="compBack">กลับสู่แชท</button></div>
+  </div>`;
+  setTimeout(()=>comp.classList.add('open'),40);
+  $('#compClose').onclick=$('#compBack').onclick=()=>{
+    closeCompanion();
+    botSay(`ออกจากโหมดทริปแล้วครับ — ในเวอร์ชันจริง โหมดนี้จะเปิดเองเมื่อถึงวันเข้าพักและ GPS อยู่ใกล้ลาน`,
+      {chips:['จำลองหลังทริป (รีวิว 30 วิ)','พยากรณ์หมอก 14 วัน','หาลานอื่นต่อ']});
+  };
+  $('#nightTg').onclick=e=>{ e.target.classList.toggle('on'); comp.classList.toggle('night'); };
+  $('#fogTg').onclick=e=>{
+    const on=e.target.classList.toggle('on');
+    if(on){ banner('bell','ตั้งปลุกอัจฉริยะแล้ว — จะปลุกเฉพาะเมื่อหมอกมาจริงเท่านั้น');
+      setTimeout(()=>banner('fog','<b>หมอกกำลังก่อตัว</b> ความหนาแน่น 87% · ทิศตะวันออก — คุ้มค่าแก่การตื่น'),5200); }
+  };
+  $('#sosBtn').onclick=()=>banner('sos','ส่งพิกัด A3 ถึงเจ้าของลานแล้ว กำลังติดต่อกลับ (เดโม — ยังไม่ส่งจริง)');
+  $('#joinBtn').onclick=()=>banner('users','เข้าร่วมวงส่องดาว 20:30 แล้ว — มีสมาชิก 7 คน เจอกันที่ลานกิจกรรม');
+}
+function closeCompanion(){ const c=$('#comp'); if(c) c.classList.remove('open'); }
+
+/* ================= MOOD-BASED SEARCH ================= */
+const MOODS=[
+ {re:/ฮีลใจ|หนีเมือง|เหนื่อย|พักใจ|เบิร์นเอาท์|burnout|หมดไฟ/i, title:'สายฮีลใจ — ต้องเงียบและช้า',
+  picks:[[9,'เงียบสุดในระบบ รีวิวล่าสุดบอกตรงตัวว่า "เหมาะมาฮีลใจ"'],[3,'เสียงน้ำไหลทั้งคืน ใกล้กรุงเทพ ไม่ต้องลางานก็ไปได้'],[7,'สูงพ้นเมฆ อากาศหนาวบังคับให้วางมือถือโดยปริยาย']]},
+ {re:/ง้อแฟน|โรแมนติก|คู่รัก|ครบรอบ|เดต|โปรโพส/i, title:'สายโรแมนติก — วิวต้องช่วยพูด',
+  picks:[[8,'กลามปิ้งพร้อมอาหารเช้าเสิร์ฟถึงเต็นท์ ไม่ต้องเหนื่อยกางเอง'],[9,'หมอกลอยเหนือผิวน้ำ + หงส์ตอนเช้า — ฉากง้อที่ธรรมชาติจัดให้'],[2,'คาเฟ่และสวนดอกไม้เดินถึง วิวหุบเขาตอนพระอาทิตย์ตก']]},
+ {re:/แก๊ง|เพื่อนเยอะ|ปาร์ตี้|สนุก|มันส์|หมูกระทะ|เฮฮา/i, title:'สายแก๊ง — ต้องมีที่ให้เสียงหัวเราะ',
+  picks:[[4,'โซนกลุ่มแยกจากโซนเงียบ มีลานบาร์บีคิว หมากระทะได้เต็มที่'],[6,'ไฟฟ้าถึงทุกจุด เล่นน้ำหน้าลาน ตกปลาได้'],[8,'ลานเปิดกว้าง วิว 360° ถ่ายรูปกลุ่มสวยทุกมุม']]},
+ {re:/คนเดียว|โซโล|เงียบๆ|สงบ|อ่านหนังสือ|solo/i, title:'สายโซโล — ขอพื้นที่ให้ตัวเอง',
+  picks:[[9,'ลานเงียบ คนน้อย บรรยากาศปลอดภัยสำหรับสายเดี่ยว'],[7,'จุดดูดาวเงียบสงบ เหมาะนั่งคนเดียวกับกาแฟดอย'],[5,'ตื่นเช้าเดินขึ้นยอดคนเดียว พระอาทิตย์ขึ้นเป็นรางวัล']]},
+];
+
+/* ================= GROUP TRIP VOTE (live mock) ================= */
+let voteTimer=null;
+function startVote(opts){
+  if(voteTimer){ clearInterval(voteTimer); voteTimer=null; }
+  const camps=(opts&&opts.length>=3?opts:[CAMPS[3],CAMPS[7],CAMPS[0]]).slice(0,3);
+  const votes=[1,1,0]; let voted=2;
+  const NAMES=['มิ้น','บอส','แพร','ต้า','กิ๊ฟ','คุณ'];
+  const AVC=['#2dd4bf','#38bdf8','#99f6e4','#ffd230','#2ec27e','#9ca8ab'];
+  const el=document.createElement('div'); el.className='vote';
+  const render=()=>{
+    const max=Math.max(...votes,1);
+    el.innerHTML=`<div class="vhead"><b>TRIP VOTE · แก๊งเรา 6 คน</b><span class="vlive">LIVE · ปิดโหวตใน 24 ชม.</span></div>
+      ${camps.map((c,i)=>`<div class="vrow"><span class="vname">${c.name.split(' ')[0]}</span><div class="vbar"><i style="transform:scaleX(${votes[i]/6})"></i></div><span class="vn">${votes[i]}</span></div>`).join('')}
+      <div class="avas">${NAMES.map((n,i)=>`<div class="ava ${i<voted?'':'wait'}" style="${i<voted?`background:${AVC[i]}`:''}">${n}</div>`).join('')}<span>โหวตแล้ว ${voted}/6</span></div>
+      <div class="vlink" onclick="toast('คัดลอกลิงก์แล้ว (เดโม) — เพื่อนที่กดลิงก์จะเข้ามาโหวตในการ์ดนี้แบบเรียลไทม์')">campvibe.app/trip/x7f2k — แตะเพื่อคัดลอกลิงก์ชวนเพื่อน</div>`;
+  };
+  render();
+  botSay(`สร้างทริปโหวตให้แล้วครับ ส่งลิงก์เข้ากลุ่มไลน์ได้เลย เพื่อนไม่ต้องสมัครก็โหวตได้ — ผมจะสรุปให้เมื่อครบ`,{extra:el,delay:600});
+  voteTimer=setInterval(()=>{
+    if(voted>=6){
+      clearInterval(voteTimer); voteTimer=null;
+      const wi=votes.indexOf(Math.max(...votes));
+      botSay(`ครบ 6 เสียงแล้ว — <span class="hl">${votes[wi]}/6 โหวต ${camps[wi].name.split(' ')[0]}</span> เสียงส่วนใหญ่ชัดเจนครับ ล็อกเลยไหม?`,
+        {chips:[`จอง${camps[wi].name.split(' ')[0]}เลย`,'ดูผลเทียบกัน','เปิดโหวตใหม่']});
+      return;
+    }
+    votes[[0,1,0,2,1][voted-2]||0]++; voted++;
+    render();
+  },1400);
+}
+
+/* ================= CAMP PASSPORT ================= */
+function passportBlock(){
+  const visited=[[CAMPS[4],'ม.ค. 69'],[CAMPS[1],'พ.ย. 68'],[CAMPS[2],'มี.ค. 69']];
+  const pend=S.bookings.map(b=>[b.camp,'รอเช็คอิน']);
+  const all=[...visited,...pend].slice(0,5);
+  const el=document.createElement('div'); el.className='pass';
+  el.innerHTML=`<div class="phead"><b>CAMP PASSPORT</b><span class="pts">240 แต้ม = ส่วนลด ฿120</span></div>
+    <div class="stamps">
+      ${all.map(([c,d])=>`<div class="stamp ${d==='รอเช็คอิน'?'pend':''}">${campIcon(c,'ic')}<b>${c.name.split(' ')[0]}</b><span>${d}</span></div>`).join('')}
+      ${Array.from({length:Math.max(0,6-all.length)},()=>`<div class="stamp empty"><span>ว่าง</span></div>`).join('')}
+    </div>
+    <div style="margin-top:16px">
+      <div class="badgerow"><span>สายทะเลหมอก (เก็บลานหมอก 3 ที่)</span><span class="bp done">ปลดล็อกแล้ว</span></div>
+      <div class="badgerow"><span>ครบ 5 ยอดภาคเหนือ</span><span class="bp">3/5</span></div>
+      <div class="badgerow"><span>นอนสูงเกิน 2,000 ม.</span><span class="bp">0/1 — อินทนนท์รอคุณอยู่</span></div>
+    </div>`;
+  return el;
+}
+
+/* ================= HOST MODE ================= */
+function hostInsight(){
+  const el=document.createElement('div'); el.className='insight';
+  el.innerHTML=`
+    <div class="irow"><span class="il">ถูกค้นเจอเดือนนี้</span><div class="ibar"><i style="transform:scaleX(.85)"></i></div><span class="iv">340</span></div>
+    <div class="irow"><span class="il">เปิดดูหน้าลาน</span><div class="ibar"><i style="transform:scaleX(.28)"></i></div><span class="iv">96</span></div>
+    <div class="irow"><span class="il">จองจริง</span><div class="ibar"><i class="warn" style="transform:scaleX(.05)"></i></div><span class="iv bad">2 (2.1%)</span></div>
+    <div class="irow"><span class="il">ค่าเฉลี่ยแพลตฟอร์ม</span><div class="ibar"><i style="transform:scaleX(.12)"></i></div><span class="iv">4.8%</span></div>`;
+  return el;
+}
+
+/* ================= NLU / ROUTER ================= */
+const FILTERS=[
+  {re:/ทะเลหมอก|หมอก/,f:c=>c.tags.includes('ทะเลหมอก'),label:'วิวทะเลหมอก '},
+  {re:/ริมน้ำ|แม่น้ำ|ริมธาร|น้ำตก|ทะเลสาบ|เล่นน้ำ|ริมแคว/,f:c=>c.feat.water,label:'ติดริมน้ำ '},
+  {re:/ป่าสน|ต้นสน|ทุ่งสน/,f:c=>c.tags.includes('ป่าสน')||/ป่าสน/.test(c.desc),label:'ในป่าสน '},
+  {re:/สัตว์เลี้ยง|หมา|สุนัข|แมว|pet/i,f:c=>c.feat.pet,label:'พาสัตว์เลี้ยงได้ '},
+  {re:/ไฟฟ้า|ปลั๊ก|ชาร์จ/,f:c=>c.feat.elec,label:'มีไฟฟ้า '},
+  {re:/เช่าเต็นท์|ไม่มีเต็นท์/,f:c=>c.feat.tent,label:'เช่าเต็นท์ได้ '},
+  {re:/ใกล้กรุงเทพ|ใกล้ ?กทม|ไม่ไกล/,f:c=>c.feat.near,label:'ใกล้กรุงเทพ '},
+  {re:/หนาว|เย็น|แม่คะนิ้ง/,f:c=>parseInt(c.alt.replace(/,/g,''))>1000,label:'อากาศหนาว '},
+  {re:/กลามป์|กลามปิ้ง|glamp|หรู/i,f:c=>c.feat.glamp,label:'กลามปิ้ง '},
+  {re:/ดูดาว|ทางช้างเผือก|ดาว/,f:c=>parseInt(c.alt.replace(/,/g,''))>700,label:'เหมาะดูดาว '},
+];
+const PROVS=['เชียงใหม่','เชียงราย','เพชรบูรณ์','กาญจนบุรี','เพชรบุรี','แม่ฮ่องสอน','นครราชสีมา'];
+const REGIONS={'ภาคเหนือ':'เหนือ','ภาคอีสาน':'อีสาน','ภาคตะวันตก':'ตะวันตก','ภาคกลาง':'กลาง'};
+
+function findCampByName(t){
+  return CAMPS.find(c=>{
+    const keys=[c.name,...c.name.split(' ')].filter(k=>k.length>3);
+    return keys.some(k=>t.includes(k));
+  });
+}
+function findAllCamps(t){
+  return CAMPS.filter(c=>{
+    const keys=[c.name,...c.name.split(' ')].filter(k=>k.length>3);
+    return keys.some(k=>t.includes(k));
+  });
+}
+
+/* --- B1 compare block --- */
+function compareBlock(a,b){
+  const col=c=>`<div class="cmp-col">
+    <div class="cmp-head" style="background:linear-gradient(135deg,${c.g[0]},${c.g[1]})">${campIcon(c,'cicon mid')}</div>
+    <b>${c.name}</b>
+    <div class="cmp-row"><span>ราคา</span><b>฿${THB(c.price)}/คน</b></div>
+    <div class="cmp-row"><span>เรตติ้ง</span><b>★ ${c.rating} (${c.rv})</b></div>
+    <div class="cmp-row"><span>ความสูง</span><b>${c.alt}</b></div>
+    <div class="cmp-row"><span>จาก กทม.</span><b>${c.dist}</b></div>
+    <div class="cmp-row"><span>เสาร์นี้</span><b>${c.slots[0]>0?`เหลือ ${c.slots[0]} ที่`:'เต็ม'}</b></div>
+    <div class="cmp-row"><span>จุดเด่น</span><b>${c.tags[0]}</b></div>
+    <button class="chip" onclick="send('จอง${c.name.split(' ')[0]}เลย')">จองลานนี้</button>
+  </div>`;
+  const el=document.createElement('div'); el.className='cmp';
+  el.innerHTML=col(a)+col(b);
+  return el;
+}
+
+/* --- E1 nearby attractions --- */
+const SPOTS={
+  1:['จุดชมทะเลหมอกยอดภูทับเบิก (เดิน 10 นาที)','ไร่กะหล่ำปลีขั้นบันได','วัดป่าภูทับเบิก (ขับ 10 นาที)'],
+  2:['สวนดอกไม้ม่อนแจ่ม (เดิน 5 นาที)','สะพานไม้ซูตองเป้จำลอง','คาเฟ่วิวหุบเขา 3 ร้านเรียงกัน'],
+  3:['ล่องแก่งแม่น้ำเพชรบุรี','จุดส่องนกเงือกยามเช้า','เขื่อนแก่งกระจาน (ขับ 20 นาที)'],
+  4:['น้ำตกเหวสุวัต (ขับ 25 นาที)','จุดส่องสัตว์กลางคืนอุทยานฯ','ตลาดปากช่องวันหยุด'],
+  5:['ยอดภูชี้ฟ้า ชมพระอาทิตย์ขึ้น (เดิน 20 นาที)','ไร่ชาบนดอย','จุดชมวิวผาบ่อง'],
+  6:['สะพานข้ามแม่น้ำแคว (ขับ 30 นาที)','ถ้ำกระแซ ทางรถไฟสายมรณะ','น้ำตกไทรโยคน้อย'],
+  7:['ยอดดอยอินทนนท์ จุดสูงสุดในสยาม','พระมหาธาตุนภเมทนีดล','เส้นเดินศึกษาธรรมชาติอ่างกา'],
+  8:['ทุ่งกังหันลมเขาค้อ (เดิน 5 นาที)','พระตำหนักเขาค้อ','ไร่สตรอว์เบอร์รี (ตามฤดู)'],
+  9:['สะพานไม้ซูตองเป้ (ขับ 30 นาที)','บ้านรักไทย หมู่บ้านชาจีนยูนนาน','จุดชมหงส์ริมอ่างเก็บน้ำยามเช้า'],
+};
+
+/* --- E2 structured 30-second review --- */
+function startReview(camp){
+  S.review={camp,step:1,ans:{}};
+  botSay(`(จำลองแชทเด้งหลังเช็คเอาต์) — ทริปที่ <b>${camp.name}</b> เป็นยังไงบ้างครับ?<br>ขอ 3 คำถามสั้นๆ แตะตอบ 30 วินาทีจบ ข้อมูลจะไปช่วยนักแคมป์คนถัดไป<br><br><b>1/3</b> · เช้าวันนั้นเจอทะเลหมอกไหม?</b>`,
+    {chips:['เจอ หมอกเต็มหุบเขา','เจอบางๆ','ไม่เจอเลย']});
+}
+function reviewRoute(text){
+  const r=S.review;
+  if(r.step===1){ r.ans.fog=text; r.step=2;
+    botSay(`<b>2/3</b> · ความสะอาดห้องน้ำ ให้กี่ดาว?`,{chips:['5 ดาว','4 ดาว','3 ดาว','2 ดาว','1 ดาว']});
+    return true; }
+  if(r.step===2){ r.ans.clean=text; r.step=3;
+    botSay(`<b>3/3</b> · สัญญาณมือถือค่ายไหนใช้ได้บ้าง? (เลือกได้ตามจริง)`,{chips:['AIS ใช้ได้','True ใช้ได้','Dtac ใช้ได้','ไม่มีสักค่าย']});
+    return true; }
+  if(r.step===3){ r.ans.sig=text;
+    const c=r.camp; S.review=null;
+    const sim=CAMPS.filter(x=>x.id!==c.id&&x.region===c.region).slice(0,3);
+    const block=document.createElement('div'); block.className='block';
+    block.innerHTML=`<div class="rowline"><span>ทะเลหมอก</span><b>${r.ans.fog}</b></div>
+      <div class="rowline"><span>ความสะอาด</span><b>${r.ans.clean}</b></div>
+      <div class="rowline"><span>สัญญาณ</span><b>${r.ans.sig}</b></div>
+      <div class="rowline"><span>สถานะ</span><b class="hl">บันทึกเป็น structured data แล้ว</b></div>`;
+    botSay(`ขอบคุณครับ! รีวิวของคุณไม่ใช่แค่ข้อความ — คำตอบเรื่องหมอกจะไปทำให้ <b>พยากรณ์หมอกของ ${c.name.split(' ')[0]} แม่นขึ้น</b> และข้อมูลสัญญาณจะขึ้น signal map ให้คนถัดไป<br><small>นี่คือ data flywheel: รีวิว 30 วิ → พยากรณ์แม่น → คนจองถูกวัน → ประสบการณ์ดี → รีวิวเพิ่ม</small><br><br>ถ้าชอบแนวนี้ ทริปหน้าลองดูลานใกล้เคียงกันครับ`,
+      {extra:block,cards:sim.length?sim:undefined,chips:['พยากรณ์หมอก 14 วัน','วางแผนทริป 3 วัน']});
+    return true; }
+  return false;
+}
+
+function route(text){
+  const t=text.toLowerCase();
+
+  /* --- active booking flow takes priority --- */
+  if(S.booking && bookingRoute(text)) return;
+
+  /* --- active post-trip review flow (E2) --- */
+  if(S.review && reviewRoute(text)) return;
+
+  /* --- my bookings --- */
+  if(/การจองของฉัน|จองของฉัน|ประวัติการจอง|ดูการจอง/.test(t)){
+    if(!S.bookings.length){ botSay(`ยังไม่มีการจองในเซสชันนี้ครับ อยากเริ่มจองเลยไหม?`,{chips:['ดูลานยอดนิยม','หาลานทะเลหมอก']}); return; }
+    const html=S.bookings.map(b=>`<div class="rowline"><span>${b.camp.name} · ${b.date} · ${b.people} คน</span><b class="hl">${b.code}</b></div>`).join('');
+    const block=document.createElement('div'); block.className='block'; block.innerHTML=html;
+    botSay(`การจองทั้งหมดของคุณ `,{extra:block,chips:['หาลานอื่นต่อ']});
+    return;
+  }
+
+  /* --- booking intent (C2: prep — parse วัน+จำนวนคนจากประโยคเดียว) --- */
+  if(/จอง|book/i.test(t)){
+    const named=findCampByName(text)||(S.camp&&/ลานนี้|ที่นี่|อันนี้/.test(t)?S.camp:null);
+    if(named){
+      const rng=text.match(/(\d{1,2})\s*(?:-|–|ถึง)\s*(\d{1,2})\s*(ม\.?ค\.?|มกราคม|ก\.?พ\.?|กุมภาพันธ์|มี\.?ค\.?|มีนาคม|เม\.?ย\.?|เมษายน|พ\.?ค\.?|พฤษภาคม|มิ\.?ย\.?|มิถุนายน|ก\.?ค\.?|กรกฎาคม|ส\.?ค\.?|สิงหาคม|ก\.?ย\.?|กันยายน|ต\.?ค\.?|ตุลาคม|พ\.?ย\.?|พฤศจิกายน|ธ\.?ค\.?|ธันวาคม)?/);
+      const ppl=text.match(/(\d{1,2})\s*คน/);
+      if(rng){
+        const d1=+rng[1],d2=+rng[2];
+        const mo=rng[3]?rng[3].replace('กรกฎาคม','ก.ค.').replace('สิงหาคม','ส.ค.').replace('มกราคม','ม.ค.').replace('กุมภาพันธ์','ก.พ.').replace('มีนาคม','มี.ค.').replace('เมษายน','เม.ย.').replace('พฤษภาคม','พ.ค.').replace('มิถุนายน','มิ.ย.').replace('กันยายน','ก.ย.').replace('ตุลาคม','ต.ค.').replace('พฤศจิกายน','พ.ย.').replace('ธันวาคม','ธ.ค.'):THMON[new Date().getMonth()];
+        const nights=Math.max(1,d2-d1);
+        startBooking(named,null,{date:`${d1}–${d2} ${mo}`,nights,people:ppl?+ppl[1]:null});
+        return;
+      }
+      if(ppl){ startBooking(named,null,{people:+ppl[1]}); return; }
+      startBooking(named); return;
+    }
+    if(S.camp){ startBooking(S.camp); return; }
+    S.lastCamps=CAMPS.slice().sort((a,b)=>b.rating-a.rating).slice(0,4);
+    botSay(`ได้เลยครับ! อยากจองลานไหนดี? แตะการ์ดเพื่อดูรายละเอียด หรือพิมพ์ชื่อลานมาได้เลย`,
+      {cards:S.lastCamps,chips:['จองภูชี้ฟ้า','จองเขาใหญ่ ไพน์ฟอเรสต์','หาลานแบบอื่นก่อน']});
+    return;
+  }
+
+  /* --- compare A vs B (B1) --- */
+  const mentioned=findAllCamps(text);
+  if(mentioned.length>=2 && (/เทียบ|เปรียบเทียบ|อันไหน|ดีกว่า|vs|กับ/i.test(t))){
+    const [a,b]=mentioned;
+    S.lastCamps=[a,b];
+    const win=a.rating>=b.rating?a:b;
+    botSay(`เทียบให้เคียงข้างกันครับ — ถ้าดูจากเรตติ้งและรีวิว <span class="hl">${win.name.split(' ')[0]}</span> นำอยู่เล็กน้อย แต่ขึ้นกับสไตล์ทริปของคุณ`,
+      {extra:compareBlock(a,b),chips:[`จอง${a.name.split(' ')[0]}`,`จอง${b.name.split(' ')[0]}`,'ดูลานอื่นเพิ่ม']});
+    return;
+  }
+  if(/เทียบ/.test(t) && S.camp && mentioned.length<2){
+    const other=CAMPS.filter(c=>c.id!==S.camp.id&&c.region===S.camp.region).sort((x,y)=>y.rating-x.rating)[0]||CAMPS.find(c=>c.id!==S.camp.id);
+    botSay(`จับคู่เทียบกับลานที่ใกล้เคียงกันที่สุดในภาค${S.camp.region}ให้ครับ`,
+      {extra:compareBlock(S.camp,other),chips:[`จอง${S.camp.name.split(' ')[0]}`,`จอง${other.name.split(' ')[0]}`]});
+    return;
+  }
+
+  /* --- named camp lookup --- */
+  const named=findCampByName(text);
+  if(named && !/ยกเลิก|ราคา|เดินทาง|เส้นทาง|ไปยังไง|หมอก|รีวิว|เทียบ|ที่เที่ยว|ว่าง|กี่ที่|เหลือ|รวมอะไร|แผน|เตรียม/.test(t)){
+    S.camp=named; S.lastCamps=[named];
+    botSay(`เจอแล้วครับ — <b>${named.name}</b> ★ ${named.rating}<br><small>${named.desc.slice(0,86)}…</small><br>แตะการ์ดเพื่อเปิดรายละเอียดเต็มๆ ทางขวาได้เลย`,
+      {cards:[named],chips:[`จอง${named.name.split(' ')[0]}เลย`,'พยากรณ์หมอก 14 วัน',`เทียบกับลานอื่น`,'รีวิวเป็นยังไง']});
+    return;
+  }
+
+  /* --- availability check (A4: live "วันนี้ว่างไหม" ตอบสด ไม่ cache) --- */
+  if(/วันว่าง|ว่างไหม|ว่างวันไหน|เช็ควัน|กี่ที่/.test(t)){
+    const c=findCampByName(text)||S.camp;
+    if(c && /วันนี้|ตอนนี้|สุดสัปดาห์|เสาร์นี้|กี่ที่/.test(t)){
+      S.camp=c;
+      const n=c.slots[0], cap=n+4;
+      botSay(n>0
+        ? `เช็คสดตอนนี้เลยครับ — <b>${c.name}</b> ช่วงเสาร์-อาทิตย์นี้เหลือ <span class="hl">${n} จาก ${cap} ที่</span> กดจองได้ทันที <small>(ระบบเช็คซ้ำอีกครั้งก่อนยืนยัน กัน double-booking)</small>`
+        : `เสาร์นี้ <b>${c.name}</b> เต็มแล้วครับ แต่เสาร์ถัดไปยังว่าง — หรือให้ผมเฝ้าที่ว่างจากการยกเลิกให้ไหม?`,
+        {chips:n>0?[`จอง${c.name.split(' ')[0]}เลย`,'เช็ควันอื่น']:['เฝ้าที่ว่างให้ฉัน','เช็ควันอื่น','หาลานใกล้เคียงที่ยังว่าง']});
+      return;
+    }
+    if(c){ S.camp=c; openPanel(c);
+      botSay(`เปิดปฏิทินวันว่างของ <b>${c.name}</b> ไว้ที่แผงด้านขวาแล้วครับ <br><small>แตะวันเสาร์ที่ยังว่างเพื่อจองต่อได้ทันที</small>`,
+        {chips:[`จอง${c.name.split(' ')[0]}เลย`,'หาลานอื่นเทียบดู']});
+      return; }
+    botSay(`อยากเช็ควันว่างของลานไหนครับ?`,{chips:['ภูทับเบิก','ม่อนแจ่ม','ปางอุ๋ง','ดูลานยอดนิยม']});
+    return;
+  }
+
+  /* --- live voice mode --- */
+  if(/คุยด้วยเสียง|โหมดเสียง|voice mode|คุยเรียลไทม์/i.test(t)){
+    botSay(`เปิดโหมดคุยด้วยเสียงให้แล้วครับ — พูดโต้ตอบได้เรียลไทม์ UI จะเปลี่ยนตามเรื่องที่คุยเอง ถ้าเครื่องไม่มีไมค์ กด "เล่นเดโมบทสนทนา" ดูได้เลย`);
+    setTimeout(openLive,900);
+    return;
+  }
+
+  /* --- companion mode --- */
+  if(/(^|\s)(ปิดโหมดทริป|ออกจากโหมดทริป)/.test(t)){
+    closeCompanion();
+    botSay(`กลับมาที่แชทแล้วครับ อยากทำอะไรต่อ?`,{chips:['พยากรณ์หมอก 14 วัน','หาลานอื่นต่อ']});
+    return;
+  }
+  if(/โหมดทริป|companion|จำลองวันเข้าพัก|โหมดแคมป์/i.test(t)){
+    botSay(`เปิด <b>Companion Mode</b> ให้แล้วครับ — นี่คือหน้าจอที่ระบบจะสลับให้เองเมื่อถึงวันเช็คอินจริงและ GPS อยู่ใกล้ลาน ทุกอย่างทำงานแบบออฟไลน์ได้ <small>(หลัง 1 ทุ่มจะเข้าโหมดถนอมสายตาสีแดงอัตโนมัติ — ลองสลับดูได้)</small>`);
+    setTimeout(openCompanion,1000);
+    return;
+  }
+
+  /* --- fog alert subscription --- */
+  if(/เตือนฉัน|สมัครแจ้งเตือน|แจ้งเตือนหมอก/.test(t)){
+    if(/เดือนมืด|ทางช้างเผือก/.test(t)){
+      botSay(`ตั้งเตือนแล้วครับ — คืนเดือนมืดรอบนี้ <span class="hl">22–26 ก.ค.</span> ผมจะเตือนล่วงหน้า 3 วัน พร้อมเช็คว่าฟ้าเปิดไหมก่อนปลุกให้ออกเดินทาง <small>(เดโม)</small>`,
+        {chips:['จองดอยอินทนนท์ไปดูดาว','หาลานดูดาว']});
+      return;
+    }
+    const c=S.camp||CAMPS[4];
+    botSay(`ตั้งการแจ้งเตือนแล้ว — ถ้าโอกาสหมอกของ <b>${c.name}</b> ขึ้นเกิน <span class="hl">80%</span> ในช่วง 48 ชม. ข้างหน้า ผมจะเตือนทันที <small>(เดโม)</small><br><small>นี่คือการพลิกพฤติกรรม: ไม่ต้องเลือกวันเอง — ให้ธรรมชาติเลือกวันให้</small>`,
+      {chips:[`จอง${c.name.split(' ')[0]}เลย`,'ดูลานอื่นที่หมอกแรง']});
+    return;
+  }
+
+  /* --- weather window / fog forecast --- */
+  if(/หมอกจะมา|พยากรณ์หมอก|หมอก.*(วันไหน|โอกาส|เมื่อไหร่|พยากรณ์)|ลานอื่นที่หมอกแรง/.test(t)){
+    if(/ลานอื่น|เทียบ|จัดอันดับ/.test(t)){
+      const ranked=CAMPS.filter(c=>c.tags.includes('ทะเลหมอก'))
+        .map(c=>({c,avg:Math.round(fogSeries(c).reduce((s,x)=>s+x.p,0)/14)}))
+        .sort((a,b)=>b.avg-a.avg);
+      S.lastCamps=ranked.map(r=>r.c);
+      botSay(`จัดอันดับโอกาสหมอกเฉลี่ย 14 วันข้างหน้า: ${ranked.map(r=>`<span class="hl">${r.c.name.split(' ')[0]} ${r.avg}%</span>`).join(' · ')}`,
+        {cards:ranked.map(r=>r.c),chips:[`พยากรณ์หมอก ${ranked[0].c.name.split(' ')[0]}`,'เตือนฉันเมื่อหมอกแรงกว่า 80%']});
+      return;
+    }
+    const c=findCampByName(text)||S.camp||CAMPS[4];
+    S.camp=c;
+    const {el,best}=fogCal(c);
+    botSay(`นี่คือ weather window ของ <b>${c.name}</b> — วันที่น่าไปที่สุดคือ <span class="hl">${best.dw} ${best.dd} ${best.mo} (โอกาสหมอก ${best.p}%)</span>`,
+      {extra:el,chips:['เตือนฉันเมื่อหมอกแรงกว่า 80%',`จอง${c.name.split(' ')[0]}เลย`,'ดูลานอื่นที่หมอกแรง']});
+    return;
+  }
+
+  /* --- cancellation sniper / waitlist --- */
+  if(/เฝ้าที่ว่าง|waitlist|ต่อคิว|แจ้งถ้ามีคนยกเลิก/i.test(t)){
+    const c=S.camp||CAMPS[0];
+    botSay(`เข้าคิวเฝ้าที่ว่างของ <b>${c.name}</b> ให้แล้วครับ — คุณอยู่คิวที่ <span class="hl">2</span><br>ถ้ามีคนยกเลิก ระบบจะแจ้งทันทีและล็อกสิทธิ์จองให้ <b>15 นาที</b> <small>(เดโม — สถิติจริง: ลานดังมีคนยกเลิกเฉลี่ย 12% ต่อสัปดาห์)</small>`,
+      {chips:['หาลานสำรองไว้ก่อน','พยากรณ์หมอก 14 วัน']});
+    return;
+  }
+
+  /* --- AI review summary (B2) --- */
+  if(/รีวิว.*(เป็นยังไง|ดีไหม|ว่าไง|เป็นไง)|สรุปรีวิว/.test(t)){
+    const c=findCampByName(text)||S.camp;
+    if(!c){ botSay(`อยากดูสรุปรีวิวของลานไหนครับ?`,{chips:['รีวิวภูทับเบิกเป็นยังไง','รีวิวเขาใหญ่ ไพน์ฟอเรสต์เป็นยังไง']}); return; }
+    S.camp=c;
+    const con=c.feat.elec?'ช่วงวันหยุดคนค่อนข้างเยอะ':'ไม่มีไฟฟ้าถึงจุดกาง และสัญญาณมือถืออ่อนในบางจุด';
+    botSay(`สรุปจาก <b>${c.rv} รีวิว</b> ของ ${c.name}<br>• <span class="hl">จุดที่คนชม:</span> ${c.tags.slice(0,2).join(', ')} และความสะอาดของพื้นที่<br>• <span class="hl">จุดที่มีคนพูดถึง:</span> ${con}<br>• รีวิวล่าสุด: <small>“${c.reviews[0][0]}” — ${c.reviews[0][1]}</small><br><small>สรุปเฉพาะรีวิวจากผู้เข้าพักจริง (verified stay)</small>`,
+      {chips:['ดูรีวิวเต็มในแผงขวา',`จอง${c.name.split(' ')[0]}เลย`,'เทียบกับลานอื่น']});
+    return;
+  }
+  if(/ดูรีวิวเต็ม/.test(t) && S.camp){ openPanel(S.camp); botSay(`เปิดรีวิวเต็มของ <b>${S.camp.name}</b> ไว้ที่แผงขวาแล้วครับ — เลื่อนลงล่างสุด`,{chips:[`จอง${S.camp.name.split(' ')[0]}เลย`]}); return; }
+
+  /* --- nearby attractions (E1) --- */
+  if(/ที่เที่ยว|น่าแวะ|กิจกรรม(ใกล้|แถว)|แถวลาน/.test(t)){
+    const c=findCampByName(text)||S.camp;
+    if(!c){ botSay(`อยากรู้ที่เที่ยวใกล้ลานไหนครับ?`,{chips:['ที่เที่ยวแถวภูทับเบิก','ที่เที่ยวแถวแก่งกระจาน']}); return; }
+    S.camp=c;
+    const sp=SPOTS[c.id]||['จุดชมวิวใกล้ลาน','น้ำตกในอุทยานฯ','ตลาดชุมชนวันหยุด'];
+    botSay(`จุดที่นักแคมป์แถว <b>${c.name}</b> ชอบแวะครับ<br>${sp.map((s,i)=>`<b>${i+1}.</b> ${s}`).join('<br>')}<br><small>อิงจากรายงานหลังทริปของ community</small>`,
+      {chips:['เปิดนำทาง (เดโม)',`จอง${c.name.split(' ')[0]}เลย`,'มือใหม่ต้องเตรียมอะไร']});
+    return;
+  }
+
+  /* --- price includes (B3) --- */
+  if(/รวมอะไร|ราคารวม|รวมอะไรบ้าง/.test(t)){
+    const c=S.camp;
+    if(c) botSay(`฿${THB(c.price)}/คน/คืน ของ <b>${c.name}</b> รวม: พื้นที่กางเต็นท์ 1 จุด, ${c.amen[0].trim()}, ที่จอดรถ<br><span class="hl">ไม่รวม:</span> อุปกรณ์เช่า (เต็นท์ +฿350${c.feat.glamp?', กลามปิ้ง +฿1,500':''})<br>ยกเลิกฟรีก่อนเข้าพัก 7 วัน คืนเงิน 100% — ฝนตกจนอุทยานปิด คืนเต็มทุกกรณี`,
+      {chips:[`จอง${c.name.split(' ')[0]}เลย`,'นโยบายยกเลิกเต็มๆ']});
+    else botSay(`ราคาทุกลานรวมพื้นที่กางเต็นท์ + ห้องน้ำส่วนกลาง + ที่จอดรถครับ อุปกรณ์เช่าคิดเพิ่มตามรายการ`,{chips:['ดูลานยอดนิยม']});
+    return;
+  }
+
+  /* --- post-trip structured review trigger (E2) --- */
+  if(/หลังทริป|ชวนรีวิว|รีวิว 30/.test(t)){
+    const c=(S.bookings[S.bookings.length-1]||{}).camp||S.camp||CAMPS[0];
+    startReview(c);
+    return;
+  }
+
+  /* --- trip planner (D1) --- */
+  if(/วางแผนทริป|แผนทริป|ทริป\s*\d+\s*วัน|โรดทริป|road ?trip/i.test(t)){
+    const days=+((text.match(/(\d+)\s*วัน/)||[])[1]||3);
+    const nights=Math.max(2,days-1);
+    const bud=text.match(/(?:งบ|ไม่เกิน)\s*([\d,]+)/);
+    const budget=bud?parseInt(bud[1].replace(/,/g,'')):5000;
+    const c1=CAMPS[1], c2=CAMPS[8]; // ม่อนแจ่ม → ปางอุ๋ง (เส้นเชียงใหม่–ปาย–แม่ฮ่องสอน)
+    const n2=nights-1;
+    const total=c1.price+c2.price*n2;
+    const el=document.createElement('div'); el.className='trip';
+    el.innerHTML=`
+      <div class="t-route">ROUTE · เชียงใหม่ → ปาย → แม่ฮ่องสอน · ${days} วัน ${nights} คืน</div>
+      <div class="tnode"><div class="tdot"></div><div class="tbody"><b>คืนที่ 1 — ${c1.name}</b><div class="tsub">${c1.prov} · ★ ${c1.rating} · เดินทางจากตัวเมืองเชียงใหม่ ~1 ชม.</div></div><div class="tprice">฿${THB(c1.price)}</div></div>
+      <div class="tdrive">ขับต่อผ่านปาย ~3 ชม. · แวะจุดชมวิวกิ่วลม</div>
+      <div class="tnode"><div class="tdot"></div><div class="tbody"><b>คืนที่ 2${n2>1?`–${nights}`:''} — ${c2.name}</b><div class="tsub">${c2.prov} · ★ ${c2.rating} · หมอกเหนือผิวน้ำยามเช้า</div></div><div class="tprice">฿${THB(c2.price)}×${n2}</div></div>
+      <div class="tsum"><span>รวมค่าลานต่อคน <span class="ok">${total<=budget?`อยู่ในงบ ฿${THB(budget)} ✓`:`เกินงบ`}</span></span><b>฿${THB(total)}</b></div>`;
+    botSay(`จัดแผน <b>${days} วัน เชียงใหม่–ปาย</b> ให้ครับ เลือกลานตามเส้นทางขับจริง แวะน้อยแต่ได้วิวครบ<br><small>แตะแต่ละจุดเพื่อจองทีละคืนได้เลย · ระยะขับเป็นค่าประมาณ</small>`,
+      {extra:el,chips:['จองม่อนแจ่มคืนแรก','จองปางอุ๋งเลย','สลับเป็นสายทะเลหมอกล้วน']});
+    return;
+  }
+
+  /* --- weather-driven rebooking replies --- */
+  if(/เลื่อนเป็นเสาร์ถัดไป/.test(t)){
+    const b=S.bookings[S.bookings.length-1];
+    if(b){ b.date=weekends[1];
+      botSay(`เลื่อนให้แล้วครับ — การจอง <span class="hl">${b.code}</span> ที่ ${b.camp.name.split(' ')[0]} ย้ายเป็นวัน<b>${weekends[1]}</b> ไม่มีค่าธรรมเนียม โค้ดเดิมใช้ได้เลย<br><small>พยากรณ์เสาร์ถัดไป: ฟ้าเปิด โอกาสหมอกเช้า 74%</small>`,
+        {chips:['ดูการจองของฉัน','พยากรณ์หมอก 14 วัน']}); }
+    else botSay(`ยังไม่มีการจองให้เลื่อนครับ`,{chips:['เริ่มจองเลย']});
+    return;
+  }
+  if(/ย้ายไปลานที่ฟ้าเปิด/.test(t)){
+    const dry=[CAMPS[2],CAMPS[5]];
+    S.lastCamps=dry;
+    botSay(`สองลานนี้พยากรณ์เสาร์นี้ฝนต่ำกว่า <span class="hl">20%</span> ครับ ย้ายการจองไปได้ฟรีภายใน 1 แตะ (ส่วนต่างราคาคำนวณให้อัตโนมัติ)`,
+      {cards:dry,chips:['จองแก่งกระจาน','จองไทรโยค','คงแผนเดิม เอาหมอกหลังฝน']});
+    return;
+  }
+  if(/คงแผนเดิม/.test(t)){
+    botSay(`รับทราบครับ เก็บแผนเดิมไว้ — เคล็ดลับ: หลังฝนหยุดหมอกมักแน่นเป็นพิเศษ เตรียมฟลายชีทดีๆ แล้วคืนนั้นอาจเป็นคืนที่คุ้มที่สุด<br><small>ถ้าอุทยานประกาศปิดจากพายุ ระบบคืนเงินเต็มอัตโนมัติ</small>`,
+      {chips:['เปิดโหมดทริป (จำลองวันเข้าพัก)','มือใหม่ต้องเตรียมอะไร']});
+    return;
+  }
+
+  /* --- seasonal radar --- */
+  if(/ช่วงนี้.*(พีค|อะไร)|ปรากฏการณ์|ฤดูกาล|ธรรมชาติมีอะไร|seasonal|เดือนนี้มีอะไร/i.test(t)){
+    const block=document.createElement('div'); block.className='block';
+    block.innerHTML=`
+      <div class="rowline"><span>ทุ่งดอกกระเจียวบาน</span><b>มิ.ย.–ส.ค. · ใกล้เขาค้อ <span class="hl">กำลังพีค</span></b></div>
+      <div class="rowline"><span>ทางช้างเผือกชัด (คืนเดือนมืด)</span><b>22–26 ก.ค. · อินทนนท์ / ภูชี้ฟ้า</b></div>
+      <div class="rowline"><span>หมอกหลังฝน</span><b>ตลอดหน้าฝน · ภูทับเบิก / ม่อนแจ่ม</b></div>
+      <div class="rowline"><span>ผีเสื้อป่าแก่งกระจาน</span><b>เม.ย.–ก.ค. · โค้งสุดท้ายของฤดู</b></div>`;
+    botSay(`ปฏิทินธรรมชาติเดือนนี้ครับ (ก.ค.) — ธรรมชาติมีตารางของมัน จองตามปรากฏการณ์คุ้มกว่าจองตามวันหยุด`,
+      {extra:block,chips:['เตือนฉันก่อนคืนเดือนมืด','จองเขาค้อช่วงดอกกระเจียว','หมอกจะมาวันไหน']});
+    return;
+  }
+
+  /* --- group trip vote --- */
+  if(/ชวนเพื่อน|โหวต|ทริปกลุ่ม|ไปเป็นกลุ่ม/.test(t)){
+    if(/ดูผลเทียบ/.test(t)){ const m2=S.lastCamps&&S.lastCamps.length>=2?S.lastCamps:[CAMPS[3],CAMPS[7]];
+      botSay(`เทียบสองอันดับแรกให้ครับ`,{extra:compareBlock(m2[0],m2[1]),chips:[`จอง${m2[0].name.split(' ')[0]}`,`จอง${m2[1].name.split(' ')[0]}`]}); return; }
+    startVote(S.lastCamps);
+    return;
+  }
+
+  /* --- photo-to-camp --- */
+  if(/ส่งรูป|เห็นใน ?ig|instagram|รูปนี้ที่ไหน|ที่ในรูป|แนบรูป/i.test(t)){
+    const hit=CAMPS[4], alt2=CAMPS[6];
+    S.lastCamps=[hit,alt2];
+    botSay(`วิเคราะห์รูปแล้วครับ — องค์ประกอบ: สันเขา + ทะเลหมอกหนา + เต็นท์หันตะวันออก + แสง golden hour<br>ตรงกับ <b>${hit.name}</b> <span class="hl">(ความมั่นใจ 92%)</span><br><small>และถ้าอยากได้วิวแบบเดียวกันแต่คนน้อยกว่า 3 เท่า: ${alt2.name}</small>`,
+      {cards:[hit,alt2],chips:[`จอง${hit.name.split(' ')[0]}เลย`,`ดู${alt2.name.split(' ')[0]} ที่ลับกว่า`,'หมอกจะมาวันไหน'],delay:1900});
+    return;
+  }
+
+  /* --- host mode --- */
+  if(/โหมดเจ้าของลาน|เจ้าของลาน|host mode/i.test(t)){
+    botSay(`สลับเป็นมุมมองเจ้าของลานครับ (จำลอง: ลานสนธรรมชาติ ของคุณ)<br>insight เดือนนี้: คนเจอลานคุณเยอะ แต่ <span class="hl">conversion 2.1% ต่ำกว่าค่าเฉลี่ยครึ่งหนึ่ง</span> — สาเหตุหลักจากข้อมูล: ไม่มีรูปห้องน้ำ (แขกถามมากสุด) และตอบคำถามเรื่องไฟฟ้าช้าเฉลี่ย 6 ชม.`,
+      {extra:hostInsight(),chips:['ให้ AI ร่างประกาศจากโพสต์ FB','เปิด AI ตอบแขกอัตโนมัติ','กลับโหมดนักแคมป์']});
+    return;
+  }
+  if(/ร่างประกาศ/.test(t)){
+    const block=document.createElement('div'); block.className='block';
+    block.innerHTML=`
+      <div class="rowline"><span>ชื่อ</span><b>ลานกางเต็นท์ริมเขา สายหมอกยามเช้า</b></div>
+      <div class="rowline"><span>คำอธิบาย</span><b>บรรยากาศร่มรื่น ใกล้แหล่งน้ำ เดินป่าได้</b></div>
+      <div class="rowline"><span>สิ่งอำนวยความสะดวก</span><b>ห้องน้ำ · ไฟฟ้า · ที่จอดรถ (ดึงจากรูป)</b></div>
+      <div class="rowline"><span>ราคาแนะนำ</span><b>฿160/คน <small>(เทียบลานใกล้เคียง 3 แห่ง)</small></b></div>`;
+    botSay(`อ่านโพสต์ Facebook + รูปที่แนบมาแล้ว ร่างประกาศให้ตรวจก่อนครับ — แก้ได้ทุกช่อง <b>ไม่เผยแพร่จนกว่าคุณกดยืนยันเอง</b>`,
+      {extra:block,chips:['ใช้ร่างนี้ (ไปหน้าแก้ไข)','ร่างใหม่อีกรอบ','กลับโหมดนักแคมป์']});
+    return;
+  }
+  if(/ใช้ร่างนี้/.test(t)){
+    toast('เดโม — เวอร์ชันจริงจะเปิดฟอร์มประกาศพร้อมข้อมูลที่กรอกไว้แล้ว');
+    botSay(`ส่งร่างเข้าฟอร์มประกาศแล้วครับ คุณตรวจ-แก้-กดเผยแพร่เองที่หน้าเว็บ (AI ไม่ auto-publish)`,
+      {chips:['เปิด AI ตอบแขกอัตโนมัติ','กลับโหมดนักแคมป์']});
+    return;
+  }
+  if(/ตอบแขกอัตโนมัติ|auto ?reply/i.test(t)){
+    const block=document.createElement('div'); block.className='block';
+    block.innerHTML=`
+      <div class="rowline"><span>แขกถาม (ตัวอย่าง)</span><b>"ลานนี้มีไฟฟ้าให้ใช้ไหม"</b></div>
+      <div class="rowline"><span>AI ตอบแทนคุณ</span><b>"มีจุดปลั๊กไฟส่วนกลางครับ ตามที่ระบุในประกาศ"</b></div>
+      <div class="rowline"><span>ขอบเขต</span><b>ตอบเฉพาะข้อมูลในประกาศ · เรื่องเงิน/ยกเลิก ส่งต่อให้คุณ</b></div>`;
+    botSay(`เปิด AI ตอบแขกอัตโนมัติแล้วครับ — คำถามซ้ำๆ (ไฟฟ้า ห้องน้ำ เดินทาง) ระบบตอบแทนทันทีจากข้อมูลประกาศ ลดเวลาตอบจาก 6 ชม. เหลือไม่กี่วินาที`,
+      {extra:block,chips:['กลับโหมดนักแคมป์','ให้ AI ร่างประกาศจากโพสต์ FB']});
+    return;
+  }
+  if(/กลับโหมดนักแคมป์/.test(t)){
+    botSay(`กลับสู่โหมดนักแคมป์แล้วครับ อยากไปนอนไหนต่อ?`,{chips:['หาลานทะเลหมอก','ช่วงนี้ธรรมชาติมีอะไรพีค']});
+    return;
+  }
+
+  /* --- camp passport --- */
+  if(/passport|พาสปอร์ต|ตราปั๊ม|แต้ม|badge|เก็บยอด/i.test(t)){
+    botSay(`Camp Passport ของคุณครับ — ปั๊มตราอัตโนมัติทุกครั้งที่เช็คอิน สะสมแต้มแลกส่วนลดลานพันธมิตรได้`,
+      {extra:passportBlock(),chips:['จองดอยอินทนนท์ ปลดล็อกป้าย 2,000 ม.','หาลานภาคเหนือ เก็บยอดต่อ']});
+    return;
+  }
+
+  /* --- mood-based search --- */
+  const mood=MOODS.find(m=>m.re.test(text));
+  if(mood){
+    const picks=mood.picks.map(([id,why])=>[CAMPS.find(c=>c.id===id),why]);
+    S.lastCamps=picks.map(p=>p[0]);
+    botSay(`อ่านอารมณ์ได้ครับ — <b>${mood.title}</b><br>${picks.map(([c,why])=>`<span class="hl">${c.name.split(' ')[0]}</span> — ${why}`).join('<br>')}`,
+      {cards:S.lastCamps,chips:[`จอง${picks[0][0].name.split(' ')[0]}เลย`,'ชวนเพื่อนโหวต 3 ลานนี้','หมอกจะมาวันไหน']});
+    return;
+  }
+
+  /* --- open navigation (D3, mock) --- */
+  if(/เปิดนำทาง|นำทางไป|google ?maps/i.test(t)){
+    toast('เดโม — เวอร์ชันจริงจะเปิด Google Maps พร้อมพิกัดลาน');
+    botSay(`ในเวอร์ชันจริง ปุ่มนี้จะเปิด Google Maps ด้วยพิกัดจริงของลานครับ (ลิงก์ภายนอก ไม่ใช่ route ในระบบ)`,
+      {chips:[S.camp?`จอง${S.camp.name.split(' ')[0]}เลย`:'ดูลานยอดนิยม','มือใหม่ต้องเตรียมอะไร']});
+    return;
+  }
+
+  /* --- FAQ --- */
+  if(/ยกเลิก.*(จอง|ได้)|นโยบาย|คืนเงิน|refund/i.test(t)){
+    botSay(`นโยบายการยกเลิก <br>• ก่อนเข้าพัก <b>7 วันขึ้นไป</b> — คืนเงิน <span class="hl">100%</span><br>• ก่อนเข้าพัก <b>3–6 วัน</b> — คืนเงิน 50%<br>• น้อยกว่า 3 วัน — ขอสงวนสิทธิ์ไม่คืนเงิน แต่<b>เลื่อนวันได้ฟรี 1 ครั้ง</b><br><small>ฝนตกหนักจนอุทยานปิด = คืนเงินเต็มทุกกรณีครับ</small>`,
+      {chips:['ดูการจองของฉัน','หาลานกันฝนดีๆ']});
+    return;
+  }
+  if(/เช็คอิน|เช็คเอาท์|กี่โมง/.test(t)){
+    botSay(`เวลามาตรฐานของทุกลานครับ <br>• เช็คอิน <b>14:00</b> เป็นต้นไป (ขอเข้าก่อนได้ถ้าจุดกางว่าง)<br>• เช็คเอาท์ก่อน <b>12:00</b><br>• ปิดไฟส่วนกลาง-งดเสียงดัง <b>22:00</b>`,
+      {chips:['เริ่มจองเลย','ถามเรื่องยกเลิก']});
+    return;
+  }
+  if(/ฝน|อากาศ|weather|หน้าฝน/i.test(t)){
+    botSay(`ช่วงนี้ (ก.ค.) เป็นหน้าฝนครับ  แนะนำแบบนี้<br>• สายเขาสูงอย่าง<b>ภูทับเบิก/อินทนนท์</b> หมอกสวยแต่ฝนบ่อย — เผื่อ flysheet กันฝนดีๆ<br>• สายชัวร์เลือกลานที่มี<b>ศาลา/ไฟฟ้า</b> เช่น ไทรโยค ริมแคว หรือเขาค้อโซนกลามปิ้ง<br>• ทุกลานคืนเงิน 100% ถ้าอุทยานประกาศปิดจากพายุ`,
+      {chips:['หมอกจะมาวันไหน','ขอลานที่มีไฟฟ้า','ดูเขาค้อ วินด์มิลล์']});
+    return;
+  }
+  if(/เดินทาง|เส้นทาง|ไปยังไง|ขับรถ|รถไป/.test(t)){
+    const c=S.camp;
+    if(c){ botSay(`เส้นทางไป <b>${c.name}</b> <br>• ระยะทางจาก กทม. ประมาณ <span class="hl">${c.dist}</span><br>• จอดรถ: มีลานจอดใกล้จุดกางเต็นท์<br>• <small>เดโมนี้ยังไม่ต่อแผนที่จริง — เวอร์ชันเต็มจะเปิด Google Maps ให้เลยครับ</small>`,
+        {chips:[`จอง${c.name.split(' ')[0]}เลย`,'หาลานใกล้กว่านี้']}); return; }
+    botSay(`บอกชื่อลานที่อยากไปก่อนได้ไหมครับ เดี๋ยวสรุปเส้นทางให้ `,{chips:['ภูทับเบิก','แก่งกระจาน','เขาใหญ่ ไพน์ฟอเรสต์']});
+    return;
+  }
+  if(/ราคา|กี่บาท|แพง|เท่า ?ไหร่|เท่า ?ไร/.test(t) && !/ไม่เกิน|ต่ำกว่า/.test(t)){
+    const cheap=CAMPS.slice().sort((a,b)=>a.price-b.price).slice(0,3);
+    S.lastCamps=cheap;
+    botSay(`ภาพรวมราคาลานในระบบครับ <br>• เริ่มต้น <span class="hl">฿100</span> (ภูชี้ฟ้า) ถึง ฿300 (โซนกลามปิ้ง)<br>• ค่าเช่าเต็นท์เพิ่ม ฿350 · กลามปิ้ง +฿1,500<br>3 ลานคุ้มสุดตอนนี้ `,
+      {cards:cheap,chips:['จองภูชี้ฟ้า','ขอแบบมีไฟฟ้า']});
+    return;
+  }
+  if(/อุปกรณ์|ต้องเตรียม|เอาอะไรไป|มือใหม่|แพ็กของ|packing/i.test(t)){
+    const c=findCampByName(text)||S.camp;
+    const alt=c?parseInt(c.alt.replace(/,/g,''))||100:800;
+    const items=['เต็นท์ + ฟลายชีทกันฝน','ถุงนอน'+(alt>1400?' (สเปกต่ำกว่า 10°C)':''),'แผ่นรองนอน','ไฟฉาย / ไฟคาดหัว','ยากันยุง','ชุดปฐมพยาบาลเล็ก'];
+    if(alt>1000) items.push('เสื้อกันหนาว 3 ชั้น','หมวกไหมพรม + ถุงเท้าหนา');
+    if(c&&c.feat.water) items.push('ชุดเล่นน้ำ + รองเท้ากันลื่น');
+    if(!c||c.feat.elec) items.push('สายชาร์จ + ปลั๊กพ่วงสั้น'); else items.push('พาวเวอร์แบงก์ (ลานนี้ไม่มีไฟฟ้า)');
+    const el=document.createElement('div'); el.className='clist';
+    el.innerHTML=items.map(i=>`<label><input type="checkbox"><span>${i}</span></label>`).join('');
+    botSay(c
+      ? `เช็คลิสต์เฉพาะสำหรับ <b>${c.name}</b> (สูง ${c.alt} · อิงพยากรณ์คืนที่ไป) — ติ๊กเก็บของได้เลย`
+      : `เช็คลิสต์มือใหม่หัดแคมป์ — ติ๊กเก็บของได้เลย ถ้าบอกชื่อลาน ผมจะปรับลิสต์ตามความสูงและอากาศให้`,
+      {extra:el,chips:['ลานที่เช่าเต็นท์ได้','กลามปิ้งไปตัวเปล่า','ลานใกล้กรุงเทพ']});
+    return;
+  }
+  if(/สวัสดี|หวัดดี|hello|hi|ดีครับ|ดีค่ะ/i.test(t)){
+    botSay(`สวัสดีครับ  ผมคือ <b>CampVibe AI</b> ผู้ช่วยเรื่องลานกางเต็นท์<br>ถามได้ทุกอย่าง — หาลานตามใจ เช็ควันว่าง จองในแชท หรือถามเรื่องอุปกรณ์ก็ได้`,
+      {chips:['หาลานทะเลหมอก','ลานใกล้กรุงเทพ','จองเลย','มือใหม่ต้องเตรียมอะไร']});
+    return;
+  }
+
+  /* --- geo / near-me (A2): ใกล้เชียงใหม่ + ระยะทางโดยประมาณ --- */
+  if(/ใกล้เชียงใหม่|รอบเชียงใหม่|แถวเชียงใหม่/.test(text)){
+    const NEAR={2:40,7:90,9:170,5:210};
+    let np=CAMPS.filter(c=>NEAR[c.id]!=null).sort((a,b)=>NEAR[a.id]-NEAR[b.id]);
+    const hm=text.match(/ไม่เกิน\s*(\d+)\s*ช/);
+    if(hm) np=np.filter(c=>NEAR[c.id]<=+hm[1]*80);
+    S.lastCamps=np;
+    botSay(`รอบเชียงใหม่มี <b>${np.length} ลาน</b> ในระยะขับถึง เรียงจากใกล้สุดครับ<br>${np.map(c=>`<span class="hl">${c.name.split(' ')[0]} ~${NEAR[c.id]} กม.</span>`).join(' · ')}<br><small>ระยะทางโดยประมาณจากตัวเมือง ไม่ใช่ระยะขับจริง</small>`,
+      {cards:np,chips:[`จอง${(np[0]||CAMPS[1]).name.split(' ')[0]}เลย`,'ว่างเสาร์นี้ไหม','วางแผนทริป 3 วัน']});
+    return;
+  }
+
+  /* --- search with filters (A1: compound NL search) --- */
+  let pool=CAMPS.slice(), labels=[];
+  PROVS.forEach(p=>{ if(t.includes(p.toLowerCase())||text.includes(p)){ pool=pool.filter(c=>c.prov===p); labels.push('จ.'+p); }});
+  Object.entries(REGIONS).forEach(([k,v])=>{ if(text.includes(k)){ pool=pool.filter(c=>c.region===v); labels.push(k); }});
+  FILTERS.forEach(F=>{ if(F.re.test(text)){ pool=pool.filter(F.f); labels.push(F.label); }});
+  const hrM=text.match(/ขับ\s*(?:ไม่เกิน|ประมาณ)?\s*(\d+)\s*ช(?:ม|ั่วโมง)/);
+  if(hrM){ const km=+hrM[1]*90; pool=pool.filter(c=>parseInt(c.dist)<=km); labels.push(`ขับ ≤ ${hrM[1]} ชม. (~${+hrM[1]*90} กม.)`); }
+  if(/เสาร์นี้.*ว่าง|ว่าง.*เสาร์นี้|เสาร์นี้ต้องว่าง|ที่ยังว่าง|ยังว่าง/.test(t)){ pool=pool.filter(c=>c.slots[0]>0); labels.push('ว่างเสาร์นี้'); }
+  const priceM=text.match(/(?:ไม่เกิน|ต่ำกว่า|งบ)\s*([\d,]+)(?!\s*ช)/);
+  if(priceM){ const mx=parseInt(priceM[1].replace(/,/g,'')); pool=pool.filter(c=>c.price<=mx); labels.push(`งบ ≤ ฿${mx}`); }
+  else if(/ถูก|ประหยัด|งบน้อย/.test(t)){ pool=pool.sort((a,b)=>a.price-b.price).slice(0,4); labels.push('เรียงราคาถูกสุด '); }
+  if(/ยอดนิยม|ฮิต|ดีที่สุด|แนะนำ|popular|top/i.test(t)&&!labels.length){ pool=pool.sort((a,b)=>b.rating-a.rating).slice(0,4); labels.push('เรตติ้งสูงสุด '); }
+
+  const isSearch=labels.length>0||/หา|ค้นหา|อยากไป|มีที่ไหน|ขอ|ที่ไหนดี|ลาน|แคมป์|camp/i.test(t);
+  if(isSearch){
+    if(!labels.length){ pool=CAMPS.slice().sort((a,b)=>b.rating-a.rating).slice(0,5); }
+    if(!pool.length){
+      botSay(`ยังไม่เจอลานที่ตรงเงื่อนไขนั้นเป๊ะๆ ครับ  ลองคลายเงื่อนไขดูไหม?`,
+        {chips:['ดูลานยอดนิยม','ลานใกล้กรุงเทพ','งบไม่เกิน 200']});
+      return;
+    }
+    pool=pool.slice(0,5); S.lastCamps=pool;
+    const cond=labels.length?`ตามเงื่อนไข ${labels.map(l=>`<span class="hl">${l}</span>`).join(' + ')}`:`ที่คนชอบมากที่สุดตอนนี้`;
+    botSay(`เจอ <b>${pool.length} ลาน</b> ${cond} <br><small>แตะการ์ดเพื่อเปิดรายละเอียด เช็ควันว่าง แล้วจองต่อได้เลย</small>`,
+      {cards:pool,chips:[`จอง${pool[0].name.split(' ')[0]}`,'ชวนเพื่อนโหวตลานพวกนี้','ขอถูกกว่านี้','เพิ่มเงื่อนไข: มีไฟฟ้า']});
+    return;
+  }
+
+  /* --- fallback --- */
+  botSay(`ผมถนัดเรื่องลานกางเต็นท์สุดๆ ครับ  ลองถามแบบนี้ดูได้<br><small>เช่น "หาลานริมน้ำใกล้กรุงเทพ" · "จองภูทับเบิกเสาร์นี้" · "หน้าฝนไปแคมป์ที่ไหนดี"</small>`,
+    {chips:['หาลานทะเลหมอก','ลานใกล้กรุงเทพ','จองเลย','มือใหม่ต้องเตรียมอะไร']});
+}
+
+/* ================= LIVE VOICE MODE ================= */
+const L={active:false,camp:null,bk:null,booked:null,demo:false,demoIdx:0,timers:[]};
+const liveEl=$('#live'), lvStage=$('#lvStage'), lvStatus=$('#lvStatus'), lvUserCap=$('#lvUserCap'), lvAICap=$('#lvAICap');
+const SRClass=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null, lvListening=false;
+
+/* น้องกองไฟ orb — วงแหวนเรืองแสง + แกนสว่าง + เส้นพลังงานร้อยผ่าน + ฝุ่นดาว */
+const lvCv=$('#lvCanvas'), lvCtx=lvCv.getContext('2d');
+const LW=1120, LH=520;
+lvCv.width=LW; lvCv.height=LH;
+let lvAmp=0, lvTick=0;
+const OCX=LW/2, OCY=LH/2, RING=104;
+const DUST=Array.from({length:34},()=>({
+  a:Math.random()*Math.PI*2,
+  d:RING*(0.75+Math.random()*0.75),
+  sp:(Math.random()-.5)*.006,
+  r:.6+Math.random()*1.4,
+  tw:Math.random()*Math.PI*2,
+  ts:.03+Math.random()*.05
+}));
+function lvOrbLoop(){
+  requestAnimationFrame(lvOrbLoop);
+  if(!liveEl.classList.contains('open')) return;
+  const cl=liveEl.classList;
+  const st=cl.contains('speaking')?'speaking':cl.contains('listening')?'listening':cl.contains('thinking')?'thinking':'idle';
+  const target= st==='speaking' ? 25+11*Math.abs(Math.sin(lvTick*.11))+Math.random()*5
+             : st==='listening' ? 19+Math.random()*6
+             : st==='thinking'  ? 13+6*Math.sin(lvTick*.07)
+             : 6+2*Math.sin(lvTick*.035);
+  lvAmp+=(target-lvAmp)*.08; lvTick++;
+  const e=lvAmp/30; /* energy 0..1 */
+  lvCtx.clearRect(0,0,LW,LH);
+  lvCtx.globalCompositeOperation='lighter';
+
+  /* 1) halo รอบวง — แสงฟุ้งนุ่มๆ ขยายตามเสียง */
+  let g=lvCtx.createRadialGradient(OCX,OCY,RING*.3,OCX,OCY,RING*(1.7+e*.5));
+  g.addColorStop(0,`rgba(140,215,255,${.04+e*.05})`);
+  g.addColorStop(.55,`rgba(90,180,240,${.025+e*.035})`);
+  g.addColorStop(1,'rgba(90,180,240,0)');
+  lvCtx.fillStyle=g;
+  lvCtx.beginPath(); lvCtx.arc(OCX,OCY,RING*2.3,0,6.29); lvCtx.fill();
+
+  /* 2) เส้นพลังงานร้อยผ่านแนวนอน — envelope พีคกลาง เรียวเป็นเส้นบางที่ปลาย */
+  const strands=[
+    {c:'200,240,255',a:.7,f:.021,sp:.09,ph:0,w:1.6},
+    {c:'56,189,248', a:.5,f:.014,sp:.06,ph:2.2,w:1.3},
+    {c:'153,246,228',a:.35,f:.028,sp:.115,ph:4.1,w:1.1},
+  ];
+  for(const sd of strands){
+    lvCtx.beginPath();
+    for(let x=0;x<=LW;x+=5){
+      const dx=(x-OCX)/(LW*.5);
+      const env=Math.exp(-dx*dx*3.2); /* gaussian รอบศูนย์กลาง */
+      const y=OCY + (Math.sin(x*sd.f+lvTick*sd.sp+sd.ph)
+                   +.5*Math.sin(x*sd.f*2.3-lvTick*sd.sp*1.4+sd.ph))*lvAmp*1.15*env;
+      x===0?lvCtx.moveTo(x,y):lvCtx.lineTo(x,y);
+    }
+    const sg=lvCtx.createLinearGradient(0,0,LW,0);
+    const sa=sd.a*(.4+e*.42);
+    sg.addColorStop(0,`rgba(${sd.c},0)`);
+    sg.addColorStop(.12,`rgba(${sd.c},${sa*.25})`);
+    sg.addColorStop(.5,`rgba(${sd.c},${sa})`);
+    sg.addColorStop(.88,`rgba(${sd.c},${sa*.25})`);
+    sg.addColorStop(1,`rgba(${sd.c},0)`);
+    lvCtx.strokeStyle=sg;
+    lvCtx.lineWidth=sd.w;
+    lvCtx.shadowColor=`rgba(${sd.c},.9)`;
+    lvCtx.shadowBlur=10+e*9;
+    lvCtx.stroke();
+  }
+
+  /* 3) วงแหวน */
+  lvCtx.shadowColor='rgba(170,225,255,.9)';
+  lvCtx.shadowBlur=14+e*10;
+  lvCtx.strokeStyle=`rgba(190,232,255,${.4+e*.35})`;
+  lvCtx.lineWidth=2;
+  lvCtx.beginPath(); lvCtx.arc(OCX,OCY,RING,0,6.29); lvCtx.stroke();
+  /* วงนอกจาง */
+  lvCtx.strokeStyle=`rgba(140,210,250,${.12+e*.12})`;
+  lvCtx.lineWidth=1;
+  lvCtx.beginPath(); lvCtx.arc(OCX,OCY,RING*1.16+e*6,0,6.29); lvCtx.stroke();
+  /* ตอนคิด: วงแหวนจุดประหมุน */
+  if(st==='thinking'){
+    for(let i=0;i<42;i++){
+      const a=i/42*6.29+lvTick*.02;
+      const rr=RING*1.06+Math.sin(i*3+lvTick*.15)*5;
+      lvCtx.fillStyle=`rgba(190,232,255,${.15+.35*Math.abs(Math.sin(i+lvTick*.1))})`;
+      lvCtx.beginPath(); lvCtx.arc(OCX+Math.cos(a)*rr,OCY+Math.sin(a)*rr,1.4,0,6.29); lvCtx.fill();
+    }
+  }
+
+  /* 4) แกนสว่างตรงกลาง */
+  const coreR=16+e*30;
+  g=lvCtx.createRadialGradient(OCX,OCY,0,OCX,OCY,coreR*3.4);
+  g.addColorStop(0,`rgba(240,252,255,${.68+e*.14})`);
+  g.addColorStop(.18,`rgba(190,235,255,${.4+e*.2})`);
+  g.addColorStop(.5,`rgba(90,185,245,${.12+e*.1})`);
+  g.addColorStop(1,'rgba(90,185,245,0)');
+  lvCtx.shadowBlur=0;
+  lvCtx.fillStyle=g;
+  lvCtx.beginPath(); lvCtx.arc(OCX,OCY,coreR*3.4,0,6.29); lvCtx.fill();
+  /* ประกายแนวนอนของแกน (lens flare) */
+  g=lvCtx.createLinearGradient(OCX-RING*1.5,0,OCX+RING*1.5,0);
+  g.addColorStop(0,'rgba(200,240,255,0)');
+  g.addColorStop(.5,`rgba(220,245,255,${.18+e*.18})`);
+  g.addColorStop(1,'rgba(200,240,255,0)');
+  lvCtx.fillStyle=g;
+  lvCtx.fillRect(OCX-RING*1.5,OCY-1.2-e*1.5,RING*3,2.4+e*3);
+
+  /* 5) ฝุ่นดาวรอบวง — เด่นขึ้นตอนคิด/ตอบ */
+  for(const p of DUST){
+    p.a+=p.sp*(1+e*2); p.tw+=p.ts;
+    const x=OCX+Math.cos(p.a)*p.d*1.25;
+    const y=OCY+Math.sin(p.a)*p.d*.8;
+    const al=(.1+.55*Math.abs(Math.sin(p.tw)))*(st==='idle'?.45:1)*(.35+e*.65);
+    lvCtx.fillStyle=`rgba(190,232,255,${al})`;
+    lvCtx.shadowColor='rgba(190,232,255,.8)';
+    lvCtx.shadowBlur=6;
+    lvCtx.beginPath(); lvCtx.arc(x,y,p.r*(1+e*.4),0,6.29); lvCtx.fill();
+  }
+  lvCtx.shadowBlur=0;
+  lvCtx.globalCompositeOperation='source-over';
+}
+lvOrbLoop();
+
+function lvSetState(s){ liveEl.classList.remove('listening','thinking','speaking'); if(s) liveEl.classList.add(s); }
+function lvT(fn,ms){ const id=setTimeout(fn,ms); L.timers.push(id); return id; }
+function lvClearTimers(){ L.timers.forEach(clearTimeout); L.timers=[]; }
+
+function openLive(){
+  L.active=true; L.demo=false; L.bk=null; L.booked=null;
+  liveEl.classList.add('open');
+  lvUserCap.innerHTML=''; lvAICap.innerHTML='';
+  lvSetState(null);
+  lvStatus.textContent = SRClass ? 'แตะไมค์แล้วพูดได้เลย หรือกดเล่นเดโม' : 'เบราว์เซอร์นี้ไม่รองรับไมค์ — กดเล่นเดโมบทสนทนาได้';
+}
+function closeLive(){
+  L.active=false; L.demo=false; lvClearTimers(); lvStopListen();
+  if(SPK) SPK.stop();
+  try{speechSynthesis.cancel();}catch(e){}
+  liveEl.classList.remove('open'); lvSetState(null);
+  if(L.booked){
+    enterChat();
+    botSay(`สรุปจากบทสนทนาเสียงครับ — จอง <b>${L.booked.camp.name}</b> วัน${L.booked.date} สำเร็จ รหัส <span class="hl">${L.booked.code}</span>`,
+      {chips:['เปิดโหมดทริป (จำลองวันเข้าพัก)','ดูการจองของฉัน','Camp Passport ของฉัน']});
+    L.booked=null;
+  }
+}
+$('#lvClose').onclick=$('#lvEnd').onclick=closeLive;
+
+/* stage: generative UI ตามหัวข้อสนทนา */
+function lvShow(el){
+  lvStage.classList.add('swap');
+  setTimeout(()=>{ lvStage.innerHTML=''; if(el) lvStage.appendChild(el); lvStage.classList.remove('swap'); lvStage.scrollTop=0; },320);
+}
+function lvCards(camps){ const w=renderCards(camps); return w; }
+function lvProg(){
+  const bk=L.bk; const el=document.createElement('div'); el.className='block';
+  el.innerHTML=`
+    <div class="rowline"><span>ลาน</span><b>${bk.camp.name}</b></div>
+    <div class="rowline"><span>วัน</span><b>${bk.date||'<span style="color:var(--ink-faint)">กำลังถาม…</span>'}</b></div>
+    <div class="rowline"><span>จำนวนคน</span><b>${bk.people?bk.people+' คน':'<span style="color:var(--ink-faint)">รออยู่…</span>'}</b></div>
+    <div class="rowline"><span>เต็นท์</span><b>${bk.gear||'<span style="color:var(--ink-faint)">รออยู่…</span>'}</b></div>
+    ${bk.total?`<div class="rowline"><span>รวม</span><span class="total">฿${THB(bk.total)}</span></div>`:''}`;
+  return el;
+}
+function lvTicket(camp,code,bk){
+  const tk=document.createElement('div'); tk.className='ticket';
+  tk.innerHTML=`
+    <div class="t-top"><div class="t-emoji">${campIcon(camp,'cicon mid')}</div>
+      <div><h4>${camp.name}</h4><div class="sub">${bk.date} · ${bk.people} คน · ${bk.gear}</div></div></div>
+    <div class="t-code"><div><div style="font-size:.66rem;color:var(--ink-faint);letter-spacing:.2em">BOOKING CODE</div><div class="code">${code}</div></div><div class="qr"></div></div>`;
+  return tk;
+}
+
+/* speech out — พูดทีละประโยค caption ไฮไลต์ตามจังหวะ, จับเวลาด้วย onend จริง + safety timer */
+let lvVoice=null;
+function pickVoice(){
+  try{
+    const vs=speechSynthesis.getVoices();
+    lvVoice = vs.find(v=>/th[-_]TH/i.test(v.lang)&&/google/i.test(v.name))
+           || vs.find(v=>/th[-_]TH/i.test(v.lang)&&/premwadee|achara|niwat|kanya|natural|neural/i.test(v.name))
+           || vs.find(v=>/^th/i.test(v.lang)) || null;
+  }catch(e){}
+}
+try{ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }catch(e){}
+let SPK=null;
+function speak(txt,done){
+  lvSetState('speaking');
+  lvStatus.textContent=SRClass&&!L.demo?'กำลังพูด… แตะไมค์เพื่อพูดแทรกได้':'กำลังพูด…';
+  const plain=txt.replace(/<[^>]+>/g,'');
+  /* แบ่งเป็นประโยคที่ลงท้ายธรรมชาติ เพื่อจังหวะพูด-หยุดแบบคน */
+  let parts=plain.split(/(?<=ครับ|นะครับ|คะ|ค่ะ)\s+/).filter(p=>p.trim());
+  if(parts.length<=1&&plain.length>110){
+    parts=[]; let cur='';
+    plain.split(' ').forEach(w=>{ if((cur+' '+w).length>90){parts.push(cur);cur=w;} else cur=cur?cur+' '+w:w; });
+    if(cur) parts.push(cur);
+  }
+  if(!parts.length) parts=[plain];
+  lvAICap.innerHTML=parts.map(p=>`<span class="cap">${p}</span>`).join(' ');
+  const spans=[...lvAICap.querySelectorAll('.cap')];
+  if(SPK) SPK.stop();
+  const sess={cancelled:false};
+  sess.stop=()=>{ sess.cancelled=true; try{speechSynthesis.cancel();}catch(e){} };
+  SPK=sess;
+  try{speechSynthesis.cancel();}catch(e){}
+  let i=0;
+  const finish=()=>{ if(sess.finished) return; sess.finished=true; if(sess.cancelled) return; lvSetState(null); done&&done(); };
+  const next=()=>{
+    if(sess.cancelled||!L.active) return;
+    if(i>=parts.length){ finish(); return; }
+    spans.forEach((s,j)=>{ s.classList.toggle('on',j===i); if(j<i) s.classList.add('seen'); });
+    const part=parts[i++];
+    let advanced=false;
+    const adv=()=>{ if(advanced||sess.cancelled) return; advanced=true; clearTimeout(guard); setTimeout(next,150); };
+    const guard=setTimeout(adv, Math.max(1200, part.length*80)+400); /* safety net ถ้า TTS เงียบ */
+    L.timers.push(guard);
+    try{
+      const u=new SpeechSynthesisUtterance(part.replace(/,/g,''));
+      u.lang='th-TH'; u.rate=.97; u.pitch=1.03;
+      if(lvVoice) u.voice=lvVoice;
+      u.onend=()=>adv();
+      u.onerror=()=>adv();
+      speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  next();
+}
+
+/* speech in */
+function lvStartListen(){
+  if(!SRClass||!L.active||L.demo) return;
+  try{
+    rec=new SRClass(); rec.lang='th-TH'; rec.interimResults=true; rec.maxAlternatives=1;
+    rec.onresult=e=>{
+      let interim='',final='';
+      for(const r of e.results){ if(r.isFinal) final+=r[0].transcript; else interim+=r[0].transcript; }
+      lvUserCap.innerHTML=`<b>คุณ</b>${final||interim}`;
+      if(final){ lvStopListen(); lvProcess(final); }
+    };
+    rec.onerror=ev=>{ lvListening=false; lvStatus.textContent= ev.error==='not-allowed'?'ไม่ได้รับสิทธิ์ไมค์ — กดเล่นเดโมแทนได้':'ไมค์สะดุด แตะไมค์อีกครั้ง'; lvSetState(null); };
+    rec.onend=()=>{ lvListening=false; };
+    rec.start(); lvListening=true;
+    lvSetState('listening'); lvStatus.textContent='กำลังฟัง… พูดได้เลย';
+  }catch(e){ lvStatus.textContent='เปิดไมค์ไม่ได้ — กดเล่นเดโมแทน'; }
+}
+function lvStopListen(){ try{rec&&rec.stop();}catch(e){} lvListening=false; }
+$('#lvMic').onclick=()=>{
+  if(L.demo) return;
+  /* barge-in: แตะไมค์ระหว่าง AI พูด = ตัดจบแล้วฟังทันที */
+  if(liveEl.classList.contains('speaking')&&SPK){ SPK.stop(); lvSetState(null); lvStartListen(); return; }
+  lvListening?lvStopListen():lvStartListen();
+};
+
+/* intent brain — reuse ข้อมูล/ตัวกรองชุดเดียวกับแชท */
+function lvIntent(text){
+  const t=text;
+  if(/วางสาย|พอแค่นี้|จบ(การสนทนา|เลย)|ปิดโหมด|บ๊ายบาย/.test(t)) return {say:'ได้ครับ ผมสรุปทุกอย่างไว้ในแชทให้แล้ว ขอให้เจอหมอกสวยๆ นะครับ',end:true};
+  const bk=L.bk;
+  if(bk){
+    if(/ยกเลิก/.test(t)){ L.bk=null; return {say:'ยกเลิกให้แล้วครับ อยากดูลานอื่น หรือถามอะไรต่อได้เลยครับ'}; }
+    if(bk.step==='date'){
+      const w=weekends.find(x=>t.includes(x.split(' ')[1]))||(/เสาร์นี้|วันนี้เลย/.test(t)?weekends[0]:/ถัดไป|เสาร์หน้า|อาทิตย์หน้า/.test(t)?weekends[1]:null);
+      if(w){ bk.date=w; bk.step='people'; return {say:`วัน${w} นะครับ ไปกันกี่คนครับ`,visual:lvProg}; }
+      return {say:`ที่ ${bk.camp.name.split(' ')[0]} มีว่างวัน${weekends[0]} และ ${weekends[1]} ครับ สะดวกวันไหนครับ`,visual:lvProg};
+    }
+    if(bk.step==='people'){
+      const th={'หนึ่ง':1,'สอง':2,'สาม':3,'สี่':4,'ห้า':5,'หก':6};
+      const m=t.match(/\d+/); let n=m?+m[0]:(Object.keys(th).find(k=>t.includes(k))?th[Object.keys(th).find(k=>t.includes(k))]:null);
+      if(n){ bk.people=Math.min(n,10); bk.step='gear'; return {say:`${bk.people} คนครับ ใช้เต็นท์ตัวเอง หรือให้ผมจัดเช่าเต็นท์ให้ เพิ่มสามร้อยห้าสิบบาทครับ`,visual:lvProg}; }
+      return {say:'กี่คนครับ บอกเป็นตัวเลขได้เลย'};
+    }
+    if(bk.step==='gear'){
+      if(/ตัวเอง|มีเต็นท์/.test(t)){ bk.gear='ใช้เต็นท์ตัวเอง'; bk.fee=0; }
+      else if(/เช่า|จัดให้|จัดมา/.test(t)){ bk.gear='เช่าเต็นท์'; bk.fee=350; }
+      else return {say:'เอาเต็นท์ตัวเอง หรือให้เช่าครับ'};
+      bk.step='confirm'; bk.total=bk.camp.price*bk.people+bk.fee;
+      return {say:`สรุปนะครับ ${bk.camp.name} วัน${bk.date} ${bk.people} คน ${bk.gear} รวม ${THB(bk.total)} บาท ยืนยันเลยไหมครับ`,visual:lvProg};
+    }
+    if(bk.step==='confirm'){
+      if(/ยืนยัน|เอาเลย|โอเค|ตกลง|จัดไป|จองเลย/.test(t)){
+        const code='CV-'+String(bk.camp.id).padStart(2,'0')+Math.floor(1000+Math.random()*9000);
+        const rec2={camp:bk.camp,date:bk.date,people:bk.people,gear:bk.gear,fee:bk.fee,total:bk.total,code,nights:1,spot:'A3 · ริมผา วิวเปิด'};
+        S.bookings.push(rec2); L.booked=rec2; const cam=bk.camp; L.bk=null; confetti();
+        return {say:`จองสำเร็จครับ รหัสจองของคุณคือ ${code} ผมส่งตั๋วและใบสรุปไว้ในแชทแล้ว ถึงวันเข้าพักระบบจะเปิดโหมดทริปให้อัตโนมัติครับ`,visual:()=>lvTicket(cam,code,rec2)};
+      }
+      return {say:'พูดว่า ยืนยัน เพื่อจองเลย หรือ ยกเลิก ก็ได้ครับ'};
+    }
+  }
+  if(/สวัสดี|ฮัลโหล|หวัดดี|เทส|hello/i.test(t)) return {say:'สวัสดีครับ ผมผู้ช่วยแคมป์ของแคมป์ไวบ์ อยากไปนอนที่แบบไหนครับ บอกความรู้สึกมาก็ได้'};
+  if(/หมอก.*(มา|ไหม|วันไหน|โอกาส)|พยากรณ์/.test(t)){
+    const c=findCampByName(t)||L.camp||CAMPS[4]; L.camp=c;
+    const s=fogSeries(c); const best=s.reduce((a,b)=>b.p>a.p?b:a);
+    return {say:`ดูให้แล้วครับ สิบสี่วันข้างหน้า ${c.name.split(' ')[0]} วันที่น่าไปที่สุดคือ${best.dw} ที่ ${best.dd} โอกาสเจอหมอก ${best.p} เปอร์เซ็นต์ ขึ้นปฏิทินให้ดูบนจอแล้วครับ อยากให้จองวันนั้นเลยไหม`,visual:()=>fogCal(c).el};
+  }
+  if(/ว่างไหม|ว่างวันไหน|เหลือกี่ที่/.test(t)){
+    const c=findCampByName(t)||L.camp; if(!c) return {say:'อยากเช็ควันว่างของลานไหนครับ'};
+    L.camp=c; const n=c.slots[0];
+    return {say: n>0?`เสาร์นี้ ${c.name.split(' ')[0]} ยังว่าง เหลือ ${n} จุดกางครับ จองเลยไหม`:`เสาร์นี้เต็มแล้วครับ แต่เสาร์ถัดไปยังว่าง ${c.slots[1]} ที่ สนใจไหมครับ`,visual:()=>lvCards([c])};
+  }
+  if(/จอง|เอาอันนี้|เอาที่นี่|ตัวนี้แหละ/.test(t)){
+    const c=findCampByName(t)||L.camp;
+    if(!c) return {say:'อยากจองลานไหนครับ บอกชื่อได้เลย'};
+    L.camp=c; L.bk={camp:c,step:'date'};
+    if(/เสาร์นี้/.test(t)&&c.slots[0]>0){ L.bk.date=weekends[0]; L.bk.step='people';
+      const m=t.match(/(\d+)\s*คน/); if(m){ L.bk.people=+m[1]; L.bk.step='gear';
+        return {say:`${weekends[0]} ${L.bk.people} คนนะครับ ใช้เต็นท์ตัวเองหรือให้จัดเช่าให้ครับ`,visual:lvProg}; }
+      return {say:`ได้เลยครับ ${c.name.split(' ')[0]} วัน${weekends[0]} ไปกันกี่คนครับ`,visual:lvProg}; }
+    return {say:`ได้เลยครับ เริ่มจอง ${c.name.split(' ')[0]} สะดวกวัน${weekends[0]} หรือ ${weekends[1]} ครับ`,visual:lvProg};
+  }
+  const named=findCampByName(t);
+  if(named){ L.camp=named;
+    return {say:`${named.name} อยู่จังหวัด${named.prov} เรตติ้ง ${named.rating} ราคา ${THB(named.price)} บาทต่อคนต่อคืน เด่นเรื่อง${named.tags[0]} ครับ สนใจจองเลย หรือให้เช็คหมอกให้ก่อนครับ`,visual:()=>lvCards([named])};
+  }
+  const mood=MOODS.find(m=>m.re.test(t));
+  if(mood){ const picks=mood.picks.map(([id])=>CAMPS.find(c=>c.id===id)); L.camp=picks[0];
+    return {say:`ฟังดูเป็น${mood.title.split(' — ')[0]}นะครับ ผมคัดมาสามที่ ขึ้นจอให้แล้ว ตัวเด่นคือ ${picks[0].name.split(' ')[0]} ${mood.picks[0][1]} สนใจตัวไหนบอกชื่อได้เลยครับ`,visual:()=>lvCards(picks)};
+  }
+  let pool=CAMPS.slice(),hit=false;
+  FILTERS.forEach(F=>{ if(F.re.test(t)){ pool=pool.filter(F.f); hit=true; }});
+  PROVS.forEach(p=>{ if(t.includes(p)){ pool=pool.filter(c=>c.prov===p); hit=true; }});
+  const pm=t.match(/ไม่เกิน\s*([\d,]+)/); if(pm){ pool=pool.filter(c=>c.price<=parseInt(pm[1].replace(/,/g,''))); hit=true; }
+  if(hit||/หาลาน|มีลาน|แนะนำ|ที่ไหนดี/.test(t)){
+    if(!hit) pool=pool.sort((a,b)=>b.rating-a.rating).slice(0,5);
+    pool=pool.slice(0,5);
+    if(!pool.length) return {say:'เงื่อนไขนี้ยังไม่เจอเลยครับ ลองคลายเงื่อนไขหน่อยไหม'};
+    L.camp=pool[0];
+    return {say:`เจอ ${pool.length} ลานครับ ขึ้นจอให้แล้ว ตัวที่คนชอบสุดคือ ${pool[0].name.split(' ')[0]} เรตติ้ง ${pool[0].rating} สนใจตัวไหนบอกชื่อ หรือถามเรื่องหมอกได้เลยครับ`,visual:()=>lvCards(pool)};
+  }
+  return {say:'ลองบอกว่าอยากได้ลานแบบไหนครับ เช่น ทะเลหมอก ริมน้ำ ใกล้กรุงเทพ หรือบอกความรู้สึกอย่าง อยากไปฮีลใจ ก็ได้ครับ'};
+}
+
+function lvProcess(text){
+  if(!L.active) return;
+  lvUserCap.innerHTML=`<b>คุณ</b>${text}`;
+  lvSetState('thinking'); lvStatus.textContent='กำลังคิด…';
+  lvT(()=>{
+    const r=lvIntent(text);
+    if(r.visual) lvShow(r.visual());
+    speak(r.say,()=>{
+      if(!L.active) return;
+      if(r.end){ closeLive(); return; }
+      if(L.demo){ lvT(nextDemo,900); }
+      else if(SRClass){ lvStartListen(); }
+      else { lvStatus.textContent='กดไมค์หรือเล่นเดโมต่อได้'; }
+    });
+  },550);
+}
+
+/* scripted demo — เล่นเองจนจบการจอง */
+const DEMO=['อยากไปนอนดูทะเลหมอกสักที่ ช่วยหาหน่อย','ภูชี้ฟ้าหมอกจะมาวันไหน','งั้นจองภูชี้ฟ้าเสาร์นี้เลย','ไปกันสองคน','จัดเช่าเต็นท์ให้ด้วย','ยืนยันเลย'];
+function nextDemo(){
+  if(!L.active||!L.demo) return;
+  if(L.demoIdx>=DEMO.length){ L.demo=false; lvStatus.textContent='จบเดโม — แตะไมค์เพื่อคุยเองได้เลย'; return; }
+  const line=DEMO[L.demoIdx++];
+  lvSetState('listening'); lvStatus.textContent='กำลังฟัง… (เดโม)';
+  let i=0; lvUserCap.innerHTML='<b>คุณ</b>';
+  const typer=setInterval(()=>{
+    i+=2; lvUserCap.innerHTML=`<b>คุณ</b>${line.slice(0,i)}`;
+    if(i>=line.length){ clearInterval(typer); lvT(()=>lvProcess(line),350); }
+  },45);
+  L.timers.push(typer);
+}
+$('#lvDemo').onclick=()=>{
+  if(!L.active) return;
+  lvClearTimers(); lvStopListen(); try{speechSynthesis.cancel();}catch(e){}
+  L.demo=true; L.demoIdx=0; L.bk=null;
+  nextDemo();
+};
+
+/* focus input on load */
+setTimeout(()=>inp.focus(),600);
+</script>
+</body>
+</html>
