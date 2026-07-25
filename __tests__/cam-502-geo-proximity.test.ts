@@ -9,7 +9,9 @@
  *           missing geo rows excluded
  *   - BR-3  resolvePlace: proximity marker + province -> `near` (not
  *           `province`); bare Bangkok under proximity; exact-province path
- *           (CAM-501, unchanged) stays byte-identical with no marker
+ *           (CAM-501) unchanged with no marker, EXCEPT bare/exact Bangkok
+ *           which now resolves to province="Bangkok" too (CAM-504 GEO-2 fix
+ *           — see the [CAM-504] cases below; previously unresolved `{}`)
  *   - BR-2/EC-1 executeSearchCampsites near-path: centroid lookup, bbox
  *           pre-filter shape, haversine ascending sort, MAX_NEAR_KM radius
  *           cap, candidate-count cap (CAM-344/EC-4), AND with terrain
@@ -118,8 +120,18 @@ describe('CAM-502 resolvePlace — BR-3 proximity ("ใกล้/แถว X") v
     expect(resolvePlace('ลานกางเต็นท์ใกล้กรุงเทพ')).toEqual({ near: 'กรุงเทพ' });
   });
 
-  it('[AC-3] "ในกรุงเทพ" -> {} (exact/bare Bangkok stays unresolved here, unchanged from P1 — the model maps it to province="Bangkok" on its own without this pre-pass firing)', () => {
-    expect(resolvePlace('ในกรุงเทพ')).toEqual({});
+  // CAM-504 (GEO-2 fix) — SUPERSEDES this test's original P2-era pinned
+  // behavior. Leaving "ในกรุงเทพ" fully unresolved (`{}`, no hint at all)
+  // let the model reach for `near` once P2 taught it that capability — the
+  // real GEO-2 regression. A bare/exact Bangkok mention with NO proximity
+  // marker must resolve to an EXACT `province` hint, same as every other
+  // province already does.
+  it('[AC-3/CAM-504] "ในกรุงเทพ" -> province="Bangkok" (exact, no proximity marker)', () => {
+    expect(resolvePlace('ในกรุงเทพ')).toEqual({ province: 'Bangkok' });
+  });
+
+  it('[CAM-504] bare "กรุงเทพ" with no "ใน" and no proximity marker -> province="Bangkok" (same exact path)', () => {
+    expect(resolvePlace('กรุงเทพมีลานกางเต็นท์ไหม')).toEqual({ province: 'Bangkok' });
   });
 
   it('[normal] proximity marker + a full formal province name -> near (English canonical)', () => {

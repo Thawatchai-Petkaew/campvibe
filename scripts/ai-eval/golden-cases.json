@@ -626,5 +626,18 @@
       "params": { "near": "เขาใหญ่" }
     },
     "guardrail": false
+  },
+  {
+    "id": "GEO-4",
+    "group": "geo-proximity",
+    "zone": "B",
+    "utterance": "กรุงเทพมีลานกางเต็นท์ไหม",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "province": "Bangkok" },
+      "strictParams": true
+    },
+    "guardrail": true
   }
 ]
