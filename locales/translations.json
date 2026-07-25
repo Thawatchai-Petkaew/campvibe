@@ -636,7 +636,9 @@
             "SWMH": "Swimming hole",
             "FILD": "Field",
             "CAVE": "Cave",
-            "FARM": "Farm"
+            "FARM": "Farm",
+            "HOTW": "Hot water",
+            "LIGT": "Night lighting"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1658,7 +1660,9 @@
             "SWMH": "แอ่งเล่นน้ำ",
             "FILD": "ทุ่ง",
             "CAVE": "ถ้ำ",
-            "FARM": "ไร่ / ฟาร์มสเตย์"
+            "FARM": "ไร่ / ฟาร์มสเตย์",
+            "HOTW": "น้ำอุ่น",
+            "LIGT": "ไฟส่องสว่างตลอดคืน"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",

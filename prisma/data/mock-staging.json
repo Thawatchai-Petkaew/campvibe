@@ -644,7 +644,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,GRIL,REST,CART,SINK",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CART,REST,LIGT,SINK",
           "externalFacilities": "MIBC,LOTS,SVEL",
           "equipment": "POWE,CHAI,ICBK,TENT",
           "activities": "SWIM,SURF,FISH",
@@ -693,7 +693,7 @@
               "pricePerNight": 850,
               "pricePerSite": 1700,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW"
+              "nearFacilities": "HOTW,SHOW"
             },
             {
               "zone": "โซน A",
@@ -705,7 +705,7 @@
               "pricePerNight": 750,
               "pricePerSite": 1450,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,POTA,WIFI,GRIL"
+              "nearFacilities": "TOIL,HOTW,POTA,CART"
             },
             {
               "zone": "โซนเงียบ",
@@ -756,7 +756,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,SINK,GRIL,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK,CART,CAFE",
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "CHAI,FYST,POWE",
           "activities": "BOAT,SURF,SWIM,FISH",
@@ -853,7 +853,7 @@
               "pricePerNight": 2800,
               "pricePerSite": 4500,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW"
+              "nearFacilities": "POTA"
             }
           ],
           "imageManifest": [
@@ -908,7 +908,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR,CABI",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART,SINK,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT,SINK,WIFI",
           "externalFacilities": "LOTS,MIBC",
           "equipment": "POWE,CHAI,FYST,ICBK",
           "activities": "BOAT,SWIM",
@@ -957,7 +957,7 @@
               "pricePerNight": 800,
               "pricePerSite": 1500,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SHOW,CART"
+              "nearFacilities": "SHOW,TOIL,LIGT"
             },
             {
               "zone": "ริมน้ำ",
@@ -969,7 +969,7 @@
               "pricePerNight": 700,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,WIFI,GRIL"
+              "nearFacilities": "REST,WIFI,CART"
             },
             {
               "zone": "โซน B",
@@ -981,7 +981,7 @@
               "pricePerNight": 900,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SINK,FEIC,CAFE"
+              "nearFacilities": "TOIL,GRIL,FEIC,WIFI"
             }
           ],
           "imageManifest": [
@@ -1051,7 +1051,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC,GRIL,CAFE,REST,CART",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK,GRIL,CAFE,REST,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "FYST,TENT,ICBK",
           "activities": "FISH,SWIM,BOAT,SURF",
@@ -1100,7 +1100,7 @@
               "pricePerNight": 800,
               "pricePerSite": 1100,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,CART,WIFI"
+              "nearFacilities": "SHOW,LIGT,HOTW"
             },
             {
               "zone": "โซน C",
@@ -1112,7 +1112,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1350,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,SINK,CAFE,REST"
+              "nearFacilities": "FEIC,SINK,CAFE,GRIL"
             },
             {
               "zone": "โซน B",
@@ -1124,7 +1124,7 @@
               "pricePerNight": 800,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,SHOW,WIFI,CART"
+              "nearFacilities": "SINK,POTA,WIFI,LIGT"
             }
           ],
           "imageManifest": [
@@ -1162,7 +1162,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART,SINK,GRIL,REST",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT,GRIL,CART,FEIC",
           "externalFacilities": "LOTS",
           "equipment": "CHAI,TENT,ICBK,POWE,FYST",
           "activities": "BOAT,FISH,SURF,SWIM",
@@ -1223,7 +1223,7 @@
               "pricePerNight": 950,
               "pricePerSite": 1600,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,REST"
+              "nearFacilities": "GRIL,REST"
             },
             {
               "zone": "โซน B",
@@ -1235,7 +1235,7 @@
               "pricePerNight": 850,
               "pricePerSite": 1450,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,TOIL"
+              "nearFacilities": "POTA,TOIL"
             },
             {
               "zone": "โซน VIP",
@@ -1247,7 +1247,7 @@
               "pricePerNight": 650,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,TOIL,CART"
+              "nearFacilities": "GRIL,TOIL,LIGT"
             },
             {
               "zone": "โซนเงียบ",
@@ -1259,7 +1259,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1350,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,CART"
+              "nearFacilities": "CAFE,LIGT"
             }
           ],
           "imageManifest": [
@@ -1297,7 +1297,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART,REST,GRIL,FEIC,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT,FEIC,CART,REST,SINK",
           "externalFacilities": "SVEL",
           "equipment": "FYST,CHAI,TENT",
           "activities": "FISH,SURF",
@@ -1346,7 +1346,7 @@
               "pricePerNight": 750,
               "pricePerSite": 1500,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "CART"
             },
             {
               "zone": "โซน A",
@@ -1382,7 +1382,7 @@
               "pricePerNight": 650,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,CART,WIFI,REST"
+              "nearFacilities": "SINK,LIGT,WIFI,FEIC"
             },
             {
               "zone": "โซน B",
@@ -1394,7 +1394,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,CAFE,REST"
+              "nearFacilities": "LIGT,CAFE,REST"
             }
           ],
           "imageManifest": [
@@ -1473,7 +1473,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,RECR",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,SINK,FEIC,GRIL",
+          "facilities": "TOIL,SHOW,POTA,HOTW,GRIL,SINK,CART",
           "externalFacilities": "LOTS,MIBC",
           "equipment": "ICBK,TENT,FYST,CHAI,POWE",
           "activities": "SWIM,FISH,BOAT",
@@ -1522,7 +1522,7 @@
               "pricePerNight": 850,
               "pricePerSite": 1300,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,FEIC"
+              "nearFacilities": "CART,FEIC"
             },
             {
               "zone": "โซนเงียบ",
@@ -1534,7 +1534,7 @@
               "pricePerNight": 800,
               "pricePerSite": 1700,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,GRIL,POTA,CART"
+              "nearFacilities": "TOIL,CART,HOTW,LIGT"
             },
             {
               "zone": "โซน B",
@@ -1546,7 +1546,7 @@
               "pricePerNight": 850,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน VIP",
@@ -2044,7 +2044,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,WIFI,REST,MIMT",
+          "facilities": "TOIL,SHOW,POTA,GRIL,ELEC,FEDW,LIGT",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,BLKT,POWE,TFAN,CHAI,LEDL",
           "activities": "LIVE,HORS",
@@ -2093,7 +2093,7 @@
               "pricePerNight": 400,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WIFI,MIMT,CAFE"
+              "nearFacilities": "SHOW,ELEC,LIGT,CAFE"
             },
             {
               "zone": "วิวหลัก",
@@ -2105,7 +2105,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน A",
@@ -2165,7 +2165,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,GRIL,CAFE,MIMT",
+          "facilities": "TOIL,SHOW,POTA,MIMT,CAFE,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "POWE,BLKT,CHAI,TFAN,TENT,LEDL",
           "activities": "HORS,WILD,HIKI",
@@ -2214,7 +2214,7 @@
               "pricePerNight": 450,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,CAFE,POTA,TOIL"
+              "nearFacilities": "SHOW,WIFI,POTA,TOIL"
             },
             {
               "zone": "ริมน้ำ",
@@ -2226,7 +2226,7 @@
               "pricePerNight": 400,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซน C",
@@ -2238,7 +2238,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,REST,ELEC,MIMT"
+              "nearFacilities": "ELEC,FEDW,REST,LIGT"
             },
             {
               "zone": "โซน A",
@@ -2250,7 +2250,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "MIMT"
             },
             {
               "zone": "โซนเงียบ",
@@ -2262,7 +2262,7 @@
               "pricePerNight": 400,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,WIFI,ELEC,SHOW"
+              "nearFacilities": "FEDW,ELEC,REST,POTA"
             },
             {
               "zone": "วิวหลัก",
@@ -2274,7 +2274,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "GRIL"
             }
           ],
           "imageManifest": [
@@ -2321,7 +2321,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,GRIL,FEDW,REST,WIFI,MIMT",
+          "facilities": "TOIL,SHOW,POTA,MIMT,GRIL,FEDW,ELEC,LIGT",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TFAN,POWE,LEDL,TENT,CHAI",
           "activities": "HORS,WILD",
@@ -2370,7 +2370,7 @@
               "pricePerNight": 1750,
               "pricePerSite": 3200,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SHOW,TOIL"
+              "nearFacilities": "CAFE,POTA,TOIL"
             },
             {
               "zone": "โซน C",
@@ -2382,7 +2382,7 @@
               "pricePerNight": 1450,
               "pricePerSite": 2100,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,FEDW,REST"
+              "nearFacilities": "FEDW,GRIL,MIMT"
             },
             {
               "zone": "โซนเงียบ",
@@ -2406,7 +2406,7 @@
               "pricePerNight": 1700,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,TOIL,WIFI"
+              "nearFacilities": "POTA,TOIL,WIFI"
             },
             {
               "zone": "โซน B",
@@ -2418,7 +2418,7 @@
               "pricePerNight": 2000,
               "pricePerSite": 4150,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -2430,7 +2430,7 @@
               "pricePerNight": 1850,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,POTA"
+              "nearFacilities": "ELEC,CAFE"
             }
           ],
           "imageManifest": [
@@ -2484,7 +2484,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,FEDW,WATE,WIFI,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WATE,HOTW,GRIL,LIGT",
           "externalFacilities": "MAKT",
           "equipment": "CHAI,SSTV,GDST,LSTV,FYST",
           "activities": "FISH,BOAT",
@@ -2533,7 +2533,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,GRIL"
+              "nearFacilities": "GRIL,TOIL,SINK"
             },
             {
               "zone": "โซน B",
@@ -2545,7 +2545,7 @@
               "pricePerNight": 500,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "ริมน้ำ",
@@ -2557,7 +2557,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,GRIL,WATE,SHOW"
+              "nearFacilities": "WATE,FEDW,LIGT,SHOW"
             },
             {
               "zone": "โซน C",
@@ -2569,7 +2569,7 @@
               "pricePerNight": 400,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,SINK"
+              "nearFacilities": "GRIL,SHOW,WATE"
             }
           ],
           "imageManifest": [
@@ -2615,7 +2615,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WIFI,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,WATE,GRIL,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,FYST",
           "activities": "BOAT,SWIM",
@@ -2664,7 +2664,7 @@
               "pricePerNight": 2950,
               "pricePerSite": 6250,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW,FEDW,TOIL"
+              "nearFacilities": "CAFE,POTA,HOTW,TOIL"
             },
             {
               "zone": "ริมน้ำ",
@@ -2676,7 +2676,7 @@
               "pricePerNight": 2200,
               "pricePerSite": 4800,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "CAFE"
             },
             {
               "zone": "โซน B",
@@ -2688,7 +2688,7 @@
               "pricePerNight": 2350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,PICN,WATE"
+              "nearFacilities": "SINK,PICN,LIGT"
             },
             {
               "zone": "โซน C",
@@ -3061,7 +3061,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART,CAFE,REST,FEDW",
+          "facilities": "TOIL,SHOW,POTA,LIGT,CAFE,REST,WATE",
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI,FYST,ICBK",
           "activities": "SWIM,FISH",
@@ -3110,7 +3110,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,CAFE,POTA,SHOW"
+              "nearFacilities": "WATE,REST,CAFE,SHOW"
             },
             {
               "zone": "ริมน้ำ",
@@ -3122,7 +3122,7 @@
               "pricePerNight": 600,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,POTA,PICN"
+              "nearFacilities": "WATE,CAFE,CART"
             },
             {
               "zone": "โซน B",
@@ -3134,7 +3134,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "CART"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน C",
@@ -3146,7 +3146,7 @@
               "pricePerNight": 600,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,SHOW,FEDW"
+              "nearFacilities": "WIFI,POTA,WATE"
             },
             {
               "zone": "โซน A",
@@ -3158,7 +3158,7 @@
               "pricePerNight": 450,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,POTA,WATE,CAFE"
+              "nearFacilities": "REST,POTA,HOTW,WIFI"
             },
             {
               "zone": "โซนเงียบ",
@@ -3170,7 +3170,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,WIFI"
+              "nearFacilities": "POTA,FEDW"
             }
           ],
           "imageManifest": [
@@ -3232,7 +3232,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI,RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,WIFI,FEDW,REST",
+          "facilities": "TOIL,SHOW,POTA,WIFI,CART,PICN",
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST,ICBK",
           "activities": "SWIM,FISH,WILD",
@@ -3281,7 +3281,7 @@
               "pricePerNight": 450,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,CART,POTA,WATE"
+              "nearFacilities": "PICN,HOTW,CAFE,CART"
             },
             {
               "zone": "โซนเงียบ",
@@ -3293,7 +3293,7 @@
               "pricePerNight": 450,
               "pricePerSite": 950,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,CART,FEDW"
+              "nearFacilities": "REST,LIGT,CART"
             },
             {
               "zone": "โซน C",
@@ -3305,7 +3305,7 @@
               "pricePerNight": 700,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซน VIP",
@@ -3317,7 +3317,7 @@
               "pricePerNight": 750,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "WATE"
             },
             {
               "zone": "วิวหลัก",
@@ -3329,7 +3329,7 @@
               "pricePerNight": 600,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,FEDW,WATE"
+              "nearFacilities": "CAFE,WATE,HOTW"
             }
           ],
           "imageManifest": [
@@ -3951,7 +3951,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,REST",
+          "facilities": "TOIL,SHOW,POTA,ELEC,REST",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,POWE,LEDL,CHAI,BLKT,TFAN",
           "activities": "HORS,WILD,HIKI,LIVE",
@@ -4000,7 +4000,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,ELEC"
+              "nearFacilities": "CAFE,FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -4024,7 +4024,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,CAFE,WIFI,POTA"
+              "nearFacilities": "MIMT,WIFI,ELEC,POTA"
             }
           ],
           "imageManifest": [
@@ -4144,7 +4144,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "PICN"
             },
             {
               "zone": "ริมน้ำ",
@@ -4156,7 +4156,7 @@
               "pricePerNight": 600,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "วิวหลัก",
@@ -4168,7 +4168,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,WATE,TOIL,CAFE"
+              "nearFacilities": "LIGT,HOTW,TOIL,CAFE"
             },
             {
               "zone": "โซน A",
@@ -4180,7 +4180,7 @@
               "pricePerNight": 550,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WIFI"
+              "nearFacilities": "POTA,FEDW"
             }
           ],
           "imageManifest": [
@@ -4210,7 +4210,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,WIFI,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,GRIL,LIGT",
           "externalFacilities": "MAKT",
           "equipment": "FYST,TENT,GDST,LSTV,ICBK",
           "activities": "FISH,SWIM",
@@ -4259,7 +4259,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SINK"
+              "nearFacilities": "GRIL,WATE"
             },
             {
               "zone": "โซนเงียบ",
@@ -4271,7 +4271,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,FEDW,GRIL"
+              "nearFacilities": "TOIL,HOTW,SINK"
             },
             {
               "zone": "โซน C",
@@ -4283,7 +4283,7 @@
               "pricePerNight": 450,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,TOIL,CAFE"
+              "nearFacilities": "POTA,TOIL,WIFI"
             },
             {
               "zone": "โซนครอบครัว",
@@ -4295,7 +4295,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,POTA,WATE"
+              "nearFacilities": "SINK,PICN,LIGT"
             }
           ],
           "imageManifest": [
@@ -4669,7 +4669,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WATE,REST,CART,PICN",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI,LIGT,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "FYST,GDST,TENT,ICBK",
           "activities": "FISH,WILD,SWIM",
@@ -4718,7 +4718,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "WATE"
             },
             {
               "zone": "โซน B",
@@ -4730,7 +4730,7 @@
               "pricePerNight": 400,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW"
+              "nearFacilities": "FEDW,POTA"
             },
             {
               "zone": "โซน C",
@@ -4742,7 +4742,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,REST,SHOW"
+              "nearFacilities": "CART,PICN,POTA"
             },
             {
               "zone": "โซน A",
@@ -4754,7 +4754,7 @@
               "pricePerNight": 450,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,WATE,CAFE,SHOW"
+              "nearFacilities": "POTA,HOTW,REST,SHOW"
             },
             {
               "zone": "วิวหลัก",
@@ -4766,7 +4766,7 @@
               "pricePerNight": 600,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "CART"
+              "nearFacilities": "LIGT"
             }
           ],
           "imageManifest": [
@@ -4830,7 +4830,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CART,FEDW,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WATE,REST",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,TENT,FYST,GDST",
           "activities": "WILD,SWIM",
@@ -4879,7 +4879,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "CAFE"
             },
             {
               "zone": "ริมน้ำ",
@@ -4891,7 +4891,7 @@
               "pricePerNight": 550,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,FEDW,CAFE,REST"
+              "nearFacilities": "PICN,CART,REST,FEDW"
             },
             {
               "zone": "วิวหลัก",
@@ -4903,7 +4903,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,CART"
+              "nearFacilities": "PICN,TOIL,LIGT"
             },
             {
               "zone": "โซน B",
@@ -4915,7 +4915,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,WIFI,REST"
+              "nearFacilities": "LIGT,PICN,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -4927,7 +4927,7 @@
               "pricePerNight": 600,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA,PICN"
+              "nearFacilities": "POTA,SHOW,FEDW"
             }
           ],
           "imageManifest": [
@@ -4982,7 +4982,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WIFI,GRIL",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,GRIL,SINK",
           "externalFacilities": "MAKT",
           "equipment": "ICBK,LSTV,TENT,CHAI,GDST,SSTV,FYST",
           "activities": "FISH,BOAT",
@@ -5031,7 +5031,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "WATE"
             },
             {
               "zone": "โซน A",
@@ -5043,7 +5043,7 @@
               "pricePerNight": 500,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,FEDW,WATE,POTA"
+              "nearFacilities": "CAFE,HOTW,LIGT,PICN"
             },
             {
               "zone": "โซนครอบครัว",
@@ -5055,7 +5055,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW,GRIL"
+              "nearFacilities": "PICN,SHOW,SINK"
             },
             {
               "zone": "โซน B",
@@ -5067,7 +5067,7 @@
               "pricePerNight": 450,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "PICN"
             }
           ],
           "imageManifest": [
@@ -5113,7 +5113,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,LIGT,WATE",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,FYST,LSTV",
           "activities": "SWIM,HIKI,BOAT,FISH",
@@ -5162,7 +5162,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,PICN,CAFE"
+              "nearFacilities": "PICN,CAFE,WIFI"
             },
             {
               "zone": "วิวหลัก",
@@ -5174,7 +5174,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "SINK"
             },
             {
               "zone": "โซน C",
@@ -5186,7 +5186,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,CAFE"
+              "nearFacilities": "FEDW,CAFE"
             },
             {
               "zone": "โซนเงียบ",
@@ -5210,7 +5210,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "FEDW"
             }
           ],
           "imageManifest": [
@@ -5757,7 +5757,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,GRIL,CAFE,ELEC",
+          "facilities": "TOIL,SHOW,POTA,MIMT,CAFE,ELEC",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,POWE,BLKT,TFAN,TENT",
           "activities": "LIVE,HORS,HIKI",
@@ -5818,7 +5818,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,WIFI,ELEC"
+              "nearFacilities": "FEDW,ELEC,REST"
             },
             {
               "zone": "โซน C",
@@ -5884,7 +5884,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,GRIL,ELEC",
+          "facilities": "TOIL,SHOW,POTA,MIMT,GRIL,REST",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TFAN,BLKT,LEDL,POWE,TENT",
           "activities": "LIVE,HIKI,HORS,WILD",
@@ -5933,7 +5933,7 @@
               "pricePerNight": 300,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,MIMT,FEDW"
+              "nearFacilities": "ELEC,HOTW,GRIL"
             },
             {
               "zone": "โซนเงียบ",
@@ -5945,7 +5945,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,CAFE"
+              "nearFacilities": "ELEC,WIFI"
             },
             {
               "zone": "โซน A",
@@ -5957,7 +5957,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,ELEC"
+              "nearFacilities": "HOTW,REST"
             }
           ],
           "imageManifest": [
@@ -6037,7 +6037,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST,GRIL",
+          "facilities": "TOIL,SHOW,POTA,FEDW,HOTW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,TFAN,POWE",
           "activities": "LIVE,HIKI,HORS",
@@ -6086,7 +6086,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -6098,7 +6098,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,MIMT,ELEC"
+              "nearFacilities": "SHOW,HOTW,FEDW"
             }
           ],
           "imageManifest": [
@@ -6294,7 +6294,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK",
           "externalFacilities": "MIBC",
           "equipment": "FYST,TENT",
           "activities": "BOAT,FISH,SWIM,SURF",
@@ -6425,7 +6425,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,GRIL",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CART",
           "externalFacilities": "LOTS,MIBC,SVEL",
           "equipment": "ICBK,POWE,CHAI",
           "activities": "FISH,SWIM,SURF",
@@ -6474,7 +6474,7 @@
               "pricePerNight": 0,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,WIFI"
+              "nearFacilities": "FEIC,HOTW"
             },
             {
               "zone": "โซน C",
@@ -6486,7 +6486,7 @@
               "pricePerNight": 0,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,TOIL,REST,SINK"
+              "nearFacilities": "LIGT,TOIL,REST,GRIL"
             }
           ],
           "imageManifest": [
@@ -6766,7 +6766,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,CAFE,REST,GRIL"
+              "nearFacilities": "POTA,CAFE,FEDW,HOTW"
             },
             {
               "zone": "โซน A",
@@ -6778,7 +6778,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,MIMT,GRIL"
+              "nearFacilities": "SHOW,LIGT,MIMT"
             }
           ],
           "imageManifest": [
@@ -6849,7 +6849,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "ICBK,GDST,FYST",
           "activities": "BOAT,SWIM,FISH,HIKI",
@@ -6898,7 +6898,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WIFI,SINK"
+              "nearFacilities": "CAFE,GRIL,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -6922,7 +6922,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,CAFE"
+              "nearFacilities": "SHOW,WIFI"
             }
           ],
           "imageManifest": [
@@ -7143,7 +7143,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,CAFE,SINK,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WIFI,GRIL,HOTW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,SSTV,LSTV,TENT,GDST,CHAI,FYST",
           "activities": "SWIM,HIKI,FISH,BOAT",
@@ -7192,7 +7192,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซน A",
@@ -7204,7 +7204,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW,WATE,POTA"
+              "nearFacilities": "CAFE,POTA,HOTW,SHOW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -7216,7 +7216,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -9098,7 +9098,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,WIFI,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,WIFI,WATE",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "CHAI,FYST,GDST,TENT,LSTV,ICBK,SSTV",
           "activities": "HIKI,BOAT,FISH,SWIM",
@@ -9147,7 +9147,7 @@
               "pricePerNight": 400,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,GRIL"
+              "nearFacilities": "HOTW,SINK"
             },
             {
               "zone": "โซนเงียบ",
@@ -9159,7 +9159,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,WIFI,WATE"
+              "nearFacilities": "WATE,SINK,LIGT"
             },
             {
               "zone": "วิวหลัก",
@@ -9171,7 +9171,7 @@
               "pricePerNight": 400,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SINK"
+              "nearFacilities": "GRIL,FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -9183,7 +9183,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,WIFI"
+              "nearFacilities": "SINK,GRIL"
             }
           ],
           "imageManifest": [
@@ -9407,7 +9407,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CAFE,MIMT,FEDW,REST",
+          "facilities": "TOIL,SHOW,POTA,CAFE,LIGT,MIMT,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "LEDL,POWE,TFAN",
           "activities": "WILD,LIVE,HORS,HIKI",
@@ -9456,7 +9456,7 @@
               "pricePerNight": 450,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,POTA,MIMT"
+              "nearFacilities": "SHOW,CAFE,LIGT"
             },
             {
               "zone": "ริมน้ำ",
@@ -9468,7 +9468,7 @@
               "pricePerNight": 400,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,TOIL"
+              "nearFacilities": "MIMT,TOIL"
             },
             {
               "zone": "โซน A",
@@ -9480,7 +9480,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,ELEC,CAFE,MIMT"
+              "nearFacilities": "ELEC,REST,WIFI,LIGT"
             }
           ],
           "imageManifest": [
@@ -9535,7 +9535,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST,MIMT",
+          "facilities": "TOIL,SHOW,POTA,FEDW,HOTW",
           "externalFacilities": "MAKT",
           "equipment": "CHAI,POWE,LEDL",
           "activities": "HIKI,HORS",
@@ -9584,7 +9584,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,FEDW,ELEC"
+              "nearFacilities": "WIFI,SHOW,MIMT,REST"
             },
             {
               "zone": "โซน VIP",
@@ -9596,7 +9596,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,FEDW,TOIL,POTA"
+              "nearFacilities": "GRIL,FEDW,TOIL,CAFE"
             },
             {
               "zone": "โซน A",
@@ -9608,7 +9608,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,CAFE,MIMT,SHOW"
+              "nearFacilities": "TOIL,WIFI,LIGT,SHOW"
             },
             {
               "zone": "ริมน้ำ",
@@ -9620,7 +9620,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,FEDW,ELEC"
+              "nearFacilities": "GRIL,FEDW,REST"
             },
             {
               "zone": "วิวหลัก",
@@ -9632,7 +9632,7 @@
               "pricePerNight": 400,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC"
+              "nearFacilities": "REST"
             }
           ],
           "imageManifest": [
@@ -9687,7 +9687,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST,MIMT",
+          "facilities": "TOIL,SHOW,POTA,FEDW,LIGT",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,CHAI,BLKT,TFAN,LEDL,POWE",
           "activities": "WILD,LIVE,HIKI,HORS",
@@ -9736,7 +9736,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "ริมน้ำ",
@@ -9748,7 +9748,7 @@
               "pricePerNight": 500,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,SHOW,GRIL"
+              "nearFacilities": "REST,POTA,HOTW"
             },
             {
               "zone": "โซน B",
@@ -9760,7 +9760,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,POTA,REST"
+              "nearFacilities": "GRIL,CAFE,FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -9772,7 +9772,7 @@
               "pricePerNight": 350,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA"
+              "nearFacilities": "POTA,SHOW"
             },
             {
               "zone": "วิวหลัก",
@@ -9784,7 +9784,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,SHOW,GRIL,TOIL"
+              "nearFacilities": "REST,POTA,HOTW,TOIL"
             }
           ],
           "imageManifest": [
@@ -9846,7 +9846,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CAFE,WIFI,GRIL,REST",
+          "facilities": "TOIL,SHOW,POTA,CAFE,WIFI,HOTW,FEDW",
           "externalFacilities": "MAKT",
           "equipment": "BLKT,CHAI,POWE",
           "activities": "HIKI,LIVE",
@@ -9895,7 +9895,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,REST,TOIL,WIFI"
+              "nearFacilities": "SHOW,FEDW,TOIL,WIFI"
             },
             {
               "zone": "โซน VIP",
@@ -9907,7 +9907,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,MIMT"
+              "nearFacilities": "FEDW,LIGT"
             },
             {
               "zone": "ริมน้ำ",
@@ -9919,7 +9919,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT,ELEC"
+              "nearFacilities": "LIGT,REST"
             },
             {
               "zone": "โซน B",
@@ -9991,7 +9991,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT,REST,GRIL",
+          "facilities": "TOIL,SHOW,POTA,LIGT,FEDW,HOTW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,BLKT,CHAI,POWE",
           "activities": "HORS,HIKI",
@@ -10040,7 +10040,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,MIMT,TOIL,CAFE"
+              "nearFacilities": "MIMT,LIGT,TOIL,CAFE"
             },
             {
               "zone": "ริมน้ำ",
@@ -10052,7 +10052,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,SHOW"
+              "nearFacilities": "REST,POTA"
             },
             {
               "zone": "โซนครอบครัว",
@@ -10064,7 +10064,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -10271,7 +10271,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,GRIL",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,SINK",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,ICBK,TENT",
           "activities": "BOAT,HIKI,SWIM",
@@ -10320,7 +10320,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน VIP",
@@ -10332,7 +10332,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,POTA"
+              "nearFacilities": "TOIL,PICN"
             },
             {
               "zone": "โซน B",
@@ -10356,7 +10356,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,SHOW,POTA"
+              "nearFacilities": "HOTW,SHOW,POTA"
             }
           ],
           "imageManifest": [
@@ -10561,7 +10561,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT,GRIL",
+          "facilities": "TOIL,SHOW,POTA,LIGT,HOTW",
           "externalFacilities": "MAKT",
           "equipment": "POWE,CHAI,LEDL,TFAN,BLKT,TENT",
           "activities": "LIVE,WILD",
@@ -10610,7 +10610,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,WIFI,FEDW,SHOW"
+              "nearFacilities": "POTA,ELEC,MIMT,CAFE"
             },
             {
               "zone": "ริมน้ำ",
@@ -10634,7 +10634,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -10646,7 +10646,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,FEDW,GRIL"
+              "nearFacilities": "FEDW,GRIL,HOTW"
             }
           ],
           "imageManifest": [
@@ -10685,7 +10685,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,GRIL",
+          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,SINK",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,TENT,CHAI,LSTV,ICBK,SSTV,FYST",
           "activities": "HIKI,FISH",
@@ -10817,7 +10817,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT,ELEC,FEDW,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,ELEC,MIMT,CAFE",
           "externalFacilities": "MAKT",
           "equipment": "POWE,BLKT,LEDL",
           "activities": "HIKI,HORS,WILD,LIVE",
@@ -10866,7 +10866,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW"
+              "nearFacilities": "POTA"
             },
             {
               "zone": "โซน C",
@@ -10878,7 +10878,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,CAFE"
+              "nearFacilities": "REST,CAFE"
             },
             {
               "zone": "วิวหลัก",
@@ -10890,7 +10890,7 @@
               "pricePerNight": 450,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,MIMT"
+              "nearFacilities": "TOIL,LIGT"
             },
             {
               "zone": "โซนเงียบ",
@@ -10981,7 +10981,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,REST,CAFE,MIMT",
+          "facilities": "TOIL,SHOW,POTA,WIFI,FEDW,CAFE,HOTW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,POWE,BLKT,TFAN,LEDL,TENT",
           "activities": "LIVE,HORS,WILD",
@@ -11042,7 +11042,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,GRIL,TOIL"
+              "nearFacilities": "WIFI,HOTW,TOIL"
             },
             {
               "zone": "โซน C",
@@ -11054,7 +11054,7 @@
               "pricePerNight": 450,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,ELEC,MIMT,WIFI"
+              "nearFacilities": "MIMT,REST,LIGT,FEDW"
             }
           ],
           "imageManifest": [
@@ -11125,7 +11125,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,ELEC,REST,GRIL,WIFI",
+          "facilities": "TOIL,SHOW,POTA,REST,ELEC,HOTW,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "BLKT,POWE,TFAN,TENT",
           "activities": "HORS,LIVE",
@@ -11174,7 +11174,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,REST,SHOW"
+              "nearFacilities": "CAFE,GRIL,POTA"
             },
             {
               "zone": "วิวหลัก",
@@ -11186,7 +11186,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,CAFE"
+              "nearFacilities": "GRIL,CAFE"
             },
             {
               "zone": "โซน C",
@@ -11198,7 +11198,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,GRIL,SHOW,ELEC"
+              "nearFacilities": "CAFE,HOTW,SHOW,REST"
             }
           ],
           "imageManifest": [
@@ -11228,7 +11228,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,GRIL,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,SINK,LIGT",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,SSTV,ICBK",
           "activities": "BOAT,HIKI,FISH,SWIM",
@@ -11277,7 +11277,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,SINK,CAFE"
+              "nearFacilities": "LIGT,WATE,WIFI"
             },
             {
               "zone": "โซน B",
@@ -11289,7 +11289,7 @@
               "pricePerNight": 550,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SINK,TOIL,GRIL"
+              "nearFacilities": "POTA,FEDW,SHOW,SINK"
             },
             {
               "zone": "โซนครอบครัว",
@@ -11301,7 +11301,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "LIGT"
             }
           ],
           "imageManifest": [
@@ -11355,7 +11355,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,SINK,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,FEDW,GRIL",
           "externalFacilities": "SVEL",
           "equipment": "TENT,ICBK,GDST",
           "activities": "HIKI,BOAT",
@@ -11404,7 +11404,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,GRIL"
+              "nearFacilities": "LIGT,FEDW"
             },
             {
               "zone": "โซน C",
@@ -11416,7 +11416,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,GRIL,SINK"
+              "nearFacilities": "LIGT,FEDW,SINK"
             },
             {
               "zone": "วิวหลัก",
@@ -11428,7 +11428,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SINK,WATE,FEDW"
+              "nearFacilities": "PICN,FEDW,LIGT,HOTW"
             },
             {
               "zone": "โซน B",
@@ -11440,7 +11440,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,TOIL"
+              "nearFacilities": "FEDW,TOIL"
             },
             {
               "zone": "โซนครอบครัว",
@@ -11452,7 +11452,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,CAFE"
+              "nearFacilities": "GRIL,SHOW,WIFI"
             }
           ],
           "imageManifest": [
@@ -11625,7 +11625,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,CAFE",
+          "facilities": "TOIL,SHOW,POTA,GRIL,CAFE",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,LEDL,POWE,TFAN,BLKT,CHAI",
           "activities": "LIVE,HIKI,WILD,HORS",
@@ -11674,7 +11674,7 @@
               "pricePerNight": 450,
               "pricePerSite": 950,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน C",
@@ -11686,7 +11686,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน B",
@@ -11698,7 +11698,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SHOW,CAFE,FEDW"
+              "nearFacilities": "POTA,CAFE,WIFI,GRIL"
             }
           ],
           "imageManifest": [
@@ -11752,7 +11752,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT,REST,WIFI,ELEC",
+          "facilities": "TOIL,SHOW,POTA,LIGT,FEDW,WIFI,REST",
           "externalFacilities": "SVEL",
           "equipment": "BLKT,TFAN,LEDL,CHAI",
           "activities": "HORS,HIKI",
@@ -11801,7 +11801,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "ELEC"
             },
             {
               "zone": "วิวหลัก",
@@ -11813,7 +11813,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,REST,GRIL"
+              "nearFacilities": "REST,FEDW,MIMT"
             },
             {
               "zone": "ริมน้ำ",
@@ -11825,7 +11825,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WIFI,FEDW,MIMT"
+              "nearFacilities": "SHOW,WIFI,GRIL,LIGT"
             }
           ],
           "imageManifest": [
@@ -11895,7 +11895,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,FEDW,CAFE,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WATE,CAFE,WIFI",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,TENT,LSTV,GDST,FYST,CHAI",
           "activities": "BOAT,SWIM",
@@ -11944,7 +11944,7 @@
               "pricePerNight": 350,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,FEDW"
+              "nearFacilities": "SINK,HOTW"
             },
             {
               "zone": "ริมน้ำ",
@@ -11956,7 +11956,7 @@
               "pricePerNight": 250,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -11968,7 +11968,7 @@
               "pricePerNight": 300,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,CAFE,POTA,SHOW"
+              "nearFacilities": "SHOW,CAFE,PICN,TOIL"
             },
             {
               "zone": "โซน B",
@@ -11980,7 +11980,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "FEDW"
             }
           ],
           "imageManifest": [
@@ -12010,7 +12010,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,GRIL,REST",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEDW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "BLKT,TFAN,LEDL",
           "activities": "HIKI,HORS",
@@ -12059,7 +12059,7 @@
               "pricePerNight": 400,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,ELEC,WIFI,REST"
+              "nearFacilities": "GRIL,FEDW,ELEC,REST"
             },
             {
               "zone": "โซนครอบครัว",
@@ -12071,7 +12071,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,FEDW"
+              "nearFacilities": "CAFE,MIMT"
             },
             {
               "zone": "โซนเงียบ",
@@ -12083,7 +12083,7 @@
               "pricePerNight": 450,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,REST,ELEC"
+              "nearFacilities": "WIFI,FEDW,REST"
             },
             {
               "zone": "โซน VIP",
@@ -12095,7 +12095,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,ELEC"
+              "nearFacilities": "GRIL,REST"
             }
           ],
           "imageManifest": [
@@ -12149,7 +12149,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,WATE,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,HOTW,CAFE",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,GDST,LSTV,FYST",
           "activities": "HIKI,BOAT,FISH,SWIM",
@@ -12198,7 +12198,7 @@
               "pricePerNight": 450,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,CAFE,TOIL,PICN"
+              "nearFacilities": "GRIL,WIFI,TOIL,CAFE"
             },
             {
               "zone": "วิวหลัก",
@@ -12210,7 +12210,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW"
+              "nearFacilities": "CAFE,SHOW"
             },
             {
               "zone": "โซน C",
@@ -12222,7 +12222,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WIFI"
+              "nearFacilities": "PICN,GRIL"
             },
             {
               "zone": "โซน A",
@@ -12234,7 +12234,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,PICN,SHOW,GRIL"
+              "nearFacilities": "SHOW,PICN,TOIL,SINK"
             },
             {
               "zone": "โซนครอบครัว",
@@ -12246,7 +12246,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,GRIL"
+              "nearFacilities": "SHOW,SINK"
             }
           ],
           "imageManifest": [
@@ -12404,7 +12404,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CAFE,GRIL",
+          "facilities": "TOIL,SHOW,POTA,CAFE,MIMT",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TFAN,LEDL,CHAI",
           "activities": "HORS,WILD,HIKI",
@@ -12453,7 +12453,7 @@
               "pricePerNight": 450,
               "pricePerSite": 950,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซน VIP",
@@ -12465,7 +12465,7 @@
               "pricePerNight": 450,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL"
+              "nearFacilities": "SHOW"
             },
             {
               "zone": "โซน B",
@@ -12477,7 +12477,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,FEDW,CAFE,REST"
+              "nearFacilities": "HOTW,MIMT,WIFI,GRIL"
             },
             {
               "zone": "โซน C",
@@ -12489,7 +12489,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -12501,7 +12501,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,REST"
+              "nearFacilities": "TOIL,FEDW"
             }
           ],
           "imageManifest": [
@@ -12669,7 +12669,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,CAFE",
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI,LSTV,FYST",
           "activities": "BOAT,HIKI,SWIM,FISH",
@@ -12718,7 +12718,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,TOIL,PICN"
+              "nearFacilities": "POTA,TOIL,CAFE"
             },
             {
               "zone": "โซน C",
@@ -12730,7 +12730,7 @@
               "pricePerNight": 450,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,GRIL,POTA"
+              "nearFacilities": "SINK,SHOW,GRIL,POTA"
             },
             {
               "zone": "โซนเงียบ",
@@ -12742,7 +12742,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,POTA,PICN"
+              "nearFacilities": "HOTW,PICN,CAFE"
             }
           ],
           "imageManifest": [
@@ -12804,7 +12804,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,GRIL,CAFE,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,SINK,CAFE,FEDW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,ICBK,TENT",
           "activities": "BOAT,SWIM",
@@ -12853,7 +12853,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,TOIL,WIFI"
+              "nearFacilities": "PICN,SHOW,WIFI"
             },
             {
               "zone": "โซน B",
@@ -12865,7 +12865,7 @@
               "pricePerNight": 450,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA"
+              "nearFacilities": "POTA,SHOW"
             },
             {
               "zone": "ริมน้ำ",
@@ -13212,7 +13212,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,GRIL,CAFE,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,SINK,CAFE,WIFI",
           "externalFacilities": "SVEL",
           "equipment": "FYST,TENT,ICBK,LSTV,CHAI,SSTV",
           "activities": "BOAT,SWIM",
@@ -13261,7 +13261,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WATE,GRIL,SINK"
+              "nearFacilities": "CAFE,LIGT,SINK,WATE"
             },
             {
               "zone": "ริมน้ำ",
@@ -13273,7 +13273,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "วิวหลัก",
@@ -13297,7 +13297,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,PICN,POTA,SINK"
+              "nearFacilities": "GRIL,CAFE,POTA,WATE"
             },
             {
               "zone": "โซน VIP",
@@ -13309,7 +13309,7 @@
               "pricePerNight": 450,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,POTA,PICN"
+              "nearFacilities": "SINK,PICN,CAFE"
             }
           ],
           "imageManifest": [
@@ -13364,7 +13364,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,ELEC,FEDW,CAFE",
+          "facilities": "TOIL,SHOW,POTA,ELEC,GRIL,WIFI",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,TFAN,POWE,BLKT",
           "activities": "LIVE,HIKI",
@@ -13413,7 +13413,7 @@
               "pricePerNight": 400,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT,GRIL,REST"
+              "nearFacilities": "LIGT,HOTW,GRIL"
             },
             {
               "zone": "โซน C",
@@ -13425,7 +13425,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,CAFE"
+              "nearFacilities": "GRIL,CAFE"
             },
             {
               "zone": "วิวหลัก",
@@ -13437,7 +13437,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,TOIL,SHOW"
+              "nearFacilities": "WIFI,TOIL,SHOW"
             },
             {
               "zone": "โซน VIP",
@@ -13449,7 +13449,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT,POTA"
+              "nearFacilities": "LIGT,CAFE"
             }
           ],
           "imageManifest": [
@@ -13520,7 +13520,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,WATE,FEDW,GRIL",
+          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,LIGT,HOTW,SINK",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,ICBK,SSTV,FYST",
           "activities": "HIKI,SWIM",
@@ -13569,7 +13569,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,TOIL"
+              "nearFacilities": "WATE,TOIL"
             },
             {
               "zone": "โซนเงียบ",
@@ -13581,7 +13581,7 @@
               "pricePerNight": 450,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,WIFI,SINK,TOIL"
+              "nearFacilities": "LIGT,GRIL,FEDW,SHOW"
             },
             {
               "zone": "ริมน้ำ",
@@ -13593,7 +13593,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,CAFE,SINK"
+              "nearFacilities": "CAFE,WIFI,FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -13605,7 +13605,7 @@
               "pricePerNight": 450,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,PICN,WATE,POTA"
+              "nearFacilities": "GRIL,CAFE,LIGT,PICN"
             },
             {
               "zone": "โซน VIP",
@@ -13617,7 +13617,7 @@
               "pricePerNight": 450,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,FEDW,PICN,TOIL"
+              "nearFacilities": "FEDW,HOTW,CAFE,SHOW"
             }
           ],
           "imageManifest": [
@@ -13832,7 +13832,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,MIMT",
+          "facilities": "TOIL,SHOW,POTA,ELEC,LIGT",
           "externalFacilities": "MAKT",
           "equipment": "CHAI,BLKT,TFAN,LEDL",
           "activities": "WILD,LIVE",
@@ -13881,7 +13881,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,REST,GRIL"
+              "nearFacilities": "CAFE,FEDW,HOTW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -13893,7 +13893,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน B",
@@ -13905,7 +13905,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT"
+              "nearFacilities": "LIGT"
             }
           ],
           "imageManifest": [
@@ -13936,7 +13936,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,ELEC",
+          "facilities": "TOIL,SHOW,POTA,GRIL,REST",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,POWE,LEDL,TFAN,BLKT,CHAI",
           "activities": "HIKI,LIVE",
@@ -13985,7 +13985,7 @@
               "pricePerNight": 300,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,MIMT"
+              "nearFacilities": "TOIL,LIGT"
             },
             {
               "zone": "โซน C",
@@ -14009,7 +14009,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,MIMT,POTA,GRIL"
+              "nearFacilities": "TOIL,LIGT,POTA,HOTW"
             }
           ],
           "imageManifest": [
@@ -14040,7 +14040,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,SINK,CAFE,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,LIGT,WATE,CAFE,GRIL",
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST,FYST",
           "activities": "SWIM,FISH,BOAT",
@@ -14089,7 +14089,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,PICN,CAFE,WIFI"
+              "nearFacilities": "SINK,PICN,WIFI,CAFE"
             },
             {
               "zone": "โซนเงียบ",
@@ -14101,7 +14101,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "PICN"
             },
             {
               "zone": "โซน C",
@@ -14113,7 +14113,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,SINK,POTA"
+              "nearFacilities": "HOTW,FEDW,PICN"
             }
           ],
           "imageManifest": [
@@ -14193,7 +14193,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,LIGT",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "CHAI,ICBK,GDST",
           "activities": "FISH,SWIM,HIKI",
@@ -14242,7 +14242,7 @@
               "pricePerNight": 450,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,WIFI"
+              "nearFacilities": "SINK,FEDW"
             },
             {
               "zone": "โซน B",
@@ -14254,7 +14254,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,CAFE,POTA,SINK"
+              "nearFacilities": "GRIL,WIFI,POTA,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -14266,7 +14266,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "SINK"
             },
             {
               "zone": "โซน VIP",
@@ -14278,7 +14278,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,FEDW"
+              "nearFacilities": "POTA,HOTW"
             }
           ],
           "imageManifest": [
@@ -14348,7 +14348,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,WATE,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,CAFE,LIGT,FEDW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,LSTV,SSTV",
           "activities": "BOAT,SWIM,HIKI",
@@ -14397,7 +14397,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,POTA,CAFE"
+              "nearFacilities": "FEDW,POTA,WIFI"
             },
             {
               "zone": "โซน B",
@@ -14409,7 +14409,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WATE,PICN,POTA"
+              "nearFacilities": "SHOW,LIGT,PICN,POTA"
             },
             {
               "zone": "โซน VIP",
@@ -14421,7 +14421,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,WIFI,CAFE,TOIL"
+              "nearFacilities": "SINK,GRIL,WIFI,TOIL"
             }
           ],
           "imageManifest": [
@@ -14467,7 +14467,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,WATE,CAFE",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "FYST,ICBK,GDST,TENT,CHAI,LSTV",
           "activities": "HIKI,FISH,BOAT",
@@ -14516,7 +14516,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,CAFE"
+              "nearFacilities": "SINK,WIFI"
             },
             {
               "zone": "ริมน้ำ",
@@ -14528,7 +14528,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,WATE"
+              "nearFacilities": "GRIL,LIGT"
             },
             {
               "zone": "โซนเงียบ",
@@ -14540,7 +14540,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,POTA,GRIL,WIFI"
+              "nearFacilities": "TOIL,POTA,SINK,GRIL"
             },
             {
               "zone": "โซน B",
@@ -14552,7 +14552,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,GRIL"
+              "nearFacilities": "LIGT,SINK"
             }
           ],
           "imageManifest": [
@@ -15030,7 +15030,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,MIMT",
+          "facilities": "TOIL,SHOW,POTA,GRIL,LIGT",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "TENT,BLKT,LEDL",
           "activities": "LIVE,HORS,HIKI,WILD",
@@ -15079,7 +15079,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,REST,CAFE,POTA"
+              "nearFacilities": "POTA,FEDW,WIFI,SHOW"
             },
             {
               "zone": "โซน VIP",
@@ -15091,7 +15091,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,REST"
+              "nearFacilities": "REST,FEDW"
             },
             {
               "zone": "โซน C",
@@ -15103,7 +15103,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,FEDW,MIMT,TOIL"
+              "nearFacilities": "SHOW,MIMT,LIGT,TOIL"
             },
             {
               "zone": "วิวหลัก",
@@ -15115,7 +15115,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,WIFI"
+              "nearFacilities": "TOIL,ELEC"
             }
           ],
           "imageManifest": [
@@ -15602,7 +15602,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEIC",
           "externalFacilities": "SVEL,LOTS",
           "equipment": "TENT,CHAI,FYST",
           "activities": "BOAT,FISH",
@@ -15651,7 +15651,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SINK"
+              "nearFacilities": "SHOW,GRIL"
             },
             {
               "zone": "ริมน้ำ",
@@ -15663,7 +15663,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1150,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซน A",
@@ -15729,7 +15729,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,CAFE,CART",
+          "facilities": "TOIL,SHOW,POTA,HOTW,REST,LIGT",
           "externalFacilities": "LOTS",
           "equipment": "TENT,FYST,CHAI",
           "activities": "BOAT,FISH,SURF,SWIM",
@@ -15790,7 +15790,7 @@
               "pricePerNight": 500,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,CAFE"
+              "nearFacilities": "FEIC,WIFI"
             }
           ],
           "imageManifest": [
@@ -15845,7 +15845,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK",
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "CHAI,ICBK,POWE",
           "activities": "SURF,FISH,BOAT,SWIM",
@@ -15945,7 +15945,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "FYST,LSTV",
           "activities": "BOAT,HIKI",
@@ -15994,7 +15994,7 @@
               "pricePerNight": 250,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,CAFE"
+              "nearFacilities": "PICN,WIFI"
             },
             {
               "zone": "โซน B",
@@ -16006,7 +16006,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SINK,SHOW"
+              "nearFacilities": "POTA,FEDW,SHOW"
             }
           ],
           "imageManifest": [
@@ -16204,7 +16204,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
+          "facilities": "TOIL,SHOW,POTA,WATE,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,FYST",
           "activities": "FISH,WILD,SWIM,BOAT",
@@ -16253,7 +16253,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,FEDW,SHOW"
+              "nearFacilities": "TOIL,CART,SHOW"
             },
             {
               "zone": "โซนเงียบ",
@@ -16265,7 +16265,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,POTA,SHOW,CAFE"
+              "nearFacilities": "WIFI,CAFE,POTA,REST"
             },
             {
               "zone": "ริมน้ำ",
@@ -16277,7 +16277,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "WATE"
             }
           ],
           "imageManifest": [
@@ -16473,7 +16473,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,ELEC,REST",
+          "facilities": "TOIL,SHOW,POTA,REST,FEDW",
           "externalFacilities": "MAKT",
           "equipment": "BLKT,TENT",
           "activities": "LIVE,HORS,HIKI,WILD",
@@ -16522,7 +16522,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "วิวหลัก",
@@ -16534,7 +16534,7 @@
               "pricePerNight": 300,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,MIMT"
+              "nearFacilities": "MIMT,LIGT"
             }
           ],
           "imageManifest": [
@@ -16605,7 +16605,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "GROU,HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT",
+          "facilities": "TOIL,SHOW,POTA,HOTW",
           "externalFacilities": "SVEL",
           "equipment": "TFAN,POWE,TENT",
           "activities": "HIKI,WILD",
@@ -16654,7 +16654,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "วิวหลัก",
@@ -16666,7 +16666,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซน C",
@@ -16678,7 +16678,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,ELEC,GRIL,SHOW"
+              "nearFacilities": "MIMT,REST,HOTW,POTA"
             }
           ],
           "imageManifest": [
@@ -16748,7 +16748,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,LIGT,GRIL",
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST,SSTV",
           "activities": "HIKI,BOAT,FISH,SWIM",
@@ -16797,7 +16797,7 @@
               "pricePerNight": 250,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "SINK"
             },
             {
               "zone": "โซน C",
@@ -16809,7 +16809,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,SHOW"
+              "nearFacilities": "CAFE,SHOW"
             },
             {
               "zone": "โซนเงียบ",
@@ -16959,7 +16959,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "HORS",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST",
+          "facilities": "TOIL,SHOW,POTA,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "BLKT,LEDL",
           "activities": "HORS,HIKI,LIVE",
@@ -17008,7 +17008,7 @@
               "pricePerNight": 250,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,ELEC"
+              "nearFacilities": "ELEC,SHOW,REST"
             },
             {
               "zone": "โซนครอบครัว",
@@ -17020,7 +17020,7 @@
               "pricePerNight": 300,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,REST,SHOW"
+              "nearFacilities": "MIMT,FEDW,SHOW"
             },
             {
               "zone": "โซน C",
@@ -17032,7 +17032,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,CAFE,REST"
+              "nearFacilities": "REST,CAFE,FEDW"
             }
           ],
           "imageManifest": [
@@ -17086,7 +17086,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,FYST",
           "activities": "FISH,BOAT",
@@ -17135,7 +17135,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,POTA,SHOW"
+              "nearFacilities": "TOIL,POTA,PICN"
             },
             {
               "zone": "โซนครอบครัว",
@@ -17147,7 +17147,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -17225,7 +17225,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR,TENT",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT",
           "activities": "WILD,SWIM,FISH,BOAT",
@@ -17274,7 +17274,7 @@
               "pricePerNight": 450,
               "pricePerSite": 950,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,CAFE,WATE,SHOW"
+              "nearFacilities": "LIGT,REST,HOTW,POTA"
             },
             {
               "zone": "วิวหลัก",
@@ -17286,7 +17286,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซน A",
@@ -17298,7 +17298,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "WIFI"
             }
           ],
           "imageManifest": [
@@ -17376,7 +17376,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW",
           "externalFacilities": "MAKT",
           "equipment": "CHAI,FYST,LSTV",
           "activities": "SWIM,FISH",
@@ -17425,7 +17425,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,SHOW"
+              "nearFacilities": "HOTW,SHOW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -17618,7 +17618,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,CAFE",
           "externalFacilities": "SVEL",
           "equipment": "SSTV,LSTV,ICBK",
           "activities": "SWIM,HIKI,FISH,BOAT",
@@ -17667,7 +17667,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,POTA,SHOW"
+              "nearFacilities": "SINK,POTA,PICN"
             },
             {
               "zone": "โซนครอบครัว",
@@ -17679,7 +17679,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SINK"
+              "nearFacilities": "TOIL,WATE"
             },
             {
               "zone": "โซน C",
@@ -17691,7 +17691,7 @@
               "pricePerNight": 250,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SHOW,CAFE"
+              "nearFacilities": "TOIL,POTA,CAFE"
             }
           ],
           "imageManifest": [
@@ -17762,7 +17762,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,CAFE",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,GDST",
           "activities": "BOAT,WILD",
@@ -17811,7 +17811,7 @@
               "pricePerNight": 300,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,WIFI"
+              "nearFacilities": "REST,PICN"
             },
             {
               "zone": "โซนเงียบ",
@@ -17823,7 +17823,7 @@
               "pricePerNight": 300,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,POTA"
+              "nearFacilities": "HOTW,POTA"
             }
           ],
           "imageManifest": [
@@ -17901,7 +17901,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CAFE,REST",
+          "facilities": "TOIL,SHOW,POTA,REST,CAFE",
           "externalFacilities": "SVEL",
           "equipment": "TENT,CHAI",
           "activities": "BOAT,WILD",
@@ -17950,7 +17950,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,WATE"
+              "nearFacilities": "PICN,HOTW"
             },
             {
               "zone": "โซน VIP",
@@ -17962,7 +17962,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SHOW,REST,FEDW"
+              "nearFacilities": "SHOW,TOIL,WIFI,CART"
             }
           ],
           "imageManifest": [
@@ -18210,7 +18210,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "ELEC"
             },
             {
               "zone": "ริมน้ำ",
@@ -18222,7 +18222,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,CAFE"
+              "nearFacilities": "HOTW,WIFI"
             }
           ],
           "imageManifest": [
@@ -18292,7 +18292,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT,FYST",
           "activities": "BOAT,FISH,SWIM,WILD",
@@ -18341,7 +18341,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,PICN,CART,SHOW"
+              "nearFacilities": "REST,FEDW,LIGT,SHOW"
             },
             {
               "zone": "โซน B",
@@ -18353,7 +18353,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,CART"
+              "nearFacilities": "CAFE,LIGT"
             }
           ],
           "imageManifest": [
@@ -18606,7 +18606,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "MIMT,FEDW,REST,ELEC"
+              "nearFacilities": "LIGT,MIMT,GRIL,FEDW"
             },
             {
               "zone": "โซน VIP",
@@ -18618,7 +18618,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WIFI"
+              "nearFacilities": "SHOW,ELEC"
             }
           ],
           "imageManifest": [
@@ -18649,7 +18649,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,HOTW",
           "externalFacilities": "SVEL",
           "equipment": "ICBK,TENT",
           "activities": "BOAT,HIKI,SWIM,FISH",
@@ -18698,7 +18698,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,CAFE,WATE"
+              "nearFacilities": "GRIL,TOIL,WIFI,LIGT"
             },
             {
               "zone": "โซน VIP",
@@ -18710,7 +18710,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW"
+              "nearFacilities": "HOTW"
             }
           ],
           "imageManifest": [
@@ -18757,7 +18757,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,REST",
+          "facilities": "TOIL,SHOW,POTA,WIFI",
           "externalFacilities": "SVEL",
           "equipment": "GDST,ICBK,FYST",
           "activities": "SWIM,FISH",
@@ -18806,7 +18806,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,FEDW,WIFI,WATE"
+              "nearFacilities": "POTA,WATE,PICN,HOTW"
             },
             {
               "zone": "โซน B",
@@ -18818,7 +18818,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,WIFI,PICN"
+              "nearFacilities": "SHOW,PICN,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -18830,7 +18830,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,CAFE,REST"
+              "nearFacilities": "FEDW,CAFE,WIFI"
             }
           ],
           "imageManifest": [
@@ -18861,7 +18861,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WIFI",
           "externalFacilities": "SVEL",
           "equipment": "LSTV,TENT,GDST",
           "activities": "BOAT,FISH,HIKI",
@@ -18910,7 +18910,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,FEDW"
+              "nearFacilities": "LIGT,HOTW"
             },
             {
               "zone": "ริมน้ำ",
@@ -18922,7 +18922,7 @@
               "pricePerNight": 400,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,PICN,TOIL,CAFE"
+              "nearFacilities": "FEDW,CAFE,TOIL,PICN"
             },
             {
               "zone": "โซนครอบครัว",
@@ -18934,7 +18934,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE"
+              "nearFacilities": "WIFI"
             }
           ],
           "imageManifest": [
@@ -18972,7 +18972,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "HORS,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,ELEC,MIMT",
+          "facilities": "TOIL,SHOW,POTA,ELEC,HOTW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TFAN,LEDL",
           "activities": "LIVE,HORS,WILD,HIKI",
@@ -19021,7 +19021,7 @@
               "pricePerNight": 250,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,CAFE"
+              "nearFacilities": "TOIL,WIFI"
             },
             {
               "zone": "โซน A",
@@ -19033,7 +19033,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,MIMT"
+              "nearFacilities": "SHOW,LIGT"
             }
           ],
           "imageManifest": [
@@ -19087,7 +19087,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,CART",
+          "facilities": "TOIL,SHOW,POTA,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "FYST,ICBK,TENT",
           "activities": "WILD,FISH,BOAT",
@@ -19136,7 +19136,7 @@
               "pricePerNight": 300,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,FEDW,CART"
+              "nearFacilities": "CART,HOTW,LIGT"
             },
             {
               "zone": "โซน A",
@@ -19148,7 +19148,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,PICN"
+              "nearFacilities": "PICN,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -19411,7 +19411,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW",
+          "facilities": "TOIL,SHOW,POTA,GRIL",
           "externalFacilities": "MAKT",
           "equipment": "POWE,TENT,LEDL",
           "activities": "LIVE,HIKI,HORS",
@@ -19460,7 +19460,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,MIMT,REST,FEDW"
+              "nearFacilities": "WIFI,LIGT,GRIL,FEDW"
             },
             {
               "zone": "วิวหลัก",
@@ -19472,7 +19472,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,ELEC"
+              "nearFacilities": "TOIL,REST"
             },
             {
               "zone": "โซน VIP",
@@ -19484,7 +19484,7 @@
               "pricePerNight": 350,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -19587,7 +19587,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "วิวหลัก",
@@ -19611,7 +19611,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,GRIL"
+              "nearFacilities": "WATE,SINK"
             }
           ],
           "imageManifest": [
@@ -19751,7 +19751,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "ELEC,MIMT,TOIL,GRIL"
+              "nearFacilities": "REST,LIGT,TOIL,HOTW"
             },
             {
               "zone": "โซนเงียบ",
@@ -19763,7 +19763,7 @@
               "pricePerNight": 300,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,WIFI,CAFE"
+              "nearFacilities": "TOIL,ELEC,WIFI"
             }
           ],
           "imageManifest": [
@@ -19835,7 +19835,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN",
           "externalFacilities": "SVEL",
           "equipment": "TENT,GDST",
           "activities": "WILD,BOAT,FISH",
@@ -19884,7 +19884,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,WATE,REST,FEDW"
+              "nearFacilities": "TOIL,HOTW,WIFI,WATE"
             },
             {
               "zone": "โซน VIP",
@@ -19896,7 +19896,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,FEDW"
+              "nearFacilities": "LIGT,WATE"
             },
             {
               "zone": "วิวหลัก",
@@ -19908,7 +19908,7 @@
               "pricePerNight": 400,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,PICN,TOIL,WIFI"
+              "nearFacilities": "REST,FEDW,TOIL,PICN"
             }
           ],
           "imageManifest": [
@@ -20317,7 +20317,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEDW,PICN",
+          "facilities": "TOIL,SHOW,POTA,WATE,FEDW",
           "externalFacilities": "SVEL",
           "equipment": "FYST,GDST,TENT",
           "activities": "WILD,FISH,BOAT,SWIM",
@@ -20366,7 +20366,7 @@
               "pricePerNight": 400,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "CAFE"
             },
             {
               "zone": "โซนครอบครัว",
@@ -20378,7 +20378,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,SHOW,TOIL"
+              "nearFacilities": "HOTW,SHOW,TOIL"
             },
             {
               "zone": "โซน VIP",
@@ -20469,7 +20469,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,GRIL",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,ICBK,SSTV",
           "activities": "BOAT,FISH,SWIM",
@@ -20518,7 +20518,7 @@
               "pricePerNight": 250,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,SINK"
+              "nearFacilities": "SHOW,WATE"
             },
             {
               "zone": "วิวหลัก",
@@ -20530,7 +20530,7 @@
               "pricePerNight": 300,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,POTA,WATE,TOIL"
+              "nearFacilities": "HOTW,POTA,LIGT,SHOW"
             }
           ],
           "imageManifest": [
@@ -20560,7 +20560,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,ELEC",
+          "facilities": "TOIL,SHOW,POTA,REST",
           "externalFacilities": "MAKT",
           "equipment": "POWE,TFAN",
           "activities": "HORS,LIVE",
@@ -20609,7 +20609,7 @@
               "pricePerNight": 250,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,MIMT,REST,GRIL"
+              "nearFacilities": "POTA,LIGT,FEDW,HOTW"
             },
             {
               "zone": "โซน VIP",
@@ -20621,7 +20621,7 @@
               "pricePerNight": 250,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,REST,CAFE"
+              "nearFacilities": "MIMT,FEDW,WIFI"
             },
             {
               "zone": "โซน C",
@@ -20633,7 +20633,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,SHOW,ELEC"
+              "nearFacilities": "CAFE,POTA,REST"
             }
           ],
           "imageManifest": [
@@ -20679,7 +20679,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN",
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST",
           "activities": "WILD,BOAT,SWIM",
@@ -20728,7 +20728,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,WATE,POTA"
+              "nearFacilities": "PICN,HOTW,POTA"
             },
             {
               "zone": "วิวหลัก",
@@ -20740,7 +20740,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,PICN,POTA,TOIL"
+              "nearFacilities": "HOTW,FEDW,CAFE,TOIL"
             },
             {
               "zone": "โซน C",
@@ -20752,7 +20752,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,WIFI,FEDW"
+              "nearFacilities": "TOIL,PICN,WATE"
             }
           ],
           "imageManifest": [
@@ -20923,7 +20923,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "SSTV,FYST",
           "activities": "FISH,HIKI,BOAT,SWIM",
@@ -20972,7 +20972,7 @@
               "pricePerNight": 250,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,CAFE,POTA,GRIL"
+              "nearFacilities": "HOTW,WIFI,POTA,SINK"
             },
             {
               "zone": "โซน C",
@@ -20984,7 +20984,7 @@
               "pricePerNight": 300,
               "pricePerSite": 500,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,PICN,FEDW"
+              "nearFacilities": "LIGT,PICN,HOTW"
             }
           ],
           "imageManifest": [
@@ -21022,7 +21022,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW,LIGT",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "ICBK,TENT,FYST",
           "activities": "HIKI,BOAT,SWIM",
@@ -21071,7 +21071,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "โซน B",
@@ -21083,7 +21083,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WIFI"
+              "nearFacilities": "CAFE,GRIL"
             }
           ],
           "imageManifest": [
@@ -21122,7 +21122,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,WIFI,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI,FEIC",
           "externalFacilities": "SVEL,MIBC",
           "equipment": "ICBK,POWE,CHAI",
           "activities": "BOAT,SURF",
@@ -21183,7 +21183,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,GRIL"
+              "nearFacilities": "REST,CART"
             }
           ],
           "imageManifest": [
@@ -21296,7 +21296,7 @@
               "pricePerNight": 400,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,SHOW,WIFI,TOIL"
+              "nearFacilities": "REST,SHOW,PICN,TOIL"
             },
             {
               "zone": "โซน B",
@@ -21320,7 +21320,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,POTA,WIFI"
+              "nearFacilities": "FEDW,CAFE,WATE"
             }
           ],
           "imageManifest": [
@@ -21358,7 +21358,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "GROU,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,MIMT,CAFE",
+          "facilities": "TOIL,SHOW,POTA,LIGT,CAFE",
           "externalFacilities": "SVEL",
           "equipment": "LEDL,TFAN,BLKT",
           "activities": "LIVE,WILD,HORS",
@@ -21407,7 +21407,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,REST,WIFI"
+              "nearFacilities": "SHOW,FEDW,ELEC"
             },
             {
               "zone": "โซนเงียบ",
@@ -21419,7 +21419,7 @@
               "pricePerNight": 350,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,FEDW"
+              "nearFacilities": "WIFI,GRIL"
             }
           ],
           "imageManifest": [
@@ -21489,7 +21489,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CAFE",
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "TENT,ICBK",
           "activities": "SURF,FISH,BOAT",
@@ -21538,7 +21538,7 @@
               "pricePerNight": 650,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,REST,GRIL"
+              "nearFacilities": "GRIL,REST,CART"
             },
             {
               "zone": "วิวหลัก",
@@ -21550,7 +21550,7 @@
               "pricePerNight": 500,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL"
+              "nearFacilities": "SHOW"
             }
           ],
           "imageManifest": [
@@ -21689,7 +21689,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW"
+              "nearFacilities": "POTA"
             },
             {
               "zone": "ริมน้ำ",
@@ -21701,7 +21701,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,CAFE"
+              "nearFacilities": "HOTW,REST"
             }
           ],
           "imageManifest": [
@@ -21796,7 +21796,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC,CART,SINK",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK,LIGT,FEIC",
           "externalFacilities": "SVEL,MIBC",
           "equipment": "CHAI,ICBK,POWE,TENT,FYST",
           "activities": "SWIM,BOAT,SURF",
@@ -21857,7 +21857,7 @@
               "pricePerNight": 750,
               "pricePerSite": 1350,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,TOIL"
+              "nearFacilities": "LIGT,SHOW"
             },
             {
               "zone": "โซน VIP",
@@ -22064,7 +22064,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,FEIC,WIFI,SINK,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEIC,WIFI,SINK,CAFE",
           "externalFacilities": "SVEL,LOTS",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "SURF,BOAT,FISH,SWIM",
@@ -22113,7 +22113,7 @@
               "pricePerNight": 750,
               "pricePerSite": 1400,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,REST,CAFE,TOIL"
+              "nearFacilities": "POTA,CAFE,REST,TOIL"
             },
             {
               "zone": "ริมน้ำ",
@@ -22125,7 +22125,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1200,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA,CAFE,REST"
+              "nearFacilities": "SHOW,HOTW,WIFI,REST"
             },
             {
               "zone": "วิวหลัก",
@@ -22137,7 +22137,7 @@
               "pricePerNight": 650,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,CAFE,FEIC,TOIL"
+              "nearFacilities": "HOTW,WIFI,FEIC,TOIL"
             },
             {
               "zone": "โซนเงียบ",
@@ -22149,7 +22149,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA"
+              "nearFacilities": "POTA,SHOW"
             }
           ],
           "imageManifest": [
@@ -22203,7 +22203,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,SINK,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,FEDW,WATE",
           "externalFacilities": "MAKT",
           "equipment": "SSTV,ICBK,GDST",
           "activities": "BOAT,SWIM",
@@ -22252,7 +22252,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน VIP",
@@ -22264,7 +22264,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,TOIL,WIFI"
+              "nearFacilities": "HOTW,TOIL,SINK"
             },
             {
               "zone": "โซน A",
@@ -22354,7 +22354,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,CAFE,WATE,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,SINK,WIFI,LIGT,HOTW",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,TENT,LSTV,ICBK,CHAI,FYST,SSTV",
           "activities": "SWIM,HIKI,FISH,BOAT",
@@ -22403,7 +22403,7 @@
               "pricePerNight": 2050,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,POTA,TOIL,WIFI"
+              "nearFacilities": "HOTW,PICN,TOIL,GRIL"
             },
             {
               "zone": "โซนเงียบ",
@@ -22415,7 +22415,7 @@
               "pricePerNight": 1900,
               "pricePerSite": 3600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SINK"
+              "nearFacilities": "GRIL,FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -22427,7 +22427,7 @@
               "pricePerNight": 1850,
               "pricePerSite": 3750,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,PICN,POTA"
+              "nearFacilities": "WATE,CAFE,PICN"
             }
           ],
           "imageManifest": [
@@ -22506,7 +22506,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,REST,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI,REST,FEIC",
           "externalFacilities": "LOTS",
           "equipment": "FYST,ICBK,TENT",
           "activities": "SWIM,BOAT,FISH",
@@ -22567,7 +22567,7 @@
               "pricePerNight": 3400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "CART"
             },
             {
               "zone": "โซน B",
@@ -22786,7 +22786,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,CAFE,GRIL,FEIC",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI,CAFE,GRIL,SINK",
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "TENT,CHAI,FYST",
           "activities": "FISH,BOAT,SURF",
@@ -22835,7 +22835,7 @@
               "pricePerNight": 850,
               "pricePerSite": 1500,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,SINK,CART"
+              "nearFacilities": "HOTW,TOIL,GRIL,LIGT"
             },
             {
               "zone": "โซน VIP",
@@ -22847,7 +22847,7 @@
               "pricePerNight": 700,
               "pricePerSite": 1350,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "CART"
             },
             {
               "zone": "โซน A",
@@ -22905,7 +22905,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WATE,REST,CART,FEDW",
+          "facilities": "TOIL,SHOW,POTA,CART,REST,LIGT,HOTW",
           "externalFacilities": "SVEL",
           "equipment": "GDST,FYST,TENT,ICBK",
           "activities": "SWIM,WILD,FISH",
@@ -22954,7 +22954,7 @@
               "pricePerNight": 650,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL"
+              "nearFacilities": "SHOW"
             },
             {
               "zone": "โซน B",
@@ -22966,7 +22966,7 @@
               "pricePerNight": 700,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "PICN"
             },
             {
               "zone": "โซน VIP",
@@ -22978,7 +22978,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,POTA"
+              "nearFacilities": "HOTW,CAFE"
             },
             {
               "zone": "โซนครอบครัว",
@@ -22990,7 +22990,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1150,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,CAFE,WIFI"
+              "nearFacilities": "WIFI,REST,PICN"
             },
             {
               "zone": "วิวหลัก",
@@ -23002,7 +23002,7 @@
               "pricePerNight": 500,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,REST,WATE,TOIL"
+              "nearFacilities": "PICN,FEDW,CART,SHOW"
             }
           ],
           "imageManifest": [
@@ -23049,7 +23049,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,GRIL,WIFI,CART,SINK,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CART,WIFI,LIGT,GRIL,CAFE",
           "externalFacilities": "SVEL,LOTS,MIBC",
           "equipment": "TENT,CHAI,POWE,FYST",
           "activities": "SURF,BOAT",
@@ -23098,7 +23098,7 @@
               "pricePerNight": 700,
               "pricePerSite": 1300,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,POTA"
+              "nearFacilities": "FEIC,HOTW"
             },
             {
               "zone": "วิวหลัก",
@@ -23110,7 +23110,7 @@
               "pricePerNight": 900,
               "pricePerSite": 1650,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,POTA,TOIL,CART"
+              "nearFacilities": "POTA,SHOW,HOTW,LIGT"
             },
             {
               "zone": "โซนครอบครัว",
@@ -23122,7 +23122,7 @@
               "pricePerNight": 850,
               "pricePerSite": 1600,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,CART,POTA"
+              "nearFacilities": "WIFI,SHOW,LIGT,POTA"
             },
             {
               "zone": "โซน B",
@@ -23134,7 +23134,7 @@
               "pricePerNight": 800,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,WIFI,POTA,SHOW"
+              "nearFacilities": "REST,WIFI,POTA,HOTW"
             },
             {
               "zone": "ริมน้ำ",
@@ -23146,7 +23146,7 @@
               "pricePerNight": 850,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซน C",
@@ -23220,7 +23220,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,WATE,GRIL,SINK,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,LIGT,GRIL,SINK,FEDW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,FYST,CHAI,ICBK,GDST,TENT,SSTV",
           "activities": "SWIM,BOAT,HIKI,FISH",
@@ -23269,7 +23269,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "ริมน้ำ",
@@ -23281,7 +23281,7 @@
               "pricePerNight": 500,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,PICN"
+              "nearFacilities": "LIGT,CAFE"
             },
             {
               "zone": "วิวหลัก",
@@ -23293,7 +23293,7 @@
               "pricePerNight": 500,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SINK,FEDW,PICN"
+              "nearFacilities": "GRIL,FEDW,WATE,CAFE"
             },
             {
               "zone": "โซน VIP",
@@ -23305,7 +23305,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "WATE"
             }
           ],
           "imageManifest": [
@@ -23536,7 +23536,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST,WATE,CART,FEDW",
+          "facilities": "TOIL,SHOW,POTA,REST,HOTW,LIGT,WATE",
           "externalFacilities": "SVEL",
           "equipment": "GDST,ICBK,CHAI,TENT,FYST",
           "activities": "SWIM,WILD",
@@ -23585,7 +23585,7 @@
               "pricePerNight": 1700,
               "pricePerSite": 2700,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,TOIL"
+              "nearFacilities": "WIFI,TOIL"
             },
             {
               "zone": "โซน A",
@@ -23597,7 +23597,7 @@
               "pricePerNight": 1450,
               "pricePerSite": 2600,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,TOIL,WIFI,CAFE"
+              "nearFacilities": "HOTW,TOIL,PICN,REST"
             },
             {
               "zone": "ริมน้ำ",
@@ -23621,7 +23621,7 @@
               "pricePerNight": 1400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,SHOW"
+              "nearFacilities": "REST,POTA"
             },
             {
               "zone": "วิวหลัก",
@@ -23633,7 +23633,7 @@
               "pricePerNight": 1400,
               "pricePerSite": 2200,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,CAFE,WATE"
+              "nearFacilities": "CAFE,REST,HOTW"
             },
             {
               "zone": "โซน B",
@@ -23645,7 +23645,7 @@
               "pricePerNight": 1850,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,CAFE,POTA,WIFI"
+              "nearFacilities": "POTA,CAFE,SHOW,PICN"
             }
           ],
           "imageManifest": [
@@ -23708,7 +23708,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,FEDW,REST",
+          "facilities": "TOIL,SHOW,POTA,PICN,WATE,REST",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,ICBK,TENT,FYST",
           "activities": "FISH,SWIM,WILD",
@@ -23757,7 +23757,7 @@
               "pricePerNight": 450,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "PICN"
             },
             {
               "zone": "โซน B",
@@ -23769,7 +23769,7 @@
               "pricePerNight": 650,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,CAFE,POTA"
+              "nearFacilities": "WATE,CAFE,POTA"
             },
             {
               "zone": "โซน VIP",
@@ -23781,7 +23781,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,FEDW,REST,WIFI"
+              "nearFacilities": "LIGT,CART,PICN,FEDW"
             },
             {
               "zone": "โซนเงียบ",
@@ -23793,7 +23793,7 @@
               "pricePerNight": 500,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WIFI"
+              "nearFacilities": "FEDW,PICN"
             },
             {
               "zone": "โซน A",
@@ -23805,7 +23805,7 @@
               "pricePerNight": 600,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,SHOW,CART,PICN"
+              "nearFacilities": "REST,SHOW,LIGT,FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -23817,7 +23817,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1150,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,CAFE,POTA,REST"
+              "nearFacilities": "PICN,REST,POTA,CAFE"
             }
           ],
           "imageManifest": [
@@ -24545,7 +24545,7 @@
               "pricePerNight": 400,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,WATE"
+              "nearFacilities": "POTA,LIGT"
             },
             {
               "zone": "โซน B",
@@ -24569,7 +24569,7 @@
               "pricePerNight": 500,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,FEDW,CAFE,SHOW"
+              "nearFacilities": "PICN,WATE,WIFI,SHOW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -24581,7 +24581,7 @@
               "pricePerNight": 450,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,WIFI,SINK"
+              "nearFacilities": "CAFE,GRIL,WATE"
             }
           ],
           "imageManifest": [
@@ -24612,7 +24612,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,GRIL,FEDW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "GDST,FYST,ICBK,SSTV",
           "activities": "HIKI,FISH,SWIM",
@@ -24661,7 +24661,7 @@
               "pricePerNight": 400,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,POTA,PICN,TOIL"
+              "nearFacilities": "LIGT,PICN,POTA,TOIL"
             },
             {
               "zone": "โซน VIP",
@@ -24673,7 +24673,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,PICN,WIFI,SHOW"
+              "nearFacilities": "HOTW,CAFE,GRIL,POTA"
             },
             {
               "zone": "โซน B",
@@ -24685,7 +24685,7 @@
               "pricePerNight": 400,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,FEDW,WATE"
+              "nearFacilities": "WIFI,HOTW,LIGT"
             }
           ],
           "imageManifest": [
@@ -24741,7 +24741,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WATE,FEDW",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CART",
           "externalFacilities": "SVEL",
           "equipment": "GDST,TENT,CHAI",
           "activities": "FISH,WILD",
@@ -24790,7 +24790,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "WIFI"
             },
             {
               "zone": "โซน B",
@@ -24802,7 +24802,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,REST,SHOW,TOIL"
+              "nearFacilities": "LIGT,WIFI,SHOW,TOIL"
             },
             {
               "zone": "โซน C",
@@ -24814,7 +24814,7 @@
               "pricePerNight": 600,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "WIFI"
             },
             {
               "zone": "โซนเงียบ",
@@ -24826,7 +24826,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "REST"
+              "nearFacilities": "WIFI"
             }
           ],
           "imageManifest": [
@@ -24888,7 +24888,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,SINK,WIFI,CAFE",
+          "facilities": "TOIL,SHOW,POTA,PICN,LIGT,WATE,WIFI,CAFE",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "GDST,SSTV,CHAI,LSTV",
           "activities": "FISH,SWIM",
@@ -24937,7 +24937,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,WATE,GRIL"
+              "nearFacilities": "WIFI,LIGT,SINK"
             },
             {
               "zone": "โซนเงียบ",
@@ -24949,7 +24949,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,PICN"
+              "nearFacilities": "LIGT,CAFE"
             },
             {
               "zone": "โซน C",
@@ -24961,7 +24961,7 @@
               "pricePerNight": 500,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -25281,7 +25281,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI,RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,REST,FEIC,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEIC,REST,CAFE",
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "SURF,BOAT,FISH",
@@ -25330,7 +25330,7 @@
               "pricePerNight": 600,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน A",
@@ -25342,7 +25342,7 @@
               "pricePerNight": 700,
               "pricePerSite": 1300,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,SINK"
+              "nearFacilities": "SHOW,GRIL"
             },
             {
               "zone": "โซนครอบครัว",
@@ -25354,7 +25354,7 @@
               "pricePerNight": 550,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,SHOW,POTA,CART"
+              "nearFacilities": "SINK,POTA,HOTW,LIGT"
             },
             {
               "zone": "โซน B",
@@ -25378,7 +25378,7 @@
               "pricePerNight": 750,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,CAFE,FEIC,WIFI"
+              "nearFacilities": "GRIL,WIFI,SINK,REST"
             }
           ],
           "imageManifest": [
@@ -25610,7 +25610,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR,TENT",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC,GRIL,CART,SINK",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEIC,GRIL,LIGT,CART",
           "externalFacilities": "SVEL,MIBC",
           "equipment": "FYST,POWE,TENT,ICBK,CHAI",
           "activities": "BOAT,SWIM,SURF,FISH",
@@ -25659,7 +25659,7 @@
               "pricePerNight": 650,
               "pricePerSite": 1250,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,CAFE,CART,FEIC"
+              "nearFacilities": "REST,CAFE,LIGT,FEIC"
             },
             {
               "zone": "ริมน้ำ",
@@ -25683,7 +25683,7 @@
               "pricePerNight": 800,
               "pricePerSite": 1400,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,WIFI,SHOW,TOIL"
+              "nearFacilities": "POTA,HOTW,WIFI,TOIL"
             },
             {
               "zone": "โซนครอบครัว",
@@ -25886,7 +25886,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART,GRIL",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT,CART",
           "externalFacilities": "LOTS,SVEL",
           "equipment": "CHAI,FYST,POWE",
           "activities": "SWIM,SURF",
@@ -25935,7 +25935,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,FEIC,POTA"
+              "nearFacilities": "LIGT,FEIC,HOTW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -25947,7 +25947,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,WIFI,SHOW"
+              "nearFacilities": "CAFE,WIFI,POTA"
             },
             {
               "zone": "โซนเงียบ",
@@ -25959,7 +25959,7 @@
               "pricePerNight": 600,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SINK,WIFI,SHOW"
+              "nearFacilities": "TOIL,GRIL,WIFI,SHOW"
             }
           ],
           "imageManifest": [
@@ -25998,7 +25998,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,GRIL,CART",
+          "facilities": "TOIL,SHOW,POTA,HOTW,GRIL,CART",
           "externalFacilities": "MIBC",
           "equipment": "ICBK,FYST,CHAI",
           "activities": "FISH,BOAT,SURF,SWIM",
@@ -26047,7 +26047,7 @@
               "pricePerNight": 500,
               "pricePerSite": 1050,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW"
+              "nearFacilities": "POTA"
             },
             {
               "zone": "โซนครอบครัว",
@@ -26149,7 +26149,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
           "externalFacilities": "MAKT",
           "equipment": "CHAI,SSTV,LSTV",
           "activities": "FISH,SWIM",
@@ -26198,7 +26198,7 @@
               "pricePerNight": 250,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน VIP",
@@ -26210,7 +26210,7 @@
               "pricePerNight": 250,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,GRIL"
+              "nearFacilities": "WATE,FEDW"
             }
           ],
           "imageManifest": [
@@ -26289,7 +26289,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,REST,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,FEIC,REST",
           "externalFacilities": "MIBC,SVEL,LOTS",
           "equipment": "POWE,TENT,FYST",
           "activities": "SWIM,FISH,SURF",
@@ -26350,7 +26350,7 @@
               "pricePerNight": 500,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,WIFI,TOIL,SINK"
+              "nearFacilities": "LIGT,WIFI,SHOW,SINK"
             }
           ],
           "imageManifest": [
@@ -26533,7 +26533,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI,GRIL",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI,CART",
           "externalFacilities": "LOTS",
           "equipment": "TENT,CHAI",
           "activities": "FISH,BOAT",
@@ -26582,7 +26582,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1100,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,POTA,FEIC"
+              "nearFacilities": "GRIL,HOTW,FEIC"
             },
             {
               "zone": "โซน A",
@@ -26594,7 +26594,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,POTA"
+              "nearFacilities": "LIGT,POTA"
             }
           ],
           "imageManifest": [
@@ -26641,7 +26641,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI",
           "externalFacilities": "SVEL",
           "equipment": "TENT,POWE",
           "activities": "SURF,BOAT,SWIM",
@@ -26690,7 +26690,7 @@
               "pricePerNight": 500,
               "pricePerSite": 900,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,TOIL,WIFI"
+              "nearFacilities": "GRIL,TOIL,WIFI"
             },
             {
               "zone": "โซนครอบครัว",
@@ -26760,7 +26760,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,CART",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT",
           "externalFacilities": "LOTS",
           "equipment": "TENT,ICBK",
           "activities": "SURF,BOAT,SWIM,FISH",
@@ -26867,7 +26867,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,CABI",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,CART,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,LIGT,WIFI",
           "externalFacilities": "SVEL",
           "equipment": "TENT,POWE",
           "activities": "BOAT,SWIM,FISH,SURF",
@@ -26916,7 +26916,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEIC,CAFE,SHOW,GRIL"
+              "nearFacilities": "FEIC,CAFE,POTA,CART"
             },
             {
               "zone": "วิวหลัก",
@@ -26995,7 +26995,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV,WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE,GRIL",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW,SINK",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "FYST,TENT",
           "activities": "BOAT,HIKI,FISH,SWIM",
@@ -27044,7 +27044,7 @@
               "pricePerNight": 250,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE"
+              "nearFacilities": "LIGT"
             },
             {
               "zone": "โซน C",
@@ -27056,7 +27056,7 @@
               "pricePerNight": 200,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK"
+              "nearFacilities": "FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -27068,7 +27068,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,TOIL"
+              "nearFacilities": "SINK,SHOW"
             }
           ],
           "imageManifest": [
@@ -27230,7 +27230,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEIC,CAFE",
+          "facilities": "TOIL,SHOW,POTA,HOTW,SINK,REST",
           "externalFacilities": "LOTS",
           "equipment": "TENT,FYST,CHAI",
           "activities": "FISH,SWIM",
@@ -27291,7 +27291,7 @@
               "pricePerNight": 450,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,SINK,WIFI,REST"
+              "nearFacilities": "TOIL,GRIL,HOTW,REST"
             },
             {
               "zone": "โซนครอบครัว",
@@ -27303,7 +27303,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1150,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,CART"
+              "nearFacilities": "CART,LIGT"
             }
           ],
           "imageManifest": [
@@ -27485,7 +27485,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,REST",
+          "facilities": "TOIL,SHOW,POTA,HOTW,REST",
           "externalFacilities": "LOTS,MIBC,SVEL",
           "equipment": "ICBK,TENT,POWE",
           "activities": "BOAT,SWIM",
@@ -27546,7 +27546,7 @@
               "pricePerNight": 550,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,CART"
+              "nearFacilities": "SHOW,LIGT"
             },
             {
               "zone": "โซน VIP",
@@ -27612,7 +27612,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WATE",
+          "facilities": "TOIL,SHOW,POTA,PICN,LIGT",
           "externalFacilities": "MAKT",
           "equipment": "FYST,CHAI,LSTV",
           "activities": "SWIM,FISH",
@@ -27661,7 +27661,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,SINK,POTA"
+              "nearFacilities": "SHOW,WATE,POTA"
             },
             {
               "zone": "โซนครอบครัว",
@@ -27673,7 +27673,7 @@
               "pricePerNight": 300,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,SHOW,POTA,WIFI"
+              "nearFacilities": "WIFI,POTA,PICN,CAFE"
             }
           ],
           "imageManifest": [
@@ -27745,7 +27745,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI",
           "externalFacilities": "LOTS,SVEL,MIBC",
           "equipment": "POWE,TENT",
           "activities": "SWIM,FISH",
@@ -27794,7 +27794,7 @@
               "pricePerNight": 400,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -27806,7 +27806,7 @@
               "pricePerNight": 400,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,GRIL,FEIC"
+              "nearFacilities": "CAFE,CART,SINK"
             }
           ],
           "imageManifest": [
@@ -27885,7 +27885,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,GRIL,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CART,WIFI",
           "externalFacilities": "MIBC,LOTS,SVEL",
           "equipment": "CHAI,ICBK,POWE",
           "activities": "BOAT,FISH,SURF",
@@ -27946,7 +27946,7 @@
               "pricePerNight": 550,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "REST,TOIL,CART,GRIL"
+              "nearFacilities": "FEIC,TOIL,LIGT,GRIL"
             },
             {
               "zone": "โซนเงียบ",
@@ -27958,7 +27958,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,CART,POTA"
+              "nearFacilities": "CART,LIGT,HOTW"
             }
           ],
           "imageManifest": [
@@ -28038,7 +28038,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI",
           "accessTypes": "BAOT,DRIV",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,GDST,TENT",
           "activities": "SWIM,BOAT,WILD",
@@ -28087,7 +28087,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CAFE,SHOW"
+              "nearFacilities": "REST,POTA"
             },
             {
               "zone": "โซน B",
@@ -28099,7 +28099,7 @@
               "pricePerNight": 350,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,CAFE"
+              "nearFacilities": "SHOW,CAFE"
             },
             {
               "zone": "ริมน้ำ",
@@ -28111,7 +28111,7 @@
               "pricePerNight": 450,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA,CART,WATE"
+              "nearFacilities": "CAFE,HOTW,LIGT"
             }
           ],
           "imageManifest": [
@@ -28150,7 +28150,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "RECR",
           "accessTypes": "BAOT",
-          "facilities": "TOIL,SHOW,POTA,PICN,CART",
+          "facilities": "TOIL,SHOW,POTA,FEDW,LIGT",
           "externalFacilities": "SVEL",
           "equipment": "CHAI,TENT,ICBK",
           "activities": "SWIM,WILD,FISH,BOAT",
@@ -28199,7 +28199,7 @@
               "pricePerNight": 400,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "CART,WATE,REST,WIFI"
+              "nearFacilities": "LIGT,HOTW,WIFI,FEDW"
             },
             {
               "zone": "โซนครอบครัว",
@@ -28211,7 +28211,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,POTA,PICN,REST"
+              "nearFacilities": "CART,CAFE,WATE,WIFI"
             },
             {
               "zone": "โซน B",
@@ -28223,7 +28223,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,SHOW"
+              "nearFacilities": "CART,POTA"
             }
           ],
           "imageManifest": [
@@ -28261,7 +28261,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,WIFI",
+          "facilities": "TOIL,SHOW,POTA,PICN,GRIL",
           "externalFacilities": "SVEL,MAKT",
           "equipment": "TENT,GDST,SSTV",
           "activities": "SWIM,FISH,BOAT,HIKI",
@@ -28310,7 +28310,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,GRIL,WATE"
+              "nearFacilities": "TOIL,SINK,HOTW"
             },
             {
               "zone": "โซนเงียบ",
@@ -28322,7 +28322,7 @@
               "pricePerNight": 250,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,GRIL,POTA"
+              "nearFacilities": "LIGT,SINK,PICN"
             },
             {
               "zone": "โซน A",
@@ -28334,7 +28334,7 @@
               "pricePerNight": 200,
               "pricePerSite": 400,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,GRIL,WATE,TOIL"
+              "nearFacilities": "SHOW,SINK,LIGT,TOIL"
             }
           ],
           "imageManifest": [
@@ -28388,7 +28388,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "TENT,RECR",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,WIFI",
+          "facilities": "TOIL,SHOW,POTA,HOTW,WIFI",
           "externalFacilities": "SVEL,MIBC,LOTS",
           "equipment": "FYST,POWE",
           "activities": "SURF,FISH,BOAT",
@@ -28437,7 +28437,7 @@
               "pricePerNight": 450,
               "pricePerSite": 1000,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,SHOW,POTA"
+              "nearFacilities": "WIFI,SHOW,HOTW"
             },
             {
               "zone": "โซน C",
@@ -28576,7 +28576,7 @@
               "pricePerNight": 350,
               "pricePerSite": 450,
               "priceCurrency": "THB",
-              "nearFacilities": "SINK,GRIL,PICN"
+              "nearFacilities": "WATE,SINK,CAFE"
             },
             {
               "zone": "โซน C",
@@ -28588,7 +28588,7 @@
               "pricePerNight": 400,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,GRIL,TOIL,CAFE"
+              "nearFacilities": "HOTW,SINK,TOIL,WIFI"
             },
             {
               "zone": "โซน B",
@@ -28600,7 +28600,7 @@
               "pricePerNight": 350,
               "pricePerSite": 650,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN,TOIL,SHOW,POTA"
+              "nearFacilities": "CAFE,TOIL,SHOW,POTA"
             }
           ],
           "imageManifest": [
@@ -28773,7 +28773,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK,DRIV",
-          "facilities": "TOIL,SHOW,POTA,PICN,SINK",
+          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
           "externalFacilities": "MAKT",
           "equipment": "SSTV,TENT",
           "activities": "FISH,BOAT,SWIM,HIKI",
@@ -28822,7 +28822,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL"
+              "nearFacilities": "SINK"
             },
             {
               "zone": "โซน A",
@@ -28834,7 +28834,7 @@
               "pricePerNight": 350,
               "pricePerSite": 700,
               "priceCurrency": "THB",
-              "nearFacilities": "GRIL,PICN,FEDW"
+              "nearFacilities": "SINK,PICN,HOTW"
             },
             {
               "zone": "โซน B",
@@ -28846,7 +28846,7 @@
               "pricePerNight": 400,
               "pricePerSite": 800,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,WIFI"
+              "nearFacilities": "TOIL,GRIL"
             }
           ],
           "imageManifest": [
@@ -28892,7 +28892,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "TENT",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,FEDW",
+          "facilities": "TOIL,SHOW,POTA,WATE",
           "externalFacilities": "SVEL",
           "equipment": "ICBK,CHAI,FYST",
           "activities": "BOAT,FISH,SWIM",
@@ -28941,7 +28941,7 @@
               "pricePerNight": 400,
               "pricePerSite": 550,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL"
+              "nearFacilities": "SHOW"
             },
             {
               "zone": "โซนเงียบ",
@@ -28953,7 +28953,7 @@
               "pricePerNight": 350,
               "pricePerSite": 750,
               "priceCurrency": "THB",
-              "nearFacilities": "WATE,TOIL,CART,CAFE"
+              "nearFacilities": "HOTW,SHOW,LIGT,CAFE"
             }
           ],
           "imageManifest": [
@@ -29032,7 +29032,7 @@
           "campSiteType": "CACP",
           "accommodationTypes": "RECR,TENT",
           "accessTypes": "DRIV,BAOT",
-          "facilities": "TOIL,SHOW,POTA,CAFE,SINK",
+          "facilities": "TOIL,SHOW,POTA,HOTW,CAFE,GRIL",
           "externalFacilities": "LOTS",
           "equipment": "POWE,FYST,CHAI",
           "activities": "SWIM,BOAT,FISH,SURF",
@@ -29081,7 +29081,7 @@
               "pricePerNight": 450,
               "pricePerSite": 850,
               "priceCurrency": "THB",
-              "nearFacilities": "POTA"
+              "nearFacilities": "HOTW"
             },
             {
               "zone": "โซน VIP",
@@ -29093,7 +29093,7 @@
               "pricePerNight": 650,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI,TOIL,SHOW"
+              "nearFacilities": "HOTW,TOIL,POTA"
             }
           ],
           "imageManifest": [
@@ -29181,7 +29181,7 @@
               "pricePerNight": 250,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "TOIL,GRIL"
+              "nearFacilities": "TOIL,SINK"
             },
             {
               "zone": "โซน C",
@@ -29193,7 +29193,7 @@
               "pricePerNight": 300,
               "pricePerSite": 600,
               "priceCurrency": "THB",
-              "nearFacilities": "SHOW,FEDW"
+              "nearFacilities": "SHOW,HOTW"
             },
             {
               "zone": "โซนเงียบ",
@@ -29205,7 +29205,7 @@
               "pricePerNight": 300,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "PICN"
+              "nearFacilities": "CAFE"
             }
           ],
           "imageManifest": [
@@ -29275,7 +29275,7 @@
           "campSiteType": "CAGD",
           "accommodationTypes": "CABI,TENT",
           "accessTypes": "WALK",
-          "facilities": "TOIL,SHOW,POTA,PICN,FEDW",
+          "facilities": "TOIL,SHOW,POTA,PICN,HOTW",
           "externalFacilities": "MAKT,SVEL",
           "equipment": "LSTV,TENT",
           "activities": "BOAT,SWIM,HIKI,FISH",
@@ -29324,7 +29324,7 @@
               "pricePerNight": 250,
               "pricePerSite": 350,
               "priceCurrency": "THB",
-              "nearFacilities": "WIFI"
+              "nearFacilities": "GRIL"
             },
             {
               "zone": "ริมน้ำ",
@@ -29336,7 +29336,7 @@
               "pricePerNight": 350,
               "pricePerSite": null,
               "priceCurrency": "THB",
-              "nearFacilities": "FEDW,SHOW"
+              "nearFacilities": "HOTW,SHOW"
             }
           ],
           "imageManifest": [

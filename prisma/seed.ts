@@ -22,6 +22,9 @@ const masterData = [
     { code: 'REST', group: 'Internal facility', nameTh: 'ร้านอาหาร', nameEn: 'Restuarant', icon: 'Utensils' },
     { code: 'FEIC', group: 'Internal facility', nameTh: 'น้ำแข็งฟรี', nameEn: 'Free ice', icon: 'Snowflake' },
     { code: 'FEDW', group: 'Internal facility', nameTh: 'น้ำดื่มฟรี', nameEn: 'Free drinking water', icon: 'GlassWater' },
+    // CAM-514 (S2) — Comfort facilities, 2 new codes (BR-1/BR-2, no collision with existing codes)
+    { code: 'HOTW', group: 'Internal facility', nameTh: 'น้ำอุ่น', nameEn: 'Hot water', icon: 'ThermometerSun' },
+    { code: 'LIGT', group: 'Internal facility', nameTh: 'ไฟส่องสว่างตลอดคืน', nameEn: 'Night lighting', icon: 'Lamp' },
 
     // Equipment
     { code: 'TENT', group: 'Equipment for rent', nameTh: 'เต็นท์', nameEn: 'Tent', icon: 'Tent' },

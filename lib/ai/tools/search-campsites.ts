@@ -164,9 +164,15 @@ const TERRAIN_CODES = [
 ] as const;
 const ACCESS_CODES = ['BAOT', 'DRIV', 'HIKE', 'WALK'] as const;
 const ACTIVITY_CODES = ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] as const;
+/**
+ * CAM-514 (S2) — 2 codes added to the original 17 (source: `prisma/seed.ts`
+ * `masterData`, same sourcing discipline as the CAM-408 comment above — no
+ * code that doesn't exist in the real seeded MasterData table).
+ */
 const FACILITY_CODES = [
   'SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK',
   'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW',
+  'HOTW', 'LIGT',
 ] as const;
 
 /**
@@ -399,7 +405,8 @@ const jsonSchema = {
       type: 'string',
       enum: FACILITY_CODES,
       description:
-        'A specific facility the camper asked for — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี.',
+        'A specific facility the camper asked for — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): SHOW ห้องอาบน้ำ, TOIL ห้องน้ำ, PICN โต๊ะปิคนิค, WIFI ไวไฟ, TRAS ถังขยะ, SANI จุดทิ้งสิ่งปฏิกูล, POTA ก๊อกน้ำ, ELEC จุดจ่ายไฟฟ้า, WATE จุดจ่ายน้ำ, SINK อ่างล้างจาน, CART รถเข็น, MIMT ร้านขายของชำ, GRIL หมูกระทะ, CAFE คาเฟ่, REST ร้านอาหาร, FEIC น้ำแข็งฟรี, FEDW น้ำดื่มฟรี, ' +
+        'HOTW น้ำอุ่น (hot water/shower, e.g. "น้ำอุ่น"/"อาบน้ำอุ่น" — a comfort/beginner-friendly amenity, distinct from SHOW which is just "มีห้องอาบน้ำ" with no temperature implied), LIGT ไฟส่องสว่างตลอดคืน (night lighting, e.g. "ไฟส่องสว่าง"/"ไฟกลางคืน"/"มีไฟตอนกลางคืน" — a safety/comfort amenity for a beginner camper worried about the dark).',
     },
     equipment: {
       type: 'string',
