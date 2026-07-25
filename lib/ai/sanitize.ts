@@ -392,3 +392,254 @@ export function sanitizeShownResultName(rawText: string, maxLength: number): str
   const collapsed = bracketsStripped.replace(/\s+/g, ' ').trim();
   return collapsed.slice(0, maxLength);
 }
+
+/**
+ * CAM-480 (F2, production bug) — gpt-4o-mini sometimes emits raw markdown in
+ * the answer text despite the CAM-405 prompt rule against it (image links
+ * `![alt](url)`, `**bold**`, numbered/bulleted enumerations of camps by
+ * name). The UI's `parseAnswer` (components/ai-chat/answer-format.ts) is a
+ * PLAIN-TEXT parser — it builds paragraph/ordered-list/unordered-list blocks
+ * from line-leading markers, it does NOT interpret markdown syntax — so any
+ * markdown that slips past the prompt rule renders as ugly literal text
+ * (a broken image tag, literal double-asterisks) instead of being hidden or
+ * formatted.
+ *
+ * This is a pure, idempotent, never-throwing SERVER-SIDE strip — the last
+ * line of defense on top of the CAM-405 prompt rule, not a replacement for
+ * it (the model can still be told not to emit markdown; this guarantees the
+ * client never sees it even when the model slips). Applied in
+ * `finalizeAnswer` (openrouter-client.ts) to the non-streaming answer only —
+ * see that call site for why the streaming path is out of scope here.
+ *
+ * Runs strictly LINE BY LINE (never across a `\n`): every regex character
+ * class below explicitly excludes `\n`, and structural markers (heading
+ * hashes, list markers) are anchored to a single line's start. This is
+ * deliberate — a naive multi-line-spanning regex (e.g. matching a single
+ * `*` ... content ... `*` pair for "italic") can otherwise consume TWO
+ * separate list items' leading `* ` markers as if they were one italic span
+ * (`* item one\n* item two` -> `\*([^*]+)\*` greedily pairs the FIRST `*`
+ * with the second line's `*`), corrupting content instead of cleaning it.
+ * Processing one line at a time makes that cross-line pairing structurally
+ * impossible.
+ *
+ * Order per line (each step operates on the previous step's output):
+ *  1. Image/link markdown `![alt](url)` / `[text](url)` -> handled by a
+ *     hand-written bracket/paren-DEPTH scanner (`scanImagesAndLinks`, below),
+ *     NOT a single regex. QA adversarial re-verify (CAM-480 defects #1
+ *     Critical / #2 Important) proved a regex whose label/url character
+ *     classes exclude `]`/`)` breaks the instant either appears NESTED
+ *     inside the label or the URL (a Wikipedia-style
+ *     `.../Camp_(recreation).jpg` URL, or an alt-text containing its own
+ *     `[...]`): the regex either fails to match at all (raw markdown leaks —
+ *     the original bug) or matches a WRONG, premature close and leaves a
+ *     corrupted stray fragment behind (worse than the original bug — see
+ *     the scanner's docblock for the full trace). The scanner tracks real
+ *     bracket/paren depth so a `)`/`]` nested one level in never terminates
+ *     the match early; images are removed entirely (alt/url discarded), a
+ *     link is replaced by its label with the label itself recursively
+ *     re-scanned (so `[![a](img)](url)` — an image nested inside a link —
+ *     fully collapses, matching the "strip ALL markdown syntax" contract).
+ *  2. Bold `**x**` / `__x__` -> unwrapped to `x`, run BEFORE italic so a
+ *     bold span is not first mis-split by the single-marker italic regex
+ *     (verified: running italic-star first on `**bold**` leaves stray
+ *     single asterisks behind — double-marker passes must run first).
+ *  3. Italic `*x*` / `_x_` -> unwrapped to `x`. A single unmatched list
+ *     marker (`* item`, exactly one `*` on the line) never pairs with
+ *     anything here since the regex requires TWO occurrences on the same
+ *     line — it survives unchanged to step 5.
+ *  4. Leading heading hashes (`#`/`##`/`###` at line start) -> removed,
+ *     keeping the heading text as a plain line.
+ *  5. Leading list marker at line start (`1.` `2)` `-` `*`, each followed by
+ *     whitespace) -> removed, keeping the line's text. The answer is meant
+ *     to read as 2-3 sentence prose (result cards already enumerate the
+ *     camps by name) so an enumerated list collapses to a plain line rather
+ *     than staying a numbered/bulleted item.
+ *  6. Trim the line's own leading/trailing whitespace only. Deliberately NO
+ *     internal whitespace collapse — a removed inline token (e.g. an image
+ *     sitting between two spaces) can leave a doubled space behind, and that
+ *     is left as-is rather than renormalized: this function's contract is
+ *     "remove markdown syntax", not "renormalize whitespace it didn't
+ *     introduce a reason to touch" (an unrelated upstream step, e.g.
+ *     `extractSuggestions` removing an inline `<suggestions>` block, can
+ *     leave its own documented double-space artifact — this function must
+ *     not silently rewrite that). Never touches `\n` itself, and a line with
+ *     no markdown and no leading/trailing whitespace round-trips unchanged
+ *     (idempotent, safe to call more than once).
+ *
+ * Deliberately leaves alone: a bare `(url)` with no preceding `[text]`
+ * (not a link — normal parenthetical prose); a lone `#`/`*`/`_` that is not
+ * part of a recognized marker/pair; anything mid-line that doesn't match one
+ * of the patterns above; any internal double space left behind by a removed
+ * token.
+ */
+const BOLD_DOUBLE_STAR_REGEX = /\*\*([^*\n]+)\*\*/g;
+const BOLD_DOUBLE_UNDERSCORE_REGEX = /__([^_\n]+)__/g;
+const ITALIC_STAR_REGEX = /\*([^*\n]+)\*/g;
+const ITALIC_UNDERSCORE_REGEX = /_([^_\n]+)_/g;
+const HEADING_MARKER_REGEX = /^#{1,6}\s*/;
+const LIST_MARKER_REGEX = /^\s*(?:\d+[.)]|[-*])\s+/;
+
+/**
+ * CAM-480 QA adversarial re-verify (defects #1 Critical, #2 Important) — a
+ * single regex with `[^\]\n]*`/`[^)\n]*` label/url character classes cannot
+ * represent "a `]`/`)` that is legitimately NESTED one level inside the
+ * label/URL" (e.g. a Wikipedia-style `.../Camp_(recreation).jpg` URL, or an
+ * alt-text that itself contains `[...]`). Two concrete failure modes were
+ * reproduced:
+ *  - the regex closes on the FIRST `)`/`]` it finds, silently truncating the
+ *    match and leaving a stray, corrupted fragment behind in otherwise-clean
+ *    prose (worse than the original bug — this is data corruption, not just
+ *    a missed strip);
+ *  - or the regex fails to match the whole construct at all, so the raw
+ *    `![alt](url)`/`[text](url)` leaks through completely unstripped (the
+ *    original bug, in a corner the regex's character class doesn't cover).
+ *
+ * Fix: a small hand-written scanner that tracks REAL bracket/paren nesting
+ * depth instead of a character class. `depth` starts at 1 immediately after
+ * the opening `[`; every further `[` increments it, every `]` decrements it,
+ * and the label only closes on the `]` that brings `depth` back to 0 — so a
+ * `]` nested one level inside (image-in-link, or a bracketed aside in alt
+ * text) is correctly skipped over rather than mistaken for the close. The
+ * exact same technique tracks paren depth for the URL, so a `)` nested one
+ * level inside the URL (the Wikipedia case) is likewise skipped rather than
+ * prematurely closing the match.
+ *
+ * Bounded + never throws: the scanner never backtracks (single left-to-right
+ * pass, each position visited once per scan attempt) and a failed parse
+ * (`depth` never returns to 0, or no `(` immediately follows the label, or
+ * the URL never closes) simply falls back to treating ONE literal character
+ * as plain text and retrying from the next position — it can never loop
+ * without making forward progress, so malformed/adversarial input (e.g.
+ * unbalanced `[[[(((`) always terminates.
+ *
+ * A LINK's label is recursively re-scanned (bounded by `MAX_LINK_NESTING_DEPTH`,
+ * defense-in-depth against a pathologically deep, deliberately-crafted nest —
+ * ordinary model output never approaches this) so an image nested inside a
+ * link's label (`[![a](img)](url)`) is fully collapsed, not left as raw
+ * markdown merely relocated into the replacement text. An IMAGE's label/url
+ * are discarded outright (images never render client-side either way, so
+ * there is nothing in the alt text/url worth recursing into).
+ */
+const MAX_LINK_NESTING_DEPTH = 20;
+
+interface ScannedBracketConstruct {
+  isImage: boolean;
+  label: string;
+  /** Index in `line` of the character immediately AFTER the construct's closing `)` — where scanning resumes. */
+  nextIndex: number;
+}
+
+/**
+ * Attempts to parse an image (`![label](url)`) or link (`[label](url)`)
+ * construct starting at `line[start]` (which must be `!` or `[`). Returns
+ * `null` (never throws) the instant any required piece is missing — the
+ * caller falls back to treating `line[start]` as a literal character.
+ */
+function scanBracketConstruct(line: string, start: number): ScannedBracketConstruct | null {
+  let isImage = false;
+  let pos = start;
+
+  if (line[pos] === '!' && line[pos + 1] === '[') {
+    isImage = true;
+    pos += 2;
+  } else if (line[pos] === '[') {
+    pos += 1;
+  } else {
+    return null;
+  }
+
+  const labelStart = pos;
+  let bracketDepth = 1;
+  while (pos < line.length) {
+    const ch = line[pos];
+    if (ch === '[') {
+      bracketDepth++;
+    } else if (ch === ']') {
+      bracketDepth--;
+      if (bracketDepth === 0) break;
+    }
+    pos++;
+  }
+  if (bracketDepth !== 0) return null; // no matching ']' — malformed, not a construct
+  const label = line.slice(labelStart, pos);
+  pos++; // move past the matched ']'
+
+  if (line[pos] !== '(') return null; // "[label]" with no "(url)" — just literal bracket text
+
+  pos++; // move past '('
+  let parenDepth = 1;
+  while (pos < line.length) {
+    const ch = line[pos];
+    if (ch === '(') {
+      parenDepth++;
+    } else if (ch === ')') {
+      parenDepth--;
+      if (parenDepth === 0) break;
+    }
+    pos++;
+  }
+  if (parenDepth !== 0) return null; // no matching ')' — malformed, not a construct
+  pos++; // move past the matched ')'
+
+  return { isImage, label, nextIndex: pos };
+}
+
+/**
+ * Scans one line for image/link constructs (see `scanBracketConstruct`
+ * above) and returns the line with every valid construct replaced: an image
+ * removed entirely, a link replaced by its (recursively re-scanned) label.
+ * Any `[`/`!` that doesn't lead to a fully-formed construct is left as a
+ * literal character and scanning resumes at the very next position.
+ */
+function scanImagesAndLinks(line: string, depth = 0): string {
+  let result = '';
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === '[' || (ch === '!' && line[i + 1] === '[')) {
+      const match = scanBracketConstruct(line, i);
+      if (match) {
+        if (!match.isImage) {
+          result += depth < MAX_LINK_NESTING_DEPTH ? scanImagesAndLinks(match.label, depth + 1) : match.label;
+        }
+        // Images: append nothing — the entire construct is discarded.
+        i = match.nextIndex;
+        continue;
+      }
+    }
+    result += ch;
+    i++;
+  }
+  return result;
+}
+
+function stripMarkdownFromLine(line: string): string {
+  const withoutImagesAndLinks = scanImagesAndLinks(line);
+  const withoutBoldStar = withoutImagesAndLinks.replace(BOLD_DOUBLE_STAR_REGEX, '$1');
+  const withoutBoldUnderscore = withoutBoldStar.replace(BOLD_DOUBLE_UNDERSCORE_REGEX, '$1');
+  const withoutItalicStar = withoutBoldUnderscore.replace(ITALIC_STAR_REGEX, '$1');
+  const withoutItalicUnderscore = withoutItalicStar.replace(ITALIC_UNDERSCORE_REGEX, '$1');
+  const withoutHeading = withoutItalicUnderscore.replace(HEADING_MARKER_REGEX, '');
+  const withoutListMarker = withoutHeading.replace(LIST_MARKER_REGEX, '');
+  // Deliberately NO internal whitespace collapse here (beyond trimming the
+  // line's own leading/trailing ends): a blanket "collapse 2+ spaces" pass
+  // would also rewrite spacing on lines that carry NO markdown at all (e.g.
+  // a leftover double space from an unrelated upstream strip, such as
+  // extractSuggestions' own documented double-space artifact when it removes
+  // an inline `<suggestions>` block — see cam-410-adversarial-seam.test.ts).
+  // This function's job is removing markdown SYNTAX, not renormalizing
+  // whitespace it didn't introduce a reason to touch.
+  return withoutListMarker.trim();
+}
+
+export function stripAnswerMarkdown(text: string): string {
+  // Ultimate never-throw backstop (defense-in-depth on top of the bounded,
+  // non-backtracking scanner above): if anything here ever throws for an
+  // input nobody anticipated, fail safe by returning the answer UNCHANGED
+  // rather than letting the exception propagate and break the whole turn.
+  try {
+    return text.split('\n').map(stripMarkdownFromLine).join('\n');
+  } catch {
+    return text;
+  }
+}

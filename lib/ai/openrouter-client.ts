@@ -91,7 +91,7 @@
  */
 import "server-only";
 import { z } from 'zod';
-import { sanitizeForPrompt, sanitizeSuggestion, sanitizeShownResultName, wrapAsUserData } from '@/lib/ai/sanitize';
+import { sanitizeForPrompt, sanitizeSuggestion, sanitizeShownResultName, wrapAsUserData, stripAnswerMarkdown } from '@/lib/ai/sanitize';
 import {
   getRegisteredTools,
   dispatchTool,
@@ -819,10 +819,25 @@ async function executeToolCalls(
   return { toolMessages, cards, executedCount, searchAttempted };
 }
 
-/** A completed turn's final answer, ready for suggestion-extraction + response mapping. */
+/**
+ * A completed turn's final answer, ready for suggestion-extraction + response
+ * mapping.
+ *
+ * CAM-480 (F2 production bug): the answer is passed through
+ * `stripAnswerMarkdown` AFTER suggestions are extracted (the `<suggestions>`
+ * block is already gone by then, so this never touches it) and BEFORE the
+ * answer is returned — the model sometimes emits raw markdown despite the
+ * CAM-405 prompt rule, and `parseAnswer` (components/ai-chat/answer-format.ts)
+ * renders plain text only, never markdown. This covers the non-streaming
+ * Path A/C answers (every caller of `finalizeAnswer`). The streaming path
+ * (`runAssistantTurnFromMessagesStreaming`) emits deltas live as they arrive
+ * from the model and is NOT covered here — a full mid-stream markdown strip
+ * is a follow-up (out of scope for this fix).
+ */
 function finalizeAnswer(rawContent: string, cards: unknown[], searchAttempted: boolean): AssistantTurnResult {
   const { answer, suggestions } = extractSuggestions(rawContent);
-  return { ok: true, answer, cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
+  const cleanedAnswer = stripAnswerMarkdown(answer);
+  return { ok: true, answer: cleanedAnswer, cards, ...searchAttemptedField(searchAttempted), ...suggestionsField(suggestions) };
 }
 
 /**
