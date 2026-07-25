@@ -24,20 +24,20 @@ import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
 // bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
 import {
   Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Droplet, Droplets, Dumbbell, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
-  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
-  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, Umbrella, Utensils,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
+  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,
   UtensilsCrossed, Waves, Wheat, Wifi, Wine, Zap, HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Droplet, Droplets, Dumbbell, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
   Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
-  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
-  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, Umbrella, Utensils,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
+  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,
   UtensilsCrossed, Waves, Wheat, Wifi, Wine, Zap, HelpCircle,
 };
 
@@ -73,6 +73,8 @@ export function FilterModal() {
             if (selectedFilters['Access type']?.length > 0) filters.access = selectedFilters['Access type'].join(',');
             // CAM-515 (S3) — the FIRST new MasterData group.
             if (selectedFilters['Annotated features']?.length > 0) filters.annotatedFeatures = selectedFilters['Annotated features'].join(',');
+            // CAM-516 (S4) — the SECOND new MasterData group.
+            if (selectedFilters['Camper style']?.length > 0) filters.camperStyle = selectedFilters['Camper style'].join(',');
 
             // Facilities
             const allFacilities = [
@@ -115,7 +117,8 @@ export function FilterModal() {
                 'Internal facility',
                 'External facility',
                 'Equipment for rent',
-                'Annotated features'
+                'Annotated features',
+                'Camper style'
             ];
 
             sections.sort((a, b) => {
@@ -177,6 +180,10 @@ export function FilterModal() {
         const annotatedFeatures = searchParams.get('annotatedFeatures');
         if (annotatedFeatures) newFilters['Annotated features'] = annotatedFeatures.split(',').filter(Boolean);
 
+        // CAM-516 (S4) — the SECOND new MasterData group.
+        const camperStyle = searchParams.get('camperStyle');
+        if (camperStyle) newFilters['Camper style'] = camperStyle.split(',').filter(Boolean);
+
         const facilities = searchParams.get('facilities');
         if (facilities) {
             facilities.split(',').filter(Boolean).forEach(code => {
@@ -217,6 +224,8 @@ export function FilterModal() {
         setArrayParam('access', 'Access type');
         // CAM-515 (S3) — the FIRST new MasterData group, its own dedicated param.
         setArrayParam('annotatedFeatures', 'Annotated features');
+        // CAM-516 (S4) — the SECOND new MasterData group, its own dedicated param.
+        setArrayParam('camperStyle', 'Camper style');
 
         // Facilities (Internal, External, Equipment) -> All to 'facilities'
         const allFacilities = [
@@ -340,7 +349,7 @@ export function FilterModal() {
         if (params.get('min') || params.get('max')) count += 1;
 
         // 3. Arrays
-        const arrayParams = ['activities', 'terrain', 'access', 'facilities', 'external', 'equipment', 'annotatedFeatures'];
+        const arrayParams = ['activities', 'terrain', 'access', 'facilities', 'external', 'equipment', 'annotatedFeatures', 'camperStyle'];
         arrayParams.forEach(key => {
             const val = params.get(key);
             if (val) {

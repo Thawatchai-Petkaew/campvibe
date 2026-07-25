@@ -80,11 +80,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // CAM-515 (S3)/EC-2: `annotatedFeatures` added to BOTH this guard array
     // and the resolveOptionConnect array below — a partial PUT that omits it
     // (e.g. price-only) must not wipe the Annotated features relation either.
-    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures'].some((k) => k in body);
+    // CAM-516 (S4)/EC-2: same guard applied to `camperStyle` (the SECOND new
+    // MasterData group) — identical partial-PUT-must-not-wipe protection.
+    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'].some((k) => k in body);
     const resolvedOptionsConnect = replacesOptions
       ? await resolveOptionConnect([
           data.accessTypes, data.facilities, data.externalFacilities,
-          data.equipment, data.activities, data.terrain, data.annotatedFeatures,
+          data.equipment, data.activities, data.terrain, data.annotatedFeatures, data.camperStyle,
         ])
       : null;
 

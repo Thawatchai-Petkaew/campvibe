@@ -169,6 +169,21 @@ describe('searchCampsitesTool — jsonSchema advertises real MasterData codes (A
     expect(schema.properties.annotatedFeatures.description).toContain('รองรับผู้พิการ');
     expect(schema.properties.annotatedFeatures.description).toContain('จองล่วงหน้าได้');
   });
+
+  // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
+  it('[unit] camperStyle enum matches the 4 real seeded Camper style codes with a Thai gloss in the description', () => {
+    const schema = searchCampsitesTool.jsonSchema as {
+      properties: { camperStyle: { enum: readonly string[]; description: string } };
+    };
+    expect(schema.properties.camperStyle.enum).toEqual(
+      expect.arrayContaining(['CHIC', 'GENR', 'DIFT', 'IDMT'])
+    );
+    expect(schema.properties.camperStyle.enum).toHaveLength(4);
+    expect(schema.properties.camperStyle.description).toContain('สบาย (สายคุณหนู)');
+    expect(schema.properties.camperStyle.description).toContain('ทั่วไป');
+    expect(schema.properties.camperStyle.description).toContain('ลำบาก');
+    expect(schema.properties.camperStyle.description).toContain('ทรหด');
+  });
 });
 
 /* -------------------------------------------------------------------------- */

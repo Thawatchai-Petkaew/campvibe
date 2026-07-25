@@ -74,6 +74,8 @@ interface ActiveFilters {
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
   annotatedFeatures?: string;
+  /** CAM-516 (S4) — the SECOND new MasterData group (Camper style). */
+  camperStyle?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +140,7 @@ export default function InfiniteScrollGrid({
         "type", "keyword", "province", "district",
         "startDate", "endDate", "guests", "min", "max",
         "access", "facilities", "activities", "terrain",
-        "annotatedFeatures",
+        "annotatedFeatures", "camperStyle",
       ] as const;
 
       for (const key of filterKeys) {

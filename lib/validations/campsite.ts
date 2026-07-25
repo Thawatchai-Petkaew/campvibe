@@ -69,6 +69,10 @@ export const campSiteSchema = z.object({
   // (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights the camp carries, not a
   // physical facility. Same CSV-on-write shape as the taxonomy arrays above.
   annotatedFeatures: z.array(z.string()).optional(),
+  // CAM-516 (S4) — Camper style, the SECOND new MasterData group
+  // (CHIC/GENR/DIFT/IDMT): host-declared vibe/style, not a rule/right. Same
+  // CSV-on-write shape as the taxonomy arrays above.
+  camperStyle: z.array(z.string()).optional(),
 
   latitude: z.number(),
   longitude: z.number(),

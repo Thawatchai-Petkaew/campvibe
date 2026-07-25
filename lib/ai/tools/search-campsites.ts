@@ -193,6 +193,15 @@ const EQUIPMENT_CODES = ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV',
  */
 const ANNOTATED_CODES = ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] as const;
 
+/**
+ * CAM-516 (S4) — the 4 real `Camper style` MasterData codes (source:
+ * `prisma/seed.ts` masterData, same sourcing discipline as ANNOTATED_CODES
+ * above). Mirrors CAM-515 exactly for the SECOND new MasterData group: a
+ * host-declared vibe/style (not a rule/right), OR-within-group semantics:
+ * CHIC สบาย (สายคุณหนู), GENR ทั่วไป, DIFT ลำบาก, IDMT ทรหด.
+ */
+const CAMPER_STYLE_CODES = ['CHIC', 'GENR', 'DIFT', 'IDMT'] as const;
+
 /** Same "is this a real calendar date" check `lib/ai/tools/check-availability.ts` already uses — no new validation concept. */
 const isoDate = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
   message: 'Invalid date',
@@ -263,6 +272,13 @@ export const searchCampsitesArgsSchema = z.object({
    * ALCO, "ลานก่อไฟได้" -> FIRE, "รองรับผู้พิการ"/"wheelchair" -> ADAA.
    */
   annotatedFeatures: z.enum(ANNOTATED_CODES).or(z.array(z.enum(ANNOTATED_CODES))).optional(),
+  /**
+   * CAM-516 (S4) — OR-within-group semantics (CAM-461 Decision 4), same as
+   * terrain/access/activities/facilities/annotatedFeatures above: "ลานสบาย
+   * สายคุณหนู" -> CHIC, "ลานทั่วไป" -> GENR, "ลานลำบาก" -> DIFT, "ลานสายลุย
+   * ทรหด" -> IDMT.
+   */
+  camperStyle: z.enum(CAMPER_STYLE_CODES).or(z.array(z.enum(CAMPER_STYLE_CODES))).optional(),
   /**
    * CAM-461 BR-2 — reuses the catalog's `VALID_SORTS` vocabulary verbatim
    * (ADR-009, no forked sort). Absent → `related` (BR-2 default, applied in
@@ -441,6 +457,16 @@ const jsonSchema = {
         'ADAA = รองรับผู้พิการ (wheelchair/disability accessible, e.g. "ผู้พิการ"/"wheelchair"/"รถเข็น"), ' +
         'RESV = จองล่วงหน้าได้ (can reserve/book ahead, e.g. "จองล่วงหน้าได้ไหม").',
     },
+    camperStyle: {
+      type: 'string',
+      enum: CAMPER_STYLE_CODES,
+      description:
+        'The host-declared vibe/style of the camp (not a rule or a physical facility) — pick ONE, or pass an ARRAY when the camper names two-or-more (matches EITHER): ' +
+        'CHIC = สบาย (สายคุณหนู) (chic/comfy/glamping-ish, e.g. "สบาย"/"สายคุณหนู"/"หรูหรา"), ' +
+        'GENR = ทั่วไป (general/standard, e.g. "ทั่วไป"/"ธรรมดา"), ' +
+        'DIFT = ลำบาก (difficult, e.g. "ลำบาก"/"ไม่สะดวก"), ' +
+        'IDMT = ทรหด (indomitable/rugged, e.g. "ทรหด"/"สายลุย"/"โหด").',
+    },
     sort: {
       type: 'string',
       enum: VALID_SORTS,
@@ -532,6 +558,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     // facilities above.
     equipment: Array.isArray(args.equipment) ? args.equipment.join(',') : args.equipment,
     annotatedFeatures: args.annotatedFeatures,
+    camperStyle: args.camperStyle,
     excludeIds,
   });
 
@@ -630,7 +657,7 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
   description:
-    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, rentable equipment, and annotated features (rules/rights like alcohol-allowed, fires-allowed, firewood, wheelchair-accessible, reservable). Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, rentable equipment, annotated features (rules/rights like alcohol-allowed, fires-allowed, firewood, wheelchair-accessible, reservable), and camper style (host-declared vibe: chic/comfy, general, difficult, indomitable/rugged). Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
     'Pass `equipment` when the camper needs rental gear — a beginner with no equipment of their own ("มือใหม่", "ไม่มีอุปกรณ์", "มาตัวเปล่า") or anyone asking what a camp rents out. An array means the camp must offer ALL listed items (AND, not OR like the other taxonomy filters). ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +
