@@ -57,6 +57,8 @@ The fast path for any UI work (full rules below):
 
 **Voice/personality:** outdoor-warm, trustworthy, friendly but not cutesy · speak to the user like a friend who really knows camping.
 
+**Default theme = dark** (owner decision, CAM-544, 2026-07-26): "ปรับ Default theme เป็น Dark theme เพราะเราคือ platform เกี่ยวข้องกับแคมป์ไฟ" — CampVibe is a campfire platform, so a first-time visitor sees **dark** from first paint, regardless of their device's own light/dark setting. This is a brand decision, not an implementation detail: `components/Providers.tsx` sets `defaultTheme="dark"` (not `"system"`) while keeping `enableSystem` on, so the 3-way `ThemeToggle` (light/system/dark, CAM-105) still works and a visitor's own stored choice (including an explicit "System") always wins over this default once made.
+
 ## §2 Tokens — machine-readable (real values from `app/globals.css`, OKLCH light/.dark)
 
 ### Color (semantic — tokens only, with per-row usage)
