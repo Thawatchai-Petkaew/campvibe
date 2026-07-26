@@ -25,6 +25,7 @@ import { haversineDistanceKm } from '@/lib/geo/distance';
 import provinceCentroidsData from '@/prisma/data/province-centroids.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
+import type { AiChatCardTag } from '@/lib/api-client';
 
 /**
  * CAM-502 (P2 geo proximity) BR-1 — the committed, build-step-derived
@@ -316,9 +317,143 @@ export type SearchCampsitesArgs = z.infer<typeof searchCampsitesArgsSchema>;
  * renderer never has to branch on presence: `null` = no date range was
  * requested (or the range failed the DoS/inversion guard) — unknown, render
  * no live-availability text; a number = live "เหลือ N ที่" (0 = "เต็ม").
+ *
+ * CAM-564 — `matchedTag` is OPTIONAL on this interface (unlike `remaining`)
+ * so `check-availability.ts`/`bulk-availability.ts` — the OTHER two tools
+ * that already reuse this exact `SearchCampsiteCard` shape for their own,
+ * differently-sourced cards, outside this story's surface — keep
+ * type-checking unchanged (api.md rule 12: additive by extension, never a
+ * breaking required-field addition to a shared type). `searchCampsites`
+ * itself (this file) ALWAYS sets a real value (`null` or a tag) below —
+ * `null` = no taxonomy filter the camper's own search supplied matched THIS
+ * card (a free-text/location-only search, or the search used no taxonomy
+ * filter at all) — render no badge, never fall back to the camp's own fixed
+ * default tag (that fixed fallback is exactly what CAM-547 found dishonest —
+ * a badge that describes the camp, not the search). See `deriveMatchedTags`
+ * below for how the ONE leading tag is chosen when more than one supplied
+ * filter matches the same card.
  */
 export interface SearchCampsiteCard extends AiCampCard {
   remaining: number | null;
+  matchedTag?: AiChatCardTag | null;
+}
+
+/**
+ * CAM-564 BR-2 — the multi-match PRIORITY order (highest first) used to pick
+ * ONE leading badge when the camper's search supplies filters across more
+ * than one taxonomy group and a card matches more than one of them. This is
+ * a DELIBERATE editorial order, never data/arrival/DB-return order:
+ *   1. terrain            — the camp's own defining physical character; the
+ *                            same single-descriptor CONCEPT the retired fixed
+ *                            badge already used (design continuity).
+ *   2. camperStyle         — the host's own declared vibe/identity; still a
+ *                            camp-level fact, one step less "physical" than terrain.
+ *   3. annotatedFeatures   — a rule/right (e.g. "ก่อไฟได้") that can gate
+ *                            whether the camper can even go; materially
+ *                            decision-shaping, not just an amenity.
+ *   4. activities          — the specific thing the camper asked to DO there;
+ *                            about the trip, not the ground it sits on.
+ *   5. facilities          — 6. access — 7. equipment — logistics/amenities,
+ *                            deliberately least camp-defining of the seven
+ *                            filterable groups (see story.md BR-2 for the
+ *                            full rationale).
+ * `type` (campSiteType, e.g. GLAMP) is deliberately OUT of this list: it is a
+ * scalar `CampSite` column matched by plain equality, never an `options`
+ * MasterData relation row — there is no per-card "did this camp actually
+ * carry the tag" fact to verify for it the way there is for every group
+ * below (see story.md Seams & refs).
+ */
+const MATCHED_TAG_GROUP_PRIORITY = [
+  'terrain',
+  'camperStyle',
+  'annotatedFeatures',
+  'activities',
+  'facilities',
+  'access',
+  'equipment',
+] as const;
+type MatchedTagGroupKey = (typeof MATCHED_TAG_GROUP_PRIORITY)[number];
+
+/** A single-string arg is one code; an array arg (OR-within-group, CAM-461) is 1+ — either way, normalize to a code list. Absent -> []. */
+function toCodeList(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * CAM-564 BR-1/BR-3 — derives, per returned card, the ONE taxonomy tag that
+ * honestly explains why THAT card is in these results.
+ *
+ * Why a second, small, BATCHED query is needed (never inferred from `args`
+ * alone): `buildCampSiteWhere` ANDs each supplied GROUP against the where
+ * clause, but a group's own ARRAY form is OR-within-group (CAM-461) — e.g.
+ * `terrain:["RIVE","BEAC"]` guarantees a returned card has AT LEAST ONE of
+ * the two, never tells the caller WHICH one. Only a real read of this card's
+ * own MasterData rows (bounded to the small set of codes THIS search itself
+ * supplied — never the whole taxonomy) can say which specific code the card
+ * carries — anything else would be a guess dressed as a fact.
+ *
+ * Batched (BR-4, performance.md no-N+1): ONE extra `findMany` for the WHOLE
+ * page of ≤`SEARCH_CAMPSITES_MAX_RESULTS` cards, never a per-card query in a
+ * loop — the same pattern `getRemainingCapacityForCamps` already uses below.
+ * Skipped entirely when the search supplied no taxonomy filter at all
+ * (`candidateCodes` empty) — the common free-text/location-only case never
+ * pays for a query whose answer is always "no match" (EC — no-match case).
+ *
+ * Fail-open (BR-5): a lookup failure never blocks the search itself — the
+ * worst case is simply no badge on this turn's cards, the same fail-open
+ * convention `resolveProvinceAdminAreaIds` above already uses.
+ */
+async function deriveMatchedTags(
+  cardIds: string[],
+  args: Pick<
+    SearchCampsitesArgs,
+    'terrain' | 'camperStyle' | 'annotatedFeatures' | 'activities' | 'facilities' | 'access' | 'equipment'
+  >
+): Promise<Record<string, AiChatCardTag>> {
+  const codesByGroup: Record<MatchedTagGroupKey, string[]> = {
+    terrain: toCodeList(args.terrain),
+    camperStyle: toCodeList(args.camperStyle),
+    annotatedFeatures: toCodeList(args.annotatedFeatures),
+    activities: toCodeList(args.activities),
+    facilities: toCodeList(args.facilities),
+    access: toCodeList(args.access),
+    equipment: toCodeList(args.equipment),
+  };
+  const candidateCodes = Array.from(new Set(MATCHED_TAG_GROUP_PRIORITY.flatMap((key) => codesByGroup[key])));
+
+  const matchedTagByCampId: Record<string, AiChatCardTag> = {};
+  if (candidateCodes.length === 0 || cardIds.length === 0) return matchedTagByCampId;
+
+  try {
+    const rows = await prisma.campSite.findMany({
+      where: { id: { in: cardIds } },
+      select: {
+        id: true,
+        options: {
+          where: { code: { in: candidateCodes } },
+          select: { code: true, nameTh: true, nameEn: true },
+        },
+      },
+    });
+
+    for (const row of rows) {
+      const presentCodes = new Set(row.options.map((o) => o.code));
+      for (const key of MATCHED_TAG_GROUP_PRIORITY) {
+        // Within a tier, preserve the CAMPER'S own supplied order (e.g. the
+        // model's own `["RIVE","BEAC"]` order) — never DB/return order.
+        const winnerCode = codesByGroup[key].find((code) => presentCodes.has(code));
+        if (!winnerCode) continue;
+        const opt = row.options.find((o) => o.code === winnerCode);
+        if (opt) matchedTagByCampId[row.id] = { nameTh: opt.nameTh, nameEn: opt.nameEn };
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('[CAM-564] matched-tag lookup failed (fail-open, no badge this turn)', error);
+  }
+
+  return matchedTagByCampId;
 }
 
 export interface SearchCampsitesResult {
@@ -672,10 +807,19 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     );
   }
 
+  // CAM-564 — the ONE "matched tag" badge per card (see deriveMatchedTags'
+  // own doc comment for why a second, small, batched query is the honest way
+  // to derive it — never inferred from `args` alone).
+  const matchedTagByCampId = await deriveMatchedTags(
+    cards.map((c) => c.id),
+    args
+  );
+
   return {
     cards: cards.map((card) => ({
       ...card,
       remaining: remainingByCampId[card.id]?.remaining ?? null,
+      matchedTag: matchedTagByCampId[card.id] ?? null,
     })),
   };
 }

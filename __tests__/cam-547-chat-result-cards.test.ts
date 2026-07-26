@@ -182,18 +182,24 @@ describe("AC-5 — the rating renders as a badge on the image, top-left", () => 
   });
 });
 
-describe("AC-6 — the badge does NOT (yet) reflect the search; asserting the honest current behavior, not a fake fix", () => {
-  it("[unit] the badge still reads the camp's own fixed first tag (card.options[0]) — unchanged, because no per-search matched-filter field exists on the wire response", () => {
-    // A test that only asserts "a badge renders" would pass on the BROKEN
-    // (pre-existing) behavior too. This asserts the actual SOURCE of the
-    // tag is still the camp's own fixed field, proving nothing was faked
-    // (e.g. no new `card.matchedTag`/`card.searchedTag` invented client-side).
-    expect(cardSrc).toContain("const tag = card.options?.[0];");
-    expect(cardSrc).not.toMatch(/matchedTag|searchedTag|searchIntent/);
+describe("AC-6 (CAM-547) superseded by CAM-564 — the badge now reflects the search's own matched tag, built for real (not faked client-side)", () => {
+  it("[unit] the badge's source is now card.matchedTag, a REAL server-derived field (lib/ai/tools/search-campsites.ts) — the old fixed card.options[0] read is gone", () => {
+    // CAM-547 pinned the HONEST absence of a client-invented field here
+    // specifically because faking it in the component (with no real backend
+    // derivation) would have been a fake fix. CAM-564 built the real seam —
+    // the tool layer derives + verifies the match against the DB and threads
+    // it onto the wire (`AiChatCardResponse.matchedTag`) — so this assertion
+    // now pins the OPPOSITE: the component must read that real field, not
+    // reconstruct anything from the camp's own fixed `options`.
+    expect(cardSrc).toContain("card.matchedTag");
+    // The removed line, exactly (a substring ban on "card.options" would also
+    // flag this file's own doc comments, which still legitimately reference
+    // the old field by name for context).
+    expect(cardSrc).not.toContain("const tag = card.options?.[0];");
   });
 
-  it("[structural] the investigation is documented in-source (not silently left unexplained)", () => {
-    expect(cardSrc).toMatch(/CAM-547 AC-4[\s\S]*investigated/);
+  it("[structural] the CAM-564 seam is documented in-source (not silently swapped with no trace)", () => {
+    expect(cardSrc).toMatch(/CAM-564/);
   });
 });
 
