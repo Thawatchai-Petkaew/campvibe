@@ -208,6 +208,17 @@ export interface AiChatCardTag {
  *   - `remaining` — G3: LIVE batched remaining-capacity count for the stay
  *     dates the assistant search was given; `null`/absent = no date range
  *     was requested (unknown), never fabricated.
+ *
+ * CAM-564 additive field (api.md rule 12):
+ *   - `matchedTag` — the ONE taxonomy tag that explains why THIS card is in
+ *     these results, derived server-side (`lib/ai/tools/search-campsites.ts`
+ *     `deriveMatchedTags`) from the camper's own supplied search filters and
+ *     verified against this camp's real MasterData rows — deliberately
+ *     DIFFERENT from `options` (the camp's own fixed default tag, unchanged):
+ *     `null`/absent = no supplied filter matched this card (a free-text or
+ *     location-only search) -> the card renders no badge at all, it never
+ *     falls back to `options[0]` (that fixed fallback is exactly the
+ *     "describes the camp, not the search" behavior CAM-547 found dishonest).
  */
 export interface AiChatCardResponse {
     id: string;
@@ -224,6 +235,7 @@ export interface AiChatCardResponse {
     options?: AiChatCardTag[];
     hasReviews?: boolean;
     remaining?: number | null;
+    matchedTag?: AiChatCardTag | null;
 }
 
 /**
@@ -379,7 +391,9 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
         // (api.md rule 12: an older/unaware body simply lacks the key).
         (v.options === undefined || (Array.isArray(v.options) && v.options.every(isCardTag))) &&
         (v.hasReviews === undefined || typeof v.hasReviews === 'boolean') &&
-        (v.remaining === undefined || v.remaining === null || typeof v.remaining === 'number')
+        (v.remaining === undefined || v.remaining === null || typeof v.remaining === 'number') &&
+        // CAM-564 additive field — same "absent or well-formed" contract.
+        (v.matchedTag === undefined || v.matchedTag === null || isCardTag(v.matchedTag))
     );
 }
 

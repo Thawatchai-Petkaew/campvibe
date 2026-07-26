@@ -13,13 +13,25 @@
  *   - price: `priceLow` null/0 -> `ฟรี` (same "no price = free" convention
  *     the catalog card already uses; priceLow is null precisely when the
  *     schema's `isFree` is true, per lib/catalog-cursor.ts).
- *   - first tag: `options[0]` (CAM-427's Terrain-group "first tag").
+ *   - tag: `matchedTag` (CAM-564 — see below), NOT `options[0]`.
  *   - rating: `hasReviews` (G7 canonical signal) falls back to
  *     `reviewCount > 0 && avgRating != null` for an older/unaware payload.
  *   - province: `location.province` is `''` when the source `Location.province`
  *     was null (server-side coercion, ai-camp-card.ts) -> hide the row (G8).
  *   - availability: `remaining` is a plain number only when a dated search
  *     supplied it -> render the chip only then, never fabricate (G3).
+ *
+ * CAM-564 (the seam CAM-547 AC-6 documented and left unbuilt) — the tag
+ * badge now reads `card.matchedTag`: the ONE taxonomy tag that explains WHY
+ * this card is in these results, derived server-side
+ * (`lib/ai/tools/search-campsites.ts` `deriveMatchedTags`) from the filters
+ * the camper's own search actually supplied AND verified against this camp's
+ * real MasterData rows. `undefined`/`null` = no supplied filter matched this
+ * card (a free-text/location-only search, or the search used no taxonomy
+ * filter at all) -> render NO badge — never fall back to `card.options[0]`
+ * (the camp's own fixed default tag); that fixed fallback is the exact
+ * "describes the camp, not the search" behavior CAM-547 investigated and
+ * refused to fake.
  *
  * CAM-547 (owner defect fixes, 2026-07-26):
  *   - AC-3: the redundant "ดูรายละเอียด" line is REMOVED from the visible
@@ -56,21 +68,12 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
   const { t, language } = useLanguage();
 
   const name = language === "en" ? card.nameEn || card.nameTh : card.nameTh;
-  // CAM-547 AC-4 (investigated, NOT changed here) — `card.options[0]` is the
-  // camp's own fixed first Terrain-group descriptor (`aiCampCardSelect`,
-  // `where: { group: 'Terrain' }, orderBy: code asc, take: 1` in
-  // lib/read-models/ai-camp-card.ts), the SAME value for a given camp no
-  // matter what the camper searched for. Making this reflect the search
-  // would need which taxonomy filter args actually matched THIS card on
-  // THIS turn threaded from lib/ai/tools/search-campsites.ts through the
-  // wire response (`AiChatCardResponse`, api-client.ts) — that data does not
-  // exist on the card, or anywhere the client can read, today. That is a
-  // real backend/API contract change (new field + a matching-tag derivation
-  // at the tool layer), outside this story's frontend-only surface — see
-  // the story's Out of scope section for the proposed seam. Left unchanged
-  // rather than faked from the camp's own fields.
-  const tag = card.options?.[0];
-  const tagName = tag ? (language === "en" ? tag.nameEn : tag.nameTh) : null;
+  // CAM-564 — the badge's data source is the search's own matched tag, never
+  // the camp's fixed default (`card.options[0]`, now unused here). `null`/
+  // absent -> no badge at all (honest silence beats a plausible-looking
+  // invented value) — see the file's top doc comment for the full seam.
+  const matchedTag = card.matchedTag;
+  const tagName = matchedTag ? (language === "en" ? matchedTag.nameEn : matchedTag.nameTh) : null;
   const hasProvince = card.location.province.trim().length > 0;
   const hasReviews = card.hasReviews ?? (card.reviewCount > 0 && card.avgRating != null);
   // CAM-547 AC-5 — the single condition that decides whether the rating badge
