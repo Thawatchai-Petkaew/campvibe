@@ -16,8 +16,9 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint } from "lucide-react";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
+import { OptionGroupSection } from "@/components/ui/option-group-section";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -418,6 +419,9 @@ export default function CampgroundDetailClient({
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
+    // CAM-528 (S1) — Activity was never bucketed on this page even though the
+    // AI-chat detail card already showed it; icons + i18n landed in CAM-525 (S9).
+    const activityCodes = codesByGroup('Activity');
     // CAM-515 (S3) — the FIRST new MasterData group (ALCO/FIRE/FIWD/ADAA/RESV).
     const annotatedCodes = codesByGroup('Annotated features');
     // CAM-516 (S4) — the SECOND new MasterData group (CHIC/GENR/DIFT/IDMT).
@@ -487,6 +491,10 @@ export default function CampgroundDetailClient({
         const IconComponent = getFacilityIcon(code);
         return <IconComponent className="w-8 h-8 text-muted-foreground stroke-[1.2]" />;
     };
+
+    // CAM-528 (S1): the label lookup every OptionGroupSection tile shares —
+    // same `t.filter[code] || code` fallback every migrated section already used.
+    const getLabel = (code: string) => t.filter[code as keyof typeof t.filter] || code;
 
     const getAccessDescription = (code: string) => {
         const descMap: Record<string, string> = {
@@ -948,29 +956,44 @@ export default function CampgroundDetailClient({
                             </div>
                         )}
 
-                        {/* 3. Site Types */}
-                        {(!!campSiteTypeCode || terrainCodes.length > 0) && (
+                        {/* 3a. CAM-528 (S1) AC-2/BR-2 — campSiteType gets its OWN labeled
+                            section (was an unlabeled tile mixed into "Site Types" below).
+                            Scalar column, so it's a single-code array. */}
+                        {campSiteTypeCode && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--campground-type">
+                                <OptionGroupSection
+                                    heading={t.filter["Campground type"]}
+                                    codes={[campSiteTypeCode]}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3b. Site Types (Terrain) — CAM-528 (S1) BR-1: migrated onto the
+                            shared OptionGroupSection primitive, zero visual change. */}
+                        {terrainCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {/* CAM-517 (S5) AC-3 — campSiteType (single scalar: CAGD/CACP/GLAMP/VIEW) */}
-                                    {campSiteTypeCode && (
-                                        <div className="flex flex-col items-start gap-3" data-testid="text--campground-sitetype">
-                                            {getIcon(campSiteTypeCode)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[campSiteTypeCode as keyof typeof t.filter] || campSiteTypeCode}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {terrainCodes.map((terrain: string) => (
-                                        <div key={terrain} className="flex flex-col items-start gap-3">
-                                            {getIcon(terrain)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[terrain as keyof typeof t.filter] || terrain}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.campground.siteTypes}
+                                    codes={terrainCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3c. CAM-528 (S1) AC-1/BR-4 — Activity: never bucketed on this
+                            page before, even though the AI-chat detail card already showed
+                            it. Icons + i18n landed in CAM-525 (S9). */}
+                        {activityCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--activities">
+                                <OptionGroupSection
+                                    heading={t.filter["Activity"]}
+                                    codes={activityCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1045,17 +1068,12 @@ export default function CampgroundDetailClient({
                             the FIRST new MasterData group added post-launch. */}
                         {annotatedCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Annotated features"]}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {annotatedCodes.map((code: string) => (
-                                        <div key={code} className="flex flex-col items-start gap-3">
-                                            {getIcon(code)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[code as keyof typeof t.filter] || code}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.filter["Annotated features"]}
+                                    codes={annotatedCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1064,17 +1082,12 @@ export default function CampgroundDetailClient({
                             MasterData group added post-launch. */}
                         {camperStyleCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--camper-style">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Camper style"]}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {camperStyleCodes.map((code: string) => (
-                                        <div key={code} className="flex flex-col items-start gap-3">
-                                            {getIcon(code)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[code as keyof typeof t.filter] || code}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.filter["Camper style"]}
+                                    codes={camperStyleCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1088,49 +1101,37 @@ export default function CampgroundDetailClient({
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.additionalInfo}</h2>
                                 <div className="space-y-6">
                                     {stayConnectedCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Stay connected"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {stayConnectedCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Stay connected"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={stayConnectedCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                     {markingMethodCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Marking method"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {markingMethodCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Marking method"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={markingMethodCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                     {drivewayCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Driveway"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {drivewayCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Driveway"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={drivewayCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -1361,6 +1362,21 @@ export default function CampgroundDetailClient({
                                         {campground.checkInTime || "14:00"} - {campground.checkOutTime || "11:00"}
                                     </span>
                                 </div>
+
+                                {/* CAM-528 (S1) AC-3/BR-3: petFriendly is saved + prefilled on the
+                                    host form but was never rendered anywhere on this page — a
+                                    camper had no way to tell. Renders only when true (BR-3): the
+                                    absence of the row is the correct default state, not a claim
+                                    that pets are disallowed. */}
+                                {campground.petFriendly && (
+                                    <div
+                                        className="flex items-center gap-3 py-2 border-b border-border/60"
+                                        data-testid="row--campground-pet-friendly"
+                                    >
+                                        <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                                        <span className="font-medium text-foreground">{t.newCampground.petFriendly}</span>
+                                    </div>
+                                )}
 
                                 {campground.minimumAge !== undefined && campground.minimumAge > 0 && (
                                     <div className="flex justify-between items-center py-2 border-b border-border/60">
