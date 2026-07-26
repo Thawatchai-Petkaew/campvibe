@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { type FilterableZodField } from "@/lib/taxonomy-registry";
 
 /**
@@ -34,6 +34,28 @@ export type CampSiteFilterParams = TaxonomyFilterFields & {
    * `{ in: [...] }` — the province-SET match a resolved region needs.
    */
   province?: string | string[];
+  /**
+   * CAM-563 — additive, OPT-IN: AdminArea ids (already resolved by the
+   * caller, see `resolveProvinceAdminAreaIds` below) that ALSO count as a
+   * match for the `province` NAME given above. Only consulted when
+   * `province` is a plain `string` (the array/`in` branch — CAM-461/463's
+   * AI region-expansion — is UNCHANGED and does not read this field; see
+   * tech.md's Seams section for why). Absent/empty = the exact pre-CAM-563
+   * string-equality behavior, BYTE-IDENTICAL to before — pinned by
+   * `__tests__/cam-463-campsite-filters-province-set.test.ts`, which never
+   * sets this field.
+   *
+   * Root cause this closes: `Location.province`/`district`/`subDistrict`
+   * are free text written in whichever UI language was active when the
+   * host saved (CAM-559 finding), so an exact string match on `province`
+   * alone can miss a camp stored in the other language for the SAME real
+   * province. Resolving the incoming name to its AdminArea subtree
+   * (province node + every descendant district/sub-district) FIRST, then
+   * OR-ing that id-set alongside the legacy string, means a camp matches
+   * regardless of which language its `province` column happens to hold —
+   * without ever removing the legacy path (no big-bang swap, BR-3).
+   */
+  provinceAdminAreaIds?: string[];
   district?: string;
   startDate?: string;
   endDate?: string;
@@ -120,7 +142,20 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
       const names = province.filter(Boolean);
       if (names.length > 0) where.location.province = { in: names };
     } else if (province) {
-      where.location.province = province; // UNCHANGED — byte-identical for every catalog caller ('' falls through, no filter)
+      // CAM-563 — only engaged when the caller supplies resolved ids
+      // (`provinceAdminAreaIds`); every existing caller that omits it keeps
+      // the exact pre-CAM-563 plain-equality shape on the line below,
+      // UNCHANGED (byte-identical for every catalog caller — '' falls
+      // through, no filter).
+      const ids = params.provinceAdminAreaIds;
+      if (ids && ids.length > 0) {
+        where.location.OR = [
+          { province }, // legacy exact-string match — never removed (BR-3)
+          { adminAreaId: { in: ids } }, // CAM-563 — id-based, language-agnostic match
+        ];
+      } else {
+        where.location.province = province; // UNCHANGED — byte-identical for every catalog caller ('' falls through, no filter)
+      }
     }
     if (district) where.location.district = district;
   }
@@ -233,5 +268,59 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   // a structural gate independent of dates) is unchanged above.
 
   return where;
+}
+
+/**
+ * CAM-563 — resolves a province NAME (Thai or English) to every AdminArea id
+ * that should count as "a camp in this province": the matched PROVINCE node
+ * itself, plus every DISTRICT and SUBDISTRICT node beneath it. A camp's
+ * `Location.adminAreaId` holds the DEEPEST level actually resolved for that
+ * camp (subDistrict ?? district ?? province — see the CAM-563 backfill
+ * script), so matching ONLY the province-level id would silently miss every
+ * camp whose id points to a deeper node.
+ *
+ * Returns `[]` when the name matches no known province — the caller must
+ * treat that as "no id-based boost available" and fall back to the legacy
+ * string-equality path alone (never a silent zero; `buildCampSiteWhere`
+ * above OR's the id-set alongside the string, so an empty array here simply
+ * means the OR contributes nothing new).
+ *
+ * Matching is exact (case-insensitive `equals`), never `contains` — the
+ * DEF-1/DEF-2 Thai-substring collision lesson (`.claude/rules/code.md`)
+ * applies to a closed administrative-name set too.
+ */
+export async function resolveProvinceAdminAreaIds(
+  prisma: Pick<PrismaClient, "adminArea">,
+  name: string
+): Promise<string[]> {
+  if (!name) return [];
+
+  const nameMatch = {
+    OR: [
+      { nameTh: { equals: name, mode: "insensitive" as const } },
+      { nameEn: { equals: name, mode: "insensitive" as const } },
+    ],
+  };
+
+  const province = await prisma.adminArea.findFirst({
+    where: { countryCode: "TH", level: "PROVINCE", ...nameMatch },
+    select: { id: true },
+  });
+  if (!province) return [];
+
+  const districts = await prisma.adminArea.findMany({
+    where: { countryCode: "TH", level: "DISTRICT", parentId: province.id },
+    select: { id: true },
+  });
+  const districtIds = districts.map((d) => d.id);
+
+  const subDistricts = districtIds.length
+    ? await prisma.adminArea.findMany({
+        where: { countryCode: "TH", level: "SUBDISTRICT", parentId: { in: districtIds } },
+        select: { id: true },
+      })
+    : [];
+
+  return [province.id, ...districtIds, ...subDistricts.map((s) => s.id)];
 }
 
