@@ -64,10 +64,11 @@ Both routes are read-only (no Prisma writes) and add no new client bundle weight
 
 No new ADR - this is additive UI + two read-only server routes on already-decided data models (CAM-553/CAM-559's AdminArea-vs-ThailandLocation split, unchanged; the owner's Leaflet-browser/Google-server split, recorded inline in the ticket's comments). CAM-563 (the `adminAreaId`-as-storage migration) is a separate future ADR-worthy decision, out of this story's scope.
 
-Confirmation: `__tests__/cam-554-geocode-routes.test.ts` (hierarchical scoping, bilingual match, key safety) + `__tests__/cam-554-map-pin-sync.test.ts` (two-way sync, visible reconciliation, lazy load, cost control, i18n, design gate).
+Confirmation: `__tests__/cam-554-geocode-routes.test.ts` (hierarchical scoping, bilingual match, key safety) + `__tests__/cam-554-map-pin-sync.test.ts` (two-way sync, visible reconciliation, lazy load, cost control, i18n, design gate) + `e2e/regression/ac5-create-camp.spec.ts` (real create flow, actually run locally - see Changelog v2).
 
 ## Links
 `components/MapComponent.tsx` (the reused Leaflet pattern, read-only in this story) · `docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-559-cascading-location-selects/tech.md` (the AdminArea-vs-ThailandLocation split + the canonical-storage-format forward-looking note this story acts on) · `story.md`
 
 ## Changelog
 - v1 (2026-07-26) — created
+- v2 (2026-07-26) — CI's `e2e-regression` job caught real fallout: this story's new submit-guard (BR-8) blocked `e2e/regression/ac5-create-camp.spec.ts`, which never placed a pin, before the create-camp POST ever fired. Actually ran the regression suite locally (not just reasoned about it) against a dedicated local Postgres (`campvibe_e2e_cam554`, migrated + seeded - never the shared dev DB) + the real Next.js dev server on port 3100: reproduced the exact CI timeout first, fixed the spec (click the map - synchronous, no dependency on a real `GOOGLE_GEOCODING_API_KEY`), then confirmed all 25 regression specs pass at `--workers=1` (CI's serial mode) on a fresh reseed. Also confirmed BOTH geocode routes fail gracefully (generic `500`, logged, never blocking) when `GOOGLE_GEOCODING_API_KEY` is absent, exactly as designed - observed live in the dev-server log during this run, not just asserted in a mock.
