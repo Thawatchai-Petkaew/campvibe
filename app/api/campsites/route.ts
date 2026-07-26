@@ -22,8 +22,55 @@ import {
   type CatalogSort,
 } from '@/lib/catalog-cursor';
 
+// CAM-534 (BR-1) — public catalog browse: a real camper pages + filters
+// repeatedly (infinite-scroll fetches one PAGE_SIZE=24 page per scroll,
+// plus one fetch per filter/sort/keyword change). A ~100/15min baseline
+// (the general default in .claude/rules/security.md) is tight enough to
+// break an active filtering session on a shared/office IP, so this
+// endpoint is deliberately wider than the baseline: 300 requests / 15 min
+// per IP comfortably covers dozens of scroll + filter fetches in one
+// session while still capping a scraper hammering thousands of requests.
+const CATALOG_LIST_RATE_LIMIT = 300;
+const CATALOG_LIST_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 min
+
 export async function GET(request: NextRequest) {
   try {
+    // 0. Rate-limit by IP (CAM-534) — runs before any parsing/query work.
+    // IP extraction mirrors the established pattern used across the
+    // codebase (lib/auth.ts, app/api/vitals/route.ts, app/api/tickets/*,
+    // lib/ai/rate-limit.ts): read the first hop of `x-forwarded-for`
+    // (set reliably by Vercel's edge proxy in front of this app) rather
+    // than inventing a new header-parsing scheme.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+
+    // Fail OPEN on any limiter error — a bug in the limiter must never take
+    // the public catalog offline (this is a plain, bounded call, not a
+    // per-request loop; see the CAM-344 lesson in security.md).
+    let isRateLimited = false;
+    let retryAfterSec = 0;
+    try {
+      const rl = checkRateLimit(`catalog:list:${ip}`, {
+        limit: CATALOG_LIST_RATE_LIMIT,
+        windowMs: CATALOG_LIST_RATE_WINDOW_MS,
+      });
+      isRateLimited = !rl.allowed;
+      retryAfterSec = rl.retryAfterSec;
+    } catch (rlError) {
+      console.error('[CAM-534] rate limiter error (fail-open, request allowed)', rlError);
+    }
+    if (isRateLimited) {
+      return new Response(
+        JSON.stringify({
+          error: 'rate_limited',
+          message: 'คำขอมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง',
+        }),
+        {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSec) },
+        }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     // 1. Validate at the boundary — zod-parse every query param.
