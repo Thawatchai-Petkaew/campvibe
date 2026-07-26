@@ -50,7 +50,9 @@
             "themeLight": "Light",
             "themeSystem": "System",
             "themeDark": "Dark",
-            "hostLabel": "Host"
+            "hostLabel": "Host",
+            "accountMenuAriaLabel": "Account menu",
+            "switchLanguageAriaLabel": "Switch language"
         },
         "host": {
             "onboardingChip": "Host onboarding"
@@ -1127,7 +1129,9 @@
             "themeLight": "สว่าง",
             "themeSystem": "ตามอุปกรณ์",
             "themeDark": "มืด",
-            "hostLabel": "โฮสต์"
+            "hostLabel": "โฮสต์",
+            "accountMenuAriaLabel": "เมนูบัญชีของฉัน",
+            "switchLanguageAriaLabel": "สลับภาษา"
         },
         "host": {
             "onboardingChip": "เริ่มต้นโฮสต์"

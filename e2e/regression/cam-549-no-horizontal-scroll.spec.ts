@@ -17,6 +17,15 @@
  * edge) — see story.md "Seams & refs" for the full measured root cause.
  */
 import { test, expect } from "@playwright/test";
+// CAM-570: the language switcher's accessible name now lives in
+// locales/translations.json (was a hardcoded English literal). Read it from
+// the same source the app renders from, rather than re-pinning a literal
+// string here — this test still proves "findable + correctly labelled", it
+// just no longer duplicates the copy. The app defaults to English (no
+// language toggle happens in this spec), so `en` is the value actually
+// rendered.
+import translations from "../../locales/translations.json";
+const SWITCH_LANGUAGE_LABEL = translations.en.nav.switchLanguageAriaLabel;
 
 // Realistic modern phone widths (iPhone SE/12/13/14, Pixel, common Android
 // mid/large phones). 320px (iPhone SE 1st-gen class) is a known, narrow
@@ -48,10 +57,10 @@ test("language switcher is dropped from the mobile navbar row but stays at deskt
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
   await expect(page.getByTestId("btn--wishlist-nav")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Switch language" })).toBeHidden();
+  await expect(page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL })).toBeHidden();
 
   // Desktop (md = 768px and above): still present and functional.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.waitForTimeout(200);
-  await expect(page.getByRole("button", { name: "Switch language" })).toBeVisible();
+  await expect(page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL })).toBeVisible();
 });

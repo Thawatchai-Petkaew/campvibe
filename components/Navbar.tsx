@@ -212,7 +212,7 @@ export function Navbar() {
                         )}
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild aria-label="User menu">
+                            <DropdownMenuTrigger asChild aria-label={t.nav.accountMenuAriaLabel}>
                                 {/*
                                     CAM-558: measured 42px tall / 78px wide (p-1 pl-3 +
                                     hamburger icon + gap + avatar). h-11 pins the tap
