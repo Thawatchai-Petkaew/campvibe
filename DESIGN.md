@@ -111,7 +111,7 @@ The fast path for any UI work (full rules below):
 
 | role | radius | px (base 10px) |
 |---|---|---|
-| button · input · select-trigger · chip/pill · icon-button | `rounded-full` | — |
+| button · input · select-trigger · chip/pill · icon-button · calendar day | `rounded-full` / token `--radius-full` | — |
 | card · modal/dialog · sheet | `rounded-3xl` | 22px |
 | popover · select/dropdown/command content | `rounded-2xl` | 18px |
 | inner element · badge · small inset | `rounded-xl` | 14px |
@@ -225,11 +225,38 @@ This exception is the record that legitimizes the camping assistant look. Anythi
 | job | use | note |
 |---|---|---|
 | switch sections within one page | `Tabs` | not cross-page navigation (use a link) · active segment uses the accent tone, not a heavy line |
-| pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` |
+| pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` · day-cell selection states → the table below |
 | status label (not clickable) | `Badge` `rounded-xl` | status (confirmed/paid) uses `Badge` + token success/destructive/muted — **not a raw `<span>`** · a clickable filter → FilterChip (§ table) |
 | truncated text + tooltip | `TruncatedLabel` | — |
 | **icon-chip background** (stat cards, active nav, dashboard) | `<div>` / `<span>` wrapping an icon | `bg-(primary\|success\|warning\|info\|destructive)/10` — 10% opacity tint fill; pair with the matching `text-(color)` or `text-(color)-foreground` icon · ❌ do **not** apply this pattern to a `<Button>` or `<Badge>` className (use variant instead) |
 | **ghost-primary link-action** (utility/dashboard surfaces) | `<Button variant="ghost">` | add `className="text-primary hover:bg-primary/5"` — low-chrome "view / go" action on product-utility pages (dashboard, bookings list) · ❌ do **not** use as a primary CTA or on marketing/brand pages (use `default` or `link` variant) |
+
+### Calendar day selection states (CAM-533 — one shape language, single/range alike)
+
+`Calendar` mounts for BOTH `mode="single"` (booking check-in/out) and `mode="range"` (dashboard). One shape system covers both, so a day never changes vocabulary between surfaces.
+
+**Ownership rule:** the day **button** (`CalendarDayButton`) is the ONLY layer that declares radius or fill. The DayPicker `classNames` cell layer declares layout only. Two layers declaring the same shape is what produced the circle/square/half-circle mix the owner reported.
+
+| state | shape | fill | token |
+|---|---|---|---|
+| default | full round | none | `--radius-full` (via `--cell-radius`) |
+| hover | full round (unchanged) | `bg-muted` (ghost button) | `--muted` |
+| focus | full round (unchanged) | none — visible `ring-[3px]` outside | `--ring` |
+| active | full round (unchanged) | press scale from the Button base | — |
+| disabled | full round (unchanged) | none, `text-muted-foreground opacity-50`, no pointer | `--muted-foreground` |
+| single selected | full round | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range start | outer (left) round, inner edge flat | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range middle | flat both edges (connects the band) | `bg-muted` + `text-foreground` | `--muted` |
+| range end | outer (right) round, inner edge flat | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range of one day (start = end) | full round | solid `bg-primary` | `--primary` |
+| today (not selected) | full round + 1px ring on the day control | none | `--muted-foreground` (4.61:1 light / 8.07:1 dark, ≥3:1 non-text) |
+| today (selected) | takes the selection shape above; the today ring retires | per selection state | — |
+| outside month | full round (unchanged) | none, `text-muted-foreground` | `--muted-foreground` |
+
+- ❌ Never give `today` its own square/`rounded-none` treatment; a square day is a shape-language break, not an emphasis.
+- ❌ Never mark today with `--primary` — measured 2.62:1 on `--background` in dark, below the 3:1 non-text floor.
+- Today uses `border`, focus uses `ring` — different CSS properties on purpose, so a focused today cell keeps a visible focus ring.
+- The row-end edges of a range that wraps a week stay flat, which reads as "continues on the next row".
 
 ### Composition (existing primitives and wrappers — reuse, do not rebuild)
 
@@ -283,11 +310,11 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `alert-dialog` | Confirm / destructive action — the only modal that prompts for consent | `rounded-3xl` |
 | `badge` | Status label (not clickable) — confirmed / paid / pending | `rounded-xl`; pair with a token color + text/icon (never color-only) |
 | `button` | All buttons | `rounded-full`; size sm/md/lg; 1 primary per view |
-| `calendar` | Pick a single date | trigger `rounded-full h-11` |
+| `calendar` | Pick a single date | trigger `rounded-full h-11` · day-cell states → §3 "Calendar day selection states" (button owns radius/fill, cell owns layout) |
 | `card` | Raised surface grouping related content | `rounded-3xl p-4 md:p-6` |
 | `checkbox` | Boolean toggle in a form | — |
 | `command` | Searchable list (long / province / place) — use inside a `Popover` | item `rounded-xl` |
-| `date-range-picker` | Pick a start + end date | wraps `Calendar` + `Popover` |
+| `date-range-picker` | Pick a start + end date | wraps `Calendar` + `Popover` · same day-cell states as `calendar` (§3) |
 | `dialog` | Focused-task modal (centered) | `rounded-3xl`, close `h-11 w-11` |
 | `dropdown-menu` | Action / account menu — no persistent selected state | content `rounded-2xl` · item `rounded-xl py-2.5 font-normal focus:bg-accent` |
 | `error-banner` | Server error shown at the top of a form after submit | — |

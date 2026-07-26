@@ -89,6 +89,18 @@ h6 {
 
 :root {
     --radius: 0.625rem;
+    /* CAM-533 — the fully-round role radius (DESIGN.md §2 Radius: button · input ·
+       chip/pill · icon-button · calendar day control). Value is identical to
+       Tailwind's built-in `rounded-full` utility, so the token and the utility can
+       never drift apart. Radius is theme-invariant, so there is no `.dark` twin
+       (same as `--radius` above).
+       KEEP THIS IN `:root`, NOT in the `@theme inline` block above: an
+       `@theme inline` entry is inlined into the utilities it generates and is NOT
+       emitted as a runtime CSS variable, so `var(--radius-full)` would resolve to
+       nothing and every rule reading it would be dropped by the browser. That is
+       exactly the defect this token fixes (the date picker's circle / square /
+       half-circle mix). Verified by compiling Tailwind 4.1.18 both ways. */
+    --radius-full: calc(infinity * 1px);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.148 0.004 228.8);
     --popover: oklch(1 0 0);

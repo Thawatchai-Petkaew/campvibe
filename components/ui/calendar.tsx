@@ -102,24 +102,26 @@ function Calendar({
           "text-[0.8rem] text-muted-foreground select-none",
           defaultClassNames.week_number
         ),
+        // CAM-533 — SHAPE OWNERSHIP: the day CELL owns layout only. Every radius and
+        // every selection fill is declared exactly once, on the day BUTTON
+        // (`CalendarDayButton` below). Two layers declaring the same shape is what
+        // produced the circle / square / half-circle mix the owner reported.
         day: cn(
-          "group/day relative aspect-square h-full w-full rounded-(--cell-radius) p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius)",
-          props.showWeekNumber
-            ? "[&:nth-child(2)[data-selected=true]_button]:rounded-l-(--cell-radius)"
-            : "[&:first-child[data-selected=true]_button]:rounded-l-(--cell-radius)",
+          "group/day relative aspect-square h-full w-full p-0 text-center select-none",
           defaultClassNames.day
         ),
-        range_start: cn(
-          "relative isolate z-0 rounded-l-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:right-0 after:w-4 after:bg-muted",
-          defaultClassNames.range_start
-        ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
-        range_end: cn(
-          "relative isolate z-0 rounded-r-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:left-0 after:w-4 after:bg-muted",
-          defaultClassNames.range_end
-        ),
+        // The day button spans the full cell, so the range band is continuous without
+        // any cell-level background or bleed pseudo-element.
+        range_start: defaultClassNames.range_start,
+        range_middle: defaultClassNames.range_middle,
+        range_end: defaultClassNames.range_end,
+        // Today = a thin ring in the SAME round shape as every other day (never a
+        // filled square). It is drawn on the button's border — focus uses `ring`, so
+        // the two markers can never compete for one CSS property. `:not([data-selected])`
+        // retires the ring the moment the day is picked, so "today while selected"
+        // simply reads as the selection.
         today: cn(
-          "rounded-(--cell-radius) bg-muted text-foreground data-[selected=true]:rounded-none",
+          "[&:not([data-selected])>button]:border [&:not([data-selected])>button]:border-muted-foreground",
           defaultClassNames.today
         ),
         outside: cn(
@@ -210,7 +212,28 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal",
+        // CAM-533 — the ONE place a day's radius is declared. All four values read
+        // `--cell-radius` (= `--radius-full`, app/globals.css), so a day is never a
+        // stray px value. Endpoints round their OUTER edge and stay flat on the inner
+        // edge so they close the band; the middle is flat on both sides so the band
+        // connects. The compound start+end rule carries two attribute selectors, so it
+        // outranks the two single-attribute rules and a one-day range stays a full
+        // circle instead of two half-rounds fighting.
+        "rounded-(--cell-radius)",
+        "data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:rounded-r-none",
+        "data-[range-middle=true]:rounded-none",
+        "data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:rounded-l-none",
+        "data-[range-start=true]:data-[range-end=true]:rounded-(--cell-radius)",
+        // Fill: endpoints and a single pick are solid primary; the middle is the muted
+        // band. Selection is carried by fill + shape together, never by colour alone.
+        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground",
+        "data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground",
+        "data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground",
+        "data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground",
+        // Focus ring — `ring`, never `border` (today owns the border).
+        "group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50",
+        "dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className
       )}
