@@ -165,15 +165,18 @@ Declared once in `app/globals.css` as `--type-*` custom properties, redefined in
 
 Seven roles, four of which step. Headings are what eat vertical space on a phone; body/label/caption are already at their floors, so stepping them would cost legibility and buy nothing.
 
-**Enforcement** — `npm run check:ds` (rules M1/M2/M3, implemented in `scripts/check-scale.mjs`):
+**Enforcement** — `npm run check:ds` (rules M1-M4, implemented in `scripts/check-scale.mjs`):
 
 | rule | catches | mode |
 |---|---|---|
 | M1 | a **control** `h-12` with no `md:` step (co-occurs with `rounded-full`, or is a cva `lg` value; squares/skeletons/comments skipped) | blocking on `components/ui/**`, `app/preview/**`, FilterModal/SearchModal/CategoryBar · report elsewhere |
 | M2 | a raw `text-2xl`..`text-6xl` with no responsive twin → use a `text-heading-*` role | same scoping as M1 |
 | M3 | a mobile step landing **under 44px** (`h-9 md:h-12`, `size-10 md:size-11`) | **blocking repo-wide** — backlog 0 by construction |
+| M4 (CAM-565) | a literal-px `min-w-[Npx]`/`md:min-w-[Npx]` with no `shrink-0` on a flex-ish line (squares/comments/rem-units skipped) — the exact CAM-560 root cause: a literal px floor never scales with the browser/OS text-size setting the way rem-based sibling content does, so it can only be seen at an increased scale (150%, the setting that reproduced CAM-560) | **report-only repo-wide** — brand new, backlog counted (2), not yet cleared |
 
-Widening M1/M2's blocking scope is a follow-up that clears the named report backlog first — never a flip with a non-zero backlog (`.claude/rules/ops.md`).
+Widening M1/M2's blocking scope, or promoting M4 to blocking, is a follow-up that clears the named report backlog first — never a flip with a non-zero backlog (`.claude/rules/ops.md`).
+
+**Text-scale contract (CAM-565):** a check that only ever reasons about geometry at ONE text size cannot catch a defect that only manifests at a larger one. 150% root font-size is this codebase's standing contract for "an increased text scale" — the exact setting that reproduced CAM-560, already used identically by `e2e/regression/cam-558-touch-targets.spec.ts`'s EC-5 and `e2e/regression/cam-560-category-label-overlap.spec.ts`'s Prove-It test (`html { font-size: 24px !important; }`, 24/16 = 1.5). M4 encodes the same contract statically (no browser) by flagging the one className shape whose safety genuinely depends on it.
 
 ### Radius (soft-rounded — one token per role, stop mixing values)
 
