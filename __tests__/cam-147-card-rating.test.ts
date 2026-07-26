@@ -51,7 +51,10 @@ function readSrc(relPath: string): string {
 }
 
 const cardSrc = readSrc('components/CampgroundCard.tsx');
-const gridSrc = readSrc('components/CampgroundGrid.tsx');
+// CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+// components/InfiniteScrollGrid.tsx is the live component that renders the catalog
+// grid + forwards these props to CampgroundCard.
+const gridSrc = readSrc('components/InfiniteScrollGrid.tsx');
 const wishlistClientSrc = readSrc('components/WishlistPageClient.tsx');
 const mapSrc = readSrc('components/MapComponent.tsx');
 const detailClientSrc = readSrc('components/CampgroundDetailClient.tsx');
@@ -91,15 +94,15 @@ describe('AC-1/AC-5 — CampgroundCard: real avgRating conditional + testid + pr
         expect(cardSrc).toContain('reviewCount');
     });
 
-    it('[source] CampgroundGrid.tsx forwards avgRating to CampgroundCard', () => {
+    it('[source] InfiniteScrollGrid.tsx forwards avgRating to CampgroundCard', () => {
         expect(gridSrc).toContain('avgRating={camp.avgRating}');
     });
 
-    it('[source] CampgroundGrid.tsx forwards reviewCount to CampgroundCard', () => {
+    it('[source] InfiniteScrollGrid.tsx forwards reviewCount to CampgroundCard', () => {
         expect(gridSrc).toContain('reviewCount={camp.reviewCount}');
     });
 
-    it('[source] CampSiteCardData in CampgroundGrid.tsx includes avgRating field (CAM-147 type contract)', () => {
+    it('[source] CampSiteCardData usage in InfiniteScrollGrid.tsx includes avgRating field (CAM-147 type contract)', () => {
         expect(gridSrc).toContain('avgRating');
         expect(gridSrc).toContain('reviewCount');
     });
@@ -379,7 +382,7 @@ describe('KPI: no hardcoded "4.8" in any changed file', () => {
         expect(cardSrc).not.toContain('"4.8"');
     });
 
-    it('[kpi] CampgroundGrid.tsx has no hardcoded "4.8"', () => {
+    it('[kpi] InfiniteScrollGrid.tsx has no hardcoded "4.8"', () => {
         expect(gridSrc).not.toContain('"4.8"');
     });
 

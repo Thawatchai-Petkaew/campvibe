@@ -22,7 +22,8 @@
  *         serializeDecimals nested object: object with Decimal avgRating → object with number avgRating.
  *
  *   AC-5  null handling — card/contract
- *         CampSiteCardData.avgRating typed as number | null (source-inspect CampgroundGrid);
+ *         CampSiteCardData.avgRating typed as number | null (source-inspect
+ *         lib/read-models/camp-card.ts, CAM-527: moved off the deleted CampgroundGrid.tsx);
  *         CampgroundCard handles null avgRating without crashing (reviewCount guard in JSX).
  *
  *   AC-6  Helpers retained — scope guard
@@ -37,7 +38,7 @@
  *             is the correct layer for Server Component wiring — precedent in cam-192, sort-utils)
  *   - AC-3 → source-inspect (migration.sql is a static file)
  *   - AC-4 → unit (real Prisma.Decimal via @prisma/client — no DB required)
- *   - AC-5 → source-inspect (CampgroundGrid type + CampgroundCard render-guard)
+ *   - AC-5 → source-inspect (CampSiteCardData type + CampgroundCard render-guard + InfiniteScrollGrid wiring)
  *   - AC-6 → import + source-inspect
  *
  * Prove-It note:
@@ -78,7 +79,12 @@ function readSrc(relPath: string): string {
 const pageSrc        = readSrc('app/page.tsx');
 // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
-const gridSrc        = readSrc('components/CampgroundGrid.tsx');
+// CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted.
+// Its CampSiteCardData type moved to lib/read-models/camp-card.ts (typeSrc); the
+// prop-forwarding wiring it used to do lives in components/InfiniteScrollGrid.tsx
+// (gridSrc) — the live component that actually renders the catalog grid.
+const typeSrc        = readSrc('lib/read-models/camp-card.ts');
+const gridSrc        = readSrc('components/InfiniteScrollGrid.tsx');
 const cardSrc        = readSrc('components/CampgroundCard.tsx');
 const wishlistSrc    = readSrc('app/wishlist/page.tsx');
 const migrationSrc   = readSrc(
@@ -337,18 +343,18 @@ describe('AC-4 — serializeDecimals converts avgRating Decimal → number (ADR-
 
 describe('AC-5 — null handling: CampSiteCardData types avgRating as number | null; card handles null safely', () => {
 
-  it('[type] CampSiteCardData.avgRating is typed as "number | null" (source-inspect CampgroundGrid)', () => {
+  it('[type] CampSiteCardData.avgRating is typed as "number | null" (source-inspect lib/read-models/camp-card.ts)', () => {
     // Prove-It: tightening the type to `number` (removing `| null`) makes this fail.
-    expect(gridSrc).toContain('avgRating: number | null');
+    expect(typeSrc).toContain('avgRating: number | null');
   });
 
-  it('[type] CampSiteCardData.reviewCount is typed as number (source-inspect CampgroundGrid)', () => {
-    expect(gridSrc).toContain('reviewCount: number');
+  it('[type] CampSiteCardData.reviewCount is typed as number (source-inspect lib/read-models/camp-card.ts)', () => {
+    expect(typeSrc).toContain('reviewCount: number');
   });
 
   it('[type] CampSiteCardData is derived via Omit<CampCardPayload, ...> (no manual re-declaration)', () => {
     // The type narrows priceLow/createdAt/avgRating from the canonical payload — no divergent shape.
-    expect(gridSrc).toContain('Omit<CampCardPayload');
+    expect(typeSrc).toContain('Omit<CampCardPayload');
   });
 
   it('[card-null-guard] CampgroundCard.tsx guards avgRating display on reviewCount > 0 AND avgRating != null', () => {
@@ -362,12 +368,12 @@ describe('AC-5 — null handling: CampSiteCardData types avgRating as number | n
     expect(cardSrc).toContain('data-testid="empty--card-rating"');
   });
 
-  it('[grid-wiring] CampgroundGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
+  it('[grid-wiring] InfiniteScrollGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
     // Wiring guard: the grid must forward the stored column to the card prop.
     expect(gridSrc).toContain('avgRating={camp.avgRating}');
   });
 
-  it('[grid-wiring] CampgroundGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
+  it('[grid-wiring] InfiniteScrollGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
     expect(gridSrc).toContain('reviewCount={camp.reviewCount}');
   });
 });

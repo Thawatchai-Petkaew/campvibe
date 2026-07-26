@@ -48,7 +48,9 @@ const activeFiltersSrc = src("components/ActiveFilters.tsx");
 const searchModalSrc = src("components/SearchModal.tsx");
 const buttonSrc = src("components/ui/button.tsx");
 const pageSrc = src("app/page.tsx");
-const campgroundGridSrc = src("components/CampgroundGrid.tsx");
+// CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+// components/InfiniteScrollGrid.tsx is the live component rendering the catalog grid.
+const campgroundGridSrc = src("components/InfiniteScrollGrid.tsx");
 // CAM-220: the shared close button (X icon, aria-label, size-11 tap target) moved into
 // ModalHeader in modal-shell.tsx. Assertions that pinned inline consumer patterns redirect here.
 const modalShellSrc = src("components/ui/modal-shell.tsx");

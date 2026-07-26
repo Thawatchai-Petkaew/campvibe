@@ -386,32 +386,35 @@ describe('AC-5 — card render contract: all CampgroundCard fields present in ca
     expect(cardSrc).toContain('campground.images');
   });
 
-  // Verify CampgroundGrid passes avgRating and reviewCount props (wiring check)
-  it('[source] CampgroundGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
+  // CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+  // components/InfiniteScrollGrid.tsx is the live component forwarding these props.
+  it('[source] InfiniteScrollGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
+    const gridSrc = readSrc('components/InfiniteScrollGrid.tsx');
     expect(gridSrc).toContain('avgRating={camp.avgRating}');
   });
 
-  it('[source] CampgroundGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
+  it('[source] InfiniteScrollGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
+    const gridSrc = readSrc('components/InfiniteScrollGrid.tsx');
     expect(gridSrc).toContain('reviewCount={camp.reviewCount}');
   });
 });
 
 // ---------------------------------------------------------------------------
-// Regression guard — CampSiteCardData type in CampgroundGrid derives from CampCardPayload
+// Regression guard — CampSiteCardData type derives from CampCardPayload
+// CAM-527: CampSiteCardData moved off the deleted components/CampgroundGrid.tsx
+// into lib/read-models/camp-card.ts — now CO-LOCATED with CampCardPayload in the
+// same file (no cross-file import needed any more), which this guard now proves.
 // ---------------------------------------------------------------------------
 describe('Regression — CampSiteCardData derives from CampCardPayload (type contract)', () => {
 
-  it('[source] CampgroundGrid.tsx imports CampCardPayload from lib/read-models/camp-card', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
-    // CampgroundGrid uses double-quote style imports with `import type`.
-    expect(gridSrc).toContain('from "@/lib/read-models/camp-card"');
-    expect(gridSrc).toContain('CampCardPayload');
+  it('[source] CampSiteCardData and CampCardPayload are co-located in lib/read-models/camp-card.ts (no parallel type)', () => {
+    const typeSrc = readSrc('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('export type CampCardPayload');
+    expect(typeSrc).toContain('export type CampSiteCardData');
   });
 
   it('[source] CampSiteCardData uses Omit<CampCardPayload, ...> (narrowed, not re-declared)', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('Omit<CampCardPayload');
+    const typeSrc = readSrc('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('Omit<CampCardPayload');
   });
 });
