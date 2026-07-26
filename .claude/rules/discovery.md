@@ -142,6 +142,7 @@ Once every gap is closed (no 🔴, each 🟡 defaulted) and the ticket passes `n
 | "A quick hotfix / one-off issue doesn't need a project." | Every tracked issue gets a project (+ a parent epic for a story) AT CREATION, or it orphans on /status and must be retro-grouped later (CAM-191 hotfix + the CAM-96..104 Atomic Schema epic both slipped). |
 | "Skip the ticket DB and just build." | Research first, or you duplicate/conflict with existing work. |
 | "เขียนว่า 'ระบบทำงานถูกต้อง/รวดเร็ว' ใน AC ก็พอ" | Vague adverbs are untestable (NASA SE Handbook ban-list); use numbers and exact copy. |
+| "We need new data for this — let me research + add it." | The AI-chat misses (มือใหม่/จิบเบียร์/เล่นน้ำ) were ALL designed in the original v1 product spec (Google Sheet) — 13 option groups designed, only 7 built; we reinvented them via concept-map hacks. Existing-data-FIRST includes the ORIGINAL product spec / design docs, not just the current schema — check it before researching or suggesting new data (CAM-512). |
 
 ## Verify (exit criteria)
 
