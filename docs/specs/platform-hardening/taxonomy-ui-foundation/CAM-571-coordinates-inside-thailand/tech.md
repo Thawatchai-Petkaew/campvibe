@@ -4,8 +4,8 @@ epic: taxonomy-ui-foundation
 persona: Camper
 artifact: tech
 owner: backend-engineer
-status: in-progress
-version: v1
+status: done
+version: v2
 updated: 2026-07-26
 ---
 # Tech — Move coordinates outside Thailand inside their claimed province (CAM-571)
@@ -61,9 +61,24 @@ No schema column marks a row "seed" vs. "host-entered" (a schema change is out o
 2. **Fresh, live re-check before any write.** Immediately before moving a candidate, this script re-reverse-geocodes its CURRENT (not cached) lat/lon (~18 calls, not a fresh 650) and moves it only if that fresh check still shows a non-Thailand country right now. A row already corrected by a host, by a prior run of this very script, or by anything else, now reads Thailand and is skipped (`already_inside_thailand`) — this is also what makes a second run idempotent.
 3. **Explicit opt-in + non-prod guard**, same shape as CAM-562/563 (`ALLOW_COORDINATES_INSIDE_THAILAND_BACKFILL=1`, refuses a production-looking `DATABASE_URL`).
 
-## Real dry-run + real-run result (dev DB)
+## Real dry-run + real-run result (dev DB, 2026-07-26)
 
-<!-- Filled in after the real run against the dev DB — see Changelog. -->
+**Dry run** (`ALLOW_COORDINATES_INSIDE_THAILAND_BACKFILL=1 DRY_RUN=1`): 18 candidates from CAM-562's cache, 0 already-inside-Thailand, **18 would move**, 0 forward-geocode failures, 0 placement-unverified. Google calls: 18 reverse-check + 18 forward + 18 reverse-verify, all fresh (54 total, none cached yet).
+
+**Real run** (immediately following, same cache files): 18 candidates, 0 already-inside-Thailand, **18 moved**, 0 failures. Google calls: **0 made / 18+18+18 cached** — the real run re-billed nothing (BR-7's cache reuse). `Location.lat/lon` and every linked `CampSite.latitude/longitude` written together per row (verified below).
+
+**Independently verified by querying the DB myself, not the script's own log:**
+```
+prisma.location.findMany({ where: { id: { in: <the 18 ids> } }, select: { lat, lon, campSites: { latitude, longitude } } })
+→ 18 rows checked, 0 CampSite/Location lat-lon mismatches (the sync fix holds)
+prisma.campSite.count({ where: { location: { province: 'Chiang Mai' } } }) → 18 (before AND after)
+```
+
+**Reverse-verify confirmation, read directly from `cam-571-reverse-verify-cache.json` (not the script's own "verified" claim):** all 18 moved rows share only 8 distinct target points (siblings in the same claimed province land on the SAME forward-geocoded point — documented, not a bug); every one of the 8 reverse-geocodes to `country: TH` and to the EXACT claimed province (เชียงราย/Chiang Rai, นครพนม/Nakhon Phanom, บึงกาฬ/Bueng Kan, หนองคาย/Nong Khai, Ranong, ประจวบคีรีขันธ์/Prachuap Khiri Khan, สตูล/Satun, มุกดาหาร/Mukdahan) — confirmed by direct inspection of the cache file, not by trusting the script's internal "verified" outcome.
+
+**Second real run (idempotency, dev DB):** 18 candidates (same frozen cache), **18 already-inside-Thailand** (fresh re-check now sees Thailand for all 18, since they were just moved), **0 moved**, Chiang Mai count unchanged at 18. Google calls: 18 reverse-check (fresh — coordinates changed since the move, so the id+coordinate cache key correctly misses and re-checks live) / 0 forward / 0 reverse-verify (never needed, nothing to move).
+
+District/subDistrict re-derivation from the SAME verification call: 12 of 18 resolved to sub-district, 6 (5 Nakhon Phanom + 1 Mukdahan) resolved to district-only (no matching sub-district component) — none unresolved, none guessed.
 
 ## 83 adjacent-province cases — report, not rewrite
 
@@ -88,4 +103,5 @@ Confirmation: `__tests__/cam-571-coordinates-inside-thailand.test.ts` (36 tests)
 `scripts/backfill-cam-571-coordinates-inside-thailand.mjs` · `scripts/backfill-cam-562-subdistrict-geocode.mjs` (reused) · `scripts/backfill-cam-563-location-admin-area.mjs` (reused) · `app/api/geocode/forward/route.ts` (CAM-554, algorithm reference) · `docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-562-backfill-subdistricts/tech.md` · `story.md`
 
 ## Changelog
-- v1 (2026-07-26) — created; real dev-DB dry-run + real run pending (see story.md Self-verify)
+- v1 (2026-07-26) — created
+- v2 (2026-07-26) — real dev-DB dry-run + real run completed (18 moved, 0 failures) + second run verified idempotent (0 moved) + CampSite/Location sync + reverse-verify + Chiang Mai count all independently re-queried, not assumed from the script's own log
