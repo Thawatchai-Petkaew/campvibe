@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { VALID_SORTS } from '@/lib/catalog-cursor';
+import { FILTERABLE_ZOD_FIELDS, type FilterableZodField } from '@/lib/taxonomy-registry';
 
 // ---------------------------------------------------------------------------
 // Sort + cursor params
@@ -41,6 +42,16 @@ const optionalDateString = z
   .optional()
   .transform((value) => (value !== undefined && !Number.isNaN(Date.parse(value)) ? value : undefined));
 
+// CAM-523 (S7) — the 8 taxonomy query params (access/facilities/external/
+// equipment/activities/terrain/annotatedFeatures/camperStyle) are GENERATED
+// from lib/taxonomy-registry.ts's FILTERABLE_ZOD_FIELDS instead of being
+// hand-listed here. Each is `z.string().optional()`, byte-identical to the
+// pre-CAM-523 shape. Adding a new filterable MasterData group to the
+// registry widens this schema automatically.
+const taxonomyFieldsShape = Object.fromEntries(
+  FILTERABLE_ZOD_FIELDS.map((field) => [field, z.string().optional()])
+) as Record<FilterableZodField, z.ZodOptional<z.ZodString>>;
+
 export const catalogQuerySchema = z.object({
   // ── cursor params ─────────────────────────────────────────────────────────
   sort: z.enum(VALID_SORTS).optional().default('related'),
@@ -56,18 +67,9 @@ export const catalogQuerySchema = z.object({
   guests:     z.string().optional(),
   min:        z.string().optional(),
   max:        z.string().optional(),
-  access:     z.string().optional(),
-  facilities: z.string().optional(),
-  external:   z.string().optional(),
-  equipment:  z.string().optional(),
-  activities: z.string().optional(),
-  terrain:    z.string().optional(),
-  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features), its
-  // own dedicated catalog query param (not folded into `facilities`).
-  annotatedFeatures: z.string().optional(),
-  // CAM-516 (S4) — the SECOND new MasterData group (Camper style), its own
-  // dedicated catalog query param (not folded into `facilities`).
-  camperStyle: z.string().optional(),
+
+  // ── taxonomy params (registry-derived — see taxonomyFieldsShape above) ───
+  ...taxonomyFieldsShape,
 });
 
 export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
