@@ -1,8 +1,11 @@
 /**
  * cam-520-campsitetype-single-select.test.ts — CAM-520
  *
- * `campSiteType` is a SCALAR column on CampSite (one code per camp — CAGD /
- * CACP / GLAMP / LAKE / FOREST / VIEW / BAOT). Two layers had drifted out of
+ * `campSiteType` is a SCALAR column on CampSite (one code per camp). At the time
+ * of this story the enum modeled 7 codes (CAGD / CACP / GLAMP / LAKE / FOREST /
+ * VIEW / BAOT); CAM-527 later reconciled it down to the 4 that actually exist as
+ * `Campground type` MasterData rows (CAGD / CACP / GLAMP / VIEW) — LAKE/BAOT were
+ * only ever Terrain/Access-type codes, FOREST had no row at all. Two layers had drifted out of
  * step with that column: the shared zod schema modeled it as
  * `z.array(CampSiteTypeEnum).default([])`, and the host form rendered it as a
  * multi-select (with a "(เลือกได้หลายรายการ)" hint the storage could never
@@ -198,11 +201,15 @@ describe("PUT /api/campsites/[id] — campSiteType write (AC-3, BR-3)", () => {
     expect(call.data.campSiteType).toBe("GLAMP");
   });
 
-  it("[AC-3] campSiteType: 'LAKE' is written verbatim (proves this isn't a hardcoded single value)", async () => {
-    await campSitePUT(putRequest({ campSiteType: "LAKE" }), makeParams(CAMP_ID));
+  // CAM-527: was 'LAKE' — no longer a valid CampSiteTypeEnum member (LAKE is a
+  // Terrain code, not a Campground-type code; the enum was reconciled to the 4
+  // real MasterData rows). 'VIEW' proves the same thing: this isn't hardcoded
+  // to whichever value the previous test happened to use.
+  it("[AC-3] campSiteType: 'VIEW' is written verbatim (proves this isn't a hardcoded single value)", async () => {
+    await campSitePUT(putRequest({ campSiteType: "VIEW" }), makeParams(CAMP_ID));
 
     const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(call.data.campSiteType).toBe("LAKE");
+    expect(call.data.campSiteType).toBe("VIEW");
   });
 
   it("[EC regression] omitting campSiteType never touches the column (partial price-only update)", async () => {
@@ -214,7 +221,7 @@ describe("PUT /api/campsites/[id] — campSiteType write (AC-3, BR-3)", () => {
   });
 
   it("[error/validation] an ARRAY campSiteType (legacy client shape) is now REJECTED with 400, no write", async () => {
-    const res = await campSitePUT(putRequest({ campSiteType: ["GLAMP", "LAKE"] }), makeParams(CAMP_ID));
+    const res = await campSitePUT(putRequest({ campSiteType: ["GLAMP", "VIEW"] }), makeParams(CAMP_ID));
 
     expect(res.status).toBe(400);
     expect(prisma.campSite.update).not.toHaveBeenCalled();
