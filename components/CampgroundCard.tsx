@@ -297,14 +297,18 @@ export function CampgroundCard({
                             <>
                                 <button
                                     onClick={prevImage}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                    // CAM-558: tap target grown to the size-11 (44px) icon-button
+                                    // floor via a bigger hit area — the glyph itself stays w-4 h-4
+                                    // (same convention as this file's own wishlist-heart button and
+                                    // AiChatCardCarousel's prev/next arrows).
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
                                     aria-label="Previous image"
                                 >
                                     <ChevronLeft className="w-4 h-4 text-foreground" />
                                 </button>
                                 <button
                                     onClick={nextImage}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
                                     aria-label="Next image"
                                 >
                                     <ChevronRight className="w-4 h-4 text-foreground" />
