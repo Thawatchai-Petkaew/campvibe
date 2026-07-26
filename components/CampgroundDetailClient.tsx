@@ -27,6 +27,9 @@ import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth }
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
+// CAM-548: reuse the CAM-545 seam verbatim — same localized "district, province"
+// text builder the camp card already uses (never a second implementation).
+import { buildLocationText } from "@/components/CampgroundCard";
 // CAM-526 (S10): accommodationTypes is a scalar CSV string column (NOT part of
 // the `options` MasterData relation) — parse it with the existing shared
 // helper, never hand-split the string.
@@ -411,6 +414,11 @@ export default function CampgroundDetailClient({
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
+    // CAM-548: localized "district, province" location line — country is NEVER shown
+    // (owner requirement 2026-07-26, "User รู้อยู่แล้ว"). Same helper + same
+    // provinceTh/district data seam CampgroundCard already uses (BR-1..BR-8 there).
+    const locationText = buildLocationText(campground.location, language);
+
     // S4a: taxonomy now lives in the `options` MasterData relation; derive per-group code lists.
     const _options: { code: string; group: string }[] = campground.options || [];
     const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
@@ -547,7 +555,7 @@ export default function CampgroundDetailClient({
                                 )}
                             </div>
                             <span className="hidden sm:inline">·</span>
-                            <span className="font-semibold text-foreground">{campground.address || `${campground.location.province}, Thailand`}</span>
+                            <span className="font-semibold text-foreground">{campground.address || locationText}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
@@ -1475,7 +1483,7 @@ export default function CampgroundDetailClient({
                     )}
                     <div className="flex gap-2 mb-6 text-muted-foreground">
                         <MapPin className="w-5 h-5 text-foreground" />
-                        <span>{campground.location.province}, Thailand</span>
+                        <span>{locationText}</span>
                     </div>
                     <div className="w-full h-[320px] md:h-[480px]">
                         <DynamicMap
