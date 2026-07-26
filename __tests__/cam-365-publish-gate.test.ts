@@ -480,6 +480,52 @@ describe('PUT /api/campsites/[id] — EC-2 (CAM-516): a partial PUT that omits c
   });
 });
 
+describe('PUT /api/campsites/[id] — EC-2 (CAM-521): a partial PUT that omits stayConnected/markingMethod/driveway never wipes their relation', () => {
+  it('[edge] a price-only PUT (no taxonomy key in the raw body at all) never touches the options relation — same replacesOptions guard, keyed to the final taxonomy slice', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ priceLow: 999 }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data).not.toHaveProperty('options');
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a PUT carrying ONLY stayConnected resolves+replaces the options relation via resolveOptionConnect (mirrors the camperStyle:["CHIC"] case above)', async () => {
+    mockAllowed({});
+    (prisma.masterData.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ code: 'SAIS' }]);
+
+    const res = await campSitePUT(putRequest({ stayConnected: ['SAIS'] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [{ code: 'SAIS' }] });
+  });
+
+  it('[edge] an explicit empty markingMethod:[] in the raw body IS a taxonomy key present -> clears the relation (replacesOptions true, resolveOptionConnect short-circuits to [], no masterData call)', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ markingMethod: [] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [] });
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[edge] an explicit empty driveway:[] in the raw body IS a taxonomy key present -> clears the relation', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ driveway: [] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [] });
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+});
+
 describe('PUT /api/campsites/[id] — G3 test gap: clearing a load-bearing field in the SAME publish request is honored (null-overlay)', () => {
   it('[error/validation] an at-80 camp, this request clears cancellationPolicy (null) AND publishes -> 400 (the clear is NOT ignored)', async () => {
     // Stored (if cancellationPolicy stayed as-is): missing zones(10, PER-SPOT

@@ -54,6 +54,12 @@ interface MockCamp {
   annotatedFeatures: string;
   // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
   camperStyle: string;
+  // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups (host-input
+  // + camper-detail-display only, NOT searchable — this file only proves
+  // seed-coverage, unrelated to search/filter wiring).
+  stayConnected: string;
+  markingMethod: string;
+  driveway: string;
   province: string;
   priceHigh: number;
 }
@@ -115,6 +121,13 @@ const GROUP_FIELD: Record<string, { field: keyof MockCamp; kind: FieldKind }> = 
   "Annotated features": { field: "annotatedFeatures", kind: "csv" },
   // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
   "Camper style": { field: "camperStyle", kind: "csv" },
+  // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups (host-input
+  // + camper-detail-display only, NOT searchable — see BR-4). Mapped here
+  // purely so this seed-coverage guard (AC-1's "no dead filter option") can
+  // still walk them; NOT a claim that they are filterable in the UI.
+  "Stay connected": { field: "stayConnected", kind: "csv" },
+  "Marking method": { field: "markingMethod", kind: "csv" },
+  Driveway: { field: "driveway", kind: "csv" },
 };
 
 function countCampsForCode(camps: MockCamp[], group: string, code: string): number {

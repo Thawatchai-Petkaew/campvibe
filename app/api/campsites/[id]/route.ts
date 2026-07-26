@@ -82,11 +82,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // (e.g. price-only) must not wipe the Annotated features relation either.
     // CAM-516 (S4)/EC-2: same guard applied to `camperStyle` (the SECOND new
     // MasterData group) — identical partial-PUT-must-not-wipe protection.
-    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'].some((k) => k in body);
+    // CAM-521 (S8)/EC-2: same guard applied to `stayConnected`/`markingMethod`/
+    // `driveway` (the final taxonomy slice — host-input + camper-detail-
+    // display only, NOT searchable, see BR-4).
+    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle', 'stayConnected', 'markingMethod', 'driveway'].some((k) => k in body);
     const resolvedOptionsConnect = replacesOptions
       ? await resolveOptionConnect([
           data.accessTypes, data.facilities, data.externalFacilities,
           data.equipment, data.activities, data.terrain, data.annotatedFeatures, data.camperStyle,
+          data.stayConnected, data.markingMethod, data.driveway,
         ])
       : null;
 

@@ -135,6 +135,11 @@ function buildOptionsConnect(camp) {
     ...splitCsv(camp.annotatedFeatures),
     // CAM-516 (S4) — Camper style, the SECOND new MasterData group.
     ...splitCsv(camp.camperStyle),
+    // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
+    // (host-input + camper-detail-display only, NOT searchable — BR-4).
+    ...splitCsv(camp.stayConnected),
+    ...splitCsv(camp.markingMethod),
+    ...splitCsv(camp.driveway),
   ];
   // Deduplicate
   return [...new Set(codes)].map((code) => ({ code }));

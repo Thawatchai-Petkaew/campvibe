@@ -47,6 +47,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
 // below reads it without needing it in its dependency array.
 const FACILITY_SECTION_IDS = ['Internal facility', 'External facility', 'Equipment for rent'];
 
+// CAM-521 (S8, BR-4) — the final taxonomy slice's 3 groups are deliberately
+// HOST-INPUT + CAMPER-DETAIL-DISPLAY ONLY, never a filter/search dimension
+// (metadata, not a search demand — see the story's "Why"). Excluded here so
+// getFilterOptions()'s full MasterData group list never renders them as an
+// inert FilterModal section (no chips, no query param, no catalog wiring).
+const NON_FILTERABLE_GROUPS = ['Stay connected', 'Marking method', 'Driveway'];
+
 export function FilterModal() {
     const { t, language } = useLanguage();
     const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
@@ -98,15 +105,17 @@ export function FilterModal() {
 
     useEffect(() => {
         getFilterOptions().then(grouped => {
-            const sections = Object.entries(grouped || {}).map(([groupName, options]: [string, any[]]) => ({
-                id: groupName,
-                title: groupName,
-                options: options.map(opt => ({
-                    id: opt.code,
-                    icon: getIconComponent(opt.icon),
-                    label: language === 'th' ? opt.nameTh : opt.nameEn
-                }))
-            }));
+            const sections = Object.entries(grouped || {})
+                .filter(([groupName]) => !NON_FILTERABLE_GROUPS.includes(groupName))
+                .map(([groupName, options]: [string, any[]]) => ({
+                    id: groupName,
+                    title: groupName,
+                    options: options.map(opt => ({
+                        id: opt.code,
+                        icon: getIconComponent(opt.icon),
+                        label: language === 'th' ? opt.nameTh : opt.nameEn
+                    }))
+                }));
 
             // Custom sort order for sections
             const sortOrder = [

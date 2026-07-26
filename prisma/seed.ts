@@ -101,6 +101,21 @@ const masterData = [
     { code: 'GENR', group: 'Camper style', nameTh: 'ทั่วไป', nameEn: 'General', icon: 'Users' },
     { code: 'DIFT', group: 'Camper style', nameTh: 'ลำบาก', nameEn: 'Difficult', icon: 'TrendingUp' },
     { code: 'IDMT', group: 'Camper style', nameTh: 'ทรหด', nameEn: 'Indomitable', icon: 'Dumbbell' },
+
+    // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups delivered
+    // HOST-INPUT + CAMPER-DETAIL-DISPLAY ONLY (deliberately NOT searchable —
+    // no FilterModal section, no searchCampsites/catalog wiring, see BR-4).
+    // No collision with any existing code (verified against every group above).
+    { code: 'SAIS', group: 'Stay connected', nameTh: 'เอไอเอส', nameEn: 'AIS', icon: 'Signal' },
+    { code: 'SDTC', group: 'Stay connected', nameTh: 'ดีแทค', nameEn: 'DTAC', icon: 'Signal' },
+    { code: 'STRU', group: 'Stay connected', nameTh: 'ทรู', nameEn: 'TRUE', icon: 'Signal' },
+
+    { code: 'YUSF', group: 'Marking method', nameTh: 'เลือกเอง', nameEn: 'Self-pick a spot', icon: 'Hand' },
+    { code: 'OWNE', group: 'Marking method', nameTh: 'เจ้าของจัดให้', nameEn: 'Host-assigned', icon: 'UserCheck' },
+
+    { code: 'BACK', group: 'Driveway', nameTh: 'ถอยเข้า', nameEn: 'Back-in', icon: 'CornerDownLeft' },
+    { code: 'PARA', group: 'Driveway', nameTh: 'ขนานลาน', nameEn: 'Parallel', icon: 'AlignHorizontalJustifyCenter' },
+    { code: 'PTHG', group: 'Driveway', nameTh: 'ขับผ่าน', nameEn: 'Pull-through', icon: 'MoveRight' },
 ]
 
 import fs from 'fs';
@@ -741,12 +756,12 @@ async function main() {
         // S4a: the 6 multi-value CSV taxonomies are now the `options` MasterData relation.
         // Extract their codes, then strip the CSV keys before the spread write.
         const optionCodes: string[] = [...new Set(
-            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'] as const)
+            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle', 'stayConnected', 'markingMethod', 'driveway'] as const)
                 .map((k) => campSiteData[k])
                 .filter(Boolean)
                 .flatMap((csv: string) => csv.split(',').map((c) => c.trim()).filter(Boolean))
         )];
-        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle']) {
+        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle', 'stayConnected', 'markingMethod', 'driveway']) {
             delete campSiteData[k];
         }
         const optionsConnect = optionCodes.map((code) => ({ code }));

@@ -16,7 +16,7 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye, Signal, Hand, UserCheck, CornerDownLeft, AlignHorizontalJustifyCenter, MoveRight } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -421,6 +421,11 @@ export default function CampgroundDetailClient({
     const annotatedCodes = codesByGroup('Annotated features');
     // CAM-516 (S4) — the SECOND new MasterData group (CHIC/GENR/DIFT/IDMT).
     const camperStyleCodes = codesByGroup('Camper style');
+    // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
+    // (host-input + camper-detail-display only, NOT searchable — see BR-4).
+    const stayConnectedCodes = codesByGroup('Stay connected');
+    const markingMethodCodes = codesByGroup('Marking method');
+    const drivewayCodes = codesByGroup('Driveway');
 
     // Parse images from relation
     const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
@@ -557,6 +562,16 @@ export default function CampgroundDetailClient({
         'GENR': Users,
         'DIFT': TrendingUp,
         'IDMT': Dumbbell,
+        // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
+        // (host-input + camper-detail-display only, NOT searchable — BR-4)
+        'SAIS': Signal,
+        'SDTC': Signal,
+        'STRU': Signal,
+        'YUSF': Hand,
+        'OWNE': UserCheck,
+        'BACK': CornerDownLeft,
+        'PARA': AlignHorizontalJustifyCenter,
+        'PTHG': MoveRight,
         // CAM-517 (S5) — Campground type (campSiteType scalar, not an `options`
         // MasterData group) — CAGD/CACP had no icon here since this field was
         // never rendered on the detail page before this story.
@@ -1159,6 +1174,64 @@ export default function CampgroundDetailClient({
                                             </span>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 8. CAM-521 (S8) — final taxonomy slice: a small "ข้อมูลเพิ่มเติม"
+                            (additional info) block for the 3 metadata-only groups (phone
+                            signal / spot-marking method / driveway type) — host-input +
+                            camper-detail-display ONLY, deliberately NOT a filter/search
+                            dimension (BR-4). */}
+                        {(stayConnectedCodes.length > 0 || markingMethodCodes.length > 0 || drivewayCodes.length > 0) && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--additional-info">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.additionalInfo}</h2>
+                                <div className="space-y-6">
+                                    {stayConnectedCodes.length > 0 && (
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Stay connected"]}</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                                                {stayConnectedCodes.map((code: string) => (
+                                                    <div key={code} className="flex flex-col items-start gap-3">
+                                                        {getIcon(code)}
+                                                        <span className="font-medium text-foreground capitalize text-base">
+                                                            {t.filter[code as keyof typeof t.filter] || code}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {markingMethodCodes.length > 0 && (
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Marking method"]}</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                                                {markingMethodCodes.map((code: string) => (
+                                                    <div key={code} className="flex flex-col items-start gap-3">
+                                                        {getIcon(code)}
+                                                        <span className="font-medium text-foreground capitalize text-base">
+                                                            {t.filter[code as keyof typeof t.filter] || code}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {drivewayCodes.length > 0 && (
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Driveway"]}</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                                                {drivewayCodes.map((code: string) => (
+                                                    <div key={code} className="flex flex-col items-start gap-3">
+                                                        {getIcon(code)}
+                                                        <span className="font-medium text-foreground capitalize text-base">
+                                                            {t.filter[code as keyof typeof t.filter] || code}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

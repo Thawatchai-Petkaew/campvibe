@@ -771,20 +771,27 @@ describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
   // -> 305 here mirrors the same "bump the stale pinned count" precedent as
   // CAM-515's own 295->300 bump and CAM-475's golden-cases.json ceiling
   // raise; hosts (71) is unaffected since no host-count logic changed.
-  it('meta reports 305 campsites', () => {
-    expect(data.meta.totalCampsites).toBe(305);
+  //
+  // CAM-521 (S8): the final taxonomy slice adds 6 fixed rnd() draws per camp
+  // (3 independent chance()-per-code for Stay connected + 1 wpick() for
+  // Marking method + 1 chance() + 1 wpick() for Driveway, the latter two
+  // ALWAYS both drawn regardless of the chance() outcome so the per-camp draw
+  // count stays fixed) — same PRNG-sequence-drift mechanism as CAM-515/516
+  // above, shifting 305 -> 290. hosts (71) again unaffected.
+  it('meta reports 290 campsites', () => {
+    expect(data.meta.totalCampsites).toBe(290);
   });
 
   it('hosts array has exactly 71 entries', () => {
     expect(data.hosts).toHaveLength(71);
   });
 
-  it('total campsite entries across all hosts equals 305', () => {
+  it('total campsite entries across all hosts equals 290', () => {
     const total = data.hosts.reduce(
       (sum, h) => sum + (h.campsites?.length ?? 0),
       0,
     );
-    expect(total).toBe(305);
+    expect(total).toBe(290);
   });
 
   it('every campsite has a non-empty nameThSlug (upsert key must be present)', () => {

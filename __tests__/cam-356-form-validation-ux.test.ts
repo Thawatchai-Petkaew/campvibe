@@ -166,6 +166,17 @@ describe("getFieldLabel (AC-1, EC-1)", () => {
     expect(getFieldLabel(th, "camperStyle")).toBe(th.filter["Camper style"]);
     expect(getFieldLabel(en, "camperStyle")).toBe(en.filter["Camper style"]);
   });
+
+  // CAM-521 (S8) — final taxonomy slice, the 3 new groups' FIELD_LABEL_RESOLVERS
+  // entries (host-input + camper-detail-display only, NOT searchable — BR-4).
+  it("[normal] stayConnected/markingMethod/driveway resolve to the SAME group-heading labels the amenities card renders (TH + EN)", () => {
+    expect(getFieldLabel(th, "stayConnected")).toBe(th.filter["Stay connected"]);
+    expect(getFieldLabel(en, "stayConnected")).toBe(en.filter["Stay connected"]);
+    expect(getFieldLabel(th, "markingMethod")).toBe(th.filter["Marking method"]);
+    expect(getFieldLabel(en, "markingMethod")).toBe(en.filter["Marking method"]);
+    expect(getFieldLabel(th, "driveway")).toBe(th.filter["Driveway"]);
+    expect(getFieldLabel(en, "driveway")).toBe(en.filter["Driveway"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -216,6 +227,53 @@ describe("CAM-516 (S4) — Camper style host-form wiring (AC-2, EC-2)", () => {
     expect(formSrc).toContain("camperStyle: formData.camperStyle,");
     expect(formSrc).toMatch(/camperStyle:\s*"amenities"/);
     expect(formSrc).toContain("...formData.camperStyle,");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CAM-521 (S8) — final taxonomy slice: campSiteSchema.stayConnected/
+// markingMethod/driveway + the CampgroundForm.tsx source touchpoints
+// (source-inspection, same precedent as the CAM-515/516 blocks above).
+// ---------------------------------------------------------------------------
+describe("CAM-521 (S8) — final taxonomy slice host-form wiring (AC-1/BR-2, EC-2)", () => {
+  it("[normal] campSiteSchema accepts stayConnected/markingMethod/driveway code arrays (host-form payload shape)", () => {
+    const result = campSiteSchema.partial().safeParse({
+      nameTh: "test",
+      stayConnected: ["SAIS", "STRU"],
+      markingMethod: ["YUSF"],
+      driveway: ["PTHG"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("[normal] CampgroundForm.tsx source carries all 6 touchpoints for EACH of the 3 new groups (state field, renderOptionGroup call, edit-prefill _byGroup, payload line, FIELD_SECTION_ID map, publish-completeness Set)", () => {
+    // Stay connected
+    expect(formSrc).toMatch(/stayConnected:\s*\[\]\s*as\s*string\[\]/);
+    expect(formSrc).toContain(
+      `renderOptionGroup(t.filter["Stay connected"], "Stay connected", "stayConnected")`
+    );
+    expect(formSrc).toContain(`stayConnected: _byGroup('Stay connected')`);
+    expect(formSrc).toContain("stayConnected: formData.stayConnected,");
+    expect(formSrc).toMatch(/stayConnected:\s*"amenities"/);
+    expect(formSrc).toContain("...formData.stayConnected,");
+
+    // Marking method
+    expect(formSrc).toMatch(/markingMethod:\s*\[\]\s*as\s*string\[\]/);
+    expect(formSrc).toContain(
+      `renderOptionGroup(t.filter["Marking method"], "Marking method", "markingMethod")`
+    );
+    expect(formSrc).toContain(`markingMethod: _byGroup('Marking method')`);
+    expect(formSrc).toContain("markingMethod: formData.markingMethod,");
+    expect(formSrc).toMatch(/markingMethod:\s*"amenities"/);
+    expect(formSrc).toContain("...formData.markingMethod,");
+
+    // Driveway
+    expect(formSrc).toMatch(/driveway:\s*\[\]\s*as\s*string\[\]/);
+    expect(formSrc).toContain(`renderOptionGroup(t.filter["Driveway"], "Driveway", "driveway")`);
+    expect(formSrc).toContain(`driveway: _byGroup('Driveway')`);
+    expect(formSrc).toContain("driveway: formData.driveway,");
+    expect(formSrc).toMatch(/driveway:\s*"amenities"/);
+    expect(formSrc).toContain("...formData.driveway,");
   });
 });
 
