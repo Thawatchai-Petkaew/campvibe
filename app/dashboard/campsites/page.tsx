@@ -198,7 +198,7 @@ export default function MyCampSitesPage() {
                                             <Tent className="w-8 h-8 text-muted-foreground/40" />
                                             <p>{t.dashboard.noCampSitesFound}</p>
                                             {canCreateCampSite && (
-                                                <Link href="/dashboard/campsites/new" className="text-primary font-semibold hover:underline">
+                                                <Link href="/dashboard/campsites/new" className="text-primary-ink font-semibold hover:underline">
                                                     {t.dashboard.createFirstListing}
                                                 </Link>
                                             )}

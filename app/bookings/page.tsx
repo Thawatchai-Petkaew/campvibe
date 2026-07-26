@@ -181,7 +181,7 @@ export default function MyBookingsPage() {
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">{t.bookings.totalPaid}</div>
-                                                        <div className="text-xl font-bold text-primary">{formatCurrency(booking.totalPrice)}</div>
+                                                        <div className="text-xl font-bold text-primary-ink">{formatCurrency(booking.totalPrice)}</div>
                                                     </div>
                                                 </div>
 
@@ -260,7 +260,7 @@ export default function MyBookingsPage() {
                                                         </>
                                                     )}
                                                     {/* CAM-398 BR-1: stopPropagation skips the duplicate card-level push (same destination). */}
-                                                    <Button asChild variant="ghost" className="text-primary hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors" onClick={(e) => e.stopPropagation()}>
+                                                    <Button asChild variant="ghost" className="text-primary-ink hover:bg-primary/5 rounded-full font-bold px-4 flex-1 sm:flex-none transition-colors" onClick={(e) => e.stopPropagation()}>
                                                         <Link href={`/bookings/${booking.id}`} data-testid="link--booking-view-details">
                                                             {t.bookings.viewDetails} <ChevronRight className="w-4 h-4 ml-1" />
                                                         </Link>

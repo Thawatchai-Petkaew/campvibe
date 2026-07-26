@@ -174,7 +174,7 @@ export function ActiveFilters() {
         type="button"
         onClick={handleClearAll}
         aria-label={t.activeFilters?.clearAll}
-        className="text-xs text-muted-foreground hover:text-primary font-medium ml-2 underline decoration-border underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+        className="text-xs text-muted-foreground hover:text-primary-ink font-medium ml-2 underline decoration-border underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
         data-testid="btn--active-filters-clear-all"
       >
         {t.activeFilters?.clearAll}

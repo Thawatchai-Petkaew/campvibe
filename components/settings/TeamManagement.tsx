@@ -268,7 +268,7 @@ export function TeamManagement({ campSiteId }: TeamManagementProps) {
                                         <tr key={member.id} className="border-b border-border/30 hover:bg-muted/20 transition">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary-ink font-bold">
                                                         {member.user.name?.charAt(0).toUpperCase() || member.user.email.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>

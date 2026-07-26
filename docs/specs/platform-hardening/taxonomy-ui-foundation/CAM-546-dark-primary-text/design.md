@@ -228,14 +228,20 @@ never to a camper. No inline error and no `ErrorBanner` surface is involved.
 | set | size | measured backlog | mode |
 |---|---|---|---|
 | ENFORCED | 38 → **54** pairs (27 contexts × 2 themes) | **0** — the 8 new contexts are added and measured green in the same PR | **blocking** (exit 1) |
-| DEFERRED | 12 → **10** pairs | **10 → 8** known failures | **report only** (exit 0, printed loudly with its reason) |
+| DEFERRED | 12 → **10** pairs | **10 → 9** known failures | **report only** (exit 0, printed loudly with its reason) |
 
 Two DEFERRED rows are **retired**, not re-parked: `--primary` as text on `--card` (CAM-537's
 placeholder for this exact defect) is replaced by an ENFORCED `--primary-ink` row on the same surface.
+That context contributed one failure (dark) and one pass (light), so the known-failure count drops by
+one, not two.
 
-The registry gains two capabilities it did not have, both needed to describe real surfaces honestly:
-an **overlay** backdrop (`bg-primary/10` over `--card`) and an **fgAlpha** (a `/80` text modifier).
-Without them the worst-case surfaces could not be expressed and would have gone unmeasured.
+The registry gains **one** capability it did not have: an **overlay** backdrop
+(`overlay: { token: "--primary", alpha: 0.10 }`), because `bg-primary/10` is a Tailwind opacity fill
+rather than a token and so could not be named as a surface at all. Without it the worst surface in the
+app would have gone unmeasured. A matching `fgAlpha` was considered and **not** built — after BR-5 no
+call site puts an opacity modifier on this token, so the feature would have had no caller. The `/80`
+numbers in the table above are computed directly in `__tests__/cam-546-*` from the same exported
+helpers, which keeps the claim verifiable without adding speculative code to the guard.
 
 Both directions are proven in `__tests__/cam-546-dark-primary-text.test.ts`: the guard **fires**
 (exit 1, naming the pair) on a deliberately-bad `--primary-ink`, and is **quiet** (exit 0) on the real

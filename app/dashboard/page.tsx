@@ -241,7 +241,7 @@ export default function OperatorDashboard() {
                             <div className="px-6 py-6 border-b border-border/60 flex justify-between items-center">
                                 <h3 className="font-bold text-lg text-foreground">{t.dashboard.recentBookings}</h3>
                                 {data.permissions?.canViewBookings !== false && (
-                                    <Button asChild variant="ghost" className="text-primary hover:text-primary/80 font-semibold hover:bg-primary/5 rounded-full">
+                                    <Button asChild variant="ghost" className="text-primary-ink font-semibold hover:bg-primary/5 rounded-full">
                                         <Link href="/dashboard/bookings">
                                             {t.dashboard.viewAll}
                                         </Link>
@@ -278,7 +278,7 @@ export default function OperatorDashboard() {
                                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200 group">
                                                     <td className="px-6 py-5 font-medium text-foreground">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
+                                                            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary-ink flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                                 {booking.user.name?.[0] || 'G'}
                                                             </div>
                                                             {booking.user.name || booking.user.email}

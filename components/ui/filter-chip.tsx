@@ -98,7 +98,7 @@ export function FilterChip({
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "active:scale-95",
         selected
-          ? "border-primary bg-primary/5 font-semibold text-primary"
+          ? "border-primary bg-primary/5 font-semibold text-primary-ink"
           : "border-border text-muted-foreground hover:border-foreground/40",
         disabled && "opacity-50 pointer-events-none"
       )}

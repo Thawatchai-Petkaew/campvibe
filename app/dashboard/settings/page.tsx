@@ -111,7 +111,7 @@ export default function SettingsPage() {
                             className={cn(
                                 "flex items-center gap-2 px-1 py-4 border-b-2 transition-colors whitespace-nowrap",
                                 activeTab === tab.id
-                                    ? "border-primary text-primary font-medium"
+                                    ? "border-primary text-primary-ink font-medium"
                                     : "border-transparent text-muted-foreground hover:text-foreground",
                                 tab.disabled && "opacity-50 cursor-not-allowed"
                             )}

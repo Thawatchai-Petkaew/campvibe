@@ -132,7 +132,7 @@ export function BookingConfirmationClient({ booking }: BookingConfirmationClient
             <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
               {t.bookings.totalPaid}
             </div>
-            <div className="text-2xl font-bold text-primary tabular-nums">
+            <div className="text-2xl font-bold text-primary-ink tabular-nums">
               {formatCurrency(booking.totalPrice)}
             </div>
           </div>

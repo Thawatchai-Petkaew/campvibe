@@ -486,7 +486,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         <IconComp className="w-3.5 h-3.5" />
                                     </div>
                                     <div className="flex flex-col min-w-0">
-                                        <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
+                                        <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary-ink" : "text-foreground")}>
                                             {language === 'th' ? opt.nameTh : opt.nameEn}
                                         </span>
                                         {description && (
