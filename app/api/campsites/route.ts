@@ -3,7 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { catalogQuerySchema } from '@/lib/validations/catalog-cursor';
-import { buildCampSiteWhere } from '@/lib/campsite-filters';
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { serializeDecimals } from '@/lib/serialize';
 import { requireAuth } from '@/lib/auth-utils';
@@ -105,11 +105,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 2b. CAM-563 — resolve the incoming province NAME (Thai or English) to
+    // its AdminArea subtree ids so the filter below can ALSO match a camp
+    // stored in the other language for the same real province (root cause:
+    // `Location.province` is free text written in whichever UI language was
+    // active when the host saved it — CAM-559 finding). Fail-open: a lookup
+    // error never blocks the catalog, it just leaves the legacy exact-string
+    // match as the only path (identical to pre-CAM-563 behavior).
+    let provinceAdminAreaIds: string[] = [];
+    if (province) {
+      try {
+        provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, province);
+      } catch (error) {
+        console.error('[CAM-563] province admin-area resolution failed (fail-open, string match still applies)', error);
+      }
+    }
+
     // 3. Build base filter (SEC-1: isActive/isPublished/deletedAt always present).
     const baseWhere = buildCampSiteWhere({
       type, keyword, province, district, startDate, endDate,
       guests, min, max, access, facilities, external, equipment, activities, terrain,
       annotatedFeatures, camperStyle,
+      provinceAdminAreaIds,
     });
 
     // 4. Merge keyset WHERE via AND (never replaces the base gate).

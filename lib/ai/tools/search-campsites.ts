@@ -16,7 +16,7 @@
  */
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { buildCampSiteWhere } from '@/lib/campsite-filters';
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from '@/lib/campsite-filters';
 import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-models/ai-camp-card';
 import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
@@ -544,8 +544,28 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // never fail the search.
   const excludeIds = args.excludeIds !== undefined ? args.excludeIds.slice(0, MAX_EXCLUDE_IDS) : undefined;
 
+  // CAM-563 — additive safety net alongside `resolveProvinceForSearch`
+  // above: that resolver already translates a Thai model-supplied province
+  // to its stored English value via `ThailandLocation` (CAM-404), which is
+  // correct for every camp whose `Location.province` is itself English (all
+  // 650 real camps in the dev DB today). This ALSO resolves the id-subtree
+  // so a FUTURE camp whose `province` was saved in Thai (CAM-559 finding)
+  // still matches — never replaces the existing resolver, only OR's an
+  // additional path (BR-3: write/read both during the transition). Only
+  // engaged for the single-province branch, never the region-expansion
+  // array (unchanged this story — see tech.md's Seams section).
+  let provinceAdminAreaIds: string[] | undefined;
+  if (typeof provinceFilter === 'string' && provinceFilter) {
+    try {
+      provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, provinceFilter);
+    } catch (error) {
+      console.error('[CAM-563] province admin-area resolution failed (fail-open, string match still applies)', error);
+    }
+  }
+
   const where = buildCampSiteWhere({
     province: provinceFilter,
+    provinceAdminAreaIds,
     type: args.type,
     keyword: args.keyword,
     min: args.priceMin !== undefined ? String(args.priceMin) : undefined,

@@ -103,6 +103,8 @@ next-env.d.ts
 !/scripts/backfill-cam-536-accommodation-codes.mjs
 # CAM-538 — drops the HCMP (horse-camp) AccommodationTypeEnum member entirely
 !/scripts/backfill-cam-538-drop-horse-camp.mjs
+# CAM-563 — backfills Location.adminAreaId from the free-text province/district/subDistrict columns
+!/scripts/backfill-cam-563-location-admin-area.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
