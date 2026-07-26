@@ -97,9 +97,10 @@ h6 {
        KEEP THIS IN `:root`, NOT in the `@theme inline` block above. `--radius-*` is
        Tailwind's radius namespace, so a `@theme` entry named `--radius-full` also
        REDEFINES the built-in `rounded-full` utility app-wide (measured: a `@theme`
-       value of 3px makes `.rounded-full { border-radius: 3px }`). This variable is
-       read by `var()` from an arbitrary property (`[--cell-radius:var(--radius-full)]`),
-       never by a generated utility, so `:root` is where it belongs.
+       value of 3px makes the generated `.rounded-full` rule emit a 3px border-radius).
+       This variable is read by `var()` from an arbitrary property
+       (`[--cell-radius:var(--radius-full)]`), never by a generated utility, so
+       `:root` is where it belongs.
        The defect this fixes (the date picker's circle / square / half-circle mix) was
        that NO declaration existed anywhere: `var(--radius-full)` resolved to nothing
        and every rule reading it was dropped by the browser. Measured on this file with
