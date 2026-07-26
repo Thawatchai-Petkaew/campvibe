@@ -207,8 +207,11 @@ export function PreviewClient() {
                         </p>
                         <p className="type-label text-muted-foreground mt-2">
                             You are currently seeing the{" "}
-                            <span className="md:hidden font-semibold text-primary">mobile step (&lt; 768px)</span>
-                            <span className="hidden md:inline font-semibold text-primary">desktop step (≥ 768px)</span>.
+                            {/* text-primary-ink, not text-primary: these are WORDS, and dark
+                                is the default theme since CAM-544 — text-primary measures
+                                3.28:1 on --card there, under the 4.5:1 body floor (CAM-546). */}
+                            <span className="md:hidden font-semibold text-primary-ink">mobile step (&lt; 768px)</span>
+                            <span className="hidden md:inline font-semibold text-primary-ink">desktop step (≥ 768px)</span>.
                         </p>
                     </div>
 
