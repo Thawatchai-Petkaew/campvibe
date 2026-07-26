@@ -31,8 +31,19 @@ export interface CampgroundCardData {
     nameThSlug: string;
     nameEnSlug: string;
     priceLow: number | null;
+    /** CAM-545: optional — an older/narrower caller without a real range still satisfies this structurally. */
+    priceHigh?: number | null;
     createdAt: string;
-    location: { province: string };
+    location: {
+        province: string;
+        /**
+         * CAM-545: the Thai province name via `Location.thaiLocation` (see
+         * `prisma/schema.prisma`'s admin-division relation). Optional/nullable —
+         * a location not yet linked to that relation falls back to `province`
+         * (BR-1); `province` itself is never touched by this field.
+         */
+        thaiLocation?: { provinceName: string } | null;
+    };
     images?: { url: string }[];
 }
 
@@ -66,6 +77,63 @@ interface CampgroundCardProps {
      * Default "default" preserves the catalog/wishlist-grid behaviour exactly.
      */
     variant?: "default" | "compact";
+}
+
+/**
+ * CAM-545 — the localized "province, country" line. TH mode prefers the
+ * Thai province name (`Location.thaiLocation.provinceName`); falls back to
+ * the raw `province` value when the location has no admin-division link
+ * (EC-1). EN mode is unchanged (`province` was already English). The country
+ * word comes from the caller's locale dict — never a hardcoded literal here.
+ */
+export function buildLocationText(
+    location: CampgroundCardData["location"],
+    language: "en" | "th",
+    countryName: string,
+): string {
+    const province = language === "th"
+        ? (location.thaiLocation?.provinceName || location.province)
+        : location.province;
+    return `${province}, ${countryName}`;
+}
+
+/** What the price line renders — either the free copy or an amount (single or range). */
+export interface CardPriceDisplay {
+    isFree: boolean;
+    isRange: boolean;
+    /** Formatted amount text, e.g. "฿500" or "฿500-1,000". Empty when free. */
+    amountText: string;
+}
+
+/**
+ * CAM-545 — decides single price vs honest range vs free (BR-5/BR-6, EC-2/EC-3).
+ * A range only renders when `priceHigh` is a real, greater upper bound; a
+ * missing/inverted/equal `priceHigh` falls back to the single-price form
+ * rather than showing a degenerate range. The currency symbol is stripped
+ * from the high value (via the caller's own `currencySymbol`) so a range
+ * reads as "฿500-1,000", not "฿500-฿1,000".
+ */
+export function buildCardPriceDisplay(
+    priceLow: number | null,
+    priceHigh: number | null | undefined,
+    formatCurrency: (amount: number) => string,
+    currencySymbol: string,
+): CardPriceDisplay {
+    const isFree = priceLow == null || priceLow <= 0;
+    if (isFree) {
+        return { isFree: true, isRange: false, amountText: "" };
+    }
+
+    const isRange = priceHigh != null && priceHigh > priceLow;
+    if (!isRange) {
+        return { isFree: false, isRange: false, amountText: formatCurrency(priceLow) };
+    }
+
+    const highFormatted = formatCurrency(priceHigh);
+    const highNumberOnly = highFormatted.startsWith(currencySymbol)
+        ? highFormatted.slice(currencySymbol.length)
+        : highFormatted;
+    return { isFree: false, isRange: true, amountText: `${formatCurrency(priceLow)}-${highNumberOnly}` };
 }
 
 export function CampgroundCard({
@@ -144,6 +212,15 @@ export function CampgroundCard({
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
     const slug = language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug;
+
+    // CAM-545: localized "province, country" line + honest single/range/free price.
+    const locationText = buildLocationText(campground.location, language, t.campground.countryName);
+    const priceDisplay = buildCardPriceDisplay(
+        campground.priceLow,
+        campground.priceHigh,
+        formatCurrency,
+        t.currency.symbol,
+    );
 
     return (
         // Root is a div so the heart button is NOT inside the Link (AC 11).
@@ -254,10 +331,16 @@ export function CampgroundCard({
                             </span>
                         )}
                     </div>
-                    <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
-                    <div className="flex items-baseline gap-1 pt-1">
-                        <span className="font-semibold">{campground.priceLow ? formatCurrency(Number(campground.priceLow)) : t.common.free}</span>
-                        <span className="text-muted-foreground">{t.common.night}</span>
+                    <p className="text-muted-foreground text-sm" data-testid="text--card-location">{locationText}</p>
+                    <div className="flex items-baseline gap-1 pt-1" data-testid="text--card-price">
+                        {priceDisplay.isFree ? (
+                            <span className="font-semibold">{t.common.free}</span>
+                        ) : (
+                            <>
+                                <span className="font-semibold">{priceDisplay.amountText}</span>
+                                <span className="text-muted-foreground">{t.common.perNight}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </Link>

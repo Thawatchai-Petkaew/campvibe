@@ -80,6 +80,7 @@
             "save": "Save",
             "reviews": "reviews",
             "night": "night",
+            "perNight": "/night",
             "reserve": "Reserve",
             "close": "Close",
             "showAll": "Show all",
@@ -125,6 +126,7 @@
             "waterfall": "Waterfall"
         },
         "campground": {
+            "countryName": "Thailand",
             "hostedBy": "Hosted by",
             "verifiedHost": "Verified Host",
             "joined": "Joined",
@@ -1143,6 +1145,7 @@
             "save": "บันทึก",
             "reviews": "รีวิว",
             "night": "คืน",
+            "perNight": "/คืน",
             "reserve": "จอง",
             "close": "ปิด",
             "showAll": "แสดงทั้งหมด",
@@ -1188,6 +1191,7 @@
             "waterfall": "น้ำตก"
         },
         "campground": {
+            "countryName": "ประเทศไทย",
             "hostedBy": "โฮสต์โดย",
             "verifiedHost": "โฮสต์ที่ได้รับการยืนยัน",
             "joined": "เข้าร่วมเมื่อ",

@@ -5,10 +5,12 @@ import type { CampAvailabilityStatus } from '@/lib/campsite-availability';
  * Prisma select for the catalog card listing (PERF-5 / CAM-193).
  *
  * Includes ONLY what CampgroundCard renders:
- *   - scalar card fields (id, name/slug, priceLow, createdAt)
+ *   - scalar card fields (id, name/slug, priceLow, priceHigh, createdAt)
  *   - avgRating: Decimal(2,1)? column (maintained by AGG-1 / CAM-189)
  *   - reviewCount: Int column (maintained by AGG-1 / CAM-189)
- *   - location: only province (the string the card renders — CampgroundCard.tsx:184)
+ *   - location: province (English, unchanged — see CAM-545 below) + the
+ *     Thai province name via the `thaiLocation` relation (both the string
+ *     the card renders — CampgroundCard.tsx)
  *   - images: first 5 by sortOrder (carousel shows ≤5 dots — CampgroundCard.tsx:150)
  *
  * Explicitly dropped (over-fetch culprits):
@@ -17,10 +19,20 @@ import type { CampAvailabilityStatus } from '@/lib/campsite-availability';
  *   - options      (full MasterData taxonomy — not rendered on the card)
  *   - operator     (full User record — name used in WHERE only, not SELECT)
  *   - _count       (not needed; reviewCount comes from the stored column)
- *   - full location (only province is read; district/subDistrict/lat/lon etc. not rendered)
+ *   - full location (only province + thaiLocation.provinceName are read;
+ *     district/subDistrict/lat/lon etc. not rendered)
  *   - all images   (unbounded — capped at take:5)
- *   - priceHigh, isVerified, isPublished, latitude, longitude
+ *   - isVerified, isPublished, latitude, longitude
  *     (in old CampSiteCardData interface but not rendered by CampgroundCard)
+ *
+ * CAM-545: `priceHigh` was dropped above as an over-fetch culprit but is now
+ * rendered (the card shows an honest price range when the host set one —
+ * see CampgroundCard.tsx's `buildCardPriceDisplay`). `location.thaiLocation`
+ * is added so the card can show the Thai province name in TH mode instead of
+ * the English `Location.province` value + a hardcoded "Thailand" literal.
+ * `Location.province` itself is READ-ONLY here and completely unchanged —
+ * `lib/campsite-filters.ts`'s exact-equality province filter (and CAM-531's
+ * province dropdown) depend on its current stored value.
  */
 export const campCardSelect = {
   id: true,
@@ -29,12 +41,20 @@ export const campCardSelect = {
   nameThSlug: true,
   nameEnSlug: true,
   priceLow: true,
+  priceHigh: true,   // CAM-545: now rendered as a range on the card
   createdAt: true,
   avgRating: true,   // PERF-5: Decimal(2,1)? column maintained by AGG-1
   reviewCount: true, // PERF-5: Int column maintained by AGG-1
   location: {
     select: {
       province: true,
+      // CAM-545: Thai province name, read via the existing ThailandLocation
+      // relation — never a client-side Thai/English lookup table.
+      thaiLocation: {
+        select: {
+          provinceName: true,
+        },
+      },
     },
   },
   images: {
@@ -58,11 +78,13 @@ export type CampCardPayload = Prisma.CampSiteGetPayload<{
  * dead-code sweep — CampgroundGrid.tsx itself had no importer; this type did).
  *
  * Derived from CampCardPayload: avgRating/reviewCount come directly from the stored
- * columns (AGG-1 / CAM-189 maintains them). priceLow + avgRating are serialised to
- * number by serializeDecimals (were Decimal). createdAt is serialised to ISO string.
+ * columns (AGG-1 / CAM-189 maintains them). priceLow + priceHigh + avgRating are
+ * serialised to number by serializeDecimals (were Decimal). createdAt is serialised
+ * to ISO string.
  */
-export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'createdAt' | 'avgRating'> & {
+export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'priceHigh' | 'createdAt' | 'avgRating'> & {
   priceLow: number | null;   // Decimal serialised to number
+  priceHigh: number | null;  // CAM-545: Decimal serialised to number
   createdAt: string;          // Date serialised to ISO string
   /** PERF-5: stored average rating column (1dp) or null when no reviews. */
   avgRating: number | null;

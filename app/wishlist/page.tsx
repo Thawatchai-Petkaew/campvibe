@@ -49,7 +49,15 @@ export default async function WishlistPage() {
                             latitude: true,
                             longitude: true,
                             createdAt: true,
-                            location: { select: { province: true } },
+                            // CAM-545: thaiLocation.provinceName lets the card show the
+                            // Thai province name in TH mode; province (English) itself
+                            // is unchanged (lib/campsite-filters.ts depends on it).
+                            location: {
+                                select: {
+                                    province: true,
+                                    thaiLocation: { select: { provinceName: true } },
+                                },
+                            },
                             reviews: {
                                 where: { deletedAt: null },
                                 select: { rating: true },
@@ -76,7 +84,12 @@ export default async function WishlistPage() {
                     latitude: campSite.latitude,
                     longitude: campSite.longitude,
                     createdAt: campSite.createdAt.toISOString(),
-                    location: { province: campSite.location.province ?? "" },
+                    location: {
+                        province: campSite.location.province ?? "",
+                        thaiLocation: campSite.location.thaiLocation
+                            ? { provinceName: campSite.location.thaiLocation.provinceName }
+                            : null,
+                    },
                     avgRating: roundAvgRating(computeAvgRating(reviews)),
                     reviewCount: reviews.length,
                 };
