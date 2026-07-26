@@ -45,7 +45,7 @@ export function PermissionTooltip({
                             <p className="font-semibold text-foreground">{title}</p>
                             <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
                             {suggestion && (
-                                <p className="text-xs text-primary/80 font-medium pt-1">
+                                <p className="text-xs text-primary-ink font-medium pt-1">
                                     💡 {suggestion}
                                 </p>
                             )}

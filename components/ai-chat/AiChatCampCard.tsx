@@ -114,7 +114,7 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
           </Badge>
         )}
 
-        <p className="flex items-center gap-1 text-xs font-medium text-primary">
+        <p className="flex items-center gap-1 text-xs font-medium text-primary-ink">
           {t.aiChat.card.viewDetail}
           <ChevronRight className="size-3.5" aria-hidden="true" />
         </p>

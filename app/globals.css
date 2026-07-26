@@ -47,6 +47,9 @@ h6 {
     --color-popover-foreground: var(--popover-foreground);
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
+    /* CAM-546 — without this entry the `text-primary-ink` utility emits nothing
+       at all and the text silently falls back to inherited colour. */
+    --color-primary-ink: var(--primary-ink);
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-muted: var(--muted);
@@ -116,6 +119,15 @@ h6 {
     --primary: oklch(0.511 0.096 186.391);
     /* approximate oklch for teal-600 #0d9488 */
     --primary-foreground: oklch(0.984 0.014 180.72);
+    /* CAM-546 — primary teal for WORDS (`text-primary-ink`). --primary paints
+       fills, borders, rings and icons; this paints letters. The split exists
+       because ONE token provably cannot do both jobs: as text on the dark
+       --card it needs L >= 0.596, while a near-white label ON the fill needs
+       L <= 0.548 — disjoint windows (re-derived under CAM-546, matching
+       CAM-537). The LIGHT value here is byte-identical to light --primary, so
+       light mode does not change; only dark diverges. Do not "simplify" this
+       back to text-primary. */
+    --primary-ink: oklch(0.511 0.096 186.391);
     --secondary: oklch(0.967 0.001 286.375);
     /* orange-600 #ea580c - using as secondary color */
     --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -198,6 +210,19 @@ h6 {
        5.08:1). Both ends are pinned by `npm run check:contrast`. */
     --primary: oklch(0.520 0.078 188.216);
     --primary-foreground: oklch(0.984 0.014 180.72);
+    /* CAM-546 — the dark half of the fill/text split (see :root for the why).
+       axe reported a SERIOUS color-contrast violation on /preview once dark
+       became the default: #257771 (= --primary above) on #090b0c = 3.71:1
+       against the 4.5:1 body-text floor. As text, --primary measures 3.73:1 on
+       --background, 3.28:1 on --card and 3.01:1 on a bg-primary/10 tint (the
+       worst surface, because the tint LIGHTENS the backdrop). This token takes
+       those to 9.68 / 8.52 / 7.81:1.
+       The value is byte-identical to --ai-price below ON PURPOSE: CAM-444
+       already introduced exactly one bright teal for dark-mode text and the app
+       should have one, not two nearly-identical ones. They are not merged into
+       a single token only because __tests__/cam-444-*.test.ts pins --ai-price
+       as a literal oklch() declaration; consolidating them is a follow-up. */
+    --primary-ink: oklch(0.760 0.120 184);
     --secondary: oklch(0.274 0.006 286.033);
     /* orange-600 #ea580c - using as secondary color */
     --secondary-foreground: oklch(0.985 0 0);

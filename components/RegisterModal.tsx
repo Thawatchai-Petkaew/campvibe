@@ -101,7 +101,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess, onSwitchToLogin }: R
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary font-bold hover:underline"
+                        className="text-primary-ink font-bold hover:underline"
                     >
                         {part}
                     </a>
@@ -278,7 +278,7 @@ export function RegisterModal({ isOpen, onClose, onSuccess, onSwitchToLogin }: R
                                 <button
                                     type="button"
                                     onClick={onSwitchToLogin}
-                                    className="text-primary font-bold hover:underline"
+                                    className="text-primary-ink font-bold hover:underline"
                                 >
                                     {t.auth.registerModal.signIn}
                                 </button>
