@@ -8,6 +8,10 @@ import { serializeDecimals } from "@/lib/serialize";
 import { buildReviewSummary, toReviewListItem } from "@/lib/review-summary";
 import { canViewCampSite } from "@/lib/campsite-visibility";
 import { getCampBySlug } from "@/lib/catalog-cache";
+// CAM-548: reuse the CAM-545 name-based province lookup verbatim (never the
+// thaiLocationId FK — see lib/read-models/camp-card.ts doc comment; that FK
+// covers only 12 of 652 Location rows).
+import { getProvinceThaiNameMap, withProvinceThaiNames } from "@/lib/read-models/camp-card";
 
 interface PageProps {
     params: Promise<{ slug: string }>;
@@ -101,11 +105,17 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
             .catch(() => ({ ok: false as const }))
         : Promise.resolve({ ok: true as const, reviews: [] });
 
+    // CAM-548: attach the Thai province name via the CAM-545 seam — a name-based
+    // match against Location.province (English, unchanged/read-only here), reaching
+    // 650 of 650 real camps. Applied the same way as the card/catalog call sites.
+    const provinceThaiNameMap = await getProvinceThaiNameMap();
+    const [campSiteWithProvinceTh] = withProvinceThaiNames([campSite], provinceThaiNameMap);
+
     return (
         <main className="min-h-screen bg-background">
             <Navbar />
             <CampgroundDetailClient
-                campground={serializeDecimals(campSite)}
+                campground={serializeDecimals(campSiteWithProvinceTh)}
                 isOwner={isOwner}
                 initialSaved={initialSaved}
                 isLoggedIn={!!session?.user}
