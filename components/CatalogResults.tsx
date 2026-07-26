@@ -17,7 +17,7 @@ import InfiniteScrollGrid from "@/components/InfiniteScrollGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
-import { buildCampSiteWhere } from "@/lib/campsite-filters";
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from "@/lib/campsite-filters";
 import { campCardSelect, getProvinceThaiNameMap, withProvinceThaiNames, type CampCardPayload } from "@/lib/read-models/camp-card";
 import { getDefaultCatalog } from "@/lib/catalog-cache";
 import { encodeCursorFromItem, PAGE_SIZE, VALID_SORTS, type CatalogSort } from "@/lib/catalog-cursor";
@@ -113,6 +113,23 @@ export default async function CatalogResults({
       campSites = [];
     }
   } else {
+    // CAM-573 — resolve the incoming province NAME (Thai or English) to its
+    // AdminArea subtree ids so the filter below ALSO matches a camp stored
+    // in the other language for the same real province (CAM-563's finding,
+    // already wired into app/api/campsites/route.ts's cursor path and
+    // lib/ai/tools/search-campsites.ts — this closes the SAME gap for the
+    // SSR/first-page path). Fail-open: a lookup error never blocks the
+    // catalog, it just leaves the legacy exact-string match as the only
+    // path (identical to pre-CAM-573 behavior).
+    let provinceAdminAreaIds: string[] = [];
+    if (province) {
+      try {
+        provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, province);
+      } catch (error) {
+        console.error("[CAM-573] province admin-area resolution failed (fail-open, string match still applies)", error);
+      }
+    }
+
     const where = buildCampSiteWhere({
       type,
       keyword,
@@ -131,6 +148,7 @@ export default async function CatalogResults({
       terrain,
       annotatedFeatures,
       camperStyle,
+      provinceAdminAreaIds,
     });
 
     const sanitizedSort: CatalogSort =

@@ -194,9 +194,15 @@ describe('AC-2 — getCampBySlug shape (lib/catalog-cache.ts)', () => {
     expect(catalogCacheSrc).not.toContain('campsite-visibility');
   });
 
-  it('[include] includes location, operator, spots, options, images (full detail shape)', () => {
+  it('[include] includes location (with its resolved AdminArea chain), operator, spots, options, images (full detail shape)', () => {
     // The detail wrapper must carry the full include — same as the pre-CAM-195 direct query.
-    expect(catalogCacheSrc).toContain('location: true');
+    // CAM-576: `location` is no longer a bare `true` — it now also includes the resolved
+    // AdminArea chain (adminAreaChainSelect) so the detail page's district/sub-district
+    // render in the active language (closes CAM-573's "Known gap"). Prove-It: FAILS if
+    // the adminArea include is removed (the detail page regresses to the raw free-text
+    // district column, reproducing CAM-567/CAM-576's English-beside-Thai defect).
+    expect(catalogCacheSrc).toContain('location: {');
+    expect(catalogCacheSrc).toContain('adminArea: { select: adminAreaChainSelect }');
     expect(catalogCacheSrc).toContain('spots: true');
     expect(catalogCacheSrc).toContain('options: true');
     expect(catalogCacheSrc).toContain('images:');

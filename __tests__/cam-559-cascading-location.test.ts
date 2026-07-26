@@ -354,19 +354,29 @@ describe('GET /api/admin-areas/subdistricts — scoped, on-demand (CAM-559)', ()
 });
 
 // ---------------------------------------------------------------------------
-// Integration — the EXISTING /api/locations/search route (untouched by this
-// story, read-only reuse) is what the district level of the new cascading
-// picker calls. Proves the two literal ticket requirements at the network-
-// contract layer the component depends on:
+// Integration — /api/locations/search?type=district. CAM-559 built the
+// district level against `ThailandLocation`; CAM-573 moved the match itself
+// onto `AdminArea` (closing the split this story's own ticket named), then
+// bridges the matched node back to a real `ThailandLocation.id` so
+// `LocationPicker.tsx`'s `thaiLocationId` (still a live FK, written by
+// `POST /api/location`, both out of CAM-573's file surface) never regresses
+// — see CAM-573 tech.md. Proves the same two literal requirements CAM-559
+// established, now against the real network contract post-migration:
 //   - "the cascade genuinely narrows" (province selection must not still
 //     offer every one of the 930 districts)
 //   - "a Thai search term finds a Thai-named district"
 // ---------------------------------------------------------------------------
-describe('GET /api/locations/search?type=district — province narrows + Thai search (CAM-559, pre-existing route reused as-is)', () => {
+describe('GET /api/locations/search?type=district — province narrows + Thai search (CAM-559 built it; CAM-573 moved the match onto AdminArea)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        (prisma.adminArea.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+            id: 'aa-province-50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai',
+        });
+        (prisma.adminArea.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+            { code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
+        ]);
         (prisma.thailandLocation.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-            { id: 'd-1', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
+            { id: 'd-1', districtCode: '5001' },
         ]);
     });
 
@@ -374,22 +384,40 @@ describe('GET /api/locations/search?type=district — province narrows + Thai se
         return new NextRequest(`http://localhost/api/locations/search${query}`);
     }
 
-    it('[normal] scopes the district query to the given provinceCode (never every one of the 930 districts)', async () => {
+    it('[normal] scopes the district query to the given provinceCode\'s AdminArea id (never every one of the 930 districts)', async () => {
         const res = await locationsSearchGET(searchRequest('?type=district&provinceCode=50'));
 
         expect(res.status).toBe(200);
-        const call = (prisma.thailandLocation.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-        expect(call.where.provinceCode).toBe('50');
-        expect(call.where.districtCode).not.toBe(''); // excludes the province-level row
+        const provinceCall = (prisma.adminArea.findUnique as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(provinceCall.where.countryCode_level_code).toEqual({ countryCode: 'TH', level: 'PROVINCE', code: '50' });
+        const districtCall = (prisma.adminArea.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(districtCall.where.level).toBe('DISTRICT');
+        expect(districtCall.where.parentId).toBe('aa-province-50'); // scoped, never every district nationwide
     });
 
     it('[normal] a Thai search term (q) reaches the district name match, scoped to the chosen province', async () => {
         await locationsSearchGET(searchRequest('?type=district&provinceCode=50&q=' + encodeURIComponent('เมืองเชียงใหม่')));
 
-        const call = (prisma.thailandLocation.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-        expect(call.where.provinceCode).toBe('50');
-        const orClause = JSON.stringify(call.where.OR);
+        const districtCall = (prisma.adminArea.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+        expect(districtCall.where.parentId).toBe('aa-province-50');
+        const orClause = JSON.stringify(districtCall.where.OR);
         expect(orClause).toContain('เมืองเชียงใหม่');
+    });
+
+    it('[normal] the matched AdminArea district is bridged back to a real ThailandLocation id (thaiLocationId FK compatibility, CAM-573)', async () => {
+        const res = await locationsSearchGET(searchRequest('?type=district&provinceCode=50'));
+        const body = await res.json();
+        expect(body).toEqual([
+            { id: 'd-1', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
+        ]);
+    });
+
+    it('[error/validation] a missing provinceCode never runs an unscoped nationwide AdminArea query (CAM-573 tightening)', async () => {
+        const res = await locationsSearchGET(searchRequest('?type=district'));
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual([]);
+        expect(prisma.adminArea.findMany).not.toHaveBeenCalled();
     });
 });
 
