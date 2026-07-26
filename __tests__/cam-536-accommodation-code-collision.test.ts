@@ -262,9 +262,12 @@ const SEEDED_ROWS = extractRows(masterDataBlock);
 const byCode = (code: string) => SEEDED_ROWS.find((r) => r.code === code);
 
 describe("CAM-536 (c) — every AccommodationTypeEnum member has a seeded row + en/th i18n keys", () => {
-  it("[normal] AccommodationTypeEnum is exactly CABI/DISP/GROU/HCMP/RECR/TSIT (HORS/TENT are gone)", () => {
+  // CAM-538 amended this pin: HCMP (itself this story's rename target for
+  // HORS) was dropped entirely by CAM-538 (no Thai relevance) — 5 members
+  // remain. See __tests__/cam-538-accommodation-clarity.test.ts.
+  it("[normal] AccommodationTypeEnum is exactly CABI/DISP/GROU/RECR/TSIT (HORS/TENT/HCMP are gone)", () => {
     expect(AccommodationTypeEnum.options.slice().sort()).toEqual(
-      ["CABI", "DISP", "GROU", "HCMP", "RECR", "TSIT"].sort()
+      ["CABI", "DISP", "GROU", "RECR", "TSIT"].sort()
     );
     expect(AccommodationTypeEnum.options).not.toContain("HORS");
     expect(AccommodationTypeEnum.options).not.toContain("TENT");
@@ -284,7 +287,9 @@ describe("CAM-536 (c) — every AccommodationTypeEnum member has a seeded row + 
     expect(thFilter[code], `th.filter.${code} missing`).toBeDefined();
   });
 
-  it.each(["TSIT", "HCMP"])("[normal] the new code %s resolves to a real FACILITY_ICON_MAP entry (not the ShieldCheck fallback)", (code) => {
+  // CAM-538 dropped HCMP from this each() — it no longer resolves to a real
+  // icon (correctly falls back to ShieldCheck now that the code is retired).
+  it.each(["TSIT"])("[normal] the new code %s resolves to a real FACILITY_ICON_MAP entry (not the ShieldCheck fallback)", (code) => {
     expect(getFacilityIcon(code)).not.toBe(getFacilityIcon("NOT_A_REAL_CODE"));
   });
 
@@ -321,7 +326,8 @@ describe("CAM-536 (d) — Equipment:TENT and Activity:HORS are UNCHANGED by this
     expect(counts.get("TENT")).toBe(1);
     expect(counts.get("HORS")).toBe(1);
     expect(counts.get("TSIT")).toBe(1);
-    expect(counts.get("HCMP")).toBe(1);
+    // CAM-538 dropped HCMP entirely — no row remains under any group.
+    expect(counts.get("HCMP")).toBeUndefined();
   });
 
   it("[regression] the pre-existing en/th i18n keys for TENT/HORS (owned by Equipment/Activity) are unchanged", () => {

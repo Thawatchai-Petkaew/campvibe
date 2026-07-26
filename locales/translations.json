@@ -668,11 +668,17 @@
             "PARA": "Parallel",
             "PTHG": "Pull-through",
             "CABI": "Cabin",
-            "DISP": "Dispersed camping",
+            "DISP": "Dispersed camping (no marked pitch)",
             "GROU": "Group camping",
             "RECR": "RV / Recreational vehicle",
-            "TSIT": "Tent site",
-            "HCMP": "Horse camp"
+            "TSIT": "Tent site (marked pitch)"
+        },
+        "filterDescription": {
+            "CABI": "A fixed cabin with walls and a roof, no tent required",
+            "DISP": "Open ground, pick your own tent spot freely, no marked plots",
+            "GROU": "A large shared area for camping together as a group",
+            "RECR": "Space to park and stay overnight in an RV or camper van",
+            "TSIT": "Tent ground divided into marked plots, one tent per plot"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1726,11 +1732,17 @@
             "PARA": "ขนานลาน",
             "PTHG": "ขับผ่าน",
             "CABI": "กระท่อม",
-            "DISP": "กางเต็นท์อิสระ",
+            "DISP": "กางเต็นท์อิสระ (ไม่แบ่งล็อค)",
             "GROU": "ที่พักแบบกลุ่ม",
             "RECR": "รถบ้าน (RV)",
-            "TSIT": "ลานกางเต็นท์",
-            "HCMP": "แคมป์ม้า"
+            "TSIT": "ลานกางเต็นท์แบ่งล็อค"
+        },
+        "filterDescription": {
+            "CABI": "ที่พักเป็นหลัง มีผนังและหลังคาถาวร ไม่ต้องกางเต็นท์",
+            "DISP": "ลานโล่งเลือกจุดกางเต็นท์เองได้อิสระ ไม่มีเส้นแบ่งล็อค",
+            "GROU": "พื้นที่กว้างสำหรับกางเต็นท์รวมกันเป็นกลุ่มหรือหมู่คณะ",
+            "RECR": "มีพื้นที่จอดรถบ้านหรือรถแคมป์ปิ้งพักค้างคืนได้",
+            "TSIT": "ลานกางเต็นท์แบ่งเป็นล็อคชัดเจน แต่ละคันกางเต็นท์ในล็อคของตัวเอง"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",
