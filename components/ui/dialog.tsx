@@ -51,10 +51,59 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const contentRef = React.useRef<HTMLDivElement>(null)
+
+  // CAM-540 — a Radix popup that disables outside pointer events while open
+  // (Select is always one; Popover/DropdownMenu are too when `modal`) shares
+  // the SAME layer-stacking context as this Dialog. While that popup is the
+  // topmost layer, Radix sets `pointer-events: none` on every layer BELOW
+  // it — including this dialog's own content box — so a click that lands
+  // visually inside the dialog (anywhere that isn't the popup itself) is
+  // not hit-tested there at all; it passes straight through to the overlay
+  // underneath. The dialog's own dismissable layer then reads that as a
+  // genuine backdrop click and closes — even though the user never touched
+  // the overlay.
+  //
+  // A same-origin check on the interaction's `event.target` (e.g. "is it
+  // inside a `[data-radix-popper-content-wrapper]`") does NOT catch this:
+  // the target really is the overlay by the time it's observed, and this
+  // repo's <Select> defaults to Radix's "item-aligned" position (no popper
+  // wrapper element at all — verified empirically, see story.md). The
+  // reliable signal is this dialog's own content node's `pointer-events`
+  // value AT THE MOMENT OF THE ORIGINAL POINTERDOWN — captured via a
+  // document-level capture-phase listener so it runs before the nested
+  // popup can close/unmount itself, then read back later when
+  // `onPointerDownOutside` fires (Dialog defers that to the following
+  // `click` event, by which point the nested popup is already gone).
+  const suppressNextDismissRef = React.useRef(false)
+
+  React.useEffect(() => {
+    const recordPointerDown = () => {
+      const node = contentRef.current
+      suppressNextDismissRef.current = !!node && node.style.pointerEvents === "none"
+    }
+    document.addEventListener("pointerdown", recordPointerDown, true)
+    return () => document.removeEventListener("pointerdown", recordPointerDown, true)
+  }, [])
+
+  const handlePointerDownOutside: NonNullable<
+    React.ComponentProps<typeof DialogPrimitive.Content>["onPointerDownOutside"]
+  > = React.useCallback(
+    (event) => {
+      onPointerDownOutside?.(event)
+      if (suppressNextDismissRef.current) {
+        suppressNextDismissRef.current = false
+        event.preventDefault()
+      }
+    },
+    [onPointerDownOutside]
+  )
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -64,6 +113,8 @@ function DialogContent({
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-3xl bg-popover p-6 text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/5 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
+        ref={contentRef}
+        onPointerDownOutside={handlePointerDownOutside}
         {...props}
       >
         {children}
