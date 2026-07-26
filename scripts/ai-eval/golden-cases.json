@@ -48,7 +48,7 @@
     "expected": {
       "kind": "tool",
       "tool": "searchCampsites",
-      "params": { "terrain": "BEAC" },
+      "params": { "terrain": "SEA" },
       "strictParams": true
     },
     "guardrail": true
