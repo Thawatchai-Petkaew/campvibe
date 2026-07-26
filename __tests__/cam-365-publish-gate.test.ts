@@ -680,6 +680,9 @@ function baseCreateBody(overrides: Record<string, unknown> = {}) {
     checkOutTime: '12:00',
     bookingMethod: 'ONLI',
     locationId: LOCATION_ID,
+    // CAM-520: campSiteType is now required on create — unrelated to this
+    // file's publish-gate concern, so a valid code is included by default.
+    campSiteType: 'CAGD',
     ...overrides,
   };
 }

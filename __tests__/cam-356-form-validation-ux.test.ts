@@ -291,7 +291,12 @@ describe("BR-1: groundType payload matches the shared schema shape (Prove-It, re
 // ---------------------------------------------------------------------------
 describe("AC-2: client-side pre-check parity", () => {
   it("imports campSiteSchema from the shared validations module (does not re-declare it)", () => {
-    expect(formSrc).toContain('import { campSiteSchema } from "@/lib/validations/campsite"');
+    // CAM-520: the import now also pulls CampSiteTypeEnum (single-select
+    // fallback/default) alongside campSiteSchema — same shared module, no
+    // re-declaration, so this checks for the module specifier + campSiteSchema
+    // token rather than an exact-line match against the old solo import.
+    expect(formSrc).toContain('from "@/lib/validations/campsite"');
+    expect(formSrc).toMatch(/import \{[^}]*\bcampSiteSchema\b[^}]*\} from "@\/lib\/validations\/campsite"/);
   });
 
   it("handleSubmit runs campSiteSchema.partial().safeParse on the exact campPayload before fetch", () => {

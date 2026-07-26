@@ -48,7 +48,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
-import { campSiteSchema } from "@/lib/validations/campsite";
+import { campSiteSchema, CampSiteTypeEnum } from "@/lib/validations/campsite";
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/listing-completeness";
 import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
@@ -229,7 +229,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         nameTh: "",
         nameEn: "",
         description: "",
-        campSiteType: [] as string[], // Changed to array for multi-select
+        campSiteType: "", // CAM-520: scalar column, single-select
         accessTypes: [] as string[],
         accommodationTypes: [] as string[],
         facilities: [] as string[],
@@ -303,11 +303,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             setMasterOptions(data || {});
             setOptionsLoading(false);
 
-            // Only set default if NO initial data and NOT editing
+            // Only set default if NO initial data and NOT editing. CAM-520
+            // EC-1: the column is non-nullable — create must never end up
+            // with an empty campSiteType, so pre-select the first valid code.
             if (!initialData && !isEditing && data['Campground type']?.[0]) {
                 setFormData(prev => ({
                     ...prev,
-                    campSiteType: prev.campSiteType.length > 0 ? prev.campSiteType : [data['Campground type'][0].code]
+                    campSiteType: prev.campSiteType || data['Campground type'][0].code
                 }));
             }
         });
@@ -322,7 +324,17 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 nameTh: initialData.nameTh || "",
                 nameEn: initialData.nameEn || "",
                 description: initialData.description || "",
-                campSiteType: initialData.campSiteType || initialData.campgroundType ? (Array.isArray(initialData.campSiteType || initialData.campgroundType) ? (initialData.campSiteType || initialData.campgroundType) : (initialData.campSiteType || initialData.campgroundType).split(',').filter(Boolean)) : [],
+                // CAM-520 (BR-2, EC-2): the API returns a scalar string. Accept a
+                // legacy array (first element) defensively, and fall back to a
+                // valid enum default (never crash / never keep an invalid value
+                // like the old "CAMPGROUND" sentinel — the enum's first member is
+                // a deterministic valid choice, independent of masterOptions'
+                // async load timing).
+                campSiteType: (() => {
+                    const raw = initialData.campSiteType || initialData.campgroundType || "";
+                    const scalar = Array.isArray(raw) ? (raw[0] || "") : raw;
+                    return CampSiteTypeEnum.safeParse(scalar).success ? scalar : CampSiteTypeEnum.options[0];
+                })(),
                 accessTypes: _byGroup('Access type'),
                 accommodationTypes: initialData.accommodationTypes ? initialData.accommodationTypes.split(',').filter(Boolean) : [],
                 facilities: _byGroup('Internal facility'),
@@ -543,7 +555,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
             const campPayload: any = {
                 ...formData,
-                campSiteType: formData.campSiteType, // Now an array
+                campSiteType: formData.campSiteType, // CAM-520: single scalar string
                 accessTypes: formData.accessTypes,
                 accommodationTypes: formData.accommodationTypes,
                 facilities: formData.facilities,
@@ -1227,19 +1239,21 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             <CardContent className="p-6 space-y-6">
                                 <div className="space-y-2">
                                     <TruncatedLabel className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4" as="label">
-                                        {t.newCampground.type} <span className="text-xs text-muted-foreground">{t.newCampground.multipleSelection}</span>
+                                        {t.newCampground.type}
                                     </TruncatedLabel>
                                     {zErr('campSiteType') && (
                                         <p className="text-sm px-4 text-destructive">{zErr('campSiteType')}</p>
                                     )}
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {masterOptions['Campground type']?.map(opt => {
-                                            const isSelected = formData.campSiteType.includes(opt.code);
+                                            // CAM-520: single-select — picking one REPLACES the
+                                            // selection (scalar column), not a toggle/array add.
+                                            const isSelected = formData.campSiteType === opt.code;
                                             return (
                                                 <button
                                                     key={opt.code}
                                                     type="button"
-                                                    onClick={() => toggleArrayItem('campSiteType', opt.code)}
+                                                    onClick={() => setFormData({ ...formData, campSiteType: opt.code })}
                                                     aria-pressed={isSelected}
                                                     className={cn(
                                                         "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",

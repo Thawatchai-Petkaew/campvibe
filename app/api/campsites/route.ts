@@ -233,7 +233,9 @@ export async function POST(request: NextRequest) {
         nameThSlug: nameThSlug,
         nameEnSlug: nameEnSlug,
         description: data.description || "",
-        campSiteType: ((Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) || "CAMPGROUND") as string,
+        // CAM-520: campSiteType is a single required scalar enum (zod already
+        // validated it) — write it verbatim, no [0]/"CAMPGROUND" coercion.
+        campSiteType: data.campSiteType,
         accommodationTypes: (arrayToCsv(data.accommodationTypes) ?? "") as string,
 
         // S4a: validated options connect resolved once above (CAM-365).

@@ -639,6 +639,8 @@ describe('isVerified self-grant prevention — POST /api/campsites', () => {
     checkOutTime: '12:00',
     bookingMethod: 'ONLI',
     locationId: VALID_UUID,
+    // CAM-520: campSiteType is now required on create.
+    campSiteType: 'CAGD',
   };
 
   beforeEach(() => {
@@ -756,6 +758,8 @@ describe('isVerified self-grant prevention — POST /api/campgrounds', () => {
     checkOutTime: '12:00',
     bookingMethod: 'ONLI',
     locationId: '123e4567-e89b-12d3-a456-426614174000',
+    // CAM-520: campSiteType is now required on create.
+    campSiteType: 'CAGD',
   };
 
   beforeEach(() => {

@@ -347,6 +347,9 @@ describe('POST /api/campsites — camp gallery also accepts + persists kind (Con
     checkInTime: '14:00',
     checkOutTime: '11:00',
     bookingMethod: 'ONLI' as const,
+    // CAM-520: campSiteType is now required on create — unrelated to this
+    // file's image-kind concern, so a valid code is added here.
+    campSiteType: 'CAGD' as const,
   };
 
   it('legacy images: string[] payload -> 201, persists kind=PHOTO (camp save does not 400)', async () => {
