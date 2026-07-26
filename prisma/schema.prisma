@@ -158,29 +158,15 @@ model User {
   @@index([isHostRegistered])
 }
 
-// CAM-574 (phase B of the retirement the owner approved): the `Location` FK
-// into this table was retired — `Location.thaiLocationId`/`thaiLocation` are
-// gone, so this model no longer has a `locations` back-relation. The TABLE
-// itself stays (not dropped): two out-of-surface direct queries (never via
-// the Location relation) still legitimately read it — `app/api/geocode/
-// _shared.ts`'s reverse-geocode province/district resolution, and
-// `lib/read-models/camp-card.ts`'s province Thai-name fallback map — see
-// this story's tech.md "Known gap" for why those two were left as-is.
-model ThailandLocation {
-  id             String  @id @default(uuid())
-  provinceCode   String // e.g., "10" for Bangkok
-  provinceName   String // "กรุงเทพมหานคร"
-  provinceNameEn String // "Bangkok"
-  districtCode   String? // e.g., "1001"
-  districtName   String? // "เขตพระนคร"
-  districtNameEn String? // "Phra Nakhon"
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([provinceCode, districtCode])
-  @@index([provinceName, districtName])
-}
+// CAM-580 — the legacy `ThailandLocation` model/table itself is retired
+// (dropped by a reversible migration; see this story's tech.md). CAM-574
+// (phase B) had already retired the `Location` FK into it
+// (`Location.thaiLocationId`/`thaiLocation` were removed then). The two
+// remaining direct (non-FK) readers — `app/api/geocode/_shared.ts`'s
+// reverse-geocode province/district resolution, and
+// `lib/read-models/camp-card.ts`'s province Thai-name fallback map — were
+// both moved onto `AdminArea` by this story; nothing reads this table any
+// more (grep-verified, see tech.md). `prisma/seed.ts` no longer populates it.
 
 // S5 — international region model (ADR-004). Country carries the ISO 3166 code plus the
 // regional defaults (currency, locale, timezone, VAT) that make multi-currency/multi-region real.
@@ -205,7 +191,7 @@ enum AdminLevel {
 }
 
 // S5 — self-referential administrative-division tree (the conformant replacement for the flat
-// ThailandLocation; ThailandLocation is retained until its consumers migrate). level + national code.
+// legacy ThailandLocation table, dropped by CAM-580). level + national code.
 model AdminArea {
   id          String      @id @default(uuid())
   countryCode String
@@ -236,17 +222,18 @@ model Location {
   lat         Float? // [Geo]
   lon         Float? // [Geo]
 
-  // S5 — international region links (additive; legacy strings + thaiLocation stay until migrated)
+  // S5 — international region links (additive; legacy free-text province/
+  // district/subDistrict strings stay until migrated)
   countryCode String? // [Geo] ISO 3166 (set by seed/app; nullable for forward-safe migration)
   countryRel  Country?   @relation(fields: [countryCode], references: [code])
   adminAreaId String? // [Geo] province/district node in the AdminArea tree
   adminArea   AdminArea? @relation(fields: [adminAreaId], references: [id])
 
-  // CAM-574: the legacy `thaiLocationId` FK to `ThailandLocation` is retired —
-  // every write/read moved onto `adminAreaId` above (see this story's tech.md
-  // reader inventory). `ThailandLocation` itself is not dropped (still read
-  // directly, not via this relation, by geocode reverse-resolution and the
-  // camp-card province Thai-name fallback).
+  // CAM-574: the legacy `thaiLocationId` FK to the (now-dropped) legacy
+  // ThailandLocation table was retired — every write/read moved onto
+  // `adminAreaId` above (see that story's tech.md reader inventory).
+  // CAM-580 dropped the ThailandLocation table itself (its last two direct
+  // readers were moved onto `AdminArea`; see this story's tech.md).
   campSites CampSite[]
 
   @@index([countryCode])

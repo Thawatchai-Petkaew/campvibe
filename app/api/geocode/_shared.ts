@@ -25,6 +25,12 @@ import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/ge
  * header + this story's tech.md for the enumerated diff). `normalizeAdminName`
  * is re-exported here unchanged so `__tests__/cam-554-geocode-routes.test.ts`
  * (which imports it directly from this file) keeps passing unedited.
+ *
+ * CAM-580 — this file's `resolveFromComponents` was the last direct
+ * (non-relation) reader of the legacy `ThailandLocation` table; it now
+ * derives `province`/`district` from the matched `AdminArea` node itself
+ * (see that function's doc comment below). The table and model are dropped
+ * entirely by this story - see its tech.md.
  */
 export { normalizeAdminName };
 
@@ -94,22 +100,25 @@ export function extractComponent(components: GoogleAddressComponent[], types: st
 
 /**
  * CAM-563 note (preserved): the id-first path is the AdminArea node, strings
- * are DERIVED from it below via a `ThailandLocation` join, never the other
- * way round.
+ * are DERIVED from it — never the other way round.
  *
  * Resolves Google's address_components into the reverse-geocode result
  * shape. Walks PROVINCE -> DISTRICT -> SUBDISTRICT, each scoped to its
  * matched parent - a level with no raw name, or no match, stops the walk
  * (never guesses the next level from an unmatched parent).
  *
- * `province`/`district` are DERIVED ThailandLocation rows (byte-identical
- * shape to what LocationPicker.tsx's cascading selects already produce - see
- * BR-4/CAM-559) so `Location.province`/`district`'s stored value/derivation
- * never changes. If a resolved AdminArea province has no matching
- * ThailandLocation row (data drift - should not happen; both tables are
- * seeded from the same source per CAM-559 tech.md), that level is reported
- * as unmatched (`null`) rather than fabricating a `thaiLocationId` that
- * would violate `Location.thaiLocationId`'s real FK constraint.
+ * CAM-580: `province`/`district` are now built DIRECTLY from the matched
+ * `AdminArea` node itself (`provinceNode`/`districtNode` — no second DB
+ * query, no `ThailandLocation` table at all) into the byte-identical
+ * `thailandLocationRowSchema` shape LocationPicker.tsx's cascading selects
+ * already produce (BR-4/CAM-559) - same mapping `/api/locations/search`'s
+ * `searchProvinces`/`searchDistricts` already use post-CAM-574. This also
+ * closes a latent data-drift edge case the old `ThailandLocation` join
+ * could hit (a matched AdminArea province with no corresponding
+ * ThailandLocation row would silently stop the whole walk, never reaching
+ * district/sub-district) - deriving the row from the node itself makes that
+ * drift impossible by construction. `Location.province`/`district`'s stored
+ * value/derivation is unchanged either way.
  */
 export async function resolveFromComponents(components: GoogleAddressComponent[]): Promise<GeocodeReverseResult> {
     const provinceRaw = extractComponent(components, ['administrative_area_level_1']);
@@ -119,38 +128,26 @@ export async function resolveFromComponents(components: GoogleAddressComponent[]
     let provinceNode: AdminAreaNode | null = null;
     let districtNode: AdminAreaNode | null = null;
     let subDistrictNode: AdminAreaNode | null = null;
-    let provinceRow = null;
-    let districtRow = null;
 
     if (provinceRaw) {
         provinceNode = await matchAdminArea(prisma, 'PROVINCE', provinceRaw);
     }
 
-    if (provinceNode) {
-        provinceRow = await prisma.thailandLocation.findFirst({
-            where: { provinceCode: provinceNode.code, districtCode: '' },
-            select: { id: true, provinceCode: true, provinceName: true, provinceNameEn: true, districtCode: true, districtName: true, districtNameEn: true },
-        });
-
-        if (provinceRow && districtRaw) {
-            districtNode = await matchAdminArea(prisma, 'DISTRICT', districtRaw, provinceNode.id);
-        }
+    if (provinceNode && districtRaw) {
+        districtNode = await matchAdminArea(prisma, 'DISTRICT', districtRaw, provinceNode.id);
     }
 
-    if (districtNode) {
-        districtRow = await prisma.thailandLocation.findFirst({
-            where: { provinceCode: provinceNode!.code, districtCode: districtNode.code },
-            select: { id: true, provinceCode: true, provinceName: true, provinceNameEn: true, districtCode: true, districtName: true, districtNameEn: true },
-        });
-
-        if (districtRow && subDistrictRaw) {
-            subDistrictNode = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrictRaw, districtNode.id);
-        }
+    if (districtNode && subDistrictRaw) {
+        subDistrictNode = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrictRaw, districtNode.id);
     }
 
     return {
-        province: provinceRow,
-        district: districtRow,
+        province: provinceNode
+            ? { id: provinceNode.id, provinceCode: provinceNode.code, provinceName: provinceNode.nameTh, provinceNameEn: provinceNode.nameEn, districtCode: '', districtName: null, districtNameEn: null }
+            : null,
+        district: districtNode
+            ? { id: districtNode.id, provinceCode: provinceNode!.code, provinceName: provinceNode!.nameTh, provinceNameEn: provinceNode!.nameEn, districtCode: districtNode.code, districtName: districtNode.nameTh, districtNameEn: districtNode.nameEn }
+            : null,
         subDistrict: subDistrictNode
             ? { id: subDistrictNode.id, code: subDistrictNode.code, nameTh: subDistrictNode.nameTh, nameEn: subDistrictNode.nameEn, parentId: subDistrictNode.parentId }
             : null,

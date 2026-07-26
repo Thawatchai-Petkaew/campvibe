@@ -31,12 +31,14 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import type { AdminAreaChainNode } from '../lib/read-models/camp-card';
 
-const mockThailandLocationFindMany = vi.fn();
+// CAM-580: the name-based fallback map now sources AdminArea PROVINCE-level
+// rows (the ThailandLocation table this used to read is dropped).
+const mockAdminAreaFindMany = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    thailandLocation: {
-      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
+    adminArea: {
+      findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
   },
 }));
@@ -49,8 +51,8 @@ beforeEach(() => {
   // The name-based fallback map — present so a test can prove the id-derived
   // chain is what actually renders, not this legacy path (CAM-573 keeps this
   // as a fallback only for rows with NO adminArea at all).
-  mockThailandLocationFindMany.mockResolvedValue([
-    { provinceNameEn: 'Phra Nakhon Si Ayutthaya', provinceName: 'WRONG-SHOULD-NOT-BE-USED' },
+  mockAdminAreaFindMany.mockResolvedValue([
+    { nameEn: 'Phra Nakhon Si Ayutthaya', nameTh: 'WRONG-SHOULD-NOT-BE-USED' },
   ]);
 });
 

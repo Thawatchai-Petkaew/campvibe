@@ -49,7 +49,6 @@ const src = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf-8');
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         adminArea: { findFirst: vi.fn() },
-        thailandLocation: { findFirst: vi.fn() },
     },
 }));
 
@@ -74,19 +73,19 @@ const SUBDISTRICT_NODE = { id: 'admin-sub-1', code: '500101', nameTh: 'ศรี
 // stored BARE (no จังหวัด/อำเภอ/ตำบล prefix, no "Province"/"District" suffix)
 // - e.g. a live province row was {"nameTh":"พิษณุโลก","nameEn":"Phitsanulok"}.
 // These fixtures mirror that real shape.
-const PROVINCE_ROW = { id: 'tl-prov-1', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '', districtName: null, districtNameEn: null };
-const DISTRICT_ROW = { id: 'tl-dist-1', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' };
+//
+// CAM-580: `province`/`district` in the response are now built DIRECTLY from
+// the matched AdminArea node (no second `ThailandLocation` query) — so
+// `PROVINCE_ROW.id`/`DISTRICT_ROW.id` are now the SAME real `AdminArea.id`
+// as `PROVINCE_NODE.id`/`DISTRICT_NODE.id`, not a separate id-space.
+const PROVINCE_ROW = { id: PROVINCE_NODE.id, provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '', districtName: null, districtNameEn: null };
+const DISTRICT_ROW = { id: DISTRICT_NODE.id, provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' };
 
 function mockHierarchicalPrisma() {
     (prisma.adminArea.findFirst as ReturnType<typeof vi.fn>).mockImplementation(async ({ where }: any) => {
         if (where.level === 'PROVINCE') return PROVINCE_NODE as any;
         if (where.level === 'DISTRICT' && where.parentId === PROVINCE_NODE.id) return DISTRICT_NODE as any;
         if (where.level === 'SUBDISTRICT' && where.parentId === DISTRICT_NODE.id) return SUBDISTRICT_NODE as any;
-        return null;
-    });
-    (prisma.thailandLocation.findFirst as ReturnType<typeof vi.fn>).mockImplementation(async ({ where }: any) => {
-        if (where.districtCode === '' && where.provinceCode === PROVINCE_NODE.code) return PROVINCE_ROW as any;
-        if (where.districtCode === DISTRICT_NODE.code) return DISTRICT_ROW as any;
         return null;
     });
 }

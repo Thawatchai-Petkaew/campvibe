@@ -69,15 +69,15 @@ const apiCampsitesSrc = readFileSync(path.join(ROOT, "app", "api", "campsites", 
 
 // ---------------------------------------------------------------------------
 // Mocked prisma — the read-models module under test does a real DB round-trip
-// (thailandLocation.findMany) that must never run against a live DB in a
-// unit test.
+// (adminArea.findMany, CAM-580: moved off the dropped ThailandLocation table)
+// that must never run against a live DB in a unit test.
 // ---------------------------------------------------------------------------
-const mockThailandLocationFindMany = vi.fn();
+const mockAdminAreaFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    thailandLocation: {
-      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
+    adminArea: {
+      findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
   },
 }));
@@ -99,9 +99,9 @@ const translations = (await import("../locales/translations.json")).default;
 beforeEach(() => {
   vi.clearAllMocks();
   // Real 77-row dataset (prisma/data/thailand-locations.json), same shape
-  // `campCardSelect`'s query would receive: {provinceNameEn, provinceName}.
-  mockThailandLocationFindMany.mockResolvedValue(
-    ALL_PROVINCES.map((p) => ({ provinceNameEn: p.nameEn, provinceName: p.nameTh }))
+  // the AdminArea PROVINCE-level query would receive: {nameEn, nameTh}.
+  mockAdminAreaFindMany.mockResolvedValue(
+    ALL_PROVINCES.map((p) => ({ nameEn: p.nameEn, nameTh: p.nameTh }))
   );
 });
 
@@ -260,10 +260,10 @@ describe("campCardSelect — the FK relation is GONE; district is wired through 
 });
 
 describe("getProvinceThaiNameMap — queries ALL province-level rows, not a FK-scoped subset", () => {
-  it("[normal] queries thailandLocation.findMany with districtCode:'' (the seed's province-record marker), no id/FK filter", async () => {
+  it("[normal] queries adminArea.findMany scoped to countryCode:'TH', level:'PROVINCE' (CAM-580), no id/FK filter", async () => {
     await getProvinceThaiNameMap();
-    expect(mockThailandLocationFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { districtCode: "" } })
+    expect(mockAdminAreaFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { countryCode: "TH", level: "PROVINCE" } })
     );
   });
 

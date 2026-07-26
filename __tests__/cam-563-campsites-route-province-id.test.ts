@@ -24,7 +24,6 @@ import { NextRequest } from 'next/server';
 const mockCampSiteFindMany = vi.fn();
 const mockAdminAreaFindFirst = vi.fn();
 const mockAdminAreaFindMany = vi.fn();
-const mockThailandLocationFindMany = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -33,7 +32,6 @@ vi.mock('@/lib/prisma', () => ({
       findFirst: (...args: unknown[]) => mockAdminAreaFindFirst(...args),
       findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
-    thailandLocation: { findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args) },
   },
 }));
 
@@ -51,9 +49,12 @@ function makeRequest(query: string): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   mockCampSiteFindMany.mockResolvedValue([]);
-  mockThailandLocationFindMany.mockResolvedValue([]);
   mockAdminAreaFindFirst.mockResolvedValue({ id: 'prov-cnx' });
-  mockAdminAreaFindMany.mockResolvedValue([]); // no districts/sub-districts under this fake province
+  // CAM-580: this single mock now backs BOTH "no districts/sub-districts
+  // under this fake province" AND getProvinceThaiNameMap's PROVINCE-level
+  // query (moved off the dropped ThailandLocation table) — an empty array
+  // satisfies both call shapes, and this suite asserts neither.
+  mockAdminAreaFindMany.mockResolvedValue([]);
 });
 
 describe('CAM-563 — GET /api/campsites: province resolution wired into the real endpoint', () => {
