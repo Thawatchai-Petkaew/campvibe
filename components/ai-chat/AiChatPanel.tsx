@@ -271,6 +271,22 @@
  *  3. Launcher cropped/not sticky — see `AiChatLauncher.tsx` (same
  *     `env(safe-area-inset-*)` + `transform-gpu` treatment, out of this
  *     file's surface).
+ *
+ * CAM-541 (owner feedback, 3 fixes — verified on `dev` first, per the
+ * ticket, before changing anything):
+ *  1. Contrast: the header's role subtitle (`text-muted-foreground` on
+ *     `bg-ai-surface`) measured 4.40:1 in light mode, below the 4.5:1 body
+ *     floor (`scripts/check-contrast.mjs`) — bumped to `text-foreground/70`
+ *     (7.41:1 light / 8.69:1 dark), the same fix CAM-451 already applied to
+ *     `AiChatDetailCard` for this identical pair.
+ *  2. Mobile overlap: CAM-550 (just merged) already made the panel true
+ *     full-screen (`h-[100dvh]`) below `sm:` — re-verified here at a real
+ *     phone viewport (390x664) in BOTH color schemes and at 150% root
+ *     font-size: the panel's bounding box exactly matches the viewport in
+ *     every case (0,0 to 390,664), no gap/overlap. Nothing changed in this
+ *     file for that symptom — it was already fixed.
+ *  3. Glow: see `AiChatAvatar.tsx` (the aura ring token, out of this file's
+ *     surface).
  */
 "use client";
 
@@ -682,7 +698,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
                       {t.aiChat.name}
                     </p>
-                    <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+                    {/* CAM-541: text-muted-foreground on bg-ai-surface measured
+                        4.40:1 in light mode (below the 4.5:1 floor,
+                        scripts/check-contrast.mjs) — bumped to text-foreground/70
+                        (7.41:1 light / 8.69:1 dark), the same fix CAM-451 already
+                        applied to AiChatDetailCard for this identical pair. */}
+                    <p className="truncate text-xs leading-tight text-foreground/70">{t.aiChat.role}</p>
                   </div>
                 </div>
                 {/* CAM-454: hidden while a detail is open (selectedCamp) so

@@ -106,6 +106,25 @@
  * `ErrorBanner` (CAM-439 already dropped it from the answer row); the typing
  * dots are the only row losing it here. aria-live label + dot animation are
  * unchanged.
+ *
+ * CAM-541 (owner feedback, 2 fixes):
+ *  1. Contrast: `text-muted-foreground` on the panel's `bg-ai-surface` glass
+ *     measured 4.40:1 in light mode (below the 4.5:1 body-text floor,
+ *     `scripts/check-contrast.mjs`) — the welcome examples label and the
+ *     zero-result notice both read faint/near-invisible in light mode. Bumped
+ *     to `text-foreground/70` (7.41:1 light / 8.69:1 dark on `--ai-surface`),
+ *     the SAME established fix CAM-451 already applied to `AiChatDetailCard`
+ *     for this identical ai-surface/muted-foreground pair — no new token.
+ *  2. Duplicate avatar: the CAM-411 welcome-hero `AiChatAvatar` (size=lg,
+ *     directly above the greeting) is REMOVED — at the start of a chat it sat
+ *     immediately below the panel header's own avatar (AiChatPanel.tsx,
+ *     `size=md`), reading as the assistant mark shown twice within one
+ *     screenful. The header avatar is the single, sufficient identity mark
+ *     (already carries the accessible name via the panel's own
+ *     `aria-label={name} {role}`; the hero avatar was always `aria-hidden`
+ *     and had no `id`, so nothing depended on it for any accessible name).
+ *     The CAM-425/435 resuming indicator's centered avatar is UNCHANGED (a
+ *     distinct, genuinely-loading surface, not shown alongside the header).
  */
 "use client";
 
@@ -180,12 +199,17 @@ export function AiChatMessageList({
 
       {!resuming && entries.length === 0 && (
         <div data-testid="empty--ai-chat-welcome" className="space-y-4 py-2">
-          <div className="flex flex-col items-start gap-3">
-            <AiChatAvatar size="lg" />
-            <p className="text-sm font-medium text-foreground">{t.aiChat.welcomeHeading}</p>
-          </div>
+          {/* CAM-541: the hero avatar is removed — the panel header (AiChatPanel.tsx,
+              size=md) already carries the assistant mark + the accessible name
+              (aria-label={name} {role}); showing it again here, directly under the
+              header, read as the same mark shown twice at the start of a chat. */}
+          <p className="text-sm font-medium text-foreground">{t.aiChat.welcomeHeading}</p>
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">{t.aiChat.welcomeExamplesLabel}</p>
+            {/* CAM-541: text-muted-foreground on bg-ai-surface measured 4.40:1 in
+                light mode (below the 4.5:1 floor) — bumped to text-foreground/70
+                (7.41:1 light / 8.69:1 dark), the same fix CAM-451 applied to
+                AiChatDetailCard for this identical pair. */}
+            <p className="text-xs text-foreground/70">{t.aiChat.welcomeExamplesLabel}</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTION_KEYS.map((key) => (
                 <Button
@@ -362,7 +386,9 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, onSelectCamp, showSugges
             )
           )}
           {entry.zeroResult && (
-            <p data-testid="empty--ai-chat-zero-result" className="text-muted-foreground">
+            // CAM-541: text-muted-foreground on bg-ai-surface measured 4.40:1 in
+            // light mode (below the 4.5:1 floor) — bumped to text-foreground/70.
+            <p data-testid="empty--ai-chat-zero-result" className="text-foreground/70">
               {t.aiChat.zeroResult}
             </p>
           )}
