@@ -73,14 +73,15 @@ const pageSrc = readFileSync(path.join(ROOT, "app", "campgrounds", "[slug]", "pa
 
 // ---------------------------------------------------------------------------
 // Mocked prisma — withProvinceThaiNames' backing lookup does a real DB
-// round-trip (thailandLocation.findMany) that must never run in a unit test.
+// round-trip (adminArea.findMany, CAM-580: moved off the dropped
+// ThailandLocation table) that must never run in a unit test.
 // ---------------------------------------------------------------------------
-const mockThailandLocationFindMany = vi.fn();
+const mockAdminAreaFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    thailandLocation: {
-      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
+    adminArea: {
+      findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
   },
 }));
@@ -90,8 +91,8 @@ const { getProvinceThaiNameMap, withProvinceThaiNames } = await import("../lib/r
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockThailandLocationFindMany.mockResolvedValue(
-    ALL_PROVINCES.map((p) => ({ provinceNameEn: p.nameEn, provinceName: p.nameTh }))
+  mockAdminAreaFindMany.mockResolvedValue(
+    ALL_PROVINCES.map((p) => ({ nameEn: p.nameEn, nameTh: p.nameTh }))
   );
 });
 

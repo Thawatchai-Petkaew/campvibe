@@ -20,12 +20,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { AdminAreaChainNode } from '../lib/read-models/camp-card';
 
-const mockThailandLocationFindMany = vi.fn();
+// CAM-580: withProvinceThaiNames' fallback map is sourced from AdminArea
+// PROVINCE-level rows now (the ThailandLocation table this used to read is
+// dropped).
+const mockAdminAreaFindMany = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    thailandLocation: {
-      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
+    adminArea: {
+      findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
   },
 }));
@@ -38,9 +41,9 @@ const {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockThailandLocationFindMany.mockResolvedValue([
-    { provinceNameEn: 'Chiang Mai', provinceName: 'เชียงใหม่' },
-    { provinceNameEn: 'Trat', provinceName: 'ตราด' },
+  mockAdminAreaFindMany.mockResolvedValue([
+    { nameEn: 'Chiang Mai', nameTh: 'เชียงใหม่' },
+    { nameEn: 'Trat', nameTh: 'ตราด' },
   ]);
 });
 

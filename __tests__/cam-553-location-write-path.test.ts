@@ -49,9 +49,11 @@ vi.mock('@/lib/auth-utils', () => ({
 
 const mockLocationCreate = vi.fn();
 const mockCountryFindUnique = vi.fn();
-const mockThailandLocationFind = vi.fn();
 const mockAdminAreaFindUnique = vi.fn();
 
+// CAM-580: no `thailandLocation` key — the route never read it (already
+// migrated onto `adminAreaId` by CAM-574) and the table itself is now
+// dropped.
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         location: {
@@ -59,9 +61,6 @@ vi.mock('@/lib/prisma', () => ({
         },
         country: {
             findUnique: (...args: unknown[]) => mockCountryFindUnique(...args),
-        },
-        thailandLocation: {
-            findUnique: (...args: unknown[]) => mockThailandLocationFind(...args),
         },
         adminArea: {
             findUnique: (...args: unknown[]) => mockAdminAreaFindUnique(...args),
@@ -87,7 +86,6 @@ beforeEach(() => {
     vi.clearAllMocks();
     mockAuth.mockResolvedValue(makeSession());
     mockCountryFindUnique.mockResolvedValue({ code: 'TH' });
-    mockThailandLocationFind.mockResolvedValue(null);
     mockLocationCreate.mockResolvedValue({ id: 'loc-uuid-553' });
 });
 

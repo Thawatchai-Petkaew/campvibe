@@ -169,80 +169,33 @@ async function main() {
     }
     console.log('✅ MasterData seeded')
 
-    // 2. Seed Thailand Locations
-    console.log('🗺️ Seeding Thailand locations...')
+    // 2. Load the Thailand admin-hierarchy source data (province/district/
+    // sub-district JSON — CAM-580: no longer upserted into the dropped
+    // legacy `ThailandLocation` table; only the conformant AdminArea tree
+    // below is seeded from it now).
     const locationsData = JSON.parse(
         fs.readFileSync(path.join(__dirname, 'data/thailand-locations.json'), 'utf8')
     )
 
-    for (const province of locationsData) {
-        // Create province entry (district code "")
-        await prisma.thailandLocation.upsert({
-            where: {
-                provinceCode_districtCode: {
-                    provinceCode: province.code,
-                    districtCode: ""
-                }
-            },
-            update: {
-                provinceName: province.nameTh,
-                provinceNameEn: province.nameEn,
-                districtName: province.nameTh,
-                districtNameEn: province.nameEn
-            },
-            create: {
-                provinceCode: province.code,
-                provinceName: province.nameTh,
-                provinceNameEn: province.nameEn,
-                districtCode: "",
-                districtName: province.nameTh,
-                districtNameEn: province.nameEn
-            }
-        })
-
-        // Create district entries
-        for (const district of province.districts || []) {
-            await prisma.thailandLocation.upsert({
-                where: {
-                    provinceCode_districtCode: {
-                        provinceCode: province.code,
-                        districtCode: district.code
-                    }
-                },
-                update: {
-                    provinceName: province.nameTh,
-                    provinceNameEn: province.nameEn,
-                    districtName: district.nameTh,
-                    districtNameEn: district.nameEn
-                },
-                create: {
-                    provinceCode: province.code,
-                    provinceName: province.nameTh,
-                    provinceNameEn: province.nameEn,
-                    districtCode: district.code,
-                    districtName: district.nameTh,
-                    districtNameEn: district.nameEn
-                }
-            })
-        }
-    }
-    console.log('✅ Thailand locations seeded')
-
-    // S5: Country + AdminArea tree (conformant multi-region model; coexists with legacy ThailandLocation)
+    // S5: Country + AdminArea tree (the conformant multi-region model)
     console.log('🌏 Seeding Country + AdminArea...')
     const thCountry = {
         code: 'TH', name: 'Thailand', nameLocal: 'ประเทศไทย',
         defaultCurrency: 'THB', defaultLocale: 'th-TH', timezone: 'Asia/Bangkok', vatRate: 0.07,
     }
     await prisma.country.upsert({ where: { code: 'TH' }, update: thCountry, create: thCountry })
-    const provinceAreaByCode: Record<string, string> = {}
+    // CAM-580: keyed by provinceNameEn (not provinceCode) — the mock
+    // campSitesData below matches camps to a province by English name, and
+    // this in-memory map is now the ONLY resolution path (the legacy
+    // ThailandLocation table this used to bridge through is dropped).
+    const provinceAreaByNameEn: Record<string, string> = {}
     for (const province of locationsData) {
         const pa = await prisma.adminArea.upsert({
             where: { countryCode_level_code: { countryCode: 'TH', level: 'PROVINCE', code: province.code } },
             update: { nameTh: province.nameTh, nameEn: province.nameEn },
             create: { countryCode: 'TH', level: 'PROVINCE', code: province.code, nameTh: province.nameTh, nameEn: province.nameEn },
         })
-        provinceAreaByCode[province.code] = pa.id
+        provinceAreaByNameEn[province.nameEn] = pa.id
         for (const district of province.districts || []) {
             const da = await prisma.adminArea.upsert({
                 where: { countryCode_level_code: { countryCode: 'TH', level: 'DISTRICT', code: district.code } },
@@ -250,10 +203,9 @@ async function main() {
                 create: { countryCode: 'TH', level: 'DISTRICT', code: district.code, nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
             })
             // CAM-553: sub-district (ตำบล/แขวง) level — AdminArea already models this via
-            // AdminLevel.SUBDISTRICT (S5 migration); ThailandLocation cannot hold it at all
-            // (no column) and is left schema-unchanged (legacy, per its own comment). This is
-            // the ONE hierarchy that grows to the new ground, so there are not two competing
-            // trees fighting over sub-district (see story.md's Model decision).
+            // AdminLevel.SUBDISTRICT (S5 migration). CAM-580: this is the ONE hierarchy
+            // that grows to the new ground, so there are not two competing trees fighting
+            // over sub-district (see story.md's Model decision).
             for (const subDistrict of district.subDistricts || []) {
                 await prisma.adminArea.upsert({
                     where: { countryCode_level_code: { countryCode: 'TH', level: 'SUBDISTRICT', code: subDistrict.code } },
@@ -737,7 +689,7 @@ async function main() {
     ]
 
     for (const campData of campSitesData) {
-        // Find suitable ThailandLocation for this camp site's province
+        // Find the matching AdminArea province for this camp site.
         // For mock data, we'll try to match provinceNameEn
         let provinceNameEn = "";
         if (campData.nameEn.includes("Phu Thap Boek") || campData.nameEn.includes("Khao Kho")) provinceNameEn = "Phetchabun";
@@ -751,12 +703,10 @@ async function main() {
         else if (campData.nameEn.includes("Phu Chi Fa")) provinceNameEn = "Chiang Rai";
         else if (campData.nameEn.includes("Patong")) provinceNameEn = "Phuket";
 
-        const thaiLoc = await prisma.thailandLocation.findFirst({
-            where: {
-                provinceNameEn: provinceNameEn,
-                districtCode: "" // Province record
-            }
-        });
+        // CAM-580: the legacy ThailandLocation table is dropped — the
+        // AdminArea province node id is already in-memory from the seed
+        // loop above (provinceAreaByNameEn), no DB read needed here.
+        const provinceAreaId = provinceAreaByNameEn[provinceNameEn];
 
         // Create or update location — idempotent by natural key (country +
         // province + lat/lon, which is unique per seeded camp here).
@@ -773,12 +723,10 @@ async function main() {
             province: provinceNameEn || 'Unknown',
             lat: campData.latitude,
             lon: campData.longitude,
-            // CAM-574: the retired `thaiLocationId` FK is no longer written;
-            // `thaiLoc` is kept only to derive `adminAreaId` below (its
-            // `provinceCode` is the join key into `provinceAreaByCode`).
+            // CAM-574: the retired `thaiLocationId` FK is no longer written.
             // S5: link to the conformant Country + AdminArea (province node)
             countryCode: 'TH',
-            adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,
+            adminAreaId: provinceAreaId,
         };
         const existingLocation = await prisma.location.findFirst({
             where: {

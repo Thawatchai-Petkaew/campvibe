@@ -65,8 +65,9 @@ export type AdminAreaChainNode = Prisma.AdminAreaGetPayload<{ select: typeof adm
  * of 652 `Location` rows in the dev DB (measured), so a relation-based
  * select would have shown the Thai name for ~2% of camps. It was resolved
  * by NAME instead, via `getProvinceThaiNameMap()` + `withProvinceThaiNames()`
- * below, matching `Location.province` (English, stored) against
- * `ThailandLocation.provinceNameEn`.
+ * below, matching `Location.province` (English, stored) against the
+ * province-level rows' English name (CAM-580: sourced from `AdminArea`, the
+ * legacy `ThailandLocation` table this used to read is now dropped).
  *
  * CAM-563 (investigated, deferred) / CAM-573 (this follow-up, delivered):
  * `Location.adminAreaId` is backfilled for 650 of 652 rows (see
@@ -220,13 +221,14 @@ export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'priceHigh' | 
 
 /**
  * CAM-545 (rework) — cached English→Thai province-name lookup, built once
- * from `ThailandLocation`'s province-level rows (`districtCode: ''`, the
- * seed's province-record convention — see `prisma/seed.ts`). Returned as
- * `[en, th][]` pairs (JSON-serialisable) rather than a `Map`, because
- * `unstable_cache`'s persisted store round-trips the return value through
- * serialisation — a `Map` would silently collapse to `{}`. The exported
- * `getProvinceThaiNameMap()` below builds the `Map` from these pairs on
- * every call (cheap: ~77 entries), so callers always get a real `Map`.
+ * from `AdminArea`'s PROVINCE-level rows (CAM-580: moved off the retired
+ * `ThailandLocation` table — same 77-row set, sourced from the conformant
+ * tree instead). Returned as `[en, th][]` pairs (JSON-serialisable) rather
+ * than a `Map`, because `unstable_cache`'s persisted store round-trips the
+ * return value through serialisation — a `Map` would silently collapse to
+ * `{}`. The exported `getProvinceThaiNameMap()` below builds the `Map` from
+ * these pairs on every call (cheap: ~77 entries), so callers always get a
+ * real `Map`.
  *
  * `unstable_cache` (not a bespoke module-level cache) matches the existing
  * convention in `lib/catalog-cache.ts`. This wrapper takes NO runtime
@@ -241,11 +243,11 @@ export type CampSiteCardData = Omit<CampCardPayload, 'priceLow' | 'priceHigh' | 
  */
 const getProvinceNamePairs = unstable_cache(
   async (): Promise<[string, string][]> => {
-    const rows = await prisma.thailandLocation.findMany({
-      where: { districtCode: '' },
-      select: { provinceNameEn: true, provinceName: true },
+    const rows = await prisma.adminArea.findMany({
+      where: { countryCode: 'TH', level: 'PROVINCE' },
+      select: { nameEn: true, nameTh: true },
     });
-    return rows.map((r) => [r.provinceNameEn, r.provinceName] as [string, string]);
+    return rows.map((r) => [r.nameEn, r.nameTh] as [string, string]);
   },
   ['province-thai-name-map'],
   { revalidate: 60 * 60 * 24 }

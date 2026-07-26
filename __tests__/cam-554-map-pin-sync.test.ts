@@ -109,9 +109,11 @@ describe('AC-2: dropping/dragging the pin resolves all three levels', () => {
         expect(body).toContain('setSelectedDistrict(resolved.district)');
         expect(body).toContain('setSelectedSubDistrict(resolved.subDistrict)');
         // CAM-574: `deriveValue` now takes a 4th override arg — the geocode
-        // response's OWN `adminAreaId` (a real AdminArea id), never derived
-        // from `resolved.province`/`district`'s `.id` (those stay
-        // ThailandLocation ids for that untouched response shape).
+        // response's OWN `adminAreaId`, never derived from
+        // `resolved.province`/`district`'s `.id` (CAM-580: those are now
+        // AdminArea ids too, but this component still never reads them —
+        // the override is the deepest-resolved node, which may differ from
+        // `province`/`district`'s own id when a sub-district also matched).
         expect(body).toContain('onChange(deriveValue(resolved.province, resolved.district, resolved.subDistrict, resolved.adminAreaId))');
     });
 
