@@ -105,8 +105,23 @@ export function Navbar() {
 
     return (
         <>
-            <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                <div className="container mx-auto px-6 h-20 flex items-center justify-between gap-4 text-foreground">
+            {/*
+                CAM-549 — on mobile, only the search bar should stay stuck while
+                scrolling (owner AC). The whole <nav> (title row + mobile search
+                row) used to be one "sticky top-0" block: it never shrank, so
+                scrolling left the full-height bar AND CategoryBar's own
+                "sticky top-20" wrapper both stuck to the screen at once —
+                CategoryBar's sticky offset assumed an 80px navbar (true only
+                at md+, where the mobile search row doesn't render), so on
+                mobile its 85px-tall bar mostly hid behind the taller navbar
+                and only a ~14px sliver peeked out beneath it (the "stray
+                line" reported). Fix: <nav> itself is sticky only at md+; on
+                mobile the title row scrolls away normally and the "Mobile
+                Search" block below (out of the DOM, its own sticky element)
+                is the only thing that stays pinned to the top.
+            */}
+            <nav className="md:sticky md:top-0 md:z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div data-testid="section--navbar-title-row" className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-3 md:gap-4 text-foreground">
                     {/* Logo */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                         <Link href="/" className="flex-shrink-0">
@@ -142,7 +157,9 @@ export function Navbar() {
 
                     {/* User Menu */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <LanguageSwitcher />
+                        <div className="hidden md:flex">
+                            <LanguageSwitcher />
+                        </div>
 
                         {/* Wishlist heart link — shown only when logged in (CAM-18, B2 CAM-240). */}
                         {navUser && (
@@ -282,21 +299,29 @@ export function Navbar() {
                         </DropdownMenu>
                     </div>
                 </div>
+            </nav>
 
-                {/* Mobile Search - Single bar on mobile */}
-                <div className="md:hidden px-6 pb-4">
-                    <div
-                        onClick={() => setIsSearchOpen(true)}
-                        className="flex items-center gap-3 border border-border rounded-full px-4 py-3 shadow-sm active:scale-[0.98] transition-transform bg-card"
-                    >
-                        <Search className="w-4 h-4" />
-                        <span className="text-sm font-medium flex-1">{t.search.anywhere}</span>
-                        <div className="border border-border p-1.5 rounded-full">
-                            <Filter className="w-3.5 h-3.5" />
-                        </div>
+            {/* Mobile Search - Single bar on mobile (CAM-549: this is the ONE
+                thing that stays stuck while scrolling on a phone; the title
+                row inside <nav> above is not sticky and scrolls away
+                normally). Deliberately a SIBLING of <nav>, not nested inside
+                it: a sticky element can only stay pinned for as long as its
+                containing block still has room, and <nav> itself is only
+                ~160px tall on mobile — nested here it lost its stick after
+                ~80px of scroll. As a sibling, its containing block is the
+                page itself, so it stays pinned for the whole scroll. */}
+            <div data-testid="section--navbar-search-mobile" className="md:hidden sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-3 pb-3">
+                <div
+                    onClick={() => setIsSearchOpen(true)}
+                    className="flex items-center gap-3 border border-border rounded-full px-4 py-3 shadow-sm active:scale-[0.98] transition-transform bg-card"
+                >
+                    <Search className="w-4 h-4" />
+                    <span className="text-sm font-medium flex-1">{t.search.anywhere}</span>
+                    <div className="border border-border p-1.5 rounded-full">
+                        <Filter className="w-3.5 h-3.5" />
                     </div>
                 </div>
-            </nav>
+            </div>
 
             <SearchModal
                 isOpen={isSearchOpen}
