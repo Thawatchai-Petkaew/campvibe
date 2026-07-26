@@ -302,7 +302,7 @@ Before building anything new, check this list and the Component Index (§3.1 bel
 | `PermissionTooltip` | `components/ui/permission-tooltip.tsx` | wrap a disabled control to explain why it is disabled |
 | `TruncatedLabel` | `components/ui/truncated-label.tsx` | text that may overflow — shows a tooltip with full text |
 | `FilterChip` | `components/ui/filter-chip.tsx` | multi-select / toggle filter pill |
-| `ImageWithFallback` | `components/ui/image-with-fallback.tsx` | `next/image` with a graceful fallback |
+| `ImageWithFallback` | `components/ui/image-with-fallback.tsx` | `next/image` with a graceful fallback — the missing/failed photo placeholder (see "Empty image slot" below) |
 
 ### Dropdown / select grammar (canonical — resolves the "which dropdown is correct" question)
 
@@ -376,6 +376,24 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `ProfileFormSkeleton` *(planned)* | — | Profile form section skeleton; planned S3 |
 | `BookingListSkeleton` *(planned)* | — | Booking-list section skeleton; planned S4 |
 
+### Empty image slot — the missing/failed photo placeholder (CAM-539)
+
+A photo that is absent and a photo that failed to load share **one** treatment, because to a camper both
+mean "no photo here". It is the **empty** state of an image (§5 list below), never an error state.
+
+| | rule |
+|---|---|
+| glyph | lucide **`ImageIcon`** — a whole picture frame (rect + circle + mountain). Import it under that alias: `ImageWithFallback` already imports `Image` from `next/image`. |
+| colour | `text-muted-foreground` at **full opacity** on the `bg-muted` frame — **4.15:1** light / **6.05:1** dark, clearing the 3:1 non-text floor (SC 1.4.11) in both themes |
+| size | `w-8 h-8` (32px) |
+| a11y | glyph `aria-hidden="true"`; the accessible name is the wrapper's `role="img"` + `aria-label={alt}`, so the slot announces once |
+
+❌ **Never use a struck-through / "off" glyph here** (`ImageOff`, `VideoOff`, `FileX`, …). Those are lucide's
+*error* marks: a full-canvas diagonal laid across a frame that is split into disjoint arcs to clear it, so
+their strokes cross and the element reads as a rendering failure rather than an empty slot.
+❌ **Never put alpha on the glyph** (`/40`, `/50`). It muddies every stroke crossing and it measured
+**1.63:1 light / 2.15:1 dark** — below the non-text floor in both themes, which is what CAM-539 fixed.
+
 ### Interaction states + accessibility (required on every interactive element)
 
 `default` · `hover` · `focus` (ring = `ring-ring`) · `active` · `loading` · `error` · `empty` · `disabled` — missing any one = fails the Design Gate.
@@ -415,6 +433,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | empty grid cells, blandly symmetric layout | fill every cell, lay it out with weight |
 | gradients / heavy shadows / cards stacked on cards | content leads, light chrome (border + spacing > shadow) |
 | em-dash, technical jargon, generic copy | §4 |
+| an empty slot drawn with an error mark — a struck-through "off" glyph, faded to `/40` grey, so it reads "broken" | the **whole** glyph at full token opacity (§3 "Empty image slot") — absence is not failure |
 
 ## §6 Quality gate — pre-delivery checklist (can block a PR, run before merge→staging = "Done")
 

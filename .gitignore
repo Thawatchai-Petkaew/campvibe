@@ -98,6 +98,8 @@ next-env.d.ts
 !/scripts/ai-eval/
 # CAM-536 — accommodation-code-collision backfill (TENT->TSIT / HORS->HCMP)
 !/scripts/backfill-cam-536-accommodation-codes.mjs
+# CAM-538 — drops the HCMP (horse-camp) AccommodationTypeEnum member entirely
+!/scripts/backfill-cam-538-drop-horse-camp.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

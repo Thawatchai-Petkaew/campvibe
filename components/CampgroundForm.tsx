@@ -463,6 +463,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     {options.map((opt) => {
                         const isSelected = (formData[fieldName] as string[])?.includes(opt.code);
                         const IconComp = getIconByName(opt.icon);
+                        // CAM-538: a per-code one-line hint (e.g. distinguishing
+                        // marked-pitch TSIT from unmarked DISP) rendered under the
+                        // label when this code has one; other groups have no
+                        // `filterDescription` entry so this renders nothing extra.
+                        const description = t.filterDescription?.[opt.code as keyof typeof t.filterDescription];
                         return (
                             <button
                                 key={opt.code}
@@ -480,9 +485,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                                         <IconComp className="w-3.5 h-3.5" />
                                     </div>
-                                    <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
-                                        {language === 'th' ? opt.nameTh : opt.nameEn}
-                                    </span>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
+                                            {language === 'th' ? opt.nameTh : opt.nameEn}
+                                        </span>
+                                        {description && (
+                                            <span className="text-xs text-muted-foreground truncate" data-testid="text--option-description">
+                                                {description}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", isSelected ? "bg-primary" : "bg-muted")}>
                                     {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}

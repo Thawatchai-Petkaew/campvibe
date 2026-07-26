@@ -9,7 +9,7 @@ import { serializeDecimals } from '@/lib/serialize';
 import { requireAuth } from '@/lib/auth-utils';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { withTiming } from '@/lib/route-timing';
-import { campCardSelect } from '@/lib/read-models/camp-card';
+import { campCardSelect, getProvinceThaiNameMap, withProvinceThaiNames } from '@/lib/read-models/camp-card';
 import { CATALOG_TAG } from '@/lib/catalog-cache';
 import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from '@/lib/campsite-availability';
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
@@ -174,9 +174,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 7c. CAM-545: name-based Thai province lookup (fail-open — a lookup
+    // error leaves every card on its English province, same as an unmapped
+    // value; the card's own fallback, not a request failure).
+    let provinceThaiNameMap = new Map<string, string>();
+    try {
+      provinceThaiNameMap = await getProvinceThaiNameMap();
+    } catch (error) {
+      console.error('[CAM-545] Province Thai-name lookup failed (fail-open, English province shown):', error);
+    }
+    const itemsWithThaiProvince = withProvinceThaiNames(items, provinceThaiNameMap);
+
     // 8. Serialise Decimals at the boundary (priceLow/avgRating: Decimal → number).
     const serialisedItems = serializeDecimals(
-      items.map((c) => {
+      itemsWithThaiProvince.map((c) => {
         const availabilityStatus = availabilityByCampId[c.id];
         return {
           ...c,

@@ -122,30 +122,30 @@ const masterData = [
     { code: 'PARA', group: 'Driveway', nameTh: 'ขนานลาน', nameEn: 'Parallel', icon: 'AlignHorizontalJustifyCenter' },
     { code: 'PTHG', group: 'Driveway', nameTh: 'ขับผ่าน', nameEn: 'Pull-through', icon: 'MoveRight' },
 
-    // CAM-526 (S10) / CAM-536 (fix) — Accommodation type: `AccommodationTypeEnum`
-    // (lib/validations/campsite.ts) has 6 members. `MasterData.code` is a
-    // global `@id` (NOT scoped per group) — CAM-526 found 2 of the 6 codes
-    // already claimed by an UNRELATED group and left them out entirely,
-    // which made those 2 meanings unselectable and unremovable in the host
-    // picker (BR-2). CAM-536 resolves it per the owner-approved fix: the two
-    // colliding MEANINGS get their own distinct codes instead of reusing the
-    // codes already owned elsewhere —
-    //   - HORS stays owned by group: 'Activity' (ขี่ม้า / Horseback riding),
-    //     UNCHANGED by this story. The accommodation-type "horse camp"
-    //     meaning is now HCMP, seeded below.
+    // CAM-526 (S10) / CAM-536 (fix) / CAM-538 (clarity + drop) — Accommodation
+    // type: `AccommodationTypeEnum` (lib/validations/campsite.ts). `MasterData.
+    // code` is a global `@id` (NOT scoped per group) — CAM-526 found the TENT/
+    // HORS codes already claimed by unrelated groups and left them out
+    // entirely, unselectable/unremovable in the host picker (BR-2). CAM-536
+    // resolved it by giving the tent-site meaning its own code —
     //   - TENT stays owned by group: 'Equipment for rent' (เต็นท์ / Tent),
     //     UNCHANGED by this story (it is also the value most seeded camps'
     //     `equipment` column already uses). The accommodation-type "tent
-    //     site" meaning is now TSIT, seeded below.
-    // A backfill (scripts/backfill-cam-536-accommodation-codes.mjs) rewrites
-    // existing `CampSite.accommodationTypes` CSV data from the old TENT/HORS
-    // values to TSIT/HCMP — see story.md.
+    //     site" meaning is TSIT, seeded below.
+    // CAM-538 (owner decision 2026-07-26): the host form's 6 options were
+    // unclear (TSIT/DISP both mean "camper brings their own tent" and
+    // neither label said the real difference — marked pitch or not) and one
+    // option (HCMP, "Horse camp") was a US-origin v1 leftover with no Thai
+    // relevance. Fix: rename the 2 ambiguous labels so the difference is IN
+    // the name, add a one-line hint under each option (see
+    // `locales/translations.json`'s `filterDescription`), and DROP HCMP
+    // entirely (backfilled off existing camp data —
+    // scripts/backfill-cam-538-drop-horse-camp.mjs). 5 members remain.
     { code: 'CABI', group: 'Accommodation type', nameTh: 'กระท่อม', nameEn: 'Cabin', icon: 'Bed' },
-    { code: 'DISP', group: 'Accommodation type', nameTh: 'กางเต็นท์อิสระ', nameEn: 'Dispersed camping', icon: 'Trees' },
+    { code: 'DISP', group: 'Accommodation type', nameTh: 'กางเต็นท์อิสระ (ไม่แบ่งล็อค)', nameEn: 'Dispersed camping (no marked pitch)', icon: 'Trees' },
     { code: 'GROU', group: 'Accommodation type', nameTh: 'ที่พักแบบกลุ่ม', nameEn: 'Group camping', icon: 'Users' },
     { code: 'RECR', group: 'Accommodation type', nameTh: 'รถบ้าน (RV)', nameEn: 'RV / Recreational vehicle', icon: 'Car' },
-    { code: 'TSIT', group: 'Accommodation type', nameTh: 'ลานกางเต็นท์', nameEn: 'Tent site', icon: 'Tent' },
-    { code: 'HCMP', group: 'Accommodation type', nameTh: 'แคมป์ม้า', nameEn: 'Horse camp', icon: 'PawPrint' },
+    { code: 'TSIT', group: 'Accommodation type', nameTh: 'ลานกางเต็นท์แบ่งล็อค', nameEn: 'Tent site (marked pitch)', icon: 'Tent' },
 ]
 
 import fs from 'fs';
