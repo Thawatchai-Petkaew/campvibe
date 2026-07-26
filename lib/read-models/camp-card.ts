@@ -31,18 +31,30 @@ import type { CampAvailabilityStatus } from '@/lib/campsite-availability';
  * rendered (the card shows an honest price range when the host set one —
  * see CampgroundCard.tsx's `buildCardPriceDisplay`).
  *
- * CAM-545 (rework, 2026-07-26): the Thai province name is NOT joined via the
- * `Location.thaiLocationId` FK here — that FK is populated for only 12 of
- * 652 `Location` rows in the dev DB (measured), so a relation-based select
- * would have shown the Thai name for ~2% of camps. Instead it is resolved
- * by NAME downstream, via `getProvinceThaiNameMap()` + `withProvinceThaiNames()`
+ * CAM-545 (rework, 2026-07-26): the Thai province name was NOT joined via
+ * the `Location.thaiLocationId` FK here — that FK was populated for only 12
+ * of 652 `Location` rows in the dev DB (measured), so a relation-based
+ * select would have shown the Thai name for ~2% of camps. It was resolved
+ * by NAME instead, via `getProvinceThaiNameMap()` + `withProvinceThaiNames()`
  * below, matching `Location.province` (English, stored) against
- * `ThailandLocation.provinceNameEn` — this covers 650 of 650 real camp sites
- * (measured; the one unmatched distinct province value in the dev DB is an
- * orphaned placeholder with no live camp attached). `Location.province`
- * itself is READ-ONLY here and completely unchanged — `lib/campsite-filters.ts`'s
- * exact-equality province filter (and CAM-531's province dropdown) depend on
- * its current stored value.
+ * `ThailandLocation.provinceNameEn`.
+ *
+ * CAM-563 (investigated, deferred): `Location.adminAreaId` is now backfilled
+ * for 650 of 652 rows (see `scripts/backfill-cam-563-location-admin-area
+ * .mjs`'s report), and the name-match above already covers 650/650 real
+ * camps today — no live defect. Selecting `adminArea` here to prefer an
+ * id-based, language-agnostic derivation was tried and reverted: `campCardSelect`
+ * is spread verbatim into `lib/read-models/ai-camp-card.ts`'s
+ * `aiCampCardSelect`, and `CampSiteCardData` is used as a type annotation in
+ * `app/wishlist/page.tsx` for an INDEPENDENTLY-shaped query — both outside
+ * this story's allowed file surface, and both broke `tsc --noEmit` the
+ * moment `adminArea` became a required key on the shared payload type (the
+ * SAME ripple CAM-545 itself hit adding `district` — see that story's fix
+ * to `ai-camp-card.ts`'s own test fixtures). Left as a follow-up: a story
+ * scoped to touch `camp-card.ts` + `ai-camp-card.ts` + `wishlist/page.tsx`
+ * together. `Location.province` itself is READ-ONLY here and completely
+ * unchanged — `lib/campsite-filters.ts`'s province filter (and CAM-531's
+ * province dropdown) depend on its current stored value.
  */
 export const campCardSelect = {
   id: true,
