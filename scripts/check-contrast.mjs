@@ -163,6 +163,23 @@ export function resolveOver(tokens, name, backdrop) {
   return token.alpha < 1 ? compositeOver(rgb, token.alpha, backdrop) : rgb;
 }
 
+/**
+ * CAM-541 — resolve a TEXT token the way Tailwind's `text-x/NN` opacity
+ * modifier actually renders it: the token's own full-opacity colour,
+ * composited at `fgAlpha` over the backdrop it sits on (distinct from a
+ * token's OWN declared alpha, handled by `resolveOver` above — `--foreground`
+ * has none). This is the missing half of the `overlay` mechanism: `overlay`
+ * tints the BACKGROUND a fill sits on; this tints the FOREGROUND text itself,
+ * which is how `text-foreground/70` (the established fix for muted-foreground
+ * failing on the ai-surface/ai-tint glass, CAM-451/CAM-541) actually renders.
+ */
+export function resolveForeground(tokens, name, backdrop, fgAlpha) {
+  const raw = tokens[name];
+  if (!raw) throw new Error(`token ${name} is not declared`);
+  const rgb = oklchToSrgb(parseOklch(raw));
+  return fgAlpha < 1 ? compositeOver(rgb, fgAlpha, backdrop) : rgb;
+}
+
 /* ── the pair registry ─────────────────────────────────────────────────────
    `fg` is measured against `bg`; `bg` is always a real surface in the app.
    `floor` + `kind` record WHICH standard the row is judged against and why.
@@ -221,6 +238,17 @@ export const ENFORCED_PAIRS = [
     context: "selected icon-card chip label on a 5% primary tint" },
   { fg: "--primary-ink", bg: "--background", overlay: { token: "--primary", alpha: 0.05 }, floor: 4.5, kind: "text",
     context: "ghost-primary link-action label on its 5% hover tint" },
+
+  // --- CAM-541: secondary assistant text on the glass surfaces -------------
+  // `--muted-foreground` at full opacity measures 4.40:1 (light, --ai-surface)
+  // / 4.19:1 (light, --ai-tint) — under the 4.5:1 floor (the owner-reported
+  // "nearly invisible in light mode" defect). The established fix (CAM-451,
+  // AiChatDetailCard) is `text-foreground/70`, not a new token — this pair
+  // measures exactly that Tailwind opacity modifier via `fgAlpha`.
+  { fg: "--foreground", fgAlpha: 0.7, bg: "--ai-surface", floor: 4.5, kind: "text",
+    context: "assistant secondary text (header role, welcome examples label, zero-result notice) on the glass surface" },
+  { fg: "--foreground", fgAlpha: 0.7, bg: "--ai-tint", floor: 4.5, kind: "text",
+    context: "assistant secondary text (AiChatDetailCard captions) on the tint surface" },
 
   // --- everyday body text -------------------------------------------------
   { fg: "--foreground", bg: "--background", floor: 4.5, kind: "text", context: "body text on the page" },
@@ -283,7 +311,13 @@ export function measurePairs(pairs, tokenSets) {
   for (const [theme, tokens] of Object.entries(tokenSets)) {
     for (const pair of pairs) {
       const bg = resolvePairBackground(tokens, pair);
-      const fg = resolveOver(tokens, pair.fg, bg);
+      // CAM-541: `fgAlpha` measures a Tailwind `text-x/NN` opacity modifier
+      // (the fix applied to the assistant's secondary text) rather than the
+      // token at its own full-opacity declared colour.
+      const fg =
+        pair.fgAlpha !== undefined
+          ? resolveForeground(tokens, pair.fg, bg, pair.fgAlpha)
+          : resolveOver(tokens, pair.fg, bg);
       const ratio = contrastRatio(fg, bg);
       rows.push({
         ...pair,
@@ -292,6 +326,7 @@ export function measurePairs(pairs, tokenSets) {
         pass: ratio >= pair.floor,
         fgHex: toHex(fg),
         bgHex: toHex(bg),
+        fgLabel: pair.fgAlpha !== undefined ? `${pair.fg}/${Math.round(pair.fgAlpha * 100)}` : pair.fg,
         bgLabel: pair.overlay
           ? `${pair.overlay.token}/${Math.round(pair.overlay.alpha * 100)} over ${pair.bg}`
           : pair.bg,
@@ -316,7 +351,7 @@ export function measureAll(css) {
 function formatRow(r) {
   const verdict = r.pass ? "pass" : "FAIL";
   const ratio = `${r.ratio.toFixed(2)}:1`.padStart(7);
-  return `  ${verdict}  ${ratio}  (floor ${String(r.floor).padEnd(3)} ${r.kind.padEnd(8)})  ${r.theme.padEnd(5)}  ${r.fg} on ${r.bgLabel} — ${r.context}  [${r.fgHex} on ${r.bgHex}]`;
+  return `  ${verdict}  ${ratio}  (floor ${String(r.floor).padEnd(3)} ${r.kind.padEnd(8)})  ${r.theme.padEnd(5)}  ${r.fgLabel} on ${r.bgLabel} — ${r.context}  [${r.fgHex} on ${r.bgHex}]`;
 }
 
 function main() {

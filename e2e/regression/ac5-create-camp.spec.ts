@@ -33,6 +33,23 @@ test("create-camp form: filling required fields creates one new owned CampSite r
   await page.getByTestId("row--location-picker-province-option").first().waitFor();
   await page.getByTestId("row--location-picker-province-option").first().click();
 
+  // CAM-554: coordinates are STILL a required field (campSiteSchema.latitude/
+  // longitude are non-nullable Float columns — see cam-358-image-url-contract
+  // .test.ts's "documents the marker choice" assertion; changing that would be
+  // a schema migration, out of CAM-554's file surface). What CAM-554 removed
+  // is the FABRICATED 13.7563/100.5018 default, not the requirement itself -
+  // a real host must now place a pin. Click the map (deterministic and
+  // synchronous: LocationMapPin's onPinChange sets latitude/longitude
+  // immediately on click, before the debounced reverse-geocode call even
+  // fires) rather than relying on the province's forward-geocode, which
+  // depends on a real GOOGLE_GEOCODING_API_KEY this local/CI environment does
+  // not have and would leave the pin unset. Wait for the map's own chunk to
+  // mount (dynamic ssr:false + lazy IntersectionObserver load - see
+  // LocationPicker.tsx) before clicking it.
+  await page.getByTestId("map--location-pin").waitFor();
+  await page.getByTestId("map--location-pin").click();
+  await page.getByTestId("text--location-map-coordinates").waitFor();
+
   // Whole-camp mode (default) requires maxGuestsPerDay >= 1 to pass the
   // client guard; maxTentsPerDay shares the same campSiteSchema >=1 rule
   // when present, and defaults to 0 in a fresh form — set both explicitly.

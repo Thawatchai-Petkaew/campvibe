@@ -269,8 +269,14 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         maxTentsPerDay: 0 as number | string,
         groundType: {} as Record<string, number>, // {STONE: 5, GRASS: 10, CONCRETE: 3, WOOD: 2}
 
-        latitude: 13.7563 as number | string,
-        longitude: 100.5018 as number | string,
+        // CAM-554: no default coordinates. The old 13.7563/100.5018 default
+        // silently placed every camp whose host skipped this field in
+        // Bangkok - empty now means "no pin yet" (LocationMapPin's empty
+        // state), never an invisible answer. handleSubmit blocks submit
+        // until the host actually pins one (mirrors the maxGuestsPerDay
+        // client-side guard below).
+        latitude: "" as number | string,
+        longitude: "" as number | string,
         province: "",
         district: "",
         subDistrict: "",
@@ -371,8 +377,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 tags: initialData.tags ? initialData.tags.split(',').filter(Boolean) : [],
                 partner: initialData.partner || "",
                 nationalPark: initialData.nationalPark || "",
-                latitude: initialData.latitude ?? 13.7563,
-                longitude: initialData.longitude ?? 100.5018,
+                // CAM-554: an already-saved camp keeps its real stored value
+                // (including a pre-existing Bangkok default from before this
+                // story - not backfilled, mirrors CAM-559's "blank, not
+                // guessed" precedent for district/subDistrict). A camp with
+                // no stored coordinates at all now prefills empty, not 13.7563.
+                latitude: initialData.latitude ?? "",
+                longitude: initialData.longitude ?? "",
                 province: initialData.location?.thaiLocation 
                     ? (language === 'th' ? initialData.location.thaiLocation.provinceName : initialData.location.thaiLocation.provinceNameEn)
                     : initialData.location?.province || "",
@@ -553,6 +564,18 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     scrollToFirstErrorField(["maxGuestsPerDay"]);
                     return;
                 }
+            }
+
+            // CAM-554: the map replaced the always-filled 13.7563/100.5018
+            // default, so an unpinned location is now possible - block submit
+            // rather than silently coalescing to (0,0) (same
+            // fieldErrors/banner/scroll wiring as the guestsInvalid guard
+            // above).
+            if (formData.latitude === "" || formData.longitude === "") {
+                setFieldErrors({ latitude: [t.newCampground.pinRequiredError], longitude: [t.newCampground.pinRequiredError] });
+                setServerError(buildValidationBannerMessage(t, ["latitude"]));
+                scrollToFirstErrorField(["latitude"]);
+                return;
             }
 
             let locationId = formData.locationId;
@@ -1003,16 +1026,18 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.searchLocation}</Label>
                                     {/* CAM-559: cascading province -> district -> sub-district (each
                                         searchable, each narrowing the next) replaces the old flat
-                                        single-search list. */}
+                                        single-search list. CAM-554: LocationPicker now also owns the
+                                        draggable map pin + its two-way sync with these three levels -
+                                        `value` merges whatever keys arrive ({...prev, ...value}) since a
+                                        plain combobox pick omits latitude/longitude entirely. */}
                                     <LocationPicker
+                                        latitude={formData.latitude === "" ? null : Number(formData.latitude)}
+                                        longitude={formData.longitude === "" ? null : Number(formData.longitude)}
+                                        province={formData.province}
+                                        district={formData.district}
+                                        subDistrict={formData.subDistrict}
                                         onChange={(value) => {
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                thaiLocationId: value.thaiLocationId,
-                                                province: value.province,
-                                                district: value.district,
-                                                subDistrict: value.subDistrict,
-                                            }));
+                                            setFormData(prev => ({ ...prev, ...value }));
                                         }}
                                     />
                                 </div>
@@ -1061,6 +1086,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     />
                                 </div>
 
+                                {/* CAM-554: the map above is the primary way to set these two
+                                    values now (it replaces the old always-13.7563/100.5018
+                                    default); these stay as a synced, keyboard-operable fallback -
+                                    Leaflet's drag gesture has no native keyboard equivalent. */}
+                                <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.locationPicker.manualCoordinatesLabel}</Label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label={t.newCampground.latitude}
