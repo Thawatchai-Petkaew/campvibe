@@ -644,9 +644,12 @@ describe('AC-7 — Graceful fallback: ImageWithFallback renders ImageOff when sr
     expect(imageWithFallbackSrc).toContain('!src || errored');
   });
 
-  // Prove-It: FAILS if ImageOff is replaced by another fallback icon.
-  it('[fallback] ImageOff (lucide-react) is the fallback placeholder icon', () => {
-    expect(imageWithFallbackSrc).toContain('ImageOff');
+  // Prove-It: FAILS if the lucide fallback icon is dropped.
+  // Retargeted by CAM-539: the icon is now `ImageIcon` (an intact frame). It was
+  // `ImageOff`, lucide's struck-through ERROR mark, which read as a broken image
+  // — this AC has always pinned "a lucide fallback icon exists", not that one name.
+  it('[fallback] a lucide icon is the fallback placeholder icon', () => {
+    expect(imageWithFallbackSrc).toContain('ImageIcon');
     expect(imageWithFallbackSrc).toContain('from "lucide-react"');
   });
 

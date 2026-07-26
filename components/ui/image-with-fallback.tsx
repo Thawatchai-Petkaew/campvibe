@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ImageOff } from "lucide-react";
+// lucide's own alias for `Image`; aliased at the source so it does not collide
+// with the `Image` imported from next/image above.
+import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImageWithFallbackProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -35,6 +37,17 @@ interface ImageWithFallbackProps extends React.HTMLAttributes<HTMLDivElement> {
  *
  * States: default image · fallback (no src) · fallback (errored)
  * Dark-safe: bg-muted + text-muted-foreground flip via .dark automatically.
+ *
+ * CAM-539: the fallback is the EMPTY state of an image, not an error state, so it
+ * uses lucide `ImageIcon` — a whole frame (rect + circle + mountain, 3 nodes, no
+ * self-intersection) — at FULL opacity. Never swap it for one of lucide's
+ * struck-through "off" variants: those are the library's ERROR marks, drawn as a
+ * full-canvas diagonal laid across a frame split into two disjoint arcs to clear
+ * it, so the strokes cross and the slot reads as a rendering failure (this was the
+ * owner's report). The alpha is equally load-bearing: the same glyph at /40 measured
+ * 1.63:1 light / 2.15:1 dark on bg-muted, under the 3:1 non-text floor (WCAG 2.1
+ * SC 1.4.11); at full opacity it is 4.15:1 / 6.05:1. Keep it opaque, keep it whole.
+ * See DESIGN.md §3 "Empty image slot".
  *
  * CAM-393: the muted frame is reserved instantly and the photo fades into it on
  * load (opacity 0→100) so images no longer hard-pop. LCP-safe: a `priority` image
@@ -114,8 +127,8 @@ export function ImageWithFallback({
             {...rest}
         >
             {showFallback ? (
-                <ImageOff
-                    className="w-8 h-8 text-muted-foreground/40"
+                <ImageIcon
+                    className="w-8 h-8 text-muted-foreground"
                     aria-hidden="true"
                     data-testid={testId ? `${testId}--fallback-placeholder` : "img--fallback-placeholder"}
                 />
