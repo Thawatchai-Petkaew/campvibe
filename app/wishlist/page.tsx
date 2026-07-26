@@ -16,7 +16,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
 import { WishlistPageClient } from "@/components/WishlistPageClient";
-import { getProvinceThaiNameMap, type CampSiteCardData } from "@/lib/read-models/camp-card";
+import { getProvinceThaiNameMap, resolveLocationDisplayNames, adminAreaChainSelect, type CampSiteCardData } from "@/lib/read-models/camp-card";
 import { computeAvgRating } from "@/lib/sort-utils";
 import { roundAvgRating } from "@/lib/review-summary";
 
@@ -50,14 +50,18 @@ export default async function WishlistPage() {
                             longitude: true,
                             createdAt: true,
                             // CAM-545: province (English) is unchanged — lib/campsite-filters.ts
-                            // depends on it. district wired through (see CampSiteCardData's
-                            // doc comment — not populated for any camp yet). The Thai province
-                            // name is resolved downstream by NAME (getProvinceThaiNameMap),
-                            // not via a relation here — see lib/read-models/camp-card.ts.
+                            // depends on it. district kept selected for shape stability (no
+                            // longer read for display, see below). The Thai province name
+                            // falls back to a NAME lookup (getProvinceThaiNameMap) only when
+                            // the id-derived value below is absent. CAM-573: adminArea added —
+                            // the resolved chain closes CAM-567 (district/sub-district now
+                            // render in the chosen language, derived from the id instead of
+                            // the raw free-text column).
                             location: {
                                 select: {
                                     province: true,
                                     district: true,
+                                    adminArea: { select: adminAreaChainSelect },
                                 },
                             },
                             reviews: {
@@ -83,6 +87,10 @@ export default async function WishlistPage() {
             items = rows.map((row) => {
                 const { reviews, ...campSite } = row.campSite;
                 const province = campSite.location.province ?? "";
+                // CAM-573 — prefer the id-derived bilingual chain; fall back to
+                // the name-based provinceTh lookup only when it's absent (the 2
+                // orphan Location rows with no live camp).
+                const idDerived = resolveLocationDisplayNames(campSite.location.adminArea);
                 return {
                     id: campSite.id,
                     nameTh: campSite.nameTh,
@@ -100,7 +108,12 @@ export default async function WishlistPage() {
                     location: {
                         province,
                         district: campSite.location.district,
-                        provinceTh: province ? provinceThaiNameMap.get(province) : undefined,
+                        provinceTh: idDerived.provinceTh ?? (province ? provinceThaiNameMap.get(province) : undefined),
+                        provinceEn: idDerived.provinceEn,
+                        districtTh: idDerived.districtTh,
+                        districtEn: idDerived.districtEn,
+                        subDistrictTh: idDerived.subDistrictTh,
+                        subDistrictEn: idDerived.subDistrictEn,
                     },
                     avgRating: roundAvgRating(computeAvgRating(reviews)),
                     reviewCount: reviews.length,
