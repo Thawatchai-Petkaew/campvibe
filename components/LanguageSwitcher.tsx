@@ -13,7 +13,10 @@ export function LanguageSwitcher() {
     return (
         <button
             onClick={toggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-muted transition text-sm font-medium"
+            // CAM-558: measured 36px tall (px-3 py-2 + content). This control now only
+            // renders at md+ (CAM-549 hides it below md), so only the desktop-width
+            // measurement matters — h-11 pins it to the 44px floor.
+            className="flex items-center gap-2 px-3 h-11 rounded-full hover:bg-muted transition text-sm font-medium"
             aria-label="Switch language"
         >
             <Globe className="w-4 h-4" />

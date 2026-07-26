@@ -124,7 +124,17 @@ export function Navbar() {
                 <div data-testid="section--navbar-title-row" className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-3 md:gap-4 text-foreground">
                     {/* Logo */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <Link href="/" className="flex-shrink-0">
+                        {/*
+                            CAM-558: the logo image keeps its existing responsive
+                            height unchanged (same visible size) — only the LINK's
+                            tappable box grows to the 44px floor (min-h-11/min-w-11,
+                            the same token as this file's other icon-sized controls),
+                            via centering, not by enlarging the glyph.
+                        */}
+                        <Link
+                            href="/"
+                            className="flex-shrink-0 flex items-center justify-center min-h-11 min-w-11"
+                        >
                             <img src="/logo.png" alt="CampVibe Logo" className="h-8 md:h-10 w-auto" />
                         </Link>
                         {navUser && isDashboard && (
@@ -203,8 +213,25 @@ export function Navbar() {
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild aria-label="User menu">
-                                <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
-                                    <Menu className="w-5 h-5 text-muted-foreground" />
+                                {/*
+                                    CAM-558: measured 42px tall / 78px wide (p-1 pl-3 +
+                                    hamburger icon + gap + avatar). h-11 pins the tap
+                                    target's HEIGHT to the 44px floor (the avatar content
+                                    stays unchanged and vertically centered). Measuring in
+                                    a real browser at 320px (logged in) showed the height
+                                    fix alone does NOT close CAM-549's traced ~15px
+                                    overflow — that is a WIDTH problem, and the button's
+                                    own horizontal padding/gap were already at the
+                                    DESIGN.md §2.0 compaction floor. The hamburger glyph is
+                                    redundant next to the avatar (the avatar alone is
+                                    already a recognized account-menu affordance) and is
+                                    hidden below `md` only — same "drop by importance
+                                    rather than squeeze" call the owner already made for
+                                    the language switcher (CAM-549); it reappears
+                                    unchanged at `md:` and above, so desktop is untouched.
+                                */}
+                                <button className="flex items-center gap-2 h-11 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
+                                    <Menu className="hidden md:block w-5 h-5 text-muted-foreground" />
                                     <div className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
                                         {(navUser?.image && !imageError) ? (
                                             <img
