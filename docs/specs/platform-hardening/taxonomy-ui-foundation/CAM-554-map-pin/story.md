@@ -1,0 +1,63 @@
+## Story
+As a **Host**, I want to pin my camp's location on a map and have it stay in step with the province/district/sub-district I pick, so that I never have to guess coordinates by hand and my camp is never silently placed in the wrong city.
+Why: the old raw latitude/longitude number inputs defaulted to 13.7563/100.5018 (Bangkok) - a host who skipped the field got a real-looking coordinate that was never their actual location, and nothing in the UI ever told them so.
+Scope: a draggable Leaflet map pin (browser-side, reusing `components/MapComponent.tsx`'s existing `react-leaflet`/`leaflet` dependency - no new map library) replaces the raw lat/lon inputs as the PRIMARY way to set a camp's location. Dropping/dragging the pin resolves province/district/sub-district via a NEW server-side reverse-geocode route (Google Geocoding API, key server-only); choosing a level in CAM-559's cascading selects moves the pin via a forward-geocode route (same API, same key, address text -> coordinates - there is no centroid column on `ThailandLocation`/`AdminArea` to read from directly). A disagreement between the pin and the current selection is surfaced to the host (accept/decline), never silently overwritten either direction. The schema-required lat/lon `InputField`s stay in place, synced to the same state, as a keyboard-operable fallback (Leaflet's drag gesture has no native keyboard equivalent).
+Depends on: CAM-559 (cascading province/district/sub-district selects, merged into `dev`) · CAM-553 (AdminArea/ThailandLocation master data)
+
+## AC
+
+| # | Given | When | Then (user sees, Thai verbatim) | System effect | Neg/edge |
+|---|---|---|---|---|---|
+| AC-1 | Host is creating a new camp, no location chosen yet | Host scrolls to the Location section | A map centered on Thailand renders with NO pin and a hint to tap/click, never a pre-placed marker | The map's own chunk loads only now (lazy, IntersectionObserver + `dynamic(ssr:false)`), not on page load | EC-1 |
+| AC-2 | Host is looking at the empty map | Host clicks/taps a spot on the map | A pin appears at that spot; `กำลังค้นหาตำแหน่ง...` shows briefly, then the province/district/sub-district comboboxes fill in | `POST`-free `GET /api/geocode/reverse` resolves the AdminArea tree (bilingual, hierarchical) and the client fills the three selects + `latitude`/`longitude` | EC-2 |
+| AC-3 | Host has already picked province + district + sub-district, no pin yet | Host picks the sub-district (the level that completes the selection) | The pin appears on the map at the resolved spot | `GET /api/geocode/forward` resolves coordinates for the chosen text; the client sets `latitude`/`longitude` (nothing to lose - no prior pin) | EC-3 |
+| AC-4 | Host already has BOTH a pin AND a province/district/sub-district selection that point to the SAME place | Host drags the pin a few meters (still resolves to the same sub-district) | Nothing is surfaced; the selects are untouched | The reverse-geocode result matches the current selection - no conflict, no re-write | — |
+| AC-5 | Host already has a pin AND a selection, and drags the pin to a DIFFERENT province | Host waits for the reverse-geocode to resolve | A banner appears: "ตำแหน่งหมุดไม่ตรงกับจังหวัด อำเภอ และตำบลที่เลือกไว้ ต้องการอัปเดตข้อมูลให้ตรงกับหมุดหรือไม่" with `ยอมรับ`/`ปฏิเสธ` buttons | Nothing is written until the host presses one; `ยอมรับ` applies the resolved selection, `ปฏิเสธ` discards it (pin stays, selection stays) | EC-4 |
+| AC-6 | Host already has a pin AND changes the province/district/sub-district selection to somewhere far from the current pin | Host finishes picking the new sub-district | A banner appears: "จังหวัด อำเภอ และตำบลที่เลือกไว้ชี้ไปยังตำแหน่งอื่นจากหมุดปัจจุบัน ต้องการย้ายหมุดให้ตรงกันหรือไม่" with `ยอมรับ`/`ปฏิเสธ` buttons | Nothing moves until the host presses one | EC-5 |
+| AC-7 | Host has not pinned a location at all | Host presses save | Save is blocked; `กรุณาปักหมุดตำแหน่งแคมป์บนแผนที่` appears under the map, page scrolls to the Location section | `POST /api/location` is never called; no camp/location row is written | EC-6 |
+
+## Rules
+- BR-1 The map never carries a default pin - `latitude`/`longitude` start as `""` (empty) on a new camp, not 13.7563/100.5018 - proves AC-1.
+- BR-2 A reverse-geocode call fires only on an explicit pin action (click or drag-end), debounced 300ms; a forward-geocode call fires only once the cascading selection settles, debounced 300ms, and is skipped entirely when the resolved address string is unchanged since the last call - proves AC-2/AC-3, cost control (Google bills per request).
+- BR-3 Neither geocode direction ever fires automatically on page load/mount, even when editing a camp that already has a pin and a selection - proves the cost-control intent behind BR-2.
+- BR-4 A resolved value that DISAGREES with an existing value on the other side is never auto-applied - it is held in a pending-conflict state until the host presses `ยอมรับ` (apply) or `ปฏิเสธ` (discard) - proves AC-5/AC-6.
+- BR-5 An EMPTY value on the other side (no current selection, or no current pin) always adopts the resolved value directly - there is nothing to lose, so no conflict is raised - proves AC-2/AC-3.
+- BR-6 The reverse-geocode match is bilingual (checks the geocoder's returned name against BOTH the Thai and the English name column) and hierarchical (a district match is scoped to the already-matched province's node; a sub-district match is scoped to the already-matched district's node) - never a nationwide unscoped lookup, never a substring match.
+- BR-7 `Location.province`/`district`/`subDistrict`'s stored value/derivation is unchanged (same `ThailandLocation`/`AdminArea`-backed rows, same `language === 'th' ? ... : ...` derivation CAM-559 already uses) - `lib/campsite-filters.ts`'s exact-equality province filter and CAM-545's Thai-name lookup are unaffected.
+- BR-8 Submit is blocked (client-side, before any network call) when `latitude`/`longitude` are unset - proves AC-7.
+- BR-9 The pin-vs-selection comparison is PER LEVEL, using the real current text (`formData.province`/`district`/`subDistrict`, not just this component's own untouched-on-mount combobox state - a pre-existing CAM-559 gap that would otherwise read an already-saved EDIT value as "nothing to lose"): a level with no current value adopts the resolved value directly (nothing to lose at that level); only a level that already has a value becomes part of the conflict when it would actually change - picking only a province and dragging the pin into a specific district never pops a conflict banner over the district/sub-district, which were never chosen at all.
+
+## Edge cases
+- EC-1 IF the host never scrolls to the Location section THEN the map's Leaflet chunk never downloads (BR proven by lazy-mount, not a network assertion in this story)
+- EC-2 IF the reverse-geocode call fails or resolves nothing (Google `ZERO_RESULTS`, or no AdminArea match) THEN the pin still stays where dropped, an inline notice appears (`ไม่สามารถค้นหาตำแหน่งนี้โดยอัตโนมัติได้ กรุณาเลือกจังหวัด อำเภอ และตำบลด้วยตนเอง`), and the host can still pick manually (BR-2's failure path is never blocking)
+- EC-3 IF the forward-geocode call fails or resolves nothing THEN the pin simply does not move; no error is shown for this direction (a convenience, never a requirement to save)
+- EC-4 IF the host presses `ปฏิเสธ` on a pin-vs-selection conflict THEN the selects keep their current value and the pin keeps its dragged position (both sides may legitimately disagree - the host's call) (BR-4)
+- EC-5 IF the host presses `ปฏิเสธ` on a selection-vs-pin conflict THEN the pin does not move (BR-4)
+- EC-6 IF the host submits with no pin THEN the client blocks BEFORE calling `POST /api/location` (never a server round-trip for a state the client already knows is incomplete) (BR-8)
+
+## Data
+- No schema change. `Location.lat`/`Location.lon` (`Float?`) already exist; this story only changes how the CLIENT collects them (map instead of a bare number input) and adds two new READ-ONLY server routes that never write to the database.
+- `AdminArea`/`ThailandLocation` - read-only in this story (CAM-553's already-seeded master data); the reverse-geocode resolver reads the AdminArea tree first (bilingual, hierarchical) and derives the ThailandLocation-shaped rows CAM-559's selects already expect, rather than the other way round - the coordinator's CAM-563 note: the AdminArea node/id is the primary result, the free-text strings are DERIVED from it. `Location.adminAreaId` itself is not written by this story (that write path is CAM-563's, out of this story's file surface).
+
+## Seams & refs
+- Reuse: `components/MapComponent.tsx`'s `react-leaflet`/`leaflet` usage (icon markup, `dynamic(ssr:false)` pattern) · `components/LocationPicker.tsx`'s cascading selects (CAM-559) - this story extends it with the map + two-way wiring rather than building a parallel component · `lib/validations/location.ts`'s existing `createLocationSchema`/`adminAreaSubDistrictQuerySchema` conventions.
+- New: `GET /api/geocode/reverse` + `GET /api/geocode/forward` (`app/api/geocode/**`) - the only new server surface; both read-only (never write to `Location`/`CampSite`).
+- Refs: CAM-559 (`tech.md`'s AdminArea-vs-ThailandLocation split, unchanged) · CAM-553 (master data) · the coordinator's CAM-563 forward-looking note (AdminArea node/id is the primary resolver result; `Location.adminAreaId` write path is CAM-563's, not this story's).
+- Out of bounds (owned elsewhere): `app/api/location/route.ts`, `app/api/campsites/[id]/route.ts` (the write paths - unchanged), `prisma/schema.prisma`, `lib/campsite-filters.ts`, `lib/read-models/camp-card.ts`, `components/MapComponent.tsx` (read-only reference), `components/ui/**`.
+
+## Out of scope
+- Writing `Location.adminAreaId` down to district/sub-district granularity - CAM-563 (the id-based storage migration the owner requested); this story's reverse-geocode resolver is already structured id-first (AdminArea node primary, strings derived) so CAM-563 can build on it directly.
+- Backfilling existing camps whose `latitude`/`longitude` already hold the OLD 13.7563/100.5018 default - unchanged from CAM-553/CAM-559's "blank/unchanged, not guessed" precedent; a real backfill needs its own ticket.
+- A real tile provider for the OpenStreetMap public tile server (flagged by CAM-554's own architecture-decision comment, not this story's scope - pre-existing dependency, unchanged here).
+- Full keyboard-operable map drag (Leaflet has no native keyboard-drag equivalent) - mitigated by keeping the synced numeric lat/lon fields as a keyboard-accessible fallback, not by building a custom keyboard handler.
+
+## Self-verify
+- AC-1 → source-inspection (`__tests__/cam-554-map-pin-sync.test.ts`: no default 13.7563/100.5018 in `CampgroundForm.tsx`'s initial state; `LocationMapPin`'s empty state; the `dynamic(ssr:false)` + `IntersectionObserver` lazy-mount)
+- AC-2/AC-3 → integration (`__tests__/cam-554-geocode-routes.test.ts`: `GET /api/geocode/reverse` resolves all three levels hierarchically + bilingually from mocked Google address_components; `GET /api/geocode/forward` resolves coordinates from a chosen address) + source-inspection (`applyResolvedPin` sets all three select states + calls `onChange`; the forward-geocode effect calls `onChange` with lat/lon when no current pin)
+- AC-4/AC-5/AC-6 → source-inspection (the `differs`/`movedFar` branch calls `setConflict`, never `applyResolvedPin`/`onChange` directly, when an existing value would be overwritten; the conflict banner renders both `ยอมรับ`/`ปฏิเสธ`, `role="status" aria-live="polite"`, never auto-dismissing)
+- AC-7 → source-inspection (`formData.latitude === "" || formData.longitude === ""` blocks `handleSubmit` before the `/api/location` POST, mirroring the existing `maxGuestsPerDay` guard)
+- Story-specific: `Location.province`/`district`/`subDistrict`'s derivation unchanged (not touched in this diff) · the Google key (`GOOGLE_GEOCODING_API_KEY`) is read ONLY in `app/api/geocode/_shared.ts`, never in a client component, never `NEXT_PUBLIC_`-prefixed, never present in a response body or a server log (explicit tests) · full suite re-run as the last act: 9851/9851 pass, the ONLY pre-existing known-flaky exclusion (`__tests__/delivery-client.test.ts`, env-dependent) was not touched
+- Gate = `/quality-gate` · Done = every AC verified on localhost (dev DB) before merge into `dev`
+
+## Changelog
+- v1 (2026-07-26) — created

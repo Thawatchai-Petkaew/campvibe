@@ -68,3 +68,90 @@ export const adminAreaSubDistrictQuerySchema = z.object({
 });
 
 export type AdminAreaSubDistrictQuery = z.infer<typeof adminAreaSubDistrictQuerySchema>;
+
+/**
+ * CAM-554 — zod boundary for `GET /api/geocode/reverse?lat=&lon=`: the map
+ * pin drop/drag. `z.coerce.number()` because query-string values arrive as
+ * strings; bounds mirror `createLocationSchema`'s lat/lon rule (ux.md's
+ * validation catalog: lat -90..90, lon -180..180).
+ */
+export const geocodeReverseQuerySchema = z.object({
+    lat: z.coerce.number().min(-90, 'lat must be >= -90').max(90, 'lat must be <= 90'),
+    lon: z.coerce.number().min(-180, 'lon must be >= -180').max(180, 'lon must be <= 180'),
+});
+
+export type GeocodeReverseQuery = z.infer<typeof geocodeReverseQuerySchema>;
+
+/**
+ * CAM-554 — zod boundary for `GET /api/geocode/forward` (choosing a
+ * province/district/sub-district moves the pin). `province` is the only
+ * required piece — a host may have picked just a province so far.
+ */
+export const geocodeForwardQuerySchema = z.object({
+    province: z.string().trim().min(1).max(100),
+    district: z.string().trim().max(100).optional(),
+    subDistrict: z.string().trim().max(100).optional(),
+});
+
+export type GeocodeForwardQuery = z.infer<typeof geocodeForwardQuerySchema>;
+
+/**
+ * CAM-554 — the ThailandLocation-row shape LocationPicker.tsx already keys
+ * its province/district comboboxes on (see `ThailandLocationRow` there).
+ * Reused (not re-declared) as the reverse-geocode response shape for those
+ * two levels so a resolved pin can flow straight into the SAME state the
+ * cascading selects already use, with no second shape to reconcile.
+ */
+export const thailandLocationRowSchema = z.object({
+    id: z.string(),
+    provinceCode: z.string(),
+    provinceName: z.string(),
+    provinceNameEn: z.string(),
+    districtCode: z.string().nullable(),
+    districtName: z.string().nullable(),
+    districtNameEn: z.string().nullable(),
+});
+
+/**
+ * CAM-554 — the AdminArea sub-district row shape `/api/admin-areas/
+ * subdistricts` already returns (see `SubDistrictRow` in LocationPicker.tsx).
+ */
+export const subDistrictRowSchema = z.object({
+    id: z.string(),
+    code: z.string(),
+    nameTh: z.string(),
+    nameEn: z.string(),
+    parentId: z.string().nullable(),
+});
+
+/**
+ * CAM-554 — reverse-geocode response. `adminAreaId` is the DEEPEST AdminArea
+ * tree node actually matched (sub-district, else district, else province) -
+ * the id-first result the CAM-563 province/district/sub-district-by-id
+ * migration will consume later. `province`/`district`/`subDistrict` are
+ * DERIVED from that same resolved node (never the other way round) so they
+ * stay byte-identical in shape to what the cascading selects already
+ * produce - this story does not change what `Location.province`/`district`/
+ * `subDistrict` store (BR-4 of CAM-559, unchanged here). A `null` at any
+ * level means the geocoder's returned name did not match the imported
+ * master data at that level. This is a plain (non-strict) zod object, so
+ * `.parse()` STRIPS any unrecognized key - a raw Google/Prisma field can
+ * never accidentally ride along into the client response.
+ */
+export const geocodeReverseResultSchema = z.object({
+    province: thailandLocationRowSchema.nullable(),
+    district: thailandLocationRowSchema.nullable(),
+    subDistrict: subDistrictRowSchema.nullable(),
+    adminAreaId: z.string().nullable(),
+});
+
+export type GeocodeReverseResult = z.infer<typeof geocodeReverseResultSchema>;
+
+/** CAM-554 — forward-geocode response: the coordinates Google resolved for the
+ *  chosen province/district/sub-district text, or `null` when nothing matched. */
+export const geocodeForwardResultSchema = z.object({
+    lat: z.number().nullable(),
+    lon: z.number().nullable(),
+});
+
+export type GeocodeForwardResult = z.infer<typeof geocodeForwardResultSchema>;

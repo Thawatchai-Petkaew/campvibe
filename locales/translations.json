@@ -373,6 +373,7 @@
             "directionsPlaceholder": "How to get there...",
             "latitude": "Latitude",
             "longitude": "Longitude",
+            "pinRequiredError": "Please pin your camp's location on the map",
             "campgroundType": "Campground Type",
             "amenitiesFeatures": "Amenities & Features",
             "mediaBranding": "Media & Branding",
@@ -515,7 +516,15 @@
             "subDistrictSearchPlaceholder": "Search sub-district...",
             "selectProvinceFirst": "Select a province first",
             "selectDistrictFirst": "Select a district first",
-            "noResults": "No location found."
+            "noResults": "No location found.",
+            "mapAriaLabel": "Map to pick your camp's location",
+            "mapEmptyHint": "Tap or click the map to drop a pin",
+            "mapCoordinatesLabel": "Pinned location: {lat}, {lon}",
+            "mapLocating": "Finding your location...",
+            "mapGeocodeError": "Couldn't find this location automatically. Please pick the province, district and sub-district yourself.",
+            "conflictPinFoundBody": "The pin doesn't match the selected province, district and sub-district. Update them to match the pin?",
+            "conflictSelectionMovedBody": "The selected province, district and sub-district point to a different spot than the current pin. Move the pin to match?",
+            "manualCoordinatesLabel": "Coordinates (filled in automatically by the map, editable)"
         },
         "filterModal": {
             "any": "Any",
@@ -1441,6 +1450,7 @@
             "directionsPlaceholder": "วิธีเดินทาง...",
             "latitude": "ละติจูด",
             "longitude": "ลองจิจูด",
+            "pinRequiredError": "กรุณาปักหมุดตำแหน่งแคมป์บนแผนที่",
             "campgroundType": "ประเภทแคมป์กราวด์",
             "amenitiesFeatures": "สิ่งอำนวยความสะดวกและคุณสมบัติ",
             "mediaBranding": "สื่อและแบรนด์",
@@ -1562,7 +1572,15 @@
             "subDistrictSearchPlaceholder": "ค้นหาตำบล...",
             "selectProvinceFirst": "กรุณาเลือกจังหวัดก่อน",
             "selectDistrictFirst": "กรุณาเลือกอำเภอก่อน",
-            "noResults": "ไม่พบสถานที่"
+            "noResults": "ไม่พบสถานที่",
+            "mapAriaLabel": "แผนที่สำหรับเลือกตำแหน่งแคมป์",
+            "mapEmptyHint": "แตะหรือคลิกบนแผนที่เพื่อปักหมุด",
+            "mapCoordinatesLabel": "ตำแหน่งที่ปักหมุด {lat}, {lon}",
+            "mapLocating": "กำลังค้นหาตำแหน่ง...",
+            "mapGeocodeError": "ไม่สามารถค้นหาตำแหน่งนี้โดยอัตโนมัติได้ กรุณาเลือกจังหวัด อำเภอ และตำบลด้วยตนเอง",
+            "conflictPinFoundBody": "ตำแหน่งหมุดไม่ตรงกับจังหวัด อำเภอ และตำบลที่เลือกไว้ ต้องการอัปเดตข้อมูลให้ตรงกับหมุดหรือไม่",
+            "conflictSelectionMovedBody": "จังหวัด อำเภอ และตำบลที่เลือกไว้ชี้ไปยังตำแหน่งอื่นจากหมุดปัจจุบัน ต้องการย้ายหมุดให้ตรงกันหรือไม่",
+            "manualCoordinatesLabel": "พิกัด (กรอกอัตโนมัติจากแผนที่ แก้ไขเองได้)"
         },
         "filterModal": {
             "any": "ทั้งหมด",
