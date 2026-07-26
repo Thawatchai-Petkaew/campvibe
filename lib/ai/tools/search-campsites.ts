@@ -461,7 +461,7 @@ export interface SearchCampsitesResult {
   cards: SearchCampsiteCard[];
 }
 
-/** CAM-404 — a province arg containing any Thai character triggers the ThailandLocation resolve below. */
+/** CAM-404 — a province arg containing any Thai character triggers the AdminArea resolve below (CAM-574: was ThailandLocation). */
 const THAI_CHAR_PATTERN = /[ก-๙]/;
 
 /**
@@ -485,7 +485,8 @@ const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
  * the model frequently emits the Thai province name it was given by the user
  * (e.g. "กาญจนบุรี"). `buildCampSiteWhere` does an exact match on `province`,
  * so an un-resolved Thai value matches zero rows forever even when camps
- * exist. Resolve via `ThailandLocation` (provinceName ↔ provinceNameEn);
+ * exist. CAM-574: resolve via `AdminArea` (`nameTh` ↔ `nameEn`, PROVINCE
+ * level — was `ThailandLocation.provinceName`/`provinceNameEn`, retired);
  * English input is returned unchanged (no DB round-trip). CAM-458 seeds all
  * 77 provinces (was ~12) and adds the Bangkok-alias normalization above — an
  * unmapped Thai word, or any lookup error, still falls back to the raw value
@@ -497,11 +498,11 @@ async function resolveProvinceForSearch(province: string): Promise<string> {
   const normalized = BANGKOK_ALIASES[province] ?? province;
 
   try {
-    const match = await prisma.thailandLocation.findFirst({
-      where: { provinceName: { contains: normalized } },
-      select: { provinceNameEn: true },
+    const match = await prisma.adminArea.findFirst({
+      where: { countryCode: 'TH', level: 'PROVINCE', nameTh: { contains: normalized } },
+      select: { nameEn: true },
     });
-    return match?.provinceNameEn ?? province;
+    return match?.nameEn ?? province;
   } catch {
     return province;
   }

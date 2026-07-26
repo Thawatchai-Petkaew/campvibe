@@ -17,15 +17,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockFindMany = vi.fn();
-const mockThailandLocationFindFirst = vi.fn();
+const mockAdminAreaFindFirst = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campSite: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
     },
-    thailandLocation: {
-      findFirst: (...args: unknown[]) => mockThailandLocationFindFirst(...args),
+    adminArea: {
+      findFirst: (...args: unknown[]) => mockAdminAreaFindFirst(...args),
     },
   },
 }));
@@ -45,7 +45,7 @@ describe('searchCampsites — region arg expands to the province set (CAM-463 AC
     await executeSearchCampsites(args);
 
     // resolveRegionForSearch is pure — no DB round-trip for the region step
-    expect(mockThailandLocationFindFirst).not.toHaveBeenCalled();
+    expect(mockAdminAreaFindFirst).not.toHaveBeenCalled();
 
     const queryCall = mockFindMany.mock.calls[0][0] as { where: { location?: { province?: unknown } } };
     expect(queryCall.where.location?.province).toEqual({ in: [...REGION_TO_PROVINCES.NORTH] });
@@ -71,7 +71,7 @@ describe('searchCampsites — colloquial region alias (CAM-463 AC-2)', () => {
 
 describe('searchCampsites — province-only path unchanged, no region expansion (CAM-463 AC-3 regression)', () => {
   it('[unit] province:"เชียงใหม่" (no region) still produces the CAM-404 single-province equality where', async () => {
-    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: 'Chiang Mai' });
+    mockAdminAreaFindFirst.mockResolvedValueOnce({ nameEn: 'Chiang Mai' });
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ province: 'เชียงใหม่' });
@@ -84,7 +84,7 @@ describe('searchCampsites — province-only path unchanged, no region expansion 
 
 describe('searchCampsites — province wins over region, never intersected (CAM-463 AC-4/BR-3)', () => {
   it('[unit] province + region BOTH present → the single province wins; region is dropped entirely', async () => {
-    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: 'Chiang Mai' });
+    mockAdminAreaFindFirst.mockResolvedValueOnce({ nameEn: 'Chiang Mai' });
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ province: 'เชียงใหม่', region: 'ภาคเหนือ' });
@@ -110,7 +110,7 @@ describe('searchCampsites — honest empty (CAM-463 AC-5/AC-6)', () => {
   });
 
   it('[unit][error] an unrecognized region word never throws and yields 0 rows via raw-passthrough equality', async () => {
-    mockThailandLocationFindFirst.mockResolvedValueOnce(null); // not reached (region path is pure), guard anyway
+    mockAdminAreaFindFirst.mockResolvedValueOnce(null); // not reached (region path is pure), guard anyway
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ region: 'ภาคสวรรค์' });

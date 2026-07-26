@@ -181,15 +181,17 @@ describe('CAM-503 resolvePlace — DEFECT: "เขาใหญ่" false-matches
 // ---------------------------------------------------------------------------
 
 const mockFindMany = vi.fn();
-const mockThailandLocationFindFirst = vi.fn();
+const mockAdminAreaFindFirst = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campSite: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
     },
-    thailandLocation: {
-      findFirst: (...args: unknown[]) => mockThailandLocationFindFirst(...args),
+    // CAM-574: `resolveProvinceForSearch` (the P2 province-centroid fallback
+    // path below) moved off `ThailandLocation` onto `AdminArea`.
+    adminArea: {
+      findFirst: (...args: unknown[]) => mockAdminAreaFindFirst(...args),
     },
   },
 }));
@@ -217,13 +219,13 @@ beforeEach(() => {
 });
 
 describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
-  it('[BR-3] near="เขาใหญ่" resolves via the gazetteer directly — NO ThailandLocation DB round-trip at all', async () => {
+  it('[BR-3] near="เขาใหญ่" resolves via the gazetteer directly — NO AdminArea DB round-trip at all', async () => {
     mockFindMany.mockResolvedValueOnce([]); // candidate query — zero candidates
 
     const args = searchCampsitesArgsSchema.parse({ near: 'เขาใหญ่' });
     const result = await executeSearchCampsites(args);
 
-    expect(mockThailandLocationFindFirst).not.toHaveBeenCalled();
+    expect(mockAdminAreaFindFirst).not.toHaveBeenCalled();
     expect(result).toEqual({ cards: [] });
 
     const candidateCall = mockFindMany.mock.calls[0][0] as {
@@ -307,7 +309,7 @@ describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
     const args = searchCampsitesArgsSchema.parse({ near: 'อำเภอปาย' });
     await executeSearchCampsites(args);
 
-    expect(mockThailandLocationFindFirst).not.toHaveBeenCalled();
+    expect(mockAdminAreaFindFirst).not.toHaveBeenCalled();
     const candidateCall = mockFindMany.mock.calls[0][0] as { where: { AND?: Array<{ latitude?: unknown }> } };
     expect((candidateCall.where.AND ?? []).some((c) => c.latitude !== undefined)).toBe(true);
   });
@@ -318,7 +320,7 @@ describe('executeSearchCampsites — near=landmark (CAM-503 BR-3)', () => {
     const args = searchCampsitesArgsSchema.parse({ near: 'Bangkok' });
     await executeSearchCampsites(args);
 
-    expect(mockThailandLocationFindFirst).not.toHaveBeenCalled(); // English input skips the Thai lookup, same as before this story
+    expect(mockAdminAreaFindFirst).not.toHaveBeenCalled(); // English input skips the Thai lookup, same as before this story
     const candidateCall = mockFindMany.mock.calls[0][0] as { where: { AND?: Array<{ latitude?: unknown }> } };
     expect((candidateCall.where.AND ?? []).some((c) => c.latitude !== undefined)).toBe(true);
   });

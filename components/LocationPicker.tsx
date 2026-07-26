@@ -47,15 +47,21 @@ const PIN_MOVE_THRESHOLD_DEGREES = 0.01;
  * the old flat single-search list. Each level is independently searchable
  * (Thai is the primary search path) and strictly narrows the next.
  *
- * Data sourcing (deliberately split across two tables — see tech.md):
- *  - Province + district keep reading the EXISTING `/api/locations/search`
- *    (ThailandLocation), completely untouched, so `Location.province`'s
- *    stored value/derivation never changes — `lib/campsite-filters.ts`'s
- *    exact-equality province filter, CAM-531's province dropdown, and
- *    CAM-545's Thai-name lookup all depend on that value staying byte-
- *    identical to what they already resolve today.
- *  - Sub-district reads the NEW `/api/admin-areas/subdistricts` (AdminArea)
- *    — the ONE level ThailandLocation cannot hold at all (no column).
+ * Data sourcing (all three levels read `AdminArea`; see tech.md):
+ *  - Province + district read `/api/locations/search`, which CAM-574
+ *    retired off `ThailandLocation` onto `AdminArea` directly (no more
+ *    id-bridge) — `Location.province`'s stored free-text value/derivation
+ *    is untouched by that move (`lib/campsite-filters.ts`'s exact-equality
+ *    province filter, CAM-531's province dropdown, and CAM-545's Thai-name
+ *    lookup all still depend on that stored string, not on this endpoint's
+ *    `id`).
+ *  - Sub-district reads `/api/admin-areas/subdistricts` (AdminArea) —
+ *    the ONE level `ThailandLocation` could never hold (no column).
+ *
+ * `adminAreaId` (the deepest AdminArea node actually picked — sub-district,
+ * else district, else province) is what this component sends to
+ * `CampgroundForm.tsx` → `POST /api/location`; CAM-574 retired the earlier
+ * `thaiLocationId` field this used to carry.
  *
  * Scale: every fetch is scoped (province: up to 20 rows: the existing
  * endpoint's own cap; district: scoped to the selected province; sub-
@@ -64,6 +70,15 @@ const PIN_MOVE_THRESHOLD_DEGREES = 0.01;
  * opens (lazy) and its query is debounced (300ms, matches the prior list).
  */
 
+/**
+ * The row shape `/api/locations/search` returns and the geocode-reverse
+ * `province`/`district` fields share (`thailandLocationRowSchema`). Name kept
+ * as-is post-CAM-574 (renaming would ripple into the geocode response type,
+ * out of this story's surface) — `id` is now an `AdminArea.id` when this row
+ * comes from `/api/locations/search`, but stays a `ThailandLocation.id` when
+ * it comes from geocode-reverse (untouched by this story); this component
+ * never reads `.id` off a geocode-reverse row (see `applyResolvedPin`).
+ */
 interface ThailandLocationRow {
     id: string;
     provinceCode: string;
@@ -87,8 +102,17 @@ export interface LocationPickerValue {
     province: string;
     district: string;
     subDistrict: string;
-    /** The deepest ThailandLocation-backed row's id (district if picked, else province, else ''). */
-    thaiLocationId: string;
+    /**
+     * CAM-574: the deepest `AdminArea` node actually resolved (sub-district,
+     * else district, else province, else '') — replaces the retired
+     * `thaiLocationId` (a `ThailandLocation.id`). For a cascading-select pick
+     * this is simply the picked row's `id` (already an `AdminArea.id` post-
+     * CAM-574 — see `/api/locations/search`); for a map pin-drop it is the
+     * geocode-reverse response's own top-level `adminAreaId` (NEVER the
+     * `province`/`district` sub-objects' `.id`, which stay `ThailandLocation`
+     * ids for that endpoint — see `applyResolvedPin` below).
+     */
+    adminAreaId: string;
     /**
      * CAM-554: present only when this change ALSO moves the pin (a map
      * click/drag, or an accepted reconciliation) - CampgroundForm merges
@@ -153,7 +177,7 @@ export function LocationPicker({ onChange, className, latitude, longitude, provi
     // A disagreement between the pin and the current selection, surfaced to the
     // host rather than silently overwritten either way (AC-2).
     const [conflict, setConflict] = useState<
-        | { kind: 'pin'; resolved: { province: ThailandLocationRow | null; district: ThailandLocationRow | null; subDistrict: SubDistrictRow | null } }
+        | { kind: 'pin'; resolved: { province: ThailandLocationRow | null; district: ThailandLocationRow | null; subDistrict: SubDistrictRow | null; adminAreaId: string | null } }
         | { kind: 'selects'; resolved: { lat: number; lon: number } }
         | null
     >(null);
@@ -201,12 +225,22 @@ export function LocationPicker({ onChange, className, latitude, longitude, provi
         (
             province: ThailandLocationRow | null,
             district: ThailandLocationRow | null,
-            subDistrict: SubDistrictRow | null
+            subDistrict: SubDistrictRow | null,
+            /**
+             * CAM-574: override for the pin-drop path — the geocode-reverse
+             * response's OWN `adminAreaId` (already a real `AdminArea.id`),
+             * never derived from `province`/`district`'s `.id` there (those
+             * stay `ThailandLocation` ids for that endpoint, untouched by
+             * this story). Omitted for a cascading-select pick, where
+             * `province`/`district`/`subDistrict`'s own `.id` IS already an
+             * `AdminArea.id` (post-CAM-574 `/api/locations/search`).
+             */
+            overrideAdminAreaId?: string | null
         ): LocationPickerValue => ({
             province: province ? (language === 'th' ? province.provinceName : province.provinceNameEn) : '',
             district: district ? (language === 'th' ? (district.districtName || '') : (district.districtNameEn || '')) : '',
             subDistrict: subDistrict ? (language === 'th' ? subDistrict.nameTh : subDistrict.nameEn) : '',
-            thaiLocationId: district?.id || province?.id || '',
+            adminAreaId: overrideAdminAreaId ?? (subDistrict?.id || district?.id || province?.id || ''),
         }),
         [language]
     );
@@ -308,14 +342,18 @@ export function LocationPicker({ onChange, className, latitude, longitude, provi
     // watches these same select states) does not immediately re-fire a
     // geocode call for the pin this resolution was JUST derived from.
     const applyResolvedPin = useCallback(
-        (resolved: { province: ThailandLocationRow | null; district: ThailandLocationRow | null; subDistrict: SubDistrictRow | null }) => {
+        (resolved: { province: ThailandLocationRow | null; district: ThailandLocationRow | null; subDistrict: SubDistrictRow | null; adminAreaId: string | null }) => {
             suppressForwardRef.current = true;
             setSelectedProvince(resolved.province);
             setSelectedDistrict(resolved.district);
             setSelectedSubDistrict(resolved.subDistrict);
             setDistrictQuery('');
             setSubDistrictQuery('');
-            onChange(deriveValue(resolved.province, resolved.district, resolved.subDistrict));
+            // CAM-574: pass the geocode response's OWN `adminAreaId` through as the
+            // override — `resolved.province`/`district` here still carry
+            // ThailandLocation ids (that response shape is untouched by this
+            // story), so deriving from THEIR `.id` would send the wrong id space.
+            onChange(deriveValue(resolved.province, resolved.district, resolved.subDistrict, resolved.adminAreaId));
         },
         [onChange, deriveValue]
     );

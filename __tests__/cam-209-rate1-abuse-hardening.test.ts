@@ -82,9 +82,8 @@ vi.mock('@/lib/auth', () => ({
 // requireAuth (auth-utils) delegates to auth(); mock prisma separately for routes that use it
 const mockPrismaLocationCreate        = vi.fn();
 const mockPrismaCountryFindUnique     = vi.fn();
-const mockPrismaThailandLocationFind  = vi.fn();
 const mockPrismaAdminAreaFindUnique   = vi.fn();
-const mockPrismaThailandLocationFindMany = vi.fn();
+const mockPrismaAdminAreaFindMany     = vi.fn();
 const mockPrismaCampSiteFindMany      = vi.fn();
 const mockPrismaCampSiteFindUnique    = vi.fn();
 const mockPrismaBookingCreate         = vi.fn();
@@ -102,12 +101,9 @@ vi.mock('@/lib/prisma', () => ({
     country: {
       findUnique: (...args: unknown[]) => mockPrismaCountryFindUnique(...args),
     },
-    thailandLocation: {
-      findUnique: (...args: unknown[]) => mockPrismaThailandLocationFind(...args),
-      findMany:   (...args: unknown[]) => mockPrismaThailandLocationFindMany(...args),
-    },
     adminArea: {
       findUnique: (...args: unknown[]) => mockPrismaAdminAreaFindUnique(...args),
+      findMany:   (...args: unknown[]) => mockPrismaAdminAreaFindMany(...args),
     },
     campSite: {
       findMany:   (...args: unknown[]) => mockPrismaCampSiteFindMany(...args),
@@ -451,11 +447,13 @@ describe('RISK-6 — POST /api/location — requireAuth gate', () => {
   it('[normal] authenticated request passes the auth gate (proceeds to DB)', async () => {
     mockAuth.mockResolvedValueOnce(makeSession());
     mockPrismaCountryFindUnique.mockResolvedValueOnce({ code: 'TH' });
-    mockPrismaThailandLocationFind.mockResolvedValueOnce(null);
+    // No adminAreaId in the request body (see makeLocationRequest) → the
+    // AdminArea lookup branch (CAM-574) is never reached.
     mockPrismaLocationCreate.mockResolvedValueOnce({ id: 'loc-1', country: 'Thailand' });
     const res = await locationPOST(makeLocationRequest());
     // Passes auth; DB returns a location object → 201
     expect(res.status).toBe(201);
+    expect(mockPrismaAdminAreaFindUnique).not.toHaveBeenCalled();
   });
 
   it('[null/empty] request with no session object returns 401 (null session)', async () => {
@@ -470,17 +468,16 @@ describe('RISK-6 — POST /api/location — requireAuth gate', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('RISK-9 — GET /api/locations/search — 500 does not leak error.message', () => {
+  // CAM-574: the endpoint's ThailandLocation dependency is retired (search
+  // now runs against AdminArea, no bridge) — this suite forces the error via
+  // the real `type=province` path instead of the removed no-type combined
+  // branch. Same guard, same protection, no ThailandLocation involved.
   function makeSearchRequest(q = 'test') {
-    return new NextRequest(`http://localhost/api/locations/search?q=${q}`);
+    return new NextRequest(`http://localhost/api/locations/search?type=province&q=${q}`);
   }
 
   it('[error] catch path returns 500 with only { error: "Failed to fetch locations" } (no detail key)', async () => {
-    // Force the catch path: make the prisma model check throw
-    const { prisma } = await import('@/lib/prisma');
-    // Override thailandLocation to throw so we hit the catch branch
-    const originalThailandLocation = (prisma as any).thailandLocation;
-    // Temporarily make findMany throw to exercise the catch path
-    mockPrismaThailandLocationFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
+    mockPrismaAdminAreaFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
 
     const req = makeSearchRequest();
     const res = await locationSearchGET(req);
@@ -497,7 +494,7 @@ describe('RISK-9 — GET /api/locations/search — 500 does not leak error.messa
 
   it('[Prove-It] body does NOT contain the internal DB error string (leak is closed)', async () => {
     // This test FAILS if a `detail: error.message` were added back to the 500 response body.
-    mockPrismaThailandLocationFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
+    mockPrismaAdminAreaFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
     const req = makeSearchRequest();
     const res = await locationSearchGET(req);
     const bodyText = await res.text();
@@ -507,14 +504,22 @@ describe('RISK-9 — GET /api/locations/search — 500 does not leak error.messa
   });
 
   it('[normal] successful query returns JSON array (no leak)', async () => {
-    mockPrismaThailandLocationFindMany.mockResolvedValueOnce([
-      { id: '1', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai' },
+    mockPrismaAdminAreaFindMany.mockResolvedValueOnce([
+      { id: 'aa-1', code: '50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' },
     ]);
     const req = makeSearchRequest('เชียง');
     const res = await locationSearchGET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
+  });
+
+  it('[null/empty] no `type` param returns an empty array — never the removed ThailandLocation combined branch', async () => {
+    const req = new NextRequest('http://localhost/api/locations/search?q=test');
+    const res = await locationSearchGET(req);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+    expect(mockPrismaAdminAreaFindMany).not.toHaveBeenCalled();
   });
 });
 
