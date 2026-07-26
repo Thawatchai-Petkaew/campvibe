@@ -12,7 +12,7 @@
 
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { campCardSelect, type CampCardPayload } from '@/lib/read-models/camp-card';
+import { campCardSelect, adminAreaChainSelect, type CampCardPayload } from '@/lib/read-models/camp-card';
 
 // ─── Tag constants ─────────────────────────────────────────────────────────────
 // Single source so callers never type raw strings.
@@ -76,6 +76,16 @@ const LISTING_REVALIDATE_S = 60;  // 60 s — default catalog listing: shorter T
  *   revalidateTag(campTag(id))        — by database id (kept for the catalog-tag path;
  *                                        does not bust this cache entry, since the id is
  *                                        not knowable before the slug is resolved)
+ *
+ * CAM-576: `location` now also carries the resolved AdminArea chain
+ * (`adminAreaChainSelect`, the same 3-level select other card readers already
+ * use — see lib/read-models/camp-card.ts). This is the one-line addition
+ * CAM-573's tech.md flagged as its "Known gap": the
+ * detail page's `withProvinceThaiNames([campSite], provinceThaiNameMap)`
+ * call (app/campgrounds/[slug]/page.tsx, unedited) picks this up
+ * transparently and `buildLocationText` renders district/sub-district in
+ * the active language instead of falling back to the raw free-text
+ * `district` column.
  */
 export async function getCampBySlug(slug: string) {
   const cached = unstable_cache(
@@ -85,7 +95,11 @@ export async function getCampBySlug(slug: string) {
           OR: [{ nameThSlug: slug }, { nameEnSlug: slug }],
         },
         include: {
-          location: true,
+          location: {
+            include: {
+              adminArea: { select: adminAreaChainSelect },
+            },
+          },
           operator: { select: { id: true, name: true, image: true, createdAt: true } },
           // CAM-353 BR-2: extend from `spots: true` to carry live spots' own photos.
           // Full `include: { images }` (NOT an enumerating `select`) so `Image.kind`
