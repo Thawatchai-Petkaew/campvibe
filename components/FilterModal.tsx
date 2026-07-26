@@ -83,6 +83,96 @@ interface FilterSection {
   options: FilterOption[];
 }
 
+/**
+ * CAM-524 — the ONE builder both the debounced match-count effect and the
+ * apply handler (handleShowCampgrounds) call, so "Show N Campgrounds" is
+ * guaranteed BY CONSTRUCTION (not by two hand-synced code paths) to equal
+ * the query the button actually applies.
+ *
+ * Starts from the CURRENT URL (`currentParams` = useSearchParams()),
+ * preserving every param this modal does not own (keyword/province/
+ * district/startDate/endDate/guests/sort — previously dropped by the count
+ * path only, the live bug this story fixes), then layers the camper's
+ * pending taxonomy/type/price selections on top exactly as the apply path
+ * always did. Returns BOTH the next URLSearchParams (what the apply handler
+ * pushes to the router) and the equivalent CampSiteFilterParams (what the
+ * count effect sends to getCampSiteCount) — read back from that SAME params
+ * object, so the two can never diverge.
+ */
+export function buildPendingQuery(
+  currentParams: URLSearchParams,
+  selectedFilters: Record<string, string[]>,
+  priceRange: { min: string; max: string }
+): { nextParams: URLSearchParams; filters: CampSiteFilterParams } {
+  const params = new URLSearchParams(currentParams.toString());
+
+  // Helper to set/delete array params.
+  const setArrayParam = (paramName: string, sectionKey: string) => {
+    const values = selectedFilters[sectionKey];
+    if (values && values.length > 0) {
+      params.set(paramName, values.join(','));
+    } else {
+      params.delete(paramName);
+    }
+  };
+
+  const type = selectedFilters['Campground type'];
+  if (type && type.length > 0) params.set('type', type[0]);
+
+  // Taxonomy groups (CSV) — Internal/External facility + Equipment for rent
+  // are excluded here; they merge into 'facilities' below instead.
+  for (const g of FILTERABLE_GROUPS) {
+    if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
+    setArrayParam(g.urlParam, g.group);
+  }
+
+  // Facilities (Internal, External, Equipment) -> All to 'facilities'.
+  const allFacilities = FACILITY_SECTION_GROUP_NAMES.flatMap((name) => selectedFilters[name] || []);
+  if (allFacilities.length > 0) {
+    params.set('facilities', allFacilities.join(','));
+  } else {
+    params.delete('facilities');
+  }
+
+  // Price
+  if (priceRange.min) params.set('min', priceRange.min);
+  else params.delete('min');
+
+  if (priceRange.max) params.set('max', priceRange.max);
+  else params.delete('max');
+
+  // The count filters are read back from the SAME `params` object above —
+  // the fix. Every param the modal does not own (keyword/province/district/
+  // startDate/endDate/guests) survives the clone and lands here identically
+  // to what the apply handler is about to push, so count and apply can never
+  // compute a different query.
+  const filters: CampSiteFilterParams = {};
+  const keyword = params.get('keyword');
+  if (keyword) filters.keyword = keyword;
+  const province = params.get('province');
+  if (province) filters.province = province;
+  const district = params.get('district');
+  if (district) filters.district = district;
+  const startDate = params.get('startDate');
+  if (startDate) filters.startDate = startDate;
+  const endDate = params.get('endDate');
+  if (endDate) filters.endDate = endDate;
+  const guests = params.get('guests');
+  if (guests) filters.guests = guests;
+  const min = params.get('min');
+  if (min) filters.min = min;
+  const max = params.get('max');
+  if (max) filters.max = max;
+  const nextType = params.get('type');
+  if (nextType) filters.type = nextType;
+  for (const g of FILTERABLE_GROUPS) {
+    const val = params.get(g.urlParam);
+    if (val) filters[g.zodField] = val;
+  }
+
+  return { nextParams: params, filters };
+}
+
 export function FilterModal() {
     const { t, language } = useLanguage();
     const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
@@ -92,36 +182,22 @@ export function FilterModal() {
     const [matchCount, setMatchCount] = useState<number | null>(null);
     const [isCountLoading, setIsCountLoading] = useState(false);
 
+    // CAM-524 — declared before the debounced count effect below (it reads
+    // searchParams via buildPendingQuery).
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
     // Debounced count update
     useEffect(() => {
         if (!isOpen) return;
         setIsCountLoading(true);
         const timer = setTimeout(async () => {
-            // Construct filters object similar to handleShowCampgrounds.
-            // CAM-523: typed via CampSiteFilterParams (was `any`) + the CSV
-            // taxonomy groups below are derived from FILTERABLE_GROUPS
-            // instead of one hand-written `if` per group.
-            const filters: CampSiteFilterParams = {};
-
-            // Type
-            const selectedType = selectedFilters['Campground type'];
-            if (selectedType && selectedType.length > 0) filters.type = selectedType[0];
-
-            // Taxonomy groups (CSV) — Internal/External facility + Equipment
-            // for rent are excluded here and merged into `facilities` below.
-            for (const g of FILTERABLE_GROUPS) {
-                if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
-                const codes = selectedFilters[g.group];
-                if (codes && codes.length > 0) filters[g.zodField] = codes.join(',');
-            }
-
-            // Facilities (Internal, External, Equipment) -> all fold into 'facilities'
-            const allFacilities = FACILITY_SECTION_GROUP_NAMES.flatMap((name) => selectedFilters[name] || []);
-            if (allFacilities.length > 0) filters.facilities = allFacilities.join(',');
-
-            // Price
-            if (priceRange.min) filters.min = priceRange.min;
-            if (priceRange.max) filters.max = priceRange.max;
+            // CAM-524 — built from the SAME shared query as the apply handler
+            // (buildPendingQuery), so "Show N Campgrounds" can never diverge
+            // from the query the button actually applies (the live bug: this
+            // used to build a narrower, standalone object here that dropped
+            // keyword/province/district/startDate/endDate/guests).
+            const { filters } = buildPendingQuery(searchParams, selectedFilters, priceRange);
 
             const count = await getCampSiteCount(filters);
             setMatchCount(count);
@@ -129,7 +205,7 @@ export function FilterModal() {
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [selectedFilters, priceRange, isOpen]);
+    }, [selectedFilters, priceRange, isOpen, searchParams]);
 
     useEffect(() => {
         getFilterOptions().then((rawGrouped) => {
@@ -180,9 +256,6 @@ export function FilterModal() {
         setPriceRange({ min: "", max: "" });
     };
 
-    const router = useRouter();
-    const searchParams = useSearchParams();
-
     // CAM-496 — Initialize selectedFilters/priceRange from the CURRENT URL on
     // every modal open (and if the URL changes while open), so reopening the
     // modal shows the active selections instead of starting empty. Mirrors
@@ -229,44 +302,11 @@ export function FilterModal() {
 
     const handleShowCampgrounds = () => {
         setIsOpen(false);
-        const params = new URLSearchParams(searchParams.toString());
-
-        // Helper to set/delete array params
-        const setArrayParam = (paramName: string, sectionKey: string) => {
-            const values = selectedFilters[sectionKey];
-            if (values && values.length > 0) {
-                params.set(paramName, values.join(','));
-            } else {
-                params.delete(paramName);
-            }
-        };
-
-        const type = selectedFilters['Campground type'];
-        if (type && type.length > 0) params.set('type', type[0]);
-
-        // Taxonomy groups (CSV) — Internal/External facility + Equipment for
-        // rent are excluded here; they merge into 'facilities' below instead.
-        for (const g of FILTERABLE_GROUPS) {
-            if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
-            setArrayParam(g.urlParam, g.group);
-        }
-
-        // Facilities (Internal, External, Equipment) -> All to 'facilities'
-        const allFacilities = FACILITY_SECTION_GROUP_NAMES.flatMap((name) => selectedFilters[name] || []);
-        if (allFacilities.length > 0) {
-            params.set('facilities', allFacilities.join(','));
-        } else {
-            params.delete('facilities');
-        }
-
-        // Price
-        if (priceRange.min) params.set('min', priceRange.min);
-        else params.delete('min');
-
-        if (priceRange.max) params.set('max', priceRange.max);
-        else params.delete('max');
-
-        router.push(`/?${params.toString()}`);
+        // CAM-524 — the SAME shared builder the match-count effect uses, so
+        // the URL this pushes is guaranteed to be the exact query that
+        // produced the "Show N Campgrounds" number the camper just saw.
+        const { nextParams } = buildPendingQuery(searchParams, selectedFilters, priceRange);
+        router.push(`/?${nextParams.toString()}`);
     };
 
     const renderSectionContent = (section: FilterSection) => {
@@ -476,7 +516,7 @@ export function FilterModal() {
                     <Button
                         onClick={handleShowCampgrounds}
                         size="lg"
-                        disabled={isCountLoading || matchCount === 0}
+                        disabled={isCountLoading}
                         className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isCountLoading
