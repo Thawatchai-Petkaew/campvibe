@@ -18,6 +18,14 @@ import { cn } from "@/lib/utils";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
+import type { CampSiteFilterParams } from "@/lib/campsite-filters";
+import {
+  TAXONOMY_GROUPS,
+  FILTERABLE_GROUPS,
+  FACILITY_SECTION_GROUP_NAMES,
+  FILTERABLE_URL_PARAMS,
+} from "@/lib/taxonomy-registry";
+import type { MasterData } from "@prisma/client";
 // DB-driven icon resolver — named imports only for the 44 icons that MasterData.icon
 // can ever hold (sourced from prisma/seed.ts). HelpCircle is the fallback for any
 // future DB icon not yet in the map. This replaces the previous wildcard import that
@@ -41,25 +49,46 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UtensilsCrossed, Waves, Wheat, Wifi, Wine, Zap, HelpCircle,
 };
 
-// CAM-496 — section ids that share the single `facilities` URL param (see
+// CAM-523 (S7) — the group<->URL-param<->zod-field map used below (the
+// facility fold set, the taxonomy iteration order, the arrayParams count
+// list) now comes from lib/taxonomy-registry.ts's single TAXONOMY_GROUPS
+// source instead of being hand-copied per effect. See that file's header
+// for the "adding a new group" checklist.
+//
+// CAM-496 — FACILITY_SECTION_GROUP_NAMES (registry-derived) names the
+// section ids that share the single `facilities` URL param (see
 // handleShowCampgrounds below, which merges all three into one CSV on
-// write). Module-level constant (not per-render) since the hydration effect
-// below reads it without needing it in its dependency array.
-const FACILITY_SECTION_IDS = ['Internal facility', 'External facility', 'Equipment for rent'];
+// write).
 
 // CAM-521 (S8, BR-4) — the final taxonomy slice's 3 groups are deliberately
 // HOST-INPUT + CAMPER-DETAIL-DISPLAY ONLY, never a filter/search dimension
 // (metadata, not a search demand — see the story's "Why"). Excluded here so
 // getFilterOptions()'s full MasterData group list never renders them as an
 // inert FilterModal section (no chips, no query param, no catalog wiring).
+// NOTE (CAM-523): kept as a hand-written literal (not imported from the
+// registry's NON_FILTERABLE_GROUP_NAMES) because __tests__/cam-521-metadata-
+// groups.test.ts source-inspects this exact literal array; guarded in sync
+// with the registry by __tests__/cam-523-taxonomy-registry.test.ts.
 const NON_FILTERABLE_GROUPS = ['Stay connected', 'Marking method', 'Driveway'];
+
+interface FilterOption {
+  id: string;
+  icon: LucideIcon | null;
+  label: string;
+}
+
+interface FilterSection {
+  id: string;
+  title: string;
+  options: FilterOption[];
+}
 
 export function FilterModal() {
     const { t, language } = useLanguage();
     const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
     const [priceRange, setPriceRange] = useState<{ min: string, max: string }>({ min: "", max: "" });
     const [isOpen, setIsOpen] = useState(false);
-    const [filterSections, setFilterSections] = useState<any[]>([]);
+    const [filterSections, setFilterSections] = useState<FilterSection[]>([]);
     const [matchCount, setMatchCount] = useState<number | null>(null);
     const [isCountLoading, setIsCountLoading] = useState(false);
 
@@ -68,27 +97,26 @@ export function FilterModal() {
         if (!isOpen) return;
         setIsCountLoading(true);
         const timer = setTimeout(async () => {
-            // Construct filters object similar to handleShowCampgrounds
-            const filters: any = {};
+            // Construct filters object similar to handleShowCampgrounds.
+            // CAM-523: typed via CampSiteFilterParams (was `any`) + the CSV
+            // taxonomy groups below are derived from FILTERABLE_GROUPS
+            // instead of one hand-written `if` per group.
+            const filters: CampSiteFilterParams = {};
 
             // Type
-            if (selectedFilters['Campground type']?.length > 0) filters.type = selectedFilters['Campground type'][0];
+            const selectedType = selectedFilters['Campground type'];
+            if (selectedType && selectedType.length > 0) filters.type = selectedType[0];
 
-            // Arrays
-            if (selectedFilters['Terrain']?.length > 0) filters.terrain = selectedFilters['Terrain'].join(',');
-            if (selectedFilters['Activity']?.length > 0) filters.activities = selectedFilters['Activity'].join(',');
-            if (selectedFilters['Access type']?.length > 0) filters.access = selectedFilters['Access type'].join(',');
-            // CAM-515 (S3) — the FIRST new MasterData group.
-            if (selectedFilters['Annotated features']?.length > 0) filters.annotatedFeatures = selectedFilters['Annotated features'].join(',');
-            // CAM-516 (S4) — the SECOND new MasterData group.
-            if (selectedFilters['Camper style']?.length > 0) filters.camperStyle = selectedFilters['Camper style'].join(',');
+            // Taxonomy groups (CSV) — Internal/External facility + Equipment
+            // for rent are excluded here and merged into `facilities` below.
+            for (const g of FILTERABLE_GROUPS) {
+                if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
+                const codes = selectedFilters[g.group];
+                if (codes && codes.length > 0) filters[g.zodField] = codes.join(',');
+            }
 
-            // Facilities
-            const allFacilities = [
-                ...(selectedFilters['Internal facility'] || []),
-                ...(selectedFilters['External facility'] || []),
-                ...(selectedFilters['Equipment for rent'] || [])
-            ];
+            // Facilities (Internal, External, Equipment) -> all fold into 'facilities'
+            const allFacilities = FACILITY_SECTION_GROUP_NAMES.flatMap((name) => selectedFilters[name] || []);
             if (allFacilities.length > 0) filters.facilities = allFacilities.join(',');
 
             // Price
@@ -104,31 +132,27 @@ export function FilterModal() {
     }, [selectedFilters, priceRange, isOpen]);
 
     useEffect(() => {
-        getFilterOptions().then(grouped => {
-            const sections = Object.entries(grouped || {})
+        getFilterOptions().then((rawGrouped) => {
+            // getFilterOptions() returns Record<string, MasterData[]> (or {}
+            // on a caught DB error) — narrowed here at the boundary (CAM-523:
+            // was `[string, any[]]`) instead of an `any`-typed loop below.
+            const grouped = rawGrouped as Record<string, MasterData[]>;
+            const sections: FilterSection[] = Object.entries(grouped)
                 .filter(([groupName]) => !NON_FILTERABLE_GROUPS.includes(groupName))
-                .map(([groupName, options]: [string, any[]]) => ({
+                .map(([groupName, options]) => ({
                     id: groupName,
                     title: groupName,
-                    options: options.map(opt => ({
+                    options: options.map((opt) => ({
                         id: opt.code,
                         icon: getIconComponent(opt.icon),
-                        label: language === 'th' ? opt.nameTh : opt.nameEn
-                    }))
+                        label: language === 'th' ? opt.nameTh : opt.nameEn,
+                    })),
                 }));
 
-            // Custom sort order for sections
-            const sortOrder = [
-                'Campground type',
-                'Terrain',
-                'Activity',
-                'Access type',
-                'Internal facility',
-                'External facility',
-                'Equipment for rent',
-                'Annotated features',
-                'Camper style'
-            ];
+            // Custom sort order for sections — 'Campground type' is special-
+            // cased first (not in the registry, see taxonomy-registry.ts's
+            // header), then the registry's own display-order declaration.
+            const sortOrder = ['Campground type', ...TAXONOMY_GROUPS.map((g) => g.group)];
 
             sections.sort((a, b) => {
                 const indexA = sortOrder.indexOf(a.id);
@@ -176,30 +200,22 @@ export function FilterModal() {
             newFilters['Campground type'] = [type];
         }
 
-        const terrain = searchParams.get('terrain');
-        if (terrain) newFilters['Terrain'] = terrain.split(',').filter(Boolean);
-
-        const activities = searchParams.get('activities');
-        if (activities) newFilters['Activity'] = activities.split(',').filter(Boolean);
-
-        const access = searchParams.get('access');
-        if (access) newFilters['Access type'] = access.split(',').filter(Boolean);
-
-        // CAM-515 (S3) — the FIRST new MasterData group.
-        const annotatedFeatures = searchParams.get('annotatedFeatures');
-        if (annotatedFeatures) newFilters['Annotated features'] = annotatedFeatures.split(',').filter(Boolean);
-
-        // CAM-516 (S4) — the SECOND new MasterData group.
-        const camperStyle = searchParams.get('camperStyle');
-        if (camperStyle) newFilters['Camper style'] = camperStyle.split(',').filter(Boolean);
+        // Taxonomy groups (CSV) — Internal/External facility + Equipment for
+        // rent are excluded here; their shared `facilities` param is
+        // distributed to its owning section below instead.
+        for (const g of FILTERABLE_GROUPS) {
+            if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
+            const val = searchParams.get(g.urlParam);
+            if (val) newFilters[g.group] = val.split(',').filter(Boolean);
+        }
 
         const facilities = searchParams.get('facilities');
         if (facilities) {
-            facilities.split(',').filter(Boolean).forEach(code => {
+            facilities.split(',').filter(Boolean).forEach((code) => {
                 const owningSection = filterSections.find(
-                    (s) => FACILITY_SECTION_IDS.includes(s.id) && s.options.some((o: any) => o.id === code)
+                    (s) => FACILITY_SECTION_GROUP_NAMES.includes(s.id) && s.options.some((o) => o.id === code)
                 );
-                const sectionId = owningSection?.id ?? FACILITY_SECTION_IDS[0];
+                const sectionId = owningSection?.id ?? FACILITY_SECTION_GROUP_NAMES[0];
                 newFilters[sectionId] = [...(newFilters[sectionId] || []), code];
             });
         }
@@ -228,20 +244,15 @@ export function FilterModal() {
         const type = selectedFilters['Campground type'];
         if (type && type.length > 0) params.set('type', type[0]);
 
-        setArrayParam('terrain', 'Terrain');
-        setArrayParam('activities', 'Activity');
-        setArrayParam('access', 'Access type');
-        // CAM-515 (S3) — the FIRST new MasterData group, its own dedicated param.
-        setArrayParam('annotatedFeatures', 'Annotated features');
-        // CAM-516 (S4) — the SECOND new MasterData group, its own dedicated param.
-        setArrayParam('camperStyle', 'Camper style');
+        // Taxonomy groups (CSV) — Internal/External facility + Equipment for
+        // rent are excluded here; they merge into 'facilities' below instead.
+        for (const g of FILTERABLE_GROUPS) {
+            if (FACILITY_SECTION_GROUP_NAMES.includes(g.group)) continue;
+            setArrayParam(g.urlParam, g.group);
+        }
 
         // Facilities (Internal, External, Equipment) -> All to 'facilities'
-        const allFacilities = [
-            ...(selectedFilters['Internal facility'] || []),
-            ...(selectedFilters['External facility'] || []),
-            ...(selectedFilters['Equipment for rent'] || [])
-        ];
+        const allFacilities = FACILITY_SECTION_GROUP_NAMES.flatMap((name) => selectedFilters[name] || []);
         if (allFacilities.length > 0) {
             params.set('facilities', allFacilities.join(','));
         } else {
@@ -258,19 +269,19 @@ export function FilterModal() {
         router.push(`/?${params.toString()}`);
     };
 
-    const renderSectionContent = (section: any) => {
+    const renderSectionContent = (section: FilterSection) => {
         // 1. Large Visual Cards for 'Campground type' and 'Terrain'
         if (['Campground type', 'Terrain'].includes(section.id)) {
             return (
                 <div className="grid grid-cols-2 gap-4">
-                    {section.options.map((opt: any) => (
+                    {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
                             variant="card"
                             selected={!!selectedFilters[section.id]?.includes(opt.id)}
                             onToggle={() => toggleFilter(section.id, opt.id)}
                             label={opt.label}
-                            icon={opt.icon}
+                            icon={opt.icon ?? undefined}
                             data-testid={`filter-chip--card-${opt.id}`}
                         />
                     ))}
@@ -282,14 +293,14 @@ export function FilterModal() {
         if (section.id === 'Activity') {
             return (
                 <div className="flex flex-wrap gap-3">
-                    {section.options.map((opt: any) => (
+                    {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
                             variant="pill"
                             selected={!!selectedFilters[section.id]?.includes(opt.id)}
                             onToggle={() => toggleFilter(section.id, opt.id)}
                             label={opt.label}
-                            icon={opt.icon}
+                            icon={opt.icon ?? undefined}
                             data-testid={`filter-chip--pill-${opt.id}`}
                         />
                     ))}
@@ -301,14 +312,14 @@ export function FilterModal() {
         if (section.id === 'Access type') {
             return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {section.options.map((opt: any) => (
+                    {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
                             variant="icon-card"
                             selected={!!selectedFilters[section.id]?.includes(opt.id)}
                             onToggle={() => toggleFilter(section.id, opt.id)}
                             label={opt.label}
-                            icon={opt.icon}
+                            icon={opt.icon ?? undefined}
                             aria-label={opt.label}
                             data-testid={`filter-chip--icon-card-${opt.id}`}
                         />
@@ -320,7 +331,7 @@ export function FilterModal() {
         // 4. Default Checkbox Grid for everything else (Facilities, etc.)
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
-                {section.options.map((opt: any) => {
+                {section.options.map((opt: FilterOption) => {
                     const isSelected = selectedFilters[section.id]?.includes(opt.id);
                     return (
                         <div key={opt.id} className="flex items-center space-x-3 group cursor-pointer" onClick={() => toggleFilter(section.id, opt.id)}>
@@ -357,8 +368,11 @@ export function FilterModal() {
         // 2. Price (Range counts as 1)
         if (params.get('min') || params.get('max')) count += 1;
 
-        // 3. Arrays
-        const arrayParams = ['activities', 'terrain', 'access', 'facilities', 'external', 'equipment', 'annotatedFeatures', 'camperStyle'];
+        // 3. Arrays — every filterable group's own URL param (registry-
+        // derived; CAM-523 kept 'external'/'equipment' reachable here since
+        // the catalog pass-through now honors them end-to-end, see
+        // CatalogResults/InfiniteScrollGrid/page.tsx).
+        const arrayParams = FILTERABLE_URL_PARAMS;
         arrayParams.forEach(key => {
             const val = params.get(key);
             if (val) {

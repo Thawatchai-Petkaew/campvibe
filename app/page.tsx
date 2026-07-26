@@ -30,6 +30,9 @@ interface HomeSearchParams {
   max?: string;
   access?: string;
   facilities?: string;
+  /** CAM-523 (S7) — independent registry-derived params, wired end-to-end alongside `facilities`. */
+  external?: string;
+  equipment?: string;
   activities?: string;
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
@@ -60,6 +63,8 @@ export default async function Home({ searchParams }: HomeProps) {
     max,
     access,
     facilities,
+    external,
+    equipment,
     activities,
     terrain,
     annotatedFeatures,
@@ -82,6 +87,8 @@ export default async function Home({ searchParams }: HomeProps) {
     max ?? "",
     access ?? "",
     facilities ?? "",
+    external ?? "",
+    equipment ?? "",
     activities ?? "",
     terrain ?? "",
     annotatedFeatures ?? "",
@@ -127,6 +134,8 @@ export default async function Home({ searchParams }: HomeProps) {
             max={max}
             access={access}
             facilities={facilities}
+            external={external}
+            equipment={equipment}
             activities={activities}
             terrain={terrain}
             annotatedFeatures={annotatedFeatures}

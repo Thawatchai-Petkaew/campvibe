@@ -40,6 +40,18 @@ interface CatalogResultsProps {
   max?: string;
   access?: string;
   facilities?: string;
+  /**
+   * CAM-523 (S7) — external/equipment are independent registry-derived
+   * params (External facility / Equipment for rent), already accepted by
+   * catalogQuerySchema + buildCampSiteWhere; this component previously
+   * omitted them from its props, so the /api/campsites cursor route
+   * honoured them (via InfiniteScrollGrid) but the SSR/first-page path
+   * silently dropped them. Fixed here (fold-side FilterModal writes still
+   * merge these into `facilities`; a direct `?external=`/`?equipment=` link
+   * now also works end-to-end).
+   */
+  external?: string;
+  equipment?: string;
   activities?: string;
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
@@ -67,6 +79,8 @@ export default async function CatalogResults({
   max,
   access,
   facilities,
+  external,
+  equipment,
   activities,
   terrain,
   annotatedFeatures,
@@ -76,9 +90,13 @@ export default async function CatalogResults({
 }: CatalogResultsProps) {
   // Determine whether any search/filter/non-default-sort param is active.
   // Mirrors the logic that was in page.tsx verbatim.
+  // CAM-523: external/equipment added — previously omitted here meant a
+  // request with ONLY ?external=/?equipment= silently fell through to the
+  // cached default catalog (which ignores every filter) instead of the live
+  // buildCampSiteWhere path.
   const isSearchActive = !!(
     keyword || province || district || startDate || endDate || guests ||
-    (type && type !== "ALL") || min || max || access || facilities || activities || terrain || annotatedFeatures || camperStyle
+    (type && type !== "ALL") || min || max || access || facilities || external || equipment || activities || terrain || annotatedFeatures || camperStyle
   );
   const isDefaultSort = !sort || sort === "related";
   const useCache = !isSearchActive && isDefaultSort;
@@ -107,6 +125,8 @@ export default async function CatalogResults({
       max,
       access,
       facilities,
+      external,
+      equipment,
       activities,
       terrain,
       annotatedFeatures,
@@ -223,7 +243,7 @@ export default async function CatalogResults({
 
   return (
     <InfiniteScrollGrid
-      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}|${camperStyle ?? ""}`}
+      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${external ?? ""}|${equipment ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}|${camperStyle ?? ""}`}
       initialItems={serialisedCamps}
       initialCursor={initialCursor}
       sort={activeSortForCursor}
@@ -239,6 +259,8 @@ export default async function CatalogResults({
         max: max ?? undefined,
         access: access ?? undefined,
         facilities: facilities ?? undefined,
+        external: external ?? undefined,
+        equipment: equipment ?? undefined,
         activities: activities ?? undefined,
         terrain: terrain ?? undefined,
         annotatedFeatures: annotatedFeatures ?? undefined,
