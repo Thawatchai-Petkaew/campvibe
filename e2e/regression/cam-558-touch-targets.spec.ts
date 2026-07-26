@@ -27,6 +27,21 @@
  */
 import { test, expect } from "@playwright/test";
 import { findCampBySlug } from "./helpers";
+// CAM-570: the 4 accessible names this spec locates by now live in
+// locales/translations.json (were hardcoded English literals). This spec
+// runs under the `regression` project, whose storageState was captured by
+// `global.setup.ts` with `campvibe_lang` FORCED to "th" (that file's own
+// comment: "Force Thai copy for every regression spec") — the session here
+// always renders Thai, never `en`. Verified directly against a running
+// instance of this branch (not assumed): with that storageState, every one
+// of these 4 controls' accessible name resolves to the TH string.
+// Matching only `th` would just move the same fragility onto a future
+// change to that convention, so each label matches EITHER translation of
+// the same key — findable regardless of which language the session
+// renders, never a re-pinned literal. The >=44x44px bounding-box
+// assertions below are untouched by this — the locator is only how the
+// control is found.
+import translations from "../../locales/translations.json";
 
 const CAMP_SLUG = "phu-kradueng-camp-7"; // unused by ac1-ac6, avoids cross-spec data races
 const CAMP_KEYWORD = "ภูกระดึง"; // a Thai substring of this camp's nameTh only
@@ -34,6 +49,17 @@ const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 900 };
 const NARROW_320 = { width: 320, height: 640 };
 const TOUCH_FLOOR = 44;
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function eitherLanguage(en: string, th: string): RegExp {
+  return new RegExp(`^(${escapeForRegExp(en)}|${escapeForRegExp(th)})$`);
+}
+const PREVIOUS_IMAGE_LABEL = eitherLanguage(translations.en.gallery.previousImage, translations.th.gallery.previousImage);
+const NEXT_IMAGE_LABEL = eitherLanguage(translations.en.gallery.nextImage, translations.th.gallery.nextImage);
+const ACCOUNT_MENU_LABEL = eitherLanguage(translations.en.nav.accountMenuAriaLabel, translations.th.nav.accountMenuAriaLabel);
+const SWITCH_LANGUAGE_LABEL = eitherLanguage(translations.en.nav.switchLanguageAriaLabel, translations.th.nav.switchLanguageAriaLabel);
 
 async function giveCampTwoImages(request: import("@playwright/test").APIRequestContext) {
   const camp = await findCampBySlug(request, CAMP_SLUG);
@@ -94,8 +120,8 @@ test.describe("AC-1 — camp-card carousel arrows reach the 44px floor", () => {
     ).toHaveCount(1);
     await card.scrollIntoViewIfNeeded();
 
-    const prev = card.getByRole("button", { name: "Previous image" });
-    const next = card.getByRole("button", { name: "Next image" });
+    const prev = card.getByRole("button", { name: PREVIOUS_IMAGE_LABEL });
+    const next = card.getByRole("button", { name: NEXT_IMAGE_LABEL });
     await expect(
       prev,
       "precondition: the carousel only renders when the card has >1 image — giveCampTwoImages() must have taken effect (live query, not the cached default catalog)"
@@ -112,7 +138,7 @@ test.describe("AC-2 — profile menu button reaches the 44px floor", () => {
 
   test("profile menu button measures >=44x44px (was 42px tall)", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
-    const profileBtn = page.getByRole("button", { name: "User menu" });
+    const profileBtn = page.getByRole("button", { name: ACCOUNT_MENU_LABEL });
     assertAtLeastFloor(await profileBtn.boundingBox(), "profile menu button");
   });
 });
@@ -138,13 +164,13 @@ test.describe("AC-4 — language switcher reaches the 44px floor on desktop (CAM
   test("switcher button measures >=44x44px at desktop (was 36px); still hidden on mobile", async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
-    const switcher = page.getByRole("button", { name: "Switch language" });
+    const switcher = page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL });
     assertAtLeastFloor(await switcher.boundingBox(), "language switcher (desktop)");
 
     // Regression guard (CAM-549 AC-2 must still hold): not rendered on mobile.
     await page.setViewportSize(PHONE);
     await page.waitForTimeout(200);
-    await expect(page.getByRole("button", { name: "Switch language" })).toBeHidden();
+    await expect(page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL })).toBeHidden();
   });
 });
 
@@ -153,7 +179,7 @@ test.describe("AC-5 — the 320px logged-in horizontal overflow closes", () => {
 
   test("scrollWidth <= clientWidth at 320px, logged in (CAM-549 measured ~15px overflow here)", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
-    await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: ACCOUNT_MENU_LABEL })).toBeVisible();
 
     const metrics = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -184,7 +210,7 @@ test.describe("EC-5 — the touch floor still holds at a realistic 150% text sca
     await page.addStyleTag({ content: "html { font-size: 24px !important; }" });
     await page.waitForTimeout(200);
 
-    const profileBtn = page.getByRole("button", { name: "User menu" });
+    const profileBtn = page.getByRole("button", { name: ACCOUNT_MENU_LABEL });
     assertAtLeastFloor(await profileBtn.boundingBox(), "profile menu button @150% text scale");
 
     const card = page.locator(`a[href^="/campgrounds/phu-kradueng-camp"]`).first();
@@ -193,7 +219,7 @@ test.describe("EC-5 — the touch floor still holds at a realistic 150% text sca
       `precondition: the camp card for "${CAMP_SLUG}" must be on the page before its arrow can be measured`
     ).toHaveCount(1);
     await card.scrollIntoViewIfNeeded();
-    const prevArrow = card.getByRole("button", { name: "Previous image" });
+    const prevArrow = card.getByRole("button", { name: PREVIOUS_IMAGE_LABEL });
     await expect(
       prevArrow,
       "precondition: the carousel only renders when the card has >1 image"

@@ -339,14 +339,14 @@ export function CampgroundCard({
                                     // (same convention as this file's own wishlist-heart button and
                                     // AiChatCardCarousel's prev/next arrows).
                                     className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
-                                    aria-label="Previous image"
+                                    aria-label={t.gallery.previousImage}
                                 >
                                     <ChevronLeft className="w-4 h-4 text-foreground" />
                                 </button>
                                 <button
                                     onClick={nextImage}
                                     className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
-                                    aria-label="Next image"
+                                    aria-label={t.gallery.nextImage}
                                 >
                                     <ChevronRight className="w-4 h-4 text-foreground" />
                                 </button>

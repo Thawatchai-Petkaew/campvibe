@@ -17,6 +17,29 @@
  * edge) — see story.md "Seams & refs" for the full measured root cause.
  */
 import { test, expect } from "@playwright/test";
+// CAM-570: the language switcher's accessible name now lives in
+// locales/translations.json (was a hardcoded English literal). This spec
+// runs under the `regression` project, whose storageState was captured by
+// `global.setup.ts` with `campvibe_lang` FORCED to "th" (that file's own
+// comment: "Force Thai copy for every regression spec") — so the session
+// here always renders Thai, never the `en` default. Verified directly
+// (not assumed): a Playwright session reusing this storageState resolves
+// the switcher's accessible name to the TH string, not EN.
+// Matching only `th` would just move the same fragility to the other
+// language if that convention ever changes, so the matcher accepts EITHER
+// translation of the same key — it still proves "findable + correctly
+// labelled" without re-pinning a literal or assuming which language is live.
+import translations from "../../locales/translations.json";
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function eitherLanguage(en: string, th: string): RegExp {
+  return new RegExp(`^(${escapeForRegExp(en)}|${escapeForRegExp(th)})$`);
+}
+const SWITCH_LANGUAGE_LABEL = eitherLanguage(
+  translations.en.nav.switchLanguageAriaLabel,
+  translations.th.nav.switchLanguageAriaLabel
+);
 
 // Realistic modern phone widths (iPhone SE/12/13/14, Pixel, common Android
 // mid/large phones). 320px (iPhone SE 1st-gen class) is a known, narrow
@@ -48,10 +71,10 @@ test("language switcher is dropped from the mobile navbar row but stays at deskt
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
   await expect(page.getByTestId("btn--wishlist-nav")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Switch language" })).toBeHidden();
+  await expect(page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL })).toBeHidden();
 
   // Desktop (md = 768px and above): still present and functional.
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.waitForTimeout(200);
-  await expect(page.getByRole("button", { name: "Switch language" })).toBeVisible();
+  await expect(page.getByRole("button", { name: SWITCH_LANGUAGE_LABEL })).toBeVisible();
 });
