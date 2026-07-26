@@ -63,7 +63,7 @@ The fast path for any UI work (full rules below):
 
 | token (Tailwind class) | light | dark | ✅ use for | ❌ do not use for |
 |---|---|---|---|---|
-| `primary` / `primary-foreground` | `0.511 0.096 186.391` / `0.984 0.014 180.72` | `0.437 0.078 188.216` / `0.984 0.014 180.72` | primary buttons, actions, prominent links, selected | wide backgrounds, body text |
+| `primary` / `primary-foreground` | `0.511 0.096 186.391` / `0.984 0.014 180.72` | `0.520 0.078 188.216` / `0.984 0.014 180.72` | primary buttons, actions, selected | wide backgrounds, body text, **`text-primary` as body copy in dark** (3.28:1 — §8 item 11) |
 | `secondary` / `secondary-foreground` | `0.967 0.001 286.375` / `0.21 0.006 285.885` | `0.274 0.006 286.033` / `0.985 0 0` | secondary buttons, soft secondary surfaces | the primary action |
 | `accent` | = primary | = primary | hover/active accent, focus tint | (single tone with primary) |
 | `muted` / `muted-foreground` | `0.963 0.002 197.1` / `0.56 0.021 213.5` | `0.275 0.011 216.9` / `0.723 0.014 214.4` | secondary surfaces, secondary text, placeholder, skeleton | primary text (insufficient contrast) |
@@ -384,7 +384,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 
 - [ ] **Keyboard** — fully operable by keyboard; logical tab order; no keyboard trap.
 - [ ] **Screen reader** — meaningful `aria-label` / accessible name on every control (icon-button required); correct roles/landmarks.
-- [ ] **Contrast** — **4.5:1 body text · 3:1 heading / large text** (token colors meet this; verify any composite).
+- [ ] **Contrast — three floors, do not mix them up** (CAM-537): **4.5:1 body text** (SC 1.4.3) · **3:1 large text** — and large means ≥18.66px **bold** or ≥24px, so `text-lg font-semibold` (18px/600) is still body copy · **3:1 non-text** (SC 1.4.11) for a fill that identifies a **state** and for the boundary that identifies a control. Never judge a fill at the text floor or body copy at the non-text floor. Token pairs are pinned numerically by `npm run check:contrast`; verify any composite you introduce.
 - [ ] **Focus** — visible focus ring (`ring-ring`, `outline-ring/50`) on every focusable element.
 - [ ] **Color not the only signal** — never convey state by color alone; pair with text/icon/shape.
 - [ ] **Touch target ≥44px** — interactive elements ≥44px (icon-button `h-11 w-11`).
@@ -421,7 +421,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 - [ ] **Scale matches role** — radius/size/spacing per §2 (no inline height override)
 - [ ] **All 8 states** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **Loading state (blocks PR)** — every page/component with an async dependency must: (a) use the correct loader per the decision matrix (`.claude/rules/loading.md`); (b) if skeleton: mirror the real layout exactly (exact dims/count/grid — CLS = 0), NOT a generic gray block; (c) show a section-level skeleton only (chrome/navbar renders instantly) unless the ENTIRE route is async; (d) wire a11y (`aria-busy`, `role="status"`, `aria-live="polite"`, `กำลังโหลด…` label, `prefers-reduced-motion` disables shimmer); (e) anti-flicker per context — Suspense fallback: delay-before-show via `loading-delay` CSS utility (`app/globals.css`), min-display N/A; client-fetch skeleton: both delay + min-display via `useMinimumLoading` hook. Missing loading state OR wrong loader for the matrix OR full-page skeleton for a section-level fetch OR missing a11y = **Critical, blocks merge**.
-- [ ] **a11y AA** — contrast **4.5:1 body / 3:1 heading**, visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe)
+- [ ] **a11y AA** — contrast **4.5:1 body / 3:1 large text / 3:1 non-text state + control boundary** (§3), visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe) · **`npm run check:contrast` green** — the numeric token guard (CAM-537); a changed token value must clear its floor in BOTH themes
 - [ ] **i18n** — TH/EN in `locales/`, no em-dash separator, no technical jargon, tabular-nums
 - [ ] **Motion** — transform/opacity only, 120–250ms, no `transition:all`, respect reduced-motion
 - [ ] **Layout sanity** — nav < 80px tall, CTA does not wrap, no duplicate CTA intent, no generic card-grid
@@ -451,7 +451,12 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 8. **Consistency CI guard** — extend `check-palette.mjs` to catch inline height/radius off-scale (prevent drift like the palette).
 9. **Wire Sarabun** — `next/font/google` subset thai+latin + Thai font stack (`:lang(th)`) → heading Sarabun semibold.
 10. **Cleanup** — remove the stale hex `--color-primary:#0d9488` in `@theme` (globals.css), and the `"orange-600"` comment that does not match the value.
-11. **Dark-mode non-text state contrast (measured, CAM-532)** — a *selected* chip fill vs the surface behind it measures **2.31:1 in dark mode** (5.39:1 light), under the 3:1 WCAG 1.4.11 target for identifying a state by fill. It is **system-wide, not chip-specific**: every bordered control shares it, `--border` on light `--background` measures **1.25:1**. Text contrast and `aria-pressed` are unaffected (both pass). A fix means retuning `--border` / dark `--primary` in `app/globals.css` — one owner-visible token decision for the whole system, deliberately not made inside a single-component story.
+11. **Dark-mode non-text state contrast** — ✓ **state fills done (CAM-537), boundaries still open.** The *selected* chip fill measured **2.31:1** vs `--card` in dark (5.39:1 light), under the 3:1 WCAG 1.4.11 floor. CAM-537 raised dark `--primary` and `--accent` from `L 0.437` to **`L 0.520`** (lightness only — chroma/hue untouched), taking the fill to **3.28:1** vs `--card` and **3.73:1** vs `--background` while the near-white label holds at **5.08:1**. The feasible window is **L ∈ [0.499, 0.549]** and both ends are now pinned by `npm run check:contrast` (38 enforced pairs, backlog 0, blocking).
+    **Still open — each needs one owner decision, all measured, none shipped:**
+    - `--border` **1.25:1** light / 1.26–1.34 dark, `--input` **1.25 / 1.48**, `--ai-tint` **1.10 / 1.31** — clearing 3:1 pushes `--border` from `L 0.925` to ~`0.669`, i.e. every divider and card outline becomes a mid-grey line. That contradicts the §1 POV ("chrome is light, hierarchy through spacing + typography"), so it is a **look change**, not a bug fix. Decide the three together; splitting them fragments the look.
+    - `--ring` **2.44:1** light (dark passes at 4.27) — a real 1.4.11 failure, but the indicator a user actually sees is composed in the components (`ring-ring/30` on Button, `ring-ring/50` on Badge), so the token alone does not determine it. Needs a component-level story, not a token edit.
+    - `text-primary` as body copy in dark: **3.28:1** against the 4.5:1 floor. **Provably unsolvable with one token** — text-on-card needs `L ≥ ~0.594`, a near-white label on the fill needs `L ≤ ~0.549`; the windows are disjoint. It needs a second, brighter token, exactly as CAM-444 did with `--ai-price`.
+    All of the above are printed on every `check:contrast` run as the DEFERRED set, with the reason on each row, so they cannot be quietly forgotten.
 
 ## Examples
 

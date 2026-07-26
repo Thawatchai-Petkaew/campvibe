@@ -173,10 +173,13 @@ would give one script two inputs, two failure vocabularies, and one confusing ex
 
 Rollout follows `.claude/rules/ops.md` — report-mode → backlog 0 → blocking:
 
-| set | count | mode | meaning |
+| set | size | measured backlog | mode |
 |---|---|---|---|
-| ENFORCED | 30 pairs (15 contexts × 2 themes) | **blocking** (exit 1) | backlog measured **0** after the fix — the flip condition is met and proven inside this PR |
-| DEFERRED | 10 pairs | **report only** (exit 0, printed loudly) | the failures handed back above; each carries a written reason and a `DESIGN.md` §8 pointer |
+| ENFORCED | 38 pairs (19 contexts × 2 themes) | **3 → 0** (3 fails on `dev` before the token edit, 0 after, both runs recorded in the PR) | **blocking** (exit 1) — the flip condition is met and proven inside this PR |
+| DEFERRED | 12 pairs (6 contexts × 2 themes) | **10** known failures | **report only** (exit 0, printed loudly with the reason on every row) |
+
+One deferred row moves without being fixed: `text-primary` on `--card` in dark goes **2.31 → 3.28:1**.
+Still under its 4.5:1 floor, so it stays deferred and stays loud.
 
 Both directions are proven in `__tests__/cam-537-contrast-floor.test.ts`: the guard **fires** (exit 1,
 naming the pair) when a token is set to a deliberately-bad value, and is **quiet** (exit 0) on the real
