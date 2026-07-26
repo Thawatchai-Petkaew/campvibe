@@ -29,6 +29,7 @@ import { test, expect } from "@playwright/test";
 import { findCampBySlug } from "./helpers";
 
 const CAMP_SLUG = "phu-kradueng-camp-7"; // unused by ac1-ac6, avoids cross-spec data races
+const CAMP_KEYWORD = "ภูกระดึง"; // a Thai substring of this camp's nameTh only
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 900 };
 const NARROW_320 = { width: 320, height: 640 };
@@ -40,6 +41,30 @@ async function giveCampTwoImages(request: import("@playwright/test").APIRequestC
     data: { images: ["/placeholder-camp.svg", "/placeholder-camp-dark.svg"] },
   });
   expect(putRes.ok(), `PUT /api/campsites/${camp.id} failed: ${putRes.status()}`).toBeTruthy();
+}
+
+/**
+ * CI failure (PR #645) root-caused: `page.goto("/")` with no filter hits
+ * `CatalogResults`' `useCache` branch (`!isSearchActive && isDefaultSort`),
+ * which serves `getDefaultCatalog()` — an `unstable_cache` read tagged
+ * `CATALOG_TAG`. Isolated, this story's own PUT-then-navigate is the first
+ * request of a fresh dev server, so the cache is empty and the PUT's
+ * `revalidateTag(CATALOG_TAG)` is moot. Once OTHER regression specs (which
+ * all share one dev server + one seeded DB in CI, `workers: 1`) navigate to
+ * `/` FIRST, they warm that cache with the camp's ORIGINAL single image —
+ * confirmed by reproducing locally (`npx playwright test --project=regression`,
+ * the full suite, CI=true): the same "Received: 0" failure reproduces, and
+ * the captured page snapshot shows the camp card still rendering exactly 1
+ * `<img>` (no arrows) even after a successful PUT. A keyword search
+ * (`?keyword=`) sets `isSearchActive=true`, which routes to the LIVE Prisma
+ * query (never cached) — deterministic regardless of what earlier specs
+ * warmed, and regardless of CI test-file execution order.
+ */
+async function gotoCampSearch(page: import("@playwright/test").Page) {
+  await page.goto(`/?keyword=${encodeURIComponent(CAMP_KEYWORD)}`, {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
 }
 
 function assertAtLeastFloor(box: { width: number; height: number } | null, label: string) {
@@ -54,16 +79,27 @@ test.describe("AC-1 — camp-card carousel arrows reach the 44px floor", () => {
   test("prev/next arrow buttons measure >=44x44px (was 28x28, ~48 instances/page)", async ({ page, request }) => {
     await giveCampTwoImages(request);
 
-    await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
+    // Live (uncached) search path — see gotoCampSearch's doc comment. A plain
+    // page.goto("/") can serve a stale cached snapshot warmed by an earlier
+    // spec, which silently drops the carousel precondition (0 arrows, not a
+    // floor failure) — the exact CI failure this guards against.
+    await gotoCampSearch(page);
     // Prefix match (not an exact href) — LanguageContext resolves TH/EN
     // client-side after mount, so the slug suffix (`-7` vs `-en-7`) can
     // still be settling right after navigation; both share this prefix.
     const card = page.locator(`a[href^="/campgrounds/phu-kradueng-camp"]`).first();
+    await expect(
+      card,
+      `precondition: the camp card for "${CAMP_SLUG}" must be on the page (keyword search "${CAMP_KEYWORD}") before its arrows can be measured`
+    ).toHaveCount(1);
     await card.scrollIntoViewIfNeeded();
 
     const prev = card.getByRole("button", { name: "Previous image" });
     const next = card.getByRole("button", { name: "Next image" });
-    await expect(prev).toHaveCount(1);
+    await expect(
+      prev,
+      "precondition: the carousel only renders when the card has >1 image — giveCampTwoImages() must have taken effect (live query, not the cached default catalog)"
+    ).toHaveCount(1);
     await expect(next).toHaveCount(1);
 
     assertAtLeastFloor(await prev.boundingBox(), "prev arrow");
@@ -136,7 +172,8 @@ test.describe("EC-5 — the touch floor still holds at a realistic 150% text sca
 
   test("profile menu button and camp-card arrows stay >=44x44px at 150% root font-size", async ({ page, request }) => {
     await giveCampTwoImages(request);
-    await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
+    // Live (uncached) search path — see gotoCampSearch's doc comment.
+    await gotoCampSearch(page);
     // Same technique CAM-560 used to reproduce ITS text-scale-only defect
     // (e2e/regression/cam-560-category-label-overlap.spec.ts): a ~150% root
     // font-size mirrors a common phone "Larger text" setting. Tailwind's
@@ -151,10 +188,16 @@ test.describe("EC-5 — the touch floor still holds at a realistic 150% text sca
     assertAtLeastFloor(await profileBtn.boundingBox(), "profile menu button @150% text scale");
 
     const card = page.locator(`a[href^="/campgrounds/phu-kradueng-camp"]`).first();
+    await expect(
+      card,
+      `precondition: the camp card for "${CAMP_SLUG}" must be on the page before its arrow can be measured`
+    ).toHaveCount(1);
     await card.scrollIntoViewIfNeeded();
-    assertAtLeastFloor(
-      await card.getByRole("button", { name: "Previous image" }).boundingBox(),
-      "prev arrow @150% text scale"
-    );
+    const prevArrow = card.getByRole("button", { name: "Previous image" });
+    await expect(
+      prevArrow,
+      "precondition: the carousel only renders when the card has >1 image"
+    ).toHaveCount(1);
+    assertAtLeastFloor(await prevArrow.boundingBox(), "prev arrow @150% text scale");
   });
 });
