@@ -33,7 +33,7 @@
  */
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { buildCampSiteWhere } from '@/lib/campsite-filters';
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from '@/lib/campsite-filters';
 import { aiCampCardSelect, toAiCampCard, type AiCampCard } from '@/lib/read-models/ai-camp-card';
 import { getRemainingCapacityForCamps, type RemainingCapacityResult } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
@@ -243,10 +243,31 @@ export async function executeBulkAvailability(args: BulkAvailabilityArgs): Promi
     provinceFilter = resolveRegionForSearch(args.region);
   }
 
+  // CAM-573 — additive safety net alongside `buildCampSiteWhere`'s legacy
+  // string-equality match: resolves the incoming province NAME (Thai or
+  // English) to its AdminArea subtree ids so a camp stored in the OTHER
+  // language for the same real province still matches (CAM-559 finding;
+  // same mechanism `lib/ai/tools/search-campsites.ts` already wires in for
+  // its single-province branch — this closes the identical gap here, since
+  // this tool's own schema doc deliberately does NOT run the incoming value
+  // through the Thai-character `ThailandLocation` resolver, see the schema
+  // doc note above). Only engaged for the single-province branch, never the
+  // region-expansion array. Fail-open: a lookup error never blocks the
+  // read, it just leaves the legacy exact-string match as the only path.
+  let provinceAdminAreaIds: string[] | undefined;
+  if (typeof provinceFilter === 'string' && provinceFilter) {
+    try {
+      provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, provinceFilter);
+    } catch (error) {
+      console.error('[CAM-573] province admin-area resolution failed (fail-open, string match still applies)', error);
+    }
+  }
+
   // Decision 3/BR-4 — buildCampSiteWhere ALREADY gates isActive/isPublished/
   // deletedAt (CAM-469 visibility, inherited for free, AC-6/EC-5).
   const where = buildCampSiteWhere({
     province: provinceFilter,
+    provinceAdminAreaIds,
     type: args.type,
     keyword: args.keyword,
     min: args.priceMin !== undefined ? String(args.priceMin) : undefined,
