@@ -8,13 +8,10 @@ import {
     Tent,
     MapPin,
     Info,
-    DollarSign,
-    Clock,
     CheckCircle2,
     Check,
     Trash2,
     Loader2,
-    Search,
     Phone,
     MessageCircle,
     Facebook,
@@ -53,7 +50,7 @@ import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/list
 import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
 import type { UserRole } from "@/types/api";
-import * as LucideIcons from "lucide-react";
+import { getIconByName } from "@/lib/facility-icon-map";
 
 // CAM-341: Radix Select forbids an empty-string item value, so the "not set"
 // cancellation-policy option uses this sentinel; onValueChange maps it back to "".
@@ -455,13 +452,6 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         });
     };
 
-    // Helper to get Icon
-    const getIcon = (iconName: string) => {
-        // @ts-ignore
-        const Icon = LucideIcons[iconName] || LucideIcons.HelpCircle;
-        return <Icon className="w-5 h-5 mb-2 group-hover:text-primary transition-colors" />;
-    };
-
     const renderOptionGroup = (title: string, groupKey: string, fieldName: keyof typeof formData) => {
         const options = masterOptions[groupKey] || [];
         if (options.length === 0) return null;
@@ -472,8 +462,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {options.map((opt) => {
                         const isSelected = (formData[fieldName] as string[])?.includes(opt.code);
-                        // @ts-ignore
-                        const IconComp = LucideIcons[opt.icon] || LucideIcons.HelpCircle;
+                        const IconComp = getIconByName(opt.icon);
                         return (
                             <button
                                 key={opt.code}

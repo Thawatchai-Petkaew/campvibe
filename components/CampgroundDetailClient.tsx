@@ -16,7 +16,8 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye, Signal, Hand, UserCheck, CornerDownLeft, AlignHorizontalJustifyCenter, MoveRight } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
+import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -479,112 +480,11 @@ export default function CampgroundDetailClient({
         return <span className="truncate">{format(date, "dd MMM yyyy", { locale: language === 'th' ? th : enUS })}</span>;
     };
 
-    // Facility Icon Mapping
-    const facilityIconMap: Record<string, any> = {
-        'WIFI': Wifi,
-        'ELEC': Zap,
-        'TOIL': Bath, // Or customized icon
-        'SHOW': ShowerHead,
-        'CAFE': Coffee,
-        'REST': Utensils,
-        'CART': ShoppingBasket,
-        'LOTS': Store,
-        'MIBC': Store,
-        'MAKT': Store,
-        '711': Store,
-        'BOAT': Anchor,
-        'FISH': Fish,
-        'SWIM': Waves,
-        'HIKG': Mountain,
-        'HIKE': Mountain,
-        'LIVE': Music,
-        'OFFR': Truck,
-        'RV': Car,
-        // Access
-        'DRIV': Car,
-        'WALK': Mountain,
-        'BAOT': Anchor,
-        // Terrain / Site Types
-        'FOREST': Mountain,
-        'FORE': Mountain, // Forest
-        'LAKE': Waves,
-        'MOUNTAIN': Mountain,
-        'MOUN': Mountain,
-        'BEACH': Waves,
-        'BEAC': Waves,
-        'RIVE': Waves, // Riverside
-        // CAM-513 (S1) — 8 new Terrain codes
-        'SEA': Sailboat,
-        'COAS': Anchor,
-        'WATF': Droplets,
-        'SWMH': Droplet,
-        'FILD': Flower2,
-        'CAVE': Mountain,
-        'FARM': Wheat,
-        // CAM-514 (S2) — 2 new comfort Facility codes
-        'HOTW': ThermometerSun,
-        'LIGT': Lamp,
-        // Facilities
-        'FEDW': Droplets,
-        'FEIC': Snowflake,
-        'GRIL': Utensils, // Grill icon would be better if available
-        'SANI': Trash2,
-        'SHTR': ShieldCheck,
-        'SINK': Droplets,
-        'TRAS': Trash2,
-        'WATE': Droplets,
-        'MIMT': Store,
-        'PICN': Table,
-        'SVEL': Store,
-        // Equipment / Extras
-        'TENT': Tent,
-        'MATT': Layers,
-        'CHAI': Armchair,
-        'FYST': Umbrella,
-        'ICBK': Snowflake,
-        'LEDL': Zap,
-        'STOV': Utensils,
-        'BLANKET': Home,
-        'BLKT': Home,
-        'GDST': Layers,
-        'LSTV': Utensils,
-        'SSTV': Utensils,
-        'POWE': Zap,
-        'TFAN': Wind, // Wind for fan
-        // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
-        'ALCO': Wine,
-        'FIRE': Flame,
-        'FIWD': Logs,
-        'ADAA': Accessibility,
-        'RESV': CalendarCheck,
-        // CAM-516 (S4) — Camper style, the SECOND new MasterData group
-        'CHIC': Sparkles,
-        'GENR': Users,
-        'DIFT': TrendingUp,
-        'IDMT': Dumbbell,
-        // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
-        // (host-input + camper-detail-display only, NOT searchable — BR-4)
-        'SAIS': Signal,
-        'SDTC': Signal,
-        'STRU': Signal,
-        'YUSF': Hand,
-        'OWNE': UserCheck,
-        'BACK': CornerDownLeft,
-        'PARA': AlignHorizontalJustifyCenter,
-        'PTHG': MoveRight,
-        // CAM-517 (S5) — Campground type (campSiteType scalar, not an `options`
-        // MasterData group) — CAGD/CACP had no icon here since this field was
-        // never rendered on the detail page before this story.
-        'CAGD': Tent,
-        'CACP': Car,
-        'GLAMP': Sparkles,
-        'VIEW': Eye,
-        // Fallbacks
-        'default': ShieldCheck
-    };
-
+    // CAM-525 (S9): the icon lookup is unified into lib/facility-icon-map.ts
+    // (the single source of truth for MasterData code -> lucide icon) — no
+    // more per-component facilityIconMap copy to drift out of sync.
     const getIcon = (code: string) => {
-        const IconComponent = facilityIconMap[code] || facilityIconMap['default'];
+        const IconComponent = getFacilityIcon(code);
         return <IconComponent className="w-8 h-8 text-muted-foreground stroke-[1.2]" />;
     };
 
