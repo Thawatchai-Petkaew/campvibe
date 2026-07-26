@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Caravan, Mountain, Trees, Waves, Palmtree, Map } from "lucide-react";
+import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Caravan, Mountain, Trees, Waves, Palmtree, Map, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { PROVINCES, THAILAND_DATA } from "@/lib/thailand-data";
+import { getSearchProvinces } from "@/app/actions/getSearchLocations";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import {
     Select,
     SelectContent,
@@ -76,7 +77,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
     const [experienceType, setExperienceType] = useState(() => resolveSelectedExperience(searchParams));
     const [province, setProvince] = useState(searchParams.get("province") || "");
-    const [district, setDistrict] = useState(searchParams.get("district") || "");
     const [startDate, setStartDate] = useState<Date | undefined>(
         searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined
     );
@@ -85,12 +85,31 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     );
     const [guests, setGuests] = useState(searchParams.get("guests") || "1");
 
-    // Reset district if province changes
-    useEffect(() => {
-        if (province && province !== " " && !THAILAND_DATA[province]?.includes(district)) {
-            setDistrict("");
+    // CAM-531 — real province source. The dropdown used to come from a
+    // hardcoded 7-key object literal; it now loads the provinces that
+    // actually have a published camp, so every offered option is
+    // guaranteed to return >=1 result (see app/actions/getSearchLocations.ts).
+    const [provinces, setProvinces] = useState<string[]>([]);
+    const [provincesLoading, setProvincesLoading] = useState(true);
+    const [provincesError, setProvincesError] = useState(false);
+
+    const loadProvinces = useCallback(async () => {
+        setProvincesLoading(true);
+        setProvincesError(false);
+        const result = await getSearchProvinces();
+        if (result.status === "ok") {
+            setProvinces(result.provinces);
+            setProvincesError(false);
+        } else {
+            setProvinces([]);
+            setProvincesError(true);
         }
-    }, [province]);
+        setProvincesLoading(false);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) loadProvinces();
+    }, [isOpen, loadProvinces]);
 
     const handleSearch = () => {
         const params = new URLSearchParams(searchParams.toString());
@@ -108,7 +127,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         }
 
         if (province && province !== " ") params.set("province", province); else params.delete("province");
-        if (district && district !== " ") params.set("district", district); else params.delete("district");
         if (startDate) params.set("startDate", format(startDate, "yyyy-MM-dd")); else params.delete("startDate");
         if (endDate) params.set("endDate", format(endDate, "yyyy-MM-dd")); else params.delete("endDate");
         if (guests) params.set("guests", guests); else params.delete("guests");
@@ -121,7 +139,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         setKeyword("");
         setExperienceType("all");
         setProvince("");
-        setDistrict("");
         setStartDate(undefined);
         setEndDate(undefined);
         setGuests("1");
@@ -180,35 +197,54 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     leftIcon={<Search className="w-4 h-4" />}
                                     className="rounded-full bg-background border-border"
                                 />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
-                                        <Select value={province} onValueChange={setProvince}>
-                                            <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
+                                    <Select
+                                        value={province}
+                                        onValueChange={setProvince}
+                                        disabled={provincesLoading || provincesError}
+                                    >
+                                        <SelectTrigger
+                                            className="w-full border border-border hover:border-foreground transition bg-background"
+                                            aria-busy={provincesLoading}
+                                            data-testid="select--search-province"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                {provincesLoading && (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                                                )}
                                                 <SelectValue placeholder={t.search.anyProvince} />
-                                            </SelectTrigger>
-                                            <SelectContent className="shadow-2xl">
-                                                <SelectItem value=" " className="cursor-pointer">{t.search.anyProvince}</SelectItem>
-                                                {PROVINCES.map(p => (
-                                                    <SelectItem key={p} value={p} className="cursor-pointer">{p}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            </div>
+                                        </SelectTrigger>
+                                        <SelectContent className="shadow-2xl">
+                                            <SelectItem value=" " className="cursor-pointer">{t.search.anyProvince}</SelectItem>
+                                            {provinces.map(p => (
+                                                <SelectItem key={p} value={p} className="cursor-pointer">{p}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <div role="status" aria-live="polite" className="sr-only">
+                                        {provincesLoading ? t.common.loading_sr : ""}
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.district}</label>
-                                        <Select value={district} onValueChange={setDistrict} disabled={!province || province === " "}>
-                                            <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
-                                                <SelectValue placeholder={t.search.anyDistrict} />
-                                            </SelectTrigger>
-                                            <SelectContent className="shadow-2xl">
-                                                <SelectItem value=" " className="cursor-pointer">{t.search.anyDistrict}</SelectItem>
-                                                {province && province !== " " && THAILAND_DATA[province]?.map(d => (
-                                                    <SelectItem key={d} value={d} className="cursor-pointer">{d}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    {!provincesLoading && !provincesError && provinces.length === 0 && (
+                                        <p className="text-xs text-muted-foreground px-1" data-testid="empty--search-province">
+                                            {t.search.provinceEmpty}
+                                        </p>
+                                    )}
+                                    {provincesError && (
+                                        <div className="flex flex-col items-start gap-2" data-testid="alert--search-province-load-error">
+                                            <ErrorBanner message={t.search.provinceLoadFailed} />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={loadProvinces}
+                                                disabled={provincesLoading}
+                                                data-testid="btn--search-province-retry"
+                                            >
+                                                {provincesLoading ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : t.common.retry}
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

@@ -94,7 +94,10 @@ describe('OptionGroupSection — normal render (AC-1/AC-2, real codes/labels/ico
       })
     );
     expect(screen.getByRole('heading', { name: 'ประเภทแคมป์' })).toBeTruthy();
-    expect(screen.getByText('กลามปิ้ง')).toBeTruthy();
+    // CAM-531 drive-by fix: locales/translations.json's th `filter.GLAMP` was
+    // corrected from the wrong "กลามปิ้ง" to the real transliteration
+    // "แกลมปิ้ง" — this assertion follows the corrected source string.
+    expect(screen.getByText('แกลมปิ้ง')).toBeTruthy();
   });
 
   it('[null/empty] an empty codes array renders nothing (no heading, no empty grid) — EC-1/EC-2 shape', () => {
