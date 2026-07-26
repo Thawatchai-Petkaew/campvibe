@@ -467,17 +467,21 @@ describe('AC-6 — fallback path intact: errored state + onError wired + ImageOf
     expect(matches.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('[fallback-icon] ImageOff from lucide-react is still imported', () => {
-    // Prove-It: removing the ImageOff import makes this fail.
-    expect(iwfSrc).toContain('ImageOff');
+  // Retargeted by CAM-539: the fallback icon is now `ImageIcon` (an intact frame)
+  // instead of `ImageOff` (lucide's struck-through ERROR mark, which read as a
+  // broken image). AC-6's intent is "the fallback path is intact" — that the icon
+  // renders in the showFallback branch — not which glyph it is.
+  it('[fallback-icon] the fallback icon from lucide-react is still imported', () => {
+    // Prove-It: removing the lucide fallback import makes this fail.
+    expect(iwfSrc).toContain('ImageIcon');
     expect(iwfSrc).toContain('from "lucide-react"');
   });
 
-  it('[fallback-render] ImageOff renders in the showFallback branch', () => {
-    // The fallback branch must render the ImageOff component.
-    // Prove-It: replacing ImageOff with a different icon makes this fail.
+  it('[fallback-render] the fallback icon renders in the showFallback branch', () => {
+    // The fallback branch must render the lucide icon component.
+    // Prove-It: dropping the icon from that branch makes this fail.
     const jsxSection = iwfSrc.slice(iwfSrc.indexOf('return ('));
-    expect(jsxSection).toContain('<ImageOff');
+    expect(jsxSection).toContain('<ImageIcon');
   });
 
   it('[fallback-a11y] fallback ImageOff has aria-hidden="true"', () => {
