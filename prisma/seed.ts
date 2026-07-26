@@ -50,7 +50,12 @@ const masterData = [
     { code: 'CACP', group: 'Campground type', nameTh: 'รถเต็นท์', nameEn: 'Car camp', icon: 'Car' },
     // CAM-517 (S5) — reconcile with CampSiteTypeEnum (already had GLAMP/VIEW): 2 new
     // rows so hosts can pick them + campers see labels. Codes match the enum verbatim.
-    { code: 'GLAMP', group: 'Campground type', nameTh: 'กลามปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
+    // CAM-526: nameTh corrected to the real transliteration of "glamping"
+    // (was previously misspelled, missing the leading vowel sound) —
+    // locales/translations.json's th key was already fixed by CAM-531, but
+    // FilterModal/CampgroundForm render this nameTh directly (not the i18n
+    // key), so the seed source was still wrong until now.
+    { code: 'GLAMP', group: 'Campground type', nameTh: 'แกลมปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
     { code: 'VIEW', group: 'Campground type', nameTh: 'วิวสวย', nameEn: 'Scenic view', icon: 'Eye' },
 
     // Access Types
@@ -116,6 +121,31 @@ const masterData = [
     { code: 'BACK', group: 'Driveway', nameTh: 'ถอยเข้า', nameEn: 'Back-in', icon: 'CornerDownLeft' },
     { code: 'PARA', group: 'Driveway', nameTh: 'ขนานลาน', nameEn: 'Parallel', icon: 'AlignHorizontalJustifyCenter' },
     { code: 'PTHG', group: 'Driveway', nameTh: 'ขับผ่าน', nameEn: 'Pull-through', icon: 'MoveRight' },
+
+    // CAM-526 (S10) / CAM-536 (fix) / CAM-538 (clarity + drop) — Accommodation
+    // type: `AccommodationTypeEnum` (lib/validations/campsite.ts). `MasterData.
+    // code` is a global `@id` (NOT scoped per group) — CAM-526 found the TENT/
+    // HORS codes already claimed by unrelated groups and left them out
+    // entirely, unselectable/unremovable in the host picker (BR-2). CAM-536
+    // resolved it by giving the tent-site meaning its own code —
+    //   - TENT stays owned by group: 'Equipment for rent' (เต็นท์ / Tent),
+    //     UNCHANGED by this story (it is also the value most seeded camps'
+    //     `equipment` column already uses). The accommodation-type "tent
+    //     site" meaning is TSIT, seeded below.
+    // CAM-538 (owner decision 2026-07-26): the host form's 6 options were
+    // unclear (TSIT/DISP both mean "camper brings their own tent" and
+    // neither label said the real difference — marked pitch or not) and one
+    // option (HCMP, "Horse camp") was a US-origin v1 leftover with no Thai
+    // relevance. Fix: rename the 2 ambiguous labels so the difference is IN
+    // the name, add a one-line hint under each option (see
+    // `locales/translations.json`'s `filterDescription`), and DROP HCMP
+    // entirely (backfilled off existing camp data —
+    // scripts/backfill-cam-538-drop-horse-camp.mjs). 5 members remain.
+    { code: 'CABI', group: 'Accommodation type', nameTh: 'กระท่อม', nameEn: 'Cabin', icon: 'Bed' },
+    { code: 'DISP', group: 'Accommodation type', nameTh: 'กางเต็นท์อิสระ (ไม่แบ่งล็อค)', nameEn: 'Dispersed camping (no marked pitch)', icon: 'Trees' },
+    { code: 'GROU', group: 'Accommodation type', nameTh: 'ที่พักแบบกลุ่ม', nameEn: 'Group camping', icon: 'Users' },
+    { code: 'RECR', group: 'Accommodation type', nameTh: 'รถบ้าน (RV)', nameEn: 'RV / Recreational vehicle', icon: 'Car' },
+    { code: 'TSIT', group: 'Accommodation type', nameTh: 'ลานกางเต็นท์แบ่งล็อค', nameEn: 'Tent site (marked pitch)', icon: 'Tent' },
 ]
 
 import fs from 'fs';
@@ -139,89 +169,53 @@ async function main() {
     }
     console.log('✅ MasterData seeded')
 
-    // 2. Seed Thailand Locations
-    console.log('🗺️ Seeding Thailand locations...')
+    // 2. Load the Thailand admin-hierarchy source data (province/district/
+    // sub-district JSON — CAM-580: no longer upserted into the dropped
+    // legacy `ThailandLocation` table; only the conformant AdminArea tree
+    // below is seeded from it now).
     const locationsData = JSON.parse(
         fs.readFileSync(path.join(__dirname, 'data/thailand-locations.json'), 'utf8')
     )
 
-    for (const province of locationsData) {
-        // Create province entry (district code "")
-        await prisma.thailandLocation.upsert({
-            where: {
-                provinceCode_districtCode: {
-                    provinceCode: province.code,
-                    districtCode: ""
-                }
-            },
-            update: {
-                provinceName: province.nameTh,
-                provinceNameEn: province.nameEn,
-                districtName: province.nameTh,
-                districtNameEn: province.nameEn
-            },
-            create: {
-                provinceCode: province.code,
-                provinceName: province.nameTh,
-                provinceNameEn: province.nameEn,
-                districtCode: "",
-                districtName: province.nameTh,
-                districtNameEn: province.nameEn
-            }
-        })
-
-        // Create district entries
-        for (const district of province.districts || []) {
-            await prisma.thailandLocation.upsert({
-                where: {
-                    provinceCode_districtCode: {
-                        provinceCode: province.code,
-                        districtCode: district.code
-                    }
-                },
-                update: {
-                    provinceName: province.nameTh,
-                    provinceNameEn: province.nameEn,
-                    districtName: district.nameTh,
-                    districtNameEn: district.nameEn
-                },
-                create: {
-                    provinceCode: province.code,
-                    provinceName: province.nameTh,
-                    provinceNameEn: province.nameEn,
-                    districtCode: district.code,
-                    districtName: district.nameTh,
-                    districtNameEn: district.nameEn
-                }
-            })
-        }
-    }
-    console.log('✅ Thailand locations seeded')
-
-    // S5: Country + AdminArea tree (conformant multi-region model; coexists with legacy ThailandLocation)
+    // S5: Country + AdminArea tree (the conformant multi-region model)
     console.log('🌏 Seeding Country + AdminArea...')
     const thCountry = {
         code: 'TH', name: 'Thailand', nameLocal: 'ประเทศไทย',
         defaultCurrency: 'THB', defaultLocale: 'th-TH', timezone: 'Asia/Bangkok', vatRate: 0.07,
     }
     await prisma.country.upsert({ where: { code: 'TH' }, update: thCountry, create: thCountry })
-    const provinceAreaByCode: Record<string, string> = {}
+    // CAM-580: keyed by provinceNameEn (not provinceCode) — the mock
+    // campSitesData below matches camps to a province by English name, and
+    // this in-memory map is now the ONLY resolution path (the legacy
+    // ThailandLocation table this used to bridge through is dropped).
+    const provinceAreaByNameEn: Record<string, string> = {}
     for (const province of locationsData) {
         const pa = await prisma.adminArea.upsert({
             where: { countryCode_level_code: { countryCode: 'TH', level: 'PROVINCE', code: province.code } },
             update: { nameTh: province.nameTh, nameEn: province.nameEn },
             create: { countryCode: 'TH', level: 'PROVINCE', code: province.code, nameTh: province.nameTh, nameEn: province.nameEn },
         })
-        provinceAreaByCode[province.code] = pa.id
+        provinceAreaByNameEn[province.nameEn] = pa.id
         for (const district of province.districts || []) {
-            await prisma.adminArea.upsert({
+            const da = await prisma.adminArea.upsert({
                 where: { countryCode_level_code: { countryCode: 'TH', level: 'DISTRICT', code: district.code } },
                 update: { nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
                 create: { countryCode: 'TH', level: 'DISTRICT', code: district.code, nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
             })
+            // CAM-553: sub-district (ตำบล/แขวง) level — AdminArea already models this via
+            // AdminLevel.SUBDISTRICT (S5 migration). CAM-580: this is the ONE hierarchy
+            // that grows to the new ground, so there are not two competing trees fighting
+            // over sub-district (see story.md's Model decision).
+            for (const subDistrict of district.subDistricts || []) {
+                await prisma.adminArea.upsert({
+                    where: { countryCode_level_code: { countryCode: 'TH', level: 'SUBDISTRICT', code: subDistrict.code } },
+                    update: { nameTh: subDistrict.nameTh, nameEn: subDistrict.nameEn, parentId: da.id },
+                    create: { countryCode: 'TH', level: 'SUBDISTRICT', code: subDistrict.code, nameTh: subDistrict.nameTh, nameEn: subDistrict.nameEn, parentId: da.id },
+                })
+            }
         }
     }
-    console.log('✅ Country + AdminArea seeded')
+    console.log('✅ Country + AdminArea seeded (province + district + sub-district)')
 
     // CAM-462 — ThaiHoliday reference data (resolveDates tool, BR-4/D2).
     // Pure reference data (no FK) — idempotent upsert keyed on the date PK.
@@ -289,7 +283,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนยอดเขาที่สูงที่สุดในเพชรบูรณ์ วิวสวยงาม อากาศเย็นสบาย',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,POTA', // Internal
             externalFacilities: 'SVEL',
             equipment: 'TENT,BLKT,TFAN',
@@ -326,7 +320,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติเขาใหญ่ ใกล้น้ำตก ธรรมชาติสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,WALK',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,PICN,TRAS,POTA',
             externalFacilities: 'LOTS,MAKT',
             equipment: 'TENT,GDST,SSTV',
@@ -363,7 +357,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนดอยอ่างขาง อากาศหนาวเย็น วิวทะเลหมอกสวยงาม',
             campSiteType: 'CACP',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,MIMT',
             externalFacilities: '',
             equipment: 'TENT,BLKT,LEDL',
@@ -399,7 +393,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมทะเลสาบปางอุ๋ง บรรยากาศสไตล์สวิตเซอร์แลนด์',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,POTA,PICN',
             externalFacilities: 'SVEL',
             equipment: 'CHAI,ICBK',
@@ -436,7 +430,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดไร่เลย์ กระบี่ วิวทะเลสวยงาม เหมาะกับนักปีนเขา',
             campSiteType: 'CAGD',
             accessTypes: 'BAOT',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,CAFE',
             externalFacilities: 'LOTS,MIBC',
             equipment: 'TENT,FYST,POWE',
@@ -469,7 +463,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนเขาค้อ วิวทะเลหมอก อากาศเย็นสบาย',
             campSiteType: 'CACP',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,ELEC',
             externalFacilities: 'SVEL,MAKT',
             equipment: 'TENT,BLKT,TFAN,POWE',
@@ -502,7 +496,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติภูกระดึง ธรรมชาติสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'HIKE',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,POTA,PICN',
             externalFacilities: '',
             equipment: 'TENT',
@@ -535,7 +529,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดเกาะช้าง บรรยากาศเงียบสงบ',
             campSiteType: 'CAGD',
             accessTypes: 'BAOT,DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,CAFE',
             externalFacilities: 'SVEL,LOTS,MIBC',
             equipment: 'TENT,CHAI,FYST',
@@ -568,7 +562,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนดอยสุเทพ วิวเมืองเชียงใหม่สวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,HIKE',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,POTA',
             externalFacilities: 'MAKT',
             equipment: 'TENT,BLKT',
@@ -601,7 +595,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในป่าเขาสก ธรรมชาติอุดมสมบูรณ์',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,BOAT',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,POTA',
             externalFacilities: '',
             equipment: 'TENT,GDST',
@@ -634,7 +628,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนภูชี้ฟ้า ชมพระอาทิตย์ขึ้นสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,CAFE,POTA',
             externalFacilities: 'SVEL',
             equipment: 'TENT,BLKT,LEDL',
@@ -667,7 +661,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดป่าตอง ภูเก็ต ใกล้แหล่งบันเทิง',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,REST,CAFE',
             externalFacilities: 'SVEL,LOTS',
             equipment: 'TENT,POWE,BLKT',
@@ -695,7 +689,7 @@ async function main() {
     ]
 
     for (const campData of campSitesData) {
-        // Find suitable ThailandLocation for this camp site's province
+        // Find the matching AdminArea province for this camp site.
         // For mock data, we'll try to match provinceNameEn
         let provinceNameEn = "";
         if (campData.nameEn.includes("Phu Thap Boek") || campData.nameEn.includes("Khao Kho")) provinceNameEn = "Phetchabun";
@@ -709,12 +703,10 @@ async function main() {
         else if (campData.nameEn.includes("Phu Chi Fa")) provinceNameEn = "Chiang Rai";
         else if (campData.nameEn.includes("Patong")) provinceNameEn = "Phuket";
 
-        const thaiLoc = await prisma.thailandLocation.findFirst({
-            where: {
-                provinceNameEn: provinceNameEn,
-                districtCode: "" // Province record
-            }
-        });
+        // CAM-580: the legacy ThailandLocation table is dropped — the
+        // AdminArea province node id is already in-memory from the seed
+        // loop above (provinceAreaByNameEn), no DB read needed here.
+        const provinceAreaId = provinceAreaByNameEn[provinceNameEn];
 
         // Create or update location — idempotent by natural key (country +
         // province + lat/lon, which is unique per seeded camp here).
@@ -731,10 +723,10 @@ async function main() {
             province: provinceNameEn || 'Unknown',
             lat: campData.latitude,
             lon: campData.longitude,
-            thaiLocationId: thaiLoc?.id,
+            // CAM-574: the retired `thaiLocationId` FK is no longer written.
             // S5: link to the conformant Country + AdminArea (province node)
             countryCode: 'TH',
-            adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,
+            adminAreaId: provinceAreaId,
         };
         const existingLocation = await prisma.location.findFirst({
             where: {

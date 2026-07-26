@@ -4,6 +4,7 @@ import { CategoryBar } from "@/components/CategoryBar";
 import { SortDropdown } from "@/components/SortDropdown";
 import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
+import { ActiveFilters } from "@/components/ActiveFilters";
 import { CampgroundGridSkeleton } from "@/components/CampgroundSkeleton";
 import CatalogResults from "@/components/CatalogResults";
 import { auth } from "@/lib/auth";
@@ -30,6 +31,9 @@ interface HomeSearchParams {
   max?: string;
   access?: string;
   facilities?: string;
+  /** CAM-523 (S7) — independent registry-derived params, wired end-to-end alongside `facilities`. */
+  external?: string;
+  equipment?: string;
   activities?: string;
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
@@ -60,6 +64,8 @@ export default async function Home({ searchParams }: HomeProps) {
     max,
     access,
     facilities,
+    external,
+    equipment,
     activities,
     terrain,
     annotatedFeatures,
@@ -82,6 +88,8 @@ export default async function Home({ searchParams }: HomeProps) {
     max ?? "",
     access ?? "",
     facilities ?? "",
+    external ?? "",
+    equipment ?? "",
     activities ?? "",
     terrain ?? "",
     annotatedFeatures ?? "",
@@ -92,8 +100,16 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-screen pb-20 bg-background text-foreground">
       <Navbar />
 
-      <div className="sticky top-20 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
-        <div className="container mx-auto px-6 py-2">
+      {/*
+        CAM-549: sticky only at md+ (desktop). On a phone, only the search
+        bar in Navbar stays pinned while scrolling (owner AC) — this bar's
+        own "top-20" offset assumed an 80px navbar, which is only true at
+        md+ (the mobile-only search row makes the real navbar taller), so
+        on mobile this used to overlap/hide behind the navbar and leak a
+        stray sliver. See Navbar.tsx for the matching fix.
+      */}
+      <div data-testid="section--category-bar-wrapper" className="md:sticky md:top-20 md:z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
+        <div className="container mx-auto px-4 md:px-6 py-2">
           <CategoryBar />
         </div>
       </div>
@@ -106,6 +122,15 @@ export default async function Home({ searchParams }: HomeProps) {
       </FilterSortBar>
 
       <div className="container mx-auto px-6">
+        {/*
+          CAM-530 (S3): ActiveFilters is a client component reading useSearchParams
+          directly — it lives OUTSIDE the Suspense boundary below so the chip summary
+          renders instantly as part of the static chrome and stays in sync with the URL
+          on every navigation, independent of the async grid fetch (renders nothing when
+          no filter is active).
+        */}
+        <ActiveFilters />
+
         {/*
           LOAD-1: Suspense boundary wraps only the results area.
           The shell (Navbar, CategoryBar, FilterSortBar) renders synchronously — users see
@@ -127,6 +152,8 @@ export default async function Home({ searchParams }: HomeProps) {
             max={max}
             access={access}
             facilities={facilities}
+            external={external}
+            equipment={equipment}
             activities={activities}
             terrain={terrain}
             annotatedFeatures={annotatedFeatures}

@@ -229,6 +229,64 @@
  *     scroll-lock + inert-background effect, `overscroll-contain`, hidden
  *     scrollbars, chrome-hide while a detail is open, the pathname-close
  *     effect) is unchanged.
+ *
+ * CAM-550 (owner staging feedback, phone testing, 3 mobile-only defects).
+ * Implementation note: every fix below is an ADDITIVE `max-sm:`-prefixed
+ * class layered AFTER the existing `expanded ? … : …` branches, never a
+ * rewrite of those branch strings — the pre-CAM-550 classes stay byte-
+ * identical (several pre-existing tests pin them verbatim) and the new
+ * `max-sm:` rules simply win the cascade below the 640px breakpoint.
+ *  1. No minimize/collapse on mobile — below `sm:` (640px) the panel is now
+ *     full-screen ONLY, always (previously mobile defaulted to the CAM-407
+ *     85dvh bottom sheet). The `max-sm:` override block replaces whichever
+ *     branch's geometry was active with the SAME fullscreen shape already
+ *     used for desktop's `expanded` state. The toggle button itself is
+ *     `hidden sm:inline-flex` — the affordance does not exist on a small
+ *     viewport, it is not merely hidden-but-reachable. Desktop (`sm:`+) is
+ *     completely unchanged: still forks on `expanded` between the anchored
+ *     384px card and the fullscreen toggle.
+ *  2. Header stuck-in-place + breathing room — diagnosed first (per the
+ *     ticket): the actual scrollable node was already, correctly, the
+ *     message list only (Radix's `[data-radix-scroll-area-viewport]`
+ *     established by CAM-407/442/454 — verified via Playwright: the header/
+ *     panel boxes never move while the viewport itself scrolls, at a fixed
+ *     browser-chrome viewport size). The real mobile-only gap: fullscreen
+ *     geometry relied on a bare `inset-0`, which a `position:fixed` box
+ *     resolves against the browser's LARGE viewport rather than the
+ *     currently-visible one — on a real phone, that can leave the header
+ *     above the visible fold until the address bar auto-collapses on
+ *     scroll (matching the owner's exact symptom). Fixed via `max-sm:top-0
+ *     max-sm:bottom-auto max-sm:h-[100dvh]` (tracks the real visible
+ *     viewport as the toolbar animates) instead of relying on either
+ *     branch's original inset-only sizing. `max-sm:transform-gpu` added
+ *     alongside, guarding the separate (but related-looking) iOS
+ *     compositing bug where a `position:fixed` element can visually lag
+ *     during an active touch scroll until the gesture ends (same fix
+ *     mirrored on `AiChatLauncher.tsx`, via `style` there — see its own
+ *     header comment for why). Breathing room: the header/composer now
+ *     always carry the fullscreen `pt-4`/`pb-6`-equivalent treatment on
+ *     mobile (previously only under `expanded`) plus
+ *     `env(safe-area-inset-top/bottom)` so the identity cluster and composer
+ *     dock clear a notch/dynamic-island and the home-indicator gesture bar.
+ *  3. Launcher cropped/not sticky — see `AiChatLauncher.tsx` (same
+ *     `env(safe-area-inset-*)` + `transform-gpu` treatment, out of this
+ *     file's surface).
+ *
+ * CAM-541 (owner feedback, 3 fixes — verified on `dev` first, per the
+ * ticket, before changing anything):
+ *  1. Contrast: the header's role subtitle (`text-muted-foreground` on
+ *     `bg-ai-surface`) measured 4.40:1 in light mode, below the 4.5:1 body
+ *     floor (`scripts/check-contrast.mjs`) — bumped to `text-foreground/70`
+ *     (7.41:1 light / 8.69:1 dark), the same fix CAM-451 already applied to
+ *     `AiChatDetailCard` for this identical pair.
+ *  2. Mobile overlap: CAM-550 (just merged) already made the panel true
+ *     full-screen (`h-[100dvh]`) below `sm:` — re-verified here at a real
+ *     phone viewport (390x664) in BOTH color schemes and at 150% root
+ *     font-size: the panel's bounding box exactly matches the viewport in
+ *     every case (0,0 to 390,664), no gap/overlap. Nothing changed in this
+ *     file for that symptom — it was already fixed.
+ *  3. Glow: see `AiChatAvatar.tsx` (the aura ring token, out of this file's
+ *     surface).
  */
 "use client";
 
@@ -554,7 +612,35 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   // fixed `h-[...]` gives every descendant a definite height
                   // to resolve percentages against.
                   "sm:inset-x-auto sm:inset-y-auto sm:left-auto sm:top-auto sm:right-6 sm:bottom-6 sm:h-[min(37.5rem,80dvh)] sm:w-96 sm:rounded-3xl sm:border sm:border-border/60"
-                )
+                ),
+            // CAM-550 (owner staging feedback, mobile widths, ADDITIVE —
+            // wins the cascade at `max-sm` regardless of which branch above
+            // is active, deliberately layered on top rather than rewriting
+            // the branches above so every pre-existing pinned classString
+            // stays byte-identical): below `sm:` (640px) the assistant is
+            // full-screen ONLY, always — no collapsed bottom sheet, no
+            // minimize control on a small viewport at all (see the hidden
+            // `btn--ai-chat-expand-toggle` below). `top-0`/`bottom-auto`/
+            // `h-[100dvh]` (not a bare `inset-0`/`bottom-0`) so the box
+            // tracks the REAL visible viewport as the phone browser's
+            // address bar shows/hides — a fixed box sized purely by
+            // `inset-0` resolves its height against the browser's LARGE
+            // viewport, which can leave the header above the visible fold
+            // until the toolbar auto-collapses (matches the owner's report:
+            // "the header only returns after scrolling all the way back
+            // down"). `max-h-[100dvh]` is required alongside `h-[100dvh]` —
+            // the collapsed branch's own `max-h-[85dvh]` (untouched, still
+            // present above) would otherwise still CAP the box at 85% of
+            // the viewport even after `height` is overridden (verified via
+            // Playwright: without this line the panel measured 85% tall, not
+            // fullscreen). `rounded-none border-none` strip the (now unused
+            // on mobile) bottom-sheet corner/divider from the collapsed
+            // branch; `fade-in-0 zoom-in-95`/`slide-in-from-bottom-0`
+            // normalize the entrance to the calmer fullscreen fade+zoom
+            // regardless of which branch supplied the base animation
+            // classes.
+            "max-sm:inset-x-0 max-sm:top-0 max-sm:bottom-auto max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:border-none",
+            "max-sm:transform-gpu max-sm:data-open:fade-in-0 max-sm:data-open:zoom-in-95 max-sm:data-open:slide-in-from-bottom-0 max-sm:data-closed:fade-out-0 max-sm:data-closed:zoom-out-95 max-sm:data-closed:slide-out-to-bottom-0"
           )}
         >
           {/* CAM-426: campfire-night ambient backdrop — decorative, behind every
@@ -595,7 +681,15 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               <div
                 className={cn(
                   "flex shrink-0 items-center justify-between",
-                  expanded ? "px-4 pt-4 sm:px-8 sm:pt-6" : "border-b border-border/60 px-4 py-3"
+                  expanded ? "px-4 pt-4 sm:px-8 sm:pt-6" : "border-b border-border/60 px-4 py-3",
+                  // CAM-550 (ADDITIVE — see the Content className above for
+                  // why this is layered on top rather than rewriting the
+                  // branch strings): mobile is always the borderless
+                  // fullscreen header + safe-area-inset-top so the identity
+                  // cluster clears a notch/dynamic island — "no top
+                  // breathing room" fix. sm:+ is untouched (this override
+                  // only matches below 640px).
+                  "max-sm:border-none max-sm:px-4 max-sm:pt-[max(1rem,env(safe-area-inset-top))]"
                 )}
               >
                 <div className="flex min-w-0 items-center gap-3">
@@ -604,7 +698,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     <p className="truncate font-heading text-base font-medium leading-tight text-foreground">
                       {t.aiChat.name}
                     </p>
-                    <p className="truncate text-xs leading-tight text-muted-foreground">{t.aiChat.role}</p>
+                    {/* CAM-541: text-muted-foreground on bg-ai-surface measured
+                        4.40:1 in light mode (below the 4.5:1 floor,
+                        scripts/check-contrast.mjs) — bumped to text-foreground/70
+                        (7.41:1 light / 8.69:1 dark), the same fix CAM-451 already
+                        applied to AiChatDetailCard for this identical pair. */}
+                    <p className="truncate text-xs leading-tight text-foreground/70">{t.aiChat.role}</p>
                   </div>
                 </div>
                 {/* CAM-454: hidden while a detail is open (selectedCamp) so
@@ -617,15 +716,24 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                   <div
                     className={cn(
                       "flex items-center gap-1",
-                      expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md"
+                      expanded && "rounded-full bg-ai-surface p-1 shadow-ai-glow backdrop-blur-md",
+                      // CAM-550 (ADDITIVE, see above): mobile is always the
+                      // fullscreen soft pill, matching the header always
+                      // being borderless there; sm:+ is untouched.
+                      "max-sm:rounded-full max-sm:bg-ai-surface max-sm:p-1 max-sm:shadow-ai-glow max-sm:backdrop-blur-md"
                     )}
                   >
+                    {/* CAM-550 (owner decision): the expand/collapse toggle
+                        does not exist on a small viewport at all — mobile is
+                        full-screen only, never shrunk to fit. Desktop (sm:+)
+                        keeps it. */}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       aria-label={expanded ? t.aiChat.collapse : t.aiChat.expand}
                       data-testid="btn--ai-chat-expand-toggle"
+                      className="hidden sm:inline-flex"
                       onClick={toggleExpanded}
                     >
                       {expanded ? (
@@ -695,14 +803,24 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                     "shrink-0",
                     expanded
                       ? "mx-auto w-full max-w-2xl px-4 pb-6 sm:max-w-3xl sm:px-8 sm:pb-10"
-                      : "border-t border-border/60 p-4"
+                      : "border-t border-border/60 p-4",
+                    // CAM-550 (ADDITIVE, see above): mobile is always the
+                    // fullscreen composer layout + safe-area-inset-bottom so
+                    // the dock clears the home-indicator gesture bar — "no
+                    // bottom breathing room" fix. sm:+ is untouched.
+                    "max-sm:border-none max-sm:mx-auto max-sm:w-full max-sm:max-w-2xl max-sm:px-4 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
                   )}
                 >
                   <div
                     className={cn(
                       "flex items-end gap-2",
                       expanded &&
-                        "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring"
+                        "rounded-3xl border border-border/60 bg-ai-surface bg-gradient-to-r from-primary/10 via-info/10 to-transparent p-2 pl-4 shadow-ai-glow backdrop-blur-xl focus-within:ring-2 focus-within:ring-ring",
+                      // CAM-550 (ADDITIVE, see above): mobile is always the
+                      // fullscreen glass dock, matching the header/toggle-
+                      // pill always being the fullscreen treatment there;
+                      // sm:+ is untouched.
+                      "max-sm:rounded-3xl max-sm:border max-sm:border-border/60 max-sm:bg-ai-surface max-sm:bg-gradient-to-r max-sm:from-primary/10 max-sm:via-info/10 max-sm:to-transparent max-sm:p-2 max-sm:pl-4 max-sm:shadow-ai-glow max-sm:backdrop-blur-xl max-sm:focus-within:ring-2 max-sm:focus-within:ring-ring"
                     )}
                   >
                     <Textarea
@@ -714,7 +832,16 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                       aria-label={t.aiChat.composerPlaceholder}
                       disabled={sending || disabled}
                       rows={1}
-                      className={cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0")}
+                      className={cn(
+                        // CAM-550 (ADDITIVE, kept as its own nested cn() call
+                        // — a pre-existing test pins this exact expression
+                        // verbatim, closing paren included): the textarea
+                        // blends into the always-fullscreen mobile dock the
+                        // same way it already blends into the desktop
+                        // `expanded` dock; sm:+ is untouched.
+                        cn("max-h-32", expanded && "border-none bg-transparent focus-visible:ring-0"),
+                        "max-sm:border-none max-sm:bg-transparent max-sm:focus-visible:ring-0"
+                      )}
                       data-testid="input--ai-chat-composer"
                     />
                     <Button

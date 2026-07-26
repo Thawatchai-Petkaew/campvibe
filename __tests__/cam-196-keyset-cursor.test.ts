@@ -17,7 +17,7 @@
  *   AC-orderBy       orderByFor returns the correct array for each sort.
  *   AC-page-size     PAGE_SIZE === 24 (OT-1=A).
  *   AC-catalog-cache  getDefaultCatalog take:24 (OT-1=A, source-inspect).
- *   AC-page-cursor   app/page.tsx computes initialCursor and passes it to CampgroundGrid.
+ *   AC-page-cursor   app/page.tsx computes initialCursor and passes it to InfiniteScrollGrid.
  *
  * Layers:
  *   - encode/decode, buildKeysetWhere, orderByFor, PAGE_SIZE → unit (pure functions)
@@ -62,7 +62,9 @@ const pageSrc            = readSrc('app/page.tsx');
 // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 const catalogResultsSrc  = readSrc('components/CatalogResults.tsx');
 const routeSrc           = readSrc('app/api/campsites/route.ts');
-const gridSrc            = readSrc('components/CampgroundGrid.tsx');
+// CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+// components/InfiniteScrollGrid.tsx is the live component carrying the initialCursor prop.
+const gridSrc            = readSrc('components/InfiniteScrollGrid.tsx');
 
 // ===========================================================================
 // PAGE_SIZE
@@ -560,18 +562,20 @@ describe('CatalogResults.tsx — initialCursor computation and prop (PERF-3 / CA
 });
 
 // ===========================================================================
-// CampgroundGrid — optional initialCursor prop (source-inspect)
+// InfiniteScrollGrid — initialCursor prop (source-inspect)
+// CAM-527: was "CampgroundGrid — optional initialCursor prop" against the now-
+// deleted components/CampgroundGrid.tsx (dead, zero importers); InfiniteScrollGrid
+// is the live component that actually consumes this cursor.
 // ===========================================================================
 
-describe('components/CampgroundGrid.tsx — optional initialCursor prop', () => {
+describe('components/InfiniteScrollGrid.tsx — initialCursor prop', () => {
 
-  it('[normal] CampgroundGridProps has the optional initialCursor field', () => {
+  it('[normal] InfiniteScrollGridProps has the initialCursor field', () => {
     // Prove-It: FAILS if initialCursor is removed from the props interface.
     expect(gridSrc).toContain('initialCursor');
   });
 
-  it('[normal] initialCursor is typed as optional (string | null)', () => {
-    // Must be optional — CampgroundGrid is also used in other contexts (operator dashboard etc).
+  it('[normal] initialCursor is typed as "string | null"', () => {
     expect(gridSrc).toContain('string | null');
   });
 });

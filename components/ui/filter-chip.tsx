@@ -26,6 +26,12 @@ export function FilterChip({
   "data-testid": testId,
   "aria-label": ariaLabel,
 }: FilterChipProps) {
+  // CAM-552 — the pill's HEIGHT does not step: h-11 is 44px, the tap floor
+  // itself. The compaction is horizontal (px-5 -> px-4 below md), which is what
+  // actually decides how many chips fit a phone row; min-w-[44px] holds the
+  // floor on the cross axis. Commentary stays OUT of cn(): the check:ds R9
+  // detector and ds1-dropdown-grammar read the class string as the token
+  // immediately following `cn(`.
   if (variant === "pill") {
     return (
       <button
@@ -36,7 +42,7 @@ export function FilterChip({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "inline-flex items-center gap-2 h-11 min-w-[44px] px-5 rounded-full border text-sm transition-colors",
+          "inline-flex items-center gap-2 h-11 min-w-[44px] px-4 md:px-5 rounded-full border type-label transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "active:scale-95",
           selected
@@ -51,6 +57,8 @@ export function FilterChip({
     );
   }
 
+  // CAM-552 — a card chip sits far above the 44px floor, so its block height is
+  // free to compact: 112px on a phone, 128px from md up.
   if (variant === "card") {
     return (
       <button
@@ -61,7 +69,7 @@ export function FilterChip({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "rounded-2xl border-2 h-32 p-5 flex flex-col justify-between items-start text-left overflow-hidden transition-colors w-full",
+          "rounded-2xl border-2 h-28 p-4 md:h-32 md:p-5 flex flex-col justify-between items-start text-left overflow-hidden transition-colors w-full",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "active:scale-95",
           selected
@@ -79,12 +87,13 @@ export function FilterChip({
             aria-hidden="true"
           />
         )}
-        <span className="text-base font-bold text-foreground">{label}</span>
+        <span className="type-body font-bold text-foreground">{label}</span>
       </button>
     );
   }
 
-  // icon-card variant
+  // icon-card variant — CAM-552: 80px on a phone, 96px from md up. Still well
+  // clear of the 44px floor at the mobile step.
   return (
     <button
       type="button"
@@ -94,17 +103,17 @@ export function FilterChip({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        "rounded-xl border h-24 p-3 flex flex-col items-center justify-center gap-2 transition-colors w-full",
+        "rounded-xl border h-20 p-2.5 md:h-24 md:p-3 flex flex-col items-center justify-center gap-1.5 md:gap-2 transition-colors w-full",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "active:scale-95",
         selected
-          ? "border-primary bg-primary/5 font-semibold text-primary"
+          ? "border-primary bg-primary/5 font-semibold text-primary-ink"
           : "border-border text-muted-foreground hover:border-foreground/40",
         disabled && "opacity-50 pointer-events-none"
       )}
     >
       {Icon && <Icon className="size-6" aria-hidden="true" />}
-      <span className="text-xs text-center">{label}</span>
+      <span className="type-caption text-center">{label}</span>
     </button>
   );
 }

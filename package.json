@@ -27,6 +27,7 @@
     "db:load:staging": "node scripts/load-mock-staging.mjs",
     "check:palette": "node scripts/check-palette.mjs",
     "check:ds": "node scripts/check-ds.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "reconcile:ratings": "node scripts/reconcile-ratings.mjs",
     "db:seed:demand": "node scripts/seed-demand.mjs",
     "reviews:gen": "node scripts/gen-review-text.mjs",

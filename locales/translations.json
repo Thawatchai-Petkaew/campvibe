@@ -50,7 +50,9 @@
             "themeLight": "Light",
             "themeSystem": "System",
             "themeDark": "Dark",
-            "hostLabel": "Host"
+            "hostLabel": "Host",
+            "accountMenuAriaLabel": "Account menu",
+            "switchLanguageAriaLabel": "Switch language"
         },
         "host": {
             "onboardingChip": "Host onboarding"
@@ -80,6 +82,7 @@
             "save": "Save",
             "reviews": "reviews",
             "night": "night",
+            "perNight": "/night",
             "reserve": "Reserve",
             "close": "Close",
             "showAll": "Show all",
@@ -116,10 +119,13 @@
             "all": "All",
             "campground": "Campground",
             "carCamping": "Car camping",
+            "glamping": "Glamping",
             "beach": "Beach",
+            "sea": "Sea",
             "forest": "Forest",
             "mountain": "Mountain",
-            "riverside": "Riverside"
+            "riverside": "Riverside",
+            "waterfall": "Waterfall"
         },
         "campground": {
             "hostedBy": "Hosted by",
@@ -369,6 +375,7 @@
             "directionsPlaceholder": "How to get there...",
             "latitude": "Latitude",
             "longitude": "Longitude",
+            "pinRequiredError": "Please pin your camp's location on the map",
             "campgroundType": "Campground Type",
             "amenitiesFeatures": "Amenities & Features",
             "mediaBranding": "Media & Branding",
@@ -415,7 +422,9 @@
             "deleteError": "Could not delete. Please try again.",
             "district": "District",
             "districtLabel": "District",
-            "districtLabelPlaceholder": "District name (optional)"
+            "districtLabelPlaceholder": "District name (optional)",
+            "subDistrict": "Sub-district",
+            "subDistrictLabelPlaceholder": "Sub-district name (optional)"
         },
         "gallery": {
             "viewerTitle": "Photo viewer",
@@ -504,10 +513,20 @@
             "clearAll": "Clear all filters"
         },
         "locationPicker": {
-            "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
+            "provinceSearchPlaceholder": "Search province...",
+            "districtSearchPlaceholder": "Search district...",
+            "subDistrictSearchPlaceholder": "Search sub-district...",
+            "selectProvinceFirst": "Select a province first",
+            "selectDistrictFirst": "Select a district first",
             "noResults": "No location found.",
-            "wholeProvince": "Whole Province"
+            "mapAriaLabel": "Map to pick your camp's location",
+            "mapEmptyHint": "Tap or click the map to drop a pin",
+            "mapCoordinatesLabel": "Pinned location: {lat}, {lon}",
+            "mapLocating": "Finding your location...",
+            "mapGeocodeError": "Couldn't find this location automatically. Please pick the province, district and sub-district yourself.",
+            "conflictPinFoundBody": "The pin doesn't match the selected province, district and sub-district. Update them to match the pin?",
+            "conflictSelectionMovedBody": "The selected province, district and sub-district point to a different spot than the current pin. Move the pin to match?",
+            "manualCoordinatesLabel": "Coordinates (filled in automatically by the map, editable)"
         },
         "filterModal": {
             "any": "Any",
@@ -539,9 +558,9 @@
             "keyword": "Keyword",
             "keywordPlaceholder": "Campground name, host...",
             "province": "Province",
-            "district": "District",
             "anyProvince": "Any province",
-            "anyDistrict": "Any district",
+            "provinceLoadFailed": "Could not load provinces. Please try again.",
+            "provinceEmpty": "No provinces available yet.",
             "who": "Who"
         },
         "emptyState": {
@@ -581,13 +600,14 @@
             "DRIV": "Drive-in",
             "WALK": "Walk-in",
             "BOAT": "Boating",
-            "RV": "RV Access",
             "CLIM": "Climbing",
             "LIVE": "Live Music",
             "OFFR": "Off-road",
             "FISH": "Fishing",
             "SURF": "Surfing",
-            "HIKG": "Hiking",
+            "HIKI": "Hiking",
+            "WILD": "Wildlife watching",
+            "HORS": "Horseback riding",
             "SWIM": "Swimming",
             "TOIL": "Toilet",
             "SHOW": "Shower",
@@ -599,14 +619,11 @@
             "LOTS": "Lotus's",
             "MIBC": "Mini Big C",
             "MAKT": "Market",
-            "711": "7-Eleven",
             "FYST": "Fly Sheet",
             "CHAI": "Camping Chair",
             "ICBK": "Ice Bucket",
             "LEDL": "LED Lantern",
             "TENT": "Tent",
-            "MATT": "Mattress",
-            "STOV": "Stove",
             "BAOT": "Boating",
             "HIKE": "Hiking",
             "FEDW": "Drinking water",
@@ -628,7 +645,7 @@
             "TFAN": "Electric Fan",
             "RIVE": "Riverside",
             "FORE": "Forest",
-            "MOUN": "Mountain",
+            "MTNS": "Mountain",
             "BEAC": "Beach",
             "LAKE": "Lakeside",
             "SEA": "Sea",
@@ -665,7 +682,19 @@
             "Driveway": "Driveway",
             "BACK": "Back-in",
             "PARA": "Parallel",
-            "PTHG": "Pull-through"
+            "PTHG": "Pull-through",
+            "CABI": "Cabin",
+            "DISP": "Dispersed camping (no marked pitch)",
+            "GROU": "Group camping",
+            "RECR": "RV / Recreational vehicle",
+            "TSIT": "Tent site (marked pitch)"
+        },
+        "filterDescription": {
+            "CABI": "A fixed cabin with walls and a roof, no tent required",
+            "DISP": "Open ground, pick your own tent spot freely, no marked plots",
+            "GROU": "A large shared area for camping together as a group",
+            "RECR": "Space to park and stay overnight in an RV or camper van",
+            "TSIT": "Tent ground divided into marked plots, one tent per plot"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1100,7 +1129,9 @@
             "themeLight": "สว่าง",
             "themeSystem": "ตามอุปกรณ์",
             "themeDark": "มืด",
-            "hostLabel": "โฮสต์"
+            "hostLabel": "โฮสต์",
+            "accountMenuAriaLabel": "เมนูบัญชีของฉัน",
+            "switchLanguageAriaLabel": "สลับภาษา"
         },
         "host": {
             "onboardingChip": "เริ่มต้นโฮสต์"
@@ -1130,6 +1161,7 @@
             "save": "บันทึก",
             "reviews": "รีวิว",
             "night": "คืน",
+            "perNight": "/คืน",
             "reserve": "จอง",
             "close": "ปิด",
             "showAll": "แสดงทั้งหมด",
@@ -1166,10 +1198,13 @@
             "all": "ทั้งหมด",
             "campground": "ลานกางเต็นท์",
             "carCamping": "แคมป์ด้วยรถ",
+            "glamping": "แกลมปิ้ง",
             "beach": "ชายหาด",
+            "sea": "ทะเล",
             "forest": "ป่า",
             "mountain": "ภูเขา",
-            "riverside": "ริมน้ำ"
+            "riverside": "ริมน้ำ",
+            "waterfall": "น้ำตก"
         },
         "campground": {
             "hostedBy": "โฮสต์โดย",
@@ -1419,6 +1454,7 @@
             "directionsPlaceholder": "วิธีเดินทาง...",
             "latitude": "ละติจูด",
             "longitude": "ลองจิจูด",
+            "pinRequiredError": "กรุณาปักหมุดตำแหน่งแคมป์บนแผนที่",
             "campgroundType": "ประเภทแคมป์กราวด์",
             "amenitiesFeatures": "สิ่งอำนวยความสะดวกและคุณสมบัติ",
             "mediaBranding": "สื่อและแบรนด์",
@@ -1465,7 +1501,9 @@
             "deleteError": "ลบไม่สำเร็จ กรุณาลองอีกครั้ง",
             "district": "อำเภอ",
             "districtLabel": "อำเภอ",
-            "districtLabelPlaceholder": "ชื่ออำเภอ (ไม่บังคับ)"
+            "districtLabelPlaceholder": "ชื่ออำเภอ (ไม่บังคับ)",
+            "subDistrict": "ตำบล/แขวง",
+            "subDistrictLabelPlaceholder": "ชื่อตำบล/แขวง (ไม่บังคับ)"
         },
         "gallery": {
             "viewerTitle": "ดูรูปภาพ",
@@ -1533,10 +1571,20 @@
             "clearAll": "ล้างตัวกรองทั้งหมด"
         },
         "locationPicker": {
-            "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
+            "provinceSearchPlaceholder": "ค้นหาจังหวัด...",
+            "districtSearchPlaceholder": "ค้นหาอำเภอ...",
+            "subDistrictSearchPlaceholder": "ค้นหาตำบล...",
+            "selectProvinceFirst": "กรุณาเลือกจังหวัดก่อน",
+            "selectDistrictFirst": "กรุณาเลือกอำเภอก่อน",
             "noResults": "ไม่พบสถานที่",
-            "wholeProvince": "ทั้งจังหวัด"
+            "mapAriaLabel": "แผนที่สำหรับเลือกตำแหน่งแคมป์",
+            "mapEmptyHint": "แตะหรือคลิกบนแผนที่เพื่อปักหมุด",
+            "mapCoordinatesLabel": "ตำแหน่งที่ปักหมุด {lat}, {lon}",
+            "mapLocating": "กำลังค้นหาตำแหน่ง...",
+            "mapGeocodeError": "ไม่สามารถค้นหาตำแหน่งนี้โดยอัตโนมัติได้ กรุณาเลือกจังหวัด อำเภอ และตำบลด้วยตนเอง",
+            "conflictPinFoundBody": "ตำแหน่งหมุดไม่ตรงกับจังหวัด อำเภอ และตำบลที่เลือกไว้ ต้องการอัปเดตข้อมูลให้ตรงกับหมุดหรือไม่",
+            "conflictSelectionMovedBody": "จังหวัด อำเภอ และตำบลที่เลือกไว้ชี้ไปยังตำแหน่งอื่นจากหมุดปัจจุบัน ต้องการย้ายหมุดให้ตรงกันหรือไม่",
+            "manualCoordinatesLabel": "พิกัด (กรอกอัตโนมัติจากแผนที่ แก้ไขเองได้)"
         },
         "filterModal": {
             "any": "ทั้งหมด",
@@ -1589,9 +1637,9 @@
             "keyword": "คำค้นหา",
             "keywordPlaceholder": "ชื่อแคมป์, ชื่อโฮสต์...",
             "province": "จังหวัด",
-            "district": "อำเภอ",
             "anyProvince": "ทุกจังหวัด",
-            "anyDistrict": "ทุกอำเภอ",
+            "provinceLoadFailed": "โหลดรายชื่อจังหวัดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "provinceEmpty": "ยังไม่มีจังหวัดให้เลือก",
             "who": "ใคร"
         },
         "emptyState": {
@@ -1632,13 +1680,14 @@
             "DRIV": "เข้าถึงด้วยรถยนต์",
             "WALK": "เดินเข้า",
             "BOAT": "พายเรือ",
-            "RV": "รถบ้านเข้าได้",
             "CLIM": "ปีนเขา",
             "LIVE": "ดนตรีสด",
             "OFFR": "ออฟโรด",
             "FISH": "ตกปลา",
             "SURF": "เซิร์ฟ",
-            "HIKG": "เดินป่า",
+            "HIKI": "เดินป่า",
+            "WILD": "ส่องสัตว์ป่า",
+            "HORS": "ขี่ม้า",
             "SWIM": "ว่ายน้ำ",
             "TOIL": "ห้องน้ำ",
             "SHOW": "ห้องอาบน้ำ",
@@ -1650,14 +1699,11 @@
             "LOTS": "โลตัส",
             "MIBC": "มินิบิ๊กซี",
             "MAKT": "ตลาด",
-            "711": "เซเว่น",
             "FYST": "ฟลายชีท",
             "CHAI": "เก้าอี้แคมป์",
             "ICBK": "ถังน้ำแข็ง",
             "LEDL": "ตะเกียง LED",
             "TENT": "เต็นท์",
-            "MATT": "เบาะรองนอน",
-            "STOV": "เตาแก๊ส",
             "BAOT": "พายเรือ",
             "HIKE": "เดินป่า",
             "FEDW": "น้ำดื่มฟรี",
@@ -1679,7 +1725,7 @@
             "TFAN": "พัดลม",
             "RIVE": "ริมแม่น้ำ",
             "FORE": "ป่าไม้",
-            "MOUN": "ภูเขา",
+            "MTNS": "ภูเขา",
             "BEAC": "ชายหาด",
             "LAKE": "ริมทะเลสาบ",
             "SEA": "ทะเล",
@@ -1704,7 +1750,7 @@
             "IDMT": "ทรหด",
             "CAGD": "ลานกางกับพื้น",
             "CACP": "รถเต็นท์",
-            "GLAMP": "กลามปิ้ง",
+            "GLAMP": "แกลมปิ้ง",
             "VIEW": "วิวสวย",
             "Stay connected": "สัญญาณโทรศัพท์",
             "SAIS": "เอไอเอส",
@@ -1716,7 +1762,19 @@
             "Driveway": "ทางเข้ารถ",
             "BACK": "ถอยเข้า",
             "PARA": "ขนานลาน",
-            "PTHG": "ขับผ่าน"
+            "PTHG": "ขับผ่าน",
+            "CABI": "กระท่อม",
+            "DISP": "กางเต็นท์อิสระ (ไม่แบ่งล็อค)",
+            "GROU": "ที่พักแบบกลุ่ม",
+            "RECR": "รถบ้าน (RV)",
+            "TSIT": "ลานกางเต็นท์แบ่งล็อค"
+        },
+        "filterDescription": {
+            "CABI": "ที่พักเป็นหลัง มีผนังและหลังคาถาวร ไม่ต้องกางเต็นท์",
+            "DISP": "ลานโล่งเลือกจุดกางเต็นท์เองได้อิสระ ไม่มีเส้นแบ่งล็อค",
+            "GROU": "พื้นที่กว้างสำหรับกางเต็นท์รวมกันเป็นกลุ่มหรือหมู่คณะ",
+            "RECR": "มีพื้นที่จอดรถบ้านหรือรถแคมป์ปิ้งพักค้างคืนได้",
+            "TSIT": "ลานกางเต็นท์แบ่งเป็นล็อคชัดเจน แต่ละคันกางเต็นท์ในล็อคของตัวเอง"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",

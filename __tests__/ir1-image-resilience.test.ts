@@ -66,8 +66,11 @@ describe("ImageWithFallback — component contract", () => {
         expect(iwfSrc).toMatch(/"use client"/);
     });
 
-    it("AC-component-2: imports ImageOff from lucide-react (fallback icon)", () => {
-        expect(iwfSrc).toMatch(/ImageOff/);
+    // Retargeted by CAM-539: the fallback icon is now `ImageIcon` (an intact
+    // frame) instead of `ImageOff` (lucide's struck-through ERROR mark, which
+    // read as a broken image). The AC pins "a lucide fallback icon", not a name.
+    it("AC-component-2: imports the fallback icon from lucide-react", () => {
+        expect(iwfSrc).toMatch(/ImageIcon/);
         expect(iwfSrc).toMatch(/from "lucide-react"/);
     });
 
@@ -82,8 +85,12 @@ describe("ImageWithFallback — component contract", () => {
         expect(iwfSrc).toMatch(/flex items-center justify-center/);
     });
 
-    it("AC-component-5: fallback icon uses text-muted-foreground/40 (dark-safe token)", () => {
-        expect(iwfSrc).toMatch(/text-muted-foreground\/40/);
+    // Retargeted by CAM-539: still the same dark-safe token, now at FULL opacity.
+    // The `/40` alpha measured 1.63:1 light / 2.15:1 dark on bg-muted, below the
+    // 3:1 non-text floor (WCAG 2.1 SC 1.4.11); the AC's intent is "dark-safe
+    // token", which full-opacity muted-foreground satisfies at 4.15:1 / 6.05:1.
+    it("AC-component-5: fallback icon uses the muted-foreground token (dark-safe)", () => {
+        expect(iwfSrc).toMatch(/text-muted-foreground/);
     });
 
     it("AC-component-6: wrapper applies role=img and aria-label for a11y when alt is non-empty", () => {

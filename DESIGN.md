@@ -27,6 +27,7 @@ The fast path for any UI work (full rules below):
 
 1. **Read this file first** (§0) — it is a contract; output must be deterministic session-to-session.
 2. **Precedence:** semantic token (`bg-card`, `text-muted-foreground`) → scale utility (`rounded-3xl`, `h-11`, `gap-6`) → **never an inline value** (`bg-[#…]`, `h-[52px]`). Value not in the token layer? **Stop — propose a token, don't invent one.**
+2b. **Mobile-first, one breakpoint (`md` = 768px)** — the bare utility is the MOBILE value, `md:` is the desktop step (§2.0). Type = a role (`type-heading-2`, `type-body`), never a raw `text-*` per screen size. **Tap targets never step below 44px.**
 3. **Pick the primitive** from `components/ui/*` only (§3 decision matrix); icons **lucide-react only** (§7).
 4. **Cover all 8 states** (default/hover/focus/active/loading/error/empty/disabled) + the form/error pattern.
 5. **Pass the gate before merge** (§6): `npm run check:palette` green · WCAG 2.1 AA (contrast 4.5:1 / 3:1, focus, tap ≥44px, axe) · i18n TH/EN no em-dash/jargon · motion transform/opacity 120–250ms · anti-slop (§5).
@@ -57,13 +58,16 @@ The fast path for any UI work (full rules below):
 
 **Voice/personality:** outdoor-warm, trustworthy, friendly but not cutesy · speak to the user like a friend who really knows camping.
 
+**Default theme = dark** (owner decision, CAM-544, 2026-07-26): "ปรับ Default theme เป็น Dark theme เพราะเราคือ platform เกี่ยวข้องกับแคมป์ไฟ" — CampVibe is a campfire platform, so a first-time visitor sees **dark** from first paint, regardless of their device's own light/dark setting. This is a brand decision, not an implementation detail: `components/Providers.tsx` sets `defaultTheme="dark"` (not `"system"`) while keeping `enableSystem` on, so the 3-way `ThemeToggle` (light/system/dark, CAM-105) still works and a visitor's own stored choice (including an explicit "System") always wins over this default once made.
+
 ## §2 Tokens — machine-readable (real values from `app/globals.css`, OKLCH light/.dark)
 
 ### Color (semantic — tokens only, with per-row usage)
 
 | token (Tailwind class) | light | dark | ✅ use for | ❌ do not use for |
 |---|---|---|---|---|
-| `primary` / `primary-foreground` | `0.511 0.096 186.391` / `0.984 0.014 180.72` | `0.437 0.078 188.216` / `0.984 0.014 180.72` | primary buttons, actions, prominent links, selected | wide backgrounds, body text |
+| `primary` / `primary-foreground` | `0.511 0.096 186.391` / `0.984 0.014 180.72` | `0.520 0.078 188.216` / `0.984 0.014 180.72` | **fills, borders, rings, icons** — primary buttons, actions, selected state | wide backgrounds, and **any text** (use `primary-ink`; as text on dark `--card` it measures 3.28:1 vs the 4.5:1 floor) |
+| `primary-ink` (`text-primary-ink`) | `0.511 0.096 186.391` (= light `primary`) | `0.760 0.120 184` | **primary teal on WORDS** — links, prices, active menu label, avatar initials, today's date, `link` button/badge variant | fills, borders and rings (use `primary`); never with an opacity modifier (`/80` drops it to 3.70:1 in light) |
 | `secondary` / `secondary-foreground` | `0.967 0.001 286.375` / `0.21 0.006 285.885` | `0.274 0.006 286.033` / `0.985 0 0` | secondary buttons, soft secondary surfaces | the primary action |
 | `accent` | = primary | = primary | hover/active accent, focus tint | (single tone with primary) |
 | `muted` / `muted-foreground` | `0.963 0.002 197.1` / `0.56 0.021 213.5` | `0.275 0.011 216.9` / `0.723 0.014 214.4` | secondary surfaces, secondary text, placeholder, skeleton | primary text (insufficient contrast) |
@@ -80,6 +84,7 @@ The fast path for any UI work (full rules below):
 **Color rules:**
 
 - ❌ **No pure `#000`/`#fff`** — use `foreground`/`background` (foreground = `oklch(0.148…)` navy, not solid black) · `text-white` is allowed **only over images / primary-fill surfaces** (overlay scrim, primary button).
+- **Teal fills vs teal words are two different tokens** (CAM-546). Ask "is this thing made of letters?" — if yes use **`text-primary-ink`**; if it is a fill, border, ring or icon use `primary`. One token cannot do both: text on the dark `--card` needs `L ≥ 0.596` while a near-white label *on* the fill needs `L ≤ 0.548`. Never put an opacity modifier on `text-primary-ink` — `/80` measures 3.70:1 in light, under the floor.
 - Every neutral is **already tinted toward the teal hue** (hue ~197–228) — do not drop in a flat gray (zinc/slate/neutral numbered).
 - Dark mode flips automatically via `.dark` — **do not hand-write `dark:` color overrides.**
 - The `--color-primary:#0d9488` card value in `@theme` (top of globals.css) is a stale hex → the `:root` OKLCH is authoritative (cleanup is in the backlog).
@@ -102,28 +107,96 @@ The fast path for any UI work (full rules below):
 | context | value |
 |---|---|
 | card padding | `p-4 md:p-6` |
-| modal content | `p-6 md:p-8` |
+| modal content | `p-4 md:p-8` |
 | form max-width | `max-w-xl` (reading) / `max-w-2xl` (wide form) |
 | gutter | `gap-4` (mobile) / `gap-6` (desktop) |
 | section spacing | `space-y-6`/`space-y-8` |
+
+### §2.0 Responsive scale — the mobile step (CAM-552)
+
+**Before CAM-552 this rule did not exist.** Responsive pairs covered three properties by hand, the height scale had no breakpoint variant at all, and no type token changed by breakpoint — so a control was the same height on a phone as on a desktop. This section is the rule; the tables below are followed without judgement calls.
+
+**One breakpoint: `md` = 768px.** Mobile-first — the **bare utility is the mobile value**, `md:` carries the desktop step. Never use `sm:` / `lg:` / `xl:` for a size, height, padding, gap or type; a second breakpoint is a second scale.
+
+> **Touch floor — 44 × 44px at every viewport, and it outranks compaction.**
+> `h-11` **is** 44px, so it is the floor itself and never steps down. Compaction on mobile comes from horizontal padding, gaps, section rhythm, non-control block heights, and type — **never from a tap target.** Shrinking a control below 44px is not "compact", it is a defect (WCAG 2.1 AA; the figure `min-w-[44px]` already used in `filter-chip.tsx`).
+
+**Control height** — note the deliberate **no** rows: those are the accessible ones.
+
+| role | mobile (<768px) | desktop (≥768px) | steps? |
+|---|---|---|---|
+| `sm` | `h-9` (36px) | `h-9` | no — under the floor, so **non-tappable / inside a ≥44px hit area only** |
+| **`md`** (default) | `h-11` (44px) | `h-11` | **no — it is the floor** |
+| `lg` | `h-11` (44px) | `md:h-12` (48px) | ✅ the ONE height that steps |
+| icon button | `size-11` (44px) | `size-11` | no — it is the floor |
+
+**Padding · block height · rhythm** — this is where the compaction budget actually lives.
+
+| property | mobile | desktop |
+|---|---|---|
+| chip / pill padding-x | `px-4` | `md:px-5` |
+| button `lg` padding-x | `px-4` | `md:px-5` |
+| input leading-icon inset | `pl-10` | `md:pl-12` |
+| chip `card` block | `h-28 p-4` | `md:h-32 md:p-5` |
+| chip `icon-card` block | `h-20 p-2.5` | `md:h-24 md:p-3` |
+| card padding | `p-4` | `md:p-6` |
+| modal content padding | `p-4` | `md:p-8` |
+| modal footer padding | `p-3` | `md:p-4` |
+| page / bar gutter | `px-4` | `md:px-6` |
+| control-group gap | `gap-2` | `md:gap-3` |
+| grid gutter | `gap-3` | `md:gap-4` |
+| section stack | `space-y-4` | `md:space-y-6` |
+
+**One height per control row.** A `lg` control may not sit beside an `md` control — pick the row's height once. When they clash, the **smaller consistent height wins** (this is what settled the SearchModal date buttons, CAM-542).
+
+**Typography roles — a component picks a ROLE, never a raw `text-*` per screen size.**
+
+Declared once in `app/globals.css` as `--type-*` custom properties, redefined in one `@media (min-width: 768px)` block, exposed as `@utility` classes. Deliberately **not** `--text-*` in `@theme` — that namespace generates Tailwind's own `text-*` utilities and would collide.
+
+| role | mobile | desktop | steps? |
+|---|---|---|---|
+| `type-display` | 30 / 36 | 36 / 40 | ✅ |
+| `type-heading-1` | 24 / 32 | 30 / 38 | ✅ |
+| `type-heading-2` | 20 / 28 | 24 / 32 | ✅ |
+| `type-heading-3` | 16 / 24 | 18 / 28 | ✅ |
+| `type-body` | 16 / 24 | 16 / 24 | **no** — under 16px iOS Safari auto-zooms a focused input, and 16px is the body-copy floor |
+| `type-label` | 14 / 20 | 14 / 20 | **no** — control text, already minimal |
+| `type-caption` | 12 / 16 | 12 / 16 | **no** — micro-label, already minimal |
+
+Seven roles, four of which step. Headings are what eat vertical space on a phone; body/label/caption are already at their floors, so stepping them would cost legibility and buy nothing.
+
+**Enforcement** — `npm run check:ds` (rules M1-M4, implemented in `scripts/check-scale.mjs`):
+
+| rule | catches | mode |
+|---|---|---|
+| M1 | a **control** `h-12` with no `md:` step (co-occurs with `rounded-full`, or is a cva `lg` value; squares/skeletons/comments skipped) | blocking on `components/ui/**`, `app/preview/**`, FilterModal/SearchModal/CategoryBar · report elsewhere |
+| M2 | a raw `text-2xl`..`text-6xl` with no responsive twin → use a `text-heading-*` role | same scoping as M1 |
+| M3 | a mobile step landing **under 44px** (`h-9 md:h-12`, `size-10 md:size-11`) | **blocking repo-wide** — backlog 0 by construction |
+| M4 (CAM-565) | a literal-px `min-w-[Npx]`/`md:min-w-[Npx]` with no `shrink-0` on a flex-ish line (squares/comments/rem-units skipped) — the exact CAM-560 root cause: a literal px floor never scales with the browser/OS text-size setting the way rem-based sibling content does, so it can only be seen at an increased scale (150%, the setting that reproduced CAM-560) | **report-only repo-wide** — brand new, backlog counted (2), not yet cleared |
+
+Widening M1/M2's blocking scope, or promoting M4 to blocking, is a follow-up that clears the named report backlog first — never a flip with a non-zero backlog (`.claude/rules/ops.md`).
+
+**Text-scale contract (CAM-565):** a check that only ever reasons about geometry at ONE text size cannot catch a defect that only manifests at a larger one. 150% root font-size is this codebase's standing contract for "an increased text scale" — the exact setting that reproduced CAM-560, already used identically by `e2e/regression/cam-558-touch-targets.spec.ts`'s EC-5 and `e2e/regression/cam-560-category-label-overlap.spec.ts`'s Prove-It test (`html { font-size: 24px !important; }`, 24/16 = 1.5). M4 encodes the same contract statically (no browser) by flagging the one className shape whose safety genuinely depends on it.
 
 ### Radius (soft-rounded — one token per role, stop mixing values)
 
 | role | radius | px (base 10px) |
 |---|---|---|
-| button · input · select-trigger · chip/pill · icon-button | `rounded-full` | — |
+| button · input · select-trigger · chip/pill · icon-button · calendar day | `rounded-full` / token `--radius-full` | — |
 | card · modal/dialog · sheet | `rounded-3xl` | 22px |
 | popover · select/dropdown/command content | `rounded-2xl` | 18px |
 | inner element · badge · small inset | `rounded-xl` | 14px |
 
 ### Size — height scale
 
-| size | height | use for |
-|---|---|---|
-| sm | `h-9` | dense control (toolbar, inline) |
-| **md** (default) | `h-11` | form control, select, general button |
-| lg | `h-12` | **primary CTA**, input in modal/search |
-| icon-button | `h-11 w-11` | icon-only button (tap ≥44px) |
+**Every row here is the DESKTOP value. The mobile step is §2.0 — read it too, it is binding.**
+
+| size | height (desktop) | mobile step | use for |
+|---|---|---|---|
+| sm | `h-9` | `h-9` (no step) | dense control (toolbar, inline) — **under the 44px floor, so non-tappable / inside a larger hit area only** |
+| **md** (default) | `h-11` | `h-11` (no step — it IS the floor) | form control, select, general button |
+| lg | `h-12` | `h-11` | **primary CTA**, input in modal/search — the only height that steps |
+| icon-button | `h-11 w-11` | `h-11 w-11` (no step) | icon-only button (tap ≥44px) |
 
 ### Shadow tiers (use only when needed — prefer border + spacing first)
 
@@ -196,12 +269,34 @@ This exception is the record that legitimizes the camping assistant look. Anythi
 | pick **one value** from a short list (form) | `Select` | trigger `rounded-full h-11` · content `rounded-2xl` · item `rounded-xl py-2.5` | DropdownMenu, custom button |
 | **long / searchable** list (province/place) | `Popover` + `Command` | content `rounded-2xl` · item `rounded-xl` | a long `Select` |
 | **command/account menu** (go to an action, not pick a value), e.g. Profile menu | `DropdownMenu` | content `rounded-2xl` · item `rounded-xl` (normal weight) — **same grammar as Select** | ❌ panel rounded-xl + bold item rounded-lg (the old style that made it look inconsistent) |
-| **multi-select / toggle filter** (FilterModal) | the **FilterChip** pattern | pill `rounded-full border`; selected = `bg-foreground text-background`; image-card variant `rounded-2xl` for categories with a photo — **one style** | Select, raw `<span>` |
+| **multi-select / toggle filter** (FilterModal, SearchModal) | the **FilterChip** primitive (`components/ui/filter-chip.tsx`) | pill `rounded-full border h-11 min-w-[44px] px-5`, icon `size-4`; **selected = `bg-primary text-primary-foreground border-primary`**; image-card variant `rounded-2xl` for categories with a photo — **one style, one file** | Select, raw `<span>`, a hand-rolled `<button>` pill (blocked by `check:ds` R9) |
 | boolean | `Checkbox` / Switch | — | — |
 | confirm/delete (destructive) | `AlertDialog` | — | `window.confirm` |
 | transient feedback | `toast` (sonner) | — | a persistent inline alert |
 
 > **Answer to the owner's case:** Profile dropdown = `DropdownMenu` (command menu), Filter selection = `FilterChip` (multi-select) — **different roles, so they can be different components** but **must share grammar**: radius/size/spacing from the one §2 set → they "look like one family" even though they do different jobs.
+
+### Chip family — who is a chip, and what "selected" looks like (CAM-532)
+
+**Selected = `bg-primary text-primary-foreground border-primary`.** This settles a contradiction that
+lived in this file: §3/§3.1 used to say `bg-foreground text-background` while the primitive shipped
+`bg-primary`. The primitive is right, on four counts: §2's token table already assigns `primary` the
+"selected" role · `check:ds` R5a flags `bg-foreground`/`text-background` in a consumer as a CTA-color
+override · the primitive plus all three of its consumers already ship `bg-primary` · teal-on-white is
+the §1 POV. Measured contrast of the label on the selected fill: **5.17:1 light / 7.23:1 dark**
+(both ≥ AA 4.5:1). Hover = `hover:bg-primary/85` selected, `hover:border-foreground` unselected.
+
+**Only `components/ui/filter-chip.tsx` styles a chip.** A consumer passes
+`variant`/`selected`/`onToggle`/`label`/`icon` and adds **no chip className** — height, radius, icon
+size, tap target, focus ring, `active:scale-95` and all 8 states come from the primitive. A
+hand-rolled `<button>` pill is a **Critical** gate violation and is caught by `check:ds` R9.
+
+**Not chips (do not "convert" them):**
+
+| surface | what it really is | why it stays |
+|---|---|---|
+| `ActiveFilters` | dismiss **token** — reports a filter already on, removes it on tap | not selectable (no unselected state to render) → `Badge` `rounded-xl`, per the "status label" row |
+| `CategoryBar` | underline **nav tab** (`aria-current`, `border-b-2`, no box) | switches page context rather than composing a multi-select → tab grammar, not chip grammar |
 
 ### Overlay grammar
 
@@ -225,11 +320,38 @@ This exception is the record that legitimizes the camping assistant look. Anythi
 | job | use | note |
 |---|---|---|
 | switch sections within one page | `Tabs` | not cross-page navigation (use a link) · active segment uses the accent tone, not a heavy line |
-| pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` |
+| pick a date / date range | `Calendar` (single) / `DateRangePicker` (range) in a `Popover` | trigger `rounded-full h-11` · day-cell selection states → the table below |
 | status label (not clickable) | `Badge` `rounded-xl` | status (confirmed/paid) uses `Badge` + token success/destructive/muted — **not a raw `<span>`** · a clickable filter → FilterChip (§ table) |
 | truncated text + tooltip | `TruncatedLabel` | — |
 | **icon-chip background** (stat cards, active nav, dashboard) | `<div>` / `<span>` wrapping an icon | `bg-(primary\|success\|warning\|info\|destructive)/10` — 10% opacity tint fill; pair with the matching `text-(color)` or `text-(color)-foreground` icon · ❌ do **not** apply this pattern to a `<Button>` or `<Badge>` className (use variant instead) |
 | **ghost-primary link-action** (utility/dashboard surfaces) | `<Button variant="ghost">` | add `className="text-primary hover:bg-primary/5"` — low-chrome "view / go" action on product-utility pages (dashboard, bookings list) · ❌ do **not** use as a primary CTA or on marketing/brand pages (use `default` or `link` variant) |
+
+### Calendar day selection states (CAM-533 — one shape language, single/range alike)
+
+`Calendar` mounts for BOTH `mode="single"` (booking check-in/out) and `mode="range"` (dashboard). One shape system covers both, so a day never changes vocabulary between surfaces.
+
+**Ownership rule:** the day **button** (`CalendarDayButton`) is the ONLY layer that declares radius or fill. The DayPicker `classNames` cell layer declares layout only. Two layers declaring the same shape is what produced the circle/square/half-circle mix the owner reported.
+
+| state | shape | fill | token |
+|---|---|---|---|
+| default | full round | none | `--radius-full` (via `--cell-radius`) |
+| hover | full round (unchanged) | `bg-muted` (ghost button) | `--muted` |
+| focus | full round (unchanged) | none — visible `ring-[3px]` outside | `--ring` |
+| active | full round (unchanged) | press scale from the Button base | — |
+| disabled | full round (unchanged) | none, `text-muted-foreground opacity-50`, no pointer | `--muted-foreground` |
+| single selected | full round | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range start | outer (left) round, inner edge flat | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range middle | flat both edges (connects the band) | `bg-muted` + `text-foreground` | `--muted` |
+| range end | outer (right) round, inner edge flat | solid `bg-primary` + `text-primary-foreground` | `--primary` |
+| range of one day (start = end) | full round | solid `bg-primary` | `--primary` |
+| today (not selected) | full round + 1px ring on the day control | none | `--muted-foreground` (4.61:1 light / 8.07:1 dark, ≥3:1 non-text) |
+| today (selected) | takes the selection shape above; the today ring retires | per selection state | — |
+| outside month | full round (unchanged) | none, `text-muted-foreground` | `--muted-foreground` |
+
+- ❌ Never give `today` its own square/`rounded-none` treatment; a square day is a shape-language break, not an emphasis.
+- ❌ Never mark today with `--primary` — measured 2.62:1 on `--background` in dark, below the 3:1 non-text floor.
+- Today uses `border`, focus uses `ring` — different CSS properties on purpose, so a focused today cell keeps a visible focus ring.
+- The row-end edges of a range that wraps a week stay flat, which reads as "continues on the next row".
 
 ### Composition (existing primitives and wrappers — reuse, do not rebuild)
 
@@ -251,7 +373,7 @@ Before building anything new, check this list and the Component Index (§3.1 bel
 | `PermissionTooltip` | `components/ui/permission-tooltip.tsx` | wrap a disabled control to explain why it is disabled |
 | `TruncatedLabel` | `components/ui/truncated-label.tsx` | text that may overflow — shows a tooltip with full text |
 | `FilterChip` | `components/ui/filter-chip.tsx` | multi-select / toggle filter pill |
-| `ImageWithFallback` | `components/ui/image-with-fallback.tsx` | `next/image` with a graceful fallback |
+| `ImageWithFallback` | `components/ui/image-with-fallback.tsx` | `next/image` with a graceful fallback — the missing/failed photo placeholder (see "Empty image slot" below) |
 
 ### Dropdown / select grammar (canonical — resolves the "which dropdown is correct" question)
 
@@ -283,15 +405,15 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `alert-dialog` | Confirm / destructive action — the only modal that prompts for consent | `rounded-3xl` |
 | `badge` | Status label (not clickable) — confirmed / paid / pending | `rounded-xl`; pair with a token color + text/icon (never color-only) |
 | `button` | All buttons | `rounded-full`; size sm/md/lg; 1 primary per view |
-| `calendar` | Pick a single date | trigger `rounded-full h-11` |
+| `calendar` | Pick a single date | trigger `rounded-full h-11` · day-cell states → §3 "Calendar day selection states" (button owns radius/fill, cell owns layout) |
 | `card` | Raised surface grouping related content | `rounded-3xl p-4 md:p-6` |
 | `checkbox` | Boolean toggle in a form | — |
 | `command` | Searchable list (long / province / place) — use inside a `Popover` | item `rounded-xl` |
-| `date-range-picker` | Pick a start + end date | wraps `Calendar` + `Popover` |
+| `date-range-picker` | Pick a start + end date | wraps `Calendar` + `Popover` · same day-cell states as `calendar` (§3) |
 | `dialog` | Focused-task modal (centered) | `rounded-3xl`, close `h-11 w-11` |
 | `dropdown-menu` | Action / account menu — no persistent selected state | content `rounded-2xl` · item `rounded-xl py-2.5 font-normal focus:bg-accent` |
 | `error-banner` | Server error shown at the top of a form after submit | — |
-| `filter-chip` | Multi-select / toggle filter pill | `rounded-full`; selected = `bg-foreground text-background` |
+| `filter-chip` | Multi-select / toggle filter pill — **the only file allowed to style a selectable chip** | `rounded-full h-11`; selected = `bg-primary text-primary-foreground` (§3 "Chip family") |
 | `image-with-fallback` | `next/image` with a graceful fallback | — |
 | `input` | Raw text input (use `input-field` when label + error needed) | `rounded-full h-11` |
 | `input-field` | Input + label + inline error in one unit | — |
@@ -325,6 +447,24 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `ProfileFormSkeleton` *(planned)* | — | Profile form section skeleton; planned S3 |
 | `BookingListSkeleton` *(planned)* | — | Booking-list section skeleton; planned S4 |
 
+### Empty image slot — the missing/failed photo placeholder (CAM-539)
+
+A photo that is absent and a photo that failed to load share **one** treatment, because to a camper both
+mean "no photo here". It is the **empty** state of an image (§5 list below), never an error state.
+
+| | rule |
+|---|---|
+| glyph | lucide **`ImageIcon`** — a whole picture frame (rect + circle + mountain). Import it under that alias: `ImageWithFallback` already imports `Image` from `next/image`. |
+| colour | `text-muted-foreground` at **full opacity** on the `bg-muted` frame — **4.15:1** light / **6.05:1** dark, clearing the 3:1 non-text floor (SC 1.4.11) in both themes |
+| size | `w-8 h-8` (32px) |
+| a11y | glyph `aria-hidden="true"`; the accessible name is the wrapper's `role="img"` + `aria-label={alt}`, so the slot announces once |
+
+❌ **Never use a struck-through / "off" glyph here** (`ImageOff`, `VideoOff`, `FileX`, …). Those are lucide's
+*error* marks: a full-canvas diagonal laid across a frame that is split into disjoint arcs to clear it, so
+their strokes cross and the element reads as a rendering failure rather than an empty slot.
+❌ **Never put alpha on the glyph** (`/40`, `/50`). It muddies every stroke crossing and it measured
+**1.63:1 light / 2.15:1 dark** — below the non-text floor in both themes, which is what CAM-539 fixed.
+
 ### Interaction states + accessibility (required on every interactive element)
 
 `default` · `hover` · `focus` (ring = `ring-ring`) · `active` · `loading` · `error` · `empty` · `disabled` — missing any one = fails the Design Gate.
@@ -335,7 +475,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 
 - [ ] **Keyboard** — fully operable by keyboard; logical tab order; no keyboard trap.
 - [ ] **Screen reader** — meaningful `aria-label` / accessible name on every control (icon-button required); correct roles/landmarks.
-- [ ] **Contrast** — **4.5:1 body text · 3:1 heading / large text** (token colors meet this; verify any composite).
+- [ ] **Contrast — three floors, do not mix them up** (CAM-537): **4.5:1 body text** (SC 1.4.3) · **3:1 large text** — and large means ≥18.66px **bold** or ≥24px, so `text-lg font-semibold` (18px/600) is still body copy · **3:1 non-text** (SC 1.4.11) for a fill that identifies a **state** and for the boundary that identifies a control. Never judge a fill at the text floor or body copy at the non-text floor. Token pairs are pinned numerically by `npm run check:contrast`; verify any composite you introduce.
 - [ ] **Focus** — visible focus ring (`ring-ring`, `outline-ring/50`) on every focusable element.
 - [ ] **Color not the only signal** — never convey state by color alone; pair with text/icon/shape.
 - [ ] **Touch target ≥44px** — interactive elements ≥44px (icon-button `h-11 w-11`).
@@ -364,15 +504,17 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | empty grid cells, blandly symmetric layout | fill every cell, lay it out with weight |
 | gradients / heavy shadows / cards stacked on cards | content leads, light chrome (border + spacing > shadow) |
 | em-dash, technical jargon, generic copy | §4 |
+| an empty slot drawn with an error mark — a struck-through "off" glyph, faded to `/40` grey, so it reads "broken" | the **whole** glyph at full token opacity (§3 "Empty image slot") — absence is not failure |
 
 ## §6 Quality gate — pre-delivery checklist (can block a PR, run before merge→staging = "Done")
 
 - [ ] **Token-only** — no free-floating hex/px/colors, reference tokens + scale (light + dark) · `npm run check:palette` green
-- [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5)
+- [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5) · `npm run check:ds` green, including **R9** (no hand-rolled selectable pill — use `FilterChip`, §3 "Chip family")
 - [ ] **Scale matches role** — radius/size/spacing per §2 (no inline height override)
+- [ ] **Mobile step present (blocks PR)** — every control/padding/gap/type follows §2.0: one breakpoint (`md` = 768px), mobile-first, type via a `text-*` role not a raw size, one height per control row, and **nothing tappable under 44px at any viewport**. `npm run check:ds` rules **M1/M2/M3** enforce it (M3 blocks repo-wide). Verify on a real ~390px viewport, not by reading classNames.
 - [ ] **All 8 states** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **Loading state (blocks PR)** — every page/component with an async dependency must: (a) use the correct loader per the decision matrix (`.claude/rules/loading.md`); (b) if skeleton: mirror the real layout exactly (exact dims/count/grid — CLS = 0), NOT a generic gray block; (c) show a section-level skeleton only (chrome/navbar renders instantly) unless the ENTIRE route is async; (d) wire a11y (`aria-busy`, `role="status"`, `aria-live="polite"`, `กำลังโหลด…` label, `prefers-reduced-motion` disables shimmer); (e) anti-flicker per context — Suspense fallback: delay-before-show via `loading-delay` CSS utility (`app/globals.css`), min-display N/A; client-fetch skeleton: both delay + min-display via `useMinimumLoading` hook. Missing loading state OR wrong loader for the matrix OR full-page skeleton for a section-level fetch OR missing a11y = **Critical, blocks merge**.
-- [ ] **a11y AA** — contrast **4.5:1 body / 3:1 heading**, visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe)
+- [ ] **a11y AA** — contrast **4.5:1 body / 3:1 large text / 3:1 non-text state + control boundary** (§3), visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe) · **`npm run check:contrast` green** — the numeric token guard (CAM-537); a changed token value must clear its floor in BOTH themes
 - [ ] **i18n** — TH/EN in `locales/`, no em-dash separator, no technical jargon, tabular-nums
 - [ ] **Motion** — transform/opacity only, 120–250ms, no `transition:all`, respect reduced-motion
 - [ ] **Layout sanity** — nav < 80px tall, CTA does not wrap, no duplicate CTA intent, no generic card-grid
@@ -388,11 +530,11 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 
 ## §8 Living reference & consolidation backlog
 
-**Living reference = `/preview`** (kitchen-sink, noindex) — agents/humans look at the real thing here · must be expanded (backlog): size/variant grid, composite patterns (form+validation+error+loading), decision-matrix examples, mobile view.
+**Living reference = `/preview`** (kitchen-sink, noindex) — agents/humans look at the real thing here · ✓ **mobile view done (CAM-552)** — the "Mobile scale" section renders the type roles, the control heights and a live filter row, and every specimen changes in front of you when the window crosses 768px · still to expand (backlog): size/variant grid, composite patterns (form+validation+error+loading), decision-matrix examples.
 
 **Consolidation backlog (next epic — use this DESIGN.md v2 as the spec, ordered by impact):**
 
-1. **Dropdown/select → 1 grammar** + build a `FilterChip` component (align Profile menu + Search/Sort/Form/Team Select + FilterModal chips).
+1. **Dropdown/select → 1 grammar** + ~~build a `FilterChip` component~~ ✓ **chip half done (CAM-532)** — `FilterChip` exists, FilterModal + SearchModal both use it, the selected-state contradiction is resolved (§3 "Chip family"), and `check:ds` R9 blocks the next hand-rolled pill. The Profile/Search/Sort/Form/Team **Select** alignment half is still open.
 2. **Button `size="lg"` (h-12)** + drop every inline `!h-12`/`h-10` override.
 3. **Card primitive** — CampgroundCard + CampgroundForm stop hardcoding `rounded-xl`/`rounded-3xl` and use `Card`.
 4. **One modal shell** (`rounded-3xl`, close `h-11 w-11`) — align AmenitiesModal (`rounded-2xl`).
@@ -402,6 +544,13 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 8. **Consistency CI guard** — extend `check-palette.mjs` to catch inline height/radius off-scale (prevent drift like the palette).
 9. **Wire Sarabun** — `next/font/google` subset thai+latin + Thai font stack (`:lang(th)`) → heading Sarabun semibold.
 10. **Cleanup** — remove the stale hex `--color-primary:#0d9488` in `@theme` (globals.css), and the `"orange-600"` comment that does not match the value.
+11. **Dark-mode contrast** — ✓ **state fills done (CAM-537), teal TEXT done (CAM-546), boundaries still open.** The *selected* chip fill measured **2.31:1** vs `--card` in dark (5.39:1 light), under the 3:1 WCAG 1.4.11 floor. CAM-537 raised dark `--primary` and `--accent` from `L 0.437` to **`L 0.520`** (lightness only — chroma/hue untouched), taking the fill to **3.28:1** vs `--card` and **3.73:1** vs `--background` while the near-white label holds at **5.08:1**. The feasible window is **L ∈ [0.499, 0.549]** and both ends are pinned by `npm run check:contrast` (now **54 enforced pairs**, backlog 0, blocking).
+    ✓ **The `text-primary` half is CLOSED by CAM-546 — the fill/text token split.** `--primary` provably could not do both jobs: as text on the dark `--card` it needs `L ≥ 0.596`, while a near-white label *on the fill* needs `L ≤ 0.548` — disjoint windows. So `--primary` now paints **fills, borders, rings and icons**, and the new **`--primary-ink`** (`0.760 0.120 184` dark; light = light `--primary`, so light mode is unchanged) paints **words**. Measured: dark text went **3.73 → 9.68:1** on `--background`, **3.28 → 8.52:1** on `--card`, and **3.01 → 7.81:1** on a `bg-primary/10` tint (the worst surface in the app — a tint *lightens* the backdrop, so it is harder than the bare surface, and `check:contrast` now models it via `overlay`). This closed a **serious** axe `color-contrast` violation on `/preview` (`#257771` on `#090b0c`, 3.71:1) that surfaced when dark became the default theme (CAM-544).
+    **Known duplication (follow-up, not a defect):** `--primary-ink` and `--ai-price` now hold identical values in both themes — they do the same job, and the app should have exactly one bright teal for dark text rather than two. They are not merged only because `__tests__/cam-444-*` pins `--ai-price` as a literal `oklch()` declaration.
+    **Still open — each needs one owner decision, all measured, none shipped:**
+    - `--border` **1.25:1** light / 1.26–1.34 dark, `--input` **1.25 / 1.48**, `--ai-tint` **1.10 / 1.31** — clearing 3:1 pushes `--border` from `L 0.925` to ~`0.669`, i.e. every divider and card outline becomes a mid-grey line. That contradicts the §1 POV ("chrome is light, hierarchy through spacing + typography"), so it is a **look change**, not a bug fix. Decide the three together; splitting them fragments the look.
+    - `--ring` **2.44:1** light (dark passes at 4.27) — a real 1.4.11 failure, but the indicator a user actually sees is composed in the components (`ring-ring/30` on Button, `ring-ring/50` on Badge), so the token alone does not determine it. Needs a component-level story, not a token edit.
+    All of the above are printed on every `check:contrast` run as the DEFERRED set, with the reason on each row, so they cannot be quietly forgotten.
 
 ## Examples
 
@@ -426,6 +575,9 @@ Representative ✅/❌ (the full sets live in §2/§3/§5):
 |---|---|
 | "It's just one `bg-[#0d9488]`, the token is basically the same color." | `npm run check:palette` exits 1 on any hardcoded palette — the PR cannot pass. Use the token. |
 | "The value I need isn't in the scale, so I'll set `h-[52px]` this once." | The token layer is closed. Stop and propose a new token in `app/globals.css` (Designer + Architect approve), then use it. |
+| "It's compact on mobile — I dropped the button to `h-9`." | 44px is a floor, not a preference. `h-11` IS 44px, so control height is the ONE lever that cannot compact; take the space out of padding, gaps, block heights and type instead (§2.0). `check:ds` M3 blocks a mobile step under the floor, repo-wide. |
+| "I'll add `text-3xl md:text-5xl` on this heading." | Per-screen raw sizes are how the scale fragmented in the first place — every component invents its own pair. Pick a role (`type-display`/`type-heading-1`…); it is already responsive (§2.0), so the component states intent, not arithmetic. |
+| "This screen needs a `sm:` step as well as `md:`." | One breakpoint (`md` = 768px). A second breakpoint is a second scale, and nobody can remember two. If a layout genuinely needs another column count, that is a `grid-cols` decision, not a size-scale decision. |
 | "I'll add a `dark:` override so it looks right in dark mode." | Dark mode flips automatically via `.dark`. A hand-written `dark:` color override is a defect, not a fix. |
 | "A quick custom dropdown is faster than wiring the primitive." | Vocabulary is `components/ui/*` only. An out-of-system component fails the Design Gate. |
 | "Color alone makes the status obvious enough." | Color is never the only signal (a11y). Pair it with text/icon/shape and a `Badge`. |

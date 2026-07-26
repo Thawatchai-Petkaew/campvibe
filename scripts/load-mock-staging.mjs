@@ -70,7 +70,11 @@ const UNSPLASH_POOL = [
   // Lake / river / waterside
   'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1200', // lakeside camp
   'https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?w=1200', // river forest camp
-  'https://images.unsplash.com/photo-1476611338391-6f395a0dd82e?w=1200', // lake reflection tents
+  // CAM-543: photo-1476611338391 was removed upstream and now 404s (verified by
+  // GET, with and without the ?w= query). Replaced IN PLACE rather than dropped
+  // from the array: pickPoolUrls hashes against POOL_SIZE, so shortening the pool
+  // would reshuffle the image set of every camp instead of only the affected ones.
+  'https://images.unsplash.com/photo-1537565266759-34bbc16be345?w=1200', // lakeside tents at dusk
   // Stars / night sky / milky way
   'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1200', // milky way over tent
   'https://images.unsplash.com/photo-1464207687429-7505649dae38?w=1200', // starry night campsite
@@ -272,7 +276,7 @@ async function main() {
           nameEnSlug: camp.nameEnSlug ?? camp.nameThSlug,
           description: camp.description ?? '',
           campSiteType: camp.campSiteType ?? 'CAGD',
-          accommodationTypes: camp.accommodationTypes ?? 'TENT',
+          accommodationTypes: camp.accommodationTypes ?? 'TSIT', // CAM-536: renamed from TENT (collided with Equipment for rent:TENT)
           latitude: camp.latitude,
           longitude: camp.longitude,
           address: camp.address ?? null,
@@ -317,7 +321,7 @@ async function main() {
           nameEnSlug: camp.nameEnSlug ?? camp.nameThSlug,
           description: camp.description ?? '',
           campSiteType: camp.campSiteType ?? 'CAGD',
-          accommodationTypes: camp.accommodationTypes ?? 'TENT',
+          accommodationTypes: camp.accommodationTypes ?? 'TSIT', // CAM-536: renamed from TENT (collided with Equipment for rent:TENT)
           latitude: camp.latitude,
           longitude: camp.longitude,
           address: camp.address ?? null,

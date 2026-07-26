@@ -8,13 +8,10 @@ import {
     Tent,
     MapPin,
     Info,
-    DollarSign,
-    Clock,
     CheckCircle2,
     Check,
     Trash2,
     Loader2,
-    Search,
     Phone,
     MessageCircle,
     Facebook,
@@ -53,7 +50,7 @@ import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/list
 import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
 import type { UserRole } from "@/types/api";
-import * as LucideIcons from "lucide-react";
+import { getIconByName } from "@/lib/facility-icon-map";
 
 // CAM-341: Radix Select forbids an empty-string item value, so the "not set"
 // cancellation-policy option uses this sentinel; onValueChange maps it back to "".
@@ -272,10 +269,17 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         maxTentsPerDay: 0 as number | string,
         groundType: {} as Record<string, number>, // {STONE: 5, GRASS: 10, CONCRETE: 3, WOOD: 2}
 
-        latitude: 13.7563 as number | string,
-        longitude: 100.5018 as number | string,
+        // CAM-554: no default coordinates. The old 13.7563/100.5018 default
+        // silently placed every camp whose host skipped this field in
+        // Bangkok - empty now means "no pin yet" (LocationMapPin's empty
+        // state), never an invisible answer. handleSubmit blocks submit
+        // until the host actually pins one (mirrors the maxGuestsPerDay
+        // client-side guard below).
+        latitude: "" as number | string,
+        longitude: "" as number | string,
         province: "",
         district: "",
+        subDistrict: "",
         checkInTime: "14:00",
         checkOutTime: "12:00",
         bookingMethod: "ONLI",
@@ -290,7 +294,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
         images: [] as string[],
         locationId: "",
-        thaiLocationId: "",
+        // CAM-574: replaces the retired `thaiLocationId` (a `ThailandLocation.id`
+        // FK) — the deepest `AdminArea` node LocationPicker resolved.
+        adminAreaId: "",
         
         // Ownership & Pricing
         ownershipType: "" as string,
@@ -373,14 +379,31 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 tags: initialData.tags ? initialData.tags.split(',').filter(Boolean) : [],
                 partner: initialData.partner || "",
                 nationalPark: initialData.nationalPark || "",
-                latitude: initialData.latitude ?? 13.7563,
-                longitude: initialData.longitude ?? 100.5018,
-                province: initialData.location?.thaiLocation 
-                    ? (language === 'th' ? initialData.location.thaiLocation.provinceName : initialData.location.thaiLocation.provinceNameEn)
-                    : initialData.location?.province || "",
-                district: initialData.location?.thaiLocation?.districtName
-                    ? (language === 'th' ? initialData.location.thaiLocation.districtName : initialData.location.thaiLocation.districtNameEn)
-                    : "",
+                // CAM-554: an already-saved camp keeps its real stored value
+                // (including a pre-existing Bangkok default from before this
+                // story - not backfilled, mirrors CAM-559's "blank, not
+                // guessed" precedent for district/subDistrict). A camp with
+                // no stored coordinates at all now prefills empty, not 13.7563.
+                latitude: initialData.latitude ?? "",
+                longitude: initialData.longitude ?? "",
+                // CAM-574: prefer the id-derived bilingual name (`provinceTh`/
+                // `provinceEn`, attached server-side by getCampSiteWithCapacity
+                // via resolveLocationDisplayNames off the resolved `adminArea`
+                // chain — replaces the retired `thaiLocation` FK relation),
+                // falling back to the raw stored `Location.province` string.
+                province: (language === 'th' ? initialData.location?.provinceTh : initialData.location?.provinceEn)
+                    || initialData.location?.province || "",
+                // CAM-556/CAM-559: fall back to the raw stored `Location.district`
+                // (mirrors `province`'s existing fallback two lines above) - a
+                // district saved as plain text (no AdminArea match) rendered
+                // blank on edit; now that the edit PUT actually WRITES this
+                // box's value (CAM-556 fix), a blank prefill would silently
+                // clear a real stored district on the very next save.
+                district: (language === 'th' ? initialData.location?.districtTh : initialData.location?.districtEn)
+                    || initialData.location?.district || "",
+                // CAM-559: sub-district has no free-text-fallback source of its
+                // own beyond the raw stored value.
+                subDistrict: initialData.location?.subDistrict || "",
                 checkInTime: initialData.checkInTime || "14:00",
                 checkOutTime: initialData.checkOutTime || "12:00",
                 bookingMethod: initialData.bookingMethod || "ONLI",
@@ -399,7 +422,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
                 images: toImageUrlList(initialData.images),
                 locationId: initialData.locationId || "",
-                thaiLocationId: initialData.location?.thaiLocationId || "",
+                adminAreaId: initialData.location?.adminAreaId || "",
                 isVerified: initialData.isVerified ?? false,
                 isActive: initialData.isActive ?? true,
                 isPublished: initialData.isPublished ?? false,
@@ -455,13 +478,6 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         });
     };
 
-    // Helper to get Icon
-    const getIcon = (iconName: string) => {
-        // @ts-ignore
-        const Icon = LucideIcons[iconName] || LucideIcons.HelpCircle;
-        return <Icon className="w-5 h-5 mb-2 group-hover:text-primary transition-colors" />;
-    };
-
     const renderOptionGroup = (title: string, groupKey: string, fieldName: keyof typeof formData) => {
         const options = masterOptions[groupKey] || [];
         if (options.length === 0) return null;
@@ -472,8 +488,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {options.map((opt) => {
                         const isSelected = (formData[fieldName] as string[])?.includes(opt.code);
-                        // @ts-ignore
-                        const IconComp = LucideIcons[opt.icon] || LucideIcons.HelpCircle;
+                        const IconComp = getIconByName(opt.icon);
+                        // CAM-538: a per-code one-line hint (e.g. distinguishing
+                        // marked-pitch TSIT from unmarked DISP) rendered under the
+                        // label when this code has one; other groups have no
+                        // `filterDescription` entry so this renders nothing extra.
+                        const description = t.filterDescription?.[opt.code as keyof typeof t.filterDescription];
                         return (
                             <button
                                 key={opt.code}
@@ -491,9 +511,16 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     <div className={cn("w-7 h-7 rounded-xl flex items-center justify-center transition-colors shrink-0", isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                                         <IconComp className="w-3.5 h-3.5" />
                                     </div>
-                                    <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
-                                        {language === 'th' ? opt.nameTh : opt.nameEn}
-                                    </span>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className={cn("text-sm font-medium truncate", isSelected ? "text-primary-ink" : "text-foreground")}>
+                                            {language === 'th' ? opt.nameTh : opt.nameEn}
+                                        </span>
+                                        {description && (
+                                            <span className="text-xs text-muted-foreground truncate" data-testid="text--option-description">
+                                                {description}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className={cn("w-5 h-5 rounded flex items-center justify-center shrink-0", isSelected ? "bg-primary" : "bg-muted")}>
                                     {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
@@ -543,6 +570,18 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 }
             }
 
+            // CAM-554: the map replaced the always-filled 13.7563/100.5018
+            // default, so an unpinned location is now possible - block submit
+            // rather than silently coalescing to (0,0) (same
+            // fieldErrors/banner/scroll wiring as the guestsInvalid guard
+            // above).
+            if (formData.latitude === "" || formData.longitude === "") {
+                setFieldErrors({ latitude: [t.newCampground.pinRequiredError], longitude: [t.newCampground.pinRequiredError] });
+                setServerError(buildValidationBannerMessage(t, ["latitude"]));
+                scrollToFirstErrorField(["latitude"]);
+                return;
+            }
+
             let locationId = formData.locationId;
             if (!locationId) {
                 const locRes = await fetch('/api/location', {
@@ -551,10 +590,15 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     body: JSON.stringify({
                         country: "Thailand",
                         province: formData.province,
+                        // CAM-553: the host-typed district was collected in state but
+                        // never sent - the API silently dropped it on every camp.
+                        district: formData.district,
+                        // CAM-559: sub-district, wired through the SAME seam.
+                        subDistrict: formData.subDistrict,
                         // Lat/Lon are independent - user enters manually
                         lat: formData.latitude,
                         lon: formData.longitude,
-                        thaiLocationId: formData.thaiLocationId
+                        adminAreaId: formData.adminAreaId
                     })
                 });
                 const location = await locRes.json();
@@ -984,24 +1028,25 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="space-y-2">
                                     <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.searchLocation}</Label>
+                                    {/* CAM-559: cascading province -> district -> sub-district (each
+                                        searchable, each narrowing the next) replaces the old flat
+                                        single-search list. CAM-554: LocationPicker now also owns the
+                                        draggable map pin + its two-way sync with these three levels -
+                                        `value` merges whatever keys arrive ({...prev, ...value}) since a
+                                        plain combobox pick omits latitude/longitude entirely. */}
                                     <LocationPicker
-                                        onSelect={(loc) => {
-                                            if (loc) {
-                                                setFormData({
-                                                    ...formData,
-                                    thaiLocationId: loc.id ? loc.id : "",
-                                    province: language === 'th' ? loc.provinceName : loc.provinceNameEn,
-                                    district: loc.districtName
-                                                        ? (language === 'th' ? (loc.districtName || "") : (loc.districtNameEn || ""))
-                                                        : ""
-                                                });
-                                            }
+                                        latitude={formData.latitude === "" ? null : Number(formData.latitude)}
+                                        longitude={formData.longitude === "" ? null : Number(formData.longitude)}
+                                        province={formData.province}
+                                        district={formData.district}
+                                        subDistrict={formData.subDistrict}
+                                        onChange={(value) => {
+                                            setFormData(prev => ({ ...prev, ...value }));
                                         }}
-                                        initialLocationId={formData.thaiLocationId}
                                     />
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <InputField
                                         label={t.newCampground.province}
                                         value={formData.province}
@@ -1015,6 +1060,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, district: e.target.value })}
                                         inputSize="lg"
                                         placeholder={t.newCampground.districtLabelPlaceholder}
+                                    />
+                                    <InputField
+                                        label={t.newCampground.subDistrict}
+                                        value={formData.subDistrict}
+                                        onChange={e => setFormData({ ...formData, subDistrict: e.target.value })}
+                                        inputSize="lg"
+                                        placeholder={t.newCampground.subDistrictLabelPlaceholder}
                                     />
                                 </div>
 
@@ -1038,6 +1090,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                     />
                                 </div>
 
+                                {/* CAM-554: the map above is the primary way to set these two
+                                    values now (it replaces the old always-13.7563/100.5018
+                                    default); these stay as a synced, keyboard-operable fallback -
+                                    Leaflet's drag gesture has no native keyboard equivalent. */}
+                                <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.locationPicker.manualCoordinatesLabel}</Label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label={t.newCampground.latitude}

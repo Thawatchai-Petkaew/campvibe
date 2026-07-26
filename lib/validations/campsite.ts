@@ -1,15 +1,19 @@
 import { z } from 'zod';
 import { imageInputSchema, imageUrlValue } from './image';
 
-// Extended camp site types to match actual usage
+// CAM-527: reconciled down to the 4 codes that actually exist as `Campground type`
+// MasterData rows (prisma/seed.ts) — the only codes the host form can ever pick and
+// the only codes searchable/displayable via that group. The 3 previously-superset
+// members are gone: one had no MasterData row and no i18n key anywhere (would render
+// as a raw code); the other two belong to OTHER MasterData groups entirely (Terrain,
+// Access type — see AccessTypeEnum just below, which correctly keeps its own member) —
+// keeping them here would let a stray campSiteType write render a terrain/access label
+// as a site type.
 export const CampSiteTypeEnum = z.enum([
   "CAGD", // Campgrounds
   "CACP", // Car Camping
   "GLAMP", // Glamping
-  "LAKE", // Lakefront
-  "FOREST", // Forest
-  "VIEW", // Views
-  "BAOT", // Boat Access
+  "VIEW", // Scenic view
 ]);
 
 export const AccessTypeEnum = z.enum([
@@ -19,13 +23,22 @@ export const AccessTypeEnum = z.enum([
   "WALK", // Walk-in
 ]);
 
+// CAM-536: TSIT replaced the old TENT member (`MasterData.code` is a global
+// @id, not scoped per group — TENT already belonged to `Equipment for rent`).
+// CAM-538: the horse-camp member (HCMP, itself CAM-536's rename of the old
+// HORS collision) is DROPPED entirely — a US-origin `AccommodationTypeEnum`
+// member inherited from the original v1 spec with no Thai camp relevance.
+// The remaining 5 members are the real, self-explanatory set: see
+// prisma/seed.ts for the display names + `locales/translations.json`'s
+// `filterDescription` for the one-line clarifying hint under each option,
+// and `scripts/backfill-cam-538-drop-horse-camp.mjs` for the CSV cleanup on
+// existing CampSite.accommodationTypes data.
 export const AccommodationTypeEnum = z.enum([
   "CABI", // Cabin
-  "DISP", // Dispersed
+  "DISP", // Dispersed camping (no marked pitch)
   "GROU", // Group
-  "HORS", // Horse
   "RECR", // Recreation
-  "TENT", // Tent
+  "TSIT", // Tent site (marked pitch) (CAM-536)
 ]);
 
 export const BookingMethodEnum = z.enum([

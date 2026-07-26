@@ -165,7 +165,13 @@ describe('CAM-362 — zones ride as a 4th parallel request (tech.md §4.1, no N+
       sectionSrc.indexOf('const loadData = useCallback'),
       sectionSrc.indexOf('}, [campSiteId, fetchZones]);')
     );
-    expect(loadDataBody).toContain('const [spotsRes, campRes, sessionRes, zonesResult] = await Promise.all([');
+    // CAM-555 — campRes/sessionRes were renamed campResult/sessionResult when
+    // they were switched to the never-throw fetchJsonSafe (root-causing the
+    // ac6-spot-lifecycle flake, see __tests__/cam-555-spot-load-isolation.test.ts);
+    // the "same Promise.all, no N+1" property this test guards is unchanged.
+    expect(loadDataBody).toContain(
+      'const [spotsRes, campResult, sessionResult, zonesResult] = await Promise.all(['
+    );
     expect(loadDataBody).toContain('fetchZones(),');
   });
 

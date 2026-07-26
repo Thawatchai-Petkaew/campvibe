@@ -31,8 +31,55 @@ export interface CampgroundCardData {
     nameThSlug: string;
     nameEnSlug: string;
     priceLow: number | null;
+    /** CAM-545: optional — an older/narrower caller without a real range still satisfies this structurally. */
+    priceHigh?: number | null;
     createdAt: string;
-    location: { province: string };
+    location: {
+        province: string;
+        /**
+         * CAM-545 (rework, 2026-07-26): the Thai province name. CAM-573
+         * prefers an id-derived value (`Location.adminAreaId` -> the
+         * resolved AdminArea's Thai name), falling back to the pre-existing
+         * name-based match (`Location.province` against the admin-division
+         * dataset's English name) when the id-derived value is absent — see
+         * `lib/read-models/camp-card.ts`'s `withProvinceThaiNames`. Optional
+         * — a province with no match at all falls back to `province`
+         * (BR-1/EC-1); `province` itself is never touched by this field.
+         */
+        provinceTh?: string;
+        /**
+         * CAM-573 — the id-derived English province name (the same
+         * AdminArea node `provinceTh` comes from, English side). Optional —
+         * falls back to the raw `province` value when absent (every card
+         * whose `adminArea` did not resolve).
+         */
+        provinceEn?: string;
+        /**
+         * CAM-545: district — owner requirement (2026-07-26): show
+         * "district, province", drop the country entirely. This raw
+         * free-text field is NO LONGER read by `buildLocationText` (CAM-573
+         * — a Thai user was seeing this ENGLISH free-text value beside a
+         * Thai province, CAM-567). Kept on the type for shape stability
+         * only; the id-derived `districtTh`/`districtEn` below are what
+         * renders now.
+         */
+        district?: string | null;
+        /**
+         * CAM-573 — the id-derived bilingual district name (from
+         * `Location.adminAreaId`'s resolved AdminArea chain). Populated only
+         * when the chain reached DISTRICT depth or deeper; absent = render
+         * province-only for this level (never a wrong-language guess, EC-4).
+         */
+        districtTh?: string;
+        districtEn?: string;
+        /**
+         * CAM-573 — the id-derived bilingual sub-district name. Populated
+         * only when the chain reached SUBDISTRICT depth; absent = render
+         * with no sub-district prefix.
+         */
+        subDistrictTh?: string;
+        subDistrictEn?: string;
+    };
     images?: { url: string }[];
 }
 
@@ -66,6 +113,82 @@ interface CampgroundCardProps {
      * Default "default" preserves the catalog/wishlist-grid behaviour exactly.
      */
     variant?: "default" | "compact";
+}
+
+/**
+ * CAM-545 (rework, 2026-07-26 owner requirement) — the localized location
+ * line: "sub-district, district, province" (each level omitted when the
+ * chain didn't resolve that deep), never the country ("User รู้อยู่แล้ว" —
+ * the owner's own words).
+ *
+ * CAM-573 (closes CAM-567): district and sub-district now render from the
+ * id-derived bilingual pair (`districtTh`/`districtEn`,
+ * `subDistrictTh`/`subDistrictEn` — resolved server-side from
+ * `Location.adminAreaId`'s AdminArea chain, see
+ * `lib/read-models/camp-card.ts`'s `resolveLocationDisplayNames`), never
+ * the raw free-text `district` column — that is what caused the defect
+ * (an English free-text district shown beside a Thai province). A card
+ * whose chain is absent (an older/narrower caller, or the 2 orphan
+ * `Location` rows with no live camp) falls back to the raw `district`
+ * value for BOTH languages (never a regression from pre-CAM-573 behavior,
+ * just not yet the fully-localized fix — see tech.md "Known gap": the
+ * detail page's own data-fetch is outside this story's file surface).
+ * Province similarly prefers the id-derived `provinceTh`/`provinceEn`,
+ * falling back to the raw `province` string when absent (EC-1).
+ */
+export function buildLocationText(
+    location: CampgroundCardData["location"],
+    language: "en" | "th",
+): string {
+    const province = language === "th"
+        ? (location.provinceTh || location.province)
+        : (location.provinceEn || location.province);
+    const district = language === "th"
+        ? (location.districtTh ?? location.district ?? undefined)
+        : (location.districtEn ?? location.district ?? undefined);
+    const subDistrict = language === "th" ? location.subDistrictTh : location.subDistrictEn;
+
+    const prefix = [subDistrict, district].filter((part): part is string => !!part);
+    return prefix.length > 0 ? `${prefix.join(", ")}, ${province}` : province;
+}
+
+/** What the price line renders — either the free copy or an amount (single or range). */
+export interface CardPriceDisplay {
+    isFree: boolean;
+    isRange: boolean;
+    /** Formatted amount text, e.g. "฿500" or "฿500-1,000". Empty when free. */
+    amountText: string;
+}
+
+/**
+ * CAM-545 — decides single price vs honest range vs free (BR-5/BR-6, EC-2/EC-3).
+ * A range only renders when `priceHigh` is a real, greater upper bound; a
+ * missing/inverted/equal `priceHigh` falls back to the single-price form
+ * rather than showing a degenerate range. The currency symbol is stripped
+ * from the high value (via the caller's own `currencySymbol`) so a range
+ * reads as "฿500-1,000", not "฿500-฿1,000".
+ */
+export function buildCardPriceDisplay(
+    priceLow: number | null,
+    priceHigh: number | null | undefined,
+    formatCurrency: (amount: number) => string,
+    currencySymbol: string,
+): CardPriceDisplay {
+    const isFree = priceLow == null || priceLow <= 0;
+    if (isFree) {
+        return { isFree: true, isRange: false, amountText: "" };
+    }
+
+    const isRange = priceHigh != null && priceHigh > priceLow;
+    if (!isRange) {
+        return { isFree: false, isRange: false, amountText: formatCurrency(priceLow) };
+    }
+
+    const highFormatted = formatCurrency(priceHigh);
+    const highNumberOnly = highFormatted.startsWith(currencySymbol)
+        ? highFormatted.slice(currencySymbol.length)
+        : highFormatted;
+    return { isFree: false, isRange: true, amountText: `${formatCurrency(priceLow)}-${highNumberOnly}` };
 }
 
 export function CampgroundCard({
@@ -145,6 +268,15 @@ export function CampgroundCard({
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
     const slug = language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug;
 
+    // CAM-545: localized "province, country" line + honest single/range/free price.
+    const locationText = buildLocationText(campground.location, language);
+    const priceDisplay = buildCardPriceDisplay(
+        campground.priceLow,
+        campground.priceHigh,
+        formatCurrency,
+        t.currency.symbol,
+    );
+
     return (
         // Root is a div so the heart button is NOT inside the Link (AC 11).
         <div className="group relative space-y-3">
@@ -202,15 +334,19 @@ export function CampgroundCard({
                             <>
                                 <button
                                     onClick={prevImage}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                    aria-label="Previous image"
+                                    // CAM-558: tap target grown to the size-11 (44px) icon-button
+                                    // floor via a bigger hit area — the glyph itself stays w-4 h-4
+                                    // (same convention as this file's own wishlist-heart button and
+                                    // AiChatCardCarousel's prev/next arrows).
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
+                                    aria-label={t.gallery.previousImage}
                                 >
                                     <ChevronLeft className="w-4 h-4 text-foreground" />
                                 </button>
                                 <button
                                     onClick={nextImage}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                    aria-label="Next image"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-11 h-11 rounded-full bg-background/80 hover:bg-background shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 z-10"
+                                    aria-label={t.gallery.nextImage}
                                 >
                                     <ChevronRight className="w-4 h-4 text-foreground" />
                                 </button>
@@ -254,10 +390,16 @@ export function CampgroundCard({
                             </span>
                         )}
                     </div>
-                    <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
-                    <div className="flex items-baseline gap-1 pt-1">
-                        <span className="font-semibold">{campground.priceLow ? formatCurrency(Number(campground.priceLow)) : t.common.free}</span>
-                        <span className="text-muted-foreground">{t.common.night}</span>
+                    <p className="text-muted-foreground text-sm" data-testid="text--card-location">{locationText}</p>
+                    <div className="flex items-baseline gap-1 pt-1" data-testid="text--card-price">
+                        {priceDisplay.isFree ? (
+                            <span className="font-semibold">{t.common.free}</span>
+                        ) : (
+                            <>
+                                <span className="font-semibold">{priceDisplay.amountText}</span>
+                                <span className="text-muted-foreground">{t.common.perNight}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </Link>

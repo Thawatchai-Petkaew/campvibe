@@ -25,6 +25,9 @@
  *   R6. Raw status-pill span: <span className containing rounded-full + text-xs + bg- (CAM-223)
  *   R7. Inline height on Button: <Button … className="…h-\d (CAM-223)
  *   R8. Hand-rolled modal: file imports DialogContent but not from modal-shell (CAM-223)
+ *   R9. Hand-rolled selectable pill: <button>/<div role="button"> opening tag carrying
+ *       rounded-full + a border class + a selected-state signal, in a file that does not
+ *       declare FilterChip → use <FilterChip variant="pill"> (CAM-532)
  *
  * ── Designer-approved allowlist (CAM-228 A8) ─────────────────────────────────
  *   R5a: app/profile/page.tsx — avatar hover scrim (bg-foreground/50 opacity-0 group-hover:opacity-100)
@@ -43,8 +46,13 @@
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// CAM-552 — the responsive-scale rules (M1/M2/M3, + M4 added CAM-565) live in
+// their own file but run under `npm run check:ds`, so the quality gate and CI
+// pick them up with no new package.json script. See scripts/check-scale.mjs
+// for the rollout mode of each rule and the named backlog.
+import { runScaleGuard } from "./check-scale.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -136,6 +144,98 @@ const REPORT_RAW_PILL_RE = /rounded-full[\s\S]{0,120}?text-xs[\s\S]{0,120}?bg-\S
  * \b after the digits avoids matching h-10 inside h-100 etc.
  */
 const REPORT_BUTTON_HEIGHT_RE = /\bh-\d+\b/g;
+
+/**
+ * R9. Hand-rolled selectable pill (CAM-532).
+ *
+ * The drift shape R6 could not see: R6 matches a raw <span> status badge, so a
+ * hand-rolled <button> pill (SearchModal's, which drifted from FilterChip in six
+ * ways) sailed through the guard untouched. This rule is a STRUCTURAL
+ * co-occurrence check over the parsed JSX opening tag (brace/quote aware), not a
+ * flat line grep — the CAM-221 lesson that a string guard cannot see structure.
+ *
+ * Fires when ONE opening tag of <button> (or <div role="button">) carries all three:
+ *   1. rounded-full        — the chip/pill radius role (DESIGN.md §2)
+ *   2. a border* class     — the chip's outlined box
+ *   3. a selected-state signal — aria-pressed, or a selected/active/checked conditional
+ *
+ * Exemption by DECLARATION, not by path: a file that declares FilterChip is the
+ * primitive itself and is skipped. (components/ui/** is also excluded from the
+ * walk, but the declaration check is what makes the rule correct on its own —
+ * remove it and the rule fires on filter-chip.tsx, which is the proof it is
+ * load-bearing. See __tests__/cam-532-chip-standardization.test.ts.)
+ *
+ * ROLLOUT (.claude/rules/ops.md — report-mode → backlog 0 → blocking):
+ *   report run on dev before the CAM-532 fix → backlog = 1
+ *     (components/SearchModal.tsx, 0 false positives across 184 scanned files)
+ *   after the CAM-532 SearchModal fix (same PR)  → backlog = 0
+ *   → landed BLOCKING; the flip condition (never land a blocking guard with a
+ *     non-zero backlog) is met and proven by the test suite in the same PR.
+ * Reverting to observation-only is a one-word edit of R9_MODE below.
+ */
+const R9_MODE = "blocking"; // "blocking" | "report"
+
+const R9_SELECTED_STATE_RE = /aria-pressed|\b(?:is)?(?:selected|active|checked)\b\s*(?:\?|&&)/i;
+const R9_BORDER_RE = /\bborder(?:-[a-z]|\b)/;
+const R9_CLICKABLE_TAG_RE = /<(button|div)\b/g;
+const R9_FILTERCHIP_DECL_RE = /\b(?:function|const)\s+FilterChip\b/;
+
+/**
+ * Reads one JSX opening tag starting at `start` (the index of "<").
+ * Tracks quote and brace depth so a ">" inside an expression attribute
+ * (e.g. onClick={() => …}) or a string does not end the tag early.
+ * Returns the tag source, or null when no terminator is found within the cap.
+ */
+function readOpeningTag(src, start) {
+  let depth = 0;
+  let quote = null;
+  const limit = Math.min(src.length, start + 4000);
+  for (let i = start; i < limit; i++) {
+    const ch = src[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+    else if (ch === ">" && depth === 0) return src.slice(start, i + 1);
+  }
+  return null;
+}
+
+/**
+ * R9 detector. Exported so the regression test can prove BOTH directions
+ * (fires on a hand-rolled pill, silent on the FilterChip primitive) against the
+ * real implementation rather than a copy of it.
+ *
+ * @param {string} src  file source
+ * @param {string} rel  repo-relative path (for the finding)
+ * @returns {{file:string,line:number,snippet:string,match:string}[]}
+ */
+export function detectHandRolledPills(src, rel = "") {
+  const findings = [];
+  if (R9_FILTERCHIP_DECL_RE.test(src)) return findings; // the primitive itself
+  for (const m of src.matchAll(R9_CLICKABLE_TAG_RE)) {
+    const tag = readOpeningTag(src, m.index);
+    if (!tag) continue;
+    if (m[1] === "div" && !/role=["']button["']/.test(tag)) continue;
+    if (!/\brounded-full\b/.test(tag)) continue;
+    if (!R9_BORDER_RE.test(tag)) continue;
+    if (!R9_SELECTED_STATE_RE.test(tag)) continue;
+    const line = src.slice(0, m.index).split("\n").length;
+    findings.push({
+      file: rel,
+      line,
+      snippet: tag.split("\n")[0].trim(),
+      match: `<${m[1]}> pill with rounded-full + border + selected state`,
+    });
+  }
+  return findings;
+}
 
 // ── Exclusion helpers ─────────────────────────────────────────────────────────
 
@@ -266,6 +366,7 @@ function scanFileReport(absPath) {
     "R6-raw-status-pill": [],
     "R7-button-inline-height": [],
     "R8-hand-rolled-modal": [],
+    "R9-hand-rolled-pill": [],
   };
 
   // ── Per-line rules ────────────────────────────────────────────────────────
@@ -364,6 +465,9 @@ function scanFileReport(absPath) {
     });
   }
 
+  // ── R9. Hand-rolled selectable pill (per opening tag) ────────────────────
+  findings["R9-hand-rolled-pill"].push(...detectHandRolledPills(src, rel));
+
   return findings;
 }
 
@@ -371,39 +475,6 @@ function scanFileReport(absPath) {
 
 const SCAN_DIRS = [join(ROOT, "app"), join(ROOT, "components")];
 const EXTS = [".tsx", ".ts"];
-
-const allFiles = SCAN_DIRS.flatMap((d) => walkDir(d, EXTS));
-const allViolations = allFiles.flatMap((f) => scanFile(f));
-
-// ── Collect R1–R8 findings (now blocking) ────────────────────────────────────
-
-const reportTotals = {
-  "R1-off-role-radius": [],
-  "R2-off-tier-shadow": [],
-  "R3-arb-font-size": [],
-  "R4-hardcoded-focus-ring": [],
-  "R5-cta-color": [],
-  "R5b-btn-badge-color": [],
-  "R6-raw-status-pill": [],
-  "R7-button-inline-height": [],
-  "R8-hand-rolled-modal": [],
-};
-
-for (const f of allFiles) {
-  const perFile = scanFileReport(f);
-  for (const key of Object.keys(reportTotals)) {
-    reportTotals[key].push(...perFile[key]);
-  }
-}
-
-// ── Print active guard summary ────────────────────────────────────────────────
-
-console.log("");
-console.log("┌─────────────────────────────────────────────────────────────────────────────┐");
-console.log("│ CampVibe DS Guard — active (R1–R8 fully blocking since CAM-228 A8)         │");
-console.log("│ Approved allowlist in guard source; violations = CI failure.               │");
-console.log("└─────────────────────────────────────────────────────────────────────────────┘");
-console.log("");
 
 const REPORT_LABELS = {
   "R1-off-role-radius":        "R1  Off-role radius  (rounded-sm/md/lg → use role-scale token)",
@@ -415,66 +486,155 @@ const REPORT_LABELS = {
   "R6-raw-status-pill":        "R6  Raw status-pill <span>  (rounded-full+text-xs+bg- → use <Badge>)",
   "R7-button-inline-height":   "R7  Button inline height  (<Button className h-N → use size= prop)",
   "R8-hand-rolled-modal":      "R8  Hand-rolled modal  (DialogContent without modal-shell import)",
+  "R9-hand-rolled-pill":       "R9  Hand-rolled selectable pill  (<button> rounded-full+border+selected → use <FilterChip variant=\"pill\">)",
 };
 
-// Collect R1–R8 violations into allViolations so exit code is unified
-const reportViolations = [];
-for (const [key, label] of Object.entries(REPORT_LABELS)) {
-  const items = reportTotals[key];
-  const count = items.length;
-  const status = count > 0 ? `FAIL (${count})` : "ok   (0)";
-  console.log(`  ${status.padEnd(12)} ${label}`);
-  for (const { file, line, snippet, match } of items) {
-    const loc = line > 0 ? `${file}:${line}` : file;
-    console.log(`               ${loc}: [${match}]  ${snippet.slice(0, 100)}`);
-    reportViolations.push({ file, line, snippet, match, label });
-  }
-}
+/** Rules whose findings do NOT fail the run (rollout mode). */
+const NON_BLOCKING_RULES = new Set(R9_MODE === "report" ? ["R9-hand-rolled-pill"] : []);
 
-console.log("");
+function main() {
+  const allFiles = SCAN_DIRS.flatMap((d) => walkDir(d, EXTS));
+  const allViolations = allFiles.flatMap((f) => scanFile(f));
 
-// ── BLOCKING output + exit ────────────────────────────────────────────────────
+  // ── Collect R1–R9 findings ─────────────────────────────────────────────────
 
-const totalViolations = allViolations.length + reportViolations.length;
+  const reportTotals = Object.fromEntries(Object.keys(REPORT_LABELS).map((k) => [k, []]));
 
-if (totalViolations === 0) {
-  console.log("check:ds — PASS (0 violations)");
-  process.exit(0);
-}
-
-// Group by file for readability
-const byFile = new Map();
-for (const v of allViolations) {
-  if (!byFile.has(v.file)) byFile.set(v.file, []);
-  byFile.get(v.file).push(v);
-}
-
-if (byFile.size > 0) {
-  console.error("\ncheck:ds — FAIL (blocking violations)\n");
-  for (const [file, items] of byFile) {
-    for (const { line, snippet, match, label } of items) {
-      console.error(`  ${file}:${line}: [${label}] ${match}  →  ${snippet}`);
+  for (const f of allFiles) {
+    const perFile = scanFileReport(f);
+    for (const key of Object.keys(reportTotals)) {
+      reportTotals[key].push(...perFile[key]);
     }
   }
 
-  // Collect unique hints
-  const hints = new Set(allViolations.map((v) => RULES.find((r) => r.label === v.label)?.hint).filter(Boolean));
-  console.error(`\n${allViolations.length} violation${allViolations.length === 1 ? "" : "s"} found.\n`);
-  for (const h of hints) {
-    console.error(`  ${h}`);
+  // ── Print active guard summary ──────────────────────────────────────────────
+
+  console.log("");
+  console.log("┌─────────────────────────────────────────────────────────────────────────────┐");
+  console.log("│ CampVibe DS Guard — active (R1–R8 fully blocking since CAM-228 A8)         │");
+  console.log("│ R9 hand-rolled-pill added CAM-532; approved allowlist in guard source.     │");
+  console.log("└─────────────────────────────────────────────────────────────────────────────┘");
+  console.log("");
+
+  // Collect blocking findings so the exit code is unified
+  const reportViolations = [];
+  const warnings = [];
+  for (const [key, label] of Object.entries(REPORT_LABELS)) {
+    const items = reportTotals[key];
+    const count = items.length;
+    const nonBlocking = NON_BLOCKING_RULES.has(key);
+    const status = count === 0 ? "ok   (0)" : nonBlocking ? `WARN (${count})` : `FAIL (${count})`;
+    console.log(`  ${status.padEnd(12)} ${label}`);
+    for (const { file, line, snippet, match } of items) {
+      const loc = line > 0 ? `${file}:${line}` : file;
+      console.log(`               ${loc}: [${match}]  ${snippet.slice(0, 100)}`);
+      (nonBlocking ? warnings : reportViolations).push({ file, line, snippet, match, label });
+    }
   }
-  console.error("");
+
+  console.log("");
+
+  if (warnings.length > 0) {
+    console.log(`check:ds — ${warnings.length} report-mode finding${warnings.length === 1 ? "" : "s"} (not blocking yet).`);
+    console.log("");
+  }
+
+  // ── CAM-552 responsive-scale rules (M1/M2/M3, + M4 added CAM-565) ──────────
+  const scale = runScaleGuard();
+  for (const row of [
+    ["M1-control-height-not-responsive", "blocking(scoped)+report"],
+    ["M2-display-type-not-responsive", "blocking(scoped)+report"],
+    ["M3-mobile-step-under-touch-floor", "blocking(repo-wide)"],
+    ["M4-min-width-literal-not-shrink-safe", "report-only(repo-wide, new)"],
+  ]) {
+    const [id, mode] = row;
+    const b = scale.blocking.filter((f) => f.rule === id).length;
+    // M4 (CAM-565) lives in its own `textScaleRisk` bucket, not `report` —
+    // see check-scale.mjs's runScaleGuard() doc comment for why.
+    const r = id.startsWith("M4-")
+      ? scale.textScaleRisk.filter((f) => f.rule === id).length
+      : scale.report.filter((f) => f.rule === id).length;
+    const status = b === 0 ? "ok   (0)" : `FAIL (${b})`;
+    console.log(`  ${status.padEnd(12)} ${id}  [${mode}]  backlog=${r}`);
+  }
+  if (scale.report.length > 0) {
+    console.log(
+      `  → ${scale.report.length} responsive-scale report-mode finding${scale.report.length === 1 ? "" : "s"} (not blocking yet); run \`node scripts/check-scale.mjs\` for the list.`
+    );
+  }
+  if (scale.textScaleRisk.length > 0) {
+    console.log(
+      `  → ${scale.textScaleRisk.length} text-scale-risk finding${scale.textScaleRisk.length === 1 ? "" : "s"} (CAM-565, M4, not blocking yet); run \`node scripts/check-scale.mjs\` for the list.`
+    );
+  }
+  console.log("");
+
+  // ── BLOCKING output + exit ──────────────────────────────────────────────────
+
+  const totalViolations =
+    allViolations.length + reportViolations.length + scale.blocking.length;
+
+  if (totalViolations === 0) {
+    console.log("check:ds — PASS (0 violations)");
+    process.exit(0);
+  }
+
+  // Group by file for readability
+  const byFile = new Map();
+  for (const v of allViolations) {
+    if (!byFile.has(v.file)) byFile.set(v.file, []);
+    byFile.get(v.file).push(v);
+  }
+
+  if (byFile.size > 0) {
+    console.error("\ncheck:ds — FAIL (blocking violations)\n");
+    for (const [file, items] of byFile) {
+      for (const { line, snippet, match, label } of items) {
+        console.error(`  ${file}:${line}: [${label}] ${match}  →  ${snippet}`);
+      }
+    }
+
+    // Collect unique hints
+    const hints = new Set(allViolations.map((v) => RULES.find((r) => r.label === v.label)?.hint).filter(Boolean));
+    console.error(`\n${allViolations.length} violation${allViolations.length === 1 ? "" : "s"} found.\n`);
+    for (const h of hints) {
+      console.error(`  ${h}`);
+    }
+    console.error("");
+  }
+
+  if (reportViolations.length > 0) {
+    console.error("\ncheck:ds — FAIL (R1–R9 consistency violations)\n");
+    for (const { file, line, snippet, match, label } of reportViolations) {
+      const loc = line > 0 ? `${file}:${line}` : file;
+      console.error(`  ${loc}: [${label}] ${match}  →  ${snippet.slice(0, 100)}`);
+    }
+    console.error(`\n${reportViolations.length} R1–R9 violation${reportViolations.length === 1 ? "" : "s"} found.`);
+    console.error("  Fix the drift or add to the designer-approved allowlist in check-ds.mjs.");
+    console.error("");
+  }
+
+  if (scale.blocking.length > 0) {
+    console.error("\ncheck:ds — FAIL (CAM-552 responsive-scale violations)\n");
+    const hints = new Set();
+    for (const { file, line, snippet, rule, hint } of scale.blocking) {
+      console.error(`  ${file}:${line}: [${rule}] ${snippet}`);
+      hints.add(hint);
+    }
+    console.error(
+      `\n${scale.blocking.length} responsive-scale violation${scale.blocking.length === 1 ? "" : "s"} found.\n`
+    );
+    for (const h of hints) console.error(`  ${h}`);
+    console.error("");
+  }
+
+  process.exit(1);
 }
 
-if (reportViolations.length > 0) {
-  console.error("\ncheck:ds — FAIL (R1–R8 consistency violations)\n");
-  for (const { file, line, snippet, match, label } of reportViolations) {
-    const loc = line > 0 ? `${file}:${line}` : file;
-    console.error(`  ${loc}: [${label}] ${match}  →  ${snippet.slice(0, 100)}`);
-  }
-  console.error(`\n${reportViolations.length} R1–R8 violation${reportViolations.length === 1 ? "" : "s"} found.`);
-  console.error("  Fix the drift or add to the designer-approved allowlist in check-ds.mjs.");
-  console.error("");
+// Run the scan only when invoked as a CLI (`npm run check:ds`); importing this
+// module (the CAM-532 regression test imports `detectHandRolledPills`) must not
+// scan the repo or call process.exit. The test also asserts the CLI still
+// prints the R9 row, so a broken guard here can never pass silently.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
 }
-
-process.exit(1);

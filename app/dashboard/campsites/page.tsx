@@ -54,14 +54,11 @@ export default function MyCampSitesPage() {
                 const campSitesData = responseData.campSites || [];
                 setPermissions(responseData.permissions || null);
                 if (Array.isArray(campSitesData)) {
-                    // Include location with thaiLocation for each camp site
-                    setCampSites(campSitesData.map((camp: any) => ({
-                        ...camp,
-                        location: camp.location ? {
-                            ...camp.location,
-                            thaiLocation: camp.location.thaiLocation || null
-                        } : null
-                    })));
+                    // CAM-574: `/api/operator/dashboard` now attaches the bilingual
+                    // provinceTh/provinceEn/districtTh/districtEn fields directly
+                    // onto each camp's `location` (server-side, off the resolved
+                    // AdminArea chain) — no client-side passthrough needed.
+                    setCampSites(campSitesData);
                 } else {
                     setCampSites([]);
                 }
@@ -198,7 +195,7 @@ export default function MyCampSitesPage() {
                                             <Tent className="w-8 h-8 text-muted-foreground/40" />
                                             <p>{t.dashboard.noCampSitesFound}</p>
                                             {canCreateCampSite && (
-                                                <Link href="/dashboard/campsites/new" className="text-primary font-semibold hover:underline">
+                                                <Link href="/dashboard/campsites/new" className="text-primary-ink font-semibold hover:underline">
                                                     {t.dashboard.createFirstListing}
                                                 </Link>
                                             )}
@@ -225,14 +222,13 @@ export default function MyCampSitesPage() {
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-1.5">
                                                     <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                                                    {camp.location?.thaiLocation 
-                                                        ? (language === 'th' ? camp.location.thaiLocation.provinceName : camp.location.thaiLocation.provinceNameEn)
-                                                        : camp.location?.province || t.dashboard.unknown
+                                                    {(language === 'th' ? camp.location?.provinceTh : camp.location?.provinceEn)
+                                                        || camp.location?.province || t.dashboard.unknown
                                                     }
                                                 </div>
-                                                {camp.location?.thaiLocation?.districtName && (
+                                                {(language === 'th' ? camp.location?.districtTh : camp.location?.districtEn) && (
                                                     <div className="text-xs text-muted-foreground/70 pl-5">
-                                                        {language === 'th' ? camp.location.thaiLocation.districtName : camp.location.thaiLocation.districtNameEn}
+                                                        {language === 'th' ? camp.location?.districtTh : camp.location?.districtEn}
                                                     </div>
                                                 )}
                                             </div>

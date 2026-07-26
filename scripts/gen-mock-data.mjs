@@ -83,7 +83,10 @@ function provThZip(nameEn) {
 // ---- theme config (valid codes only, per spec §4/§5) ---------------------------
 // CAM-492: every theme now also carries `accomm` (accommodationTypes pool — real
 // codes from lib/validations/campsite.ts AccommodationTypeEnum: CABI/DISP/GROU/
-// HORS/RECR/TENT, NOT a MasterData group) and enough facExtra/equip/activities/ext
+// RECR/TSIT, NOT a MasterData group — CAM-536 renamed TENT to TSIT to resolve
+// a MasterData global-@id collision; CAM-538 later dropped the sibling
+// horse-camp member entirely, no Thai relevance) and enough
+// facExtra/equip/activities/ext
 // spread that all 5 previously-dead MasterData codes (WATE/CART/MIMT/LSTV/OFFR)
 // get a natural chance of being drawn (a deterministic closing pass below still
 // GUARANTEES ≥1 each regardless of luck — see "closeDeadCodes").
@@ -98,7 +101,7 @@ const THEMES = {
     // CAM-517 (S5) — VIEW added (mist = the mountain-ridge/ทะเลหมอก scenic theme;
     // 1/3 pick share, ~9/27 mist camps expected — a discriminating VIEW slice).
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP', 'VIEW'],
-    accomm: ['TENT', 'CABI', 'DISP'],
+    accomm: ['TSIT', 'CABI', 'DISP'],
     // CAM-515 (S3) — Annotated features: FIRE/FIWD common in this rustic
     // mountain-forest theme (ก่อไฟ/ฟืนหน้าหนาว), RESV mixed, ADAA rare
     // (undeveloped mountain terrain rarely accessible).
@@ -127,7 +130,7 @@ const THEMES = {
     // CAM-517 (S5) — GLAMP added (beach = a comfort/resort theme, a natural fit
     // for a fully-set-up glamping tent; 1/3 pick share of a discriminating slice).
     ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP', 'GLAMP'],
-    accomm: ['TENT', 'RECR', 'CABI'],
+    accomm: ['TSIT', 'RECR', 'CABI'],
     // CAM-515 (S3) — Annotated features: ALCO common (chill beach-bar vibe,
     // "จิบเบียร์ริมหาด"), RESV common (resort-style booking), ADAA more
     // likely here than most themes (developed beach resorts), FIRE lower
@@ -151,7 +154,7 @@ const THEMES = {
     facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE', 'HOTW', 'LIGT'],
     equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [350, 900], type: ['CAGD', 'CACP'],
-    accomm: ['TENT', 'CABI'],
+    accomm: ['TSIT', 'CABI'],
     // CAM-515 (S3) — Annotated features: FIRE/FIWD common (riverside
     // campfire is a classic combo), RESV mixed, ALCO occasional, ADAA a
     // modest minority (a maintained riverside path can be level/accessible).
@@ -175,7 +178,7 @@ const THEMES = {
     // CAM-517 (S5) — VIEW added (deep-forest/mountain terrain plausibly has a
     // jungle-canopy lookout point; 50/50 share since forest never had CACP).
     ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD', 'VIEW'],
-    accomm: ['TENT', 'DISP', 'GROU'],
+    accomm: ['TSIT', 'DISP', 'GROU'],
     // CAM-515 (S3) — Annotated features: FIRE/FIWD common (deep-forest/
     // adventure camping leans rustic campfire), RESV lower (less structured
     // booking), ADAA rarest (undeveloped jungle terrain).
@@ -199,7 +202,7 @@ const THEMES = {
     // CAM-517 (S5) — GLAMP added (calm lakeside resort-style stay, a comfort theme
     // like beach/meadow; 1/3 pick share of a discriminating slice).
     ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP', 'GLAMP'],
-    accomm: ['TENT', 'CABI', 'RECR'],
+    accomm: ['TSIT', 'CABI', 'RECR'],
     // CAM-515 (S3) — Annotated features: ALCO/RESV common (calm lakeside
     // resort-style stay), ADAA more likely (developed lakeside sites),
     // FIRE mixed.
@@ -224,7 +227,7 @@ const THEMES = {
     // CAM-517 (S5) — GLAMP added (open-meadow glamping-under-the-stars is a
     // comfort theme like beach/lake; 1/3 pick share of a discriminating slice).
     ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD', 'GLAMP'],
-    accomm: ['TENT', 'GROU', 'HORS'],
+    accomm: ['TSIT', 'GROU', 'DISP'],
     // CAM-515 (S3) — Annotated features: ALCO/FIRE common (evening bonfire +
     // drinks under the stars is the meadow theme's signature scene), RESV
     // mixed, ADAA rarer.
@@ -378,8 +381,8 @@ function buildCamp(concept, idx) {
   // because `forest` had an empty ext[] and every theme allowed a 0-pick draw).
   const externalFacilities = pickN(T.ext, ri(1, T.ext.length));
   const terrain = T.terrain;
-  // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/HORS/
-  // RECR/TENT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
+  // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/
+  // RECR/TSIT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
   const accommodationTypes = pickN(T.accomm, ri(1, Math.min(2, T.accomm.length))).join(',');
   // CAM-515 (S3) — Annotated features (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights
   // the camp carries, not a physical facility. Per-code independent chance()

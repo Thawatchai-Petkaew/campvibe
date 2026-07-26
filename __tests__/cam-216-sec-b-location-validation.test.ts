@@ -41,7 +41,6 @@ vi.mock('@/lib/auth-utils', () => ({
 
 const mockLocationCreate         = vi.fn();
 const mockCountryFindUnique      = vi.fn();
-const mockThailandLocationFind   = vi.fn();
 const mockAdminAreaFindUnique    = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
@@ -51,9 +50,6 @@ vi.mock('@/lib/prisma', () => ({
         },
         country: {
             findUnique: (...args: unknown[]) => mockCountryFindUnique(...args),
-        },
-        thailandLocation: {
-            findUnique: (...args: unknown[]) => mockThailandLocationFind(...args),
         },
         adminArea: {
             findUnique: (...args: unknown[]) => mockAdminAreaFindUnique(...args),
@@ -112,11 +108,11 @@ describe('createLocationSchema', () => {
             expect(result.success).toBe(true);
         });
 
-        it('accepts thaiLocationId as a valid UUID', () => {
+        it('accepts adminAreaId as a valid UUID (CAM-574: replaces thaiLocationId)', () => {
             const result = createLocationSchema.safeParse({
                 lat: 13.0,
                 lon: 100.0,
-                thaiLocationId: '123e4567-e89b-12d3-a456-426614174000',
+                adminAreaId: '123e4567-e89b-12d3-a456-426614174000',
             });
             expect(result.success).toBe(true);
         });
@@ -189,8 +185,8 @@ describe('createLocationSchema', () => {
             expect(result.success).toBe(false);
         });
 
-        it('rejects thaiLocationId that is not a UUID', () => {
-            const result = createLocationSchema.safeParse({ lat: 13.0, lon: 100.0, thaiLocationId: 'not-a-uuid' });
+        it('rejects adminAreaId that is not a UUID', () => {
+            const result = createLocationSchema.safeParse({ lat: 13.0, lon: 100.0, adminAreaId: 'not-a-uuid' });
             expect(result.success).toBe(false);
         });
 
@@ -237,9 +233,9 @@ describe('POST /api/location — route handler validation guard', () => {
         expect(body.error).toBe('invalid_input');
     });
 
-    it('returns 400 when thaiLocationId is not a UUID', async () => {
+    it('returns 400 when adminAreaId is not a UUID', async () => {
         mockAuth.mockResolvedValue(makeSession());
-        const res = await locationPOST(makeRequest({ lat: 18.9, lon: 98.9, thaiLocationId: 'bad-id' }));
+        const res = await locationPOST(makeRequest({ lat: 18.9, lon: 98.9, adminAreaId: 'bad-id' }));
         expect(res.status).toBe(400);
     });
 
@@ -252,7 +248,6 @@ describe('POST /api/location — route handler validation guard', () => {
     it('passes validation and reaches Prisma on valid body', async () => {
         mockAuth.mockResolvedValue(makeSession());
         mockCountryFindUnique.mockResolvedValue({ code: 'TH' });
-        mockThailandLocationFind.mockResolvedValue(null);
         mockLocationCreate.mockResolvedValue(CREATED_LOCATION);
 
         const res = await locationPOST(makeRequest(VALID_BODY));

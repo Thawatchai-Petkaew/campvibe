@@ -153,7 +153,7 @@ export function BookingDetailClient({ booking: initialBooking }: BookingDetailPr
               <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">
                 {t.bookings.totalPaid}
               </div>
-              <div className="text-xl font-bold text-primary tabular-nums">
+              <div className="text-xl font-bold text-primary-ink tabular-nums">
                 {formatCurrency(booking.totalPrice)}
               </div>
             </div>

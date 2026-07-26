@@ -63,7 +63,6 @@ import { requireAuth, requireCampSiteOwnership, requireCampSitePermission } from
 import { GET as spotGET, PUT as spotPUT, DELETE as spotDELETE } from '@/app/api/campsites/[id]/spots/[spotId]/route';
 import { POST as uploadPOST } from '@/app/api/upload/route';
 import { POST as campsitePOST } from '@/app/api/campsites/route';
-import { POST as campgroundPOST } from '@/app/api/campgrounds/route';
 
 // ---------------------------------------------------------------------------
 // 1. apiError info-leak (lib/api-utils.ts) — pure unit, no mocks needed
@@ -745,59 +744,17 @@ describe('isVerified self-grant prevention — POST /api/campsites', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 4b. isVerified self-grant — POST /api/campgrounds (parallel route, same bug)
-// ---------------------------------------------------------------------------
-
-describe('isVerified self-grant prevention — POST /api/campgrounds', () => {
-  const MINIMAL_VALID_PAYLOAD = {
-    nameTh: 'ค่ายทดสอบ',
-    latitude: 13.75,
-    longitude: 100.5,
-    checkInTime: '14:00',
-    checkOutTime: '12:00',
-    bookingMethod: 'ONLI',
-    locationId: '123e4567-e89b-12d3-a456-426614174000',
-    // CAM-520: campSiteType is now required on create.
-    campSiteType: 'CAGD',
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    (prisma.campSite.create as ReturnType<typeof vi.fn>).mockImplementation(
-      ({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: 'new-campground-id', ...data })
-    );
-  });
-
-  it('CAMPER sending isVerified:true → create receives isVerified:false', async () => {
-    (requireAuth as ReturnType<typeof vi.fn>).mockResolvedValue({
-      error: null,
-      session: { user: { id: 'u-camper', role: 'CAMPER', email: 'c@test.com' } },
-    });
-    const req = new NextRequest('http://localhost/api/campgrounds', {
-      method: 'POST',
-      body: JSON.stringify({ ...MINIMAL_VALID_PAYLOAD, isVerified: true }),
-      headers: { 'content-type': 'application/json' },
-    });
-    const res = await campgroundPOST(req);
-    expect(res.status).toBe(201);
-    const createArg = (prisma.campSite.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(createArg.data.isVerified).toBe(false);
-  });
-
-  it('ADMIN sending isVerified:true → create receives isVerified:true', async () => {
-    (requireAuth as ReturnType<typeof vi.fn>).mockResolvedValue({
-      error: null,
-      session: { user: { id: 'u-admin', role: 'ADMIN', email: 'a@test.com' } },
-    });
-    const req = new NextRequest('http://localhost/api/campgrounds', {
-      method: 'POST',
-      body: JSON.stringify({ ...MINIMAL_VALID_PAYLOAD, isVerified: true }),
-      headers: { 'content-type': 'application/json' },
-    });
-    const res = await campgroundPOST(req);
-    expect(res.status).toBe(201);
-    const createArg = (prisma.campSite.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(createArg.data.isVerified).toBe(true);
-  });
-});
+// CAM-527: removed the former "4b. isVerified self-grant — POST /api/campgrounds
+// (parallel route, same bug)" describe block. That route was a byte-for-byte
+// duplicate of app/api/campsites/route.ts with no product caller (deleted in this
+// story); the CAMPER→false and ADMIN→true cases it covered are both already
+// proven above against the live campsitePOST (section 4, plus the ADMIN→false
+// and OPERATOR→false and unauthenticated→401 cases the legacy suite never even
+// had) — full duplicate coverage, no gap left behind.
+//
+// CAM-535 (re-audit, 2026-07-26): confirmed the describe block above (line 630)
+// still covers the live `POST /api/campsites` route-level isVerified guard.
+// Prove-It re-run: neutralizing app/api/campsites/route.ts's role check turns
+// the CAMPER/OPERATOR cases above RED; restoring it turns them GREEN again — no
+// restoration needed here. See docs/specs/platform-hardening/taxonomy-ui-foundation/
+// CAM-535-restore-dropped-coverage/story.md for the full 9-case verdict table.

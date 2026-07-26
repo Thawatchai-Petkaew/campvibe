@@ -197,8 +197,11 @@ describe("ThemeProvider: Providers.tsx wiring", () => {
         expect(provSrc).toMatch(/attribute=["']class["']/);
     });
 
-    it("AC-providers-1: defaultTheme=\"system\"", () => {
-        expect(provSrc).toMatch(/defaultTheme=["']system["']/);
+    // CAM-544: the default flipped from "system" to "dark" (owner decision,
+    // campfire-platform brand). See __tests__/cam-544-dark-default-theme.test.ts
+    // for the behavioral proof (sticky preference, no-flash, enableSystem pin).
+    it("AC-providers-1 (CAM-544): defaultTheme=\"dark\"", () => {
+        expect(provSrc).toMatch(/defaultTheme=["']dark["']/);
     });
 
     it("AC-providers-1: enableSystem prop present", () => {

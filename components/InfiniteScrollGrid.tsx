@@ -40,7 +40,7 @@ const LoginModal = dynamic(
   { ssr: false, loading: () => null }
 );
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { CampSiteCardData } from "@/components/CampgroundGrid";
+import type { CampSiteCardData } from "@/lib/read-models/camp-card";
 
 // Re-export so callers that imported CampSiteCardData from this module still work.
 export type { CampSiteCardData };
@@ -70,6 +70,9 @@ interface ActiveFilters {
   max?: string;
   access?: string;
   facilities?: string;
+  /** CAM-523 (S7) — independent registry-derived params, wired end-to-end alongside `facilities`. */
+  external?: string;
+  equipment?: string;
   activities?: string;
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
@@ -139,7 +142,7 @@ export default function InfiniteScrollGrid({
       const filterKeys = [
         "type", "keyword", "province", "district",
         "startDate", "endDate", "guests", "min", "max",
-        "access", "facilities", "activities", "terrain",
+        "access", "facilities", "external", "equipment", "activities", "terrain",
         "annotatedFeatures", "camperStyle",
       ] as const;
 

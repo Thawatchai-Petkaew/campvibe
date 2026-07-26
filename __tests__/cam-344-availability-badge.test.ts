@@ -50,7 +50,7 @@
  *   - GET /api/campsites → integration, direct route invocation with mocked
  *     prisma (established precedent: __tests__/security-hotfix.test.ts
  *     "GET /api/campsites — coverage").
- *   - components/CatalogResults.tsx (SSR surface), CampgroundGrid.tsx,
+ *   - components/CatalogResults.tsx (SSR surface), lib/read-models/camp-card.ts,
  *     InfiniteScrollGrid.tsx, CampgroundCard.tsx, ui/badge.tsx → source-
  *     inspection (established precedent: cam-195/cam-196/cam-197 test files;
  *     vitest.config.ts only globs `**\/*.test.ts`, never renders a .tsx client
@@ -751,19 +751,18 @@ describe('app/api/campsites/route.ts — availability attach contract (source-in
 });
 
 // ===========================================================================
-// Group F: card wiring — CampSiteCardData / CampgroundGrid / InfiniteScrollGrid
+// Group F: card wiring — CampSiteCardData / InfiniteScrollGrid
 // / CampgroundCard / badge.tsx (source-inspect)
 // ===========================================================================
 
 describe('card wiring — availabilityStatus threaded through to CampgroundCard (source-inspect)', () => {
+  // CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+  // CampSiteCardData moved to lib/read-models/camp-card.ts. The former "CampgroundGrid.tsx
+  // passes availabilityStatus..." wiring test is gone with it — InfiniteScrollGrid.tsx's
+  // equivalent assertion right below already proves the live wiring.
   it('CampSiteCardData declares the explicit optional availabilityStatus field', () => {
-    const gridSrc = src('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('availabilityStatus?: CampAvailabilityStatus');
-  });
-
-  it('CampgroundGrid.tsx passes availabilityStatus as an explicit prop (mirrors avgRating/reviewCount)', () => {
-    const gridSrc = src('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('availabilityStatus={camp.availabilityStatus}');
+    const typeSrc = src('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('availabilityStatus?: CampAvailabilityStatus');
   });
 
   it('InfiniteScrollGrid.tsx passes availabilityStatus as an explicit prop (mirrors avgRating/reviewCount)', () => {
@@ -846,14 +845,35 @@ describe('badge copy — verbatim Thai + EN parity (BR-4)', () => {
 // ===========================================================================
 
 describe('count actions — getCampSiteCount / getCampgroundCount unaffected by step-7 removal', () => {
-  it('[finding] FilterModal.tsx (the only caller of getCampSiteCount) never forwards startDate/endDate', () => {
+  it('[finding][cam-524] FilterModal.tsx NOW forwards startDate/endDate/keyword/province to getCampSiteCount via the shared buildPendingQuery builder (CAM-524 deliberately changed the CAM-344-era "never forwards" contract asserted here previously)', () => {
     const filterModalSrc = src('components/FilterModal.tsx');
-    // The filters object built for getCampSiteCount only ever sets type/terrain/
-    // activities/access/facilities/min/max — never filters.startDate/endDate.
-    const callSiteMatch = filterModalSrc.match(/const filters: any = \{\};[\s\S]*?getCampSiteCount\(filters\)/);
-    expect(callSiteMatch).not.toBeNull();
-    expect(callSiteMatch![0]).not.toContain('filters.startDate');
-    expect(callSiteMatch![0]).not.toContain('filters.endDate');
+    // CAM-344 (this file's original story) found FilterModal never forwarded
+    // dates to the count — harmless at the time, since buildCampSiteWhere
+    // never used dates in its WHERE clause either (step 7 removed, see Group
+    // B above). CAM-524 later found a REAL correctness bug hiding behind
+    // that same gap: the count effect also never forwarded keyword/province/
+    // district/guests — fields buildCampSiteWhere DOES use — so "Show N"
+    // could promise a wider query than the one the apply button actually
+    // ran. The fix wires ONE shared builder (buildPendingQuery, exported
+    // from FilterModal.tsx) into both the debounced count effect and
+    // handleShowCampgrounds; assert that builder now reads dates back from
+    // the (URL-preserving) params object, and that BOTH call sites use it.
+    expect(filterModalSrc).toContain('export function buildPendingQuery(');
+
+    const builderMatch = filterModalSrc.match(/export function buildPendingQuery[\s\S]*?\n}\n/);
+    expect(builderMatch).not.toBeNull();
+    expect(builderMatch![0]).toContain("params.get('startDate')");
+    expect(builderMatch![0]).toContain("params.get('endDate')");
+    expect(builderMatch![0]).toContain('filters.startDate');
+    expect(builderMatch![0]).toContain('filters.endDate');
+    expect(builderMatch![0]).toContain('filters.keyword');
+    expect(builderMatch![0]).toContain('filters.province');
+
+    // Both call sites (the debounced count effect + handleShowCampgrounds)
+    // go through this ONE builder before calling getCampSiteCount / pushing
+    // the URL — never two independently hand-synced code paths.
+    const callSites = filterModalSrc.match(/buildPendingQuery\(\s*searchParams\s*,\s*selectedFilters\s*,\s*priceRange\s*\)/g) || [];
+    expect(callSites.length).toBeGreaterThanOrEqual(2);
   });
 
   it('[sanity] getCampSiteCount with dates present still returns a count (no crash) — step 7 removal only widens the count, never breaks it', () => {

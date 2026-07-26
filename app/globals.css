@@ -47,6 +47,9 @@ h6 {
     --color-popover-foreground: var(--popover-foreground);
     --color-primary: var(--primary);
     --color-primary-foreground: var(--primary-foreground);
+    /* CAM-546 — without this entry the `text-primary-ink` utility emits nothing
+       at all and the text silently falls back to inherited colour. */
+    --color-primary-ink: var(--primary-ink);
     --color-secondary: var(--secondary);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-muted: var(--muted);
@@ -89,6 +92,26 @@ h6 {
 
 :root {
     --radius: 0.625rem;
+    /* CAM-533 — the fully-round role radius (DESIGN.md §2 Radius: button · input ·
+       chip/pill · icon-button · calendar day control). Value is identical to
+       Tailwind's built-in `rounded-full` utility, so the token and the utility can
+       never drift apart. Radius is theme-invariant, so there is no `.dark` twin
+       (same as `--radius` above).
+       KEEP THIS IN `:root`, NOT in the `@theme inline` block above. `--radius-*` is
+       Tailwind's radius namespace, so a `@theme` entry named `--radius-full` also
+       REDEFINES the built-in `rounded-full` utility app-wide (measured: a `@theme`
+       value of 3px makes the generated `.rounded-full` rule emit a 3px border-radius).
+       This variable is read by `var()` from an arbitrary property
+       (`[--cell-radius:var(--radius-full)]`), never by a generated utility, so
+       `:root` is where it belongs.
+       The defect this fixes (the date picker's circle / square / half-circle mix) was
+       that NO declaration existed anywhere: `var(--radius-full)` resolved to nothing
+       and every rule reading it was dropped by the browser. Measured on this file with
+       the real @tailwindcss/postcss pipeline — declaration absent: not emitted;
+       present: emitted. (An earlier note here said an `@theme inline` entry is never
+       emitted as a runtime variable; re-measuring showed it IS emitted, so that was
+       not the reason to avoid it — the utility override above is.) */
+    --radius-full: calc(infinity * 1px);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.148 0.004 228.8);
     --popover: oklch(1 0 0);
@@ -96,6 +119,15 @@ h6 {
     --primary: oklch(0.511 0.096 186.391);
     /* approximate oklch for teal-600 #0d9488 */
     --primary-foreground: oklch(0.984 0.014 180.72);
+    /* CAM-546 — primary teal for WORDS (`text-primary-ink`). --primary paints
+       fills, borders, rings and icons; this paints letters. The split exists
+       because ONE token provably cannot do both jobs: as text on the dark
+       --card it needs L >= 0.596, while a near-white label ON the fill needs
+       L <= 0.548 — disjoint windows (re-derived under CAM-546, matching
+       CAM-537). The LIGHT value here is byte-identical to light --primary, so
+       light mode does not change; only dark diverges. Do not "simplify" this
+       back to text-primary. */
+    --primary-ink: oklch(0.511 0.096 186.391);
     --secondary: oklch(0.967 0.001 286.375);
     /* orange-600 #ea580c - using as secondary color */
     --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -147,11 +179,18 @@ h6 {
       0 4px 16px -10px oklch(0.511 0.096 186.391 / 0.14);
     /* CAM-432 (owner staging feedback + reference image): a VISIBLE fire-toned
        aura halo — layered ember/firefly rings, distinctly more opaque than
-       --ai-glow above — for the avatar mark + launcher FAB only. */
+       --ai-glow above — for the avatar mark + launcher FAB only.
+       CAM-541 (owner: "reduce the orange border/glow further") — each layer's
+       alpha cut ~40% (0.28/0.45/0.28 -> 0.17/0.27/0.17; hue/lightness/geometry
+       untouched, so __tests__/cam-432-*'s `oklch(0.7[28]0` pin still matches).
+       Not measured by scripts/check-contrast.mjs (a decorative, aria-hidden
+       shadow, not a text/fill pair), so this reduction has no enforced-pair
+       conflict; still visibly pulses via .ai-flame-glow/.ai-flame-flicker
+       (unchanged) so the mark stays a legible affordance, just dimmer. */
     --ai-flame-aura:
-      0 0 0 3px oklch(0.720 0.170 55 / 0.28),
-      0 0 20px 6px oklch(0.720 0.170 55 / 0.45),
-      0 0 40px 14px oklch(0.860 0.160 100 / 0.28);
+      0 0 0 3px oklch(0.720 0.170 55 / 0.17),
+      0 0 20px 6px oklch(0.720 0.170 55 / 0.27),
+      0 0 40px 14px oklch(0.860 0.160 100 / 0.17);
     --ai-gradient:
       radial-gradient(115% 120% at 15% 0%, oklch(0.511 0.096 186.391 / 0.08) 0%, transparent 45%),
       radial-gradient(120% 125% at 100% 5%, oklch(0.511 0.130 237.0 / 0.08) 0%, transparent 50%),
@@ -165,14 +204,43 @@ h6 {
     --card-foreground: oklch(0.987 0.002 197.1);
     --popover: oklch(0.218 0.008 223.9);
     --popover-foreground: oklch(0.987 0.002 197.1);
-    --primary: oklch(0.437 0.078 188.216);
+    /* CAM-537 — lightness raised 0.437 -> 0.520 (chroma + hue untouched, so it
+       is the same brand teal). At 0.437 the SELECTED-state fill measured
+       2.31:1 against --card and 2.62:1 against --background, under the 3:1
+       floor WCAG 2.1 SC 1.4.11 sets for identifying a state by fill; a camper
+       in dark mode could not tell a switched-on chip from a switched-off one.
+       Now 3.28:1 / 3.73:1.
+       The feasible window is L in [0.499, 0.549] and it is TIGHT at both ends:
+       below 0.499 the fill drops under 3:1, above 0.549 the near-white
+       --primary-foreground label drops under 4.5:1 ON the fill. 0.520 sits
+       mid-window so neither floor is one rounding step from failing (label is
+       5.08:1). Both ends are pinned by `npm run check:contrast`. */
+    --primary: oklch(0.520 0.078 188.216);
     --primary-foreground: oklch(0.984 0.014 180.72);
+    /* CAM-546 — the dark half of the fill/text split (see :root for the why).
+       axe reported a SERIOUS color-contrast violation on /preview once dark
+       became the default: #257771 (= --primary above) on #090b0c = 3.71:1
+       against the 4.5:1 body-text floor. As text, --primary measures 3.73:1 on
+       --background, 3.28:1 on --card and 3.01:1 on a bg-primary/10 tint (the
+       worst surface, because the tint LIGHTENS the backdrop). This token takes
+       those to 9.68 / 8.52 / 7.81:1.
+       The value is byte-identical to --ai-price below ON PURPOSE: CAM-444
+       already introduced exactly one bright teal for dark-mode text and the app
+       should have one, not two nearly-identical ones. They are not merged into
+       a single token only because __tests__/cam-444-*.test.ts pins --ai-price
+       as a literal oklch() declaration; consolidating them is a follow-up. */
+    --primary-ink: oklch(0.760 0.120 184);
     --secondary: oklch(0.274 0.006 286.033);
     /* orange-600 #ea580c - using as secondary color */
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.275 0.011 216.9);
     --muted-foreground: oklch(0.723 0.014 214.4);
-    --accent: oklch(0.437 0.078 188.216);
+    /* CAM-537 — tracks --primary exactly. DESIGN.md section 2 declares
+       "accent = primary" (single tone with primary), and the accent fill is
+       the dropdown/select item focus highlight, which is state information
+       under the same 3:1 rule. Moving one without the other would both
+       falsify that table row and leave the menu highlight at 2.31:1. */
+    --accent: oklch(0.520 0.078 188.216);
     --accent-foreground: oklch(0.984 0.014 180.72);
     --destructive: oklch(0.704 0.191 22.216);
     --success: oklch(0.645 0.168 150.323);
@@ -204,25 +272,141 @@ h6 {
     --ai-ember: oklch(0.780 0.180 58);
     --ai-firefly: oklch(0.900 0.170 105);
     --ai-star: oklch(0.970 0.030 237);
-    /* CAM-444 (owner R3 feedback): --primary (dark L=0.437) reads dim as TEXT
-       on dark --card (L=0.218, contrast 2.31:1, below AA). Brighter dedicated
-       price token — 8.52:1 on --card, axe-verified — without touching
-       --primary (would break white-on-primary buttons + the chat bubble). */
+    /* CAM-444 (owner R3 feedback): --primary reads dim as TEXT on dark --card,
+       so the price gets its own brighter token — 8.52:1 on --card and 8.53:1
+       on --ai-surface (re-measured under CAM-537) — without touching --primary
+       (that would break white-on-primary buttons + the chat bubble).
+       CAM-537 note: --primary dark moved 0.437 -> 0.520, taking its text
+       contrast on --card from 2.31:1 to 3.28:1. That is still under the 4.5:1
+       body-text floor, so this separate token is STILL required — do not
+       "simplify" it away to text-primary. A single token provably cannot do
+       both jobs: text-on-card needs L >= ~0.594, a near-white label on the
+       fill needs L <= ~0.549. */
     --ai-price: oklch(0.760 0.120 184);
+    /* CAM-537: the 0.437 teal stop below is the PRE-CAM-537 --primary value and
+       is kept on purpose — this layer sits BEHIND content as depth, and a
+       shadow that matches the surface it lifts stops reading as a shadow. It is
+       a deliberately deeper stop, not stale drift. Same for --ai-gradient. */
     --ai-glow:
       0 0 0 1px oklch(0.637 0.143 237.0 / 0.16),
       0 2px 8px -4px oklch(0 0 0 / 0.24),
       0 22px 56px -26px oklch(0.437 0.078 188.216 / 0.36),
       0 0 32px -16px oklch(0.637 0.143 237.0 / 0.20);
-    /* CAM-432 (dark): brighter ember/firefly rings for the same fire aura halo. */
+    /* CAM-432 (dark): brighter ember/firefly rings for the same fire aura halo.
+       CAM-541: same ~40% alpha cut as the light values above (0.38/0.55/0.32
+       -> 0.23/0.33/0.19), hue/lightness/geometry untouched. */
     --ai-flame-aura:
-      0 0 0 3px oklch(0.780 0.180 58 / 0.38),
-      0 0 26px 8px oklch(0.780 0.180 58 / 0.55),
-      0 0 48px 18px oklch(0.900 0.170 105 / 0.32);
+      0 0 0 3px oklch(0.780 0.180 58 / 0.23),
+      0 0 26px 8px oklch(0.780 0.180 58 / 0.33),
+      0 0 48px 18px oklch(0.900 0.170 105 / 0.19);
     --ai-gradient:
       radial-gradient(115% 120% at 15% 0%, oklch(0.437 0.078 188.216 / 0.18) 0%, transparent 45%),
       radial-gradient(120% 125% at 100% 5%, oklch(0.637 0.143 237.0 / 0.16) 0%, transparent 50%),
       radial-gradient(90% 80% at 50% 100%, oklch(0.879 0.169 91.605 / 0.10) 0%, transparent 55%);
+}
+
+/* ── CAM-552 — responsive type roles (DESIGN.md §2 "Responsive scale") ───────
+   A component picks a ROLE (type-heading-2), never a raw text-* per screen
+   size. There is exactly ONE sizing breakpoint in the whole system:
+   md = 768px. The values in :root are the MOBILE step; the @media block
+   below carries the desktop step. Four roles step, three do not — and the
+   three that do not are the accessible ones, so their "no" is deliberate:
+
+     type-body    16px — below 16px iOS Safari auto-zooms a focused input,
+                         and 16px is the body-copy floor. Never step it down.
+     type-label   14px — control text (button, chip, select); already minimal.
+     type-caption 12px — micro-label; already minimal.
+
+   TWO naming decisions, both load-bearing — do NOT "tidy" either of them:
+
+   1. Not `--text-*` inside `@theme`. That is Tailwind's font-size namespace,
+      so a `--text-body` entry there would also GENERATE a `text-body` utility
+      and collide with the role utility. `--type-*` keeps the layers apart.
+
+   2. The utilities are `type-*`, NOT `text-*`. `cn()` = clsx + tailwind-merge,
+      and tailwind-merge classifies an unrecognised `text-<x>` as a TEXT COLOUR
+      — so `cn("text-label", "text-foreground")` silently DROPS `text-label`
+      and the role never reaches the DOM. This was measured, not theorised: the
+      FilterChip pill rendered at 16px while its source read `text-label`. A
+      className review cannot see this; only the rendered box can.
+      Guarded by __tests__/cam-552-mobile-scale.test.ts ("BUG GUARD").
+
+   Radius/color tokens are untouched by this block. */
+:root {
+    --type-display: 1.875rem;
+    --type-display-lh: 2.25rem;
+    /* 30/36 */
+    --type-heading-1: 1.5rem;
+    --type-heading-1-lh: 2rem;
+    /* 24/32 */
+    --type-heading-2: 1.25rem;
+    --type-heading-2-lh: 1.75rem;
+    /* 20/28 */
+    --type-heading-3: 1rem;
+    --type-heading-3-lh: 1.5rem;
+    /* 16/24 */
+    --type-body: 1rem;
+    --type-body-lh: 1.5rem;
+    /* 16/24 — does not step */
+    --type-label: 0.875rem;
+    --type-label-lh: 1.25rem;
+    /* 14/20 — does not step */
+    --type-caption: 0.75rem;
+    --type-caption-lh: 1rem;
+    /* 12/16 — does not step */
+}
+
+@media (min-width: 768px) {
+    :root {
+        --type-display: 2.25rem;
+        --type-display-lh: 2.5rem;
+        /* 36/40 */
+        --type-heading-1: 1.875rem;
+        --type-heading-1-lh: 2.375rem;
+        /* 30/38 */
+        --type-heading-2: 1.5rem;
+        --type-heading-2-lh: 2rem;
+        /* 24/32 */
+        --type-heading-3: 1.125rem;
+        --type-heading-3-lh: 1.75rem;
+        /* 18/28 */
+        /* body / label / caption intentionally absent — they do not step. */
+    }
+}
+
+@utility type-display {
+    font-size: var(--type-display);
+    line-height: var(--type-display-lh);
+}
+
+@utility type-heading-1 {
+    font-size: var(--type-heading-1);
+    line-height: var(--type-heading-1-lh);
+}
+
+@utility type-heading-2 {
+    font-size: var(--type-heading-2);
+    line-height: var(--type-heading-2-lh);
+}
+
+@utility type-heading-3 {
+    font-size: var(--type-heading-3);
+    line-height: var(--type-heading-3-lh);
+}
+
+@utility type-body {
+    font-size: var(--type-body);
+    line-height: var(--type-body-lh);
+}
+
+@utility type-label {
+    font-size: var(--type-label);
+    line-height: var(--type-label-lh);
+}
+
+@utility type-caption {
+    font-size: var(--type-caption);
+    line-height: var(--type-caption-lh);
 }
 
 @layer base {

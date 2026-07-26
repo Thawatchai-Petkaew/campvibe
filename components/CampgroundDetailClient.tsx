@@ -16,7 +16,9 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye, Signal, Hand, UserCheck, CornerDownLeft, AlignHorizontalJustifyCenter, MoveRight } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint } from "lucide-react";
+import { getFacilityIcon } from "@/lib/facility-icon-map";
+import { OptionGroupSection } from "@/components/ui/option-group-section";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -25,6 +27,13 @@ import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth }
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
+// CAM-548: reuse the CAM-545 seam verbatim — same localized "district, province"
+// text builder the camp card already uses (never a second implementation).
+import { buildLocationText } from "@/components/CampgroundCard";
+// CAM-526 (S10): accommodationTypes is a scalar CSV string column (NOT part of
+// the `options` MasterData relation) — parse it with the existing shared
+// helper, never hand-split the string.
+import { csvToArray } from "@/lib/api-utils";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
 
@@ -82,12 +91,17 @@ export default function CampgroundDetailClient({
     /** Server-resolved initial wishlist state (AC-2, BR-3). */
     initialSaved?: boolean;
     /**
-     * Server-rendered session snapshot — kept only so existing callers
-     * (app/campgrounds/[slug]/page.tsx, app/wishlist/page.tsx) don't need a
-     * prop-shape change. CAM-397 BR-1: never read as a gate input — both
-     * handleReserve and handleWishlistToggle gate on the LIVE client session
-     * (`useSession()` status === "authenticated") because this snapshot lags
+     * Server-rendered session snapshot — kept only so the existing caller
+     * (app/campgrounds/[slug]/page.tsx) doesn't need a prop-shape change.
+     * CAM-397 BR-1: never read as a gate input — both handleReserve and
+     * handleWishlistToggle gate on the LIVE client session (`useSession()`
+     * status === "authenticated") because this snapshot lags
      * `router.refresh()` after a modal login (CAM-396 G4 finding).
+     *
+     * CAM-527: confirmed dead INSIDE this component (never destructured from
+     * props below) — kept only because removing it from the type breaks
+     * `app/campgrounds/[slug]/page.tsx`'s JSX excess-property check (that
+     * file is outside this story's file surface); see needs_decision.
      */
     isLoggedIn?: boolean;
     /** CAM-79 AC-1/AC-2: average rating rounded to 1dp, or null when no reviews. */
@@ -104,12 +118,11 @@ export default function CampgroundDetailClient({
     const { resolvedTheme } = useTheme();
     const router = useRouter();
 
-    // CAM-397 BR-1: gate on the LIVE client session, never the server-snapshot
-    // `isLoggedIn` prop above — the prop stays stale until router.refresh()
-    // lands after a modal login, so the first press right after login re-opens
-    // the modal on a stale value (CAM-396 G4 finding). LoginModal.handleSubmit
-    // already calls update() on success (LoginModal.tsx:52-67), which flips
-    // this immediately — no refresh hack needed.
+    // CAM-397 BR-1: gate on the LIVE client session — a server-rendered snapshot
+    // stays stale until router.refresh() lands after a modal login, so the first
+    // press right after login would re-open the modal on a stale value (CAM-396
+    // G4 finding). LoginModal.handleSubmit already calls update() on success
+    // (LoginModal.tsx:52-67), which flips this immediately — no refresh hack needed.
     const { status: sessionStatus } = useSession();
     const isLoggedInLive = sessionStatus === "authenticated";
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -141,7 +154,6 @@ export default function CampgroundDetailClient({
     const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
-    const [loadingAvailability, setLoadingAvailability] = useState(false);
 
     // CAM-267 PREP-1: remaining capacity for the exact selected stay (เหลือ X ที่ / เต็มแล้ว).
     // null = no selection yet, or capacity is unbounded (maxGuestsPerDay not set) and the
@@ -176,8 +188,7 @@ export default function CampgroundDetailClient({
     useEffect(() => {
         const fetchAvailability = async () => {
             if (!campground.id) return;
-            
-            setLoadingAvailability(true);
+
             try {
                 const start = startOfMonth(new Date());
                 const end = endOfMonth(addMonths(new Date(), 3)); // Next 3 months
@@ -216,8 +227,6 @@ export default function CampgroundDetailClient({
                 setAvailability(availabilityMap);
             } catch (error) {
                 console.error('Failed to fetch availability:', error);
-            } finally {
-                setLoadingAvailability(false);
             }
         };
 
@@ -405,6 +414,11 @@ export default function CampgroundDetailClient({
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
 
+    // CAM-548: localized "district, province" location line — country is NEVER shown
+    // (owner requirement 2026-07-26, "User รู้อยู่แล้ว"). Same helper + same
+    // provinceTh/district data seam CampgroundCard already uses (BR-1..BR-8 there).
+    const locationText = buildLocationText(campground.location, language);
+
     // S4a: taxonomy now lives in the `options` MasterData relation; derive per-group code lists.
     const _options: { code: string; group: string }[] = campground.options || [];
     const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
@@ -414,9 +428,16 @@ export default function CampgroundDetailClient({
     // GLAMP/VIEW), NOT part of the `options` MasterData relation above — read
     // it directly off the camp row.
     const campSiteTypeCode: string | undefined = campground.campSiteType;
+    // CAM-526 (S10): accommodationTypes is a scalar CSV `String` column too
+    // (not part of the `options` relation, and not a single scalar code like
+    // campSiteType above) — parse via the shared `csvToArray` helper.
+    const accommodationCodes = csvToArray(campground.accommodationTypes);
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
+    // CAM-528 (S1) — Activity was never bucketed on this page even though the
+    // AI-chat detail card already showed it; icons + i18n landed in CAM-525 (S9).
+    const activityCodes = codesByGroup('Activity');
     // CAM-515 (S3) — the FIRST new MasterData group (ALCO/FIRE/FIWD/ADAA/RESV).
     const annotatedCodes = codesByGroup('Annotated features');
     // CAM-516 (S4) — the SECOND new MasterData group (CHIC/GENR/DIFT/IDMT).
@@ -479,114 +500,17 @@ export default function CampgroundDetailClient({
         return <span className="truncate">{format(date, "dd MMM yyyy", { locale: language === 'th' ? th : enUS })}</span>;
     };
 
-    // Facility Icon Mapping
-    const facilityIconMap: Record<string, any> = {
-        'WIFI': Wifi,
-        'ELEC': Zap,
-        'TOIL': Bath, // Or customized icon
-        'SHOW': ShowerHead,
-        'CAFE': Coffee,
-        'REST': Utensils,
-        'CART': ShoppingBasket,
-        'LOTS': Store,
-        'MIBC': Store,
-        'MAKT': Store,
-        '711': Store,
-        'BOAT': Anchor,
-        'FISH': Fish,
-        'SWIM': Waves,
-        'HIKG': Mountain,
-        'HIKE': Mountain,
-        'LIVE': Music,
-        'OFFR': Truck,
-        'RV': Car,
-        // Access
-        'DRIV': Car,
-        'WALK': Mountain,
-        'BAOT': Anchor,
-        // Terrain / Site Types
-        'FOREST': Mountain,
-        'FORE': Mountain, // Forest
-        'LAKE': Waves,
-        'MOUNTAIN': Mountain,
-        'MOUN': Mountain,
-        'BEACH': Waves,
-        'BEAC': Waves,
-        'RIVE': Waves, // Riverside
-        // CAM-513 (S1) — 8 new Terrain codes
-        'SEA': Sailboat,
-        'COAS': Anchor,
-        'WATF': Droplets,
-        'SWMH': Droplet,
-        'FILD': Flower2,
-        'CAVE': Mountain,
-        'FARM': Wheat,
-        // CAM-514 (S2) — 2 new comfort Facility codes
-        'HOTW': ThermometerSun,
-        'LIGT': Lamp,
-        // Facilities
-        'FEDW': Droplets,
-        'FEIC': Snowflake,
-        'GRIL': Utensils, // Grill icon would be better if available
-        'SANI': Trash2,
-        'SHTR': ShieldCheck,
-        'SINK': Droplets,
-        'TRAS': Trash2,
-        'WATE': Droplets,
-        'MIMT': Store,
-        'PICN': Table,
-        'SVEL': Store,
-        // Equipment / Extras
-        'TENT': Tent,
-        'MATT': Layers,
-        'CHAI': Armchair,
-        'FYST': Umbrella,
-        'ICBK': Snowflake,
-        'LEDL': Zap,
-        'STOV': Utensils,
-        'BLANKET': Home,
-        'BLKT': Home,
-        'GDST': Layers,
-        'LSTV': Utensils,
-        'SSTV': Utensils,
-        'POWE': Zap,
-        'TFAN': Wind, // Wind for fan
-        // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
-        'ALCO': Wine,
-        'FIRE': Flame,
-        'FIWD': Logs,
-        'ADAA': Accessibility,
-        'RESV': CalendarCheck,
-        // CAM-516 (S4) — Camper style, the SECOND new MasterData group
-        'CHIC': Sparkles,
-        'GENR': Users,
-        'DIFT': TrendingUp,
-        'IDMT': Dumbbell,
-        // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
-        // (host-input + camper-detail-display only, NOT searchable — BR-4)
-        'SAIS': Signal,
-        'SDTC': Signal,
-        'STRU': Signal,
-        'YUSF': Hand,
-        'OWNE': UserCheck,
-        'BACK': CornerDownLeft,
-        'PARA': AlignHorizontalJustifyCenter,
-        'PTHG': MoveRight,
-        // CAM-517 (S5) — Campground type (campSiteType scalar, not an `options`
-        // MasterData group) — CAGD/CACP had no icon here since this field was
-        // never rendered on the detail page before this story.
-        'CAGD': Tent,
-        'CACP': Car,
-        'GLAMP': Sparkles,
-        'VIEW': Eye,
-        // Fallbacks
-        'default': ShieldCheck
-    };
-
+    // CAM-525 (S9): the icon lookup is unified into lib/facility-icon-map.ts
+    // (the single source of truth for MasterData code -> lucide icon) — no
+    // more per-component facilityIconMap copy to drift out of sync.
     const getIcon = (code: string) => {
-        const IconComponent = facilityIconMap[code] || facilityIconMap['default'];
+        const IconComponent = getFacilityIcon(code);
         return <IconComponent className="w-8 h-8 text-muted-foreground stroke-[1.2]" />;
     };
+
+    // CAM-528 (S1): the label lookup every OptionGroupSection tile shares —
+    // same `t.filter[code] || code` fallback every migrated section already used.
+    const getLabel = (code: string) => t.filter[code as keyof typeof t.filter] || code;
 
     const getAccessDescription = (code: string) => {
         const descMap: Record<string, string> = {
@@ -631,7 +555,7 @@ export default function CampgroundDetailClient({
                                 )}
                             </div>
                             <span className="hidden sm:inline">·</span>
-                            <span className="font-semibold text-foreground">{campground.address || `${campground.location.province}, Thailand`}</span>
+                            <span className="font-semibold text-foreground">{campground.address || locationText}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0">
@@ -1048,29 +972,59 @@ export default function CampgroundDetailClient({
                             </div>
                         )}
 
-                        {/* 3. Site Types */}
-                        {(!!campSiteTypeCode || terrainCodes.length > 0) && (
+                        {/* 3a. CAM-528 (S1) AC-2/BR-2 — campSiteType gets its OWN labeled
+                            section (was an unlabeled tile mixed into "Site Types" below).
+                            Scalar column, so it's a single-code array. */}
+                        {campSiteTypeCode && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--campground-type">
+                                <OptionGroupSection
+                                    heading={t.filter["Campground type"]}
+                                    codes={[campSiteTypeCode]}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3a-2. CAM-526 (S10) AC-2/BR-4 — Accommodation type: a scalar CSV
+                            `String` column (not part of the `options` relation), parsed via
+                            csvToArray. Was fully wired end-to-end except this display section
+                            and the (until now unseeded) host-form group. */}
+                        {accommodationCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--accommodation-types">
+                                <OptionGroupSection
+                                    heading={t.filter["Accommodation type"]}
+                                    codes={accommodationCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3b. Site Types (Terrain) — CAM-528 (S1) BR-1: migrated onto the
+                            shared OptionGroupSection primitive, zero visual change. */}
+                        {terrainCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {/* CAM-517 (S5) AC-3 — campSiteType (single scalar: CAGD/CACP/GLAMP/VIEW) */}
-                                    {campSiteTypeCode && (
-                                        <div className="flex flex-col items-start gap-3" data-testid="text--campground-sitetype">
-                                            {getIcon(campSiteTypeCode)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[campSiteTypeCode as keyof typeof t.filter] || campSiteTypeCode}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {terrainCodes.map((terrain: string) => (
-                                        <div key={terrain} className="flex flex-col items-start gap-3">
-                                            {getIcon(terrain)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[terrain as keyof typeof t.filter] || terrain}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.campground.siteTypes}
+                                    codes={terrainCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3c. CAM-528 (S1) AC-1/BR-4 — Activity: never bucketed on this
+                            page before, even though the AI-chat detail card already showed
+                            it. Icons + i18n landed in CAM-525 (S9). */}
+                        {activityCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--activities">
+                                <OptionGroupSection
+                                    heading={t.filter["Activity"]}
+                                    codes={activityCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1145,17 +1099,12 @@ export default function CampgroundDetailClient({
                             the FIRST new MasterData group added post-launch. */}
                         {annotatedCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Annotated features"]}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {annotatedCodes.map((code: string) => (
-                                        <div key={code} className="flex flex-col items-start gap-3">
-                                            {getIcon(code)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[code as keyof typeof t.filter] || code}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.filter["Annotated features"]}
+                                    codes={annotatedCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1164,17 +1113,12 @@ export default function CampgroundDetailClient({
                             MasterData group added post-launch. */}
                         {camperStyleCodes.length > 0 && (
                             <div className="pb-8 border-b border-border/60" data-testid="section--camper-style">
-                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Camper style"]}</h2>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
-                                    {camperStyleCodes.map((code: string) => (
-                                        <div key={code} className="flex flex-col items-start gap-3">
-                                            {getIcon(code)}
-                                            <span className="font-medium text-foreground capitalize text-base">
-                                                {t.filter[code as keyof typeof t.filter] || code}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <OptionGroupSection
+                                    heading={t.filter["Camper style"]}
+                                    codes={camperStyleCodes}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
                             </div>
                         )}
 
@@ -1188,49 +1132,37 @@ export default function CampgroundDetailClient({
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.additionalInfo}</h2>
                                 <div className="space-y-6">
                                     {stayConnectedCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Stay connected"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {stayConnectedCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Stay connected"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={stayConnectedCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                     {markingMethodCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Marking method"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {markingMethodCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Marking method"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={markingMethodCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                     {drivewayCodes.length > 0 && (
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t.filter["Driveway"]}</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
-                                                {drivewayCodes.map((code: string) => (
-                                                    <div key={code} className="flex flex-col items-start gap-3">
-                                                        {getIcon(code)}
-                                                        <span className="font-medium text-foreground capitalize text-base">
-                                                            {t.filter[code as keyof typeof t.filter] || code}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <OptionGroupSection
+                                            heading={t.filter["Driveway"]}
+                                            headingTag="h3"
+                                            headingClassName="text-sm font-semibold text-muted-foreground mb-3"
+                                            gridClassName="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4"
+                                            codes={drivewayCodes}
+                                            getLabel={getLabel}
+                                            getIcon={getIcon}
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -1462,6 +1394,21 @@ export default function CampgroundDetailClient({
                                     </span>
                                 </div>
 
+                                {/* CAM-528 (S1) AC-3/BR-3: petFriendly is saved + prefilled on the
+                                    host form but was never rendered anywhere on this page — a
+                                    camper had no way to tell. Renders only when true (BR-3): the
+                                    absence of the row is the correct default state, not a claim
+                                    that pets are disallowed. */}
+                                {campground.petFriendly && (
+                                    <div
+                                        className="flex items-center gap-3 py-2 border-b border-border/60"
+                                        data-testid="row--campground-pet-friendly"
+                                    >
+                                        <PawPrint className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                                        <span className="font-medium text-foreground">{t.newCampground.petFriendly}</span>
+                                    </div>
+                                )}
+
                                 {campground.minimumAge !== undefined && campground.minimumAge > 0 && (
                                     <div className="flex justify-between items-center py-2 border-b border-border/60">
                                         <span className="text-muted-foreground">{t.campground.minimumAge || "Minimum Age"}</span>
@@ -1536,7 +1483,7 @@ export default function CampgroundDetailClient({
                     )}
                     <div className="flex gap-2 mb-6 text-muted-foreground">
                         <MapPin className="w-5 h-5 text-foreground" />
-                        <span>{campground.location.province}, Thailand</span>
+                        <span>{locationText}</span>
                     </div>
                     <div className="w-full h-[320px] md:h-[480px]">
                         <DynamicMap

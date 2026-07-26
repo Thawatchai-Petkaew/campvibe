@@ -58,7 +58,7 @@ async function main() {
                     priceLow: 500 + (i * 100),
                     description: 'Mock description for testing',
                     campSiteType: 'CAMPGROUND',
-                    accommodationTypes: 'TENT',
+                    accommodationTypes: 'TSIT', // CAM-536: renamed from TENT (collided with Equipment for rent:TENT)
                     checkInTime: '14:00',
                     checkOutTime: '12:00',
                     bookingMethod: 'ONLI',

@@ -6,8 +6,19 @@
  *  2. Upload route: 429 + Retry-After when rate-limited
  *  3. Upload route: 400 when magic bytes don't match declared MIME
  *  4. Upload route: 400 passes through for no-file (pre-existing behaviour)
- *  5. Camp-create routes: 429 + Retry-After when rate-limited
- *  6. Shared key: both campsites + campgrounds routes share `campsite:create:<userId>`
+ *  5. Camp-create route: 429 + Retry-After when rate-limited; per-user isolation
+ *
+ * CAM-527: the legacy `app/api/campgrounds/route.ts` (dead, no product caller) was
+ * deleted; its duplicate campgroundsPOST rate-limit + shared-key assertions are
+ * removed here — the SAME `campsite:create:<userId>` key + 429 behavior is already
+ * proven against the live campsitesPOST below (section 3), and the per-user
+ * isolation case is folded into section 3 (was "USER_B is unaffected").
+ *
+ * CAM-535 (re-audit, 2026-07-26): reconfirmed section 3 below still proves the create
+ * rate-limit (429+Retry-After, no-call-when-limited, allows-under-limit, per-user
+ * isolation) on the sole surviving create route. The cross-route "shared key" proof
+ * is moot with one route left; per-user isolation on that route is what matters and
+ * is covered. No restoration made.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -60,7 +71,6 @@ vi.mock('next/cache', () => ({
 // ─────────────────────────────────────────────────────────────
 const { POST: uploadPOST } = await import('../app/api/upload/route');
 const { POST: campsitesPOST } = await import('../app/api/campsites/route');
-const { POST: campgroundsPOST } = await import('../app/api/campgrounds/route');
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -134,14 +144,6 @@ function makeCampsiteBody() {
 
 function makeCampsitesRequest(): NextRequest {
     return new NextRequest('http://localhost/api/campsites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(makeCampsiteBody()),
-    });
-}
-
-function makeCampgroundsRequest(): NextRequest {
-    return new NextRequest('http://localhost/api/campgrounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(makeCampsiteBody()),
@@ -309,47 +311,10 @@ describe('POST /api/campsites — rate-limit (campsite:create:<userId>)', () => 
         const res = await campsitesPOST(makeCampsitesRequest());
         expect(res.status).not.toBe(429);
     });
-});
 
-// ═════════════════════════════════════════════════════════════
-// 4. Camp-create rate-limit — campgrounds route
-// ═════════════════════════════════════════════════════════════
-
-describe('POST /api/campgrounds — rate-limit (campsite:create:<userId>)', () => {
-    it('returns 429 + Retry-After header when the create limit (10/hr) is exceeded', async () => {
-        prefillCampsiteCreateLimit(USER_A, 10);
-        mockAuth.mockResolvedValueOnce(makeSession(USER_A));
-
-        const res = await campgroundsPOST(makeCampgroundsRequest());
-
-        expect(res.status).toBe(429);
-        const retryAfter = res.headers.get('Retry-After');
-        expect(retryAfter).not.toBeNull();
-        expect(Number(retryAfter)).toBeGreaterThan(0);
-    });
-});
-
-// ═════════════════════════════════════════════════════════════
-// 5. Shared rate-limit key across both create routes
-// ═════════════════════════════════════════════════════════════
-
-describe('Shared key campsite:create:<userId> — campsites + campgrounds', () => {
-    it('consuming slots via /api/campsites blocks /api/campgrounds for the same user', async () => {
-        // Pre-fill 9 slots — one remains
-        prefillCampsiteCreateLimit(USER_A, 9);
-
-        // 10th slot consumed via campsites
-        mockAuth.mockResolvedValueOnce(makeSession(USER_A));
-        mockCampSiteCreate.mockResolvedValueOnce({ id: 'cs-10', nameTh: 'แคมป์ทดสอบ' });
-        const r1 = await campsitesPOST(makeCampsitesRequest());
-        expect(r1.status).not.toBe(429);
-
-        // 11th slot via campgrounds — should now be 429 (same key)
-        mockAuth.mockResolvedValueOnce(makeSession(USER_A));
-        const r2 = await campgroundsPOST(makeCampgroundsRequest());
-        expect(r2.status).toBe(429);
-    });
-
+    // CAM-527: folded in from the deleted cross-route "Shared key" describe —
+    // the legacy `app/api/campgrounds/route.ts` this originally proved isolation
+    // against is gone; per-user isolation on the SAME key is still proven here.
     it('USER_B is unaffected when USER_A hits the limit', async () => {
         prefillCampsiteCreateLimit(USER_A, 10);
 

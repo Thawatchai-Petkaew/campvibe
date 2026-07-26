@@ -8,7 +8,6 @@
  *   RISK-3  Bookings: 20 ok → 21st = 429 + Retry-After; 30 nights ok, 31 nights = 400.
  *   RISK-5  Reviews: 5 ok → 6th = 429 + Retry-After.
  *   RISK-6  Location POST: no session = 401; with session = passes auth guard.
- *   RISK-4  Campgrounds GET: result length ≤ 50 (take:50 cap); 101st IP hit = 429.
  *   RISK-9  Locations/search: force catch path → body has NO `detail`/`error.message` key.
  *   RISK-7  Status/stream: no token = 401; invalid token = 401; valid token = 200 (SSE);
  *           6th connection from same IP = 429.
@@ -24,6 +23,23 @@
  * Coverage matrix per qa.md:
  *   normal · null/empty · boundary (at-limit, over-limit, 30-night, 31-night) · error/validation ·
  *   concurrent/ordering (per-user isolation on rate-limit keys)
+ *
+ * CAM-527: removed the former RISK-4 describe block (legacy `app/api/campgrounds/route.ts`
+ * GET — dead, no product caller, deleted in this story).
+ *   - Its take:50 cap assertion has a live equivalent: `/api/campsites` GET bounds its fetch
+ *     via `take: PAGE_SIZE + 1` (PAGE_SIZE=24), already proven in
+ *     __tests__/cam-196-keyset-cursor.test.ts ("route takes PAGE_SIZE+1 rows... to detect
+ *     hasNextPage") — no unbounded fetch on the live route.
+ *   - Its IP rate-limit assertions (100th allowed / 101st → 429 / per-IP isolation) have
+ *     NO live equivalent: `/api/campsites` GET (the live public list) has zero IP-based
+ *     rate-limiting today — only POST create is rate-limited (`campsite:create:<userId>`).
+ *     This is a genuine, pre-existing gap on the live route (not introduced by this
+ *     deletion) — flagged to the story's needs_decision rather than silently dropped.
+ *
+ * CAM-535 (re-audit, 2026-07-26): reconfirmed both findings above — take:50-equivalent
+ * still bounded via cam-196-keyset-cursor.test.ts, IP rate-limit still absent from the
+ * live GET (grep-verified: checkRateLimit is called only once in app/api/campsites/route.ts,
+ * for POST create). The gap is tracked as CAM-534, not re-opened here. No restoration made.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -66,9 +82,8 @@ vi.mock('@/lib/auth', () => ({
 // requireAuth (auth-utils) delegates to auth(); mock prisma separately for routes that use it
 const mockPrismaLocationCreate        = vi.fn();
 const mockPrismaCountryFindUnique     = vi.fn();
-const mockPrismaThailandLocationFind  = vi.fn();
 const mockPrismaAdminAreaFindUnique   = vi.fn();
-const mockPrismaThailandLocationFindMany = vi.fn();
+const mockPrismaAdminAreaFindMany     = vi.fn();
 const mockPrismaCampSiteFindMany      = vi.fn();
 const mockPrismaCampSiteFindUnique    = vi.fn();
 const mockPrismaBookingCreate         = vi.fn();
@@ -86,12 +101,9 @@ vi.mock('@/lib/prisma', () => ({
     country: {
       findUnique: (...args: unknown[]) => mockPrismaCountryFindUnique(...args),
     },
-    thailandLocation: {
-      findUnique: (...args: unknown[]) => mockPrismaThailandLocationFind(...args),
-      findMany:   (...args: unknown[]) => mockPrismaThailandLocationFindMany(...args),
-    },
     adminArea: {
       findUnique: (...args: unknown[]) => mockPrismaAdminAreaFindUnique(...args),
+      findMany:   (...args: unknown[]) => mockPrismaAdminAreaFindMany(...args),
     },
     campSite: {
       findMany:   (...args: unknown[]) => mockPrismaCampSiteFindMany(...args),
@@ -131,7 +143,6 @@ vi.mock('next/cache', () => ({
 const { POST: bookingPOST }       = await import('@/app/api/bookings/route');
 const { POST: reviewPOST }        = await import('@/app/api/reviews/route');
 const { POST: locationPOST }      = await import('@/app/api/location/route');
-const { GET:  campgroundsGET }    = await import('@/app/api/campgrounds/route');
 const { GET:  locationSearchGET } = await import('@/app/api/locations/search/route');
 const { GET:  statusStreamGET }   = await import('@/app/api/status/stream/route');
 
@@ -436,11 +447,13 @@ describe('RISK-6 — POST /api/location — requireAuth gate', () => {
   it('[normal] authenticated request passes the auth gate (proceeds to DB)', async () => {
     mockAuth.mockResolvedValueOnce(makeSession());
     mockPrismaCountryFindUnique.mockResolvedValueOnce({ code: 'TH' });
-    mockPrismaThailandLocationFind.mockResolvedValueOnce(null);
+    // No adminAreaId in the request body (see makeLocationRequest) → the
+    // AdminArea lookup branch (CAM-574) is never reached.
     mockPrismaLocationCreate.mockResolvedValueOnce({ id: 'loc-1', country: 'Thailand' });
     const res = await locationPOST(makeLocationRequest());
     // Passes auth; DB returns a location object → 201
     expect(res.status).toBe(201);
+    expect(mockPrismaAdminAreaFindUnique).not.toHaveBeenCalled();
   });
 
   it('[null/empty] request with no session object returns 401 (null session)', async () => {
@@ -451,86 +464,20 @@ describe('RISK-6 — POST /api/location — requireAuth gate', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RISK-4 — Campgrounds GET: take:50 cap + IP rate-limit 100/15min
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('RISK-4 — GET /api/campgrounds — take:50 cap + IP rate-limit', () => {
-  function makeCampgroundsRequest(ip = '10.0.0.1') {
-    return new NextRequest('http://localhost/api/campgrounds', {
-      headers: { 'x-forwarded-for': ip },
-    });
-  }
-
-  it('[normal] response contains at most 50 campgrounds (take:50 enforced)', async () => {
-    // Prisma returns 50 items (simulating a full page)
-    const fifty = Array.from({ length: 50 }, (_, i) => ({ id: `camp-${i}` }));
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce(fifty);
-    const req = makeCampgroundsRequest();
-    const res = await campgroundsGET(req);
-    expect(res.status).toBe(200);
-    // apiSuccess serializes directly (no {data:...} wrapper)
-    const body = await res.json();
-    const items = Array.isArray(body) ? body : body.data ?? body;
-    expect(Array.isArray(items)).toBe(true);
-    expect(items.length).toBeLessThanOrEqual(50);
-  });
-
-  it('[boundary] Prisma is called with take:50 (proves the cap is applied, not just coincidental)', async () => {
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest();
-    await campgroundsGET(req);
-    const callArgs = mockPrismaCampSiteFindMany.mock.calls[0]?.[0];
-    expect(callArgs?.take).toBe(50);
-  });
-
-  it('[boundary] 100th IP request is allowed (at the limit)', async () => {
-    const IP = '192.168.1.1';
-    fillStore(`campgrounds:list:${IP}`, 99); // 99 used → 100th is within limit
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest(IP);
-    const res = await campgroundsGET(req);
-    expect(res.status).not.toBe(429);
-  });
-
-  it('[boundary] 101st IP request returns 429 with Retry-After', async () => {
-    const IP = '192.168.1.2';
-    fillStore(`campgrounds:list:${IP}`, 100); // 100 used → 101st is over
-    const req = makeCampgroundsRequest(IP);
-    const res = await campgroundsGET(req);
-
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.error).toBe('rate_limited');
-    expect(res.headers.get('Retry-After')).not.toBeNull();
-    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
-  });
-
-  it('[concurrent] different IPs have independent counters', async () => {
-    fillStore('campgrounds:list:10.1.1.1', 100);
-    // 10.1.1.2 is fresh
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest('10.1.1.2');
-    const res = await campgroundsGET(req);
-    expect(res.status).not.toBe(429);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
 // RISK-9 — Locations/search: 500 body has NO `detail` / internal error string
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('RISK-9 — GET /api/locations/search — 500 does not leak error.message', () => {
+  // CAM-574: the endpoint's ThailandLocation dependency is retired (search
+  // now runs against AdminArea, no bridge) — this suite forces the error via
+  // the real `type=province` path instead of the removed no-type combined
+  // branch. Same guard, same protection, no ThailandLocation involved.
   function makeSearchRequest(q = 'test') {
-    return new NextRequest(`http://localhost/api/locations/search?q=${q}`);
+    return new NextRequest(`http://localhost/api/locations/search?type=province&q=${q}`);
   }
 
   it('[error] catch path returns 500 with only { error: "Failed to fetch locations" } (no detail key)', async () => {
-    // Force the catch path: make the prisma model check throw
-    const { prisma } = await import('@/lib/prisma');
-    // Override thailandLocation to throw so we hit the catch branch
-    const originalThailandLocation = (prisma as any).thailandLocation;
-    // Temporarily make findMany throw to exercise the catch path
-    mockPrismaThailandLocationFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
+    mockPrismaAdminAreaFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
 
     const req = makeSearchRequest();
     const res = await locationSearchGET(req);
@@ -547,7 +494,7 @@ describe('RISK-9 — GET /api/locations/search — 500 does not leak error.messa
 
   it('[Prove-It] body does NOT contain the internal DB error string (leak is closed)', async () => {
     // This test FAILS if a `detail: error.message` were added back to the 500 response body.
-    mockPrismaThailandLocationFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
+    mockPrismaAdminAreaFindMany.mockRejectedValueOnce(new Error('INTERNAL DB ERROR secret'));
     const req = makeSearchRequest();
     const res = await locationSearchGET(req);
     const bodyText = await res.text();
@@ -557,14 +504,22 @@ describe('RISK-9 — GET /api/locations/search — 500 does not leak error.messa
   });
 
   it('[normal] successful query returns JSON array (no leak)', async () => {
-    mockPrismaThailandLocationFindMany.mockResolvedValueOnce([
-      { id: '1', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai' },
+    mockPrismaAdminAreaFindMany.mockResolvedValueOnce([
+      { id: 'aa-1', code: '50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' },
     ]);
     const req = makeSearchRequest('เชียง');
     const res = await locationSearchGET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
+  });
+
+  it('[null/empty] no `type` param returns an empty array — never the removed ThailandLocation combined branch', async () => {
+    const req = new NextRequest('http://localhost/api/locations/search?q=test');
+    const res = await locationSearchGET(req);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+    expect(mockPrismaAdminAreaFindMany).not.toHaveBeenCalled();
   });
 });
 

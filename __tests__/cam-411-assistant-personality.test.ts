@@ -8,6 +8,13 @@
  * test for AC-6 (the system-prompt tone line actually reaches the model
  * call). Existing CAM-272/409/410 assertions that pinned the OLD
  * title-only header / old copy were updated in place (not duplicated here).
+ *
+ * CAM-541 (owner feedback, updated in place per the same convention): the
+ * welcome-hero `AiChatAvatar` this file originally pinned is REMOVED (it sat
+ * directly under the panel header's own avatar, reading as the assistant
+ * mark shown twice at the start of a chat) — see
+ * __tests__/cam-541-assistant-visuals.test.ts for the new "exactly once"
+ * regression guard.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "fs";
@@ -75,9 +82,12 @@ describe("AC-1 — header shows the Flame avatar + name over role subtitle", () 
   });
 });
 
-describe("AC-2/BR-5 — richer welcome: avatar hero, name-voiced greeting, labelled examples, 44px pills", () => {
-  it("[unit] the welcome hero shows AiChatAvatar size=lg above the greeting", () => {
-    expect(listSrc).toContain('<AiChatAvatar size="lg" />');
+describe("AC-2/BR-5 — richer welcome: name-voiced greeting, labelled examples, 44px pills", () => {
+  // CAM-541 (owner feedback, SUPERSEDES this AC's welcome-hero AiChatAvatar):
+  // the hero avatar sat directly under the panel header's own avatar,
+  // reading as the assistant mark shown twice at the start of a chat — see
+  // __tests__/cam-541-assistant-visuals.test.ts for the "exactly once" guard.
+  it("[unit] the welcome greeting renders (no per-welcome avatar — the header carries the one mark)", () => {
     expect(listSrc).toContain("{t.aiChat.welcomeHeading}");
   });
 
@@ -106,14 +116,14 @@ describe("AC-2/BR-5 — richer welcome: avatar hero, name-voiced greeting, label
 });
 
 describe("AC-3/BR-3/EC-1 (CAM-430 SUPERSEDES the per-row avatar) — every assistant-side row is w-full + motion-safe entrance", () => {
-  it("[unit] CAM-430: the answer, typing, rate-limited, disabled and error rows no longer render a per-message AiChatAvatar (size=sm) — the mark is decorative identity, now only in the panel header + resuming/welcome hero", () => {
+  it("[unit] CAM-430/CAM-541: the answer, typing, rate-limited, disabled, error AND welcome rows render no AiChatAvatar (size=sm or bare size=lg) — the mark is decorative identity, now ONLY in the panel header + the CAM-425/435 resuming indicator", () => {
     const occurrences = listSrc.split('<AiChatAvatar size="sm" />').length - 1;
     expect(occurrences).toBe(0);
-    // size=lg still renders exactly twice: the welcome hero (calm, default intensity)
-    // and the CAM-425 resuming indicator, which since CAM-435 explicitly passes
-    // intensity="loading" (a distinct literal) — counted separately below.
+    // CAM-541 (SUPERSEDES this file's earlier "size=lg renders exactly twice"
+    // pin): the welcome-hero avatar is removed — bare size="lg" (no intensity
+    // prop) no longer renders anywhere in this file.
     const welcomeHeroOccurrences = listSrc.split('<AiChatAvatar size="lg" />').length - 1;
-    expect(welcomeHeroOccurrences).toBe(1);
+    expect(welcomeHeroOccurrences).toBe(0);
     const resumingOccurrences = listSrc.split('<AiChatAvatar size="lg" intensity="loading" />').length - 1;
     expect(resumingOccurrences).toBe(1);
   });

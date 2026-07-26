@@ -4,13 +4,21 @@
  * "Redefine Home category tabs to real filterable dimensions" — full spec:
  * docs/specs/home-search-filters/CAM-487-home-search-filters/CAM-491-redefine-category-tabs/design.md
  *
+ * CAM-529 (S2) updated 2 assertions below to the new canonical truth: `GLAMP`
+ * is now a real seeded Campground-type MasterData code (CAM-521), so a
+ * `type=GLAMP` tab is legitimate (previously excluded when GLAMP had no
+ * backing row); `OWNED_PARAMS` dropped the dead `"access"` deleter (see
+ * cam-529-category-tabs.test.ts for the Prove-It). See qa.md: updating a
+ * guard to a legitimate spec change is correct, not weakening it.
+ *
  * Source-inspection coverage (this repo's Vitest config runs
  * `environment: 'node'` with no jsdom — see cam-434-global-launcher.test.ts
- * for the established convention). Proves: (1) the 7-tab set only ever
- * drives `type=CAGD|CACP` or `terrain=BEAC|FORE|MTNS|RIVE`, never a
- * `type=` value outside campSiteType, (2) a click clears the OTHER owned
- * category param (mutual-exclude), (3) active-tab detection reads the
- * owned param exactly, (4) the required focus-visible ring is present.
+ * for the established convention). Proves: (1) the original 7-tab set still
+ * only ever drives `type=CAGD|CACP` or `terrain=BEAC|FORE|MTNS|RIVE`, never a
+ * `type=` value outside campSiteType (excluding the still-unbacked-as-a-tab
+ * LAKE/FOREST/VIEW/BAOT), (2) a click clears the OTHER owned category param
+ * (mutual-exclude), (3) active-tab detection reads the owned param exactly,
+ * (4) the required focus-visible ring is present.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
@@ -21,10 +29,10 @@ const read = (p: string) => readFileSync(resolve(__dirname, "..", p), "utf-8");
 const barSrc = read("components/CategoryBar.tsx");
 
 describe("AC — the 7-tab set maps to real MasterData codes only", () => {
-  it("[structural] type tabs only ever set CAGD or CACP (never GLAMP/LAKE/FOREST/VIEW/BAOT)", () => {
+  it("[structural] type tabs only ever set CAGD/CACP/GLAMP (never the still-unbacked-as-a-tab LAKE/FOREST/VIEW/BAOT)", () => {
     expect(barSrc).toContain('{ labelKey: "campground", icon: Tent, param: "type", value: "CAGD" }');
     expect(barSrc).toContain('{ labelKey: "carCamping", icon: Caravan, param: "type", value: "CACP" }');
-    expect(barSrc).not.toMatch(/param:\s*"type"[^}]*value:\s*"(GLAMP|LAKE|FOREST|VIEW|BAOT)"/);
+    expect(barSrc).not.toMatch(/param:\s*"type"[^}]*value:\s*"(LAKE|FOREST|VIEW|BAOT)"/);
   });
 
   it("[structural] terrain tabs cover beach/forest/mountain/riverside with real Terrain codes", () => {
@@ -40,8 +48,8 @@ describe("AC — the 7-tab set maps to real MasterData codes only", () => {
 });
 
 describe("BR — single-select: a click clears the other owned category params", () => {
-  it("[unit] handleCategoryClick deletes every OWNED_PARAMS entry before setting its own", () => {
-    expect(barSrc).toContain('const OWNED_PARAMS = ["type", "terrain", "access"] as const;');
+  it("[unit] handleCategoryClick deletes every OWNED_PARAMS entry before setting its own (access excluded, CAM-529)", () => {
+    expect(barSrc).toContain('const OWNED_PARAMS = ["type", "terrain"] as const;');
     expect(barSrc).toMatch(/OWNED_PARAMS\.forEach\(\(p\)\s*=>\s*params\.delete\(p\)\)/);
     // the set happens AFTER the clear-all, so a stale type=CAGD can never
     // survive under a newly-tapped terrain=BEAC (or vice versa).

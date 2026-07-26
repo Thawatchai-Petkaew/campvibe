@@ -3,13 +3,13 @@ import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { catalogQuerySchema } from '@/lib/validations/catalog-cursor';
-import { buildCampSiteWhere } from '@/lib/campsite-filters';
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
 import { serializeDecimals } from '@/lib/serialize';
 import { requireAuth } from '@/lib/auth-utils';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { withTiming } from '@/lib/route-timing';
-import { campCardSelect } from '@/lib/read-models/camp-card';
+import { campCardSelect, getProvinceThaiNameMap, withProvinceThaiNames } from '@/lib/read-models/camp-card';
 import { CATALOG_TAG } from '@/lib/catalog-cache';
 import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from '@/lib/campsite-availability';
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
@@ -22,8 +22,55 @@ import {
   type CatalogSort,
 } from '@/lib/catalog-cursor';
 
+// CAM-534 (BR-1) — public catalog browse: a real camper pages + filters
+// repeatedly (infinite-scroll fetches one PAGE_SIZE=24 page per scroll,
+// plus one fetch per filter/sort/keyword change). A ~100/15min baseline
+// (the general default in .claude/rules/security.md) is tight enough to
+// break an active filtering session on a shared/office IP, so this
+// endpoint is deliberately wider than the baseline: 300 requests / 15 min
+// per IP comfortably covers dozens of scroll + filter fetches in one
+// session while still capping a scraper hammering thousands of requests.
+const CATALOG_LIST_RATE_LIMIT = 300;
+const CATALOG_LIST_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 min
+
 export async function GET(request: NextRequest) {
   try {
+    // 0. Rate-limit by IP (CAM-534) — runs before any parsing/query work.
+    // IP extraction mirrors the established pattern used across the
+    // codebase (lib/auth.ts, app/api/vitals/route.ts, app/api/tickets/*,
+    // lib/ai/rate-limit.ts): read the first hop of `x-forwarded-for`
+    // (set reliably by Vercel's edge proxy in front of this app) rather
+    // than inventing a new header-parsing scheme.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+
+    // Fail OPEN on any limiter error — a bug in the limiter must never take
+    // the public catalog offline (this is a plain, bounded call, not a
+    // per-request loop; see the CAM-344 lesson in security.md).
+    let isRateLimited = false;
+    let retryAfterSec = 0;
+    try {
+      const rl = checkRateLimit(`catalog:list:${ip}`, {
+        limit: CATALOG_LIST_RATE_LIMIT,
+        windowMs: CATALOG_LIST_RATE_WINDOW_MS,
+      });
+      isRateLimited = !rl.allowed;
+      retryAfterSec = rl.retryAfterSec;
+    } catch (rlError) {
+      console.error('[CAM-534] rate limiter error (fail-open, request allowed)', rlError);
+    }
+    if (isRateLimited) {
+      return new Response(
+        JSON.stringify({
+          error: 'rate_limited',
+          message: 'คำขอมากเกินไป กรุณาลองใหม่อีกครั้งในภายหลัง',
+        }),
+        {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSec) },
+        }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     // 1. Validate at the boundary — zod-parse every query param.
@@ -58,11 +105,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 2b. CAM-563 — resolve the incoming province NAME (Thai or English) to
+    // its AdminArea subtree ids so the filter below can ALSO match a camp
+    // stored in the other language for the same real province (root cause:
+    // `Location.province` is free text written in whichever UI language was
+    // active when the host saved it — CAM-559 finding). Fail-open: a lookup
+    // error never blocks the catalog, it just leaves the legacy exact-string
+    // match as the only path (identical to pre-CAM-563 behavior).
+    let provinceAdminAreaIds: string[] = [];
+    if (province) {
+      try {
+        provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, province);
+      } catch (error) {
+        console.error('[CAM-563] province admin-area resolution failed (fail-open, string match still applies)', error);
+      }
+    }
+
     // 3. Build base filter (SEC-1: isActive/isPublished/deletedAt always present).
     const baseWhere = buildCampSiteWhere({
       type, keyword, province, district, startDate, endDate,
       guests, min, max, access, facilities, external, equipment, activities, terrain,
       annotatedFeatures, camperStyle,
+      provinceAdminAreaIds,
     });
 
     // 4. Merge keyset WHERE via AND (never replaces the base gate).
@@ -127,9 +191,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 7c. CAM-545: name-based Thai province lookup (fail-open — a lookup
+    // error leaves every card on its English province, same as an unmapped
+    // value; the card's own fallback, not a request failure).
+    let provinceThaiNameMap = new Map<string, string>();
+    try {
+      provinceThaiNameMap = await getProvinceThaiNameMap();
+    } catch (error) {
+      console.error('[CAM-545] Province Thai-name lookup failed (fail-open, English province shown):', error);
+    }
+    const itemsWithThaiProvince = withProvinceThaiNames(items, provinceThaiNameMap);
+
     // 8. Serialise Decimals at the boundary (priceLow/avgRating: Decimal → number).
     const serialisedItems = serializeDecimals(
-      items.map((c) => {
+      itemsWithThaiProvince.map((c) => {
         const availabilityStatus = availabilityByCampId[c.id];
         return {
           ...c,
@@ -271,6 +346,13 @@ export async function POST(request: NextRequest) {
         extraFeeLabel: data.extraFeeLabel,
         cancellationPolicy: data.cancellationPolicy || undefined,
 
+        // CAM-575: CampSite.latitude/longitude is the canonical coordinate
+        // source (owner decision, 2026-07-26). This create fires the
+        // campsite_coords_sync DB trigger (prisma/migrations/
+        // 20260726165149_cam575_...), which derives the linked
+        // Location.lat/lon to match — overwriting whatever provisional
+        // value `POST /api/location` wrote moments earlier for the SAME
+        // `data.locationId` (see that route's own comment).
         latitude: data.latitude,
         longitude: data.longitude,
         checkInTime: data.checkInTime,

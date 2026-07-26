@@ -377,7 +377,7 @@ export default function BookingsPage() {
                                 <tr key={booking.id} className="hover:bg-muted/40 transition duration-200">
                                     <td className="px-8 py-5 font-medium text-foreground">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold ring-2 ring-card">
+                                                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary-ink flex items-center justify-center text-xs font-bold ring-2 ring-card">
                                                     {booking.user.name?.[0] || booking.user.email[0].toUpperCase()}
                                                 </div>
                                                 <div>

@@ -191,7 +191,7 @@ export default function LoginPage() {
                     <div className="pt-4 border-t border-border/60 text-center">
                         <p className="text-sm text-muted-foreground">
                             {t.auth.dontHaveAccount}{" "}
-                            <Link href="/" className="text-primary font-bold hover:underline">
+                            <Link href="/" className="text-primary-ink font-bold hover:underline">
                                 {t.auth.register}
                             </Link>
                         </p>
@@ -200,7 +200,7 @@ export default function LoginPage() {
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">
-                    <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    <Link href="/" className="text-sm text-muted-foreground hover:text-primary-ink transition-colors">
                         ← Back to home
                     </Link>
                 </div>

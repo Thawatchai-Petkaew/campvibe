@@ -1,0 +1,25 @@
+-- CAM-580 — drops the legacy `ThailandLocation` table itself, the last
+-- irreversible step of the retirement arc (CAM-553 -> 563 -> 566 -> 573 ->
+-- 574 -> 580). CAM-574 (phase B) had already retired the `Location` FK into
+-- this table (`Location.thaiLocationId`/`thaiLocation`, column+FK+index
+-- dropped). This story moved the last two direct (non-FK) readers off the
+-- table onto `AdminArea`:
+--   - app/api/geocode/_shared.ts (resolveFromComponents) — now derives
+--     province/district rows directly from the matched AdminArea node.
+--   - lib/read-models/camp-card.ts (getProvinceNamePairs) — now queries
+--     AdminArea PROVINCE-level rows instead.
+-- `prisma/seed.ts` no longer populates this table (resolves the province
+-- AdminArea node id from an in-memory map instead of a DB read).
+-- Exhaustive grep-verified: no remaining reader/writer — see this story's
+-- tech.md reader/writer inventory + search method.
+--
+-- Down (proven up->down->up on the local dev DB before this PR, see the PR
+-- body for the real command output): recreates the table + its two indexes
+-- (structure only — no FK, since Location's FK into this table was already
+-- dropped by CAM-574's migration, 20260727010000_cam574_retire_thai_location_fk).
+-- Data is NOT restored on down: this table's rows are fully superseded by
+-- `AdminArea` (the seed no longer populates it either direction), and
+-- nothing depends on its data — see story.md BR-n.
+
+-- DropTable
+DROP TABLE "ThailandLocation";

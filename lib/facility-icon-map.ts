@@ -1,14 +1,22 @@
 /**
- * lib/facility-icon-map.ts — CAM-450
+ * lib/facility-icon-map.ts — CAM-450, unified CAM-525 (S9)
  *
- * Shared code -> lucide icon lookup for a MasterData amenity/facility/activity
- * code. Extracted from `components/CampgroundDetailClient.tsx`'s own
- * `facilityIconMap` (~L470-537) so the AI-chat detail drawer (CAM-450) can
- * reuse the SAME icon-per-code treatment instead of re-guessing icons per
- * component (code.md "reuse before create" — CAM-220/221 already named
- * re-implementation as this codebase's #1 UI-drift source). The camp detail
- * page itself is left untouched by this story (out of surface); a follow-up
- * cleanup can point it at this shared map too.
+ * The SINGLE source of truth for MasterData code -> lucide icon lookup.
+ * Originally extracted from `components/CampgroundDetailClient.tsx`'s own
+ * `facilityIconMap` (CAM-450) so the AI-chat detail drawer could reuse the
+ * same icon-per-code treatment instead of re-guessing icons per component
+ * (code.md "reuse before create" — CAM-220/221 already named
+ * re-implementation as this codebase's #1 UI-drift source).
+ *
+ * CAM-525 (S9) finishes that unification: the camp detail page's inline copy
+ * is gone (it now imports `getFacilityIcon` from here) and the drifted gaps
+ * are closed — Campground type (CAGD/CACP/GLAMP/VIEW), POTA (had the wrong
+ * fallback icon on both maps), MTNS (rendered with a raw code because the
+ * locale carried the phantom key `MOUN` instead), and the 5 Activity codes
+ * (HIKI/SURF/WILD/HORS/CLIM) the CAM-528 Activity section will need the
+ * moment it ships. Every code below is verified against the seeded
+ * MasterData rows in `prisma/seed.ts` — see
+ * `__tests__/cam-525-icon-i18n-coverage.test.ts` for the enforced coverage.
  */
 import {
   Accessibility,
@@ -16,6 +24,9 @@ import {
   Anchor,
   Armchair,
   Bath,
+  Bed,
+  Binoculars,
+  Box,
   CalendarCheck,
   Car,
   Coffee,
@@ -23,36 +34,51 @@ import {
   Droplet,
   Droplets,
   Dumbbell,
+  Eye,
+  Fan,
   Fish,
   Flame,
   Flower2,
+  Footprints,
+  GlassWater,
   type LucideIcon,
   Hand,
+  HelpCircle,
   Home,
   Lamp,
   Layers,
+  Lightbulb,
   Logs,
   Mountain,
   MoveRight,
   Music,
+  Palmtree,
+  PawPrint,
+  Plug,
   Sailboat,
   ShieldCheck,
+  ShoppingBag,
   ShoppingBasket,
+  ShoppingCart,
   ShowerHead,
   Signal,
   Snowflake,
   Sparkles,
   Store,
   Table,
+  Table2,
   Tent,
   ThermometerSun,
+  Trash,
   Trash2,
+  Trees,
   TrendingUp,
   Truck,
   Umbrella,
   UserCheck,
   Users,
   Utensils,
+  UtensilsCrossed,
   Waves,
   Wheat,
   Wifi,
@@ -72,24 +98,18 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   LOTS: Store,
   MIBC: Store,
   MAKT: Store,
-  '711': Store,
+  SVEL: Store,
   BOAT: Anchor,
   FISH: Fish,
   SWIM: Waves,
-  HIKG: Mountain,
   HIKE: Mountain,
   LIVE: Music,
   OFFR: Truck,
-  RV: Car,
   DRIV: Car,
   WALK: Mountain,
   BAOT: Anchor,
-  FOREST: Mountain,
   FORE: Mountain,
   LAKE: Waves,
-  MOUNTAIN: Mountain,
-  MOUN: Mountain,
-  BEACH: Waves,
   BEAC: Waves,
   RIVE: Waves,
   // CAM-513 (S1) — 8 new Terrain codes
@@ -107,21 +127,16 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   FEIC: Snowflake,
   GRIL: Utensils,
   SANI: Trash2,
-  SHTR: ShieldCheck,
   SINK: Droplets,
   TRAS: Trash2,
   WATE: Droplets,
   MIMT: Store,
   PICN: Table,
-  SVEL: Store,
   TENT: Tent,
-  MATT: Layers,
   CHAI: Armchair,
   FYST: Umbrella,
   ICBK: Snowflake,
   LEDL: Zap,
-  STOV: Utensils,
-  BLANKET: Home,
   BLKT: Home,
   GDST: Layers,
   LSTV: Utensils,
@@ -149,9 +164,112 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   BACK: CornerDownLeft,
   PARA: AlignHorizontalJustifyCenter,
   PTHG: MoveRight,
+  // CAM-525 (S9) — Campground type (CAGD/CACP/GLAMP/VIEW, the detail page's
+  // scalar campSiteType field) + POTA (wrong fallback icon on both maps) +
+  // MTNS (rendered raw — the locale carried the phantom key `MOUN`) + the
+  // 5 Activity codes CAM-528's detail section will need.
+  CAGD: Tent,
+  CACP: Car,
+  GLAMP: Sparkles,
+  VIEW: Eye,
+  POTA: Droplets,
+  MTNS: Mountain,
+  HIKI: Mountain,
+  SURF: Waves,
+  WILD: Binoculars,
+  HORS: PawPrint,
+  CLIM: Mountain,
+  // CAM-526 (S10) — Accommodation type, the 4 codes that never collided.
+  // Reuses icons already imported for other codes; no new import added.
+  CABI: Bed,
+  DISP: Trees,
+  GROU: Users,
+  RECR: Car,
+  // CAM-536 (fix) — Accommodation type: TSIT replaces the old TENT member
+  // that collided with the Equipment code above (TENT stays owned by that
+  // group, unchanged). Reuses the SAME icon already imported/used for TENT
+  // above — no new import. (CAM-538 dropped the sibling HCMP member
+  // entirely — no icon entry needed.)
+  TSIT: Tent,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */
 export function getFacilityIcon(code: string): LucideIcon {
   return FACILITY_ICON_MAP[code] ?? ShieldCheck;
+}
+
+/**
+ * CAM-525 (S9) — a small, explicitly-named lookup for `MasterData.icon`
+ * (a lucide icon NAME, e.g. "ShowerHead" — see `prisma/seed.ts`'s `icon:`
+ * field), consumed by `CampgroundForm.tsx` to render each option's icon.
+ * This replaces the form's `import * as LucideIcons from "lucide-react"`
+ * wildcard (the CAM-200 regression class: ~1400 icons into the client
+ * bundle) with a closed, named set — every name here is one actually used
+ * by a seeded MasterData row.
+ */
+export const ICON_BY_NAME: Record<string, LucideIcon> = {
+  Accessibility,
+  AlignHorizontalJustifyCenter,
+  Anchor,
+  Armchair,
+  Bath,
+  Bed,
+  Binoculars,
+  Box,
+  CalendarCheck,
+  Car,
+  Coffee,
+  CornerDownLeft,
+  Droplet,
+  Droplets,
+  Dumbbell,
+  Eye,
+  Fan,
+  Fish,
+  Flame,
+  Flower2,
+  Footprints,
+  GlassWater,
+  Hand,
+  Lamp,
+  Layers,
+  Lightbulb,
+  Logs,
+  Mountain,
+  MoveRight,
+  Music,
+  Palmtree,
+  PawPrint,
+  Plug,
+  Sailboat,
+  ShoppingBag,
+  ShoppingBasket,
+  ShoppingCart,
+  ShowerHead,
+  Signal,
+  Snowflake,
+  Sparkles,
+  Store,
+  Table2,
+  Tent,
+  ThermometerSun,
+  Trash,
+  Trash2,
+  Trees,
+  TrendingUp,
+  Umbrella,
+  UserCheck,
+  Users,
+  Utensils,
+  UtensilsCrossed,
+  Waves,
+  Wheat,
+  Wifi,
+  Wine,
+  Zap,
+};
+
+/** Falls back to `HelpCircle` for any icon name not in the map (matches the form's old wildcard fallback). */
+export function getIconByName(name?: string | null): LucideIcon {
+  return (name && ICON_BY_NAME[name]) || HelpCircle;
 }

@@ -80,12 +80,12 @@ export function DashboardLayoutClient({ children, user }: DashboardLayoutClientP
                             className={cn(
                                 "flex items-center justify-between gap-3 px-4 py-3 rounded-full font-medium transition",
                                 isActive
-                                    ? "bg-primary/10 text-primary"
+                                    ? "bg-primary/10 text-primary-ink"
                                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                         >
                             <div className="flex items-center gap-3">
-                                <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
+                                <item.icon className={cn("w-5 h-5", isActive ? "text-primary-ink" : "text-muted-foreground")} />
                                 {item.name}
                             </div>
                             {item.badge && (

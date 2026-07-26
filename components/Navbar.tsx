@@ -105,11 +105,36 @@ export function Navbar() {
 
     return (
         <>
-            <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                <div className="container mx-auto px-6 h-20 flex items-center justify-between gap-4 text-foreground">
+            {/*
+                CAM-549 — on mobile, only the search bar should stay stuck while
+                scrolling (owner AC). The whole <nav> (title row + mobile search
+                row) used to be one "sticky top-0" block: it never shrank, so
+                scrolling left the full-height bar AND CategoryBar's own
+                "sticky top-20" wrapper both stuck to the screen at once —
+                CategoryBar's sticky offset assumed an 80px navbar (true only
+                at md+, where the mobile search row doesn't render), so on
+                mobile its 85px-tall bar mostly hid behind the taller navbar
+                and only a ~14px sliver peeked out beneath it (the "stray
+                line" reported). Fix: <nav> itself is sticky only at md+; on
+                mobile the title row scrolls away normally and the "Mobile
+                Search" block below (out of the DOM, its own sticky element)
+                is the only thing that stays pinned to the top.
+            */}
+            <nav className="md:sticky md:top-0 md:z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div data-testid="section--navbar-title-row" className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-3 md:gap-4 text-foreground">
                     {/* Logo */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <Link href="/" className="flex-shrink-0">
+                        {/*
+                            CAM-558: the logo image keeps its existing responsive
+                            height unchanged (same visible size) — only the LINK's
+                            tappable box grows to the 44px floor (min-h-11/min-w-11,
+                            the same token as this file's other icon-sized controls),
+                            via centering, not by enlarging the glyph.
+                        */}
+                        <Link
+                            href="/"
+                            className="flex-shrink-0 flex items-center justify-center min-h-11 min-w-11"
+                        >
                             <img src="/logo.png" alt="CampVibe Logo" className="h-8 md:h-10 w-auto" />
                         </Link>
                         {navUser && isDashboard && (
@@ -142,7 +167,9 @@ export function Navbar() {
 
                     {/* User Menu */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <LanguageSwitcher />
+                        <div className="hidden md:flex">
+                            <LanguageSwitcher />
+                        </div>
 
                         {/* Wishlist heart link — shown only when logged in (CAM-18, B2 CAM-240). */}
                         {navUser && (
@@ -185,9 +212,26 @@ export function Navbar() {
                         )}
 
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild aria-label="User menu">
-                                <button className="flex items-center gap-2 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
-                                    <Menu className="w-5 h-5 text-muted-foreground" />
+                            <DropdownMenuTrigger asChild aria-label={t.nav.accountMenuAriaLabel}>
+                                {/*
+                                    CAM-558: measured 42px tall / 78px wide (p-1 pl-3 +
+                                    hamburger icon + gap + avatar). h-11 pins the tap
+                                    target's HEIGHT to the 44px floor (the avatar content
+                                    stays unchanged and vertically centered). Measuring in
+                                    a real browser at 320px (logged in) showed the height
+                                    fix alone does NOT close CAM-549's traced ~15px
+                                    overflow — that is a WIDTH problem, and the button's
+                                    own horizontal padding/gap were already at the
+                                    DESIGN.md §2.0 compaction floor. The hamburger glyph is
+                                    redundant next to the avatar (the avatar alone is
+                                    already a recognized account-menu affordance) and is
+                                    hidden below `md` only — same "drop by importance
+                                    rather than squeeze" call the owner already made for
+                                    the language switcher (CAM-549); it reappears
+                                    unchanged at `md:` and above, so desktop is untouched.
+                                */}
+                                <button className="flex items-center gap-2 h-11 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
+                                    <Menu className="hidden md:block w-5 h-5 text-muted-foreground" />
                                     <div className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
                                         {(navUser?.image && !imageError) ? (
                                             <img
@@ -282,21 +326,29 @@ export function Navbar() {
                         </DropdownMenu>
                     </div>
                 </div>
+            </nav>
 
-                {/* Mobile Search - Single bar on mobile */}
-                <div className="md:hidden px-6 pb-4">
-                    <div
-                        onClick={() => setIsSearchOpen(true)}
-                        className="flex items-center gap-3 border border-border rounded-full px-4 py-3 shadow-sm active:scale-[0.98] transition-transform bg-card"
-                    >
-                        <Search className="w-4 h-4" />
-                        <span className="text-sm font-medium flex-1">{t.search.anywhere}</span>
-                        <div className="border border-border p-1.5 rounded-full">
-                            <Filter className="w-3.5 h-3.5" />
-                        </div>
+            {/* Mobile Search - Single bar on mobile (CAM-549: this is the ONE
+                thing that stays stuck while scrolling on a phone; the title
+                row inside <nav> above is not sticky and scrolls away
+                normally). Deliberately a SIBLING of <nav>, not nested inside
+                it: a sticky element can only stay pinned for as long as its
+                containing block still has room, and <nav> itself is only
+                ~160px tall on mobile — nested here it lost its stick after
+                ~80px of scroll. As a sibling, its containing block is the
+                page itself, so it stays pinned for the whole scroll. */}
+            <div data-testid="section--navbar-search-mobile" className="md:hidden sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-3 pb-3">
+                <div
+                    onClick={() => setIsSearchOpen(true)}
+                    className="flex items-center gap-3 border border-border rounded-full px-4 py-3 shadow-sm active:scale-[0.98] transition-transform bg-card"
+                >
+                    <Search className="w-4 h-4" />
+                    <span className="text-sm font-medium flex-1">{t.search.anywhere}</span>
+                    <div className="border border-border p-1.5 rounded-full">
+                        <Filter className="w-3.5 h-3.5" />
                     </div>
                 </div>
-            </nav>
+            </div>
 
             <SearchModal
                 isOpen={isSearchOpen}

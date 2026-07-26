@@ -17,8 +17,8 @@ import InfiniteScrollGrid from "@/components/InfiniteScrollGrid";
 import { EmptyState } from "@/components/EmptyState";
 import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
-import { buildCampSiteWhere } from "@/lib/campsite-filters";
-import { campCardSelect, type CampCardPayload } from "@/lib/read-models/camp-card";
+import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from "@/lib/campsite-filters";
+import { campCardSelect, getProvinceThaiNameMap, withProvinceThaiNames, type CampCardPayload } from "@/lib/read-models/camp-card";
 import { getDefaultCatalog } from "@/lib/catalog-cache";
 import { encodeCursorFromItem, PAGE_SIZE, VALID_SORTS, type CatalogSort } from "@/lib/catalog-cursor";
 import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from "@/lib/campsite-availability";
@@ -40,6 +40,18 @@ interface CatalogResultsProps {
   max?: string;
   access?: string;
   facilities?: string;
+  /**
+   * CAM-523 (S7) — external/equipment are independent registry-derived
+   * params (External facility / Equipment for rent), already accepted by
+   * catalogQuerySchema + buildCampSiteWhere; this component previously
+   * omitted them from its props, so the /api/campsites cursor route
+   * honoured them (via InfiniteScrollGrid) but the SSR/first-page path
+   * silently dropped them. Fixed here (fold-side FilterModal writes still
+   * merge these into `facilities`; a direct `?external=`/`?equipment=` link
+   * now also works end-to-end).
+   */
+  external?: string;
+  equipment?: string;
   activities?: string;
   terrain?: string;
   /** CAM-515 (S3) — the FIRST new MasterData group (Annotated features). */
@@ -67,6 +79,8 @@ export default async function CatalogResults({
   max,
   access,
   facilities,
+  external,
+  equipment,
   activities,
   terrain,
   annotatedFeatures,
@@ -76,9 +90,13 @@ export default async function CatalogResults({
 }: CatalogResultsProps) {
   // Determine whether any search/filter/non-default-sort param is active.
   // Mirrors the logic that was in page.tsx verbatim.
+  // CAM-523: external/equipment added — previously omitted here meant a
+  // request with ONLY ?external=/?equipment= silently fell through to the
+  // cached default catalog (which ignores every filter) instead of the live
+  // buildCampSiteWhere path.
   const isSearchActive = !!(
     keyword || province || district || startDate || endDate || guests ||
-    (type && type !== "ALL") || min || max || access || facilities || activities || terrain || annotatedFeatures || camperStyle
+    (type && type !== "ALL") || min || max || access || facilities || external || equipment || activities || terrain || annotatedFeatures || camperStyle
   );
   const isDefaultSort = !sort || sort === "related";
   const useCache = !isSearchActive && isDefaultSort;
@@ -95,6 +113,23 @@ export default async function CatalogResults({
       campSites = [];
     }
   } else {
+    // CAM-573 — resolve the incoming province NAME (Thai or English) to its
+    // AdminArea subtree ids so the filter below ALSO matches a camp stored
+    // in the other language for the same real province (CAM-563's finding,
+    // already wired into app/api/campsites/route.ts's cursor path and
+    // lib/ai/tools/search-campsites.ts — this closes the SAME gap for the
+    // SSR/first-page path). Fail-open: a lookup error never blocks the
+    // catalog, it just leaves the legacy exact-string match as the only
+    // path (identical to pre-CAM-573 behavior).
+    let provinceAdminAreaIds: string[] = [];
+    if (province) {
+      try {
+        provinceAdminAreaIds = await resolveProvinceAdminAreaIds(prisma, province);
+      } catch (error) {
+        console.error("[CAM-573] province admin-area resolution failed (fail-open, string match still applies)", error);
+      }
+    }
+
     const where = buildCampSiteWhere({
       type,
       keyword,
@@ -107,10 +142,13 @@ export default async function CatalogResults({
       max,
       access,
       facilities,
+      external,
+      equipment,
       activities,
       terrain,
       annotatedFeatures,
       camperStyle,
+      provinceAdminAreaIds,
     });
 
     const sanitizedSort: CatalogSort =
@@ -169,8 +207,18 @@ export default async function CatalogResults({
     }
   }
 
+  // CAM-545: name-based Thai province lookup (fail-open — a lookup error
+  // leaves every card on its English province, same as an unmapped value).
+  let provinceThaiNameMap = new Map<string, string>();
+  try {
+    provinceThaiNameMap = await getProvinceThaiNameMap();
+  } catch (error) {
+    console.error("Province Thai-name lookup failed (fail-open, English province shown):", error);
+  }
+  const campSitesWithThaiProvince = withProvinceThaiNames(campSites, provinceThaiNameMap);
+
   // PERF-3 (CAM-196): Compute initialCursor for InfiniteScrollGrid.
-  const serialisedCamps = campSites.map((c: any) => {
+  const serialisedCamps = campSitesWithThaiProvince.map((c: any) => {
     const availabilityStatus = availabilityByCampId[c.id];
     return serializeDecimals({
       ...c,
@@ -223,7 +271,7 @@ export default async function CatalogResults({
 
   return (
     <InfiniteScrollGrid
-      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}|${camperStyle ?? ""}`}
+      key={`${activeSortForCursor}|${type ?? ""}|${keyword ?? ""}|${province ?? ""}|${district ?? ""}|${startDate ?? ""}|${endDate ?? ""}|${guests ?? ""}|${min ?? ""}|${max ?? ""}|${access ?? ""}|${facilities ?? ""}|${external ?? ""}|${equipment ?? ""}|${activities ?? ""}|${terrain ?? ""}|${annotatedFeatures ?? ""}|${camperStyle ?? ""}`}
       initialItems={serialisedCamps}
       initialCursor={initialCursor}
       sort={activeSortForCursor}
@@ -239,6 +287,8 @@ export default async function CatalogResults({
         max: max ?? undefined,
         access: access ?? undefined,
         facilities: facilities ?? undefined,
+        external: external ?? undefined,
+        equipment: equipment ?? undefined,
         activities: activities ?? undefined,
         terrain: terrain ?? undefined,
         annotatedFeatures: annotatedFeatures ?? undefined,

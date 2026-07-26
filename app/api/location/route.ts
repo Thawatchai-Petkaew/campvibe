@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { createLocationSchema } from '@/lib/validations/location';
+import { matchAdminArea, type AdminAreaLevel } from '@/lib/geo/admin-area-match';
+
+/**
+ * CAM-566 — this route used to carry its own standalone port of the
+ * Thai/English administrative prefix/suffix strip + bilingual matcher
+ * (CAM-563's tech.md documented it as a deliberate, faithful port of
+ * CAM-554's algorithm, made because CAM-554's PR was unmerged at the time —
+ * see `lib/geo/admin-area-match.ts`'s header + this story's tech.md for the
+ * full diff). Both now call the ONE shared `matchAdminArea`.
+ *
+ * `district`/`subDistrict` are plain free-text `Input` fields on
+ * `CampgroundForm.tsx` (unlike `province`, which is chosen from the
+ * cascading `AdminArea`-backed select — CAM-574 retired the `ThailandLocation`
+ * id-bridge this select used to round-trip through), so a host may type a
+ * prefix a select would never produce — the shared matcher's normalization
+ * still strips it before matching.
+ */
 
 export async function POST(request: NextRequest) {
     // RISK-6: Location creation requires authentication.
@@ -21,34 +38,76 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
     }
 
-    const { lat, lon, country, province, region, thaiLocationId } = parsed.data;
+    const { lat, lon, country, province, district, subDistrict, region, adminAreaId: pickedAdminAreaId } = parsed.data;
 
     try {
         // S5: populate the conformant Country + AdminArea links so live-created camps (not just
         // seeded ones) get a region linkage. Only set countryCode if the Country actually exists
-        // (FK-safe); resolve the province AdminArea from the legacy thaiLocationId.
+        // (FK-safe).
         const wantCountry = (!country || country === 'Thailand') ? 'TH' : country;
         const knownCountry = await prisma.country.findUnique({ where: { code: wantCountry }, select: { code: true } });
+
+        // CAM-574: the legacy `thaiLocationId` -> provinceCode -> AdminArea lookup is
+        // retired — the client (LocationPicker.tsx) now sends the AdminArea id
+        // directly. Verify it actually exists (FK-safe; never trust the client id
+        // blindly) and note its level so the district/sub-district walk below only
+        // continues past whatever depth the client's pick already reached.
         let adminAreaId: string | undefined;
-        if (thaiLocationId) {
-            const tl = await prisma.thailandLocation.findUnique({ where: { id: thaiLocationId }, select: { provinceCode: true } });
-            if (tl) {
-                const area = await prisma.adminArea.findUnique({
-                    where: { countryCode_level_code: { countryCode: 'TH', level: 'PROVINCE', code: tl.provinceCode } },
-                    select: { id: true },
-                });
-                adminAreaId = area?.id;
+        let adminAreaLevel: AdminAreaLevel | undefined;
+        if (pickedAdminAreaId) {
+            const pickedArea = await prisma.adminArea.findUnique({
+                where: { id: pickedAdminAreaId },
+                select: { id: true, level: true },
+            });
+            if (pickedArea) {
+                adminAreaId = pickedArea.id;
+                adminAreaLevel = pickedArea.level;
+
+                // CAM-563 — walk deeper than the client's pick when the host also
+                // typed a district/sub-district (CAM-553/CAM-559's free-text
+                // fields): `adminAreaId` becomes the DEEPEST level actually
+                // resolved, the SAME convention the CAM-563 backfill script +
+                // CAM-554's geocode resolver use. A level with no raw value, or no
+                // match, stops the walk here — never guesses the next level from
+                // an unmatched parent, and never regresses `adminAreaId` below the
+                // level the client already resolved.
+                if (adminAreaLevel === 'PROVINCE' && district) {
+                    const districtArea = await matchAdminArea(prisma, 'DISTRICT', district, adminAreaId);
+                    if (districtArea) {
+                        adminAreaId = districtArea.id;
+                        adminAreaLevel = 'DISTRICT';
+                    }
+                }
+                if (adminAreaLevel === 'DISTRICT' && subDistrict) {
+                    const subDistrictArea = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrict, adminAreaId);
+                    if (subDistrictArea) adminAreaId = subDistrictArea.id;
+                }
             }
         }
 
+        // CAM-575: `lat`/`lon` written here are PROVISIONAL. This route
+        // creates the Location row before the CampSite that will reference
+        // it exists (the FK requires the parent row first), so there is
+        // nothing to derive from yet. `CampSite.latitude/longitude` is the
+        // canonical source (owner decision, 2026-07-26) - the moment the
+        // caller's next request (`POST /api/campsites`) creates a CampSite
+        // pointing at this `location.id`, the `campsite_coords_sync` DB
+        // trigger overwrites these values to match the CampSite's own
+        // latitude/longitude, whatever the host actually typed there.
         const location = await prisma.location.create({
             data: {
                 country: country || 'Thailand',
                 province,
+                // CAM-553: persist the district the host typed/selected — was
+                // silently dropped before (BR-1: the "form collects, API
+                // ignores" defect CAM-551 found).
+                district,
+                // CAM-559: sub-district, wired through the SAME seam CAM-553
+                // built for district — the cascading picker's third level.
+                subDistrict,
                 region: region || 'North',
                 lat,
                 lon,
-                thaiLocationId,
                 countryCode: knownCountry?.code,
                 adminAreaId,
             }

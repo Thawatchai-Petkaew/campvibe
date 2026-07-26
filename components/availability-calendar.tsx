@@ -256,7 +256,7 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
                   <span
                     className={cn(
                       "text-sm tabular-nums",
-                      isToday ? "font-bold text-primary" : "font-medium text-foreground"
+                      isToday ? "font-bold text-primary-ink" : "font-medium text-foreground"
                     )}
                   >
                     {format(day, "d")}

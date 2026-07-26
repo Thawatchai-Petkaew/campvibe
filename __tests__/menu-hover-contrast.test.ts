@@ -182,10 +182,38 @@ describe("AC-tabs: NotificationCenter no longer needs a per-site shadow hack", (
   });
 });
 
-describe("AC-loc-subtitle: LocationPicker subtitle clears AA on the accent/15 hover tint", () => {
+// CAM-559: LocationPicker was rebuilt as three cascading province/district/
+// sub-district comboboxes, replacing the old flat single-search list. The old
+// row paired a primary district name with a secondary "in this province"
+// subtitle line (`text-xs text-foreground/70`) — that concept genuinely no
+// longer exists: each cascading level is already scoped by the parent the
+// host just picked, so a row needs no secondary context line at all. Rather
+// than drop this AC's coverage, it is restated as the INVARIANT it always
+// protected — no low-contrast `text-muted-foreground` text riding the
+// `hover:bg-accent/15` tinted row (the exact bug class this guard exists to
+// catch) — which still holds, and holds MORE strongly: every row's own label
+// now renders at full-strength `text-foreground` (better contrast than the
+// old `/70` subtitle ever had), not a diluted subtitle tone.
+describe("AC-loc-subtitle: LocationPicker's tinted hover row carries no low-contrast text (restated for the CAM-559 cascading rebuild)", () => {
   const lpSrc = src("components/LocationPicker.tsx");
-  it("subtitle text uses text-foreground/70 (not the lower-contrast muted-foreground) on the tinted row", () => {
-    expect(lpSrc).toMatch(/text-xs text-foreground\/70/);
+
+  it("still uses the accent/15 tint on every combobox row (AC-cmd-2 precondition unchanged)", () => {
+    expect(lpSrc).toMatch(/hover:bg-accent\/15/);
+  });
+
+  it("no CommandItem row pairs the tinted hover with the lower-contrast text-muted-foreground (the bug class this guard exists to catch)", () => {
+    // Look inside every <CommandItem ...>...</CommandItem> block for the
+    // co-occurrence this AC was written to prevent: a hover:bg-accent/15
+    // trigger class combined with muted-foreground body text.
+    const itemBlocks = lpSrc.match(/<CommandItem[\s\S]*?<\/CommandItem>/g) || [];
+    expect(itemBlocks.length).toBeGreaterThan(0);
+    for (const block of itemBlocks) {
+      expect(block).not.toMatch(/text-muted-foreground/);
+    }
+  });
+
+  it("each row's label renders at full-strength text-foreground (single-line rows — no diluted subtitle tone needed post-redesign)", () => {
+    expect(lpSrc).toMatch(/text-sm font-medium text-foreground/);
   });
 });
 
