@@ -55,7 +55,11 @@ export const campSiteSchema = z.object({
   nameEnSlug: z.string().min(1, "Slug (EN) is required").optional(),
   description: z.string().optional(),
 
-  campSiteType: z.array(CampSiteTypeEnum).default([]), // Multi-select
+  // CAM-520: scalar column, single choice. Required on create; the PUT
+  // `.partial()` wrap makes it optional on update (see the two route
+  // handlers). No `.default()` — an omitted create must fail loud (EC-1
+  // is enforced by the form's create-default, not a silent server default).
+  campSiteType: CampSiteTypeEnum,
 
   // Accepting arrays from frontend, will be joined to CSV for DB
   accessTypes: z.array(AccessTypeEnum).default([]),
