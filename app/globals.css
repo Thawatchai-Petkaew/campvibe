@@ -94,12 +94,19 @@ h6 {
        Tailwind's built-in `rounded-full` utility, so the token and the utility can
        never drift apart. Radius is theme-invariant, so there is no `.dark` twin
        (same as `--radius` above).
-       KEEP THIS IN `:root`, NOT in the `@theme inline` block above: an
-       `@theme inline` entry is inlined into the utilities it generates and is NOT
-       emitted as a runtime CSS variable, so `var(--radius-full)` would resolve to
-       nothing and every rule reading it would be dropped by the browser. That is
-       exactly the defect this token fixes (the date picker's circle / square /
-       half-circle mix). Verified by compiling Tailwind 4.1.18 both ways. */
+       KEEP THIS IN `:root`, NOT in the `@theme inline` block above. `--radius-*` is
+       Tailwind's radius namespace, so a `@theme` entry named `--radius-full` also
+       REDEFINES the built-in `rounded-full` utility app-wide (measured: a `@theme`
+       value of 3px makes `.rounded-full { border-radius: 3px }`). This variable is
+       read by `var()` from an arbitrary property (`[--cell-radius:var(--radius-full)]`),
+       never by a generated utility, so `:root` is where it belongs.
+       The defect this fixes (the date picker's circle / square / half-circle mix) was
+       that NO declaration existed anywhere: `var(--radius-full)` resolved to nothing
+       and every rule reading it was dropped by the browser. Measured on this file with
+       the real @tailwindcss/postcss pipeline — declaration absent: not emitted;
+       present: emitted. (An earlier note here said an `@theme inline` entry is never
+       emitted as a runtime variable; re-measuring showed it IS emitted, so that was
+       not the reason to avoid it — the utility override above is.) */
     --radius-full: calc(infinity * 1px);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.148 0.004 228.8);
