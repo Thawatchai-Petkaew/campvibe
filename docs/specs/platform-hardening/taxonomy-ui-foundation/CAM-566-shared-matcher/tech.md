@@ -1,0 +1,82 @@
+---
+feature: platform-hardening
+epic: taxonomy-ui-foundation
+persona: platform
+artifact: tech
+owner: backend-engineer
+status: in-progress
+version: v1
+updated: 2026-07-26
+---
+# Tech — One shared AdminArea matcher (CAM-566)
+
+## Inventory — every matcher-adjacent location found (grep-backed)
+
+**Search method:** `grep -rln "normalizeAdminName\|matchAdminArea" --include="*.ts" --include="*.mjs" .` (excluding `node_modules`) + `grep -rln "adminArea.findFirst" --include="*.ts" --include="*.mjs" .` + `grep -rln "nameTh.*equals\|nameEn.*equals"` + a check of `scripts/backfill-cam-562-subdistrict-geocode.mjs` (origin branch, unmerged) for what it actually imports vs. duplicates.
+
+The dispatch brief named 2 (CAM-554, CAM-563); the coordinator's correction (after CAM-562 finished) said 4. Both are right, about different things — the actual **matcher algorithm** (`normalizeAdminName`/`matchAdminArea`) is duplicated in exactly **3** places; the 4th file CAM-562's tech.md counted is a **consumer** of the matcher (no duplicate algorithm) that separately duplicates a *different* helper (`callGoogleGeocode`, the Google-fetch wrapper — not in scope here). Table:
+
+| # | File | What it has | Relationship to the matcher | Action this story |
+|---|---|---|---|---|
+| 1 | `app/api/geocode/_shared.ts` (CAM-554) | Its own `normalizeAdminName` + `matchAdminArea` (module-scope `prisma` import) | **Real duplicate #1** — original algorithm, written first, PR unmerged when #2/#3 needed it | **CONSOLIDATED** — now imports from `lib/geo/admin-area-match.ts`; local copies deleted |
+| 2 | `app/api/location/route.ts` (CAM-563 write path) | Its own `normalizeAdminAreaName` + `matchAdminAreaByName` (DISTRICT/SUBDISTRICT only, `parentId` required) | **Real duplicate #2** — a documented, faithful port of #1 made because #1's PR was unmerged | **CONSOLIDATED** — now imports `matchAdminArea` from the shared module; local copies deleted |
+| 3 | `scripts/backfill-cam-563-location-admin-area.mjs` (CAM-563 backfill) | Its own `normalizeAdminAreaName` + `matchAdminAreaByName` (all 3 levels, dependency-injected `prisma`) + `resolveLocationAdminAreaId` (chain walker, not duplicated elsewhere) | **Real duplicate #3** — a documented, faithful port of #1, same reason as #2 | **CONSOLIDATED** — re-exports `normalizeAdminAreaName`/`matchAdminAreaByName` (unchanged names/signature) as thin wrappers around the shared module's `normalizeAdminName`/`matchAdminArea`; `resolveLocationAdminAreaId`'s own chain-walk logic is untouched (not a duplicate of anything — its "stop at first unmatched level" shape is unique to this file's bulk-backfill entry point, which starts from 3 raw strings, unlike the other two callers which each start mid-chain from a different known point) |
+| 4 | `scripts/backfill-cam-562-subdistrict-geocode.mjs` (CAM-562, PR #646, **not merged**) | Imports `matchAdminAreaByName` **directly** from #3 (same-runtime plain `.mjs`, no port needed) + its own separate `callGoogleGeocode` (a duplicate of CAM-554's Google-fetch wrapper, NOT the AdminArea matcher) | **Consumer of #3, not a matcher duplicate.** CAM-562's own tech.md counted this file among "four near-identical matcher copies" because the FILE carries a related duplicate (`callGoogleGeocode`) alongside its (correct, non-duplicated) reuse of the matcher — the two concerns got bundled in that count. | **NOT edited** (off-limits — open PR, not merged; do-not-touch per this dispatch). Its `matchAdminAreaByName` import keeps working unchanged because #3's export surface (name + path + signature) is preserved byte-for-byte. Its own `callGoogleGeocode` duplicate is a genuine, separate finding → `## Out of scope` |
+| 5 | `lib/campsite-filters.ts`'s `resolveProvinceAdminAreaIds` | Its own single-level (`PROVINCE` only) `nameTh`/`nameEn` exact-match against `AdminArea`, no prefix/suffix normalization | **Related but distinct** — expands an already-clean province name to its full descendant subtree of ids for an OR-filter; not a hierarchical walk, not resolving free text | **NOT touched** — explicitly out of this dispatch's file surface (`lib/campsite-filters.ts` is listed OUT OF BOUNDS) |
+| 6 | `lib/ai/tools/search-campsites.ts`'s `resolveProvinceForSearch` (CAM-404) | Matches `ThailandLocation.provinceName` by `contains` (substring), not `AdminArea` by exact-equals | **Different mechanism entirely** — different table, different match strategy (substring vs exact), different purpose (AI-chat province-name resolution, pre-dates CAM-554/563) | **NOT touched** — outside this dispatch's file surface, and not the same algorithm family |
+
+Net: **3 real ports → 1 shared module.** File #4 needed zero code change (its import target is unchanged); its own separate duplicate is flagged, not fixed, because fixing it requires editing an off-limits file. Files #5/#6 are documented here for completeness (the coordinator asked for a full inventory) but are not part of this consolidation — they solve a different problem against different data.
+
+## The enumerated diff — every point the 3 real ports disagreed on, and what was kept
+
+Each port was written against a different call shape (live single reverse-geocode result vs. one write-path request vs. bulk-matching 650 stored rows), so each learned something the others didn't encode. None is discarded — the table states the KEPT behavior and why it is safe for every caller.
+
+| # | Dimension | CAM-554 (`_shared.ts`) | CAM-563 route (`location/route.ts`) | CAM-563 backfill (`backfill-cam-563-*.mjs`) | Kept in `lib/geo/admin-area-match.ts` | Why it's safe for every caller |
+|---|---|---|---|---|---|---|
+| 1 | Where normalization happens | OUTSIDE `matchAdminArea` (caller calls `normalizeAdminName(raw)` first, passes the clean name in) | INSIDE `matchAdminAreaByName` | INSIDE `matchAdminAreaByName` | **INSIDE** `matchAdminArea` (2-of-3 majority; also lets every caller drop its own `normalizeAdminName(...)` call site) | CAM-554's caller already normalized then passed the clean string in — normalizing it AGAIN inside is idempotent (stripping an already-bare name is a no-op), so moving the step inside changes nothing observable for that caller |
+| 2 | Empty-name short-circuit (skip the DB call) | NONE — an empty-after-strip name still hits `prisma.adminArea.findFirst({..., equals: ''})` | Present (`if (!name) return null;`) | Present (`if (!name) return null;`) | **Present** (2-of-3 majority, and strictly safe for the 1) | An `equals: ''` query against AdminArea can never match a real row (no admin area has an empty name) — the short-circuit and the DB round-trip return the identical `null` outcome for CAM-554's caller; only the wasted query disappears |
+| 3 | Return shape | Full node: `{id, code, nameTh, nameEn, parentId}` | Bare `{id}` only | Bare `{id}` only | **Full node** (CAM-554's requirement — needs `.code` to derive the matching `ThailandLocation` row, and the full shape for its `subDistrict` response field) | CAM-563's two ports only ever read `.id` off the result — a superset return never breaks a caller that ignores the extra fields |
+| 4 | `normalizeAdminName`'s accepted input | `string` (never called with `null`/`undefined` — caller guards `if (provinceRaw)` first) | `string` (same guard pattern) | `string \| null \| undefined` (its real input is a stored `Location.district`/`subDistrict` DB column, genuinely nullable) | **`string \| null \| undefined`** (the backfill script's stricter guard — a strict superset of the other two's accepted type) | Widening an accepted parameter type is backward compatible by construction; CAM-554's/route's callers never passed a non-string in the first place |
+| 5 | `level` type restriction | `'PROVINCE' \| 'DISTRICT' \| 'SUBDISTRICT'` (all 3) | `'DISTRICT' \| 'SUBDISTRICT'` only (this route resolves PROVINCE via `thaiLocationId`, never by name) | `'PROVINCE' \| 'DISTRICT' \| 'SUBDISTRICT'` (all 3) | **`'PROVINCE' \| 'DISTRICT' \| 'SUBDISTRICT'`** (the wider union — a superset of the route's narrower usage) | The route never actually calls the matcher with `'PROVINCE'` before or after this change (BR-5, story.md) — widening the TYPE doesn't change what the route DOES |
+| 6 | `parentId` optionality | Optional (`parentId?`, used for the top-level PROVINCE lookup with no parent scope) | Required (`parentId: string`, since only ever called for DISTRICT/SUBDISTRICT which are always scoped) | Optional (same as CAM-554) | **Optional** (majority + a superset of the route's narrower usage) | The route's 2 call sites always pass a concrete `parentId` regardless of whether the parameter is typed optional or required — behavior is unchanged, only the type is more permissive |
+| 7 | Prisma access | Module-scope import (`prisma` from `@/lib/prisma`) | Module-scope import (same) | Dependency-injected (`prisma` as the function's first parameter — the ONLY shape that works, since this file must also run as a standalone plain-Node `.mjs` script and be unit-testable with a fake client) | **Dependency-injected** (the backfill script's pattern — the only one compatible with all 3 runtime contexts) | The 2 Next.js callers trivially pass their own already-imported `prisma` singleton as the first argument — a mechanical, behavior-preserving call-site change |
+| 8 | Prefix/suffix lists (`THAI_PREFIXES`/`EN_PREFIXES`/`EN_SUFFIXES`) | — canonical set | Byte-identical copy | Byte-identical copy | **Byte-identical, single copy** | No divergence existed here across all 3 — the lists were already identical; this is the cleanest part of the consolidation |
+| 9 | Match query shape (`countryCode`/`level`/`parentId`/`OR: [nameTh, nameEn]`, case-insensitive `equals`, never `contains`) | Identical | Identical | Identical | **Identical, single copy** | No divergence — all 3 already agreed here (the DEF-1/DEF-2 Thai-substring lesson was already respected everywhere) |
+
+No genuine bug was found while diffing (contrast with the ticket's "report + fix separately" instruction, which does not apply here — every divergence above was a deliberate, safe superset choice, not a defect).
+
+## API contract
+
+No new HTTP endpoint. `lib/geo/admin-area-match.ts` exports:
+- `normalizeAdminName(raw: string | null | undefined): string`
+- `matchAdminArea(prisma: Pick-like AdminAreaMatchPrisma, level: 'PROVINCE'|'DISTRICT'|'SUBDISTRICT', rawName: string | null | undefined, parentId?: string): Promise<AdminAreaNode | null>`
+- Types: `AdminAreaLevel`, `AdminAreaNode`, `AdminAreaMatchPrisma`
+
+Callers (all pre-existing, unchanged contracts):
+- `app/api/geocode/_shared.ts::resolveFromComponents` — calls `matchAdminArea(prisma, level, rawComponent, parentId?)` directly (drops its own prior `normalizeAdminName(...)` pre-call, now redundant/internal); still re-exports `normalizeAdminName` unchanged so `__tests__/cam-554-geocode-routes.test.ts` (which imports it directly from this file) keeps passing unedited.
+- `app/api/location/route.ts::POST` — calls `matchAdminArea(prisma, 'DISTRICT'|'SUBDISTRICT', rawText, parentId)` in place of its old local `matchAdminAreaByName`.
+- `scripts/backfill-cam-563-location-admin-area.mjs` — re-exports `normalizeAdminAreaName`/`matchAdminAreaByName` (both original names) as thin JSDoc-typed wrappers around `normalizeAdminName`/`matchAdminArea`; `resolveLocationAdminAreaId` (its own chain walker) calls the re-exported `matchAdminAreaByName` internally, unchanged.
+
+## A note on the .mjs → .ts import (why the wrapper is JSDoc-typed, not a direct const-alias)
+
+`scripts/backfill-cam-563-location-admin-area.mjs` imports `normalizeAdminName`/`matchAdminArea` from `../lib/geo/admin-area-match.ts` by a plain relative path — Node's native TypeScript type-stripping (unflagged on this Node version, confirmed empirically) lets a `.mjs` script import a `.ts` file directly with no bundler, as long as the `.ts` file itself imports no `@/`-aliased path (it doesn't — `lib/geo/admin-area-match.ts` takes `prisma` as an injected parameter specifically so it never needs `@/lib/prisma`).
+
+The re-export is written as a JSDoc-typed wrapper function (`/** @param {*} ... @returns {Promise<*>} */ export async function matchAdminAreaByName(...) { return matchAdminArea(...); }`), not `export const matchAdminAreaByName = matchAdminArea;`. A direct const-alias would have TypeScript's `allowJs` type-acquisition carry the SHARED module's strict `AdminAreaMatchPrisma` return-type contract (requiring a `findFirst` that returns the full `AdminAreaNode`) all the way through the `.mjs` re-export and into `__tests__/cam-563-location-admin-area-backfill.test.ts` (unedited) — which passes a fake Prisma client whose `adminArea.findFirst` returns only `{id}`. That produced a real `tsc` error (`Argument ... is not assignable to parameter of type 'AdminAreaMatchPrisma'`) during this story's own build. The JSDoc-typed wrapper is the fix: it declares its own loose (`*`/`any`-equivalent) public type, matching this script's pre-existing convention (plain, untyped `.mjs`, like every other script in `scripts/`), so the strict internal contract stays an implementation detail and the existing untyped test fixture keeps compiling with zero edits.
+
+## Coordination with CAM-562 (PR #646, open, not merged)
+
+- **Module path/signature CAM-562 depends on is UNCHANGED.** `scripts/backfill-cam-562-subdistrict-geocode.mjs` imports `matchAdminAreaByName` from `./backfill-cam-563-location-admin-area.mjs` — that file still exists at the same path and still exports a function of that exact name accepting `(prisma, level, rawName, parentId)` and resolving to something with a `.id` (now the full node, a superset — CAM-562's script only ever reads `.id`, confirmed by reading its source on `origin/feat/cam-562-backfill-subdistricts`). **PR #646 needs no rebase for this import.**
+- **CAM-562's own separate finding is NOT fixed here.** `scripts/backfill-cam-562-subdistrict-geocode.mjs` carries its own duplicate `callGoogleGeocode` (a copy of CAM-554's Google-fetch wrapper, a different concern from the AdminArea matcher) — that file is off-limits for this dispatch (open PR). Flagged in `## Out of scope`.
+- **Real-world validation of the preserved "stop at first unmatched level, never guess/throw" contract:** CAM-562's real dev-DB run (650 camps) reported 519 resolved to sub-district, 17 to district-only, 83 reported-but-not-applied province mismatches, and 31 unresolved (16 of those because the geocoded coordinates fall in a neighboring country, entirely outside the `AdminArea` (`TH`-only) tree). All of these shapes are handled correctly by the unchanged contract this story preserves: a level with no raw value or no DB match stops the walk at its last matched parent and returns that id, or `null` if even PROVINCE didn't match — never a crash, never a guessed deeper level. This story adds a direct test for the "no match at all" case against the shared module (see `test.md`).
+
+## ADRs
+
+No new ADR — this is a mechanical consolidation of an already-accepted algorithm (CAM-554's bilingual/hierarchical AdminArea match, itself built on CAM-553/559's AdminArea-vs-ThailandLocation split) into one module; no new architectural decision is introduced.
+
+Confirmation: `__tests__/cam-566-admin-area-match.test.ts` (new — pins every row of the enumerated-diff table above directly against the shared module) + `__tests__/cam-554-geocode-routes.test.ts` / `__tests__/cam-563-location-admin-area-backfill.test.ts` / `__tests__/cam-563-location-route-admin-area.test.ts` (existing, run unedited — 86/86 green) + `npm run typecheck` (0 errors) confirm no path/signature CAM-562 depends on moved.
+
+## Links
+`lib/geo/admin-area-match.ts` · `app/api/geocode/_shared.ts` · `app/api/location/route.ts` · `scripts/backfill-cam-563-location-admin-area.mjs` · CAM-563 tech.md ("Seams — CAM-554 coordination") · CAM-562 tech.md ("Seams — reuse, not a third implementation") · `story.md`
+
+## Changelog
+- v1 (2026-07-26) — created.
