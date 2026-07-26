@@ -80,6 +80,9 @@ next-env.d.ts
 !/scripts/check-ds.mjs
 # CAM-537 — the WCAG token-contrast guard; must be tracked so CI can run it
 !/scripts/check-contrast.mjs
+# CAM-552 — the responsive-scale guard; imported by check-ds.mjs, so CI fails
+# with a module-not-found if this is left untracked
+!/scripts/check-scale.mjs
 !/scripts/load-mock-staging.mjs
 !/scripts/reconcile-ratings.mjs
 !/scripts/import-linear.mjs

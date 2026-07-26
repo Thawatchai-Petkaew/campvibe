@@ -112,8 +112,11 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
             aria-describedby={displayText ? `${inputId}-hint` : undefined}
             className={cn(
               hasError && "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20",
-              leftIcon && "pl-12",
-              rightIcon && "pr-12",
+              // CAM-552 — the leading/trailing icon inset steps at md: 40px
+              // on a phone, 48px from tablet up, so a narrow field keeps more
+              // room for its own value. The icon itself stays at left-4/right-4.
+              leftIcon && "pl-10 md:pl-12",
+              rightIcon && "pr-10 md:pr-12",
               className
             )}
             {...props}
@@ -133,7 +136,7 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
           <p
             id={`${inputId}-hint`}
             className={cn(
-              "text-sm px-4",
+              "type-label px-4",
               isError ? "text-destructive" : "text-muted-foreground"
             )}
           >

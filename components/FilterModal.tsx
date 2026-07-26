@@ -313,7 +313,7 @@ export function FilterModal() {
         // 1. Large Visual Cards for 'Campground type' and 'Terrain'
         if (['Campground type', 'Terrain'].includes(section.id)) {
             return (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
                     {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
@@ -332,7 +332,7 @@ export function FilterModal() {
         // 2. Icon Pills for 'Activity'
         if (section.id === 'Activity') {
             return (
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2 md:gap-3">
                     {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
@@ -351,7 +351,7 @@ export function FilterModal() {
         // 3. Compact Icon Cards for 'Access type'
         if (section.id === 'Access type') {
             return (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
                     {section.options.map((opt: FilterOption) => (
                         <FilterChip
                             key={opt.id}
@@ -370,7 +370,7 @@ export function FilterModal() {
 
         // 4. Default Checkbox Grid for everything else (Facilities, etc.)
         return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4 md:gap-x-6">
                 {section.options.map((opt: FilterOption) => {
                     const isSelected = selectedFilters[section.id]?.includes(opt.id);
                     return (
@@ -383,7 +383,7 @@ export function FilterModal() {
                             <Label
                                 htmlFor={opt.id}
                                 className={cn(
-                                    "text-sm font-normal cursor-pointer",
+                                    "type-label font-normal cursor-pointer",
                                     isSelected ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"
                                 )}
                             >
@@ -456,12 +456,14 @@ export function FilterModal() {
                 />
 
                 {/* Scrollable Content - Compacted */}
-                <div className="overflow-y-auto p-6 md:p-8 space-y-6 flex-1 custom-scrollbar">
+                {/* CAM-552 — mobile step: 16px inner gutter + a tighter section
+                    stack, so a phone shows more chips per screen. */}
+                <div className="overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 flex-1 custom-scrollbar">
 
                     {/* Price Range Section - Static */}
                     <div className="space-y-3">
-                        <h3 className="text-lg font-bold text-foreground">{t.filter?.priceRange}</h3>
-                        <div className="flex items-center gap-4">
+                        <h3 className="type-heading-3 font-bold text-foreground">{t.filter?.priceRange}</h3>
+                        <div className="flex items-center gap-3 md:gap-4">
                             <div className="flex-1">
                                 <InputField
                                     label={t.filterModal.minPrice}
@@ -495,8 +497,8 @@ export function FilterModal() {
                     <div className="h-px bg-border/60" />
 
                     {filterSections.map((section, idx) => (
-                        <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-6 border-b border-border/60")}>
-                            <h3 className="text-lg font-bold text-foreground">
+                        <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-4 md:pb-6 border-b border-border/60")}>
+                            <h3 className="type-heading-3 font-bold text-foreground">
                                 {t.filter?.[section.id as keyof typeof t.filter] || section.title}
                             </h3>
                             {renderSectionContent(section)}
@@ -505,19 +507,23 @@ export function FilterModal() {
                 </div>
 
                 {/* Footer - Aligned with Search Modal */}
-                <div className="p-4 bg-card flex items-center justify-between border-t border-border/60 shrink-0">
+                <div className="p-3 md:p-4 bg-card flex items-center justify-between border-t border-border/60 shrink-0">
                     <Button
                         variant="ghost"
                         onClick={clearAll}
-                        className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full"
+                        className="type-label font-bold underline hover:bg-muted p-2 px-4 rounded-full"
                     >
                         {t.filter?.clearAll}
                     </Button>
+                    {/* CAM-552 — the px-8 override is gone: size="lg" now owns
+                        BOTH the height and the horizontal padding at each step
+                        (px-4 -> md:px-5), which is the one-padding-per-role
+                        rule CAM-542 asked for. */}
                     <Button
                         onClick={handleShowCampgrounds}
                         size="lg"
                         disabled={isCountLoading}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isCountLoading
                             ? "Calculating..."

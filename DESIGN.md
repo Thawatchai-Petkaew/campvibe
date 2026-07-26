@@ -27,6 +27,7 @@ The fast path for any UI work (full rules below):
 
 1. **Read this file first** (§0) — it is a contract; output must be deterministic session-to-session.
 2. **Precedence:** semantic token (`bg-card`, `text-muted-foreground`) → scale utility (`rounded-3xl`, `h-11`, `gap-6`) → **never an inline value** (`bg-[#…]`, `h-[52px]`). Value not in the token layer? **Stop — propose a token, don't invent one.**
+2b. **Mobile-first, one breakpoint (`md` = 768px)** — the bare utility is the MOBILE value, `md:` is the desktop step (§2.0). Type = a role (`type-heading-2`, `type-body`), never a raw `text-*` per screen size. **Tap targets never step below 44px.**
 3. **Pick the primitive** from `components/ui/*` only (§3 decision matrix); icons **lucide-react only** (§7).
 4. **Cover all 8 states** (default/hover/focus/active/loading/error/empty/disabled) + the form/error pattern.
 5. **Pass the gate before merge** (§6): `npm run check:palette` green · WCAG 2.1 AA (contrast 4.5:1 / 3:1, focus, tap ≥44px, axe) · i18n TH/EN no em-dash/jargon · motion transform/opacity 120–250ms · anti-slop (§5).
@@ -106,10 +107,73 @@ The fast path for any UI work (full rules below):
 | context | value |
 |---|---|
 | card padding | `p-4 md:p-6` |
-| modal content | `p-6 md:p-8` |
+| modal content | `p-4 md:p-8` |
 | form max-width | `max-w-xl` (reading) / `max-w-2xl` (wide form) |
 | gutter | `gap-4` (mobile) / `gap-6` (desktop) |
 | section spacing | `space-y-6`/`space-y-8` |
+
+### §2.0 Responsive scale — the mobile step (CAM-552)
+
+**Before CAM-552 this rule did not exist.** Responsive pairs covered three properties by hand, the height scale had no breakpoint variant at all, and no type token changed by breakpoint — so a control was the same height on a phone as on a desktop. This section is the rule; the tables below are followed without judgement calls.
+
+**One breakpoint: `md` = 768px.** Mobile-first — the **bare utility is the mobile value**, `md:` carries the desktop step. Never use `sm:` / `lg:` / `xl:` for a size, height, padding, gap or type; a second breakpoint is a second scale.
+
+> **Touch floor — 44 × 44px at every viewport, and it outranks compaction.**
+> `h-11` **is** 44px, so it is the floor itself and never steps down. Compaction on mobile comes from horizontal padding, gaps, section rhythm, non-control block heights, and type — **never from a tap target.** Shrinking a control below 44px is not "compact", it is a defect (WCAG 2.1 AA; the figure `min-w-[44px]` already used in `filter-chip.tsx`).
+
+**Control height** — note the deliberate **no** rows: those are the accessible ones.
+
+| role | mobile (<768px) | desktop (≥768px) | steps? |
+|---|---|---|---|
+| `sm` | `h-9` (36px) | `h-9` | no — under the floor, so **non-tappable / inside a ≥44px hit area only** |
+| **`md`** (default) | `h-11` (44px) | `h-11` | **no — it is the floor** |
+| `lg` | `h-11` (44px) | `md:h-12` (48px) | ✅ the ONE height that steps |
+| icon button | `size-11` (44px) | `size-11` | no — it is the floor |
+
+**Padding · block height · rhythm** — this is where the compaction budget actually lives.
+
+| property | mobile | desktop |
+|---|---|---|
+| chip / pill padding-x | `px-4` | `md:px-5` |
+| button `lg` padding-x | `px-4` | `md:px-5` |
+| input leading-icon inset | `pl-10` | `md:pl-12` |
+| chip `card` block | `h-28 p-4` | `md:h-32 md:p-5` |
+| chip `icon-card` block | `h-20 p-2.5` | `md:h-24 md:p-3` |
+| card padding | `p-4` | `md:p-6` |
+| modal content padding | `p-4` | `md:p-8` |
+| modal footer padding | `p-3` | `md:p-4` |
+| page / bar gutter | `px-4` | `md:px-6` |
+| control-group gap | `gap-2` | `md:gap-3` |
+| grid gutter | `gap-3` | `md:gap-4` |
+| section stack | `space-y-4` | `md:space-y-6` |
+
+**One height per control row.** A `lg` control may not sit beside an `md` control — pick the row's height once. When they clash, the **smaller consistent height wins** (this is what settled the SearchModal date buttons, CAM-542).
+
+**Typography roles — a component picks a ROLE, never a raw `text-*` per screen size.**
+
+Declared once in `app/globals.css` as `--type-*` custom properties, redefined in one `@media (min-width: 768px)` block, exposed as `@utility` classes. Deliberately **not** `--text-*` in `@theme` — that namespace generates Tailwind's own `text-*` utilities and would collide.
+
+| role | mobile | desktop | steps? |
+|---|---|---|---|
+| `type-display` | 30 / 36 | 36 / 40 | ✅ |
+| `type-heading-1` | 24 / 32 | 30 / 38 | ✅ |
+| `type-heading-2` | 20 / 28 | 24 / 32 | ✅ |
+| `type-heading-3` | 16 / 24 | 18 / 28 | ✅ |
+| `type-body` | 16 / 24 | 16 / 24 | **no** — under 16px iOS Safari auto-zooms a focused input, and 16px is the body-copy floor |
+| `type-label` | 14 / 20 | 14 / 20 | **no** — control text, already minimal |
+| `type-caption` | 12 / 16 | 12 / 16 | **no** — micro-label, already minimal |
+
+Seven roles, four of which step. Headings are what eat vertical space on a phone; body/label/caption are already at their floors, so stepping them would cost legibility and buy nothing.
+
+**Enforcement** — `npm run check:ds` (rules M1/M2/M3, implemented in `scripts/check-scale.mjs`):
+
+| rule | catches | mode |
+|---|---|---|
+| M1 | a **control** `h-12` with no `md:` step (co-occurs with `rounded-full`, or is a cva `lg` value; squares/skeletons/comments skipped) | blocking on `components/ui/**`, `app/preview/**`, FilterModal/SearchModal/CategoryBar · report elsewhere |
+| M2 | a raw `text-2xl`..`text-6xl` with no responsive twin → use a `text-heading-*` role | same scoping as M1 |
+| M3 | a mobile step landing **under 44px** (`h-9 md:h-12`, `size-10 md:size-11`) | **blocking repo-wide** — backlog 0 by construction |
+
+Widening M1/M2's blocking scope is a follow-up that clears the named report backlog first — never a flip with a non-zero backlog (`.claude/rules/ops.md`).
 
 ### Radius (soft-rounded — one token per role, stop mixing values)
 
@@ -122,12 +186,14 @@ The fast path for any UI work (full rules below):
 
 ### Size — height scale
 
-| size | height | use for |
-|---|---|---|
-| sm | `h-9` | dense control (toolbar, inline) |
-| **md** (default) | `h-11` | form control, select, general button |
-| lg | `h-12` | **primary CTA**, input in modal/search |
-| icon-button | `h-11 w-11` | icon-only button (tap ≥44px) |
+**Every row here is the DESKTOP value. The mobile step is §2.0 — read it too, it is binding.**
+
+| size | height (desktop) | mobile step | use for |
+|---|---|---|---|
+| sm | `h-9` | `h-9` (no step) | dense control (toolbar, inline) — **under the 44px floor, so non-tappable / inside a larger hit area only** |
+| **md** (default) | `h-11` | `h-11` (no step — it IS the floor) | form control, select, general button |
+| lg | `h-12` | `h-11` | **primary CTA**, input in modal/search — the only height that steps |
+| icon-button | `h-11 w-11` | `h-11 w-11` (no step) | icon-only button (tap ≥44px) |
 
 ### Shadow tiers (use only when needed — prefer border + spacing first)
 
@@ -442,6 +508,7 @@ their strokes cross and the element reads as a rendering failure rather than an 
 - [ ] **Token-only** — no free-floating hex/px/colors, reference tokens + scale (light + dark) · `npm run check:palette` green
 - [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5) · `npm run check:ds` green, including **R9** (no hand-rolled selectable pill — use `FilterChip`, §3 "Chip family")
 - [ ] **Scale matches role** — radius/size/spacing per §2 (no inline height override)
+- [ ] **Mobile step present (blocks PR)** — every control/padding/gap/type follows §2.0: one breakpoint (`md` = 768px), mobile-first, type via a `text-*` role not a raw size, one height per control row, and **nothing tappable under 44px at any viewport**. `npm run check:ds` rules **M1/M2/M3** enforce it (M3 blocks repo-wide). Verify on a real ~390px viewport, not by reading classNames.
 - [ ] **All 8 states** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **Loading state (blocks PR)** — every page/component with an async dependency must: (a) use the correct loader per the decision matrix (`.claude/rules/loading.md`); (b) if skeleton: mirror the real layout exactly (exact dims/count/grid — CLS = 0), NOT a generic gray block; (c) show a section-level skeleton only (chrome/navbar renders instantly) unless the ENTIRE route is async; (d) wire a11y (`aria-busy`, `role="status"`, `aria-live="polite"`, `กำลังโหลด…` label, `prefers-reduced-motion` disables shimmer); (e) anti-flicker per context — Suspense fallback: delay-before-show via `loading-delay` CSS utility (`app/globals.css`), min-display N/A; client-fetch skeleton: both delay + min-display via `useMinimumLoading` hook. Missing loading state OR wrong loader for the matrix OR full-page skeleton for a section-level fetch OR missing a11y = **Critical, blocks merge**.
 - [ ] **a11y AA** — contrast **4.5:1 body / 3:1 large text / 3:1 non-text state + control boundary** (§3), visible focus ring, complete `aria-label`, tap ≥44px (full checklist in §3, verified with axe) · **`npm run check:contrast` green** — the numeric token guard (CAM-537); a changed token value must clear its floor in BOTH themes
@@ -460,7 +527,7 @@ their strokes cross and the element reads as a rendering failure rather than an 
 
 ## §8 Living reference & consolidation backlog
 
-**Living reference = `/preview`** (kitchen-sink, noindex) — agents/humans look at the real thing here · must be expanded (backlog): size/variant grid, composite patterns (form+validation+error+loading), decision-matrix examples, mobile view.
+**Living reference = `/preview`** (kitchen-sink, noindex) — agents/humans look at the real thing here · ✓ **mobile view done (CAM-552)** — the "Mobile scale" section renders the type roles, the control heights and a live filter row, and every specimen changes in front of you when the window crosses 768px · still to expand (backlog): size/variant grid, composite patterns (form+validation+error+loading), decision-matrix examples.
 
 **Consolidation backlog (next epic — use this DESIGN.md v2 as the spec, ordered by impact):**
 
@@ -505,6 +572,9 @@ Representative ✅/❌ (the full sets live in §2/§3/§5):
 |---|---|
 | "It's just one `bg-[#0d9488]`, the token is basically the same color." | `npm run check:palette` exits 1 on any hardcoded palette — the PR cannot pass. Use the token. |
 | "The value I need isn't in the scale, so I'll set `h-[52px]` this once." | The token layer is closed. Stop and propose a new token in `app/globals.css` (Designer + Architect approve), then use it. |
+| "It's compact on mobile — I dropped the button to `h-9`." | 44px is a floor, not a preference. `h-11` IS 44px, so control height is the ONE lever that cannot compact; take the space out of padding, gaps, block heights and type instead (§2.0). `check:ds` M3 blocks a mobile step under the floor, repo-wide. |
+| "I'll add `text-3xl md:text-5xl` on this heading." | Per-screen raw sizes are how the scale fragmented in the first place — every component invents its own pair. Pick a role (`type-display`/`type-heading-1`…); it is already responsive (§2.0), so the component states intent, not arithmetic. |
+| "This screen needs a `sm:` step as well as `md:`." | One breakpoint (`md` = 768px). A second breakpoint is a second scale, and nobody can remember two. If a layout genuinely needs another column count, that is a `grid-cols` decision, not a size-scale decision. |
 | "I'll add a `dark:` override so it looks right in dark mode." | Dark mode flips automatically via `.dark`. A hand-written `dark:` color override is a defect, not a fix. |
 | "A quick custom dropdown is faster than wiring the primitive." | Vocabulary is `components/ui/*` only. An out-of-system component fails the Design Gate. |
 | "Color alone makes the status obvious enough." | Color is never the only signal (a11y). Pair it with text/icon/shape and a `Badge`. |

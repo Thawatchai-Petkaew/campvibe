@@ -157,11 +157,12 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     />
 
                     {/* Standard Rounded Search UI */}
-                    <div className="p-6 md:p-8 flex-grow overflow-y-auto custom-scrollbar space-y-8">
+                    {/* CAM-552 — mobile step: 16px inner gutter + a tighter section stack. */}
+                    <div className="p-4 md:p-8 flex-grow overflow-y-auto custom-scrollbar space-y-5 md:space-y-8">
 
                         {/* Experience Type (Pills) */}
                         <div className="space-y-2">
-                            <h3 className="text-lg font-bold px-1 text-foreground">{t.searchModal.experienceType}</h3>
+                            <h3 className="type-heading-3 font-bold px-1 text-foreground">{t.searchModal.experienceType}</h3>
                             <div className="flex flex-wrap gap-2">
                                 {CATEGORIES.map((item) => (
                                     <FilterChip
@@ -179,8 +180,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
                         {/* Location Section */}
                         <div className="space-y-1">
-                            <h3 className="text-lg font-bold px-1 text-foreground">{t.search.location}</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <h3 className="type-heading-3 font-bold px-1 text-foreground">{t.search.location}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                                 <InputField
                                     label={t.search.keyword}
                                     value={keyword}
@@ -190,7 +191,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                     className="rounded-full bg-background border-border"
                                 />
                                 <div className="space-y-2">
-                                    <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
+                                    <label className="type-caption font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.search.province}</label>
                                     <Select
                                         value={province}
                                         onValueChange={setProvince}
@@ -219,7 +220,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                         {provincesLoading ? t.common.loading_sr : ""}
                                     </div>
                                     {!provincesLoading && !provincesError && provinces.length === 0 && (
-                                        <p className="text-xs text-muted-foreground px-1" data-testid="empty--search-province">
+                                        <p className="type-caption text-muted-foreground px-1" data-testid="empty--search-province">
                                             {t.search.provinceEmpty}
                                         </p>
                                     )}
@@ -242,17 +243,16 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         </div>
 
                         {/* Dates & Guests */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div className="space-y-1">
-                                <h3 className="text-lg font-bold px-1 text-foreground">{t.search.date}</h3>
-                                <div className="grid grid-cols-2 gap-3">
+                                <h3 className="type-heading-3 font-bold px-1 text-foreground">{t.search.date}</h3>
+                                <div className="grid grid-cols-2 gap-2 md:gap-3">
                                     <div className="space-y-2">
-                                        <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.checkIn}</label>
+                                        <label className="type-caption font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.checkIn}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
                                                     variant="outline"
-                                                    size="lg"
                                                     className={cn(
                                                         "w-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
                                                         !startDate && "text-muted-foreground"
@@ -273,12 +273,11 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                         </Popover>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.checkOut}</label>
+                                        <label className="type-caption font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.checkOut}</label>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <Button
                                                     variant="outline"
-                                                    size="lg"
                                                     className={cn(
                                                         "w-full justify-start font-normal bg-background border-border hover:bg-muted px-4 focus:ring-primary/30 focus:border-primary",
                                                         !endDate && "text-muted-foreground"
@@ -303,9 +302,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             </div>
 
                             <div className="space-y-1">
-                                <h3 className="text-lg font-bold px-1 text-foreground">{t.search.who}</h3>
+                                <h3 className="type-heading-3 font-bold px-1 text-foreground">{t.search.who}</h3>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.guests}</label>
+                                    <label className="type-caption font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.booking.guests}</label>
                                     <Select value={guests} onValueChange={setGuests}>
                                         <SelectTrigger className="w-full border border-border hover:border-foreground transition bg-background">
                                             <div className="flex items-center gap-2">
@@ -327,18 +326,18 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-4 bg-card flex items-center justify-between border-t border-border/60">
+                    <div className="p-3 md:p-4 bg-card flex items-center justify-between border-t border-border/60">
                         <Button
                             variant="ghost"
                             onClick={handleReset}
-                            className="text-sm font-bold underline hover:bg-muted p-2 px-4 rounded-full"
+                            className="type-label font-bold underline hover:bg-muted p-2 px-4 rounded-full"
                         >
                             {t.searchModal.clearAll}
                         </Button>
                         <Button
                             onClick={handleSearch}
                             size="lg"
-                            className="px-8 font-bold"
+                            className="font-bold"
                         >
                             <Search className="w-4 h-4 mr-2" />
                             {t.search.search}

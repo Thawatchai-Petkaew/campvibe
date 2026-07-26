@@ -79,13 +79,35 @@ const COLOR_SWATCHES: { label: string; bg: string; text: string }[] = [
     { label: "ring", bg: "bg-ring", text: "text-foreground" },
 ];
 
+/**
+ * CAM-552 — the compaction budget, mirrored from DESIGN.md §2 "Responsive
+ * scale". Rendered as a table on /preview so the rule is visible rather than
+ * only readable. Control HEIGHT is deliberately absent from this table: it is
+ * shown as live button specimens above, because the interesting fact about
+ * height is that it mostly cannot step (the 44px tap floor sits on it).
+ */
+const MOBILE_SCALE_ROWS: [what: string, mobile: string, desktop: string][] = [
+    ["chip / pill padding-x", "px-4", "md:px-5"],
+    ["button lg padding-x", "px-4", "md:px-5"],
+    ["input leading-icon inset", "pl-10", "md:pl-12"],
+    ["chip card block", "h-28 p-4", "md:h-32 md:p-5"],
+    ["chip icon-card block", "h-20 p-2.5", "md:h-24 md:p-3"],
+    ["card padding", "p-4", "md:p-6"],
+    ["modal content padding", "p-4", "md:p-8"],
+    ["modal footer padding", "p-3", "md:p-4"],
+    ["page / bar gutter", "px-4", "md:px-6"],
+    ["control-group gap", "gap-2", "md:gap-3"],
+    ["grid gutter", "gap-3", "md:gap-4"],
+    ["section stack", "space-y-4", "md:space-y-6"],
+];
+
 function SectionDivider() {
     return <hr className="border-border my-8" />;
 }
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
     return (
-        <h2 className="font-display text-xl font-semibold text-foreground mb-6">
+        <h2 className="font-display type-heading-2 font-semibold text-foreground mb-6">
             {children}
         </h2>
     );
@@ -146,24 +168,142 @@ export function PreviewClient() {
                 {/* ── Typography ── */}
                 <SectionHeading>{t.preview.typographySection}</SectionHeading>
                 <div className="space-y-4">
-                    <h1 className="font-display text-4xl font-bold text-foreground">
-                        Heading 1 — Outfit
+                    <h1 className="font-display type-display font-bold text-foreground">
+                        type-display — Outfit
                     </h1>
-                    <h2 className="font-display text-3xl font-semibold text-foreground">
-                        Heading 2 — Outfit
+                    <h2 className="font-display type-heading-1 font-semibold text-foreground">
+                        type-heading-1 — Outfit
                     </h2>
-                    <h3 className="font-display text-2xl font-medium text-foreground">
-                        Heading 3 — Outfit
+                    <h3 className="font-display type-heading-2 font-medium text-foreground">
+                        type-heading-2 — Outfit
                     </h3>
-                    <h4 className="font-display text-xl font-medium text-foreground">
-                        Heading 4 — Outfit
+                    <h4 className="font-display type-heading-3 font-medium text-foreground">
+                        type-heading-3 — Outfit
                     </h4>
-                    <p className="text-base text-foreground">
-                        Body text — Inter. The quick brown fox jumps over the lazy dog.
+                    <p className="type-body text-foreground">
+                        type-body — Inter. The quick brown fox jumps over the lazy dog.
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                        Muted / secondary text — Inter. Used for captions, placeholders, and supporting copy.
+                    <p className="type-label text-muted-foreground">
+                        type-label — Inter. Control text: button, chip, select.
                     </p>
+                    <p className="type-caption text-muted-foreground">
+                        type-caption — Inter. Micro-label, helper and placeholder copy.
+                    </p>
+                </div>
+
+                <SectionDivider />
+
+                {/* ── Mobile scale (CAM-552) — closes DESIGN.md §8's "mobile view"
+                     backlog item. Every specimen below is LIVE: narrow the window
+                     past 768px and the values change in front of you. That is the
+                     point — the rule is shown, not described. */}
+                <SectionHeading>Mobile scale</SectionHeading>
+                <div className="space-y-6">
+                    <div className="rounded-2xl border border-border bg-card p-4 md:p-6">
+                        <p className="type-body text-foreground">
+                            One breakpoint: <code className="type-label">md</code> = 768px. Mobile-first, so the
+                            bare utility is the mobile value and <code className="type-label">md:</code> carries the
+                            desktop step.
+                        </p>
+                        <p className="type-label text-muted-foreground mt-2">
+                            You are currently seeing the{" "}
+                            {/* text-primary-ink, not text-primary: these are WORDS, and dark
+                                is the default theme since CAM-544 — text-primary measures
+                                3.28:1 on --card there, under the 4.5:1 body floor (CAM-546). */}
+                            <span className="md:hidden font-semibold text-primary-ink">mobile step (&lt; 768px)</span>
+                            <span className="hidden md:inline font-semibold text-primary-ink">desktop step (≥ 768px)</span>.
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 md:p-6">
+                        <p className="type-body text-foreground">
+                            <span className="font-semibold">Touch floor 44 × 44px, at every viewport.</span>{" "}
+                            <code className="type-label">h-11</code> is 44px, so it is the floor itself and never
+                            steps down. Compaction comes from padding, gaps, block heights and type. Shrinking a tap
+                            target below 44px is not compaction, it is a defect.
+                        </p>
+                    </div>
+
+                    {/* Control heights — live specimens, all three sizes side by side */}
+                    <div>
+                        <h3 className="type-heading-3 font-semibold text-foreground mb-3">Control height</h3>
+                        <div className="flex flex-wrap items-end gap-3">
+                            <div className="flex flex-col gap-1">
+                                <Button size="sm" variant="outline">sm</Button>
+                                <span className="type-caption text-muted-foreground">h-9 · 36px both steps</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Button variant="outline">md (default)</Button>
+                                <span className="type-caption text-muted-foreground">h-11 · 44px both steps</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Button size="lg">lg</Button>
+                                <span className="type-caption text-muted-foreground">h-11 → md:h-12 · 44 → 48px</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Button size="icon" variant="outline" aria-label="Icon button specimen">
+                                    <Search />
+                                </Button>
+                                <span className="type-caption text-muted-foreground">icon · 44px both steps</span>
+                            </div>
+                        </div>
+                        <p className="type-caption text-muted-foreground mt-2">
+                            Only <code>lg</code> steps. The others sit on the floor already.
+                        </p>
+                    </div>
+
+                    {/* Padding / rhythm — the actual compaction budget */}
+                    <div>
+                        <h3 className="type-heading-3 font-semibold text-foreground mb-3">
+                            Padding, block height and rhythm
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full type-label border-collapse">
+                                <thead>
+                                    <tr className="border-b border-border text-left text-muted-foreground">
+                                        <th className="py-2 pr-4 font-medium">what</th>
+                                        <th className="py-2 pr-4 font-medium">mobile</th>
+                                        <th className="py-2 font-medium">desktop</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-foreground">
+                                    {MOBILE_SCALE_ROWS.map(([what, mobile, desktop]) => (
+                                        <tr key={what} className="border-b border-border/60">
+                                            <td className="py-2 pr-4">{what}</td>
+                                            <td className="py-2 pr-4 tabular-nums">
+                                                <code className="type-caption">{mobile}</code>
+                                            </td>
+                                            <td className="py-2 tabular-nums">
+                                                <code className="type-caption">{desktop}</code>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* A real chip row — the surface the owner reported */}
+                    <div>
+                        <h3 className="type-heading-3 font-semibold text-foreground mb-3">
+                            Filter row at this step
+                        </h3>
+                        <div className="flex flex-wrap gap-2 md:gap-3">
+                            {["ริมน้ำ", "ภูเขา", "ป่า", "ทะเล"].map((label) => (
+                                <FilterChip
+                                    key={label}
+                                    variant="pill"
+                                    selected={pillSelected.includes(label)}
+                                    onToggle={() => togglePill(label)}
+                                    label={label}
+                                    data-testid={`filter-chip--mobile-scale-${label}`}
+                                />
+                            ))}
+                        </div>
+                        <p className="type-caption text-muted-foreground mt-2">
+                            Chip height holds at 44px; the chip gap and its horizontal padding are what step.
+                        </p>
+                    </div>
                 </div>
 
                 <SectionDivider />
@@ -523,8 +663,8 @@ export function PreviewClient() {
                             <Input placeholder="inputSize=&quot;md&quot; h-11 rounded-full (default)" />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-xs text-muted-foreground uppercase tracking-wide">lg (h-12)</label>
-                            <Input inputSize="lg" placeholder="inputSize=&quot;lg&quot; h-12 rounded-full" />
+                            <label className="text-xs text-muted-foreground uppercase tracking-wide">lg (h-11 md:h-12)</label>
+                            <Input inputSize="lg" placeholder="inputSize=&quot;lg&quot; steps 44 to 48px" />
                         </div>
                     </div>
                 </div>
@@ -628,7 +768,7 @@ export function PreviewClient() {
                 {/* Thai type verification — Sarabun font */}
                 <div className="mt-8 space-y-3 p-6 rounded-3xl border border-border bg-card">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Sarabun Thai font verification</p>
-                    <h2 className="font-display text-2xl font-semibold text-foreground">
+                    <h2 className="font-display type-heading-2 font-semibold text-foreground">
                         ค้นหาแคมป์ที่ใช่สำหรับคุณ
                     </h2>
                     <p className="text-base text-foreground leading-relaxed">
