@@ -55,7 +55,9 @@ vi.mock('@/lib/prisma', () => ({
         campSite: { update: vi.fn() },
         location: { update: vi.fn(), create: vi.fn() },
         country: { findUnique: vi.fn() },
-        thailandLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+        // CAM-574: `thailandLocation` is retired from both `/api/location`
+        // (the FK lookup) and `/api/locations/search` (the id-bridge) —
+        // everything below reads/writes `adminArea` only.
         adminArea: { findUnique: vi.fn(), findMany: vi.fn() },
     },
 }));
@@ -280,7 +282,9 @@ describe('POST /api/location — subDistrict reaches the database (CAM-559)', ()
         vi.clearAllMocks();
         (requireAuth as ReturnType<typeof vi.fn>).mockResolvedValue({ error: null, session: makeSession() });
         (prisma.country.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ code: 'TH' });
-        (prisma.thailandLocation.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+        // CAM-574: no `adminAreaId` is sent in these requests either, so the
+        // AdminArea lookup branch is never reached (same as the pre-existing
+        // thaiLocationId-less requests this test predates).
         (prisma.location.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: LOCATION_ID });
     });
 
@@ -356,27 +360,24 @@ describe('GET /api/admin-areas/subdistricts — scoped, on-demand (CAM-559)', ()
 // ---------------------------------------------------------------------------
 // Integration — /api/locations/search?type=district. CAM-559 built the
 // district level against `ThailandLocation`; CAM-573 moved the match itself
-// onto `AdminArea` (closing the split this story's own ticket named), then
-// bridges the matched node back to a real `ThailandLocation.id` so
-// `LocationPicker.tsx`'s `thaiLocationId` (still a live FK, written by
-// `POST /api/location`, both out of CAM-573's file surface) never regresses
-// — see CAM-573 tech.md. Proves the same two literal requirements CAM-559
-// established, now against the real network contract post-migration:
+// onto `AdminArea` but bridged the matched node back to a real
+// `ThailandLocation.id` because the `thaiLocationId` FK still existed.
+// CAM-574 retired that FK — the response `id` is now the real `AdminArea.id`
+// directly, no bridge, no `ThailandLocation` read at all. Proves the same
+// two literal requirements CAM-559 established, now against the
+// post-CAM-574 network contract:
 //   - "the cascade genuinely narrows" (province selection must not still
 //     offer every one of the 930 districts)
 //   - "a Thai search term finds a Thai-named district"
 // ---------------------------------------------------------------------------
-describe('GET /api/locations/search?type=district — province narrows + Thai search (CAM-559 built it; CAM-573 moved the match onto AdminArea)', () => {
+describe('GET /api/locations/search?type=district — province narrows + Thai search (CAM-559 built it; CAM-574 retired the id-bridge)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         (prisma.adminArea.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
             id: 'aa-province-50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai',
         });
         (prisma.adminArea.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-            { code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
-        ]);
-        (prisma.thailandLocation.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-            { id: 'd-1', districtCode: '5001' },
+            { id: 'aa-district-5001', code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
         ]);
     });
 
@@ -404,11 +405,11 @@ describe('GET /api/locations/search?type=district — province narrows + Thai se
         expect(orClause).toContain('เมืองเชียงใหม่');
     });
 
-    it('[normal] the matched AdminArea district is bridged back to a real ThailandLocation id (thaiLocationId FK compatibility, CAM-573)', async () => {
+    it('[normal] the matched district row carries the real AdminArea.id directly (no ThailandLocation bridge, CAM-574)', async () => {
         const res = await locationsSearchGET(searchRequest('?type=district&provinceCode=50'));
         const body = await res.json();
         expect(body).toEqual([
-            { id: 'd-1', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
+            { id: 'aa-district-5001', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
         ]);
     });
 
@@ -450,7 +451,7 @@ describe('adminAreaSubDistrictQuerySchema (CAM-559)', () => {
 // so the two can never silently drift apart).
 // ---------------------------------------------------------------------------
 describe('LocationPicker — cascading wiring (source-inspection)', () => {
-    it('renders three cascading levels sourced correctly (province+district via ThailandLocation search, sub-district via the new AdminArea endpoint)', () => {
+    it('renders three cascading levels sourced correctly (province+district via /api/locations/search, sub-district via /api/admin-areas/subdistricts — both AdminArea-backed post-CAM-574)', () => {
         const pickerSrc = src('components/LocationPicker.tsx');
         expect(pickerSrc).toContain('/api/locations/search');
         expect(pickerSrc).toContain('type=district');

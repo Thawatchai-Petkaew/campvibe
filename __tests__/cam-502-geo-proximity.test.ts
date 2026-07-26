@@ -186,15 +186,17 @@ describe('CAM-502 resolvePlace — BR-3 proximity ("ใกล้/แถว X") v
 // ---------------------------------------------------------------------------
 
 const mockFindMany = vi.fn();
-const mockThailandLocationFindFirst = vi.fn();
+const mockAdminAreaFindFirst = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     campSite: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
     },
-    thailandLocation: {
-      findFirst: (...args: unknown[]) => mockThailandLocationFindFirst(...args),
+    // CAM-574: `resolveProvinceForSearch` (shared by the `near`-path below)
+    // moved off `ThailandLocation` onto `AdminArea`.
+    adminArea: {
+      findFirst: (...args: unknown[]) => mockAdminAreaFindFirst(...args),
     },
   },
 }));
@@ -224,13 +226,13 @@ beforeEach(() => {
 });
 
 describe('executeSearchCampsites — near-path (CAM-502 BR-2)', () => {
-  it('[unit] near="Bangkok" (English, direct) -> bbox pre-filter on the candidate query, no ThailandLocation lookup', async () => {
+  it('[unit] near="Bangkok" (English, direct) -> bbox pre-filter on the candidate query, no AdminArea lookup', async () => {
     mockFindMany.mockResolvedValueOnce([]); // candidate query — zero candidates
 
     const args = searchCampsitesArgsSchema.parse({ near: 'Bangkok' });
     const result = await executeSearchCampsites(args);
 
-    expect(mockThailandLocationFindFirst).not.toHaveBeenCalled();
+    expect(mockAdminAreaFindFirst).not.toHaveBeenCalled();
     expect(result).toEqual({ cards: [] });
 
     const candidateCall = mockFindMany.mock.calls[0][0] as {
@@ -247,14 +249,14 @@ describe('executeSearchCampsites — near-path (CAM-502 BR-2)', () => {
     expect(bboxClause?.longitude).toEqual({ gte: expectedBbox.lngMin, lte: expectedBbox.lngMax });
   });
 
-  it('[unit] near="กรุงเทพ" (Thai, via ThailandLocation) resolves to the same "Bangkok" centroid key', async () => {
-    mockThailandLocationFindFirst.mockResolvedValueOnce({ provinceNameEn: 'Bangkok' });
+  it('[unit] near="กรุงเทพ" (Thai, via AdminArea) resolves to the same "Bangkok" centroid key', async () => {
+    mockAdminAreaFindFirst.mockResolvedValueOnce({ nameEn: 'Bangkok' });
     mockFindMany.mockResolvedValueOnce([]);
 
     const args = searchCampsitesArgsSchema.parse({ near: 'กรุงเทพ' });
     await executeSearchCampsites(args);
 
-    expect(mockThailandLocationFindFirst).toHaveBeenCalledOnce();
+    expect(mockAdminAreaFindFirst).toHaveBeenCalledOnce();
     const candidateCall = mockFindMany.mock.calls[0][0] as { where: { AND?: unknown[] } };
     expect(candidateCall.where.AND).toBeDefined();
   });

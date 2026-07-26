@@ -158,6 +158,14 @@ model User {
   @@index([isHostRegistered])
 }
 
+// CAM-574 (phase B of the retirement the owner approved): the `Location` FK
+// into this table was retired — `Location.thaiLocationId`/`thaiLocation` are
+// gone, so this model no longer has a `locations` back-relation. The TABLE
+// itself stays (not dropped): two out-of-surface direct queries (never via
+// the Location relation) still legitimately read it — `app/api/geocode/
+// _shared.ts`'s reverse-geocode province/district resolution, and
+// `lib/read-models/camp-card.ts`'s province Thai-name fallback map — see
+// this story's tech.md "Known gap" for why those two were left as-is.
 model ThailandLocation {
   id             String  @id @default(uuid())
   provinceCode   String // e.g., "10" for Bangkok
@@ -169,8 +177,6 @@ model ThailandLocation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  locations Location[]
 
   @@unique([provinceCode, districtCode])
   @@index([provinceName, districtName])
@@ -236,13 +242,13 @@ model Location {
   adminAreaId String? // [Geo] province/district node in the AdminArea tree
   adminArea   AdminArea? @relation(fields: [adminAreaId], references: [id])
 
-  // Link to Thailand administrative division (legacy — pending migration to adminArea)
-  thaiLocationId String?
-  thaiLocation   ThailandLocation? @relation(fields: [thaiLocationId], references: [id])
-
+  // CAM-574: the legacy `thaiLocationId` FK to `ThailandLocation` is retired —
+  // every write/read moved onto `adminAreaId` above (see this story's tech.md
+  // reader inventory). `ThailandLocation` itself is not dropped (still read
+  // directly, not via this relation, by geocode reverse-resolution and the
+  // camp-card province Thai-name fallback).
   campSites CampSite[]
 
-  @@index([thaiLocationId])
   @@index([countryCode])
   @@index([adminAreaId])
 }

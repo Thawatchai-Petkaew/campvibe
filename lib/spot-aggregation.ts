@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { adminAreaChainSelect, resolveLocationDisplayNames } from '@/lib/read-models/camp-card';
 
 /**
  * A client capable of reading the Spot table — either the default `prisma`
@@ -81,11 +82,18 @@ export async function getCampSiteWithCapacity(campSiteId: string) {
       spots: { where: { deletedAt: null } },
       options: true,
       images: { orderBy: { sortOrder: 'asc' } },
+      // CAM-574: the retired `thaiLocation` FK relation is replaced by the
+      // resolved AdminArea chain — CampgroundForm's edit prefill reads the
+      // bilingual `provinceTh`/`provinceEn`/`districtTh`/`districtEn` fields
+      // attached below (resolveLocationDisplayNames), never the chain
+      // directly (this module is server-only; the chain's own
+      // `lib/read-models/camp-card.ts` import pulls in `next/cache`, which
+      // cannot ride into CampgroundForm.tsx, a client component).
       location: {
         include: {
-          thaiLocation: true
-        }
-      }
+          adminArea: { select: adminAreaChainSelect },
+        },
+      },
     }
   });
 
@@ -93,11 +101,16 @@ export async function getCampSiteWithCapacity(campSiteId: string) {
     return null;
   }
 
+  const location = campSite.location
+    ? { ...campSite.location, ...resolveLocationDisplayNames(campSite.location.adminArea) }
+    : campSite.location;
+
   // If useSpotView is true, calculate from spots
   if (campSite.useSpotView) {
     const spotCapacity = await calculateSpotCapacity(campSiteId);
     return {
       ...campSite,
+      location,
       // CAM-355 BR-6 fold-in: NO `|| campSite.maxGuestsPerDay/maxTentsPerDay`
       // fallback — a zero-spot (or all-null) PER-SPOT camp derives 0, a REAL
       // closed-for-booking capacity, not the stale manual column. This is the
@@ -121,6 +134,7 @@ export async function getCampSiteWithCapacity(campSiteId: string) {
   // If useSpotView is false, use manual values
   return {
     ...campSite,
+    location,
     spotStats: null,
   };
 }
