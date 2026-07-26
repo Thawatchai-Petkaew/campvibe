@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Calendar as CalendarIcon, Users, Loader2 } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Users, Loader2, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getSearchProvinces } from "@/app/actions/getSearchLocations";
 import { format } from "date-fns";
@@ -148,17 +148,52 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <ModalContent className="sm:max-w-3xl" aria-describedby={undefined}>
-                <div className="flex flex-col h-full max-h-[90vh] relative">
+            {/*
+             * CAM-561 — below `sm:` (640px) the search dialog is full screen
+             * ONLY, with no header bar at all (owner decision): the base
+             * centered-dialog geometry (`top-1/2 left-1/2 -translate-*`,
+             * `max-w-[calc(100%-2rem)]`, `rounded-3xl`) is overridden with a
+             * `max-sm:`-prefixed block, additive after the desktop
+             * `sm:max-w-3xl`, so it wins the cascade only below the
+             * breakpoint (same technique CAM-550 proved for the assistant).
+             * `h-[100dvh]`/`max-h-[100dvh]` track the real visible viewport
+             * as the phone's address bar animates — a bare `inset-0` does
+             * not (CAM-550 lesson). Desktop is untouched.
+             */}
+            <ModalContent
+                className="sm:max-w-3xl max-sm:left-0 max-sm:right-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
+                aria-describedby={undefined}
+            >
+                <div className="flex flex-col h-full max-h-[90vh] max-sm:max-h-none relative">
                     <ModalHeader
                         title={t.search.search}
                         closeLabel={t.common?.close ?? "Close"}
                         onClose={onClose}
+                        hideOnMobile
                     />
 
                     {/* Standard Rounded Search UI */}
                     {/* CAM-552 — mobile step: 16px inner gutter + a tighter section stack. */}
-                    <div className="p-4 md:p-8 flex-grow overflow-y-auto custom-scrollbar space-y-5 md:space-y-8">
+                    {/* CAM-561 — safe-area top breathing room on mobile (no header
+                        bar sits above this anymore to absorb a notch/dynamic
+                        island). */}
+                    <div className="p-4 md:p-8 max-sm:pt-[max(1rem,env(safe-area-inset-top))] flex-grow overflow-y-auto custom-scrollbar space-y-5 md:space-y-8">
+                        {/* CAM-561 — the header bar (title + close X) is removed
+                            entirely on mobile, so this is the obvious, reachable
+                            dismiss path in its place (a back affordance living in
+                            the scrollable flow rather than a re-introduced header
+                            band). Escape still closes too. Hidden at sm:+, where
+                            ModalHeader's own close X still does this job. */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onClose}
+                            aria-label={t.common?.close ?? "Close"}
+                            data-testid="btn--search-mobile-close"
+                            className="rounded-full sm:hidden"
+                        >
+                            <X className="h-5 w-5" aria-hidden="true" />
+                        </Button>
 
                         {/* Experience Type (Pills) */}
                         <div className="space-y-2">
@@ -326,7 +361,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-3 md:p-4 bg-card flex items-center justify-between border-t border-border/60">
+                    {/* CAM-561 — safe-area bottom breathing room on mobile so
+                        the actions dock clears the home-indicator gesture bar. */}
+                    <div className="p-3 md:p-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] bg-card flex items-center justify-between border-t border-border/60">
                         <Button
                             variant="ghost"
                             onClick={handleReset}
