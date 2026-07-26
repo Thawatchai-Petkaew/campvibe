@@ -96,6 +96,8 @@ next-env.d.ts
 !/scripts/seed-demand.mjs
 !/scripts/gen-review-text.mjs
 !/scripts/ai-eval/
+# CAM-536 — accommodation-code-collision backfill (TENT->TSIT / HORS->HCMP)
+!/scripts/backfill-cam-536-accommodation-codes.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

@@ -670,7 +670,9 @@
             "CABI": "Cabin",
             "DISP": "Dispersed camping",
             "GROU": "Group camping",
-            "RECR": "RV / Recreational vehicle"
+            "RECR": "RV / Recreational vehicle",
+            "TSIT": "Tent site",
+            "HCMP": "Horse camp"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1726,7 +1728,9 @@
             "CABI": "กระท่อม",
             "DISP": "กางเต็นท์อิสระ",
             "GROU": "ที่พักแบบกลุ่ม",
-            "RECR": "รถบ้าน (RV)"
+            "RECR": "รถบ้าน (RV)",
+            "TSIT": "ลานกางเต็นท์",
+            "HCMP": "แคมป์ม้า"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",

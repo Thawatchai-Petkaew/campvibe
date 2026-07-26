@@ -179,14 +179,18 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   WILD: Binoculars,
   HORS: PawPrint,
   CLIM: Mountain,
-  // CAM-526 (S10) — Accommodation type, the 4 non-colliding
-  // AccommodationTypeEnum codes this story seeds (HORS/TENT collide with an
-  // unrelated group's codes above and are excluded — see prisma/seed.ts).
+  // CAM-526 (S10) — Accommodation type, the 4 codes that never collided.
   // Reuses icons already imported for other codes; no new import added.
   CABI: Bed,
   DISP: Trees,
   GROU: Users,
   RECR: Car,
+  // CAM-536 (fix) — Accommodation type: HCMP/TSIT replace the old
+  // Horse/Tent members that collided with the Activity/Equipment codes
+  // above (HORS/TENT stay owned by those groups, unchanged). Reuses the
+  // SAME icons already imported/used for HORS/TENT above — no new import.
+  TSIT: Tent,
+  HCMP: PawPrint,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */

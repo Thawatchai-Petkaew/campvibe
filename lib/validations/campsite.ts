@@ -23,13 +23,21 @@ export const AccessTypeEnum = z.enum([
   "WALK", // Walk-in
 ]);
 
+// CAM-536: HCMP/TSIT replace the old Horse/Tent members. `MasterData.code` is
+// a global @id (not scoped per group) — the old Horse/Tent members reused
+// codes already owned by OTHER live groups (Activity: horseback riding /
+// Equipment for rent: tent), which made those 2 of 6 accommodation-type
+// meanings unselectable and unremovable in the host picker (CAM-526 BR-2).
+// Per the owner-approved fix, the two colliding MEANINGS get their own
+// distinct codes (see prisma/seed.ts for the seeded rows + the backfill
+// script that rewrites existing CampSite.accommodationTypes CSV data).
 export const AccommodationTypeEnum = z.enum([
   "CABI", // Cabin
   "DISP", // Dispersed
   "GROU", // Group
-  "HORS", // Horse
+  "HCMP", // Horse camp (CAM-536)
   "RECR", // Recreation
-  "TENT", // Tent
+  "TSIT", // Tent site (CAM-536)
 ]);
 
 export const BookingMethodEnum = z.enum([

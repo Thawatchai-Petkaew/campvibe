@@ -122,23 +122,30 @@ const masterData = [
     { code: 'PARA', group: 'Driveway', nameTh: 'ขนานลาน', nameEn: 'Parallel', icon: 'AlignHorizontalJustifyCenter' },
     { code: 'PTHG', group: 'Driveway', nameTh: 'ขับผ่าน', nameEn: 'Pull-through', icon: 'MoveRight' },
 
-    // CAM-526 (S10) — Accommodation type: `AccommodationTypeEnum`
-    // (lib/validations/campsite.ts) has 6 members, but `MasterData.code` is a
-    // global `@id` (NOT scoped per group) — 2 of the 6 codes are already
-    // claimed by an UNRELATED group and seeding them here would silently move
-    // that row OUT of its live group:
-    //   - HORS already exists under group: 'Activity' (ขี่ม้า / Horseback riding)
-    //   - TENT already exists under group: 'Equipment for rent' (เต็นท์ / Tent),
-    //     and is the value most seeded camps already use for `equipment`.
-    // Only the 4 non-colliding codes are seeded below. HORS/TENT stay valid in
-    // the zod enum and round-trip through POST/PUT unchanged, but are NOT
-    // selectable via this picker and render no tile in this section until a
-    // follow-up decision (rename the 2 enum members + backfill existing
-    // `accommodationTypes` CSV data) — see story.md BR-2/Out of scope.
+    // CAM-526 (S10) / CAM-536 (fix) — Accommodation type: `AccommodationTypeEnum`
+    // (lib/validations/campsite.ts) has 6 members. `MasterData.code` is a
+    // global `@id` (NOT scoped per group) — CAM-526 found 2 of the 6 codes
+    // already claimed by an UNRELATED group and left them out entirely,
+    // which made those 2 meanings unselectable and unremovable in the host
+    // picker (BR-2). CAM-536 resolves it per the owner-approved fix: the two
+    // colliding MEANINGS get their own distinct codes instead of reusing the
+    // codes already owned elsewhere —
+    //   - HORS stays owned by group: 'Activity' (ขี่ม้า / Horseback riding),
+    //     UNCHANGED by this story. The accommodation-type "horse camp"
+    //     meaning is now HCMP, seeded below.
+    //   - TENT stays owned by group: 'Equipment for rent' (เต็นท์ / Tent),
+    //     UNCHANGED by this story (it is also the value most seeded camps'
+    //     `equipment` column already uses). The accommodation-type "tent
+    //     site" meaning is now TSIT, seeded below.
+    // A backfill (scripts/backfill-cam-536-accommodation-codes.mjs) rewrites
+    // existing `CampSite.accommodationTypes` CSV data from the old TENT/HORS
+    // values to TSIT/HCMP — see story.md.
     { code: 'CABI', group: 'Accommodation type', nameTh: 'กระท่อม', nameEn: 'Cabin', icon: 'Bed' },
     { code: 'DISP', group: 'Accommodation type', nameTh: 'กางเต็นท์อิสระ', nameEn: 'Dispersed camping', icon: 'Trees' },
     { code: 'GROU', group: 'Accommodation type', nameTh: 'ที่พักแบบกลุ่ม', nameEn: 'Group camping', icon: 'Users' },
     { code: 'RECR', group: 'Accommodation type', nameTh: 'รถบ้าน (RV)', nameEn: 'RV / Recreational vehicle', icon: 'Car' },
+    { code: 'TSIT', group: 'Accommodation type', nameTh: 'ลานกางเต็นท์', nameEn: 'Tent site', icon: 'Tent' },
+    { code: 'HCMP', group: 'Accommodation type', nameTh: 'แคมป์ม้า', nameEn: 'Horse camp', icon: 'PawPrint' },
 ]
 
 import fs from 'fs';
@@ -312,7 +319,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนยอดเขาที่สูงที่สุดในเพชรบูรณ์ วิวสวยงาม อากาศเย็นสบาย',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,POTA', // Internal
             externalFacilities: 'SVEL',
             equipment: 'TENT,BLKT,TFAN',
@@ -349,7 +356,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติเขาใหญ่ ใกล้น้ำตก ธรรมชาติสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,WALK',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,PICN,TRAS,POTA',
             externalFacilities: 'LOTS,MAKT',
             equipment: 'TENT,GDST,SSTV',
@@ -386,7 +393,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนดอยอ่างขาง อากาศหนาวเย็น วิวทะเลหมอกสวยงาม',
             campSiteType: 'CACP',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,MIMT',
             externalFacilities: '',
             equipment: 'TENT,BLKT,LEDL',
@@ -422,7 +429,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมทะเลสาบปางอุ๋ง บรรยากาศสไตล์สวิตเซอร์แลนด์',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,POTA,PICN',
             externalFacilities: 'SVEL',
             equipment: 'CHAI,ICBK',
@@ -459,7 +466,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดไร่เลย์ กระบี่ วิวทะเลสวยงาม เหมาะกับนักปีนเขา',
             campSiteType: 'CAGD',
             accessTypes: 'BAOT',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,CAFE',
             externalFacilities: 'LOTS,MIBC',
             equipment: 'TENT,FYST,POWE',
@@ -492,7 +499,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนเขาค้อ วิวทะเลหมอก อากาศเย็นสบาย',
             campSiteType: 'CACP',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,CAFE,ELEC',
             externalFacilities: 'SVEL,MAKT',
             equipment: 'TENT,BLKT,TFAN,POWE',
@@ -525,7 +532,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในอุทยานแห่งชาติภูกระดึง ธรรมชาติสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'HIKE',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,POTA,PICN',
             externalFacilities: '',
             equipment: 'TENT',
@@ -558,7 +565,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดเกาะช้าง บรรยากาศเงียบสงบ',
             campSiteType: 'CAGD',
             accessTypes: 'BAOT,DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,CAFE',
             externalFacilities: 'SVEL,LOTS,MIBC',
             equipment: 'TENT,CHAI,FYST',
@@ -591,7 +598,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนดอยสุเทพ วิวเมืองเชียงใหม่สวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,HIKE',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,POTA',
             externalFacilities: 'MAKT',
             equipment: 'TENT,BLKT',
@@ -624,7 +631,7 @@ async function main() {
             description: 'ลานกางเต็นท์ในป่าเขาสก ธรรมชาติอุดมสมบูรณ์',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV,BOAT',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,REST,POTA',
             externalFacilities: '',
             equipment: 'TENT,GDST',
@@ -657,7 +664,7 @@ async function main() {
             description: 'ลานกางเต็นท์บนภูชี้ฟ้า ชมพระอาทิตย์ขึ้นสวยงาม',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,CAFE,POTA',
             externalFacilities: 'SVEL',
             equipment: 'TENT,BLKT,LEDL',
@@ -690,7 +697,7 @@ async function main() {
             description: 'ลานกางเต็นท์ริมหาดป่าตอง ภูเก็ต ใกล้แหล่งบันเทิง',
             campSiteType: 'CAGD',
             accessTypes: 'DRIV',
-            accommodationTypes: 'TENT',
+            accommodationTypes: 'TSIT',
             facilities: 'TOIL,SHOW,WIFI,REST,CAFE',
             externalFacilities: 'SVEL,LOTS',
             equipment: 'TENT,POWE,BLKT',
