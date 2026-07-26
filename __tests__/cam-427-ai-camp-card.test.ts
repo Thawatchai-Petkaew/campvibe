@@ -87,23 +87,23 @@ describe('toAiCampCard — G7 null/empty rating handling', () => {
 describe('toAiCampCard — G8 null province handling', () => {
   it('[null/empty] a null Location.province is coerced to \'\' — never throws, card is kept', () => {
     const row = makeRow({
-      // CAM-545: campCardSelect now also selects location.thaiLocation, so
+      // CAM-545: campCardSelect now also selects location.district, so
       // AiCampCardPayload['location'] requires that key too (present, nullable) —
       // unrelated to this test's own province-null concern, included so the
       // literal still type-checks against the (unchanged) real payload shape.
-      location: { province: null, thaiLocation: null } as unknown as { province: string; thaiLocation: null },
+      location: { province: null, district: null } as unknown as { province: string; district: null },
     });
     expect(() => toAiCampCard(row)).not.toThrow();
     expect(toAiCampCard(row).location.province).toBe('');
   });
 
   it('[normal] a real province value passes through unchanged', () => {
-    const card = toAiCampCard(makeRow({ location: { province: 'Rayong', thaiLocation: null } }));
+    const card = toAiCampCard(makeRow({ location: { province: 'Rayong', district: null } }));
     expect(card.location.province).toBe('Rayong');
   });
 
   it('[boundary] a missing location object on the row does not throw (defensive optional-chaining)', () => {
-    const row = makeRow({ location: undefined as unknown as { province: string; thaiLocation: null } });
+    const row = makeRow({ location: undefined as unknown as { province: string; district: null } });
     expect(() => toAiCampCard(row)).not.toThrow();
     expect(toAiCampCard(row).location.province).toBe('');
   });

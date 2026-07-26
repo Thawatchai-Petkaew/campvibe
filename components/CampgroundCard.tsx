@@ -37,12 +37,24 @@ export interface CampgroundCardData {
     location: {
         province: string;
         /**
-         * CAM-545: the Thai province name via `Location.thaiLocation` (see
-         * `prisma/schema.prisma`'s admin-division relation). Optional/nullable —
-         * a location not yet linked to that relation falls back to `province`
-         * (BR-1); `province` itself is never touched by this field.
+         * CAM-545 (rework, 2026-07-26): the Thai province name, resolved
+         * server-side by matching `Location.province` (English) against the
+         * admin-division dataset's English name by NAME — not the
+         * `Location.thaiLocationId` FK, which is populated for only 12 of
+         * 650 real camp sites in the dev DB. Optional — a province with no
+         * match falls back to `province` (BR-1/EC-1); `province` itself is
+         * never touched by this field.
          */
-        thaiLocation?: { provinceName: string } | null;
+        provinceTh?: string;
+        /**
+         * CAM-545: district — owner requirement (2026-07-26): show
+         * "district, province", drop the country entirely. NOT YET
+         * POPULATED for any camp (`Location.district` is null on all rows
+         * in the dev DB today); wired through so the moment district data
+         * exists, it slots into the line with no further code change.
+         * Absent/null = province-only display (EC-4).
+         */
+        district?: string | null;
     };
     images?: { url: string }[];
 }
@@ -80,21 +92,27 @@ interface CampgroundCardProps {
 }
 
 /**
- * CAM-545 — the localized "province, country" line. TH mode prefers the
- * Thai province name (`Location.thaiLocation.provinceName`); falls back to
- * the raw `province` value when the location has no admin-division link
- * (EC-1). EN mode is unchanged (`province` was already English). The country
- * word comes from the caller's locale dict — never a hardcoded literal here.
+ * CAM-545 (rework, 2026-07-26 owner requirement) — the localized location
+ * line: "district, province" when a district is known, else just the
+ * province. The country is NEVER shown ("User รู้อยู่แล้ว" — the owner's own
+ * words). TH mode prefers the Thai province name (attached by
+ * `withProvinceThaiNames`, a name-based match — see `lib/read-models/camp-card.ts`);
+ * falls back to the raw `province` value when there is no match (EC-1). EN
+ * mode is unchanged (`province` was already English). `district` has no
+ * separate English form in the data model (`Location.district` is a single
+ * free-text field), so it renders as-is in both languages — currently always
+ * absent (EC-4), since no camp has district data yet (see CampgroundCardData's
+ * doc comment); the branch is real and tested so it activates the moment
+ * that data exists, with no further code change.
  */
 export function buildLocationText(
     location: CampgroundCardData["location"],
     language: "en" | "th",
-    countryName: string,
 ): string {
     const province = language === "th"
-        ? (location.thaiLocation?.provinceName || location.province)
+        ? (location.provinceTh || location.province)
         : location.province;
-    return `${province}, ${countryName}`;
+    return location.district ? `${location.district}, ${province}` : province;
 }
 
 /** What the price line renders — either the free copy or an amount (single or range). */
@@ -214,7 +232,7 @@ export function CampgroundCard({
     const slug = language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug;
 
     // CAM-545: localized "province, country" line + honest single/range/free price.
-    const locationText = buildLocationText(campground.location, language, t.campground.countryName);
+    const locationText = buildLocationText(campground.location, language);
     const priceDisplay = buildCardPriceDisplay(
         campground.priceLow,
         campground.priceHigh,

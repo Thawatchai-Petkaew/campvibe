@@ -126,7 +126,6 @@
             "waterfall": "Waterfall"
         },
         "campground": {
-            "countryName": "Thailand",
             "hostedBy": "Hosted by",
             "verifiedHost": "Verified Host",
             "joined": "Joined",
@@ -1191,7 +1190,6 @@
             "waterfall": "น้ำตก"
         },
         "campground": {
-            "countryName": "ประเทศไทย",
             "hostedBy": "โฮสต์โดย",
             "verifiedHost": "โฮสต์ที่ได้รับการยืนยัน",
             "joined": "เข้าร่วมเมื่อ",

@@ -3,85 +3,171 @@
  *
  * "Camp card reads correctly in Thai and states the price honestly."
  *
- * Coverage matrix (story.md AC-1..AC-6 / BR-1..BR-7 / EC-1..EC-3):
- *   - AC-1/AC-2, BR-1/BR-2/BR-3, EC-1: buildLocationText — TH prefers the
- *     Thai province name, falls back to `province` when unlinked; EN
- *     unchanged; the literal "Thailand" is gone from the component source.
+ * Coverage matrix (story.md AC-1..AC-6 / BR-1..BR-7 / EC-1..EC-4):
+ *   - AC-1/AC-2, BR-1/BR-2/BR-3, EC-1/EC-4: buildLocationText — TH prefers the
+ *     Thai province name, falls back to `province` when unmatched; EN
+ *     unchanged; district prefixes when present; the country is NEVER shown
+ *     (owner requirement 2026-07-26) and the literal "Thailand" is gone.
  *   - AC-3/AC-4/AC-5, BR-5/BR-6, EC-2/EC-3: buildCardPriceDisplay — single
  *     price, honest range, free camp, and the degenerate-range guard.
  *   - AC-6: the favourite icon's `--primary` fill is RECOMPUTED (never
  *     asserted-not-computed) against the design system's own defined
  *     surfaces for this token, in both themes; `--secondary` is measured
  *     too, to prove the owner's hunch does NOT hold numerically.
- *   - Data seam: campCardSelect + the wishlist page's own select both carry
- *     `priceHigh` and `location.thaiLocation.provinceName` additively;
- *     `location.province` itself is untouched (never reshaped).
+ *   - Rework (coordinator finding): the Thai-name seam is now NAME-based
+ *     (`Location.province` <-> `ThailandLocation.provinceNameEn`), not the
+ *     `Location.thaiLocationId` FK (measured: only 12 of 652 `Location` rows
+ *     have that FK set). The coverage test below replays the REAL 78 distinct
+ *     `Location.province` values captured from the dev DB on 2026-07-26
+ *     against the REAL 77-province dataset (`prisma/data/thailand-locations.json`)
+ *     and asserts 77-of-78 resolve — not just one happy row — so a future
+ *     regression back to the FK/12-row path is caught.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  buildCardPriceDisplay,
-  buildLocationText,
-  type CampgroundCardData,
-} from "../components/CampgroundCard";
-import { campCardSelect } from "../lib/read-models/camp-card";
-import { parseTokens, resolveOver, resolveSurface, contrastRatio, CSS_PATH } from "../scripts/check-contrast.mjs";
-import translations from "../locales/translations.json";
+import thailandLocations from "@/prisma/data/thailand-locations.json";
+
+interface ProvinceEntry {
+  code: string;
+  nameTh: string;
+  nameEn: string;
+}
+const ALL_PROVINCES = thailandLocations as ProvinceEntry[];
+
+/**
+ * The REAL 78 distinct `Location.province` values in the dev DB, captured by
+ * a direct query on 2026-07-26 (`prisma.location.findMany({distinct:['province']})`).
+ * 77 of these match a real `ThailandLocation.provinceNameEn`; the sole miss,
+ * `'x'`, is an orphaned placeholder row with no live `CampSite` attached
+ * (verified: `campSite.count({where:{location:{province:{in:[...matched]}}}})`
+ * === `campSite.count()`, i.e. every REAL camp's province resolves).
+ */
+const REAL_DISTINCT_LOCATION_PROVINCES = [
+  "Chiang Mai", "Nakhon Ratchasima", "Chiang Rai", "Krabi", "Phuket", "Trat",
+  "Surat Thani", "Phetchabun", "Loei", "Mae Hong Son", "x", "Nakhon Phanom",
+  "Lamphun", "Lampang", "Uttaradit", "Phrae", "Nan", "Phayao", "Buri Ram",
+  "Surin", "Si Sa Ket", "Ubon Ratchathani", "Yasothon", "Chaiyaphum",
+  "Amnat Charoen", "Bueng Kan", "Nong Bua Lam Phu", "Khon Kaen", "Udon Thani",
+  "Nong Khai", "Maha Sarakham", "Roi Et", "Kalasin", "Sakon Nakhon",
+  "Mukdahan", "Bangkok", "Samut Prakan", "Nonthaburi", "Pathum Thani",
+  "Phra Nakhon Si Ayutthaya", "Ang Thong", "Lop Buri", "Sing Buri",
+  "Chai Nat", "Saraburi", "Nakhon Nayok", "Nakhon Sawan", "Uthai Thani",
+  "Kamphaeng Phet", "Sukhothai", "Phitsanulok", "Phichit", "Suphan Buri",
+  "Nakhon Pathom", "Samut Sakhon", "Samut Songkhram", "Chon Buri", "Rayong",
+  "Chanthaburi", "Chachoengsao", "Prachin Buri", "Sa Kaeo", "Tak",
+  "Ratchaburi", "Kanchanaburi", "Phetchaburi", "Prachuap Khiri Khan",
+  "Nakhon Si Thammarat", "Phang Nga", "Ranong", "Chumphon", "Songkhla",
+  "Satun", "Trang", "Phatthalung", "Pattani", "Yala", "Narathiwat",
+] as const;
 
 const ROOT = path.join(__dirname, "..");
 const cardSrc = readFileSync(path.join(ROOT, "components", "CampgroundCard.tsx"), "utf8");
 const wishlistSrc = readFileSync(path.join(ROOT, "app", "wishlist", "page.tsx"), "utf8");
+const catalogResultsSrc = readFileSync(path.join(ROOT, "components", "CatalogResults.tsx"), "utf8");
+const apiCampsitesSrc = readFileSync(path.join(ROOT, "app", "api", "campsites", "route.ts"), "utf8");
 
 // ---------------------------------------------------------------------------
-// AC-1 / AC-2 / BR-1..3 / EC-1 — localized "province, country" line
+// Mocked prisma — the read-models module under test does a real DB round-trip
+// (thailandLocation.findMany) that must never run against a live DB in a
+// unit test.
 // ---------------------------------------------------------------------------
-describe("buildLocationText — AC-1/AC-2 (BR-1/BR-2/BR-3, EC-1)", () => {
-  const linked: CampgroundCardData["location"] = {
-    province: "Narathiwat",
-    thaiLocation: { provinceName: "นราธิวาส" },
-  };
-  const unlinked: CampgroundCardData["location"] = { province: "Narathiwat" };
+const mockThailandLocationFindMany = vi.fn();
 
-  it("[normal] AC-1: TH mode renders the Thai province name + the Thai country word", () => {
-    expect(buildLocationText(linked, "th", translations.th.campground.countryName)).toBe(
-      "นราธิวาส, ประเทศไทย"
-    );
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    thailandLocation: {
+      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
+    },
+  },
+}));
+
+const {
+  buildCardPriceDisplay,
+  buildLocationText,
+} = await import("../components/CampgroundCard");
+const {
+  campCardSelect,
+  getProvinceThaiNameMap,
+  withProvinceThaiNames,
+} = await import("../lib/read-models/camp-card");
+const { parseTokens, resolveOver, resolveSurface, contrastRatio, CSS_PATH } = await import(
+  "../scripts/check-contrast.mjs"
+);
+const translations = (await import("../locales/translations.json")).default;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Real 77-row dataset (prisma/data/thailand-locations.json), same shape
+  // `campCardSelect`'s query would receive: {provinceNameEn, provinceName}.
+  mockThailandLocationFindMany.mockResolvedValue(
+    ALL_PROVINCES.map((p) => ({ provinceNameEn: p.nameEn, provinceName: p.nameTh }))
+  );
+});
+
+// ---------------------------------------------------------------------------
+// AC-1 / AC-2 / BR-1..3 / EC-1 / EC-4 — localized location line, no country
+// ---------------------------------------------------------------------------
+describe("buildLocationText — AC-1/AC-2 (BR-1/BR-2/BR-3, EC-1/EC-4)", () => {
+  const matched = { province: "Narathiwat", provinceTh: "นราธิวาส" };
+  const unmatched = { province: "Narathiwat" };
+
+  it("[normal] AC-1: TH mode renders the Thai province name ONLY — no country", () => {
+    expect(buildLocationText(matched, "th")).toBe("นราธิวาส");
   });
 
-  it("[normal] AC-2: EN mode renders the English province + the English country word (unchanged pair)", () => {
-    expect(buildLocationText(linked, "en", translations.en.campground.countryName)).toBe(
-      "Narathiwat, Thailand"
-    );
+  it("[normal] AC-2: EN mode renders the English province ONLY — no country", () => {
+    expect(buildLocationText(matched, "en")).toBe("Narathiwat");
   });
 
-  it("[null/empty] EC-1: TH mode falls back to the raw `province` value when there is no ThailandLocation link", () => {
-    expect(buildLocationText(unlinked, "th", translations.th.campground.countryName)).toBe(
-      "Narathiwat, ประเทศไทย"
-    );
+  it("[null/empty] EC-1: TH mode falls back to the raw `province` value when there is no Thai-name match", () => {
+    expect(buildLocationText(unmatched, "th")).toBe("Narathiwat");
   });
 
-  it("[boundary] a thaiLocation of null (explicit, e.g. wishlist mapping) behaves the same as undefined", () => {
-    const explicitNull: CampgroundCardData["location"] = { province: "Trat", thaiLocation: null };
-    expect(buildLocationText(explicitNull, "th", translations.th.campground.countryName)).toBe(
-      "Trat, ประเทศไทย"
-    );
+  it("[boundary] a `provinceTh` of undefined (explicit) behaves the same as absent", () => {
+    const explicit = { province: "Trat", provinceTh: undefined };
+    expect(buildLocationText(explicit, "th")).toBe("Trat");
+  });
+
+  it("[normal] EC-4 (district slot-in): a district prefixes the province when present, TH mode", () => {
+    const withDistrict = { province: "Narathiwat", provinceTh: "นราธิวาส", district: "เมืองนราธิวาส" };
+    expect(buildLocationText(withDistrict, "th")).toBe("เมืองนราธิวาส, นราธิวาส");
+  });
+
+  it("[normal] EC-4 (district slot-in): a district prefixes the province when present, EN mode", () => {
+    const withDistrict = { province: "Narathiwat", district: "Mueang Narathiwat" };
+    expect(buildLocationText(withDistrict, "en")).toBe("Mueang Narathiwat, Narathiwat");
+  });
+
+  it("[null/empty] EC-4: district null/absent renders province-only (today's real data shape)", () => {
+    expect(buildLocationText({ province: "Trat", district: null }, "th")).toBe("Trat");
+    expect(buildLocationText({ province: "Trat" }, "th")).toBe("Trat");
   });
 });
 
-describe("components/CampgroundCard.tsx — the literal \"Thailand\" is gone (BR-3)", () => {
+describe("components/CampgroundCard.tsx — no country, no hardcoded \"Thailand\" (BR-3)", () => {
   it("[structural] the component source never hardcodes the string \"Thailand\"", () => {
     expect(cardSrc).not.toContain("Thailand");
   });
 
-  it("[structural] the location line reads from the locale dict, not a literal", () => {
-    expect(cardSrc).toContain("t.campground.countryName");
-    expect(cardSrc).toContain("buildLocationText(campground.location, language, t.campground.countryName)");
+  it("[structural] buildLocationText is called with 2 args (province/district only — no country)", () => {
+    expect(cardSrc).toContain("buildLocationText(campground.location, language)");
+  });
+
+  it("[structural] no leftover reference to a country locale key", () => {
+    expect(cardSrc).not.toContain("countryName");
+  });
+});
+
+describe("locales/translations.json — countryName key removed (no longer needed)", () => {
+  it("[regression] campground.countryName does not exist in either language", () => {
+    expect((translations.en.campground as Record<string, unknown>).countryName).toBeUndefined();
+    expect((translations.th.campground as Record<string, unknown>).countryName).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------
-// AC-3 / AC-4 / AC-5 / BR-5 / BR-6 / EC-2 / EC-3 — honest price
+// AC-3 / AC-4 / AC-5 / BR-5 / BR-6 / EC-2 / EC-3 — honest price (unchanged)
 // ---------------------------------------------------------------------------
 describe("buildCardPriceDisplay — AC-3/AC-4/AC-5 (BR-5/BR-6, EC-2/EC-3)", () => {
   const thb = (n: number) => `฿${n.toLocaleString("th-TH")}`;
@@ -139,9 +225,7 @@ describe("components/CampgroundCard.tsx — the /คืน separator + free path
   });
 
   it("[structural] the free branch renders ONLY t.common.free — no perNight suffix alongside it (EC-3)", () => {
-    const match = cardSrc.match(
-      /data-testid="text--card-price">([\s\S]*?)<\/div>/
-    );
+    const match = cardSrc.match(/data-testid="text--card-price">([\s\S]*?)<\/div>/);
     expect(match, "price block not found").not.toBeNull();
     const block = match![1];
     expect(block).toContain("priceDisplay.isFree");
@@ -155,29 +239,89 @@ describe("components/CampgroundCard.tsx — the /คืน separator + free path
 });
 
 // ---------------------------------------------------------------------------
-// Data seam — campCardSelect + wishlist select carry the new fields additively
+// Rework — name-based Thai lookup, real-dataset coverage (coordinator finding)
 // ---------------------------------------------------------------------------
-describe("campCardSelect — CAM-545 additive fields (Seams & refs)", () => {
-  it("[shape] priceHigh is now selected", () => {
-    expect(campCardSelect.priceHigh).toBe(true);
+describe("campCardSelect — the FK relation is GONE; district is wired through instead", () => {
+  it("[regression] location.select does NOT select thaiLocation (the 12-of-652 FK path)", () => {
+    expect("thaiLocation" in campCardSelect.location.select).toBe(false);
   });
 
-  it("[shape] location.select.thaiLocation.select.provinceName is selected", () => {
-    expect(campCardSelect.location.select.thaiLocation.select.provinceName).toBe(true);
+  it("[shape] location.select.district === true (CAM-545: slot-in for future district data)", () => {
+    expect(campCardSelect.location.select.district).toBe(true);
   });
 
   it("[regression] location.select.province is UNCHANGED (BR-4: the province filter depends on it)", () => {
     expect(campCardSelect.location.select.province).toBe(true);
   });
+
+  it("[shape] priceHigh is still selected (kept from the prior slice)", () => {
+    expect(campCardSelect.priceHigh).toBe(true);
+  });
 });
 
-describe("app/wishlist/page.tsx — the same additive select (real caller of CampgroundCard)", () => {
-  it("[structural] thaiLocation is selected under location", () => {
-    expect(wishlistSrc).toContain("thaiLocation: { select: { provinceName: true } }");
+describe("getProvinceThaiNameMap — queries ALL province-level rows, not a FK-scoped subset", () => {
+  it("[normal] queries thailandLocation.findMany with districtCode:'' (the seed's province-record marker), no id/FK filter", async () => {
+    await getProvinceThaiNameMap();
+    expect(mockThailandLocationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { districtCode: "" } })
+    );
   });
 
-  it("[structural] the mapping carries thaiLocation through to the card payload", () => {
-    expect(wishlistSrc).toContain("campSite.location.thaiLocation");
+  it("[normal] the map size equals the full row count returned by the query (77) — nothing dropped client-side", async () => {
+    const map = await getProvinceThaiNameMap();
+    expect(map.size).toBe(ALL_PROVINCES.length);
+  });
+
+  it("[normal] a concrete real pair resolves correctly: Narathiwat -> นราธิวาส (the ticket's own example)", async () => {
+    const map = await getProvinceThaiNameMap();
+    expect(map.get("Narathiwat")).toBe("นราธิวาส");
+  });
+});
+
+describe("withProvinceThaiNames — REAL-dataset coverage (coordinator finding: 12-row regression guard)", () => {
+  it("[normal] 77 of the 78 REAL distinct Location.province values resolve a Thai name — not just one happy row", async () => {
+    const map = await getProvinceThaiNameMap();
+    const cards = REAL_DISTINCT_LOCATION_PROVINCES.map((province) => ({ location: { province } }));
+    const enriched = withProvinceThaiNames(cards, map);
+
+    const resolved = enriched.filter((c) => c.location.provinceTh !== undefined);
+    const unresolved = enriched.filter((c) => c.location.provinceTh === undefined);
+
+    expect(resolved.length).toBe(77);
+    expect(unresolved.map((c) => c.location.province)).toEqual(["x"]);
+  });
+
+  it("[null/empty] a null province never throws and leaves provinceTh undefined", async () => {
+    const map = await getProvinceThaiNameMap();
+    const [card] = withProvinceThaiNames([{ location: { province: null } }], map);
+    expect(card.location.provinceTh).toBeUndefined();
+  });
+
+  it("[structural] never mutates the input card objects", async () => {
+    const map = await getProvinceThaiNameMap();
+    const original = { location: { province: "Bangkok" } };
+    withProvinceThaiNames([original], map);
+    expect("provinceTh" in original.location).toBe(false);
+  });
+
+  it("[boundary] Prove-It (regression, cam-344-availability-badge.test.ts): a card whose `location` is missing entirely never throws — an unrelated fixture that predates this function must not 500 an endpoint that doesn't even render this field", async () => {
+    const map = await getProvinceThaiNameMap();
+    const malformed = { id: "c1" } as unknown as { location: { province: string | null } };
+    expect(() => withProvinceThaiNames([malformed], map)).not.toThrow();
+    const [card] = withProvinceThaiNames([malformed], map);
+    expect(card.location.provinceTh).toBeUndefined();
+  });
+});
+
+describe("app/wishlist/page.tsx — the same name-based seam (real caller of CampgroundCard)", () => {
+  it("[structural] selects district (not thaiLocation) under location", () => {
+    expect(wishlistSrc).toContain("district: true");
+    expect(wishlistSrc).not.toContain("thaiLocation");
+  });
+
+  it("[structural] calls getProvinceThaiNameMap (fail-open) and attaches provinceTh", () => {
+    expect(wishlistSrc).toContain("getProvinceThaiNameMap()");
+    expect(wishlistSrc).toContain("provinceThaiNameMap.get(province)");
   });
 
   it("[scope] still does NOT switch to the shared campCardSelect (CAM-193 scope guard, unaffected)", () => {
@@ -185,8 +329,20 @@ describe("app/wishlist/page.tsx — the same additive select (real caller of Cam
   });
 });
 
+describe("components/CatalogResults.tsx + app/api/campsites/route.ts — enrichment wired into every card-feeding path", () => {
+  it("[structural] CatalogResults.tsx calls getProvinceThaiNameMap + withProvinceThaiNames before serialising", () => {
+    expect(catalogResultsSrc).toContain("getProvinceThaiNameMap()");
+    expect(catalogResultsSrc).toContain("withProvinceThaiNames(campSites, provinceThaiNameMap)");
+  });
+
+  it("[structural] app/api/campsites/route.ts (cursor 'load more') also enriches before serialising", () => {
+    expect(apiCampsitesSrc).toContain("getProvinceThaiNameMap()");
+    expect(apiCampsitesSrc).toContain("withProvinceThaiNames(items, provinceThaiNameMap)");
+  });
+});
+
 // ---------------------------------------------------------------------------
-// AC-6 — favourite icon contrast, RECOMPUTED from the real tokens
+// AC-6 — favourite icon contrast, RECOMPUTED from the real tokens (unchanged)
 // ---------------------------------------------------------------------------
 describe("AC-6 — active heart icon (--primary) contrast, measured not asserted", () => {
   const css = readFileSync(CSS_PATH, "utf8");

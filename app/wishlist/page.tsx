@@ -16,7 +16,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
 import { WishlistPageClient } from "@/components/WishlistPageClient";
-import type { CampSiteCardData } from "@/lib/read-models/camp-card";
+import { getProvinceThaiNameMap, type CampSiteCardData } from "@/lib/read-models/camp-card";
 import { computeAvgRating } from "@/lib/sort-utils";
 import { roundAvgRating } from "@/lib/review-summary";
 
@@ -49,13 +49,15 @@ export default async function WishlistPage() {
                             latitude: true,
                             longitude: true,
                             createdAt: true,
-                            // CAM-545: thaiLocation.provinceName lets the card show the
-                            // Thai province name in TH mode; province (English) itself
-                            // is unchanged (lib/campsite-filters.ts depends on it).
+                            // CAM-545: province (English) is unchanged — lib/campsite-filters.ts
+                            // depends on it. district wired through (see CampSiteCardData's
+                            // doc comment — not populated for any camp yet). The Thai province
+                            // name is resolved downstream by NAME (getProvinceThaiNameMap),
+                            // not via a relation here — see lib/read-models/camp-card.ts.
                             location: {
                                 select: {
                                     province: true,
-                                    thaiLocation: { select: { provinceName: true } },
+                                    district: true,
                                 },
                             },
                             reviews: {
@@ -68,8 +70,19 @@ export default async function WishlistPage() {
                 orderBy: { createdAt: "desc" },
             });
 
+            // CAM-545: name-based Thai province lookup (fail-open — a lookup
+            // error leaves every card on its English province, same as an
+            // unmapped value; never blocks the wishlist from rendering).
+            let provinceThaiNameMap = new Map<string, string>();
+            try {
+                provinceThaiNameMap = await getProvinceThaiNameMap();
+            } catch (err) {
+                console.error("[WishlistPage] Province Thai-name lookup failed (fail-open):", err);
+            }
+
             items = rows.map((row) => {
                 const { reviews, ...campSite } = row.campSite;
+                const province = campSite.location.province ?? "";
                 return {
                     id: campSite.id,
                     nameTh: campSite.nameTh,
@@ -85,10 +98,9 @@ export default async function WishlistPage() {
                     longitude: campSite.longitude,
                     createdAt: campSite.createdAt.toISOString(),
                     location: {
-                        province: campSite.location.province ?? "",
-                        thaiLocation: campSite.location.thaiLocation
-                            ? { provinceName: campSite.location.thaiLocation.provinceName }
-                            : null,
+                        province,
+                        district: campSite.location.district,
+                        provinceTh: province ? provinceThaiNameMap.get(province) : undefined,
                     },
                     avgRating: roundAvgRating(computeAvgRating(reviews)),
                     reviewCount: reviews.length,
