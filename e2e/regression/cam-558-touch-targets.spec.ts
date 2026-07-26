@@ -28,10 +28,19 @@
 import { test, expect } from "@playwright/test";
 import { findCampBySlug } from "./helpers";
 // CAM-570: the 4 accessible names this spec locates by now live in
-// locales/translations.json (were hardcoded English literals). Read them
-// from the same source the app renders from — this spec's job is proving
-// each control is FINDABLE and >=44px, not pinning any particular wording,
-// so a future reword of the copy never needs to touch this file.
+// locales/translations.json (were hardcoded English literals). This spec
+// runs under the `regression` project, whose storageState was captured by
+// `global.setup.ts` with `campvibe_lang` FORCED to "th" (that file's own
+// comment: "Force Thai copy for every regression spec") — the session here
+// always renders Thai, never `en`. Verified directly against a running
+// instance of this branch (not assumed): with that storageState, every one
+// of these 4 controls' accessible name resolves to the TH string.
+// Matching only `th` would just move the same fragility onto a future
+// change to that convention, so each label matches EITHER translation of
+// the same key — findable regardless of which language the session
+// renders, never a re-pinned literal. The >=44x44px bounding-box
+// assertions below are untouched by this — the locator is only how the
+// control is found.
 import translations from "../../locales/translations.json";
 
 const CAMP_SLUG = "phu-kradueng-camp-7"; // unused by ac1-ac6, avoids cross-spec data races
@@ -40,10 +49,17 @@ const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 900 };
 const NARROW_320 = { width: 320, height: 640 };
 const TOUCH_FLOOR = 44;
-const PREVIOUS_IMAGE_LABEL = translations.en.gallery.previousImage;
-const NEXT_IMAGE_LABEL = translations.en.gallery.nextImage;
-const ACCOUNT_MENU_LABEL = translations.en.nav.accountMenuAriaLabel;
-const SWITCH_LANGUAGE_LABEL = translations.en.nav.switchLanguageAriaLabel;
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function eitherLanguage(en: string, th: string): RegExp {
+  return new RegExp(`^(${escapeForRegExp(en)}|${escapeForRegExp(th)})$`);
+}
+const PREVIOUS_IMAGE_LABEL = eitherLanguage(translations.en.gallery.previousImage, translations.th.gallery.previousImage);
+const NEXT_IMAGE_LABEL = eitherLanguage(translations.en.gallery.nextImage, translations.th.gallery.nextImage);
+const ACCOUNT_MENU_LABEL = eitherLanguage(translations.en.nav.accountMenuAriaLabel, translations.th.nav.accountMenuAriaLabel);
+const SWITCH_LANGUAGE_LABEL = eitherLanguage(translations.en.nav.switchLanguageAriaLabel, translations.th.nav.switchLanguageAriaLabel);
 
 async function giveCampTwoImages(request: import("@playwright/test").APIRequestContext) {
   const camp = await findCampBySlug(request, CAMP_SLUG);
