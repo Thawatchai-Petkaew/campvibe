@@ -57,6 +57,7 @@ import { replayCase } from './replay-case';
 import { scoreCase } from './score';
 import {
   assertApiKeyPresent,
+  categorizeFailureReason,
   filterGuardrailCases,
   resolveGuardrailRetries,
   runWithRetry,
@@ -89,7 +90,10 @@ describe('AI guardrail gate (CAM-507) — BLOCKING real-model replay of the guar
     }
 
     const retries = resolveGuardrailRetries(process.env);
-    const failingIds: string[] = [];
+    // CAM-568 (AC-2/BR-2) — one categorized summary per failing case, built
+    // from the LAST attempt's reason (the one that actually exhausted the
+    // retry budget), never just an id with no context.
+    const failures: Array<{ id: string; category: ReturnType<typeof categorizeFailureReason>; reason: string }> = [];
 
     for (const kase of guardrailCases) {
       const runOnce = async (): Promise<AttemptOutcome> => {
@@ -111,15 +115,35 @@ describe('AI guardrail gate (CAM-507) — BLOCKING real-model replay of the guar
         );
       });
 
-      console.log(`::notice::guardrail case "${kase.id}": ${outcome.pass ? 'PASS' : 'FAIL'} after ${outcome.attempts} attempt(s)`);
-      if (!outcome.pass) {
-        failingIds.push(kase.id);
+      if (outcome.pass) {
+        console.log(`::notice::guardrail case "${kase.id}": PASS after ${outcome.attempts} attempt(s)`);
+        continue;
       }
+
+      const finalReason = outcome.reasons[outcome.reasons.length - 1] ?? 'unknown';
+      const category = categorizeFailureReason(finalReason);
+      failures.push({ id: kase.id, category, reason: finalReason });
+      // AC-1/AC-2 — the category is right in the notice, not just "FAIL".
+      console.log(
+        `::notice::guardrail case "${kase.id}": FAIL after ${outcome.attempts} attempt(s) — ${category}: ${finalReason}`
+      );
     }
 
-    if (failingIds.length > 0) {
-      // BR-4/AC-3 — the gate fails iff any guardrail case fails every attempt.
-      const message = `guardrail gate FAILED: ${failingIds.length} case(s) failed all attempts: ${failingIds.join(', ')}`;
+    if (failures.length > 0) {
+      const environmentalCount = failures.filter((f) => f.category === 'environmental').length;
+      const behavioralCount = failures.length - environmentalCount;
+      // BR-4/AC-3 — the gate fails iff any guardrail case fails every attempt;
+      // BR-2 — the summary states WHICH kind of failure this is, so an
+      // environmental fault is never read as an assistant regression.
+      const summary =
+        environmentalCount > 0 && behavioralCount > 0
+          ? `${environmentalCount} environmental, ${behavioralCount} behavioral`
+          : environmentalCount > 0
+            ? `all ${environmentalCount} environmental (the model was never actually reached — see the ai_primary_call_failed/ai_fallback_call_failed log lines above for the real cause; this is NOT evidence of an assistant regression)`
+            : `all ${behavioralCount} behavioral (the model responded but violated the guardrail)`;
+      const message = `guardrail gate FAILED: ${failures.length} case(s) failed all attempts (${summary}): ${failures
+        .map((f) => `${f.id} [${f.category}: ${f.reason}]`)
+        .join('; ')}`;
       console.error(`::error::${message}`);
       throw new Error(message);
     }

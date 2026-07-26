@@ -848,7 +848,18 @@ function extractMessage(json: unknown): OpenRouterMessage | null {
   return parsed.data.choices?.[0]?.message ?? null;
 }
 
-type ModelCallOutcome = { ok: true; message: OpenRouterMessage } | { ok: false };
+/**
+ * CAM-568 — a failed outcome now carries WHY (never a bare `{ok:false}`):
+ * `status` is the HTTP status when a response was received at all (absent
+ * for a network-level throw/abort); `reason` is a short, safe diagnostic
+ * string — a status line or a caught exception's `.message` — NEVER the
+ * request/response body, the API key, or a header value (observability.md:
+ * no secret/PII in any log line). This is purely an internal/log-facing
+ * type; the public `AssistantTurnResult.error` contract (a fixed generic
+ * code, `GENERIC_ERROR`) is UNCHANGED — every existing `.toEqual`-pinned
+ * fixture on that shape stays byte-identical.
+ */
+type ModelCallOutcome = { ok: true; message: OpenRouterMessage } | { ok: false; status?: number; reason: string };
 
 async function callModelOnce(
   apiKey: string,
@@ -859,13 +870,17 @@ async function callModelOnce(
 ): Promise<ModelCallOutcome> {
   try {
     const res = await callOpenRouter(apiKey, model, messages, ctx, options);
-    if (!res.ok) return { ok: false };
+    if (!res.ok) {
+      return { ok: false, status: res.status, reason: `HTTP ${res.status} ${res.statusText}` };
+    }
     const json: unknown = await res.json();
     const message = extractMessage(json);
-    if (!message) return { ok: false };
+    if (!message) {
+      return { ok: false, status: res.status, reason: 'response body did not match the expected completion shape' };
+    }
     return { ok: true, message };
-  } catch {
-    return { ok: false };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : 'unknown error' };
   }
 }
 
@@ -886,11 +901,12 @@ async function callModelWithFallback(
   const primary = await callModelOnce(apiKey, model, messages, ctx, options);
   if (primary.ok) return { outcome: primary, model };
 
-  console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model }));
+  // CAM-568 (BR-1) — status/reason travel with the event, never a bare `{model}`.
+  console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model, status: primary.status ?? null, reason: primary.reason }));
   const fallbackModel = resolveFallbackModel();
   const fallback = await callModelOnce(apiKey, fallbackModel, messages, ctx, options);
   if (!fallback.ok) {
-    console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel }));
+    console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel, status: fallback.status ?? null, reason: fallback.reason }));
   }
   return { outcome: fallback, model: fallbackModel };
 }
@@ -1561,10 +1577,11 @@ function composeAbortSignals(signals: AbortSignal[]): AbortSignal {
   return controller.signal;
 }
 
+/** CAM-568 — the `ok:false` result variant carries the same `status`/`reason` diagnostic detail as `ModelCallOutcome` (see its docblock); never the request/response body or a secret. */
 type LowLevelStreamEvent =
   | { kind: 'content'; text: string }
   | { kind: 'result'; ok: true; message: OpenRouterMessage }
-  | { kind: 'result'; ok: false };
+  | { kind: 'result'; ok: false; status?: number; reason: string };
 
 /** Makes ONE streaming completion call and reconstructs the exact `{content, tool_calls}` shape `callModelOnce` builds from a single JSON body — transport-only difference. Yields raw content chunks AS THEY ARRIVE only when this call's mode resolves to `content`; a `tool_calls` call is drained with zero `content` events. */
 async function* streamOneCompletion(
@@ -1592,12 +1609,17 @@ async function* streamOneCompletion(
       body: JSON.stringify(body),
       signal,
     });
-  } catch {
-    yield { kind: 'result', ok: false };
+  } catch (err) {
+    yield { kind: 'result', ok: false, reason: err instanceof Error ? err.message : 'unknown error' };
     return;
   }
   if (!res.ok || !res.body) {
-    yield { kind: 'result', ok: false };
+    yield {
+      kind: 'result',
+      ok: false,
+      status: res.status,
+      reason: !res.body ? `HTTP ${res.status} ${res.statusText} (no response body)` : `HTTP ${res.status} ${res.statusText}`,
+    };
     return;
   }
 
@@ -1632,11 +1654,11 @@ async function* streamOneCompletion(
         }
       }
     }
-  } catch {
+  } catch (err) {
     // Malformed frame (EC-5) or a network drop mid-stream (AC-4) — the
     // caller distinguishes "before vs after first content" by whether it
     // already forwarded a delta for THIS call.
-    yield { kind: 'result', ok: false };
+    yield { kind: 'result', ok: false, reason: `stream read failed: ${err instanceof Error ? err.message : 'unknown error'}` };
     return;
   }
 
@@ -1664,10 +1686,16 @@ async function* drainOneStreamingCall(
   ctx: ToolContext,
   options: CallOptions,
   signal: AbortSignal
-): AsyncGenerator<{ type: 'delta'; text: string }, { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean }, undefined> {
+): AsyncGenerator<
+  { type: 'delta'; text: string },
+  { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean; status?: number; reason?: string },
+  undefined
+> {
   let contentStarted = false;
   let ok = false;
   let message: OpenRouterMessage | undefined;
+  let status: number | undefined;
+  let reason: string | undefined;
   for await (const ev of streamOneCompletion(apiKey, model, messages, ctx, options, signal)) {
     if (ev.kind === 'content') {
       contentStarted = true;
@@ -1675,9 +1703,11 @@ async function* drainOneStreamingCall(
     } else {
       ok = ev.ok;
       message = ev.ok ? ev.message : undefined;
+      status = ev.ok ? undefined : ev.status;
+      reason = ev.ok ? undefined : ev.reason;
     }
   }
-  return { ok, message, contentStarted };
+  return { ok, message, contentStarted, status, reason };
 }
 
 function makeCallSignal(externalSignal?: AbortSignal): AbortSignal {
@@ -1775,7 +1805,7 @@ export async function* runAssistantTurnFromMessagesStreaming(
     const isForcedFinalIteration = iteration === MAX_AGENT_ITERATIONS;
     const callOptions: CallOptions = isForcedFinalIteration ? { toolChoice: 'none' } : {};
 
-    let outcome: { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean };
+    let outcome: { ok: boolean; message?: OpenRouterMessage; contentStarted: boolean; status?: number; reason?: string };
     let modelUsed: string;
 
     if (pinnedModel === null) {
@@ -1785,11 +1815,12 @@ export async function* runAssistantTurnFromMessagesStreaming(
         outcome = primary;
         modelUsed = primaryModel;
       } else {
-        console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model: primaryModel }));
+        // CAM-568 (BR-1) — status/reason travel with the event, never a bare `{model}`.
+        console.warn(JSON.stringify({ level: 'warn', event: 'ai_primary_call_failed', model: primaryModel, status: primary.status ?? null, reason: primary.reason ?? null }));
         const fallbackModel = resolveFallbackModel();
         const fallback = yield* drainOneStreamingCall(apiKey, fallbackModel, messages, ctx, callOptions, makeCallSignal(externalSignal));
         if (!fallback.ok) {
-          console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel }));
+          console.error(JSON.stringify({ level: 'error', event: 'ai_fallback_call_failed', model: fallbackModel, status: fallback.status ?? null, reason: fallback.reason ?? null }));
         }
         outcome = fallback;
         modelUsed = fallbackModel;

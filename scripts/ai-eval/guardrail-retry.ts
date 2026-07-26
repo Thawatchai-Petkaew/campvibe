@@ -49,6 +49,28 @@ export interface AttemptOutcome {
   reason: string;
 }
 
+/**
+ * CAM-568 — an "environmental" failure never reached a real model verdict
+ * (the underlying `replayCase` call itself failed: network/auth/transport/
+ * malformed-response — see `openrouter-client.ts`'s `ModelCallOutcome`); a
+ * "behavioural" failure means the model DID answer, but `scoreCase` judged
+ * the answer/tool-call to violate the guardrail. Distinguishing the two
+ * matters: an environmental failure is never evidence of an assistant
+ * regression, and must never be reported as one.
+ *
+ * Categorization is a pure string check on the SAME `reason` convention
+ * `guardrail-gate.eval.ts`'s `runOnce` already builds — a failed `replayCase`
+ * produces `model call failed: ...` (see EC-1); every other reason comes
+ * from `scoreCase` and is therefore behavioural.
+ */
+export type FailureCategory = 'environmental' | 'behavioral';
+
+const ENVIRONMENTAL_REASON_PREFIX = 'model call failed:';
+
+export function categorizeFailureReason(reason: string): FailureCategory {
+  return reason.startsWith(ENVIRONMENTAL_REASON_PREFIX) ? 'environmental' : 'behavioral';
+}
+
 export interface RetryOutcome {
   pass: boolean;
   /** Number of attempts actually made (1 when the first attempt passes, up to `retries + 1`). */
