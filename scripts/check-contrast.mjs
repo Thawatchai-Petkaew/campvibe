@@ -245,8 +245,14 @@ export const ENFORCED_PAIRS = [
   // "nearly invisible in light mode" defect). The established fix (CAM-451,
   // AiChatDetailCard) is `text-foreground/70`, not a new token — this pair
   // measures exactly that Tailwind opacity modifier via `fgAlpha`.
+  // CAM-569: the card carousel's `{cur}/{N}` pagination counter sits on this
+  // SAME `--ai-surface` glass (no wrapping `bg-ai-tint` bubble there) and
+  // hit the identical defect — CAM-541 could not fix it because the file
+  // belonged to CAM-547. It reuses this exact already-enforced pair rather
+  // than adding a numerically-duplicate row (this script measures token
+  // math, not per-component usage), so the context below now names it too.
   { fg: "--foreground", fgAlpha: 0.7, bg: "--ai-surface", floor: 4.5, kind: "text",
-    context: "assistant secondary text (header role, welcome examples label, zero-result notice) on the glass surface" },
+    context: "assistant secondary text (header role, welcome examples label, zero-result notice, the card carousel's {cur}/{N} pagination counter) on the glass surface" },
   { fg: "--foreground", fgAlpha: 0.7, bg: "--ai-tint", floor: 4.5, kind: "text",
     context: "assistant secondary text (AiChatDetailCard captions) on the tint surface" },
 

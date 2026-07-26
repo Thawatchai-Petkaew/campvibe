@@ -84,6 +84,19 @@
  *     and every real phone's landscape width already exceeds 640px, so a
  *     notch's left/right safe-area-inset (landscape-only) can never be
  *     nonzero here — see story.md BR-8 for the full reasoning.
+ *
+ * CAM-569 (owner defect fix, 2026-07-26): the `{cur}/{N}` pagination counter
+ *   (`cards.length > MAX_DOTS`) rendered `text-muted-foreground`, which
+ *   CAM-541 measured at 4.40:1 on `--ai-surface` in light mode — under the
+ *   4.5:1 body-text floor (the same defect CAM-541 fixed on this panel's
+ *   other secondary text; it could not fix it here because this file
+ *   belonged to CAM-547). Fix: `text-foreground/70`, CAM-541's own established
+ *   remedy (measured 7.41:1 light / 8.69:1 dark on `--ai-surface`) — no new
+ *   token. CAM-547's dot indicator (the `cards.length <= MAX_DOTS` branch
+ *   below) is untouched: its active-pill/inactive-dot classes set their own
+ *   `bg-*` fill and never read this container's text colour, and colour was
+ *   already proven insufficient there (CAM-547) — a shape fix, not this
+ *   text-contrast fix, is what that case needed.
  */
 "use client";
 
@@ -214,7 +227,18 @@ export function AiChatCardCarousel({ cards, onSelectCamp }: AiChatCardCarouselPr
         <div
           aria-hidden="true"
           data-testid="status--ai-chat-cards-position"
-          className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground"
+          // CAM-569: the {cur}/{N} counter (rendered only when cards.length >
+          // MAX_DOTS) sat on `text-muted-foreground`, the same sub-4.5:1
+          // light-mode pair CAM-541 measured and fixed on this panel's other
+          // secondary text (`--muted-foreground` on `--ai-surface` = 4.40:1,
+          // under the 4.5 floor) — CAM-541 couldn't fix it here because this
+          // file belonged to CAM-547. Reusing CAM-541's exact remedy:
+          // text-foreground/70 (measured 7.41:1 light / 8.69:1 dark on
+          // --ai-surface via scripts/check-contrast.mjs's fgAlpha mechanism).
+          // This class colours the counter's text node only — the dots below
+          // set their own bg-* classes and are unaffected (CAM-547's shape
+          // fix stays exactly as shipped).
+          className="flex items-center gap-1.5 text-xs tabular-nums text-foreground/70"
         >
           {cards.length > MAX_DOTS
             ? `${index + 1}/${cards.length}`
