@@ -21,14 +21,17 @@ test("create-camp form: filling required fields creates one new owned CampSite r
   await page.goto("/dashboard/campsites/new");
   await page.getByTestId("input--campground-name-th").fill(newNameTh);
 
-  // Pick a real location via the LocationPicker combobox (required — see
-  // below): this sets a valid thaiLocationId, matching real host behavior.
-  // The trigger button's placeholder text is the only reliable locator —
-  // role="combobox" is not a "name from content" role, so getByRole(...,
-  // { name }) cannot find it by its visible text.
-  await page.getByText("พิมพ์ชื่อจังหวัดหรืออำเภอ...").click();
-  await page.getByRole("option").first().waitFor();
-  await page.getByRole("option").first().click();
+  // Pick a real province via the CAM-559 cascading LocationPicker (required —
+  // see below): this sets a valid thaiLocationId, matching real host
+  // behavior. role="combobox" is not a "name from content" role, so
+  // getByRole(..., { name }) cannot find the trigger by its visible text —
+  // use the stable data-testid CAM-559 added on the trigger/row specifically
+  // for this (was: page.getByText of the old flat picker's placeholder copy,
+  // which no longer exists — the unselected trigger now shows the level name
+  // "จังหวัด" instead of a search hint).
+  await page.getByTestId("btn--location-picker-province").click();
+  await page.getByTestId("row--location-picker-province-option").first().waitFor();
+  await page.getByTestId("row--location-picker-province-option").first().click();
 
   // Whole-camp mode (default) requires maxGuestsPerDay >= 1 to pass the
   // client guard; maxTentsPerDay shares the same campSiteSchema >=1 rule

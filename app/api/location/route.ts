@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
     }
 
-    const { lat, lon, country, province, district, region, thaiLocationId } = parsed.data;
+    const { lat, lon, country, province, district, subDistrict, region, thaiLocationId } = parsed.data;
 
     try {
         // S5: populate the conformant Country + AdminArea links so live-created camps (not just
@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
                 // silently dropped before (BR-1: the "form collects, API
                 // ignores" defect CAM-551 found).
                 district,
+                // CAM-559: sub-district, wired through the SAME seam CAM-553
+                // built for district — the cascading picker's third level.
+                subDistrict,
                 region: region || 'North',
                 lat,
                 lon,

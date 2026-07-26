@@ -419,7 +419,9 @@
             "deleteError": "Could not delete. Please try again.",
             "district": "District",
             "districtLabel": "District",
-            "districtLabelPlaceholder": "District name (optional)"
+            "districtLabelPlaceholder": "District name (optional)",
+            "subDistrict": "Sub-district",
+            "subDistrictLabelPlaceholder": "Sub-district name (optional)"
         },
         "gallery": {
             "viewerTitle": "Photo viewer",
@@ -508,10 +510,12 @@
             "clearAll": "Clear all filters"
         },
         "locationPicker": {
-            "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
-            "noResults": "No location found.",
-            "wholeProvince": "Whole Province"
+            "provinceSearchPlaceholder": "Search province...",
+            "districtSearchPlaceholder": "Search district...",
+            "subDistrictSearchPlaceholder": "Search sub-district...",
+            "selectProvinceFirst": "Select a province first",
+            "selectDistrictFirst": "Select a district first",
+            "noResults": "No location found."
         },
         "filterModal": {
             "any": "Any",
@@ -1483,7 +1487,9 @@
             "deleteError": "ลบไม่สำเร็จ กรุณาลองอีกครั้ง",
             "district": "อำเภอ",
             "districtLabel": "อำเภอ",
-            "districtLabelPlaceholder": "ชื่ออำเภอ (ไม่บังคับ)"
+            "districtLabelPlaceholder": "ชื่ออำเภอ (ไม่บังคับ)",
+            "subDistrict": "ตำบล/แขวง",
+            "subDistrictLabelPlaceholder": "ชื่อตำบล/แขวง (ไม่บังคับ)"
         },
         "gallery": {
             "viewerTitle": "ดูรูปภาพ",
@@ -1551,10 +1557,12 @@
             "clearAll": "ล้างตัวกรองทั้งหมด"
         },
         "locationPicker": {
-            "searchPlaceholder": "Type province or district...",
-            "searchPlaceholderTh": "พิมพ์ชื่อจังหวัดหรืออำเภอ...",
-            "noResults": "ไม่พบสถานที่",
-            "wholeProvince": "ทั้งจังหวัด"
+            "provinceSearchPlaceholder": "ค้นหาจังหวัด...",
+            "districtSearchPlaceholder": "ค้นหาอำเภอ...",
+            "subDistrictSearchPlaceholder": "ค้นหาตำบล...",
+            "selectProvinceFirst": "กรุณาเลือกจังหวัดก่อน",
+            "selectDistrictFirst": "กรุณาเลือกอำเภอก่อน",
+            "noResults": "ไม่พบสถานที่"
         },
         "filterModal": {
             "any": "ทั้งหมด",

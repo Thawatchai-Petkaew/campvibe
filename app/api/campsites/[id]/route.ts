@@ -10,6 +10,7 @@ import { auth } from '@/lib/auth';
 import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { CATALOG_TAG, campTag, campSlugTag } from '@/lib/catalog-cache';
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
+import { updateCampSiteLocationSchema } from '@/lib/validations/location';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -158,11 +159,44 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Update Location if provided (but don't auto-update lat/lon from camp site)
     // Lat/Lon are independent - user enters manually
-    if (data.locationId && (body as any).province) {
+    //
+    // CAM-556/CAM-559: `province`/`district`/`subDistrict` live on the related
+    // `Location` row, not on `CampSite` — they are NOT part of `campSiteSchema`,
+    // so they were previously read straight off the raw, unvalidated body
+    // (`(body as any).province`) and ONLY `province` was ever written. A host
+    // could pick all three levels on create (CAM-553's fixed path) and lose
+    // district/subDistrict on the very next edit. Validate all three at the
+    // boundary here (same zod-at-the-boundary rule as every other field on
+    // this route), then write only the ones actually present in the body —
+    // an explicit "" clears the column to null (CAM-341/CAM-360 pattern);
+    // an omitted key is a true no-op skip (never touches the column).
+    const locationFieldsValidation = updateCampSiteLocationSchema.safeParse({
+      province: (body as Record<string, unknown>).province,
+      district: (body as Record<string, unknown>).district,
+      subDistrict: (body as Record<string, unknown>).subDistrict,
+    });
+    if (!locationFieldsValidation.success) {
+      return apiError('Validation Error', 400, locationFieldsValidation.error.format());
+    }
+    const locationFields = locationFieldsValidation.data;
+    const hasLocationFieldEdit =
+      locationFields.province !== undefined ||
+      locationFields.district !== undefined ||
+      locationFields.subDistrict !== undefined;
+
+    if (data.locationId && hasLocationFieldEdit) {
       await prisma.location.update({
         where: { id: data.locationId },
         data: {
-          province: (body as any).province
+          ...(locationFields.province !== undefined && {
+            province: locationFields.province === '' ? null : locationFields.province,
+          }),
+          ...(locationFields.district !== undefined && {
+            district: locationFields.district === '' ? null : locationFields.district,
+          }),
+          ...(locationFields.subDistrict !== undefined && {
+            subDistrict: locationFields.subDistrict === '' ? null : locationFields.subDistrict,
+          }),
           // Note: lat/lon are NOT updated from camp site data
           // They remain independent
         }
