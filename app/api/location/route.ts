@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-utils';
 import { createLocationSchema } from '@/lib/validations/location';
-import { matchAdminArea } from '@/lib/geo/admin-area-match';
+import { matchAdminArea, type AdminAreaLevel } from '@/lib/geo/admin-area-match';
 
 /**
  * CAM-566 — this route used to carry its own standalone port of the
@@ -14,9 +14,10 @@ import { matchAdminArea } from '@/lib/geo/admin-area-match';
  *
  * `district`/`subDistrict` are plain free-text `Input` fields on
  * `CampgroundForm.tsx` (unlike `province`, which is chosen from the
- * cascading `ThailandLocation`-backed select), so a host may type a prefix a
- * select would never produce — the shared matcher's normalization still
- * strips it before matching.
+ * cascading `AdminArea`-backed select — CAM-574 retired the `ThailandLocation`
+ * id-bridge this select used to round-trip through), so a host may type a
+ * prefix a select would never produce — the shared matcher's normalization
+ * still strips it before matching.
  */
 
 export async function POST(request: NextRequest) {
@@ -37,41 +38,49 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
     }
 
-    const { lat, lon, country, province, district, subDistrict, region, thaiLocationId } = parsed.data;
+    const { lat, lon, country, province, district, subDistrict, region, adminAreaId: pickedAdminAreaId } = parsed.data;
 
     try {
         // S5: populate the conformant Country + AdminArea links so live-created camps (not just
         // seeded ones) get a region linkage. Only set countryCode if the Country actually exists
-        // (FK-safe); resolve the province AdminArea from the legacy thaiLocationId.
+        // (FK-safe).
         const wantCountry = (!country || country === 'Thailand') ? 'TH' : country;
         const knownCountry = await prisma.country.findUnique({ where: { code: wantCountry }, select: { code: true } });
-        let adminAreaId: string | undefined;
-        if (thaiLocationId) {
-            const tl = await prisma.thailandLocation.findUnique({ where: { id: thaiLocationId }, select: { provinceCode: true } });
-            if (tl) {
-                const provinceArea = await prisma.adminArea.findUnique({
-                    where: { countryCode_level_code: { countryCode: 'TH', level: 'PROVINCE', code: tl.provinceCode } },
-                    select: { id: true },
-                });
-                adminAreaId = provinceArea?.id;
 
-                // CAM-563 — walk deeper than PROVINCE when the host also typed a
-                // district/sub-district (CAM-553/CAM-559's free-text fields):
-                // `adminAreaId` becomes the DEEPEST level actually resolved
-                // (subDistrict ?? district ?? province), the SAME convention
-                // the CAM-563 backfill script + CAM-554's geocode resolver use.
-                // A level with no raw value, or no match, stops the walk here —
-                // never guesses the next level from an unmatched parent, and
-                // never regresses `adminAreaId` below the province match above.
-                if (provinceArea && district) {
-                    const districtArea = await matchAdminArea(prisma, 'DISTRICT', district, provinceArea.id);
+        // CAM-574: the legacy `thaiLocationId` -> provinceCode -> AdminArea lookup is
+        // retired — the client (LocationPicker.tsx) now sends the AdminArea id
+        // directly. Verify it actually exists (FK-safe; never trust the client id
+        // blindly) and note its level so the district/sub-district walk below only
+        // continues past whatever depth the client's pick already reached.
+        let adminAreaId: string | undefined;
+        let adminAreaLevel: AdminAreaLevel | undefined;
+        if (pickedAdminAreaId) {
+            const pickedArea = await prisma.adminArea.findUnique({
+                where: { id: pickedAdminAreaId },
+                select: { id: true, level: true },
+            });
+            if (pickedArea) {
+                adminAreaId = pickedArea.id;
+                adminAreaLevel = pickedArea.level;
+
+                // CAM-563 — walk deeper than the client's pick when the host also
+                // typed a district/sub-district (CAM-553/CAM-559's free-text
+                // fields): `adminAreaId` becomes the DEEPEST level actually
+                // resolved, the SAME convention the CAM-563 backfill script +
+                // CAM-554's geocode resolver use. A level with no raw value, or no
+                // match, stops the walk here — never guesses the next level from
+                // an unmatched parent, and never regresses `adminAreaId` below the
+                // level the client already resolved.
+                if (adminAreaLevel === 'PROVINCE' && district) {
+                    const districtArea = await matchAdminArea(prisma, 'DISTRICT', district, adminAreaId);
                     if (districtArea) {
                         adminAreaId = districtArea.id;
-                        if (subDistrict) {
-                            const subDistrictArea = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrict, districtArea.id);
-                            if (subDistrictArea) adminAreaId = subDistrictArea.id;
-                        }
+                        adminAreaLevel = 'DISTRICT';
                     }
+                }
+                if (adminAreaLevel === 'DISTRICT' && subDistrict) {
+                    const subDistrictArea = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrict, adminAreaId);
+                    if (subDistrictArea) adminAreaId = subDistrictArea.id;
                 }
             }
         }
@@ -99,7 +108,6 @@ export async function POST(request: NextRequest) {
                 region: region || 'North',
                 lat,
                 lon,
-                thaiLocationId,
                 countryCode: knownCountry?.code,
                 adminAreaId,
             }

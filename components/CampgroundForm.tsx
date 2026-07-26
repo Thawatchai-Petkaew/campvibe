@@ -294,7 +294,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
         images: [] as string[],
         locationId: "",
-        thaiLocationId: "",
+        // CAM-574: replaces the retired `thaiLocationId` (a `ThailandLocation.id`
+        // FK) — the deepest `AdminArea` node LocationPicker resolved.
+        adminAreaId: "",
         
         // Ownership & Pricing
         ownershipType: "" as string,
@@ -384,21 +386,23 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 // no stored coordinates at all now prefills empty, not 13.7563.
                 latitude: initialData.latitude ?? "",
                 longitude: initialData.longitude ?? "",
-                province: initialData.location?.thaiLocation 
-                    ? (language === 'th' ? initialData.location.thaiLocation.provinceName : initialData.location.thaiLocation.provinceNameEn)
-                    : initialData.location?.province || "",
+                // CAM-574: prefer the id-derived bilingual name (`provinceTh`/
+                // `provinceEn`, attached server-side by getCampSiteWithCapacity
+                // via resolveLocationDisplayNames off the resolved `adminArea`
+                // chain — replaces the retired `thaiLocation` FK relation),
+                // falling back to the raw stored `Location.province` string.
+                province: (language === 'th' ? initialData.location?.provinceTh : initialData.location?.provinceEn)
+                    || initialData.location?.province || "",
                 // CAM-556/CAM-559: fall back to the raw stored `Location.district`
-                // (mirrors `province`'s existing fallback two lines above) - the
-                // old prefill ONLY read the `thaiLocation` FK relation, so a
-                // district saved as plain text (no FK match) rendered blank on
-                // edit; now that the edit PUT actually WRITES this box's value
-                // (CAM-556 fix), a blank prefill would silently clear a real
-                // stored district on the very next save.
-                district: initialData.location?.thaiLocation?.districtName
-                    ? (language === 'th' ? initialData.location.thaiLocation.districtName : initialData.location.thaiLocation.districtNameEn)
-                    : initialData.location?.district || "",
-                // CAM-559: sub-district has no thaiLocation-FK path at all (that
-                // legacy table cannot hold one) - always the raw stored value.
+                // (mirrors `province`'s existing fallback two lines above) - a
+                // district saved as plain text (no AdminArea match) rendered
+                // blank on edit; now that the edit PUT actually WRITES this
+                // box's value (CAM-556 fix), a blank prefill would silently
+                // clear a real stored district on the very next save.
+                district: (language === 'th' ? initialData.location?.districtTh : initialData.location?.districtEn)
+                    || initialData.location?.district || "",
+                // CAM-559: sub-district has no free-text-fallback source of its
+                // own beyond the raw stored value.
                 subDistrict: initialData.location?.subDistrict || "",
                 checkInTime: initialData.checkInTime || "14:00",
                 checkOutTime: initialData.checkOutTime || "12:00",
@@ -418,7 +422,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
                 images: toImageUrlList(initialData.images),
                 locationId: initialData.locationId || "",
-                thaiLocationId: initialData.location?.thaiLocationId || "",
+                adminAreaId: initialData.location?.adminAreaId || "",
                 isVerified: initialData.isVerified ?? false,
                 isActive: initialData.isActive ?? true,
                 isPublished: initialData.isPublished ?? false,
@@ -594,7 +598,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         // Lat/Lon are independent - user enters manually
                         lat: formData.latitude,
                         lon: formData.longitude,
-                        thaiLocationId: formData.thaiLocationId
+                        adminAreaId: formData.adminAreaId
                     })
                 });
                 const location = await locRes.json();

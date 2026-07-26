@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { apiError, apiSuccess } from '@/lib/api-utils';
 import type { PermissionCode, TeamRole } from '@/lib/team-permissions';
 import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
+import { adminAreaChainSelect, resolveLocationDisplayNames } from '@/lib/read-models/camp-card';
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth();
@@ -21,10 +22,10 @@ export async function GET(request: NextRequest) {
       prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, name: true, image: true, role: true } }),
       prisma.campSite.findMany({
         where: { operatorId: userId },
-        include: {
-          location: { include: { thaiLocation: true } },
-          _count: { select: { bookings: true, reviews: true } },
-        },
+        // CAM-574: `ownedSites` is only ever reduced to `.map(s => s.id)`
+        // below — `location` was pure over-fetch (an unused `thaiLocation`
+        // FK relation), dropped rather than swapped to `adminArea`.
+        select: { id: true },
       }),
       prisma.campSiteTeamMember.findMany({
         where: { userId, isActive: true },
@@ -56,7 +57,12 @@ export async function GET(request: NextRequest) {
       ? await prisma.campSite.findMany({
           where: { id: { in: campSiteIdsForListing } },
           include: {
-            location: { include: { thaiLocation: true } },
+            // CAM-574: the retired `thaiLocation` FK relation is replaced by
+            // the resolved AdminArea chain; bilingual display names are
+            // attached onto each row's `location` below
+            // (resolveLocationDisplayNames), same pattern as
+            // `lib/read-models/camp-card.ts`'s `withProvinceThaiNames`.
+            location: { include: { adminArea: { select: adminAreaChainSelect } } },
             _count: { select: { bookings: true, reviews: true } },
             // CAM-349: the My Camp Sites list renders camp.images[0].url as its
             // thumbnail; one image is enough for the list surface.
@@ -97,7 +103,13 @@ export async function GET(request: NextRequest) {
       const eff = memberPermByCampSiteId.get(cs.id) || [];
       const canUpdate = isPlatformAdmin || isOwner || hasPermission(eff, "CAMPSITE_UPDATE");
       const canDelete = isPlatformAdmin || isOwner || hasPermission(eff, "CAMPSITE_DELETE");
-      return { ...cs, canUpdate, canDelete };
+      // CAM-574: bilingual province/district names derived from the resolved
+      // AdminArea chain (replaces the retired `thaiLocation` FK relation the
+      // client used to read directly).
+      const location = cs.location
+        ? { ...cs.location, ...resolveLocationDisplayNames(cs.location.adminArea ?? null) }
+        : cs.location;
+      return { ...cs, location, canUpdate, canDelete };
     });
 
     return apiSuccess({

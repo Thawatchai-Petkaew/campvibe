@@ -16,7 +16,9 @@ import { z } from 'zod';
  *  - district: optional string, trimmed, max 100 chars (CAM-553)
  *  - subDistrict: optional string, trimmed, max 100 chars (CAM-559)
  *  - region: optional string, trimmed, max 100 chars
- *  - thaiLocationId: optional string UUID (FK to ThailandLocation)
+ *  - adminAreaId: optional string UUID (FK to AdminArea — CAM-574: replaces
+ *    the retired `thaiLocationId` FK to `ThailandLocation`; the deepest
+ *    AdminArea node the picker/pin resolved, province or deeper)
  *
  * All string fields are trimmed at parse time; no field exposes internal
  * column names or DB identifiers to the client error shape.
@@ -29,7 +31,7 @@ export const createLocationSchema = z.object({
     district: z.string().trim().max(100).optional(),
     subDistrict: z.string().trim().max(100).optional(),
     region: z.string().trim().max(100).optional(),
-    thaiLocationId: z.string().uuid().optional(),
+    adminAreaId: z.string().uuid().optional(),
 });
 
 export type CreateLocationInput = z.infer<typeof createLocationSchema>;

@@ -773,7 +773,9 @@ async function main() {
             province: provinceNameEn || 'Unknown',
             lat: campData.latitude,
             lon: campData.longitude,
-            thaiLocationId: thaiLoc?.id,
+            // CAM-574: the retired `thaiLocationId` FK is no longer written;
+            // `thaiLoc` is kept only to derive `adminAreaId` below (its
+            // `provinceCode` is the join key into `provinceAreaByCode`).
             // S5: link to the conformant Country + AdminArea (province node)
             countryCode: 'TH',
             adminAreaId: thaiLoc ? provinceAreaByCode[thaiLoc.provinceCode] : undefined,

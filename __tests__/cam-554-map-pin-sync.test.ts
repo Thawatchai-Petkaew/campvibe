@@ -108,7 +108,11 @@ describe('AC-2: dropping/dragging the pin resolves all three levels', () => {
         expect(body).toContain('setSelectedProvince(resolved.province)');
         expect(body).toContain('setSelectedDistrict(resolved.district)');
         expect(body).toContain('setSelectedSubDistrict(resolved.subDistrict)');
-        expect(body).toContain('onChange(deriveValue(resolved.province, resolved.district, resolved.subDistrict))');
+        // CAM-574: `deriveValue` now takes a 4th override arg — the geocode
+        // response's OWN `adminAreaId` (a real AdminArea id), never derived
+        // from `resolved.province`/`district`'s `.id` (those stay
+        // ThailandLocation ids for that untouched response shape).
+        expect(body).toContain('onChange(deriveValue(resolved.province, resolved.district, resolved.subDistrict, resolved.adminAreaId))');
     });
 
     it('an EMPTY current selection adopts the resolved pin silently (nothing to lose)', () => {

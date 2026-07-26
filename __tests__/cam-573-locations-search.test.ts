@@ -1,28 +1,27 @@
 /**
- * cam-573-locations-search.test.ts — CAM-573 AC-1/AC-2
+ * cam-573-locations-search.test.ts — CAM-573 AC-1/AC-2, updated by CAM-574
  *
- * `GET /api/locations/search?type=province|district` moves its match off
- * `ThailandLocation` onto `AdminArea` (the picker's data source), bridging
- * every matched candidate back to a real `ThailandLocation.id` so
- * `LocationPicker.tsx`'s `thaiLocationId` (a live FK, write path untouched
- * by this story) never regresses — see tech.md "The id-bridge".
+ * `GET /api/locations/search?type=province|district` moved its match off
+ * `ThailandLocation` onto `AdminArea` (CAM-573). CAM-574 (this update) retired
+ * the `ThailandLocation` id-bridge CAM-573 built on top of that — the
+ * response `id` is now the real `AdminArea.id` directly, no bridge, no
+ * `ThailandLocation` read on this endpoint at all. `LocationPicker.tsx` sends
+ * this `id` straight through to `POST /api/location` as `adminAreaId`.
  *
  * Coverage matrix (qa.md §7):
  *   normal      — province/district search matches AdminArea, response
- *                 carries the bridged ThailandLocation id
+ *                 carries the AdminArea id directly (no bridge)
  *   null/empty  — no query text still returns candidates (browse-all);
  *                 missing provinceCode on a district request
- *   boundary    — a candidate with no ThailandLocation counterpart is
- *                 dropped, never fabricated (EC-1)
  *   error/validation — a district request with no provinceCode never runs
- *                 an unscoped nationwide AdminArea query (BR-3)
+ *                 an unscoped nationwide AdminArea query (BR-3); a DB error
+ *                 returns a safe 500 with no leak
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mockAdminAreaFindMany = vi.fn();
 const mockAdminAreaFindUnique = vi.fn();
-const mockThailandLocationFindMany = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -30,10 +29,6 @@ vi.mock('@/lib/prisma', () => ({
       findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
       findUnique: (...args: unknown[]) => mockAdminAreaFindUnique(...args),
     },
-    thailandLocation: {
-      findMany: (...args: unknown[]) => mockThailandLocationFindMany(...args),
-    },
-    $queryRaw: vi.fn(),
   },
 }));
 
@@ -47,13 +42,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('GET /api/locations/search?type=province — AdminArea-sourced, bridged to a real ThailandLocation.id (CAM-573 AC-1)', () => {
-  it('[normal] matches AdminArea PROVINCE nodes bilingually and returns the bridged ThailandLocation row', async () => {
+describe('GET /api/locations/search?type=province — AdminArea-sourced, id = the real AdminArea.id (CAM-574)', () => {
+  it('[normal] matches AdminArea PROVINCE nodes bilingually and returns the AdminArea id directly', async () => {
     mockAdminAreaFindMany.mockResolvedValueOnce([
-      { code: '50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' },
-    ]);
-    mockThailandLocationFindMany.mockResolvedValueOnce([
-      { id: 'tl-province-50', provinceCode: '50' },
+      { id: 'aa-province-50', code: '50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' },
     ]);
 
     const res = await locationsSearchGET(searchRequest('?type=province&q=' + encodeURIComponent('เชียงใหม่')));
@@ -67,38 +59,31 @@ describe('GET /api/locations/search?type=province — AdminArea-sourced, bridged
 
     const body = await res.json();
     expect(body).toEqual([
-      { id: 'tl-province-50', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '', districtName: null, districtNameEn: null },
+      { id: 'aa-province-50', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '', districtName: null, districtNameEn: null },
     ]);
   });
 
   it('[null/empty] an empty search term still returns candidates (browse-all on popover open)', async () => {
     mockAdminAreaFindMany.mockResolvedValueOnce([
-      { code: '10', nameTh: 'กรุงเทพมหานคร', nameEn: 'Bangkok' },
+      { id: 'aa-bkk', code: '10', nameTh: 'กรุงเทพมหานคร', nameEn: 'Bangkok' },
     ]);
-    mockThailandLocationFindMany.mockResolvedValueOnce([{ id: 'tl-bkk', provinceCode: '10' }]);
 
     const res = await locationsSearchGET(searchRequest('?type=province&q='));
 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
+    expect(body[0].id).toBe('aa-bkk');
   });
 
-  it('[boundary] EC-1: a matched AdminArea province with NO ThailandLocation counterpart is dropped, never fabricated', async () => {
-    mockAdminAreaFindMany.mockResolvedValueOnce([
-      { code: '50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' },
-      { code: '99', nameTh: 'ไม่มีคู่', nameEn: 'NoCounterpart' },
-    ]);
-    // Only code '50' has a ThailandLocation row — '99' is a simulated data-drift case.
-    mockThailandLocationFindMany.mockResolvedValueOnce([
-      { id: 'tl-province-50', provinceCode: '50' },
-    ]);
+  it('[null/empty] no matches returns an empty array (never fabricates a row)', async () => {
+    mockAdminAreaFindMany.mockResolvedValueOnce([]);
 
-    const res = await locationsSearchGET(searchRequest('?type=province&q=a'));
+    const res = await locationsSearchGET(searchRequest('?type=province&q=xyz'));
     const body = await res.json();
 
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe('tl-province-50');
+    expect(res.status).toBe(200);
+    expect(body).toEqual([]);
   });
 
   it('[error/validation] a DB error returns 500 with no detail leak (RISK-9 precedent preserved)', async () => {
@@ -113,13 +98,12 @@ describe('GET /api/locations/search?type=province — AdminArea-sourced, bridged
   });
 });
 
-describe('GET /api/locations/search?type=district — scoped to province, bridged to a real ThailandLocation.id (CAM-573 AC-2)', () => {
-  it('[normal] scopes to the resolved province AdminArea id and bridges the match back to ThailandLocation', async () => {
+describe('GET /api/locations/search?type=district — scoped to province, id = the real AdminArea.id (CAM-574)', () => {
+  it('[normal] scopes to the resolved province AdminArea id and returns the district AdminArea id directly', async () => {
     mockAdminAreaFindUnique.mockResolvedValueOnce({ id: 'aa-province-50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' });
     mockAdminAreaFindMany.mockResolvedValueOnce([
-      { code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
+      { id: 'aa-district-5001', code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
     ]);
-    mockThailandLocationFindMany.mockResolvedValueOnce([{ id: 'tl-district-5001', districtCode: '5001' }]);
 
     const res = await locationsSearchGET(searchRequest('?type=district&provinceCode=50'));
 
@@ -132,7 +116,7 @@ describe('GET /api/locations/search?type=district — scoped to province, bridge
 
     const body = await res.json();
     expect(body).toEqual([
-      { id: 'tl-district-5001', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
+      { id: 'aa-district-5001', provinceCode: '50', provinceName: 'เชียงใหม่', provinceNameEn: 'Chiang Mai', districtCode: '5001', districtName: 'เมืองเชียงใหม่', districtNameEn: 'Mueang Chiang Mai' },
     ]);
   });
 
@@ -154,19 +138,15 @@ describe('GET /api/locations/search?type=district — scoped to province, bridge
     expect(await res.json()).toEqual([]);
     expect(mockAdminAreaFindMany).not.toHaveBeenCalled();
   });
+});
 
-  it('[boundary] a matched AdminArea district with no ThailandLocation counterpart is dropped, never fabricated', async () => {
-    mockAdminAreaFindUnique.mockResolvedValueOnce({ id: 'aa-province-50', nameTh: 'เชียงใหม่', nameEn: 'Chiang Mai' });
-    mockAdminAreaFindMany.mockResolvedValueOnce([
-      { code: '5001', nameTh: 'เมืองเชียงใหม่', nameEn: 'Mueang Chiang Mai' },
-      { code: '5099', nameTh: 'ไม่มีคู่', nameEn: 'NoCounterpart' },
-    ]);
-    mockThailandLocationFindMany.mockResolvedValueOnce([{ id: 'tl-district-5001', districtCode: '5001' }]);
+describe('GET /api/locations/search — no/unrecognized `type` (CAM-574: the removed ThailandLocation combined branch)', () => {
+  it('[null/empty] no `type` param returns an empty array — never the removed ThailandLocation combined search', async () => {
+    const res = await locationsSearchGET(searchRequest('?q=เชียง'));
 
-    const res = await locationsSearchGET(searchRequest('?type=district&provinceCode=50'));
-    const body = await res.json();
-
-    expect(body).toHaveLength(1);
-    expect(body[0].id).toBe('tl-district-5001');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+    expect(mockAdminAreaFindMany).not.toHaveBeenCalled();
+    expect(mockAdminAreaFindUnique).not.toHaveBeenCalled();
   });
 });
