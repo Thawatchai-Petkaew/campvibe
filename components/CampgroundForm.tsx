@@ -552,6 +552,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                     body: JSON.stringify({
                         country: "Thailand",
                         province: formData.province,
+                        // CAM-553: the host-typed district was collected in state but
+                        // never sent - the API silently dropped it on every camp.
+                        district: formData.district,
                         // Lat/Lon are independent - user enters manually
                         lat: formData.latitude,
                         lon: formData.longitude,

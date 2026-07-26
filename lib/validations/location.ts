@@ -2,12 +2,16 @@ import { z } from 'zod';
 
 /**
  * SEC-B (CAM-216): zod boundary schema for POST /api/location.
+ * CAM-553: added `district` — the host-typed district was collected by
+ * CampgroundForm but never sent past the client (write-path defect); the
+ * field is atomic free text (mirrors `province`), not a new dimension.
  *
  * Rules:
  *  - lat: number, -90..90 (required — stored on Location)
  *  - lon: number, -180..180 (required)
  *  - country: optional string, trimmed, max 100 chars
  *  - province: optional string, trimmed, max 100 chars
+ *  - district: optional string, trimmed, max 100 chars (CAM-553)
  *  - region: optional string, trimmed, max 100 chars
  *  - thaiLocationId: optional string UUID (FK to ThailandLocation)
  *
@@ -19,6 +23,7 @@ export const createLocationSchema = z.object({
     lon: z.number().min(-180, 'lon must be >= -180').max(180, 'lon must be <= 180'),
     country: z.string().trim().max(100).optional(),
     province: z.string().trim().max(100).optional(),
+    district: z.string().trim().max(100).optional(),
     region: z.string().trim().max(100).optional(),
     thaiLocationId: z.string().uuid().optional(),
 });
