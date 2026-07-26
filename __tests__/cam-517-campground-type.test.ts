@@ -88,11 +88,14 @@ describe("prisma/seed.ts — GLAMP + VIEW rows seeded under 'Campground type' (B
   const end = seedSrc.indexOf("\n]", start);
   const masterDataBlock = seedSrc.slice(start, end);
 
-  it("[normal] a GLAMP row exists in group 'Campground type' with the exact AC-3 Thai copy 'กลามปิ้ง'", () => {
+  it("[normal] a GLAMP row exists in group 'Campground type' with the real transliteration 'แกลมปิ้ง'", () => {
+    // CAM-526 corrected this seed row's nameTh (was misspelled 'กลามปิ้ง' at
+    // AC-3 time; locales/translations.json's th key was already fixed by
+    // CAM-531 — this test pin is updated to match the now-corrected source).
     const re = /\{\s*code:\s*'GLAMP',\s*group:\s*'Campground type',\s*nameTh:\s*'([^']+)',\s*nameEn:\s*'([^']+)',\s*icon:\s*'([^']+)'/;
     const m = masterDataBlock.match(re);
     expect(m, "prisma/seed.ts: no GLAMP row found in group 'Campground type'").not.toBeNull();
-    expect(m![1]).toBe("กลามปิ้ง"); // AC-3 verbatim Thai copy
+    expect(m![1]).toBe("แกลมปิ้ง"); // CAM-526: corrected transliteration
     expect(m![2]).toBe("Glamping");
     expect(typeof m![3]).toBe("string");
     expect(m![3].length).toBeGreaterThan(0);

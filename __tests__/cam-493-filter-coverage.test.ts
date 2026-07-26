@@ -60,6 +60,11 @@ interface MockCamp {
   stayConnected: string;
   markingMethod: string;
   driveway: string;
+  // CAM-526 (S10) — Accommodation type: a scalar CSV column (NOT part of the
+  // `options` relation, same shape distinction as campSiteType above), 4 of
+  // its 6 codes newly seeded as MasterData rows this story (HORS/TENT
+  // pre-date it under other groups — see prisma/seed.ts).
+  accommodationTypes: string;
   province: string;
   priceHigh: number;
 }
@@ -128,6 +133,11 @@ const GROUP_FIELD: Record<string, { field: keyof MockCamp; kind: FieldKind }> = 
   "Stay connected": { field: "stayConnected", kind: "csv" },
   "Marking method": { field: "markingMethod", kind: "csv" },
   Driveway: { field: "driveway", kind: "csv" },
+  // CAM-526 (S10) — Accommodation type: host-input + camper-detail-display
+  // only (not wired into search/FilterModal), same non-filterable shape as
+  // the CAM-521 groups above; mapped here purely so this seed-coverage guard
+  // can walk it.
+  "Accommodation type": { field: "accommodationTypes", kind: "csv" },
 };
 
 function countCampsForCode(camps: MockCamp[], group: string, code: string): number {

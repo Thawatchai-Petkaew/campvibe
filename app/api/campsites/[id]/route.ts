@@ -179,7 +179,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         // `.partial()` makes it optional here — presence-guarded, written
         // verbatim (no [0]/"CAMPGROUND" coercion).
         ...(data.campSiteType !== undefined && { campSiteType: data.campSiteType }),
-        ...(data.accommodationTypes?.length && { accommodationTypes: arrayToCsv(data.accommodationTypes) as string }),
+        // CAM-526 fix (same clearing-bug class as CAM-341/CAM-360): the old
+        // `?.length` guard treated an intentional "host cleared every
+        // selection" (an explicit `[]`) identically to "field omitted" — an
+        // empty array is falsy on `.length` so the write was skipped and a
+        // previously-set value could never be removed. Gate on RAW BODY
+        // presence (`'accommodationTypes' in body`), NOT `data.accommodationTypes
+        // !== undefined` — the schema's `z.array(...).default([])` makes the
+        // PARSED value always-present (`[]` when the key is omitted; see the
+        // `replacesOptions` comment above for the same documented pitfall),
+        // so a `!== undefined` check would incorrectly fire — and WIPE the
+        // column — on every unrelated partial edit (e.g. a price-only PUT).
+        // The column is a non-nullable `String` (no relation involved), so an
+        // explicit empty array must write `''`, not `undefined` —
+        // `arrayToCsv([])` returns `undefined`, which Prisma treats as "leave
+        // untouched", so the `?? ''` fallback is required for the clear to
+        // actually persist.
+        ...('accommodationTypes' in body && {
+          accommodationTypes: arrayToCsv(data.accommodationTypes) ?? '',
+        }),
         // S4a: only replace the options relation when the request actually carried a taxonomy
         // field (`replacesOptions`/`resolvedOptionsConnect` resolved once above, CAM-365 I-1 —
         // reused here so the write and the publish-gate projection can never disagree).

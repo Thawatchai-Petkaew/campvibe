@@ -666,7 +666,11 @@
             "Driveway": "Driveway",
             "BACK": "Back-in",
             "PARA": "Parallel",
-            "PTHG": "Pull-through"
+            "PTHG": "Pull-through",
+            "CABI": "Cabin",
+            "DISP": "Dispersed camping",
+            "GROU": "Group camping",
+            "RECR": "RV / Recreational vehicle"
         },
         "wishlist": {
             "pageTitle": "Liked Campsites",
@@ -1718,7 +1722,11 @@
             "Driveway": "ทางเข้ารถ",
             "BACK": "ถอยเข้า",
             "PARA": "ขนานลาน",
-            "PTHG": "ขับผ่าน"
+            "PTHG": "ขับผ่าน",
+            "CABI": "กระท่อม",
+            "DISP": "กางเต็นท์อิสระ",
+            "GROU": "ที่พักแบบกลุ่ม",
+            "RECR": "รถบ้าน (RV)"
         },
         "wishlist": {
             "pageTitle": "รายการที่ถูกใจ",
