@@ -107,6 +107,11 @@ describe('campSiteSchema — extraFeeAmount / extraFeeLabel / cancellationPolicy
     checkOutTime: '11:00',
     bookingMethod: 'ONLI' as const,
     locationId: 'c2fef996-3f4c-4ff0-99ab-4425438f2fce',
+    // CAM-520: campSiteType is now required on the full (non-partial)
+    // schema — unrelated to this file's fee/policy concern, so a valid
+    // code is added here to keep these full-schema parses testing ONLY
+    // their intended field.
+    campSiteType: 'CAGD' as const,
   };
 
   it('[normal] accepts a valid fee + label + policy', () => {

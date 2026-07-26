@@ -196,6 +196,9 @@ export async function POST(request: NextRequest) {
       data.annotatedFeatures,
       // CAM-516 (S4) — Camper style, the SECOND new MasterData group.
       data.camperStyle,
+      // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups
+      // (host-input + camper-detail-display only, NOT searchable — BR-4).
+      data.stayConnected, data.markingMethod, data.driveway,
     ]);
 
     // CAM-365 BR-6: a create that requests isPublished=true is the same
@@ -233,7 +236,9 @@ export async function POST(request: NextRequest) {
         nameThSlug: nameThSlug,
         nameEnSlug: nameEnSlug,
         description: data.description || "",
-        campSiteType: ((Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) || "CAMPGROUND") as string,
+        // CAM-520: campSiteType is a single required scalar enum (zod already
+        // validated it) — write it verbatim, no [0]/"CAMPGROUND" coercion.
+        campSiteType: data.campSiteType,
         accommodationTypes: (arrayToCsv(data.accommodationTypes) ?? "") as string,
 
         // S4a: validated options connect resolved once above (CAM-365).

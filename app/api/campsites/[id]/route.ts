@@ -82,11 +82,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // (e.g. price-only) must not wipe the Annotated features relation either.
     // CAM-516 (S4)/EC-2: same guard applied to `camperStyle` (the SECOND new
     // MasterData group) — identical partial-PUT-must-not-wipe protection.
-    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'].some((k) => k in body);
+    // CAM-521 (S8)/EC-2: same guard applied to `stayConnected`/`markingMethod`/
+    // `driveway` (the final taxonomy slice — host-input + camper-detail-
+    // display only, NOT searchable, see BR-4).
+    const replacesOptions = ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle', 'stayConnected', 'markingMethod', 'driveway'].some((k) => k in body);
     const resolvedOptionsConnect = replacesOptions
       ? await resolveOptionConnect([
           data.accessTypes, data.facilities, data.externalFacilities,
           data.equipment, data.activities, data.terrain, data.annotatedFeatures, data.camperStyle,
+          data.stayConnected, data.markingMethod, data.driveway,
         ])
       : null;
 
@@ -171,7 +175,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(data.nameTh && { nameTh: data.nameTh }),
         ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.campSiteType?.length && { campSiteType: (Array.isArray(data.campSiteType) ? data.campSiteType[0] : data.campSiteType) as string }),
+        // CAM-520: single required scalar enum on the shared schema; PUT's
+        // `.partial()` makes it optional here — presence-guarded, written
+        // verbatim (no [0]/"CAMPGROUND" coercion).
+        ...(data.campSiteType !== undefined && { campSiteType: data.campSiteType }),
         ...(data.accommodationTypes?.length && { accommodationTypes: arrayToCsv(data.accommodationTypes) as string }),
         // S4a: only replace the options relation when the request actually carried a taxonomy
         // field (`replacesOptions`/`resolvedOptionsConnect` resolved once above, CAM-365 I-1 —

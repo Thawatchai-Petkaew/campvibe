@@ -395,6 +395,31 @@ function buildCamp(concept, idx) {
   // pickN/chance-per-code like annotatedFeatures above), theme-correlated via
   // each theme's `camperStyle` weight map.
   const camperStyle = [wpick(T.camperStyle)];
+  // CAM-521 (S8) — final taxonomy slice, 3 NEW metadata-only groups (host-
+  // input + camper-detail-display only, NOT searchable — BR-4, so no theme
+  // correlation is needed; kept simple/global unlike the taxonomy groups
+  // above that drive search).
+  //
+  // Stay connected (SAIS/SDTC/STRU): phone-signal availability — independent
+  // chance()-per-code like annotatedFeatures (a camp can have one, two, all
+  // three, or (rarely) none of the carriers; not theme-correlated since
+  // carrier coverage isn't driven by camp scenery).
+  const STAY_CONNECTED_CHANCE = { SAIS: 0.55, SDTC: 0.4, STRU: 0.45 };
+  const stayConnected = Object.entries(STAY_CONNECTED_CHANCE)
+    .filter(([, p]) => chance(p))
+    .map(([code]) => code);
+  // Marking method (YUSF/OWNE): a host-declared single choice — mirrors
+  // camperStyle's wpick single-pick pattern (how campers claim a spot).
+  const markingMethod = [wpick({ YUSF: 0.55, OWNE: 0.45 })];
+  // Driveway (BACK/PARA/PTHG): mainly relevant to car-camp (CACP) sites — this
+  // theme's `type` pool having CACP as a possible pick is used only as a
+  // per-theme relevance signal (not this camp's own campSiteType draw further
+  // below); non-car-camp-leaning themes (forest — no CACP in its type pool)
+  // get a driveway recorded far less often.
+  const hasCarCampOption = T.type.includes('CACP');
+  const driveway = chance(hasCarCampOption ? 0.6 : 0.15)
+    ? [wpick({ BACK: 0.4, PARA: 0.3, PTHG: 0.3 })]
+    : [];
 
   // pricing by tier × business type
   let lo = T.tier[0], hi = T.tier[1];
@@ -486,6 +511,9 @@ function buildCamp(concept, idx) {
     activities: activities.join(','), terrain: terrain.join(','),
     annotatedFeatures: annotatedFeatures.join(','),
     camperStyle: camperStyle.join(','),
+    stayConnected: stayConnected.join(','),
+    markingMethod: markingMethod.join(','),
+    driveway: driveway.join(','),
     province: prov,
     address: `${areaTh} อ.${areaTh} จ.${P.th} ${P.zip}`,
     directions: `เดินทางสู่${areaTh} จ.${P.th} แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง`,
@@ -631,6 +659,13 @@ const MASTERDATA_GROUPS = [
   // suspenders floor (natural presence already comes from each theme's
   // `camperStyle` weighted-pick above).
   { field: 'camperStyle', codes: ['CHIC', 'GENR', 'DIFT', 'IDMT'] },
+  // CAM-521 (S8) — final taxonomy slice, 3 NEW metadata-only groups. Belt-
+  // and-suspenders floor (natural presence already comes from the chance()/
+  // wpick() draws above; `driveway` is deliberately sparse for non-car-camp
+  // themes so the floor here matters more than it does for the others).
+  { field: 'stayConnected', codes: ['SAIS', 'SDTC', 'STRU'] },
+  { field: 'markingMethod', codes: ['YUSF', 'OWNE'] },
+  { field: 'driveway', codes: ['BACK', 'PARA', 'PTHG'] },
 ];
 const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
 // Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts

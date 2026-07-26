@@ -55,7 +55,11 @@ export const campSiteSchema = z.object({
   nameEnSlug: z.string().min(1, "Slug (EN) is required").optional(),
   description: z.string().optional(),
 
-  campSiteType: z.array(CampSiteTypeEnum).default([]), // Multi-select
+  // CAM-520: scalar column, single choice. Required on create; the PUT
+  // `.partial()` wrap makes it optional on update (see the two route
+  // handlers). No `.default()` — an omitted create must fail loud (EC-1
+  // is enforced by the form's create-default, not a silent server default).
+  campSiteType: CampSiteTypeEnum,
 
   // Accepting arrays from frontend, will be joined to CSV for DB
   accessTypes: z.array(AccessTypeEnum).default([]),
@@ -73,6 +77,13 @@ export const campSiteSchema = z.object({
   // (CHIC/GENR/DIFT/IDMT): host-declared vibe/style, not a rule/right. Same
   // CSV-on-write shape as the taxonomy arrays above.
   camperStyle: z.array(z.string()).optional(),
+  // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups delivered
+  // host-input + camper-detail-display ONLY (deliberately NOT searchable —
+  // see BR-4, no search-campsites/campsite-filters/catalog wiring). Same
+  // CSV-on-write shape as the taxonomy arrays above.
+  stayConnected: z.array(z.string()).optional(),
+  markingMethod: z.array(z.string()).optional(),
+  driveway: z.array(z.string()).optional(),
 
   latitude: z.number(),
   longitude: z.number(),

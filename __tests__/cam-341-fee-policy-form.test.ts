@@ -363,6 +363,9 @@ describe("transparency nudge (AC-4, EC-3, BR-4)", () => {
 // ---------------------------------------------------------------------------
 describe("client validation copy matches lib/validations/campsite.ts verbatim (EC-1, EC-2, EC-8)", () => {
   // Pull the actual zod error strings so this test fails if either side drifts.
+  // CAM-520: campSiteType is now required on the full (non-partial) schema —
+  // unrelated to this file's fee/policy concern, so a valid code is added to
+  // both payloads to keep `issues[0]` pointing at the field under test.
   const amountResult = campSiteSchema.safeParse({
     nameTh: "x",
     latitude: 0,
@@ -371,6 +374,7 @@ describe("client validation copy matches lib/validations/campsite.ts verbatim (E
     checkOutTime: "11:00",
     bookingMethod: "ONLI",
     locationId: "c2fef996-3f4c-4ff0-99ab-4425438f2fce",
+    campSiteType: "CAGD",
     extraFeeAmount: -1,
   });
   const labelResult = campSiteSchema.safeParse({
@@ -381,6 +385,7 @@ describe("client validation copy matches lib/validations/campsite.ts verbatim (E
     checkOutTime: "11:00",
     bookingMethod: "ONLI",
     locationId: "c2fef996-3f4c-4ff0-99ab-4425438f2fce",
+    campSiteType: "CAGD",
     extraFeeLabel: "a".repeat(101),
   });
 

@@ -48,7 +48,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
-import { campSiteSchema } from "@/lib/validations/campsite";
+import { campSiteSchema, CampSiteTypeEnum } from "@/lib/validations/campsite";
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/listing-completeness";
 import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
@@ -125,6 +125,9 @@ const FIELD_LABEL_RESOLVERS: Record<string, (t: TranslationType) => string> = {
     terrain: (t) => t.filter["Terrain"],
     annotatedFeatures: (t) => t.filter["Annotated features"],
     camperStyle: (t) => t.filter["Camper style"],
+    stayConnected: (t) => t.filter["Stay connected"],
+    markingMethod: (t) => t.filter["Marking method"],
+    driveway: (t) => t.filter["Driveway"],
     latitude: (t) => t.newCampground.latitude,
     longitude: (t) => t.newCampground.longitude,
     checkInTime: (t) => t.newCampground.checkIn,
@@ -187,6 +190,9 @@ const FIELD_SECTION_ID: Record<string, string> = {
     accessTypes: "amenities", accommodationTypes: "amenities", activities: "amenities", terrain: "amenities",
     annotatedFeatures: "amenities",
     camperStyle: "amenities",
+    stayConnected: "amenities",
+    markingMethod: "amenities",
+    driveway: "amenities",
     // CAM-364: petFriendly relocated out of Status & Visibility into Amenities &
     // Features - it's a guest-facing camp feature, not an internal status flag.
     petFriendly: "amenities",
@@ -229,7 +235,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         nameTh: "",
         nameEn: "",
         description: "",
-        campSiteType: [] as string[], // Changed to array for multi-select
+        campSiteType: "", // CAM-520: scalar column, single-select
         accessTypes: [] as string[],
         accommodationTypes: [] as string[],
         facilities: [] as string[],
@@ -239,6 +245,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         terrain: [] as string[],
         annotatedFeatures: [] as string[],
         camperStyle: [] as string[],
+        stayConnected: [] as string[],
+        markingMethod: [] as string[],
+        driveway: [] as string[],
 
         address: "",
         directions: "",
@@ -303,11 +312,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             setMasterOptions(data || {});
             setOptionsLoading(false);
 
-            // Only set default if NO initial data and NOT editing
+            // Only set default if NO initial data and NOT editing. CAM-520
+            // EC-1: the column is non-nullable — create must never end up
+            // with an empty campSiteType, so pre-select the first valid code.
             if (!initialData && !isEditing && data['Campground type']?.[0]) {
                 setFormData(prev => ({
                     ...prev,
-                    campSiteType: prev.campSiteType.length > 0 ? prev.campSiteType : [data['Campground type'][0].code]
+                    campSiteType: prev.campSiteType || data['Campground type'][0].code
                 }));
             }
         });
@@ -322,7 +333,17 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 nameTh: initialData.nameTh || "",
                 nameEn: initialData.nameEn || "",
                 description: initialData.description || "",
-                campSiteType: initialData.campSiteType || initialData.campgroundType ? (Array.isArray(initialData.campSiteType || initialData.campgroundType) ? (initialData.campSiteType || initialData.campgroundType) : (initialData.campSiteType || initialData.campgroundType).split(',').filter(Boolean)) : [],
+                // CAM-520 (BR-2, EC-2): the API returns a scalar string. Accept a
+                // legacy array (first element) defensively, and fall back to a
+                // valid enum default (never crash / never keep an invalid value
+                // like the old "CAMPGROUND" sentinel — the enum's first member is
+                // a deterministic valid choice, independent of masterOptions'
+                // async load timing).
+                campSiteType: (() => {
+                    const raw = initialData.campSiteType || initialData.campgroundType || "";
+                    const scalar = Array.isArray(raw) ? (raw[0] || "") : raw;
+                    return CampSiteTypeEnum.safeParse(scalar).success ? scalar : CampSiteTypeEnum.options[0];
+                })(),
                 accessTypes: _byGroup('Access type'),
                 accommodationTypes: initialData.accommodationTypes ? initialData.accommodationTypes.split(',').filter(Boolean) : [],
                 facilities: _byGroup('Internal facility'),
@@ -332,6 +353,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 terrain: _byGroup('Terrain'),
                 annotatedFeatures: _byGroup('Annotated features'),
                 camperStyle: _byGroup('Camper style'),
+                stayConnected: _byGroup('Stay connected'),
+                markingMethod: _byGroup('Marking method'),
+                driveway: _byGroup('Driveway'),
                 address: initialData.address || "",
                 directions: initialData.directions || "",
                 videoUrl: initialData.videoUrl || "",
@@ -543,7 +567,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
 
             const campPayload: any = {
                 ...formData,
-                campSiteType: formData.campSiteType, // Now an array
+                campSiteType: formData.campSiteType, // CAM-520: single scalar string
                 accessTypes: formData.accessTypes,
                 accommodationTypes: formData.accommodationTypes,
                 facilities: formData.facilities,
@@ -553,6 +577,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 terrain: formData.terrain,
                 annotatedFeatures: formData.annotatedFeatures,
                 camperStyle: formData.camperStyle,
+                stayConnected: formData.stayConnected,
+                markingMethod: formData.markingMethod,
+                driveway: formData.driveway,
                 tags: formData.tags,
                 priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
                 priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
@@ -764,6 +791,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             ...formData.terrain,
             ...formData.annotatedFeatures,
             ...formData.camperStyle,
+            ...formData.stayConnected,
+            ...formData.markingMethod,
+            ...formData.driveway,
         ]).size,
         useSpotView: formData.useSpotView,
         maxGuestsPerDay: formData.maxGuestsPerDay === "" ? null : Number(formData.maxGuestsPerDay),
@@ -1213,6 +1243,9 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {renderOptionGroup(t.filter["Terrain"], "Terrain", "terrain")}
                                 {renderOptionGroup(t.filter["Annotated features"], "Annotated features", "annotatedFeatures")}
                                 {renderOptionGroup(t.filter["Camper style"], "Camper style", "camperStyle")}
+                                {renderOptionGroup(t.filter["Stay connected"], "Stay connected", "stayConnected")}
+                                {renderOptionGroup(t.filter["Marking method"], "Marking method", "markingMethod")}
+                                {renderOptionGroup(t.filter["Driveway"], "Driveway", "driveway")}
                             </CardContent>
                         </Card>
                     </div>
@@ -1227,19 +1260,21 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             <CardContent className="p-6 space-y-6">
                                 <div className="space-y-2">
                                     <TruncatedLabel className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4" as="label">
-                                        {t.newCampground.type} <span className="text-xs text-muted-foreground">{t.newCampground.multipleSelection}</span>
+                                        {t.newCampground.type}
                                     </TruncatedLabel>
                                     {zErr('campSiteType') && (
                                         <p className="text-sm px-4 text-destructive">{zErr('campSiteType')}</p>
                                     )}
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {masterOptions['Campground type']?.map(opt => {
-                                            const isSelected = formData.campSiteType.includes(opt.code);
+                                            // CAM-520: single-select — picking one REPLACES the
+                                            // selection (scalar column), not a toggle/array add.
+                                            const isSelected = formData.campSiteType === opt.code;
                                             return (
                                                 <button
                                                     key={opt.code}
                                                     type="button"
-                                                    onClick={() => toggleArrayItem('campSiteType', opt.code)}
+                                                    onClick={() => setFormData({ ...formData, campSiteType: opt.code })}
                                                     aria-pressed={isSelected}
                                                     className={cn(
                                                         "cursor-pointer flex items-center justify-between p-4 rounded-xl border transition-all w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",

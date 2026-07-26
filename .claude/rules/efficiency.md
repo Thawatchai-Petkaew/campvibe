@@ -123,6 +123,7 @@ $/story lands in the G3 packet (orchestrator §Per-dispatch caps). A budget blow
 | "The run died — re-run the story from scratch." | Resume from artifacts (branch, commits, files) and cite them in the re-dispatch. A re-fire throws away everything already paid for. |
 | "Hard story — just bump the model." | Tier policy is LOCKED; escalation only via the circuit-breaker ladder. Try the `effort` dial first. |
 | "I'll fix the agent file while the dispatch runs." | Frozen prefix: batch the edit and land it before the next dispatch. |
+| "I wrote the spec — dispatch the builder." | A spec authored in the orchestrator's uncommitted MAIN tree never rides the PR: the builder branches off origin/dev without it (orphaned CAM-506/509, recurred CAM-513/514). Commit the story spec to the feature branch FIRST (or have the builder author it in-worktree, as the one slice that shipped its spec did), THEN dispatch the builder onto that branch (CAM-513/514). |
 
 ## Verify (exit criteria)
 
