@@ -241,14 +241,14 @@ describe('CampgroundDetailClient.tsx — source-inspection (CAM-268)', () => {
 
 // ---------------------------------------------------------------------------
 // API routes — source-inspection: the new fields are actually wired (parity check
-// across the campsites/campgrounds route pairs, not just the schema).
+// across the live campsites route pair, not just the schema).
+// CAM-527: the legacy app/api/campgrounds/* pair (dead, no product caller) was
+// deleted; its parallel entries are removed from this list with it.
 // ---------------------------------------------------------------------------
-describe('campsites/campgrounds API routes wire the new fields (CAM-268)', () => {
+describe('campsites API routes wire the new fields (CAM-268)', () => {
   const routeFiles = [
     'app/api/campsites/route.ts',
     'app/api/campsites/[id]/route.ts',
-    'app/api/campgrounds/route.ts',
-    'app/api/campgrounds/[id]/route.ts',
   ];
 
   it.each(routeFiles)('%s references extraFeeAmount, extraFeeLabel, and cancellationPolicy', (rel) => {

@@ -6,9 +6,11 @@
  *   AC-1  campCardSelect shape — no spots/options/operator keys; images.take=5;
  *         images.orderBy.sortOrder='asc'; reviews.where.deletedAt=null;
  *         location.select.province=true
- *   AC-2  3 call sites use campCardSelect — app/page.tsx (both sort branches),
- *         app/api/campsites/route.ts, app/api/campgrounds/route.ts each reference
- *         `select: campCardSelect` and do NOT reference `include: { spots` / `include: { options`
+ *   AC-2  Call sites use campCardSelect — app/page.tsx (both sort branches),
+ *         app/api/campsites/route.ts each reference `select: campCardSelect` and do NOT
+ *         reference `include: { spots` / `include: { options`. (CAM-527: the legacy
+ *         app/api/campgrounds/route.ts, dead/no product caller, was deleted — its
+ *         parallel call-site assertions removed with it.)
  *   AC-3  avgRating pipeline intact — computeAvgRating / roundAvgRating produce correct
  *         values from {rating}[] (delegation to sort-utils / review-summary already tested;
  *         this test confirms the pipeline is still wired in app/page.tsx after the refactor)
@@ -63,7 +65,6 @@ const pageSrc       = readSrc('app/page.tsx');
 // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
 const campsiteSrc   = readSrc('app/api/campsites/route.ts');
-const campgroundSrc = readSrc('app/api/campgrounds/route.ts');
 const cardSrc       = readSrc('components/CampgroundCard.tsx');
 
 // ---------------------------------------------------------------------------
@@ -213,24 +214,6 @@ describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', 
 
   it('[call-site] app/api/campsites/route.ts GET handler does NOT use `include: { options`', () => {
     expect(campsiteSrc).not.toMatch(/include:\s*\{\s*options/);
-  });
-
-  // app/api/campgrounds/route.ts
-  it('[call-site] app/api/campgrounds/route.ts imports campCardSelect', () => {
-    // Route uses single-quote imports.
-    expect(campgroundSrc).toContain("from '@/lib/read-models/camp-card'");
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler uses `select: campCardSelect`', () => {
-    expect(campgroundSrc).toContain('select: campCardSelect');
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler does NOT use `include: { spots`', () => {
-    expect(campgroundSrc).not.toMatch(/include:\s*\{\s*spots/);
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler does NOT use `include: { options`', () => {
-    expect(campgroundSrc).not.toMatch(/include:\s*\{\s*options/);
   });
 });
 
