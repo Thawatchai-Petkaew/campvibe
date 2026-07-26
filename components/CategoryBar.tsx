@@ -102,11 +102,23 @@ export function CategoryBar() {
                         key={cat.labelKey}
                         onClick={() => handleCategoryClick(cat)}
                         aria-current={active ? "true" : undefined}
+                        data-testid={`btn--category-${cat.labelKey}`}
                         className={clsx(
                             // CAM-552 — the tab is a nav tab, not a control, but it
                             // still stays well clear of the 44px floor at the mobile
                             // step (measured 54px tall / 56px wide).
-                            "flex flex-col items-center gap-1.5 md:gap-2 min-w-[56px] md:min-w-[64px] pb-2 md:pb-3 border-b-2 transition group",
+                            // CAM-560 — `shrink-0` is load-bearing: this row's
+                            // `min-w-[*]` is only a FLOOR for short labels
+                            // (ทะเล/ป่า). Without shrink-0 a flex item's default
+                            // min-width:auto (content-based) is overridden by that
+                            // explicit min-w, so the browser was free to compress
+                            // long Thai labels (ลานกางเต็นท์/แคมป์ด้วยรถ) narrower
+                            // than their own text — the nowrap label then overflowed
+                            // its shrunk box into the next tab, reading as one
+                            // run-together string. shrink-0 keeps every tab at its
+                            // natural content width so the strip overflows into its
+                            // intended horizontal scroll instead of collapsing.
+                            "flex flex-col items-center gap-1.5 md:gap-2 min-w-[56px] md:min-w-[64px] shrink-0 pb-2 md:pb-3 border-b-2 transition group",
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                             active
                                 ? "border-foreground text-foreground"
@@ -119,7 +131,12 @@ export function CategoryBar() {
                                 active ? "stroke-2" : "stroke-1 group-hover:stroke-2"
                             )}
                         />
-                        <span className="type-caption font-medium whitespace-nowrap">{(t.categories as any)[cat.labelKey]}</span>
+                        <span
+                            className="type-caption font-medium whitespace-nowrap"
+                            data-testid={`text--category-label-${cat.labelKey}`}
+                        >
+                            {(t.categories as any)[cat.labelKey]}
+                        </span>
                     </button>
                 );
             })}
