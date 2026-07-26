@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import type { GeocodeReverseResult } from '@/lib/validations/location';
+import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/geo/admin-area-match';
 
 /**
  * CAM-554 — shared server-side geocoding helpers, used by BOTH
@@ -7,7 +8,7 @@ import type { GeocodeReverseResult } from '@/lib/validations/location';
  * sub-district) and `app/api/geocode/forward/route.ts` (choosing a level ->
  * pin). Kept out of `lib/` on purpose (this story's allowed file surface is
  * `app/api/geocode/**`, `lib/validations/**`) but co-located so both routes
- * share ONE matcher instead of two copies drifting apart.
+ * share ONE Google-fetch wrapper instead of two copies drifting apart.
  *
  * Owner architecture decision (2026-07-26): Leaflet stays on the browser;
  * Google is used ONLY here, server-side, for the Geocoding API (both its
@@ -16,7 +17,16 @@ import type { GeocodeReverseResult } from '@/lib/validations/location';
  * never the browser-loaded Google Maps JS the owner explicitly ruled out).
  * `GOOGLE_GEOCODING_API_KEY` is read here ONLY (server) and is never
  * returned, logged, or included in the URL that gets logged on failure.
+ *
+ * CAM-566 — the bilingual/hierarchical AdminArea matcher itself
+ * (`normalizeAdminName`/`matchAdminArea`) now lives in
+ * `lib/geo/admin-area-match.ts`, shared with CAM-563's backfill script and
+ * write path (previously three near-identical ports - see that module's
+ * header + this story's tech.md for the enumerated diff). `normalizeAdminName`
+ * is re-exported here unchanged so `__tests__/cam-554-geocode-routes.test.ts`
+ * (which imports it directly from this file) keeps passing unedited.
  */
+export { normalizeAdminName };
 
 const GOOGLE_GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
 
@@ -82,64 +92,11 @@ export function extractComponent(components: GoogleAddressComponent[], types: st
     return null;
 }
 
-// Known Thai/English administrative prefixes-suffixes Google's Geocoding API
-// prepends to a component's long_name (e.g. "จังหวัดเชียงใหม่", "Amphoe Mueang
-// Chiang Mai") - stripped before matching against AdminArea's bare `nameTh`/
-// `nameEn` columns. Longest/most-specific entries first so a shared substring
-// (e.g. "อำเภอ" inside "กิ่งอำเภอ") never partially matches.
-const THAI_PREFIXES = ['กิ่งอำเภอ', 'จังหวัด', 'อำเภอ', 'เขต', 'ตำบล', 'แขวง'];
-const EN_PREFIXES = ['Changwat ', 'Chang Wat ', 'Amphoe ', 'Amphur ', 'Khet ', 'Tambon ', 'Khwaeng ', 'District ', 'Province of '];
-const EN_SUFFIXES = [' Province', ' District'];
-
-/** Exported for the unit test (CAM-554) - deterministic prefix/suffix strip, never a substring match. */
-export function normalizeAdminName(raw: string): string {
-    let name = raw.trim();
-    for (const prefix of THAI_PREFIXES) {
-        if (name.startsWith(prefix)) { name = name.slice(prefix.length); break; }
-    }
-    for (const prefix of EN_PREFIXES) {
-        if (name.startsWith(prefix)) { name = name.slice(prefix.length); break; }
-    }
-    for (const suffix of EN_SUFFIXES) {
-        if (name.endsWith(suffix)) { name = name.slice(0, -suffix.length); break; }
-    }
-    return name.trim();
-}
-
-type AdminAreaLevel = 'PROVINCE' | 'DISTRICT' | 'SUBDISTRICT';
-
-interface AdminAreaNode {
-    id: string;
-    code: string;
-    nameTh: string;
-    nameEn: string;
-    parentId: string | null;
-}
-
 /**
- * Bilingual, hierarchical match against the AdminArea tree (never
- * ThailandLocation directly - see the coordinator's CAM-563 note: the id-first
- * path is the AdminArea node, strings are DERIVED from it, not the other way
- * round). Scoped by `parentId` when given, so a same-named district in a
- * different province can never match (exact equality only, never `contains`
- * - CAM-501/503's Thai-substring lesson).
- */
-async function matchAdminArea(level: AdminAreaLevel, name: string, parentId?: string): Promise<AdminAreaNode | null> {
-    return prisma.adminArea.findFirst({
-        where: {
-            countryCode: 'TH',
-            level,
-            ...(parentId ? { parentId } : {}),
-            OR: [
-                { nameTh: { equals: name, mode: 'insensitive' } },
-                { nameEn: { equals: name, mode: 'insensitive' } },
-            ],
-        },
-        select: { id: true, code: true, nameTh: true, nameEn: true, parentId: true },
-    });
-}
-
-/**
+ * CAM-563 note (preserved): the id-first path is the AdminArea node, strings
+ * are DERIVED from it below via a `ThailandLocation` join, never the other
+ * way round.
+ *
  * Resolves Google's address_components into the reverse-geocode result
  * shape. Walks PROVINCE -> DISTRICT -> SUBDISTRICT, each scoped to its
  * matched parent - a level with no raw name, or no match, stops the walk
@@ -166,7 +123,7 @@ export async function resolveFromComponents(components: GoogleAddressComponent[]
     let districtRow = null;
 
     if (provinceRaw) {
-        provinceNode = await matchAdminArea('PROVINCE', normalizeAdminName(provinceRaw));
+        provinceNode = await matchAdminArea(prisma, 'PROVINCE', provinceRaw);
     }
 
     if (provinceNode) {
@@ -176,7 +133,7 @@ export async function resolveFromComponents(components: GoogleAddressComponent[]
         });
 
         if (provinceRow && districtRaw) {
-            districtNode = await matchAdminArea('DISTRICT', normalizeAdminName(districtRaw), provinceNode.id);
+            districtNode = await matchAdminArea(prisma, 'DISTRICT', districtRaw, provinceNode.id);
         }
     }
 
@@ -187,7 +144,7 @@ export async function resolveFromComponents(components: GoogleAddressComponent[]
         });
 
         if (districtRow && subDistrictRaw) {
-            subDistrictNode = await matchAdminArea('SUBDISTRICT', normalizeAdminName(subDistrictRaw), districtNode.id);
+            subDistrictNode = await matchAdminArea(prisma, 'SUBDISTRICT', subDistrictRaw, districtNode.id);
         }
     }
 
