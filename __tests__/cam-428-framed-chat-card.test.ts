@@ -48,8 +48,8 @@ describe("Real fields only — priceLow / free / tag / rating / province / image
     expect(cardSrc).toContain("card.priceLow && card.priceLow > 0");
   });
 
-  it("[unit] first tag comes from card.options[0] (CAM-427 Terrain-group tag), hidden when absent", () => {
-    expect(cardSrc).toContain("card.options?.[0]");
+  it("[unit] the tag badge's source is card.matchedTag (CAM-564 — search-aware, supersedes the CAM-427 fixed options[0]), hidden when absent", () => {
+    expect(cardSrc).toContain("card.matchedTag");
     expect(cardSrc).toContain("tagName &&");
   });
 
