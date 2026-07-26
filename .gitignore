@@ -78,6 +78,8 @@ next-env.d.ts
 !/scripts/db-reset.mjs
 !/scripts/check-palette.mjs
 !/scripts/check-ds.mjs
+# CAM-537 — the WCAG token-contrast guard; must be tracked so CI can run it
+!/scripts/check-contrast.mjs
 !/scripts/load-mock-staging.mjs
 !/scripts/reconcile-ratings.mjs
 !/scripts/import-linear.mjs
