@@ -850,7 +850,10 @@ describe('count actions — getCampSiteCount / getCampgroundCount unaffected by 
     const filterModalSrc = src('components/FilterModal.tsx');
     // The filters object built for getCampSiteCount only ever sets type/terrain/
     // activities/access/facilities/min/max — never filters.startDate/endDate.
-    const callSiteMatch = filterModalSrc.match(/const filters: any = \{\};[\s\S]*?getCampSiteCount\(filters\)/);
+    // Type-agnostic anchor: CAM-523 typed this `any` as CampSiteFilterParams.
+    // Match any declared type so the assertion survives a future rename and keeps
+    // its teeth (it still fails if the call site starts forwarding dates).
+    const callSiteMatch = filterModalSrc.match(/const filters: \w+(?:<[^>]*>)? = \{\};[\s\S]*?getCampSiteCount\(filters\)/);
     expect(callSiteMatch).not.toBeNull();
     expect(callSiteMatch![0]).not.toContain('filters.startDate');
     expect(callSiteMatch![0]).not.toContain('filters.endDate');
