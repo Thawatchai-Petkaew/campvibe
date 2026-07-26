@@ -185,12 +185,12 @@ export const FACILITY_ICON_MAP: Record<string, LucideIcon> = {
   DISP: Trees,
   GROU: Users,
   RECR: Car,
-  // CAM-536 (fix) — Accommodation type: HCMP/TSIT replace the old
-  // Horse/Tent members that collided with the Activity/Equipment codes
-  // above (HORS/TENT stay owned by those groups, unchanged). Reuses the
-  // SAME icons already imported/used for HORS/TENT above — no new import.
+  // CAM-536 (fix) — Accommodation type: TSIT replaces the old TENT member
+  // that collided with the Equipment code above (TENT stays owned by that
+  // group, unchanged). Reuses the SAME icon already imported/used for TENT
+  // above — no new import. (CAM-538 dropped the sibling HCMP member
+  // entirely — no icon entry needed.)
   TSIT: Tent,
-  HCMP: PawPrint,
 };
 
 /** Falls back to `ShieldCheck` for any code not in the map (a generic "amenity" glyph). */

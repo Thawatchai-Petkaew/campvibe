@@ -83,8 +83,9 @@ function provThZip(nameEn) {
 // ---- theme config (valid codes only, per spec §4/§5) ---------------------------
 // CAM-492: every theme now also carries `accomm` (accommodationTypes pool — real
 // codes from lib/validations/campsite.ts AccommodationTypeEnum: CABI/DISP/GROU/
-// HCMP/RECR/TSIT, NOT a MasterData group — CAM-536 renamed HORS/TENT to
-// HCMP/TSIT to resolve a MasterData global-@id collision) and enough
+// RECR/TSIT, NOT a MasterData group — CAM-536 renamed TENT to TSIT to resolve
+// a MasterData global-@id collision; CAM-538 later dropped the sibling
+// horse-camp member entirely, no Thai relevance) and enough
 // facExtra/equip/activities/ext
 // spread that all 5 previously-dead MasterData codes (WATE/CART/MIMT/LSTV/OFFR)
 // get a natural chance of being drawn (a deterministic closing pass below still
@@ -226,7 +227,7 @@ const THEMES = {
     // CAM-517 (S5) — GLAMP added (open-meadow glamping-under-the-stars is a
     // comfort theme like beach/lake; 1/3 pick share of a discriminating slice).
     ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD', 'GLAMP'],
-    accomm: ['TSIT', 'GROU', 'HCMP'],
+    accomm: ['TSIT', 'GROU', 'DISP'],
     // CAM-515 (S3) — Annotated features: ALCO/FIRE common (evening bonfire +
     // drinks under the stars is the meadow theme's signature scene), RESV
     // mixed, ADAA rarer.
@@ -380,7 +381,7 @@ function buildCamp(concept, idx) {
   // because `forest` had an empty ext[] and every theme allowed a 0-pick draw).
   const externalFacilities = pickN(T.ext, ri(1, T.ext.length));
   const terrain = T.terrain;
-  // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/HCMP/
+  // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/
   // RECR/TSIT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
   const accommodationTypes = pickN(T.accomm, ri(1, Math.min(2, T.accomm.length))).join(',');
   // CAM-515 (S3) — Annotated features (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights
