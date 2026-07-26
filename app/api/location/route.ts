@@ -76,6 +76,15 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // CAM-575: `lat`/`lon` written here are PROVISIONAL. This route
+        // creates the Location row before the CampSite that will reference
+        // it exists (the FK requires the parent row first), so there is
+        // nothing to derive from yet. `CampSite.latitude/longitude` is the
+        // canonical source (owner decision, 2026-07-26) - the moment the
+        // caller's next request (`POST /api/campsites`) creates a CampSite
+        // pointing at this `location.id`, the `campsite_coords_sync` DB
+        // trigger overwrites these values to match the CampSite's own
+        // latitude/longitude, whatever the host actually typed there.
         const location = await prisma.location.create({
             data: {
                 country: country || 'Thailand',

@@ -157,8 +157,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    // Update Location if provided (but don't auto-update lat/lon from camp site)
-    // Lat/Lon are independent - user enters manually
+    // Update Location's free-text fields if provided.
+    //
+    // CAM-575: this route never writes Location.lat/lon directly (never did),
+    // but the old comment here ("lat/lon are NOT updated from camp site data -
+    // they remain independent") described a real defect, not a design choice:
+    // the `campSite.update` below DOES write `data.latitude`/`data.longitude`
+    // on every pin edit, and nothing kept `Location.lat/lon` in sync with it -
+    // this is very likely how the 4 real camps CAM-575 found diverged (an
+    // edited pin moved CampSite's coordinates but never touched Location's).
+    // `CampSite.latitude/longitude` is now the canonical source (owner
+    // decision, 2026-07-26) and the `campsite_coords_sync` DB trigger
+    // (prisma/migrations/20260726165149_cam575_...) derives
+    // `Location.lat/lon` automatically the moment the `campSite.update` below
+    // runs - no application code here needs to touch it.
     //
     // CAM-556/CAM-559: `province`/`district`/`subDistrict` live on the related
     // `Location` row, not on `CampSite` — they are NOT part of `campSiteSchema`,
@@ -197,8 +209,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           ...(locationFields.subDistrict !== undefined && {
             subDistrict: locationFields.subDistrict === '' ? null : locationFields.subDistrict,
           }),
-          // Note: lat/lon are NOT updated from camp site data
-          // They remain independent
+          // CAM-575: lat/lon are never set here - Location.lat/lon is derived
+          // from CampSite.latitude/longitude by the campsite_coords_sync DB
+          // trigger, fired by the campSite.update below.
         }
       });
     }

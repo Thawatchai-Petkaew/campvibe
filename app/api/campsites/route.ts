@@ -346,6 +346,13 @@ export async function POST(request: NextRequest) {
         extraFeeLabel: data.extraFeeLabel,
         cancellationPolicy: data.cancellationPolicy || undefined,
 
+        // CAM-575: CampSite.latitude/longitude is the canonical coordinate
+        // source (owner decision, 2026-07-26). This create fires the
+        // campsite_coords_sync DB trigger (prisma/migrations/
+        // 20260726165149_cam575_...), which derives the linked
+        // Location.lat/lon to match — overwriting whatever provisional
+        // value `POST /api/location` wrote moments earlier for the SAME
+        // `data.locationId` (see that route's own comment).
         latitude: data.latitude,
         longitude: data.longitude,
         checkInTime: data.checkInTime,

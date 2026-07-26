@@ -109,6 +109,8 @@ next-env.d.ts
 !/scripts/backfill-cam-562-subdistrict-geocode.mjs
 # CAM-571 — moves Location coordinates geocoding outside Thailand inside their claimed province
 !/scripts/backfill-cam-571-coordinates-inside-thailand.mjs
+# CAM-575 — reconciles the CampSite/Location coordinate columns that disagree today
+!/scripts/backfill-cam-575-reconcile-coordinates.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

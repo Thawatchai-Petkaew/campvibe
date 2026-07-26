@@ -39,18 +39,21 @@
  *
  * CampSite/Location coordinate duplication (found during this story's own
  * reader/writer sweep, architecture.md §15b): `CampSite.latitude/longitude`
- * is a SEPARATE column from `Location.lat/lon`, currently byte-identical
- * for all 650 real camps (verified: 1 CampSite per Location today) because
- * every writer that has ever set one has always set both together
- * (`app/api/campsites/route.ts` POST, `scripts/load-mock-staging.mjs`).
- * `CampSite.latitude/longitude` is the column every camper-facing reader
- * actually uses (`components/CampgroundDetailClient.tsx`'s "Get directions"
- * link + map pin, `lib/ai/tools/get-camp-detail.ts` /
- * `lib/ai/tools/compare-camps.ts`'s `distanceFromBangkokKm`,
- * `app/wishlist/page.tsx`) — moving ONLY `Location.lat/lon` would leave the
- * camper-visible pin exactly where it was (outside Thailand), silently
- * defeating the whole point of this story. Both columns are written
- * together, in the SAME `$transaction`, for every moved row.
+ * is a SEPARATE column from `Location.lat/lon`. At the time this story ran,
+ * both were byte-identical for all 650 real camps only because every writer
+ * that ever set one also set the other by convention — nothing enforced it.
+ * CAM-575 later measured that convention had already silently broken for 4
+ * camps and made `CampSite.latitude/longitude` the SOURCE OF TRUTH by a
+ * database trigger (`campsite_coords_sync`, prisma/migrations/
+ * 20260726165149_cam575_...): any write to CampSite's coordinates derives
+ * Location.lat/lon automatically, inside the same transaction. This
+ * script's own write order below is CampSite-first, Location-second,
+ * matching that rule (CAM-575 item 4) — moving ONLY `Location.lat/lon`
+ * would still leave the camper-visible pin exactly where it was
+ * (`components/CampgroundDetailClient.tsx`'s "Get directions" link + map
+ * pin, `lib/ai/tools/get-camp-detail.ts` / `lib/ai/tools/compare-camps.ts`'s
+ * `distanceFromBangkokKm`, `app/wishlist/page.tsx`), which is exactly the
+ * near-miss this story's own header once warned about.
  *
  * Host-entered-data safety (owner's explicit ask — a rule safe for seed
  * data is not automatically safe for entered data): there is no schema
@@ -214,8 +217,14 @@ export function identifyOutsideThailand(cam562Cache) {
   return out;
 }
 
-/** Fetches one AdminArea node's nameTh/nameEn/level/parentId — needed for the province-ancestor walk below. */
-async function getAdminAreaNode(prisma, id) {
+/**
+ * Fetches one AdminArea node's nameTh/nameEn/level/parentId — needed for the
+ * province-ancestor walk below. Exported (CAM-575) so the coordinate
+ * reconciliation script can resolve a Location's claimed province from an
+ * `adminAreaId` that sits below PROVINCE level, without a third copy of this
+ * lookup.
+ */
+export async function getAdminAreaNode(prisma, id) {
   return prisma.adminArea.findUnique({
     where: { id },
     select: { id: true, code: true, nameTh: true, nameEn: true, level: true, parentId: true },
@@ -230,8 +239,12 @@ async function getAdminAreaNode(prisma, id) {
  * this story's 18 candidates are below PROVINCE level today (verified:
  * `district`/`subDistrict` are null on all 18), but a rerun after some
  * other backfill deepened them must not silently misclassify.
+ *
+ * Exported (CAM-575) — the coordinate reconciliation script reuses this
+ * walk verbatim (2 of the 4 real divergent camps sit at DISTRICT/
+ * SUBDISTRICT level, not PROVINCE, exactly the case this function guards).
  */
-async function getProvinceAncestor(prisma, adminArea) {
+export async function getProvinceAncestor(prisma, adminArea) {
   let current = adminArea;
   while (current && current.level !== 'PROVINCE') {
     if (!current.parentId) return null;
@@ -438,14 +451,27 @@ export async function planMoves(
     };
 
     if (!dryRun) {
+      // CAM-575: CampSite.latitude/longitude is now the canonical column —
+      // write it FIRST (inverted from this script's original Location-first
+      // order). A `campSite.update` touching latitude/longitude fires the
+      // `campsite_coords_sync` DB trigger (prisma/migrations/
+      // 20260726165149_cam575_...), which derives Location.lat/lon
+      // automatically inside the SAME transaction — the explicit
+      // `location.update` lat/lon write below is therefore redundant with
+      // the trigger, not the source of truth; it is kept (writing the exact
+      // same value the trigger already derived) only so this call still
+      // carries district/subDistrict/adminAreaId (`resolved.write`, which
+      // are Location-only fields with no CampSite analogue and are NOT
+      // trigger-derived) in the same atomic transaction as the coordinate
+      // move.
       await prisma.$transaction([
+        ...row.campSites.map((c) =>
+          prisma.campSite.update({ where: { id: c.id }, data: { latitude: forward.lat, longitude: forward.lon } })
+        ),
         prisma.location.update({
           where: { id: row.id },
           data: { lat: forward.lat, lon: forward.lon, ...resolved.write },
         }),
-        ...row.campSites.map((c) =>
-          prisma.campSite.update({ where: { id: c.id }, data: { latitude: forward.lat, longitude: forward.lon } })
-        ),
       ]);
     }
     summary.moved.push(moveRecord);
