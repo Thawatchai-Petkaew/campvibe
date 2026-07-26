@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MapPin, Calendar as CalendarIcon, Users, Type, Navigation, Tent, Caravan, Mountain, Trees, Waves, Palmtree, Map, Loader2 } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Users, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getSearchProvinces } from "@/app/actions/getSearchLocations";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
+import { CATEGORIES, buildCategoryUrl } from "@/components/CategoryBar";
 import { Dialog } from "@/components/ui/dialog";
 import { ModalContent, ModalHeader } from "@/components/ui/modal-shell";
 import { Button } from "@/components/ui/button";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { InputField } from "@/components/ui/input-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import {
@@ -33,40 +35,43 @@ interface SearchModalProps {
 }
 
 /**
- * CAM-494 — same fix as CAM-491 (CategoryBar): pills must drive the query
- * param whose backing field actually exists (`type` for campSiteType,
- * `terrain` for Terrain codes), not always `type`. See
- * `components/CategoryBar.tsx` for the reference implementation this
- * mirrors.
+ * CAM-494 — pills must drive the query param whose backing field actually
+ * exists (`type` for campSiteType, `terrain` for Terrain codes), not always
+ * `type`.
+ *
+ * CAM-532 (S5) — the pill set is no longer hand-copied here. `CATEGORIES` and
+ * the pure `buildCategoryUrl` are imported from `components/CategoryBar.tsx`,
+ * which CAM-529 exported for exactly this: ONE list, ONE documented URL rule
+ * ("a category shortcut REPLACES its owned param, never merges" — CAM-529
+ * BR-1/BR-2), so the home bar and this modal can never drift apart again.
+ * The markup is `<FilterChip variant="pill">`; this file contributes no chip
+ * styling of its own (story.md BR-1).
  */
-interface ExperienceType {
-    labelKey: string;
-    icon: any;
-    param: "type" | "terrain" | null;
-    value: string | null;
-}
 
-const EXPERIENCE_TYPES: ExperienceType[] = [
-    { labelKey: 'all', icon: Map, param: null, value: null },
-    { labelKey: 'campground', icon: Tent, param: 'type', value: 'CAGD' },
-    { labelKey: 'carCamping', icon: Caravan, param: 'type', value: 'CACP' },
-    { labelKey: 'beach', icon: Palmtree, param: 'terrain', value: 'BEAC' },
-    { labelKey: 'forest', icon: Trees, param: 'terrain', value: 'FORE' },
-    { labelKey: 'mountain', icon: Mountain, param: 'terrain', value: 'MTNS' },
-    { labelKey: 'riverside', icon: Waves, param: 'terrain', value: 'RIVE' },
-];
-
-// Resolve the pill matching the current `type`/`terrain` URL params (or
-// "all" when neither is set / matches nothing).
-function resolveSelectedExperience(searchParams: URLSearchParams): string {
+/**
+ * Resolve which pill matches the current URL.
+ *
+ * Returns `"all"` when no category param is set, the matching pill's key on an
+ * exact single-code match, and `null` when the URL holds something NO single
+ * pill can represent — a FilterModal multi-value CSV (`terrain=SEA,WATF`), an
+ * unknown code, or `type` and `terrain` both set. `null` renders with no pill
+ * selected and makes `handleSearch` leave `type`/`terrain` untouched, which is
+ * the CAM-532 fix for the old code path, which unconditionally deleted the
+ * terrain param and so wiped a camper's multi-value terrain selection on every
+ * search (story.md BR-4 / EC-1).
+ */
+function resolveSelectedExperience(searchParams: URLSearchParams): string | null {
     const typeParam = searchParams.get("type");
     const terrainParam = searchParams.get("terrain");
-    const match = EXPERIENCE_TYPES.find((item) => {
+    if (!typeParam && !terrainParam) return "all";
+    // Two dimensions at once is not expressible as one single-select pill.
+    if (typeParam && terrainParam) return null;
+    const match = CATEGORIES.find((item) => {
         if (item.param === "type") return typeParam === item.value;
         if (item.param === "terrain") return terrainParam === item.value;
         return false;
     });
-    return match ? match.labelKey : "all";
+    return match ? match.labelKey : null;
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
@@ -115,23 +120,20 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         const params = new URLSearchParams(searchParams.toString());
 
         if (keyword) params.set("keyword", keyword); else params.delete("keyword");
-
-        // CAM-494 — a selected pill owns EXACTLY ONE category param (`type`
-        // OR `terrain`, never both); clear the other so a stale value never
-        // sticks under the newly-selected dimension.
-        const selected = EXPERIENCE_TYPES.find((item) => item.labelKey === experienceType);
-        params.delete("type");
-        params.delete("terrain");
-        if (selected?.param && selected.value) {
-            params.set(selected.param, selected.value);
-        }
-
         if (province && province !== " ") params.set("province", province); else params.delete("province");
         if (startDate) params.set("startDate", format(startDate, "yyyy-MM-dd")); else params.delete("startDate");
         if (endDate) params.set("endDate", format(endDate, "yyyy-MM-dd")); else params.delete("endDate");
         if (guests) params.set("guests", guests); else params.delete("guests");
 
-        router.push(`/?${params.toString()}`);
+        // CAM-494/CAM-532 — the category dimension is written by CategoryBar's
+        // exported `buildCategoryUrl`: a pill owns EXACTLY ONE param (`type` OR
+        // `terrain`) and REPLACES it, clearing the other dimension. When no pill
+        // represents the current URL (`selected === undefined`), the category
+        // params are left exactly as they are, so a FilterModal multi-value
+        // `terrain=SEA,WATF` survives a date-only search (story.md BR-3/BR-4).
+        const selected = CATEGORIES.find((item) => item.labelKey === experienceType);
+        const query = params.toString();
+        router.push(selected ? buildCategoryUrl(selected, params) : (query ? `/?${query}` : "/"));
         onClose();
     };
 
@@ -161,27 +163,17 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         <div className="space-y-2">
                             <h3 className="text-lg font-bold px-1 text-foreground">{t.searchModal.experienceType}</h3>
                             <div className="flex flex-wrap gap-2">
-                                {EXPERIENCE_TYPES.map((item) => {
-                                    const active = experienceType === item.labelKey;
-                                    return (
-                                        <button
-                                            key={item.labelKey}
-                                            type="button"
-                                            aria-pressed={active}
-                                            onClick={() => setExperienceType(item.labelKey)}
-                                            className={cn(
-                                                "flex items-center gap-2 px-5 h-11 rounded-full border transition-all text-sm font-medium",
-                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                                                active
-                                                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
-                                                    : "bg-background text-muted-foreground border-border hover:border-foreground"
-                                            )}
-                                        >
-                                            <item.icon className={cn("w-3.5 h-3.5", active ? "text-primary-foreground" : "text-muted-foreground")} />
-                                            <span>{(t.categories as any)[item.labelKey]}</span>
-                                        </button>
-                                    );
-                                })}
+                                {CATEGORIES.map((item) => (
+                                    <FilterChip
+                                        key={item.labelKey}
+                                        variant="pill"
+                                        selected={experienceType === item.labelKey}
+                                        onToggle={() => setExperienceType(item.labelKey)}
+                                        icon={item.icon}
+                                        label={(t.categories as any)[item.labelKey]}
+                                        data-testid={`btn--search-experience-${item.labelKey}`}
+                                    />
+                                ))}
                             </div>
                         </div>
 
@@ -346,7 +338,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         <Button
                             onClick={handleSearch}
                             size="lg"
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 rounded-full font-bold shadow-lg shadow-primary/20"
+                            className="px-8 font-bold"
                         >
                             <Search className="w-4 h-4 mr-2" />
                             {t.search.search}
