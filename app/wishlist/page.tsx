@@ -16,7 +16,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/Navbar";
 import { WishlistPageClient } from "@/components/WishlistPageClient";
-import type { CampSiteCardData } from "@/components/CampgroundGrid";
+import type { CampSiteCardData } from "@/lib/read-models/camp-card";
 import { computeAvgRating } from "@/lib/sort-utils";
 import { roundAvgRating } from "@/lib/review-summary";
 

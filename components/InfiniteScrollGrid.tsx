@@ -40,7 +40,7 @@ const LoginModal = dynamic(
   { ssr: false, loading: () => null }
 );
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { CampSiteCardData } from "@/components/CampgroundGrid";
+import type { CampSiteCardData } from "@/lib/read-models/camp-card";
 
 // Re-export so callers that imported CampSiteCardData from this module still work.
 export type { CampSiteCardData };
