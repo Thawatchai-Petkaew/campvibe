@@ -8,7 +8,6 @@
  *   RISK-3  Bookings: 20 ok → 21st = 429 + Retry-After; 30 nights ok, 31 nights = 400.
  *   RISK-5  Reviews: 5 ok → 6th = 429 + Retry-After.
  *   RISK-6  Location POST: no session = 401; with session = passes auth guard.
- *   RISK-4  Campgrounds GET: result length ≤ 50 (take:50 cap); 101st IP hit = 429.
  *   RISK-9  Locations/search: force catch path → body has NO `detail`/`error.message` key.
  *   RISK-7  Status/stream: no token = 401; invalid token = 401; valid token = 200 (SSE);
  *           6th connection from same IP = 429.
@@ -24,6 +23,18 @@
  * Coverage matrix per qa.md:
  *   normal · null/empty · boundary (at-limit, over-limit, 30-night, 31-night) · error/validation ·
  *   concurrent/ordering (per-user isolation on rate-limit keys)
+ *
+ * CAM-527: removed the former RISK-4 describe block (legacy `app/api/campgrounds/route.ts`
+ * GET — dead, no product caller, deleted in this story).
+ *   - Its take:50 cap assertion has a live equivalent: `/api/campsites` GET bounds its fetch
+ *     via `take: PAGE_SIZE + 1` (PAGE_SIZE=24), already proven in
+ *     __tests__/cam-196-keyset-cursor.test.ts ("route takes PAGE_SIZE+1 rows... to detect
+ *     hasNextPage") — no unbounded fetch on the live route.
+ *   - Its IP rate-limit assertions (100th allowed / 101st → 429 / per-IP isolation) have
+ *     NO live equivalent: `/api/campsites` GET (the live public list) has zero IP-based
+ *     rate-limiting today — only POST create is rate-limited (`campsite:create:<userId>`).
+ *     This is a genuine, pre-existing gap on the live route (not introduced by this
+ *     deletion) — flagged to the story's needs_decision rather than silently dropped.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -131,7 +142,6 @@ vi.mock('next/cache', () => ({
 const { POST: bookingPOST }       = await import('@/app/api/bookings/route');
 const { POST: reviewPOST }        = await import('@/app/api/reviews/route');
 const { POST: locationPOST }      = await import('@/app/api/location/route');
-const { GET:  campgroundsGET }    = await import('@/app/api/campgrounds/route');
 const { GET:  locationSearchGET } = await import('@/app/api/locations/search/route');
 const { GET:  statusStreamGET }   = await import('@/app/api/status/stream/route');
 
@@ -447,71 +457,6 @@ describe('RISK-6 — POST /api/location — requireAuth gate', () => {
     mockAuth.mockResolvedValueOnce({ user: null });
     const res = await locationPOST(makeLocationRequest());
     expect(res.status).toBe(401);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RISK-4 — Campgrounds GET: take:50 cap + IP rate-limit 100/15min
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('RISK-4 — GET /api/campgrounds — take:50 cap + IP rate-limit', () => {
-  function makeCampgroundsRequest(ip = '10.0.0.1') {
-    return new NextRequest('http://localhost/api/campgrounds', {
-      headers: { 'x-forwarded-for': ip },
-    });
-  }
-
-  it('[normal] response contains at most 50 campgrounds (take:50 enforced)', async () => {
-    // Prisma returns 50 items (simulating a full page)
-    const fifty = Array.from({ length: 50 }, (_, i) => ({ id: `camp-${i}` }));
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce(fifty);
-    const req = makeCampgroundsRequest();
-    const res = await campgroundsGET(req);
-    expect(res.status).toBe(200);
-    // apiSuccess serializes directly (no {data:...} wrapper)
-    const body = await res.json();
-    const items = Array.isArray(body) ? body : body.data ?? body;
-    expect(Array.isArray(items)).toBe(true);
-    expect(items.length).toBeLessThanOrEqual(50);
-  });
-
-  it('[boundary] Prisma is called with take:50 (proves the cap is applied, not just coincidental)', async () => {
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest();
-    await campgroundsGET(req);
-    const callArgs = mockPrismaCampSiteFindMany.mock.calls[0]?.[0];
-    expect(callArgs?.take).toBe(50);
-  });
-
-  it('[boundary] 100th IP request is allowed (at the limit)', async () => {
-    const IP = '192.168.1.1';
-    fillStore(`campgrounds:list:${IP}`, 99); // 99 used → 100th is within limit
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest(IP);
-    const res = await campgroundsGET(req);
-    expect(res.status).not.toBe(429);
-  });
-
-  it('[boundary] 101st IP request returns 429 with Retry-After', async () => {
-    const IP = '192.168.1.2';
-    fillStore(`campgrounds:list:${IP}`, 100); // 100 used → 101st is over
-    const req = makeCampgroundsRequest(IP);
-    const res = await campgroundsGET(req);
-
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.error).toBe('rate_limited');
-    expect(res.headers.get('Retry-After')).not.toBeNull();
-    expect(Number(res.headers.get('Retry-After'))).toBeGreaterThan(0);
-  });
-
-  it('[concurrent] different IPs have independent counters', async () => {
-    fillStore('campgrounds:list:10.1.1.1', 100);
-    // 10.1.1.2 is fresh
-    mockPrismaCampSiteFindMany.mockResolvedValueOnce([]);
-    const req = makeCampgroundsRequest('10.1.1.2');
-    const res = await campgroundsGET(req);
-    expect(res.status).not.toBe(429);
   });
 });
 

@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { CampgroundCard } from "@/components/CampgroundCard";
 import { LoginModal } from "@/components/LoginModal";
 import { Button } from "@/components/ui/button";
-import type { CampSiteCardData } from "@/components/CampgroundGrid";
+import type { CampSiteCardData } from "@/lib/read-models/camp-card";
 
 interface WishlistPageClientProps {
     /** Null = guest (not authenticated). */

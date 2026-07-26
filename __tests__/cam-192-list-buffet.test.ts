@@ -6,9 +6,11 @@
  *   AC-1  campCardSelect shape — no spots/options/operator keys; images.take=5;
  *         images.orderBy.sortOrder='asc'; reviews.where.deletedAt=null;
  *         location.select.province=true
- *   AC-2  3 call sites use campCardSelect — app/page.tsx (both sort branches),
- *         app/api/campsites/route.ts, app/api/campgrounds/route.ts each reference
- *         `select: campCardSelect` and do NOT reference `include: { spots` / `include: { options`
+ *   AC-2  Call sites use campCardSelect — app/page.tsx (both sort branches),
+ *         app/api/campsites/route.ts each reference `select: campCardSelect` and do NOT
+ *         reference `include: { spots` / `include: { options`. (CAM-527: the legacy
+ *         app/api/campgrounds/route.ts, dead/no product caller, was deleted — its
+ *         parallel call-site assertions removed with it.)
  *   AC-3  avgRating pipeline intact — computeAvgRating / roundAvgRating produce correct
  *         values from {rating}[] (delegation to sort-utils / review-summary already tested;
  *         this test confirms the pipeline is still wired in app/page.tsx after the refactor)
@@ -63,7 +65,6 @@ const pageSrc       = readSrc('app/page.tsx');
 // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
 const catalogResultsSrc = readSrc('components/CatalogResults.tsx');
 const campsiteSrc   = readSrc('app/api/campsites/route.ts');
-const campgroundSrc = readSrc('app/api/campgrounds/route.ts');
 const cardSrc       = readSrc('components/CampgroundCard.tsx');
 
 // ---------------------------------------------------------------------------
@@ -213,24 +214,6 @@ describe('AC-2 — call sites use campCardSelect, not include:{spots/options}', 
 
   it('[call-site] app/api/campsites/route.ts GET handler does NOT use `include: { options`', () => {
     expect(campsiteSrc).not.toMatch(/include:\s*\{\s*options/);
-  });
-
-  // app/api/campgrounds/route.ts
-  it('[call-site] app/api/campgrounds/route.ts imports campCardSelect', () => {
-    // Route uses single-quote imports.
-    expect(campgroundSrc).toContain("from '@/lib/read-models/camp-card'");
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler uses `select: campCardSelect`', () => {
-    expect(campgroundSrc).toContain('select: campCardSelect');
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler does NOT use `include: { spots`', () => {
-    expect(campgroundSrc).not.toMatch(/include:\s*\{\s*spots/);
-  });
-
-  it('[call-site] app/api/campgrounds/route.ts GET handler does NOT use `include: { options`', () => {
-    expect(campgroundSrc).not.toMatch(/include:\s*\{\s*options/);
   });
 });
 
@@ -403,32 +386,35 @@ describe('AC-5 — card render contract: all CampgroundCard fields present in ca
     expect(cardSrc).toContain('campground.images');
   });
 
-  // Verify CampgroundGrid passes avgRating and reviewCount props (wiring check)
-  it('[source] CampgroundGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
+  // CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+  // components/InfiniteScrollGrid.tsx is the live component forwarding these props.
+  it('[source] InfiniteScrollGrid.tsx passes avgRating={camp.avgRating} to CampgroundCard', () => {
+    const gridSrc = readSrc('components/InfiniteScrollGrid.tsx');
     expect(gridSrc).toContain('avgRating={camp.avgRating}');
   });
 
-  it('[source] CampgroundGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
+  it('[source] InfiniteScrollGrid.tsx passes reviewCount={camp.reviewCount} to CampgroundCard', () => {
+    const gridSrc = readSrc('components/InfiniteScrollGrid.tsx');
     expect(gridSrc).toContain('reviewCount={camp.reviewCount}');
   });
 });
 
 // ---------------------------------------------------------------------------
-// Regression guard — CampSiteCardData type in CampgroundGrid derives from CampCardPayload
+// Regression guard — CampSiteCardData type derives from CampCardPayload
+// CAM-527: CampSiteCardData moved off the deleted components/CampgroundGrid.tsx
+// into lib/read-models/camp-card.ts — now CO-LOCATED with CampCardPayload in the
+// same file (no cross-file import needed any more), which this guard now proves.
 // ---------------------------------------------------------------------------
 describe('Regression — CampSiteCardData derives from CampCardPayload (type contract)', () => {
 
-  it('[source] CampgroundGrid.tsx imports CampCardPayload from lib/read-models/camp-card', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
-    // CampgroundGrid uses double-quote style imports with `import type`.
-    expect(gridSrc).toContain('from "@/lib/read-models/camp-card"');
-    expect(gridSrc).toContain('CampCardPayload');
+  it('[source] CampSiteCardData and CampCardPayload are co-located in lib/read-models/camp-card.ts (no parallel type)', () => {
+    const typeSrc = readSrc('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('export type CampCardPayload');
+    expect(typeSrc).toContain('export type CampSiteCardData');
   });
 
   it('[source] CampSiteCardData uses Omit<CampCardPayload, ...> (narrowed, not re-declared)', () => {
-    const gridSrc = readSrc('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('Omit<CampCardPayload');
+    const typeSrc = readSrc('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('Omit<CampCardPayload');
   });
 });

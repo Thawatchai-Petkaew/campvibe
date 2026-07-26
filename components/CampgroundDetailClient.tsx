@@ -84,12 +84,17 @@ export default function CampgroundDetailClient({
     /** Server-resolved initial wishlist state (AC-2, BR-3). */
     initialSaved?: boolean;
     /**
-     * Server-rendered session snapshot — kept only so existing callers
-     * (app/campgrounds/[slug]/page.tsx, app/wishlist/page.tsx) don't need a
-     * prop-shape change. CAM-397 BR-1: never read as a gate input — both
-     * handleReserve and handleWishlistToggle gate on the LIVE client session
-     * (`useSession()` status === "authenticated") because this snapshot lags
+     * Server-rendered session snapshot — kept only so the existing caller
+     * (app/campgrounds/[slug]/page.tsx) doesn't need a prop-shape change.
+     * CAM-397 BR-1: never read as a gate input — both handleReserve and
+     * handleWishlistToggle gate on the LIVE client session (`useSession()`
+     * status === "authenticated") because this snapshot lags
      * `router.refresh()` after a modal login (CAM-396 G4 finding).
+     *
+     * CAM-527: confirmed dead INSIDE this component (never destructured from
+     * props below) — kept only because removing it from the type breaks
+     * `app/campgrounds/[slug]/page.tsx`'s JSX excess-property check (that
+     * file is outside this story's file surface); see needs_decision.
      */
     isLoggedIn?: boolean;
     /** CAM-79 AC-1/AC-2: average rating rounded to 1dp, or null when no reviews. */
@@ -106,12 +111,11 @@ export default function CampgroundDetailClient({
     const { resolvedTheme } = useTheme();
     const router = useRouter();
 
-    // CAM-397 BR-1: gate on the LIVE client session, never the server-snapshot
-    // `isLoggedIn` prop above — the prop stays stale until router.refresh()
-    // lands after a modal login, so the first press right after login re-opens
-    // the modal on a stale value (CAM-396 G4 finding). LoginModal.handleSubmit
-    // already calls update() on success (LoginModal.tsx:52-67), which flips
-    // this immediately — no refresh hack needed.
+    // CAM-397 BR-1: gate on the LIVE client session — a server-rendered snapshot
+    // stays stale until router.refresh() lands after a modal login, so the first
+    // press right after login would re-open the modal on a stale value (CAM-396
+    // G4 finding). LoginModal.handleSubmit already calls update() on success
+    // (LoginModal.tsx:52-67), which flips this immediately — no refresh hack needed.
     const { status: sessionStatus } = useSession();
     const isLoggedInLive = sessionStatus === "authenticated";
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
@@ -143,7 +147,6 @@ export default function CampgroundDetailClient({
     const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
-    const [loadingAvailability, setLoadingAvailability] = useState(false);
 
     // CAM-267 PREP-1: remaining capacity for the exact selected stay (เหลือ X ที่ / เต็มแล้ว).
     // null = no selection yet, or capacity is unbounded (maxGuestsPerDay not set) and the
@@ -178,8 +181,7 @@ export default function CampgroundDetailClient({
     useEffect(() => {
         const fetchAvailability = async () => {
             if (!campground.id) return;
-            
-            setLoadingAvailability(true);
+
             try {
                 const start = startOfMonth(new Date());
                 const end = endOfMonth(addMonths(new Date(), 3)); // Next 3 months
@@ -218,8 +220,6 @@ export default function CampgroundDetailClient({
                 setAvailability(availabilityMap);
             } catch (error) {
                 console.error('Failed to fetch availability:', error);
-            } finally {
-                setLoadingAvailability(false);
             }
         };
 

@@ -1,15 +1,19 @@
 import { z } from 'zod';
 import { imageInputSchema, imageUrlValue } from './image';
 
-// Extended camp site types to match actual usage
+// CAM-527: reconciled down to the 4 codes that actually exist as `Campground type`
+// MasterData rows (prisma/seed.ts) — the only codes the host form can ever pick and
+// the only codes searchable/displayable via that group. The 3 previously-superset
+// members are gone: one had no MasterData row and no i18n key anywhere (would render
+// as a raw code); the other two belong to OTHER MasterData groups entirely (Terrain,
+// Access type — see AccessTypeEnum just below, which correctly keeps its own member) —
+// keeping them here would let a stray campSiteType write render a terrain/access label
+// as a site type.
 export const CampSiteTypeEnum = z.enum([
   "CAGD", // Campgrounds
   "CACP", // Car Camping
   "GLAMP", // Glamping
-  "LAKE", // Lakefront
-  "FOREST", // Forest
-  "VIEW", // Views
-  "BAOT", // Boat Access
+  "VIEW", // Scenic view
 ]);
 
 export const AccessTypeEnum = z.enum([

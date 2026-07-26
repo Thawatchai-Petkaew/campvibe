@@ -50,7 +50,7 @@
  *   - GET /api/campsites → integration, direct route invocation with mocked
  *     prisma (established precedent: __tests__/security-hotfix.test.ts
  *     "GET /api/campsites — coverage").
- *   - components/CatalogResults.tsx (SSR surface), CampgroundGrid.tsx,
+ *   - components/CatalogResults.tsx (SSR surface), lib/read-models/camp-card.ts,
  *     InfiniteScrollGrid.tsx, CampgroundCard.tsx, ui/badge.tsx → source-
  *     inspection (established precedent: cam-195/cam-196/cam-197 test files;
  *     vitest.config.ts only globs `**\/*.test.ts`, never renders a .tsx client
@@ -751,19 +751,18 @@ describe('app/api/campsites/route.ts — availability attach contract (source-in
 });
 
 // ===========================================================================
-// Group F: card wiring — CampSiteCardData / CampgroundGrid / InfiniteScrollGrid
+// Group F: card wiring — CampSiteCardData / InfiniteScrollGrid
 // / CampgroundCard / badge.tsx (source-inspect)
 // ===========================================================================
 
 describe('card wiring — availabilityStatus threaded through to CampgroundCard (source-inspect)', () => {
+  // CAM-527: components/CampgroundGrid.tsx was dead (zero importers) and was deleted;
+  // CampSiteCardData moved to lib/read-models/camp-card.ts. The former "CampgroundGrid.tsx
+  // passes availabilityStatus..." wiring test is gone with it — InfiniteScrollGrid.tsx's
+  // equivalent assertion right below already proves the live wiring.
   it('CampSiteCardData declares the explicit optional availabilityStatus field', () => {
-    const gridSrc = src('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('availabilityStatus?: CampAvailabilityStatus');
-  });
-
-  it('CampgroundGrid.tsx passes availabilityStatus as an explicit prop (mirrors avgRating/reviewCount)', () => {
-    const gridSrc = src('components/CampgroundGrid.tsx');
-    expect(gridSrc).toContain('availabilityStatus={camp.availabilityStatus}');
+    const typeSrc = src('lib/read-models/camp-card.ts');
+    expect(typeSrc).toContain('availabilityStatus?: CampAvailabilityStatus');
   });
 
   it('InfiniteScrollGrid.tsx passes availabilityStatus as an explicit prop (mirrors avgRating/reviewCount)', () => {
