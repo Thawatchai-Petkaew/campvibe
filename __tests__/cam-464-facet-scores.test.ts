@@ -11,7 +11,9 @@
  *   - BEGINNER: drive-up + comforts fixture (AC-2) · zero-comfort conflict
  *     lowers confidence below the answerable threshold, no cap needed
  *     (EC-2) · hard-access cap to 0.30 (BR-2/BR-3 region) · absent when
- *     empty (EC-1/EC-4)
+ *     empty (EC-1/EC-4). CAM-518 (S6) re-balanced BEGINNER_WEIGHTS to 12
+ *     slots (added HOTW/GLAMP/CHIC/LIGT/RESV) — the exact score/confidence
+ *     values below were recomputed against the enriched table.
  *   - ROAD_ACCESS: drivable → 0.70/0.50 + vehicle_class_unknown note (AC-3)
  *     · not-drivable → 0.15/0.50, evidence in BAOT→HIKE→WALK order (EC-3)
  *     · absent when no access codes (AC-4) · confidence NEVER exceeds the
@@ -148,8 +150,8 @@ describe('computeFacetScores — BEGINNER (BR-2, proves AC-2)', () => {
     const beginner = findFacet(result, 'beginner');
 
     expect(beginner).toBeDefined();
-    expect(beginner?.score).toBe(0.65); // .35 + .10 + .10 + .10
-    expect(beginner?.confidence).toBe(0.57); // 4/7 rounded to 2dp
+    expect(beginner?.score).toBe(0.43); // CAM-518 12-slot table: .20 + .08 + .08 + .07
+    expect(beginner?.confidence).toBe(0.33); // 4/12 rounded to 2dp
     expect(beginner?.answerable).toBe(true);
     expect(beginner?.evidence).toEqual([
       { type: 'field', ref: 'DRIV', effect: 'supports' },
@@ -165,8 +167,8 @@ describe('computeFacetScores — BEGINNER (BR-2, proves AC-2)', () => {
     const beginner = findFacet(result, 'beginner');
 
     expect(beginner).toBeDefined();
-    expect(beginner?.score).toBe(0.35);
-    expect(beginner?.confidence).toBeCloseTo(1 / 7, 2);
+    expect(beginner?.score).toBe(0.2); // CAM-518 12-slot table: driveUp alone
+    expect(beginner?.confidence).toBeCloseTo(1 / 12, 2);
     expect(beginner?.confidence).toBeLessThan(ANSWERABLE_CONFIDENCE);
     expect(beginner?.answerable).toBe(false);
   });
@@ -180,8 +182,44 @@ describe('computeFacetScores — BEGINNER (BR-2, proves AC-2)', () => {
     const beginner = findFacet(result, 'beginner');
 
     expect(beginner).toBeDefined();
-    expect(beginner?.score).toBe(0.3); // raw .40 clamped to .30
+    // CAM-518 12-slot table: .08 + .08 + .07 + .07 = .30 raw — already at the
+    // cap, so Math.min(0.30, 0.3) changes nothing numerically, but the cap's
+    // `limits` evidence entry still fires (the branch condition is code-
+    // presence based, not score-based).
+    expect(beginner?.score).toBe(0.3);
     expect(beginner?.evidence).toContainEqual({ type: 'field', ref: 'BAOT', effect: 'limits' });
+  });
+
+  it('[normal] CAM-518 (S6): the enriched beginner facet fires on HOTW/GLAMP/CHIC/LIGT with named evidence', () => {
+    const input: FacetScoreInput = {
+      options: [opt('DRIV', ACCESS), opt('HOTW', FACILITY), opt('CHIC', 'Camper style'), opt('LIGT', FACILITY)],
+      minimumAge: null,
+      campSiteType: 'GLAMP',
+    };
+    const result = computeFacetScores(input);
+    const beginner = findFacet(result, 'beginner');
+
+    expect(beginner).toBeDefined();
+    expect(beginner?.score).toBe(0.49); // .20 (driveUp) + .09 (hotWater) + .08 (glamp) + .09 (chic) + .03 (lighting)
+    expect(beginner?.confidence).toBe(0.42); // 5/12 rounded to 2dp
+    expect(beginner?.answerable).toBe(true);
+    expect(beginner?.evidence).toEqual([
+      { type: 'field', ref: 'DRIV', effect: 'supports' },
+      { type: 'field', ref: 'HOTW', effect: 'supports' },
+      { type: 'field', ref: 'campSiteType', effect: 'supports' },
+      { type: 'field', ref: 'CHIC', effect: 'supports' },
+      { type: 'field', ref: 'LIGT', effect: 'supports' },
+    ]);
+  });
+
+  it('[boundary] CAM-518 teeth: RESV alone (no DRIV/hard-access) fires the smallest new comfort slot without crossing the hard-access cap branch', () => {
+    const input: FacetScoreInput = { options: [opt('RESV', 'Annotated features')], minimumAge: null };
+    const result = computeFacetScores(input);
+    const beginner = findFacet(result, 'beginner');
+
+    expect(beginner).toBeDefined();
+    expect(beginner?.score).toBe(0.02); // reservable only
+    expect(beginner?.evidence).toEqual([{ type: 'field', ref: 'RESV', effect: 'supports' }]);
   });
 
   it('[normal] gearRental fires from ANY Equipment-for-rent option, evidence = first code in code order', () => {

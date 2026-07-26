@@ -34,6 +34,20 @@ export interface CampSiteFilterParams {
   activities?: string | string[];
   terrain?: string | string[];
   /**
+   * CAM-515 (S3) — the FIRST new MasterData group (`Annotated features`:
+   * ALCO/FIRE/FIWD/ADAA/RESV). Same `string | string[]` widening + OR-within-
+   * group semantics as every other taxonomy group above (CAM-461 Decision 1) —
+   * no new where-shape, just a 7th `addOptionFilter` call below.
+   */
+  annotatedFeatures?: string | string[];
+  /**
+   * CAM-516 (S4) — the SECOND new MasterData group (`Camper style`:
+   * CHIC/GENR/DIFT/IDMT). Same `string | string[]` widening + OR-within-group
+   * semantics as every other taxonomy group above (CAM-461 Decision 1) — no
+   * new where-shape, just an 8th `addOptionFilter` call below.
+   */
+  camperStyle?: string | string[];
+  /**
    * CAM-270 BR-9 — additive pet-friendly filter for the AI searchCampsites
    * tool. Only applied when explicitly `true` (absent/false = no filtering,
    * existing behavior unchanged for every other caller of this function).
@@ -71,6 +85,8 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
     equipment,
     activities,
     terrain,
+    annotatedFeatures,
+    camperStyle,
   } = params;
 
   const where: Prisma.CampSiteWhereInput = {
@@ -188,6 +204,8 @@ export function buildCampSiteWhere(params: CampSiteFilterParams): Prisma.CampSit
   addOptionFilter(equipment);
   addOptionFilter(activities);
   addOptionFilter(terrain);
+  addOptionFilter(annotatedFeatures);
+  addOptionFilter(camperStyle);
 
   // 7. CAM-270 BR-9 — additive pet-friendly filter (AI searchCampsites tool).
   // Only applied when explicitly requested (`petFriendly: true`); pushed into

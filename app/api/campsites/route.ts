@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       cursor: cursorParam,
       type, keyword, province, district, startDate, endDate,
       guests, min, max, access, facilities, external, equipment, activities, terrain,
+      annotatedFeatures, camperStyle,
     } = parsed.data;
 
     // 2. Decode cursor (SEC-1: never pass raw cursor to Prisma; decode first).
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
     const baseWhere = buildCampSiteWhere({
       type, keyword, province, district, startDate, endDate,
       guests, min, max, access, facilities, external, equipment, activities, terrain,
+      annotatedFeatures, camperStyle,
     });
 
     // 4. Merge keyset WHERE via AND (never replaces the base gate).
@@ -190,6 +192,10 @@ export async function POST(request: NextRequest) {
     const optionsConnect = await resolveOptionConnect([
       data.accessTypes, data.facilities, data.externalFacilities,
       data.equipment, data.activities, data.terrain,
+      // CAM-515 (S3) — Annotated features, the FIRST new MasterData group.
+      data.annotatedFeatures,
+      // CAM-516 (S4) — Camper style, the SECOND new MasterData group.
+      data.camperStyle,
     ]);
 
     // CAM-365 BR-6: a create that requests isPublished=true is the same

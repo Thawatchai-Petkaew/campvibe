@@ -33,6 +33,18 @@ const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
 const pick = (a) => a[Math.floor(rnd() * a.length)];
 const chance = (p) => rnd() < p;
 const pickN = (a, n) => { const c = [...a]; const out = []; n = Math.min(n, c.length); for (let i = 0; i < n; i++) out.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return out; };
+// CAM-516 (S4) — weighted single-pick (ONE rnd() draw): given a {code: weight} map
+// (weights need not pre-sum to 1 — normalized against their own total), returns ONE
+// code proportional to its weight. Used for Camper style (BR-6: "seed ~1 per camp",
+// a dominant vibe rather than the independent-chance()-per-code draw annotatedFeatures
+// uses above).
+const wpick = (weights) => {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let r = rnd() * total;
+  for (const [code, w] of entries) { r -= w; if (r <= 0) return code; }
+  return entries[entries.length - 1][0];
+};
 const round50 = (x) => Math.round(x / 50) * 50;
 const round4 = (x) => Math.round(x * 10000) / 10000;
 
@@ -77,72 +89,150 @@ function provThZip(nameEn) {
 // GUARANTEES ≥1 each regardless of luck — see "closeDeadCodes").
 const THEMES = {
   mist: {
-    label: 'ทะเลหมอกภูเขา', terrain: ['MTNS', 'FORE'], view: 'MOUNTAIN',
+    // CAM-513 (S1): WATF/SWMH/CAVE added (mist=mountain/forest terrain — waterfalls,
+    // swimming holes, and caves are plausible in the same misty-mountain setting).
+    label: 'ทะเลหมอกภูเขา', terrain: ['MTNS', 'FORE', 'WATF', 'SWMH', 'CAVE'], view: 'MOUNTAIN',
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'ELEC', 'REST', 'PICN', 'FEDW', 'GRIL', 'MIMT'],
     equip: ['TENT', 'BLKT', 'TFAN', 'LEDL', 'GDST', 'CHAI', 'POWE'], ext: ['SVEL', 'MAKT'],
-    ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — VIEW added (mist = the mountain-ridge/ทะเลหมอก scenic theme;
+    // 1/3 pick share, ~9/27 mist camps expected — a discriminating VIEW slice).
+    ground: ['GRASS', 'STONE', 'WOOD'], tier: [450, 1200], type: ['CAGD', 'CACP', 'VIEW'],
     accomm: ['TENT', 'CABI', 'DISP'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common in this rustic
+    // mountain-forest theme (ก่อไฟ/ฟืนหน้าหนาว), RESV mixed, ADAA rare
+    // (undeveloped mountain terrain rarely accessible).
+    annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.3, ADAA: 0.12 },
+    // CAM-516 (S4) — Camper style (BR-6, weighted single-pick): rugged misty-
+    // mountain theme skews DIFT/IDMT (steep climbs, cold, no paved access),
+    // GENR still the plurality, CHIC rarest here.
+    camperStyle: { CHIC: 0.10, GENR: 0.30, DIFT: 0.35, IDMT: 0.25 },
     tags: ['ทะเลหมอก', 'วิวภูเขา', 'อากาศเย็น', 'พระอาทิตย์ขึ้น'],
     desc: 'อากาศหนาวเย็นและทะเลหมอกยามเช้า เหมาะกับสายธรรมชาติที่หลงรักวิวภูเขา',
     scene: 'misty mountain ridge campsite at dawn, a sea of clouds filling the valley below, pine trees',
     time: 'golden sunrise with low fog',
   },
   beach: {
-    label: 'ริมทะเล/ชายหาด', terrain: ['BEAC'], view: 'BEACH',
+    // CAM-513 (S1) BR-3 — SEA + COAS gated to COASTAL_PROVINCES exactly like BEAC: the
+    // 'beach' theme is only ever drawn for isCoastal provinces (see the province-fill
+    // loop below), so adding these to the theme's fixed terrain array inherits the same
+    // coastal discipline as BEAC — never a flat region-wide pool.
+    label: 'ริมทะเล/ชายหาด', terrain: ['BEAC', 'SEA', 'COAS'], view: 'BEACH',
     activities: ['SWIM', 'SURF', 'BOAT', 'FISH'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART'],
+    // CAM-514 (S2) BR-3 — a developed beach resort camp plausibly always has hot
+    // showers (HOTW promoted to facBase, guaranteed — nudges the dataset-wide HOTW
+    // spread from ~14.2% to the 15-40% target band) + night lighting (LIGT, facExtra).
+    facBase: ['TOIL', 'SHOW', 'POTA', 'HOTW'], facExtra: ['WIFI', 'CAFE', 'REST', 'FEIC', 'SINK', 'GRIL', 'CART', 'LIGT'],
     equip: ['TENT', 'FYST', 'CHAI', 'ICBK', 'POWE'], ext: ['SVEL', 'LOTS', 'MIBC'],
-    ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — GLAMP added (beach = a comfort/resort theme, a natural fit
+    // for a fully-set-up glamping tent; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'WOOD'], tier: [600, 2000], type: ['CAGD', 'CACP', 'GLAMP'],
     accomm: ['TENT', 'RECR', 'CABI'],
+    // CAM-515 (S3) — Annotated features: ALCO common (chill beach-bar vibe,
+    // "จิบเบียร์ริมหาด"), RESV common (resort-style booking), ADAA more
+    // likely here than most themes (developed beach resorts), FIRE lower
+    // (fewer beach camps allow open fires) but still plausible.
+    annotated: { ALCO: 0.45, RESV: 0.35, ADAA: 0.4, FIRE: 0.15 },
+    // CAM-516 (S4) — Camper style: beach-resort glamping vibe skews CHIC,
+    // GENR close behind, DIFT/IDMT rarest (developed beach camps are the
+    // opposite of "ลำบาก/ทรหด").
+    camperStyle: { CHIC: 0.40, GENR: 0.35, DIFT: 0.15, IDMT: 0.10 },
     tags: ['ริมทะเล', 'วิวทะเล', 'พระอาทิตย์ตก', 'เล่นน้ำทะเล'],
     desc: 'กางเต็นท์ริมหาดฟังเสียงคลื่น ชมพระอาทิตย์ตกเหนือผืนทะเล',
     scene: 'beachfront campsite on white sand, turquoise sea, palm trees, tents facing the water',
     time: 'warm sunset over the sea',
   },
   river: {
-    label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE'], view: 'RIVER',
+    // CAM-513 (S1): WATF/SWMH added (river/stream setting is a natural fit for a
+    // waterfall or a natural swimming hole).
+    label: 'ริมน้ำ/ลำธาร', terrain: ['RIVE', 'FORE', 'WATF', 'SWMH'], view: 'RIVER',
     activities: ['BOAT', 'FISH', 'SWIM', 'HIKI'], access: ['DRIV', 'WALK'],
-    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA', 'PICN'], facExtra: ['CAFE', 'WIFI', 'GRIL', 'SINK', 'FEDW', 'WATE', 'HOTW', 'LIGT'],
     equip: ['TENT', 'GDST', 'CHAI', 'SSTV', 'ICBK', 'FYST', 'LSTV'], ext: ['SVEL', 'MAKT'],
     ground: ['GRASS', 'STONE', 'WOOD'], tier: [350, 900], type: ['CAGD', 'CACP'],
     accomm: ['TENT', 'CABI'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common (riverside
+    // campfire is a classic combo), RESV mixed, ALCO occasional, ADAA a
+    // modest minority (a maintained riverside path can be level/accessible).
+    annotated: { FIRE: 0.5, FIWD: 0.45, RESV: 0.25, ALCO: 0.1, ADAA: 0.15 },
+    // CAM-516 (S4) — Camper style: riverside is the "middle of the road"
+    // theme, GENR the plurality, DIFT ahead of CHIC/IDMT (a rocky riverbank
+    // can be a bit of a scramble, but not rugged enough for IDMT to dominate).
+    camperStyle: { CHIC: 0.20, GENR: 0.40, DIFT: 0.25, IDMT: 0.15 },
     tags: ['ริมน้ำ', 'ลำธารใส', 'ร่มรื่น', 'พายเรือ'],
     desc: 'ลานกางเต็นท์ริมลำธารน้ำใส ใต้ร่มไม้ร่มรื่น เสียงน้ำไหลทั้งวัน',
     scene: 'campsite beside a clear shallow stream over smooth rocks, shady riverbank forest',
     time: 'soft morning light through trees',
   },
   forest: {
-    label: 'ป่าลึก/ผจญภัย', terrain: ['FORE', 'MTNS'], view: 'FOREST',
+    // CAM-513 (S1): WATF/SWMH/CAVE added (deep forest/mountain terrain plausibly
+    // contains a waterfall, a swimming hole, or a cave).
+    label: 'ป่าลึก/ผจญภัย', terrain: ['FORE', 'MTNS', 'WATF', 'SWMH', 'CAVE'], view: 'FOREST',
     activities: ['HIKI', 'WILD', 'CLIM', 'OFFR'], access: ['DRIV', 'HIKE'],
     facBase: ['TOIL', 'POTA'], facExtra: ['SHOW', 'PICN', 'TRAS', 'SANI', 'FEDW'],
     equip: ['TENT', 'GDST', 'LEDL', 'LSTV'], ext: ['MAKT'],
-    ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD'],
+    // CAM-517 (S5) — VIEW added (deep-forest/mountain terrain plausibly has a
+    // jungle-canopy lookout point; 50/50 share since forest never had CACP).
+    ground: ['GRASS', 'WOOD'], tier: [200, 700], type: ['CAGD', 'VIEW'],
     accomm: ['TENT', 'DISP', 'GROU'],
+    // CAM-515 (S3) — Annotated features: FIRE/FIWD common (deep-forest/
+    // adventure camping leans rustic campfire), RESV lower (less structured
+    // booking), ADAA rarest (undeveloped jungle terrain).
+    annotated: { FIRE: 0.55, FIWD: 0.5, RESV: 0.15, ADAA: 0.12 },
+    // CAM-516 (S4) — Camper style: deep-forest/adventure theme skews IDMT/
+    // DIFT hardest of every theme (undeveloped jungle terrain, off-road
+    // access), CHIC rarest.
+    camperStyle: { CHIC: 0.10, GENR: 0.25, DIFT: 0.30, IDMT: 0.35 },
     tags: ['ป่าธรรมชาติ', 'ส่องสัตว์ป่า', 'เดินป่า', 'ร่มครึ้ม'],
     desc: 'โอบล้อมด้วยป่าใหญ่ที่อุดมสมบูรณ์ เหมาะกับการเดินป่าและส่องสัตว์',
     scene: 'deep jungle clearing campsite, towering rainforest canopy, morning mist between trees',
     time: 'misty early morning',
   },
   lake: {
-    label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE'], view: 'LAKE',
+    // CAM-513 (S1): LAKE (the theme's own terrain code) + WATF/SWMH added.
+    label: 'ริมทะเลสาบ', terrain: ['RIVE', 'FORE', 'LAKE', 'WATF', 'SWMH'], view: 'LAKE',
     activities: ['BOAT', 'FISH', 'SWIM', 'WILD'], access: ['DRIV', 'BAOT'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'REST', 'WIFI', 'PICN', 'FEDW', 'WATE', 'CART', 'HOTW', 'LIGT'],
     equip: ['TENT', 'CHAI', 'ICBK', 'FYST', 'GDST'], ext: ['SVEL'],
-    ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP'],
+    // CAM-517 (S5) — GLAMP added (calm lakeside resort-style stay, a comfort theme
+    // like beach/meadow; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'WOOD'], tier: [450, 1300], type: ['CAGD', 'CACP', 'GLAMP'],
     accomm: ['TENT', 'CABI', 'RECR'],
+    // CAM-515 (S3) — Annotated features: ALCO/RESV common (calm lakeside
+    // resort-style stay), ADAA more likely (developed lakeside sites),
+    // FIRE mixed.
+    annotated: { ALCO: 0.4, RESV: 0.35, ADAA: 0.35, FIRE: 0.2 },
+    // CAM-516 (S4) — Camper style: calm lakeside resort-style stay skews
+    // GENR/CHIC (mirrors beach's comfort lean but less extreme), DIFT/IDMT
+    // rarest.
+    camperStyle: { CHIC: 0.35, GENR: 0.40, DIFT: 0.15, IDMT: 0.10 },
     tags: ['ริมทะเลสาบ', 'วิวน้ำสงบ', 'บรรยากาศสงบ', 'แพกลางน้ำ'],
     desc: 'ริมทะเลสาบน้ำนิ่งสะท้อนเงาภูเขา บรรยากาศเงียบสงบราวกับต่างแดน',
     scene: 'lakeside campsite, calm mirror-like water reflecting limestone karst hills, floating raft houses',
     time: 'still dawn with mist on the water',
   },
   meadow: {
-    label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE'], view: 'GENERAL',
+    // CAM-513 (S1): FILD/FARM added (ทุ่งหญ้า meadow theme is the natural fit for
+    // an open field or a farm/farmstay).
+    label: 'ทุ่งหญ้า/ชมดาว', terrain: ['MTNS', 'FORE', 'FILD', 'FARM'], view: 'GENERAL',
     activities: ['HIKI', 'HORS', 'WILD', 'LIVE'], access: ['DRIV'],
-    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT'],
+    // CAM-514 (S2) BR-3 — HOTW/LIGT added to this comfort-leaning theme's facExtra.
+    facBase: ['TOIL', 'SHOW', 'POTA'], facExtra: ['CAFE', 'WIFI', 'ELEC', 'REST', 'FEDW', 'GRIL', 'MIMT', 'HOTW', 'LIGT'],
     equip: ['TENT', 'BLKT', 'CHAI', 'LEDL', 'TFAN', 'POWE'], ext: ['SVEL', 'MAKT'],
-    ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD'],
+    // CAM-517 (S5) — GLAMP added (open-meadow glamping-under-the-stars is a
+    // comfort theme like beach/lake; 1/3 pick share of a discriminating slice).
+    ground: ['GRASS', 'CONCRETE'], tier: [350, 950], type: ['CACP', 'CAGD', 'GLAMP'],
     accomm: ['TENT', 'GROU', 'HORS'],
+    // CAM-515 (S3) — Annotated features: ALCO/FIRE common (evening bonfire +
+    // drinks under the stars is the meadow theme's signature scene), RESV
+    // mixed, ADAA rarer.
+    annotated: { ALCO: 0.35, FIRE: 0.35, RESV: 0.3, ADAA: 0.2 },
+    // CAM-516 (S4) — Camper style: open meadow is the widest-appeal theme,
+    // GENR the plurality, CHIC/DIFT nearly even, IDMT lowest (open ground is
+    // rarely "ทรหด").
+    camperStyle: { CHIC: 0.25, GENR: 0.40, DIFT: 0.20, IDMT: 0.15 },
     tags: ['ทุ่งหญ้ากว้าง', 'กางเต็นท์ชมดาว', 'วิวเขากว้าง', 'ลมเย็น'],
     desc: 'ลานหญ้ากว้างเปิดโล่งรับลม กลางคืนนอนนับดาวเต็มท้องฟ้า',
     scene: 'wide open grassy meadow campground in a mountain valley, rows of glowing tents under a starry milky-way sky',
@@ -291,6 +381,20 @@ function buildCamp(concept, idx) {
   // BR-4: accommodationTypes CSV (real AccommodationTypeEnum codes: CABI/DISP/GROU/HORS/
   // RECR/TENT — NOT a MasterData group, see lib/validations/campsite.ts), theme-appropriate.
   const accommodationTypes = pickN(T.accomm, ri(1, Math.min(2, T.accomm.length))).join(',');
+  // CAM-515 (S3) — Annotated features (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights
+  // the camp carries, not a physical facility. Per-code independent chance()
+  // draw (not pickN) — each theme's `annotated` map gives every candidate
+  // code its OWN realistic probability (a rare code like ADAA must not be
+  // forced to co-occur with a common one), unlike the other taxonomies above
+  // which always draw a fixed COUNT of codes.
+  const annotatedFeatures = Object.entries(T.annotated || {})
+    .filter(([, p]) => chance(p))
+    .map(([code]) => code);
+  // CAM-516 (S4) — Camper style (CHIC/GENR/DIFT/IDMT): a host-declared vibe/
+  // style, BR-6 "one dominant style per camp" — a SINGLE weighted pick (not
+  // pickN/chance-per-code like annotatedFeatures above), theme-correlated via
+  // each theme's `camperStyle` weight map.
+  const camperStyle = [wpick(T.camperStyle)];
 
   // pricing by tier × business type
   let lo = T.tier[0], hi = T.tier[1];
@@ -380,6 +484,8 @@ function buildCamp(concept, idx) {
     accessTypes: accessTypes.join(','), facilities: facilities.join(','),
     externalFacilities: externalFacilities.join(','), equipment: equipment.join(','),
     activities: activities.join(','), terrain: terrain.join(','),
+    annotatedFeatures: annotatedFeatures.join(','),
+    camperStyle: camperStyle.join(','),
     province: prov,
     address: `${areaTh} อ.${areaTh} จ.${P.th} ${P.zip}`,
     directions: `เดินทางสู่${areaTh} จ.${P.th} แนะนำใช้รถยนต์ส่วนตัว สอบถามเส้นทางก่อนเดินทาง`,
@@ -506,12 +612,25 @@ if (pfSkipped.length) console.warn(`⚠️  province-fill skipped (no region/cen
 // AC-3 guarantee; the pool tweaks above (WATE/CART/MIMT/LSTV/OFFR added into theme facExtra/
 // equip/activities) just give them a *natural*, non-forced presence too.
 const MASTERDATA_GROUPS = [
-  { field: 'facilities', codes: ['SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK', 'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW'] },
+  // CAM-514 (S2): HOTW/LIGT added to the floor list too (belt-and-suspenders — natural
+  // presence already comes from the beach/river/lake/meadow facExtra pools above).
+  { field: 'facilities', codes: ['SHOW', 'TOIL', 'PICN', 'WIFI', 'TRAS', 'SANI', 'POTA', 'ELEC', 'WATE', 'SINK', 'CART', 'MIMT', 'GRIL', 'CAFE', 'REST', 'FEIC', 'FEDW', 'HOTW', 'LIGT'] },
   { field: 'equipment', codes: ['TENT', 'POWE', 'TFAN', 'BLKT', 'LEDL', 'GDST', 'SSTV', 'LSTV', 'CHAI', 'FYST', 'ICBK'] },
   { field: 'externalFacilities', codes: ['SVEL', 'LOTS', 'MAKT', 'MIBC'] },
   { field: 'accessTypes', codes: ['BAOT', 'DRIV', 'HIKE', 'WALK'] },
   { field: 'activities', codes: ['SWIM', 'HIKI', 'SURF', 'FISH', 'WILD', 'BOAT', 'HORS', 'OFFR', 'LIVE', 'CLIM'] },
-  { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS'] },
+  // CAM-513 (S1): the 8 new codes added to the floor list too (belt-and-suspenders —
+  // natural presence already comes from the theme pools above; this only fires if a
+  // code somehow drew 0 camps, same safety-net role BEAC already had here).
+  { field: 'terrain', codes: ['BEAC', 'FORE', 'RIVE', 'MTNS', 'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM'] },
+  // CAM-515 (S3) — Annotated features, the FIRST new MasterData group. Belt-
+  // and-suspenders floor (natural presence already comes from each theme's
+  // `annotated` chance-map above).
+  { field: 'annotatedFeatures', codes: ['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'] },
+  // CAM-516 (S4) — Camper style, the SECOND new MasterData group. Belt-and-
+  // suspenders floor (natural presence already comes from each theme's
+  // `camperStyle` weighted-pick above).
+  { field: 'camperStyle', codes: ['CHIC', 'GENR', 'DIFT', 'IDMT'] },
 ];
 const allCamps = Object.values(hostObj).flatMap((h) => h.campsites);
 // Target ONLY province-fill camps (curated:false) — the 48 hand-authored curated concepts

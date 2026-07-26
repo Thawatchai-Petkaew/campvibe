@@ -151,9 +151,13 @@ export type GetCampDetailResult =
       /**
        * CAM-464 (D4) — derived family/beginner/road_access scores, computed
        * on-read from the fields already selected above (`options`,
-       * `minimumAge`). A facet with no supporting evidence is OMITTED (BR-5,
-       * never a fake 0-score) — the assistant answers "ข้อมูลไม่พอ" for any
-       * facet absent from this array. ADDITIVE field only (api.md rule 12).
+       * `minimumAge`). CAM-518 (S6) adds a DERIVED `camper_type` facet
+       * (BEGN/INMD/PROF, carried in the facet's `label`) composed from the
+       * same fields + `campSiteType` — never stored (owner rule). A facet
+       * with no supporting evidence, or (camper_type only) below-threshold
+       * confidence, is OMITTED (BR-5, never a fake 0-score/guess) — the
+       * assistant answers "ข้อมูลไม่พอ" for any facet absent from this array.
+       * ADDITIVE field only (api.md rule 12).
        */
       facets: FacetScore[];
     }
@@ -292,6 +296,9 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
       directions: true,
       latitude: true,
       longitude: true,
+      // CAM-518 (S6) — read for the enriched beginner facet + the derived
+      // camper_type facet's GLAMP comfort signal; zero new query (same select).
+      campSiteType: true,
       // CAM-449 — guest-safe location fields only (never operator/contact — see the module doc comment).
       location: { select: { province: true, region: true } },
       options: { select: { code: true, group: true, nameTh: true, nameEn: true, icon: true } },
@@ -331,6 +338,7 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
   const facets = computeFacetScores({
     options: campSite.options.map((o) => ({ code: o.code, group: o.group })),
     minimumAge: campSite.minimumAge,
+    campSiteType: campSite.campSiteType,
   });
 
   return {
@@ -378,7 +386,7 @@ export async function executeGetCampDetail(args: GetCampDetailArgs): Promise<Get
 export const getCampDetailTool: ToolDefinition<GetCampDetailArgs, GetCampDetailResult> = {
   name: 'getCampDetail',
   description:
-    'Load the detail card for ONE published CampVibe campsite: description, real total price/fees, capacity, cancellation policy, verified badge, check-in/out, access, amenities, verified reviews, live per-weekend remaining-guest availability, and derived family/beginner/road_access facet scores. Answer facet questions ONLY from a facet\'s `evidence` field; when a facet is absent from `facets` or `answerable` is false, say the data is insufficient — never guess. For `road_access`, never claim a sedan specifically can enter (the source field cannot distinguish vehicle class).',
+    'Load the detail card for ONE published CampVibe campsite: description, real total price/fees, capacity, cancellation policy, verified badge, check-in/out, access, amenities, verified reviews, live per-weekend remaining-guest availability, and derived family/beginner/road_access/camper_type facet scores. `camper_type` resolves the camp\'s best-fit camper (BEGN beginner / INMD intermediate / PROF pro) from its OWN comfort vs. hardship signals — carried in the facet\'s `label` field, never a stored tag. Answer facet questions ONLY from a facet\'s `evidence` field; when a facet is absent from `facets` or `answerable` is false, say the data is insufficient — never guess. For `road_access`, never claim a sedan specifically can enter (the source field cannot distinguish vehicle class).',
   // CAM-417 (ADR-013 D5) — public campsite detail data, offered to every caller like searchCampsites/checkAvailability.
   tier: 'guest',
   parameters: getCampDetailArgsSchema,

@@ -62,6 +62,12 @@ export const catalogQuerySchema = z.object({
   equipment:  z.string().optional(),
   activities: z.string().optional(),
   terrain:    z.string().optional(),
+  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features), its
+  // own dedicated catalog query param (not folded into `facilities`).
+  annotatedFeatures: z.string().optional(),
+  // CAM-516 (S4) — the SECOND new MasterData group (Camper style), its own
+  // dedicated catalog query param (not folded into `facilities`).
+  camperStyle: z.string().optional(),
 });
 
 export type CatalogQuery = z.infer<typeof catalogQuerySchema>;

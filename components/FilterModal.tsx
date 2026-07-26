@@ -18,27 +18,27 @@ import { cn } from "@/lib/utils";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { getCampSiteCount } from "@/app/actions/getCampSiteCount";
-// DB-driven icon resolver — named imports only for the 39 icons that MasterData.icon
+// DB-driven icon resolver — named imports only for the 44 icons that MasterData.icon
 // can ever hold (sourced from prisma/seed.ts). HelpCircle is the fallback for any
 // future DB icon not yet in the map. This replaces the previous wildcard import that
 // bundled all 1414 lucide icons. (CAM-200 PERF-BUNDLE Action A)
 import {
-  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
-  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
-  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
-  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
-  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
+  Droplet, Droplets, Dumbbell, Eye, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
+  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,
+  UtensilsCrossed, Waves, Wheat, Wifi, Wine, Zap, HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Anchor, Armchair, Bath, Bed, Binoculars, Box, Car, Coffee,
-  Droplet, Droplets, Fan, Fish, Flame, Footprints, GlassWater,
-  Layers, Lightbulb, Mountain, Music, Palmtree, PawPrint, Plug,
-  ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake,
-  Store, Table2, Tent, Trash, Trash2, Trees, Umbrella, Utensils,
-  UtensilsCrossed, Waves, Wifi, Zap, HelpCircle,
+  Accessibility, Anchor, Armchair, Bath, Bed, Binoculars, Box, CalendarCheck, Car, Coffee,
+  Droplet, Droplets, Dumbbell, Eye, Fan, Fish, Flame, Flower2, Footprints, GlassWater,
+  Lamp, Layers, Lightbulb, Logs, Mountain, Music, Palmtree, PawPrint, Plug,
+  Sailboat, ShoppingBag, ShoppingBasket, ShoppingCart, ShowerHead, Snowflake, Sparkles,
+  Store, Table2, Tent, ThermometerSun, Trash, Trash2, Trees, TrendingUp, Umbrella, Users, Utensils,
+  UtensilsCrossed, Waves, Wheat, Wifi, Wine, Zap, HelpCircle,
 };
 
 // CAM-496 — section ids that share the single `facilities` URL param (see
@@ -71,6 +71,10 @@ export function FilterModal() {
             if (selectedFilters['Terrain']?.length > 0) filters.terrain = selectedFilters['Terrain'].join(',');
             if (selectedFilters['Activity']?.length > 0) filters.activities = selectedFilters['Activity'].join(',');
             if (selectedFilters['Access type']?.length > 0) filters.access = selectedFilters['Access type'].join(',');
+            // CAM-515 (S3) — the FIRST new MasterData group.
+            if (selectedFilters['Annotated features']?.length > 0) filters.annotatedFeatures = selectedFilters['Annotated features'].join(',');
+            // CAM-516 (S4) — the SECOND new MasterData group.
+            if (selectedFilters['Camper style']?.length > 0) filters.camperStyle = selectedFilters['Camper style'].join(',');
 
             // Facilities
             const allFacilities = [
@@ -112,7 +116,9 @@ export function FilterModal() {
                 'Access type',
                 'Internal facility',
                 'External facility',
-                'Equipment for rent'
+                'Equipment for rent',
+                'Annotated features',
+                'Camper style'
             ];
 
             sections.sort((a, b) => {
@@ -170,6 +176,14 @@ export function FilterModal() {
         const access = searchParams.get('access');
         if (access) newFilters['Access type'] = access.split(',').filter(Boolean);
 
+        // CAM-515 (S3) — the FIRST new MasterData group.
+        const annotatedFeatures = searchParams.get('annotatedFeatures');
+        if (annotatedFeatures) newFilters['Annotated features'] = annotatedFeatures.split(',').filter(Boolean);
+
+        // CAM-516 (S4) — the SECOND new MasterData group.
+        const camperStyle = searchParams.get('camperStyle');
+        if (camperStyle) newFilters['Camper style'] = camperStyle.split(',').filter(Boolean);
+
         const facilities = searchParams.get('facilities');
         if (facilities) {
             facilities.split(',').filter(Boolean).forEach(code => {
@@ -208,6 +222,10 @@ export function FilterModal() {
         setArrayParam('terrain', 'Terrain');
         setArrayParam('activities', 'Activity');
         setArrayParam('access', 'Access type');
+        // CAM-515 (S3) — the FIRST new MasterData group, its own dedicated param.
+        setArrayParam('annotatedFeatures', 'Annotated features');
+        // CAM-516 (S4) — the SECOND new MasterData group, its own dedicated param.
+        setArrayParam('camperStyle', 'Camper style');
 
         // Facilities (Internal, External, Equipment) -> All to 'facilities'
         const allFacilities = [
@@ -331,7 +349,7 @@ export function FilterModal() {
         if (params.get('min') || params.get('max')) count += 1;
 
         // 3. Arrays
-        const arrayParams = ['activities', 'terrain', 'access', 'facilities', 'external', 'equipment'];
+        const arrayParams = ['activities', 'terrain', 'access', 'facilities', 'external', 'equipment', 'annotatedFeatures', 'camperStyle'];
         arrayParams.forEach(key => {
             const val = params.get(key);
             if (val) {

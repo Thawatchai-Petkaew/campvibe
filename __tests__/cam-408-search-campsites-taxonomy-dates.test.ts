@@ -118,11 +118,27 @@ describe('searchCampsitesTool — jsonSchema advertises real MasterData codes (A
     const schema = searchCampsitesTool.jsonSchema as {
       properties: { terrain: { enum: readonly string[]; description: string } };
     };
-    expect(schema.properties.terrain.enum).toEqual(expect.arrayContaining(['BEAC', 'FORE', 'RIVE', 'MTNS']));
+    // CAM-513 (S1) — bumped from 4 to the full 12 real seeded Terrain codes.
+    expect(schema.properties.terrain.enum).toEqual(
+      expect.arrayContaining([
+        'BEAC', 'FORE', 'RIVE', 'MTNS',
+        'SEA', 'COAS', 'LAKE', 'WATF', 'SWMH', 'FILD', 'CAVE', 'FARM',
+      ])
+    );
+    expect(schema.properties.terrain.enum).toHaveLength(12);
     expect(schema.properties.terrain.description).toContain('แม่น้ำ');
     expect(schema.properties.terrain.description).toContain('ภูเขา');
     expect(schema.properties.terrain.description).toContain('ชายหาด');
     expect(schema.properties.terrain.description).toContain('ป่า');
+    // CAM-513 (S1) — new codes' Thai trigger words taught in the description.
+    expect(schema.properties.terrain.description).toContain('ทะเล');
+    expect(schema.properties.terrain.description).toContain('น้ำตก');
+    expect(schema.properties.terrain.description).toContain('แอ่งเล่นน้ำ');
+    expect(schema.properties.terrain.description).toContain('ทุ่ง');
+    expect(schema.properties.terrain.description).toContain('ถ้ำ');
+    expect(schema.properties.terrain.description).toContain('ไร่');
+    expect(schema.properties.terrain.description).toContain('ริมชายฝั่ง');
+    expect(schema.properties.terrain.description).toContain('ทะเลสาบ');
   });
 
   it('[unit] access/activities/facilities enums are present with the real seeded codes', () => {
@@ -136,6 +152,37 @@ describe('searchCampsitesTool — jsonSchema advertises real MasterData codes (A
     expect(schema.properties.access.enum).toEqual(expect.arrayContaining(['DRIV', 'WALK', 'HIKE', 'BAOT']));
     expect(schema.properties.activities.enum).toEqual(expect.arrayContaining(['SWIM', 'FISH', 'CLIM']));
     expect(schema.properties.facilities.enum).toEqual(expect.arrayContaining(['WIFI', 'SHOW', 'TOIL']));
+  });
+
+  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features).
+  it('[unit] annotatedFeatures enum matches the 5 real seeded Annotated features codes with a Thai gloss in the description', () => {
+    const schema = searchCampsitesTool.jsonSchema as {
+      properties: { annotatedFeatures: { enum: readonly string[]; description: string } };
+    };
+    expect(schema.properties.annotatedFeatures.enum).toEqual(
+      expect.arrayContaining(['ALCO', 'FIRE', 'FIWD', 'ADAA', 'RESV'])
+    );
+    expect(schema.properties.annotatedFeatures.enum).toHaveLength(5);
+    expect(schema.properties.annotatedFeatures.description).toContain('ดื่มแอลกอฮอล์ได้');
+    expect(schema.properties.annotatedFeatures.description).toContain('ก่อไฟได้');
+    expect(schema.properties.annotatedFeatures.description).toContain('มีฟืนขาย/บริการ');
+    expect(schema.properties.annotatedFeatures.description).toContain('รองรับผู้พิการ');
+    expect(schema.properties.annotatedFeatures.description).toContain('จองล่วงหน้าได้');
+  });
+
+  // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
+  it('[unit] camperStyle enum matches the 4 real seeded Camper style codes with a Thai gloss in the description', () => {
+    const schema = searchCampsitesTool.jsonSchema as {
+      properties: { camperStyle: { enum: readonly string[]; description: string } };
+    };
+    expect(schema.properties.camperStyle.enum).toEqual(
+      expect.arrayContaining(['CHIC', 'GENR', 'DIFT', 'IDMT'])
+    );
+    expect(schema.properties.camperStyle.enum).toHaveLength(4);
+    expect(schema.properties.camperStyle.description).toContain('สบาย (สายคุณหนู)');
+    expect(schema.properties.camperStyle.description).toContain('ทั่วไป');
+    expect(schema.properties.camperStyle.description).toContain('ลำบาก');
+    expect(schema.properties.camperStyle.description).toContain('ทรหด');
   });
 });
 

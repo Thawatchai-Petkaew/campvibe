@@ -123,6 +123,8 @@ const FIELD_LABEL_RESOLVERS: Record<string, (t: TranslationType) => string> = {
     equipment: (t) => t.filter["Equipment for rent"],
     activities: (t) => t.filter["Activity"],
     terrain: (t) => t.filter["Terrain"],
+    annotatedFeatures: (t) => t.filter["Annotated features"],
+    camperStyle: (t) => t.filter["Camper style"],
     latitude: (t) => t.newCampground.latitude,
     longitude: (t) => t.newCampground.longitude,
     checkInTime: (t) => t.newCampground.checkIn,
@@ -183,6 +185,8 @@ const FIELD_SECTION_ID: Record<string, string> = {
     partner: "additional-info", nationalPark: "additional-info", tags: "additional-info",
     facilities: "amenities", externalFacilities: "amenities", equipment: "amenities",
     accessTypes: "amenities", accommodationTypes: "amenities", activities: "amenities", terrain: "amenities",
+    annotatedFeatures: "amenities",
+    camperStyle: "amenities",
     // CAM-364: petFriendly relocated out of Status & Visibility into Amenities &
     // Features - it's a guest-facing camp feature, not an internal status flag.
     petFriendly: "amenities",
@@ -233,6 +237,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         equipment: [] as string[],
         activities: [] as string[],
         terrain: [] as string[],
+        annotatedFeatures: [] as string[],
+        camperStyle: [] as string[],
 
         address: "",
         directions: "",
@@ -324,6 +330,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 equipment: _byGroup('Equipment for rent'),
                 activities: _byGroup('Activity'),
                 terrain: _byGroup('Terrain'),
+                annotatedFeatures: _byGroup('Annotated features'),
+                camperStyle: _byGroup('Camper style'),
                 address: initialData.address || "",
                 directions: initialData.directions || "",
                 videoUrl: initialData.videoUrl || "",
@@ -543,6 +551,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 equipment: formData.equipment,
                 activities: formData.activities,
                 terrain: formData.terrain,
+                annotatedFeatures: formData.annotatedFeatures,
+                camperStyle: formData.camperStyle,
                 tags: formData.tags,
                 priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
                 priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
@@ -752,6 +762,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             ...formData.equipment,
             ...formData.activities,
             ...formData.terrain,
+            ...formData.annotatedFeatures,
+            ...formData.camperStyle,
         ]).size,
         useSpotView: formData.useSpotView,
         maxGuestsPerDay: formData.maxGuestsPerDay === "" ? null : Number(formData.maxGuestsPerDay),
@@ -1199,6 +1211,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                 {renderOptionGroup(t.filter["Accommodation type"], "Accommodation type", "accommodationTypes")}
                                 {renderOptionGroup(t.filter["Activity"], "Activity", "activities")}
                                 {renderOptionGroup(t.filter["Terrain"], "Terrain", "terrain")}
+                                {renderOptionGroup(t.filter["Annotated features"], "Annotated features", "annotatedFeatures")}
+                                {renderOptionGroup(t.filter["Camper style"], "Camper style", "camperStyle")}
                             </CardContent>
                         </Card>
                     </div>

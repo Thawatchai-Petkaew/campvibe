@@ -50,6 +50,10 @@ interface MockCamp {
   equipment: string;
   activities: string;
   terrain: string;
+  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features).
+  annotatedFeatures: string;
+  // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
+  camperStyle: string;
   province: string;
   priceHigh: number;
 }
@@ -107,6 +111,10 @@ const GROUP_FIELD: Record<string, { field: keyof MockCamp; kind: FieldKind }> = 
   "Access type": { field: "accessTypes", kind: "csv" },
   Activity: { field: "activities", kind: "csv" },
   Terrain: { field: "terrain", kind: "csv" },
+  // CAM-515 (S3) — the FIRST new MasterData group (Annotated features).
+  "Annotated features": { field: "annotatedFeatures", kind: "csv" },
+  // CAM-516 (S4) — the SECOND new MasterData group (Camper style).
+  "Camper style": { field: "camperStyle", kind: "csv" },
 };
 
 function countCampsForCode(camps: MockCamp[], group: string, code: string): number {

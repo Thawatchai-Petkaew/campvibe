@@ -440,15 +440,27 @@ function buildSystemPrompt(
     // find/recommend/list intents only (EC-1) so it never forces a tool on a
     // greeting/thanks or on an availability question about a named camp.
     'If the camper asks you to find, recommend, or list a campsite by any characteristic (even a specific or compound one), you MUST call searchCampsites this turn — with your best-guess structured filters — before answering. Never reply "ไม่พบ"/"ไม่มี"/not-found for a camp-finding request without having called searchCampsites this turn. This does not apply to a greeting, thanks, or an availability question about an already-named camp.',
-    // CAM-511 BR-2 — concept-map: the non-obvious mappings from an abstract
-    // camper phrase to the structured filter the data can actually answer.
-    // The model cannot derive these on its own (a keyword search on "มือใหม่"
-    // matches zero camps even though 23 discriminating camps exist once
-    // mapped to equipment) — teach the specific mapping instead of hoping
-    // the model infers it. Kept short and inline (a handful of entries); do
-    // NOT build a concept-map.json + resolver pre-pass for this one entry —
-    // that infra is deferred until the list actually grows (out of scope).
-    'Concept map — a few camper phrases map to a filter you would not otherwise derive: "มือใหม่" / "ไม่มีอุปกรณ์" / "มาตัวเปล่า" (a beginner with no gear of their own) means call searchCampsites with equipment set to ["TENT","LEDL","POWE"] (the essential rental kit: tent, light, power) — never a keyword search on "มือใหม่" itself, since no camp\'s name/description contains that word.',
+    // CAM-519 (S7, epic payoff) BR-1 — upgrades the CAM-511 มือใหม่ concept-map
+    // now that the S1-S6 taxonomy exists: camperStyle "CHIC" (the host-declared
+    // "สบาย" vibe) is now the STRONGEST available signal for a beginner/easy
+    // ask — far more accurate than the old equipment-only mapping (a keyword
+    // search on "มือใหม่" itself still matches zero camps; no camp's name or
+    // description contains that word). The equipment/type/facilities options
+    // survive as ALTERNATIVES a beginner might also want, combined with
+    // camperStyle at most as a light 2-filter combo — never a strict AND of
+    // all of them (BR-4, the never-over-narrow guard right after this block).
+    'Concept map — a few camper phrases map to a filter you would not otherwise derive. "มือใหม่" / "สายสบาย" / "สายคุณหนู" / "ไม่มีอุปกรณ์" / "มาตัวเปล่า" (a beginner, or wanting an easy/comfy stay): the PRIMARY signal is camperStyle "CHIC" (the host-declared "สบาย" vibe) — call searchCampsites with that first. You may ALSO add, as an alternative or a light combo with camperStyle (never all of them at once): type "GLAMP" (แกลมปิ้ง — เต็นท์เซ็ตพร้อม ไม่ต้องแบกอุปกรณ์), equipment ["TENT","LEDL","POWE"] (the essential rental kit for someone with no gear of their own), or facilities "HOTW" (น้ำอุ่น). Never a keyword search on "มือใหม่" itself, since no camp\'s name/description contains that word.',
+    // CAM-519 BR-2 — a terse reinforcement of the rest of the S1-S6 taxonomy.
+    // Most of these already work via the jsonSchema descriptions on
+    // searchCampsites (search-campsites.ts) — this is a quick-lookup for the
+    // model, not a duplicate ruleset, so it stays short.
+    'More concept-map lookups: "จิบเบียร์"/"ดื่มเบียร์"/"แอลกอฮอล์" -> annotatedFeatures ALCO; "ก่อไฟ"/"กองไฟ" -> annotatedFeatures FIRE; "ผู้พิการ"/"wheelchair"/"รถเข็น" -> annotatedFeatures ADAA; "ริมทะเล"/"ทะเล" -> terrain SEA; "น้ำตก" -> terrain WATF; "แอ่งน้ำ"/"เล่นน้ำ" -> terrain SWMH; "ทุ่ง"/"ทุ่งดอกไม้" -> terrain FILD; "สายลุย"/"ทรหด" -> camperStyle IDMT, "ลำบาก" -> camperStyle DIFT; "วิวสวย" -> type VIEW; "น้ำอุ่น" -> facilities HOTW.',
+    // CAM-519 BR-4/AC-6 — the correctness guard on "composition": an intent
+    // that touches many taxonomy groups must still resolve to the STRONGEST
+    // 1-2 filters, never a strict AND of everything it could theoretically
+    // map to (no single camp satisfies 5+ groups at once, so an over-eager
+    // AND returns zero results even when good matches genuinely exist).
+    'When a camper phrase could map to several of the filters above at once, compose only the STRONGEST 1-2 filters for that phrase — never AND together 5 or more taxonomy groups (terrain, access, activities, facilities, equipment, annotatedFeatures, camperStyle, type) in one searchCampsites call, since real camps rarely satisfy every group at once and an over-narrow call returns zero results even when good matches exist. If you are unsure which signal is strongest, use ONE anchor filter and let the result stand rather than narrowing further.',
     // CAM-511 BR-3/BR-4 — drop-unmappable: extends CAM-510's always-search
     // rule (never dead-end into "ไม่พบ" without searching) to a MIXED
     // request that names both a real filterable characteristic and a
@@ -506,7 +518,10 @@ function buildSystemPrompt(
     // from a shown result, search-by-name first, then call getCampDetail on
     // the returned id THIS turn (never stop at the search). compareCamps
     // (CAM-473) is the correct tool once 2+ named camps are being compared.
-    'For a Zone B fact about ONE specific named camp — its price, deposit, fees, cancellation policy, amenities, or reviews — the matching tool is getCampDetail, not searchCampsites (for example "ลานสนธรรมชาติ มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่"). If you already have that camp\'s id from a shown result, use it; otherwise first call searchCampsites with the camp\'s name to get its id, then call getCampDetail on that id this turn — never answer the detail from memory and never stop at the search. If the camper asks to compare two or more named camps, use compareCamps, not getCampDetail.',
+    // CAM-519 BR-3 — adds the beginner-suitability question to the same
+    // getCampDetail routing rule and nudges the model to ground that answer
+    // in the S6 camper_type/beginner facet's evidence, instead of guessing.
+    'For a Zone B fact about ONE specific named camp — its price, deposit, fees, cancellation policy, amenities, reviews, or whether it suits a beginner ("เหมาะกับมือใหม่ไหม") — the matching tool is getCampDetail, not searchCampsites (for example "ลานสนธรรมชาติ มัดจำเท่าไหร่ ยกเลิกได้ถึงเมื่อไหร่"). If you already have that camp\'s id from a shown result, use it; otherwise first call searchCampsites with the camp\'s name to get its id, then call getCampDetail on that id this turn — never answer the detail from memory and never stop at the search. For a beginner-suitability question specifically, ground your answer in the returned camper_type/beginner facet\'s evidence field — say the data is insufficient when that facet is absent or not answerable, never guess. If the camper asks to compare two or more named camps, use compareCamps, not getCampDetail.',
     // CAM-477 (Theme C) — a mood/vibe/occasion ask with no province, name, or
     // filter given is still a Zone B search request; derive best-effort
     // filters from the vibe or search with none if none can be derived. The

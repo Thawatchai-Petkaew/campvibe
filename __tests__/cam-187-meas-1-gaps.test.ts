@@ -763,20 +763,28 @@ describe('load-mock-staging.mjs — JSON data file assertions (gap 4)', () => {
     expect(data.meta.totalHosts).toBe(71);
   });
 
-  it('meta reports 295 campsites', () => {
-    expect(data.meta.totalCampsites).toBe(295);
+  // CAM-516 (S4): regenerating the mock-data fixture (BR-6, required by this
+  // story, adds a NEW `wpick()` single-draw per camp for Camper style)
+  // shifts the province-fill camp count again — every generator addition
+  // that consumes an extra rnd() call advances the shared seeded PRNG stream,
+  // changing how many province-fill camps some provinces draw (2 vs 3). 300
+  // -> 305 here mirrors the same "bump the stale pinned count" precedent as
+  // CAM-515's own 295->300 bump and CAM-475's golden-cases.json ceiling
+  // raise; hosts (71) is unaffected since no host-count logic changed.
+  it('meta reports 305 campsites', () => {
+    expect(data.meta.totalCampsites).toBe(305);
   });
 
   it('hosts array has exactly 71 entries', () => {
     expect(data.hosts).toHaveLength(71);
   });
 
-  it('total campsite entries across all hosts equals 295', () => {
+  it('total campsite entries across all hosts equals 305', () => {
     const total = data.hosts.reduce(
       (sum, h) => sum + (h.campsites?.length ?? 0),
       0,
     );
-    expect(total).toBe(295);
+    expect(total).toBe(305);
   });
 
   it('every campsite has a non-empty nameThSlug (upsert key must be present)', () => {

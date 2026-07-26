@@ -16,7 +16,7 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, ShieldCheck, Tent, Wifi, Car, ShowerHead, Utensils, Zap, Coffee, ShoppingBasket, Store, Waves, Fish, Mountain, Music, Truck, Anchor, HelpCircle, Users, Home, Trash2, Smartphone, CalendarCheck, Droplets, Droplet, Sailboat, Flower2, Wheat, Plug, Wine, Snowflake, Armchair, Umbrella, Layers, Table, Wind, Bath, Loader2, LayoutGrid, MoveHorizontal, ThermometerSun, Lamp, Flame, Logs, Accessibility, Sparkles, TrendingUp, Dumbbell, Eye } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
@@ -410,9 +410,17 @@ export default function CampgroundDetailClient({
     const codesByGroup = (g: string) => _options.filter((o) => o.group === g).map((o) => o.code);
     const accessCodes = codesByGroup('Access type');
     const terrainCodes = codesByGroup('Terrain');
+    // CAM-517 (S5) — campSiteType is a scalar column (single value, e.g. CAGD/
+    // GLAMP/VIEW), NOT part of the `options` MasterData relation above — read
+    // it directly off the camp row.
+    const campSiteTypeCode: string | undefined = campground.campSiteType;
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
+    // CAM-515 (S3) — the FIRST new MasterData group (ALCO/FIRE/FIWD/ADAA/RESV).
+    const annotatedCodes = codesByGroup('Annotated features');
+    // CAM-516 (S4) — the SECOND new MasterData group (CHIC/GENR/DIFT/IDMT).
+    const camperStyleCodes = codesByGroup('Camper style');
 
     // Parse images from relation
     const placeholderSrc = resolvedTheme === 'dark' ? '/placeholder-camp-dark.svg' : '/placeholder-camp.svg';
@@ -500,6 +508,17 @@ export default function CampgroundDetailClient({
         'BEACH': Waves,
         'BEAC': Waves,
         'RIVE': Waves, // Riverside
+        // CAM-513 (S1) — 8 new Terrain codes
+        'SEA': Sailboat,
+        'COAS': Anchor,
+        'WATF': Droplets,
+        'SWMH': Droplet,
+        'FILD': Flower2,
+        'CAVE': Mountain,
+        'FARM': Wheat,
+        // CAM-514 (S2) — 2 new comfort Facility codes
+        'HOTW': ThermometerSun,
+        'LIGT': Lamp,
         // Facilities
         'FEDW': Droplets,
         'FEIC': Snowflake,
@@ -527,6 +546,24 @@ export default function CampgroundDetailClient({
         'SSTV': Utensils,
         'POWE': Zap,
         'TFAN': Wind, // Wind for fan
+        // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
+        'ALCO': Wine,
+        'FIRE': Flame,
+        'FIWD': Logs,
+        'ADAA': Accessibility,
+        'RESV': CalendarCheck,
+        // CAM-516 (S4) — Camper style, the SECOND new MasterData group
+        'CHIC': Sparkles,
+        'GENR': Users,
+        'DIFT': TrendingUp,
+        'IDMT': Dumbbell,
+        // CAM-517 (S5) — Campground type (campSiteType scalar, not an `options`
+        // MasterData group) — CAGD/CACP had no icon here since this field was
+        // never rendered on the detail page before this story.
+        'CAGD': Tent,
+        'CACP': Car,
+        'GLAMP': Sparkles,
+        'VIEW': Eye,
         // Fallbacks
         'default': ShieldCheck
     };
@@ -997,10 +1034,19 @@ export default function CampgroundDetailClient({
                         )}
 
                         {/* 3. Site Types */}
-                        {terrainCodes.length > 0 && (
+                        {(!!campSiteTypeCode || terrainCodes.length > 0) && (
                             <div className="pb-8 border-b border-border/60">
                                 <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.campground.siteTypes}</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
+                                    {/* CAM-517 (S5) AC-3 — campSiteType (single scalar: CAGD/CACP/GLAMP/VIEW) */}
+                                    {campSiteTypeCode && (
+                                        <div className="flex flex-col items-start gap-3" data-testid="text--campground-sitetype">
+                                            {getIcon(campSiteTypeCode)}
+                                            <span className="font-medium text-foreground capitalize text-base">
+                                                {t.filter[campSiteTypeCode as keyof typeof t.filter] || campSiteTypeCode}
+                                            </span>
+                                        </div>
+                                    )}
                                     {terrainCodes.map((terrain: string) => (
                                         <div key={terrain} className="flex flex-col items-start gap-3">
                                             {getIcon(terrain)}
@@ -1072,6 +1118,44 @@ export default function CampgroundDetailClient({
                                             {getIcon(item)}
                                             <span className="font-normal text-base capitalize text-foreground/80">
                                                 {t.filter[item as keyof typeof t.filter] || item}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 6. CAM-515 (S3) — Annotated features (คุณลักษณะ): rules/rights
+                            the camp carries (alcohol/fire/firewood/accessible/reservable),
+                            the FIRST new MasterData group added post-launch. */}
+                        {annotatedCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--annotated-features">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Annotated features"]}</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
+                                    {annotatedCodes.map((code: string) => (
+                                        <div key={code} className="flex flex-col items-start gap-3">
+                                            {getIcon(code)}
+                                            <span className="font-medium text-foreground capitalize text-base">
+                                                {t.filter[code as keyof typeof t.filter] || code}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 7. CAM-516 (S4) — Camper style (รูปแบบแคมป์): host-declared
+                            vibe/style (chic/general/difficult/indomitable), the SECOND new
+                            MasterData group added post-launch. */}
+                        {camperStyleCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--camper-style">
+                                <h2 className="text-2xl font-bold font-display text-foreground mb-6">{t.filter["Camper style"]}</h2>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-4">
+                                    {camperStyleCodes.map((code: string) => (
+                                        <div key={code} className="flex flex-col items-start gap-3">
+                                            {getIcon(code)}
+                                            <span className="font-medium text-foreground capitalize text-base">
+                                                {t.filter[code as keyof typeof t.filter] || code}
                                             </span>
                                         </div>
                                     ))}

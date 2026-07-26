@@ -22,6 +22,9 @@ const masterData = [
     { code: 'REST', group: 'Internal facility', nameTh: 'ร้านอาหาร', nameEn: 'Restuarant', icon: 'Utensils' },
     { code: 'FEIC', group: 'Internal facility', nameTh: 'น้ำแข็งฟรี', nameEn: 'Free ice', icon: 'Snowflake' },
     { code: 'FEDW', group: 'Internal facility', nameTh: 'น้ำดื่มฟรี', nameEn: 'Free drinking water', icon: 'GlassWater' },
+    // CAM-514 (S2) — Comfort facilities, 2 new codes (BR-1/BR-2, no collision with existing codes)
+    { code: 'HOTW', group: 'Internal facility', nameTh: 'น้ำอุ่น', nameEn: 'Hot water', icon: 'ThermometerSun' },
+    { code: 'LIGT', group: 'Internal facility', nameTh: 'ไฟส่องสว่างตลอดคืน', nameEn: 'Night lighting', icon: 'Lamp' },
 
     // Equipment
     { code: 'TENT', group: 'Equipment for rent', nameTh: 'เต็นท์', nameEn: 'Tent', icon: 'Tent' },
@@ -45,6 +48,10 @@ const masterData = [
     // Campground Type
     { code: 'CAGD', group: 'Campground type', nameTh: 'ลานกางกับพื้น', nameEn: 'Campground', icon: 'Tent' },
     { code: 'CACP', group: 'Campground type', nameTh: 'รถเต็นท์', nameEn: 'Car camp', icon: 'Car' },
+    // CAM-517 (S5) — reconcile with CampSiteTypeEnum (already had GLAMP/VIEW): 2 new
+    // rows so hosts can pick them + campers see labels. Codes match the enum verbatim.
+    { code: 'GLAMP', group: 'Campground type', nameTh: 'กลามปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
+    { code: 'VIEW', group: 'Campground type', nameTh: 'วิวสวย', nameEn: 'Scenic view', icon: 'Eye' },
 
     // Access Types
     { code: 'BAOT', group: 'Access type', nameTh: 'เรือ', nameEn: 'boat', icon: 'Anchor' },
@@ -69,6 +76,31 @@ const masterData = [
     { code: 'FORE', group: 'Terrain', nameTh: 'ป่า', nameEn: 'Forest', icon: 'Trees' },
     { code: 'RIVE', group: 'Terrain', nameTh: 'แม่น้ำ ลำธาร คลองเล็ก', nameEn: 'River, stream, or creek', icon: 'Waves' },
     { code: 'MTNS', group: 'Terrain', nameTh: 'ภูเขา (ล้อมรอบด้วยภูเขา)', nameEn: 'Mountainous', icon: 'Mountain' },
+    // CAM-513 (S1) — Terrain expansion, 8 new codes (BR-1/BR-2, no collision with existing codes)
+    { code: 'SEA', group: 'Terrain', nameTh: 'ทะเล', nameEn: 'Sea', icon: 'Sailboat' },
+    { code: 'COAS', group: 'Terrain', nameTh: 'ริมชายฝั่ง', nameEn: 'Coastal', icon: 'Anchor' },
+    { code: 'LAKE', group: 'Terrain', nameTh: 'ทะเลสาบ', nameEn: 'Lake', icon: 'Waves' },
+    { code: 'WATF', group: 'Terrain', nameTh: 'น้ำตก', nameEn: 'Waterfall', icon: 'Droplets' },
+    { code: 'SWMH', group: 'Terrain', nameTh: 'แอ่งเล่นน้ำ', nameEn: 'Swimming hole', icon: 'Droplet' },
+    { code: 'FILD', group: 'Terrain', nameTh: 'ทุ่ง', nameEn: 'Field', icon: 'Flower2' },
+    { code: 'CAVE', group: 'Terrain', nameTh: 'ถ้ำ', nameEn: 'Cave', icon: 'Mountain' },
+    { code: 'FARM', group: 'Terrain', nameTh: 'ไร่ / ฟาร์มสเตย์', nameEn: 'Farm', icon: 'Wheat' },
+
+    // CAM-515 (S3) — Annotated features, a NEW MasterData group (5 codes, BR-1/BR-2,
+    // no collision with existing codes). The FIRST new-group slice (template for S4).
+    { code: 'ALCO', group: 'Annotated features', nameTh: 'ดื่มแอลกอฮอล์ได้', nameEn: 'Alcohol allowed', icon: 'Wine' },
+    { code: 'FIRE', group: 'Annotated features', nameTh: 'ก่อไฟได้', nameEn: 'Fires allowed', icon: 'Flame' },
+    { code: 'FIWD', group: 'Annotated features', nameTh: 'มีฟืนขาย/บริการ', nameEn: 'Firewood', icon: 'Logs' },
+    { code: 'ADAA', group: 'Annotated features', nameTh: 'รองรับผู้พิการ', nameEn: 'Accessible (ADA)', icon: 'Accessibility' },
+    { code: 'RESV', group: 'Annotated features', nameTh: 'จองล่วงหน้าได้', nameEn: 'Reservable', icon: 'CalendarCheck' },
+
+    // CAM-516 (S4) — Camper style, a NEW MasterData group (4 codes, BR-1/BR-2,
+    // no collision with existing codes). Mirrors CAM-515 (S3)'s wiring exactly:
+    // a host-declared vibe/style (not a rule/right like Annotated features).
+    { code: 'CHIC', group: 'Camper style', nameTh: 'สบาย (สายคุณหนู)', nameEn: 'Chic', icon: 'Sparkles' },
+    { code: 'GENR', group: 'Camper style', nameTh: 'ทั่วไป', nameEn: 'General', icon: 'Users' },
+    { code: 'DIFT', group: 'Camper style', nameTh: 'ลำบาก', nameEn: 'Difficult', icon: 'TrendingUp' },
+    { code: 'IDMT', group: 'Camper style', nameTh: 'ทรหด', nameEn: 'Indomitable', icon: 'Dumbbell' },
 ]
 
 import fs from 'fs';
@@ -709,12 +741,12 @@ async function main() {
         // S4a: the 6 multi-value CSV taxonomies are now the `options` MasterData relation.
         // Extract their codes, then strip the CSV keys before the spread write.
         const optionCodes: string[] = [...new Set(
-            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain'] as const)
+            (['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle'] as const)
                 .map((k) => campSiteData[k])
                 .filter(Boolean)
                 .flatMap((csv: string) => csv.split(',').map((c) => c.trim()).filter(Boolean))
         )];
-        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain']) {
+        for (const k of ['accessTypes', 'facilities', 'externalFacilities', 'equipment', 'activities', 'terrain', 'annotatedFeatures', 'camperStyle']) {
             delete campSiteData[k];
         }
         const optionsConnect = optionCodes.map((code) => ({ code }));

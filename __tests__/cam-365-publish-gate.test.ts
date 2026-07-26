@@ -407,6 +407,79 @@ describe('PUT /api/campsites/[id] — G3 I-1 fix: the options projection mirrors
   });
 });
 
+describe('PUT /api/campsites/[id] — EC-2 (CAM-515): a partial PUT that omits annotatedFeatures never wipes the Annotated features relation', () => {
+  it('[edge] a price-only PUT (no taxonomy key in the raw body at all) never touches the options relation — same replacesOptions guard the facilities test above proves, keyed to the NEW group', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ priceLow: 999 }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    // The update payload carries NO `options` key at all (never `{ set: [] }`,
+    // which WOULD wipe the relation) — proves replacesOptions correctly
+    // stayed false for a body that never mentioned annotatedFeatures.
+    expect(call.data).not.toHaveProperty('options');
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a PUT carrying ONLY annotatedFeatures resolves+replaces the options relation via resolveOptionConnect (mirrors the facilities:["WIFI"] case above)', async () => {
+    mockAllowed({});
+    (prisma.masterData.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ code: 'ALCO' }]);
+
+    const res = await campSitePUT(putRequest({ annotatedFeatures: ['ALCO'] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [{ code: 'ALCO' }] });
+  });
+
+  it('[edge] an explicit empty annotatedFeatures:[] in the raw body IS a taxonomy key present -> clears the relation (replacesOptions true, resolveOptionConnect short-circuits to [], no masterData call)', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ annotatedFeatures: [] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [] });
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/campsites/[id] — EC-2 (CAM-516): a partial PUT that omits camperStyle never wipes the Camper style relation', () => {
+  it('[edge] a price-only PUT (no taxonomy key in the raw body at all) never touches the options relation — same replacesOptions guard, keyed to the SECOND new group', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ priceLow: 999 }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data).not.toHaveProperty('options');
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a PUT carrying ONLY camperStyle resolves+replaces the options relation via resolveOptionConnect (mirrors the annotatedFeatures:["ALCO"] case above)', async () => {
+    mockAllowed({});
+    (prisma.masterData.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ code: 'CHIC' }]);
+
+    const res = await campSitePUT(putRequest({ camperStyle: ['CHIC'] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [{ code: 'CHIC' }] });
+  });
+
+  it('[edge] an explicit empty camperStyle:[] in the raw body IS a taxonomy key present -> clears the relation (replacesOptions true, resolveOptionConnect short-circuits to [], no masterData call)', async () => {
+    mockAllowed({});
+
+    const res = await campSitePUT(putRequest({ camperStyle: [] }), makeParams(CAMP_ID));
+
+    expect(res.status).toBe(200);
+    const call = (prisma.campSite.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.options).toEqual({ set: [] });
+    expect(prisma.masterData.findMany).not.toHaveBeenCalled();
+  });
+});
+
 describe('PUT /api/campsites/[id] — G3 test gap: clearing a load-bearing field in the SAME publish request is honored (null-overlay)', () => {
   it('[error/validation] an at-80 camp, this request clears cancellationPolicy (null) AND publishes -> 400 (the clear is NOT ignored)', async () => {
     // Stored (if cancellationPolicy stayed as-is): missing zones(10, PER-SPOT

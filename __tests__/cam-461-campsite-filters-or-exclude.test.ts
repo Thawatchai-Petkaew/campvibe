@@ -48,19 +48,25 @@ describe('buildCampSiteWhere — OR-within-facet-group (CAM-461 Decision 1, AC-4
     expect(and.some((e) => JSON.stringify(e).includes('options'))).toBe(false);
   });
 
-  it('[unit] every facet group (access/activities/facilities/terrain) supports the array OR shape', () => {
+  it('[unit] every facet group (access/activities/facilities/terrain/annotatedFeatures/camperStyle) supports the array OR shape', () => {
     const where = buildCampSiteWhere({
       access: ['DRIV', 'WALK'],
       activities: ['SWIM', 'FISH'],
       facilities: ['WIFI', 'SHOW'],
       terrain: ['RIVE', 'BEAC'],
+      // CAM-515 (S3) — the FIRST new MasterData group, same OR-within-group shape.
+      annotatedFeatures: ['ALCO', 'FIRE'],
+      // CAM-516 (S4) — the SECOND new MasterData group, same OR-within-group shape.
+      camperStyle: ['CHIC', 'GENR'],
     });
     const and = where.AND as unknown[];
     expect(and).toContainEqual({ options: { some: { code: { in: ['DRIV', 'WALK'] } } } });
     expect(and).toContainEqual({ options: { some: { code: { in: ['SWIM', 'FISH'] } } } });
     expect(and).toContainEqual({ options: { some: { code: { in: ['WIFI', 'SHOW'] } } } });
     expect(and).toContainEqual({ options: { some: { code: { in: ['RIVE', 'BEAC'] } } } });
-    expect(and.length).toBe(4);
+    expect(and).toContainEqual({ options: { some: { code: { in: ['ALCO', 'FIRE'] } } } });
+    expect(and).toContainEqual({ options: { some: { code: { in: ['CHIC', 'GENR'] } } } });
+    expect(and.length).toBe(6);
   });
 
   it('[unit][boundary][QA gap-fill] a single-element array (length 1) still takes the array/OR branch, not the string branch', () => {

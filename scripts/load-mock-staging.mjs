@@ -131,6 +131,10 @@ function buildOptionsConnect(camp) {
     ...splitCsv(camp.equipment),
     ...splitCsv(camp.activities),
     ...splitCsv(camp.terrain),
+    // CAM-515 (S3) — Annotated features, the FIRST new MasterData group.
+    ...splitCsv(camp.annotatedFeatures),
+    // CAM-516 (S4) — Camper style, the SECOND new MasterData group.
+    ...splitCsv(camp.camperStyle),
   ];
   // Deduplicate
   return [...new Set(codes)].map((code) => ({ code }));
