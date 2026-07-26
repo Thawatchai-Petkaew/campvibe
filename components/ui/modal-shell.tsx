@@ -24,6 +24,15 @@ interface ModalHeaderProps {
     className?: string;
 }
 
+/**
+ * CAM-552 — the header gutter steps at md (`px-4 py-3` -> `md:px-6 md:py-4`),
+ * taking ~8px off the band on a phone. The 44px close button is unchanged: it
+ * is a tap target and sits on the floor.
+ *
+ * Keep commentary OUT of the `return ( <div className={cn(` chain —
+ * cam-220-modal-shell.test.ts matches `return (`, the `<div`, and the class
+ * string as directly adjacent tokens.
+ */
 export function ModalHeader({
     title,
     description,
@@ -34,12 +43,12 @@ export function ModalHeader({
     return (
         <div
             className={cn(
-                "relative flex items-center justify-center px-6 py-4 border-b border-border/60",
+                "relative flex items-center justify-center px-4 py-3 md:px-6 md:py-4 border-b border-border/60",
                 className
             )}
         >
             <div className="text-center">
-                <DialogTitle className="text-lg font-bold text-foreground text-center">
+                <DialogTitle className="type-heading-3 font-bold text-foreground text-center">
                     {title}
                 </DialogTitle>
                 {description != null && (

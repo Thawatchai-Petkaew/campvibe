@@ -94,19 +94,34 @@ Seven roles. A component picks a **role**, never a raw `text-*` per screen size.
 
 | role | mobile | desktop | steps? |
 |---|---|---|---|
-| `text-display` | 30 / 36 | 36 / 40 | ✅ |
-| `text-heading-1` | 24 / 32 | 30 / 38 | ✅ |
-| `text-heading-2` | 20 / 28 | 24 / 32 | ✅ |
-| `text-heading-3` | 16 / 24 | 18 / 28 | ✅ |
-| `text-body` | 16 / 24 | 16 / 24 | no — 16px is the iOS input-zoom threshold + the body-copy floor |
-| `text-label` | 14 / 20 | 14 / 20 | no — control text; already minimal |
-| `text-caption` | 12 / 16 | 12 / 16 | no — already minimal |
+| `type-display` | 30 / 36 | 36 / 40 | ✅ |
+| `type-heading-1` | 24 / 32 | 30 / 38 | ✅ |
+| `type-heading-2` | 20 / 28 | 24 / 32 | ✅ |
+| `type-heading-3` | 16 / 24 | 18 / 28 | ✅ |
+| `type-body` | 16 / 24 | 16 / 24 | no — 16px is the iOS input-zoom threshold + the body-copy floor |
+| `type-label` | 14 / 20 | 14 / 20 | no — control text; already minimal |
+| `type-caption` | 12 / 16 | 12 / 16 | no — already minimal |
 
-Declared once in `app/globals.css` as `--type-*` custom properties, redefined inside one `@media (min-width: 768px)` block, exposed as role utilities. Deliberately **not** `--text-*` in `@theme`: that namespace generates Tailwind's own `text-*` utilities and would collide.
+Declared once in `app/globals.css` as `--type-*` custom properties, redefined inside one `@media (min-width: 768px)` block, exposed as `@utility` classes.
+
+**Why `type-*` and not `text-*` — a bug the measurement caught.** The roles were originally built as `text-body` / `text-heading-2`, exactly as the ticket illustrated. Rendered at 390px, the FilterChip pill measured **16px** while its source clearly read `text-label`. Cause: `cn()` is clsx + **tailwind-merge**, and tailwind-merge classifies an unrecognised `text-<x>` as a **text colour** — so `cn("text-label", "text-foreground")` silently drops `text-label` and the role never reaches the DOM:
+
+```
+twMerge("text-label transition-colors", "text-foreground")
+  → "transition-colors text-foreground"      // text-label GONE
+twMerge("type-label transition-colors", "text-foreground")
+  → "type-label transition-colors text-foreground"   // survives
+```
+
+It would have shipped invisibly at roughly half the call sites, and **no amount of className review would have revealed it** — only the rendered box did. Teaching tailwind-merge the names would mean editing `lib/utils.ts`, outside this story's file surface, so the roles are namespaced `type-*` instead. Both directions are pinned by the "BUG GUARD" tests, so a future tidy-up back to `text-*` goes red first.
+
+Also deliberately **not** `--text-*` in `@theme`: that namespace generates Tailwind's own `text-*` utilities and would collide.
 
 ## States (8)
 
-Unchanged by this story — the scale changes size, never behaviour. Every migrated primitive keeps its existing default · hover · focus (`ring-ring`) · active (`active:scale-95`) · loading · error · empty · disabled. The one state-adjacent change: skeleton blocks that mirror a `lg` control were migrated with it (`h-11 md:h-12`) so the placeholder and the real control stay the same height at both steps and CLS stays 0.
+Unchanged by this story — the scale changes size, never behaviour. Every migrated primitive keeps its existing default · hover · focus (`ring-ring`) · active (`active:scale-95`) · loading · error · empty · disabled.
+
+**Loading state, deliberately NOT touched.** The plan was to step the `h-12` skeleton bars in `loading-skeleton.tsx` / `profile-form-skeleton.tsx` alongside the controls. That would have been wrong: those bars mirror the inline `h-12` inputs in `app/profile/page.tsx`, which is **outside this story's file surface**. Stepping the placeholder while the real control stayed at 48px would have *created* layout shift on mobile rather than preventing it. A skeleton tracks whatever control it stands in for, so it moves when that control moves — which is why the guard also skips `<Skeleton>` by design, with the reason recorded in `check-scale.mjs`. The profile inputs are in the M1 report backlog; the skeleton follows them in the same follow-up.
 
 ## Validation UX
 
@@ -120,13 +135,12 @@ Migrated (in this story's file surface):
 |---|---|
 | `components/ui/button.tsx` | `lg` → `h-11 px-4 md:h-12 md:px-5` |
 | `components/ui/input.tsx` | `inputSize.lg` → `h-11 md:h-12` |
-| `components/ui/input-field.tsx` | leading-icon inset → `pl-10 md:pl-12`; label → `text-caption`; helper → `text-label` |
-| `components/ui/filter-chip.tsx` | pill `px-4 md:px-5` + `text-label`; card `h-28 p-4 md:h-32 md:p-5`; icon-card `h-20 p-2.5 md:h-24 md:p-3` + `text-caption` |
+| `components/ui/input-field.tsx` | leading-icon inset → `pl-10 md:pl-12`; label → `type-caption`; helper → `type-label` |
+| `components/ui/filter-chip.tsx` | pill `px-4 md:px-5` + `type-label`; card `h-28 p-4 md:h-32 md:p-5`; icon-card `h-20 p-2.5 md:h-24 md:p-3` + `type-caption` |
 | `components/ui/card.tsx` | padding → `p-4 md:p-6` (matches the documented rule for the first time) |
 | `components/ui/modal-shell.tsx` | header padding + title → role token |
-| `components/ui/loading-skeleton.tsx`, `components/ui/profile-form-skeleton.tsx` | control-mirroring blocks → `h-11 md:h-12` (CLS) |
-| `components/FilterModal.tsx` | content `p-4 md:p-8`, `space-y-4 md:space-y-6`, grids `gap-3 md:gap-4`, footer `p-3 md:p-4`, section titles → `text-heading-3` |
-| `components/SearchModal.tsx` | same rhythm; **date buttons `size="lg"` → default** (BR-5, absorbs CAM-542); titles → `text-heading-3`; field labels → `text-caption` |
+| `components/FilterModal.tsx` | content `p-4 md:p-8`, `space-y-4 md:space-y-6`, grids `gap-3 md:gap-4`, footer `p-3 md:p-4`, section titles → `type-heading-3` |
+| `components/SearchModal.tsx` | same rhythm; **date buttons `size="lg"` → default** (BR-5, absorbs CAM-542); titles → `type-heading-3`; field labels → `type-caption` |
 | `components/CategoryBar.tsx` | `gap-6 px-4 md:gap-8 md:px-6`, `pb-2 md:pb-3`, tab min-width steps |
 | `app/preview/PreviewClient.tsx` | headings → role tokens + a new **Mobile scale** section (closes `DESIGN.md` §8's "mobile view" backlog item) |
 
@@ -139,6 +153,7 @@ Deliberately **not** migrated, with the reason:
 | `components/Navbar.tsx` | out of bounds; carries two measured touch-floor violations (below) → follow-up |
 | `app/**` page headings (`text-2xl`/`text-3xl`, ~30 sites) | out of bounds → report backlog, follow-up |
 | `components/ui/loading-spinner.tsx` `lg` (`w-12 h-12`) | decorative square, not a control → correctly outside the rule |
+| `components/ui/loading-skeleton.tsx`, `components/ui/profile-form-skeleton.tsx` | their `h-12` bars mirror the inline `h-12` inputs in `app/profile/page.tsx`, which is out of bounds — stepping the placeholder alone would CREATE layout shift (see States above) |
 
 ## The guard (`scripts/check-scale.mjs`, folded into `npm run check:ds`)
 
@@ -153,6 +168,38 @@ Three rules. Structural co-occurrence, not bare string matching (the CAM-221 les
 M3 is blocking everywhere from day one because its backlog is empty by construction: nobody could have written a mobile step before this story defined mobile steps. It is the rule that stops this scale from being used to defeat the floor it was built to respect.
 
 Proven in both directions (`__tests__/cam-552-mobile-scale.test.ts`): each rule fires on a synthetic violation, and each is silent on the fixed tree.
+
+## Measured, in a real browser (Playwright, 390 × 844 and 1280 × 900)
+
+Not read off classNames. Every number below is `getBoundingClientRect()` / `getComputedStyle()` on the rendered element.
+
+**The finding that justifies the whole story** — BEFORE, the mobile column and the desktop column were *identical on every single row*:
+
+| specimen | BEFORE mobile | BEFORE desktop | AFTER mobile | AFTER desktop |
+|---|---|---|---|---|
+| chip pill | h44 · padX 20/20 | h44 · padX 20/20 | h44 · **padX 16/16** | h44 · padX 20/20 |
+| chip card block | **h128** · pad 20 | h128 · pad 20 | **h112** · **pad 16** | h128 · pad 20 |
+| chip icon-card block | **h96** · pad 12 | h96 · pad 12 | **h80** · **pad 10** | h96 · pad 12 |
+| button `md` | h44 | h44 | h44 (floor) | h44 |
+| button `lg` | **h48** · padX 20/20 | h48 · padX 20/20 | **h44** · **padX 16/16** | h48 · padX 20/20 |
+| button icon | h44 | h44 | h44 (floor) | h44 |
+| page `h1` | **36px** | 36px | **30px** | 36px |
+| section `h2` | 20px | 20px | 20px | **24px** |
+
+Filter modal (measured with the modal open at 390px):
+
+| specimen | before | after |
+|---|---|---|
+| price input (`inputSize="lg"`) | h **48** · padX 48/12 | h **44** · padX **40**/12 |
+| footer primary CTA (`size="lg"`) | h **48** · padX **32/32** · w 235 | h **44** · padX **16/16** · w 197 |
+| section heading | 18px / 28px line | **16px / 24px** |
+| usable content width inside the dialog | 310px | **326px** (+16px, `p-6` → `p-4`) |
+
+**Touch floor confirmation.** Full sweep of every `button` / `a[href]` / `input` / `[role=button]` at 390px:
+
+- Nothing this story changed is under 44px. Chip pill, chip blocks, `md`/`lg`/icon buttons and the filter trigger all measure ≥ 44px at both steps.
+- The only controls under 44px are `size="sm"` (36px) — unchanged by this story and by design a dense/inline size, flagged in `DESIGN.md` §2.0 as non-tappable-only.
+- **Pre-existing violations found by the sweep, in files this story may not edit** (reported, not fixed): `CampgroundCard` carousel arrows **28 × 28px** (48 instances on a populated Home), `Navbar` language switcher **36px**, `Navbar` profile menu **42px**, `Navbar` logo link **32px**.
 
 ## a11y
 

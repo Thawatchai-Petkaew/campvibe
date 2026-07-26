@@ -10,7 +10,9 @@ const inputVariants = cva(
       inputSize: {
         sm: "h-9",
         md: "h-11",
-        lg: "h-12",
+        // CAM-552 — steps at md (768px); 44px on a phone (the WCAG tap
+        // floor), 48px from tablet up. See DESIGN.md §2 "Responsive scale".
+        lg: "h-11 md:h-12",
       },
     },
     defaultVariants: {
