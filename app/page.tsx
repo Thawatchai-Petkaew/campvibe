@@ -100,8 +100,16 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-screen pb-20 bg-background text-foreground">
       <Navbar />
 
-      <div className="sticky top-20 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
-        <div className="container mx-auto px-6 py-2">
+      {/*
+        CAM-549: sticky only at md+ (desktop). On a phone, only the search
+        bar in Navbar stays pinned while scrolling (owner AC) — this bar's
+        own "top-20" offset assumed an 80px navbar, which is only true at
+        md+ (the mobile-only search row makes the real navbar taller), so
+        on mobile this used to overlap/hide behind the navbar and leak a
+        stray sliver. See Navbar.tsx for the matching fix.
+      */}
+      <div data-testid="section--category-bar-wrapper" className="md:sticky md:top-20 md:z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 mb-2">
+        <div className="container mx-auto px-4 md:px-6 py-2">
           <CategoryBar />
         </div>
       </div>

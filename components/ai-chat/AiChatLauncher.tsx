@@ -93,32 +93,59 @@ export function AiChatLauncher() {
   return (
     <>
       <div className="fixed bottom-10 right-6 z-50">
-        {/* CAM-432 fire aura: visible radial halo behind the FAB (DESIGN.md
-            §2.1 closed --ai-* token set + the ai-flame-flicker exception
-            line). aria-hidden + pointer-events-none: carries no information,
-            never intercepts a tap; -z-10 keeps it strictly behind the button. */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-glow"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-1 -right-1 size-1.5 rounded-full bg-ai-ember motion-safe:animate-pulse motion-reduce:animate-none"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-0.5 -left-1 size-1 rounded-full bg-ai-firefly motion-safe:animate-pulse motion-reduce:animate-none"
-        />
-        <Button
-          type="button"
-          size="icon-lg"
-          aria-label={t.aiChat.launcherLabel}
-          data-testid="btn--ai-chat-launcher"
-          className="h-12 w-12 rounded-full bg-ai-ember/10 hover:bg-ai-ember/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
-          onClick={() => setOpen(true)}
+        {/* CAM-550 (owner staging feedback: "not sticky and is sometimes
+            cropped at the viewport edge") — a NEW inner wrapper rather than
+            adding to the outer div's own className/style (a pre-existing
+            source-inspection test pins that div's exact opening tag,
+            `<div className="fixed bottom-10 right-6 z-50">`, byte-for-byte;
+            this wrapper leaves it untouched). A `transform` value other than
+            `none` makes an element its own containing block for
+            absolutely-positioned descendants (CSS spec) — the aura/ember/
+            firefly spans below (`absolute inset-0` / `absolute -top-1
+            -right-1` / etc.) resolve against THIS wrapper exactly as they
+            resolved against the outer div before, so the visual result is
+            unchanged on a device with no safe-area. `translate(...)` nudges
+            the whole disc up-and-left by `env(safe-area-inset-*)` (0 on a
+            normal device — no-op) so it clears a notch/dynamic-island or the
+            home-indicator gesture bar in landscape; `translateZ(0)` (chained
+            in the same transform, == the `transform-gpu` utility) forces its
+            own compositing layer, the standard guard against iOS Safari
+            leaving a `position:fixed` element behind during an active touch
+            scroll (same fix applied to the chat panel itself,
+            AiChatPanel.tsx, via its own `max-sm:transform-gpu`). */}
+        <div
+          style={{
+            transform:
+              "translate(calc(-1 * env(safe-area-inset-right)), calc(-1 * env(safe-area-inset-bottom))) translateZ(0)",
+          }}
         >
-          <Flame strokeWidth={1} className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
-        </Button>
+          {/* CAM-432 fire aura: visible radial halo behind the FAB (DESIGN.md
+              §2.1 closed --ai-* token set + the ai-flame-flicker exception
+              line). aria-hidden + pointer-events-none: carries no information,
+              never intercepts a tap; -z-10 keeps it strictly behind the button. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 rounded-full shadow-ai-flame-aura ai-flame-glow"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-1 -right-1 size-1.5 rounded-full bg-ai-ember motion-safe:animate-pulse motion-reduce:animate-none"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-0.5 -left-1 size-1 rounded-full bg-ai-firefly motion-safe:animate-pulse motion-reduce:animate-none"
+          />
+          <Button
+            type="button"
+            size="icon-lg"
+            aria-label={t.aiChat.launcherLabel}
+            data-testid="btn--ai-chat-launcher"
+            className="h-12 w-12 rounded-full bg-ai-ember/10 hover:bg-ai-ember/20 motion-safe:hover:scale-105 motion-safe:active:scale-95"
+            onClick={() => setOpen(true)}
+          >
+            <Flame strokeWidth={1} className="ai-flame-glow size-5 fill-current text-ai-ember" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
       {open && <AiChatPanel open={open} onOpenChange={setOpen} />}
     </>
