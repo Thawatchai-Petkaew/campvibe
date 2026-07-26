@@ -27,8 +27,13 @@ const switcherSrc = read("components/LanguageSwitcher.tsx");
 describe("AC-1 — camp-card carousel arrows reach the 44px floor (BR-1/BR-2)", () => {
   it("[unit] prev/next arrow buttons use the w-11 h-11 icon-button token (was p-1.5 / 28px)", () => {
     expect(cardSrc).not.toContain("p-1.5 rounded-full bg-background/80");
-    const prevBlock = cardSrc.slice(cardSrc.indexOf("onClick={prevImage}"), cardSrc.indexOf("Previous image") + 40);
-    const nextBlock = cardSrc.slice(cardSrc.indexOf("onClick={nextImage}"), cardSrc.indexOf("Next image") + 40);
+    // CAM-570: anchored on the <ChevronLeft/ChevronRight> icon element (BR-3,
+    // unaffected by that story) rather than the aria-label text — this test
+    // exists to prove the TAP TARGET reaches the floor, not to pin any
+    // particular accessible-name wording (that guarantee lives in
+    // CAM-570's own test + the translation source).
+    const prevBlock = cardSrc.slice(cardSrc.indexOf("onClick={prevImage}"), cardSrc.indexOf("<ChevronLeft"));
+    const nextBlock = cardSrc.slice(cardSrc.indexOf("onClick={nextImage}"), cardSrc.indexOf("<ChevronRight"));
     expect(prevBlock).toContain("w-11 h-11");
     expect(nextBlock).toContain("w-11 h-11");
   });
@@ -81,7 +86,7 @@ describe("AC-2/AC-5 — profile menu button reaches the 44px floor and its width
   });
 });
 
-describe("AC-4 — language switcher reaches the 44px floor on desktop, without changing its accessible name (BR-1/BR-4)", () => {
+describe("AC-4 — language switcher reaches the 44px floor on desktop, keeping an accessible name (BR-1/BR-4)", () => {
   it("[unit] the switcher button's className carries h-11 and no longer the old py-2 (was 36px)", () => {
     const classNameMatch = switcherSrc.match(/className="([^"]*)"/);
     expect(classNameMatch).not.toBeNull();
@@ -90,8 +95,13 @@ describe("AC-4 — language switcher reaches the 44px floor on desktop, without 
     expect(className).not.toMatch(/\bpy-2\b/);
   });
 
-  it("[unit] the accessible name stays exactly \"Switch language\" — CAM-549's e2e spec pins this string", () => {
-    expect(switcherSrc).toContain('aria-label="Switch language"');
+  // CAM-570 moved this label into locales/translations.json. This test's job
+  // was always "the control still HAS an accessible name" (findability), not
+  // pinning a particular English string — re-anchored on the i18n source so
+  // a future reword of the Thai/English copy never needs to touch this file.
+  it("[unit] the switcher still has an accessible name, sourced from i18n (not hardcoded)", () => {
+    expect(switcherSrc).toMatch(/aria-label=\{t\.nav\.switchLanguageAriaLabel\}/);
+    expect(switcherSrc).not.toMatch(/aria-label="[^{]/);
   });
 });
 
