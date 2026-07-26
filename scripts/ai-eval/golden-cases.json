@@ -48,7 +48,7 @@
     "expected": {
       "kind": "tool",
       "tool": "searchCampsites",
-      "params": { "terrain": "BEAC" },
+      "params": { "terrain": "SEA" },
       "strictParams": true
     },
     "guardrail": true
@@ -661,6 +661,66 @@
       "kind": "tool",
       "tool": "searchCampsites",
       "params": {}
+    },
+    "guardrail": false
+  },
+  {
+    "id": "S7-01",
+    "group": "S7",
+    "zone": "B",
+    "utterance": "ลานสำหรับมือใหม่",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "camperStyle": "CHIC" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "S7-02",
+    "group": "S7",
+    "zone": "B",
+    "utterance": "ลานจิบเบียร์ได้",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "annotatedFeatures": "ALCO" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "S7-03",
+    "group": "S7",
+    "zone": "B",
+    "utterance": "ลานริมทะเล",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "terrain": "SEA" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "S7-04",
+    "group": "S7",
+    "zone": "B",
+    "utterance": "ลานวิวสวย",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "type": "VIEW" }
+    },
+    "guardrail": false
+  },
+  {
+    "id": "S7-05",
+    "group": "S7",
+    "zone": "B",
+    "utterance": "ลานมีน้ำอุ่น",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "facilities": "HOTW" }
     },
     "guardrail": false
   }
