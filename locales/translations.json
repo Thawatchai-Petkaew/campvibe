@@ -542,9 +542,9 @@
             "keyword": "Keyword",
             "keywordPlaceholder": "Campground name, host...",
             "province": "Province",
-            "district": "District",
             "anyProvince": "Any province",
-            "anyDistrict": "Any district",
+            "provinceLoadFailed": "Could not load provinces. Please try again.",
+            "provinceEmpty": "No provinces available yet.",
             "who": "Who"
         },
         "emptyState": {
@@ -1593,9 +1593,9 @@
             "keyword": "คำค้นหา",
             "keywordPlaceholder": "ชื่อแคมป์, ชื่อโฮสต์...",
             "province": "จังหวัด",
-            "district": "อำเภอ",
             "anyProvince": "ทุกจังหวัด",
-            "anyDistrict": "ทุกอำเภอ",
+            "provinceLoadFailed": "โหลดรายชื่อจังหวัดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "provinceEmpty": "ยังไม่มีจังหวัดให้เลือก",
             "who": "ใคร"
         },
         "emptyState": {
@@ -1706,7 +1706,7 @@
             "IDMT": "ทรหด",
             "CAGD": "ลานกางกับพื้น",
             "CACP": "รถเต็นท์",
-            "GLAMP": "กลามปิ้ง",
+            "GLAMP": "แกลมปิ้ง",
             "VIEW": "วิวสวย",
             "Stay connected": "สัญญาณโทรศัพท์",
             "SAIS": "เอไอเอส",
