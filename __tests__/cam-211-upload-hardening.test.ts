@@ -13,6 +13,12 @@
  * removed here — the SAME `campsite:create:<userId>` key + 429 behavior is already
  * proven against the live campsitesPOST below (section 3), and the per-user
  * isolation case is folded into section 3 (was "USER_B is unaffected").
+ *
+ * CAM-535 (re-audit, 2026-07-26): reconfirmed section 3 below still proves the create
+ * rate-limit (429+Retry-After, no-call-when-limited, allows-under-limit, per-user
+ * isolation) on the sole surviving create route. The cross-route "shared key" proof
+ * is moot with one route left; per-user isolation on that route is what matters and
+ * is covered. No restoration made.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

@@ -35,6 +35,11 @@
  *     rate-limiting today — only POST create is rate-limited (`campsite:create:<userId>`).
  *     This is a genuine, pre-existing gap on the live route (not introduced by this
  *     deletion) — flagged to the story's needs_decision rather than silently dropped.
+ *
+ * CAM-535 (re-audit, 2026-07-26): reconfirmed both findings above — take:50-equivalent
+ * still bounded via cam-196-keyset-cursor.test.ts, IP rate-limit still absent from the
+ * live GET (grep-verified: checkRateLimit is called only once in app/api/campsites/route.ts,
+ * for POST create). The gap is tracked as CAM-534, not re-opened here. No restoration made.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
