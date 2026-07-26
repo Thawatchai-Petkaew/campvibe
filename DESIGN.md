@@ -196,12 +196,34 @@ This exception is the record that legitimizes the camping assistant look. Anythi
 | pick **one value** from a short list (form) | `Select` | trigger `rounded-full h-11` · content `rounded-2xl` · item `rounded-xl py-2.5` | DropdownMenu, custom button |
 | **long / searchable** list (province/place) | `Popover` + `Command` | content `rounded-2xl` · item `rounded-xl` | a long `Select` |
 | **command/account menu** (go to an action, not pick a value), e.g. Profile menu | `DropdownMenu` | content `rounded-2xl` · item `rounded-xl` (normal weight) — **same grammar as Select** | ❌ panel rounded-xl + bold item rounded-lg (the old style that made it look inconsistent) |
-| **multi-select / toggle filter** (FilterModal) | the **FilterChip** pattern | pill `rounded-full border`; selected = `bg-foreground text-background`; image-card variant `rounded-2xl` for categories with a photo — **one style** | Select, raw `<span>` |
+| **multi-select / toggle filter** (FilterModal, SearchModal) | the **FilterChip** primitive (`components/ui/filter-chip.tsx`) | pill `rounded-full border h-11 min-w-[44px] px-5`, icon `size-4`; **selected = `bg-primary text-primary-foreground border-primary`**; image-card variant `rounded-2xl` for categories with a photo — **one style, one file** | Select, raw `<span>`, a hand-rolled `<button>` pill (blocked by `check:ds` R9) |
 | boolean | `Checkbox` / Switch | — | — |
 | confirm/delete (destructive) | `AlertDialog` | — | `window.confirm` |
 | transient feedback | `toast` (sonner) | — | a persistent inline alert |
 
 > **Answer to the owner's case:** Profile dropdown = `DropdownMenu` (command menu), Filter selection = `FilterChip` (multi-select) — **different roles, so they can be different components** but **must share grammar**: radius/size/spacing from the one §2 set → they "look like one family" even though they do different jobs.
+
+### Chip family — who is a chip, and what "selected" looks like (CAM-532)
+
+**Selected = `bg-primary text-primary-foreground border-primary`.** This settles a contradiction that
+lived in this file: §3/§3.1 used to say `bg-foreground text-background` while the primitive shipped
+`bg-primary`. The primitive is right, on four counts: §2's token table already assigns `primary` the
+"selected" role · `check:ds` R5a flags `bg-foreground`/`text-background` in a consumer as a CTA-color
+override · the primitive plus all three of its consumers already ship `bg-primary` · teal-on-white is
+the §1 POV. Measured contrast of the label on the selected fill: **5.17:1 light / 7.23:1 dark**
+(both ≥ AA 4.5:1). Hover = `hover:bg-primary/85` selected, `hover:border-foreground` unselected.
+
+**Only `components/ui/filter-chip.tsx` styles a chip.** A consumer passes
+`variant`/`selected`/`onToggle`/`label`/`icon` and adds **no chip className** — height, radius, icon
+size, tap target, focus ring, `active:scale-95` and all 8 states come from the primitive. A
+hand-rolled `<button>` pill is a **Critical** gate violation and is caught by `check:ds` R9.
+
+**Not chips (do not "convert" them):**
+
+| surface | what it really is | why it stays |
+|---|---|---|
+| `ActiveFilters` | dismiss **token** — reports a filter already on, removes it on tap | not selectable (no unselected state to render) → `Badge` `rounded-xl`, per the "status label" row |
+| `CategoryBar` | underline **nav tab** (`aria-current`, `border-b-2`, no box) | switches page context rather than composing a multi-select → tab grammar, not chip grammar |
 
 ### Overlay grammar
 
@@ -318,7 +340,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 | `dialog` | Focused-task modal (centered) | `rounded-3xl`, close `h-11 w-11` |
 | `dropdown-menu` | Action / account menu — no persistent selected state | content `rounded-2xl` · item `rounded-xl py-2.5 font-normal focus:bg-accent` |
 | `error-banner` | Server error shown at the top of a form after submit | — |
-| `filter-chip` | Multi-select / toggle filter pill | `rounded-full`; selected = `bg-foreground text-background` |
+| `filter-chip` | Multi-select / toggle filter pill — **the only file allowed to style a selectable chip** | `rounded-full h-11`; selected = `bg-primary text-primary-foreground` (§3 "Chip family") |
 | `image-with-fallback` | `next/image` with a graceful fallback | — |
 | `input` | Raw text input (use `input-field` when label + error needed) | `rounded-full h-11` |
 | `input-field` | Input + label + inline error in one unit | — |
@@ -395,7 +417,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 ## §6 Quality gate — pre-delivery checklist (can block a PR, run before merge→staging = "Done")
 
 - [ ] **Token-only** — no free-floating hex/px/colors, reference tokens + scale (light + dark) · `npm run check:palette` green
-- [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5)
+- [ ] **Component-in-system** — `components/ui/*` only, no out-of-system components · icon imports use **lucide-react only** (§7) — `@tabler/icons-react` has been removed (DS-5) · `npm run check:ds` green, including **R9** (no hand-rolled selectable pill — use `FilterChip`, §3 "Chip family")
 - [ ] **Scale matches role** — radius/size/spacing per §2 (no inline height override)
 - [ ] **All 8 states** — default/hover/focus/active/loading/error/empty/disabled + form/error pattern
 - [ ] **Loading state (blocks PR)** — every page/component with an async dependency must: (a) use the correct loader per the decision matrix (`.claude/rules/loading.md`); (b) if skeleton: mirror the real layout exactly (exact dims/count/grid — CLS = 0), NOT a generic gray block; (c) show a section-level skeleton only (chrome/navbar renders instantly) unless the ENTIRE route is async; (d) wire a11y (`aria-busy`, `role="status"`, `aria-live="polite"`, `กำลังโหลด…` label, `prefers-reduced-motion` disables shimmer); (e) anti-flicker per context — Suspense fallback: delay-before-show via `loading-delay` CSS utility (`app/globals.css`), min-display N/A; client-fetch skeleton: both delay + min-display via `useMinimumLoading` hook. Missing loading state OR wrong loader for the matrix OR full-page skeleton for a section-level fetch OR missing a11y = **Critical, blocks merge**.
@@ -419,7 +441,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 
 **Consolidation backlog (next epic — use this DESIGN.md v2 as the spec, ordered by impact):**
 
-1. **Dropdown/select → 1 grammar** + build a `FilterChip` component (align Profile menu + Search/Sort/Form/Team Select + FilterModal chips).
+1. **Dropdown/select → 1 grammar** + ~~build a `FilterChip` component~~ ✓ **chip half done (CAM-532)** — `FilterChip` exists, FilterModal + SearchModal both use it, the selected-state contradiction is resolved (§3 "Chip family"), and `check:ds` R9 blocks the next hand-rolled pill. The Profile/Search/Sort/Form/Team **Select** alignment half is still open.
 2. **Button `size="lg"` (h-12)** + drop every inline `!h-12`/`h-10` override.
 3. **Card primitive** — CampgroundCard + CampgroundForm stop hardcoding `rounded-xl`/`rounded-3xl` and use `Card`.
 4. **One modal shell** (`rounded-3xl`, close `h-11 w-11`) — align AmenitiesModal (`rounded-2xl`).
@@ -429,6 +451,7 @@ Consumers **must not** override the item focus state (e.g. no per-item `focus:bg
 8. **Consistency CI guard** — extend `check-palette.mjs` to catch inline height/radius off-scale (prevent drift like the palette).
 9. **Wire Sarabun** — `next/font/google` subset thai+latin + Thai font stack (`:lang(th)`) → heading Sarabun semibold.
 10. **Cleanup** — remove the stale hex `--color-primary:#0d9488` in `@theme` (globals.css), and the `"orange-600"` comment that does not match the value.
+11. **Dark-mode non-text state contrast (measured, CAM-532)** — a *selected* chip fill vs the surface behind it measures **2.31:1 in dark mode** (5.39:1 light), under the 3:1 WCAG 1.4.11 target for identifying a state by fill. It is **system-wide, not chip-specific**: every bordered control shares it, `--border` on light `--background` measures **1.25:1**. Text contrast and `aria-pressed` are unaffected (both pass). A fix means retuning `--border` / dark `--primary` in `app/globals.css` — one owner-visible token decision for the whole system, deliberately not made inside a single-component story.
 
 ## Examples
 
