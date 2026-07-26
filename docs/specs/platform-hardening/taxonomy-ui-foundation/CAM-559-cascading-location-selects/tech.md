@@ -5,7 +5,7 @@ persona: Host
 artifact: tech
 owner: backend-engineer
 status: done
-version: v1
+version: v2
 updated: 2026-07-26
 ---
 # Tech — Cascading province/district/sub-district selects (CAM-559)
@@ -59,17 +59,22 @@ No level ever returns the full 77/930/7,452-row table in one response — the cl
 
 No new ADR — this is an additive UI + write-path fix on an already-decided data model (CAM-553's AdminArea-vs-ThailandLocation split, unchanged here). The two-table sourcing rationale above documents the decision inline since it directly answers the ticket's explicit blast-radius constraint (BR-4 in `story.md`).
 
-## Known pre-existing test drift (outside this story's file surface — not fixed here)
+## Sibling test drift — flagged, then fixed (file surface expanded by the coordinator)
 
-Two suites pin the OLD flat single-search `LocationPicker` implementation detail-for-detail; both are OUTSIDE this story's allowed file surface (`__tests__/cam-559-*.test.ts` only), so neither was edited. Flagged here + in the PR body rather than silently left unexplained:
+Two suites pinned the OLD flat single-search `LocationPicker` implementation detail-for-detail. Both were initially outside this story's allowed file surface (`__tests__/cam-559-*.test.ts` only) and were flagged rather than silently edited; the coordinator then expanded the surface to exactly these two files (leaving CI red was not an option, and the exact fix was already known) with one instruction: **update the assertions to describe the new UI — do not delete or loosen them.**
 
-- `__tests__/menu-hover-contrast.test.ts` (`AC-loc-subtitle`) — asserted a `text-xs text-foreground/70` "subtitle" span existed under a combined province+district row (the old design showed a district row's parent province as a secondary line). The new cascading design has no such two-line row (each level is already scoped by its parent, so no secondary-context line is needed) — the assertion now fails because that specific span no longer exists. The a11y INTENT (no low-contrast `text-muted-foreground` on a tinted hover row) still holds; the new rows are single-line `text-foreground` only. Recommended fix: update or remove that one assertion to match the single-line row.
-- `e2e/regression/ac5-create-camp.spec.ts` — locates the province trigger via `page.getByText("พิมพ์ชื่อจังหวัดหรืออำเภอ...")` (the old trigger button's own placeholder-as-label text). The new design shows the level name (`จังหวัด`) on the unselected trigger instead, and the search placeholder now only appears inside the open popover. Recommended fix: switch the locator to `page.getByTestId("btn--location-picker-province")` (added by this story specifically for a stable e2e/QA hook) to open, then `page.getByTestId("row--location-picker-province-option").first()` to pick.
+- `__tests__/menu-hover-contrast.test.ts` (`AC-loc-subtitle`) — asserted a `text-xs text-foreground/70` "subtitle" span existed under a combined province+district row (the old design showed a district row's parent province as a secondary line). That two-line row genuinely no longer exists (each cascading level is already scoped by its parent, so no secondary-context line is needed). Fixed by restating the assertion as the INVARIANT it always protected: no `CommandItem` pairs the `hover:bg-accent/15` tint with the lower-contrast `text-muted-foreground` (the exact bug class this guard exists to catch), plus a positive check that every row's label renders at full-strength `text-foreground` — stronger than the retired `/70` subtitle tone, not weaker.
+- `e2e/regression/ac5-create-camp.spec.ts` — located the province trigger via `page.getByText("พิมพ์ชื่อจังหวัดหรืออำเภอ...")` (the old trigger button's own placeholder-as-label text, gone in the new design — the unselected trigger now shows the level name `จังหวัด`, and the search placeholder only appears inside the open popover). Fixed by switching the locator to `page.getByTestId("btn--location-picker-province")` (added by this story specifically as a stable e2e/QA hook) to open, then `page.getByTestId("row--location-picker-province-option").first()` to pick.
 
-Confirmation: both were run (`npx vitest run __tests__/menu-hover-contrast.test.ts`; the e2e spec was read, not executed, per this story's self-verify scope) and the exact failure/locator-mismatch was confirmed by hand, not assumed.
+Confirmation: `npx vitest run __tests__/menu-hover-contrast.test.ts` green (23/23) after the fix; the e2e spec's new testids were confirmed present in `components/LocationPicker.tsx` by grep (not run — no Playwright browser/dev-server/DB session available in this environment, consistent with this story's self-verify scope). Full suite re-run as the last act, post-rebase onto `dev` (picked up CAM-548/549/550/552): 9757/9758 pass — `__tests__/delivery-client.test.ts` (env-dependent, pre-existing) is the ONLY remaining failure.
+
+## Forward-looking — CAM-562 (reverse-geocode backfill) canonical-format risk
+
+`province`/`district`/`subDistrict` are written in whatever UI language was active at save time (the pre-existing, deliberately-preserved quirk — see BR-4/story.md) — so existing and newly-created rows can be a mix of Thai/English text for the same conceptual place. A future backfill (CAM-562) matching against this same `AdminArea`/`ThailandLocation` master data should not assume a single canonical language across existing rows; it will need the same bilingual name-based lookup CAM-545 already built for `province` (`getProvinceThaiNameMap`/`withProvinceThaiNames`), not a fresh consistency assumption, if it wants exact-equality matching (e.g. `lib/campsite-filters.ts`'s district filter) to work uniformly. No code change made here — flagged for that story's own Discovery.
 
 ## Links
 `prisma/schema.prisma` · `story.md` · `docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-553-thai-location-master-data/tech.md` (the AdminArea-vs-ThailandLocation model decision this story builds on, unchanged)
 
 ## Changelog
 - v1 (2026-07-26) — created
+- v2 (2026-07-26) — coordinator expanded the file surface to the two flagged sibling suites; both fixed (updated to describe the new UI, not weakened) instead of left flagged. Rebased onto `dev` (CAM-548/549/550/552); confirmed CAM-548's `CampgroundDetailClient.tsx` unaffected. Added the edit-prefill-gap finding and the `Location.province` byte-identical confirmation method; added the CAM-562 canonical-storage-format forward-looking note.
