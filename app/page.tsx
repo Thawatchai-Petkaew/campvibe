@@ -4,6 +4,7 @@ import { CategoryBar } from "@/components/CategoryBar";
 import { SortDropdown } from "@/components/SortDropdown";
 import { FilterSortBar } from "@/components/FilterSortBar";
 import { FilterModal } from "@/components/FilterModal";
+import { ActiveFilters } from "@/components/ActiveFilters";
 import { CampgroundGridSkeleton } from "@/components/CampgroundSkeleton";
 import CatalogResults from "@/components/CatalogResults";
 import { auth } from "@/lib/auth";
@@ -113,6 +114,15 @@ export default async function Home({ searchParams }: HomeProps) {
       </FilterSortBar>
 
       <div className="container mx-auto px-6">
+        {/*
+          CAM-530 (S3): ActiveFilters is a client component reading useSearchParams
+          directly — it lives OUTSIDE the Suspense boundary below so the chip summary
+          renders instantly as part of the static chrome and stays in sync with the URL
+          on every navigation, independent of the async grid fetch (renders nothing when
+          no filter is active).
+        */}
+        <ActiveFilters />
+
         {/*
           LOAD-1: Suspense boundary wraps only the results area.
           The shell (Navbar, CategoryBar, FilterSortBar) renders synchronously — users see
