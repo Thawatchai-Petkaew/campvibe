@@ -9,7 +9,10 @@
  * no jsdom — see cam-272-ai-chat-components.test.ts's header comment).
  *
  * Prove-It guards (each assertion goes RED if the fix were reverted):
- *   AC-1 (un-crop)    -> track className carries py-4 alongside overflow-x-auto/px-4
+ *   AC-1 (un-crop)    -> track className carries pt-4/pb-14 (CAM-547 widened the
+ *                        original symmetric py-4 into an asymmetric pair, sized to
+ *                        the shadow token's own measured downward reach) alongside
+ *                        overflow-x-auto/px-4
  *   AC-2/AC-3 (hero)  -> price <p> is text-lg/font-semibold/text-primary, BEFORE
  *                        the province row in source order; /คืน suffix is
  *                        text-xs/text-muted-foreground
@@ -27,19 +30,21 @@ const cardSrc = read("components/ai-chat/AiChatCampCard.tsx");
 const carouselSrc = read("components/ai-chat/AiChatCardCarousel.tsx");
 
 describe("AC-1 — carousel track no longer clips the card border/glow/hover-lift", () => {
-  it("[unit] the multi-card track className carries py-4 alongside the existing overflow-x-auto/px-4 peek", () => {
+  it("[unit] the multi-card track className carries pt-4/pb-14 (CAM-547 widened the original py-4) alongside the existing overflow-x-auto/px-4 peek", () => {
     const trackClassMatch = carouselSrc.match(/data-testid="carousel--ai-chat-cards"[\s\S]*?className="([^"]+)"/);
     expect(trackClassMatch, "multi-card track className not found").not.toBeNull();
     const trackClass = trackClassMatch![1];
     expect(trackClass).toContain("overflow-x-auto");
     expect(trackClass).toContain("px-4");
-    expect(trackClass).toContain("py-4");
+    expect(trackClass).toContain("pt-4");
+    expect(trackClass).toContain("pb-14");
   });
 
-  it("[structural] the single-card branch (no carousel chrome) is untouched — no py-4 needed there, it was never clipped", () => {
+  it("[structural] the single-card branch (no carousel chrome) is untouched — no pt-4/pb-14 needed there, it was never clipped", () => {
     const singleCardBlock = carouselSrc.match(/cards\.length === 1[\s\S]*?<\/div>\s*\);/)?.[0] ?? "";
     expect(singleCardBlock).toContain('data-testid="card--ai-chat-campsite" className="w-full max-w-full"');
-    expect(singleCardBlock).not.toContain("py-4");
+    expect(singleCardBlock).not.toContain("pt-4");
+    expect(singleCardBlock).not.toContain("pb-14");
   });
 });
 
