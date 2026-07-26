@@ -50,7 +50,12 @@ const masterData = [
     { code: 'CACP', group: 'Campground type', nameTh: 'รถเต็นท์', nameEn: 'Car camp', icon: 'Car' },
     // CAM-517 (S5) — reconcile with CampSiteTypeEnum (already had GLAMP/VIEW): 2 new
     // rows so hosts can pick them + campers see labels. Codes match the enum verbatim.
-    { code: 'GLAMP', group: 'Campground type', nameTh: 'กลามปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
+    // CAM-526: nameTh corrected to the real transliteration of "glamping"
+    // (was previously misspelled, missing the leading vowel sound) —
+    // locales/translations.json's th key was already fixed by CAM-531, but
+    // FilterModal/CampgroundForm render this nameTh directly (not the i18n
+    // key), so the seed source was still wrong until now.
+    { code: 'GLAMP', group: 'Campground type', nameTh: 'แกลมปิ้ง', nameEn: 'Glamping', icon: 'Sparkles' },
     { code: 'VIEW', group: 'Campground type', nameTh: 'วิวสวย', nameEn: 'Scenic view', icon: 'Eye' },
 
     // Access Types
@@ -116,6 +121,24 @@ const masterData = [
     { code: 'BACK', group: 'Driveway', nameTh: 'ถอยเข้า', nameEn: 'Back-in', icon: 'CornerDownLeft' },
     { code: 'PARA', group: 'Driveway', nameTh: 'ขนานลาน', nameEn: 'Parallel', icon: 'AlignHorizontalJustifyCenter' },
     { code: 'PTHG', group: 'Driveway', nameTh: 'ขับผ่าน', nameEn: 'Pull-through', icon: 'MoveRight' },
+
+    // CAM-526 (S10) — Accommodation type: `AccommodationTypeEnum`
+    // (lib/validations/campsite.ts) has 6 members, but `MasterData.code` is a
+    // global `@id` (NOT scoped per group) — 2 of the 6 codes are already
+    // claimed by an UNRELATED group and seeding them here would silently move
+    // that row OUT of its live group:
+    //   - HORS already exists under group: 'Activity' (ขี่ม้า / Horseback riding)
+    //   - TENT already exists under group: 'Equipment for rent' (เต็นท์ / Tent),
+    //     and is the value most seeded camps already use for `equipment`.
+    // Only the 4 non-colliding codes are seeded below. HORS/TENT stay valid in
+    // the zod enum and round-trip through POST/PUT unchanged, but are NOT
+    // selectable via this picker and render no tile in this section until a
+    // follow-up decision (rename the 2 enum members + backfill existing
+    // `accommodationTypes` CSV data) — see story.md BR-2/Out of scope.
+    { code: 'CABI', group: 'Accommodation type', nameTh: 'กระท่อม', nameEn: 'Cabin', icon: 'Bed' },
+    { code: 'DISP', group: 'Accommodation type', nameTh: 'กางเต็นท์อิสระ', nameEn: 'Dispersed camping', icon: 'Trees' },
+    { code: 'GROU', group: 'Accommodation type', nameTh: 'ที่พักแบบกลุ่ม', nameEn: 'Group camping', icon: 'Users' },
+    { code: 'RECR', group: 'Accommodation type', nameTh: 'รถบ้าน (RV)', nameEn: 'RV / Recreational vehicle', icon: 'Car' },
 ]
 
 import fs from 'fs';

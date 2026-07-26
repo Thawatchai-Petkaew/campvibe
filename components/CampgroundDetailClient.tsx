@@ -27,6 +27,10 @@ import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth }
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
+// CAM-526 (S10): accommodationTypes is a scalar CSV string column (NOT part of
+// the `options` MasterData relation) — parse it with the existing shared
+// helper, never hand-split the string.
+import { csvToArray } from "@/lib/api-utils";
 import Link from "next/link";
 import { th, enUS } from 'date-fns/locale';
 
@@ -416,6 +420,10 @@ export default function CampgroundDetailClient({
     // GLAMP/VIEW), NOT part of the `options` MasterData relation above — read
     // it directly off the camp row.
     const campSiteTypeCode: string | undefined = campground.campSiteType;
+    // CAM-526 (S10): accommodationTypes is a scalar CSV `String` column too
+    // (not part of the `options` relation, and not a single scalar code like
+    // campSiteType above) — parse via the shared `csvToArray` helper.
+    const accommodationCodes = csvToArray(campground.accommodationTypes);
     const facilityCodes = codesByGroup('Internal facility');
     const externalCodes = codesByGroup('External facility');
     const equipmentCodes = codesByGroup('Equipment for rent');
@@ -964,6 +972,21 @@ export default function CampgroundDetailClient({
                                 <OptionGroupSection
                                     heading={t.filter["Campground type"]}
                                     codes={[campSiteTypeCode]}
+                                    getLabel={getLabel}
+                                    getIcon={getIcon}
+                                />
+                            </div>
+                        )}
+
+                        {/* 3a-2. CAM-526 (S10) AC-2/BR-4 — Accommodation type: a scalar CSV
+                            `String` column (not part of the `options` relation), parsed via
+                            csvToArray. Was fully wired end-to-end except this display section
+                            and the (until now unseeded) host-form group. */}
+                        {accommodationCodes.length > 0 && (
+                            <div className="pb-8 border-b border-border/60" data-testid="section--accommodation-types">
+                                <OptionGroupSection
+                                    heading={t.filter["Accommodation type"]}
+                                    codes={accommodationCodes}
                                     getLabel={getLabel}
                                     getIcon={getIcon}
                                 />
