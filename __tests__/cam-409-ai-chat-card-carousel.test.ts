@@ -135,9 +135,17 @@ describe("AC-3 — the strip is a labelled, reachable group (a11y)", () => {
     expect(carouselSrc).toContain("tabular-nums");
   });
 
-  it("[unit] active dot uses bg-primary, inactive uses muted-foreground/30 (token-only, no new color)", () => {
-    expect(carouselSrc).toContain("bg-primary");
-    expect(carouselSrc).toContain("bg-muted-foreground/30");
+  // CAM-547 AC-1 — colour alone (bg-primary vs bg-muted-foreground) measured
+  // 1.04-2.17:1 dot-to-dot across every opacity tried (never a comfortable
+  // separation, since --primary/--muted-foreground sit close in perceptual
+  // lightness in dark mode), so the active state is now carried by SHAPE
+  // (a wider pill) first, colour second — pinning both, not colour alone.
+  it("[unit] active dot is a wider pill (w-4, bg-primary); inactive is a smaller dot at a stronger opacity (muted-foreground/60, was /30 — 1.78:1 -> 3.40:1 vs the panel surface, clears the WCAG 1.4.11 3:1 non-text floor)", () => {
+    expect(carouselSrc).toContain("h-1.5 w-4 rounded-full bg-primary");
+    expect(carouselSrc).toContain("h-1.5 w-1.5 rounded-full bg-muted-foreground/60");
+    // the OLD value is still named in prose (the investigation comment
+    // explaining WHY it changed) — assert it is gone as a CLASS (quoted).
+    expect(carouselSrc).not.toContain('bg-muted-foreground/30"');
   });
 });
 
