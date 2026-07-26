@@ -32,6 +32,26 @@
  *      so this one ships blocking everywhere from day one. It is the rule that
  *      prevents "compact" from being read as "shrink the tap target".
  *
+ *  M4  min-width-literal-not-shrink-safe    ← CAM-565, REPORT-ONLY (new rule)
+ *      A flex item carries an explicit LITERAL-PX bracket min-width
+ *      (`min-w-[56px]`, `md:min-w-[64px]`) with no `shrink-0`, in a context
+ *      that looks like a flex row (co-occurs with a `flex`/`inline-flex`
+ *      token) and is not a symmetric icon-sized box (`size-N`, or matching
+ *      `w-N`/`h-N`). This is the EXACT root cause CAM-560 found: a literal
+ *      px value never scales with the browser/OS text-size setting, while a
+ *      sibling's rem-based label content DOES scale with it — so a check
+ *      that only ever renders (or reasons about) ONE text size can watch this
+ *      pass forever and still ship an overlap the first time a camper turns on
+ *      "Larger text" (~150%, the setting CAM-560's own Prove-It test used;
+ *      see e2e/regression/cam-560-category-label-overlap.spec.ts). M1/M2/M3
+ *      never covered this className shape at all — M4 is a new detector, not
+ *      a widening of an old one, so this file's OWN geometry reasoning (the
+ *      `stepPx` arithmetic) now explicitly documents which shapes it can and
+ *      cannot see (see "Why M4 is static, not a browser re-render" below).
+ *      Ships REPORT-ONLY repo-wide (`.claude/rules/ops.md`: report → clear to
+ *      0 → blocking) — this is the FIRST time this shape is detected, so the
+ *      backlog is unknown and MUST be counted before any blocking claim.
+ *
  * ── Why this is co-occurrence, not a bare string grep (the CAM-221 lesson) ──
  * A grep for `h-12` catches an avatar, a spinner and an empty-state glyph as
  * readily as a control. M1 therefore only fires when the `h-12` is *acting as
@@ -49,8 +69,31 @@
  * ── Rollout (.claude/rules/ops.md: report → clear to 0 → blocking) ──────────
  * M1/M2 ship BLOCKING only over the surface CAM-552 actually cleared to 0, and
  * REPORT-mode elsewhere with the backlog counted. M3 is blocking everywhere.
- * Widening M1/M2's blocking scope is a follow-up story that clears the named
- * backlog first — never a flip with a non-zero backlog.
+ * M4 (CAM-565) is REPORT-ONLY everywhere — brand new, backlog uncounted until
+ * this story ran it for the first time (see the CAM-565 story.md's Data
+ * section for that count). Widening M1/M2's blocking scope, or promoting M4
+ * to blocking, is a follow-up story that clears the named backlog first —
+ * never a flip with a non-zero backlog.
+ *
+ * ── Why M4 is static, not a browser re-render (CAM-565) ─────────────────────
+ * This whole file reasons about geometry ARITHMETICALLY (Tailwind step →
+ * assumed px), never by rendering — it cannot literally "set the browser's
+ * text size to 150%". What it CAN do, and could not do before CAM-565, is
+ * recognise the ONE className shape whose safety genuinely depends on text
+ * scale (a literal-px floor beside rem-based sibling content, no `shrink-0`)
+ * and flag it BEFORE a single browser ever runs — cheaper and earlier than a
+ * Playwright pass, and it never needs a running dev server. The real-browser
+ * side of this proof (measuring actual overlap at 150% root font-size) is the
+ * companion this file intentionally leaves to Playwright, where it already
+ * lives: e2e/regression/cam-560-category-label-overlap.spec.ts's dedicated
+ * "PROVE-IT" test and e2e/regression/cam-558-touch-targets.spec.ts's EC-5
+ * both apply `page.addStyleTag({ content: "html { font-size: 24px !important; }" })`
+ * (150% of the 16px baseline) — the established technique in this repo, not
+ * reinvented here. CAM-565's own both-directions proof for M4 lives in
+ * __tests__/cam-565-scale-guard-text-scale.test.ts (a fixture-line test, the
+ * same pattern __tests__/cam-552-mobile-scale.test.ts already uses for
+ * M1/M2/M3) plus a real re-run of the existing e2e Prove-It test in both
+ * directions — see that ticket's story.md for the exact terminal output.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -207,6 +250,45 @@ export function isDisplayTypeViolation(line) {
   return !RESPONSIVE_FONT_RE.test(line);
 }
 
+// ── M4 (CAM-565) — literal-px min-width, no shrink-0, on a flex-ish item ─────
+
+/** A literal-PX bracket min-width: `min-w-[56px]` or `md:min-w-[64px]`. Only
+ * the `px` unit is unsafe — `min-w-[1.25rem]` (badge.tsx) scales WITH the
+ * root font-size exactly like the content it sits beside, so it is not this
+ * rule's target and is not matched. */
+const LITERAL_PX_MIN_WIDTH_RE = /\bmin-w-\[\d+(?:\.\d+)?px\]/;
+const SHRINK_ZERO_RE = /\bshrink-0\b/;
+/** `flex`, `flex-col`, `flex-wrap`, `inline-flex`, `flex-1` … any token that
+ * marks this element as flex display or a flex item — the co-occurrence
+ * signal (CAM-221 lesson: never a bare grep). A table/SelectContent/plain
+ * block min-width never carries this token on the same line. */
+const FLEX_TOKEN_RE = /\bflex\b/;
+
+/** A symmetric icon-sized box (`size-N`, or matching `w-N`/`h-N`) — its own
+ * min-width just restates its own square floor, not a label-overlap risk. */
+function isSquareShapeLine(line) {
+  if (/\bsize-\d+(?:\.\d+)?\b/.test(line)) return true;
+  const w = line.match(/\bw-(\d+(?:\.\d+)?)\b/);
+  const h = line.match(/\bh-(\d+(?:\.\d+)?)\b/);
+  return Boolean(w && h && w[1] === h[1]);
+}
+
+/**
+ * Returns true when this line is the exact CAM-560 root-cause shape: a
+ * literal-px min-width with no `shrink-0`, on what looks like a flex item,
+ * that is not a symmetric icon box. Report-only (see file header) — a hit
+ * here is not proven broken, it is "review this against a real 150% render"
+ * (the e2e companion, see file header "Why M4 is static").
+ */
+export function isMinWidthScaleRisk(line) {
+  if (COMMENT_LINE_RE.test(line)) return false;
+  if (!LITERAL_PX_MIN_WIDTH_RE.test(line)) return false;
+  if (SHRINK_ZERO_RE.test(line)) return false; // shrink-0 present — safe by construction
+  if (!FLEX_TOKEN_RE.test(line)) return false; // not a flex-ish element on this line
+  if (isSquareShapeLine(line)) return false; // symmetric icon box, not a label row
+  return true;
+}
+
 const RULES = [
   {
     id: "M1-control-height-not-responsive",
@@ -226,6 +308,13 @@ const RULES = [
     scoped: false, // blocking repo-wide; backlog 0 by construction
     hint: `A mobile step may never land under the ${TOUCH_FLOOR_PX}px touch floor. Compact padding/gap/type instead, and keep the height at h-11.`,
   },
+  {
+    id: "M4-min-width-literal-not-shrink-safe",
+    test: isMinWidthScaleRisk,
+    scoped: true,
+    alwaysReport: true, // CAM-565: brand new detector, backlog uncounted — report-only everywhere until a follow-up story clears it (.claude/rules/ops.md rollout rule)
+    hint: "A literal-px min-w-[Npx] does not scale with the browser/OS text-size setting the way rem-based label content does. Add shrink-0 (CAM-560's fix) so the item can never compress below its own content, at any text scale.",
+  },
 ];
 
 function isBlockingScope(rel) {
@@ -233,12 +322,22 @@ function isBlockingScope(rel) {
   return BLOCKING_PREFIXES.some((p) => rel === p || rel.startsWith(p));
 }
 
-/** Scans the repo and returns { blocking: [], report: [], exempt: [] }. */
+/**
+ * Scans the repo and returns { blocking: [], report: [], exempt: [], textScaleRisk: [] }.
+ *
+ * `textScaleRisk` (CAM-565, M4 only) is a DELIBERATELY SEPARATE bucket from
+ * `report` — not a widening of what `report` already meant to M1/M2's own
+ * regression test (`report` = "M1/M2 findings outside the surface CAM-552
+ * cleared to 0"). M4 is a different rule with a different rollout state
+ * (brand new, report-only EVERYWHERE, not scoped), so it gets its own array
+ * instead of silently changing what `report` asserts elsewhere.
+ */
 export function runScaleGuard() {
   const files = [join(ROOT, "app"), join(ROOT, "components")].flatMap((d) => walkDir(d));
   const blocking = [];
   const report = [];
   const exempt = [];
+  const textScaleRisk = [];
 
   for (const abs of files) {
     const rel = relative(ROOT, abs);
@@ -253,31 +352,39 @@ export function runScaleGuard() {
           hint: rule.hint,
           snippet: line.trim().slice(0, 110),
         };
-        if (!rule.scoped) blocking.push(finding);
+        if (rule.alwaysReport) textScaleRisk.push(finding); // CAM-565 rollout: report-only everywhere until a follow-up clears the backlog
+        else if (!rule.scoped) blocking.push(finding);
         else if (EXEMPT.has(rel)) exempt.push({ ...finding, reason: EXEMPT.get(rel) });
         else if (isBlockingScope(rel)) blocking.push(finding);
         else report.push(finding);
       }
     });
   }
-  return { blocking, report, exempt };
+  return { blocking, report, exempt, textScaleRisk };
 }
 
 function main() {
-  const { blocking, report, exempt } = runScaleGuard();
+  const { blocking, report, exempt, textScaleRisk } = runScaleGuard();
 
   console.log("");
   console.log("┌─────────────────────────────────────────────────────────────────────────────┐");
   console.log("│ CampVibe Responsive-Scale Guard (CAM-552) — DESIGN.md §2                   │");
   console.log("│ M1/M2 BLOCKING on components/ui + preview + the 3 migrated surfaces;       │");
   console.log("│ REPORT elsewhere. M3 (touch floor) BLOCKING repo-wide, backlog 0.          │");
+  console.log("│ M4 (CAM-565, text-scale risk) REPORT-ONLY repo-wide — new, backlog counted │");
   console.log("└─────────────────────────────────────────────────────────────────────────────┘");
   console.log("");
 
   for (const rule of RULES) {
     const b = blocking.filter((f) => f.rule === rule.id).length;
-    const r = report.filter((f) => f.rule === rule.id).length;
-    const mode = rule.scoped ? "blocking(scoped)+report" : "blocking(repo-wide)";
+    const r = rule.alwaysReport
+      ? textScaleRisk.filter((f) => f.rule === rule.id).length
+      : report.filter((f) => f.rule === rule.id).length;
+    const mode = rule.alwaysReport
+      ? "report-only(repo-wide, new)"
+      : rule.scoped
+        ? "blocking(scoped)+report"
+        : "blocking(repo-wide)";
     const status = b === 0 ? `ok   (0 blocking)` : `FAIL (${b} blocking)`;
     console.log(`  ${status.padEnd(22)} ${rule.id}  [${mode}]  backlog=${r}`);
   }
@@ -289,6 +396,17 @@ function main() {
       console.log(`    ${f.file}:${f.line}  [${f.rule}]  ${f.snippet}`);
     }
     console.log("  Clear this backlog to 0 before widening the blocking scope (.claude/rules/ops.md).");
+    console.log("");
+  }
+
+  if (textScaleRisk.length > 0) {
+    console.log(
+      `check:scale — ${textScaleRisk.length} text-scale-risk finding(s) (CAM-565, M4), NOT blocking yet:`
+    );
+    for (const f of textScaleRisk) {
+      console.log(`    ${f.file}:${f.line}  [${f.rule}]  ${f.snippet}`);
+    }
+    console.log("  Review each against a real 150% text-scale render before clearing this backlog.");
     console.log("");
   }
 
