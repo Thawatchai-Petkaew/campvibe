@@ -751,3 +751,10 @@ describe('isVerified self-grant prevention — POST /api/campsites', () => {
 // proven above against the live campsitePOST (section 4, plus the ADMIN→false
 // and OPERATOR→false and unauthenticated→401 cases the legacy suite never even
 // had) — full duplicate coverage, no gap left behind.
+//
+// CAM-535 (re-audit, 2026-07-26): confirmed the describe block above (line 630)
+// still covers the live `POST /api/campsites` route-level isVerified guard.
+// Prove-It re-run: neutralizing app/api/campsites/route.ts's role check turns
+// the CAMPER/OPERATOR cases above RED; restoring it turns them GREEN again — no
+// restoration needed here. See docs/specs/platform-hardening/taxonomy-ui-foundation/
+// CAM-535-restore-dropped-coverage/story.md for the full 9-case verdict table.
