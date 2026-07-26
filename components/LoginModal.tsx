@@ -192,7 +192,7 @@ export function LoginModal({ isOpen, onClose, subtitle, onSwitchToRegister }: Lo
                                 <button
                                     type="button"
                                     onClick={onSwitchToRegister}
-                                    className="text-primary font-bold hover:underline"
+                                    className="text-primary-ink font-bold hover:underline"
                                 >
                                     {t.auth.register}
                                 </button>

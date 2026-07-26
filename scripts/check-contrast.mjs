@@ -165,7 +165,15 @@ export function resolveOver(tokens, name, backdrop) {
 
 /* ── the pair registry ─────────────────────────────────────────────────────
    `fg` is measured against `bg`; `bg` is always a real surface in the app.
-   `floor` + `kind` record WHICH standard the row is judged against and why. */
+   `floor` + `kind` record WHICH standard the row is judged against and why.
+
+   `overlay: { token, alpha }` (CAM-546) describes a Tailwind opacity fill laid
+   over that surface — `bg-primary/10` is NOT a token, so it cannot be named in
+   `bg`, yet it is the surface real text sits on (the active dashboard menu
+   item, a guest's initial in an avatar). It matters because the tint LIGHTENS
+   the backdrop and is therefore the WORST case, not an equivalent of the bare
+   surface: measured 3.01:1 vs 3.28:1 on bare `--card` in dark. Without this the
+   worst surface in the app would go unmeasured. */
 
 export const ENFORCED_PAIRS = [
   // --- non-text state fills (SC 1.4.11) — the defect CAM-537 fixes ---------
@@ -189,6 +197,30 @@ export const ENFORCED_PAIRS = [
     context: "AiChatCampCard price hero (18px/600) on the card" },
   { fg: "--ai-price", bg: "--ai-surface", floor: 4.5, kind: "text",
     context: "AiChatDetailCard price on the glass surface" },
+
+  // --- CAM-546: primary teal AS TEXT ---------------------------------------
+  // `--primary` paints fills/borders/rings/icons; `--primary-ink` paints WORDS.
+  // The split exists because one token provably cannot do both (text on the
+  // dark --card needs L >= 0.596, a near-white label ON the fill needs
+  // L <= 0.548 — disjoint). Every row below is a surface `text-primary-ink`
+  // actually sits on; each is judged at the 4.5:1 body floor, because the
+  // migrated call sites include 12-14px copy, not just large headings.
+  { fg: "--primary-ink", bg: "--background", floor: 4.5, kind: "text",
+    context: "link-variant button / inline link / calendar today, on the page" },
+  { fg: "--primary-ink", bg: "--card", floor: 4.5, kind: "text",
+    context: "price, link and label text on a card" },
+  { fg: "--primary-ink", bg: "--popover", floor: 4.5, kind: "text",
+    context: "link text inside a popover/dialog" },
+  { fg: "--primary-ink", bg: "--ai-surface", floor: 4.5, kind: "text",
+    context: "AiChatCampCard view-detail line on the glass surface" },
+  { fg: "--primary-ink", bg: "--card", overlay: { token: "--primary", alpha: 0.10 }, floor: 4.5, kind: "text",
+    context: "active dashboard menu label / avatar initial on a 10% primary tint (the worst surface in the app)" },
+  { fg: "--primary-ink", bg: "--background", overlay: { token: "--primary", alpha: 0.10 }, floor: 4.5, kind: "text",
+    context: "the same 10% tint where it sits on the page rather than a card" },
+  { fg: "--primary-ink", bg: "--card", overlay: { token: "--primary", alpha: 0.05 }, floor: 4.5, kind: "text",
+    context: "selected icon-card chip label on a 5% primary tint" },
+  { fg: "--primary-ink", bg: "--background", overlay: { token: "--primary", alpha: 0.05 }, floor: 4.5, kind: "text",
+    context: "ghost-primary link-action label on its 5% hover tint" },
 
   // --- everyday body text -------------------------------------------------
   { fg: "--foreground", bg: "--background", floor: 4.5, kind: "text", context: "body text on the page" },
@@ -228,17 +260,29 @@ export const DEFERRED_PAIRS = [
   { fg: "--ring", bg: "--background", floor: 3, kind: "non-text",
     context: "focus ring",
     reason: "the indicator users see is composed in components (ring-ring/30 on Button, ring-ring/50 on Badge), so the token alone does not determine it; components are outside CAM-537's file surface." },
-  { fg: "--primary", bg: "--card", floor: 4.5, kind: "text",
-    context: "text-primary used as a link/body colour",
-    reason: "unsolvable with ONE token: text-on-card needs L >= ~0.594 while a near-white label on the fill needs L <= ~0.549 — disjoint. Needs a second token, as CAM-444 did with --ai-price." },
+  // RETIRED by CAM-546 — `--primary` as text on `--card`.
+  // It is not "still deferred": the second token CAM-537 asked for now exists
+  // (`--primary-ink`) and every call site that rendered WORDS moved onto it, so
+  // the pair is enforced above instead of tolerated here. `--primary` is no
+  // longer used as text anywhere, which is what makes removing the row honest
+  // rather than convenient — `__tests__/cam-546-*` re-checks that claim against
+  // the real source tree, so it cannot rot back in unnoticed.
 ];
+
+/** Resolve the surface a pair really sits on, applying an `overlay` tint if declared. */
+export function resolvePairBackground(tokens, pair) {
+  const base = resolveSurface(tokens, pair.bg);
+  if (!pair.overlay) return base;
+  const tint = resolveOver(tokens, pair.overlay.token, base);
+  return compositeOver(tint, pair.overlay.alpha, base);
+}
 
 /** Measure one registry against the parsed token sets. */
 export function measurePairs(pairs, tokenSets) {
   const rows = [];
   for (const [theme, tokens] of Object.entries(tokenSets)) {
     for (const pair of pairs) {
-      const bg = resolveSurface(tokens, pair.bg);
+      const bg = resolvePairBackground(tokens, pair);
       const fg = resolveOver(tokens, pair.fg, bg);
       const ratio = contrastRatio(fg, bg);
       rows.push({
@@ -248,6 +292,9 @@ export function measurePairs(pairs, tokenSets) {
         pass: ratio >= pair.floor,
         fgHex: toHex(fg),
         bgHex: toHex(bg),
+        bgLabel: pair.overlay
+          ? `${pair.overlay.token}/${Math.round(pair.overlay.alpha * 100)} over ${pair.bg}`
+          : pair.bg,
       });
     }
   }
@@ -269,7 +316,7 @@ export function measureAll(css) {
 function formatRow(r) {
   const verdict = r.pass ? "pass" : "FAIL";
   const ratio = `${r.ratio.toFixed(2)}:1`.padStart(7);
-  return `  ${verdict}  ${ratio}  (floor ${String(r.floor).padEnd(3)} ${r.kind.padEnd(8)})  ${r.theme.padEnd(5)}  ${r.fg} on ${r.bg} — ${r.context}  [${r.fgHex} on ${r.bgHex}]`;
+  return `  ${verdict}  ${ratio}  (floor ${String(r.floor).padEnd(3)} ${r.kind.padEnd(8)})  ${r.theme.padEnd(5)}  ${r.fg} on ${r.bgLabel} — ${r.context}  [${r.fgHex} on ${r.bgHex}]`;
 }
 
 function main() {
