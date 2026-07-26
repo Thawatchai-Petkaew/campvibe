@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
     }
 
-    const { lat, lon, country, province, region, thaiLocationId } = parsed.data;
+    const { lat, lon, country, province, district, region, thaiLocationId } = parsed.data;
 
     try {
         // S5: populate the conformant Country + AdminArea links so live-created camps (not just
@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
             data: {
                 country: country || 'Thailand',
                 province,
+                // CAM-553: persist the district the host typed/selected — was
+                // silently dropped before (BR-1: the "form collects, API
+                // ignores" defect CAM-551 found).
+                district,
                 region: region || 'North',
                 lat,
                 lon,

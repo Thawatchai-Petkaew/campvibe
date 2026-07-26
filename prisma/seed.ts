@@ -244,14 +244,26 @@ async function main() {
         })
         provinceAreaByCode[province.code] = pa.id
         for (const district of province.districts || []) {
-            await prisma.adminArea.upsert({
+            const da = await prisma.adminArea.upsert({
                 where: { countryCode_level_code: { countryCode: 'TH', level: 'DISTRICT', code: district.code } },
                 update: { nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
                 create: { countryCode: 'TH', level: 'DISTRICT', code: district.code, nameTh: district.nameTh, nameEn: district.nameEn, parentId: pa.id },
             })
+            // CAM-553: sub-district (ตำบล/แขวง) level — AdminArea already models this via
+            // AdminLevel.SUBDISTRICT (S5 migration); ThailandLocation cannot hold it at all
+            // (no column) and is left schema-unchanged (legacy, per its own comment). This is
+            // the ONE hierarchy that grows to the new ground, so there are not two competing
+            // trees fighting over sub-district (see story.md's Model decision).
+            for (const subDistrict of district.subDistricts || []) {
+                await prisma.adminArea.upsert({
+                    where: { countryCode_level_code: { countryCode: 'TH', level: 'SUBDISTRICT', code: subDistrict.code } },
+                    update: { nameTh: subDistrict.nameTh, nameEn: subDistrict.nameEn, parentId: da.id },
+                    create: { countryCode: 'TH', level: 'SUBDISTRICT', code: subDistrict.code, nameTh: subDistrict.nameTh, nameEn: subDistrict.nameEn, parentId: da.id },
+                })
+            }
         }
     }
-    console.log('✅ Country + AdminArea seeded')
+    console.log('✅ Country + AdminArea seeded (province + district + sub-district)')
 
     // CAM-462 — ThaiHoliday reference data (resolveDates tool, BR-4/D2).
     // Pure reference data (no FK) — idempotent upsert keyed on the date PK.
