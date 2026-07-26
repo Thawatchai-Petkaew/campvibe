@@ -52,12 +52,13 @@ Depends on: CAM-563 (`Location.adminAreaId` populated at PROVINCE level for 650/
 - Wiring a live district-selection UI/filter — no UI consumes `district`/`subDistrict` for filtering today; out of this story's scope.
 
 ## Self-verify
-- AC-1/AC-5 → unit (`__tests__/cam-562-geocode-backfill.test.ts`, fake-Prisma + mocked Google fetch, 30/30 green) + real dry-run against the dev DB (proved candidate-query correctness — 650 scanned — and cache-reuse across two real runs; see tech.md for why the LIVE Google round-trip itself is currently blocked externally)
-- AC-2/AC-3/AC-4 → unit (bilingual Thai + English rows, mismatch row, null-coordinate row, all with fake Prisma) — proven correct against realistic Google-response fixtures; the real dev-DB run additionally proved 0 writes occur when every call fails (fail-safe, never a crash/partial write)
-- AC-6 → real count query against the dev DB (`prisma.campSite.count` for `location.province = 'Chiang Mai'`) → **18**, unaffected (0 rows touched)
-- Story-specific: migration — N/A, none created (data-only, verified via `prisma migrate status`)
-- Gate = `/quality-gate` · Done = every AC verified on localhost (dev DB) before merge into `dev`; **the real geocode round-trip (fill rates, mismatch count) is blocked on an external Google Cloud Console credential fix — see tech.md — and remains to verify once that lands**
+- AC-1/AC-5 → unit (`__tests__/cam-562-geocode-backfill.test.ts`, fake-Prisma + mocked Google fetch, 31/31 green) + real dry-run against the dev DB (650 scanned, 650 real Google calls, 0 writes) + real run (536 written, 0 mismatch/unresolved touched) + second real run (0 rows updated, 0 additional Google calls — cache reused)
+- AC-2/AC-3/AC-4 → unit (bilingual Thai + English rows, mismatch row, null-coordinate row, district-only-rerun regression, all with fake Prisma) + real dev-DB run: 519/650 to sub-district, 17/650 to district-only, 83/650 province-mismatch (reported, not written), 31/650 unresolved (reported, not written), 2 null-coordinate rows never candidates — all counts verified by direct `prisma.location` query
+- AC-6 → real count query against the dev DB (`prisma.campSite.count` for `location.province = 'Chiang Mai'`) → **18**, verified before the run, after the real run, and after the second run — unaffected all three times
+- Story-specific: migration — N/A, none created (data-only, verified via `prisma migrate status`); a real second-run classification bug (a partially-resolved row's `adminArea` no longer being the PROVINCE node) was found via this exact self-verify step and fixed (`getProvinceAncestor`) — see tech.md
+- Gate = `/quality-gate` · Done = every AC verified on localhost (dev DB) before merge into `dev`
 
 ## Changelog
 - v1 (2026-07-26) — created
-- v1.1 (2026-07-26) — real dev-DB run surfaced `GOOGLE_GEOCODING_API_KEY`'s HTTP-referrer restriction is incompatible with server-side calls (Google Cloud Console config, not code) — every call denied; code/tests proven correct via mocks + the fail-safe path (0 writes) proven live; see tech.md for the full finding and the required fix
+- v1.1 (2026-07-26) — real dev-DB run surfaced `GOOGLE_GEOCODING_API_KEY`'s HTTP-referrer restriction was incompatible with server-side calls (Google Cloud Console config, not code) — every call denied
+- v2 (2026-07-26) — owner fixed the key restriction. Real dry-run (650 scanned, 0 writes) → real run (536/650 written: 519 to sub-district, 17 to district-only; 83 mismatch + 31 unresolved reported, not written) → second real run (0 updated, 0 additional Google calls). Found + fixed a second-run classification bug via the idempotency proof itself (Prove-It); AC-6 province filter reconfirmed at 18 throughout. See tech.md for full numbers and the language-distribution report

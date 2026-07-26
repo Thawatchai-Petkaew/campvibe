@@ -122,7 +122,9 @@ function makeFakePrisma(locations: Array<Record<string, unknown>>) {
       },
       findUnique: async ({ where: { id } }: { where: { id: string } }) => {
         const found = adminAreaById(id);
-        return found ? { id: found.id, code: found.code, nameTh: found.nameTh, nameEn: found.nameEn, level: found.level } : null;
+        return found
+          ? { id: found.id, code: found.code, nameTh: found.nameTh, nameEn: found.nameEn, level: found.level, parentId: found.parentId }
+          : null;
       },
     },
   };
@@ -350,10 +352,27 @@ describe('CAM-562 (c) — resolveCandidate: bilingual + hierarchical + never ove
     expect(result.outcome).toBe('skipped_no_current_admin_area');
   });
 
-  it('[boundary, defensive] a row whose current adminArea is unexpectedly not PROVINCE-level is reported, never guessed', async () => {
-    const row = { id: 'loc-defensive-2', province: 'Chiang Mai', adminAreaId: 'dist-mueang-cnx', adminArea: adminAreaById('dist-mueang-cnx') };
+  it('[Prove-It regression, concurrent/ordering] a row already at DISTRICT level (this script\'s OWN prior partial write) walks UP to its province ancestor and resolves normally — real dev-DB run found this misreported 17 rows as "unresolved" before the fix', async () => {
+    // Bug: resolveCandidate compared `row.adminArea.id`/`.nameTh` directly,
+    // assuming it was always the PROVINCE node. A row this script itself
+    // advanced to DISTRICT level on a prior run (district resolved,
+    // sub-district not — still a candidate) arrives here with a DISTRICT
+    // node in `row.adminArea`, which used to trip a defensive
+    // "unexpected level, skip" branch and get misreported as unresolved,
+    // even though it should simply resolve sub-district again.
+    const row = {
+      id: 'loc-district-only-rerun', province: 'Chiang Mai', district: 'Mueang Chiang Mai', subDistrict: null,
+      adminAreaId: 'dist-mueang-cnx', adminArea: adminAreaById('dist-mueang-cnx'),
+    };
     const result = await resolveCandidate(fake, row, { ok: true, zeroResults: false, components: CNX_FULL_EN });
-    expect(result.outcome).toBe('skipped_unexpected_admin_level');
+    expect(result.outcome).toBe('resolved_subdistrict');
+    expect(result.write).toEqual({ adminAreaId: 'sub-siphum', district: 'Mueang Chiang Mai', subDistrict: 'Si Phum' });
+  });
+
+  it('[boundary, defensive] a node whose parent chain never reaches PROVINCE (corrupt tree) is reported, never guessed', async () => {
+    const row = { id: 'loc-defensive-2', province: 'x', adminAreaId: 'orphan-node', adminArea: { id: 'orphan-node', level: 'DISTRICT', nameTh: 'x', nameEn: 'x', parentId: null } };
+    const result = await resolveCandidate(fake, row, { ok: true, zeroResults: false, components: CNX_FULL_EN });
+    expect(result.outcome).toBe('skipped_no_province_ancestor');
   });
 });
 
@@ -366,6 +385,7 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     { id: 'loc-th', province: 'เชียงใหม่', district: null, subDistrict: null, lat: 19, lon: 99, adminAreaId: 'prov-cnx', hasLiveCamp: true },
     { id: 'loc-mismatch', province: 'Chiang Mai', district: null, subDistrict: null, lat: 20, lon: 99, adminAreaId: 'prov-cnx', hasLiveCamp: true },
     { id: 'loc-zero', province: 'Chiang Mai', district: null, subDistrict: null, lat: 22, lon: 99, adminAreaId: 'prov-cnx', hasLiveCamp: true },
+    { id: 'loc-district-only', province: 'Chiang Mai', district: null, subDistrict: null, lat: 21, lon: 99, adminAreaId: 'prov-cnx', hasLiveCamp: true },
     { id: 'loc-null-coords', province: 'x', district: null, subDistrict: null, lat: null, lon: null, adminAreaId: null, hasLiveCamp: false },
     { id: 'loc-already-resolved', province: 'Krabi', district: 'Some District', subDistrict: 'Some Subdistrict', lat: 26, lon: 99, adminAreaId: 'prov-krabi', hasLiveCamp: true },
   ];
@@ -375,6 +395,7 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     GOOGLE_FIXTURES.set('19,99', () => googleOk(CNX_FULL_TH));
     GOOGLE_FIXTURES.set('20,99', () => googleOk(KRABI_PROVINCE_ONLY));
     GOOGLE_FIXTURES.set('22,99', () => googleZeroResults());
+    GOOGLE_FIXTURES.set('21,99', () => googleOk(CNX_DISTRICT_ONLY));
   }
 
   it('[AC-1, teeth] DRY_RUN makes the real Google calls and reports the projection but performs ZERO prisma.location.update calls', async () => {
@@ -384,12 +405,16 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     const report = await runBackfill(fake, { log: () => {}, dryRun: true, cache });
 
     // loc-null-coords and loc-already-resolved are never candidates.
-    expect(report.candidates).toBe(4);
+    expect(report.candidates).toBe(5);
     expect(report.resolvedSubDistrict).toBe(2); // loc-en, loc-th
-    expect(report.updated).toBe(2); // "would update" count in dry-run
+    expect(report.resolvedDistrictOnly).toBe(1); // loc-district-only
+    expect(report.updated).toBe(3); // "would update" count in dry-run
     expect(report.provinceMismatch).toHaveLength(1);
     expect(report.unresolved).toHaveLength(1); // loc-zero
-    expect(report.apiCallsMade).toBe(4);
+    expect(report.apiCallsMade).toBe(5);
+    // Language distribution of what WOULD be written — loc-en + loc-district-only (English) + loc-th (Thai).
+    expect(report.writtenEnglish).toBe(2);
+    expect(report.writtenThai).toBe(1);
 
     // Nothing was actually written.
     expect(fake.data.find((r) => r.id === 'loc-en')!.district).toBeNull();
@@ -417,6 +442,11 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     expect(mismatch.subDistrict).toBeNull();
     expect(mismatch.adminAreaId).toBe('prov-cnx'); // unchanged — never re-homed
     expect(mismatch.province).toBe('Chiang Mai'); // untouched
+
+    const districtOnly = fake.data.find((r) => r.id === 'loc-district-only')!;
+    expect(districtOnly.adminAreaId).toBe('dist-mueang-cnx'); // advances to DISTRICT only
+    expect(districtOnly.district).toBe('Mueang Chiang Mai');
+    expect(districtOnly.subDistrict).toBeNull();
   });
 
   it('[EC-3, boundary] a null-coordinate row is never a candidate — left blank, never guessed', async () => {
@@ -429,14 +459,14 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     expect(orphan.adminAreaId).toBeNull();
   });
 
-  it('[EC-4, concurrent/ordering, teeth] a second run changes ZERO rows and makes ZERO additional Google calls (cache reused, BR-6)', async () => {
+  it('[EC-4, concurrent/ordering, teeth] a second run changes ZERO rows and makes ZERO additional Google calls (cache reused, BR-6) — including the district-only row this exact scenario broke live before the province-ancestor fix', async () => {
     registerFixtures();
     const fake = makeFakePrisma(seedRows());
     const cache: Record<string, unknown> = {};
 
     const first = await runBackfill(fake, { log: () => {}, dryRun: false, cache });
-    expect(first.updated).toBe(2);
-    expect(first.apiCallsMade).toBe(4);
+    expect(first.updated).toBe(3);
+    expect(first.apiCallsMade).toBe(5);
 
     const snapshotAfterFirst = fake.data.map((r) => ({ ...r }));
     const second = await runBackfill(fake, { log: () => {}, dryRun: false, cache });
@@ -445,6 +475,12 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     expect(second.apiCallsMade).toBe(0); // fully served from cache
     expect(second.apiCallsCached).toBe(second.candidates);
     expect(fake.data).toEqual(snapshotAfterFirst); // byte-identical — nothing changed
+    // The regression this proves: loc-district-only (still a candidate —
+    // subDistrict is null) is correctly re-classified resolvedDistrictOnly
+    // again on the SECOND run, never misreported into `unresolved` (the
+    // real dev-DB bug this fix closes).
+    expect(second.resolvedDistrictOnly).toBe(1);
+    expect(second.unresolved).toHaveLength(1); // still just loc-zero
   });
 
   it('[normal] onCacheUpdate fires once per NEW Google call, never on a cache hit', async () => {
@@ -454,7 +490,7 @@ describe('CAM-562 (d) — runBackfill: dry-run writes nothing, real run writes, 
     const onCacheUpdate = vi.fn();
 
     await runBackfill(fake, { log: () => {}, dryRun: false, cache, onCacheUpdate });
-    expect(onCacheUpdate).toHaveBeenCalledTimes(4);
+    expect(onCacheUpdate).toHaveBeenCalledTimes(5);
 
     onCacheUpdate.mockClear();
     await runBackfill(fake, { log: () => {}, dryRun: false, cache, onCacheUpdate });

@@ -131,12 +131,32 @@ export function extractComponent(components, types) {
   return null;
 }
 
-/** Fetches the full AdminArea node (nameTh/nameEn/code) for an id already matched by `matchAdminAreaByName` (which only returns `{id}`). */
+/** Fetches the full AdminArea node (nameTh/nameEn/code/parentId) for an id already matched by `matchAdminAreaByName` (which only returns `{id}`). */
 async function getAdminAreaNode(prisma, id) {
   return prisma.adminArea.findUnique({
     where: { id },
-    select: { id: true, code: true, nameTh: true, nameEn: true, level: true },
+    select: { id: true, code: true, nameTh: true, nameEn: true, level: true, parentId: true },
   });
+}
+
+/**
+ * Walks `parentId` up from ANY AdminArea node to its PROVINCE-level
+ * ancestor. Needed because this script's OWN partial writes (district
+ * resolved, sub-district not) advance a row's `adminAreaId` to DISTRICT
+ * level — so a row re-scanned on a later run (still a candidate because
+ * `subDistrict` is still null) legitimately arrives here already sitting
+ * BELOW province level. Comparing/deriving against the wrong level (e.g. a
+ * DISTRICT node's `nameTh` where a PROVINCE name is expected) would corrupt
+ * the mismatch-check and the language-consistency check (BR-4) — so this
+ * walk is required, not just a defensive nicety.
+ */
+async function getProvinceAncestor(prisma, adminArea) {
+  let current = adminArea;
+  while (current && current.level !== 'PROVINCE') {
+    if (!current.parentId) return null;
+    current = await getAdminAreaNode(prisma, current.parentId);
+  }
+  return current;
 }
 
 /**
@@ -154,11 +174,16 @@ export async function resolveCandidate(prisma, row, geocodeResult) {
   if (!row.adminArea) {
     return { id: row.id, outcome: 'skipped_no_current_admin_area' };
   }
-  // Structural invariant, checked not assumed: every real candidate today
-  // has `adminAreaId` at PROVINCE level (CAM-563 measured 650/650). A row
-  // that somehow already sits deeper is reported, never guessed past.
-  if (row.adminArea.level !== 'PROVINCE') {
-    return { id: row.id, outcome: 'skipped_unexpected_admin_level', level: row.adminArea.level };
+  // A candidate may already sit at DISTRICT level (this script's OWN prior
+  // partial write — district resolved, sub-district not, so the row is
+  // still a candidate) — walk up to the PROVINCE ancestor rather than
+  // assume `row.adminArea` already IS the province node (CAM-562 second-run
+  // finding: 17 district-only rows were mis-reported as unresolved before
+  // this walk existed, because a DISTRICT node's own id/nameTh was wrongly
+  // compared/read as if it were the province's).
+  const provinceNode = row.adminArea.level === 'PROVINCE' ? row.adminArea : await getProvinceAncestor(prisma, row.adminArea);
+  if (!provinceNode) {
+    return { id: row.id, outcome: 'skipped_no_province_ancestor' };
   }
 
   if (!geocodeResult.ok) {
@@ -182,19 +207,19 @@ export async function resolveCandidate(prisma, row, geocodeResult) {
     return { id: row.id, outcome: 'province_unmatched', provinceRaw };
   }
 
-  if (provinceMatch.id !== row.adminArea.id) {
+  if (provinceMatch.id !== provinceNode.id) {
     const geocodedProvinceNode = await getAdminAreaNode(prisma, provinceMatch.id);
     return {
       id: row.id,
       outcome: 'province_mismatch',
       storedProvince: row.province,
-      storedProvinceNode: { nameTh: row.adminArea.nameTh, nameEn: row.adminArea.nameEn },
+      storedProvinceNode: { nameTh: provinceNode.nameTh, nameEn: provinceNode.nameEn },
       geocodedProvinceNode: geocodedProvinceNode ? { nameTh: geocodedProvinceNode.nameTh, nameEn: geocodedProvinceNode.nameEn } : null,
     };
   }
 
   const isThaiStored =
-    typeof row.province === 'string' && row.province.trim().toLowerCase() === row.adminArea.nameTh.trim().toLowerCase();
+    typeof row.province === 'string' && row.province.trim().toLowerCase() === provinceNode.nameTh.trim().toLowerCase();
 
   if (!districtRaw) {
     return { id: row.id, outcome: 'no_district_component' };
@@ -220,6 +245,13 @@ export async function resolveCandidate(prisma, row, geocodeResult) {
   return {
     id: row.id,
     outcome: subDistrictNode ? 'resolved_subdistrict' : 'resolved_district_only',
+    // `language` records WHICH language this write is in (BR-4) — surfaced
+    // so `runBackfill`'s report can state the language distribution of what
+    // it actually wrote, not just that it wrote something (the owner's
+    // explicit ask: the columns already hold a CAM-559 Thai/English mix, so
+    // this backfill's own contribution to that mix must be visible, not
+    // left for the next person to discover).
+    language: isThaiStored ? 'th' : 'en',
     write: {
       adminAreaId: subDistrictNode ? subDistrictNode.id : districtNode.id,
       district: districtText,
@@ -264,7 +296,7 @@ export async function runBackfill(prisma, { log = console.log, dryRun = false, c
       lat: true,
       lon: true,
       adminAreaId: true,
-      adminArea: { select: { id: true, level: true, code: true, nameTh: true, nameEn: true } },
+      adminArea: { select: { id: true, level: true, code: true, nameTh: true, nameEn: true, parentId: true } },
       campSites: { select: { id: true }, take: 1 },
     },
   });
@@ -278,6 +310,11 @@ export async function runBackfill(prisma, { log = console.log, dryRun = false, c
     unresolved: [],
     apiCallsMade: 0,
     apiCallsCached: 0,
+    // Language distribution of what THIS run actually wrote (BR-4) — the
+    // owner's explicit ask: state this run's contribution to the existing
+    // CAM-559 Thai/English mix, not leave it for the next reader to find.
+    writtenThai: 0,
+    writtenEnglish: 0,
   };
 
   for (const row of candidates) {
@@ -308,6 +345,8 @@ export async function runBackfill(prisma, { log = console.log, dryRun = false, c
           await prisma.location.update({ where: { id: row.id }, data: result.write });
         }
         summary.updated += 1;
+        if (result.language === 'th') summary.writtenThai += 1;
+        else summary.writtenEnglish += 1;
       }
       if (result.outcome === 'resolved_subdistrict') summary.resolvedSubDistrict += 1;
       else summary.resolvedDistrictOnly += 1;
@@ -316,7 +355,7 @@ export async function runBackfill(prisma, { log = console.log, dryRun = false, c
 
     // geocode_failed / zero_results / no_province_component /
     // province_unmatched / no_district_component / district_unmatched /
-    // skipped_unexpected_admin_level / skipped_no_current_admin_area
+    // skipped_no_province_ancestor / skipped_no_current_admin_area
     summary.unresolved.push(result);
   }
 
@@ -327,6 +366,7 @@ export async function runBackfill(prisma, { log = console.log, dryRun = false, c
   log(`resolved to sub-district: ${summary.resolvedSubDistrict}, resolved to district only: ${summary.resolvedDistrictOnly}`);
   log(`province mismatches: ${summary.provinceMismatch.length}, unresolved: ${summary.unresolved.length}`);
   log(`Google Geocoding calls made: ${summary.apiCallsMade}, served from cache: ${summary.apiCallsCached}`);
+  log(`language of what ${dryRun ? 'WOULD be' : 'was'} written: Thai ${summary.writtenThai}, English ${summary.writtenEnglish}`);
   if (!dryRun) {
     log(`after: district set on ${afterDistrict}, subDistrict set on ${afterSubDistrict} of ${total} Location rows`);
   }
