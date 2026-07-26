@@ -248,9 +248,11 @@ describe('CampgroundDetailClient.tsx — petFriendly row (AC-3/EC-3, BR-3)', () 
 });
 
 describe('CampgroundDetailClient.tsx — BR-1 zero-visual-change refactor: OptionGroupSection replaces every named copy', () => {
-  it('[normal] exactly 8 OptionGroupSection usages (campSiteType, Terrain, Activity, Annotated features, Camper style, Stay connected, Marking method, Driveway)', () => {
+  it('[normal] exactly 9 OptionGroupSection usages (campSiteType, Accommodation type, Terrain, Activity, Annotated features, Camper style, Stay connected, Marking method, Driveway)', () => {
+    // CAM-526 (S10) added the Accommodation type section (the 9th usage) on
+    // top of this story's 8 — the count bump is expected, not drift.
     const count = (detailSrc.match(/<OptionGroupSection/g) || []).length;
-    expect(count).toBe(8);
+    expect(count).toBe(9);
   });
 
   it('[normal] the primitive is imported from components/ui/option-group-section', () => {
