@@ -859,12 +859,20 @@ async function callModelOnce(
 ): Promise<ModelCallOutcome> {
   try {
     const res = await callOpenRouter(apiKey, model, messages, ctx, options);
-    if (!res.ok) return { ok: false };
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '<unreadable>');
+      console.error('DIAG callModelOnce not-ok', res.status, res.statusText, bodyText.slice(0, 500));
+      return { ok: false };
+    }
     const json: unknown = await res.json();
     const message = extractMessage(json);
-    if (!message) return { ok: false };
+    if (!message) {
+      console.error('DIAG callModelOnce extractMessage null', JSON.stringify(json).slice(0, 500));
+      return { ok: false };
+    }
     return { ok: true, message };
-  } catch {
+  } catch (err) {
+    console.error('DIAG callModelOnce threw', err);
     return { ok: false };
   }
 }
