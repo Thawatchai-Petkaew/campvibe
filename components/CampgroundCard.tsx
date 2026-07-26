@@ -31,8 +31,31 @@ export interface CampgroundCardData {
     nameThSlug: string;
     nameEnSlug: string;
     priceLow: number | null;
+    /** CAM-545: optional — an older/narrower caller without a real range still satisfies this structurally. */
+    priceHigh?: number | null;
     createdAt: string;
-    location: { province: string };
+    location: {
+        province: string;
+        /**
+         * CAM-545 (rework, 2026-07-26): the Thai province name, resolved
+         * server-side by matching `Location.province` (English) against the
+         * admin-division dataset's English name by NAME — not the
+         * `Location.thaiLocationId` FK, which is populated for only 12 of
+         * 650 real camp sites in the dev DB. Optional — a province with no
+         * match falls back to `province` (BR-1/EC-1); `province` itself is
+         * never touched by this field.
+         */
+        provinceTh?: string;
+        /**
+         * CAM-545: district — owner requirement (2026-07-26): show
+         * "district, province", drop the country entirely. NOT YET
+         * POPULATED for any camp (`Location.district` is null on all rows
+         * in the dev DB today); wired through so the moment district data
+         * exists, it slots into the line with no further code change.
+         * Absent/null = province-only display (EC-4).
+         */
+        district?: string | null;
+    };
     images?: { url: string }[];
 }
 
@@ -66,6 +89,69 @@ interface CampgroundCardProps {
      * Default "default" preserves the catalog/wishlist-grid behaviour exactly.
      */
     variant?: "default" | "compact";
+}
+
+/**
+ * CAM-545 (rework, 2026-07-26 owner requirement) — the localized location
+ * line: "district, province" when a district is known, else just the
+ * province. The country is NEVER shown ("User รู้อยู่แล้ว" — the owner's own
+ * words). TH mode prefers the Thai province name (attached by
+ * `withProvinceThaiNames`, a name-based match — see `lib/read-models/camp-card.ts`);
+ * falls back to the raw `province` value when there is no match (EC-1). EN
+ * mode is unchanged (`province` was already English). `district` has no
+ * separate English form in the data model (`Location.district` is a single
+ * free-text field), so it renders as-is in both languages — currently always
+ * absent (EC-4), since no camp has district data yet (see CampgroundCardData's
+ * doc comment); the branch is real and tested so it activates the moment
+ * that data exists, with no further code change.
+ */
+export function buildLocationText(
+    location: CampgroundCardData["location"],
+    language: "en" | "th",
+): string {
+    const province = language === "th"
+        ? (location.provinceTh || location.province)
+        : location.province;
+    return location.district ? `${location.district}, ${province}` : province;
+}
+
+/** What the price line renders — either the free copy or an amount (single or range). */
+export interface CardPriceDisplay {
+    isFree: boolean;
+    isRange: boolean;
+    /** Formatted amount text, e.g. "฿500" or "฿500-1,000". Empty when free. */
+    amountText: string;
+}
+
+/**
+ * CAM-545 — decides single price vs honest range vs free (BR-5/BR-6, EC-2/EC-3).
+ * A range only renders when `priceHigh` is a real, greater upper bound; a
+ * missing/inverted/equal `priceHigh` falls back to the single-price form
+ * rather than showing a degenerate range. The currency symbol is stripped
+ * from the high value (via the caller's own `currencySymbol`) so a range
+ * reads as "฿500-1,000", not "฿500-฿1,000".
+ */
+export function buildCardPriceDisplay(
+    priceLow: number | null,
+    priceHigh: number | null | undefined,
+    formatCurrency: (amount: number) => string,
+    currencySymbol: string,
+): CardPriceDisplay {
+    const isFree = priceLow == null || priceLow <= 0;
+    if (isFree) {
+        return { isFree: true, isRange: false, amountText: "" };
+    }
+
+    const isRange = priceHigh != null && priceHigh > priceLow;
+    if (!isRange) {
+        return { isFree: false, isRange: false, amountText: formatCurrency(priceLow) };
+    }
+
+    const highFormatted = formatCurrency(priceHigh);
+    const highNumberOnly = highFormatted.startsWith(currencySymbol)
+        ? highFormatted.slice(currencySymbol.length)
+        : highFormatted;
+    return { isFree: false, isRange: true, amountText: `${formatCurrency(priceLow)}-${highNumberOnly}` };
 }
 
 export function CampgroundCard({
@@ -144,6 +230,15 @@ export function CampgroundCard({
 
     const name = language === 'en' ? (campground.nameEn || campground.nameTh) : campground.nameTh;
     const slug = language === 'en' ? (campground.nameEnSlug || campground.nameThSlug) : campground.nameThSlug;
+
+    // CAM-545: localized "province, country" line + honest single/range/free price.
+    const locationText = buildLocationText(campground.location, language);
+    const priceDisplay = buildCardPriceDisplay(
+        campground.priceLow,
+        campground.priceHigh,
+        formatCurrency,
+        t.currency.symbol,
+    );
 
     return (
         // Root is a div so the heart button is NOT inside the Link (AC 11).
@@ -254,10 +349,16 @@ export function CampgroundCard({
                             </span>
                         )}
                     </div>
-                    <p className="text-muted-foreground text-sm">{campground.location.province}, Thailand</p>
-                    <div className="flex items-baseline gap-1 pt-1">
-                        <span className="font-semibold">{campground.priceLow ? formatCurrency(Number(campground.priceLow)) : t.common.free}</span>
-                        <span className="text-muted-foreground">{t.common.night}</span>
+                    <p className="text-muted-foreground text-sm" data-testid="text--card-location">{locationText}</p>
+                    <div className="flex items-baseline gap-1 pt-1" data-testid="text--card-price">
+                        {priceDisplay.isFree ? (
+                            <span className="font-semibold">{t.common.free}</span>
+                        ) : (
+                            <>
+                                <span className="font-semibold">{priceDisplay.amountText}</span>
+                                <span className="text-muted-foreground">{t.common.perNight}</span>
+                            </>
+                        )}
                     </div>
                 </div>
             </Link>
