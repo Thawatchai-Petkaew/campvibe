@@ -116,10 +116,13 @@
             "all": "All",
             "campground": "Campground",
             "carCamping": "Car camping",
+            "glamping": "Glamping",
             "beach": "Beach",
+            "sea": "Sea",
             "forest": "Forest",
             "mountain": "Mountain",
-            "riverside": "Riverside"
+            "riverside": "Riverside",
+            "waterfall": "Waterfall"
         },
         "campground": {
             "hostedBy": "Hosted by",
@@ -1164,10 +1167,13 @@
             "all": "ทั้งหมด",
             "campground": "ลานกางเต็นท์",
             "carCamping": "แคมป์ด้วยรถ",
+            "glamping": "แกลมปิ้ง",
             "beach": "ชายหาด",
+            "sea": "ทะเล",
             "forest": "ป่า",
             "mountain": "ภูเขา",
-            "riverside": "ริมน้ำ"
+            "riverside": "ริมน้ำ",
+            "waterfall": "น้ำตก"
         },
         "campground": {
             "hostedBy": "โฮสต์โดย",
