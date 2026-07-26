@@ -24,6 +24,7 @@ import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
 import { groupSpotsByZone } from "@/lib/spot-zone-grouping";
 import { zoneCreateSchema, ZONE_NAME_TOO_LONG_MESSAGE } from "@/lib/validations/zone";
 import { createZone, deleteZone, fetchZonesSafe } from "@/lib/zone-client";
+import { fetchJsonSafe } from "@/lib/safe-fetch";
 import type { SpotDTO, ZoneDTO } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -143,10 +144,31 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
       // CAM-362 (tech.md §4.1) — /zones rides as a 4th parallel request, same
       // round-trip, no N+1. Refetched together with spots any time either
       // changes (zone create/delete, spot create/edit/delete).
-      const [spotsRes, campRes, sessionRes, zonesResult] = await Promise.all([
+      //
+      // CAM-555 — campResult/sessionResult go through fetchJsonSafe (never
+      // throws/rejects, same never-throw contract as fetchZonesSafe below)
+      // instead of a bare `fetch()`. Root cause of the ac6-spot-lifecycle
+      // intermittent flake: campRes/sessionRes used to be plain `fetch()`
+      // calls sharing this Promise.all + the one catch block below with
+      // spotsRes. A transient network-level hiccup on EITHER of those two
+      // requests - unrelated to spot data, e.g. a dropped connection under
+      // CI resource contention - rejected the whole Promise.all before
+      // `setSpots` ever ran, so the catch below set loadError=true and
+      // replaced the list with the error banner even though spotsRes itself
+      // had already succeeded and contained the spot the host just created.
+      // Reproduced deterministically (see docs/specs/.../test.md) by
+      // aborting one /api/auth/session request at the network level on the
+      // post-create refetch: the spot was provably present via a direct API
+      // call, yet its row never rendered. Only campRes/sessionRes feed
+      // canManage (edit/delete button visibility) - never spots themselves -
+      // so isolating them changes nothing about what data the spots list
+      // depends on; a hiccup here now just leaves canManage at its existing
+      // fail-closed default (BR-4 remains the authoritative server-side
+      // check regardless) instead of blanking a list that loaded fine.
+      const [spotsRes, campResult, sessionResult, zonesResult] = await Promise.all([
         fetch(`/api/campsites/${campSiteId}/spots`, { cache: "no-store" }),
-        fetch(`/api/campsites/${campSiteId}`, { cache: "no-store" }),
-        fetch(`/api/auth/session`, { cache: "no-store" }),
+        fetchJsonSafe<{ operatorId?: string }>(`/api/campsites/${campSiteId}`),
+        fetchJsonSafe<{ user?: { id?: string; role?: string } }>(`/api/auth/session`),
         fetchZones(),
       ]);
 
@@ -174,11 +196,10 @@ export function SpotManagementSection({ campSiteId, variant, hideCard = false }:
       }
 
       let ownerOrAdmin = false;
-      if (campRes.ok && sessionRes.ok) {
-        const camp = await campRes.json();
-        const session = await sessionRes.json();
-        const userId = session?.user?.id;
-        ownerOrAdmin = !!userId && (session?.user?.role === "ADMIN" || camp?.operatorId === userId);
+      if (campResult.ok && sessionResult.ok) {
+        const userId = sessionResult.data?.user?.id;
+        ownerOrAdmin =
+          !!userId && (sessionResult.data?.user?.role === "ADMIN" || campResult.data?.operatorId === userId);
       }
       setCanManage(ownerOrAdmin);
     } catch (err) {
