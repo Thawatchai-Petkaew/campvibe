@@ -273,6 +273,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
         longitude: 100.5018 as number | string,
         province: "",
         district: "",
+        subDistrict: "",
         checkInTime: "14:00",
         checkOutTime: "12:00",
         bookingMethod: "ONLI",
@@ -375,9 +376,19 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 province: initialData.location?.thaiLocation 
                     ? (language === 'th' ? initialData.location.thaiLocation.provinceName : initialData.location.thaiLocation.provinceNameEn)
                     : initialData.location?.province || "",
+                // CAM-556/CAM-559: fall back to the raw stored `Location.district`
+                // (mirrors `province`'s existing fallback two lines above) - the
+                // old prefill ONLY read the `thaiLocation` FK relation, so a
+                // district saved as plain text (no FK match) rendered blank on
+                // edit; now that the edit PUT actually WRITES this box's value
+                // (CAM-556 fix), a blank prefill would silently clear a real
+                // stored district on the very next save.
                 district: initialData.location?.thaiLocation?.districtName
                     ? (language === 'th' ? initialData.location.thaiLocation.districtName : initialData.location.thaiLocation.districtNameEn)
-                    : "",
+                    : initialData.location?.district || "",
+                // CAM-559: sub-district has no thaiLocation-FK path at all (that
+                // legacy table cannot hold one) - always the raw stored value.
+                subDistrict: initialData.location?.subDistrict || "",
                 checkInTime: initialData.checkInTime || "14:00",
                 checkOutTime: initialData.checkOutTime || "12:00",
                 bookingMethod: initialData.bookingMethod || "ONLI",
@@ -555,6 +566,8 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                         // CAM-553: the host-typed district was collected in state but
                         // never sent - the API silently dropped it on every camp.
                         district: formData.district,
+                        // CAM-559: sub-district, wired through the SAME seam.
+                        subDistrict: formData.subDistrict,
                         // Lat/Lon are independent - user enters manually
                         lat: formData.latitude,
                         lon: formData.longitude,
@@ -988,24 +1001,23 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                             <CardContent className="p-4 md:p-8 space-y-6">
                                 <div className="space-y-2">
                                     <Label className="text-xs font-regular uppercase tracking-widest text-muted-foreground ml-4">{t.newCampground.searchLocation}</Label>
+                                    {/* CAM-559: cascading province -> district -> sub-district (each
+                                        searchable, each narrowing the next) replaces the old flat
+                                        single-search list. */}
                                     <LocationPicker
-                                        onSelect={(loc) => {
-                                            if (loc) {
-                                                setFormData({
-                                                    ...formData,
-                                    thaiLocationId: loc.id ? loc.id : "",
-                                    province: language === 'th' ? loc.provinceName : loc.provinceNameEn,
-                                    district: loc.districtName
-                                                        ? (language === 'th' ? (loc.districtName || "") : (loc.districtNameEn || ""))
-                                                        : ""
-                                                });
-                                            }
+                                        onChange={(value) => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                thaiLocationId: value.thaiLocationId,
+                                                province: value.province,
+                                                district: value.district,
+                                                subDistrict: value.subDistrict,
+                                            }));
                                         }}
-                                        initialLocationId={formData.thaiLocationId}
                                     />
                                 </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <InputField
                                         label={t.newCampground.province}
                                         value={formData.province}
@@ -1019,6 +1031,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                         onChange={e => setFormData({ ...formData, district: e.target.value })}
                                         inputSize="lg"
                                         placeholder={t.newCampground.districtLabelPlaceholder}
+                                    />
+                                    <InputField
+                                        label={t.newCampground.subDistrict}
+                                        value={formData.subDistrict}
+                                        onChange={e => setFormData({ ...formData, subDistrict: e.target.value })}
+                                        inputSize="lg"
+                                        placeholder={t.newCampground.subDistrictLabelPlaceholder}
                                     />
                                 </div>
 
