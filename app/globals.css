@@ -296,6 +296,110 @@ h6 {
       radial-gradient(90% 80% at 50% 100%, oklch(0.879 0.169 91.605 / 0.10) 0%, transparent 55%);
 }
 
+/* ── CAM-552 — responsive type roles (DESIGN.md §2 "Responsive scale") ───────
+   A component picks a ROLE (type-heading-2), never a raw text-* per screen
+   size. There is exactly ONE sizing breakpoint in the whole system:
+   md = 768px. The values in :root are the MOBILE step; the @media block
+   below carries the desktop step. Four roles step, three do not — and the
+   three that do not are the accessible ones, so their "no" is deliberate:
+
+     type-body    16px — below 16px iOS Safari auto-zooms a focused input,
+                         and 16px is the body-copy floor. Never step it down.
+     type-label   14px — control text (button, chip, select); already minimal.
+     type-caption 12px — micro-label; already minimal.
+
+   TWO naming decisions, both load-bearing — do NOT "tidy" either of them:
+
+   1. Not `--text-*` inside `@theme`. That is Tailwind's font-size namespace,
+      so a `--text-body` entry there would also GENERATE a `text-body` utility
+      and collide with the role utility. `--type-*` keeps the layers apart.
+
+   2. The utilities are `type-*`, NOT `text-*`. `cn()` = clsx + tailwind-merge,
+      and tailwind-merge classifies an unrecognised `text-<x>` as a TEXT COLOUR
+      — so `cn("text-label", "text-foreground")` silently DROPS `text-label`
+      and the role never reaches the DOM. This was measured, not theorised: the
+      FilterChip pill rendered at 16px while its source read `text-label`. A
+      className review cannot see this; only the rendered box can.
+      Guarded by __tests__/cam-552-mobile-scale.test.ts ("BUG GUARD").
+
+   Radius/color tokens are untouched by this block. */
+:root {
+    --type-display: 1.875rem;
+    --type-display-lh: 2.25rem;
+    /* 30/36 */
+    --type-heading-1: 1.5rem;
+    --type-heading-1-lh: 2rem;
+    /* 24/32 */
+    --type-heading-2: 1.25rem;
+    --type-heading-2-lh: 1.75rem;
+    /* 20/28 */
+    --type-heading-3: 1rem;
+    --type-heading-3-lh: 1.5rem;
+    /* 16/24 */
+    --type-body: 1rem;
+    --type-body-lh: 1.5rem;
+    /* 16/24 — does not step */
+    --type-label: 0.875rem;
+    --type-label-lh: 1.25rem;
+    /* 14/20 — does not step */
+    --type-caption: 0.75rem;
+    --type-caption-lh: 1rem;
+    /* 12/16 — does not step */
+}
+
+@media (min-width: 768px) {
+    :root {
+        --type-display: 2.25rem;
+        --type-display-lh: 2.5rem;
+        /* 36/40 */
+        --type-heading-1: 1.875rem;
+        --type-heading-1-lh: 2.375rem;
+        /* 30/38 */
+        --type-heading-2: 1.5rem;
+        --type-heading-2-lh: 2rem;
+        /* 24/32 */
+        --type-heading-3: 1.125rem;
+        --type-heading-3-lh: 1.75rem;
+        /* 18/28 */
+        /* body / label / caption intentionally absent — they do not step. */
+    }
+}
+
+@utility type-display {
+    font-size: var(--type-display);
+    line-height: var(--type-display-lh);
+}
+
+@utility type-heading-1 {
+    font-size: var(--type-heading-1);
+    line-height: var(--type-heading-1-lh);
+}
+
+@utility type-heading-2 {
+    font-size: var(--type-heading-2);
+    line-height: var(--type-heading-2-lh);
+}
+
+@utility type-heading-3 {
+    font-size: var(--type-heading-3);
+    line-height: var(--type-heading-3-lh);
+}
+
+@utility type-body {
+    font-size: var(--type-body);
+    line-height: var(--type-body-lh);
+}
+
+@utility type-label {
+    font-size: var(--type-label);
+    line-height: var(--type-label-lh);
+}
+
+@utility type-caption {
+    font-size: var(--type-caption);
+    line-height: var(--type-caption-lh);
+}
+
 @layer base {
     * {
         @apply border-border outline-ring/50;

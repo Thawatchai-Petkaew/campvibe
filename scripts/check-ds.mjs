@@ -48,6 +48,11 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// CAM-552 — the responsive-scale rules (M1/M2/M3) live in their own file but
+// run under `npm run check:ds`, so the quality gate and CI pick them up with
+// no new package.json script. See scripts/check-scale.mjs for the rollout mode
+// of each rule and the named backlog.
+import { runScaleGuard } from "./check-scale.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -534,9 +539,30 @@ function main() {
     console.log("");
   }
 
+  // ── CAM-552 responsive-scale rules (M1/M2/M3) ──────────────────────────────
+  const scale = runScaleGuard();
+  for (const row of [
+    ["M1-control-height-not-responsive", "blocking(scoped)+report"],
+    ["M2-display-type-not-responsive", "blocking(scoped)+report"],
+    ["M3-mobile-step-under-touch-floor", "blocking(repo-wide)"],
+  ]) {
+    const [id, mode] = row;
+    const b = scale.blocking.filter((f) => f.rule === id).length;
+    const r = scale.report.filter((f) => f.rule === id).length;
+    const status = b === 0 ? "ok   (0)" : `FAIL (${b})`;
+    console.log(`  ${status.padEnd(12)} ${id}  [${mode}]  backlog=${r}`);
+  }
+  if (scale.report.length > 0) {
+    console.log(
+      `  → ${scale.report.length} responsive-scale report-mode finding${scale.report.length === 1 ? "" : "s"} (not blocking yet); run \`node scripts/check-scale.mjs\` for the list.`
+    );
+  }
+  console.log("");
+
   // ── BLOCKING output + exit ──────────────────────────────────────────────────
 
-  const totalViolations = allViolations.length + reportViolations.length;
+  const totalViolations =
+    allViolations.length + reportViolations.length + scale.blocking.length;
 
   if (totalViolations === 0) {
     console.log("check:ds — PASS (0 violations)");
@@ -575,6 +601,20 @@ function main() {
     }
     console.error(`\n${reportViolations.length} R1–R9 violation${reportViolations.length === 1 ? "" : "s"} found.`);
     console.error("  Fix the drift or add to the designer-approved allowlist in check-ds.mjs.");
+    console.error("");
+  }
+
+  if (scale.blocking.length > 0) {
+    console.error("\ncheck:ds — FAIL (CAM-552 responsive-scale violations)\n");
+    const hints = new Set();
+    for (const { file, line, snippet, rule, hint } of scale.blocking) {
+      console.error(`  ${file}:${line}: [${rule}] ${snippet}`);
+      hints.add(hint);
+    }
+    console.error(
+      `\n${scale.blocking.length} responsive-scale violation${scale.blocking.length === 1 ? "" : "s"} found.\n`
+    );
+    for (const h of hints) console.error(`  ${h}`);
     console.error("");
   }
 

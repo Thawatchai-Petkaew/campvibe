@@ -92,7 +92,9 @@ export function CategoryBar() {
     };
 
     return (
-        <div className="pt-4 pb-0 flex items-center gap-8 overflow-x-auto no-scrollbar container mx-auto px-6">
+        // CAM-552 — mobile step: a tighter tab gap and page gutter, so more
+        // category tabs land inside the first screen-width on a phone.
+        <div className="pt-3 pb-0 md:pt-4 flex items-center gap-6 md:gap-8 overflow-x-auto no-scrollbar container mx-auto px-4 md:px-6">
             {CATEGORIES.map((cat) => {
                 const active = isActive(cat);
                 return (
@@ -101,7 +103,10 @@ export function CategoryBar() {
                         onClick={() => handleCategoryClick(cat)}
                         aria-current={active ? "true" : undefined}
                         className={clsx(
-                            "flex flex-col items-center gap-2 min-w-[64px] pb-3 border-b-2 transition group",
+                            // CAM-552 — the tab is a nav tab, not a control, but it
+                            // still stays well clear of the 44px floor at the mobile
+                            // step (measured 54px tall / 56px wide).
+                            "flex flex-col items-center gap-1.5 md:gap-2 min-w-[56px] md:min-w-[64px] pb-2 md:pb-3 border-b-2 transition group",
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                             active
                                 ? "border-foreground text-foreground"
@@ -114,7 +119,7 @@ export function CategoryBar() {
                                 active ? "stroke-2" : "stroke-1 group-hover:stroke-2"
                             )}
                         />
-                        <span className="text-xs font-medium whitespace-nowrap">{(t.categories as any)[cat.labelKey]}</span>
+                        <span className="type-caption font-medium whitespace-nowrap">{(t.categories as any)[cat.labelKey]}</span>
                     </button>
                 );
             })}
