@@ -103,10 +103,12 @@ describe("a11y — accessible name + visible focus ring on the whole-card tap ta
     expect(cardSrc).not.toMatch(/focus-visible:ring-(primary|foreground)\b/);
   });
 
-  it("[unit] decorative icons (MapPin/Star/ChevronRight) are aria-hidden — meaning is carried by the adjacent text", () => {
+  // CAM-547 AC-5 — Star now lives inside the image-overlay Badge (its own
+  // CVA forces child svgs to size-3), so it no longer carries an explicit
+  // size className; ChevronRight is gone entirely (AC-3, see below).
+  it("[unit] decorative icons (MapPin/Star) are aria-hidden — meaning is carried by the adjacent text", () => {
     expect(cardSrc).toContain('<MapPin className="size-3.5 shrink-0" aria-hidden="true" />');
-    expect(cardSrc).toContain('<Star className="size-3.5 fill-current" aria-hidden="true" />');
-    expect(cardSrc).toContain('<ChevronRight className="size-3.5" aria-hidden="true" />');
+    expect(cardSrc).toContain('<Star className="fill-current" aria-hidden="true" />');
   });
 });
 
@@ -153,8 +155,9 @@ describe("Token-only (DESIGN.md §2, check:palette/check:ds scope) + Expression 
 });
 
 describe("Icons — lucide only, no emoji (standing owner rule)", () => {
-  it('[structural] MapPin/Star/ChevronRight import from lucide-react', () => {
-    expect(cardSrc).toContain('import { MapPin, Star, ChevronRight } from "lucide-react"');
+  it('[structural] MapPin/Star import from lucide-react (ChevronRight removed, CAM-547 AC-3)', () => {
+    expect(cardSrc).toContain('import { MapPin, Star } from "lucide-react"');
+    expect(cardSrc).not.toContain("ChevronRight");
   });
 
   it("[structural] no emoji literal in the card source", () => {

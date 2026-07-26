@@ -316,7 +316,13 @@ describe("CAM-546 · the call sites really moved (AC-1..AC-3)", () => {
     "components/settings/TeamManagement.tsx",
     "components/ui/filter-chip.tsx",
     "components/ui/permission-tooltip.tsx",
-    "components/ai-chat/AiChatCampCard.tsx",
+    // CAM-547 removed AiChatCampCard.tsx's ONLY text-primary-ink usage (the
+    // redundant "ดูรายละเอียด" line + ChevronRight, per that story's AC-3 —
+    // the whole card is already a button, so the affordance line was
+    // dropped; the SAME copy stays wired into the card's own aria-label,
+    // never removed). The card no longer renders any teal link-style text
+    // at all, so it is intentionally removed from this list rather than a
+    // drift this guard should keep catching.
     "components/ui/button.tsx",
     "components/ui/badge.tsx",
   ])("[structural] %s renders teal words through the text token", (file) => {
