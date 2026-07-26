@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
-import { campCardSelect, type CampCardPayload } from "@/lib/read-models/camp-card";
+import { campCardSelect, getProvinceThaiNameMap, withProvinceThaiNames, type CampCardPayload } from "@/lib/read-models/camp-card";
 import { getDefaultCatalog } from "@/lib/catalog-cache";
 import { encodeCursorFromItem, PAGE_SIZE, VALID_SORTS, type CatalogSort } from "@/lib/catalog-cursor";
 import { getAvailabilityStatusForCamps, type CampAvailabilityStatus } from "@/lib/campsite-availability";
@@ -189,8 +189,18 @@ export default async function CatalogResults({
     }
   }
 
+  // CAM-545: name-based Thai province lookup (fail-open — a lookup error
+  // leaves every card on its English province, same as an unmapped value).
+  let provinceThaiNameMap = new Map<string, string>();
+  try {
+    provinceThaiNameMap = await getProvinceThaiNameMap();
+  } catch (error) {
+    console.error("Province Thai-name lookup failed (fail-open, English province shown):", error);
+  }
+  const campSitesWithThaiProvince = withProvinceThaiNames(campSites, provinceThaiNameMap);
+
   // PERF-3 (CAM-196): Compute initialCursor for InfiniteScrollGrid.
-  const serialisedCamps = campSites.map((c: any) => {
+  const serialisedCamps = campSitesWithThaiProvince.map((c: any) => {
     const availabilityStatus = availabilityByCampId[c.id];
     return serializeDecimals({
       ...c,

@@ -366,9 +366,13 @@ describe('AC-5 — card render contract: all CampgroundCard fields present in ca
     expect(campCardSelect.reviewCount).toBe(true);
   });
 
-  // Verify CampgroundCard.tsx still reads province from location
-  it('[source] CampgroundCard.tsx reads campground.location.province (contract satisfied)', () => {
-    expect(cardSrc).toContain('campground.location.province');
+  // Verify CampgroundCard.tsx still reads province from location.
+  // CAM-545: the inline `campground.location.province` read moved into the
+  // extracted `buildLocationText(campground.location, ...)` helper (which
+  // still reads `location.province`, with a Thai-name fallback) — the
+  // contract (province is consumed from `campCardSelect`'s location) holds.
+  it('[source] CampgroundCard.tsx reads location.province (contract satisfied)', () => {
+    expect(cardSrc).toContain('location.province');
   });
 
   // Verify CampgroundCard.tsx still reads priceLow
