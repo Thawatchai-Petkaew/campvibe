@@ -18,11 +18,18 @@
  * same-named district in the wrong province), then SUBDISTRICT scoped to
  * the matched district. The final `adminAreaId` is the DEEPEST level
  * actually resolved (subDistrict ?? district ?? province ?? null) — the
- * SAME convention CAM-554's reverse-geocode resolver uses
- * (`app/api/geocode/_shared.ts::resolveFromComponents`, not yet merged as
- * of this story — see tech.md's Seams section for why this script's
- * matcher is a standalone, faithfully-ported twin rather than a shared
- * import, and the planned consolidation once both land).
+ * SAME convention CAM-554's reverse-geocode resolver uses.
+ *
+ * CAM-566 — `normalizeAdminAreaName`/`matchAdminAreaByName` used to be a
+ * standalone, faithfully-ported twin of CAM-554's matcher (CAM-554's PR was
+ * unmerged when this script was written). Both are now the SAME shared
+ * `lib/geo/admin-area-match.ts` module, re-exported here under their
+ * ORIGINAL names/signature so this file's own test
+ * (`__tests__/cam-563-location-admin-area-backfill.test.ts`) and
+ * `scripts/backfill-cam-562-subdistrict-geocode.mjs` (which imports
+ * `matchAdminAreaByName` directly from this file — do not rename/move
+ * without coordinating that PR) keep working unedited. See this story's
+ * tech.md for the enumerated diff between the three prior copies.
  *
  * Every match is EXACT (case-insensitive equals on nameTh/nameEn), never a
  * substring/`contains` — the DEF-1/DEF-2 Thai-substring collision lesson in
@@ -58,55 +65,24 @@
 import { PrismaClient } from '@prisma/client';
 import { pathToFileURL } from 'node:url';
 import { describeUrlShape } from './db-reset.mjs';
+import { normalizeAdminName, matchAdminArea } from '../lib/geo/admin-area-match.ts';
 
 /**
- * Known Thai/English administrative prefixes/suffixes that CAN appear on a
- * free-text value typed by a host (mirrors CAM-554's `normalizeAdminName` —
- * same list, ported since that file is not yet merged). Longest/most
- * specific entries first so a shared substring (e.g. "อำเภอ" inside
- * "กิ่งอำเภอ") never partially matches.
+ * CAM-566 — re-exported under this script's ORIGINAL names/signature (this
+ * file's own export surface is a live import for
+ * `scripts/backfill-cam-562-subdistrict-geocode.mjs` and this file's own
+ * test) from the ONE shared matcher (`lib/geo/admin-area-match.ts`). Node's
+ * native TypeScript type-stripping lets this plain `.mjs` script import a
+ * `.ts` file by relative path directly, no build step.
  */
-const THAI_PREFIXES = ['กิ่งอำเภอ', 'จังหวัด', 'อำเภอ', 'เขต', 'ตำบล', 'แขวง'];
-const EN_PREFIXES = ['Changwat ', 'Chang Wat ', 'Amphoe ', 'Amphur ', 'Khet ', 'Tambon ', 'Khwaeng ', 'District ', 'Province of '];
-const EN_SUFFIXES = [' Province', ' District'];
-
-/** Deterministic prefix/suffix strip, never a substring match — exported for the unit test. */
+/** @param {string | null | undefined} raw @returns {string} */
 export function normalizeAdminAreaName(raw) {
-  let name = (raw ?? '').trim();
-  if (!name) return name;
-  for (const prefix of THAI_PREFIXES) {
-    if (name.startsWith(prefix)) { name = name.slice(prefix.length); break; }
-  }
-  for (const prefix of EN_PREFIXES) {
-    if (name.startsWith(prefix)) { name = name.slice(prefix.length); break; }
-  }
-  for (const suffix of EN_SUFFIXES) {
-    if (name.endsWith(suffix)) { name = name.slice(0, -suffix.length); break; }
-  }
-  return name.trim();
+  return normalizeAdminName(raw);
 }
 
-/**
- * Bilingual, hierarchical match against the AdminArea tree. `parentId`
- * scopes the search to a specific parent (never a same-named district in a
- * different province) — exact equality only (`equals`, case-insensitive),
- * never `contains`.
- */
+/** @param {*} prisma @param {*} level @param {*} rawName @param {*} [parentId] @returns {Promise<*>} */
 export async function matchAdminAreaByName(prisma, level, rawName, parentId) {
-  const name = normalizeAdminAreaName(rawName);
-  if (!name) return null;
-  return prisma.adminArea.findFirst({
-    where: {
-      countryCode: 'TH',
-      level,
-      ...(parentId ? { parentId } : {}),
-      OR: [
-        { nameTh: { equals: name, mode: 'insensitive' } },
-        { nameEn: { equals: name, mode: 'insensitive' } },
-      ],
-    },
-    select: { id: true },
-  });
+  return matchAdminArea(prisma, level, rawName, parentId);
 }
 
 /**
