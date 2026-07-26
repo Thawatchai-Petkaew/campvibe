@@ -272,7 +272,7 @@ async function main() {
           nameEnSlug: camp.nameEnSlug ?? camp.nameThSlug,
           description: camp.description ?? '',
           campSiteType: camp.campSiteType ?? 'CAGD',
-          accommodationTypes: camp.accommodationTypes ?? 'TENT',
+          accommodationTypes: camp.accommodationTypes ?? 'TSIT', // CAM-536: renamed from TENT (collided with Equipment for rent:TENT)
           latitude: camp.latitude,
           longitude: camp.longitude,
           address: camp.address ?? null,
@@ -317,7 +317,7 @@ async function main() {
           nameEnSlug: camp.nameEnSlug ?? camp.nameThSlug,
           description: camp.description ?? '',
           campSiteType: camp.campSiteType ?? 'CAGD',
-          accommodationTypes: camp.accommodationTypes ?? 'TENT',
+          accommodationTypes: camp.accommodationTypes ?? 'TSIT', // CAM-536: renamed from TENT (collided with Equipment for rent:TENT)
           latitude: camp.latitude,
           longitude: camp.longitude,
           address: camp.address ?? null,

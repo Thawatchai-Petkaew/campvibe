@@ -333,3 +333,103 @@ describe("CAM-536 (d) — Equipment:TENT and Activity:HORS are UNCHANGED by this
     expect(thFilter.HORS).toBe("ขี่ม้า");
   });
 });
+
+// ===========================================================================
+// (f) GUARD — no per-camp `accommodationTypes` literal anywhere in
+// prisma/seed.ts (or prisma/seed-bookings.ts) may emit a code that is not a
+// member of AccommodationTypeEnum. This is the guard that would have caught
+// the real CI defect this story's follow-up fix addressed: CAM-526/536
+// renamed the enum's collision codes (TENT->TSIT, HORS->HCMP) in
+// lib/validations/campsite.ts and the MasterData rows in prisma/seed.ts, but
+// the seed file's own PER-CAMP `accommodationTypes: 'TENT'` literals (12
+// occurrences, unrelated to the masterData array) were missed on the first
+// pass — every seeded camp then carried a value its own validator rejected,
+// and CI's e2e regression (which seeds a FRESH database from this exact
+// file) failed 4 specs waiting on a PUT/save the validator silently blocked.
+// Parses prisma/seed.ts (and prisma/seed-bookings.ts) AS TEXT — never
+// imports it (importing prisma/seed.ts executes `main()`, a real Prisma seed
+// run) — same extractor precedent as cam-525/526's own coverage tests.
+// ===========================================================================
+describe("CAM-536 (f) — GUARD: every accommodationTypes literal in prisma/seed*.ts is a valid AccommodationTypeEnum member", () => {
+  const VALID_CODES: Set<string> = new Set(AccommodationTypeEnum.options);
+
+  /**
+   * Extracts every `accommodationTypes: '<value>'` PER-CAMP literal (the
+   * CampSite-creation shape) from a seed source string — deliberately a
+   * DIFFERENT regex shape than the masterData-array extractor above (which
+   * requires a sibling `group:` key) so it can never accidentally match a
+   * MasterData row.
+   */
+  function extractCampLiterals(source: string): string[] {
+    const re = /accommodationTypes:\s*'([^']*)'/g;
+    const values: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(source))) values.push(m[1]);
+    return values;
+  }
+
+  it("[teeth] the extractor actually reads real literals from prisma/seed.ts (non-trivial count)", () => {
+    const values = extractCampLiterals(seedSrc);
+    expect(values.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it("[teeth] the extractor would have caught the real CI defect: a stale 'TENT' literal is detected as invalid", () => {
+    const withStaleLiteral = "accommodationTypes: 'TENT',";
+    const values = extractCampLiterals(withStaleLiteral);
+    expect(values).toEqual(["TENT"]);
+    expect(VALID_CODES.has(values[0])).toBe(false); // this is exactly what shipped broken
+  });
+
+  it("[normal, GUARD] every accommodationTypes literal in prisma/seed.ts is a member of AccommodationTypeEnum (whole-value, comma-split for a future CSV literal)", () => {
+    const values = extractCampLiterals(seedSrc);
+    const invalid = values.flatMap((v) =>
+      v
+        .split(",")
+        .map((code) => code.trim())
+        .filter((code) => code.length > 0 && !VALID_CODES.has(code))
+    );
+    expect(invalid, `invalid accommodationTypes code(s) found in prisma/seed.ts: ${invalid.join(", ")}`).toEqual([]);
+  });
+
+  it("[normal, GUARD] every accommodationTypes literal in prisma/seed-bookings.ts is a member of AccommodationTypeEnum", () => {
+    const bookingsSrc = src("prisma/seed-bookings.ts");
+    const values = extractCampLiterals(bookingsSrc);
+    expect(values.length).toBeGreaterThanOrEqual(1);
+    const invalid = values.flatMap((v) =>
+      v
+        .split(",")
+        .map((code) => code.trim())
+        .filter((code) => code.length > 0 && !VALID_CODES.has(code))
+    );
+    expect(invalid, `invalid accommodationTypes code(s) found in prisma/seed-bookings.ts: ${invalid.join(", ")}`).toEqual([]);
+  });
+
+  it("[normal, GUARD] every accomm[] pool entry in scripts/gen-mock-data.mjs is a member of AccommodationTypeEnum", () => {
+    const genSrc = src("scripts/gen-mock-data.mjs");
+    const re = /accomm:\s*\[([^\]]*)\]/g;
+    const invalid: string[] = [];
+    let m: RegExpExecArray | null;
+    let poolCount = 0;
+    while ((m = re.exec(genSrc))) {
+      poolCount++;
+      const codes = m[1].match(/'([^']+)'/g)?.map((s) => s.slice(1, -1)) ?? [];
+      for (const code of codes) {
+        if (!VALID_CODES.has(code)) invalid.push(code);
+      }
+    }
+    expect(poolCount).toBeGreaterThanOrEqual(6);
+    expect(invalid, `invalid accomm[] code(s) found in scripts/gen-mock-data.mjs: ${invalid.join(", ")}`).toEqual([]);
+  });
+
+  it("[normal, GUARD] the fallback default in scripts/load-mock-staging.mjs is a member of AccommodationTypeEnum", () => {
+    const loaderSrc = src("scripts/load-mock-staging.mjs");
+    const re = /accommodationTypes:\s*camp\.accommodationTypes\s*\?\?\s*'([^']+)'/g;
+    const fallbacks: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(loaderSrc))) fallbacks.push(m[1]);
+    expect(fallbacks.length).toBeGreaterThanOrEqual(1);
+    for (const fallback of fallbacks) {
+      expect(VALID_CODES.has(fallback), `invalid fallback default "${fallback}" in scripts/load-mock-staging.mjs`).toBe(true);
+    }
+  });
+});
