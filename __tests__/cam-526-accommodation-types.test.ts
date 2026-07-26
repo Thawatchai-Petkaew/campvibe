@@ -131,13 +131,13 @@ describe("CAM-526 (AC-1/BR-1) — the 4 safe AccommodationTypeEnum codes are see
 // MasterData rows (the actual failure mode of a naive upsert-by-code).
 // ===========================================================================
 describe("CAM-526 (BR-2) — HORS/TENT collision: excluded here, unrelated rows untouched", () => {
-  it("[normal] every AccommodationTypeEnum member is accounted for: 4 seeded here, 2 documented-excluded", () => {
+  it("[normal] every AccommodationTypeEnum member is accounted for: all 6 now seeded (CAM-536 supersedes the 4-of-6/2-excluded state this test originally pinned — HORS/TENT were renamed to HCMP/TSIT, see cam-536-accommodation-code-collision.test.ts)", () => {
     const allMembers = AccommodationTypeEnum.options;
-    expect(allMembers.sort()).toEqual(["CABI", "DISP", "GROU", "HORS", "RECR", "TENT"].sort());
+    expect(allMembers.sort()).toEqual(["CABI", "DISP", "GROU", "HCMP", "RECR", "TSIT"].sort());
     const seededUnderAccommodation = SEEDED_ROWS.filter((r) => r.group === "Accommodation type").map((r) => r.code);
-    expect(seededUnderAccommodation.sort()).toEqual(["CABI", "DISP", "GROU", "RECR"].sort());
+    expect(seededUnderAccommodation.sort()).toEqual(allMembers.slice().sort());
     const excluded = allMembers.filter((m) => !seededUnderAccommodation.includes(m));
-    expect(excluded.sort()).toEqual(["HORS", "TENT"].sort());
+    expect(excluded).toEqual([]); // CAM-536: nothing excluded anymore
   });
 
   it("[regression] HORS still resolves to its real, pre-existing group ('Activity'), not moved by this seed change", () => {
