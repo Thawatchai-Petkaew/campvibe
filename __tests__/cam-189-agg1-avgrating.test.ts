@@ -568,10 +568,11 @@ describe('AC-4 — migration shape: ADD COLUMN only + correct backfill (no DROP/
 describe('AC-5 — PERF-5 (CAM-193): read-path now consumes avgRating/reviewCount columns', () => {
     /**
      * CAM-189 (AGG-1) WROTE avgRating/reviewCount. PERF-5 (CAM-193) now READS them.
-     * The in-memory sortByRating path is removed from app/page.tsx; rating sort is done
+     * The in-memory rating-sort path is removed from app/page.tsx; rating sort is done
      * at DB via orderBy avgRating. campCardSelect now selects the stored columns, not reviews.
-     * The pure helpers (sortByRating, computeAvgRating) are KEPT in lib/sort-utils.ts —
-     * they are still used by app/wishlist/page.tsx and tested by sort-utils.test.ts.
+     * The pure helper computeAvgRating is KEPT in lib/sort-utils.ts — still used by
+     * app/wishlist/page.tsx and tested by sort-utils.test.ts. (CAM-527: sortByRating,
+     * which used to sit alongside it, was dead code — no caller — and was deleted.)
      */
 
     // LOAD-1 (CAM-197): data-fetch logic moved from page.tsx → CatalogResults.tsx.
@@ -614,11 +615,10 @@ describe('AC-5 — PERF-5 (CAM-193): read-path now consumes avgRating/reviewCoun
         expect(campCardSrc).not.toContain('reviews:');
     });
 
-    // --- lib/sort-utils.ts (helpers retained — used by wishlist page + tests) ---
+    // --- lib/sort-utils.ts (helper retained — used by wishlist page + tests) ---
 
-    it('[scope] sort-utils.ts still exports computeAvgRating and sortByRating (pure helpers — retained for wishlist)', () => {
+    it('[scope] sort-utils.ts still exports computeAvgRating (pure helper — retained for wishlist)', () => {
         expect(sortUtilsSrc).toContain('export function computeAvgRating');
-        expect(sortUtilsSrc).toContain('export function sortByRating');
     });
 
     it('[scope] sort-utils.ts does NOT reference avgRating column (reads from reviews[] only)', () => {

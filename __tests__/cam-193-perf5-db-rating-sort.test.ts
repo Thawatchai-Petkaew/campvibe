@@ -26,8 +26,10 @@
  *         CampgroundCard handles null avgRating without crashing (reviewCount guard in JSX).
  *
  *   AC-6  Helpers retained — scope guard
- *         sortByRating + computeAvgRating still exported from lib/sort-utils (wishlist uses them);
+ *         computeAvgRating still exported from lib/sort-utils (wishlist uses it);
  *         app/wishlist/page.tsx NOT changed to use campCardSelect (still its own select — out of scope).
+ *         (CAM-527: sortByRating itself was dead code — no caller, wishlist never called it —
+ *         and was deleted from lib/sort-utils.ts; this AC's sortByRating assertions go with it.)
  *
  * Layers:
  *   - AC-1 → direct value assertions on the imported campCardSelect const
@@ -46,7 +48,7 @@
  *   AC-2 take:40 test was verified to FAIL when take:40 is removed from the unified findMany.
  *   AC-3 migration tests were verified to FAIL against the wrong migration (wrong column order).
  *   AC-4 unit tests were verified to FAIL when serializeDecimals returns value.toString() instead of value.toNumber().
- *   AC-6 scope guard was verified to FAIL if sortByRating export is removed from sort-utils.
+ *   AC-6 scope guard was verified to FAIL if computeAvgRating export is removed from sort-utils.
  *
  * Coverage matrix per .claude/rules/qa.md:
  *   normal · null/empty · boundary · error/validation · concurrent/ordering (where applicable)
@@ -54,7 +56,7 @@
  * Staging-verify note (non-automated):
  *   After merge to staging, verify on the real Staging URL:
  *   - ?sort=rating returns camps ordered by descending avgRating (highest first, 0-review camps last).
- *   - The JSON response for /api/campsites and /api/campgrounds has avgRating as a number (not string),
+ *   - The JSON response for /api/campsites has avgRating as a number (not string),
  *     reviewCount as an integer, and no "reviews" array in the payload (smaller response).
  */
 
@@ -64,7 +66,7 @@ import * as path from 'path';
 import { Prisma } from '@prisma/client';
 import { campCardSelect } from '@/lib/read-models/camp-card';
 import { serializeDecimals } from '@/lib/serialize';
-import { sortByRating, computeAvgRating } from '@/lib/sort-utils';
+import { computeAvgRating } from '@/lib/sort-utils';
 
 // ---------------------------------------------------------------------------
 // Source helpers
@@ -371,31 +373,16 @@ describe('AC-5 — null handling: CampSiteCardData types avgRating as number | n
 });
 
 // ===========================================================================
-// AC-6 — Helpers retained: sortByRating + computeAvgRating still exported from sort-utils
+// AC-6 — Helpers retained: computeAvgRating still exported from sort-utils
+// (CAM-527: sortByRating was dead code — no caller, wishlist never called it —
+// and was deleted from lib/sort-utils.ts; its export/logic assertions go with it.
+// See __tests__/sort-utils.test.ts for the file-level history note.)
 // ===========================================================================
 
-describe('AC-6 — helpers retained: sortByRating + computeAvgRating exportable from lib/sort-utils', () => {
-
-  it('[export] sortByRating is importable from @/lib/sort-utils (used by app/wishlist/page.tsx)', () => {
-    // Prove-It: removing the export from sort-utils makes this import fail at test-load time.
-    expect(typeof sortByRating).toBe('function');
-  });
+describe('AC-6 — helpers retained: computeAvgRating exportable from lib/sort-utils', () => {
 
   it('[export] computeAvgRating is importable from @/lib/sort-utils (used by app/wishlist/page.tsx)', () => {
     expect(typeof computeAvgRating).toBe('function');
-  });
-
-  it('[logic] sortByRating still sorts descending, nulls last (helper behavior unchanged)', () => {
-    // Prove-It: reverting sortByRating to ascending makes this fail.
-    const input = [
-      { id: 'a', reviews: [] as { rating: number }[] },          // null avg → last
-      { id: 'b', reviews: [{ rating: 3 }] },   // avg 3
-      { id: 'c', reviews: [{ rating: 5 }] },   // avg 5 → first
-    ];
-    const result = sortByRating(input);
-    expect(result[0].id).toBe('c');  // 5 first
-    expect(result[1].id).toBe('b');  // 3 second
-    expect(result[2].id).toBe('a');  // null last
   });
 
   it('[logic] computeAvgRating still returns null for empty reviews (null-review camp)', () => {
