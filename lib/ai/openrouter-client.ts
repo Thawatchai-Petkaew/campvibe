@@ -296,6 +296,18 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
  * `buildShownResultsBlock`'s own "no place resolved -> null, contributes
  * NOTHING" idiom, so a turn with no detected place keeps a byte-identical
  * prompt to before this story.
+ *
+ * CAM-596 — adds a `place.district` branch (checked BEFORE `place.province`,
+ * mirroring the tool's own real precedence `near` > `district` > `province`
+ * > `region`, CAM-587 BR-1): this is the second of the two independent
+ * causes CAM-596 fixes (the tool's own headline description, updated in
+ * search-campsites.ts, is the first) — CAM-587 wired `district` into the
+ * tool and proved the resolver works, but never gave the model a MANDATORY
+ * reason to set it, so it fell back to its own per-parameter "don't guess"
+ * guidance and never recognised a real district like แม่ริม. When the SAME
+ * message also names a province (CAM-596 BR-2), one extra sentence tells
+ * the model to pass it ALONGSIDE the district for scoping — never instead
+ * of it.
  */
 function buildPlaceHintBlock(place: ResolvedPlace): string | null {
   // CAM-502 (P2 geo proximity) BR-3 — checked FIRST: `resolvePlace` never
@@ -329,6 +341,22 @@ function buildPlaceHintBlock(place: ResolvedPlace): string | null {
       'narrow the search to strictly inside it), never change it to a different province, and never drop it ' +
       'just because the message also names a terrain/facility word. A terrain word (for example ริมน้ำ, ' +
       'ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this proximity target.'
+    );
+  }
+  if (place.district) {
+    const scopeSentence = place.province
+      ? ` Also set province="${place.province}" alongside it (the same message names that province too) — ` +
+        'this only SCOPES the district match, it never replaces or widens it.'
+      : '';
+    return (
+      `The camper named the district/อำเภอ "${place.district}" in their latest message (detected ` +
+      'deterministically server-side against real administrative-area data, not a guess — recognising a ' +
+      'district is the SERVER\'s job, not yours). When you call searchCampsites this turn, you MUST set ' +
+      `district="${place.district}" — do NOT leave it unset, do NOT use \`keyword\` instead, never change it to ` +
+      'a different district, and never drop it just because the message also names a terrain/facility word.' +
+      scopeSentence +
+      ' A terrain word (for example ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces ' +
+      'this district.'
     );
   }
   if (place.province) {

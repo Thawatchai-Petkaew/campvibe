@@ -641,6 +641,19 @@
     "guardrail": true
   },
   {
+    "id": "GEO-5-CAM596-DISTRICT",
+    "group": "district",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์แม่ริม",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "district": "แม่ริม" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
     "id": "P18-47",
     "group": "P18",
     "zone": "B",
