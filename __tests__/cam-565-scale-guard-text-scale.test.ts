@@ -106,27 +106,35 @@ describe("CAM-565 M4: is silent on a safe or out-of-scope shape", () => {
   });
 });
 
-describe("CAM-565: M4 ships REPORT-ONLY repo-wide (rollout rule, .claude/rules/ops.md)", () => {
+describe("CAM-565 -> CAM-581: M4's named backlog is cleared to 0 and the rule is now BLOCKING repo-wide", () => {
+  // CAM-581 inspected both of the 2 findings named below at a real
+  // 150%-text-scale Chromium render (see the CAM-581 story.md Self-verify)
+  // and resolved them: components/Navbar.tsx:160 proved a false positive (no
+  // code change; M4 tightened with a `truncate` escape — same-line or the
+  // very next line) and components/ui/filter-chip.tsx:45 was a real defect,
+  // fixed with `truncate` (not `shrink-0`, which measured worse in its
+  // flex-wrap container). This backlog is intentionally re-asserted at 0,
+  // not silently dropped — the exact deliverable BR-2/BR-4 of CAM-581
+  // describes, and the CAM-565 EC-1 canary this test WAS doing its job.
   const result = runScaleGuard();
   const M4 = "M4-min-width-literal-not-shrink-safe";
 
-  it("contributes zero BLOCKING findings, regardless of the backlog size", () => {
+  it("contributes zero BLOCKING findings (the real backlog is 0, not merely bucketed elsewhere)", () => {
     expect(result.blocking.filter((f) => f.rule === M4)).toEqual([]);
   });
 
-  it("never lands in the M1/M2 `report` bucket either — its own dedicated bucket, per runScaleGuard()'s doc comment", () => {
+  it("never lands in the M1/M2 `report` bucket either", () => {
     expect(result.report.filter((f) => f.rule === M4)).toEqual([]);
   });
 
-  it("the current, real backlog is reported honestly (not hidden, not tuned away)", () => {
-    const backlog = result.textScaleRisk.filter((f) => f.rule === M4);
-    // Named explicitly so a silent regression (new violation OR a violation
-    // quietly dropped without review) fails this test either direction.
-    const locations = backlog.map((f) => `${f.file}:${f.line}`).sort();
-    expect(locations).toEqual([
-      "components/Navbar.tsx:160",
-      "components/ui/filter-chip.tsx:45",
-    ]);
+  it("the once-named 2-item backlog (Navbar.tsx:160, filter-chip.tsx:45) is now empty repo-wide", () => {
+    // `textScaleRisk` is kept only for backward compatibility (no rule pushes
+    // into it any more; M4's findings, if any, would land in `blocking`).
+    const locations = [...result.textScaleRisk, ...result.blocking]
+      .filter((f) => f.rule === M4)
+      .map((f) => `${f.file}:${f.line}`)
+      .sort();
+    expect(locations).toEqual([]);
   });
 
   it("CategoryBar.tsx itself contributes zero M4 findings (the fixed instance stays fixed)", () => {
