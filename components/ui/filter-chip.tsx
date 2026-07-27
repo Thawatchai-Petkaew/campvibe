@@ -32,6 +32,15 @@ export function FilterChip({
   // floor on the cross axis. Commentary stays OUT of cn(): the check:ds R9
   // detector and ds1-dropdown-grammar read the class string as the token
   // immediately following `cn(`.
+  // CAM-581 — `truncate` added: this pill's label is host-authorable free text
+  // in some callers (spot-management-section.tsx's zone filter, up to the
+  // 50-char zoneCreateSchema max). Measured in a real browser at 150% text
+  // scale inside a real flex-wrap row: without truncate, a max-length label
+  // wraps to 2 lines and spills ~13px past the fixed h-11 rounded-full box.
+  // `shrink-0` was tried first and measured WORSE here (unlike CategoryBar's
+  // horizontal-scroll strip, this is a flex-wrap row inside a clipped modal —
+  // shrink-0 lets the pill grow past the modal's own overflow-hidden edge and
+  // get hard-clipped mid-character). truncate ellipsizes instead, 0px spill.
   if (variant === "pill") {
     return (
       <button
@@ -42,7 +51,7 @@ export function FilterChip({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "inline-flex items-center gap-2 h-11 min-w-[44px] px-4 md:px-5 rounded-full border type-label transition-colors",
+          "inline-flex items-center gap-2 h-11 min-w-[44px] px-4 md:px-5 rounded-full border type-label transition-colors truncate",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "active:scale-95",
           selected
