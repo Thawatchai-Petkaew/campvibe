@@ -144,6 +144,8 @@ The fast path for any UI work (full rules below):
 | card padding | `p-4` | `md:p-6` |
 | modal content padding | `p-4` | `md:p-8` |
 | modal footer padding | `p-3` | `md:p-4` |
+| header / bar row block (CAM-594) | `min-h-16` (64px) | `md:h-20` (80px) |
+| sticky bar block padding-y (CAM-594) | `py-2` | `md:py-3` |
 | page / bar gutter | `px-4` | `md:px-6` |
 | control-group gap | `gap-2` | `md:gap-3` |
 | grid gutter | `gap-3` | `md:gap-4` |
@@ -177,6 +179,8 @@ Seven roles, four of which step. Headings are what eat vertical space on a phone
 | M4 (CAM-565) | a literal-px `min-w-[Npx]`/`md:min-w-[Npx]` with no `shrink-0` on a flex-ish line (squares/comments/rem-units skipped) — the exact CAM-560 root cause: a literal px floor never scales with the browser/OS text-size setting the way rem-based sibling content does, so it can only be seen at an increased scale (150%, the setting that reproduced CAM-560) | **report-only repo-wide** — brand new, backlog counted (2), not yet cleared |
 
 Widening M1/M2's blocking scope, or promoting M4 to blocking, is a follow-up that clears the named report backlog first — never a flip with a non-zero backlog (`.claude/rules/ops.md`).
+
+**A no-give row wraps; it never overflows (CAM-594).** A bar whose every item is `flex-shrink-0` — tap targets pinned at the 44px floor, a fixed-aspect logo — has no give: raise the text scale and each item grows in rem until the row's intrinsic width exceeds any phone. The signature is unmistakable in a measurement: **`scrollWidth` stays near-constant regardless of viewport width** (CAM-594 measured 452px at both 320px and 390px). Such a row takes `flex-wrap md:flex-nowrap` and a `min-h-*` from the table above — never a fixed `h-*` below `md` — so the surplus becomes a second line instead of a sideways-scrolling page; give the trailing group `ms-auto md:ms-0` so it stays right-aligned on the line it wraps to, with desktop handed back unchanged. Dropping an item by importance (CAM-549's language switcher) is the fallback after wrapping, not the first move.
 
 **Text-scale contract (CAM-565):** a check that only ever reasons about geometry at ONE text size cannot catch a defect that only manifests at a larger one. 150% root font-size is this codebase's standing contract for "an increased text scale" — the exact setting that reproduced CAM-560, already used identically by `e2e/regression/cam-558-touch-targets.spec.ts`'s EC-5 and `e2e/regression/cam-560-category-label-overlap.spec.ts`'s Prove-It test (`html { font-size: 24px !important; }`, 24/16 = 1.5). M4 encodes the same contract statically (no browser) by flagging the one className shape whose safety genuinely depends on it.
 
