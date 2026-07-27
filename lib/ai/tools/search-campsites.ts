@@ -692,12 +692,25 @@ const jsonSchema = {
       description:
         'A Thai อำเภอ (district) or well-known town/zone name (Thai or English), e.g. "หัวหิน", "อ.หัวหิน", "ปากช่อง", "หาดใหญ่" — resolved exactly against the real administrative-area data (including common colloquial/abbreviation forms for a district). ' +
         'Use this (not `near`, not `province`) when the camper names a specific district/town rather than a whole province or a proximity ask. Combine with `province` ONLY to disambiguate a district name that exists in more than one province — never invent a province the camper did not name. ' +
-        'If the camper names a district/town you do not recognize, do NOT guess — leave this unset and use `keyword` instead; setting it to a value that fails to resolve returns zero results.',
+        // CAM-596 — reconciles the pre-CAM-596 "do NOT guess" guidance with
+        // the new server-side pre-pass hint: recognising a district is the
+        // SERVER's job (it checks against real data you cannot see), not
+        // yours. The first sentence below governs a turn where this turn's
+        // own instructions ALREADY tell you to set `district` (a MANDATORY
+        // hint); the second sentence governs a district name you decide to
+        // set on your OWN initiative, with no such instruction present.
+        'If this turn\'s own instructions already tell you to set `district` to a specific value, that is a confirmed match and you MUST follow it. ' +
+        'On your OWN initiative (no instruction telling you to set this), if the camper names a district/town you do not recognize, do NOT guess — leave this unset and use `keyword` instead; setting it to a value that fails to resolve returns zero results.',
     },
     subDistrict: {
       type: 'string',
       description:
-        'A Thai ตำบล (sub-district) name (Thai or English) — the MOST specific place filter, for when the camper names a sub-district explicitly (rare in casual chat, but exact when given). Optionally combine with `district`/`province` to disambiguate a sub-district name that repeats across districts. Only set this when the camper actually named a sub-district — a value that fails to resolve returns zero results rather than falling back to `district`/`province`.',
+        'A Thai ตำบล (sub-district) name (Thai or English) — the MOST specific place filter, for when the camper names a sub-district explicitly (rare in casual chat, but exact when given). Optionally combine with `district`/`province` to disambiguate a sub-district name that repeats across districts. ' +
+        // CAM-596 — same reconciliation as `district` above; unlike
+        // `district`, no server-side pre-pass hint exists yet for a
+        // sub-district (see CAM-596 story.md "Out of scope") — so this
+        // guidance applies to every turn, not only your own initiative.
+        'Only set this when the camper actually named a sub-district you are confident is real — do NOT guess one; a value that fails to resolve returns zero results rather than falling back to `district`/`province`.',
     },
     type: {
       type: 'string',
@@ -1036,8 +1049,13 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
 
 export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCampsitesResult> = {
   name: 'searchCampsites',
+  // CAM-596 — "district, sub-district" added to this headline sentence: it
+  // is the FIRST thing the model reads when deciding whether a parameter is
+  // relevant at all (root-cause fix — CAM-587 added both args to the schema
+  // below but never updated this sentence, so the model never considered
+  // them a searchable axis in the first place).
   description:
-    'Search published, active CampVibe campsites by province, region, type, price range, pet-friendliness, terrain, access, activities, facilities, rentable equipment, annotated features (rules/rights like alcohol-allowed, fires-allowed, firewood, wheelchair-accessible, reservable), and camper style (host-declared vibe: chic/comfy, general, difficult, indomitable/rugged). Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
+    'Search published, active CampVibe campsites by province, region, district, sub-district, type, price range, pet-friendliness, terrain, access, activities, facilities, rentable equipment, annotated features (rules/rights like alcohol-allowed, fires-allowed, firewood, wheelchair-accessible, reservable), and camper style (host-declared vibe: chic/comfy, general, difficult, indomitable/rugged). Returns at most 10 result cards. Pass startDate+endDate together when the camper gave a stay date range to get a LIVE remaining-capacity count per card. ' +
     'Pass `equipment` when the camper needs rental gear — a beginner with no equipment of their own ("มือใหม่", "ไม่มีอุปกรณ์", "มาตัวเปล่า") or anyone asking what a camp rents out. An array means the camp must offer ALL listed items (AND, not OR like the other taxonomy filters). ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +
