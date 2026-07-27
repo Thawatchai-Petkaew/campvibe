@@ -1,5 +1,9 @@
 import { Prisma } from '@prisma/client';
-import { campCardSelect } from '@/lib/read-models/camp-card';
+import {
+  campCardSelect,
+  resolveLocationDisplayNames,
+  type LocationDisplayNames,
+} from '@/lib/read-models/camp-card';
 import { buildReviewSummary } from '@/lib/review-summary';
 
 /**
@@ -31,9 +35,32 @@ export const aiCampCardSelect = {
 
 export type AiCampCardPayload = Prisma.CampSiteGetPayload<{ select: typeof aiCampCardSelect }>;
 
+/**
+ * CAM-597 — the assistant card's location, in the SAME shape
+ * `CampgroundCardData['location']` (components/CampgroundCard.tsx) already
+ * carries: `province`/`district` stay the raw, English, DB-stored values
+ * (unchanged contract — `Location.province` still drives
+ * `lib/campsite-filters.ts`'s exact-string-equality filter, untouched by
+ * this story), plus the optional bilingual `LocationDisplayNames` resolved
+ * from `Location.adminAreaId`'s AdminArea chain via the SAME
+ * `resolveLocationDisplayNames` CAM-573 already built (lib/read-models/
+ * camp-card.ts) — never a second chain-walk implementation.
+ *
+ * The client renders this through the SAME `buildLocationText` the catalog
+ * card uses (re-exported for the chat surface at
+ * components/ai-chat/location-text.ts), so the displayed text is always in
+ * the camper's CURRENT language — including right after a mid-session
+ * language switch, which a pre-rendered server-side string cannot survive
+ * (see this story's tech.md, "Payload shape decision").
+ */
+export interface AiCampCardLocation extends LocationDisplayNames {
+  province: string;
+  district?: string | null;
+}
+
 /** The wire-adjacent card shape every AI tool that returns cards builds — pre-`serializeDecimals`. */
 export interface AiCampCard extends Omit<AiCampCardPayload, 'location'> {
-  location: { province: string };
+  location: AiCampCardLocation;
   /**
    * G7 (real-data gap): `avgRating`/`reviewCount` already ride on
    * `campCardSelect` — this flag is the CANONICAL "does this camp have any
@@ -62,16 +89,37 @@ export interface AiCampCard extends Omit<AiCampCardPayload, 'location'> {
  * (omittable, per G8), instead of the pre-existing behavior where
  * `isAiChatCardResponse`'s `typeof province === 'string'` check silently
  * dropped the entire card.
+ *
+ * CAM-597: also attaches the id-derived bilingual district/province names
+ * via `resolveLocationDisplayNames(row.location?.adminArea)`. The row
+ * already carries `adminArea` because `aiCampCardSelect` extends
+ * `campCardSelect`, whose `location` select already includes it (CAM-573)
+ * — no Prisma `select` change was needed on any of this story's AI tool
+ * files for that reason (see tech.md). Deliberately NOT threaded through
+ * the async `getProvinceThaiNameMap()`/`withProvinceThaiNames()` name-based
+ * fallback the catalog list uses for its 2 orphan (no-live-camp) rows:
+ * `toAiCampCard` only ever runs over rows a live, published `CampSite`
+ * query returned, so `adminArea` is populated for effectively all of them
+ * (650/652 backfilled `Location` rows, CAM-563). `buildLocationText`
+ * already falls back to the raw `province`/`district` strings on its own
+ * when `adminArea` is truly absent (CAM-573 EC-5/EC-6), so a card is never
+ * dropped or left blank — an accepted, bounded gap, the same convention as
+ * CAM-573's own "Known gap" note.
  */
 export function toAiCampCard(row: AiCampCardPayload): AiCampCard {
   // hasReviews depends only on `count` (see buildReviewSummary) — `avg` is
   // irrelevant to that branch, so passing `null` here is safe and avoids a
   // Prisma.Decimal -> number conversion this function has no other use for.
   const { hasReviews } = buildReviewSummary({ avg: null, count: row.reviewCount });
+  const displayNames = resolveLocationDisplayNames(row.location?.adminArea);
 
   return {
     ...row,
-    location: { province: row.location?.province ?? '' },
+    location: {
+      province: row.location?.province ?? '',
+      district: row.location?.district ?? null,
+      ...displayNames,
+    },
     hasReviews,
   };
 }

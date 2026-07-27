@@ -219,6 +219,9 @@ export interface AiChatCardTag {
  *     location-only search) -> the card renders no badge at all, it never
  *     falls back to `options[0]` (that fixed fallback is exactly the
  *     "describes the camp, not the search" behavior CAM-547 found dishonest).
+ *
+ * CAM-597 additive fields on `location` (api.md rule 12) — see
+ * `AiChatCardLocation` below.
  */
 export interface AiChatCardResponse {
     id: string;
@@ -230,12 +233,40 @@ export interface AiChatCardResponse {
     createdAt: string;
     avgRating: number | null;
     reviewCount: number;
-    location: { province: string };
+    location: AiChatCardLocation;
     images?: { url: string }[];
     options?: AiChatCardTag[];
     hasReviews?: boolean;
     remaining?: number | null;
     matchedTag?: AiChatCardTag | null;
+}
+
+/**
+ * CAM-597 — the SAME bilingual district/province shape
+ * `CampgroundCardData['location']` (components/CampgroundCard.tsx) already
+ * carries, so both AI-chat cards (`AiChatCampCard`, `AiChatDetailCard`) can
+ * render "sub-district, district, province" in the camper's ACTIVE language
+ * via the shared `buildLocationText` — never a pre-rendered server string:
+ * a pre-rendered string goes stale the instant the camper switches language
+ * mid-session (this story's `docs/specs/.../tech.md`, "Payload shape
+ * decision"), while this structured shape cannot, since the client re-runs
+ * `buildLocationText` on every render with whatever language is active.
+ *
+ * `province` stays the raw, REQUIRED, English DB value — unchanged contract,
+ * still the SAME `Location.province` `lib/campsite-filters.ts`'s exact-match
+ * filter depends on (untouched by this story). Every other field is
+ * optional and additive (api.md rule 12): an older/unaware wire body (before
+ * this story) still satisfies this type.
+ */
+export interface AiChatCardLocation {
+    province: string;
+    provinceTh?: string;
+    provinceEn?: string;
+    district?: string | null;
+    districtTh?: string;
+    districtEn?: string;
+    subDistrictTh?: string;
+    subDistrictEn?: string;
 }
 
 /**
@@ -387,6 +418,16 @@ export function isAiChatCardResponse(value: unknown): value is AiChatCardRespons
         typeof v.reviewCount === 'number' &&
         !!location &&
         typeof location.province === 'string' &&
+        // CAM-597 additive location fields — each is either absent or
+        // well-formed (api.md rule 12), same "absent or well-formed"
+        // contract as the card-level additive fields below.
+        (location.provinceTh === undefined || typeof location.provinceTh === 'string') &&
+        (location.provinceEn === undefined || typeof location.provinceEn === 'string') &&
+        (location.district === undefined || location.district === null || typeof location.district === 'string') &&
+        (location.districtTh === undefined || typeof location.districtTh === 'string') &&
+        (location.districtEn === undefined || typeof location.districtEn === 'string') &&
+        (location.subDistrictTh === undefined || typeof location.subDistrictTh === 'string') &&
+        (location.subDistrictEn === undefined || typeof location.subDistrictEn === 'string') &&
         // CAM-427 additive fields — each is either absent or well-formed
         // (api.md rule 12: an older/unaware body simply lacks the key).
         (v.options === undefined || (Array.isArray(v.options) && v.options.every(isCardTag))) &&
