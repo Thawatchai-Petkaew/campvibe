@@ -119,6 +119,9 @@ next-env.d.ts
 !/scripts/backfill-cam-583-assign-accommodation-type.mjs
 # CAM-578 — one-command local setup (migrate deploy + seed) for the e2e-regression harness's DB
 !/scripts/setup-e2e-db.ts
+# CAM-579 — per-worktree Prisma client isolation setup + the loud freshness guard
+!/scripts/worktree-setup.sh
+!/scripts/verify-prisma-client-fresh.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
