@@ -27,6 +27,19 @@ export const DELIVERY_ROLES = [
 export const PERSONAS = ["HOST", "CAMPER", "ADMIN", "PLATFORM"] as const;
 export const TICKET_STATES = ["BACKLOG", "TODO", "IN_PROGRESS", "AWAITING_GATE", "DONE", "CANCELED"] as const;
 
+// CAM-595: the bounded-list-read cap shared by lib/delivery/tickets.ts (listTickets, behind
+// the CLI) and lib/delivery/status-adapter.ts (fetchTicketsFromDbRaw, behind the /status
+// board). Lives here (not in tickets.ts) specifically so status-adapter.ts can import the
+// SAME value without pulling in tickets.ts's heavy mutation-side dependency graph (notify,
+// github-dispatch, notify-messages) just to read a number -- a shared constant makes the
+// "these two caps match" claim enforced by the type system instead of a comment's promise
+// (the previous comment drifted silently into a bug: see tech.md). Raised from the original
+// 500: measured 2026-07-28 there were 534 unarchived tickets already past the old cap, so
+// 500 was ALREADY too small; 1000 buys headroom but is a deliberate deferral, not a fix --
+// see docs/specs/.../CAM-595-ticket-list-truncation/tech.md for when this next bites and the
+// alternatives considered (raise further / paginate / archive old DONE tickets).
+export const TICKET_LIST_TAKE_CAP = 1000;
+
 const ticketTypeSchema = z.enum(TICKET_TYPES);
 const deliveryRoleSchema = z.enum(DELIVERY_ROLES);
 const personaSchema = z.enum(PERSONAS);
@@ -54,16 +67,33 @@ export const createTicketBodySchema = z.object({
 });
 export type CreateTicketBody = z.infer<typeof createTicketBodySchema>;
 
-// ── GET /api/tickets?state=&epicId=&archived= ──────────────────────────────────────────
+// ── GET /api/tickets?state=&epicId=&archived=&mode= ────────────────────────────────────
 
-export const listTicketsQuerySchema = z.object({
-  state: ticketStateSchema.optional(),
-  epicId: z.string().min(1).max(30).optional(),
-  archived: z
-    .enum(["true", "false"])
-    .optional()
-    .transform((v) => (v === undefined ? undefined : v === "true")),
-});
+// CAM-595: `mode` is a targeted server-side read for the two surfaces that answer "what
+// needs a human decision" / "does the newest work conform" — a bounded, client-side-filtered
+// scan of the first page is a WRONG answer there, not a partial one (a gate raised on a
+// ticket past the cap must still be seen). Mutually exclusive with state/epicId (a fully
+// different where-shape — see lib/delivery/tickets.ts buildTicketWhere):
+//   "gate"  -> state=AWAITING_GATE OR changesRequested=true (everything `gates` must show)
+//   "audit" -> type=EPIC OR state!=DONE (everything `audit` must show, PLUS every epic even
+//              a long-Done one, so a story's feature/epic name still resolves for its
+//              docs/specs path)
+const listTicketsModeSchema = z.enum(["gate", "audit"]);
+
+export const listTicketsQuerySchema = z
+  .object({
+    state: ticketStateSchema.optional(),
+    epicId: z.string().min(1).max(30).optional(),
+    archived: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === "true")),
+    mode: listTicketsModeSchema.optional(),
+  })
+  .refine((v) => !(v.mode && (v.state || v.epicId)), {
+    message: "mode is mutually exclusive with state/epicId (a different targeted where-shape)",
+    path: ["mode"],
+  });
 export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;
 
 // ── PATCH /api/tickets/[id] — { action, ...params } discriminated union ────────────────

@@ -29,7 +29,7 @@ import { bumpDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
 import { hasPassedVerify } from "@/lib/delivery/verify-stage";
 import { TicketNotFoundError, TicketTransitionError } from "@/lib/delivery/errors";
-import { TICKET_ID_RE, type AgentModelTier } from "@/lib/delivery/validations";
+import { TICKET_ID_RE, TICKET_LIST_TAKE_CAP, type AgentModelTier } from "@/lib/delivery/validations";
 import { buildEventMessage, statusMapUrl, type EventCtx, type EventKind } from "@/lib/notify-messages";
 import { sendTelegram } from "@/lib/notify";
 import { fireRepositoryDispatch } from "@/lib/github-dispatch";
@@ -706,18 +706,92 @@ export interface ListTicketsFilter {
   state?: TicketState;
   epicId?: string;
   archived?: boolean;
+  /** CAM-595: a targeted server-side read for a surface that must never truncate silently —
+   *  see buildTicketWhere below + lib/delivery/validations.ts's `mode` query-param comment.
+   *  Mutually exclusive with state/epicId (enforced at the zod boundary). */
+  mode?: "gate" | "audit";
 }
 
-/** Bounded list read (take 500) — small internal dataset, but never unbounded (perf.md). */
-export async function listTickets(filter: ListTicketsFilter = {}): Promise<Ticket[]> {
+/** The where-shape for each read mode (CAM-595). `mode` bypasses state/epicId entirely —
+ *  a fully different, purpose-built filter, not a refinement of the general one. */
+function buildTicketWhere(filter: ListTicketsFilter): Prisma.TicketWhereInput {
+  const archivedAt =
+    filter.archived === true ? { not: null } : filter.archived === false ? null : undefined;
+  if (filter.mode === "gate") {
+    // Everything `gates` must show: awaiting a human decision right now, or sent back for
+    // rework. Small by construction (a handful of tickets at a time, not a slice of "all").
+    return { archivedAt, OR: [{ state: "AWAITING_GATE" }, { changesRequested: true }] };
+  }
+  if (filter.mode === "audit") {
+    // Everything `audit` must show: every non-Done work item, PLUS every epic (even one
+    // that finished long ago) so a story's feature/epic name still resolves for its
+    // docs/specs path — buildEpicIndex() in ticket-sync.mjs needs the epic row present
+    // regardless of the epic's own state.
+    return { archivedAt, OR: [{ type: "EPIC" }, { NOT: { state: "DONE" } }] };
+  }
+  return {
+    ...(filter.state ? { state: filter.state } : {}),
+    ...(filter.epicId ? { epicId: filter.epicId } : {}),
+    archivedAt,
+  };
+}
+
+/** Never let a non-essential row-count query break the primary read. The shared delivery
+ *  test double (__tests__/helpers/delivery-fake-client.ts) implements only the subset of the
+ *  Prisma API the service layer calls as of its last update and has no `count()` — feature-
+ *  detect rather than assume, so tests using that double still exercise the real listTickets
+ *  logic; a real Prisma client always has count(). A thrown error is logged (structured, no
+ *  secrets/PII) and treated the same as "unknown" — the caller falls back to a conservative
+ *  length-based heuristic rather than ever claiming `truncated:false` on a guess. */
+async function countMatching(
+  db: ReturnType<typeof getDeliveryClient>,
+  where: Prisma.TicketWhereInput
+): Promise<number | null> {
+  if (typeof db.ticket.count !== "function") return null;
+  try {
+    return await db.ticket.count({ where });
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "ticket_list_count_failed",
+        message: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return null;
+  }
+}
+
+/** A bounded ticket-list read that also carries the real truncation signal as extra own
+ *  properties on the returned array — see TicketListResult. A caller that only
+ *  destructures/iterates the array (every existing caller) is completely unaffected. */
+export type TicketListResult = Ticket[] & { readonly total: number; readonly truncated: boolean };
+
+/**
+ * Bounded list read (CAM-595). Still bounded on purpose — performance.md is right that an
+ * unbounded read is wrong — but two things changed from the original take-500/ascending read
+ * that silently dropped the newest 34+ tickets the moment the project crossed 500 unarchived
+ * rows (gates raised on that work reported as "no gates open"):
+ *   1. `orderBy: number desc`, and the cap raised to TICKET_LIST_TAKE_CAP — if the cap DOES
+ *      bite, it now drops the OLDEST rows (most likely long-settled work), never the newest
+ *      in-flight tickets / open gates. This is still a deferral, not a fix for the general
+ *      (no-`mode`) read path — see tech.md for when it next bites.
+ *   2. the returned array carries `.total` (the real matching-row count, ignoring the cap)
+ *      and `.truncated` (`total > length`) as extra own properties. `/api/tickets` projects
+ *      them into the JSON response so truncation can never read as completeness (ops.md
+ *      "no silent caps").
+ * `mode: "gate" | "audit"` sidesteps the cap's danger zone entirely for the two surfaces that
+ * must never truncate at all — see buildTicketWhere.
+ */
+export async function listTickets(filter: ListTicketsFilter = {}): Promise<TicketListResult> {
   const db = getDeliveryClient();
-  return db.ticket.findMany({
-    where: {
-      ...(filter.state ? { state: filter.state } : {}),
-      ...(filter.epicId ? { epicId: filter.epicId } : {}),
-      archivedAt: filter.archived ? { not: null } : filter.archived === false ? null : undefined,
-    },
-    orderBy: { number: "asc" },
-    take: 500,
+  const where = buildTicketWhere(filter);
+  const tickets = await db.ticket.findMany({
+    where,
+    orderBy: { number: "desc" },
+    take: TICKET_LIST_TAKE_CAP,
   });
+  const total = await countMatching(db, where);
+  const truncated = total !== null ? total > tickets.length : tickets.length >= TICKET_LIST_TAKE_CAP;
+  return Object.assign(tickets, { total: total ?? tickets.length, truncated });
 }

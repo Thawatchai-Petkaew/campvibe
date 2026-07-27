@@ -9,6 +9,7 @@ import type { Ticket, TicketState } from "@/prisma/delivery/generated/delivery-c
 import { getDeliveryClient } from "@/lib/delivery/client";
 import { readDeliveryPulse } from "@/lib/delivery/pulse";
 import { roleSlug } from "@/lib/delivery/roles";
+import { TICKET_LIST_TAKE_CAP } from "@/lib/delivery/validations";
 
 const PRIORITY = ["No priority", "Urgent", "High", "Medium", "Low"] as const;
 
@@ -89,13 +90,49 @@ export function toStatusIssue(t: TicketWithEpic): StatusIssue {
 
 async function fetchTicketsFromDbRaw(): Promise<StatusIssue[]> {
   const db = getDeliveryClient();
+  const where = { archivedAt: null };
   const tickets = await db.ticket.findMany({
-    where: { archivedAt: null },
+    where,
     include: { epic: { select: { id: true, title: true } } },
-    orderBy: { number: "asc" },
-    // Bounded read (perf.md — never unbounded); matches lib/delivery/tickets.ts's listTickets cap.
-    take: 500,
+    // CAM-595: newest-first, so IF this cap is ever hit, the board drops the OLDEST rows
+    // (long-settled work), never the newest in-flight tickets — matches the direction fix in
+    // lib/delivery/tickets.ts's listTickets. The take value is the SAME imported constant as
+    // listTickets uses (TICKET_LIST_TAKE_CAP, from lib/delivery/validations.ts) so "these two
+    // caps match" is enforced by the type system, not a comment's promise that can silently
+    // drift (CAM-595 root cause: the promise had already drifted once).
+    orderBy: { number: "desc" },
+    take: TICKET_LIST_TAKE_CAP,
   });
+  // Best-effort truncation signal for operators watching server logs. The StatusIssue[] array
+  // this function returns has no room for a sidecar flag without changing lib/linear.ts's
+  // StatusIssue type + every app/status/** consumer (out of this story's file surface — see
+  // tech.md) — so there is deliberately no on-screen indicator yet on the /status board itself,
+  // only this structured log. Feature-detected the same way lib/delivery/tickets.ts's
+  // countMatching is, for the same shared-test-double reason.
+  if (typeof db.ticket.count === "function") {
+    try {
+      const total = await db.ticket.count({ where });
+      if (total > tickets.length) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            event: "status_board_ticket_list_truncated",
+            total,
+            returned: tickets.length,
+            cap: TICKET_LIST_TAKE_CAP,
+          })
+        );
+      }
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "status_board_ticket_count_failed",
+          message: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
+  }
   return tickets.map(toStatusIssue);
 }
 

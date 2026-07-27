@@ -205,11 +205,49 @@ function apiFail(id, status, data) {
   process.exitCode = 1;
 }
 
-/** Bounded list read (GET /api/tickets — the API itself caps at 500 rows). Archived tickets
- * are hidden everywhere this client renders (board, INDEX, audit, pull) — never fetch them. */
+/** CAM-595: print an unmistakable warning the moment a read comes back truncated — a bounded
+ * read that stays silent about it reads as "you have seen everything" when it didn't
+ * (ops.md). `data.truncated`/`data.total` are new, additive /api/tickets response fields
+ * (absent on an older server = simply not printed, never a crash). */
+function warnIfTruncated(data, label) {
+  if (data && data.truncated === true) {
+    console.error(
+      `⚠ TRUNCATED (${label}): the server returned ${data.tickets.length} of ${data.total} ` +
+        `matching ticket(s) — some tickets are NOT shown below. This is NOT "everything is covered".`
+    );
+  }
+}
+
+/** Bounded list read (GET /api/tickets — the API caps at TICKET_LIST_TAKE_CAP rows, newest
+ * first — CAM-595). Archived tickets are hidden everywhere this client renders (board, INDEX,
+ * audit, pull) — never fetch them. Used by `list`/`index`/`pull`; `gates`/`audit` use their
+ * own targeted reads below instead, which never depend on outrunning this cap. */
 async function getAllTickets() {
   const { status, data } = await apiFetch("GET", "/api/tickets?archived=false");
   if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "list");
+  return data.tickets;
+}
+
+/** CAM-595: targeted read for `gates` — server-side OR filter (state=AWAITING_GATE OR
+ * changesRequested=true). This is what made "the gate board silently stops at ticket 561"
+ * possible: `gates` used to client-side-filter the SAME capped, ascending, general-purpose
+ * scan as `list`. It never scans the general ticket set at all now, so a gate raised on any
+ * ticket number can never fall outside it. */
+async function getGateTickets() {
+  const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=gate");
+  if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "gates");
+  return data.tickets;
+}
+
+/** CAM-595: targeted read for `audit` — server-side (type=EPIC OR state!=DONE), so template
+ * conformance on the newest non-Done work is never silently skipped by the general list cap,
+ * and every epic (even a long-Done one) still resolves via buildEpicIndex() below. */
+async function getActiveOrEpicTickets() {
+  const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=audit");
+  if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "audit");
   return data.tickets;
 }
 
@@ -545,10 +583,11 @@ async function cmdStage(id, args) {
  * that the assigned role should resume work on this ticket.
  */
 async function cmdGates() {
-  const all = await getAllTickets();
-  const gates = all
-    .filter((t) => t.state === "AWAITING_GATE" || t.changesRequested === true)
-    .sort(sortByIdentifier);
+  // CAM-595: server-side targeted read (mode=gate) — the filter used to be applied HERE,
+  // client-side, over the same capped/ascending general scan `list` uses, which is exactly
+  // how a gate raised above the cap went invisible ("no gates open" while the ticket really
+  // was AWAITING_GATE). This can no longer depend on outrunning the general list cap at all.
+  const gates = (await getGateTickets()).sort(sortByIdentifier);
   if (!gates.length) {
     console.log("no gates open (no ticket AWAITING_GATE or changesRequested)");
     return;
@@ -565,7 +604,12 @@ async function cmdGates() {
 }
 
 async function cmdAudit() {
-  const all = await getAllTickets();
+  // CAM-595: server-side targeted read (mode=audit) — every non-Done ticket PLUS every epic
+  // regardless of its own state (buildEpicIndex needs the epic row even when the epic itself
+  // finished long ago, to resolve a story's feature/epic name for its docs/specs path). This
+  // used to be the same capped/ascending general scan `list` uses, which is exactly how the
+  // newest work's template conformance went unverified once the project passed the cap.
+  const all = await getActiveOrEpicTickets();
   const byId = buildEpicIndex(all);
   const REQ = ["## Story", "## AC"];
   const NICE = ["## Rules", "## Edge cases", "## Data", "## Seams & refs", "## Out of scope", "## Self-verify"];
