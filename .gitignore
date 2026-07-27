@@ -93,6 +93,8 @@ next-env.d.ts
 !/scripts/build-province-centroids.mjs
 # CAM-503 — validator for the committed, curated prisma/data/landmark-gazetteer.json
 !/scripts/validate-landmark-gazetteer.mjs
+# validator for the committed, curated prisma/data/place-aliases.json (Thai place nicknames)
+!/scripts/validate-place-aliases.mjs
 # CAM demand-seeding toolkit — tracked so Stage 0/1 are reproducible + reviewable
 !/scripts/gen-mock-data.mjs
 # CAM-508 — AI Chat Capability Loop: the log-pull triage script (SORT step, /ai-chat-improve)
