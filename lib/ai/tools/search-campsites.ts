@@ -22,6 +22,12 @@ import { getRemainingCapacityForCamps } from '@/lib/campsite-availability';
 import { VALID_SORTS, orderByFor } from '@/lib/catalog-cursor';
 import { resolveRegionForSearch } from '@/lib/thai-regions';
 import { haversineDistanceKm } from '@/lib/geo/distance';
+import { matchAdminArea, listChildAdminAreaIds, type AdminAreaMatchPrisma } from '@/lib/geo/admin-area-match';
+import {
+  resolveProvinceAliasToCanonicalTh,
+  resolveRegionAliasToCanonicalPhrase,
+  resolveZoneAliasToDistrict,
+} from '@/lib/ai/place-aliases';
 import provinceCentroidsData from '@/prisma/data/province-centroids.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
 import type { ToolDefinition } from '@/lib/ai/tool-registry';
@@ -232,6 +238,26 @@ export const searchCampsitesArgsSchema = z.object({
    * never needs to know which provinces are "northern".
    */
   region: z.string().trim().min(1).max(50).optional(),
+  /**
+   * CAM-587 — a Thai อำเภอ (district) name, Thai or English, resolved
+   * server-side through the SAME shared `matchAdminArea` (lib/geo/admin-
+   * area-match.ts, CAM-566) every other AdminArea lookup in this codebase
+   * uses — never a forked matcher. Wins over `province`/`region` (BR-3,
+   * see the precedence write-up in story.md) but loses to `near`/
+   * `subDistrict` — see `subDistrict` below. An unresolvable district name
+   * never falls back to a province/keyword search (honest empty — BR-2,
+   * mirrors CAM-463 BR-4).
+   */
+  district: z.string().trim().min(1).max(100).optional(),
+  /**
+   * CAM-587 — a Thai ตำบล (sub-district) name, Thai or English — the MOST
+   * specific location arg; wins over `district`/`province`/`region` when
+   * present (still loses to `near`, a categorically different proximity
+   * intent, unchanged from before this story). Same honest-empty rule as
+   * `district`: an unresolvable sub-district name never silently widens to
+   * its district/province.
+   */
+  subDistrict: z.string().trim().min(1).max(100).optional(),
   type: z.string().trim().min(1).max(20).optional(),
   /** A specific campsite NAME for an exact-phrase text match — NOT for a general characteristic (see jsonSchema description). */
   keyword: z.string().trim().min(1).max(100).optional(),
@@ -491,11 +517,19 @@ const BANGKOK_ALIASES: Readonly<Record<string, string>> = Object.freeze({
  * 77 provinces (was ~12) and adds the Bangkok-alias normalization above — an
  * unmapped Thai word, or any lookup error, still falls back to the raw value
  * unchanged (never throws), matching the search's prior behavior.
+ *
+ * CAM-587 — `resolveProvinceAliasToCanonicalTh` (the 52-province owner-
+ * authored alias dataset, `prisma/data/place-aliases.json`) is consulted
+ * FIRST, ahead of the pre-existing `BANGKOK_ALIASES` map: it is a strict
+ * superset (Bangkok's own alias-file entry covers every `BANGKOK_ALIASES`
+ * key plus more) but `BANGKOK_ALIASES` is kept as-is, never removed, so a
+ * value neither table recognizes still falls through unchanged exactly as
+ * before this story (byte-identical for every pre-CAM-587 caller/test).
  */
 async function resolveProvinceForSearch(province: string): Promise<string> {
   if (!THAI_CHAR_PATTERN.test(province)) return province;
 
-  const normalized = BANGKOK_ALIASES[province] ?? province;
+  const normalized = resolveProvinceAliasToCanonicalTh(province) ?? BANGKOK_ALIASES[province] ?? province;
 
   try {
     const match = await prisma.adminArea.findFirst({
@@ -506,6 +540,129 @@ async function resolveProvinceForSearch(province: string): Promise<string> {
   } catch {
     return province;
   }
+}
+
+/**
+ * CAM-587 — layers the `place-aliases.json` `regionAliases` group (e.g.
+ * "ล้านนา"→NORTH, "แดนอีสาน"→NORTHEAST) on top of the existing
+ * `resolveRegionForSearch` (`lib/thai-regions.ts`, untouched — out of this
+ * story's file surface). An alias hit is translated to one of the six
+ * formal `ภาค`-prefixed phrases that resolver's own table already expands
+ * (never a duplicate province list); no alias match falls through to the
+ * original value unchanged — byte-identical to before this story for every
+ * word the alias file does not cover.
+ */
+function resolveRegionForSearchWithAlias(region: string): string | string[] {
+  const aliasCanonical = resolveRegionAliasToCanonicalPhrase(region);
+  return resolveRegionForSearch(aliasCanonical ?? region);
+}
+
+/**
+ * CAM-587 — resolves the ตำบล (sub-district) level: an exact, hierarchical
+ * match against `AdminArea` (level SUBDISTRICT) via the SAME shared
+ * `matchAdminArea` every other AdminArea lookup in this codebase uses
+ * (CAM-566, never forked). `districtParentId`, when known (the camper also
+ * named — or a zone alias also implied — a district), scopes the match so a
+ * same-named sub-district under an unrelated district can never false-match
+ * (the exact DEF-1/DEF-2 lesson `matchAdminArea`'s own tests pin). Returns
+ * `null` when unresolved — the caller's honest-empty path, never a fallback.
+ */
+async function resolveSubDistrictAdminAreaId(
+  matcherPrisma: AdminAreaMatchPrisma,
+  name: string,
+  districtParentId?: string
+): Promise<string | null> {
+  const node = await matchAdminArea(matcherPrisma, 'SUBDISTRICT', name, districtParentId);
+  return node?.id ?? null;
+}
+
+/**
+ * CAM-587 — resolves the อำเภอ (district) level. `place-aliases.json`'s
+ * `zoneAliases` group is consulted FIRST: a zone alias (e.g. "หัวหิน",
+ * "อ.หัวหิน") IS a district by the story's own framing, so it is normalized
+ * to its canonical district name and run through the exact SAME
+ * `matchAdminArea` call a plain-named district takes — never a parallel
+ * zone-specific lookup (the "one story, not two" rule in story.md). When the
+ * zone alias also names its own province and the caller did not already
+ * supply a scoping `provinceParentId`, that province is resolved too (best-
+ * effort disambiguation) — a failed province lookup here never blocks the
+ * district match itself (fail-open, matches this file's existing
+ * `resolveProvinceAdminAreaIds` catch-and-continue convention).
+ *
+ * On a match, returns the district's own id PLUS every sub-district beneath
+ * it: a camp's `Location.adminAreaId` holds the DEEPEST level actually
+ * resolved for that camp (subDistrict ?? district ?? province — the same
+ * convention `resolveProvinceAdminAreaIds`, lib/campsite-filters.ts,
+ * documents for the province case), so a district-only match that omitted
+ * its sub-district children would silently miss every camp recorded one
+ * level deeper. Returns `null` when unresolved (honest empty).
+ */
+async function resolveDistrictAdminAreaIds(
+  matcherPrisma: AdminAreaMatchPrisma,
+  name: string,
+  provinceParentId?: string
+): Promise<string[] | null> {
+  const zoneMatch = resolveZoneAliasToDistrict(name);
+  const effectiveName = zoneMatch?.districtNameTh ?? name;
+
+  let effectiveProvinceParentId = provinceParentId;
+  if (!effectiveProvinceParentId && zoneMatch) {
+    try {
+      const provinceNode = await matchAdminArea(matcherPrisma, 'PROVINCE', zoneMatch.provinceNameTh);
+      effectiveProvinceParentId = provinceNode?.id;
+    } catch (error) {
+      console.error('[CAM-587] zone-alias province scoping lookup failed (fail-open, district match unscoped)', error);
+    }
+  }
+
+  const districtNode = await matchAdminArea(matcherPrisma, 'DISTRICT', effectiveName, effectiveProvinceParentId);
+  if (!districtNode) return null;
+
+  const subDistrictIds = await listChildAdminAreaIds(matcherPrisma, 'SUBDISTRICT', districtNode.id);
+  return [districtNode.id, ...subDistrictIds];
+}
+
+/**
+ * CAM-587 BR-3 — the district/sub-district "exact-inside" family, evaluated
+ * only when at least one of `district`/`subDistrict` is present (the caller
+ * checks this before invoking). `province`, when ALSO supplied, is consulted
+ * ONLY as a scoping hint for disambiguation (resolved through the exact SAME
+ * `resolveProvinceForSearch` + `matchAdminArea` every other province lookup
+ * in this file uses) — it never becomes a competing top-level filter here,
+ * and if it fails to resolve to a real AdminArea node, the WHOLE lookup is
+ * treated as unresolved (never silently drop the camper's own scoping intent
+ * and search unscoped instead — honest failure over a possibly-wrong match).
+ *
+ * `subDistrict`, when present, wins outright over `district`: the district
+ * arg (if also given) is used ONLY to scope the sub-district match, never as
+ * an additional/wider filter of its own. See story.md's precedence write-up
+ * for the full ladder (`near` > `subDistrict` > `district` > `province` >
+ * `region`).
+ */
+async function resolveExactInsideAdminAreaIds(
+  matcherPrisma: AdminAreaMatchPrisma,
+  args: Pick<SearchCampsitesArgs, 'district' | 'subDistrict' | 'province'>
+): Promise<string[] | null> {
+  let provinceParentId: string | undefined;
+  if (args.province !== undefined) {
+    const resolvedProvinceName = await resolveProvinceForSearch(args.province);
+    const provinceNode = await matchAdminArea(matcherPrisma, 'PROVINCE', resolvedProvinceName);
+    if (!provinceNode) return null; // named province used for scoping could not itself be resolved — honest empty
+    provinceParentId = provinceNode.id;
+  }
+
+  if (args.subDistrict !== undefined) {
+    let districtParentId: string | undefined;
+    if (args.district !== undefined) {
+      const districtIds = await resolveDistrictAdminAreaIds(matcherPrisma, args.district, provinceParentId);
+      if (!districtIds) return null; // named district used for scoping could not itself be resolved
+      districtParentId = districtIds[0]; // the district's own id — see resolveDistrictAdminAreaIds's return shape
+    }
+    const subDistrictId = await resolveSubDistrictAdminAreaId(matcherPrisma, args.subDistrict, districtParentId);
+    return subDistrictId ? [subDistrictId] : null;
+  }
+
+  return resolveDistrictAdminAreaIds(matcherPrisma, args.district!, provinceParentId);
 }
 
 const jsonSchema = {
@@ -527,7 +684,20 @@ const jsonSchema = {
       type: 'string',
       description:
         'Province name (Thai or English) for a PROXIMITY search — use this instead of `province` when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ลานกางเต็นท์ใกล้กรุงเทพ", "แคมป์แถวโคราช", "รอบๆเชียงใหม่", "ย่าน/บริเวณ" + a province). Returns camps around that province (including camps in it), sorted nearest-first. Do NOT set `province` at the same time for the same place — use `near` alone. Use `province` instead when the camper says "ใน X" (exactly inside X) or just names a province with no proximity word. ' +
-        'ALSO accepts a well-known landmark/area name (a national park, mountain, or popular camping region that spans multiple provinces, e.g. "เขาใหญ่", "ปาย", "เขาค้อ", "ดอยอินทนนท์") — no proximity word is needed for a landmark, its name alone means "camps around here" (e.g. "ลานกางเต็นท์เขาใหญ่" -> near="เขาใหญ่"). Never set `province` for a landmark that spans multiple provinces. If the camper names a landmark you do not recognize, do not set `near` for it — use `keyword` instead.',
+        'ALSO accepts a well-known landmark/area name (a national park, mountain, or popular camping region that spans multiple provinces, e.g. "เขาใหญ่", "ปาย", "เขาค้อ", "ดอยอินทนนท์") — no proximity word is needed for a landmark, its name alone means "camps around here" (e.g. "ลานกางเต็นท์เขาใหญ่" -> near="เขาใหญ่"). Never set `province` for a landmark that spans multiple provinces. If the camper names a landmark you do not recognize, do not set `near` for it — use `keyword` instead. ' +
+        'Do NOT use `near` for a district/town/sub-district name (e.g. "หัวหิน", "หาดใหญ่") — use `district` below instead, which resolves it exactly rather than as a fuzzy proximity guess.',
+    },
+    district: {
+      type: 'string',
+      description:
+        'A Thai อำเภอ (district) or well-known town/zone name (Thai or English), e.g. "หัวหิน", "อ.หัวหิน", "ปากช่อง", "หาดใหญ่" — resolved exactly against the real administrative-area data (including common colloquial/abbreviation forms for a district). ' +
+        'Use this (not `near`, not `province`) when the camper names a specific district/town rather than a whole province or a proximity ask. Combine with `province` ONLY to disambiguate a district name that exists in more than one province — never invent a province the camper did not name. ' +
+        'If the camper names a district/town you do not recognize, do NOT guess — leave this unset and use `keyword` instead; setting it to a value that fails to resolve returns zero results.',
+    },
+    subDistrict: {
+      type: 'string',
+      description:
+        'A Thai ตำบล (sub-district) name (Thai or English) — the MOST specific place filter, for when the camper names a sub-district explicitly (rare in casual chat, but exact when given). Optionally combine with `district`/`province` to disambiguate a sub-district name that repeats across districts. Only set this when the camper actually named a sub-district — a value that fails to resolve returns zero results rather than falling back to `district`/`province`.',
     },
     type: {
       type: 'string',
@@ -636,6 +806,11 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
   // filter (EC-2 — no centroid for that province).
   let provinceFilter: string | string[] | undefined;
   let nearCentroid: { lat: number; lng: number } | undefined;
+  // CAM-587 — the district/sub-district resolved id-set (ANDed onto `where`
+  // below, alongside `provinceFilter`) and the honest-empty flag it sets
+  // when a named place could not be resolved — see the branch below.
+  let adminAreaLocationFilter: string[] | undefined;
+  let unresolvedNamedPlace = false;
   // CAM-503 (P3) BR-3 — the effective search radius for the geo path below;
   // defaults to the province-proximity radius (MAX_NEAR_KM) and is
   // overridden to the landmark's own curated `radiusKm` only on the
@@ -668,10 +843,27 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
         provinceFilter = resolvedNear;
       }
     }
+  } else if (args.district !== undefined || args.subDistrict !== undefined) {
+    // CAM-587 BR-3 — the district/sub-district "exact-inside" family: wins
+    // over a bare `province`/`region` (a named administrative unit is more
+    // specific than either), still loses to `near` above (unchanged). See
+    // resolveExactInsideAdminAreaIds's own docblock + story.md for the full
+    // precedence write-up.
+    const ids = await resolveExactInsideAdminAreaIds(prisma, args);
+    if (ids) {
+      adminAreaLocationFilter = ids;
+    } else {
+      // CAM-587 — THE part that matters most: a named district/sub-district
+      // (or the province supplied to scope it) that cannot be resolved
+      // returns ZERO rows honestly — never a silent fallback to a bare
+      // province/keyword search that "looks right" but answers a different
+      // question (mirrors CAM-463 BR-4's unrecognized-region contract).
+      unresolvedNamedPlace = true;
+    }
   } else if (args.province !== undefined) {
     provinceFilter = await resolveProvinceForSearch(args.province);
   } else if (args.region !== undefined) {
-    provinceFilter = resolveRegionForSearch(args.region);
+    provinceFilter = resolveRegionForSearchWithAlias(args.region);
   }
 
   // CAM-461 BR-1/EC-1 — bound the model-controlled excludeIds array BEFORE
@@ -723,12 +915,30 @@ export async function executeSearchCampsites(args: SearchCampsitesArgs): Promise
     excludeIds,
   });
 
+  // CAM-587 — the district/sub-district resolved id-set is ANDed onto
+  // `buildCampSiteWhere`'s own output (an EXTENSION, never a forked where-
+  // builder — mirrors exactly how the near-path's bbox clause below is
+  // appended). Only ever set when `resolveExactInsideAdminAreaIds` above
+  // actually resolved a place — never when `unresolvedNamedPlace` is true
+  // (that path returns zero rows directly, further down, without a query).
+  if (adminAreaLocationFilter) {
+    const andArray = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
+    andArray.push({ location: { adminAreaId: { in: adminAreaLocationFilter } } });
+    where.AND = andArray;
+  }
+
   // BR-2: hard cap, never overridden by a larger model-supplied count.
   const take = Math.min(args.limit ?? SEARCH_CAMPSITES_MAX_RESULTS, SEARCH_CAMPSITES_MAX_RESULTS);
 
   let cards: AiCampCard[];
 
-  if (nearCentroid) {
+  if (unresolvedNamedPlace) {
+    // CAM-587 — honest empty: a named district/sub-district (or the
+    // province given to scope it) that could not be resolved returns ZERO
+    // rows without ever running the query — never a silent fallback to a
+    // broader province/keyword search (see the branch above + story.md).
+    cards = [];
+  } else if (nearCentroid) {
     // CAM-502 (P2) BR-2 geo path — ADR-009: `where` here is `buildCampSiteWhere`'s
     // OWN output with a bbox AND-clause appended (an EXTENSION, never a
     // forked where-builder), so terrain/access/activities/facilities/etc.
@@ -831,6 +1041,7 @@ export const searchCampsitesTool: ToolDefinition<SearchCampsitesArgs, SearchCamp
     'Pass `equipment` when the camper needs rental gear — a beginner with no equipment of their own ("มือใหม่", "ไม่มีอุปกรณ์", "มาตัวเปล่า") or anyone asking what a camp rents out. An array means the camp must offer ALL listed items (AND, not OR like the other taxonomy filters). ' +
     'Pass `region` (not `province`) when the camper asks by ภาค — "ภาคเหนือ"/"อีสาน"/"ภาคใต้" — rather than a single province; it expands to every province in that region server-side. ' +
     'Pass `near` (not `province`) when the camper asks for camps NEAR/AROUND a province rather than strictly inside it (e.g. "ใกล้กรุงเทพ", "แถวโคราช") — results are centered on that province and sorted nearest-first, including camps inside it; capped to a realistic radius. `near` also accepts a well-known landmark/area name that spans multiple provinces (e.g. "เขาใหญ่", "ปาย") — no proximity word needed for those, and never set `province` for one. ' +
+    'Pass `district` (and `subDistrict` when the camper is that specific) when the camper names an อำเภอ/district or a well-known town/zone (e.g. "หัวหิน", "ปากช่อง", "หาดใหญ่") — these resolve exactly against real administrative-area data, including common Thai colloquial/abbreviation forms for provinces, regions, and districts (e.g. "กทม"→Bangkok, "โคราช"→Nakhon Ratchasima, "หัวหิน" resolves as a district). `district`/`subDistrict` win over a bare `province`/`region` when set; never guess one — an unresolved district/sub-district name returns zero results rather than a wrong-looking match. ' +
     'Pass `sort` when the camper asks for an order (cheapest/most-expensive/best-rated first) — `sort` is ignored when `near` is set, since a proximity search is always ordered by distance. ' +
     'When the camper asks for MORE, OTHER, or DIFFERENT camps than what was already shown this conversation (e.g. "ขออีก", "ไม่เอาที่แสดงไปแล้ว", "มีที่อื่นอีกไหม") — re-call this tool with the SAME filters plus `excludeIds` set to the campSiteIds listed in <shown_results>, so the search returns camps not already shown.',
   // CAM-417 (ADR-013 D5) — offered to every caller, session or not.
