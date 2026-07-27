@@ -23,17 +23,28 @@ const btnBlock = navbarSrc.slice(
 );
 
 describe("AC-1 — mobile padding around the avatar is symmetric (BR-1)", () => {
-  it("[unit] the button's base (mobile) padding is px-1.5 (6px each side), not the old asymmetric p-1 pl-3", () => {
+  // CAM-592 re-anchored this assertion. It originally pinned `px-1.5` — the
+  // 6px padding CAM-590 COMPUTED to reach a symmetric box. CAM-592 replaced
+  // that method with a scale-sized 44x44 square (`h-11 w-11`) + centred
+  // content, so mobile symmetry is now structural and no horizontal padding
+  // exists to pin. The test's job is unchanged (mobile is symmetric); only
+  // the canonical mechanism it reads moved, so it is re-anchored, not
+  // weakened — the box assertion is stricter than the padding one it
+  // replaces. Full box geometry lives in __tests__/cam-592-*.
+  it("[unit] the button's mobile geometry is symmetric by construction — a centred square, with no bare horizontal padding", () => {
     const buttonClassMatch = btnBlock.match(/<button className="([^"]*)"/);
     expect(buttonClassMatch).not.toBeNull();
     const className = buttonClassMatch![1];
-    expect(className).toContain("px-1.5");
+    expect(className).toContain("justify-center");
+    expect(className).toMatch(/\bh-11\b/);
+    expect(className).toMatch(/\bw-11\b/);
     expect(className).toContain("py-1");
-    // The old bare (non-md:) asymmetric pair must be gone — a bare `pl-3`
-    // or `pr-1` outside an `md:` prefix would reintroduce the mobile
-    // asymmetry this story fixes.
+    // No bare (non-`md:`) horizontal padding of ANY kind may size this box —
+    // symmetric or not. A bare `pl-3`/`pr-1` would reintroduce CAM-590's
+    // asymmetry; a bare `px-*` would reintroduce CAM-592's computed padding.
     expect(className).not.toMatch(/(?<!md:)\bpl-3\b/);
     expect(className).not.toMatch(/(?<!md:)\bpr-1\b/);
+    expect(className).not.toMatch(/(?<!md:)\bpx-[\d.]+\b/);
     expect(className).not.toContain("p-1 pl-3");
   });
 
