@@ -21,16 +21,19 @@
  * script imports it directly instead of keeping its own copy.
  *
  * `app/api/geocode/_shared.ts::callGoogleGeocode` (CAM-554, the TS-route
- * caller) is DELIBERATELY NOT consolidated onto this module — see tech.md
- * "Why `_shared.ts::callGoogleGeocode` stays a separate, documented
- * exception" for the two independent reasons (a runtime-import boundary,
- * and `__tests__/cam-554-geocode-routes.test.ts` source-inspecting that
- * exact file for the key-safety invariant, which this dispatch was told to
- * leave unedited). This module's OWN key-safety discipline is identical:
- * the key is read from `process.env.GOOGLE_GEOCODING_API_KEY` only, is
- * never returned, and the outgoing URL (which carries the key) is never
- * logged — only a status code / Google `status` string / caught error
- * message.
+ * caller) was the one remaining duplicate CAM-572 left unconsolidated — a
+ * source-inspection test (`__tests__/cam-554-geocode-routes.test.ts`) pinned
+ * that exact file's own text for the key-safety invariant, so moving the
+ * code there would have gone red with zero behaviour change. CAM-585
+ * rewrote those 2 assertions to pin the invariant behaviourally instead
+ * (key never in a client component; key/URL never logged, proven by
+ * actually exercising every failure branch) and finished the move: `_shared.
+ * ts::callGoogleGeocode` is now a thin translation on top of
+ * `callGoogleGeocodeCore` below, same pattern as the two backfill scripts.
+ * This module's OWN key-safety discipline is unchanged: the key is read
+ * from `process.env.GOOGLE_GEOCODING_API_KEY` only, is never returned, and
+ * the outgoing URL (which carries the key) is never logged — only a status
+ * code / Google `status` string / caught error message.
  *
  * No `@/`-aliased import (mirrors `lib/geo/admin-area-match.ts`, CAM-566) so
  * a plain `.mjs` script can import this file directly via Node's native

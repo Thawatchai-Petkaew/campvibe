@@ -1,5 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
+import { config as loadDotenv } from "dotenv";
+
+// CAM-578 — auto-load the regression harness's local-only env so a
+// developer doesn't have to manually `source .env.e2e` before every run.
+// A no-op when the file is absent (most invocations — e.g. the `chromium`
+// visual-a11y project never has one) and dotenv never overrides a var
+// already set in the parent shell/CI job, so this cannot fight the
+// `e2e-regression` CI job's own hardcoded env (.github/workflows/ci.yml).
+loadDotenv({ path: ".env.e2e" });
 
 /**
  * CAM-230 B4 — Playwright config for visual-regression + axe a11y tests.

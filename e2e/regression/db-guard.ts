@@ -61,8 +61,10 @@ export function assertLocalDatabase(databaseUrl: string | undefined): void {
         "✗ e2e-regression: DATABASE_URL is not set.",
         "  This suite creates/deletes REAL rows and must run against a LOCAL",
         "  Postgres only — never a shared/staging/production database.",
-        "  Fix: point DATABASE_URL at a local Postgres, e.g.",
-        '    DATABASE_URL="postgresql://<user>@localhost:5432/campvibe?schema=public"',
+        "  Fix: point DATABASE_URL at a local Postgres, e.g. (CAM-578: a",
+        "  DEDICATED e2e database, never the one your own `npm run dev` uses)",
+        '    DATABASE_URL="postgresql://<user>@localhost:5432/campvibe_e2e?schema=public"',
+        "  See .env.e2e.example + npm run e2e:db:setup.",
         "",
       ].join("\n")
     );
@@ -89,8 +91,10 @@ export function assertLocalDatabase(databaseUrl: string | undefined): void {
         `  Offending host: ${describeUrlShape(databaseUrl)}`,
         "  This suite creates/deletes REAL rows and must NEVER run against a",
         "  shared/staging/production database.",
-        "  Fix: point DATABASE_URL at a local Postgres, e.g.",
-        '    DATABASE_URL="postgresql://<user>@localhost:5432/campvibe?schema=public"',
+        "  Fix: point DATABASE_URL at a local Postgres, e.g. (CAM-578: a",
+        "  DEDICATED e2e database, never the one your own `npm run dev` uses)",
+        '    DATABASE_URL="postgresql://<user>@localhost:5432/campvibe_e2e?schema=public"',
+        "  See .env.e2e.example + npm run e2e:db:setup.",
         "",
       ].join("\n")
     );

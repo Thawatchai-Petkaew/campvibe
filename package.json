@@ -16,6 +16,7 @@
     "ai:pull-turns": "node scripts/ai-triage/pull-turns.mjs",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:regression": "playwright test --project=regression",
+    "e2e:db:setup": "tsx scripts/setup-e2e-db.ts",
     "status:linear": "node scripts/ticket-sync.mjs list",
     "status:gates": "node scripts/ticket-sync.mjs gates",
     "status:pull": "node scripts/ticket-sync.mjs pull",
