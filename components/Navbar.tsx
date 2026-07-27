@@ -229,10 +229,26 @@ export function Navbar() {
                                     rather than squeeze" call the owner already made for
                                     the language switcher (CAM-549); it reappears
                                     unchanged at `md:` and above, so desktop is untouched.
+
+                                    CAM-590: the box above left `p-1 pl-3` applying at
+                                    EVERY viewport, not just where the hamburger rendered.
+                                    Below `md` the hamburger is gone (CAM-558) but its
+                                    12px-left/4px-right asymmetry stayed, so the avatar sat
+                                    visibly off-centre. Decoupled by breakpoint instead of
+                                    picking one compromise value for both: mobile now uses
+                                    symmetric `px-1.5` (6px each side — the avatar centres,
+                                    and the button narrows further, 46px vs the previous
+                                    50px, so the 320px overflow this same button caused in
+                                    CAM-549/558 stays closed, not reopened); `md:pl-3
+                                    md:pr-1` restores the EXACT original desktop padding
+                                    (12px left / 4px right) byte-for-byte, so the
+                                    hamburger + avatar row is untouched at `md:` and above.
+                                    `py-1` is unchanged at every width (vertical fit against
+                                    h-11 was never the problem).
                                 */}
-                                <button className="flex items-center gap-2 h-11 border border-border rounded-full p-1 pl-3 hover:shadow-md transition cursor-pointer relative bg-card">
+                                <button className="flex items-center gap-2 h-11 border border-border rounded-full py-1 px-1.5 md:pl-3 md:pr-1 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="hidden md:block w-5 h-5 text-muted-foreground" />
-                                    <div className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
+                                    <div data-testid="section--navbar-account-avatar" className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
                                         {(navUser?.image && !imageError) ? (
                                             <img
                                                 src={navUser.image}
