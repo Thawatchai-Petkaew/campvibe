@@ -11,9 +11,12 @@
  *                   predicate; a province with none is never offered.
  *   AC-1 (boundary) duplicate provinces across camps dedupe to one entry;
  *                   result is sorted; a null Location.province is excluded.
- *   AC-2 (unit)     value-fidelity round-trip — a returned province value,
- *                   fed into buildCampSiteWhere({ province }), targets the
- *                   exact same string (BR-2 — the mismatch guard).
+ *   AC-2 (unit)     value-fidelity round-trip — a returned province option's
+ *                   `nameEn`, fed into buildCampSiteWhere({ province }),
+ *                   targets the exact same string (BR-2 — the mismatch
+ *                   guard; shape updated by CAM-589, which added bilingual
+ *                   labels — see cam-589-province-filter-labels.test.ts for
+ *                   the new Thai-label/sort coverage).
  *   error/validation getSearchProvinces() surfaces {status:'error'} (never
  *                   throws to the caller) when the DB read fails.
  *   BR-1 (structural) getSearchProvinces reuses buildCampSiteWhere({})
@@ -28,11 +31,15 @@ import path from "path";
 import { buildCampSiteWhere } from "@/lib/campsite-filters";
 
 const mockFindMany = vi.fn();
+const mockAdminAreaFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     campSite: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
+    },
+    adminArea: {
+      findMany: (...args: unknown[]) => mockAdminAreaFindMany(...args),
     },
   },
 }));
@@ -43,8 +50,19 @@ function campWithProvince(province: string | null) {
   return { location: { province } };
 }
 
+/** Extracts the `nameEn` (the submitted value) list from a provinces result, in order. */
+function nameEns(provinces: { nameEn: string }[]): string[] {
+  return provinces.map((p) => p.nameEn);
+}
+
 beforeEach(() => {
   mockFindMany.mockReset();
+  // CAM-589 — default: no AdminArea match for any raw province string, so
+  // every pre-existing test in this file (written before CAM-589) keeps
+  // exercising the same code path it always did; nameTh simply falls back
+  // to nameEn (asserted structurally, not by value, in this file).
+  mockAdminAreaFindMany.mockReset();
+  mockAdminAreaFindMany.mockResolvedValue([]);
 });
 
 describe("AC-1 — getSearchProvinces() offers only provinces that have a matching camp", () => {
@@ -62,9 +80,10 @@ describe("AC-1 — getSearchProvinces() offers only provinces that have a matchi
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("unreachable");
-    expect(result.provinces).toContain("Chiang Mai");
-    expect(result.provinces).toContain("Krabi");
-    expect(result.provinces).not.toContain("Bangkok");
+    const values = nameEns(result.provinces);
+    expect(values).toContain("Chiang Mai");
+    expect(values).toContain("Krabi");
+    expect(values).not.toContain("Bangkok");
   });
 
   it("[structural] queries with buildCampSiteWhere({}) unmodified — the exact catalog visibility predicate (BR-1)", async () => {
@@ -87,7 +106,7 @@ describe("AC-1 — getSearchProvinces() offers only provinces that have a matchi
     const result = await getSearchProvinces();
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("unreachable");
-    expect(result.provinces).toEqual(["Chiang Mai", "Phuket"]);
+    expect(nameEns(result.provinces)).toEqual(["Chiang Mai", "Phuket"]);
   });
 
   it("[null/empty] a camp with a null Location.province is excluded, never an empty option", async () => {
@@ -99,9 +118,9 @@ describe("AC-1 — getSearchProvinces() offers only provinces that have a matchi
     const result = await getSearchProvinces();
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("unreachable");
-    expect(result.provinces).toEqual(["Krabi"]);
-    expect(result.provinces).not.toContain(null);
-    expect(result.provinces).not.toContain("");
+    expect(nameEns(result.provinces)).toEqual(["Krabi"]);
+    expect(result.provinces).not.toContainEqual(expect.objectContaining({ nameEn: null }));
+    expect(result.provinces).not.toContainEqual(expect.objectContaining({ nameEn: "" }));
   });
 
   it("[null/empty] zero matching camps anywhere returns an empty array (EC-1 empty state), not an error", async () => {
@@ -119,12 +138,13 @@ describe("AC-2 / BR-2 — value fidelity: the returned province round-trips thro
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("unreachable");
 
-    const [value] = result.provinces;
-    const where = buildCampSiteWhere({ province: value });
-    // The exact mismatch guard: the dropdown's option VALUE must be the same
-    // byte-identical string the catalog's equality filter matches against.
-    expect(where.location).toEqual({ province: value });
-    expect(value).toBe("Nakhon Ratchasima");
+    const [option] = result.provinces;
+    const where = buildCampSiteWhere({ province: option.nameEn });
+    // The exact mismatch guard: the dropdown's SUBMITTED value (nameEn) must
+    // be the same byte-identical string the catalog's equality filter
+    // matches against — CAM-589 kept this unchanged (see BR-2).
+    expect(where.location).toEqual({ province: option.nameEn });
+    expect(option.nameEn).toBe("Nakhon Ratchasima");
   });
 });
 
@@ -152,7 +172,13 @@ describe("(c) the old 7-item hardcoded stub is retired", () => {
 
   it("[structural] SearchModal.tsx sources its province list from getSearchProvinces()", () => {
     const modalSrc = readFileSync(path.join(root, "components/SearchModal.tsx"), "utf-8");
-    expect(modalSrc).toContain('import { getSearchProvinces } from "@/app/actions/getSearchLocations"');
+    // CAM-589 widened the import to also bring in the `SearchProvinceOption`
+    // type (bilingual labels) — assert the two load-bearing facts (imported
+    // from the right module + actually called) rather than the exact
+    // import-statement text, so a type-only import addition doesn't break
+    // this guard.
+    expect(modalSrc).toContain("getSearchProvinces");
+    expect(modalSrc).toContain('from "@/app/actions/getSearchLocations"');
     expect(modalSrc).toContain("getSearchProvinces()");
   });
 });
