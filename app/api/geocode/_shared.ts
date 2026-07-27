@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import type { GeocodeReverseResult } from '@/lib/validations/location';
 import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/geo/admin-area-match';
+import { extractComponent, type GoogleAddressComponent } from '@/lib/geo/google-geocode';
 
 /**
  * CAM-554 — shared server-side geocoding helpers, used by BOTH
@@ -31,16 +32,24 @@ import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/ge
  * derives `province`/`district` from the matched `AdminArea` node itself
  * (see that function's doc comment below). The table and model are dropped
  * entirely by this story - see its tech.md.
+ *
+ * CAM-572 — `extractComponent` (pure address-component extraction) now
+ * lives in `lib/geo/google-geocode.ts`, re-exported here unchanged (same
+ * pattern as `normalizeAdminName` above) — it was byte-identically
+ * duplicated in `scripts/backfill-cam-562-subdistrict-geocode.mjs`, which
+ * now imports the shared copy instead. `callGoogleGeocode` below is
+ * DELIBERATELY left as its own implementation, NOT moved to `lib/geo/` —
+ * see this story's tech.md ("Why `_shared.ts::callGoogleGeocode` stays a
+ * separate, documented exception") for the two reasons: a runtime-import
+ * boundary (this file imports `@/lib/prisma`, so a plain `.mjs` script can
+ * never import it directly) and `__tests__/cam-554-geocode-routes.test.ts`
+ * source-inspecting THIS file's own text for the key-safety invariant,
+ * which this dispatch was told to leave unedited.
  */
 export { normalizeAdminName };
+export { extractComponent };
 
 const GOOGLE_GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
-
-export interface GoogleAddressComponent {
-    long_name: string;
-    short_name: string;
-    types: string[];
-}
 
 interface GoogleGeocodeResponse {
     status: string;
@@ -87,15 +96,6 @@ export async function callGoogleGeocode(
         console.error('[geocode] Google Geocoding API request failed', err instanceof Error ? err.message : 'unknown error');
         return null;
     }
-}
-
-/** Returns the first address component's `long_name` matching any of `types`, in priority order. */
-export function extractComponent(components: GoogleAddressComponent[], types: string[]): string | null {
-    for (const type of types) {
-        const found = components.find((c) => c.types.includes(type));
-        if (found) return found.long_name;
-    }
-    return null;
 }
 
 /**
