@@ -287,6 +287,22 @@
  *     file for that symptom — it was already fixed.
  *  3. Glow: see `AiChatAvatar.tsx` (the aura ring token, out of this file's
  *     surface).
+ *
+ * CAM-591 (owner instruction 2026-07-27): the CAM-429 `expanded` fallback,
+ * for when nothing is in `sessionStorage` yet, changes from the anchored
+ * panel to full screen — a brand-new camper's FIRST open of น้องกองไฟ now
+ * meets the immersive view, not the corner card. `readExpandedFromStorage`
+ * already distinguished "read the stored choice" from "nothing stored" (the
+ * mechanism CAM-429 built); only the "nothing stored" branch's return value
+ * changes, from `false` to `true`. The load-bearing distinction this rests
+ * on: `sessionStorage.getItem` returns the JS value `null` ONLY for a key
+ * that was never written — an explicit `"0"` (a camper who pressed
+ * collapse) is a DIFFERENT value from `null` and is checked FIRST, before
+ * the new default applies, so a returning camper's deliberate collapse is
+ * never overridden. This is desktop-only in effect: mobile (`max-sm:`)
+ * already ignores `expanded` entirely and is always full screen per CAM-550,
+ * untouched here. No new `sessionStorage` write is introduced — the first
+ * full-screen open persists nothing on its own, exactly as before.
  */
 "use client";
 
@@ -323,9 +339,19 @@ interface AiChatPanelProps {
 // just falls back to in-memory-only for the current open, per EC-1.
 const EXPANDED_STORAGE_KEY = "ai-chat-expanded";
 
+// CAM-591 (BR-1/BR-2): `getItem` returns the JS value `null` ONLY when the
+// key was never written at all — a brand-new tab, this camper's first-ever
+// open. That is a DIFFERENT value from the explicit string `"0"` a camper
+// leaves behind by pressing collapse (writeExpandedToStorage below). The
+// `null` check runs FIRST and short-circuits to the new full-screen default;
+// an explicit `"0"` never reaches it, so a returning camper's deliberate
+// collapse is never re-forced open. `"1"` (explicit expand) still returns
+// `true` via the same `=== "1"` comparison as before CAM-591 — only the
+// never-set branch's answer changed.
 function readExpandedFromStorage(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   try {
+    if (window.sessionStorage.getItem(EXPANDED_STORAGE_KEY) === null) return true;
     return window.sessionStorage.getItem(EXPANDED_STORAGE_KEY) === "1";
   } catch {
     return false;
