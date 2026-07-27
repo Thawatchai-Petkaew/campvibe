@@ -16,6 +16,13 @@
  *   AC-3 320px logged-in horizontal overflow stays closed
  *   AC-4 desktop (hamburger + avatar) is visually unchanged
  *   EC-2 the above re-hold at a realistic 150% root font-size
+ *
+ * CAM-592 amended the pinned numbers (never loosened them): below `md` the
+ * trigger stopped being a content-plus-padding sum and became a box sized
+ * from the scale (`h-11 w-11`), so the mobile width/height assertions moved
+ * from `>= 44` to EXACTLY 44, and the 150% case gained a squareness check.
+ * Desktop was re-measured as byte-for-byte identical (78x44 @100%,
+ * 116x66 @150%) and its assertions are untouched.
  */
 import { test, expect, type Page } from "@playwright/test";
 import translations from "../../locales/translations.json";
@@ -25,6 +32,18 @@ const DESKTOP = { width: 1280, height: 900 };
 const NARROW_320 = { width: 320, height: 640 };
 const TOUCH_FLOOR = 44;
 const MAX_GAP_DIFF = 1; // px
+
+// CAM-592 — below `md` the trigger is no longer a content-plus-padding sum
+// (46px) but a box sized straight from the scale: `h-11 w-11` = exactly the
+// 44px touch floor, with the 32px avatar centred. So the mobile assertions
+// PIN the box rather than testing `>= 44`: an exact square is the only shape
+// that proves the size came from the scale instead of from arithmetic, and a
+// future computed padding would land off 44 and fail here.
+// Measured on this branch (logged in): 320px and 390px @100% → 44x44,
+// gaps 6/6 (was 46x44, gaps 7/7). @150% root font-size → 66x66, gaps 9/9
+// (was 68x66, gaps 10/10) — still square, still >= the floor, 2px narrower.
+const MOBILE_BOX = 44; // px, at default text scale
+const MAX_SQUARE_DIFF = 1; // px, width vs height at any text scale
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -59,8 +78,9 @@ test.describe("AC-1/AC-2 — the avatar centres in the button, which still clear
       Math.abs(leftGap - rightGap),
       `left gap=${leftGap}px vs right gap=${rightGap}px at 390px`
     ).toBeLessThanOrEqual(MAX_GAP_DIFF);
-    expect(buttonBox.width, `button width=${buttonBox.width}px at 390px`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
-    expect(buttonBox.height, `button height=${buttonBox.height}px at 390px`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
+    // CAM-592: pinned to the exact box, not `>= 44` — see MOBILE_BOX above.
+    expect(buttonBox.width, `button width=${buttonBox.width}px at 390px`).toBe(MOBILE_BOX);
+    expect(buttonBox.height, `button height=${buttonBox.height}px at 390px`).toBe(MOBILE_BOX);
   });
 });
 
@@ -75,8 +95,9 @@ test.describe("AC-1/AC-2/AC-3 — same checks at 320px, plus the horizontal-over
       Math.abs(leftGap - rightGap),
       `left gap=${leftGap}px vs right gap=${rightGap}px at 320px`
     ).toBeLessThanOrEqual(MAX_GAP_DIFF);
-    expect(buttonBox.width, `button width=${buttonBox.width}px at 320px`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
-    expect(buttonBox.height, `button height=${buttonBox.height}px at 320px`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
+    // CAM-592: pinned to the exact box, not `>= 44` — see MOBILE_BOX above.
+    expect(buttonBox.width, `button width=${buttonBox.width}px at 320px`).toBe(MOBILE_BOX);
+    expect(buttonBox.height, `button height=${buttonBox.height}px at 320px`).toBe(MOBILE_BOX);
 
     const metrics = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -124,5 +145,15 @@ test.describe("EC-2 — the centring + floor still hold at a realistic 150% text
     ).toBeLessThanOrEqual(MAX_GAP_DIFF);
     expect(buttonBox.width, `button width=${buttonBox.width}px @150% text scale`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
     expect(buttonBox.height, `button height=${buttonBox.height}px @150% text scale`).toBeGreaterThanOrEqual(TOUCH_FLOOR);
+    // CAM-592: the box is scale-sized (`h-11 w-11`, both rem), so it stays
+    // SQUARE as the root font-size grows — measured 66x66 at 150%. A width
+    // rebuilt from a computed padding would drift off square here even
+    // though it looked correct at 100%, which is the CAM-560 failure shape
+    // CAM-565's 150% contract exists to catch. Squareness (not a pinned 66)
+    // is asserted so the check survives platform font-metric differences.
+    expect(
+      Math.abs(buttonBox.width - buttonBox.height),
+      `button ${buttonBox.width}x${buttonBox.height}px @150% text scale is not square`
+    ).toBeLessThanOrEqual(MAX_SQUARE_DIFF);
   });
 });

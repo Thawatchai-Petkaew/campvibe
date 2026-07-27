@@ -234,19 +234,32 @@ export function Navbar() {
                                     EVERY viewport, not just where the hamburger rendered.
                                     Below `md` the hamburger is gone (CAM-558) but its
                                     12px-left/4px-right asymmetry stayed, so the avatar sat
-                                    visibly off-centre. Decoupled by breakpoint instead of
-                                    picking one compromise value for both: mobile now uses
-                                    symmetric `px-1.5` (6px each side — the avatar centres,
-                                    and the button narrows further, 46px vs the previous
-                                    50px, so the 320px overflow this same button caused in
-                                    CAM-549/558 stays closed, not reopened); `md:pl-3
-                                    md:pr-1` restores the EXACT original desktop padding
-                                    (12px left / 4px right) byte-for-byte, so the
-                                    hamburger + avatar row is untouched at `md:` and above.
-                                    `py-1` is unchanged at every width (vertical fit against
-                                    h-11 was never the problem).
+                                    visibly off-centre. It decoupled the two breakpoints —
+                                    the right call — but reached symmetry by COMPUTING a
+                                    mobile padding (`px-1.5`, 6px) to land a target width.
+
+                                    CAM-592: that method, not that number, was the defect.
+                                    6px is a half-step off the 4px rhythm every table in
+                                    DESIGN.md §2.0 runs on, and 6+32+6+2px border made the
+                                    box 46px — a width nobody chose, just what the sum
+                                    happened to produce. Below `md` this trigger is now
+                                    sized FROM the scale instead: `h-11 w-11` is a 44x44
+                                    square (exactly the touch floor, and the same token the
+                                    wishlist link on this very row already uses) with the
+                                    32px avatar centred by `justify-center`. No horizontal
+                                    padding participates in its width, so there is no
+                                    arithmetic left to drift; the ~6px each side is a
+                                    CENTRING RESULT, not a value. The box also got 2px
+                                    narrower (46 -> 44), which widens rather than narrows the
+                                    320px margin CAM-549/558 closed. `md:w-auto` +
+                                    `md:justify-start` hand the desktop row straight back to
+                                    `gap-2` + `md:pl-3 md:pr-1` (12px left / 4px right),
+                                    unchanged byte-for-byte — it still holds a hamburger
+                                    beside the avatar and legitimately needs that asymmetry.
+                                    `py-1` stays for that desktop shape; below `md` it is
+                                    inert, since `h-11` already fixes the height.
                                 */}
-                                <button className="flex items-center gap-2 h-11 border border-border rounded-full py-1 px-1.5 md:pl-3 md:pr-1 hover:shadow-md transition cursor-pointer relative bg-card">
+                                <button className="flex items-center justify-center md:justify-start gap-2 h-11 w-11 md:w-auto border border-border rounded-full py-1 md:pl-3 md:pr-1 hover:shadow-md transition cursor-pointer relative bg-card">
                                     <Menu className="hidden md:block w-5 h-5 text-muted-foreground" />
                                     <div data-testid="section--navbar-account-avatar" className={(navUser?.image && !imageError) ? "rounded-full overflow-hidden" : "bg-muted rounded-full p-1 overflow-hidden"}>
                                         {(navUser?.image && !imageError) ? (

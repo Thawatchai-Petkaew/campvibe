@@ -121,6 +121,8 @@ The fast path for any UI work (full rules below):
 > **Touch floor — 44 × 44px at every viewport, and it outranks compaction.**
 > `h-11` **is** 44px, so it is the floor itself and never steps down. Compaction on mobile comes from horizontal padding, gaps, section rhythm, non-control block heights, and type — **never from a tap target.** Shrinking a control below 44px is not "compact", it is a defect (WCAG 2.1 AA; the figure `min-w-[44px]` already used in `filter-chip.tsx`).
 
+**Size from the scale; centre the content.** A control's BOX takes a value straight from the tables below (`h-11`, `size-11`, `md:h-12`) and its content is centred inside it (`flex items-center justify-center`) — never compute a padding to reach a target size. That arithmetic is what lands values off the 4px rhythm: `px-1.5` (6px, a half-step) shipped that way and produced a 46px-wide box nobody chose (CAM-590), corrected to a 44×44 square in CAM-592. The space around centred content is a **result**, not a number anyone picks.
+
 **Control height** — note the deliberate **no** rows: those are the accessible ones.
 
 | role | mobile (<768px) | desktop (≥768px) | steps? |
