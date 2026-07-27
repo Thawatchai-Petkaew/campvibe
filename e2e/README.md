@@ -7,7 +7,57 @@ with `continue-on-error: true`.
 > This file covers the `chromium` visual/a11y project only (production build,
 > no local DB). The separate **e2e-regression** suite (real host create/
 > update/delete flows against a local-only DB + the dev server) lives under
-> `e2e/regression/` — see `e2e/regression/README.md`.
+> `e2e/regression/` — see `e2e/regression/README.md`, and read the
+> **direct-browser fallback** below first if you just need to inspect
+> rendered markup and don't want to stand up the seeded-DB harness.
+
+## When the seeded-DB harness isn't set up: drive Playwright directly (CAM-578)
+
+**Read this before writing a new e2e spec you cannot run, or editing an
+existing one blind.** CAM-558 shipped a spec that passed against its own
+throwaway database and failed in CI with 0 elements found — a precondition
+nobody else could check locally. CAM-570 then edited two specs it could not
+execute and broke six of them. Both would have been caught in seconds with
+the technique below, which needs **no config, no seeded DB, no
+`storageState`** — only a dev server already running (`npm run dev`, or the
+regression project's own `npm run dev -- -p 3100`).
+
+```ts
+// scratch.mjs — direct-browser Playwright. Run: npx tsx scratch.mjs
+import { chromium } from "@playwright/test";
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+
+// Nothing forces a language here (unlike e2e/regression's shared
+// storageState, which forces Thai — see the trap below). Set it explicitly.
+await page.addInitScript(() => {
+  window.localStorage.setItem("campvibe_lang", "en");
+});
+
+await page.goto("http://localhost:3000/");
+const count = await page.getByRole("link", { name: /CampVibe/i }).count();
+console.log("matches:", count); // verified: prints "matches: 1" against a real dev server
+
+await browser.close();
+```
+
+Use this to resolve a locator, measure rendered geometry (`boundingBox()`),
+read computed styles/contrast, or confirm an accessible name — exactly the
+checks a spec would make, without the harness. It does **not** replace a real
+regression spec (no assertion, no CI guard) — it is how you check your
+assumptions BEFORE writing or editing one blind.
+
+**The language trap.** `e2e/regression/global.setup.ts` forces
+`campvibe_lang=th` into the shared `storageState`, so **every spec under
+`e2e/regression/` renders Thai, never English** — this exact mechanism is
+what broke 6 specs under CAM-570. A `getByRole(..., { name: "Previous image"
+})` lookup against that Thai render finds 0 elements silently; it doesn't
+throw, it just fails the assertion. When writing or debugging a regression
+spec, either assert the Thai copy (the suite's actual state) or explicitly
+force English yourself (`page.evaluate(() => localStorage.setItem(...))`)
+before asserting an English string — never assume the shared session is
+English.
 
 ## What is in here
 
