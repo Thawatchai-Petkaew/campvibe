@@ -121,7 +121,39 @@ export function Navbar() {
                 is the only thing that stays pinned to the top.
             */}
             <nav className="md:sticky md:top-0 md:z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                <div data-testid="section--navbar-title-row" className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-3 md:gap-4 text-foreground">
+                {/*
+                    CAM-593/CAM-594 — this row had TWO faults that only a
+                    measurement separates.
+
+                    HEIGHT: `h-20` is the DESKTOP value from DESIGN.md's size
+                    table. CAM-552 defined the mobile step for the whole system
+                    but the navbar sat outside its file surface, so this row
+                    kept 80px on a phone while buttons, chips and inputs all
+                    stepped down. It is now `min-h-16 md:h-20` — 64px on a
+                    phone, the desktop 80px byte-for-byte unchanged — straight
+                    off the §2.0 "header / bar row block" row. 64px still
+                    clears the 44px controls inside it with room to centre.
+
+                    WIDTH: at a 150% text scale, logged in, this row overflowed
+                    the viewport — measured scrollWidth 452px at BOTH 320px and
+                    390px. A near-constant scrollWidth is the tell: nothing here
+                    can give. Both groups are `flex-shrink-0`, every icon box is
+                    the rem-based 44px floor (66px at 150%), and the logo is a
+                    fixed 3.9:1 image whose width follows its rem height (125px
+                    -> 188px). 188 + 18 + 222 = 428px of content in a 272px box;
+                    no single item's diet closes that at 320px. So the row wraps
+                    instead: `flex-wrap` + a `min-h` (a fixed `h-` would clip
+                    the second line). At the default text size the content
+                    measures 285px against 288px available at 320px, so it never
+                    wraps — this is a relief valve for the large-text user, not
+                    a layout change. `md:flex-nowrap` hands desktop back exactly
+                    as it was, which is also what keeps app/page.tsx's
+                    `md:top-20` CategoryBar offset correct without touching it
+                    (the CAM-549 sticky trap: the offset must follow the header
+                    height, so the header height below `md` is the only thing
+                    that moves).
+                */}
+                <div data-testid="section--navbar-title-row" className="container mx-auto px-4 md:px-6 min-h-16 md:h-20 flex flex-wrap md:flex-nowrap items-center justify-between gap-3 md:gap-4 text-foreground">
                     {/* Logo */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                         {/*
@@ -166,7 +198,19 @@ export function Navbar() {
                     </button>
 
                     {/* User Menu */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    {/*
+                        CAM-594: `ms-auto md:ms-0`. When the row wraps at a large
+                        text scale this group lands alone on the second line, and
+                        `justify-between` puts a lone item at the START — so the
+                        account icons would sit under the logo, left-aligned.
+                        `ms-auto` keeps them on the right edge of whichever line
+                        they land on. Below `md` this is a no-op while the row is
+                        one line (justify-between already had this group at the
+                        end); `md:ms-0` restores desktop exactly, where a third
+                        flex child (the centre search bar) makes justify-between
+                        do real work and an auto margin would swallow its space.
+                    */}
+                    <div className="flex items-center gap-2 flex-shrink-0 ms-auto md:ms-0">
                         <div className="hidden md:flex">
                             <LanguageSwitcher />
                         </div>
@@ -366,14 +410,35 @@ export function Navbar() {
                 ~160px tall on mobile — nested here it lost its stick after
                 ~80px of scroll. As a sibling, its containing block is the
                 page itself, so it stays pinned for the whole scroll. */}
-            <div data-testid="section--navbar-search-mobile" className="md:hidden sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-3 pb-3">
+            {/*
+                CAM-593 — the owner asked for this bar at 44px, and 44px is the
+                one number that needs no justification: it is the WCAG touch
+                floor AND `h-11`, the §2.0 `md` control-height role. The bar was
+                54px because its height was an ACCIDENT — `py-3` plus whatever
+                the tallest child happened to be (the 28px filter chip). Sizing
+                the box from the scale and centring the content (the CAM-592
+                rule) removes that arithmetic: `h-11`, content centred, and the
+                44px is a value someone chose rather than a sum.
+
+                The label truncates rather than wraps. At 150% the old
+                free-height box stretched to 98px at 390px and 128px at 320px —
+                a fixed-height box cannot do that, so the single-line summary
+                ellipsises instead; the full search state lives in the modal
+                this bar opens. `min-w-0` is load-bearing: a flex item's default
+                min-width:auto would refuse to shrink below its text and
+                `truncate` would never engage.
+
+                Block padding steps to `py-2` per §2.0's new "sticky bar block
+                padding-y" row. Together: 79px of sticky block -> 61px.
+            */}
+            <div data-testid="section--navbar-search-mobile" className="md:hidden sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-2">
                 <div
                     onClick={() => setIsSearchOpen(true)}
-                    className="flex items-center gap-3 border border-border rounded-full px-4 py-3 shadow-sm active:scale-[0.98] transition-transform bg-card"
+                    className="flex items-center gap-3 h-11 border border-border rounded-full px-4 shadow-sm active:scale-[0.98] transition-transform bg-card"
                 >
-                    <Search className="w-4 h-4" />
-                    <span className="text-sm font-medium flex-1">{t.search.anywhere}</span>
-                    <div className="border border-border p-1.5 rounded-full">
+                    <Search className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm font-medium flex-1 min-w-0 truncate">{t.search.anywhere}</span>
+                    <div className="border border-border p-1.5 rounded-full flex-shrink-0">
                         <Filter className="w-3.5 h-3.5" />
                     </div>
                 </div>
