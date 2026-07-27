@@ -12,10 +12,17 @@
  * enumerated diff of what each prior copy learned that the other didn't).
  *
  * `app/api/geocode/_shared.ts::callGoogleGeocode` (CAM-554, the TS-route
- * caller) is a DELIBERATE, DOCUMENTED exception — NOT consolidated onto
- * this module (see tech.md "Why `_shared.ts::callGoogleGeocode` stays a
- * separate, documented exception"). `__tests__/cam-554-geocode-routes.test.ts`
- * and `__tests__/cam-562-geocode-backfill.test.ts` /
+ * caller) was this story's one deliberate, documented exception — left
+ * unconsolidated because `__tests__/cam-554-geocode-routes.test.ts`
+ * source-inspected that exact file's own text for the key-safety invariant
+ * (see tech.md "Why `_shared.ts::callGoogleGeocode` stays a separate,
+ * documented exception"). CAM-585 rewrote those 2 assertions to pin the
+ * invariant BEHAVIOURALLY instead and finished the move: `_shared.ts` is now
+ * a thin translation on top of `callGoogleGeocodeCore` too, so the "exactly
+ * 2 places" consolidation-count test below is updated to "exactly 1" as the
+ * intended, disclosed consequence (same pattern as CAM-581 BR-5 updating a
+ * backlog assertion in place once the backlog it tracked hit its target).
+ * `__tests__/cam-562-geocode-backfill.test.ts` /
  * `__tests__/cam-571-coordinates-inside-thailand.test.ts` remain the
  * integration-level proof (run UNEDITED, still green) that each caller's
  * own contract survived the consolidation; this file is the unit-level
@@ -176,7 +183,7 @@ describe('CAM-572 (b) — callGoogleGeocodeCore: status handling + key safety', 
 // (c) Consolidation proof — one shared wrapper, both scripts delegate to it
 // ===========================================================================
 describe('CAM-572 (c) — consolidation: the scripts no longer hand-roll their own fetch/endpoint', () => {
-  it('the Google Geocoding endpoint literal is defined in exactly 2 places repo-wide: the shared module + the documented `_shared.ts` exception', () => {
+  it('the Google Geocoding endpoint literal is defined in exactly 1 place repo-wide (CAM-585 finished the consolidation: app/api/geocode/_shared.ts no longer has its own copy)', () => {
     const searchRoots = ['app', 'lib', 'scripts'];
     let count = 0;
     const files: string[] = [];
@@ -194,8 +201,8 @@ describe('CAM-572 (c) — consolidation: the scripts no longer hand-roll their o
       }
     };
     searchRoots.forEach(walk);
-    expect(files.sort()).toEqual(['app/api/geocode/_shared.ts', 'lib/geo/google-geocode.ts']);
-    expect(count).toBe(2);
+    expect(files.sort()).toEqual(['lib/geo/google-geocode.ts']);
+    expect(count).toBe(1);
   });
 
   it('scripts/backfill-cam-562-subdistrict-geocode.mjs delegates to callGoogleGeocodeCore, no local endpoint const', () => {
