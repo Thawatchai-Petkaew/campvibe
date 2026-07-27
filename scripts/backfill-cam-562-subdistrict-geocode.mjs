@@ -20,11 +20,21 @@
  * (`scripts/backfill-cam-563-location-admin-area.mjs`), imported directly —
  * both are same-runtime plain `.mjs` modules, so no cross-language port is
  * needed this time (unlike CAM-563's own port of CAM-554's TS algorithm).
- * CAM-554's `app/api/geocode/_shared.ts::callGoogleGeocode` has no existing
- * plain-JS twin (it lives inside `app/api/**`, TS, out of this story's file
- * surface) — this script's `callGoogleGeocode` below is a small, documented,
- * necessary duplicate of that same fetch wrapper (same endpoint, same
- * never-log-the-key-bearing-URL discipline), not a redesign.
+ *
+ * CAM-572 — this script's `callGoogleGeocode` and `extractComponent` used
+ * to be small, documented, necessary duplicates of CAM-554's
+ * `app/api/geocode/_shared.ts` fetch wrapper (that file has no plain-JS
+ * twin importable from here — it pulls `@/lib/prisma`). Both now delegate
+ * to `lib/geo/google-geocode.ts` (no `@/`-aliased import, so a plain `.mjs`
+ * CAN import it directly, same pattern as CAM-566's `admin-area-match.ts`):
+ * `callGoogleGeocode(lat, lon)` below is a thin translation of
+ * `callGoogleGeocodeCore`'s discriminated result into this script's own
+ * pre-existing `{ok, reason, zeroResults, components}` shape (unchanged —
+ * pinned by `__tests__/cam-562-geocode-backfill.test.ts`, run unedited);
+ * `extractComponent` is now the shared copy directly. See CAM-572's tech.md
+ * for the full inventory + enumerated diff (this script's copy vs CAM-571's
+ * forward-mode copy vs `_shared.ts`'s route-facing copy, which stays a
+ * separate, documented exception).
  *
  * CRITICAL — do NOT silently overwrite `Location.province` (owner's
  * explicit instruction, twice-warned in the ticket): it drives
@@ -89,46 +99,27 @@ import path from 'node:path';
 import os from 'node:os';
 import { describeUrlShape } from './db-reset.mjs';
 import { matchAdminAreaByName } from './backfill-cam-563-location-admin-area.mjs';
+import { callGoogleGeocodeCore, extractComponent } from '../lib/geo/google-geocode.ts';
 
-const GOOGLE_GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
 const CACHE_FILE = path.join(os.tmpdir(), 'cam-562-geocode-cache.json');
 
+export { extractComponent };
+
 /**
- * Calls the Google Geocoding API in REVERSE mode (latlng -> address). Never
- * logs the outgoing URL (it carries the key as a query param) — only a
- * status code / Google `status` string / caught error message. Mirrors
- * `app/api/geocode/_shared.ts::callGoogleGeocode`'s discipline; a small,
- * necessary duplicate (see the file header for why it isn't imported).
+ * Calls the Google Geocoding API in REVERSE mode (latlng -> address) via the
+ * shared `callGoogleGeocodeCore` (CAM-572, `lib/geo/google-geocode.ts`),
+ * translating its discriminated result into this script's own pre-existing
+ * `{ok, reason, zeroResults, components}` shape (unchanged — pinned by
+ * `__tests__/cam-562-geocode-backfill.test.ts`, run unedited). Never logs
+ * the outgoing URL (it carries the key as a query param) — only a status
+ * code / Google `status` string / caught error message, and only via the
+ * core's own `reason` field (this function itself never logs).
  */
 export async function callGoogleGeocode(lat, lon) {
-  const key = process.env.GOOGLE_GEOCODING_API_KEY;
-  if (!key) return { ok: false, reason: 'missing_key' };
-
-  const url = new URL(GOOGLE_GEOCODE_ENDPOINT);
-  url.searchParams.set('latlng', `${lat},${lon}`);
-  url.searchParams.set('language', 'th');
-  url.searchParams.set('region', 'th');
-  url.searchParams.set('key', key);
-
-  try {
-    const res = await fetch(url.toString());
-    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
-    const data = await res.json();
-    if (data.status === 'ZERO_RESULTS') return { ok: true, zeroResults: true, components: [] };
-    if (data.status !== 'OK') return { ok: false, reason: `google_${data.status}` };
-    return { ok: true, zeroResults: false, components: data.results?.[0]?.address_components ?? [] };
-  } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : 'unknown_error' };
-  }
-}
-
-/** Returns the first address component's `long_name` matching any of `types`, in priority order. Ported from `app/api/geocode/_shared.ts` (see file header). */
-export function extractComponent(components, types) {
-  for (const type of types) {
-    const found = components.find((c) => c.types.includes(type));
-    if (found) return found.long_name;
-  }
-  return null;
+  const core = await callGoogleGeocodeCore({ latlng: `${lat},${lon}`, language: 'th' });
+  if (!core.ok) return { ok: false, reason: core.reason };
+  if (core.zeroResults) return { ok: true, zeroResults: true, components: [] };
+  return { ok: true, zeroResults: false, components: core.results[0]?.address_components ?? [] };
 }
 
 /** Fetches the full AdminArea node (nameTh/nameEn/code/parentId) for an id already matched by `matchAdminAreaByName` (which only returns `{id}`). */

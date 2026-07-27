@@ -129,10 +129,9 @@ import {
   extractComponent,
   runBackfill as runCam562Backfill,
 } from './backfill-cam-562-subdistrict-geocode.mjs';
+import { callGoogleGeocodeCore } from '../lib/geo/google-geocode.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const GOOGLE_GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
 
 const CAM_562_CACHE_FILE = path.join(os.tmpdir(), 'cam-562-geocode-cache.json');
 const FORWARD_CACHE_FILE = path.join(os.tmpdir(), 'cam-571-forward-geocode-cache.json');
@@ -148,37 +147,28 @@ const PROVINCE_CENTROIDS_PATH = path.join(__dirname, '..', 'prisma', 'data', 'pr
 const FAR_FROM_PROVINCE_KM = 100;
 
 /**
- * Calls the Google Geocoding API in FORWARD mode (address -> latlng). No
- * existing plain-JS twin (CAM-554's forward route lives in
- * `app/api/geocode/forward/route.ts`, TS, `app/api/**`, out of this story's
- * file surface) — a small, documented, necessary duplicate, same
- * discipline as CAM-562's own reverse-mode duplicate (never logs the key-
- * bearing URL).
+ * Calls the Google Geocoding API in FORWARD mode (address -> latlng) via the
+ * shared `callGoogleGeocodeCore` (CAM-572, `lib/geo/google-geocode.ts`).
+ * Used to be a small, documented, necessary duplicate of the same fetch
+ * wrapper (CAM-554's forward route lives in
+ * `app/api/geocode/forward/route.ts`, TS, `app/api/**`, which pulls
+ * `@/lib/prisma` and so has never been importable from a plain `.mjs`
+ * script) — now translates the shared core's discriminated result into
+ * this script's own pre-existing `{ok, reason, zeroResults, lat, lon}`
+ * shape (unchanged — pinned by
+ * `__tests__/cam-571-coordinates-inside-thailand.test.ts`, run unedited).
+ * Never logs the outgoing URL (it carries the key as a query param) — only
+ * the core's own `reason` field (this function itself never logs).
  */
 export async function callGoogleGeocodeForward(address) {
-  const key = process.env.GOOGLE_GEOCODING_API_KEY;
-  if (!key) return { ok: false, reason: 'missing_key' };
-
-  const url = new URL(GOOGLE_GEOCODE_ENDPOINT);
-  url.searchParams.set('address', address);
-  url.searchParams.set('language', 'th');
-  url.searchParams.set('region', 'th');
-  url.searchParams.set('key', key);
-
-  try {
-    const res = await fetch(url.toString());
-    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
-    const data = await res.json();
-    if (data.status === 'ZERO_RESULTS') return { ok: true, zeroResults: true };
-    if (data.status !== 'OK') return { ok: false, reason: `google_${data.status}` };
-    const location = data.results?.[0]?.geometry?.location;
-    if (typeof location?.lat !== 'number' || typeof location?.lng !== 'number') {
-      return { ok: false, reason: 'no_geometry' };
-    }
-    return { ok: true, zeroResults: false, lat: location.lat, lon: location.lng };
-  } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : 'unknown_error' };
+  const core = await callGoogleGeocodeCore({ address, language: 'th' });
+  if (!core.ok) return { ok: false, reason: core.reason };
+  if (core.zeroResults) return { ok: true, zeroResults: true };
+  const location = core.results[0]?.geometry?.location;
+  if (typeof location?.lat !== 'number' || typeof location?.lng !== 'number') {
+    return { ok: false, reason: 'no_geometry' };
   }
+  return { ok: true, zeroResults: false, lat: location.lat, lon: location.lng };
 }
 
 /** Mirrors `app/api/geocode/forward/route.ts`'s address-string construction — never invents a value not already on the row. */
