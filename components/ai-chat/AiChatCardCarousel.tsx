@@ -210,7 +210,23 @@ export function AiChatCardCarousel({ cards, onSelectCamp }: AiChatCardCarouselPr
         ))}
       </div>
 
-      <div className="mt-2 flex items-center justify-center gap-2">
+      {/* CAM-584 — the indicator's own margin is DECOUPLED from the track's
+          shadow-clearance padding (pb-14, untouched above). Before this
+          fix, the indicator sat `pb-14` (56px) + `mt-2` (8px) = 64px below
+          the card's own bottom edge — 40px more than the 24px gap that
+          shipped before CAM-547 grew that padding, because pb-14 is a
+          reserved SPACE inside the track's own box (needed so its forced
+          `overflow-y:auto` never clips the shadow), not a visual position
+          for this sibling row. A negative top margin here pulls the row
+          back up into that reserved space WITHOUT touching pb-14 at all —
+          the track's padding-box (and therefore its overflow-clip
+          boundary) is exactly the same size as before this story, so the
+          shadow-clearance fix is provably unaffected; only where this
+          transparent, non-clipping sibling paints changes. Measured
+          (real Chromium, both 390px and 1440px, this story's
+          investigation): gap 64px -> 24px, shadow still fully contained
+          (52px reach inside the unchanged 56px reserve) — see story.md. */}
+      <div className="-mt-8 flex items-center justify-center gap-2">
         <Button
           type="button"
           variant="ghost"
