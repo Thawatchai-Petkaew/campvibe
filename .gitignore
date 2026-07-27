@@ -43,6 +43,8 @@ yarn-error.log*
 .env*
 !.env.example
 !env.example
+# CAM-578 — placeholder-only template for the local e2e-regression harness; never a real secret
+!.env.e2e.example
 
 # sqlite (local dev artifacts / accidental files)
 *.db
@@ -115,6 +117,8 @@ next-env.d.ts
 !/scripts/backfill-cam-583-align-provinces.mjs
 # CAM-583 — assigns DISP to verified type-less (open-field) camps
 !/scripts/backfill-cam-583-assign-accommodation-type.mjs
+# CAM-578 — one-command local setup (migrate deploy + seed) for the e2e-regression harness's DB
+!/scripts/setup-e2e-db.ts
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
