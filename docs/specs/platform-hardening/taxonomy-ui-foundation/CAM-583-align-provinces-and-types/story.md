@@ -66,3 +66,4 @@ Depends on: CAM-562 (province-mismatch classification + geocode cache, reused) �
 
 ## Changelog
 - v1 (2026-07-27) — created
+- v2 (2026-07-27) — real dry-run + real run completed on dev AND staging, all counts independently verified (see tech.md); a host-entered-data-safety bug in the province-alignment identification step was found and fixed before shipping (tech.md "Candidate identification" section)

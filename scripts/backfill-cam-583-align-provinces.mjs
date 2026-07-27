@@ -24,43 +24,58 @@
  * province, verified by reverse-geocoding the new point back before writing
  * anything.
  *
- * Reuse, not a fork: `identifyProvinceMismatches` calls CAM-562's own
- * `runBackfill` (imported, dry-run only, never toggled to write) purely for
- * its already-computed `provinceMismatch` list — zero new classification
- * logic. The move/verify/write orchestration below reuses CAM-571's own
- * exported primitives directly: `callGoogleGeocodeForward` + `buildForwardAddress`
- * (forward-geocode the claimed province into a point) and
- * `verifyAndResolvePlacement` + `getProvinceAncestor` (reverse-geocode the new
- * point back, refuse unless it lands in the SAME claimed-province node, and
- * re-derive district/subDistrict from that same call, all unchanged). CAM-571's
- * own `planMoves` is NOT imported/forked — its candidate identification and
- * its "already-fixed" skip condition are both hardwired to the country check
- * (`shortName !== 'TH'`), which is the wrong test for a same-country,
- * different-province candidate; only the primitives that ARE identical
- * across both scripts are reused, and CAM-571's already-shipped, already-
- * tested `planMoves` is left untouched (no regression risk to its own 36
- * tests from bending it to a second shape).
+ * Reuse, not a fork: `identifyProvinceMismatches` scans CAM-562's FROZEN
+ * geocode cache ONLY and classifies each entry with CAM-562's own per-row
+ * `resolveCandidate` (imported directly — zero new classification logic,
+ * zero new Google calls, since `resolveCandidate` classifies purely from an
+ * already-fetched geocode result). This is a PURE cache scan, never a live
+ * candidate re-query — the same host-entered-data safety shape as CAM-571's
+ * `identifyOutsideThailand` (see "Host-entered-data safety" below; an earlier
+ * version of this function called CAM-562's own `runBackfill` live, whose
+ * candidate query re-scans the CURRENT database on every call — that would
+ * classify, and this script would then move, a real host's freshly created
+ * camp if it happened to sit in an adjacent province at write time. Fixed
+ * before ship). The move/verify/write orchestration below reuses CAM-571's
+ * own exported primitives directly: `callGoogleGeocodeForward` +
+ * `buildForwardAddress` (forward-geocode the claimed province into a point)
+ * and `verifyAndResolvePlacement` + `getProvinceAncestor` (reverse-geocode
+ * the new point back, refuse unless it lands in the SAME claimed-province
+ * node, and re-derive district/subDistrict from that same call, all
+ * unchanged). CAM-571's own `planMoves` is NOT imported/forked — its
+ * candidate identification and its "already-fixed" skip condition are both
+ * hardwired to the country check (`shortName !== 'TH'`), which is the wrong
+ * test for a same-country, different-province candidate; only the
+ * primitives that ARE identical across both scripts are reused, and CAM-571's
+ * already-shipped, already-tested `planMoves` is left untouched (no
+ * regression risk to its own 36 tests from bending it to a second shape).
  *
  * Identification cost: CAM-562's own frozen cache
  * (`os.tmpdir()/cam-562-geocode-cache.json`, dev's real artifact) is reused
  * as-is for a dev target — the ticket's own instruction ("do not spend fresh
- * API calls where a cached answer exists"). Staging has never been scanned by
- * CAM-562, so identifying its candidates costs one live reverse-geocode call
- * per still-unresolved `Location` row (a one-time cost, same shape as CAM-562's
- * own original ~650-call dev run) — those results are written to a SEPARATE
- * cache file (never mutating CAM-562's own dev artifact) so a second run, or
- * this story's own real run following its dry run, spends zero further calls.
- * `CAM_562_CACHE_FILE` (env override) selects which identification cache to
- * read/write; it defaults to CAM-562's canonical dev path.
+ * API calls where a cached answer exists"), and identification itself now
+ * costs ZERO Google calls on every target, always (a pure cache scan).
+ * Staging has never been scanned by CAM-562 at all, so a ONE-TIME snapshot
+ * must first be built for it — CAM-562's own `runBackfill` dry-run is run
+ * ONCE, standalone (not by this script), against staging with a fresh cache
+ * object, and that snapshot is saved to a SEPARATE file (never mutating
+ * CAM-562's own dev artifact) via `CAM_562_CACHE_FILE` (env override,
+ * defaults to CAM-562's canonical dev path). From that point on, staging's
+ * snapshot is just as "frozen" as dev's, and this script's own identification
+ * reads it exactly the same way — zero new Google calls, same host-safety
+ * guarantee.
  *
- * Host-entered-data safety + idempotency (owner's explicit ask, same
- * mechanism CAM-571 established): before moving ANY candidate, this script
- * freshly (not cache-) re-checks its CURRENT coordinates and moves it only if
- * that fresh check still shows a province OTHER than the one claimed. A row
- * already corrected — by a host, by a prior run of this very script, or by
- * anything else — now reverse-geocodes to its claimed province and is
- * skipped (`already_matches_claimed_province`), which is also what makes a
- * second run idempotent (0 rows changed).
+ * Host-entered-data safety (owner's explicit ask — the SAME structural rule
+ * CAM-571 uses, BR-2): the candidate set is restricted to `Location.id`s
+ * already present as KEYS in the frozen cache — a row created or edited by a
+ * real host AFTER that snapshot was taken has no entry in it at all, so it
+ * can never become a candidate, regardless of its current coordinates or
+ * district/subDistrict state. Before moving ANY candidate, this script
+ * ALSO freshly (not cache-) re-checks its CURRENT coordinates and moves it
+ * only if that fresh check still shows a province OTHER than the one
+ * claimed — a row already corrected (by a host, by a prior run of this very
+ * script, or by anything else) now reverse-geocodes to its claimed province
+ * and is skipped (`already_matches_claimed_province`), which is also what
+ * makes a second run idempotent (0 rows changed).
  *
  * SAFETY GUARD — refuses unless ALL of:
  *   ALLOW_ALIGN_PROVINCES_BACKFILL=1  (explicit opt-in — billed Google calls,
@@ -81,8 +96,20 @@
  *     DATABASE_URL=<non-prod> GOOGLE_GEOCODING_API_KEY=<key> \
  *     node scripts/backfill-cam-583-align-provinces.mjs
  *
- *   # Staging run — give the identification cache its own file (never mixes
- *   # into CAM-562's dev artifact):
+ *   # Staging: this target has never been scanned by CAM-562, so a frozen
+ *   # snapshot must exist FIRST (this script refuses rather than silently
+ *   # falling back to a live re-scan — host-entered-data safety). Build it
+ *   # ONCE via CAM-562's own dry-run against staging, saved to a SEPARATE
+ *   # file (never mutating CAM-562's own dev artifact):
+ *     ALLOW_SUBDISTRICT_GEOCODE_BACKFILL=1 DRY_RUN=1 DATABASE_URL=<staging> \
+ *       GOOGLE_GEOCODING_API_KEY=<key> node -e "
+ *         const { runBackfill } = await import('./scripts/backfill-cam-562-subdistrict-geocode.mjs');
+ *         const { PrismaClient } = await import('@prisma/client');
+ *         const cache = {}; const prisma = new PrismaClient();
+ *         await runBackfill(prisma, { dryRun: true, cache });
+ *         require('fs').writeFileSync('/tmp/cam-562-geocode-cache-staging.json', JSON.stringify(cache));
+ *       "
+ *   # Then run THIS script against staging, pointed at that snapshot:
  *   CAM_562_CACHE_FILE=/tmp/cam-562-geocode-cache-staging.json \
  *     ALLOW_ALIGN_PROVINCES_BACKFILL=1 DATABASE_URL=<staging> \
  *     GOOGLE_GEOCODING_API_KEY=<key> node scripts/backfill-cam-583-align-provinces.mjs
@@ -99,7 +126,7 @@ import { matchAdminAreaByName } from './backfill-cam-563-location-admin-area.mjs
 import {
   callGoogleGeocode as callGoogleGeocodeReverse,
   extractComponent,
-  runBackfill as runCam562Backfill,
+  resolveCandidate as resolveCam562Candidate,
 } from './backfill-cam-562-subdistrict-geocode.mjs';
 import {
   callGoogleGeocodeForward,
@@ -114,19 +141,47 @@ const FORWARD_CACHE_FILE = path.join(os.tmpdir(), 'cam-583-align-provinces-forwa
 const REVERSE_VERIFY_CACHE_FILE = path.join(os.tmpdir(), 'cam-583-align-provinces-reverse-verify-cache.json');
 
 /**
- * Runs CAM-562's OWN classification (dry-run only, never toggled to write)
- * purely to read its `provinceMismatch` list — zero new classification
- * logic. Served from `cam562Cache` when a row's id is already a cache key;
- * makes one live call per still-uncached candidate otherwise (the one-time
- * cost for a target CAM-562 has never scanned, e.g. staging).
+ * Scans CAM-562's FROZEN geocode cache ONLY (never a live candidate query)
+ * and returns every `Location.id` whose cached, successful reverse-geocode
+ * result classifies as `province_mismatch` — reusing CAM-562's own per-row
+ * `resolveCandidate` (dry-run-shaped: it makes zero Google calls itself, it
+ * only classifies an already-fetched geocode result) for the classification
+ * logic, zero duplication.
+ *
+ * Host-entered-data safety (BR-2, the SAME structural rule CAM-571 uses):
+ * the candidate set is restricted to `Location.id`s already present as KEYS
+ * in `cam562Cache` — a row created or edited by a real host AFTER that
+ * snapshot was taken has no entry in it at all, so it can never become a
+ * candidate here, regardless of its current district/subDistrict state.
+ * (An earlier version of this function called CAM-562's own `runBackfill`
+ * live, whose candidate query re-scans the CURRENT database — that would
+ * classify, and this script would then move, a real host's freshly created
+ * camp if it happened to sit in an adjacent province. Fixed before ship.)
+ *
+ * Zero new Google calls: `resolveCandidate` classifies purely from the
+ * ALREADY-CACHED geocode result; only a local Prisma read (never billed) is
+ * needed per candidate id to fetch its current province-level anchor.
  */
-export async function identifyProvinceMismatches(prisma, cam562Cache, { log = () => {} } = {}) {
-  const report = await runCam562Backfill(prisma, { dryRun: true, cache: cam562Cache, log });
-  return {
-    candidates: report.provinceMismatch,
-    identificationCallsMade: report.apiCallsMade,
-    identificationCallsCached: report.apiCallsCached,
-  };
+export async function identifyProvinceMismatches(prisma, cam562Cache) {
+  const candidates = [];
+  const ids = Object.keys(cam562Cache ?? {});
+  for (const id of ids) {
+    const row = await prisma.location.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        province: true,
+        district: true,
+        subDistrict: true,
+        adminAreaId: true,
+        adminArea: { select: { id: true, level: true, code: true, nameTh: true, nameEn: true, parentId: true } },
+      },
+    });
+    if (!row) continue; // deleted since the snapshot — never a candidate
+    const result = await resolveCam562Candidate(prisma, row, cam562Cache[id]);
+    if (result.outcome === 'province_mismatch') candidates.push(result);
+  }
+  return { candidates, identificationCallsMade: 0, identificationCallsCached: ids.length };
 }
 
 /**
@@ -152,7 +207,7 @@ export async function planProvinceAlignmentMoves(
     onReverseVerifyCacheUpdate = () => {},
   } = {}
 ) {
-  const identification = await identifyProvinceMismatches(prisma, cam562Cache, { log: () => {} });
+  const identification = await identifyProvinceMismatches(prisma, cam562Cache);
   const candidates = identification.candidates;
 
   const summary = {
@@ -330,7 +385,7 @@ function loadCache(cachePath) {
   try {
     return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -351,9 +406,17 @@ export async function main() {
 
   const cam562CacheFile = process.env.CAM_562_CACHE_FILE || DEFAULT_CAM562_CACHE_FILE;
   const cam562Cache = loadCache(cam562CacheFile);
-  const reverseCheckCache = loadCache(REVERSE_CHECK_CACHE_FILE);
-  const forwardCache = loadCache(FORWARD_CACHE_FILE);
-  const reverseVerifyCache = loadCache(REVERSE_VERIFY_CACHE_FILE);
+  if (!cam562Cache) {
+    console.error(
+      `✗ refusing: no frozen identification cache found at ${cam562CacheFile} — this target has never been scanned by CAM-562. ` +
+        `Build the snapshot first (CAM-562's own dry-run against this DATABASE_URL, saved to this path via CAM_562_CACHE_FILE), ` +
+        `then re-run this script. This script must not fall back to a live re-scan (host-entered-data safety).`
+    );
+    process.exit(1);
+  }
+  const reverseCheckCache = loadCache(REVERSE_CHECK_CACHE_FILE) ?? {};
+  const forwardCache = loadCache(FORWARD_CACHE_FILE) ?? {};
+  const reverseVerifyCache = loadCache(REVERSE_VERIFY_CACHE_FILE) ?? {};
 
   const prisma = new PrismaClient();
   try {

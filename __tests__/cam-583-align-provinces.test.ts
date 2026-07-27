@@ -224,6 +224,29 @@ describe('CAM-583 (a) — identifyProvinceMismatches: reuses CAM-562\'s own prov
     const result = await identifyProvinceMismatches(fake, cam562Cache);
     expect(result.candidates).toHaveLength(0);
   });
+
+  it('[Critical, teeth] a row ABSENT from the frozen cache is NEVER a candidate, even though it currently mismatches its claimed province (host-entered-data safety, CAM-571\'s BR-2 mirrored)', async () => {
+    // Only 'loc-in-cache' is a key in cam562Cache — the structural stand-in
+    // for "scanned by CAM-562's snapshot". 'loc-host-entered' is a row a real
+    // host created/edited AFTER that snapshot: it currently mismatches its
+    // claimed province too, but must never surface as a candidate here.
+    const cam562Cache = { 'loc-in-cache': { ok: true, zeroResults: false, components: CNX_PROVINCE_ONLY } };
+    const fake = makeFakePrisma([
+      { id: 'loc-in-cache', province: 'Lamphun', lat: 18.5, lon: 99.0, adminAreaId: 'prov-lamphun' },
+      { id: 'loc-host-entered', province: 'Lamphun', lat: 18.6, lon: 99.1, adminAreaId: 'prov-lamphun' },
+    ]);
+
+    const result = await identifyProvinceMismatches(fake, cam562Cache);
+
+    expect(result.candidates.map((c: { id: string }) => c.id)).toEqual(['loc-in-cache']);
+  });
+
+  it('[boundary] a candidate id present in the cache but deleted from the DB since the snapshot is skipped, never crashes', async () => {
+    const cam562Cache = { 'loc-gone': { ok: true, zeroResults: false, components: CNX_PROVINCE_ONLY } };
+    const fake = makeFakePrisma([]); // no rows at all — deleted since the snapshot
+    const result = await identifyProvinceMismatches(fake, cam562Cache);
+    expect(result.candidates).toHaveLength(0);
+  });
 });
 
 // ===========================================================================
@@ -365,17 +388,19 @@ describe('CAM-583 (b) — planProvinceAlignmentMoves: identify -> fresh re-check
   });
 
   it('[boundary] a candidate row deleted between classification and fetch is recorded, never crashes', async () => {
-    // Simulates a race: the row exists for CAM-562's classification scan
-    // (findMany) but is gone by the time this script fetches it individually
-    // (findUnique) — the row is recorded, not thrown.
+    // Simulates a race: the row exists for the classification scan's OWN
+    // findUnique call but is gone by the time planProvinceAlignmentMoves
+    // fetches it a second time — the row is recorded, not thrown.
     const cam562Cache = { 'loc-1': { ok: true, zeroResults: false, components: CNX_PROVINCE_ONLY } };
     const fake = makeFakePrisma([{ id: 'loc-1', province: 'Lamphun', lat: 18.5, lon: 99.0, adminAreaId: 'prov-lamphun' }]);
-    const originalFindMany = fake.location.findMany;
-    fake.location.findMany = (async (args: Parameters<typeof originalFindMany>[0]) => {
-      const rows = await originalFindMany(args);
-      fake.data.length = 0; // the row vanishes right after classification reads it
-      return rows;
-    }) as typeof originalFindMany;
+    const originalFindUnique = fake.location.findUnique;
+    let calls = 0;
+    fake.location.findUnique = (async (args: Parameters<typeof originalFindUnique>[0]) => {
+      calls += 1;
+      const row = await originalFindUnique(args);
+      if (calls === 1) fake.data.length = 0; // vanishes right after classification's own lookup
+      return row;
+    }) as typeof originalFindUnique;
 
     const summary = await planProvinceAlignmentMoves(fake, { cam562Cache, dryRun: false });
     expect(summary.rowNotFound).toEqual(['loc-1']);
