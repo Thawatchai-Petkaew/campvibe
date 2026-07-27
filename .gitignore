@@ -111,6 +111,10 @@ next-env.d.ts
 !/scripts/backfill-cam-571-coordinates-inside-thailand.mjs
 # CAM-575 — reconciles the CampSite/Location coordinate columns that disagree today
 !/scripts/backfill-cam-575-reconcile-coordinates.mjs
+# CAM-583 — moves adjacent-province-mismatch coordinates inside their claimed province
+!/scripts/backfill-cam-583-align-provinces.mjs
+# CAM-583 — assigns DISP to verified type-less (open-field) camps
+!/scripts/backfill-cam-583-assign-accommodation-type.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)
