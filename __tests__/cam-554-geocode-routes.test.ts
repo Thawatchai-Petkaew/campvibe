@@ -346,9 +346,20 @@ describe('CAM-554 security: GOOGLE_GEOCODING_API_KEY never reaches the client', 
         expect(fetchSpy).not.toHaveBeenCalled(); // never even reaches Google without a key
     });
 
-    it('source-inspection: the key is read ONLY in app/api/geocode/_shared.ts, never in any client component', () => {
-        const sharedSrc = src('app/api/geocode/_shared.ts');
-        expect(sharedSrc).toContain('process.env.GOOGLE_GEOCODING_API_KEY');
+    // CAM-585: this used to also assert `sharedSrc` (app/api/geocode/_shared.ts's
+    // OWN file text) contains the literal `process.env.GOOGLE_GEOCODING_API_KEY`
+    // string — a source-inspection check that pinned WHICH server file reads the
+    // key, not whether the key ever reaches a client. That half was redundant
+    // (the "a missing key never leaks anything... never even reaches Google
+    // without a key" test above already behaviourally proves the key IS read
+    // from `process.env` — deleting the env var makes `fetch` never fire) AND
+    // it blocked a correct refactor (CAM-572's consolidation stopped short of
+    // moving this exact wrapper because this assertion would go red with zero
+    // behaviour change — see CAM-572 tech.md). The half kept below is the real,
+    // distinct invariant nothing else covers: the key literal never rides into
+    // a CLIENT-reachable component, regardless of which server file/module
+    // does the reading.
+    it('the key is never referenced by name in any client-reachable component', () => {
         expect(src('components/LocationPicker.tsx')).not.toContain('GOOGLE_GEOCODING_API_KEY');
         expect(src('components/LocationMapPin.tsx')).not.toContain('GOOGLE_GEOCODING_API_KEY');
         expect(src('components/CampgroundForm.tsx')).not.toContain('GOOGLE_GEOCODING_API_KEY');
@@ -359,13 +370,33 @@ describe('CAM-554 security: GOOGLE_GEOCODING_API_KEY never reaches the client', 
         expect(src('.claude/ENV-CONFIG.md')).not.toContain('NEXT_PUBLIC_GOOGLE_GEOCODING');
     });
 
-    it('the outgoing Google request (which carries the key in its URL) is never passed to console.error', () => {
-        const sharedSrc = src('app/api/geocode/_shared.ts');
-        const consoleErrorArgs = sharedSrc.match(/console\.error\([^)]*\)/g) || [];
-        expect(consoleErrorArgs.length).toBeGreaterThan(0);
-        consoleErrorArgs.forEach((call) => {
-            expect(call).not.toContain('url.toString()');
-            expect(call).not.toMatch(/console\.error\(\s*url\b/);
-        });
+    // CAM-585: this used to grep app/api/geocode/_shared.ts's own file text for
+    // `console.error(...)` calls and assert none of them contained `url`/
+    // `url.toString()` — a source-inspection check that only covers whichever
+    // file the implementation currently lives in, and never actually executes
+    // the code (so it cannot tell a real leak from a branch that never ran).
+    // Replaced with a behavioural sweep of every failure branch the geocode
+    // wrapper can take (HTTP error, a non-OK/non-ZERO_RESULTS Google status,
+    // and a thrown/network exception) — each one actually runs the real route
+    // handler and asserts neither the fake key nor the outgoing request's
+    // host ever appears in a captured console.error call. This survives the
+    // wrapper moving to any file (proven both before AND after CAM-585 moved
+    // it onto lib/geo/google-geocode.ts).
+    const FAILURE_SCENARIOS: Array<[string, () => void]> = [
+        ['an HTTP error (non-OK status)', () => vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))],
+        ['a Google API error status (e.g. REQUEST_DENIED)', () => vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'REQUEST_DENIED', results: [] }) }))],
+        ['a thrown/network exception', () => vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))],
+    ];
+
+    it.each(FAILURE_SCENARIOS)('%s never logs the key or the outgoing request host via console.error', async (_label, stubFetch) => {
+        vi.mocked(requireAuth).mockResolvedValue(AUTHED);
+        stubFetch();
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const res = await reverseGET(new NextRequest('http://localhost/api/geocode/reverse?lat=13.75&lon=100.5'));
+        expect(res.status).toBe(500);
+        const logged = consoleSpy.mock.calls.map((c) => c.map(String).join(' ')).join(' ');
+        expect(logged).not.toContain(FAKE_KEY);
+        expect(logged).not.toContain('maps.googleapis.com');
+        consoleSpy.mockRestore();
     });
 });
