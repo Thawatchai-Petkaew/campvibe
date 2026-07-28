@@ -289,6 +289,20 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
     terrainAmenity ? amenityName(terrainAmenity) : null,
     accessAmenity ? amenityName(accessAmenity) : null,
   ].filter((part): part is string => Boolean(part));
+  // CAM-598 — the owner asked for all 3 location levels PLUS terrain/access
+  // PLUS distance to stay on one line, cut with an ellipsis when it doesn't
+  // fit (never wrap, never drop a level). Before this story the row was
+  // `flex-wrap` with two separate spans (location+terrain+access, then a
+  // second `· {distance}` span) — every part that didn't fit just wrapped
+  // onto its own new line (confirmed: 2-3 visible lines for the real
+  // worst-case camp, `ในเมือง, เมืองนครราชสีมา, นครราชสีมา` + terrain +
+  // access). One combined string in ONE `line-clamp-1` span is the same
+  // single-line-with-ellipsis treatment `AiChatCampCard.tsx` already uses
+  // for its own (shorter) location line — the whole visible row reads as
+  // one "location line" to the camper, so it truncates as one unit rather
+  // than the distance surviving while an earlier part is silently cut off
+  // (an inconsistent, harder-to-follow partial truncation).
+  const locationLineText = [...locationParts, distanceText].filter((part): part is string => Boolean(part)).join(" · ");
 
   // CAM-450 — quick-glance stat row (ราคา / รับได้ / ว่างวันไหน); each tile is
   // built only when its underlying field is real (owner: hide, never fabricate).
@@ -414,12 +428,11 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
               )}
               {(locationParts.length > 0 || distanceText) && (
                 <p
-                  className="flex flex-wrap items-center gap-1 text-sm text-foreground/70"
+                  className="flex items-center gap-1 text-sm text-foreground/70 min-w-0"
                   data-testid="text--ai-chat-detail-province"
                 >
                   {hasProvince && <MapPin className="size-4 shrink-0" aria-hidden="true" />}
-                  {locationParts.length > 0 && <span>{locationParts.join(" · ")}</span>}
-                  {distanceText && <span className="text-xs text-foreground/70">· {distanceText}</span>}
+                  <span className="line-clamp-1 min-w-0">{locationLineText}</span>
                 </p>
               )}
             </div>
