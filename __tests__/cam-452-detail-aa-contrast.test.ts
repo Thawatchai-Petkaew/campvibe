@@ -141,8 +141,8 @@ describe("Every previously-flagged label now uses text-foreground/70", () => {
     expect(detailSrc).toContain('<span className="line-clamp-1 min-w-0">{locationLineText}</span>');
   });
 
-  it("[normal] price captions: per-guest/night, extra-fee one-time, fee info, no-availability empty state", () => {
-    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.detail.perGuestNight}</span>');
+  it("[normal] price captions: per-night, extra-fee one-time, fee info, no-availability empty state", () => {
+    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>');
     expect(detailSrc).toContain('<span className="text-xs text-foreground/70">{t.aiChat.detail.extraFeeOneTime}</span>');
     expect(detailSrc).toContain('<p className="text-xs text-foreground/70">{detail.price.feeInfo}</p>');
     expect(detailSrc).toContain('<p className="text-sm text-foreground/70">{t.aiChat.detail.noAvailability}</p>');
