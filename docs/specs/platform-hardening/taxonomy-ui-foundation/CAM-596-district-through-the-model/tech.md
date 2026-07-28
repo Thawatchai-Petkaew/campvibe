@@ -6,7 +6,7 @@ persona: Camper
 artifact: tech
 owner: backend-engineer
 status: in-progress
-version: v2
+version: v3
 updated: 2026-07-28
 ---
 # Tech — Asking for a district by name still finds nothing (CAM-596)
@@ -50,6 +50,21 @@ else {}                 -> unchanged
 
 Because the district branch only ever fires on a candidate that SURVIVED the BR-4 exclusions above, and none of those exclusions can ever match a BARE province mention with no real district substring, every existing `cam-501`/`cam-502`/`cam-503`/`cam-504` test input is provably unaffected — confirmed by re-running those suites green, not merely reasoned about (this is exactly how the two self-equality regressions above were caught and fixed before the diff was final).
 
+**CAM-599 update (2026-07-28) — the dispatch order above is now the SECOND step, not the first.** During this story's own G3 review the orchestrator flagged a real gap this table did not yet cover: "แคมป์ที่อำเภอปาย" carries an explicit อำเภอ prefix — the camper names a district by word — yet it resolved as the ปาย LANDMARK's 250km radius, because ปาย also sits in the landmark gazetteer and the landmark check above runs first. That gap is now closed by CAM-599, which inserts ONE more step ahead of everything in this table:
+
+```
+detectExplicitDistrictPrefix(text)? -> NEW (CAM-599): { district: nameTh },
+                                        PLUS an accompanying province, same BR-2 scoping rule,
+                                        when an "อำเภอ"/"อ." marker sits in front of a real
+                                        district name — checked BEFORE the landmark? step above
+landmark?                           -> unchanged for a BARE mention (no marker) — CAM-503's
+                                        multi-province reasoning still holds there
+isBareBangkokMention? / detectDistrict(text)? / detectProvince(text)? / detectRegion(text)? / else {}
+                                     -> all unchanged, exactly as documented above
+```
+
+The two detectors are deliberately separate functions over separate candidate lists (not one function with a flag) because their safety argument differs in kind: THIS story's `detectDistrict` candidates need the four BR-4 guards above because a bare name carries no other signal; CAM-599's marker-prefixed candidates skip three of those four guards on purpose, because the "อำเภอ"/"อ." marker in the text IS the disambiguating context those guards stand in for. Full rationale, the sibling-pin sweep, and the golden-case addition: `../CAM-599-named-district-beats-landmark/tech.md`.
+
 `ResolvedPlace` gains ONE new OPTIONAL field: `district?: string` — additive only (`api.md` rule 12), every existing field/shape unchanged.
 
 ## Scope narrowed after measurement: sub-district detection cut entirely
@@ -75,3 +90,4 @@ Confirmation: `__tests__/cam-596-place-resolver-district.test.ts` (unit, pre-pas
 ## Changelog
 - v1 (2026-07-28) — created (planned district + sub-district detection).
 - v2 (2026-07-28) — rewritten to match the shipped, district-only implementation; documents the two self-equality regressions found and fixed (`isSubstringOfAnyProvince`'s self-exclusion removal) and the sub-district scope-narrowing decision with its measured evidence.
+- v3 (2026-07-28) — reconciled with CAM-599: the dispatch-order table above is now the SECOND step, not the first — an explicit "อำเภอ"/"อ." district marker now wins over the landmark check ahead of it. See the new "CAM-599 update" note inline and `../CAM-599-named-district-beats-landmark/tech.md` for the full rationale.
