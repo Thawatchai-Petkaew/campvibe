@@ -61,12 +61,29 @@ export const CancellationPolicyEnum = z.enum([
   "NON_REFUNDABLE",
 ]);
 
+// CAM-615 (root fix): a Prisma column that is nullable AND user-editable gets
+// `.nullable()` here so the host can send an explicit `null` to CLEAR it, not
+// just `.optional()` (undefined = key omitted = "skip", by design — see
+// app/api/campsites/[id]/route.ts). Measured audit: campSiteSchema carried
+// `.nullable()` on exactly 4 fields (extraFeeAmount/extraFeeLabel/
+// cancellationPolicy/logo, CAM-341/CAM-360) and bare `.optional()` on every
+// other clearable field — this is the third time that exact gap shipped, so
+// every remaining clearable field below is widened in this one pass instead
+// of per-field as each bug gets reported (that hand-rolling is WHY there was
+// a third time). A guard (`scripts/check-clearable-fields.mjs`, report-mode)
+// now checks this file + spot.ts against prisma/schema.prisma so a NEW
+// nullable column with no `.nullable()` counterpart is caught, not shipped
+// silently. Fields deliberately NOT widened (no reachable "clear" action, or
+// a different clearing idiom entirely) are documented in that script's
+// ALLOWLIST, not left silently bare: tags (array->CSV; clears via an empty
+// array + `?? null` at the write site) · groundType (per-key counter object;
+// 0 already writes as 0) · ownershipType (two-way toggle UI, no deselect).
 export const campSiteSchema = z.object({
   nameTh: z.string().min(1, "Name (TH) is required"),
-  nameEn: z.string().optional(),
+  nameEn: z.string().optional().nullable(),
   nameThSlug: z.string().min(1, "Slug (TH) is required").optional(),
   nameEnSlug: z.string().min(1, "Slug (EN) is required").optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
 
   // CAM-520: scalar column, single choice. Required on create; the PUT
   // `.partial()` wrap makes it optional on update (see the two route
@@ -105,26 +122,26 @@ export const campSiteSchema = z.object({
   checkOutTime: z.string().min(1),
   bookingMethod: BookingMethodEnum,
 
-  priceLow: z.number().optional(),
-  priceHigh: z.number().optional(),
+  priceLow: z.number().optional().nullable(),
+  priceHigh: z.number().optional().nullable(),
 
   locationId: z.string().uuid(),
   operatorId: z.string().uuid().optional(),
 
-  address: z.string().optional(),
-  directions: z.string().optional(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
-  
+  address: z.string().optional().nullable(),
+  directions: z.string().optional().nullable(),
+  videoUrl: z.string().url().optional().or(z.literal('')).nullable(),
+
   // Contact Information
-  phone: z.string().optional(),
-  lineId: z.string().optional(),
-  facebookUrl: z.string().url().optional().or(z.literal('')),
-  facebookMessageUrl: z.string().url().optional().or(z.literal('')),
-  tiktokUrl: z.string().url().optional().or(z.literal('')),
-  
-  feeInfo: z.string().optional(),
-  toiletInfo: z.string().optional(),
-  minimumAge: z.number().int().min(0).optional(),
+  phone: z.string().optional().nullable(),
+  lineId: z.string().optional().nullable(),
+  facebookUrl: z.string().url().optional().or(z.literal('')).nullable(),
+  facebookMessageUrl: z.string().url().optional().or(z.literal('')).nullable(),
+  tiktokUrl: z.string().url().optional().or(z.literal('')).nullable(),
+
+  feeInfo: z.string().optional().nullable(),
+  toiletInfo: z.string().optional().nullable(),
+  minimumAge: z.number().int().min(0).optional().nullable(),
 
   // PREP-2 (CAM-268): atomic one-time additive fee + closed cancellation policy.
   // Bound mirrors the existing pricePerNight catalog row (.claude/rules/ux.md §2).
@@ -142,8 +159,8 @@ export const campSiteSchema = z.object({
   extraFeeLabel: z.string().max(100, "ชื่อค่าธรรมเนียมต้องไม่เกิน 100 ตัวอักษร").nullable().optional(),
   cancellationPolicy: CancellationPolicyEnum.nullable().optional(),
 
-  partner: z.string().optional(),
-  nationalPark: z.string().optional(),
+  partner: z.string().optional().nullable(),
+  nationalPark: z.string().optional().nullable(),
   // CAM-358: root-relative paths (the /api/upload dev-fallback shape + legacy
   // rows already in the DB) are valid alongside an absolute URL — see
   // lib/validations/image.ts `imageUrlValue`. Empty stays valid (no logo set).
@@ -158,19 +175,36 @@ export const campSiteSchema = z.object({
   // <ImageUpload> component also feeds the camp gallery, so it must accept
   // the same shape the widened imageCreateNested/imageReplaceNested persist.
   images: z.array(imageInputSchema).optional(),
+  // CAM-615: tags stays `.optional()` (no `.nullable()`) on purpose — it is an
+  // array serialized to CSV on write (see arrayToCsv in lib/api-utils.ts), so
+  // "clear all tags" is expressed by sending an empty array, not `null`. The
+  // bug fixed here lived in the WRITE SITE instead: `arrayToCsv([])` returns
+  // `undefined`, which the old `tags: arrayToCsv(data.tags)` mapping let
+  // Prisma treat as "skip" — an intentional "remove every tag" silently
+  // no-op'd. The route now writes `arrayToCsv(data.tags) ?? null`. See
+  // scripts/check-clearable-fields.mjs's ALLOWLIST for why this (and
+  // groundType/ownershipType below) are excluded from the `.nullable()` guard.
   tags: z.array(z.string()).optional(),
-  
+
   // Status fields
   isVerified: z.boolean().optional(),
   isActive: z.boolean().optional(),
   isPublished: z.boolean().optional(),
-  
+
   // Capacity & Ground Type
-  maxGuestsPerDay: z.number().int().min(1).optional(),
-  maxTentsPerDay: z.number().int().min(1).optional(),
+  maxGuestsPerDay: z.number().int().min(1).optional().nullable(),
+  maxTentsPerDay: z.number().int().min(1).optional().nullable(),
+  // CAM-615: groundType stays `.optional()` only — it is a per-key numeric
+  // counter (STONE/GRASS/CONCRETE/WOOD), never an all-or-nothing clearable
+  // value; the host form always writes a real 0 for an untouched key, never
+  // an empty object. See the ALLOWLIST note above.
   groundType: z.record(z.string(), z.number().int().min(0)).optional(), // {"STONE": 5, "GRASS": 10, ...}
-  
+
   // Ownership & Pricing
+  // CAM-615: ownershipType stays `.optional()` only — the host form is a
+  // two-way toggle (PRIVATE / NATIONAL_PARK) with no third "not specified"
+  // option, so there is no reachable host action that would clear it. See
+  // the ALLOWLIST note above; flag to product before adding a clear path.
   ownershipType: OwnershipTypeEnum.optional(),
   isFree: z.boolean().optional(),
   

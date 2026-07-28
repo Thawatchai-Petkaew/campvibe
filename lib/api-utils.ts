@@ -27,6 +27,23 @@ export function apiSuccess<T>(data: T, status: number = 200) {
 }
 
 /**
+ * CAM-615 (root fix): the ONE shared null-vs-omitted write mapping for a
+ * scalar clearable field on the campsite/spot PUT routes. Callers gate on
+ * `data.x !== undefined` first — that outer check is "an omitted key means
+ * skip" and stays a no-op by design (protects a partial PUT from wiping a
+ * field it never sent). Once a key IS present, an explicit '' or `null` both
+ * mean "clear" (write a real NULL); any other value passes through as-is.
+ *
+ * This replaces the `value || undefined` idiom, which silently collapsed a
+ * clear into a skip and shipped the exact same bug three times because each
+ * field re-derived its own version (CAM-341, CAM-360, CAM-615) — see the
+ * `.claude/rules/api.md` rule-12 note. Never hand-roll this per field again.
+ */
+export function clearableWrite<T>(value: T | '' | null): T | null {
+  return value === '' || value === null ? null : value;
+}
+
+/**
  * Convert array to CSV string (for database storage)
  */
 export function arrayToCsv(arr: string[] | undefined | null): string | undefined {

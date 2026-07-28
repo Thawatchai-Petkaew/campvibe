@@ -223,13 +223,19 @@ export function SpotFormDialog({
     // server does not accept an explicit null; omitting is a no-op that
     // leaves an existing zoneId untouched, which matches the round-1
     // constraint — see `noZoneDisabled` above).
+    // CAM-615: viewType/maxCampers/maxTents/pricePerSite send an EXPLICIT
+    // null when blank (not undefined) - undefined is dropped by
+    // JSON.stringify, so the PUT route would skip the field entirely and a
+    // host clearing a per-spot cap/view/price would find the old value back
+    // after reload. Both routes (POST create + PUT update) already forward
+    // these fields as-is, so null round-trips to NULL on either path.
     const body = {
       name: name.trim(),
-      viewType: viewType === NO_VIEW_TYPE ? undefined : viewType,
-      maxCampers: maxCampers.trim() === "" ? undefined : Number(maxCampers),
-      maxTents: maxTents.trim() === "" ? undefined : Number(maxTents),
+      viewType: viewType === NO_VIEW_TYPE ? null : viewType,
+      maxCampers: maxCampers.trim() === "" ? null : Number(maxCampers),
+      maxTents: maxTents.trim() === "" ? null : Number(maxTents),
       pricePerNight: Number(pricePerNight),
-      pricePerSite: pricePerSite.trim() === "" ? undefined : Number(pricePerSite),
+      pricePerSite: pricePerSite.trim() === "" ? null : Number(pricePerSite),
       images: images.map((url) => ({ url, kind: imageKinds[url] ?? ("PHOTO" as ImageKind) })),
       ...(zoneId !== NO_ZONE_VALUE ? { zoneId } : {}),
     };
