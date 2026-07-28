@@ -9,9 +9,17 @@
  * BR-4 (Critical): an assistant `answer` is always rendered as data (plain
  * text), never HTML — nothing here ever builds/returns markup, only plain
  * strings + the structured `cards[]` array from the endpoint response.
+ *
+ * CAM-639 (epic CAM-630, in-chat guided booking) added the `kind:"booking"`
+ * `ChatEntry` arm below — presentation + entry-type only, nothing in this
+ * file constructs one yet. See that union member's own doc comment for the
+ * two invariants (`buildOutgoingHistory` exclusion, `restoreEntriesFromMessages`
+ * never resurrecting one) this file must keep holding.
  */
 import type { AiChatCardResponse, AiChatOutcome, AiChatRequestMessage, AiConversationMessageView } from "@/lib/api-client";
 import { AI_CHAT_MAX_MESSAGES, extractCardsBlock, normalizeBlocks } from "@/lib/api-client";
+import type { BookingStepId } from "@/components/ai-chat/booking-flow";
+import type { BookingStepView } from "@/components/ai-chat/AiChatBookingStep";
 
 export type ChatEntry =
   | { id: string; role: "user"; text: string }
@@ -35,7 +43,36 @@ export type ChatEntry =
    * (`replaceStreamingWithOutcome` below). Never persisted, never sent back
    * as history (`buildOutgoingHistory` only ever reads settled entries).
    */
-  | { id: string; role: "assistant"; kind: "streaming"; text: string };
+  | { id: string; role: "assistant"; kind: "streaming"; text: string }
+  /**
+   * CAM-639 (epic CAM-630, in-chat guided booking) — one turn of the guided
+   * booking flow (`booking-flow.ts`, CAM-633), rendered inline in the
+   * transcript via the CAM-638 presentation (`AiChatBookingStep`).
+   * PRESENTATION + ENTRY TYPE ONLY: nothing constructs this entry yet — no
+   * `appendX` helper exists here and `use-ai-chat.ts` never imports this
+   * `kind`. CAM-640 wires `advanceBookingFlow` in and starts producing these.
+   *
+   * `view` is an IMMUTABLE SNAPSHOT of the flow's presentation at the moment
+   * this turn was appended — the SAME discipline `zeroResult` above already
+   * uses on the `answer` entry: a live-turn-only signal recorded once, never
+   * re-derived from a later, possibly-newer flow state. Scrollback must
+   * never re-render a booking turn with newer slots (a stale card showing
+   * yesterday's price/availability would be worse than showing nothing).
+   * `step` rides alongside it as a stable identity for the turn, typed via
+   * the registry-derived `BookingStepId` (`booking-flow.ts`'s own header
+   * rule: no hand-copied step-id list anywhere).
+   *
+   * Two invariants this kind must never break, each pinned by a test in
+   * `__tests__/cam-639-*`:
+   *   - `buildOutgoingHistory` below already excludes it structurally — its
+   *     `kind` is neither `"user"` nor `"answer"`. If booking copy ever
+   *     reached model history, the model would start believing it produced
+   *     a booking — the ADV-40 guardrail arriving through the back door.
+   *   - `restoreEntriesFromMessages` never produces this kind — a resumed
+   *     conversation shows the text but no live interactive block, because a
+   *     restored flow would carry stale prices/availability.
+   */
+  | { id: string; role: "assistant"; kind: "booking"; step: BookingStepId; view: BookingStepView };
 
 let seq = 0;
 /** Monotonic id generator — stable React `key`s, no dependency on `crypto.randomUUID` (jsdom-less test env). */
@@ -53,7 +90,11 @@ export function isSendableQuestion(text: string): boolean {
  * The recent thread, mapped to the wire shape + capped to the endpoint's
  * documented limit (AI_CHAT_MAX_MESSAGES) — oldest entries dropped first.
  * Notice-only assistant turns (rate-limited/disabled/error) carry no
- * displayable text and are excluded from the outgoing history.
+ * displayable text and are excluded from the outgoing history. CAM-639: a
+ * `kind:"booking"` entry is excluded the SAME way — it matches neither
+ * `role === "user"` nor `kind === "answer"` below, so no code change was
+ * needed to keep it out of model history (see the `booking` union member's
+ * own doc comment for why that must never change).
  */
 export function buildOutgoingHistory(entries: ChatEntry[], newQuestion: string): AiChatRequestMessage[] {
   const history: AiChatRequestMessage[] = [];
@@ -130,6 +171,10 @@ export function appendOrStartStreamingDelta(entries: ChatEntry[], delta: string)
  * `appendOutcome` every non-streaming turn already uses (no parallel finalize
  * path). AC-4: a mid-stream `error` outcome discards the partial answer this
  * way too — `entries.slice(0, -1)` drops it before the error entry is added.
+ * CAM-639: the drop condition checks `last.kind === "streaming"` only, so a
+ * trailing `kind:"booking"` entry never matches it and always falls through
+ * to `appendOutcome`'s append — this function must not be changed to swallow
+ * it.
  */
 export function replaceStreamingWithOutcome(
   entries: ChatEntry[],
@@ -188,6 +233,13 @@ export function isAuthedSession(status: "loading" | "authenticated" | "unauthent
  * `suggestions` stays `[]` on every restored answer — CAM-445 scoped the fix
  * to the reported symptoms (structure/cards/banner); follow-up-question
  * chips are not persisted and remain out of scope here.
+ *
+ * CAM-639: this function has no branch that ever produces a
+ * `kind:"booking"` entry — every non-`USER` message restores as a plain
+ * `kind:"answer"` entry, same as before this ticket. A resumed conversation
+ * therefore shows the assistant's TEXT for a past booking turn but never a
+ * live interactive step block — the flow's slots (prices, availability) are
+ * never persisted, so resurrecting the block would show stale data.
  */
 export function restoreEntriesFromMessages(messages: AiConversationMessageView[]): ChatEntry[] {
   return messages.map((message) => {
