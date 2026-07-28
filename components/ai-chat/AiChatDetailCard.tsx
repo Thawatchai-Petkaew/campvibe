@@ -327,7 +327,14 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
     statTiles.push({
       icon: Banknote,
       value: priceStatValue,
-      label: t.aiChat.detail.statPriceLabel,
+      // CAM-643: reuse the same per-night suffix every other price surface
+      // uses (card carousel + this drawer's own CTA price below) — the old
+      // dedicated key here quoted a per-guest unit while pricing is
+      // strictly per-night (no guest multiplier anywhere in
+      // lib/booking-pricing.ts); a private key duplicating this string was
+      // exactly how the two drifted apart, so this call site now points at
+      // the one shared key instead of holding its own copy.
+      label: t.aiChat.card.perNight,
       testId: "text--ai-chat-detail-price",
     });
   }
@@ -531,7 +538,7 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
                             <span className="text-lg font-semibold tabular-nums text-ai-price">
                               ฿{THB_FORMAT.format(detail.price.low)}
                             </span>
-                            <span className="text-xs text-foreground/70">{t.aiChat.detail.perGuestNight}</span>
+                            <span className="text-xs text-foreground/70">{t.aiChat.card.perNight}</span>
                           </>
                         )
                       )}
