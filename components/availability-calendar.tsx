@@ -69,6 +69,14 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
   const copy = t.availabilityCalendar;
   const locale = language === "th" ? "th-TH" : "en-US";
 
+  // CAM-604: `new Date()` evaluated here runs once during the SERVER render
+  // and once again during the CLIENT's first (hydrating) render — two
+  // separate JS calls that can only ever disagree across a day/month
+  // boundary, but when they do, `today`-derived output (the "is this cell
+  // today" ring style, the nav buttons' disabled bound, the month label
+  // text) is exactly the "live clock value" case React's own hydration docs
+  // name as an expected, benign mismatch — see the `suppressHydrationWarning`
+  // usages below, scoped to only the elements that read `today`/`month`.
   const today = useMemo(() => new Date(), []);
   const minMonth = useMemo(() => startOfMonth(subMonths(today, MONTHS_BACK)), [today]);
   const maxMonth = useMemo(() => startOfMonth(addMonths(today, MONTHS_FORWARD)), [today]);
@@ -168,10 +176,18 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
             disabled={atMinBound}
             aria-label={copy.prevMonthAriaLabel}
             data-testid="btn--calendar-prev"
+            // CAM-604: `disabled` derives from `today` (see above) — a live-clock
+            // value, not app state; suppress the benign day/month-boundary case.
+            suppressHydrationWarning
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
           </Button>
-          <span className="min-w-32 text-center text-sm font-semibold text-foreground tabular-nums">
+          <span
+            className="min-w-32 text-center text-sm font-semibold text-foreground tabular-nums"
+            // CAM-604: text derives from `month`, seeded from `new Date()` — see
+            // the comment above `today`.
+            suppressHydrationWarning
+          >
             {monthLabel}
           </span>
           <Button
@@ -181,6 +197,7 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
             disabled={atMaxBound}
             aria-label={copy.nextMonthAriaLabel}
             data-testid="btn--calendar-next"
+            suppressHydrationWarning
           >
             <ChevronRight className="size-4" aria-hidden="true" />
           </Button>
@@ -252,12 +269,17 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
                     blocked ? "bg-destructive/5 border-destructive/20" : "bg-background",
                     isToday && "ring-1 ring-primary/40"
                   )}
+                  // CAM-604: `isToday` derives from `today` (`new Date()` evaluated
+                  // once per render pass) — a live-clock comparison, not app state;
+                  // suppress the benign day-boundary case (see comment above `today`).
+                  suppressHydrationWarning
                 >
                   <span
                     className={cn(
                       "text-sm tabular-nums",
                       isToday ? "font-bold text-primary-ink" : "font-medium text-foreground"
                     )}
+                    suppressHydrationWarning
                   >
                     {format(day, "d")}
                   </span>
