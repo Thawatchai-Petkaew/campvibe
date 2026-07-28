@@ -13,7 +13,10 @@ import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    campSite: { create: vi.fn() },
+    // CAM-617: findFirst added — POST /api/campsites now checks Location
+    // exclusivity before create (same fixture-note pattern CAM-613
+    // documented for its own sibling route).
+    campSite: { create: vi.fn(), findFirst: vi.fn() },
     masterData: { findMany: vi.fn() },
   },
 }));
@@ -28,6 +31,7 @@ import { POST as campSitePOST } from '@/app/api/campsites/route';
 import { _store } from '@/lib/rate-limit';
 
 const mockCreate = prisma.campSite.create as unknown as ReturnType<typeof vi.fn>;
+const mockFindFirst = prisma.campSite.findFirst as unknown as ReturnType<typeof vi.fn>;
 const mockFindMany = prisma.masterData.findMany as unknown as ReturnType<typeof vi.fn>;
 const mockRequireAuth = requireAuth as unknown as ReturnType<typeof vi.fn>;
 
@@ -55,6 +59,7 @@ beforeEach(() => {
   _store.clear();
   mockRequireAuth.mockResolvedValue({ error: null, session: { user: { id: 'user-create-1', role: 'HOST' } } });
   mockFindMany.mockResolvedValue([]);
+  mockFindFirst.mockResolvedValue(null);
   mockCreate.mockResolvedValue({ id: 'new-camp-id' });
 });
 

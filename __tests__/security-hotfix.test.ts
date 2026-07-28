@@ -31,6 +31,9 @@ vi.mock('@/lib/prisma', () => ({
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      // CAM-617: POST /api/campsites now checks Location exclusivity before
+      // create — same fixture-note pattern CAM-613 documented.
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -648,6 +651,8 @@ describe('isVerified self-grant prevention — POST /api/campsites', () => {
     (prisma.campSite.create as ReturnType<typeof vi.fn>).mockImplementation(
       ({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: 'new-campsite-id', ...data })
     );
+    // CAM-617: no existing CampSite at the mocked locationId by default.
+    (prisma.campSite.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   });
 
   it('CAMPER sending isVerified:true → campSite.create receives isVerified:false', async () => {

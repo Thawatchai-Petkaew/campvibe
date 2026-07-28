@@ -33,6 +33,28 @@ import {
 const CATALOG_LIST_RATE_LIMIT = 300;
 const CATALOG_LIST_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 min
 
+// CAM-617 — `Location.campSites` is 1:many ONLY because of FK-ordering (the
+// legitimate flow — components/CampgroundForm.tsx — always calls
+// `POST /api/location` to create a BRAND NEW row first, then this route,
+// because the FK requires the parent to exist before a CampSite can point
+// at it). Nothing in the seed, the CAM-575 backfill, or the host-onboarding
+// form ever intends two camps to share one Location row. Left unchecked, a
+// caller can read another camp's `locationId` (exposed by
+// `GET /api/campsites/[id]`) and hand it to THIS route as their own new
+// camp's `locationId`, silently coupling the two camps: any later edit to
+// province/district/subDistrict (PUT, CAM-613-authorised — correctly, since
+// the shared id really would be "this camp's own" `locationId` by then) or
+// to lat/lon (the `campsite_coords_sync` trigger, which fires per-CampSite-
+// row and unconditionally overwrites `Location.lat/lon` with the writing
+// row's own coordinates) moves or relabels the OTHER host's camp too.
+//
+// Unlike CAM-613's UPDATE-path fix, there is no already-authorised fallback
+// value to substitute here (this is the FIRST link ever made between the
+// new CampSite and a Location row) — "ignore the body" has no safe target
+// to ignore INTO, so the create is rejected outright rather than silently
+// re-targeted.
+const LOCATION_ALREADY_LINKED_ERROR = 'ไม่สามารถสร้างแคมป์ได้ เนื่องจากตำแหน่งนี้ถูกใช้งานโดยแคมป์อื่นอยู่แล้ว';
+
 export async function GET(request: NextRequest) {
   try {
     // 0. Rate-limit by IP (CAM-534) — runs before any parsing/query work.
@@ -261,6 +283,19 @@ export async function POST(request: NextRequest) {
     // happened yet, so this fails closed before any write.
     if (!isPriceOrderValid({ priceLow: data.priceLow, priceHigh: data.priceHigh })) {
       return apiError(PRICE_ORDER_ERROR, 400);
+    }
+
+    // CAM-617: reject a body-supplied `locationId` that is already attached
+    // to a live CampSite (see the comment above LOCATION_ALREADY_LINKED_ERROR
+    // for why exclusivity is required rather than ownership-scoped). No side
+    // effect has happened yet, so this fails closed before any write — same
+    // placement pattern as the price-order check above.
+    const existingCampAtLocation = await prisma.campSite.findFirst({
+      where: { locationId: data.locationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (existingCampAtLocation) {
+      return apiError(LOCATION_ALREADY_LINKED_ERROR, 409);
     }
 
     // Ensure slugs are available
