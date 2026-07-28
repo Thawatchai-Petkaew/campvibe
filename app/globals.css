@@ -504,16 +504,33 @@ h6 {
   .ai-aurora {
     background-image: var(--ai-gradient);
   }
+  /* CAM-627 (owner report: the machine ran hot while the chat panel was
+     open) — the aurora no longer drifts. It sat behind the panel's several
+     stacked backdrop-blur-xl glass surfaces; animating transform/opacity
+     there forced the browser to keep recompositing (and re-blurring) that
+     whole area for as long as the panel stayed open — an unbounded,
+     continuous cost, unlike the flame's short dimensioned pulses. Kept: the
+     static gradient itself (.ai-aurora above, unchanged). Removed: motion
+     only — always animation:none now, for everyone (not gated by
+     prefers-reduced-motion; making a loop static for all is fine, per this
+     story's brief). The class name stays on the panel's ambient div
+     (AiChatPanel.tsx, untouched) and the aurora-drift keyframe rule further
+     below stays defined (both kept only so pre-existing CAM-432/433
+     source-inspection tests, which locate other keyframes by slicing up to
+     that rule's position in this file, keep their anchor) — neither is
+     consumed for motion anymore. DESIGN.md §2.1's sanctioned loop count
+     drops from 4 to 3 (ai-flame-glow, ai-flame-flicker, ai-materialize
+     remain). */
+  .ai-aurora-drift {
+    animation: none;
+  }
 }
 
 /* Motion-safe only. Every loop is transform/opacity, dimmed, and no-ops under reduce-motion.
-   These are the §2.1-sanctioned ambient loops (owner-approved under the CAM-426 delegation). */
+   These are the §2.1-sanctioned ambient loops (owner-approved under the CAM-426 delegation).
+   CAM-627: .ai-aurora-drift used to be listed here too — it is now always
+   static (see the @layer components block above), so only 3 loops remain. */
 @media (prefers-reduced-motion: no-preference) {
-  /* Slow, ~18s aurora drift — barely perceptible; reinforces the "night breathing" feel. */
-  .ai-aurora-drift {
-    animation: ai-aurora-drift 18s ease-in-out infinite alternate;
-    will-change: transform, opacity;
-  }
   /* Gentle flame glow on the avatar chip — dim opacity/scale pulse, ~2.4s. */
   .ai-flame-glow {
     animation: ai-flame-glow 2400ms ease-in-out infinite;

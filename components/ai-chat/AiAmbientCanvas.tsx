@@ -1,32 +1,46 @@
 /**
- * components/ai-chat/AiAmbientCanvas.tsx — CAM-426
+ * components/ai-chat/AiAmbientCanvas.tsx — CAM-426, frozen to a single static
+ * paint by CAM-627
  *
  * Decorative campfire-night particle canvas for the น้องกองไฟ assistant
  * surface only (design.md §3, DESIGN.md §2.1 sanctioned exception). Renders
- * three dimmed camping gimmicks — fireflies-follow-cursor, star sparkles,
- * and rising embers — positioned behind the panel's glass content
- * (`absolute inset-0 -z-10`). Carries NO information: `aria-hidden`,
- * `pointer-events-none`, `role="presentation"`; never receives focus or a
- * pointer event itself.
+ * three dimmed camping gimmicks — fireflies, star sparkles, and rising
+ * embers — positioned behind the panel's glass content (`absolute inset-0
+ * -z-10`). Carries NO information: `aria-hidden`, `pointer-events-none`,
+ * `role="presentation"`; never receives focus or a pointer event itself.
  *
- * Perf caps (mandatory, design.md §3): particle cap halved on narrow
- * viewport / low-core devices, a ~30fps rAF throttle via a delta
- * accumulator (particle arrays pre-allocated once, no per-frame alloc),
- * pause on hidden tab (`visibilitychange`), DPR capped at 2, and the whole
- * loop gated on `prefers-reduced-motion: no-preference` (re-checked on the
- * media-query `change` event) — under reduce-motion it paints one static
- * dim star frame and never starts `requestAnimationFrame`.
+ * CAM-627 (owner report, Golf: "ช่วยเอา animate ที่อยู่ใน chat ออกทั้งหมด
+ * เพราะเครื่องร้อนมากตอนเปิด chat เหลือไว้แค่น้องกองไฟ" — the machine ran hot
+ * for as long as the chat panel stayed open). Profiled with the panel open
+ * and idle (Chrome/CDP trace, this machine): the continuous ~30fps
+ * `requestAnimationFrame` loop this file used to run was the dominant,
+ * clearly-attributable renderer-main-thread cost while idle (~630-665ms of
+ * JS per 4s idle window with the loop running vs ~100-110ms with it
+ * stopped — see the story's design.md for the full before/after numbers).
+ * That loop is gone. `step()` below still runs the exact same throttle +
+ * particle-update code (unchanged), but now exactly ONCE per trigger
+ * (mount, resize, theme change, tab-foreground, motion-preference change)
+ * instead of forever — one frozen frame, not a loop. `drawStaticFrame()`
+ * (the pre-existing reduced-motion fallback, stars only) is UNTOUCHED, so
+ * reduced-motion campers see exactly what they always saw.
  *
- * Colors are read from the `--ai-ember` / `--ai-firefly` / `--ai-star`
- * custom properties via `getComputedStyle` on mount and re-read whenever
- * the `<html>` element's `class` attribute changes (light/dark toggle) —
- * never a hardcoded color literal in this file, so `check:palette` stays
- * green and the canvas tracks the active theme automatically.
+ * What the panel loses: continuous drift/twinkle for stars/fireflies/embers
+ * and the fireflies-follow-cursor interactivity (meaningless without a
+ * repeating loop, so that pointer-tracking code is retired, not frozen).
+ * What it keeps: the full three-layer camping-night composition (stars +
+ * fireflies + embers), painted once per trigger instead of never re-painted
+ * — so a resize, a light/dark toggle, or returning to the tab still shows a
+ * correct, current-size, current-theme frame; it just never animates.
+ *
+ * Perf caps that still apply (design.md §3): particle cap halved on narrow
+ * viewport / low-core devices, DPR capped at 2, and colors are read from the
+ * `--ai-ember` / `--ai-firefly` / `--ai-star` custom properties via
+ * `getComputedStyle` — never a hardcoded color literal in this file, so
+ * `check:palette` stays green and the canvas tracks the active theme.
  *
  * Mounted via `next/dynamic(ssr:false)` from `AiChatPanel` — a canvas has
  * no server-render value and this keeps its JS out of the panel's critical
- * first-load chunk. CWV impact: not measured (design.md §3 budget note);
- * the throttle + cap + hidden-pause are the guardrails.
+ * first-load chunk.
  */
 "use client";
 
@@ -35,7 +49,7 @@ import { useEffect, useRef } from "react";
 /** Desktop particle ceiling (design.md §3); halved on narrow viewport / <=4 cores. */
 const DESKTOP_CAP = { fireflies: 12, stars: 20, embers: 10 };
 const NARROW_BREAKPOINT_PX = 768; // Tailwind `md`
-const FRAME_INTERVAL_MS = 1000 / 30; // ~30fps throttle
+const FRAME_INTERVAL_MS = 1000 / 30; // throttle floor for the one-shot paint below
 
 interface Particle {
   x: number;
@@ -65,7 +79,6 @@ export function AiAmbientCanvas() {
     const canvas: HTMLCanvasElement = canvasEl;
     const ctx: CanvasRenderingContext2D = ctx2d;
 
-    let rafId: number | null = null;
     let lastFrameAt = 0;
     let width = 0;
     let height = 0;
@@ -77,7 +90,6 @@ export function AiAmbientCanvas() {
       firefly: readTokenColor("--ai-firefly"),
       star: readTokenColor("--ai-star"),
     };
-    const pointer = { x: -1000, y: -1000, active: false };
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: no-preference)");
 
     function particleCap() {
@@ -128,10 +140,15 @@ export function AiAmbientCanvas() {
       canvas.height = Math.max(1, Math.round(height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       seed();
+      // CAM-627: assigning canvas.width/height clears the bitmap — repaint
+      // immediately so a resize (e.g. the panel's expand/collapse toggle)
+      // never leaves the canvas blank now that nothing loops.
+      start();
     }
 
     function drawStaticFrame() {
-      // Reduced-motion fallback: one dim, static star frame — no rAF started.
+      // Reduced-motion fallback (unchanged by CAM-627): one dim, static star
+      // frame — no rAF, no other particle layers.
       if (width === 0 || height === 0) return;
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = colors.star;
@@ -144,15 +161,19 @@ export function AiAmbientCanvas() {
       ctx.globalAlpha = 1;
     }
 
+    // CAM-627: this used to reschedule itself via requestAnimationFrame and
+    // run forever (the continuous ~30fps loop this story measured and
+    // removed). It still runs the exact same throttle check + particle
+    // update/draw code, but now only once per call — a single frozen frame
+    // showing all three layers (stars, fireflies, embers) at once.
     function step(now: number) {
-      rafId = requestAnimationFrame(step);
       if (now - lastFrameAt < FRAME_INTERVAL_MS) return;
       lastFrameAt = now;
       if (width === 0 || height === 0) return;
 
       ctx.clearRect(0, 0, width, height);
 
-      // star sparkles: static position, twinkling opacity (max alpha 0.55)
+      // star sparkles
       ctx.fillStyle = colors.star;
       for (const star of stars) {
         star.phase += 0.02;
@@ -162,15 +183,10 @@ export function AiAmbientCanvas() {
         ctx.fill();
       }
 
-      // fireflies-follow-cursor: drift; a subset eases toward the pointer (max alpha 0.45)
+      // fireflies (frozen at their seeded drift position — no cursor-follow;
+      // meaningless without a repeating loop, so that behavior is retired)
       ctx.fillStyle = colors.firefly;
-      fireflies.forEach((fly, i) => {
-        if (pointer.active && i % 2 === 0) {
-          fly.vx += (pointer.x - fly.x) * 0.0006;
-          fly.vy += (pointer.y - fly.y) * 0.0006;
-          fly.vx *= 0.96;
-          fly.vy *= 0.96;
-        }
+      for (const fly of fireflies) {
         fly.x += fly.vx;
         fly.y += fly.vy;
         if (fly.x < 0 || fly.x > width) fly.vx *= -1;
@@ -180,9 +196,9 @@ export function AiAmbientCanvas() {
         ctx.beginPath();
         ctx.arc(fly.x, fly.y, fly.size, 0, Math.PI * 2);
         ctx.fill();
-      });
+      }
 
-      // rising embers: rise + drift sideways, fade near the top, respawn (max alpha 0.40)
+      // rising embers, frozen mid-rise
       ctx.fillStyle = colors.ember;
       for (const ember of embers) {
         ember.x += ember.vx;
@@ -200,37 +216,21 @@ export function AiAmbientCanvas() {
       ctx.globalAlpha = 1;
     }
 
-    function stop() {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-    }
-
+    // CAM-627: no longer starts a loop — paints exactly one frame. Reduced
+    // motion (unchanged branch/behavior) gets the pre-existing stars-only
+    // static frame; everyone else gets the fuller one-shot step() paint.
     function start() {
-      stop();
       if (!reducedMotionQuery.matches) {
         drawStaticFrame();
         return;
       }
-      lastFrameAt = 0;
-      rafId = requestAnimationFrame(step);
+      step(performance.now());
     }
 
     function handleVisibility() {
-      if (document.hidden) stop();
-      else start();
-    }
-
-    function handlePointerMove(e: PointerEvent) {
-      const rect = canvas.getBoundingClientRect();
-      pointer.x = e.clientX - rect.left;
-      pointer.y = e.clientY - rect.top;
-      pointer.active = true;
-    }
-
-    function handlePointerLeave() {
-      pointer.active = false;
+      // CAM-627: nothing to pause/resume anymore (no loop) — repaint once on
+      // return to the tab in case the theme or viewport changed while hidden.
+      if (!document.hidden) start();
     }
 
     const resizeObserver = new ResizeObserver(resize);
@@ -243,24 +243,18 @@ export function AiAmbientCanvas() {
         firefly: readTokenColor("--ai-firefly"),
         star: readTokenColor("--ai-star"),
       };
+      start(); // CAM-627: repaint immediately so a light/dark toggle isn't stuck on stale colors.
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     document.addEventListener("visibilitychange", handleVisibility);
     reducedMotionQuery.addEventListener("change", start);
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerleave", handlePointerLeave);
-
-    start();
 
     return () => {
-      stop();
       resizeObserver.disconnect();
       themeObserver.disconnect();
       document.removeEventListener("visibilitychange", handleVisibility);
       reducedMotionQuery.removeEventListener("change", start);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerleave", handlePointerLeave);
     };
   }, []);
 
