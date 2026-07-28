@@ -121,7 +121,10 @@ const CAMP = {
 };
 
 function invoke(slug: string) {
-  return CampgroundPage({ params: Promise.resolve({ slug }) });
+  // CAM-635: page.tsx now also reads searchParams (booking-prefill) — an
+  // empty object here means "no prefill link", matching every real request
+  // this test suite exercises (none of them carry checkIn/checkOut/guests).
+  return CampgroundPage({ params: Promise.resolve({ slug }), searchParams: Promise.resolve({}) });
 }
 
 beforeEach(() => {
