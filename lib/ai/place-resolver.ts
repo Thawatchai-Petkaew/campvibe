@@ -79,6 +79,31 @@
  * co-occurring district/province name before it is ever hinted — an
  * unresolvable ambiguity is never guessed. See `resolvePlace`'s own
  * docblock below for the full, updated precedence rule.
+ *
+ * CAM-609 (owner decision 2026-07-28, "เต็นท์รุ่นตำนาน ≠ ตำบลตำนาน") — CAM-606's
+ * regeneration (422 -> 503 rows) surfaced a real guard-gap CAM-600 could not
+ * have anticipated: "ตำนาน" ("legend"/"myth") is ordinary Thai vocabulary,
+ * exactly 5 Thai characters (the length floor excludes only `< 5`), and did
+ * not exist in the 422-row list CAM-600 authored `AMBIGUOUS_SUBDISTRICT_VOCAB_TH`
+ * against — so a completely ordinary phrase like "เต็นท์รุ่นตำนาน" ("an
+ * iconic/legendary-edition tent") was silently hinted toward a district in
+ * Phatthalung. Adding the word to the skip-set (mirroring `เหนือ`/`สะอาด`/
+ * `สำราญ`) is the vocabulary fix, but it is NOT sufficient alone: the
+ * skip-set is consulted by the ONE existing sub-district code path
+ * (`buildSubDistrictCandidates`/`detectSubDistrict`) regardless of whether
+ * the camper explicitly wrote "ตำบล" in front of the name — there was no
+ * marked-vs-unmarked split before this story, so a blanket skip-set entry
+ * would ALSO have silently broken the correct, explicit form
+ * "ลานกางเต็นท์ตำบลตำนาน" (a camper who writes "ตำบล" is not being ambiguous;
+ * they are declaring sub-district intent, the identical grammatical
+ * declaration CAM-599's `detectExplicitDistrictPrefix` already recognizes for
+ * "อำเภอ"/"อ." in front of a district name). `detectExplicitSubDistrictPrefix`
+ * below is that marker path: a SEPARATE candidate list (built from the raw
+ * shortlist, bypassing ONLY the ordinary-vocabulary skip-set — the length
+ * floor and substring-of-any-province guards still apply, since neither is
+ * an ambiguity a marker resolves), checked first inside `detectSubDistrict`
+ * so the resolver's top-level precedence (still the same position CAM-600
+ * established) is unchanged.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
@@ -669,11 +694,23 @@ const SUBDISTRICT_SHORTLIST = subDistrictShortlistData as readonly SubDistrictSh
  * Follow-up CAM ticket only if evals surface a further, evidenced miss —
  * the same acceptance already recorded for the district-level guards this
  * story extends.
+ *
+ * CAM-609 — "ตำนาน" ("legend"/"myth") added: ordinary Thai vocabulary,
+ * exactly 5 Thai characters (lands exactly on the floor, the identical risk
+ * shape as สะอาด/สำราญ), newly shortlisted after CAM-606's regeneration
+ * (absent from the 422-row list this set was originally curated against).
+ * Measured: `resolvePlace('เต็นท์รุ่นตำนาน')` and `resolvePlace('ลานกางเต็นท์
+ * ระดับตำนาน')` both silently hinted `{subDistrict: "ตำนาน", district:
+ * "เมืองพัทลุง"}` before this entry. This exclusion applies ONLY to the
+ * unmarked/bare candidate path below — an explicit "ตำบลตำนาน" mention still
+ * resolves via `detectExplicitSubDistrictPrefix` (see this file's top
+ * docblock, CAM-609), which deliberately does not consult this set.
  */
 const AMBIGUOUS_SUBDISTRICT_VOCAB_TH: ReadonlySet<string> = new Set([
   'เหนือ', // north/above — measured against this file's own region fixtures
   'สะอาด', // clean — common adjective
   'สำราญ', // relaxed/content — common adjective, camping-review-adjacent
+  'ตำนาน', // legend/myth — common noun; newly shortlisted (CAM-606), CAM-609 finding
 ]);
 
 /**
@@ -769,6 +806,77 @@ function resolveAmbiguousSubDistrictEntry(
 }
 
 /**
+ * CAM-609 — an explicit "ตำบล" marker directly in front of a shortlisted
+ * name is the camper's own grammatical declaration of sub-district intent —
+ * the identical reasoning CAM-599's `buildExplicitDistrictPrefixCandidates`
+ * already established for "อำเภอ"/"อ." in front of a district name. Built
+ * from the RAW `SUBDISTRICT_SHORTLIST` (never a second data file) and
+ * bypassing ONLY `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` — the one guard a marker
+ * actually resolves (a bare "ตำนาน" could mean "legend"; a "ตำบลตำนาน" cannot
+ * mean anything else). The length floor (`MIN_SUBDISTRICT_NAME_LENGTH`) and
+ * `isSubstringOfAnyProvince` still apply unchanged: neither is an ambiguity
+ * a marker removes — a name too short to be a meaningful reference, or one
+ * that exactly duplicates a real province's own name, stays excluded even
+ * when marked (BR-2, CAM-609 story.md). Grouped by name (never per-row,
+ * mirroring `buildSubDistrictCandidates`) so a name that collides WITHIN the
+ * shortlist itself still goes through `resolveAmbiguousSubDistrictEntry`
+ * before firing — an explicit marker declares "this is a sub-district", not
+ * "and I've told you which one" when the same name holds >1 real place.
+ */
+interface ExplicitSubDistrictPrefixCandidate {
+  nameTh: string;
+  entries: ReadonlyArray<{ districtNameTh: string; provinceNameTh: string }>;
+}
+
+const SUBDISTRICT_PREFIX_TH = 'ตำบล';
+
+function buildExplicitSubDistrictPrefixCandidates(): readonly ExplicitSubDistrictPrefixCandidate[] {
+  const byName = new Map<string, { districtNameTh: string; provinceNameTh: string }[]>();
+
+  for (const entry of SUBDISTRICT_SHORTLIST) {
+    const { nameTh } = entry;
+    if (nameTh.length < MIN_SUBDISTRICT_NAME_LENGTH) continue;
+    if (isSubstringOfAnyProvince(nameTh)) continue;
+    // Deliberately NOT filtered through AMBIGUOUS_SUBDISTRICT_VOCAB_TH — an
+    // explicit "ตำบล" marker removes exactly that ambiguity (CAM-609).
+
+    const list = byName.get(nameTh) ?? [];
+    list.push({ districtNameTh: entry.districtNameTh, provinceNameTh: entry.provinceNameTh });
+    byName.set(nameTh, list);
+  }
+
+  return Array.from(byName.entries())
+    .map(([nameTh, entries]) => ({ nameTh, entries }))
+    .sort((a, b) => b.nameTh.length - a.nameTh.length);
+}
+
+const EXPLICIT_SUBDISTRICT_PREFIX_CANDIDATES_BY_LENGTH_DESC: readonly ExplicitSubDistrictPrefixCandidate[] =
+  buildExplicitSubDistrictPrefixCandidates();
+
+/**
+ * CAM-609 — first (longest-`nameTh`-first) candidate whose "ตำบล"-prefixed
+ * form (`ตำบล` + `nameTh`) appears anywhere in `text`. Reuses
+ * `resolveAmbiguousSubDistrictEntry` unchanged for the same >1-entry
+ * collision-scoping `detectSubDistrict` already applies to the unmarked
+ * path — an explicit marker still never guesses an unresolvable ambiguity.
+ * `undefined` = no explicit "ตำบล" marker present (or present but
+ * unresolvably ambiguous).
+ */
+function detectExplicitSubDistrictPrefix(text: string): { subDistrict: string; district: string } | undefined {
+  for (const candidate of EXPLICIT_SUBDISTRICT_PREFIX_CANDIDATES_BY_LENGTH_DESC) {
+    if (!text.includes(`${SUBDISTRICT_PREFIX_TH}${candidate.nameTh}`)) continue;
+    if (candidate.entries.length === 1) {
+      return { subDistrict: candidate.nameTh, district: candidate.entries[0].districtNameTh };
+    }
+    const confirmed = resolveAmbiguousSubDistrictEntry(candidate, text);
+    if (confirmed) {
+      return { subDistrict: candidate.nameTh, district: confirmed.districtNameTh };
+    }
+  }
+  return undefined;
+}
+
+/**
  * CAM-600 — first (longest-`nameTh`-first) shortlisted candidate whose name
  * appears in `text`: a single-entry (shortlist-globally-unique) candidate
  * fires immediately; a multi-entry (colliding) candidate fires ONLY when
@@ -780,8 +888,17 @@ function resolveAmbiguousSubDistrictEntry(
  * `undefined` = no shortlisted sub-district plausibly named (or named but
  * unresolvably ambiguous — falls through to district/province/region below,
  * never a guess).
+ *
+ * CAM-609 — checks the explicit "ตำบล"-marker path FIRST (see
+ * `detectExplicitSubDistrictPrefix` above): a marked mention is never
+ * subject to the ordinary-vocabulary skip-set below, so `ตำบลตำนาน` still
+ * resolves even though bare `ตำนาน` no longer does. This is the ONLY change
+ * this story makes to this function; the unmarked loop below is unchanged.
  */
 function detectSubDistrict(text: string): { subDistrict: string; district: string } | undefined {
+  const explicit = detectExplicitSubDistrictPrefix(text);
+  if (explicit) return explicit;
+
   for (const candidate of SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC) {
     if (!text.includes(candidate.nameTh)) continue;
     if (candidate.entries.length === 1) {

@@ -14,6 +14,13 @@
  * convention): `resolvePlace` reads the committed JSON at module-load time,
  * so re-running these against the regenerated file is the real, current
  * candidate set — not a stale fixture.
+ *
+ * Addendum (CAM-609): the "unchanged detector" statement above describes
+ * THIS story's own scope at authoring time. CAM-609 is a later, separate
+ * follow-up story that DID touch `lib/ai/place-resolver.ts` (one
+ * vocabulary-set addition + one new explicit-marker path) to close the
+ * collision-risk finding this file itself documented below — see that
+ * describe block's own updated comment.
  */
 import { describe, it, expect } from 'vitest';
 import { resolvePlace } from '@/lib/ai/place-resolver';
@@ -75,23 +82,30 @@ describe('CAM-606 — siblings unchanged after regeneration', () => {
   });
 });
 
-describe('CAM-606 — collision-risk finding, reported not fixed (out of this story\'s scope)', () => {
-  // FINDING (see PR body / ticket note): "ตำนาน" ("legend"/"myth") is one of
-  // the 74 newly-covered names. It is ordinary Thai vocabulary, exactly 5
-  // Thai characters (the length floor is "< 5 excluded", so 5 survives),
-  // and is NOT a member of `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` (which only
-  // curates เหนือ/สะอาด/สำราญ) — the exact same guard-gap class CAM-600's own
-  // docblock names for สะอาด/สำราญ (a common word landing exactly on the
-  // floor). An entirely ordinary phrase about a "legendary"/"iconic" tent
-  // gets hijacked into a real-place hint (เมืองพัทลุง). This story does NOT
-  // touch the resolver/guards (out of file surface, and the ticket
-  // explicitly forbids it) — these tests DOCUMENT today's actual behavior so
-  // a future guard change is visible here, not silently discovered again.
-  it('[documented finding, NOT desired behavior] "เต็นท์รุ่นตำนาน" (an "iconic/legendary-edition tent") is incorrectly hinted toward ตำบลตำนาน (เมืองพัทลุง)', () => {
-    expect(resolvePlace('อยากได้เต็นท์รุ่นตำนาน')).toEqual({ subDistrict: 'ตำนาน', district: 'เมืองพัทลุง' });
+describe('CAM-606 — collision-risk finding, FIXED by its own follow-up (CAM-609)', () => {
+  // FINDING (originally reported here, see PR body / ticket note): "ตำนาน"
+  // ("legend"/"myth") is one of the 74 newly-covered names. It is ordinary
+  // Thai vocabulary, exactly 5 Thai characters (the length floor is "< 5
+  // excluded", so 5 survives), and was NOT a member of
+  // `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` (which only curated เหนือ/สะอาด/สำราญ at
+  // the time this story shipped) — the exact same guard-gap class CAM-600's
+  // own docblock names for สะอาด/สำราญ (a common word landing exactly on the
+  // floor). An entirely ordinary phrase about a "legendary"/"iconic" tent was
+  // being hijacked into a real-place hint (เมืองพัทลุง). This story's own scope
+  // deliberately did NOT touch the resolver/guards (out of file surface) —
+  // these two assertions originally DOCUMENTED that bug so it would be
+  // visible here, not silently discovered again. CAM-609 is the named
+  // follow-up: it added "ตำนาน" to `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` (closing
+  // this exact finding) AND a new explicit-`ตำบล`-marker path so the
+  // genuinely correct form ("ลานกางเต็นท์ตำบลตำนาน") keeps resolving — see
+  // `__tests__/cam-609-tamnan-false-hint.test.ts` for the full before/after
+  // coverage. These two assertions are updated here to the now-fixed
+  // behavior rather than left pinning a bug CAM-609 already closed.
+  it('[regression, fixed by CAM-609] "เต็นท์รุ่นตำนาน" (an "iconic/legendary-edition tent") no longer hints ตำบลตำนาน (เมืองพัทลุง)', () => {
+    expect(resolvePlace('อยากได้เต็นท์รุ่นตำนาน')).toEqual({});
   });
 
-  it('[documented finding, NOT desired behavior] "ลานกางเต็นท์ในตำนาน" ("a legendary campsite") — same collision', () => {
-    expect(resolvePlace('ลานกางเต็นท์ในตำนาน')).toEqual({ subDistrict: 'ตำนาน', district: 'เมืองพัทลุง' });
+  it('[regression, fixed by CAM-609] "ลานกางเต็นท์ในตำนาน" ("a legendary campsite") — same collision, no longer hijacked', () => {
+    expect(resolvePlace('ลานกางเต็นท์ในตำนาน')).toEqual({});
   });
 });
