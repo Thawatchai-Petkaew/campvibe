@@ -6,7 +6,7 @@ persona: Camper
 artifact: tech
 owner: backend-engineer
 status: in-progress
-version: v3
+version: v4
 updated: 2026-07-28
 ---
 # Tech — Asking for a district by name still finds nothing (CAM-596)
@@ -59,17 +59,24 @@ detectExplicitDistrictPrefix(text)? -> NEW (CAM-599): { district: nameTh },
                                         district name — checked BEFORE the landmark? step above
 landmark?                           -> unchanged for a BARE mention (no marker) — CAM-503's
                                         multi-province reasoning still holds there
-isBareBangkokMention? / detectDistrict(text)? / detectProvince(text)? / detectRegion(text)? / else {}
+isBareBangkokMention?                -> unchanged
+detectSubDistrict(text)?             -> NEW (CAM-600): { subDistrict: nameTh, district: ownDistrictNameTh },
+                                        checked here, BEFORE the marker-less detectDistrict below —
+                                        see the "CAM-600 update" note replacing this story's own
+                                        "Scope narrowed" section below
+detectDistrict(text)? / detectProvince(text)? / detectRegion(text)? / else {}
                                      -> all unchanged, exactly as documented above
 ```
 
-The two detectors are deliberately separate functions over separate candidate lists (not one function with a flag) because their safety argument differs in kind: THIS story's `detectDistrict` candidates need the four BR-4 guards above because a bare name carries no other signal; CAM-599's marker-prefixed candidates skip three of those four guards on purpose, because the "อำเภอ"/"อ." marker in the text IS the disambiguating context those guards stand in for. Full rationale, the sibling-pin sweep, and the golden-case addition: `../CAM-599-named-district-beats-landmark/tech.md`.
+The two district-level detectors (this story's `detectDistrict` and CAM-599's `detectExplicitDistrictPrefix`) are deliberately separate functions over separate candidate lists (not one function with a flag) because their safety argument differs in kind: THIS story's `detectDistrict` candidates need the four BR-4 guards above because a bare name carries no other signal; CAM-599's marker-prefixed candidates skip three of those four guards on purpose, because the "อำเภอ"/"อ." marker in the text IS the disambiguating context those guards stand in for. Full rationale, the sibling-pin sweep, and the golden-case addition: `../CAM-599-named-district-beats-landmark/tech.md`.
 
 `ResolvedPlace` gains ONE new OPTIONAL field: `district?: string` — additive only (`api.md` rule 12), every existing field/shape unchanged.
 
-## Scope narrowed after measurement: sub-district detection cut entirely
+## Scope narrowed after measurement (superseded by CAM-600 — see the update note immediately below)
 
-v1 of this story planned a `subDistrict` branch too, gated by an ALWAYS-required camping-context marker (the sub-district pool is 5,835 names — far denser with common-word collisions than the 926 district names, e.g. 343 sub-districts start with "หนอง", 270 with "บ้าน", 235 with "บาง"). Building it and running it against the existing `cam-501` suite proved the guard gives **no real protection** at this scale: real sub-district names "เหนือ" (above/north), "กลาง" (middle), and "ตากแดด" (sunbathe — literally a real sub-district in Ubon Ratchathani, Phang Nga, AND Chumphon, 3 separate provinces) all fired even WITH `hasCampingContextMarker` returning true, because every one of the failing fixture sentences already contained an ordinary camping word ("ที่กางเต็นท์"/"กางเต็นท์") — this assistant's OWN domain vocabulary defeats the exact guard that protects `detectLandmark`'s "เขาใหญ่" (rare outside camping talk). Rather than ship a hint mechanism proven to misfire on ordinary Thai vocabulary, sub-district free-text detection was removed from `place-resolver.ts` entirely — `ResolvedPlace` carries no `subDistrict` field, and a bare ตำบล mention gets no pre-pass hint (unchanged from before this story; the model may still set it on its own initiative per the tool's own, separately-softened parameter description).
+v1 of this story planned a `subDistrict` branch too, gated by an ALWAYS-required camping-context marker (the sub-district pool is 5,835 names — far denser with common-word collisions than the 926 district names, e.g. 343 sub-districts start with "หนอง", 270 with "บ้าน", 235 with "บาง"). Building it and running it against the existing `cam-501` suite proved the guard gives **no real protection** at this scale: real sub-district names "เหนือ" (above/north), "กลาง" (middle), and "ตากแดด" (sunbathe — literally a real sub-district in Ubon Ratchathani, Phang Nga, AND Chumphon, 3 separate provinces) all fired even WITH `hasCampingContextMarker` returning true, because every one of the failing fixture sentences already contained an ordinary camping word ("ที่กางเต็นท์"/"กางเต็นท์") — this assistant's OWN domain vocabulary defeats the exact guard that protects `detectLandmark`'s "เขาใหญ่" (rare outside camping talk). Rather than ship a hint mechanism proven to misfire on ordinary Thai vocabulary, sub-district free-text detection was removed from `place-resolver.ts` entirely — `ResolvedPlace` carried no `subDistrict` field, and a bare ตำบล mention got no pre-pass hint (the model could still set it on its own initiative per the tool's own, separately-softened parameter description).
+
+**CAM-600 update (2026-07-28) — that judgement was correct on the evidence available, and this story exists because the owner changed the evidence, not because the judgement was wrong.** The full 5,835/7,452-name scan is still exactly as unsafe as measured above — this story never revisits that. What changed: a camper can only usefully ask about a sub-district that actually HOLDS a camp, which the owner measured at 422 (94% smaller). CAM-600 adds `detectSubDistrict` scanning ONLY that curated, camp-holding shortlist (`prisma/data/subdistrict-shortlist.json`) — with its own two ADDITIONAL guards beyond the shortlist itself (a length floor one character stricter than this story's own, and a curated ordinary-vocabulary skip-set that catches "เหนือ" — the EXACT word this section names above — re-confirmed as a live collision by re-running it against this story's own regression fixtures). `ResolvedPlace` now DOES carry an optional `subDistrict?: string` field. Full rationale, the measured "เขาค้อ" landmark/sub-district precedence conflict, and the golden-case addition: `../CAM-600-tambon-shortlist/tech.md`.
 
 ## API contract (tool-surface, prompt-only changes)
 
@@ -82,12 +89,13 @@ v1 of this story planned a `subDistrict` branch too, gated by an ALWAYS-required
 
 ## ADRs
 None new. Extends CAM-501's original pre-pass ADR-equivalent decision (a deterministic, mandatory hint removes a guess from the model) to the district level CAM-587 added to the tool but never wired into that mechanism.
-Confirmation: `__tests__/cam-596-place-resolver-district.test.ts` (unit, pre-pass detector + all BR-4 guards, red-then-green per guard) + `__tests__/cam-596-openrouter-hint.test.ts` (the new hint-block branch) + `__tests__/cam-596-tool-description.test.ts` (the tool-surface text) + a new guardrail golden case (`GEO-5-CAM596-DISTRICT`, `scripts/ai-eval/golden-cases.json`) that runs against the REAL model in CI (`ai-guardrail-gate.yml`, triggers automatically on this PR since it touches `lib/ai/**`) — a real-model run was not reproducible in this environment (no `OPENROUTER_API_KEY` available; the worktree sandbox blocks sourcing the main tree's `.env`), so this golden case is the actual behavioral verification for AC-1, not a claim made without evidence.
+Confirmation: `__tests__/cam-596-place-resolver-district.test.ts` (unit, pre-pass detector + all BR-4 guards, red-then-green per guard) + `__tests__/cam-596-openrouter-hint.test.ts` (the new hint-block branch) + `__tests__/cam-596-tool-description.test.ts` (the tool-surface text) + a guardrail golden case (`GEO-5-CAM596-DISTRICT`, `scripts/ai-eval/golden-cases.json`) that runs against the REAL model in CI (`ai-guardrail-gate.yml`, triggers automatically on any PR touching `lib/ai/**`) — not reproducible in THIS story's own authoring environment (no `OPENROUTER_API_KEY` available at the time), but re-run for real in CAM-600's environment (`npm run ai:guardrail-gate`, `OPENROUTER_API_KEY` available there) alongside the new `GEO-7-CAM600-SUBDISTRICT` case — all 9 guardrail cases, including this one, PASSED.
 
 ## Links
-`../../feature.md` (## Architecture overview) · `lib/ai/place-resolver.ts` · `lib/ai/tools/search-campsites.ts` · `lib/ai/openrouter-client.ts` · `lib/geo/admin-area-match.ts` · `story.md` · CAM-587 tech.md (the resolution layer this story reaches, unchanged)
+`../../feature.md` (## Architecture overview) · `lib/ai/place-resolver.ts` · `lib/ai/tools/search-campsites.ts` · `lib/ai/openrouter-client.ts` · `lib/geo/admin-area-match.ts` · `story.md` · CAM-587 tech.md (the resolution layer this story reaches, unchanged) · `../CAM-600-tambon-shortlist/tech.md` (completes the sub-district half of this ladder)
 
 ## Changelog
 - v1 (2026-07-28) — created (planned district + sub-district detection).
 - v2 (2026-07-28) — rewritten to match the shipped, district-only implementation; documents the two self-equality regressions found and fixed (`isSubstringOfAnyProvince`'s self-exclusion removal) and the sub-district scope-narrowing decision with its measured evidence.
 - v3 (2026-07-28) — reconciled with CAM-599: the dispatch-order table above is now the SECOND step, not the first — an explicit "อำเภอ"/"อ." district marker now wins over the landmark check ahead of it. See the new "CAM-599 update" note inline and `../CAM-599-named-district-beats-landmark/tech.md` for the full rationale.
+- v4 (2026-07-28) — reconciled with CAM-600: the "Scope narrowed" section above is superseded (not reversed) by a curated, camp-holding sub-district shortlist; `ResolvedPlace.subDistrict` now exists; `detectSubDistrict` is checked between the Bangkok-bare-mention check and this story's own `detectDistrict` in the dispatch order. See the new "CAM-600 update" note inline and `../CAM-600-tambon-shortlist/tech.md` for the full rationale, including the measured "เขาค้อ" landmark/sub-district precedence conflict.

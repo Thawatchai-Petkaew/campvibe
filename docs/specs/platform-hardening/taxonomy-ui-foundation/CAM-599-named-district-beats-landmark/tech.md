@@ -6,7 +6,7 @@ persona: Camper
 artifact: tech
 owner: backend-engineer
 status: in-progress
-version: v1
+version: v2
 updated: 2026-07-28
 ---
 # Tech — A named district beats a landmark radius (CAM-599)
@@ -35,6 +35,11 @@ detectRegion(text)?                  -> unchanged (region)
 else {}                              -> unchanged
 ```
 
+**CAM-600 update (2026-07-28) — one new step, `detectSubDistrict`, is inserted between `isBareBangkokMention` and `detectDistrict`** (a sub-district is more specific than a district, so it must be checked before the marker-less district detector — but it must NOT be checked ahead of the landmark check above, which this story's own reasoning still protects): a measured sibling conflict forced that exact placement — "เขาค้อ" is BOTH a `CONTEXT_GUARDED_LANDMARK_NAMES_TH` entry (CAM-503-DEF-2) AND a real, camp-holding sub-district in CAM-600's own shortlist, so `detectSubDistrict` running ahead of `detectLandmark` would have silently broken this story's own pinned `resolvePlace('ที่พักเขาค้อ')` -> `{ near: 'เขาค้อ', nearIsLandmark: true }` case. Placing it AFTER the landmark check (and re-running this file's own full test suite, unmodified, green) preserves every case in this document exactly as written below. Full rationale: `../CAM-600-tambon-shortlist/tech.md`.
+
+```
+```
+
 This is the SAME text that must now also live in CAM-596's own tech.md (updated in this PR) so the two documents describe one system, not two. CAM-596's tech.md previously stated the dispatch order started at the landmark check; it now states the new first step and cross-references this file.
 
 ## Why a NEW candidate list, not a relaxed `detectDistrict`
@@ -59,7 +64,8 @@ The 4 landmark gazetteer entries with an "อำเภอ"-prefixed alias — �
 Added `GEO-6-CAM599-DISTRICT-BEATS-LANDMARK` to `scripts/ai-eval/golden-cases.json` (`guardrail: true`, `strictParams: true`, mirrors `GEO-5-CAM596-DISTRICT`'s shape) — a real-model, behavioral proof for AC-1 (CAM-500 lesson: a prompt/pre-pass change is verified through the model, or it is not verified). This bumps the fixture's total case count from 68 to 69; `cam-457-eval-harness.test.ts`/`cam-459-answer-policy-3-zones.test.ts`'s own hardcoded `expect(cases.length).toBe(68)` pins were bumped to 69 — the same direct, necessary consequence CAM-596's own tech.md already documented when it added `GEO-5-CAM596-DISTRICT`.
 
 ## Links
-`../../feature.md` (## Architecture overview) · `lib/ai/place-resolver.ts` · `lib/ai/openrouter-client.ts` (unchanged, confirmed above) · `lib/ai/tools/search-campsites.ts` (unchanged, confirmed above) · `story.md` · CAM-596 tech.md (its own precedence note, updated in this PR) · CAM-503 tech.md/story.md (the original landmark-first reasoning this story narrows to "bare mention only").
+`../../feature.md` (## Architecture overview) · `lib/ai/place-resolver.ts` · `lib/ai/openrouter-client.ts` (unchanged, confirmed above) · `lib/ai/tools/search-campsites.ts` (unchanged, confirmed above) · `story.md` · CAM-596 tech.md (its own precedence note, updated in this PR) · CAM-503 tech.md/story.md (the original landmark-first reasoning this story narrows to "bare mention only") · `../CAM-600-tambon-shortlist/tech.md` (the sub-district step inserted into this ladder, updated in that PR).
 
 ## Changelog
 - v1 (2026-07-28) — created; documents the shipped fix (new `detectExplicitDistrictPrefix` candidate list + precedence check), the sibling-pin sweep, and the golden-set addition.
+- v2 (2026-07-28) — reconciled with CAM-600: documents the new `detectSubDistrict` step inserted between `isBareBangkokMention` and `detectDistrict`, and the measured "เขาค้อ" landmark/sub-district conflict that forced it to sit AFTER (not before) the landmark check in this file's own ladder.

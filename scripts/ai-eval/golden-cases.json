@@ -749,5 +749,21 @@
       "params": { "facilities": "HOTW" }
     },
     "guardrail": false
+  },
+  {
+    "id": "GEO-7-CAM600-SUBDISTRICT",
+    "group": "district",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์แสนสุข",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": {
+        "subDistrict": "แสนสุข",
+        "district": "เมืองชลบุรี"
+      },
+      "strictParams": true
+    },
+    "guardrail": true
   }
 ]
