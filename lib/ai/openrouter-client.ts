@@ -308,6 +308,13 @@ function buildShownResultsBlock(shownResults?: ShownResult[]): string | null {
  * message also names a province (CAM-596 BR-2), one extra sentence tells
  * the model to pass it ALONGSIDE the district for scoping — never instead
  * of it.
+ *
+ * CAM-600 — adds a `place.subDistrict` branch, checked BEFORE `place.district`
+ * (a sub-district is more specific still): completes the ladder for the
+ * curated, camp-holding ตำบล shortlist. `resolvePlace` always sets `district`
+ * alongside `subDistrict` (never alone — see place-resolver.ts's own doc
+ * comment on `ResolvedPlace.subDistrict`), so the hint mandates BOTH
+ * arguments together in one sentence, never subDistrict on its own.
  */
 function buildPlaceHintBlock(place: ResolvedPlace): string | null {
   // CAM-502 (P2 geo proximity) BR-3 — checked FIRST: `resolvePlace` never
@@ -341,6 +348,25 @@ function buildPlaceHintBlock(place: ResolvedPlace): string | null {
       'narrow the search to strictly inside it), never change it to a different province, and never drop it ' +
       'just because the message also names a terrain/facility word. A terrain word (for example ริมน้ำ, ' +
       'ริมทะเล, ภูเขา, ป่า) is NOT a place and never overrides or replaces this proximity target.'
+    );
+  }
+  // CAM-600 — checked BEFORE `place.district` below: a sub-district match
+  // ALWAYS carries `district` alongside it too (place-resolver.ts's own
+  // `subDistrict` doc comment — the tool's own resolution only scopes a
+  // sub-district correctly via a `district` parentId), so if this branch
+  // ran after the plain `place.district` branch, that branch would fire
+  // first and the model would never be told about the more specific
+  // sub-district at all.
+  if (place.subDistrict) {
+    return (
+      `The camper named the sub-district/ตำบล "${place.subDistrict}" in their latest message, inside the ` +
+      `district/อำเภอ "${place.district}" (both detected deterministically server-side against real ` +
+      'administrative-area data, not a guess — recognising a sub-district is the SERVER\'s job, not yours). ' +
+      `When you call searchCampsites this turn, you MUST set subDistrict="${place.subDistrict}" AND ` +
+      `district="${place.district}" together — do NOT leave either unset, do NOT use \`keyword\` instead, never ` +
+      'change either to a different place, and never drop them just because the message also names a ' +
+      'terrain/facility word. A terrain word (for example ริมน้ำ, ริมทะเล, ภูเขา, ป่า) is NOT a place and never ' +
+      'overrides or replaces this sub-district.'
     );
   }
   if (place.district) {
