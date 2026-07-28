@@ -29,12 +29,28 @@ import {
   type BookingStepView,
 } from "@/components/ai-chat/AiChatBookingStep";
 
+// Radix Slot (Button asChild) merges the button's own attrs onto the single
+// child (Button strips only className/variant/size/asChild itself; the rest
+// — data-slot/data-variant/data-size/data-testid + the merged className —
+// spreads through Slot.Root onto this Link mock). Listed explicitly rather
+// than via an index signature: `forwardRef<T, P>` with an indexed `P`
+// re-derives EVERY property's type (including the explicitly-declared
+// `children?: ReactNode`) through the index signature, collapsing it to
+// `unknown` inside the render function — confirmed by isolated repro, not a
+// cast-worthy edge case.
+interface MockLinkProps {
+  href: string;
+  children?: React.ReactNode;
+  className?: string;
+  "data-testid"?: string;
+  "data-slot"?: string;
+  "data-variant"?: string;
+  "data-size"?: string;
+}
+
 vi.mock("next/link", () => {
-  // Radix Slot (Button asChild) merges the button's own props (data-testid,
-  // className, onClick, ...) onto this component — forward everything via
-  // `...rest`, not just href/children, or the merged props silently vanish.
-  const MockLink = React.forwardRef<HTMLAnchorElement, { href: string; children?: React.ReactNode } & Record<string, unknown>>(
-    ({ href, children, ...rest }, ref) => React.createElement("a", { href, ref, ...rest }, children)
+  const MockLink = React.forwardRef<HTMLAnchorElement, MockLinkProps>(({ href, children, ...rest }, ref) =>
+    React.createElement("a", { href, ref, ...rest }, children)
   );
   MockLink.displayName = "MockNextLink";
   return { __esModule: true, default: MockLink };
