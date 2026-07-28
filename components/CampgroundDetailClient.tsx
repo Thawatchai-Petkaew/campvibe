@@ -167,6 +167,9 @@ export default function CampgroundDetailClient({
         : 0;
 
     const displayNights = nights > 0 ? nights : 0;
+    // CAM-615: the same honest "no price / genuinely 0" rule CampgroundCard.tsx
+    // uses for the catalog card price badge — never a second divergent check.
+    const isHeadlinePriceFree = campground.priceLow == null || Number(campground.priceLow) <= 0;
     // CAM-58: use the shared pricing module so displayed total matches what the API records.
     // No spot-selection state in this component — spotPricePerNight is null (uses priceLow).
     const unitPrice = resolveUnitPrice({
@@ -1213,8 +1216,20 @@ export default function CampgroundDetailClient({
                         <div className="sticky top-28 border border-border rounded-3xl p-6 shadow-lg shadow-foreground/5 bg-card">
                             <div className="flex justify-between items-baseline mb-6">
                                 <div>
-                                    <span className="text-2xl font-bold text-foreground">{formatCurrency(campground.priceLow || 50)} </span>
-                                    <span className="text-muted-foreground">{t.common.night}</span>
+                                    {/* CAM-615: `campground.priceLow || 50` rendered a genuinely
+                                        free camp (priceLow null/0) as ฿50/night - the booking
+                                        total below (unitPrice, line ~172) already checks
+                                        `!= null` honestly; this headline now uses the SAME
+                                        isFree rule CampgroundCard.tsx already uses for the
+                                        catalog card, instead of a second divergent one. */}
+                                    {isHeadlinePriceFree ? (
+                                        <span className="text-2xl font-bold text-foreground">{t.common.free}</span>
+                                    ) : (
+                                        <>
+                                            <span className="text-2xl font-bold text-foreground">{formatCurrency(Number(campground.priceLow))} </span>
+                                            <span className="text-muted-foreground">{t.common.night}</span>
+                                        </>
+                                    )}
                                 </div>
                                 {/* CAM-79 AC-1/AC-2: real rating in booking widget */}
                                 <div

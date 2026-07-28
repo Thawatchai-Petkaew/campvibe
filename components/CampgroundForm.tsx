@@ -56,6 +56,16 @@ import { getIconByName } from "@/lib/facility-icon-map";
 // cancellation-policy option uses this sentinel; onValueChange maps it back to "".
 const CANCELLATION_POLICY_NOT_SET = "NOT_SET";
 
+// CAM-615 (root fix): the ONE shared "blank clears, else pass through" mapping
+// for a plain string field in campPayload. A blank input always sends an
+// EXPLICIT null (not undefined) - undefined is dropped by JSON.stringify, so
+// the PUT route would skip the field entirely (correct for an untouched
+// field, but it can never clear one the host emptied). Never re-derive
+// `field || undefined` per field - that idiom shipped this exact bug three
+// times (CAM-341, CAM-360, CAM-615; see lib/api-utils.ts clearableWrite, the
+// server-side half of this same convention).
+const clearableText = (value: string): string | null => (value === "" ? null : value);
+
 interface CampgroundFormProps {
     initialData?: any;
     isEditing?: boolean;
@@ -625,8 +635,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 markingMethod: formData.markingMethod,
                 driveway: formData.driveway,
                 tags: formData.tags,
-                priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
-                priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
+                // CAM-615: priceLow/priceHigh/minimumAge now follow the SAME
+                // explicit-null-on-blank convention as extraFeeAmount below
+                // (was `? undefined`, which the PUT route would skip rather
+                // than clear a previously-set price/age).
+                priceLow: formData.priceLow === "" ? null : formData.priceLow,
+                priceHigh: formData.priceHigh === "" ? null : formData.priceHigh,
                 // Extra fee + cancellation policy (CAM-341, BR-6 v1.1): blank sends
                 // an EXPLICIT null (not undefined) - undefined is dropped by
                 // JSON.stringify and the PUT then skips the field (partial-update
@@ -635,7 +649,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 extraFeeAmount: formData.extraFeeAmount === "" ? null : Number(formData.extraFeeAmount),
                 extraFeeLabel: formData.extraFeeLabel === "" ? null : formData.extraFeeLabel,
                 cancellationPolicy: formData.cancellationPolicy === "" ? null : formData.cancellationPolicy,
-                minimumAge: formData.minimumAge === "" ? undefined : formData.minimumAge,
+                minimumAge: formData.minimumAge === "" ? null : formData.minimumAge,
                 latitude: formData.latitude === "" ? 0 : formData.latitude,
                 longitude: formData.longitude === "" ? 0 : formData.longitude,
                 locationId: locationId,
@@ -648,8 +662,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 // there is nothing to clear yet, so an untouched/blank logo
                 // stays undefined (omitted) rather than writing a needless null.
                 logo: formData.logo === "" ? (isEditing ? null : undefined) : formData.logo,
-                partner: formData.partner || undefined,
-                nationalPark: formData.nationalPark || undefined,
+                // CAM-615: was `formData.partner || undefined` - collapsed a
+                // cleared field to undefined (skip), never actually clearing
+                // a previously-set partner/national-park name.
+                partner: clearableText(formData.partner),
+                nationalPark: clearableText(formData.nationalPark),
                 // CAM-364: the host-facing UI is now read-only for isVerified (no
                 // toggle to edit), so a non-admin session never sends an edit for
                 // it - undefined is dropped by JSON.stringify (omitted from the
@@ -661,8 +678,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 isPublished: formData.isPublished,
                 
                 // Capacity & Ground Type
-                maxGuestsPerDay: formData.maxGuestsPerDay === "" ? undefined : formData.maxGuestsPerDay,
-                maxTentsPerDay: formData.maxTentsPerDay === "" ? undefined : formData.maxTentsPerDay,
+                // CAM-615: was `? undefined` - the WHOLE-CAMP form still
+                // blocks submit on a blank/zero value (CAM-351 BR-2/AC-11,
+                // unchanged), but a PER-SPOT save (or a direct API caller)
+                // reaching this line with a blank value now actually clears
+                // the stale column back to "unbounded" instead of skipping.
+                maxGuestsPerDay: formData.maxGuestsPerDay === "" ? null : formData.maxGuestsPerDay,
+                maxTentsPerDay: formData.maxTentsPerDay === "" ? null : formData.maxTentsPerDay,
                 // CAM-356: campSiteSchema.groundType is z.record(string, number) - an
                 // OBJECT, not a JSON string. Sending JSON.stringify(...) here always
                 // failed that shape check once a camp had any ground type set (the

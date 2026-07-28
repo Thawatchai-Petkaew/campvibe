@@ -3,7 +3,7 @@ import { revalidateTag, revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested, clearableWrite } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
 import { auth } from '@/lib/auth';
@@ -220,8 +220,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       where: { id },
       data: {
         ...(data.nameTh && { nameTh: data.nameTh }),
-        ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
-        ...(data.description !== undefined && { description: data.description }),
+        // CAM-615: nameEn/description/address/directions/feeInfo/toiletInfo
+        // never had the `|| undefined` collapse bug (they always forwarded
+        // the raw value) — clearableWrite is applied here anyway so every
+        // clearable field shares the SAME mapping, not "some fields happen to
+        // already be correct" left as an unexplained inconsistency.
+        ...(data.nameEn !== undefined && { nameEn: clearableWrite(data.nameEn) }),
+        ...(data.description !== undefined && { description: clearableWrite(data.description) }),
         // CAM-520: single required scalar enum on the shared schema; PUT's
         // `.partial()` makes it optional here — presence-guarded, written
         // verbatim (no [0]/"CAMPGROUND" coercion).
@@ -254,66 +259,72 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           },
         }),
 
-        ...(data.address !== undefined && { address: data.address }),
-        ...(data.directions !== undefined && { directions: data.directions }),
-        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl || undefined }),
-        ...(data.feeInfo !== undefined && { feeInfo: data.feeInfo }),
-        
-        // Contact Information
-        ...(data.phone !== undefined && { phone: data.phone || undefined }),
-        ...(data.lineId !== undefined && { lineId: data.lineId || undefined }),
-        ...(data.facebookUrl !== undefined && { facebookUrl: data.facebookUrl || undefined }),
-        ...(data.facebookMessageUrl !== undefined && { facebookMessageUrl: data.facebookMessageUrl || undefined }),
-        ...(data.tiktokUrl !== undefined && { tiktokUrl: data.tiktokUrl || undefined }),
-        ...(data.toiletInfo !== undefined && { toiletInfo: data.toiletInfo }),
-        ...(data.minimumAge !== undefined && { minimumAge: data.minimumAge }),
+        ...(data.address !== undefined && { address: clearableWrite(data.address) }),
+        ...(data.directions !== undefined && { directions: clearableWrite(data.directions) }),
+        // CAM-615: videoUrl/phone/lineId/facebookUrl/facebookMessageUrl/
+        // tiktokUrl/partner/nationalPark all carried the SAME `x || undefined`
+        // collapse — the form already sends a real '' when a host clears one
+        // of these (no client bug), but this mapping turned that '' back into
+        // `undefined`, which the outer `!== undefined` guard had already let
+        // through as "present" — so the column was never actually written to
+        // NULL. clearableWrite is the one shared replacement (see
+        // lib/api-utils.ts) for every field in this group.
+        ...(data.videoUrl !== undefined && { videoUrl: clearableWrite(data.videoUrl) }),
+        ...(data.feeInfo !== undefined && { feeInfo: clearableWrite(data.feeInfo) }),
 
-        // PREP-2 (CAM-268) + CAM-341 clearing fix: undefined (key omitted) means
-        // skip - a partial update must never touch a field it did not send. An
-        // explicit null means clear the column. The old `|| undefined` mapping
-        // collapsed null/empty into "skip" too, so a host clearing extraFeeLabel
-        // or cancellationPolicy silently no-op'd (Prisma treats `field: undefined`
-        // identically to an omitted key - it never writes NULL). extraFeeAmount
-        // already forwarded its value as-is (no `|| undefined` bug), so once the
-        // schema accepts an explicit null it clears correctly with no change here.
-        ...(data.extraFeeAmount !== undefined && { extraFeeAmount: data.extraFeeAmount }),
-        ...(data.extraFeeLabel !== undefined && {
-          extraFeeLabel: data.extraFeeLabel === '' || data.extraFeeLabel === null ? null : data.extraFeeLabel,
-        }),
-        ...(data.cancellationPolicy !== undefined && {
-          cancellationPolicy: data.cancellationPolicy === null ? null : data.cancellationPolicy,
-        }),
+        // Contact Information
+        ...(data.phone !== undefined && { phone: clearableWrite(data.phone) }),
+        ...(data.lineId !== undefined && { lineId: clearableWrite(data.lineId) }),
+        ...(data.facebookUrl !== undefined && { facebookUrl: clearableWrite(data.facebookUrl) }),
+        ...(data.facebookMessageUrl !== undefined && { facebookMessageUrl: clearableWrite(data.facebookMessageUrl) }),
+        ...(data.tiktokUrl !== undefined && { tiktokUrl: clearableWrite(data.tiktokUrl) }),
+        ...(data.toiletInfo !== undefined && { toiletInfo: clearableWrite(data.toiletInfo) }),
+        ...(data.minimumAge !== undefined && { minimumAge: clearableWrite(data.minimumAge) }),
+
+        // PREP-2 (CAM-268) + CAM-341/CAM-360/CAM-615 clearing fix: undefined
+        // (key omitted) means skip - a partial update must never touch a
+        // field it did not send. An explicit null (or '') means clear the
+        // column, via the one shared clearableWrite mapping (lib/api-utils.ts)
+        // instead of three near-identical hand-rolled versions.
+        ...(data.extraFeeAmount !== undefined && { extraFeeAmount: clearableWrite(data.extraFeeAmount) }),
+        ...(data.extraFeeLabel !== undefined && { extraFeeLabel: clearableWrite(data.extraFeeLabel) }),
+        ...(data.cancellationPolicy !== undefined && { cancellationPolicy: clearableWrite(data.cancellationPolicy) }),
 
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.checkInTime && { checkInTime: data.checkInTime }),
         ...(data.checkOutTime && { checkOutTime: data.checkOutTime }),
         ...(data.bookingMethod && { bookingMethod: data.bookingMethod }),
-        ...(data.priceLow !== undefined && { priceLow: data.priceLow }),
-        ...(data.priceHigh !== undefined && { priceHigh: data.priceHigh }),
+        ...(data.priceLow !== undefined && { priceLow: clearableWrite(data.priceLow) }),
+        ...(data.priceHigh !== undefined && { priceHigh: clearableWrite(data.priceHigh) }),
         ...('images' in body && { images: imageReplaceNested(data.images) }),
-        // CAM-360 clearing fix (same class as CAM-341, see comment above): the
-        // old `data.logo || undefined` collapsed both '' and an explicit null
-        // into "skip" - a host clearing the logo never actually cleared the
-        // column. undefined (key omitted) still skips the field entirely;
-        // '' or null now map to an explicit null write.
-        ...(data.logo !== undefined && {
-          logo: data.logo === '' || data.logo === null ? null : data.logo,
-        }),
-        ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) }),
-        ...(data.partner !== undefined && { partner: data.partner || undefined }),
-        ...(data.nationalPark !== undefined && { nationalPark: data.nationalPark || undefined }),
+        ...(data.logo !== undefined && { logo: clearableWrite(data.logo) }),
+        // CAM-615: `arrayToCsv([])` returns `undefined` (its documented "empty
+        // in, nothing to store" contract) — mapping that straight into the
+        // write let a host's "remove every tag" silently skip, the SAME shape
+        // CAM-526 already fixed for accommodationTypes (`?? ''`, a non-null
+        // column). `tags` is nullable, so the empty case maps to `?? null`.
+        ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) ?? null }),
+        ...(data.partner !== undefined && { partner: clearableWrite(data.partner) }),
+        ...(data.nationalPark !== undefined && { nationalPark: clearableWrite(data.nationalPark) }),
         ...(data.isVerified !== undefined && { isVerified: data.isVerified }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
-        
+
         // Capacity & Ground Type
+        // CAM-615: maxGuestsPerDay/maxTentsPerDay forward the value as-is (no
+        // `|| undefined` bug here) — an explicit `null` now round-trips to
+        // NULL ("unbounded", per lib/campsite-filters.ts) now that the zod
+        // schema accepts it; the WHOLE-CAMP form still requires a stated
+        // value >= 1 to save (CAM-351 BR-2/AC-11, an intentional product rule
+        // this story does not change) — null is reachable via a PER-SPOT save
+        // and via the API contract directly.
         ...(data.maxGuestsPerDay !== undefined && { maxGuestsPerDay: data.maxGuestsPerDay }),
         ...(data.maxTentsPerDay !== undefined && { maxTentsPerDay: data.maxTentsPerDay }),
-        ...(data.groundType !== undefined && { 
+        ...(data.groundType !== undefined && {
           groundType: typeof data.groundType === 'string' ? data.groundType : JSON.stringify(data.groundType)
         }),
-        
+
         // Ownership & Pricing
         ...(data.ownershipType !== undefined && { ownershipType: data.ownershipType || undefined }),
         ...(data.isFree !== undefined && { isFree: data.isFree }),
