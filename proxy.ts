@@ -15,13 +15,32 @@ import { NextResponse } from "next/server"
  * Restructured from the simple `export default NextAuth(authConfig).auth`
  * form to the auth() callback form so we can:
  *   1. Generate a per-request nonce (Edge-safe Web Crypto, btoa — no Buffer)
- *   2. Set the nonce on the request header `x-nonce` for Next.js to stamp
- *      onto every SSR-generated <script> tag
- *   3. Set the enforced Content-Security-Policy on the response (CAM-203 step 2 —
- *      browser reports violations but does NOT block scripts; Step 2 flips
- *      to Content-Security-Policy after owner confirms no violations)
- *   4. Replicate /dashboard protection explicitly (auth() callback form does
+ *   2. Set the enforced Content-Security-Policy on BOTH the outgoing request
+ *      headers and the response headers (CAM-607 — see below for why both)
+ *   3. Replicate /dashboard protection explicitly (auth() callback form does
  *      NOT auto-invoke authConfig.callbacks.authorized)
+ *
+ * CAM-607 — why the CSP header must ALSO go on the request, not just the
+ * response: Next.js's OWN render pipeline (app-render.js's
+ * parseRequestHeaders) looks for a header literally named
+ * `content-security-policy` on the REQUEST it receives, parses the
+ * `'nonce-{value}'` token out of its script-src directive
+ * (get-script-nonce-from-header.js), and uses that nonce to stamp EVERY
+ * inline <script> Next.js itself emits — including the Flight
+ * streaming-segment relocation script (use-flight-response.js's
+ * createInlinedDataReadableStream) that moves a streamed Suspense boundary's
+ * content into place. This file previously set the custom `x-nonce` header
+ * on the request (for OUR OWN Server Component code to read manually via
+ * headers().get('x-nonce')) but the enforced Content-Security-Policy header
+ * itself was set on the RESPONSE only — so Next.js's automatic nonce
+ * extraction always failed silently, and every framework-emitted inline
+ * script (no `nonce` attribute) was refused by our own enforced CSP. This
+ * left a stray, un-relocated streaming container (`<div id="S:1">`) behind
+ * on every `/dashboard/**` route under enough load to observe it (found by
+ * CAM-604 under CPU-pressure fault injection; root-caused and fixed here —
+ * see docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-607-csp-streaming-script/tech.md).
+ * The fix sets the IDENTICAL csp string (same variable) on the request too —
+ * zero directive content changes; nothing is re-allowed.
  *
  * Edge-safe: NO Node.js APIs. Uses Web Crypto (crypto.getRandomValues) +
  * btoa — both available in the Edge runtime without any import.
@@ -60,8 +79,14 @@ const { auth } = NextAuth(authConfig)
  * as the pre-existing image-loading blob: entry.
  *
  * All other directives are identical to the SEC-2 static CSP.
+ *
+ * Exported (CAM-607) so __tests__/cam-607-csp-request-header.test.ts can
+ * behaviorally prove — using Next.js's OWN installed nonce-extraction
+ * function — that this exact string yields the nonce Next.js's render
+ * pipeline expects, once it reaches the request (see the file-level comment
+ * above for why the request needs it, not only the response).
  */
-function buildCsp(nonce: string): string {
+export function buildCsp(nonce: string): string {
     // React/Next.js Turbopack needs 'unsafe-eval' in dev (fast refresh). DEV-ONLY.
     // process.env.NODE_ENV is inlined by Next.js at build time — Edge-safe.
     const scriptSrc = `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`
@@ -152,11 +177,17 @@ export default auth(async (req) => {
         return redirectResponse
     }
 
-    // ── 4. Pass through — inject nonce on request + CSP-RO on response ───────
-    // `x-nonce` on the request is consumed by Next.js App Router (15/16) to
-    // stamp nonce="..." onto all SSR-generated <script> tags during rendering.
+    // ── 4. Pass through — CSP on BOTH request and response (CAM-607) ─────────
+    // `x-nonce` stays for any of OUR OWN Server Component code that wants to
+    // manually read headers().get('x-nonce') for a <Script nonce> — harmless,
+    // doc-recommended convention, but NOT what makes Next.js's own
+    // framework-emitted scripts (including the streaming-relocation script)
+    // get a nonce. That requires the enforced Content-Security-Policy header
+    // on the REQUEST itself (see the file-level CAM-607 comment for the exact
+    // mechanism, read from Next.js's own installed source).
     const requestHeaders = new Headers(req.headers)
     requestHeaders.set('x-nonce', nonce)
+    requestHeaders.set('Content-Security-Policy', csp)
 
     const response = NextResponse.next({
         request: { headers: requestHeaders },
