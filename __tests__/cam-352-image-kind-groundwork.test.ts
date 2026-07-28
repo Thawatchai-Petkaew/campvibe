@@ -186,6 +186,10 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     campSite: {
       findUnique: vi.fn(),
+      // CAM-617: POST /api/campsites now checks Location exclusivity before
+      // create — same fixture-note pattern CAM-613 documented (a route fix
+      // makes it depend on a mocked call sibling tests never previously set).
+      findFirst: vi.fn(),
       create: vi.fn(),
     },
     spot: {
@@ -240,6 +244,9 @@ function mockAuthAllowed(userId = 'op-1') {
 beforeEach(() => {
   vi.clearAllMocks();
   _store.clear();
+  // CAM-617: no existing CampSite at the mocked locationId by default — the
+  // legitimate create path in this file's own tests below.
+  (prisma.campSite.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
 describe('POST /api/campsites/[id]/spots — persists kind (AC-11, BR-7/BR-8, Confirmation items 2/3)', () => {

@@ -46,6 +46,10 @@ import { cn } from "@/lib/utils";
 import { getFilterOptions } from "@/app/actions/getFilterOptions";
 import { CANCELLATION_POLICY_VALUES } from "@/lib/cancellation-policy";
 import { campSiteSchema, CampSiteTypeEnum } from "@/lib/validations/campsite";
+// CAM-623: separate import statement (not merged into the line above) so the
+// existing CAM-520 source-inspection pin on that exact import line stays
+// intact - see __tests__/cam-520-campsitetype-single-select.test.ts.
+import { isPriceOrderValid } from "@/lib/validations/campsite";
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS } from "@/lib/listing-completeness";
 import { ANCHOR_BY_KEY } from "@/components/ListingCompletenessCard";
 import type { TranslationType } from "@/locales/translations";
@@ -55,6 +59,16 @@ import { getIconByName } from "@/lib/facility-icon-map";
 // CAM-341: Radix Select forbids an empty-string item value, so the "not set"
 // cancellation-policy option uses this sentinel; onValueChange maps it back to "".
 const CANCELLATION_POLICY_NOT_SET = "NOT_SET";
+
+// CAM-615 (root fix): the ONE shared "blank clears, else pass through" mapping
+// for a plain string field in campPayload. A blank input always sends an
+// EXPLICIT null (not undefined) - undefined is dropped by JSON.stringify, so
+// the PUT route would skip the field entirely (correct for an untouched
+// field, but it can never clear one the host emptied). Never re-derive
+// `field || undefined` per field - that idiom shipped this exact bug three
+// times (CAM-341, CAM-360, CAM-615; see lib/api-utils.ts clearableWrite, the
+// server-side half of this same convention).
+const clearableText = (value: string): string | null => (value === "" ? null : value);
 
 interface CampgroundFormProps {
     initialData?: any;
@@ -582,6 +596,29 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 return;
             }
 
+            // CAM-623: the form always submits the FULL current form state,
+            // never a per-field diff - a host who lowers ONLY priceHigh while
+            // priceLow still holds a stale, higher value from an earlier
+            // session sends an inverted band. The server (isPriceOrderValid,
+            // lib/validations/campsite.ts, CAM-619) correctly rejects that,
+            // but the 400 names priceLow - a field the host never touched.
+            // Reuse the SAME shared check here, before ANY request (including
+            // the /api/location POST just below), so the host never reaches
+            // that server round trip; the message names BOTH values as the
+            // conflicting pair instead of blaming one field (the server guard
+            // itself is untouched - see lib/validations/campsite.ts).
+            const priceLowForOrderCheck = formData.priceLow === "" ? null : Number(formData.priceLow);
+            const priceHighForOrderCheck = formData.priceHigh === "" ? null : Number(formData.priceHigh);
+            if (!isPriceOrderValid({ priceLow: priceLowForOrderCheck, priceHigh: priceHighForOrderCheck })) {
+                const conflictMessage = t.newCampground.priceOrderConflict
+                    .replace("{min}", String(priceLowForOrderCheck))
+                    .replace("{max}", String(priceHighForOrderCheck));
+                setFieldErrors({ priceLow: [conflictMessage], priceHigh: [conflictMessage] });
+                setServerError(conflictMessage);
+                scrollToFirstErrorField(["priceLow"]);
+                return;
+            }
+
             let locationId = formData.locationId;
             if (!locationId) {
                 const locRes = await fetch('/api/location', {
@@ -625,8 +662,12 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 markingMethod: formData.markingMethod,
                 driveway: formData.driveway,
                 tags: formData.tags,
-                priceLow: formData.priceLow === "" ? undefined : formData.priceLow,
-                priceHigh: formData.priceHigh === "" ? undefined : formData.priceHigh,
+                // CAM-615: priceLow/priceHigh/minimumAge now follow the SAME
+                // explicit-null-on-blank convention as extraFeeAmount below
+                // (was `? undefined`, which the PUT route would skip rather
+                // than clear a previously-set price/age).
+                priceLow: formData.priceLow === "" ? null : formData.priceLow,
+                priceHigh: formData.priceHigh === "" ? null : formData.priceHigh,
                 // Extra fee + cancellation policy (CAM-341, BR-6 v1.1): blank sends
                 // an EXPLICIT null (not undefined) - undefined is dropped by
                 // JSON.stringify and the PUT then skips the field (partial-update
@@ -635,7 +676,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 extraFeeAmount: formData.extraFeeAmount === "" ? null : Number(formData.extraFeeAmount),
                 extraFeeLabel: formData.extraFeeLabel === "" ? null : formData.extraFeeLabel,
                 cancellationPolicy: formData.cancellationPolicy === "" ? null : formData.cancellationPolicy,
-                minimumAge: formData.minimumAge === "" ? undefined : formData.minimumAge,
+                minimumAge: formData.minimumAge === "" ? null : formData.minimumAge,
                 latitude: formData.latitude === "" ? 0 : formData.latitude,
                 longitude: formData.longitude === "" ? 0 : formData.longitude,
                 locationId: locationId,
@@ -648,8 +689,11 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 // there is nothing to clear yet, so an untouched/blank logo
                 // stays undefined (omitted) rather than writing a needless null.
                 logo: formData.logo === "" ? (isEditing ? null : undefined) : formData.logo,
-                partner: formData.partner || undefined,
-                nationalPark: formData.nationalPark || undefined,
+                // CAM-615: was `formData.partner || undefined` - collapsed a
+                // cleared field to undefined (skip), never actually clearing
+                // a previously-set partner/national-park name.
+                partner: clearableText(formData.partner),
+                nationalPark: clearableText(formData.nationalPark),
                 // CAM-364: the host-facing UI is now read-only for isVerified (no
                 // toggle to edit), so a non-admin session never sends an edit for
                 // it - undefined is dropped by JSON.stringify (omitted from the
@@ -661,8 +705,13 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                 isPublished: formData.isPublished,
                 
                 // Capacity & Ground Type
-                maxGuestsPerDay: formData.maxGuestsPerDay === "" ? undefined : formData.maxGuestsPerDay,
-                maxTentsPerDay: formData.maxTentsPerDay === "" ? undefined : formData.maxTentsPerDay,
+                // CAM-615: was `? undefined` - the WHOLE-CAMP form still
+                // blocks submit on a blank/zero value (CAM-351 BR-2/AC-11,
+                // unchanged), but a PER-SPOT save (or a direct API caller)
+                // reaching this line with a blank value now actually clears
+                // the stale column back to "unbounded" instead of skipping.
+                maxGuestsPerDay: formData.maxGuestsPerDay === "" ? null : formData.maxGuestsPerDay,
+                maxTentsPerDay: formData.maxTentsPerDay === "" ? null : formData.maxTentsPerDay,
                 // CAM-356: campSiteSchema.groundType is z.record(string, number) - an
                 // OBJECT, not a JSON string. Sending JSON.stringify(...) here always
                 // failed that shape check once a camp had any ground type set (the
@@ -751,6 +800,18 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
             setDeleteDialogOpen(false);
         }
     };
+
+    // CAM-623: live pair-conflict hint for BOTH price inputs, computed with
+    // the SAME shared isPriceOrderValid check handleSubmit blocks on - so the
+    // hint a host sees while typing and the message that blocks submit are
+    // always the same one, naming both values rather than a single field.
+    const priceOrderConflictMessage: string | undefined = (() => {
+        if (formData.priceLow === "" || formData.priceHigh === "") return undefined;
+        const low = Number(formData.priceLow);
+        const high = Number(formData.priceHigh);
+        if (isPriceOrderValid({ priceLow: low, priceHigh: high })) return undefined;
+        return t.newCampground.priceOrderConflict.replace("{min}", String(low)).replace("{max}", String(high));
+    })();
 
     // Extra fee validation + transparency nudge (CAM-341 BR-1/BR-2/BR-4).
     const extraFeeAmountFilled = formData.extraFeeAmount !== "";
@@ -1474,7 +1535,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
                                             inputSize="lg"
                                             placeholder="e.g. 500"
-                                            error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.minPriceError : undefined) || zErr('priceLow')}
+                                            error={priceOrderConflictMessage || zErr('priceLow')}
                                             data-testid="input--campground-price-low"
                                         />
                                         <InputField
@@ -1488,7 +1549,7 @@ export function CampgroundForm({ initialData, isEditing = false }: CampgroundFor
                                             leftIcon={<span className="text-muted-foreground text-sm">฿</span>}
                                             inputSize="lg"
                                             placeholder="e.g. 1200"
-                                            error={(formData.priceLow && formData.priceHigh && Number(formData.priceLow) > Number(formData.priceHigh) ? t.newCampground.maxPriceError : undefined) || zErr('priceHigh')}
+                                            error={priceOrderConflictMessage || zErr('priceHigh')}
                                             data-testid="input--campground-price-high"
                                         />
                                     </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, AlertCircle, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
     Dialog,
@@ -181,64 +181,108 @@ export function FilterModal() {
     const [filterSections, setFilterSections] = useState<FilterSection[]>([]);
     const [matchCount, setMatchCount] = useState<number | null>(null);
     const [isCountLoading, setIsCountLoading] = useState(false);
+    // CAM-616: getCampSiteCount now THROWS on a DB failure instead of
+    // fabricating 0 — but throwing alone only helps if this, the sole
+    // consumer, does something with it. Before this fix the rejection was
+    // unhandled, so isCountLoading never reset and "Show N Campgrounds"
+    // read "Calculating..." forever — indistinguishable from a working
+    // system, same defect shape as the other seven surfaces, just dressed
+    // as a spinner instead of a false zero. Tracked separately from
+    // matchCount so a stale-but-real previous count is never confused with
+    // a fresh failure.
+    const [countError, setCountError] = useState(false);
+    // CAM-616: getFilterOptions also now throws instead of returning {} —
+    // this flag is what actually makes that visible; without it, a
+    // rejected promise here never reaches setFilterSections and the modal
+    // silently shows zero filter groups (the ORIGINAL "we don't support
+    // filtering" defect, just moved one level down).
+    const [filterOptionsError, setFilterOptionsError] = useState(false);
 
     // CAM-524 — declared before the debounced count effect below (it reads
     // searchParams via buildPendingQuery).
     const router = useRouter();
     const searchParams = useSearchParams();
 
+    // CAM-616: extracted so the retry banner can re-issue the SAME count
+    // request on demand, without waiting for the 500ms debounce.
+    const runCount = useCallback(async () => {
+        // CAM-524 — built from the SAME shared query as the apply handler
+        // (buildPendingQuery), so "Show N Campgrounds" can never diverge
+        // from the query the button actually applies.
+        const { filters } = buildPendingQuery(searchParams, selectedFilters, priceRange);
+        setIsCountLoading(true);
+        setCountError(false);
+        try {
+            const count = await getCampSiteCount(filters);
+            setMatchCount(count);
+        } catch (error) {
+            console.error("Failed to load campground count:", error);
+            setCountError(true);
+        } finally {
+            setIsCountLoading(false);
+        }
+    }, [searchParams, selectedFilters, priceRange]);
+
     // Debounced count update
     useEffect(() => {
         if (!isOpen) return;
         setIsCountLoading(true);
-        const timer = setTimeout(async () => {
-            // CAM-524 — built from the SAME shared query as the apply handler
-            // (buildPendingQuery), so "Show N Campgrounds" can never diverge
-            // from the query the button actually applies (the live bug: this
-            // used to build a narrower, standalone object here that dropped
-            // keyword/province/district/startDate/endDate/guests).
-            const { filters } = buildPendingQuery(searchParams, selectedFilters, priceRange);
-
-            const count = await getCampSiteCount(filters);
-            setMatchCount(count);
-            setIsCountLoading(false);
+        setCountError(false);
+        const timer = setTimeout(() => {
+            runCount();
         }, 500);
 
         return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedFilters, priceRange, isOpen, searchParams]);
 
-    useEffect(() => {
-        getFilterOptions().then((rawGrouped) => {
-            // getFilterOptions() returns Record<string, MasterData[]> (or {}
-            // on a caught DB error) — narrowed here at the boundary (CAM-523:
-            // was `[string, any[]]`) instead of an `any`-typed loop below.
-            const grouped = rawGrouped as Record<string, MasterData[]>;
-            const sections: FilterSection[] = Object.entries(grouped)
-                .filter(([groupName]) => !NON_FILTERABLE_GROUPS.includes(groupName))
-                .map(([groupName, options]) => ({
-                    id: groupName,
-                    title: groupName,
-                    options: options.map((opt) => ({
-                        id: opt.code,
-                        icon: getIconComponent(opt.icon),
-                        label: language === 'th' ? opt.nameTh : opt.nameEn,
-                    })),
-                }));
+    // CAM-616: extracted so the retry banner can re-issue this request.
+    const loadFilterOptions = useCallback(() => {
+        setFilterOptionsError(false);
+        getFilterOptions()
+            .then((rawGrouped) => {
+                // getFilterOptions() returns Record<string, MasterData[]> —
+                // narrowed here at the boundary (CAM-523: was `[string, any[]]`)
+                // instead of an `any`-typed loop below.
+                const grouped = rawGrouped as Record<string, MasterData[]>;
+                const sections: FilterSection[] = Object.entries(grouped)
+                    .filter(([groupName]) => !NON_FILTERABLE_GROUPS.includes(groupName))
+                    .map(([groupName, options]) => ({
+                        id: groupName,
+                        title: groupName,
+                        options: options.map((opt) => ({
+                            id: opt.code,
+                            icon: getIconComponent(opt.icon),
+                            label: language === 'th' ? opt.nameTh : opt.nameEn,
+                        })),
+                    }));
 
-            // Custom sort order for sections — 'Campground type' is special-
-            // cased first (not in the registry, see taxonomy-registry.ts's
-            // header), then the registry's own display-order declaration.
-            const sortOrder = ['Campground type', ...TAXONOMY_GROUPS.map((g) => g.group)];
+                // Custom sort order for sections — 'Campground type' is special-
+                // cased first (not in the registry, see taxonomy-registry.ts's
+                // header), then the registry's own display-order declaration.
+                const sortOrder = ['Campground type', ...TAXONOMY_GROUPS.map((g) => g.group)];
 
-            sections.sort((a, b) => {
-                const indexA = sortOrder.indexOf(a.id);
-                const indexB = sortOrder.indexOf(b.id);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                sections.sort((a, b) => {
+                    const indexA = sortOrder.indexOf(a.id);
+                    const indexB = sortOrder.indexOf(b.id);
+                    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                });
+
+                setFilterSections(sections);
+            })
+            .catch((error) => {
+                // CAM-616: a failed load must not silently leave
+                // filterSections at its initial [] — that renders as "this
+                // catalog has no filterable options" with no indication
+                // anything went wrong.
+                console.error("Failed to load filter options:", error);
+                setFilterOptionsError(true);
             });
-
-            setFilterSections(sections);
-        });
     }, [language]);
+
+    useEffect(() => {
+        loadFilterOptions();
+    }, [loadFilterOptions]);
 
     const toggleFilter = (sectionId: string, optionId: string) => {
         setSelectedFilters(prev => {
@@ -496,42 +540,98 @@ export function FilterModal() {
 
                     <div className="h-px bg-border/60" />
 
-                    {filterSections.map((section, idx) => (
-                        <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-4 md:pb-6 border-b border-border/60")}>
-                            <h3 className="type-heading-3 font-bold text-foreground">
-                                {t.filter?.[section.id as keyof typeof t.filter] || section.title}
-                            </h3>
-                            {renderSectionContent(section)}
+                    {/* CAM-616: a failed options load must not silently render as
+                        zero filter groups (the original "we don't support
+                        filtering" defect) — show a distinguishable error+retry
+                        instead of quietly falling through to an empty map(). */}
+                    {filterOptionsError ? (
+                        <div
+                            role="alert"
+                            data-testid="banner--filter-options-error"
+                            className="flex flex-col items-center gap-3 py-8 text-center"
+                        >
+                            <p className="text-sm text-muted-foreground">{t.filter?.optionsError}</p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={loadFilterOptions}
+                                data-testid="btn--filter-options-retry"
+                                className="rounded-full"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                                {t.common.retry}
+                            </Button>
                         </div>
-                    ))}
+                    ) : (
+                        filterSections.map((section, idx) => (
+                            <div key={section.id} className={cn("space-y-3", idx !== filterSections.length - 1 && "pb-4 md:pb-6 border-b border-border/60")}>
+                                <h3 className="type-heading-3 font-bold text-foreground">
+                                    {t.filter?.[section.id as keyof typeof t.filter] || section.title}
+                                </h3>
+                                {renderSectionContent(section)}
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {/* Footer - Aligned with Search Modal */}
-                <div className="p-3 md:p-4 bg-card flex items-center justify-between border-t border-border/60 shrink-0">
-                    <Button
-                        variant="ghost"
-                        onClick={clearAll}
-                        className="type-label font-bold underline hover:bg-muted p-2 px-4 rounded-full"
-                    >
-                        {t.filter?.clearAll}
-                    </Button>
-                    {/* CAM-552 — the px-8 override is gone: size="lg" now owns
-                        BOTH the height and the horizontal padding at each step
-                        (px-4 -> md:px-5), which is the one-padding-per-role
-                        rule CAM-542 asked for. */}
-                    <Button
-                        onClick={handleShowCampgrounds}
-                        size="lg"
-                        disabled={isCountLoading}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isCountLoading
-                            ? "Calculating..."
-                            : matchCount === 0
-                                ? (t.filter?.no_results || "No Campgrounds found")
-                                : (t.filter?.show_results_count || "Show {{count}} Campgrounds").replace('{{count}}', matchCount?.toString() || '0')
-                        }
-                    </Button>
+                <div className="p-3 md:p-4 bg-card border-t border-border/60 shrink-0">
+                    {/* CAM-616: a failed count must not leave the primary button
+                        stuck on "Calculating..." forever (indistinguishable from
+                        a working system, same defect shape as a false "0") —
+                        show a distinguishable error+retry above the buttons. */}
+                    {countError && (
+                        <div
+                            role="alert"
+                            data-testid="banner--filter-count-error"
+                            className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                        >
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                                <span>{t.filter?.countError}</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={runCount}
+                                data-testid="btn--filter-count-retry"
+                                className="rounded-full shrink-0"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                                {t.common.retry}
+                            </Button>
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                        <Button
+                            variant="ghost"
+                            onClick={clearAll}
+                            className="type-label font-bold underline hover:bg-muted p-2 px-4 rounded-full"
+                        >
+                            {t.filter?.clearAll}
+                        </Button>
+                        {/* CAM-552 — the px-8 override is gone: size="lg" now owns
+                            BOTH the height and the horizontal padding at each step
+                            (px-4 -> md:px-5), which is the one-padding-per-role
+                            rule CAM-542 asked for. */}
+                        <Button
+                            onClick={handleShowCampgrounds}
+                            size="lg"
+                            disabled={isCountLoading}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isCountLoading
+                                ? "Calculating..."
+                                : countError
+                                    ? (t.filter?.countErrorLabel || "Couldn't get count")
+                                    : matchCount === 0
+                                        ? (t.filter?.no_results || "No Campgrounds found")
+                                        : (t.filter?.show_results_count || "Show {{count}} Campgrounds").replace('{{count}}', matchCount?.toString() || '0')
+                            }
+                        </Button>
+                    </div>
                 </div>
             </ModalContent>
         </Dialog>

@@ -20,7 +20,17 @@ export async function getFilterOptions() {
 
         return grouped;
     } catch (error) {
-        console.error("Failed to fetch filter options:", error);
-        return {};
+        // CAM-616: a DB failure here used to return {}, which FilterModal
+        // renders as zero filter sections — indistinguishable from "this
+        // catalog has no filterable options" and read by a camper as "we
+        // do not support filtering". Log structured, then re-throw (the
+        // CAM-588 shape) so the failure cannot silently masquerade as an
+        // intentionally empty filter set.
+        console.error(JSON.stringify({
+            level: "error",
+            event: "filter_options_load_failed",
+            message: error instanceof Error ? error.message : String(error),
+        }));
+        throw error;
     }
 }

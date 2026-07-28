@@ -14,18 +14,35 @@
  * ever carried a nonce Next.js could parse from the request), and it would
  * catch a future regression that re-breaks the propagation.
  *
- * CSP-violation count is capped at <= 1, NOT asserted to zero: this story's
- * own production-build manual verification (see tech.md "Out-of-surface
+ * CSP-violation count is capped at 0 (CAM-612 — tightened from `<= 1`).
+ * The `<= 1` cap was honest when this spec was first written: this story's
+ * own production-build manual verification (tech.md "Out-of-surface
  * finding") found ONE pre-existing, unrelated CSP violation on every page
  * load — `next-themes`'s own FOUC-prevention inline script
- * (`components/Providers.tsx`'s `<ThemeProvider>`) is rendered via
- * `dangerouslySetInnerHTML` with no `nonce` prop wired, and has been blocked
- * since CAM-203 enforced the CSP, unrelated to this story's fix and outside
- * its file surface (`components/Providers.tsx` is not in scope here) —
- * reported, not fixed, matching the CAM-604 precedent for an out-of-surface
- * finding. Asserting a hard zero here would be a false-red on a real ticket
- * every future CI run, for an issue this story's diff neither causes nor can
- * fix; the `<= 1` cap still catches any NEW violation (a real regression).
+ * (`components/Providers.tsx`'s `<ThemeProvider>`) was rendered via
+ * `dangerouslySetInnerHTML` with no `nonce` prop wired, blocked since
+ * CAM-203 enforced the CSP, unrelated to CAM-607's fix and outside its file
+ * surface. CAM-610 then fixed that exact gap (threaded the request-header
+ * nonce into `<ThemeProvider nonce={nonce}>`) and measured zero violations
+ * across a real production build (see CAM-610's tech.md). A `<= 1` cap left
+ * in place after that fix would silently tolerate the NEXT un-nonced inline
+ * script forever — the cap is tightened to 0 here (CAM-612) once that was
+ * true, and this file's own local self-verify proved the tightened cap
+ * actually fails when a fresh un-nonced script is introduced (see CAM-612's
+ * test.md for the red/green proof) rather than just "still passing."
+ *
+ * Overlap with e2e/regression/cam-610-theme-script-nonce.spec.ts (CAM-612
+ * checked this deliberately, not left implicit): kept as two SEPARATE specs,
+ * not merged, because they exercise different routes/paths through the same
+ * CSP contract — this file covers the AUTHENTICATED `/dashboard` render path
+ * (a different Server Component tree than the public homepage, plus this
+ * file's own second `describe` block re-verifies route-PROTECTION, which
+ * CAM-610's public-page spec has no reason to touch) and asserts only that
+ * AT LEAST ONE served script nonce agrees with the header (the CAM-218
+ * agreement check this story was raised to prove); CAM-610's spec covers the
+ * PUBLIC `/` route and asserts EVERY served script nonce agrees, a strictly
+ * stronger per-script check on a different render tree. Two specs, two
+ * distinct routes + distinct strictness — not the same invariant twice.
  */
 import { test, expect } from "@playwright/test";
 
@@ -70,14 +87,16 @@ test.describe("CAM-607 — CSP header and served nonce agree on /dashboard (stea
       `the response CSP's nonce (${headerNonce}) must match a nonce actually stamped in the served HTML`
     ).toContain(headerNonce);
 
-    // <= 1, not 0 — see the file-level comment: one pre-existing, unrelated,
-    // out-of-surface violation (next-themes) is known and reported, not
-    // fixed here. This still catches a NEW (2nd+) violation as a regression.
+    // 0, not <= 1 (CAM-612) — the one known pre-existing violation this cap
+    // used to tolerate (next-themes' un-nonced FOUC script) was fixed by
+    // CAM-610; see the file-level comment for why a stale tolerant cap is a
+    // hole and how this tightened cap was proven to actually fail (CAM-612
+    // test.md).
     const cspViolationLines = consoleErrors.filter((line) => /Content Security Policy/i.test(line));
     expect(
       cspViolationLines.length,
-      `expected at most the 1 known pre-existing (next-themes) violation, got: ${cspViolationLines.join("\n")}`
-    ).toBeLessThanOrEqual(1);
+      `expected zero CSP violations (CAM-610 fixed the last known one), got: ${cspViolationLines.join("\n")}`
+    ).toBe(0);
   });
 });
 

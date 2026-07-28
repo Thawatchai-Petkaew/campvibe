@@ -52,7 +52,13 @@ vi.mock('@/lib/auth-utils', () => ({
   })),
   requireCampSitePermission: vi.fn(async () => ({
     error: null,
-    campSite: { id: CAMP_ID, operatorId: 'host-uuid-574', isPublished: false },
+    // CAM-613: `locationId` is now REQUIRED on this mock — the route's
+    // location-update write targets `existing.locationId` (this record),
+    // never a body-supplied id. Set to LOCATION_ID so the existing
+    // [normal] edit test below (which also submits `locationId: LOCATION_ID`
+    // in the request body — the legitimate/normal case) keeps asserting the
+    // exact same write target as before the fix.
+    campSite: { id: CAMP_ID, operatorId: 'host-uuid-574', isPublished: false, locationId: LOCATION_ID },
     session: { user: { id: 'host-uuid-574' } },
   })),
 }));

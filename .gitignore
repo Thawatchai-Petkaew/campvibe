@@ -128,6 +128,12 @@ next-env.d.ts
 !/scripts/generate-subdistrict-shortlist.mjs
 # CAM-605 — detects drift between the committed shortlist above and live data
 !/scripts/check-subdistrict-shortlist-drift.mjs
+# CAM-620 — detects drift between prisma/data/province-centroids.json and the live camp distribution
+!/scripts/check-province-centroid-drift.mjs
+# CAM-620 — detects drift between prisma/data/thailand-locations.json (province/district) and the live AdminArea table
+!/scripts/check-adminarea-drift.mjs
+# CAM-615 — nullable-Prisma-column vs zod-.nullable() clearable-field guard (report-mode)
+!/scripts/check-clearable-fields.mjs
 # CAM-588 — dev-only wrapper that warns when a running `next dev` server's
 # already-loaded Prisma client goes stale relative to the schema/migrations
 !/scripts/dev-with-prisma-watch.mjs

@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { campSiteSchema } from '@/lib/validations/campsite';
+import { campSiteSchema, isPriceOrderValid, PRICE_ORDER_ERROR } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
-import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested } from '@/lib/api-utils';
+import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested, clearableWrite } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
 import { applyAdminOnlyFields } from '@/lib/admin-fields';
 import { auth } from '@/lib/auth';
@@ -11,6 +11,23 @@ import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { CATALOG_TAG, campTag, campSlugTag } from '@/lib/catalog-cache';
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
 import { updateCampSiteLocationSchema } from '@/lib/validations/location';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// CAM-619 — PUT/DELETE on this SAME resource had NO rate limit at all while
+// the sibling POST (create, app/api/campsites/route.ts) is capped at
+// 10/hour/user. `components/CampgroundForm.tsx` fires exactly ONE PUT per
+// explicit Save click (no autosave/loop) and exactly ONE DELETE per explicit
+// delete confirmation — never a bulk loop (verified: grep of every
+// `/api/campsites/${id}` caller). An edit session legitimately re-saves
+// several times while working through the publish-completeness gate
+// (isPublishTransition below rejects a low-completeness save and expects the
+// host to add data and save AGAIN), so PUT gets more headroom than the
+// one-shot POST/DELETE actions; DELETE mirrors POST's cadence — deleting a
+// listing is rare and deliberate, never something a real host loops.
+const CAMPSITE_UPDATE_RATE_LIMIT = 30;
+const CAMPSITE_UPDATE_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const CAMPSITE_DELETE_RATE_LIMIT = 10;
+const CAMPSITE_DELETE_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,6 +62,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { error: authError, campSite: existing, session } = await requireCampSitePermission(id, "CAMPSITE_UPDATE");
   if (authError) return authError;
 
+  // CAM-619: rate-limit AFTER the permission check (not before, unlike POST's
+  // IP-based limit above) — requireCampSitePermission is the ONE shared
+  // helper that resolves both auth AND ownership in a single call and lives
+  // outside this story's file surface, so the userId it returns is used here
+  // rather than re-deriving it earlier.
+  const rl = checkRateLimit(`campsite:update:${session.user?.id ?? 'unknown'}`, {
+    limit: CAMPSITE_UPDATE_RATE_LIMIT,
+    windowMs: CAMPSITE_UPDATE_RATE_WINDOW_MS,
+  });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการแก้ไขแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
+
   try {
     const body = await request.json();
 
@@ -60,6 +93,41 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       validation.data as Record<string, unknown>,
       session.user?.role
     ) as typeof validation.data;
+
+    // CAM-619 BR-2: priceLow<=priceHigh — a PARTIAL PUT may send only one
+    // side, so project the EFFECTIVE post-save value for whichever side is
+    // absent from THIS request (same "post-save projection" idiom the
+    // isPublished gate below already uses for extraFeeAmount/extraFeeLabel/
+    // cancellationPolicy) rather than comparing only the two fields this
+    // request happens to carry. Runs before any write (no side effect yet).
+    // `== null` (not `!== null`) on the stored side deliberately treats an
+    // absent/`undefined` stored value the SAME as an explicit `null` — a real
+    // Prisma row always carries one or the other, never `undefined`, but this
+    // check runs on every PUT (not gated like the isPublished projection
+    // below), so it must not misread a test double / partial object that
+    // simply never set the field as "an inverted price".
+    //
+    // A persisted priceLow>priceHigh is a real defect (the card renders an
+    // inverted range, e.g. ฿777-600) — enforced on BOTH create and update.
+    // This WAS briefly removed from PUT after e2e/regression/
+    // ac1-edit-round-trip.spec.ts 400'd (its `priceLow: "777"` fixture
+    // exceeded the seeded camp's `priceHigh: 600`); on review the fixture,
+    // not the guard, was the defect — the spec's own intent ("an edit
+    // round-trips") holds for ANY in-band value, so the fixture was
+    // corrected to stay within the band instead. See
+    // __tests__/cam-619-campsites-rate-limit.test.ts's "PUT rejects an
+    // inverted band" block for the pinned regression test (both directions:
+    // reject inverted, accept in-band). Follow-up (not built here, see
+    // tech.md): `CampgroundForm.tsx` should catch this client-side, before
+    // the request, so a host who edits one field never sees a 400 naming a
+    // field they didn't touch.
+    const projectedPriceLow =
+      data.priceLow !== undefined ? data.priceLow : (existing!.priceLow == null ? null : Number(existing!.priceLow));
+    const projectedPriceHigh =
+      data.priceHigh !== undefined ? data.priceHigh : (existing!.priceHigh == null ? null : Number(existing!.priceHigh));
+    if (!isPriceOrderValid({ priceLow: projectedPriceLow, priceHigh: projectedPriceHigh })) {
+      return apiError(PRICE_ORDER_ERROR, 400);
+    }
 
     // CAM-365 BR-3/BR-4/BR-5/BR-7: gate a false->true isPublished transition
     // on the POST-SAVE PROJECTED completeness score. Detected by comparing
@@ -196,9 +264,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       locationFields.district !== undefined ||
       locationFields.subDistrict !== undefined;
 
-    if (data.locationId && hasLocationFieldEdit) {
+    // CAM-613: target the Location of the camp that was ACTUALLY authorised
+    // above (`existing.locationId`, a plain scalar column requireCampSitePermission
+    // already fetched and proved belongs to the path's `id`) - never a
+    // body-supplied `data.locationId`. The old code read `data.locationId`
+    // here, so a host owning camp A could send `{ locationId: <camp B's
+    // locationId>, province: "", ... }` on a PUT to their OWN camp A and
+    // blank camp B's location - authorisation and the write concerned two
+    // different objects. A body-supplied `locationId` is now silently
+    // ignored for this purpose (see tech.md's ignore-vs-reject decision);
+    // it remains a valid field on `campSiteSchema` for POST /api/campsites
+    // (create), an unrelated, unaffected operation.
+    if (hasLocationFieldEdit) {
       await prisma.location.update({
-        where: { id: data.locationId },
+        where: { id: existing!.locationId },
         data: {
           ...(locationFields.province !== undefined && {
             province: locationFields.province === '' ? null : locationFields.province,
@@ -220,8 +299,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       where: { id },
       data: {
         ...(data.nameTh && { nameTh: data.nameTh }),
-        ...(data.nameEn !== undefined && { nameEn: data.nameEn }),
-        ...(data.description !== undefined && { description: data.description }),
+        // CAM-615: nameEn/description/address/directions/feeInfo/toiletInfo
+        // never had the `|| undefined` collapse bug (they always forwarded
+        // the raw value) — clearableWrite is applied here anyway so every
+        // clearable field shares the SAME mapping, not "some fields happen to
+        // already be correct" left as an unexplained inconsistency.
+        ...(data.nameEn !== undefined && { nameEn: clearableWrite(data.nameEn) }),
+        ...(data.description !== undefined && { description: clearableWrite(data.description) }),
         // CAM-520: single required scalar enum on the shared schema; PUT's
         // `.partial()` makes it optional here — presence-guarded, written
         // verbatim (no [0]/"CAMPGROUND" coercion).
@@ -254,66 +338,72 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           },
         }),
 
-        ...(data.address !== undefined && { address: data.address }),
-        ...(data.directions !== undefined && { directions: data.directions }),
-        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl || undefined }),
-        ...(data.feeInfo !== undefined && { feeInfo: data.feeInfo }),
-        
-        // Contact Information
-        ...(data.phone !== undefined && { phone: data.phone || undefined }),
-        ...(data.lineId !== undefined && { lineId: data.lineId || undefined }),
-        ...(data.facebookUrl !== undefined && { facebookUrl: data.facebookUrl || undefined }),
-        ...(data.facebookMessageUrl !== undefined && { facebookMessageUrl: data.facebookMessageUrl || undefined }),
-        ...(data.tiktokUrl !== undefined && { tiktokUrl: data.tiktokUrl || undefined }),
-        ...(data.toiletInfo !== undefined && { toiletInfo: data.toiletInfo }),
-        ...(data.minimumAge !== undefined && { minimumAge: data.minimumAge }),
+        ...(data.address !== undefined && { address: clearableWrite(data.address) }),
+        ...(data.directions !== undefined && { directions: clearableWrite(data.directions) }),
+        // CAM-615: videoUrl/phone/lineId/facebookUrl/facebookMessageUrl/
+        // tiktokUrl/partner/nationalPark all carried the SAME `x || undefined`
+        // collapse — the form already sends a real '' when a host clears one
+        // of these (no client bug), but this mapping turned that '' back into
+        // `undefined`, which the outer `!== undefined` guard had already let
+        // through as "present" — so the column was never actually written to
+        // NULL. clearableWrite is the one shared replacement (see
+        // lib/api-utils.ts) for every field in this group.
+        ...(data.videoUrl !== undefined && { videoUrl: clearableWrite(data.videoUrl) }),
+        ...(data.feeInfo !== undefined && { feeInfo: clearableWrite(data.feeInfo) }),
 
-        // PREP-2 (CAM-268) + CAM-341 clearing fix: undefined (key omitted) means
-        // skip - a partial update must never touch a field it did not send. An
-        // explicit null means clear the column. The old `|| undefined` mapping
-        // collapsed null/empty into "skip" too, so a host clearing extraFeeLabel
-        // or cancellationPolicy silently no-op'd (Prisma treats `field: undefined`
-        // identically to an omitted key - it never writes NULL). extraFeeAmount
-        // already forwarded its value as-is (no `|| undefined` bug), so once the
-        // schema accepts an explicit null it clears correctly with no change here.
-        ...(data.extraFeeAmount !== undefined && { extraFeeAmount: data.extraFeeAmount }),
-        ...(data.extraFeeLabel !== undefined && {
-          extraFeeLabel: data.extraFeeLabel === '' || data.extraFeeLabel === null ? null : data.extraFeeLabel,
-        }),
-        ...(data.cancellationPolicy !== undefined && {
-          cancellationPolicy: data.cancellationPolicy === null ? null : data.cancellationPolicy,
-        }),
+        // Contact Information
+        ...(data.phone !== undefined && { phone: clearableWrite(data.phone) }),
+        ...(data.lineId !== undefined && { lineId: clearableWrite(data.lineId) }),
+        ...(data.facebookUrl !== undefined && { facebookUrl: clearableWrite(data.facebookUrl) }),
+        ...(data.facebookMessageUrl !== undefined && { facebookMessageUrl: clearableWrite(data.facebookMessageUrl) }),
+        ...(data.tiktokUrl !== undefined && { tiktokUrl: clearableWrite(data.tiktokUrl) }),
+        ...(data.toiletInfo !== undefined && { toiletInfo: clearableWrite(data.toiletInfo) }),
+        ...(data.minimumAge !== undefined && { minimumAge: clearableWrite(data.minimumAge) }),
+
+        // PREP-2 (CAM-268) + CAM-341/CAM-360/CAM-615 clearing fix: undefined
+        // (key omitted) means skip - a partial update must never touch a
+        // field it did not send. An explicit null (or '') means clear the
+        // column, via the one shared clearableWrite mapping (lib/api-utils.ts)
+        // instead of three near-identical hand-rolled versions.
+        ...(data.extraFeeAmount !== undefined && { extraFeeAmount: clearableWrite(data.extraFeeAmount) }),
+        ...(data.extraFeeLabel !== undefined && { extraFeeLabel: clearableWrite(data.extraFeeLabel) }),
+        ...(data.cancellationPolicy !== undefined && { cancellationPolicy: clearableWrite(data.cancellationPolicy) }),
 
         ...(data.latitude !== undefined && { latitude: data.latitude }),
         ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.checkInTime && { checkInTime: data.checkInTime }),
         ...(data.checkOutTime && { checkOutTime: data.checkOutTime }),
         ...(data.bookingMethod && { bookingMethod: data.bookingMethod }),
-        ...(data.priceLow !== undefined && { priceLow: data.priceLow }),
-        ...(data.priceHigh !== undefined && { priceHigh: data.priceHigh }),
+        ...(data.priceLow !== undefined && { priceLow: clearableWrite(data.priceLow) }),
+        ...(data.priceHigh !== undefined && { priceHigh: clearableWrite(data.priceHigh) }),
         ...('images' in body && { images: imageReplaceNested(data.images) }),
-        // CAM-360 clearing fix (same class as CAM-341, see comment above): the
-        // old `data.logo || undefined` collapsed both '' and an explicit null
-        // into "skip" - a host clearing the logo never actually cleared the
-        // column. undefined (key omitted) still skips the field entirely;
-        // '' or null now map to an explicit null write.
-        ...(data.logo !== undefined && {
-          logo: data.logo === '' || data.logo === null ? null : data.logo,
-        }),
-        ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) }),
-        ...(data.partner !== undefined && { partner: data.partner || undefined }),
-        ...(data.nationalPark !== undefined && { nationalPark: data.nationalPark || undefined }),
+        ...(data.logo !== undefined && { logo: clearableWrite(data.logo) }),
+        // CAM-615: `arrayToCsv([])` returns `undefined` (its documented "empty
+        // in, nothing to store" contract) — mapping that straight into the
+        // write let a host's "remove every tag" silently skip, the SAME shape
+        // CAM-526 already fixed for accommodationTypes (`?? ''`, a non-null
+        // column). `tags` is nullable, so the empty case maps to `?? null`.
+        ...(data.tags !== undefined && { tags: arrayToCsv(data.tags) ?? null }),
+        ...(data.partner !== undefined && { partner: clearableWrite(data.partner) }),
+        ...(data.nationalPark !== undefined && { nationalPark: clearableWrite(data.nationalPark) }),
         ...(data.isVerified !== undefined && { isVerified: data.isVerified }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.isPublished !== undefined && { isPublished: data.isPublished }),
-        
+
         // Capacity & Ground Type
+        // CAM-615: maxGuestsPerDay/maxTentsPerDay forward the value as-is (no
+        // `|| undefined` bug here) — an explicit `null` now round-trips to
+        // NULL ("unbounded", per lib/campsite-filters.ts) now that the zod
+        // schema accepts it; the WHOLE-CAMP form still requires a stated
+        // value >= 1 to save (CAM-351 BR-2/AC-11, an intentional product rule
+        // this story does not change) — null is reachable via a PER-SPOT save
+        // and via the API contract directly.
         ...(data.maxGuestsPerDay !== undefined && { maxGuestsPerDay: data.maxGuestsPerDay }),
         ...(data.maxTentsPerDay !== undefined && { maxTentsPerDay: data.maxTentsPerDay }),
-        ...(data.groundType !== undefined && { 
+        ...(data.groundType !== undefined && {
           groundType: typeof data.groundType === 'string' ? data.groundType : JSON.stringify(data.groundType)
         }),
-        
+
         // Ownership & Pricing
         ...(data.ownershipType !== undefined && { ownershipType: data.ownershipType || undefined }),
         ...(data.isFree !== undefined && { isFree: data.isFree }),
@@ -348,8 +438,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params;
   
   // Check permission
-  const { error: authError } = await requireCampSitePermission(id, "CAMPSITE_DELETE");
+  const { error: authError, session } = await requireCampSitePermission(id, "CAMPSITE_DELETE");
   if (authError) return authError;
+
+  // CAM-619: DELETE had no rate limit at all — mirrors POST create's cadence
+  // (a rare, deliberate, one-shot action per camp; see the shared reasoning
+  // comment above the constants at the top of this file).
+  const rl = checkRateLimit(`campsite:delete:${session.user?.id ?? 'unknown'}`, {
+    limit: CAMPSITE_DELETE_RATE_LIMIT,
+    windowMs: CAMPSITE_DELETE_RATE_WINDOW_MS,
+  });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการลบแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
 
   try {
     // Capture the deleted row (Prisma returns the full deleted record by default)

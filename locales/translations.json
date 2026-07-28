@@ -113,7 +113,8 @@
             "loading_sr": "Loading…"
         },
         "notifications": {
-            "unreadCountAria": "{count} unread notifications"
+            "unreadCountAria": "{count} unread notifications",
+            "loadError": "Couldn't load notifications"
         },
         "categories": {
             "all": "All",
@@ -182,7 +183,8 @@
             "total": "Total",
             "selectDatesFirst": "Please choose your check-in and check-out dates first.",
             "remainingSpots": "{n} spots left",
-            "fullyBooked": "Fully booked"
+            "fullyBooked": "Fully booked",
+            "availabilityLoadError": "Couldn't load available dates. Please try again."
         },
         "profile": {
             "title": "My Profile",
@@ -309,6 +311,7 @@
             "maxPrice": "Max Price / Night",
             "minPriceError": "Min price cannot be greater than max price",
             "maxPriceError": "Max price cannot be less than min price",
+            "priceOrderConflict": "Minimum price {min} is higher than maximum price {max}. Please adjust one of the two prices.",
             "extraFee": "Extra Fee",
             "extraFeeAmountLabel": "Fee Amount",
             "extraFeeAmountPlaceholder": "e.g. 250",
@@ -465,6 +468,7 @@
             "keepBooking": "Keep booking",
             "statusPending": "Pending",
             "statusConfirmed": "Confirmed",
+            "statusPaid": "Paid",
             "statusCancelled": "Cancelled",
             "statusCompleted": "Completed",
             "confirmationTitle": "Booking confirmed",
@@ -597,6 +601,9 @@
             "Equipment for rent": "Equipment for Rent",
             "show_results_count": "Show {{count}} Campgrounds",
             "no_results": "No Campgrounds found",
+            "countError": "Couldn't count matching camps. Please try again.",
+            "countErrorLabel": "Couldn't get count",
+            "optionsError": "Couldn't load filter options. Please try again.",
             "DRIV": "Drive-in",
             "WALK": "Walk-in",
             "BOAT": "Boating",
@@ -834,6 +841,7 @@
             "loading_sr": "Loading…",
             "loading_more": "Loading more camps",
             "end_of_list": "You've seen all camps",
+            "load_more_error": "Couldn't load more camps",
             "fullyUnavailable": "Not available for these dates",
             "partiallyUnavailable": "Available some days in these dates"
         },
@@ -1192,7 +1200,8 @@
             "loading_sr": "กำลังโหลด…"
         },
         "notifications": {
-            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
+            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน",
+            "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ"
         },
         "categories": {
             "all": "ทั้งหมด",
@@ -1261,7 +1270,8 @@
             "total": "ยอดรวม",
             "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
             "remainingSpots": "เหลือ {n} ที่",
-            "fullyBooked": "เต็มแล้ว"
+            "fullyBooked": "เต็มแล้ว",
+            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
@@ -1388,6 +1398,7 @@
             "maxPrice": "ราคาสูงสุด / คืน",
             "minPriceError": "ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้",
             "maxPriceError": "ราคาสูงสุดไม่สามารถน้อยกว่าราคาต่ำสุดได้",
+            "priceOrderConflict": "ราคาต่ำสุด {min} บาท มากกว่าราคาสูงสุด {max} บาท กรุณาแก้ไขราคาใดราคาหนึ่ง",
             "extraFee": "ค่าธรรมเนียมเพิ่มเติม",
             "extraFeeAmountLabel": "จำนวนเงินค่าธรรมเนียม",
             "extraFeeAmountPlaceholder": "เช่น 250",
@@ -1544,6 +1555,7 @@
             "keepBooking": "เก็บการจองไว้",
             "statusPending": "รอยืนยัน",
             "statusConfirmed": "ยืนยันแล้ว",
+            "statusPaid": "ชำระเงินแล้ว",
             "statusCancelled": "ยกเลิกแล้ว",
             "statusCompleted": "เข้าพักแล้ว",
             "confirmationTitle": "การจองสำเร็จแล้ว",
@@ -1677,6 +1689,9 @@
             "Equipment for rent": "อุปกรณ์ให้เช่า",
             "show_results_count": "แสดง {{count}} แคมป์กราวด์",
             "no_results": "ไม่พบแคมป์กราวด์",
+            "countError": "นับจำนวนแคมป์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+            "countErrorLabel": "นับจำนวนไม่สำเร็จ",
+            "optionsError": "โหลดตัวเลือกตัวกรองไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
             "DRIV": "เข้าถึงด้วยรถยนต์",
             "WALK": "เดินเข้า",
             "BOAT": "พายเรือ",
@@ -1914,6 +1929,7 @@
             "loading_sr": "กำลังโหลด…",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
             "end_of_list": "ดูลานครบทั้งหมดแล้ว",
+            "load_more_error": "โหลดลานเพิ่มเติมไม่สำเร็จ",
             "fullyUnavailable": "ไม่ว่างในช่วงที่เลือก",
             "partiallyUnavailable": "ว่างบางวันในช่วงที่เลือก"
         },

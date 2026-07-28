@@ -16,7 +16,15 @@ const SEED_SLUG = "khao-yai-camping-site-2";
 test("edit round trip: updated nameTh + priceLow persist across save + reopen", async ({ page, request }) => {
   const camp = await findCampBySlug(request, SEED_SLUG);
   const newNameTh = `เขาใหญ่แคมป์ปิ้ง (แก้ไข ${Date.now()})`;
-  const newPriceLow = "777";
+  // CAM-619: the seeded camp's priceHigh is 600 — this spec's intent is that
+  // an edit round-trips (persists + reopens correctly), not that any
+  // specific number does. 450 is distinct from the seeded priceLow (250, so
+  // the round-trip is real, not a no-op) and stays inside the seeded
+  // priceLow<=priceHigh band, which the server correctly enforces on both
+  // create and update (a persisted inverted band is a real defect — the
+  // card would render it as e.g. ฿777-600). The original fixture (777)
+  // exceeded priceHigh and was rejected by that guard, not by a bug in it.
+  const newPriceLow = "450";
 
   await page.goto(`/dashboard/campsites/${camp.id}/edit`);
   await expect(page.getByTestId("input--campground-name-th")).toHaveValue(camp.nameTh);

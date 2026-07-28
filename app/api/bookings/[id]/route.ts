@@ -6,8 +6,19 @@ import { z } from 'zod';
 import type { TeamRole } from '@/lib/team-permissions';
 import { getEffectivePermissions, hasPermission } from '@/lib/team-permissions';
 import { getOwnedBooking } from '@/lib/bookings';
+import type { BookingStatus } from '@/lib/booking-status';
 
-const BookingStatusEnum = z.enum(['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED']);
+// CAM-618: this is a deliberate ALLOWLIST of the statuses a caller (camper/host/admin) may
+// set directly through this generic PATCH — not a mirror of the full `BookingStatus` enum,
+// so it is NOT expected to grow every time the schema enum does. `PAID` is intentionally
+// excluded: payment status must come from a payment-processor integration (not yet built),
+// never a manual PATCH by camper/host/admin — see PR discussion / docs/specs/... tech.md for
+// the reachability finding. The `satisfies` check below still gives real compiler protection:
+// if any of these four literals is ever renamed or removed from the Prisma enum, this line
+// fails to typecheck (catches a typo/rename, without forcing exhaustiveness — which would be
+// the wrong shape for an intentional subset).
+const PATCHABLE_BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED'] as const satisfies readonly BookingStatus[];
+const BookingStatusEnum = z.enum(PATCHABLE_BOOKING_STATUSES);
 
 export async function PATCH(
   request: NextRequest,
