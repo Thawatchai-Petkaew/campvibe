@@ -15,24 +15,31 @@ import { test, expect } from "@playwright/test";
 import type { APIResponse } from "@playwright/test";
 import { isTransientKeepAliveRace, withKeepAliveRaceRetry } from "./helpers";
 
-function errorWith(message: string, code?: string): NodeJS.ErrnoException {
-  const err = new Error(message) as NodeJS.ErrnoException;
-  if (code) err.code = code;
-  return err;
+function errorWith(message: string): Error {
+  return new Error(message);
 }
 
 test.describe("isTransientKeepAliveRace — narrow predicate", () => {
-  test("matches the exact client-side signature (socket hang up + ECONNRESET)", () => {
-    expect(isTransientKeepAliveRace(errorWith("socket hang up", "ECONNRESET"))).toBe(true);
+  test("matches Playwright's real relayed message shape (freshly reproduced locally, see tech.md)", () => {
+    // Verbatim message this predicate MISSED in its first draft (which checked
+    // `err.code` — Playwright relays this as a plain Error with no `.code` set
+    // at all, the failure folded entirely into `message`).
+    expect(isTransientKeepAliveRace(errorWith("apiRequestContext.get: read ECONNRESET"))).toBe(true);
   });
 
-  test("matches the exact server-mirrored signature (aborted + ECONNRESET)", () => {
-    expect(isTransientKeepAliveRace(errorWith("aborted", "ECONNRESET"))).toBe(true);
+  test("matches the ticket's original client-side signature (socket hang up)", () => {
+    expect(isTransientKeepAliveRace(errorWith("apiRequestContext.get: socket hang up"))).toBe(true);
+  });
+
+  test("matches the server-mirrored signature (aborted)", () => {
+    expect(isTransientKeepAliveRace(errorWith("aborted"))).toBe(true);
   });
 
   test("does NOT match ECONNREFUSED — a dead webServer must fail loudly, never retry", () => {
-    expect(isTransientKeepAliveRace(errorWith("socket hang up", "ECONNREFUSED"))).toBe(false);
-    expect(isTransientKeepAliveRace(errorWith("aborted", "ECONNREFUSED"))).toBe(false);
+    expect(isTransientKeepAliveRace(errorWith("apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:3100"))).toBe(
+      false
+    );
+    expect(isTransientKeepAliveRace(errorWith("aborted ECONNREFUSED"))).toBe(false);
   });
 
   test("does NOT match an unrelated error (e.g. a real assertion failure)", () => {
@@ -47,7 +54,7 @@ test.describe("withKeepAliveRaceRetry — capped at exactly one retry", () => {
     const fakeResponse = { ok: () => true } as APIResponse;
     const result = await withKeepAliveRaceRetry("GET /fake", async () => {
       calls++;
-      if (calls === 1) throw errorWith("socket hang up", "ECONNRESET");
+      if (calls === 1) throw errorWith("apiRequestContext.get: read ECONNRESET");
       return fakeResponse;
     });
     expect(calls).toBe(2); // exactly one retry
@@ -60,7 +67,7 @@ test.describe("withKeepAliveRaceRetry — capped at exactly one retry", () => {
     await expect(
       withKeepAliveRaceRetry("GET /fake", async () => {
         calls++;
-        throw errorWith("socket hang up", "ECONNRESET");
+        throw errorWith("apiRequestContext.get: socket hang up");
       })
     ).rejects.toThrow("socket hang up");
     expect(calls).toBe(2); // one original attempt + one retry, then it stops
@@ -71,7 +78,7 @@ test.describe("withKeepAliveRaceRetry — capped at exactly one retry", () => {
     await expect(
       withKeepAliveRaceRetry("GET /fake", async () => {
         calls++;
-        throw errorWith("connect ECONNREFUSED 127.0.0.1:3100", "ECONNREFUSED");
+        throw errorWith("apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:3100");
       })
     ).rejects.toThrow("ECONNREFUSED");
     expect(calls).toBe(1); // no retry attempted

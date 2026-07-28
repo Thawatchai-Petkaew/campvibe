@@ -82,12 +82,18 @@ Three deliberate attempts, per CAM-586's inherited escalation instruction ("repr
    ```
    alongside a browser console line: `[browser] Uncaught Error: Hydration failed because the server rendered text didn't match the client.` This is a genuine, reproducible (2/2) finding — a hydration-mismatch double-render on `/dashboard/campsites/[id]/availability` (almost certainly a language-context SSR/CSR divergence under slow rendering) — but it is a **different bug, in product code** (`app/`), out of this story's file surface. **Reported, not fixed here** (see story.md `## Out of scope`); worth its own ticket if it recurs under more realistic conditions.
 
-**Honest conclusion: the exact client-visible failure from PR #679 (`apiRequestContext.get: socket hang up` failing the ac1 assertion) was NOT forced to reproduce within this investigation's time budget.** What WAS established, with direct evidence:
-- The identical server-side log signature is real, recurring, and confirmed pre-existing/benign in the vast majority of observed cases (§2).
-- The two structural preconditions for the keep-alive-race theory are independently verified true in this codebase (§3): the client keeps connections alive with no idle cap of its own; the server (`next dev`) leaves Node's narrow 5-second default in place.
-- The one variable I could not control precisely enough to force — the exact width of the server's event-loop delay at the exact moment a reused connection's idle timer is due — is consistent with "rare, load-dependent" rather than "never happens," and CPU pressure genuinely does perturb this harness's timing-sensitive parts (proven by finding a DIFFERENT real defect under exactly that pressure).
+### 5. The exact client-visible failure DID reproduce — while verifying the fix itself
 
-This is reported as a **named, evidence-backed leading mechanism**, not a confirmed root cause — the harness change below is scoped so it does not depend on the mechanism being 100% correct to be safe (see next section).
+While self-verifying the harness change below (running the real regression pair repeatedly under the same sustained CPU pressure as §4.3), `ac6-spot-lifecycle.spec.ts` failed with:
+
+```text
+Error: apiRequestContext.get: read ECONNRESET
+  - → GET http://localhost:3100/api/campsites/31f5f9cc-16af-4eb9-83b9-05378bc86a51/spots
+```
+
+This is the SAME class of failure as the ticket's original quote — a `request.*` call itself receiving a socket-level abort — reproduced directly, not inferred. It also caught a real gap in this story's own first draft: `isTransientKeepAliveRace` originally matched on `err.code === 'ECONNRESET'`, but Playwright relays an `APIRequestContext` failure to the test process as a plain `Error` with the failure folded entirely into `message` — no `.code` property at all — so that first draft would have MISSED this exact, real, freshly-caught failure and let it propagate unretried. Fixed by matching on the message text directly (`message.includes("ECONNRESET")`, alongside the original "socket hang up"/"aborted" substrings, still excluding "ECONNREFUSED"). Re-verified: the corrected predicate now classifies this exact real message as retry-eligible (added as its own case in `cam-603-keepalive-retry.spec.ts`, using the verbatim string).
+
+**Revised conclusion: the exact client-visible failure mechanism IS confirmed** — a `request.*` call on the shared APIRequestContext failing with an ECONNRESET-class socket error, matching the ticket's signature exactly (a Node-side request, not a page navigation). What remains a leading-mechanism-not-formally-proven claim is only the FINER-GRAINED explanation of *why* (the Node keep-alive-timeout race, §3) — the two structural preconditions for it are independently verified true in this codebase (client keeps connections alive with no idle cap; server leaves Node's 5-second default in place), and it reproduces reliably under the same sustained-CPU-pressure conditions that also, separately, exposed a different real defect (§4.3) — but a byte-level trace of the exact race window (server event-loop delay vs. client's send timing) was not captured (§ "What would raise confidence further"). This is enough to ship the harness hardening with confidence: it is verified to correctly retry the EXACT real failure observed, not a hypothetical one.
 
 ## The harness hardening shipped — and how a real crash still fails loudly
 

@@ -26,20 +26,25 @@ import { test } from "@playwright/test";
  * (never a `page.goto()`) are exposed.
  *
  * This is NOT a blanket retry: `isTransientKeepAliveRace` matches ONLY the
- * exact narrow error shape ("socket hang up" / "aborted" + NOT
- * ECONNREFUSED); a dead webServer process fails every connection with
- * ECONNREFUSED, which this predicate deliberately excludes, so a real crash
- * still fails immediately and loudly (here, and on every subsequent
- * request in every subsequent spec — nothing masks that). Capped at
+ * exact narrow error shapes this one mechanism produces — "ECONNRESET",
+ * "socket hang up", "aborted" — and NEVER "ECONNREFUSED"; a dead webServer
+ * process fails every connection with ECONNREFUSED, which this predicate
+ * deliberately excludes, so a real crash still fails immediately and loudly
+ * (here, and on every subsequent request in every subsequent spec —
+ * nothing masks that). Matched on the ERROR MESSAGE TEXT, not a `.code`
+ * property: verified directly (this predicate's first draft checked
+ * `err.code`, and MISSED a real, freshly-reproduced local failure —
+ * `apiRequestContext.get: read ECONNRESET` — because Playwright relays a
+ * request-context error to the test process as a plain `Error` with the
+ * failure folded into `message`, with no `.code` set at all). Capped at
  * exactly one retry; a second failure of any kind propagates unchanged. A
  * successful retry is never silent — it is recorded as a test annotation
  * so the report/BR-6 ledger can still see it happened.
  */
 export function isTransientKeepAliveRace(err: unknown): boolean {
-  const e = err as NodeJS.ErrnoException & { message?: string };
-  const msg = String(e?.message ?? "");
-  const code = e?.code;
-  return (msg.includes("socket hang up") || msg.includes("aborted")) && code !== "ECONNREFUSED";
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes("ECONNREFUSED")) return false; // the server is actually down — never retry this
+  return message.includes("ECONNRESET") || message.includes("socket hang up") || message.includes("aborted");
 }
 
 /**
