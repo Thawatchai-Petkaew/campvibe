@@ -765,7 +765,17 @@ async function countMatching(
 /** A bounded ticket-list read that also carries the real truncation signal as extra own
  *  properties on the returned array — see TicketListResult. A caller that only
  *  destructures/iterates the array (every existing caller) is completely unaffected. */
-export type TicketListResult = Ticket[] & { readonly total: number; readonly truncated: boolean };
+export type TicketListResult = Ticket[] & {
+  readonly total: number;
+  readonly truncated: boolean;
+  /** CAM-602: proof the caller can check against the mode it requested — the request's own
+   *  `filter.mode` echoed back ("gate"/"audit"), or `null` for a genuine general (no-mode)
+   *  read. An older server that predates `mode` entirely never attaches this property at
+   *  all — indistinguishable, from the response alone, from a mismatch, which is exactly
+   *  why a caller checks for an exact match rather than truthiness. See
+   *  scripts/lib/ticket-sync-mode-proof.mjs for the client-side refusal this enables. */
+  readonly appliedMode: "gate" | "audit" | null;
+};
 
 /**
  * Bounded list read (CAM-595). Still bounded on purpose — performance.md is right that an
@@ -793,5 +803,8 @@ export async function listTickets(filter: ListTicketsFilter = {}): Promise<Ticke
   });
   const total = await countMatching(db, where);
   const truncated = total !== null ? total > tickets.length : tickets.length >= TICKET_LIST_TAKE_CAP;
-  return Object.assign(tickets, { total: total ?? tickets.length, truncated });
+  // CAM-602: appliedMode echoes back the mode that actually built `where` above (or `null`
+  // for a genuine general read) — the response's proof that a requested mode was honoured,
+  // not silently ignored by a server that predates it. See TicketListResult's doc comment.
+  return Object.assign(tickets, { total: total ?? tickets.length, truncated, appliedMode: filter.mode ?? null });
 }

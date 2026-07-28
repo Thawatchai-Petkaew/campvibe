@@ -80,6 +80,22 @@ export type CreateTicketBody = z.infer<typeof createTicketBodySchema>;
 //              docs/specs path)
 const listTicketsModeSchema = z.enum(["gate", "audit"]);
 
+// CAM-602: `.strict()` -- any query key besides state/epicId/archived/mode is rejected with
+// 400 invalid_query, not silently dropped (zod's `z.object` default). Decision + full
+// reasoning: docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-602-prove-the-mode/
+// tech.md. Summary: GET /api/tickets has exactly two real callers (scripts/ticket-sync.mjs,
+// scripts/parity-check.mjs), both internal tooling -- no browser ever hits this endpoint with
+// an incidental tracking/cache-busting param, so there is no "friendly to browsers" upside to
+// weigh against the cost of a future param silently vanishing the same way `mode` did on an
+// older server during CAM-595's own rollout. `token` (the STATUS_TOKEN auth transport,
+// lib/status-auth.ts) is deliberately NOT part of this schema -- app/api/tickets/route.ts
+// strips it from the reflected query object before parsing, because it is an authz concern,
+// not a data field this endpoint's contract owns. This is the systemic half of the CAM-602
+// fix: the NEXT query param added to this endpoint inherits "unrecognized key = 400" for
+// free, with no per-field re-derivation -- it cannot, however, retroactively make an
+// ALREADY-deployed pre-CAM-595 server reject `mode` (that server's route code never read the
+// key off the URL at all); see tech.md for why the client-side refusal
+// (scripts/lib/ticket-sync-mode-proof.mjs) is the defense for that half.
 export const listTicketsQuerySchema = z
   .object({
     state: ticketStateSchema.optional(),
@@ -90,6 +106,7 @@ export const listTicketsQuerySchema = z
       .transform((v) => (v === undefined ? undefined : v === "true")),
     mode: listTicketsModeSchema.optional(),
   })
+  .strict()
   .refine((v) => !(v.mode && (v.state || v.epicId)), {
     message: "mode is mutually exclusive with state/epicId (a different targeted where-shape)",
     path: ["mode"],
