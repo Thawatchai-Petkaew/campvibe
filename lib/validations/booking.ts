@@ -5,6 +5,19 @@ import { z } from 'zod';
 // to prevent — see lib/booking-prefill.ts's header comment).
 export const MAX_BOOKING_NIGHTS = 30;
 
+// CAM-636: `guests` previously had NO upper bound at all — a crafted request
+// with guests=9999 passed zod straight through to the booking transaction.
+// The REAL enforcement is `checkDateAvailabilityInTx` (the per-night capacity
+// check inside `withBookingTransaction`, app/api/bookings/route.ts) — that is
+// what rejects a guest count the camp actually cannot hold, for the exact
+// selected dates. This zod bound is defense-in-depth ONLY: it stops an
+// absurd client-supplied value before it ever reaches the transaction, it is
+// NOT the availability check. 500 is a sane hard ceiling — no real Thai camp
+// listing (even a large group/event camp) legitimately takes more guests in
+// a single booking than that, and it still leaves generous headroom above
+// any real `CampSite.maxGuestsPerDay` a host would set.
+export const MAX_BOOKING_GUESTS = 500;
+
 export const bookingSchema = z.object({
     campSiteId: z.string().uuid(),
     spotId: z.string().uuid().optional(),
@@ -16,7 +29,7 @@ export const bookingSchema = z.object({
         message: "Invalid check-out date",
     }),
 
-    guests: z.number().min(1).default(1),
+    guests: z.number().int().min(1).max(MAX_BOOKING_GUESTS).default(1),
 
     // For testing, we might pass userId manually, though normally this comes from session
     userId: z.string().uuid(),
