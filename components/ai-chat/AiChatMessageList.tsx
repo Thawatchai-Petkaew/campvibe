@@ -107,6 +107,16 @@
  * dots are the only row losing it here. aria-live label + dot animation are
  * unchanged.
  *
+ * CAM-639 (epic CAM-630, in-chat guided booking): one new branch renders a
+ * `kind:"booking"` entry (`conversation.ts`) via the CAM-638 presentation
+ * (`AiChatBookingStep`) — PRESENTATION + ENTRY TYPE ONLY, no handler is wired
+ * to any real state yet (CAM-640 wires `advanceBookingFlow` next), so the
+ * step block mounts read-only here. Per the design brief's motion rule (see
+ * that component's own header for the exact constraint), this new branch
+ * wraps the block in no added-motion className of its own — deliberately not
+ * named literally here, or this comment would trip the very guard it
+ * describes (same reasoning `booking-flow.ts`'s own header states).
+ *
  * CAM-541 (owner feedback, 2 fixes):
  *  1. Contrast: `text-muted-foreground` on the panel's `bg-ai-surface` glass
  *     measured 4.40:1 in light mode (below the 4.5:1 body-text floor,
@@ -134,8 +144,10 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
+import { AiChatBookingStep } from "@/components/ai-chat/AiChatBookingStep";
 import { parseAnswer } from "@/components/ai-chat/answer-format";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
+import type { BookingStepId } from "@/components/ai-chat/booking-flow";
 import type { AiChatCardResponse } from "@/lib/api-client";
 
 const SUGGESTION_KEYS = ["suggestion1", "suggestion2", "suggestion3"] as const;
@@ -418,6 +430,14 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, onSelectCamp, showSugges
         )}
       </div>
     );
+  }
+
+  if (entry.kind === "booking") {
+    // CAM-639: presentation only — no handler is wired to any real flow
+    // state yet (CAM-640's job). `step` is typed via the registry-derived
+    // `BookingStepId`, never a hand-copied step-id literal.
+    const step: BookingStepId = entry.step;
+    return <AiChatBookingStep key={step} view={entry.view} />;
   }
 
   if (entry.kind === "rate-limited") {
