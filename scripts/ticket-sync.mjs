@@ -39,6 +39,9 @@
  *   node scripts/ticket-sync.mjs gates                      # exit 10 when a gate is "cleared"
  *   node scripts/ticket-sync.mjs audit                       # exit 11 on template/artifact drift
  *                                                            # (incl. an open [NEEDS CLARIFICATION] marker)
+ *                                                            # gates/audit: exit 13 if the server
+ *                                                            # never proved it applied mode=gate/
+ *                                                            # audit (CAM-602) — refuses to guess
  *   node scripts/ticket-sync.mjs pull [outfile]
  *   node scripts/ticket-sync.mjs index
  *   node scripts/ticket-sync.mjs scaffold CAM-7
@@ -77,8 +80,15 @@
  *     anything else → warn "labels are columns now", no-op, exit 0
  *
  * Errors: any non-2xx API response prints `✗ <id> <status> <reason>` to stderr and sets
- * exit 1 (except the documented special exit codes: gates=10, audit=11). The token is never
- * echoed anywhere (.claude/rules/security.md).
+ * exit 1 (except the documented special exit codes: gates=10, audit=11, gates/audit=13 — see
+ * CAM-602 below). The token is never echoed anywhere (.claude/rules/security.md).
+ *
+ * CAM-602 — `gates`/`audit` refuse to interpret an unproven `mode` read: a `GET
+ * /api/tickets?mode=gate|audit` response must carry `appliedMode` matching the mode
+ * requested, or the server may have silently ignored it (the exact CAM-595 rollout defect —
+ * an older, pre-CAM-595 server never read `mode` off the URL at all, and returned the
+ * general, unfiltered list with a plain 200). A mismatch prints `✗ CANNOT TELL (...)` and
+ * exits 13 — never a fabricated waiting/cleared count. See scripts/lib/ticket-sync-mode-proof.mjs.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -95,6 +105,7 @@ import {
   parseActorFlag,
 } from "./lib/ticket-sync-args.mjs";
 import { hasUnresolvedMarker, hasStagedAtIntegrityGap } from "./lib/ticket-sync-audit.mjs";
+import { checkModeApplied } from "./lib/ticket-sync-mode-proof.mjs";
 
 // ── env (dotenv-style parse, no deps — copied from scripts/linear-sync.mjs) ───────────────
 
@@ -218,10 +229,33 @@ function warnIfTruncated(data, label) {
   }
 }
 
+/** CAM-602: refuse to interpret a mode-scoped read the server did not PROVE it applied — a
+ * response missing (or mismatching) `appliedMode` means the server may have silently ignored
+ * `mode=<mode>` and returned the general, unfiltered list instead (the exact CAM-595 rollout
+ * defect: an older server never read `mode` off the URL at all, so it printed "0 waiting on
+ * you, 500 cleared" while five stories actually waited). A wrong count is worse than no
+ * count, because a wrong count gets acted on — this exits distinctly (13) rather than
+ * printing anything that looks like a real waiting/cleared tally. Decision logic lives in
+ * scripts/lib/ticket-sync-mode-proof.mjs (pure, unit-tested independent of this CLI). */
+function assertModeApplied(data, mode, label) {
+  const { ok, appliedMode } = checkModeApplied(data, mode);
+  if (ok) return;
+  console.error(
+    `✗ CANNOT TELL (${label}): the server did not prove it applied mode=${mode} ` +
+      `(appliedMode=${JSON.stringify(appliedMode === undefined ? null : appliedMode)}). This ` +
+      `usually means the server predates the mode=${mode} filter and silently returned the ` +
+      `general ticket list instead — refusing to report a count that could be completely ` +
+      `wrong. Point APP_BASE_URL at a server that supports mode=${mode} and re-run.`
+  );
+  process.exit(13);
+}
+
 /** Bounded list read (GET /api/tickets — the API caps at TICKET_LIST_TAKE_CAP rows, newest
  * first — CAM-595). Archived tickets are hidden everywhere this client renders (board, INDEX,
  * audit, pull) — never fetch them. Used by `list`/`index`/`pull`; `gates`/`audit` use their
- * own targeted reads below instead, which never depend on outrunning this cap. */
+ * own targeted reads below instead, which never depend on outrunning this cap. No `mode` is
+ * requested here, so there is no appliedMode proof to check (CAM-602 only gates the two
+ * mode-scoped getters below). */
 async function getAllTickets() {
   const { status, data } = await apiFetch("GET", "/api/tickets?archived=false");
   if (status !== 200) { apiFail("-", status, data); process.exit(1); }
@@ -233,20 +267,26 @@ async function getAllTickets() {
  * changesRequested=true). This is what made "the gate board silently stops at ticket 561"
  * possible: `gates` used to client-side-filter the SAME capped, ascending, general-purpose
  * scan as `list`. It never scans the general ticket set at all now, so a gate raised on any
- * ticket number can never fall outside it. */
+ * ticket number can never fall outside it.
+ * CAM-602: before trusting `data.tickets` as the gate set, confirm the response actually
+ * proves the server applied mode=gate — checked first, before the truncation warning, since
+ * an unproven read cannot be trusted to report on either count. */
 async function getGateTickets() {
   const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=gate");
   if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  assertModeApplied(data, "gate", "gates");
   warnIfTruncated(data, "gates");
   return data.tickets;
 }
 
 /** CAM-595: targeted read for `audit` — server-side (type=EPIC OR state!=DONE), so template
  * conformance on the newest non-Done work is never silently skipped by the general list cap,
- * and every epic (even a long-Done one) still resolves via buildEpicIndex() below. */
+ * and every epic (even a long-Done one) still resolves via buildEpicIndex() below.
+ * CAM-602: same appliedMode proof check as getGateTickets above. */
 async function getActiveOrEpicTickets() {
   const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=audit");
   if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  assertModeApplied(data, "audit", "audit");
   warnIfTruncated(data, "audit");
   return data.tickets;
 }
