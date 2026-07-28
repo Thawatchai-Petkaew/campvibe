@@ -41,9 +41,17 @@
  * first) — reads the "camp count per sub-district" from whichever DB that
  * points at (dev DB today; re-run against staging/prod data before a
  * release for the most representative shortlist).
+ *
+ * CAM-605: the raw query below is exported as `computeLiveShortlistEntries`
+ * so `scripts/check-subdistrict-shortlist-drift.mjs` can recompute the SAME
+ * "holds a camp" fact into memory (never a second, hand-copied query) and
+ * diff it against the committed file below without ever writing to it. The
+ * `isMain` guard was added in the same story — without it, importing this
+ * module's export for that reuse would also run `main()` (a live DB write)
+ * as a side effect of the import, which CAM-605 must never do.
  */
 import { writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { describeUrlShape } from './db-reset.mjs';
@@ -51,14 +59,18 @@ import { describeUrlShape } from './db-reset.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_PATH = join(__dirname, '..', 'prisma', 'data', 'subdistrict-shortlist.json');
 
-async function main() {
-  const prisma = new PrismaClient();
-  console.log(`[generate-subdistrict-shortlist] reading from ${describeUrlShape(process.env.DATABASE_URL || '')}`);
-
-  // Every SUBDISTRICT-level AdminArea node with at least one published
-  // (isActive, not soft-deleted) camp attached via Location.adminAreaId —
-  // the exact same "holds a camp" definition `buildCampSiteWhere`
-  // (lib/campsite-filters.ts) uses for a live search.
+/**
+ * The raw "this SUBDISTRICT-level AdminArea currently holds >=1 published
+ * (isActive, not soft-deleted) camp" fact — the exact same definition
+ * `buildCampSiteWhere` (lib/campsite-filters.ts) uses for a live search.
+ * Pure with respect to the filesystem (never reads/writes the committed
+ * JSON) — only `prisma` is a side effect, and it is passed in by the caller
+ * so this function itself never decides whether/how to connect.
+ *
+ * @param {import('@prisma/client').PrismaClient} prisma
+ * @returns {Promise<{ entries: Array<{nameTh: string; districtNameTh: string; provinceNameTh: string}>, skipped: string[] }>}
+ */
+export async function computeLiveShortlistEntries(prisma) {
   const nodes = await prisma.adminArea.findMany({
     where: {
       countryCode: 'TH',
@@ -102,6 +114,15 @@ async function main() {
     a.nameTh.localeCompare(b.nameTh, 'th')
   );
 
+  return { entries, skipped };
+}
+
+export async function main() {
+  const prisma = new PrismaClient();
+  console.log(`[generate-subdistrict-shortlist] reading from ${describeUrlShape(process.env.DATABASE_URL || '')}`);
+
+  const { entries, skipped } = await computeLiveShortlistEntries(prisma);
+
   writeFileSync(OUTPUT_PATH, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
   console.log(`[generate-subdistrict-shortlist] wrote ${entries.length} sub-districts -> ${OUTPUT_PATH}`);
   if (skipped.length > 0) {
@@ -111,7 +132,13 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch((error) => {
-  console.error('[generate-subdistrict-shortlist] failed:', error);
-  process.exit(1);
-});
+// Only auto-run when executed directly (`node scripts/generate-subdistrict-shortlist.mjs`)
+// — not when imported for `computeLiveShortlistEntries` (CAM-605's drift check,
+// and this file's own tests). Same pattern as `scripts/db-reset.mjs`.
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  main().catch((error) => {
+    console.error('[generate-subdistrict-shortlist] failed:', error);
+    process.exit(1);
+  });
+}

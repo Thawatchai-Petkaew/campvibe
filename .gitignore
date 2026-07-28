@@ -126,6 +126,8 @@ next-env.d.ts
 !/scripts/verify-prisma-client-fresh.mjs
 # CAM-600 — regenerates the committed, curated prisma/data/subdistrict-shortlist.json
 !/scripts/generate-subdistrict-shortlist.mjs
+# CAM-605 — detects drift between the committed shortlist above and live data
+!/scripts/check-subdistrict-shortlist-drift.mjs
 # CAM-588 — dev-only wrapper that warns when a running `next dev` server's
 # already-loaded Prisma client goes stale relative to the schema/migrations
 !/scripts/dev-with-prisma-watch.mjs
