@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarDays, ClipboardList, Users, Check, X, CheckCircle2, XCircle } from "lucide-react";
+import { Bell, CalendarDays, ClipboardList, Users, Check, X, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { fetchJsonSafe, type SafeJsonResult } from "@/lib/safe-fetch";
 
 type NotificationType = "BOOKING_PENDING" | "BOOKING_UPDATE" | "INVITE";
 
@@ -85,44 +86,57 @@ export function NotificationCenter({
   const [camperBookings, setCamperBookings] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  // CAM-616: hostBookings/camperBookings/invites are THREE INDEPENDENT
+  // sources that used to share one try/catch (the CAM-362 anti-pattern) —
+  // one source's hiccup wiped every list to [], so a host with real pending
+  // booking requests saw "no new notifications" during an outage. Each
+  // source now fails into its OWN flag via the never-throwing
+  // fetchJsonSafe (lib/safe-fetch.ts, the CAM-362/555 sanctioned shape);
+  // its list is left untouched (not wiped) on failure so a transient error
+  // never erases data that already loaded.
+  const [hostBookingsError, setHostBookingsError] = useState(false);
+  const [camperBookingsError, setCamperBookingsError] = useState(false);
+  const [invitesError, setInvitesError] = useState(false);
+  const hasLoadError = hostBookingsError || camperBookingsError || invitesError;
 
   const fetchAll = async () => {
     setIsLoading(true);
-    try {
-      const [hostRes, camperRes, invitesRes] = await Promise.all([
-        showHostBookings ? fetch("/api/operator/bookings?status=PENDING") : Promise.resolve(null),
-        showCamperBookingUpdates ? fetch("/api/bookings") : Promise.resolve(null),
-        showInvites ? fetch("/api/team/invitations") : Promise.resolve(null),
-      ]);
 
-      if (hostRes && hostRes.ok) {
-        const data = await hostRes.json();
-        setHostBookings(Array.isArray(data) ? data : []);
-      } else if (showHostBookings) {
-        setHostBookings([]);
-      }
+    const skip: SafeJsonResult<any[]> = { ok: true, data: [] };
+    const [hostResult, camperResult, invitesResult] = await Promise.all([
+      showHostBookings ? fetchJsonSafe<any[]>("/api/operator/bookings?status=PENDING") : Promise.resolve(skip),
+      showCamperBookingUpdates ? fetchJsonSafe<any[]>("/api/bookings") : Promise.resolve(skip),
+      showInvites ? fetchJsonSafe<any[]>("/api/team/invitations") : Promise.resolve(skip),
+    ]);
 
-      if (camperRes && camperRes.ok) {
-        const data = await camperRes.json();
-        setCamperBookings(Array.isArray(data) ? data : []);
-      } else if (showCamperBookingUpdates) {
-        setCamperBookings([]);
+    if (showHostBookings) {
+      if (hostResult.ok) {
+        setHostBookings(Array.isArray(hostResult.data) ? hostResult.data : []);
+        setHostBookingsError(false);
+      } else {
+        setHostBookingsError(true);
       }
-
-      if (invitesRes && invitesRes.ok) {
-        const data = await invitesRes.json();
-        setInvites(Array.isArray(data) ? data : []);
-      } else if (showInvites) {
-        setInvites([]);
-      }
-    } catch (e) {
-      console.error("Failed to fetch notifications", e);
-      setHostBookings([]);
-      setCamperBookings([]);
-      setInvites([]);
-    } finally {
-      setIsLoading(false);
     }
+
+    if (showCamperBookingUpdates) {
+      if (camperResult.ok) {
+        setCamperBookings(Array.isArray(camperResult.data) ? camperResult.data : []);
+        setCamperBookingsError(false);
+      } else {
+        setCamperBookingsError(true);
+      }
+    }
+
+    if (showInvites) {
+      if (invitesResult.ok) {
+        setInvites(Array.isArray(invitesResult.data) ? invitesResult.data : []);
+        setInvitesError(false);
+      } else {
+        setInvitesError(true);
+      }
+    }
+
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -313,6 +327,26 @@ export function NotificationCenter({
               {isLoading ? (
                 <div className="py-8 text-sm text-muted-foreground text-center">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                </div>
+              ) : filtered.length === 0 && hasLoadError ? (
+                // CAM-616: a load failure must not render as "no new
+                // notifications" — that told a host with real pending
+                // booking requests that nothing awaited them.
+                <div className="py-10 text-center" data-testid="banner--notifications-error" role="alert">
+                  <div className="text-sm font-semibold text-destructive">
+                    {(t as any).notifications?.loadError || "Couldn't load notifications"}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 rounded-full"
+                    onClick={() => fetchAll()}
+                    data-testid="btn--notifications-retry"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                    {t.common.retry}
+                  </Button>
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="py-10 text-center">

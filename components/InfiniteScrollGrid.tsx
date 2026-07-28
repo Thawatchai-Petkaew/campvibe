@@ -18,7 +18,9 @@
  *   default      — grid of CampgroundCard items.
  *   loading      — skeleton row below existing cards (preserves layout, CLS = 0).
  *   end-of-list  — centred muted message, i18n key catalog.end_of_list.
- *   error        — stops fetching silently (no infinite-loop), no crash.
+ *   error        — CAM-616: a failed page-2 fetch stops auto-fetching (no
+ *                  infinite-loop) AND renders a distinguishable inline error
+ *                  + retry affordance — never the end-of-list message.
  *
  * Sort/filter reset: the parent re-mounts this component by changing its React key
  * (key={sort + JSON.stringify(filters)}), resetting all state automatically.
@@ -40,6 +42,8 @@ const LoginModal = dynamic(
   { ssr: false, loading: () => null }
 );
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 import type { CampSiteCardData } from "@/lib/read-models/camp-card";
 
 // Re-export so callers that imported CampSiteCardData from this module still work.
@@ -113,6 +117,14 @@ export default function InfiniteScrollGrid({
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(initialCursor === null);
+  // CAM-616: tracked SEPARATELY from `done`. Before this fix, a failed
+  // page-2 fetch set `done=true`, which rendered "you have reached the end
+  // of the list" (t.catalog.end_of_list) on a network/5xx failure — a state
+  // a user cannot tell apart from genuinely reaching the end. `done` still
+  // means "stop auto-fetching" (unchanged — guards the IntersectionObserver
+  // from retry-looping a broken endpoint); `loadError` means "the last
+  // attempt failed", so the render below shows a retry affordance instead.
+  const [loadError, setLoadError] = useState(false);
 
   // LoginModal for guest heart-clicks.
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -127,10 +139,15 @@ export default function InfiniteScrollGrid({
   // Fetch next page
   // ---------------------------------------------------------------------------
 
-  const fetchNextPage = useCallback(async () => {
-    if (loading || done || cursor === null) return;
+  // loadNextPage performs the actual request; fetchNextPage (below) is the
+  // guarded entry point the IntersectionObserver calls. Split so a manual
+  // retry (handleRetryLoadMore) can re-issue the SAME request without
+  // waiting for the guard's `done` flag to clear on the next render.
+  const loadNextPage = useCallback(async () => {
+    if (cursor === null) return;
 
     setLoading(true);
+    setLoadError(false);
 
     try {
       // Build query string: sort + cursor + forwarded filter params.
@@ -158,6 +175,7 @@ export default function InfiniteScrollGrid({
       // On any non-ok response: stop fetching (do not infinite-loop on errors).
       if (!res.ok) {
         setDone(true);
+        setLoadError(true);
         return;
       }
 
@@ -167,12 +185,27 @@ export default function InfiniteScrollGrid({
       setCursor(data.nextCursor);
       setDone(data.nextCursor === null);
     } catch {
-      // Network/parse error: stop fetching silently.
+      // Network/parse error: stop fetching, surface a retry affordance
+      // (CAM-616 — no longer silently claims "end of list").
       setDone(true);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [loading, done, cursor, sort, activeFilters]);
+  }, [cursor, sort, activeFilters]);
+
+  const fetchNextPage = useCallback(() => {
+    if (loading || done || cursor === null) return;
+    void loadNextPage();
+  }, [loading, done, cursor, loadNextPage]);
+
+  // CAM-616: manual retry bypasses the `done` guard on purpose — `done` was
+  // just set true by the failed attempt, and only a user action (not the
+  // IntersectionObserver) should re-issue the SAME cursor request.
+  const handleRetryLoadMore = useCallback(() => {
+    setDone(false);
+    void loadNextPage();
+  }, [loadNextPage]);
 
   // ---------------------------------------------------------------------------
   // IntersectionObserver — fires fetchNextPage when sentinel enters viewport.
@@ -206,9 +239,11 @@ export default function InfiniteScrollGrid({
 
   const announceText = loading
     ? t.catalog.loading_more
-    : done && items.length > initialItems.length
-      ? t.catalog.end_of_list
-      : "";
+    : loadError
+      ? t.catalog.load_more_error
+      : done && items.length > initialItems.length
+        ? t.catalog.end_of_list
+        : "";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -251,14 +286,38 @@ export default function InfiniteScrollGrid({
         ))}
       </div>
 
-      {/* End-of-list message — shown when cursor is null after at least one extra fetch. */}
-      {done && items.length > initialItems.length && (
-        <p
-          className="mt-10 text-center text-sm text-muted-foreground"
-          data-testid="text--end-of-list"
+      {/* CAM-616: a failed page-2 fetch renders a retry affordance, never the
+          end-of-list message — the two are visually and semantically distinct
+          so a broken fetch can never read as "you've seen everything". */}
+      {loadError ? (
+        <div
+          role="alert"
+          data-testid="banner--load-more-error"
+          className="mt-10 flex flex-col items-center gap-3 text-center"
         >
-          {t.catalog.end_of_list}
-        </p>
+          <p className="text-sm text-muted-foreground">{t.catalog.load_more_error}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRetryLoadMore}
+            data-testid="btn--catalog-load-more-retry"
+            className="rounded-full"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+            {t.common.retry}
+          </Button>
+        </div>
+      ) : (
+        /* End-of-list message — shown when cursor is null after at least one extra fetch. */
+        done && items.length > initialItems.length && (
+          <p
+            className="mt-10 text-center text-sm text-muted-foreground"
+            data-testid="text--end-of-list"
+          >
+            {t.catalog.end_of_list}
+          </p>
+        )
       )}
 
       {/*

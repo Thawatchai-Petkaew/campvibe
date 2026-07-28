@@ -16,7 +16,7 @@ import { runWishlistToggle } from "@/lib/wishlist-toggle";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint } from "lucide-react";
+import { CalendarIcon, Edit, Share, Heart, MapPin, Star, HelpCircle, Users, Smartphone, Plug, Loader2, LayoutGrid, MoveHorizontal, PawPrint, AlertCircle, RotateCcw } from "lucide-react";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { OptionGroupSection } from "@/components/ui/option-group-section";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -154,6 +154,11 @@ export default function CampgroundDetailClient({
     const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [availability, setAvailability] = useState<Record<string, { available: boolean; guests: number; maxGuests: number | null }>>({});
+    // CAM-616: an availability-load failure must not render every future
+    // date as bookable. `isDateDisabled` below treats `availabilityError`
+    // as "unknown -> blocked" (never "unknown -> free") until a retry
+    // succeeds.
+    const [availabilityError, setAvailabilityError] = useState(false);
 
     // CAM-267 PREP-1: remaining capacity for the exact selected stay (เหลือ X ที่ / เต็มแล้ว).
     // null = no selection yet, or capacity is unbounded (maxGuestsPerDay not set) and the
@@ -187,54 +192,62 @@ export default function CampgroundDetailClient({
         extraFeeAmount: campExtraFeeAmount,
     });
 
-    // Fetch availability data
-    useEffect(() => {
-        const fetchAvailability = async () => {
-            if (!campground.id) return;
+    // Fetch availability data — CAM-616: lifted to a stable useCallback (not
+    // an effect-local function) so the retry banner below can re-issue the
+    // SAME fetch on demand.
+    const fetchAvailability = useCallback(async () => {
+        if (!campground.id) return;
 
-            try {
-                const start = startOfMonth(new Date());
-                const end = endOfMonth(addMonths(new Date(), 3)); // Next 3 months
-                
-                const response = await fetch(
-                    `/api/campsites/${campground.id}/availability?startDate=${start.toISOString()}&endDate=${end.toISOString()}`
-                );
-                
-                const payload = await response.json().catch(() => null);
+        setAvailabilityError(false);
 
-                if (!response.ok) {
-                    console.error("Availability API error:", {
-                        status: response.status,
-                        statusText: response.statusText,
-                        payload,
-                    });
-                    setAvailability({});
-                    return;
-                }
+        try {
+            const start = startOfMonth(new Date());
+            const end = endOfMonth(addMonths(new Date(), 3)); // Next 3 months
 
-                // API returns: { campSiteId, availability: [...] }
-                const list = payload?.availability || payload?.data?.availability || [];
-                const availabilityMap: Record<string, { available: boolean; guests: number; maxGuests: number | null }> = {};
+            const response = await fetch(
+                `/api/campsites/${campground.id}/availability?startDate=${start.toISOString()}&endDate=${end.toISOString()}`
+            );
 
-                if (Array.isArray(list)) {
-                    list.forEach((item: any) => {
-                        const guests = item?.bookedGuests ?? item?.guests ?? 0;
-                        availabilityMap[item.date] = {
-                            available: !!item.available,
-                            guests,
-                            maxGuests: item?.maxGuests ?? null,
-                        };
-                    });
-                }
+            const payload = await response.json().catch(() => null);
 
-                setAvailability(availabilityMap);
-            } catch (error) {
-                console.error('Failed to fetch availability:', error);
+            if (!response.ok) {
+                console.error("Availability API error:", {
+                    status: response.status,
+                    statusText: response.statusText,
+                    payload,
+                });
+                // CAM-616: do NOT setAvailability({}) here — an empty map
+                // reads as "every date is free" to isDateDisabled below.
+                // availabilityError makes every future date disabled instead.
+                setAvailabilityError(true);
+                return;
             }
-        };
 
-        fetchAvailability();
+            // API returns: { campSiteId, availability: [...] }
+            const list = payload?.availability || payload?.data?.availability || [];
+            const availabilityMap: Record<string, { available: boolean; guests: number; maxGuests: number | null }> = {};
+
+            if (Array.isArray(list)) {
+                list.forEach((item: any) => {
+                    const guests = item?.bookedGuests ?? item?.guests ?? 0;
+                    availabilityMap[item.date] = {
+                        available: !!item.available,
+                        guests,
+                        maxGuests: item?.maxGuests ?? null,
+                    };
+                });
+            }
+
+            setAvailability(availabilityMap);
+        } catch (error) {
+            console.error('Failed to fetch availability:', error);
+            setAvailabilityError(true);
+        }
     }, [campground.id]);
+
+    useEffect(() => {
+        fetchAvailability();
+    }, [fetchAvailability]);
 
     // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
     // picked (server-authoritative — reuses getRemainingCapacity, the same math the
@@ -302,7 +315,13 @@ export default function CampgroundDetailClient({
         
         // Disable past dates
         if (date < today) return true;
-        
+
+        // CAM-616: an availability-load failure is "unknown", not "free" —
+        // block every future date rather than let the empty map silently
+        // present them all as bookable (a camper could otherwise pick a
+        // date that is actually blocked).
+        if (availabilityError) return true;
+
         // Disable full dates
         const dayAvailability = availability[dateKey];
         if (dayAvailability && !dayAvailability.available) {
@@ -1255,6 +1274,33 @@ export default function CampgroundDetailClient({
                                     )}
                                 </div>
                             </div>
+
+                            {/* CAM-616: an availability-load failure disables every date
+                                (see isDateDisabled) — this banner is what tells the camper
+                                WHY, with a retry, instead of a silently unselectable calendar. */}
+                            {availabilityError && (
+                                <div
+                                    role="alert"
+                                    data-testid="banner--availability-error"
+                                    className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                                        <span>{t.booking.availabilityLoadError}</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={fetchAvailability}
+                                        data-testid="btn--availability-retry"
+                                        className="rounded-full shrink-0"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                                        {t.common.retry}
+                                    </Button>
+                                </div>
+                            )}
 
                             <div className="border border-border rounded-xl overflow-hidden mb-4 bg-background">
                                 <div className="flex border-b border-border/60">

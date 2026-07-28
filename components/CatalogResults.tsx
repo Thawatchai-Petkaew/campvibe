@@ -15,6 +15,7 @@
 
 import InfiniteScrollGrid from "@/components/InfiniteScrollGrid";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { prisma } from "@/lib/prisma";
 import { serializeDecimals } from "@/lib/serialize";
 import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from "@/lib/campsite-filters";
@@ -104,13 +105,26 @@ export default async function CatalogResults({
   // CACHE-1 (CAM-195): default path uses the cached wrapper; filtered path stays live.
   type CampCard = CampCardPayload;
   let campSites: CampCard[] = [];
+  // CAM-616: a cache/DB failure on the catalog read is an infrastructure
+  // problem, not "there are no campgrounds" — it must NOT collapse into
+  // <EmptyState/>, which renders the outage as an ordinary "no campgrounds
+  // match your filters" page to every visitor and hides the incident from
+  // us in the same stroke (the exact shape CAM-588 already fixed on the
+  // camp detail page). Tracked separately from `campSites` so the render
+  // below can distinguish "genuinely 0 rows" from "the read itself failed".
+  let catalogError = false;
 
   if (useCache) {
     try {
       campSites = await getDefaultCatalog();
     } catch (error) {
-      console.error("Cache/database error on default catalog:", error);
+      console.error(JSON.stringify({
+        level: "error",
+        event: "catalog_default_load_failed",
+        message: error instanceof Error ? error.message : String(error),
+      }));
       campSites = [];
+      catalogError = true;
     }
   } else {
     // CAM-573 — resolve the incoming province NAME (Thai or English) to its
@@ -172,9 +186,25 @@ export default async function CatalogResults({
       });
       campSites = rows;
     } catch (error) {
-      console.error("Database connection error:", error);
+      console.error(JSON.stringify({
+        level: "error",
+        event: "catalog_filtered_load_failed",
+        message: error instanceof Error ? error.message : String(error),
+      }));
       campSites = [];
+      catalogError = true;
     }
+  }
+
+  // CAM-616: short-circuit BEFORE the availability/province/wishlist reads —
+  // during a real outage those would likely fail too, and there is no result
+  // set to enrich. Renders the shared ErrorState primitive (compact, so the
+  // Navbar/CategoryBar/FilterSortBar/ActiveFilters chrome above this
+  // Suspense boundary stays visible) instead of throwing — throwing would
+  // propagate to the ROOT app/error.tsx boundary and blank that chrome too,
+  // which section-level Suspense (.claude/rules/loading.md §3) says to avoid.
+  if (catalogError) {
+    return <ErrorState variant="error" compact />;
   }
 
   // PERF-3 (CAM-196): Determine the active sort for cursor computation.

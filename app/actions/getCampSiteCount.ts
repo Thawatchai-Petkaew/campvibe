@@ -37,7 +37,18 @@ export async function getCampSiteCount(filters: CampSiteFilterParams) {
         });
         return count;
     } catch (error) {
-        console.error("Count error:", error);
-        return 0;
+        // CAM-616: a count-query failure is a DB/infra problem, not "0
+        // campgrounds match" — the FilterModal caller reads a returned 0 as
+        // a real answer and renders "No Campgrounds found", so the camper
+        // abandons a filter set that would have matched dozens. Returning a
+        // fabricated 0 here is the same shape CAM-588 fixed on the camp
+        // detail page: log structured, then re-throw so the failure cannot
+        // silently become a false "no results" count.
+        console.error(JSON.stringify({
+            level: "error",
+            event: "campsite_count_failed",
+            message: error instanceof Error ? error.message : String(error),
+        }));
+        throw error;
     }
 }
