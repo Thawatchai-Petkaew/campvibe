@@ -6,7 +6,7 @@ persona: camper
 artifact: design
 owner: frontend-engineer
 status: In Progress
-version: v2
+version: v3
 updated: 2026-07-28
 ---
 # Design — a failure must not render as an absence (CAM-616)
@@ -76,6 +76,21 @@ Does not touch `app/campgrounds/[slug]/page.tsx` (CAM-588, already correct) or `
 ## Links
 `../../feature.md` · `story.md` (AC-1..AC-8, BR-1..BR-5, EC-1..EC-6) · CAM-588 (`app/campgrounds/[slug]/page.tsx` — the reference implementation) · CAM-362/CAM-555 (`lib/safe-fetch.ts` — the reused never-throw shape) · `.claude/rules/loading.md` §3 (section-level error/loading over full-page) · `.claude/rules/qa.md` (Prove-It + teeth-proof practice)
 
+## v3: the e2e spec was run for real — one test-fixture gap found and fixed (NOT a defect in the fix)
+
+The orchestrator flagged this spec red on CI and asked which of two things it was: the spec wrong, or the surface still broken. **It was the spec.** Running it locally (this repo's `.env.e2e` + `campvibe_e2e_cam616`, a dedicated local Postgres — `npm run e2e:db:setup`) reproduced the exact CI failure first:
+
+`expect(page.getByTestId("banner--load-more-error")).toBeVisible()` → `element(s) not found`, timeout, banner never appeared.
+
+**Root cause, found by reading the actual rendered DOM (`error-context.md`), not by guessing:** `prisma/seed.ts` ships exactly 12 published campsites — fewer than `PAGE_SIZE` (24, `lib/catalog-cursor.ts`). `CatalogResults.tsx` only encodes a `nextCursor` when `campSites.length === PAGE_SIZE`; with 12 rows, `initialCursor = null`, so `InfiniteScrollGrid` mounts with `done = true` from its very first render (`useState(initialCursor === null)`). Its own guard — `if (loading || done || cursor === null) return;` — then means the sentinel entering view **never issues a client fetch to `/api/campsites` at all**. The spec's `page.route("**/api/campsites?*", ...)` interception was correctly armed but had nothing to intercept, because there is no page 2 to request with only 12 real rows. This is possibility (1) from the orchestrator's list (a test-fixture gap: no real page-2 request is ever produced), not possibility (2) (the fix does not work) — confirmed definitively by the teeth-proof below, run against the SAME real seeded data.
+
+**Fix (in the spec only, `e2e/regression/cam-616-load-more-error-not-end-of-list.spec.ts`):** a `test.beforeAll` clones one real seeded, published campsite 15 times via Prisma directly (reusing its `locationId`/`operatorId` FKs — no new dependency graph), bringing the total to 27 (> `PAGE_SIZE`) so the SSR page genuinely computes a `nextCursor` and `InfiniteScrollGrid` mounts with `done = false` — a real page-2 request now exists for the interception to catch. `test.afterAll` deletes the clones (verified: row count returns to 12 after each run — no data drift). A new sanity assertion (`sentinel--infinite-scroll` has count 1) fails loudly if this precondition is ever silently lost again, rather than the spec passing on nothing (the same trap this whole ticket exists to close, now guarded IN the guard itself).
+
+**Teeth proof, this time on the real running app (not just Vitest mocks):** with the fix (`setLoadError(true)` in the `!res.ok` branch of `components/InfiniteScrollGrid.tsx`) temporarily reverted, ran the spec against the SAME 27-row fixture — RED (`banner--load-more-error` not found, identical failure shape to the CI report). Restored the fix — GREEN, twice in a row (stability check). `git diff --stat components/InfiniteScrollGrid.tsx` confirmed a clean revert-and-restore (no residual diff) before committing.
+
+**The two `[WebServer] ⨯ Error: aborted {code:'ECONNRESET'}` lines the orchestrator asked about are NOT connected to this spec's route interception.** `page.route()` fulfils the request entirely inside Playwright's browser-side network layer — the real Next.js dev server process never sees that specific request at all, so it cannot be the source of a server-log-level abort. Both observed `aborted`/`ECONNRESET` lines appeared BEFORE the spec's own test body ran (during/around the `regression-setup` login step), consistent with the already-documented CAM-603 keep-alive-timeout tail on a `next dev` server process reused (`reuseExistingServer: !CI`) across my several manual re-runs during this diagnosis — an artifact of repeated local invocations, not of the interception mechanism.
+
 ## Changelog
 - v1 (2026-07-28) — created; documents how the 8 defects were told apart from the 14 deliberate catches, the per-surface state table, the FilterModal consumer gap (flagged, not silently closed), and the manual teeth-proof.
 - v2 (2026-07-28) — `components/FilterModal.tsx` brought into the file surface by the orchestrator (it was scoped out at v1 by orchestrator error). Confirmed the exact pre-fix rendered behaviour for both `getFilterOptions` (silent zero-chips render — the original defect, one level down) and `getCampSiteCount` (button stuck on "Calculating..." forever — a different but equally indistinguishable-from-working failure). Closed both with the same banner+retry idiom used on the other seven surfaces; teeth proven (reverted → red → restored → green) in `__tests__/cam-616-filter-modal-error-states.test.ts`.
+- v3 (2026-07-28) — actually ran the new e2e spec locally (provisioned `.env.e2e` + a dedicated `campvibe_e2e_cam616` Postgres DB via `npm run e2e:db:setup`, per the orchestrator's instruction). Found and fixed a test-fixture gap (seeded data < PAGE_SIZE, so no page-2 request was ever produced) — NOT a defect in `InfiniteScrollGrid.tsx`'s fix, confirmed by a real revert→red→restore→green teeth-proof against the live app. Confirmed the CI `ECONNRESET` lines are the pre-existing CAM-603 keep-alive tail, unconnected to this spec's route interception.
