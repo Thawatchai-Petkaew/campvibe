@@ -156,6 +156,9 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      // CAM-617: POST /api/campsites now checks Location exclusivity before
+      // create — same fixture-note pattern CAM-613 documented.
+      findFirst: vi.fn(),
     },
     spot: {
       count: vi.fn(),
@@ -251,6 +254,9 @@ beforeEach(() => {
     nameThSlug: 'test-camp-th',
     nameEnSlug: 'test-camp-en',
   });
+  // CAM-617: no existing CampSite at the mocked locationId by default — the
+  // create-path test below in this file exercises the legitimate flow.
+  (prisma.campSite.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
 describe('POST /api/campsites — AC-1/BR-2: host round-trip creates the relation via resolveOptionConnect', () => {

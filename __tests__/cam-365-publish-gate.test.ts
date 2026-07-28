@@ -114,6 +114,9 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      // CAM-617: POST /api/campsites now checks Location exclusivity before
+      // create — same fixture-note pattern CAM-613 documented.
+      findFirst: vi.fn(),
     },
     spot: {
       count: vi.fn(),
@@ -202,6 +205,9 @@ beforeEach(() => {
     nameThSlug: 'test-camp-th',
     nameEnSlug: 'test-camp-en',
   });
+  // CAM-617: no existing CampSite at the mocked locationId by default — the
+  // create-path tests below in this file exercise the legitimate flow.
+  (prisma.campSite.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
 describe('PUT /api/campsites/[id] — publish gate (AC-4/EC-1): below-floor direct publish is rejected', () => {
