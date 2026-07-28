@@ -18,25 +18,32 @@
  * (the checkout day) — byte-identical semantics to `Booking.checkOutDate`
  * and `lib/validations/booking.ts` (never treat checkOut as the last night).
  *
- * BR-2 — for the READER (`parseBookingPrefill`), `today` is an INJECTED
- * parameter (`ctx.today`), never read from the system clock — the same idiom
- * `resolveDatesCore` uses (`lib/ai/tools/resolve-dates.ts:341`) so the reader
- * stays pure/deterministic and unit-testable without faking the system clock.
- * The WRITER's own dev-time past-check (BR-7) is the one exception: it reads
- * the REAL clock, because it is a live "did our own code just build a dead
- * link" assertion, not a pure function under test.
+ * BR-2 — `today` is an INJECTED parameter on BOTH sides of the contract —
+ * `ctx.today` on the reader (`parseBookingPrefill`) AND on the writer
+ * (`buildBookingPrefillQuery`) — never read from the system clock inside
+ * this module. The same idiom `resolveDatesCore` uses
+ * (`lib/ai/tools/resolve-dates.ts:341`). Writer and reader are twins over
+ * the same contract; they must not disagree about where "now" comes from —
+ * an asymmetry there (one injected, one clock-reading) is exactly the kind
+ * of thing a future reader trips on, and it would make this module non-pure,
+ * its own tests clock-relative (a Bangkok-midnight flake waiting to happen),
+ * and a caller unable to test its own link-building against a fixed date.
+ * This module contains ZERO clock reads (`grep -E "new Date\(\)|Date\.now|
+ * Intl\.DateTimeFormat" lib/booking-prefill.ts` → 0 hits).
  *
- * IMPORTANT for any future caller that computes a "today" ISO string near
- * this contract (either to build `ctx.today` for the reader, or anywhere
- * else close to this module): always derive it via the repo's Bangkok-local
- * idiom (`bangkokTodayISO()`, `lib/ai/date-phrases.ts:94` —
- * `Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Bangkok'})`), never a naive
- * UTC date (`new Date().toISOString().slice(0,10)`). Asia/Bangkok is UTC+7,
- * so a naive UTC value can only LAG the true Bangkok date — the failure mode
- * is lenient (a checkIn that is already past in Bangkok wall-clock time can
- * still slip through as "not past" for up to 7 hours), never blocking, which
- * makes it easy to ship unnoticed. Write it down here so nobody has to
- * rediscover it.
+ * IMPORTANT for the CALLER (this module never touches a clock itself): when
+ * you source the `today` ISO string you pass as `ctx.today` to either
+ * function, always derive it via the repo's Bangkok-local helper —
+ * `bangkokTodayISO()`, `lib/ai/date-phrases.ts:94` (the timezone-aware
+ * `Intl` civil-date idiom already used by `resolveDatesCore`) — never a
+ * naive UTC-derived day (taking the ISO-8601 date straight off an
+ * un-timezoned clock read). Asia/Bangkok is UTC+7, so a naive UTC value can
+ * only LAG the true Bangkok date — the failure mode is lenient (a checkIn
+ * that is already past in Bangkok wall-clock time can still slip through as
+ * "not past" for up to 7 hours), never blocking, which makes it easy to ship
+ * unnoticed. Write it down here so nobody has to rediscover it. The real
+ * caller (the CAM-633 booking flow) already holds `today` on its own
+ * `BookingParseContext` — pass that value through as-is.
  *
  * BR-6 — `parseBookingPrefill` (the READER, untrusted URL input) NEVER
  * throws for any input shape. Dates are all-or-nothing: either the whole
@@ -50,9 +57,10 @@
  * would otherwise serialize into a shareable dead link, silently rejected
  * only much later by the reader (the camper taps through to empty pickers
  * with no error anywhere). The writer re-validates every field the reader
- * rejects on and THROWS on the first violation — it fails LOUD at the call
- * site, in our own code, during development, instead of producing a
- * confident wrong answer in production.
+ * rejects on (using its own injected `ctx.today`, per BR-2) and THROWS on
+ * the first violation — it fails LOUD at the call site, in our own code,
+ * during development, instead of producing a confident wrong answer in
+ * production.
  */
 import { z } from 'zod';
 import { MAX_BOOKING_NIGHTS } from '@/lib/validations/booking';
@@ -61,7 +69,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Rejects a syntactically-ISO string that isn't a REAL calendar date (e.g.
- * `2026-02-31`, which `new Date()` would otherwise silently roll into
+ * `2026-02-31`, which naive date parsing would otherwise silently roll into
  * 2026-03-03). Done via a round-trip through `Date.UTC` components, not
  * string-parsing shortcuts — this module validates UNTRUSTED input, unlike
  * `resolve-dates.ts`'s helpers which assume an already-valid ISO string.
@@ -108,21 +116,6 @@ export type BookingPrefillParseResult =
   | { ok: false; reason: BookingPrefillRejectReason };
 
 /**
- * Real Bangkok-local "today" (D3-style `Intl.DateTimeFormat('en-CA',
- * {timeZone:'Asia/Bangkok'})` idiom), for `buildBookingPrefillQuery`'s own
- * dev-time past-check ONLY (BR-7). Kept as a third local copy rather than
- * importing the equivalent `bangkokTodayISO` from `lib/ai/date-phrases.ts`
- * (private/non-exported there, and a two-file `date-phrases.ts` +
- * `resolve-dates.ts` already each keep a local copy for the same "not
- * exported for reuse" reason) — exporting it is outside this story's file
- * surface; a later story that needs shared access should export it there
- * instead of adding a 4th copy.
- */
-function realBangkokTodayISO(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
-}
-
-/**
  * THE writer. Serializes an already-valid prefill into a query string (no
  * leading `?` — the caller composes `${path}?${buildBookingPrefillQuery(p)}`).
  *
@@ -131,8 +124,12 @@ function realBangkokTodayISO(): string {
  * (`parseBookingPrefill`) can name EXCEPT the upper half of
  * `guests_out_of_range` (`guests > maxGuests`) — the writer has no camp-
  * specific `maxGuests` context, so that half stays the reader's job only.
+ *
+ * BR-2 — `ctx.today` is INJECTED, exactly like the reader's `ctx.today`;
+ * this module never reads the system clock (see the header note on where a
+ * caller should source it).
  */
-export function buildBookingPrefillQuery(p: BookingPrefill): string {
+export function buildBookingPrefillQuery(p: BookingPrefill, ctx: { today: string }): string {
   // Re-parse: `.refine()` doesn't narrow the inferred TS type, so a hand-
   // built object can satisfy `BookingPrefill` at compile time while still
   // carrying an unreal calendar date or a non-integer guest count. Throws a
@@ -140,10 +137,8 @@ export function buildBookingPrefillQuery(p: BookingPrefill): string {
   // building a dead link (malformed).
   bookingPrefillSchema.parse(p);
 
-  if (p.checkIn < realBangkokTodayISO()) {
-    throw new Error(
-      `buildBookingPrefillQuery: checkIn (${p.checkIn}) is in the past (Asia/Bangkok "today") — past`
-    );
+  if (p.checkIn < ctx.today) {
+    throw new Error(`buildBookingPrefillQuery: checkIn (${p.checkIn}) is before today (${ctx.today}) — past`);
   }
   if (p.checkOut <= p.checkIn) {
     throw new Error(
