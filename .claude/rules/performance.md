@@ -74,7 +74,7 @@ Read first: this file · `.claude/rules/seo.md` (for any public page where CWV a
 ### 3. Anti-patterns to profile and hunt down
 
 - **N+1 query** → `include`/`select`/batch (see `.claude/rules/architecture.md`).
-- **unbounded fetch** → always paginate + limit.
+- **unbounded fetch** → always paginate + limit. **A bound has two more obligations, or it becomes a silent wrong answer:** order so truncation drops the LEAST-relevant rows (`take: 500` + `orderBy: number asc` dropped the NEWEST tickets — the work in flight — so `gates` printed "no gates open" while five stories waited, and one sat invisible for two days), and **signal that it truncated** (return `total`/`truncated`; a short list that looks complete reads as "you have seen everything"). CAM-595.
 - **unoptimized image** → `next/image` + explicit width/height (prevents CLS) + responsive sizes + lazy.
 - **excess re-render** → stabilize ref/props; use `React.memo`/`useMemo` **only where a profile proves it pays off** (don't memo blindly).
 - **missing cache** for static / frequently-read data → cache-control + revalidate.
