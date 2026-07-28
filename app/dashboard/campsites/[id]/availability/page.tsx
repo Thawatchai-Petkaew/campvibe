@@ -19,6 +19,7 @@ import { CalendarOff, Lock, Plus, Trash2 } from "lucide-react";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
+import { useRequestSequence } from "@/lib/hooks/use-request-sequence";
 import {
   createBlockedDateSchema,
   BLOCKED_DATE_REASON_MAX_LENGTH,
@@ -105,8 +106,19 @@ export default function CampSiteAvailabilityPage() {
   const [deleteTarget, setDeleteTarget] = useState<BlockedDateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // CAM-608 — monotonic requestId guard (CAM-359 pattern). loadData() can
+  // legitimately be in flight more than once at a time (React Strict Mode's
+  // dev-only double-invoked mount effect racing a post-create/post-delete
+  // refetch triggered right after), and the two Promise.all round-trips are
+  // not guaranteed to resolve in the order they were issued. Every state
+  // commit below is gated on "is this still the most recently issued call"
+  // so an out-of-order, earlier-issued response is a no-op instead of
+  // silently overwriting fresher data.
+  const { next, isCurrent } = useRequestSequence();
+
   const loadData = useCallback(async () => {
     if (!campSiteId) return;
+    const requestId = next();
     setLoading(true);
     setLoadError(false);
     setForbidden(false);
@@ -115,6 +127,11 @@ export default function CampSiteAvailabilityPage() {
         fetch(`/api/campsites/${campSiteId}/blocked-dates`, { cache: "no-store" }),
         fetch(`/api/campsites/${campSiteId}/spots`, { cache: "no-store" }),
       ]);
+
+      // Stale-response guard — a newer loadData() call has been issued since
+      // this one started; never let an out-of-order (earlier-issued,
+      // later-resolving) response overwrite state a newer call already set.
+      if (!isCurrent(requestId)) return;
 
       if (blockedRes.status === 401 || blockedRes.status === 403) {
         setForbidden(true);
@@ -133,12 +150,15 @@ export default function CampSiteAvailabilityPage() {
         );
       }
     } catch (err) {
+      if (!isCurrent(requestId)) return;
       console.error("Failed to load campsite availability data", err);
       setLoadError(true);
     } finally {
-      setLoading(false);
+      if (isCurrent(requestId)) {
+        setLoading(false);
+      }
     }
-  }, [campSiteId]);
+  }, [campSiteId, next, isCurrent]);
 
   useEffect(() => {
     loadData();
