@@ -73,9 +73,13 @@ describe("Scrollbar-to-edge — ScrollArea spans full width in expanded mode; co
 
 describe("No-remount + standing rules", () => {
   it("[unit] useAiChat destructure, entries, and draft wiring are each present exactly once (no new conditional mount)", () => {
-    expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
-    );
+    // CAM-640 destructures MORE fields off the SAME single `useAiChat()`
+    // call (a multi-line destructure now) — exactly one hook call, the
+    // original fields still present.
+    expect((panelSrc.match(/\} = useAiChat\(\);/g) || []).length).toBe(1);
+    for (const field of ["entries", "sending", "disabled", "resuming", "sendMessage", "retryLast", "abortActiveStream"]) {
+      expect(panelSrc).toContain(`    ${field},`);
+    }
     const entriesRefs = panelSrc.match(/entries={entries}/g) || [];
     expect(entriesRefs.length).toBe(1);
   });

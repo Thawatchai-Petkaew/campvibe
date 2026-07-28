@@ -35,7 +35,11 @@ describe("Wiring — onSelectCamp threads Carousel -> MessageList -> Panel, repl
     expect(panelSrc).toContain("useState<AiChatCardResponse | null>(null)");
     expect(panelSrc).toContain("onSelectCamp={handleSelectCamp}");
     expect(panelSrc).toContain("function handleSelectCamp(card: AiChatCardResponse)");
-    expect(panelSrc).toContain("<AiChatDetailCard card={selectedCamp} expanded={expanded} onClose={handleCloseDetail} />");
+    expect(panelSrc).toContain("<AiChatDetailCard");
+    expect(panelSrc).toContain("card={selectedCamp}");
+    expect(panelSrc).toContain("onClose={handleCloseDetail}");
+    // CAM-640 — the detail card also wires the booking-flow entry point.
+    expect(panelSrc).toContain("onStartBooking={handleStartBooking}");
   });
 
   it("[unit] closing the whole panel clears any open detail card (no stale reopen)", () => {
@@ -148,10 +152,23 @@ describe("Async block — fetch, loading, empty, error states (design brief §4)
     expect(detailSrc).not.toContain("line-clamp-3");
   });
 
-  it("[unit] the CTA is a Link — stays enabled through loading/error (no fetched data required)", () => {
-    const ctaLine = detailSrc.slice(detailSrc.indexOf("CTA is a deep-link"));
-    expect(ctaLine).toContain("btn--ai-chat-detail-cta");
-    expect(ctaLine).not.toContain("disabled={");
+  it("[unit] the ดูหน้าลาน CTA is a Link — stays enabled through loading/error (no fetched data required)", () => {
+    // CAM-640: the CTA row now also holds the เริ่มจอง button (which IS
+    // disabled while loading/failed) — scope this assertion to just the
+    // Link-based btn--ai-chat-detail-cta block, not the whole row.
+    const start = detailSrc.indexOf('data-testid="btn--ai-chat-detail-cta"');
+    const end = detailSrc.indexOf("</Button>", start);
+    expect(start).toBeGreaterThan(-1);
+    const ctaBlock = detailSrc.slice(start, end);
+    expect(ctaBlock).not.toContain("disabled={");
+  });
+
+  it("[unit] CAM-640: the เริ่มจอง entry button is disabled while loading or failed (design brief §4 state A)", () => {
+    const start = detailSrc.indexOf('data-testid="btn--ai-chat-booking-start"');
+    expect(start).toBeGreaterThan(-1);
+    const end = detailSrc.indexOf("</Button>", start);
+    const startBlock = detailSrc.slice(start, end);
+    expect(startBlock).toContain("disabled={showSkeleton || failed || !detail}");
   });
 });
 

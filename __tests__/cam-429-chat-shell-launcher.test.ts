@@ -75,9 +75,14 @@ describe("AC-2/AC-3/AC-4/BR-3/BR-4 — expand-to-full-page toggle", () => {
   });
 
   it("[unit] BR-4: the useAiChat destructure is unchanged — expand/collapse never remounts the conversation", () => {
-    expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
-    );
+    // CAM-640 destructures MORE fields off the SAME single `useAiChat()` call
+    // (a multi-line destructure now) — the guarantee this test protects
+    // (exactly one hook call, the original fields still present) still
+    // holds; only the exact single-line string grew.
+    expect((panelSrc.match(/\} = useAiChat\(\);/g) || []).length).toBe(1);
+    for (const field of ["entries", "sending", "disabled", "resuming", "sendMessage", "retryLast", "abortActiveStream"]) {
+      expect(panelSrc).toContain(`    ${field},`);
+    }
     // CAM-431 nests the scroll region one level deeper (centered max-w column);
     // CAM-436 adds one more wrapper div around the list inside ScrollArea
     // (full-width scrollbar-to-edge restructure); CAM-451 wraps the whole
