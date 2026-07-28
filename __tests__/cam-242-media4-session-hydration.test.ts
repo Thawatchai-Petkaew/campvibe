@@ -123,7 +123,10 @@ describe("AC-6 — Providers function accepts { children, session: Session | nul
   });
 
   it("[source] Providers destructures both children and session", () => {
-    expect(providersSrc).toMatch(/\{\s*children\s*,\s*session\s*\}/);
+    // CAM-610 added a sibling `nonce` destructured prop after `session`; the
+    // intent (children + session are both destructured, in this order) still
+    // holds without anchoring on the closing `}` right after `session`.
+    expect(providersSrc).toMatch(/\{\s*children\s*,\s*session\s*,/);
   });
 });
 

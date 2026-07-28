@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Inter, Outfit, Sarabun } from "next/font/google";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -58,10 +59,18 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  // CAM-610: the per-request CSP nonce that CAM-607's proxy.ts already sets on
+  // the request headers (`x-nonce`). This layout already forces every route
+  // dynamic via the unconditional `auth()` call above (CAM-195 CACHE-1), so
+  // reading headers() here adds no new dynamic-rendering cost — it only reads
+  // a value that request-scoped rendering already implies. Threaded down to
+  // next-themes's own FOUC-prevention script, which Next's own automatic
+  // script-nonce pipeline never reaches (CAM-607 tech.md).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, outfit.variable, sarabun.variable)}>
       <body className="antialiased" suppressHydrationWarning>
-        <Providers session={session}>
+        <Providers session={session} nonce={nonce}>
           <LanguageProvider>
             <VitalsReporter />
             {children}
