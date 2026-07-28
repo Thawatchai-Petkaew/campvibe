@@ -100,7 +100,11 @@ export async function PUT(
         ...(data.environment !== undefined && { environment: data.environment }),
         ...(data.pricePerNight !== undefined && { pricePerNight: data.pricePerNight }),
         ...(data.pricePerSite !== undefined && { pricePerSite: data.pricePerSite }),
-        ...(data.nearFacilities !== undefined && { nearFacilities: arrayToCsv(data.nearFacilities) }),
+        // CAM-615: `arrayToCsv([])` returns `undefined` on an explicit "clear
+        // every facility" — same shape as CampSite.tags (app/api/campsites/
+        // [id]/route.ts) — so map the empty case to an explicit null instead
+        // of letting Prisma treat it as "skip, leave unchanged".
+        ...(data.nearFacilities !== undefined && { nearFacilities: arrayToCsv(data.nearFacilities) ?? null }),
       }
     });
 
