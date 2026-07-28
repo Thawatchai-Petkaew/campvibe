@@ -7,6 +7,9 @@ export type AccommodationType = 'TENT' | 'CABI' | 'TRAI' | 'GLAM';
 export type FacilityCode = 'TOIL' | 'SHOW' | 'WIFI' | 'KITC' | 'PARK' | 'FIRE' | 'WATR' | 'SECU';
 export type BookingMethod = 'ONLI' | 'ONCA' | 'ONST';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+// CAM-642: attribution label only (which route created the booking) — never
+// an authz/pricing/capacity input.
+export type BookingSource = 'WEB' | 'CHAT';
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'CAMPER';
 // PREP-2 (CAM-268): closed set, see lib/cancellation-policy.ts for the Thai/EN copy.
 export type CancellationPolicy = 'FLEXIBLE' | 'MODERATE' | 'STRICT' | 'NON_REFUNDABLE';
@@ -110,6 +113,8 @@ export interface BookingDTO {
     guests: number;
     totalPrice?: number;
     status?: BookingStatus;
+    // CAM-642 — additive; defaults to WEB when the caller omits it.
+    source?: BookingSource;
     createdAt?: string;
     updatedAt?: string;
 }

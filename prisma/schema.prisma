@@ -108,6 +108,15 @@ enum BookingStatus {
   COMPLETED
 }
 
+// CAM-642: which route created the booking (attribution/label — never an
+// authz/pricing/capacity input). Epic CAM-630 is about to add CHAT as a
+// second route into booking; capture it now because "did this booking come
+// from the chat" cannot be backfilled for bookings that already happened.
+enum BookingSource {
+  WEB
+  CHAT
+}
+
 // Field classification convention (Atomic Data Framework — docs/adr): sensitive fields tagged
 // inline [PII] / [Financial] / [Geo] (PDPA-sensitive ⊂ PII); untagged = [Public].
 // Business Sets carry deletedAt (soft-delete) + version (optimistic concurrency).
@@ -556,7 +565,12 @@ model Booking {
   snapshotCheckOutTime   String?
   snapshotTimezone       String? // IANA (defaults Asia/Bangkok until S5 per-camp tz)
 
-  status BookingStatus @default(CONFIRMED)
+  status BookingStatus @default(PENDING)
+
+  // CAM-642: where this booking was created from. Attribution only — never an
+  // authz/pricing/capacity input (see app/api/bookings/route.ts). Additive
+  // field with a default, so no backfill: existing rows read WEB.
+  source BookingSource @default(WEB)
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
