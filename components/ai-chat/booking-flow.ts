@@ -33,9 +33,9 @@
  *    Nothing else — no UI component hand-copies a step-id list (guarded by a
  *    source-inspection test, see `__tests__/cam-633-booking-flow.test.ts`).
  *    `advanceBookingFlow` itself never branches on a step's id either — see
- *    `BookingStepParseResult` below: a step that must REJECT an answer
+ *    `BookingStepParseResult` below: a step that must REJECT a value
  *    (an out-of-stock `gear` step is the literal next candidate) reports that
- *    through its OWN `parse` return value, never through a special case
+ *    through its OWN `accept` return value, never through a special case
  *    keyed on `step.id` in the machine.
  *
  * 2. Slots are FLAT OPTIONALS, plain serialisable data — `BookingSlots`
@@ -43,6 +43,26 @@
  *    number. No `Date` objects, no functions, no money. A later round can
  *    survive a login round-trip by serialising this object as-is (JSON).
  * ---------------------------------------------------------------------------
+ *
+ * `parse` vs `accept` (G3 review, round 2 — the reader must not conflate
+ * these): a step's job splits into TWO separate concerns, because a chip
+ * needs only the second one.
+ *   - `parse` — TEXT ONLY. Read the camper's free-form words into a
+ *     candidate slot patch. No policy of any kind lives here (no capacity
+ *     check, no range/format sanity check). `null` = the text could not be
+ *     read as anything at all (a miss, the escape hatch's concern).
+ *   - `accept` — POLICY. Given a candidate patch (from a successful `parse`,
+ *     OR straight from a `chip` input that never called `parse`), decide
+ *     whether it is acceptable HERE, in this `ctx`. This is where the
+ *     `guests` capacity check lives, where a date's format/ordering/not-in-
+ *     the-past sanity is checked, and where a candidate is confined to ONLY
+ *     the slot keys this step owns (a chip carrying a foreign key, e.g.
+ *     `checkIn` arriving at the `guests` step, is rejected here rather than
+ *     silently merged — round 1 of this fix let a chip bypass `accept`
+ *     entirely, which also bypassed BR-3 the capacity trap; that is fixed by
+ *     giving BOTH the text path (after `parse` succeeds) and the chip path
+ *     no way to reach `advanceBookingFlow`'s merge without going through this
+ *     SAME function first).
  *
  * Money note: this module does NO money math of its own. A future summary
  * UI (CAM-640) that needs a total goes through `computeBookingPrice`
@@ -76,11 +96,12 @@ export interface BookingSlots {
 export type BookingStepId = 'date' | 'guests' | 'summary';
 
 /**
- * Everything a step's `parse` may need, injected by the caller (never read
- * ambiently). `today`/`holidays` feed the `date` step's `resolveDatesCore`
- * call; `remaining`/`maxGuestsPerDay` feed the `guests` step's capacity
- * check. A step that doesn't need a field simply never reads it — one shared
- * context shape, not a per-step bespoke parameter list.
+ * Everything a step's `parse`/`accept` may need, injected by the caller
+ * (never read ambiently). `today`/`holidays` feed the `date` step's
+ * `resolveDatesCore` call and its not-in-the-past sanity check;
+ * `remaining`/`maxGuestsPerDay` feed the `guests` step's capacity check. A
+ * step that doesn't need a field simply never reads it — one shared context
+ * shape, not a per-step bespoke parameter list.
  *
  * BR-3 (the "capacity trap", CAM-633 ticket) — `remaining`/`maxGuestsPerDay`
  * are `number | null`. `null` means that particular cap is NOT SET
@@ -101,9 +122,9 @@ export interface BookingParseContext {
 }
 
 /**
- * The result of asking ONE step to read a typed answer. Generalised (G3
- * review fix) so a step that must REJECT an understood-but-invalid answer
- * (the `guests` over-capacity case; an out-of-stock `gear` step is the next
+ * The result of `accept`-ing ONE candidate slot patch. Generalised (G3
+ * review) so a step that must REJECT an understood-but-invalid value (the
+ * `guests` over-capacity case; an out-of-stock `gear` step is the next
  * candidate) reports that through its OWN return value — `advanceBookingFlow`
  * never special-cases a step by id to know "this kind of rejection is not a
  * miss". `reasonKey`/`data` are i18n-key-shaped and step-owned, never literal
@@ -111,56 +132,123 @@ export interface BookingParseContext {
  */
 export type BookingStepParseResult =
   | { ok: true; slots: Partial<BookingSlots> }
-  /** The text could not be read as this step's answer AT ALL — counts as a miss (the 2-strike escape hatch). */
+  /** No candidate could be produced at all (a `parse` miss) — counts as a miss (the 2-strike escape hatch). */
   | { ok: false; kind: 'unparsed' }
-  /** The text WAS understood but this step rejects the value it names — reprompts, but is NEVER a miss. */
+  /** A candidate WAS produced but this step's policy rejects it — reprompts, but is NEVER a miss. */
   | { ok: false; kind: 'rejected'; reasonKey: string; data?: unknown };
 
 export interface BookingStepDef {
   readonly id: BookingStepId;
   /** Terminal step returns `false` forever — `currentStep` then always derives back to it once every earlier step is filled. */
   readonly isSatisfied: (slots: BookingSlots) => boolean;
-  /** Never a thrown error — every outcome (understood/unparsed/rejected) is a `BookingStepParseResult` value. */
-  readonly parse: (text: string, ctx: BookingParseContext) => BookingStepParseResult;
+  /** TEXT ONLY: read free-form words into a candidate slot patch. No policy. `null` = could not be read as anything (a miss). */
+  readonly parse: (text: string, ctx: BookingParseContext) => Partial<BookingSlots> | null;
+  /** POLICY: is this candidate acceptable at this step, in this context? Shared by BOTH the typed path (after `parse` succeeds) and the `chip` path (which skips `parse` only). Confines the candidate to this step's own slot keys. */
+  readonly accept: (candidate: Partial<BookingSlots>, ctx: BookingParseContext) => BookingStepParseResult;
   /** i18n KEY SUFFIXES only (e.g. `"chip"`, `"chipNoCap"`) — never literal copy. The consuming UI resolves `aiChat.booking.<id>.<suffix>`. */
   readonly chipKeys: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
-// `date` step — TYPED input only goes through `resolveDatesCore`. A date CHIP
-// never calls this `parse` at all (see `BookingFlowInput`'s `chip` variant
-// below, the G3 review fix): a chip already knows its own ISO slot value —
-// it is a UI affordance, not free-form camper text — so it bypasses `parse`
-// entirely rather than round-tripping through a text parser whose vocabulary
-// (`resolveDatesCore`) has no rule for a bare ISO date string.
+// Shared `accept` helpers — used by every step so the "confine to my own
+// keys" rule and the ISO-date sanity checks can never drift between steps.
 // ---------------------------------------------------------------------------
 
-function parseDateAnswer(text: string, ctx: BookingParseContext): BookingStepParseResult {
+/** `true` only when every key `candidate` carries is one this step owns — an empty candidate trivially passes this (and is then caught by the per-field presence check below), a foreign key never does. */
+function candidateStaysWithinKeys(
+  candidate: Partial<BookingSlots>,
+  allowedKeys: readonly (keyof BookingSlots)[]
+): boolean {
+  return (Object.keys(candidate) as (keyof BookingSlots)[]).every((key) => allowedKeys.includes(key));
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Format AND calendar validity — `2026-02-31` round-trips through `Date` to `2026-03-03` and is caught here, not just a regex shape check. */
+function isValidIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !ISO_DATE_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * The SAME Bangkok-civil-date idiom `resolveDatesCore` uses internally
+ * (`lib/ai/date-phrases.ts`'s private `bangkokTodayISO`, not exported — a
+ * third small caller is kept local here rather than exporting a private
+ * helper across a module boundary, the same tolerated duplication
+ * `formatTodayContextLine` in `lib/ai/openrouter-client.ts` already has).
+ * Used ONLY as a backstop sanity check on a candidate that may have
+ * bypassed `resolveDatesCore` entirely (a `chip`) — typed input never needs
+ * this check to reject a date, because every `resolveDatesCore` rule
+ * already resolves on-or-after today by construction.
+ *
+ * Deliberately NO "invalid `now` falls back to the real clock" branch (unlike
+ * the private original this mirrors) — this module never reads the system
+ * clock under any circumstance; `ctx.today` is the caller's contract to
+ * supply a valid `Date`, full stop.
+ */
+function bangkokTodayISO(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+// ---------------------------------------------------------------------------
+// `date` step
+// ---------------------------------------------------------------------------
+
+function parseDateAnswer(text: string, ctx: BookingParseContext): Partial<BookingSlots> | null {
   const result = resolveDatesCore(text, ctx.today, ctx.holidays ?? []);
-  if (!result.ok || result.dates.length === 0) return { ok: false, kind: 'unparsed' };
+  if (!result.ok || result.dates.length === 0) return null;
   // Round-1 books exactly ONE stay (design brief CAM-637 §3: "one night,
   // stated in the copy"). A "date SET" phrase (e.g. "ทุกวันเสาร์เดือนนี้")
   // resolves to SEVERAL candidate ranges; this flow has no picker over a set,
   // so it deliberately takes the FIRST candidate only — a documented round-1
   // simplification, not a silent bug (see the coverage test for this case).
   const [firstRange] = result.dates;
-  return { ok: true, slots: { checkIn: firstRange!.startDate, checkOut: firstRange!.endDate } };
+  return { checkIn: firstRange!.startDate, checkOut: firstRange!.endDate };
+}
+
+const DATE_STEP_KEYS: readonly (keyof BookingSlots)[] = ['checkIn', 'checkOut'];
+
+/**
+ * POLICY for `date`: confine to `checkIn`/`checkOut` only, both must be
+ * well-formed ISO calendar dates, `checkOut` must be strictly after
+ * `checkIn`, and `checkIn` must not be before today (Bangkok). Runs for
+ * BOTH a successful `parse` (trivially passes — `resolveDatesCore` already
+ * guarantees all of this) and a `chip` candidate (the actual reason this
+ * function exists: a chip never went through `resolveDatesCore` at all).
+ */
+function acceptDateCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
+  if (!candidateStaysWithinKeys(candidate, DATE_STEP_KEYS)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'foreign_key', data: { keys: Object.keys(candidate) } };
+  }
+  const { checkIn, checkOut } = candidate;
+  if (!isValidIsoDate(checkIn) || !isValidIsoDate(checkOut)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_date' };
+  }
+  if (checkOut <= checkIn) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_range' };
+  }
+  if (checkIn < bangkokTodayISO(ctx.today)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'in_the_past' };
+  }
+  return { ok: true, slots: { checkIn, checkOut } };
 }
 
 const dateStep: BookingStepDef = {
   id: 'date',
   isSatisfied: (slots) => slots.checkIn !== undefined && slots.checkOut !== undefined,
   parse: parseDateAnswer,
+  accept: acceptDateCandidate,
   chipKeys: ['chip', 'chipNoCap'],
 };
 
 // ---------------------------------------------------------------------------
-// `guests` step — Thai number words + Arabic digits. The capacity check
-// (BR-3) lives INSIDE this step's own `parse` (G3 review fix) and reports a
-// `rejected` result rather than a special case in `advanceBookingFlow` keyed
-// on `step.id === 'guests'` — the exact hardcoded shape this file's registry
-// design exists to prevent. A future `gear`/`spot` step gets the identical
-// treatment for free by returning `rejected` from its own `parse`.
+// `guests` step — Thai number words + Arabic digits.
 // ---------------------------------------------------------------------------
 
 const THAI_ONES_WORDS: ReadonlyArray<readonly [string, number]> = [
@@ -213,7 +301,8 @@ const THAI_NUMBER_WORDS = buildThaiNumberWordTable();
 
 /**
  * `"8 คน"` / `"แปดคน"` / `"8"` all resolve to `8`. `null` on anything
- * unreadable or <= 0 (a party of 0 is not a booking).
+ * unreadable (no policy here — `null` means "could not even read a number",
+ * not "the number is unacceptable").
  *
  * The Arabic-digit match is ANCHORED to a plain unsigned integer token — a
  * negative or fractional number (`"-5 คน"`, `"3.5 คน"`) is understood well
@@ -227,26 +316,48 @@ function parseGuestCount(text: string): number | null {
     const isPlainUnsignedInteger = /^\d+$/.test(numericToken[0]);
     if (!isPlainUnsignedInteger) return null;
     const value = Number(numericToken[0]);
-    return Number.isSafeInteger(value) && value > 0 ? value : null;
+    return Number.isSafeInteger(value) ? value : null;
   }
   const normalized = text.replace(/\s+/g, '').replace(/คน/g, '');
   if (normalized.length === 0) return null;
   const value = THAI_NUMBER_WORDS.get(normalized);
-  return value !== undefined && value > 0 ? value : null;
+  return value ?? null;
+}
+
+function parseGuestsAnswer(text: string): Partial<BookingSlots> | null {
+  const guests = parseGuestCount(text);
+  return guests === null ? null : { guests };
+}
+
+const GUESTS_STEP_KEYS: readonly (keyof BookingSlots)[] = ['guests'];
+
+/**
+ * POLICY for `guests`: confine to `guests` only, must be a positive integer
+ * (a party of 0, or a value `parse` never rejects but a chip might smuggle
+ * in, like `9999`), and must not exceed `combineCapacityLimit` (BR-3, THE
+ * capacity trap this ticket exists to close — checked here, identically,
+ * for a typed answer AND a chip, so neither path can drift from the other).
+ */
+function acceptGuestsCandidate(candidate: Partial<BookingSlots>, ctx: BookingParseContext): BookingStepParseResult {
+  if (!candidateStaysWithinKeys(candidate, GUESTS_STEP_KEYS)) {
+    return { ok: false, kind: 'rejected', reasonKey: 'foreign_key', data: { keys: Object.keys(candidate) } };
+  }
+  const { guests } = candidate;
+  if (typeof guests !== 'number' || !Number.isSafeInteger(guests) || guests <= 0) {
+    return { ok: false, kind: 'rejected', reasonKey: 'invalid_guests' };
+  }
+  const limit = combineCapacityLimit(ctx.remaining, ctx.maxGuestsPerDay);
+  if (limit !== null && guests > limit) {
+    return { ok: false, kind: 'rejected', reasonKey: 'over_capacity', data: { limit } };
+  }
+  return { ok: true, slots: { guests } };
 }
 
 const guestsStep: BookingStepDef = {
   id: 'guests',
   isSatisfied: (slots) => slots.guests !== undefined,
-  parse: (text, ctx) => {
-    const guests = parseGuestCount(text);
-    if (guests === null) return { ok: false, kind: 'unparsed' };
-    const limit = combineCapacityLimit(ctx.remaining, ctx.maxGuestsPerDay);
-    if (limit !== null && guests > limit) {
-      return { ok: false, kind: 'rejected', reasonKey: 'over_capacity', data: { limit } };
-    }
-    return { ok: true, slots: { guests } };
-  },
+  parse: parseGuestsAnswer,
+  accept: acceptGuestsCandidate,
   chipKeys: ['chip', 'capChip'],
 };
 
@@ -259,7 +370,11 @@ const summaryStep: BookingStepDef = {
   isSatisfied: () => false,
   // Nothing left to parse at this step; any typed input here falls into the
   // generic unparsed/escape-hatch path in `advanceBookingFlow` below.
-  parse: () => ({ ok: false, kind: 'unparsed' }),
+  parse: () => null,
+  // A chip should never reach `summary` (`chipKeys: []`); if one does anyway
+  // (a caller bug), there is nothing here to accept — reject, never a
+  // silent no-op advance.
+  accept: () => ({ ok: false, kind: 'rejected', reasonKey: 'nothing_to_accept' }),
   chipKeys: [],
 };
 
@@ -311,13 +426,14 @@ export function createInitialBookingFlowState(): BookingFlowState {
 }
 
 /**
- * `text` is free-form camper input, parsed by the current step's own
- * `parse`. `chip` is a UI affordance that ALREADY knows its own slot value
- * (a date chip's ISO date, a guest-count chip's number) — it carries that
- * value directly and bypasses `parse` entirely (G3 review fix: a chip must
- * never round-trip through a text parser, or it silently breaks the moment
- * that parser's vocabulary doesn't cover the chip's own value shape, as a
- * bare ISO date does not for `resolveDatesCore`).
+ * `text` is free-form camper input: the current step's `parse` reads it into
+ * a candidate, which then goes through that SAME step's `accept` (the
+ * policy check) before it can ever reach `state.slots`. `chip` is a UI
+ * affordance that already knows its own candidate slot value — it skips
+ * `parse` ONLY; it still goes through `accept`, exactly like typed input
+ * (G3 review, round 2: round 1 let a chip skip `accept` too, which bypassed
+ * the capacity trap entirely — fixed by giving `parse` and `chip` exactly
+ * ONE shared gate, `accept`, that neither path can route around).
  */
 export type BookingFlowInput =
   | { kind: 'text'; text: string }
@@ -349,8 +465,8 @@ export function combineCapacityLimit(remaining: number | null, maxGuestsPerDay: 
 }
 
 /**
- * Turns ANY step's `parse` result into this turn's flow outcome. Reads only
- * `result`/`state` — NEVER a step id — so a step that rejects an answer
+ * Turns ONE step's `accept` result into this turn's flow outcome. Reads only
+ * `result`/`state` — NEVER a step id — so a step that rejects a candidate
  * (the `guests` over-capacity case today; a future out-of-stock `gear` step
  * tomorrow) is treated identically without this function knowing which step
  * produced the result. Exported so a test can prove the mechanism generically
@@ -392,14 +508,13 @@ export function applyStepParseResult(state: BookingFlowState, result: BookingSte
  *
  * - `cancel` exits immediately from ANY step, no prefill (BR: the camper
  *   explicitly walked away — there is nothing to hand off).
- * - `chip` bypasses `parse` entirely and merges its own slot value directly
- *   (the caller is responsible for only ever offering a chip whose value it
- *   has already confirmed acceptable — the design brief generates guest-
- *   count chips from the SAME ceiling `combineCapacityLimit` exposes).
- * - `text` asks the CURRENT step (derived, never stored) to `parse` it, then
- *   hands the result to `applyStepParseResult`, which alone decides
- *   advance/reprompt/exit — never this function, and never keyed on which
- *   step answered.
+ * - `chip` skips `parse` (its value is already known) but is fed straight
+ *   into the CURRENT step's `accept` — the SAME policy gate typed input goes
+ *   through, so an over-capacity/foreign-key/malformed chip is rejected
+ *   exactly like its typed equivalent, never merged unchecked.
+ * - `text` asks the CURRENT step (derived, never stored) to `parse` it; a
+ *   `null` candidate is an immediate miss (`applyStepParseResult` handles the
+ *   escape hatch); a real candidate goes through that SAME step's `accept`.
  */
 export function advanceBookingFlow(
   state: BookingFlowState,
@@ -410,13 +525,15 @@ export function advanceBookingFlow(
     return { kind: 'exit', reason: 'cancelled' };
   }
 
+  const step = currentStep(state.slots);
+
   if (input.kind === 'chip') {
-    return {
-      kind: 'advance',
-      state: { slots: { ...state.slots, ...input.slots }, consecutiveMisses: 0 },
-    };
+    return applyStepParseResult(state, step.accept(input.slots, ctx));
   }
 
-  const step = currentStep(state.slots);
-  return applyStepParseResult(state, step.parse(input.text, ctx));
+  const candidate = step.parse(input.text, ctx);
+  if (candidate === null) {
+    return applyStepParseResult(state, { ok: false, kind: 'unparsed' });
+  }
+  return applyStepParseResult(state, step.accept(candidate, ctx));
 }

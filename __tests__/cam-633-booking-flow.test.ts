@@ -19,20 +19,30 @@
  * this story's file surface) or silently dropped from the test (would hide
  * a real spec/repo mismatch).
  *
- * G3 REVIEW FIXES covered below (two contract violations, both reproduced by
- * the reviewer, both fixed structurally rather than patched at the symptom):
- *  - a chip must never round-trip through a step's `parse` (a bare ISO date
- *    submitted as TEXT does not parse via `resolveDatesCore`) — `chip` is
- *    now its own `BookingFlowInput` variant that bypasses `parse` entirely.
- *  - a rejecting answer (over-capacity today; a future out-of-stock `gear`
- *    step) is now reported by the step's OWN `parse` return value
- *    (`BookingStepParseResult`), never by a `step.id === 'guests'` special
- *    case inside `advanceBookingFlow` — proven generically via
- *    `applyStepParseResult` against a throwaway rejecting result, with no
- *    real step wired into the registry.
- *  - `parseGuestCount`'s Arabic-digit match is anchored to a plain unsigned
- *    integer so a negative/fractional number reprompts instead of silently
- *    advancing with a value the camper never said.
+ * G3 REVIEW FIXES covered below, TWO ROUNDS:
+ *
+ * Round 1 — a rejecting answer (over-capacity today; a future out-of-stock
+ * `gear` step) is reported by the step's OWN `accept` return value
+ * (`BookingStepParseResult`), never by a `step.id === 'guests'` special case
+ * inside `advanceBookingFlow` — proven generically via `applyStepParseResult`
+ * against a throwaway rejecting result, with no real step wired into the
+ * registry. Also: `parseGuestCount`'s Arabic-digit match is anchored to a
+ * plain unsigned integer so a negative/fractional number reprompts instead
+ * of silently advancing with a value the camper never said.
+ *
+ * Round 2 — round 1's chip fix ("bypass `parse` entirely") was ITSELF unsafe:
+ * it also bypassed the capacity check, the key-ownership check, and the
+ * date sanity check, because `parse` had conflated "read text into a value"
+ * with "decide whether the value is acceptable". The fix splits a step's job
+ * into `parse` (TEXT ONLY, no policy) and `accept` (POLICY, shared by BOTH
+ * the typed path — after `parse` succeeds — and the `chip` path, which skips
+ * `parse` ONLY, never `accept`). The "chip input" describe block below
+ * proves: an over-capacity chip is rejected exactly like its typed
+ * equivalent, a chip carrying a foreign step's slot key is rejected, a chip
+ * with a malformed/inverted/past date is rejected, an empty chip is rejected
+ * (not a silent no-op advance), and — the coordinator's exact repro —
+ * `{kind:'chip', slots:{guests:9999}}` against `remaining:3` now rejects
+ * instead of silently advancing with `guests:9999`.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -218,12 +228,13 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
     });
   });
 
-  it('[null/empty] "0 คน" is rejected as unparsed (a party of 0 is not a booking)', () => {
+  it('[null/empty] "0 คน" is understood as the number zero by `parse`, then REJECTED (not a miss) by `accept` — a party of 0 is not a booking', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '0 คน' }, ctx());
     expect(outcome).toEqual({
       kind: 'reprompt',
-      state: { slots: dateFilled, consecutiveMisses: 1 },
-      reason: 'unparsed',
+      state: { slots: dateFilled, consecutiveMisses: 0 }, // rejected, not unparsed — does not burn a strike
+      reason: 'rejected',
+      reasonKey: 'invalid_guests',
     });
   });
 
@@ -359,8 +370,10 @@ describe('summary step — terminal, nothing left to parse', () => {
   });
 });
 
-describe('chip input bypasses parse entirely (G3 review fix — BR-4)', () => {
-  it('[normal] a date chip carrying its own ISO slot value advances directly, with NO round-trip through resolveDatesCore', () => {
+describe('chip input skips `parse` ONLY — it still goes through `accept`, the SAME policy gate typed input uses (G3 review, round 2)', () => {
+  const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
+
+  it('[normal] a well-formed date chip advances directly, with NO round-trip through resolveDatesCore', () => {
     const outcome = advanceBookingFlow(
       stateWith({}),
       { kind: 'chip', slots: { checkIn: '2026-08-01', checkOut: '2026-08-02' } },
@@ -372,8 +385,7 @@ describe('chip input bypasses parse entirely (G3 review fix — BR-4)', () => {
     });
   });
 
-  it('[normal] a guests chip carrying its own count advances directly', () => {
-    const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
+  it('[normal] a well-formed guests chip advances directly', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'chip', slots: { guests: 4 } }, ctx());
     expect(outcome).toEqual({
       kind: 'advance',
@@ -381,7 +393,7 @@ describe('chip input bypasses parse entirely (G3 review fix — BR-4)', () => {
     });
   });
 
-  it('[regression] the exact repro that exposed the bug: a bare ISO date submitted as TEXT (not a chip) does NOT parse — proving a chip must use the `chip` input kind, never masquerade as typed text', () => {
+  it('[regression] a bare ISO date submitted as TEXT (not a chip) does NOT parse — a chip must use the `chip` input kind, never masquerade as typed text', () => {
     const outcome = advanceBookingFlow(stateWith({}), { kind: 'text', text: '2026-08-01' }, ctx());
     expect(outcome.kind).toBe('reprompt');
   });
@@ -403,6 +415,167 @@ describe('chip input bypasses parse entirely (G3 review fix — BR-4)', () => {
   it('[normal] cancel still wins over a chip if both were somehow requested in sequence (chip does not disable cancel)', () => {
     const outcome = advanceBookingFlow(stateWith({}), { kind: 'cancel' }, ctx());
     expect(outcome).toEqual({ kind: 'exit', reason: 'cancelled' });
+  });
+
+  describe('THE G3 REPRO — the capacity trap must not be bypassable through a chip', () => {
+    it('[error/validation] the coordinator\'s EXACT repro: a chip carrying guests:9999 against remaining:3 is REJECTED, not silently advanced', () => {
+      const outcome = advanceBookingFlow(
+        stateWith(dateFilled),
+        { kind: 'chip', slots: { guests: 9999 } },
+        ctx({ remaining: 3, maxGuestsPerDay: null })
+      );
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: dateFilled, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'over_capacity',
+        data: { limit: 3 },
+      });
+    });
+
+    it('[error/validation] an over-capacity GUESTS CHIP is rejected exactly as the typed equivalent is (identical outcome, same reasonKey/data)', () => {
+      const chipOutcome = advanceBookingFlow(
+        stateWith(dateFilled),
+        { kind: 'chip', slots: { guests: 9999 } },
+        ctx({ remaining: 3, maxGuestsPerDay: null })
+      );
+      const typedOutcome = advanceBookingFlow(
+        stateWith(dateFilled),
+        { kind: 'text', text: '9999' },
+        ctx({ remaining: 3, maxGuestsPerDay: null })
+      );
+      expect(chipOutcome).toEqual(typedOutcome);
+    });
+  });
+
+  describe('a chip carrying a foreign slot key is rejected, never silently merged (would otherwise clobber an already-confirmed value)', () => {
+    it('[error/validation] a chip at the GUESTS step carrying `checkIn` is rejected — it must not silently clobber the already-confirmed date', () => {
+      const outcome = advanceBookingFlow(
+        stateWith(dateFilled),
+        { kind: 'chip', slots: { checkIn: '2099-01-01' } },
+        ctx()
+      );
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: dateFilled, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'foreign_key',
+        data: { keys: ['checkIn'] },
+      });
+    });
+
+    it('[error/validation] a chip at the GUESTS step carrying BOTH a foreign `checkIn` and a valid `guests` is still wholly rejected — never a partial merge', () => {
+      const outcome = advanceBookingFlow(
+        stateWith(dateFilled),
+        { kind: 'chip', slots: { checkIn: '2099-01-01', guests: 3 } },
+        ctx()
+      );
+      expect(outcome.kind).toBe('reprompt');
+      if (outcome.kind === 'reprompt') {
+        expect(outcome.reason).toBe('rejected');
+        expect(dateFilled.checkIn).toBe('2026-08-01'); // untouched — no partial clobber
+      }
+    });
+
+    it('[error/validation] a chip at the DATE step carrying `guests` (foreign to `date`) is rejected', () => {
+      const outcome = advanceBookingFlow(stateWith({}), { kind: 'chip', slots: { guests: 2 } }, ctx());
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: {}, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'foreign_key',
+        data: { keys: ['guests'] },
+      });
+    });
+  });
+
+  describe('a chip with a malformed, inverted, or past date is rejected — never merged unchecked', () => {
+    it('[error/validation] a non-ISO/garbage date chip is rejected', () => {
+      const outcome = advanceBookingFlow(
+        stateWith({}),
+        { kind: 'chip', slots: { checkIn: 'not-a-date', checkOut: 'also-not' } },
+        ctx()
+      );
+      expect(outcome.kind).toBe('reprompt');
+      if (outcome.kind === 'reprompt') {
+        expect(outcome.reason).toBe('rejected');
+        expect((outcome as { reasonKey?: string }).reasonKey).toBe('invalid_date');
+      }
+    });
+
+    it('[error/validation] a calendar-invalid date ("2026-02-31") is rejected (round-trip check, not just a regex shape match)', () => {
+      const outcome = advanceBookingFlow(
+        stateWith({}),
+        { kind: 'chip', slots: { checkIn: '2026-02-31', checkOut: '2026-03-02' } },
+        ctx()
+      );
+      expect(outcome.kind).toBe('reprompt');
+      if (outcome.kind === 'reprompt') expect((outcome as { reasonKey?: string }).reasonKey).toBe('invalid_date');
+    });
+
+    it('[error/validation] an INVERTED range (checkOut before checkIn) is rejected', () => {
+      const outcome = advanceBookingFlow(
+        stateWith({}),
+        { kind: 'chip', slots: { checkIn: '2026-08-05', checkOut: '2026-08-01' } },
+        ctx()
+      );
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: {}, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'invalid_range',
+      });
+    });
+
+    it('[error/validation] a date chip already in the past is rejected', () => {
+      const outcome = advanceBookingFlow(
+        stateWith({}),
+        { kind: 'chip', slots: { checkIn: '2020-01-01', checkOut: '2020-01-02' } },
+        ctx() // TODAY = 2026-07-22
+      );
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: {}, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'in_the_past',
+      });
+    });
+  });
+
+  describe('an empty chip is rejected — never a silent no-op advance', () => {
+    it('[null/empty] `{kind:"chip", slots:{}}` at the date step is rejected, not silently advanced', () => {
+      const outcome = advanceBookingFlow(stateWith({}), { kind: 'chip', slots: {} }, ctx());
+      expect(outcome.kind).toBe('reprompt');
+      if (outcome.kind === 'reprompt') expect(outcome.reason).toBe('rejected');
+    });
+
+    it('[null/empty] `{kind:"chip", slots:{}}` at the guests step is rejected, not silently advanced', () => {
+      const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'chip', slots: {} }, ctx());
+      expect(outcome.kind).toBe('reprompt');
+      if (outcome.kind === 'reprompt') expect(outcome.reason).toBe('rejected');
+    });
+  });
+
+  describe('the invariant: chip and typed produce IDENTICAL outcomes for the SAME underlying value (the guarantee that keeps this hole closed)', () => {
+    it('[normal] guests: chip{guests:8} and text "8 คน" produce byte-identical outcomes', () => {
+      const chipOutcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'chip', slots: { guests: 8 } }, ctx());
+      const typedOutcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '8 คน' }, ctx());
+      expect(chipOutcome).toEqual(typedOutcome);
+      expect(chipOutcome).toEqual({
+        kind: 'advance',
+        state: { slots: { ...dateFilled, guests: 8 }, consecutiveMisses: 0 },
+      });
+    });
+
+    it('[normal] date: chip carrying the exact date resolveDatesCore resolves "เสาร์หน้า" to produces the SAME outcome as the typed phrase', () => {
+      const typedOutcome = advanceBookingFlow(stateWith({}), { kind: 'text', text: 'เสาร์หน้า' }, ctx());
+      const chipOutcome = advanceBookingFlow(
+        stateWith({}),
+        { kind: 'chip', slots: { checkIn: '2026-08-01', checkOut: '2026-08-02' } },
+        ctx()
+      );
+      expect(chipOutcome).toEqual(typedOutcome);
+    });
   });
 });
 
