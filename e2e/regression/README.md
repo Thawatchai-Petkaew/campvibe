@@ -72,23 +72,25 @@ before navigating — never assume the shared storageState is English.
 | `helpers.ts` | `findCampBySlug` / `getCampSite` — look up a seeded camp deterministically via the real API (no reliance on list sort order); also exports `withKeepAliveRaceRetry` (CAM-603, see below) |
 | `ac1-edit-round-trip.spec.ts` | AC-1 — edit nameTh + priceLow, save, reopen: both persist |
 | `ac2-album-image-roundtrip.spec.ts` | AC-2 — remove seeded album image, upload the fixture, save, reopen: Image relation reflects the swap |
-| `ac3-logo-roundtrip.spec.ts` | AC-3 — logo set → cleared → set across 3 saves (currently **RED** — see `## Known defect`) |
+| `ac3-logo-roundtrip.spec.ts` | AC-3 — logo set → cleared → set across 3 saves (green since CAM-360 — see `## Known defect` for history) |
 | `ac4-validation-error-banner.spec.ts` | AC-4 — clearing required `nameTh` blocks save with the exact Thai banner + inline error + scroll/focus |
 | `ac5-create-camp.spec.ts` | AC-5 — create-camp form creates one new owned `CampSite` row |
 | `ac6-spot-lifecycle.spec.ts` | AC-6 — create a spot, see it in the spots list + availability picker, soft-delete, gone from both |
 | `.auth/state.json` | Generated `storageState` (gitignored — real session cookies, never commit) |
 
-## Known defect (AC-3)
+## Fixed defect (AC-3) — history
 
-`ac3-logo-roundtrip.spec.ts` is a deliberate **Prove-It** regression guard,
-currently failing against a real, confirmed product defect: clearing a
-campsite's logo and saving does not persist the clear (`components/
-CampgroundForm.tsx` sends `logo: undefined` instead of an explicit `null`, so
-`app/api/campsites/[id]/route.ts`'s partial-update guard skips the column
+`ac3-logo-roundtrip.spec.ts` was originally authored as a deliberate
+**Prove-It** regression guard against a real, confirmed product defect:
+clearing a campsite's logo and saving did not persist the clear (`components/
+CampgroundForm.tsx` sent `logo: undefined` instead of an explicit `null`, so
+`app/api/campsites/[id]/route.ts`'s partial-update guard skipped the column
 entirely). See `docs/specs/platform-core/e2e-regression-harness/CAM-359-
-e2e-regression-suite/test.md` for the full repro + root-cause pointer. Do
-**not** weaken or delete this test to make the suite green — it will go green
-on its own once the fix lands.
+e2e-regression-suite/test.md` for the full repro + root-cause pointer, and
+CAM-360 for the fix. **Green since CAM-360** (confirmed again across 3 clean
+full-suite runs during CAM-626) — the test is kept as the standing regression
+guard for this exact fix, per this repo's convention of never deleting a
+Prove-It test once its bug is fixed.
 
 ## Known harness hazard — mid-run "socket hang up" on a `request.*` call (CAM-603)
 

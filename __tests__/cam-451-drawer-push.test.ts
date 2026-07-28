@@ -85,9 +85,10 @@ describe("(d) the off-screen pane is inert in both directions", () => {
   });
 
   it("[null/empty] the detail component itself only mounts (and only fetches) while selected — never for the off-screen pane", () => {
-    expect(panelSrc).toMatch(
-      /\{selectedCamp && \(\s*<AiChatDetailCard card=\{selectedCamp\} expanded=\{expanded\} onClose=\{handleCloseDetail\} \/>\s*\)\}/
-    );
+    // CAM-640 adds an `onStartBooking` prop, spreading the element across
+    // multiple lines — the guarantee this test protects (mount is gated on
+    // `selectedCamp &&`, not the exact prop list) still holds.
+    expect(panelSrc).toMatch(/\{selectedCamp && \(\s*<AiChatDetailCard\s+card=\{selectedCamp\}\s+expanded=\{expanded\}\s+onClose=\{handleCloseDetail\}\s+onStartBooking=\{handleStartBooking\}\s*\/>\s*\)\}/);
   });
 });
 

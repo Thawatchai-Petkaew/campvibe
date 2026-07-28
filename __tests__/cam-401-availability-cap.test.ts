@@ -542,7 +542,12 @@ describe('GET /api/campsites/[id]/remaining-capacity — 400 parity with the sib
 describe('BR-2 sweep — NO-CHANGE items already safely bounded by an existing write-time cap', () => {
   it('Booking is capped at 30 nights at create (lib/validations/booking.ts) — bounds the booking per-night loop', () => {
     const source = src('lib/validations/booking.ts');
-    expect(source).toContain('nights <= 30');
+    // CAM-634: the literal 30 is now the exported MAX_BOOKING_NIGHTS constant
+    // (shared with lib/booking-prefill.ts) — assert the canonical form, not
+    // the old inline literal (CAM-224/226/229: update the pin, don't revert
+    // a correct refactor).
+    expect(source).toContain('export const MAX_BOOKING_NIGHTS = 30');
+    expect(source).toContain('nights <= MAX_BOOKING_NIGHTS');
   });
 
   it('BlockedDate is capped at 90 days at create (lib/validations/blocked-dates.ts) — bounds the blockedDate per-night loop', () => {

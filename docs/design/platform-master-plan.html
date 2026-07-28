@@ -154,7 +154,7 @@
 
   <span class="badge"><span class="dot"></span> Living roadmap · visual twin · SoT = docs/project/platform-blueprint.md + master-plan.md + board สด</span>
   <h1>CampVibe · Platform Master Plan
-    <span class="sub">แพลตฟอร์ม <b>HostOS-first</b> สำหรับแคมป์/ลานกางเต็นท์ในประเทศไทย — เจ้าของแคมป์ (Host) รันธุรกิจได้ครบวงจรในระบบเดียว (lead → ใบเสนอราคา → มัดจำ → เข้าพัก → ปิดยอด) โดย <b>host ถือเงินเอง</b> แพลตฟอร์มเป็นแค่ ledger/workflow ส่วนการจองสาธารณะ+ชำระเงินออนไลน์ (public booking/payment) เลื่อนกลับมาที่ <b>M7.5</b> เมื่อผ่าน BookingReadinessGate ต่อ campsite เท่านั้น เอกสารนี้รวมทุกแผนที่มีอยู่ (master-plan · platform-blueprint · product-plan · ai-product-roadmap · ADR-011/012 · release history) เข้าเป็นเรื่องเดียว ใช้ระบบเลข M ใหม่เป็นเลขอ้างอิงหลัก</span>
+    <span class="sub">แพลตฟอร์ม <b>HostOS-first</b> สำหรับแคมป์/ลานกางเต็นท์ในประเทศไทย — เจ้าของแคมป์ (Host) รันธุรกิจได้ครบวงจรในระบบเดียว (lead → ใบเสนอราคา → มัดจำ → เข้าพัก → ปิดยอด) โดย <b>host ถือเงินเอง</b> แพลตฟอร์มเป็นแค่ ledger/workflow ส่วน <b>การชำระเงินออนไลน์</b> (payment/checkout) เลื่อนกลับมาที่ <b>M7.5</b> เมื่อผ่าน BookingReadinessGate ต่อ campsite เท่านั้น — <b>ตัวการจองฝั่ง camper ไม่ได้ถูกเลื่อน</b> เปิดใช้อยู่แล้ววันนี้ (ADR-016, 2026-07-28) เอกสารนี้รวมทุกแผนที่มีอยู่ (master-plan · platform-blueprint · product-plan · ai-product-roadmap · ADR-011/012 · release history) เข้าเป็นเรื่องเดียว ใช้ระบบเลข M ใหม่เป็นเลขอ้างอิงหลัก</span>
   </h1>
 
   <section class="box">
@@ -368,7 +368,7 @@
       <div class="mh"><span class="mid">M7.5</span><span class="mname">Booking Engine (Gated)</span>
         <span class="mmeta"><span class="chip chip-gated">readiness-gated</span><span>ไม่ตั้งเวลาตายตัว</span></span></div>
       <ul>
-        <li>เปิด public booking/payment กลับมา — <b>readiness-gated ต่อ campsite</b> ไม่ใช่ทั้งแพลตฟอร์มพร้อมกันครั้งเดียว</li>
+        <li>เปิด <b>การชำระเงินออนไลน์</b> (payment/checkout) กลับมา — <b>readiness-gated ต่อ campsite</b> ไม่ใช่ทั้งแพลตฟอร์มพร้อมกันครั้งเดียว · <i>ADR-016: ตัวการจองฝั่ง camper ไม่ได้รออยู่ที่นี่ — เปิดใช้อยู่แล้ว ที่ยังไม่มีคือเงิน</i></li>
         <li>Defer pile ของเดิม (payment/KYC): CAM-62 / CAM-65 / CAM-66 / CAM-67 / CAM-68 — ไม่ถูกลบ แค่ย้ายมารอที่นี่</li>
       </ul>
       <div class="epics"><span class="epic-chip">CAM-298 · Booking Engine (BookingReadinessGate)</span></div>
@@ -382,7 +382,7 @@
           <li>support playbook + audit trail พร้อม</li>
         </ol>
       </div>
-      <div class="exit-box">จนกว่า campsite หนึ่งจะผ่าน gate ทุก CTA ที่ดูเหมือน "จอง" ต้องใช้คำ <b>สอบถาม / ขอราคา / ส่งคำขอ</b> แทน (Guardrail #4, ดู §7)</div>
+      <div class="exit-box"><b>ยกเลิกแล้ว 2026-07-28 (ADR-016):</b> <s>จนกว่า campsite หนึ่งจะผ่าน gate ทุก CTA ที่ดูเหมือน "จอง" ต้องใช้คำ สอบถาม / ขอราคา / ส่งคำขอ แทน</s> — กฎนี้ไม่เคยถูกบังคับใช้ในโค้ด และ camper จองตรงได้อยู่แล้วตั้งแต่ M0 · ปุ่มฝั่ง camper ใช้คำว่า "จอง" ตามเดิม · สิ่งที่ยัง gate อยู่ที่ M7.5 คือ <b>payment</b> ไม่ใช่ booking (ดู §7 ข้อ 4)</div>
     </div>
 
     <!-- M8 -->
@@ -470,9 +470,9 @@
   <section class="box" id="guardrails">
     <h2><span class="n">7</span> Guardrails (4 ข้อ บังคับทุก milestone) + Gate loop G1–G5</h2>
     <div class="risk"><b>1. AI ไม่ auto-publish แผนที่</b> — ทุก draft ที่ AI สร้าง (แผนที่/โซน/ข้อมูล) ต้องให้ host ยืนยันก่อนเผยแพร่เสมอ</div>
-    <div class="risk"><b>2. AI ไม่เขียนเงิน/availability โดยไม่ผ่าน host ยืนยัน</b> — AI drafts/summarizes/suggests เท่านั้น ไม่ commit การเปลี่ยนแปลงที่กระทบเงินหรือที่ว่างโดยตรง</div>
+    <div class="risk"><b>2. โมเดลไม่เขียนเงิน/availability</b> <i>(แคบลง 2026-07-28 — ADR-016 ไม่ได้ยกเลิก)</i> — โมเดลไม่ commit การเปลี่ยนแปลงที่กระทบเงินหรือที่ว่างด้วยตัวเอง การเขียนจริงเป็นโค้ด deterministic เสมอ และเกิดจากการยืนยันครั้งสุดท้ายของ camper เอง · <b>สิ่งที่เปลี่ยน:</b> การจองของ camper ไม่ต้องรอ host ยืนยันอีกต่อไป (ครึ่งที่ว่า "โมเดลห้ามเขียน" ยังอยู่ครบ)</div>
     <div class="risk"><b>3. Deterministic core vs AI-assist layer แยกกันชัด</b> — ledger, availability, state transitions, daily-close math ต้อง deterministic; AI อยู่ใน layer แยกที่ทำได้แค่ draft/summary/suggestion</div>
-    <div class="risk"><b>4. กฎคำ CTA</b> — ตราบใดที่ campsite นั้นยังไม่ผ่าน BookingReadinessGate ปุ่ม/ข้อความที่ดูเหมือน "จอง" ต้องเปลี่ยนเป็น สอบถาม/ขอราคา/ส่งคำขอ เสมอ</div>
+    <div class="risk"><b>4. กฎคำ CTA — ยกเลิกแล้ว 2026-07-28 (ADR-016)</b> <s>ตราบใดที่ campsite นั้นยังไม่ผ่าน BookingReadinessGate ปุ่ม/ข้อความที่ดูเหมือน "จอง" ต้องเปลี่ยนเป็น สอบถาม/ขอราคา/ส่งคำขอ เสมอ</s> — กฎนี้ไม่เคยถูกบังคับใช้ในโค้ดเลย (ไม่มีธง readiness/canBook/bookingEnabled ใด ๆ) ขณะที่ camper จองตรงได้จริงมาตลอด การยกเลิกจึงรับรองพฤติกรรมที่ ship อยู่แล้ว ไม่ใช่เปลี่ยนพฤติกรรม · เลข 4 คงไว้เป็นบันทึกการยกเลิก ไม่ใช่กฎที่ยังบังคับใช้</div>
 
     <h3 style="margin-top:16px">Gate loop (ทุก milestone เดินผ่านลูปนี้ — เจ้าของอนุมัติทุก gate เอง ไม่มี autonomous approval)</h3>
     <div class="gate-chip-row">

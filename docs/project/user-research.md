@@ -36,13 +36,13 @@
 - [ ] ขนาด/ความถี่การไปแคมป์ของกลุ่มเป้าหมาย
 
 ## Addendum 2026-07 — HostOS pivot (host เป็น primary user)
-> เพิ่มเติมจาก personas เดิมด้านบน (ไม่แก้ไขของเดิม) — สะท้อน Blueprint v6 pivot (ADR-011, PR #302): HostOS-first, public booking/payment deferred หลัง BookingReadinessGate (M7.5). Ladder SoT: `docs/project/platform-blueprint.md`.
+> เพิ่มเติมจาก personas เดิมด้านบน (ไม่แก้ไขของเดิม) — สะท้อน Blueprint v6 pivot (ADR-011, PR #302): HostOS-first, **payment** deferred หลัง BookingReadinessGate (M7.5) — การจองฝั่ง camper ไม่ได้ถูกเลื่อน (ADR-016, 2026-07-28). Ladder SoT: `docs/project/platform-blueprint.md`.
 
 **Host JTBD ใหม่ (hypothesis — > TODO(you): ยืนยันด้วย research):**
 - "เมื่อมี lead เข้าจากหลายช่องทาง (LINE/FB/โทร/walk-in) ฉันอยาก _รวม lead-ใบเสนอราคา-มัดจำ-ขายหน้าลาน ไว้ระบบเดียว_ เพื่อ _ไม่หลุดลูกค้าและปิดยอดแต่ละวันได้ถูกต้อง_"
 
 **Camper JTBD — หมายเหตุปรับถ้อยคำ (ไม่แก้ของเดิมด้านบน โปรดอ่านคู่กัน):**
-- ส่วนที่เคยเขียนว่า "...และมั่นใจว่าจองได้จริง..." ให้เข้าใจในบริบทใหม่ว่า "...**ได้คำตอบ/ราคาเร็วและเชื่อถือได้ แม้ยังไม่จ่ายออนไลน์**..." (เหตุผล: v1 ของแอปคือ inquiry ไม่ใช่ online booking; camper สอบถาม/ขอราคาแล้วรอ host ตอบ ไม่ใช่กดจ่ายจบในแอป)
+- ส่วนที่เคยเขียนว่า "...และมั่นใจว่าจองได้จริง..." ให้เข้าใจในบริบทใหม่ว่า "...**จองได้จริงในแอป แต่ยังไม่จ่ายเงินออนไลน์**..." — **แก้ไข 2026-07-28 ([ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)):** ข้อความเดิมที่ว่า "v1 คือ inquiry ไม่ใช่ online booking; camper สอบถาม/ขอราคาแล้วรอ host ตอบ" **ไม่ตรงกับของจริง** — camper กด `จอง` แล้วได้ Booking สถานะ `PENDING` จริงมาตั้งแต่ M0 สิ่งที่ยังไม่มีคือ **การจ่ายเงิน** และ **การแจ้งเตือน host** (ดู ADR-016 RISK-1/RISK-2)
 
 **คำถาม validate ใหม่ (เพิ่มเติมจากชุดเดิมด้านบน ของเดิมยังไม่ลบ):**
 > TODO(you): host ยอมจ่าย SaaS/POS/AI-credit เท่าไร (แทนคำถาม commission เดิมที่ตั้งไว้ตอนยังเป็น booking-marketplace)

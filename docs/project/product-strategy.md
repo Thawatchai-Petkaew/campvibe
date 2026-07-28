@@ -16,7 +16,7 @@
 
 **ยังไม่ทำตอนนี้ (escalate ถ้าถูกขอ):**
 > TODO(you): ระบุชัด เช่น — payment จริง/escrow, native app, ตลาดนอกไทย, social feed, ฟีเจอร์ที่ไม่แตะ core loop
-> PROPOSED (awaiting owner): online payment/booking checkout จนกว่าผ่าน BookingReadinessGate (M7.5) · native app · ตลาดนอกไทย · secondhand marketplace ก่อน M8 (สอดคล้องกับ [master-plan.md](master-plan.md) ขอบเขต)
+> PROPOSED (awaiting owner): online payment / checkout จนกว่าผ่าน BookingReadinessGate (M7.5 — **การจองฝั่ง camper ไม่อยู่ในรายการนี้แล้ว: จองตรงได้, [ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)**) · native app · ตลาดนอกไทย · secondhand marketplace ก่อน M8 (สอดคล้องกับ [master-plan.md](master-plan.md) ขอบเขต)
 
 ## Success metrics / KPI
 - **North-star:** > TODO(you): (แนะนำ booking สำเร็จ/เดือน หรือ GMV) — ค่าปัจจุบัน/เป้า: ___
@@ -40,7 +40,7 @@
 - ขัด principle (เช่น โตเร็วแต่ทอน trust/ความปลอดภัย)
 - **มีค่าใช้จ่ายเงินแม้นิดเดียว** · G5 prod go-live · แตะ authz/secret/PII · migration ที่ย้อนยาก/ลบข้อมูล
 - กระทบ guardrail metric หรือ trade-off เชิงธุรกิจที่เอกสารไม่ฟันธง
-- เปิด public booking/payment ให้ campsite ใดต้องผ่าน **BookingReadinessGate (M7.5)** ก่อนเสมอ — owner ตัดสินราย campsite, เกณฑ์อยู่ใน [platform-blueprint.md](platform-blueprint.md) §3
+- เปิด **การชำระเงินออนไลน์** ให้ campsite ใดต้องผ่าน **BookingReadinessGate (M7.5)** ก่อนเสมอ — owner ตัดสินราย campsite, เกณฑ์อยู่ใน [platform-blueprint.md](platform-blueprint.md) §3 · **ตัวการจองฝั่ง camper ไม่ต้องผ่าน gate นี้** (จองตรงได้, [ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md))
 > หลักคิด: **ไม่แน่ใจ = ถาม** — gate ทุก gate ตัดสินโดยเจ้าของเสมอ (interactive); orchestrator เป็นผู้ raise ให้, ไม่ตัดสินแทน "ความเสี่ยง/รสนิยม/เงิน" ของเจ้าของ
 
 ## เกี่ยวข้อง

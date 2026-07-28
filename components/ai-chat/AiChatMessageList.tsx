@@ -107,6 +107,16 @@
  * dots are the only row losing it here. aria-live label + dot animation are
  * unchanged.
  *
+ * CAM-639 (epic CAM-630, in-chat guided booking): one new branch renders a
+ * `kind:"booking"` entry (`conversation.ts`) via the CAM-638 presentation
+ * (`AiChatBookingStep`) — PRESENTATION + ENTRY TYPE ONLY, no handler is wired
+ * to any real state yet (CAM-640 wires `advanceBookingFlow` next), so the
+ * step block mounts read-only here. Per the design brief's motion rule (see
+ * that component's own header for the exact constraint), this new branch
+ * wraps the block in no added-motion className of its own — deliberately not
+ * named literally here, or this comment would trip the very guard it
+ * describes (same reasoning `booking-flow.ts`'s own header states).
+ *
  * CAM-541 (owner feedback, 2 fixes):
  *  1. Contrast: `text-muted-foreground` on the panel's `bg-ai-surface` glass
  *     measured 4.40:1 in light mode (below the 4.5:1 body-text floor,
@@ -134,8 +144,10 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { AiChatCardCarousel } from "@/components/ai-chat/AiChatCardCarousel";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
+import { AiChatBookingStep } from "@/components/ai-chat/AiChatBookingStep";
 import { parseAnswer } from "@/components/ai-chat/answer-format";
 import type { ChatEntry } from "@/components/ai-chat/conversation";
+import type { BookingStepId } from "@/components/ai-chat/booking-flow";
 import type { AiChatCardResponse } from "@/lib/api-client";
 
 const SUGGESTION_KEYS = ["suggestion1", "suggestion2", "suggestion3"] as const;
@@ -153,6 +165,12 @@ interface AiChatMessageListProps {
   onRetry: () => void;
   /** CAM-447 — opens the floating detail card for a selected result card. */
   onSelectCamp: (card: AiChatCardResponse) => void;
+  /** CAM-640 — booking-flow handlers, live only for the newest (`isCurrent`) booking entry (see `AiChatEntryRow` below). */
+  onBookingChipSelect: (value: string) => void;
+  onBookingBack: (toStep: BookingStepId) => void;
+  onBookingEditDate: () => void;
+  onBookingEditGuests: () => void;
+  onBookingCancel: () => void;
 }
 
 export function AiChatMessageList({
@@ -162,6 +180,11 @@ export function AiChatMessageList({
   onSuggestion,
   onRetry,
   onSelectCamp,
+  onBookingChipSelect,
+  onBookingBack,
+  onBookingEditDate,
+  onBookingEditGuests,
+  onBookingCancel,
 }: AiChatMessageListProps) {
   const { t } = useLanguage();
   const lastEntry = entries[entries.length - 1];
@@ -236,6 +259,11 @@ export function AiChatMessageList({
           onRetry={onRetry}
           onSuggestion={onSuggestion}
           onSelectCamp={onSelectCamp}
+          onBookingChipSelect={onBookingChipSelect}
+          onBookingBack={onBookingBack}
+          onBookingEditDate={onBookingEditDate}
+          onBookingEditGuests={onBookingEditGuests}
+          onBookingCancel={onBookingCancel}
           showSuggestions={!sending && index === entries.length - 1}
         />
       ))}
@@ -271,11 +299,27 @@ interface AiChatEntryRowProps {
   onRetry: () => void;
   onSuggestion: (text: string) => void;
   onSelectCamp: (card: AiChatCardResponse) => void;
+  onBookingChipSelect: (value: string) => void;
+  onBookingBack: (toStep: BookingStepId) => void;
+  onBookingEditDate: () => void;
+  onBookingEditGuests: () => void;
+  onBookingCancel: () => void;
   /** CAM-410 BR-7: true only for the newest entry while no turn is in flight. */
   showSuggestions: boolean;
 }
 
-function AiChatEntryRow({ entry, onRetry, onSuggestion, onSelectCamp, showSuggestions }: AiChatEntryRowProps) {
+function AiChatEntryRow({
+  entry,
+  onRetry,
+  onSuggestion,
+  onSelectCamp,
+  onBookingChipSelect,
+  onBookingBack,
+  onBookingEditDate,
+  onBookingEditGuests,
+  onBookingCancel,
+  showSuggestions,
+}: AiChatEntryRowProps) {
   const { t } = useLanguage();
 
   if (entry.role === "user") {
@@ -417,6 +461,28 @@ function AiChatEntryRow({ entry, onRetry, onSuggestion, onSelectCamp, showSugges
           </div>
         )}
       </div>
+    );
+  }
+
+  if (entry.kind === "booking") {
+    // CAM-640: handlers are wired ONLY for the newest (isCurrent) booking
+    // entry — a superseded (historical) block's chips/controls still render
+    // but tapping one is a harmless no-op (undefined onClick), never a stale
+    // mutation of a flow that has already moved past it. `step` is typed via
+    // the registry-derived `BookingStepId`, never a hand-copied step-id
+    // literal.
+    const step: BookingStepId = entry.step;
+    const isCurrent = entry.view.kind !== "checkFailed" && entry.view.isCurrent;
+    return (
+      <AiChatBookingStep
+        key={step}
+        view={entry.view}
+        onChipSelect={isCurrent ? onBookingChipSelect : undefined}
+        onBack={isCurrent ? onBookingBack : undefined}
+        onEditDate={isCurrent ? onBookingEditDate : undefined}
+        onEditGuests={isCurrent ? onBookingEditGuests : undefined}
+        onCancel={isCurrent ? onBookingCancel : undefined}
+      />
     );
   }
 

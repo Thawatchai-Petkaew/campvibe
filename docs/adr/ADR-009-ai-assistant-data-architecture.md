@@ -88,6 +88,15 @@ Flatten the tables into one wide "campsite search document" (or a warehouse) tha
 - Reuse points: `lib/campsite-filters.ts`, `lib/campsite-availability.ts`, `lib/read-models/camp-card.ts`, `components/CampgroundCard.tsx`.
 - Security posture: `.claude/rules/security.md` (AI/agent-layer: untrusted input, no exec of model output, scoped tokens + spend cap).
 
+## Amendment 2026-07-28 (ADR-016) — the amendment below is itself reversed on cluster C
+
+**[ADR-016](ADR-016-camper-direct-booking-and-in-chat-completion.md) reverses the ADR-011 amendment's destination change.** Owner decision 2026-07-28: **cluster C is Book handoff again** — the chat's destination is a `Booking`, not a `HostLead`. Round 1 hands off to the existing booking page **prefilled** and writes nothing from the chat, so:
+
+- The "new dependency: HostOS lead inbox must exist first" below **no longer applies** — the lead inbox is still Backlog (CAM-289), and the chat now targets `POST /api/bookings`, which already exists.
+- The guardrail below **still holds, and is the load-bearing part**: the model never performs the write itself; the write is a deterministic code path behind the camper's own explicit confirm.
+
+Everything else in the ADR-011 amendment (the tool layer, no-merge stance, deferred embeddings) is unaffected. The text below is preserved as written on 2026-07-04.
+
 ## Amendment 2026-07 (ADR-011)
 
 Superseded in part by the Blueprint v6 pivot (`docs/adr/ADR-011-strategy-pivot-hostos-first.md`): **chat v1 scope is now A (Discover) + C (Inquiry)** — cluster C is no longer "Book handoff." A card's click-through now hands off into an **inquiry form that creates a `HostLead`**, never a `Booking`. This changes the destination of the C-cluster handoff described in this ADR's Context and Decision sections; everything else in this ADR is unchanged and still correct:
