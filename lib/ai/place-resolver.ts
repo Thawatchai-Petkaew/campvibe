@@ -40,6 +40,21 @@
  * the real resolver wouldn't also recognize, and a pre-pass false positive
  * is caught downstream by the tool's existing honest-empty path (CAM-587
  * BR-2), never silently wrong.
+ *
+ * CAM-599 (owner decision 2026-07-28, "อำเภอปายควรได้อำเภอนั้น") — adds ONE
+ * more detector, `detectExplicitDistrictPrefix` below, that runs BEFORE the
+ * landmark check: a camper who explicitly writes "อำเภอ"/"อ." in front of a
+ * real district name (e.g. "อำเภอปาย", "อ.ปาย") is asking for THAT district,
+ * even when the same bare name also sits in the landmark gazetteer (`ปาย`,
+ * `เขาค้อ`, `สวนผึ้ง`, `วังน้ำเขียว` all have an "อำเภอ"-prefixed alias —
+ * measured, `prisma/data/landmark-gazetteer.json`). CAM-503 put the landmark
+ * check first deliberately, and that reasoning still holds for a BARE
+ * landmark mention (a landmark like เขาใหญ่ spans several provinces, so
+ * `near` is the only honest answer) — this story does not change that case
+ * at all. What changed is CAM-596: district is now a first-class,
+ * deterministically-resolved level, so an EXPLICITLY-named อำเภอ finally has
+ * somewhere better to go than a 250km radius. See `resolvePlace`'s own
+ * docblock below for the full, one-paragraph precedence rule.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
@@ -91,6 +106,13 @@ export interface ResolvedPlace {
    * "ตำบล" mention today gets no pre-pass hint, unchanged from before this
    * story; the model may still set `subDistrict` on its own initiative per
    * the tool's own parameter description).
+   *
+   * CAM-599 — ALSO set (via `detectExplicitDistrictPrefix`, checked even
+   * BEFORE the landmark check) when the camper writes an explicit
+   * "อำเภอ"/"อ." marker in front of a real district name — this wins over a
+   * landmark gazetteer match on the exact same bare name (e.g. "อำเภอปาย"),
+   * unlike the plain, marker-less `detectDistrict` path above which the
+   * landmark check still runs ahead of.
    */
   district?: string;
 }
@@ -548,34 +570,132 @@ function detectDistrict(text: string): string | undefined {
 }
 
 /**
- * BR-1/BR-3 — the resolver itself. CAM-503 BR-2/EC-4 — a landmark match is
- * checked FIRST, ahead of the proximity/province/region checks below: a
- * landmark name already implies area-intent on its own (no proximity marker
- * required), and per EC-4 a landmark match takes precedence when the text
- * names a specific landmark (the current gazetteer has no nameTh collision
- * with a real province's full name, so this ordering never shadows a
- * genuine province mention today). Below the landmark check, behavior is
- * BYTE-IDENTICAL to before this story: `near` (proximity) is checked next —
- * a proximity marker + a province mention resolves to `near`, never
- * `province` (EC-3, mutually exclusive). Absent a proximity marker, province
- * wins over region when both are found (EC-3 from CAM-501); neither is set
- * when neither is found (AC-4 — a bare terrain/facility word resolves to
- * `{}`).
+ * CAM-599 — a real district name paired with its Thai "อำเภอ"/"อ." marker
+ * prefix, e.g. `{ matchText: "อำเภอปาย", canonical: "ปาย" }` and
+ * `{ matchText: "อ.ปาย", canonical: "ปาย" }`. Deliberately a NARROWER shape
+ * than `AdminAreaCandidate` above (no `requiresCampingContext` field): the
+ * marker itself is always sufficient context, so there is nothing to guard.
+ */
+interface ExplicitDistrictPrefixCandidate {
+  matchText: string;
+  canonical: string;
+}
+
+const EXPLICIT_DISTRICT_PREFIXES_TH = ['อำเภอ', 'อ.'] as const;
+
+/**
+ * CAM-599 — every real district name, paired with each of
+ * `EXPLICIT_DISTRICT_PREFIXES_TH` above, WITHOUT the three CAM-596
+ * ambiguity guards (`buildAdminAreaCandidates`'s guards #1/#2/#3 — the
+ * 4-char floor, `AMBIGUOUS_PROVINCE_NAMES_TH`, and "substring of any
+ * province"): those guards exist to protect a BARE district mention from
+ * colliding with ordinary Thai vocabulary or a province's own name: an
+ * explicit "อำเภอ"/"อ." marker removes exactly that ambiguity — it is the
+ * camper's own grammatical declaration "this is a district", the identical
+ * reasoning that already lets a landmark ALIAS (e.g. "อำเภอปาย" in
+ * `prisma/data/landmark-gazetteer.json`) skip `CONTEXT_GUARDED_LANDMARK_
+ * NAMES_TH`'s own bare-name camping-context guard.
  *
- * CAM-596 BR-1 — a district check is inserted here, AFTER the landmark +
- * Bangkok-bare-mention checks above (both unchanged) and BEFORE the plain
- * `province`/`region` checks below — mirroring the tool's own real
- * precedence (`near` > `district` > `province` > `region`, CAM-587 BR-1). A
- * proximity marker has NO effect on this branch (EC-3 of this story) — the
- * tool's own `near` parameter description already tells the model never to
- * use `near` for a district/town, so a stray proximity word next to a
- * district name is simply ignored here, unlike its effect on a bare
- * province mention below. A province named in the SAME message is still
- * attached alongside the district (BR-2/AC-4) purely as a scoping hint for
- * the existing, unchanged `resolveExactInsideAdminAreaIds`.
+ * Guard #4 (a district literally named "เมือง" + its own province's name,
+ * e.g. "เมืองเชียงใหม่") IS kept here — that guard is about REDUNDANCY, not
+ * ambiguity: the plain province name is always co-present as a substring of
+ * that exact pattern, so the unchanged province detector already covers the
+ * camper's intent regardless of a marker in front of it.
+ *
+ * Deduplicated by `canonical` name (a district name can repeat across
+ * provinces) — mirrors `buildAdminAreaCandidates`'s own `Map` dedup, same
+ * precedent, no new risk. Sorted longest-`matchText`-first, the same
+ * "longer/more-specific wins" idiom every other candidate list in this file
+ * already uses.
+ */
+function buildExplicitDistrictPrefixCandidates(): readonly ExplicitDistrictPrefixCandidate[] {
+  const seen = new Set<string>();
+  const candidates: ExplicitDistrictPrefixCandidate[] = [];
+
+  for (const province of thailandLocations as ReadonlyArray<{
+    nameTh: string;
+    districts: ReadonlyArray<{ nameTh: string }>;
+  }>) {
+    for (const district of province.districts) {
+      const nameTh = district.nameTh;
+      if (seen.has(nameTh)) continue;
+      if (nameTh === `เมือง${province.nameTh}`) continue; // guard #4 — redundant with the unchanged province detector
+      seen.add(nameTh);
+      for (const prefix of EXPLICIT_DISTRICT_PREFIXES_TH) {
+        candidates.push({ matchText: `${prefix}${nameTh}`, canonical: nameTh });
+      }
+    }
+  }
+
+  return candidates.sort((a, b) => b.matchText.length - a.matchText.length);
+}
+
+const EXPLICIT_DISTRICT_PREFIX_CANDIDATES: readonly ExplicitDistrictPrefixCandidate[] =
+  buildExplicitDistrictPrefixCandidates();
+
+/**
+ * CAM-599 — first (longest-`matchText`-first) candidate whose
+ * "อำเภอ"/"อ."-prefixed form appears anywhere in `text`. No context guard —
+ * the marker itself is the required context (see the candidate-list
+ * docblock above). `undefined` = no explicit district marker present.
+ */
+function detectExplicitDistrictPrefix(text: string): string | undefined {
+  for (const candidate of EXPLICIT_DISTRICT_PREFIX_CANDIDATES) {
+    if (text.includes(candidate.matchText)) return candidate.canonical;
+  }
+  return undefined;
+}
+
+/**
+ * BR-1/BR-3 — the resolver itself.
+ *
+ * CAM-599 (owner decision 2026-07-28) — the ONE precedence rule this story
+ * adds, in full: an explicit "อำเภอ"/"อ." district marker (`detectExplicit
+ * DistrictPrefix`) is checked FIRST, ahead of even the landmark check —
+ * because the marker is the camper's own unambiguous declaration "this is a
+ * named district", it wins over a landmark gazetteer match on the exact
+ * same bare name (e.g. "อำเภอปาย" now resolves the ปาย DISTRICT, not the
+ * ปาย landmark radius). Everything below this new first step is otherwise
+ * BYTE-IDENTICAL to before this story — a BARE landmark mention (no
+ * "อำเภอ"/"อ." marker, e.g. a plain "ปาย" or "ใกล้ปาย") still resolves via
+ * the landmark check exactly as it did (CAM-503's own reasoning — a
+ * landmark can span multiple provinces, so `near` is the only honest
+ * answer — still holds for a bare mention).
+ *
+ * CAM-503 BR-2/EC-4 — a landmark match is checked next, ahead of the
+ * proximity/province/region checks below: a landmark name already implies
+ * area-intent on its own (no proximity marker required), and per EC-4 a
+ * landmark match takes precedence when the text names a specific landmark
+ * (the current gazetteer has no nameTh collision with a real province's
+ * full name, so this ordering never shadows a genuine province mention
+ * today). Below the landmark check, behavior is BYTE-IDENTICAL to before
+ * CAM-596/CAM-599: `near` (proximity) is checked next — a proximity marker
+ * + a province mention resolves to `near`, never `province` (EC-3, mutually
+ * exclusive). Absent a proximity marker, province wins over region when
+ * both are found (EC-3 from CAM-501); neither is set when neither is found
+ * (AC-4 — a bare terrain/facility word resolves to `{}`).
+ *
+ * CAM-596 BR-1 — a district check (no explicit marker required) is
+ * inserted here, AFTER the landmark + Bangkok-bare-mention checks above
+ * (both unchanged) and BEFORE the plain `province`/`region` checks below —
+ * mirroring the tool's own real precedence (`near` > `district` >
+ * `province` > `region`, CAM-587 BR-1). A proximity marker has NO effect on
+ * this branch (EC-3 of that story) — the tool's own `near` parameter
+ * description already tells the model never to use `near` for a
+ * district/town, so a stray proximity word next to a district name is
+ * simply ignored here, unlike its effect on a bare province mention below.
+ * A province named in the SAME message is still attached alongside the
+ * district (BR-2/AC-4) purely as a scoping hint for the existing,
+ * unchanged `resolveExactInsideAdminAreaIds`.
  */
 export function resolvePlace(text: string): ResolvedPlace {
   if (!text) return {};
+
+  const explicitDistrict = detectExplicitDistrictPrefix(text);
+  if (explicitDistrict) {
+    const coProvince = detectProvince(text);
+    return { district: explicitDistrict, ...(coProvince ? { province: coProvince } : {}) };
+  }
 
   const landmark = detectLandmark(text);
   if (landmark) return { near: landmark, nearIsLandmark: true };

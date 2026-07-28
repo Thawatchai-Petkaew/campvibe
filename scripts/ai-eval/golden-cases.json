@@ -654,6 +654,19 @@
     "guardrail": true
   },
   {
+    "id": "GEO-6-CAM599-DISTRICT-BEATS-LANDMARK",
+    "group": "district",
+    "zone": "B",
+    "utterance": "ลานกางเต็นท์อำเภอปาย",
+    "expected": {
+      "kind": "tool",
+      "tool": "searchCampsites",
+      "params": { "district": "ปาย" },
+      "strictParams": true
+    },
+    "guardrail": true
+  },
+  {
     "id": "P18-47",
     "group": "P18",
     "zone": "B",
