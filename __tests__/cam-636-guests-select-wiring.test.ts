@@ -6,10 +6,20 @@
  * existing render harness — the established precedent for THIS component in
  * this repo (cam-397, cam-354, cam-528, f3-detail-surface, cam-616 all
  * source-inspect it) is source-inspection with Prove-It position/behaviour
- * assertions, not a bare "the string is present" grep. The pure decision
- * logic itself (computeGuestCeiling/buildGuestOptions) is fully behavior-
- * tested in cam-636-guest-capacity.test.ts; this file proves the component
- * actually WIRES that logic in, instead of the old hardcoded literal.
+ * assertions, not a bare "the string is present" grep.
+ *
+ * LIMITATION (stated explicitly per G3 review): this file is WIRING PROOF
+ * ONLY — it proves the component imports the shared helpers, passes the
+ * right arguments, and renders their output, instead of hand-rolling (or
+ * reverting to) the old hardcoded literal. It CANNOT catch a defect in the
+ * decision logic itself (e.g. a wrong combining rule, or a known-stale
+ * input silently trusted) — a source match can be textually present while
+ * the underlying math is still wrong. The per-spot known-stale-column class
+ * of bug (G3 finding: `maxGuestsPerDay` capping a per-spot camp at a stale
+ * 0) is proven CLOSED behaviorally, with real per-spot fixtures, at the
+ * pure-function layer only: `cam-636-guest-capacity.test.ts`
+ * (`computeGuestCeiling`'s `isPerSpot` describe block). Read that file for
+ * the actual regression proof; this file only confirms the wiring calls it.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
@@ -37,9 +47,10 @@ describe("CampgroundDetailClient — guests options come from real capacity, nev
     );
   });
 
-  it("[unit] the ceiling combines remainingCapacity.remaining with maxGuestsPerDay via computeGuestCeiling", () => {
+  it("[unit, G3 fix] isPerSpot is derived from campground.useSpotView and passed into computeGuestCeiling as the 3rd argument (never omitted)", () => {
+    expect(detailSrc).toContain("const isPerSpot = campground?.useSpotView === true;");
     expect(detailSrc).toContain(
-      "const guestCeiling = computeGuestCeiling(remainingCapacity?.remaining ?? null, maxGuestsPerDay);"
+      "const guestCeiling = computeGuestCeiling(remainingCapacity?.remaining ?? null, maxGuestsPerDay, isPerSpot);"
     );
     expect(detailSrc).toContain("const guestOptions = buildGuestOptions(guestCeiling);");
   });
@@ -61,5 +72,20 @@ describe("CampgroundDetailClient — guests options come from real capacity, nev
 
   it("[a11y] the guests select carries a data-testid per the <type>--<module>-<detail> convention", () => {
     expect(detailSrc).toContain('data-testid="select--booking-guests"');
+  });
+
+  it("[unit, G3 nit] the remaining-capacity effect resets to null immediately for a fresh valid date pair, before the fetch resolves (never shows a stale prior-stay number mid-fetch)", () => {
+    const effectBody = detailSrc.match(
+      /useEffect\(\(\) => \{\s*\n\s*if \(!campground\.id \|\| !checkIn \|\| !checkOut \|\| checkOut <= checkIn\) \{[\s\S]*?\n\s*\}, \[campground\.id, checkIn, checkOut\]\);/
+    );
+    expect(effectBody).not.toBeNull();
+    const body = effectBody![0];
+    const guardResetPos = body.indexOf("setRemainingCapacity(null);");
+    const fetchDeclPos = body.indexOf("const fetchRemaining = async () => {");
+    const secondResetPos = body.indexOf("setRemainingCapacity(null);", guardResetPos + 1);
+    expect(guardResetPos).toBeGreaterThan(-1);
+    expect(secondResetPos).toBeGreaterThan(-1);
+    // the second reset (the new-fetch-starts reset) must appear BEFORE fetchRemaining is even declared/invoked
+    expect(secondResetPos).toBeLessThan(fetchDeclPos);
   });
 });

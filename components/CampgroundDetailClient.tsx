@@ -253,11 +253,17 @@ export default function CampgroundDetailClient({
     // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
     // picked (server-authoritative — reuses getRemainingCapacity, the same math the
     // booking write path checks). Cleared whenever the selection is incomplete/invalid.
+    // CAM-636 G3 nit: also cleared the instant a NEW valid pair of dates is picked
+    // (before the fetch resolves) — otherwise the previous stay's number (and the
+    // guests ceiling/badge derived from it) briefly describes dates the camper is
+    // no longer looking at.
     useEffect(() => {
         if (!campground.id || !checkIn || !checkOut || checkOut <= checkIn) {
             setRemainingCapacity(null);
             return;
         }
+
+        setRemainingCapacity(null);
 
         let cancelled = false;
         const fetchRemaining = async () => {
@@ -314,9 +320,16 @@ export default function CampgroundDetailClient({
     // `maxGuestsPerDay` (the camp's stated per-day cap, available even
     // before any dates are picked) are both nullable with the SAME meaning
     // (null = no cap set, NEVER "full"/"zero") — see lib/guest-capacity.ts.
+    // G3 finding: `maxGuestsPerDay` is a KNOWN-STALE column for a per-spot
+    // camp (`useSpotView: true`, CAM-355 BR-6 — no spot write route ever
+    // rewrites it) — `isPerSpot` tells computeGuestCeiling to exclude it
+    // for that mode so a stale/zero column can never cap a per-spot camp;
+    // `remaining` (already correctly spot-derived server-side) is the only
+    // signal once dates are picked.
     const maxGuestsPerDay: number | null =
         typeof campground?.maxGuestsPerDay === "number" ? campground.maxGuestsPerDay : null;
-    const guestCeiling = computeGuestCeiling(remainingCapacity?.remaining ?? null, maxGuestsPerDay);
+    const isPerSpot = campground?.useSpotView === true;
+    const guestCeiling = computeGuestCeiling(remainingCapacity?.remaining ?? null, maxGuestsPerDay, isPerSpot);
     const guestOptions = buildGuestOptions(guestCeiling);
 
     // Keep the selected guest count inside the current ceiling — e.g.
