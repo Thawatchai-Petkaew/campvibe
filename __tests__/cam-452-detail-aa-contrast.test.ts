@@ -135,8 +135,10 @@ describe("No remaining text-muted-foreground class on the detail-drawer glass", 
 describe("Every previously-flagged label now uses text-foreground/70", () => {
   it("[normal] rating line + province/distance line", () => {
     expect(detailSrc).toContain('className="flex items-center gap-1 text-sm text-foreground/70"\n                  data-testid="text--ai-chat-detail-rating"');
-    expect(detailSrc).toContain('className="flex flex-wrap items-center gap-1 text-sm text-foreground/70"\n                  data-testid="text--ai-chat-detail-province"');
-    expect(detailSrc).toContain('<span className="text-xs text-foreground/70">· {distanceText}</span>');
+    // CAM-598 — the province/distance line no longer wraps (flex-wrap
+    // removed) and no longer splits across 2 spans; still text-foreground/70.
+    expect(detailSrc).toContain('className="flex items-center gap-1 text-sm text-foreground/70 min-w-0"\n                  data-testid="text--ai-chat-detail-province"');
+    expect(detailSrc).toContain('<span className="line-clamp-1 min-w-0">{locationLineText}</span>');
   });
 
   it("[normal] price captions: per-guest/night, extra-fee one-time, fee info, no-availability empty state", () => {
