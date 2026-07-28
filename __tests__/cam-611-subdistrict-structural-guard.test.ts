@@ -106,15 +106,15 @@ describe('CAM-611 — BR-1 structural guard: the 23 currently-exposed เมื�
     });
   });
 
-  describe('ท่าทองหลาง / ท่าหินโงม — EC-5 finding: guard suppresses the outer name, but an unrelated, unguarded, independently-real inner name still fires (found, not fixed — tech.md)', () => {
-    it('[EC-5] "ท่าทองหลาง" neutral phrasing no longer resolves to ท่าทองหลาง itself (guard works) but resolves to the embedded, unrelated ทองหลาง (บ้านนา) — a separate, pre-existing collision class', () => {
-      expect(resolvePlace('เมื่อวานนี้ไปท่าทองหลางเยี่ยมญาติมา')).toEqual({ subDistrict: 'ทองหลาง', district: 'บ้านนา' });
+  describe('ท่าทองหลาง / ท่าหินโงม — EC-5 finding: FIXED by CAM-624 (see __tests__/cam-624-nested-tambon-names.test.ts for the full, current-owner test); this block now pins the FIXED behavior instead of the collision this story found and deliberately left unfixed', () => {
+    it('[CAM-624] "ท่าทองหลาง" neutral phrasing now resolves to nothing (was the wrong, unrelated ทองหลาง/บ้านนา before CAM-624\'s general shadow-parent fix)', () => {
+      expect(resolvePlace('เมื่อวานนี้ไปท่าทองหลางเยี่ยมญาติมา')).toEqual({});
     });
     it('[regression] "ท่าทองหลาง" camping phrasing still resolves correctly (guard passes, outer candidate wins as before)', () => {
       expect(resolvePlace('ลานกางเต็นท์ท่าทองหลาง')).toEqual({ subDistrict: 'ท่าทองหลาง', district: 'บางคล้า' });
     });
-    it('[EC-5] "ท่าหินโงม" neutral phrasing no longer resolves to ท่าหินโงม itself (guard works) but resolves to the embedded, unrelated หินโงม (เมืองหนองคาย)', () => {
-      expect(resolvePlace('เมื่อวานนี้ไปท่าหินโงมเยี่ยมญาติมา')).toEqual({ subDistrict: 'หินโงม', district: 'เมืองหนองคาย' });
+    it('[CAM-624] "ท่าหินโงม" neutral phrasing now resolves to nothing (was the wrong, unrelated หินโงม/เมืองหนองคาย before CAM-624\'s general shadow-parent fix)', () => {
+      expect(resolvePlace('เมื่อวานนี้ไปท่าหินโงมเยี่ยมญาติมา')).toEqual({});
     });
     it('[regression] "ท่าหินโงม" camping phrasing still resolves correctly', () => {
       expect(resolvePlace('ลานกางเต็นท์ท่าหินโงม')).toEqual({ subDistrict: 'ท่าหินโงม', district: 'เมืองชัยภูมิ' });
