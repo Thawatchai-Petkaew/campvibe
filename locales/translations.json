@@ -1081,6 +1081,60 @@
                 "activitiesHeading": "Activities",
                 "travelHeading": "Getting there and good to know",
                 "distanceApprox": "~{count} km from Bangkok (approx.)"
+            },
+            "booking": {
+                "start": "Start booking",
+                "startAriaLabel": "Start booking {name}",
+                "groupLabel": "Booking step",
+                "stepCaption": "Step {current} of {total}",
+                "stepName": {
+                    "date": "Choose a date",
+                    "guests": "How many people",
+                    "summary": "Check it over"
+                },
+                "date": {
+                    "ask": "Let's get {name} booked. Which day would you like?",
+                    "chipsLabel": "Days still open",
+                    "chip": "{date}, {count} spots left",
+                    "chipNoCap": "{date}, spots open",
+                    "typeHint": "Or type a date yourself, like \"next Saturday\" or \"15 Aug\".",
+                    "empty": "No Saturdays are open in this stretch. Type the day you have in mind and I'll go look.",
+                    "unreadable": "I didn't catch a date there. Try again, like \"next Saturday\" or \"15 Aug\".",
+                    "full": "{date} is fully booked. Want to try another day?"
+                },
+                "guests": {
+                    "ask": "{date} it is. That day has {count} spots left. How many of you are going?",
+                    "askNoCap": "{date} it is. How many of you are going?",
+                    "chipsLabel": "Number of people",
+                    "chip": "{count} people",
+                    "typeHint": "Going with more than that? Just type the number.",
+                    "unreadable": "I didn't catch a number there. Tell me like \"2 people\".",
+                    "overCapacity": "{date} has {remaining} spots left, so {requested} people may not fit.",
+                    "overCapacityHint": "Take {remaining} instead, or go back and find a day that fits everyone.",
+                    "capChip": "{count} works"
+                },
+                "summary": {
+                    "intro": "Have a look. If it's right, carry on at the booking page.",
+                    "label": "Your booking draft",
+                    "campRow": "Campsite",
+                    "datesRow": "Stay",
+                    "datesValue": "{date}, 1 night",
+                    "guestsRow": "People",
+                    "guestsValue": "{count} people",
+                    "totalRow": "Estimated total",
+                    "estimateNote": "The camp's own fees aren't included here. See the full amount at the booking page."
+                },
+                "handoff": "Continue at the booking page",
+                "back": "Back",
+                "editDate": "Change date",
+                "editGuests": "Change people",
+                "cancel": "Cancel booking",
+                "controlsLabel": "Other options",
+                "cancelled": "Cancelled. Want to look at other camps?",
+                "checking": "Checking availability…",
+                "checkFailed": "Couldn't check availability. Please try again.",
+                "justFilled": "Sorry, {date} filled up just now. Want to try another day?",
+                "handedToAssistant": "OK, let's park the booking. I'll answer that instead."
             }
         }
     },
@@ -2167,6 +2221,60 @@
                 "activitiesHeading": "กิจกรรม",
                 "travelHeading": "การเดินทางและข้อควรรู้",
                 "distanceApprox": "~{count} กม. จาก กทม. (โดยประมาณ)"
+            },
+            "booking": {
+                "start": "เริ่มจอง",
+                "startAriaLabel": "เริ่มจองลาน {name}",
+                "groupLabel": "ขั้นตอนการจอง",
+                "stepCaption": "ขั้นที่ {current} จาก {total}",
+                "stepName": {
+                    "date": "เลือกวัน",
+                    "guests": "จำนวนคน",
+                    "summary": "ตรวจดูอีกที"
+                },
+                "date": {
+                    "ask": "เริ่มจอง {name} กันเลย อยากไปวันไหนดี",
+                    "chipsLabel": "วันที่ยังว่าง",
+                    "chip": "{date} เหลือ {count} ที่",
+                    "chipNoCap": "{date} มีที่ว่าง",
+                    "typeHint": "หรือพิมพ์วันที่เองก็ได้ เช่น เสาร์หน้า หรือ 15 ส.ค.",
+                    "empty": "ช่วงนี้ยังไม่มีเสาร์ว่างเลย ลองพิมพ์วันที่อยากไปมาได้เลย เดี๋ยวเราหาให้",
+                    "unreadable": "ยังจับวันไม่ได้เลย ลองบอกใหม่อีกที เช่น เสาร์หน้า หรือ 15 ส.ค.",
+                    "full": "{date} เต็มแล้ว ลองวันอื่นดูไหม"
+                },
+                "guests": {
+                    "ask": "{date} นะ วันนั้นเหลือ {count} ที่ ไปกันกี่คน",
+                    "askNoCap": "{date} นะ ไปกันกี่คน",
+                    "chipsLabel": "จำนวนคน",
+                    "chip": "{count} คน",
+                    "typeHint": "ไปกันหลายคนกว่านี้ พิมพ์จำนวนมาได้เลย",
+                    "unreadable": "ยังจับจำนวนไม่ได้เลย บอกเป็นตัวเลขได้ เช่น 2 คน",
+                    "overCapacity": "{date} เหลือ {remaining} ที่ ไป {requested} คนอาจไม่พอ",
+                    "overCapacityHint": "เลือก {remaining} คนได้เลย หรือกดย้อนกลับไปหาวันที่รับได้ทั้งกลุ่ม",
+                    "capChip": "{count} คนก็ได้"
+                },
+                "summary": {
+                    "intro": "ตรวจดูอีกทีนะ ถ้าโอเคแล้วไปกรอกต่อที่หน้าจองได้เลย",
+                    "label": "สรุปการจองที่เลือกไว้",
+                    "campRow": "ลาน",
+                    "datesRow": "วันเข้าพัก",
+                    "datesValue": "{date} พัก 1 คืน",
+                    "guestsRow": "จำนวนคน",
+                    "guestsValue": "{count} คน",
+                    "totalRow": "ยอดรวมโดยประมาณ",
+                    "estimateNote": "ค่าธรรมเนียมของลานยังไม่รวมในนี้ ดูยอดเต็มได้ที่หน้าจอง"
+                },
+                "handoff": "ไปกรอกต่อที่หน้าจอง",
+                "back": "ย้อนกลับ",
+                "editDate": "แก้วัน",
+                "editGuests": "แก้จำนวนคน",
+                "cancel": "ยกเลิกการจอง",
+                "controlsLabel": "ตัวเลือกอื่น",
+                "cancelled": "ยกเลิกให้แล้ว อยากดูลานอื่นต่อไหม",
+                "checking": "กำลังตรวจสอบที่ว่าง…",
+                "checkFailed": "ตรวจสอบที่ว่างไม่สำเร็จ ลองอีกทีได้เลย",
+                "justFilled": "ขอโทษที {date} เพิ่งเต็มไปเมื่อกี้ ลองวันอื่นดูไหม",
+                "handedToAssistant": "โอเค พักเรื่องจองไว้ก่อน เดี๋ยวเราตอบเรื่องนี้ให้"
             }
         }
     }

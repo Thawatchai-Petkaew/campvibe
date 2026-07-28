@@ -11,6 +11,26 @@ import translations from "../locales/translations.json";
 const th = translations.th.aiChat;
 const en = translations.en.aiChat;
 
+/**
+ * CAM-638 — the `booking` namespace nests TWO levels deep (e.g.
+ * `booking.date.chip`, `booking.stepName.date`), unlike the previously-flat
+ * `card`/`detail` namespaces this file's two generic loops were written for
+ * (they only ever flattened one level). A depth-1 flatten would hand a plain
+ * object (e.g. `th.aiChat.booking.date`) straight to `.toContain("—")` /
+ * `typeof leafValue === "string"` and crash/false-fail. This recurses to
+ * whatever depth a namespace actually uses — behaviourally identical to the
+ * old one-level flatten for `card`/`detail` (depth 1), and now correct for
+ * `booking` (depth 2) too.
+ */
+function collectLeaves(value: unknown, path: string): [string, unknown][] {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) =>
+      collectLeaves(v, `${path}.${key}`)
+    );
+  }
+  return [[path, value]];
+}
+
 describe("locales/translations.json — aiChat namespace (TH verbatim, per design.md §Copy)", () => {
   it("CAM-411 BR-1: launcherLabel (renamed to the น้องกองไฟ identity)", () =>
     expect(th.launcherLabel).toBe("คุยกับน้องกองไฟ"));
@@ -41,14 +61,8 @@ describe("locales/translations.json — aiChat namespace (TH verbatim, per desig
     expect(en.suggestedQuestionsLabel).toBe("Suggested questions"));
 
   it("[structural] no em-dash separator in any TH aiChat copy (DESIGN.md §4)", () => {
-    for (const [key, value] of Object.entries(th)) {
-      // CAM-428: `card` nests one level of its own string keys.
-      const leaves =
-        value && typeof value === "object" ? Object.entries(value as Record<string, unknown>) : [[key, value]];
-      for (const [leafKey, leafValue] of leaves) {
-        const path = value && typeof value === "object" ? `th.aiChat.${key}.${leafKey}` : `th.aiChat.${key}`;
-        expect(leafValue, path).not.toContain("—");
-      }
+    for (const [path, leafValue] of collectLeaves(th, "th.aiChat")) {
+      expect(leafValue, path).not.toContain("—");
     }
   });
 });
@@ -58,18 +72,10 @@ describe("locales/translations.json — aiChat namespace has an EN counterpart f
     expect(Object.keys(en).sort()).toEqual(Object.keys(th).sort());
   });
 
-  it("[normal] EN copy is non-empty for every key (CAM-428: `card` is one level of nested string keys)", () => {
-    for (const [key, value] of Object.entries(en)) {
-      // CAM-428 added `aiChat.card.*` as a nested namespace (its own
-      // dedicated copy set, see cam-428-framed-chat-card.test.ts) — flatten
-      // one level so this generic loop still asserts every leaf string.
-      const leaves =
-        value && typeof value === "object" ? Object.entries(value as Record<string, unknown>) : [[key, value]];
-      for (const [leafKey, leafValue] of leaves) {
-        const path = value && typeof value === "object" ? `en.aiChat.${key}.${leafKey}` : `en.aiChat.${key}`;
-        expect(typeof leafValue, path).toBe("string");
-        expect((leafValue as string).length, path).toBeGreaterThan(0);
-      }
+  it("[normal] EN copy is non-empty for every key (CAM-428: `card` is one level of nested string keys; CAM-638: `booking` nests two)", () => {
+    for (const [path, leafValue] of collectLeaves(en, "en.aiChat")) {
+      expect(typeof leafValue, path).toBe("string");
+      expect((leafValue as string).length, path).toBeGreaterThan(0);
     }
   });
 });
