@@ -62,19 +62,18 @@ const PRICE_RANGE_ERROR = 'ราคาต้องอยู่ระหว่�
  * `.partial()` method, which would break both call sites at compile time.
  * `null`/`undefined` on either side always passes (nothing to compare yet).
  *
- * CAM-619 BR-2 CORRECTION (regression caught in CI, PR 700): called from
- * `POST /api/campsites` (create) ONLY — deliberately NOT called from `PUT
- * /api/campsites/[id]` (update). `CampgroundForm.tsx` sends the FULL current
- * form state on every save (both price fields, not a per-field diff), so a
- * host editing only `priceLow` in one save — leaving `priceHigh` at its
- * previously-saved value — is an ordinary single-field edit. Enforcing order
- * on the update path 400'd exactly that (`e2e/regression/
- * ac1-edit-round-trip.spec.ts`, reproduced: `{priceLow:777, priceHigh:600}`
- * against a real seeded camp -> real 400). A brand-new listing has no prior
- * state to preserve, so the same rule is safe (and worth keeping) on create
- * — see `app/api/campsites/route.ts`'s own call site for the reasoning.
- * See `app/api/campsites/[id]/route.ts`'s own comment (where the call used
- * to be) for the full account.
+ * Called from BOTH `POST /api/campsites` (create) and `PUT
+ * /api/campsites/[id]` (update) — a persisted `priceLow > priceHigh` is a
+ * real defect (the card renders an inverted range) on either write path, not
+ * just at creation. History: this WAS briefly scoped to create-only after
+ * `e2e/regression/ac1-edit-round-trip.spec.ts` 400'd on a PUT (its
+ * `priceLow: "777"` fixture happened to exceed the seeded camp's stored
+ * `priceHigh: 600`); the fixture, not the guard, was the actual defect — the
+ * spec's own intent ("an edit round-trips") holds for any in-band value, so
+ * the fixture was corrected instead (see that spec's own comment). Follow-up
+ * (tracked, not built here — see tech.md): `CampgroundForm.tsx` should run
+ * this same check client-side before submitting, so a host who edits only
+ * one price field never sees a 400 naming the field they didn't touch.
  */
 export function isPriceOrderValid(data: { priceLow?: number | null; priceHigh?: number | null }): boolean {
   return data.priceLow == null || data.priceHigh == null || data.priceLow <= data.priceHigh;

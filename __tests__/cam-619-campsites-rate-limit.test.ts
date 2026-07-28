@@ -185,45 +185,59 @@ describe('PUT /api/campsites/[id] — rejected coordinate never reaches prisma.c
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAM-619 BR-2 CORRECTION — PUT does NOT enforce priceLow<=priceHigh
+// AC-2 (route-level) — priceLow<=priceHigh IS enforced on PUT, including the
+// partial-update projection against the STORED value
 //
-// Regression caught in CI (PR 700): e2e/regression/ac1-edit-round-trip.spec.ts
-// bumps a real seeded camp's priceLow from 250 to 777 in ONE save WITHOUT
-// touching priceHigh (600) — `components/CampgroundForm.tsx` always submits
-// the full current form state (both price fields), so this is an ordinary
-// single-field host edit, not a malformed request. Reproduced directly
-// against the route handler + the real seeded row before this fix:
-// `{ nameTh: 'repro edit', priceLow: 777, priceHigh: 600 }` ->
-// `400 { "error": "ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้" }`.
-// The ordering rule stays on POST /api/campsites (create) only — see
-// cam-619-campsites-create-price-order.test.ts — where there is no prior
-// saved state a host could be mid-way through reconciling.
+// History (owner-overridden): a persisted priceLow>priceHigh is a real
+// defect (the card renders an inverted range) — this order rule stays on
+// BOTH create and update. `e2e/regression/ac1-edit-round-trip.spec.ts`
+// briefly 400'd because its OWN fixture (priceLow raised to 777 against the
+// seeded camp's priceHigh of 600) was itself an inverted band, not because
+// the guard was wrong; the fixture was corrected (450, in-band) instead of
+// weakening this check. See lib/validations/campsite.ts's
+// `isPriceOrderValid` doc comment for the full account + the recorded
+// client-side follow-up (tech.md) so a host editing one field doesn't see a
+// 400 naming the field they didn't touch.
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('PUT /api/campsites/[id] — does NOT enforce priceLow<=priceHigh (CAM-619 BR-2 correction)', () => {
-  it('[Prove-It regression, was 400] the EXACT e2e repro shape (priceLow raised above the stored priceHigh, priceHigh unchanged) now saves', async () => {
-    allowedFor('user-price-1', { priceLow: 250, priceHigh: 600 });
-    const res = await campSitePUT(putRequest({ nameTh: 'repro edit', priceLow: 777, priceHigh: 600 }), makeParams(CAMP_ID));
-    expect(res.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
+describe('PUT /api/campsites/[id] — priceLow<=priceHigh order (CAM-619 AC-2)', () => {
+  it('[error/validation, teeth] priceLow=5000 > priceHigh=1000 in the SAME request is 400, no write', async () => {
+    allowedFor('user-price-1');
+    const res = await campSitePUT(putRequest({ priceLow: 5000, priceHigh: 1000 }), makeParams(CAMP_ID));
+    expect(res.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('[normal] a partial update sending ONLY the new priceLow (priceHigh omitted from the request) still saves, even against a lower stored priceHigh', async () => {
+  it('[error/validation, teeth, pinned regression] the e2e fixture shape BEFORE its correction (priceLow raised above the stored priceHigh) is correctly REJECTED — the fixture was the defect, not this guard', async () => {
     allowedFor('user-price-2', { priceLow: 250, priceHigh: 600 });
-    const res = await campSitePUT(putRequest({ priceLow: 777 }), makeParams(CAMP_ID));
+    const res = await campSitePUT(putRequest({ nameTh: 'repro edit', priceLow: 777, priceHigh: 600 }), makeParams(CAMP_ID));
+    expect(res.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('[normal, pinned regression] the e2e fixture shape AFTER its correction (priceLow raised to 450, still <= the stored priceHigh of 600) saves', async () => {
+    allowedFor('user-price-3', { priceLow: 250, priceHigh: 600 });
+    const res = await campSitePUT(putRequest({ nameTh: 'repro edit', priceLow: 450 }), makeParams(CAMP_ID));
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
 
-  it('[normal] an ordinary, already-correctly-ordered pair still saves (unaffected)', async () => {
-    allowedFor('user-price-3');
-    const res = await campSitePUT(putRequest({ priceLow: 500, priceHigh: 1200 }), makeParams(CAMP_ID));
+  it('[error/validation, teeth] a partial update sending ONLY priceHigh=100 against a STORED priceLow=200 is 400 (post-save projection)', async () => {
+    allowedFor('user-price-4', { priceLow: 200, priceHigh: null });
+    const res = await campSitePUT(putRequest({ priceHigh: 100 }), makeParams(CAMP_ID));
+    expect(res.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('[normal] a partial update sending ONLY priceLow=50 against a STORED priceHigh=1000 is accepted', async () => {
+    allowedFor('user-price-5', { priceLow: null, priceHigh: 1000 });
+    const res = await campSitePUT(putRequest({ priceLow: 50 }), makeParams(CAMP_ID));
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
 
-  it('[boundary] the .min(0)/.max(100000) RANGE bound is still enforced on PUT (only the cross-field ORDER rule was dropped)', async () => {
-    allowedFor('user-price-4');
+  it('[boundary] the .min(0)/.max(100000) RANGE bound is still enforced on PUT alongside the ORDER rule', async () => {
+    allowedFor('user-price-6');
     const negative = await campSitePUT(putRequest({ priceLow: -1 }), makeParams(CAMP_ID));
     expect(negative.status).toBe(400);
     expect(mockUpdate).not.toHaveBeenCalled();
