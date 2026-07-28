@@ -104,6 +104,50 @@
  * an ambiguity a marker resolves), checked first inside `detectSubDistrict`
  * so the resolver's top-level precedence (still the same position CAM-600
  * established) is unchanged.
+ *
+ * CAM-611 (structural guard parity, filed by CAM-609's own wider re-scan) —
+ * `buildSubDistrictCandidates` never inherited CAM-596's OTHER district-level
+ * guard: `requiresCampingContext` for a name built from a very common
+ * component ("เมือง"/"ท่า" prefix). CAM-600 measured a 422-name shortlist
+ * "selected to be distinctive" and judged the guard unnecessary; the list is
+ * now 503 (CAM-606) and that assumption expired unnoticed. Measured directly
+ * against today's 503-row shortlist (after the existing length-floor/
+ * vocab/substring-of-province guards): 23 surviving names start with "เมือง"
+ * or "ท่า" (2 + 21) and fired UNCONDITIONALLY — e.g. a neutral
+ * "เมื่อวานนี้ไปท่าม่วงเยี่ยมญาติมา" ("went to Tha Muang yesterday to visit
+ * relatives", no camping intent at all) silently hinted a sub-district
+ * search. Fix: `SubDistrictCandidate` now carries the SAME
+ * `requiresCampingContext` flag `AdminAreaCandidate` already has, computed
+ * from the SAME `CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH` constant CAM-596
+ * defined (reused, not re-declared) — `buildSubDistrictCandidates`/
+ * `detectSubDistrict`'s own doc comments carry the full guard list. This is
+ * a STRUCTURAL guard (a name-shape rule), independent from and additive to
+ * `AMBIGUOUS_SUBDISTRICT_VOCAB_TH` (an individual-word skip-set) — neither
+ * subsumes the other, and this story's own vocabulary find (below) confirms
+ * that distinction rather than blurring it.
+ *
+ * CAM-596's OTHER district-level guard — "exactly เมือง+ownProvince"
+ * (guard #4, the provincial-capital-naming pattern, 75/77 provinces at the
+ * district level) — was CHECKED against today's 503-row sub-district
+ * shortlist and found to match ZERO rows (no shortlisted ตำบล is named
+ * "เมือง" + its own province's full name). Per this story's own scope, that
+ * guard is deliberately NOT added: there is nothing for it to guard today,
+ * and a guard with no evidence behind it is exactly the kind of code this
+ * team does not ship (`story.md`/`tech.md` record the measurement, so a
+ * future regeneration that DOES introduce such a name has a reason to look
+ * here, not a silent gap).
+ *
+ * CAM-609's wider re-scan also named three individual ordinary words
+ * (`เหนือเมือง`, `เสาธง`, `รังนก`) left unfixed as "structural, not
+ * vocabulary." Checked against the fix above: none of the three starts with
+ * "เมือง" or "ท่า" (they start with "เหนือ"/"เสา"/"รัง"), so the structural
+ * guard does NOT subsume them — each needs its OWN entry in
+ * `AMBIGUOUS_SUBDISTRICT_VOCAB_TH`, added below, mirroring `เหนือ`/`สะอาด`/
+ * `สำราญ`/`ตำนาน`. All three are single-entry (never collide with another
+ * shortlisted sub-district), so — like `ตำนาน` before them — a bare mention
+ * resolves to nothing while the explicit "ตำบล"-marked form still resolves
+ * (`detectExplicitSubDistrictPrefix`, CAM-609, unchanged and unweakened by
+ * this story).
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
@@ -598,6 +642,12 @@ interface AdminAreaCandidate {
 }
 
 const MIN_ADMIN_AREA_NAME_LENGTH = 4;
+/**
+ * CAM-611 — also reused, unchanged, by `buildSubDistrictCandidates` below
+ * (the sub-district level never had a name-shape guard of its own; this is
+ * the SAME constant, not a second copy — see this file's top docblock, the
+ * CAM-611 paragraph).
+ */
 const CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH = ['เมือง', 'ท่า'] as const;
 
 /**
@@ -705,12 +755,36 @@ const SUBDISTRICT_SHORTLIST = subDistrictShortlistData as readonly SubDistrictSh
  * unmarked/bare candidate path below — an explicit "ตำบลตำนาน" mention still
  * resolves via `detectExplicitSubDistrictPrefix` (see this file's top
  * docblock, CAM-609), which deliberately does not consult this set.
+ *
+ * CAM-611 — three more ordinary words, found by CAM-609's own wider re-scan
+ * of the full 503-row shortlist and left unfixed there as individual
+ * findings (not the structural gap that story's own dispatch scoped it to).
+ * None starts with "เมือง"/"ท่า", so the NEW `requiresCampingContext`
+ * structural guard this story also adds (see `SubDistrictCandidate` below)
+ * does not and cannot cover them — a vocabulary problem needs a vocabulary
+ * fix, the same reasoning CAM-609 itself already recorded for "ตำนาน":
+ * - "เหนือเมือง" (Roi Et, single-entry) — the literal concatenation of two
+ *   of the highest-frequency words in Thai ("north"/"above" + "city/town");
+ *   an ordinary phrase describing a location relative to a town center.
+ * - "เสาธง" ("flagpole", Nakhon Si Thammarat, single-entry) — an ordinary,
+ *   concrete noun that appears in generic scene-setting.
+ * - "รังนก" ("bird's nest [soup]", Phichit, single-entry) — a common food
+ *   noun, plausible in unrelated conversation.
+ * Measured before this entry: `resolvePlace('เมื่อวานนี้ไปเหนือเมืองเยี่ยม
+ * ญาติมา')`/`'...เสาธงเยี่ยมญาติมา'`/`'...รังนกเยี่ยมญาติมา'` each silently
+ * hinted a sub-district with no camping intent anywhere in the sentence. All
+ * three are single-entry (never collide with another shortlisted name), so
+ * — like "ตำนาน" — the explicit "ตำบล"-marked form still resolves via
+ * `detectExplicitSubDistrictPrefix`, unaffected by this exclusion.
  */
 const AMBIGUOUS_SUBDISTRICT_VOCAB_TH: ReadonlySet<string> = new Set([
   'เหนือ', // north/above — measured against this file's own region fixtures
   'สะอาด', // clean — common adjective
   'สำราญ', // relaxed/content — common adjective, camping-review-adjacent
   'ตำนาน', // legend/myth — common noun; newly shortlisted (CAM-606), CAM-609 finding
+  'เหนือเมือง', // north-of-town — ordinary compound; CAM-611 finding (CAM-609 re-scan)
+  'เสาธง', // flagpole — common concrete noun; CAM-611 finding (CAM-609 re-scan)
+  'รังนก', // bird's nest — common food noun; CAM-611 finding (CAM-609 re-scan)
 ]);
 
 /**
@@ -733,10 +807,18 @@ const MIN_SUBDISTRICT_NAME_LENGTH = 5;
  * requires a co-occurring, entry-specific district/province name in the
  * SAME text before it may fire at all — an unresolvable ambiguity is never
  * guessed.
+ *
+ * CAM-611 — `requiresCampingContext` added, carrying the SAME per-name
+ * structural flag `AdminAreaCandidate` (district level, CAM-596) already
+ * has — reused, not re-derived by a second rule: computed from the SAME
+ * `CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH` constant that file defines. See
+ * this file's top docblock (CAM-611 paragraph) for the measured gap this
+ * closes and `detectSubDistrict`'s own doc comment for how it is consulted.
  */
 interface SubDistrictCandidate {
   nameTh: string;
   entries: ReadonlyArray<{ districtNameTh: string; provinceNameTh: string }>;
+  requiresCampingContext: boolean;
 }
 
 /**
@@ -754,6 +836,20 @@ interface SubDistrictCandidate {
  *    existing `detectProvince` already resolves any of these bare mentions
  *    correctly, so a sub-district hint on the identical text would be
  *    redundant at best, wrong-scoped at worst.
+ *
+ * CAM-611 — every SURVIVING candidate is now ALSO tagged
+ * `requiresCampingContext`, the same per-name structural guard
+ * `buildAdminAreaCandidates` (district level) already carries: true only
+ * when `nameTh` starts with "เมือง" or "ท่า"
+ * (`CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH`, reused unchanged from that
+ * file's own const — never a second copy). Measured against today's
+ * 503-row shortlist: 23 of the surviving names start with one of those two
+ * prefixes (2 "เมือง...", 21 "ท่า...") and, before this guard, fired
+ * unconditionally regardless of context — e.g. a neutral "เมื่อวานนี้ไป
+ * ท่าม่วงเยี่ยมญาติมา" ("went to Tha Muang yesterday to visit relatives")
+ * silently hinted a sub-district search. `detectSubDistrict` below consults
+ * this flag with the same "skip and keep scanning" idiom `detectDistrict`/
+ * `detectLandmark` already use for their own context-guarded candidates.
  *
  * Every SURVIVING name is grouped by `nameTh` into the candidates above
  * (never per-row) and sorted longest-`nameTh`-first, the same "longer/
@@ -774,7 +870,11 @@ function buildSubDistrictCandidates(): readonly SubDistrictCandidate[] {
   }
 
   return Array.from(byName.entries())
-    .map(([nameTh, entries]) => ({ nameTh, entries }))
+    .map(([nameTh, entries]) => ({
+      nameTh,
+      entries,
+      requiresCampingContext: CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH.some((prefix) => nameTh.startsWith(prefix)),
+    }))
     .sort((a, b) => b.nameTh.length - a.nameTh.length);
 }
 
@@ -794,7 +894,7 @@ const SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC: readonly SubDistrictCandidate[] = b
  * caller must not guess.
  */
 function resolveAmbiguousSubDistrictEntry(
-  candidate: SubDistrictCandidate,
+  candidate: Pick<SubDistrictCandidate, 'nameTh' | 'entries'>,
   text: string
 ): { districtNameTh: string; provinceNameTh: string } | undefined {
   const confirmed = candidate.entries.filter((entry) => {
@@ -822,6 +922,12 @@ function resolveAmbiguousSubDistrictEntry(
  * shortlist itself still goes through `resolveAmbiguousSubDistrictEntry`
  * before firing — an explicit marker declares "this is a sub-district", not
  * "and I've told you which one" when the same name holds >1 real place.
+ *
+ * CAM-611 — deliberately carries NO `requiresCampingContext` field, unlike
+ * `SubDistrictCandidate` above: the same reasoning this docblock already
+ * gives for bypassing the vocabulary skip-set applies to the new structural
+ * guard too — an explicit "ตำบล" marker is itself sufficient context, so
+ * e.g. "ตำบลท่าเรือ" (no camping word anywhere) still resolves unchanged.
  */
 interface ExplicitSubDistrictPrefixCandidate {
   nameTh: string;
@@ -892,8 +998,17 @@ function detectExplicitSubDistrictPrefix(text: string): { subDistrict: string; d
  * CAM-609 — checks the explicit "ตำบล"-marker path FIRST (see
  * `detectExplicitSubDistrictPrefix` above): a marked mention is never
  * subject to the ordinary-vocabulary skip-set below, so `ตำบลตำนาน` still
- * resolves even though bare `ตำนาน` no longer does. This is the ONLY change
- * this story makes to this function; the unmarked loop below is unchanged.
+ * resolves even though bare `ตำนาน` no longer does.
+ *
+ * CAM-611 — the unmarked loop below now ALSO skips (not an immediate
+ * `undefined` return — same "skip and keep scanning" idiom) a
+ * `requiresCampingContext` candidate when `hasCampingContextMarker(text)` is
+ * false, mirroring `detectDistrict`'s own identical check line-for-line. The
+ * explicit-marker path above is UNCHANGED and UNAFFECTED — it never carried
+ * this guard (an explicit "ตำบล" marker is itself sufficient context, the
+ * same precedent CAM-599's `detectExplicitDistrictPrefix` already set for
+ * districts), so a marked "ตำบลท่าเรือ" keeps resolving with no camping word
+ * anywhere in the sentence, exactly as before this story.
  */
 function detectSubDistrict(text: string): { subDistrict: string; district: string } | undefined {
   const explicit = detectExplicitSubDistrictPrefix(text);
@@ -901,6 +1016,7 @@ function detectSubDistrict(text: string): { subDistrict: string; district: strin
 
   for (const candidate of SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC) {
     if (!text.includes(candidate.nameTh)) continue;
+    if (candidate.requiresCampingContext && !hasCampingContextMarker(text)) continue;
     if (candidate.entries.length === 1) {
       return { subDistrict: candidate.nameTh, district: candidate.entries[0].districtNameTh };
     }
