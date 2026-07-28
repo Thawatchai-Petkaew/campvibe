@@ -18,6 +18,10 @@
  *     `reviewCount > 0 && avgRating != null` for an older/unaware payload.
  *   - province: `location.province` is `''` when the source `Location.province`
  *     was null (server-side coercion, ai-camp-card.ts) -> hide the row (G8).
+ *     CAM-597: the row's TEXT is now the localized "district(s), province"
+ *     string (`buildLocationText`, imported via `location-text.ts` so this
+ *     file stays decoupled from the catalog card component per BR-4 above),
+ *     never the raw English `location.province` value.
  *   - availability: `remaining` is a plain number only when a dated search
  *     supplied it -> render the chip only then, never fabricate (G3).
  *
@@ -54,6 +58,7 @@ import { Badge } from "@/components/ui/badge";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { AiChatCardResponse } from "@/lib/api-client";
+import { buildLocationText } from "@/components/ai-chat/location-text";
 
 /** Hoisted once — a fresh Intl formatter per render is unnecessary allocation. */
 const THB_FORMAT = new Intl.NumberFormat("th-TH");
@@ -75,6 +80,10 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
   const matchedTag = card.matchedTag;
   const tagName = matchedTag ? (language === "en" ? matchedTag.nameEn : matchedTag.nameTh) : null;
   const hasProvince = card.location.province.trim().length > 0;
+  // CAM-597 — localized "district(s), province" text, never the raw
+  // English `location.province` beside a Thai session (reuses the SAME
+  // buildLocationText the catalog card uses, CAM-545/CAM-573).
+  const locationText = buildLocationText(card.location, language);
   const hasReviews = card.hasReviews ?? (card.reviewCount > 0 && card.avgRating != null);
   // CAM-547 AC-5 — the single condition that decides whether the rating badge
   // renders on the image; also drives the inline noReviews fallback below
@@ -135,7 +144,7 @@ export function AiChatCampCard({ card, onSelect }: AiChatCampCardProps) {
             data-testid="text--ai-chat-card-province"
           >
             <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-1">{card.location.province}</span>
+            <span className="line-clamp-1">{locationText}</span>
           </p>
         )}
 

@@ -39,6 +39,9 @@ export async function GET(req: Request) {
     state: url.searchParams.get("state") ?? undefined,
     epicId: url.searchParams.get("epicId") ?? undefined,
     archived: url.searchParams.get("archived") ?? undefined,
+    // CAM-595: mode=gate|audit — a targeted server-side read for the two surfaces that must
+    // never truncate silently (see lib/delivery/validations.ts's mode-param comment).
+    mode: url.searchParams.get("mode") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_query" }, { status: 400 });
@@ -46,7 +49,13 @@ export async function GET(req: Request) {
 
   try {
     const tickets = await listTickets(parsed.data);
-    return NextResponse.json({ tickets });
+    // CAM-595: project the real truncation signal so a bounded read can never look like a
+    // complete one. `tickets.total`/`tickets.truncated` are extra own properties the service
+    // layer attaches (see TicketListResult) — when a caller's test double mocks listTickets
+    // to resolve a plain array (no such properties), both read as `undefined` here and
+    // JSON.stringify drops them, so the response degrades to the original `{ tickets }`
+    // shape rather than lying with `truncated: false`.
+    return NextResponse.json({ tickets, total: tickets.total, truncated: tickets.truncated });
   } catch (err) {
     return ticketErrorResponse(err);
   }

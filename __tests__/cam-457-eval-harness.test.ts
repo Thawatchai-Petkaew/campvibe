@@ -129,10 +129,14 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // มือใหม่->camperStyle=CHIC concept-map + the new-taxonomy intent lookups
     // (annotatedFeatures/terrain/type/facilities), each a subset match on a
     // single strongest filter (BR-4, never a strict multi-AND).
+    // CAM-596 — +1 guardrail case (GEO-5-CAM596-DISTRICT): "ลานกางเต็นท์แม่ริม"
+    // (a bare district name, no province) must call searchCampsites with
+    // district="แม่ริม" (strictParams:true) — proves the pre-pass district
+    // hint actually reaches the model, the exact gap CAM-587 left open.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(67);
+    expect(cases.length).toBe(68);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);

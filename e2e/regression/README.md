@@ -16,24 +16,52 @@ at a staging/shared/production `DATABASE_URL`.
 
 ## Running locally
 
+**CAM-578 — this now actually works.** Before CAM-578, this section described
+`.env.e2e` but no such file (not even a template) existed anywhere in the
+repo, so the suite could not run for anyone who followed it literally. The
+steps below are proven end-to-end (a clean `.env.e2e` → `npm run e2e:db:setup`
+→ `PW_REGRESSION=1 npm run test:e2e:regression`, all 38 specs green) — see
+`docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-578-local-e2e-harness/story.md`.
+
 ```bash
 # One-time: install Playwright's chromium browser (shared with the visual-a11y project).
 npx playwright install chromium
 
-# 1. Point DATABASE_URL at your LOCAL Postgres (never the main tree's staging
-#    .env). Create a worktree-local .env.e2e (gitignored) with at least:
-#      DATABASE_URL="postgresql://<user>@localhost:5432/campvibe?schema=public"
-#      AUTH_SECRET="<any local-only secret>"
-#      NEXTAUTH_URL="http://localhost:3100"
+# 1. Copy the template and fill in your own local Postgres user.
+#    DATABASE_URL is a DEDICATED e2e database (campvibe_e2e) — separate from
+#    the `campvibe` DB your own `npm run dev` points at. This suite
+#    creates/deletes real rows; it must never touch the DB you use for other
+#    local work.
+cp .env.e2e.example .env.e2e
 
-# 2. Reset + reseed the local DB (idempotent — safe to run repeatedly):
-set -a; source .env.e2e; set +a
-npx prisma migrate reset --force
+# 2. Migrate + seed the dedicated e2e database (idempotent — safe to re-run;
+#    creates the database itself if it does not exist yet; runs the guard
+#    from step 3 first; never invokes `prisma generate`).
+npm run e2e:db:setup
 
-# 3. Run the suite (starts its own dev server on port 3100 by default,
-#    override with E2E_PORT — never collides with your own `npm run dev` on 3000):
+# 3. Run the suite (playwright.config.ts auto-loads .env.e2e when
+#    PW_REGRESSION=1 is set; starts its own dev server on port 3100 by
+#    default, override with E2E_PORT — never collides with your own
+#    `npm run dev` on 3000):
 PW_REGRESSION=1 npm run test:e2e:regression
+
+# Run one spec only:
+PW_REGRESSION=1 npx playwright test --project=regression e2e/regression/ac1-edit-round-trip.spec.ts
 ```
+
+**No `.env.e2e` set up yet, or no local Postgres?** See `e2e/README.md`
+§"When the seeded-DB harness isn't set up" for a zero-config direct-browser
+fallback that needs neither.
+
+**The language trap (read this before writing a new spec here).**
+`global.setup.ts` forces `campvibe_lang=th` into the shared `storageState` —
+**every regression spec renders Thai, never English.** A spec that looks up
+an English accessible name (`getByRole(..., { name: "Previous image" })`)
+will silently find 0 elements; it does not throw, it just fails the
+assertion with a confusing "not found". This exact mechanism broke 6 specs
+under CAM-570. If you need to assert English copy, drive a separate page
+with `page.evaluate(() => localStorage.setItem("campvibe_lang", "en"))`
+before navigating — never assume the shared storageState is English.
 
 ## What is in here
 

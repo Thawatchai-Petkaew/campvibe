@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import type { GeocodeReverseResult } from '@/lib/validations/location';
 import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/geo/admin-area-match';
+import { callGoogleGeocodeCore, extractComponent, type GoogleAddressComponent, type GoogleGeocodeResult } from '@/lib/geo/google-geocode';
 
 /**
  * CAM-554 — shared server-side geocoding helpers, used by BOTH
@@ -31,71 +32,47 @@ import { matchAdminArea, normalizeAdminName, type AdminAreaNode } from '@/lib/ge
  * derives `province`/`district` from the matched `AdminArea` node itself
  * (see that function's doc comment below). The table and model are dropped
  * entirely by this story - see its tech.md.
+ *
+ * CAM-572/CAM-585 — the low-level Google-fetch primitive (`extractComponent`
+ * AND `callGoogleGeocode`) now lives entirely in `lib/geo/google-geocode.ts`,
+ * this file's `callGoogleGeocode` is a thin, behaviour-preserving translation
+ * on top of `callGoogleGeocodeCore` (same re-export pattern already used for
+ * `normalizeAdminName` above). CAM-572 originally left this one duplicate
+ * unmoved because `__tests__/cam-554-geocode-routes.test.ts` source-inspected
+ * THIS file's own text for the key-safety invariant (a literal
+ * `process.env.GOOGLE_GEOCODING_API_KEY` string + a `console.error` regex) —
+ * moving the code would have turned those 2 assertions red with zero
+ * behaviour change. CAM-585 rewrote those 2 assertions to pin the actual
+ * invariant BEHAVIOURALLY (key never in a client component; key/URL never
+ * logged on any failure branch, proven by actually exercising the routes)
+ * instead of which file performs the read — see that story's tech.md for
+ * the before/after and the red-then-green proof. The key itself is STILL
+ * read only server-side (now inside `lib/geo/google-geocode.ts`), still
+ * never returned/logged/`NEXT_PUBLIC_`-prefixed.
  */
 export { normalizeAdminName };
-
-const GOOGLE_GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
-
-export interface GoogleAddressComponent {
-    long_name: string;
-    short_name: string;
-    types: string[];
-}
-
-interface GoogleGeocodeResponse {
-    status: string;
-    results: Array<{
-        address_components: GoogleAddressComponent[];
-        geometry: { location: { lat: number; lng: number } };
-    }>;
-}
+export { extractComponent };
 
 /**
- * Calls the Google Geocoding API. Returns `null` on ANY failure (missing key,
- * network error, non-OK HTTP, or a Google `status` other than OK/ZERO_RESULTS)
- * - callers map `null` to a generic 500, never surfacing Google's raw body.
- * The request URL (which carries the key) is NEVER logged; only a status
- * code / Google `status` string / caught error message is logged.
+ * Thin translation onto `callGoogleGeocodeCore` (`lib/geo/google-geocode.ts`).
+ * Same contract as before the CAM-585 move: returns `{results}` on any
+ * success (including ZERO_RESULTS, where `results` is simply empty) or
+ * `null` on ANY failure (missing key, network error, non-OK HTTP, or a
+ * Google `status` other than OK/ZERO_RESULTS) - callers map `null` to a
+ * generic 500, never surfacing Google's raw body. Only the translated
+ * `reason` string is ever logged - the outgoing URL (which carries the key)
+ * is never constructed or read here, and `callGoogleGeocodeCore` itself
+ * never logs it either (see that module's header).
  */
 export async function callGoogleGeocode(
     params: Record<string, string>
-): Promise<GoogleGeocodeResponse | null> {
-    const key = process.env.GOOGLE_GEOCODING_API_KEY;
-    if (!key) {
-        console.error('[geocode] GOOGLE_GEOCODING_API_KEY is not configured');
+): Promise<{ results: GoogleGeocodeResult[] } | null> {
+    const result = await callGoogleGeocodeCore(params);
+    if (!result.ok) {
+        console.error('[geocode] Google Geocoding API call failed', result.reason);
         return null;
     }
-
-    const url = new URL(GOOGLE_GEOCODE_ENDPOINT);
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-    url.searchParams.set('region', 'th');
-    url.searchParams.set('key', key);
-
-    try {
-        const res = await fetch(url.toString());
-        if (!res.ok) {
-            console.error('[geocode] Google Geocoding API HTTP error', res.status);
-            return null;
-        }
-        const data = (await res.json()) as GoogleGeocodeResponse;
-        if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-            console.error('[geocode] Google Geocoding API status', data.status);
-            return null;
-        }
-        return data;
-    } catch (err) {
-        console.error('[geocode] Google Geocoding API request failed', err instanceof Error ? err.message : 'unknown error');
-        return null;
-    }
-}
-
-/** Returns the first address component's `long_name` matching any of `types`, in priority order. */
-export function extractComponent(components: GoogleAddressComponent[], types: string[]): string | null {
-    for (const type of types) {
-        const found = components.find((c) => c.types.includes(type));
-        if (found) return found.long_name;
-    }
-    return null;
+    return { results: result.results };
 }
 
 /**

@@ -15,6 +15,17 @@
  * + optional TICKET_SYNC_ACTOR) from .env / .env.local — same dotenv-style parse
  * scripts/linear-sync.mjs uses (no extra deps).
  *
+ * CAM-577 — worktree fallback (READ-ONLY): `.env`/`.env.local` are gitignored, so `git
+ * worktree add` never copies them into a new worktree (worktrees only replicate TRACKED
+ * files) — every agent dispatched into a `.claude/worktrees/agent-*` checkout was silently
+ * running `show`/`list`/`audit` with STATUS_TOKEN missing. This script now ALSO reads
+ * (never writes/copies) `.env`/`.env.local` from the MAIN worktree, resolved by following the
+ * `.git` file's `gitdir: .../.git/worktrees/<name>` pointer back to `<main-repo>/.git` (see
+ * `resolveMainRepoDir`). Nothing is duplicated into the worktree and nothing is logged — this
+ * is strictly an additional read location, lowest priority (a worktree-local `.env` always
+ * wins if one is deliberately placed there). See `.claude/rules/security.md` — the token
+ * itself never leaves this process (no echo, no write).
+ *
  * ── Usage ────────────────────────────────────────────────────────────────────────────────
  *   node scripts/ticket-sync.mjs list
  *   node scripts/ticket-sync.mjs set CAM-7 --state "In Progress"
@@ -87,14 +98,51 @@ import { hasUnresolvedMarker, hasStagedAtIntegrityGap } from "./lib/ticket-sync-
 
 // ── env (dotenv-style parse, no deps — copied from scripts/linear-sync.mjs) ───────────────
 
+/**
+ * CAM-577: if `cwd` is a `git worktree` checkout, `.git` there is a FILE (not a directory)
+ * containing `gitdir: <main-repo>/.git/worktrees/<name>`. Follow it back to `<main-repo>` so
+ * `loadEnv` can READ (never copy/write) that repo's `.env`/`.env.local`. Returns null when
+ * `cwd` is not inside a linked worktree (e.g. it already IS the main checkout) — no fallback
+ * needed in that case. Never throws; any unreadable/unexpected shape just yields null.
+ */
+function resolveMainRepoDir(cwd) {
+  const gitPath = path.join(cwd, ".git");
+  let stat;
+  try { stat = fs.statSync(gitPath); } catch { return null; }
+  if (!stat.isFile()) return null; // a real .git directory = cwd is already the main checkout
+  let pointer;
+  try { pointer = fs.readFileSync(gitPath, "utf8"); } catch { return null; }
+  const m = pointer.match(/^gitdir:\s*(.+?)\s*$/m);
+  if (!m) return null;
+  const marker = `${path.sep}worktrees${path.sep}`;
+  const idx = m[1].indexOf(marker);
+  if (idx === -1) return null; // unrecognized .git pointer shape — don't guess
+  const mainGitDir = m[1].slice(0, idx); // <main-repo>/.git
+  return path.dirname(mainGitDir); // <main-repo>
+}
+
+/** Every (dir, file) pair actually consulted, in read order — carried only for the loud
+ *  diagnostic below if STATUS_TOKEN still can't be found; never logs file CONTENTS. */
+const ENV_SOURCES_CHECKED = [];
+
 function loadEnv() {
   const out = {};
-  for (const file of [".env", ".env.local"]) {
-    if (!fs.existsSync(file)) continue;
-    for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-      if (/^[A-Z]/.test(line) && line.includes("=")) {
-        const i = line.indexOf("=");
-        out[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+  const cwd = process.cwd();
+  const mainRepoDir = resolveMainRepoDir(cwd);
+  // Main-repo fallback is READ first (lowest priority) so a worktree-local .env, if one is
+  // ever deliberately placed there, wins — matches pre-existing .env-then-.env.local
+  // precedence (later read = higher priority).
+  const dirs = mainRepoDir && mainRepoDir !== cwd ? [mainRepoDir, cwd] : [cwd];
+  for (const dir of dirs) {
+    for (const file of [".env", ".env.local"]) {
+      const p = path.join(dir, file);
+      ENV_SOURCES_CHECKED.push(p);
+      if (!fs.existsSync(p)) continue;
+      for (const line of fs.readFileSync(p, "utf8").split("\n")) {
+        if (/^[A-Z]/.test(line) && line.includes("=")) {
+          const i = line.indexOf("=");
+          out[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+        }
       }
     }
   }
@@ -104,7 +152,23 @@ const ENV = { ...loadEnv(), ...process.env };
 const BASE = (ENV.APP_BASE_URL || "https://campvibe-staging.vercel.app").replace(/\/+$/, "");
 const TOKEN = ENV.STATUS_TOKEN;
 const DEFAULT_ACTOR = ENV.TICKET_SYNC_ACTOR || "ticket-sync-cli";
-if (!TOKEN) { console.error("✗ STATUS_TOKEN missing in .env"); process.exit(1); }
+if (!TOKEN) {
+  // CAM-577: loud + unmistakable — a silent/ambiguous failure here previously read as a
+  // generic tooling hiccup, and an agent that can't tell "no token" from "ticket has no
+  // comments" will proceed half-informed (missing owner rulings/re-scopes recorded only as
+  // ticket comments). Name every path checked (never the token value) and state the
+  // consequence explicitly so the caller stops and asks instead of guessing.
+  console.error("✗ TICKET DB UNREACHABLE — STATUS_TOKEN not found in any of:");
+  for (const p of ENV_SOURCES_CHECKED) console.error(`    ${p}`);
+  console.error(
+    "  This means show/list/audit/comment CANNOT run — ticket comments (owner rulings, " +
+    "re-scopes, corrections) are INVISIBLE right now. Do not treat this as \"the ticket has " +
+    "nothing to add\": stop and ask, or fix the token, before proceeding on dispatch text alone.\n" +
+    "  Fix: set STATUS_TOKEN in the MAIN repo's .env (see .env.example) — a worktree reads it " +
+    "there automatically; do not create a per-worktree copy of the secret."
+  );
+  process.exit(12);
+}
 
 // ── HTTP client (the ONLY way this script ever touches ticket data) ───────────────────────
 
@@ -141,11 +205,49 @@ function apiFail(id, status, data) {
   process.exitCode = 1;
 }
 
-/** Bounded list read (GET /api/tickets — the API itself caps at 500 rows). Archived tickets
- * are hidden everywhere this client renders (board, INDEX, audit, pull) — never fetch them. */
+/** CAM-595: print an unmistakable warning the moment a read comes back truncated — a bounded
+ * read that stays silent about it reads as "you have seen everything" when it didn't
+ * (ops.md). `data.truncated`/`data.total` are new, additive /api/tickets response fields
+ * (absent on an older server = simply not printed, never a crash). */
+function warnIfTruncated(data, label) {
+  if (data && data.truncated === true) {
+    console.error(
+      `⚠ TRUNCATED (${label}): the server returned ${data.tickets.length} of ${data.total} ` +
+        `matching ticket(s) — some tickets are NOT shown below. This is NOT "everything is covered".`
+    );
+  }
+}
+
+/** Bounded list read (GET /api/tickets — the API caps at TICKET_LIST_TAKE_CAP rows, newest
+ * first — CAM-595). Archived tickets are hidden everywhere this client renders (board, INDEX,
+ * audit, pull) — never fetch them. Used by `list`/`index`/`pull`; `gates`/`audit` use their
+ * own targeted reads below instead, which never depend on outrunning this cap. */
 async function getAllTickets() {
   const { status, data } = await apiFetch("GET", "/api/tickets?archived=false");
   if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "list");
+  return data.tickets;
+}
+
+/** CAM-595: targeted read for `gates` — server-side OR filter (state=AWAITING_GATE OR
+ * changesRequested=true). This is what made "the gate board silently stops at ticket 561"
+ * possible: `gates` used to client-side-filter the SAME capped, ascending, general-purpose
+ * scan as `list`. It never scans the general ticket set at all now, so a gate raised on any
+ * ticket number can never fall outside it. */
+async function getGateTickets() {
+  const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=gate");
+  if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "gates");
+  return data.tickets;
+}
+
+/** CAM-595: targeted read for `audit` — server-side (type=EPIC OR state!=DONE), so template
+ * conformance on the newest non-Done work is never silently skipped by the general list cap,
+ * and every epic (even a long-Done one) still resolves via buildEpicIndex() below. */
+async function getActiveOrEpicTickets() {
+  const { status, data } = await apiFetch("GET", "/api/tickets?archived=false&mode=audit");
+  if (status !== 200) { apiFail("-", status, data); process.exit(1); }
+  warnIfTruncated(data, "audit");
   return data.tickets;
 }
 
@@ -481,10 +583,11 @@ async function cmdStage(id, args) {
  * that the assigned role should resume work on this ticket.
  */
 async function cmdGates() {
-  const all = await getAllTickets();
-  const gates = all
-    .filter((t) => t.state === "AWAITING_GATE" || t.changesRequested === true)
-    .sort(sortByIdentifier);
+  // CAM-595: server-side targeted read (mode=gate) — the filter used to be applied HERE,
+  // client-side, over the same capped/ascending general scan `list` uses, which is exactly
+  // how a gate raised above the cap went invisible ("no gates open" while the ticket really
+  // was AWAITING_GATE). This can no longer depend on outrunning the general list cap at all.
+  const gates = (await getGateTickets()).sort(sortByIdentifier);
   if (!gates.length) {
     console.log("no gates open (no ticket AWAITING_GATE or changesRequested)");
     return;
@@ -501,7 +604,12 @@ async function cmdGates() {
 }
 
 async function cmdAudit() {
-  const all = await getAllTickets();
+  // CAM-595: server-side targeted read (mode=audit) — every non-Done ticket PLUS every epic
+  // regardless of its own state (buildEpicIndex needs the epic row even when the epic itself
+  // finished long ago, to resolve a story's feature/epic name for its docs/specs path). This
+  // used to be the same capped/ascending general scan `list` uses, which is exactly how the
+  // newest work's template conformance went unverified once the project passed the cap.
+  const all = await getActiveOrEpicTickets();
   const byId = buildEpicIndex(all);
   const REQ = ["## Story", "## AC"];
   const NICE = ["## Rules", "## Edge cases", "## Data", "## Seams & refs", "## Out of scope", "## Self-verify"];

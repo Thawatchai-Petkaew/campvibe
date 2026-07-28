@@ -43,6 +43,8 @@ yarn-error.log*
 .env*
 !.env.example
 !env.example
+# CAM-578 — placeholder-only template for the local e2e-regression harness; never a real secret
+!.env.e2e.example
 
 # sqlite (local dev artifacts / accidental files)
 *.db
@@ -91,6 +93,8 @@ next-env.d.ts
 !/scripts/build-province-centroids.mjs
 # CAM-503 — validator for the committed, curated prisma/data/landmark-gazetteer.json
 !/scripts/validate-landmark-gazetteer.mjs
+# validator for the committed, curated prisma/data/place-aliases.json (Thai place nicknames)
+!/scripts/validate-place-aliases.mjs
 # CAM demand-seeding toolkit — tracked so Stage 0/1 are reproducible + reviewable
 !/scripts/gen-mock-data.mjs
 # CAM-508 — AI Chat Capability Loop: the log-pull triage script (SORT step, /ai-chat-improve)
@@ -115,6 +119,11 @@ next-env.d.ts
 !/scripts/backfill-cam-583-align-provinces.mjs
 # CAM-583 — assigns DISP to verified type-less (open-field) camps
 !/scripts/backfill-cam-583-assign-accommodation-type.mjs
+# CAM-578 — one-command local setup (migrate deploy + seed) for the e2e-regression harness's DB
+!/scripts/setup-e2e-db.ts
+# CAM-579 — per-worktree Prisma client isolation setup + the loud freshness guard
+!/scripts/worktree-setup.sh
+!/scripts/verify-prisma-client-fresh.mjs
 .claude/linear-snapshot.json
 
 # local design source (large binaries; runtime copies live in public/status-map/)

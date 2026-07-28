@@ -1,0 +1,535 @@
+{
+  "$comment": "Thai place aliases (colloquial / abbreviation / dialect / historical) for AI-chat place search. NOT loaded into any DB table — consumed at runtime like landmark-gazetteer.json. Every provinceAliases canonicalCode/canonicalTh/canonicalEn MUST match prisma/data/thailand-locations.json exactly (validated by scripts/validate-place-aliases.mjs). Aliases are additive & never-throw: an unknown term falls through to the resolver's raw passthrough. matchMode is per-alias: 'substring' = safe to match with String.includes (>=4 chars, distinctive, not a substring of another place name); 'exact' = match only on a whole trimmed token (short / common word / would collide as a substring). contextGuard=true means require a camping-context marker before accepting the match (mirrors CONTEXT_GUARDED_LANDMARK_NAMES_TH). Wiring this into resolveProvinceForSearch/resolveRegionForSearch is a SEPARATE build story — this file is data only. How to fill / extend: docs/reference/place-aliases-fill-guide.md.",
+  "provinceAliases": [
+    {
+      "canonicalCode": "10",
+      "canonicalTh": "กรุงเทพมหานคร",
+      "canonicalEn": "Bangkok",
+      "aliases": [
+        { "text": "กรุงเทพ", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "กรุงเทพฯ", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "บางกอก", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "กทม", "matchMode": "exact", "kind": "abbreviation" },
+        { "text": "กทม.", "matchMode": "exact", "kind": "abbreviation" },
+        { "text": "เมืองหลวง", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "Supersedes the hardcoded BANGKOK_ALIASES in lib/ai/tools/search-campsites.ts once wired."
+    },
+    {
+      "canonicalCode": "11",
+      "canonicalTh": "สมุทรปราการ",
+      "canonicalEn": "Samut Prakan",
+      "aliases": [
+        { "text": "ปากน้ำ", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" },
+        { "text": "เมืองปากน้ำ", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ปากน้ำ is a substring of ปากน้ำโพ (Nakhon Sawan) and a generic word ('river mouth') → exact + guard."
+    },
+    {
+      "canonicalCode": "12",
+      "canonicalTh": "นนทบุรี",
+      "canonicalEn": "Nonthaburi",
+      "aliases": [
+        { "text": "นนท์", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" },
+        { "text": "เมืองนนท์", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "13",
+      "canonicalTh": "ปทุมธานี",
+      "canonicalEn": "Pathum Thani",
+      "aliases": [
+        { "text": "ปทุม", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "ปทุม ('lotus') is a common word → exact + guard."
+    },
+    {
+      "canonicalCode": "14",
+      "canonicalTh": "พระนครศรีอยุธยา",
+      "canonicalEn": "Phra Nakhon Si Ayutthaya",
+      "aliases": [
+        { "text": "อยุธยา", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "กรุงเก่า", "matchMode": "substring", "kind": "historical" }
+      ]
+    },
+    {
+      "canonicalCode": "16",
+      "canonicalTh": "ลพบุรี",
+      "canonicalEn": "Lop Buri",
+      "aliases": [
+        { "text": "ละโว้", "matchMode": "substring", "kind": "historical" },
+        { "text": "เมืองลิง", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "20",
+      "canonicalTh": "ชลบุรี",
+      "canonicalEn": "Chon Buri",
+      "aliases": [
+        { "text": "เมืองชล", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "พัทยา / บางแสน / เกาะล้าน are sub-province zones → see zoneAliases."
+    },
+    {
+      "canonicalCode": "22",
+      "canonicalTh": "จันทบุรี",
+      "canonicalEn": "Chanthaburi",
+      "aliases": [
+        { "text": "เมืองจันท์", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "จันท์", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "23",
+      "canonicalTh": "ตราด",
+      "canonicalEn": "Trat",
+      "aliases": [
+        { "text": "เมืองตราด", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ตราด (bare) is in the resolver's AMBIGUOUS_PROVINCE_NAMES_TH guard; เกาะช้าง is a zone → zoneAliases."
+    },
+    {
+      "canonicalCode": "24",
+      "canonicalTh": "ฉะเชิงเทรา",
+      "canonicalEn": "Chachoengsao",
+      "aliases": [
+        { "text": "แปดริ้ว", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "25",
+      "canonicalTh": "ปราจีนบุรี",
+      "canonicalEn": "Prachin Buri",
+      "aliases": [
+        { "text": "ปราจีน", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "30",
+      "canonicalTh": "นครราชสีมา",
+      "canonicalEn": "Nakhon Ratchasima",
+      "aliases": [
+        { "text": "โคราช", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองย่าโม", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "เขาใหญ่ / วังน้ำเขียว already in landmark-gazetteer.json — not duplicated here."
+    },
+    {
+      "canonicalCode": "31",
+      "canonicalTh": "บุรีรัมย์",
+      "canonicalEn": "Buri Ram",
+      "aliases": [
+        { "text": "บร", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" },
+        { "text": "เมืองปราสาทหิน", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "32",
+      "canonicalTh": "สุรินทร์",
+      "canonicalEn": "Surin",
+      "aliases": [
+        { "text": "เมืองช้าง", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "33",
+      "canonicalTh": "ศรีสะเกษ",
+      "canonicalEn": "Si Sa Ket",
+      "aliases": [
+        { "text": "ศก", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" }
+      ]
+    },
+    {
+      "canonicalCode": "34",
+      "canonicalTh": "อุบลราชธานี",
+      "canonicalEn": "Ubon Ratchathani",
+      "aliases": [
+        { "text": "อุบล", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองดอกบัว", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "35",
+      "canonicalTh": "ยโสธร",
+      "canonicalEn": "Yasothon",
+      "aliases": [
+        { "text": "เมืองบั้งไฟ", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "40",
+      "canonicalTh": "ขอนแก่น",
+      "canonicalEn": "Khon Kaen",
+      "aliases": [
+        { "text": "ขก", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" }
+      ]
+    },
+    {
+      "canonicalCode": "41",
+      "canonicalTh": "อุดรธานี",
+      "canonicalEn": "Udon Thani",
+      "aliases": [
+        { "text": "อุดร", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองอุดร", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ทะเลบัวแดง already in landmark-gazetteer.json."
+    },
+    {
+      "canonicalCode": "42",
+      "canonicalTh": "เลย",
+      "canonicalEn": "Loei",
+      "aliases": [
+        { "text": "เมืองเลย", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "เลย (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH; เชียงคาน / ภูเรือ are zones → zoneAliases; ภูกระดึง already in gazetteer."
+    },
+    {
+      "canonicalCode": "44",
+      "canonicalTh": "มหาสารคาม",
+      "canonicalEn": "Maha Sarakham",
+      "aliases": [
+        { "text": "สารคาม", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองตักสิลา", "matchMode": "substring", "kind": "historical" }
+      ]
+    },
+    {
+      "canonicalCode": "45",
+      "canonicalTh": "ร้อยเอ็ด",
+      "canonicalEn": "Roi Et",
+      "aliases": [
+        { "text": "เอ็ด", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" },
+        { "text": "สาเกตนคร", "matchMode": "substring", "kind": "historical" },
+        { "text": "เมืองเกินร้อย", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "47",
+      "canonicalTh": "สกลนคร",
+      "canonicalEn": "Sakon Nakhon",
+      "aliases": [
+        { "text": "สกล", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "สกล is short (3 chars) and a substring of สกลนคร → exact + guard."
+    },
+    {
+      "canonicalCode": "49",
+      "canonicalTh": "มุกดาหาร",
+      "canonicalEn": "Mukdahan",
+      "aliases": [
+        { "text": "มุก", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "มุก ('pearl') is a common word → exact + guard."
+    },
+    {
+      "canonicalCode": "50",
+      "canonicalTh": "เชียงใหม่",
+      "canonicalEn": "Chiang Mai",
+      "aliases": [
+        { "text": "เจียงใหม่", "matchMode": "substring", "kind": "dialect" },
+        { "text": "เมืองเชียงใหม่", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "เจียงใหม่ = คำเมือง (northern-dialect) pronunciation; ดอยอินทนนท์ / ดอยอ่างขาง / ดอยหลวงเชียงดาว already in gazetteer; แม่กำปอง is a zone → zoneAliases."
+    },
+    {
+      "canonicalCode": "51",
+      "canonicalTh": "ลำพูน",
+      "canonicalEn": "Lamphun",
+      "aliases": [
+        { "text": "หละปูน", "matchMode": "substring", "kind": "dialect" },
+        { "text": "นครหริภุญชัย", "matchMode": "substring", "kind": "historical" }
+      ]
+    },
+    {
+      "canonicalCode": "52",
+      "canonicalTh": "ลำปาง",
+      "canonicalEn": "Lampang",
+      "aliases": [
+        { "text": "เขลางค์", "matchMode": "substring", "kind": "historical" },
+        { "text": "เมืองรถม้า", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "54",
+      "canonicalTh": "แพร่",
+      "canonicalEn": "Phrae",
+      "aliases": [
+        { "text": "เมืองแพร่", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "แพร่ (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH."
+    },
+    {
+      "canonicalCode": "55",
+      "canonicalTh": "น่าน",
+      "canonicalEn": "Nan",
+      "aliases": [
+        { "text": "เมืองน่าน", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "นันทบุรี", "matchMode": "substring", "kind": "historical" }
+      ],
+      "note": "น่าน (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH."
+    },
+    {
+      "canonicalCode": "57",
+      "canonicalTh": "เชียงราย",
+      "canonicalEn": "Chiang Rai",
+      "aliases": [
+        { "text": "เจียงฮาย", "matchMode": "substring", "kind": "dialect" }
+      ],
+      "note": "ภูชี้ฟ้า / ดอยตุง / ดอยแม่สลอง already in gazetteer."
+    },
+    {
+      "canonicalCode": "58",
+      "canonicalTh": "แม่ฮ่องสอน",
+      "canonicalEn": "Mae Hong Son",
+      "aliases": [
+        { "text": "เมืองสามหมอก", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ปาย / ปางอุ๋ง already in gazetteer."
+    },
+    {
+      "canonicalCode": "60",
+      "canonicalTh": "นครสวรรค์",
+      "canonicalEn": "Nakhon Sawan",
+      "aliases": [
+        { "text": "ปากน้ำโพ", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองสี่แคว", "matchMode": "substring", "kind": "historical" }
+      ]
+    },
+    {
+      "canonicalCode": "62",
+      "canonicalTh": "กำแพงเพชร",
+      "canonicalEn": "Kamphaeng Phet",
+      "aliases": [
+        { "text": "กำแพง", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" }
+      ],
+      "note": "กำแพง ('wall') is a common word and a substring of the canonical name → exact + guard."
+    },
+    {
+      "canonicalCode": "63",
+      "canonicalTh": "ตาก",
+      "canonicalEn": "Tak",
+      "aliases": [
+        { "text": "เมืองตาก", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ตาก (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH; แม่สอด is a zone → zoneAliases; ทีลอซู already in gazetteer."
+    },
+    {
+      "canonicalCode": "65",
+      "canonicalTh": "พิษณุโลก",
+      "canonicalEn": "Phitsanulok",
+      "aliases": [
+        { "text": "สองแคว", "matchMode": "substring", "kind": "historical" },
+        { "text": "พิด", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "ภูหินร่องกล้า already in gazetteer."
+    },
+    {
+      "canonicalCode": "66",
+      "canonicalTh": "พิจิตร",
+      "canonicalEn": "Phichit",
+      "aliases": [
+        { "text": "เมืองชาละวัน", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "70",
+      "canonicalTh": "ราชบุรี",
+      "canonicalEn": "Ratchaburi",
+      "aliases": [
+        { "text": "เมืองราช", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "สวนผึ้ง already in gazetteer; เมืองราช is generic → exact + guard."
+    },
+    {
+      "canonicalCode": "71",
+      "canonicalTh": "กาญจนบุรี",
+      "canonicalEn": "Kanchanaburi",
+      "aliases": [
+        { "text": "กาญจน์", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" },
+        { "text": "เมืองกาญจน์", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "น้ำตกเอราวัณ / เขื่อนศรีนครินทร์ already in gazetteer; สังขละบุรี / ทองผาภูมิ are zones → zoneAliases."
+    },
+    {
+      "canonicalCode": "72",
+      "canonicalTh": "สุพรรณบุรี",
+      "canonicalEn": "Suphan Buri",
+      "aliases": [
+        { "text": "สุพรรณ", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "74",
+      "canonicalTh": "สมุทรสาคร",
+      "canonicalEn": "Samut Sakhon",
+      "aliases": [
+        { "text": "มหาชัย", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "ท่าฉลอม", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "75",
+      "canonicalTh": "สมุทรสงคราม",
+      "canonicalEn": "Samut Songkhram",
+      "aliases": [
+        { "text": "แม่กลอง", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "76",
+      "canonicalTh": "เพชรบุรี",
+      "canonicalEn": "Phetchaburi",
+      "aliases": [
+        { "text": "เมืองเพชร", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "COLLISION: เมืองเพชร is also used colloquially for เพชรบูรณ์ (Phetchabun). Mapped to Phetchaburi (the traditional 'เมืองเพชร') but flagged exact + guard; the build story must decide precedence. แก่งกระจาน already in gazetteer."
+    },
+    {
+      "canonicalCode": "77",
+      "canonicalTh": "ประจวบคีรีขันธ์",
+      "canonicalEn": "Prachuap Khiri Khan",
+      "aliases": [
+        { "text": "ประจวบ", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "หัวหิน / ปราณบุรี / บางสะพาน are zones → zoneAliases."
+    },
+    {
+      "canonicalCode": "80",
+      "canonicalTh": "นครศรีธรรมราช",
+      "canonicalEn": "Nakhon Si Thammarat",
+      "aliases": [
+        { "text": "เมืองคอน", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "คอน", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" },
+        { "text": "นครฯ", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" },
+        { "text": "ลิกอร์", "matchMode": "substring", "kind": "historical" }
+      ]
+    },
+    {
+      "canonicalCode": "83",
+      "canonicalTh": "ภูเก็ต",
+      "canonicalEn": "Phuket",
+      "aliases": [
+        { "text": "เมืองไข่มุกอันดามัน", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ป่าตอง is a zone → zoneAliases."
+    },
+    {
+      "canonicalCode": "84",
+      "canonicalTh": "สุราษฎร์ธานี",
+      "canonicalEn": "Surat Thani",
+      "aliases": [
+        { "text": "สุราษฎร์", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "เมืองร้อยเกาะ", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "เขาสก already in gazetteer; เกาะสมุย / เกาะพะงัน / เกาะเต่า are zones → zoneAliases."
+    },
+    {
+      "canonicalCode": "85",
+      "canonicalTh": "ระนอง",
+      "canonicalEn": "Ranong",
+      "aliases": [
+        { "text": "เมืองฝนแปดแดดสี่", "matchMode": "substring", "kind": "colloquial" }
+      ]
+    },
+    {
+      "canonicalCode": "90",
+      "canonicalTh": "สงขลา",
+      "canonicalEn": "Songkhla",
+      "aliases": [
+        { "text": "เมืองสงขลา", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "หาดใหญ่ is a zone (the largest search term for this province) → zoneAliases."
+    },
+    {
+      "canonicalCode": "92",
+      "canonicalTh": "ตรัง",
+      "canonicalEn": "Trang",
+      "aliases": [
+        { "text": "เมืองตรัง", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ตรัง (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH."
+    },
+    {
+      "canonicalCode": "93",
+      "canonicalTh": "พัทลุง",
+      "canonicalEn": "Phatthalung",
+      "aliases": [
+        { "text": "เมืองลุง", "matchMode": "exact", "contextGuard": true, "kind": "colloquial" }
+      ],
+      "note": "ลุง ('uncle') is a common word → exact + guard."
+    },
+    {
+      "canonicalCode": "95",
+      "canonicalTh": "ยะลา",
+      "canonicalEn": "Yala",
+      "aliases": [
+        { "text": "เมืองยะลา", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "ยะลา (bare) is in AMBIGUOUS_PROVINCE_NAMES_TH; เบตง is a zone → zoneAliases."
+    },
+    {
+      "canonicalCode": "96",
+      "canonicalTh": "นราธิวาส",
+      "canonicalEn": "Narathiwat",
+      "aliases": [
+        { "text": "นรา", "matchMode": "exact", "contextGuard": true, "kind": "abbreviation" }
+      ]
+    }
+  ],
+  "regionAliases": [
+    {
+      "canonicalRegion": "NORTH",
+      "aliases": [
+        { "text": "ล้านนา", "matchMode": "substring", "kind": "historical" },
+        { "text": "ภาคพายัพ", "matchMode": "substring", "kind": "historical" }
+      ],
+      "note": "Extends lib/thai-regions.ts REGION_ALIASES (which already has ภาคเหนือ/เหนือ/ทางเหนือ). Do NOT duplicate existing keys."
+    },
+    {
+      "canonicalRegion": "NORTHEAST",
+      "aliases": [
+        { "text": "ที่ราบสูงโคราช", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "แดนอีสาน", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "Extends REGION_ALIASES (already has ภาคตะวันออกเฉียงเหนือ/ภาคอีสาน/อีสาน)."
+    },
+    {
+      "canonicalRegion": "SOUTH",
+      "aliases": [
+        { "text": "ด้ามขวาน", "matchMode": "substring", "kind": "colloquial" },
+        { "text": "แดนใต้", "matchMode": "substring", "kind": "colloquial" }
+      ],
+      "note": "Extends REGION_ALIASES (already has ภาคใต้/ใต้/ปักษ์ใต้)."
+    },
+    {
+      "canonicalRegion": "EAST",
+      "aliases": [
+        { "text": "ภาคบูรพา", "matchMode": "substring", "kind": "historical" }
+      ],
+      "note": "Extends REGION_ALIASES (already has ภาคตะวันออก/ตะวันออก)."
+    }
+  ],
+  "zoneAliases": [
+    { "id": "hua-hin", "nameTh": "หัวหิน", "aliases": ["อ.หัวหิน", "อำเภอหัวหิน"], "provinceTh": "ประจวบคีรีขันธ์", "provinceCode": "77", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "อำเภอ; คำค้นแคมป์/ท่องเที่ยวยอดฮิต. เติมพิกัดภายหลัง หรือ map เข้าจังหวัด 77." },
+    { "id": "pran-buri", "nameTh": "ปราณบุรี", "aliases": ["อ.ปราณบุรี", "ปราณ"], "provinceTh": "ประจวบคีรีขันธ์", "provinceCode": "77", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "'ปราณ' เดี่ยวสั้น—ถ้าเติมควร exact." },
+    { "id": "bang-saphan", "nameTh": "บางสะพาน", "aliases": ["อ.บางสะพาน"], "provinceTh": "ประจวบคีรีขันธ์", "provinceCode": "77", "kind": "area", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "pattaya", "nameTh": "พัทยา", "aliases": ["เมืองพัทยา"], "provinceTh": "ชลบุรี", "provinceCode": "20", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "bang-saen", "nameTh": "บางแสน", "aliases": ["หาดบางแสน"], "provinceTh": "ชลบุรี", "provinceCode": "20", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ko-samet", "nameTh": "เกาะเสม็ด", "aliases": ["เสม็ด", "อุทยานแห่งชาติเขาแหลมหญ้า-หมู่เกาะเสม็ด"], "provinceTh": "ระยอง", "provinceCode": "21", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "'เสม็ด' เดี่ยวควร exact." },
+    { "id": "ko-chang", "nameTh": "เกาะช้าง", "aliases": ["อุทยานแห่งชาติหมู่เกาะช้าง"], "provinceTh": "ตราด", "provinceCode": "23", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ko-samui", "nameTh": "เกาะสมุย", "aliases": ["สมุย", "อ.เกาะสมุย"], "provinceTh": "สุราษฎร์ธานี", "provinceCode": "84", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "'สมุย' เดี่ยว distinctive—substring ได้." },
+    { "id": "ko-pha-ngan", "nameTh": "เกาะพะงัน", "aliases": ["พะงัน", "อ.เกาะพะงัน"], "provinceTh": "สุราษฎร์ธานี", "provinceCode": "84", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ko-tao", "nameTh": "เกาะเต่า", "aliases": [], "provinceTh": "สุราษฎร์ธานี", "provinceCode": "84", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "'เต่า' เดี่ยว (turtle) เป็นคำทั่วไป—อย่าใช้เดี่ยว." },
+    { "id": "hat-yai", "nameTh": "หาดใหญ่", "aliases": ["อ.หาดใหญ่", "อำเภอหาดใหญ่"], "provinceTh": "สงขลา", "provinceCode": "90", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "คำค้นที่ใหญ่ที่สุดของ จ.สงขลา." },
+    { "id": "betong", "nameTh": "เบตง", "aliases": ["อ.เบตง"], "provinceTh": "ยะลา", "provinceCode": "95", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "chiang-khan", "nameTh": "เชียงคาน", "aliases": ["อ.เชียงคาน"], "provinceTh": "เลย", "provinceCode": "42", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "phu-ruea", "nameTh": "ภูเรือ", "aliases": ["อ.ภูเรือ", "อุทยานแห่งชาติภูเรือ"], "provinceTh": "เลย", "provinceCode": "42", "kind": "mountain", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ao-nang", "nameTh": "อ่าวนาง", "aliases": ["หาดอ่าวนาง"], "provinceTh": "กระบี่", "provinceCode": "81", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ko-lanta", "nameTh": "เกาะลันตา", "aliases": ["ลันตา", "อ.เกาะลันตา"], "provinceTh": "กระบี่", "provinceCode": "81", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "sangkhla-buri", "nameTh": "สังขละบุรี", "aliases": ["อ.สังขละบุรี", "สังขละ"], "provinceTh": "กาญจนบุรี", "provinceCode": "71", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "thong-pha-phum", "nameTh": "ทองผาภูมิ", "aliases": ["อ.ทองผาภูมิ"], "provinceTh": "กาญจนบุรี", "provinceCode": "71", "kind": "area", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "pa-tong", "nameTh": "ป่าตอง", "aliases": ["หาดป่าตอง"], "provinceTh": "ภูเก็ต", "provinceCode": "83", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "ko-lipe", "nameTh": "เกาะหลีเป๊ะ", "aliases": ["หลีเป๊ะ"], "provinceTh": "สตูล", "provinceCode": "91", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "mae-sot", "nameTh": "แม่สอด", "aliases": ["อ.แม่สอด"], "provinceTh": "ตาก", "provinceCode": "63", "kind": "town", "lat": null, "lng": null, "radiusKm": null, "note": "" },
+    { "id": "mae-kampong", "nameTh": "แม่กำปอง", "aliases": ["บ้านแม่กำปอง"], "provinceTh": "เชียงใหม่", "provinceCode": "50", "kind": "area", "lat": null, "lng": null, "radiusKm": null, "note": "หมู่บ้านโฮมสเตย์/แคมป์ยอดฮิต." }
+  ]
+}

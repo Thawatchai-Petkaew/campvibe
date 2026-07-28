@@ -109,3 +109,32 @@ export async function matchAdminArea(
         select: { id: true, code: true, nameTh: true, nameEn: true, parentId: true },
     });
 }
+
+/** The one Prisma delegate `listChildAdminAreaIds` needs — a structural subset of `AdminAreaMatchPrisma` (`findMany` only, no `findFirst`), so a caller that only ever lists children can satisfy this with a narrower test double. */
+export type AdminAreaListPrisma = Pick<PrismaClient, 'adminArea'>;
+
+/**
+ * CAM-587 — every immediate child id of `parentId` at the given `level`
+ * (e.g. every SUBDISTRICT beneath one DISTRICT, or every DISTRICT beneath one
+ * PROVINCE). Extracted here (not duplicated per caller) because it is the
+ * SAME "one level down" primitive `resolveProvinceAdminAreaIds`
+ * (`lib/campsite-filters.ts`, CAM-563) already hand-rolls twice inline for
+ * its own province->district->subDistrict subtree walk — CAM-587 needs the
+ * identical primitive for a DISTRICT's own subtree (district ->
+ * subDistrict), so it is composed from this shared function rather than a
+ * third hand-rolled copy (the exact drift `matchAdminArea`'s own docblock
+ * warns about). Never throws; an unknown/childless `parentId` simply
+ * resolves to `[]` (a real Prisma `findMany` naturally returns no rows).
+ */
+export async function listChildAdminAreaIds(
+    prisma: AdminAreaListPrisma,
+    level: AdminAreaLevel,
+    parentId: string
+): Promise<string[]> {
+    if (!parentId) return [];
+    const rows = await prisma.adminArea.findMany({
+        where: { countryCode: 'TH', level, parentId },
+        select: { id: true },
+    });
+    return rows.map((r) => r.id);
+}

@@ -48,10 +48,11 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// CAM-552 — the responsive-scale rules (M1/M2/M3, + M4 added CAM-565) live in
-// their own file but run under `npm run check:ds`, so the quality gate and CI
-// pick them up with no new package.json script. See scripts/check-scale.mjs
-// for the rollout mode of each rule and the named backlog.
+// CAM-552 — the responsive-scale rules (M1/M2/M3, + M4 added CAM-565, blocking
+// since CAM-581) live in their own file but run under `npm run check:ds`, so
+// the quality gate and CI pick them up with no new package.json script. See
+// scripts/check-scale.mjs for the rollout mode of each rule and the named
+// backlog (M4's is 0 as of CAM-581).
 import { runScaleGuard } from "./check-scale.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -539,32 +540,23 @@ function main() {
     console.log("");
   }
 
-  // ── CAM-552 responsive-scale rules (M1/M2/M3, + M4 added CAM-565) ──────────
+  // ── CAM-552 responsive-scale rules (M1/M2/M3, + M4 blocking since CAM-581) ─
   const scale = runScaleGuard();
   for (const row of [
     ["M1-control-height-not-responsive", "blocking(scoped)+report"],
     ["M2-display-type-not-responsive", "blocking(scoped)+report"],
     ["M3-mobile-step-under-touch-floor", "blocking(repo-wide)"],
-    ["M4-min-width-literal-not-shrink-safe", "report-only(repo-wide, new)"],
+    ["M4-min-width-literal-not-shrink-safe", "blocking(repo-wide)"],
   ]) {
     const [id, mode] = row;
     const b = scale.blocking.filter((f) => f.rule === id).length;
-    // M4 (CAM-565) lives in its own `textScaleRisk` bucket, not `report` —
-    // see check-scale.mjs's runScaleGuard() doc comment for why.
-    const r = id.startsWith("M4-")
-      ? scale.textScaleRisk.filter((f) => f.rule === id).length
-      : scale.report.filter((f) => f.rule === id).length;
+    const r = scale.report.filter((f) => f.rule === id).length;
     const status = b === 0 ? "ok   (0)" : `FAIL (${b})`;
     console.log(`  ${status.padEnd(12)} ${id}  [${mode}]  backlog=${r}`);
   }
   if (scale.report.length > 0) {
     console.log(
       `  → ${scale.report.length} responsive-scale report-mode finding${scale.report.length === 1 ? "" : "s"} (not blocking yet); run \`node scripts/check-scale.mjs\` for the list.`
-    );
-  }
-  if (scale.textScaleRisk.length > 0) {
-    console.log(
-      `  → ${scale.textScaleRisk.length} text-scale-risk finding${scale.textScaleRisk.length === 1 ? "" : "s"} (CAM-565, M4, not blocking yet); run \`node scripts/check-scale.mjs\` for the list.`
     );
   }
   console.log("");

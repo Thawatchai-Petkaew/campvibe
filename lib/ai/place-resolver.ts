@@ -20,6 +20,26 @@
  * "province wins" rule, `executeSearchCampsites` — CAM-463 Decision 2/BR-3).
  * A terrain/facility word (ริมน้ำ/ริมทะเล/ภูเขา/ป่า) is never treated as a
  * place (AC-4) — it simply never appears in either candidate list below.
+ *
+ * CAM-596 — extends this SAME pure/synchronous pre-pass with a DISTRICT
+ * detector (`detectDistrict` below), the missing half of CAM-587: that
+ * story wired `district`/`subDistrict` into the TOOL and proved the
+ * resolution layer (`matchAdminArea`, CAM-566) works, but nothing made the
+ * MODEL actually set the argument — this pre-pass is that mechanism,
+ * mirroring exactly how it already forces province/region/near. Sub-district
+ * free-text detection was measured (real regression run against this file's
+ * own `cam-501` suite) and deliberately dropped from this story's scope —
+ * see `detectDistrict`'s own doc comment for the evidence. Deliberately
+ * stays synchronous/DB-free (see this story's own tech.md,
+ * `docs/specs/platform-hardening/taxonomy-ui-foundation/
+ * CAM-596-district-through-the-model/tech.md`, for why calling
+ * `matchAdminArea` directly here would be redundant, not safer): the
+ * candidate gazetteer is `thailandLocations` below — the EXACT seed source
+ * of the live `AdminArea` table `matchAdminArea` queries (`prisma/seed.ts`),
+ * so a pre-pass "yes, this looks like a district" can never name something
+ * the real resolver wouldn't also recognize, and a pre-pass false positive
+ * is caught downstream by the tool's existing honest-empty path (CAM-587
+ * BR-2), never silently wrong.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
@@ -57,6 +77,22 @@ export interface ResolvedPlace {
   near?: string;
   /** CAM-503 BR-2 — true when `near` above came from the landmark gazetteer, not a province proximity mention. Absent/false = province. */
   nearIsLandmark?: boolean;
+  /**
+   * CAM-596 — an exact Thai อำเภอ (district) name detected in free text,
+   * e.g. "แม่ริม". Checked BEFORE the plain `province` detection below (a
+   * named district is more specific — mirrors the tool's own real
+   * precedence, `near` > `district` > `province` > `region`, CAM-587 BR-1).
+   * MAY be set together with `province` when the SAME message also names
+   * one (CAM-596 BR-2) — that province is consulted only as a scoping hint
+   * by the existing, unchanged `resolveExactInsideAdminAreaIds`, never as a
+   * competing top-level filter. Sub-district free-text detection was
+   * measured and deliberately NOT added in this story — see
+   * `detectDistrict`'s own doc comment below for the evidence (a bare
+   * "ตำบล" mention today gets no pre-pass hint, unchanged from before this
+   * story; the model may still set `subDistrict` on its own initiative per
+   * the tool's own parameter description).
+   */
+  district?: string;
 }
 
 interface ProvinceEntry {
@@ -406,6 +442,112 @@ function detectLandmark(text: string): string | undefined {
 }
 
 /**
+ * CAM-596 — the DISTRICT candidate gazetteer, built ONCE at module load from
+ * the SAME `thailandLocations` import `PROVINCES` above already uses (never
+ * a second data file). Every district `nameTh` is flattened out of the full
+ * hierarchy (930 districts) and then filtered through the collision guards
+ * this story's tech.md documents (measured, not guessed):
+ *
+ * 1. Shorter than 4 Thai characters -> excluded entirely (mirrors
+ *    `AMBIGUOUS_PROVINCE_NAMES_TH`'s own "too short/generic" treatment).
+ * 2. Already in `AMBIGUOUS_PROVINCE_NAMES_TH` (e.g. ตรัง, ยะลา) -> excluded,
+ *    reusing that one curated set rather than a second one.
+ * 3. A substring of ANY province's own `nameTh` (INCLUDING an exact match)
+ *    -> excluded entirely. Measured false-match risk, not hypothetical:
+ *    อุทัย/หนองบัว/พนม are each a district in a DIFFERENT province than the
+ *    one whose name contains them (อุทัย -> Ayutthaya, not อุทัยธานี;
+ *    หนองบัว -> Nakhon Sawan, not หนองบัวลำภู; พนม -> Surat Thani, not
+ *    นครพนม) — a bare mention of THAT province would otherwise wrongly fire
+ *    the wrong-province district. A district that IS itself an exact
+ *    province name ("พระนครศรีอยุธยา") is excluded too — `detectProvince`
+ *    already resolves that bare mention correctly, so firing the district
+ *    on the identical text is redundant at best.
+ * 4. Exactly "เมือง" + its own province's name (the provincial-capital-
+ *    district naming pattern, measured 75 of 77 provinces) -> excluded
+ *    entirely: the plain province name is always co-present as a substring
+ *    of this exact pattern, so the existing (unchanged) province detector
+ *    already covers the camper's intent — firing the district on top would
+ *    silently over-narrow a province-shaped ask.
+ *
+ * Every SURVIVING candidate is tagged `requiresCampingContext`: true only
+ * when it starts with "เมือง" (the 4 names that are NOT the capital-district
+ * pattern above) or "ท่า" (an ordinary Thai word for "pier/dock", measured
+ * across 23 district names) — the same context-guard treatment
+ * CAM-503-DEF-2 already gave "เขาใหญ่"/"เขาหลัก".
+ *
+ * Sub-district detection was measured and DELIBERATELY DROPPED from this
+ * story's scope (see story.md "Out of scope"): the same context-guard
+ * mechanism gives no real protection at sub-district scale, because a
+ * camping-context marker is present in nearly every message this assistant
+ * ever receives — proven by a red regression run against the existing
+ * `cam-501` suite, where real sub-district names "เหนือ" (above/north),
+ * "กลาง" (middle), and "ตากแดด" (sunbathe, literally a real sub-district in
+ * 3 separate provinces) all fired even WITH a camping-context marker
+ * present, breaking pinned EC-2 false-match-guard tests. District-level
+ * detection carries no such measured collision beyond guards 1-4 above.
+ */
+interface AdminAreaCandidate {
+  nameTh: string;
+  requiresCampingContext: boolean;
+}
+
+const MIN_ADMIN_AREA_NAME_LENGTH = 4;
+const CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH = ['เมือง', 'ท่า'] as const;
+
+/**
+ * True when `name` appears as a substring inside ANY province's own
+ * `nameTh` — including an EXACT match (guard #3 above). Deliberately does
+ * NOT exclude the self-equality case: measured, a district
+ * ("พระนครศรีอยุธยา") is an EXACT duplicate of a real province's own name.
+ * `detectProvince` already resolves a bare mention of it correctly; firing
+ * a district hint on the identical text would be redundant.
+ */
+function isSubstringOfAnyProvince(name: string): boolean {
+  return PROVINCES.some((p) => p.nameTh.length > 0 && p.nameTh.includes(name));
+}
+
+function buildAdminAreaCandidates(): readonly AdminAreaCandidate[] {
+  const byName = new Map<string, AdminAreaCandidate>();
+
+  for (const province of thailandLocations as ReadonlyArray<{
+    nameTh: string;
+    districts: ReadonlyArray<{ nameTh: string }>;
+  }>) {
+    for (const district of province.districts) {
+      const nameTh = district.nameTh;
+      if (byName.has(nameTh)) continue;
+      if (nameTh.length < MIN_ADMIN_AREA_NAME_LENGTH) continue;
+      if (AMBIGUOUS_PROVINCE_NAMES_TH.has(nameTh)) continue;
+      if (nameTh === `เมือง${province.nameTh}`) continue; // capital-district pattern — province detection already covers it
+      if (isSubstringOfAnyProvince(nameTh)) continue;
+
+      const requiresCampingContext = CONTEXT_GUARDED_ADMIN_AREA_PREFIXES_TH.some((prefix) => nameTh.startsWith(prefix));
+      byName.set(nameTh, { nameTh, requiresCampingContext });
+    }
+  }
+
+  return Array.from(byName.values()).sort((a, b) => b.nameTh.length - a.nameTh.length);
+}
+
+const ADMIN_AREA_CANDIDATES_BY_LENGTH_DESC: readonly AdminAreaCandidate[] = buildAdminAreaCandidates();
+
+/**
+ * CAM-596 — first (longest, per the sort above) surviving district candidate
+ * whose `nameTh` appears in `text`, skipping (not stopping at) a context-
+ * guarded candidate when no camping-context marker is present — same "skip
+ * and keep scanning" idiom `detectLandmark` already uses for its own
+ * context-guarded names. `undefined` = no district plausibly named.
+ */
+function detectDistrict(text: string): string | undefined {
+  for (const candidate of ADMIN_AREA_CANDIDATES_BY_LENGTH_DESC) {
+    if (!text.includes(candidate.nameTh)) continue;
+    if (candidate.requiresCampingContext && !hasCampingContextMarker(text)) continue;
+    return candidate.nameTh;
+  }
+  return undefined;
+}
+
+/**
  * BR-1/BR-3 — the resolver itself. CAM-503 BR-2/EC-4 — a landmark match is
  * checked FIRST, ahead of the proximity/province/region checks below: a
  * landmark name already implies area-intent on its own (no proximity marker
@@ -419,6 +561,18 @@ function detectLandmark(text: string): string | undefined {
  * wins over region when both are found (EC-3 from CAM-501); neither is set
  * when neither is found (AC-4 — a bare terrain/facility word resolves to
  * `{}`).
+ *
+ * CAM-596 BR-1 — a district check is inserted here, AFTER the landmark +
+ * Bangkok-bare-mention checks above (both unchanged) and BEFORE the plain
+ * `province`/`region` checks below — mirroring the tool's own real
+ * precedence (`near` > `district` > `province` > `region`, CAM-587 BR-1). A
+ * proximity marker has NO effect on this branch (EC-3 of this story) — the
+ * tool's own `near` parameter description already tells the model never to
+ * use `near` for a district/town, so a stray proximity word next to a
+ * district name is simply ignored here, unlike its effect on a bare
+ * province mention below. A province named in the SAME message is still
+ * attached alongside the district (BR-2/AC-4) purely as a scoping hint for
+ * the existing, unchanged `resolveExactInsideAdminAreaIds`.
  */
 export function resolvePlace(text: string): ResolvedPlace {
   if (!text) return {};
@@ -434,6 +588,12 @@ export function resolvePlace(text: string): ResolvedPlace {
   // province already resolves to `province` by default below.
   if (isBareBangkokMention(text)) {
     return proximity ? { near: 'กรุงเทพ' } : { province: 'Bangkok' };
+  }
+
+  const district = detectDistrict(text);
+  if (district) {
+    const coProvince = detectProvince(text);
+    return { district, ...(coProvince ? { province: coProvince } : {}) };
   }
 
   const province = detectProvince(text);

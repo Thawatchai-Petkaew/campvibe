@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Calendar as CalendarIcon, Users, Loader2, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getSearchProvinces } from "@/app/actions/getSearchLocations";
+import { getSearchProvinces, type SearchProvinceOption } from "@/app/actions/getSearchLocations";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -75,7 +75,7 @@ function resolveSelectedExperience(searchParams: URLSearchParams): string | null
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -94,7 +94,11 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     // hardcoded 7-key object literal; it now loads the provinces that
     // actually have a published camp, so every offered option is
     // guaranteed to return >=1 result (see app/actions/getSearchLocations.ts).
-    const [provinces, setProvinces] = useState<string[]>([]);
+    // CAM-589 — each option now carries both `nameTh`/`nameEn` so the LABEL
+    // can follow the active UI language; the SUBMITTED value stays `nameEn`
+    // (byte-identical to the raw province string, see the option's doc
+    // comment — the filter matcher depends on it, unchanged here).
+    const [provinces, setProvinces] = useState<SearchProvinceOption[]>([]);
     const [provincesLoading, setProvincesLoading] = useState(true);
     const [provincesError, setProvincesError] = useState(false);
 
@@ -115,6 +119,19 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     useEffect(() => {
         if (isOpen) loadProvinces();
     }, [isOpen, loadProvinces]);
+
+    // CAM-589 — sort by the DISPLAYED language (Thai locale order for Thai
+    // labels, English order for English labels), not always English order
+    // with a translated label pasted on top.
+    const sortedProvinces = useMemo(() => {
+        const collator = new Intl.Collator(language === "th" ? "th" : "en");
+        return [...provinces].sort((a, b) =>
+            collator.compare(
+                language === "th" ? a.nameTh : a.nameEn,
+                language === "th" ? b.nameTh : b.nameEn
+            )
+        );
+    }, [provinces, language]);
 
     const handleSearch = () => {
         const params = new URLSearchParams(searchParams.toString());
@@ -246,8 +263,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                         </SelectTrigger>
                                         <SelectContent className="shadow-2xl">
                                             <SelectItem value=" " className="cursor-pointer">{t.search.anyProvince}</SelectItem>
-                                            {provinces.map(p => (
-                                                <SelectItem key={p} value={p} className="cursor-pointer">{p}</SelectItem>
+                                            {sortedProvinces.map(p => (
+                                                <SelectItem key={p.id} value={p.nameEn} className="cursor-pointer">
+                                                    {language === "th" ? p.nameTh : p.nameEn}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>

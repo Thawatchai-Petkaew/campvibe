@@ -36,6 +36,14 @@
  * `GetCampDetailResult` field — an empty/`null` field HIDES its row/section
  * rather than rendering a blank or a fabricated placeholder.
  *
+ * CAM-597: the hero location text is `buildLocationText(card.location,
+ * language)` — the SAME localized "district(s), province" renderer the
+ * catalog card and `AiChatCampCard.tsx` use, in the ACTIVE language, never
+ * the raw English `location.province`. It still reads from the instant
+ * `card` prop (never `detail.location`, the async `GetCampDetailResult`
+ * field, which this component does not render) — so it stays part of the
+ * INSTANT paint above, not gated on the fetch.
+ *
  * CAM-454 (owner staging feedback, part of the AiChatPanel expanded-card
  * shell story): two small cleanups.
  *  1. `overscroll-contain` on this ScrollArea's viewport (scrolling to the
@@ -78,6 +86,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
 import { aiChatAPI, type AiChatCardResponse } from "@/lib/api-client";
+import { buildLocationText } from "@/components/ai-chat/location-text";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
 import { cn } from "@/lib/utils";
@@ -271,8 +280,12 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
     detail?.distanceFromBangkokKm != null
       ? t.aiChat.detail.distanceApprox.replace("{count}", String(Math.round(detail.distanceFromBangkokKm)))
       : null;
+  // CAM-597 — localized "district(s), province" text (reuses the SAME
+  // buildLocationText the catalog card uses, CAM-545/CAM-573), never the
+  // raw English `location.province` beside a Thai session.
+  const locationText = buildLocationText(card.location, language);
   const locationParts = [
-    hasProvince ? card.location.province : null,
+    hasProvince ? locationText : null,
     terrainAmenity ? amenityName(terrainAmenity) : null,
     accessAmenity ? amenityName(accessAmenity) : null,
   ].filter((part): part is string => Boolean(part));
