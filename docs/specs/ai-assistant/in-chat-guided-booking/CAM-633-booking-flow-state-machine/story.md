@@ -65,7 +65,7 @@ Depends on: CAM-632 (`resolveDatesCore`, the pure date resolver this reuses unch
 ## Out of scope
 - Wiring `BOOKING_STEPS`/`advanceBookingFlow` into `AiChatPanel`/`AiChatMessageList` (chips, the composer, focus management, the live availability re-check before `summary`, the `back`/`edit` controls, the handoff `<Link>`) → CAM-639/CAM-640.
 - Delivering `ThaiHoliday` data to the browser so the `date` step can resolve holiday-phrases client-side → CAM-640 (already scoped out of CAM-632 too).
-- `lib/booking-prefill.ts` (the module that will consume the `exit`/`handoff` `prefill` payload) — landing in a separate, not-yet-merged PR (#719); this story does not import it, only shapes its payload as plain `BookingSlots`.
+- `lib/booking-prefill.ts` (the module that will consume the `exit`/`handoff` `prefill` payload) — landing in a separate, not-yet-merged ticket (CAM-634); this story does not import it, only shapes its payload as plain `BookingSlots`.
 - Extending `resolveDatesCore` with an absolute day+Thai-month rule (e.g. `15 ส.ค.`) — see the Changelog note; a follow-up story if the product wants this literal example from the design brief to actually resolve.
 
 ## Self-verify

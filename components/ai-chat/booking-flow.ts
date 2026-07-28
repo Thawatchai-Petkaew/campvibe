@@ -46,8 +46,8 @@
  * Per that module: price is PER NIGHT; guests do NOT multiply it.
  *
  * Handoff payload note: `lib/booking-prefill.ts` (the module that will
- * consume the `exit`/`handoff` payload below) is landing in a sibling PR
- * (#719, not yet merged) — this file deliberately does NOT import it. The
+ * consume the `exit`/`handoff` payload below) is landing in a sibling ticket
+ * (CAM-634, not yet merged) — this file deliberately does NOT import it. The
  * exit payload is defined here as the plain `BookingSlots` shape and CAM-640
  * connects the two.
  */
