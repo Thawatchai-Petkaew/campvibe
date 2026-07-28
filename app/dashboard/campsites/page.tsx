@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 import {
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { InputField } from "@/components/ui/input-field";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { PermissionTooltip } from "@/components/ui/permission-tooltip";
+import { ErrorState } from "@/components/ErrorState";
 import { toast } from "sonner";
 import {
     Select,
@@ -32,13 +33,21 @@ export default function MyCampSitesPage() {
     const { t, formatCurrency, language } = useLanguage();
     const [campSites, setCampSites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // CAM-616: a 500 from /api/operator/dashboard used to fall through to
+    // setCampSites([]), rendering the operator's entire portfolio as "no
+    // campsites yet" — indistinguishable from having actually deleted every
+    // listing. Tracked separately so a load failure renders <ErrorState/>
+    // with a retry, never the empty-state table row.
+    const [loadError, setLoadError] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("newest");
     const [permissions, setPermissions] = useState<any | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-    useEffect(() => {
+    const loadCampSites = useCallback(() => {
+        setLoading(true);
+        setLoadError(false);
         fetch('/api/operator/dashboard')
             .then(async res => {
                 if (!res.ok) {
@@ -48,7 +57,6 @@ export default function MyCampSitesPage() {
                 return res.json();
             })
             .then(data => {
-                console.log('Dashboard API response:', data);
                 // Handle both direct response and wrapped response
                 const responseData = data.data || data;
                 const campSitesData = responseData.campSites || [];
@@ -65,11 +73,18 @@ export default function MyCampSitesPage() {
                 setLoading(false);
             })
             .catch(err => {
+                // CAM-616: a fetch/parse failure is an infrastructure problem,
+                // not "you have zero camp sites" — render the error state
+                // (with retry) instead of collapsing to an empty list.
                 console.error("Failed to load camp sites", err);
-                setCampSites([]);
+                setLoadError(true);
                 setLoading(false);
             });
     }, []);
+
+    useEffect(() => {
+        loadCampSites();
+    }, [loadCampSites]);
 
     const filteredCampSites = campSites.filter(camp =>
         camp.nameTh.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -113,6 +128,12 @@ export default function MyCampSitesPage() {
     };
 
     if (loading) return <CardGridSkeleton count={6} />;
+
+    // CAM-616: an infrastructure failure is not "you have zero camp sites" —
+    // show the shared error state (with retry) instead of the empty table.
+    if (loadError) {
+        return <ErrorState variant="error" compact onRetry={loadCampSites} />;
+    }
 
     const canCreateCampSite = permissions?.canCreateCampSite !== false;
 

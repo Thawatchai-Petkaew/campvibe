@@ -113,7 +113,8 @@
             "loading_sr": "Loading…"
         },
         "notifications": {
-            "unreadCountAria": "{count} unread notifications"
+            "unreadCountAria": "{count} unread notifications",
+            "loadError": "Couldn't load notifications"
         },
         "categories": {
             "all": "All",
@@ -182,7 +183,8 @@
             "total": "Total",
             "selectDatesFirst": "Please choose your check-in and check-out dates first.",
             "remainingSpots": "{n} spots left",
-            "fullyBooked": "Fully booked"
+            "fullyBooked": "Fully booked",
+            "availabilityLoadError": "Couldn't load available dates. Please try again."
         },
         "profile": {
             "title": "My Profile",
@@ -834,6 +836,7 @@
             "loading_sr": "Loading…",
             "loading_more": "Loading more camps",
             "end_of_list": "You've seen all camps",
+            "load_more_error": "Couldn't load more camps",
             "fullyUnavailable": "Not available for these dates",
             "partiallyUnavailable": "Available some days in these dates"
         },
@@ -1192,7 +1195,8 @@
             "loading_sr": "กำลังโหลด…"
         },
         "notifications": {
-            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน"
+            "unreadCountAria": "มี {count} การแจ้งเตือนที่ยังไม่ได้อ่าน",
+            "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ"
         },
         "categories": {
             "all": "ทั้งหมด",
@@ -1261,7 +1265,8 @@
             "total": "ยอดรวม",
             "selectDatesFirst": "กรุณาเลือกวันเช็คอินและเช็คเอาท์ก่อน",
             "remainingSpots": "เหลือ {n} ที่",
-            "fullyBooked": "เต็มแล้ว"
+            "fullyBooked": "เต็มแล้ว",
+            "availabilityLoadError": "โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
         },
         "profile": {
             "title": "โปรไฟล์ของฉัน",
@@ -1914,6 +1919,7 @@
             "loading_sr": "กำลังโหลด…",
             "loading_more": "กำลังโหลดลานเพิ่มเติม",
             "end_of_list": "ดูลานครบทั้งหมดแล้ว",
+            "load_more_error": "โหลดลานเพิ่มเติมไม่สำเร็จ",
             "fullyUnavailable": "ไม่ว่างในช่วงที่เลือก",
             "partiallyUnavailable": "ว่างบางวันในช่วงที่เลือก"
         },
