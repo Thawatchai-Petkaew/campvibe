@@ -90,8 +90,12 @@ function daysBetweenISO(a: string, b: string): number {
  * as a Bangkok civil date, kept local here because that function returns a
  * full sentence, not a bare ISO date. EC-5 — an invalid/NaN `now` falls back
  * to the real current time, never throws.
+ *
+ * Exported (CAM-633 G3 review) so `components/ai-chat/booking-flow.ts` can
+ * import this instead of duplicating it — a second Bangkok-today helper is
+ * exactly the kind of drift this epic keeps paying for elsewhere.
  */
-function bangkokTodayISO(now: Date): string {
+export function bangkokTodayISO(now: Date): string {
   const safe = Number.isNaN(now.getTime()) ? new Date() : now;
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok',
