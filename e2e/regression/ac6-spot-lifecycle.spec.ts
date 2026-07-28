@@ -12,7 +12,7 @@
  *      every list read)
  */
 import { test, expect } from "@playwright/test";
-import { findCampBySlug } from "./helpers";
+import { findCampBySlug, withKeepAliveRaceRetry } from "./helpers";
 
 const SEED_SLUG = "khao-kho-mountain-camp-6";
 const DELETE_CONFIRM_TITLE = "ลบจุดนี้ใช่หรือไม่ ประวัติการจองจะยังถูกเก็บไว้";
@@ -79,7 +79,9 @@ test("spot lifecycle: create, visible in spots list + availability picker, soft-
 
   // Data result — soft-deleted (deletedAt set), gone from every list read:
   // the spots API no longer returns it...
-  const spotsRes = await request.get(`/api/campsites/${camp.id}/spots`);
+  const spotsRes = await withKeepAliveRaceRetry(`GET /api/campsites/${camp.id}/spots`, () =>
+    request.get(`/api/campsites/${camp.id}/spots`)
+  );
   expect(spotsRes.ok()).toBe(true);
   const spots = await spotsRes.json();
   expect(spots.map((s: { id: string }) => s.id)).not.toContain(spotId);

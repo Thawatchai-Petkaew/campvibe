@@ -1,7 +1,67 @@
 /**
  * CAM-359 — shared helpers for the 6 regression specs.
  */
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, APIResponse } from "@playwright/test";
+import { test } from "@playwright/test";
+
+/**
+ * CAM-603 — narrow, capped retry for the ONE class of transient network
+ * error this harness's Node-side `request.*` calls (this shared
+ * APIRequestContext, reused by every regression spec) can hit against the
+ * `next dev` webServer.
+ *
+ * Mechanism (verified, not a guess — see docs/specs/platform-hardening/
+ * taxonomy-ui-foundation/CAM-603-e2e-midrun-abort/tech.md for the full
+ * repro): `next dev` (unlike `next start`) never passes `keepAliveTimeout`
+ * to Node's http server, so Node's own default (5000ms) governs; Playwright
+ * bundles its APIRequestContext client with `keepAlive: true` and no
+ * matching idle cap of its own. A request reused on this shared context
+ * right as the server's idle timer destroys the socket can lose the race —
+ * server logs `Error: aborted {code:'ECONNRESET'}` (already a known,
+ * already-survived class in THIS codebase: `lib/observability/abort-guard.ts`,
+ * CAM-406, confirms Next's own default handler does not crash the process
+ * on it), client sees "socket hang up". Browsers silently retry an
+ * idempotent GET that hits a stale reused connection; Node's `http.Agent`
+ * does not — which is exactly why only these Node-side `request.*` calls
+ * (never a `page.goto()`) are exposed.
+ *
+ * This is NOT a blanket retry: `isTransientKeepAliveRace` matches ONLY the
+ * exact narrow error shape ("socket hang up" / "aborted" + NOT
+ * ECONNREFUSED); a dead webServer process fails every connection with
+ * ECONNREFUSED, which this predicate deliberately excludes, so a real crash
+ * still fails immediately and loudly (here, and on every subsequent
+ * request in every subsequent spec — nothing masks that). Capped at
+ * exactly one retry; a second failure of any kind propagates unchanged. A
+ * successful retry is never silent — it is recorded as a test annotation
+ * so the report/BR-6 ledger can still see it happened.
+ */
+export function isTransientKeepAliveRace(err: unknown): boolean {
+  const e = err as NodeJS.ErrnoException & { message?: string };
+  const msg = String(e?.message ?? "");
+  const code = e?.code;
+  return (msg.includes("socket hang up") || msg.includes("aborted")) && code !== "ECONNREFUSED";
+}
+
+/**
+ * Wraps ONE `request.*` call with the narrow, capped retry above. `label`
+ * is only for the annotation text (never asserted on) so a retried run is
+ * still visible, not hidden.
+ */
+export async function withKeepAliveRaceRetry(
+  label: string,
+  attempt: () => Promise<APIResponse>
+): Promise<APIResponse> {
+  try {
+    return await attempt();
+  } catch (err) {
+    if (!isTransientKeepAliveRace(err)) throw err;
+    test.info().annotations.push({
+      type: "cam-603-transient-retry",
+      description: `${label}: retried once after a keep-alive race (${(err as Error).message}) — see e2e/regression/README.md.`,
+    });
+    return attempt(); // exactly one retry — a second failure propagates as-is
+  }
+}
 
 export interface SeededCampSite {
   id: string;
@@ -21,7 +81,9 @@ export async function findCampBySlug(
   request: APIRequestContext,
   nameThSlug: string
 ): Promise<SeededCampSite> {
-  const res = await request.get("/api/operator/dashboard");
+  const res = await withKeepAliveRaceRetry("GET /api/operator/dashboard", () =>
+    request.get("/api/operator/dashboard")
+  );
   if (!res.ok()) {
     throw new Error(`GET /api/operator/dashboard failed: ${res.status()} ${await res.text()}`);
   }
@@ -49,7 +111,7 @@ export interface CampSiteDTO {
 
 /** Fetches the full camp-site DTO (the same shape GET /api/campsites/[id] returns to the edit form). */
 export async function getCampSite(request: APIRequestContext, id: string): Promise<CampSiteDTO> {
-  const res = await request.get(`/api/campsites/${id}`);
+  const res = await withKeepAliveRaceRetry(`GET /api/campsites/${id}`, () => request.get(`/api/campsites/${id}`));
   if (!res.ok()) {
     throw new Error(`GET /api/campsites/${id} failed: ${res.status()} ${await res.text()}`);
   }

@@ -26,7 +26,7 @@
  * this file).
  */
 import { test, expect } from "@playwright/test";
-import { findCampBySlug } from "./helpers";
+import { findCampBySlug, withKeepAliveRaceRetry } from "./helpers";
 // CAM-570: the 4 accessible names this spec locates by now live in
 // locales/translations.json (were hardcoded English literals). This spec
 // runs under the `regression` project, whose storageState was captured by
@@ -63,9 +63,13 @@ const SWITCH_LANGUAGE_LABEL = eitherLanguage(translations.en.nav.switchLanguageA
 
 async function giveCampTwoImages(request: import("@playwright/test").APIRequestContext) {
   const camp = await findCampBySlug(request, CAMP_SLUG);
-  const putRes = await request.put(`/api/campsites/${camp.id}`, {
-    data: { images: ["/placeholder-camp.svg", "/placeholder-camp-dark.svg"] },
-  });
+  // Idempotent PUT (fixed, deterministic body) — safe for the same narrow,
+  // capped retry (CAM-603) as the harness's read calls.
+  const putRes = await withKeepAliveRaceRetry(`PUT /api/campsites/${camp.id}`, () =>
+    request.put(`/api/campsites/${camp.id}`, {
+      data: { images: ["/placeholder-camp.svg", "/placeholder-camp-dark.svg"] },
+    })
+  );
   expect(putRes.ok(), `PUT /api/campsites/${camp.id} failed: ${putRes.status()}`).toBeTruthy();
 }
 
