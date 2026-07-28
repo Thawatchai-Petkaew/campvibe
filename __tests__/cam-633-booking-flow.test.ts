@@ -18,6 +18,21 @@
  * it. Reported to the ticket owner rather than silently fixed here (out of
  * this story's file surface) or silently dropped from the test (would hide
  * a real spec/repo mismatch).
+ *
+ * G3 REVIEW FIXES covered below (two contract violations, both reproduced by
+ * the reviewer, both fixed structurally rather than patched at the symptom):
+ *  - a chip must never round-trip through a step's `parse` (a bare ISO date
+ *    submitted as TEXT does not parse via `resolveDatesCore`) — `chip` is
+ *    now its own `BookingFlowInput` variant that bypasses `parse` entirely.
+ *  - a rejecting answer (over-capacity today; a future out-of-stock `gear`
+ *    step) is now reported by the step's OWN `parse` return value
+ *    (`BookingStepParseResult`), never by a `step.id === 'guests'` special
+ *    case inside `advanceBookingFlow` — proven generically via
+ *    `applyStepParseResult` against a throwaway rejecting result, with no
+ *    real step wired into the registry.
+ *  - `parseGuestCount`'s Arabic-digit match is anchored to a plain unsigned
+ *    integer so a negative/fractional number reprompts instead of silently
+ *    advancing with a value the camper never said.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -28,11 +43,13 @@ import {
   stepProgress,
   createInitialBookingFlowState,
   advanceBookingFlow,
+  applyStepParseResult,
   combineCapacityLimit,
   MAX_CONSECUTIVE_MISSES,
   type BookingFlowState,
   type BookingParseContext,
   type BookingSlots,
+  type BookingStepParseResult,
 } from '@/components/ai-chat/booking-flow';
 
 const TODAY = new Date('2026-07-22T10:00:00Z'); // Bangkok Wednesday 2026-07-22 (same fixture as cam-479)
@@ -210,6 +227,24 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
     });
   });
 
+  it('[error/validation][nit-fix] "-5 คน" reprompts rather than silently dropping the sign and advancing with guests:5', () => {
+    const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '-5 คน' }, ctx());
+    expect(outcome).toEqual({
+      kind: 'reprompt',
+      state: { slots: dateFilled, consecutiveMisses: 1 },
+      reason: 'unparsed',
+    });
+  });
+
+  it('[error/validation][nit-fix] "3.5 คน" reprompts rather than silently truncating to guests:3', () => {
+    const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '3.5 คน' }, ctx());
+    expect(outcome).toEqual({
+      kind: 'reprompt',
+      state: { slots: dateFilled, consecutiveMisses: 1 },
+      reason: 'unparsed',
+    });
+  });
+
   it('[error/validation] unparseable text reprompts once', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: 'ไม่รู้สิ' }, ctx());
     expect(outcome).toEqual({
@@ -237,7 +272,7 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
       });
     });
 
-    it('[error/validation] remaining:3 rejects a party of 5, reporting the REAL number available (limit:3), not silently truncating', () => {
+    it('[error/validation] remaining:3 rejects a party of 5, reporting the REAL number available (data.limit:3), not silently truncating', () => {
       const outcome = advanceBookingFlow(
         stateWith(dateFilled),
         { kind: 'text', text: '5' },
@@ -246,8 +281,9 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
       expect(outcome).toEqual({
         kind: 'reprompt',
         state: { slots: dateFilled, consecutiveMisses: 0 }, // NOT incremented — a valid, understood answer
-        reason: 'over_capacity',
-        limit: 3,
+        reason: 'rejected',
+        reasonKey: 'over_capacity',
+        data: { limit: 3 },
       });
     });
 
@@ -260,7 +296,7 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
       expect(outcome.kind).toBe('advance');
     });
 
-    it('[error/validation] maxGuestsPerDay:4 alone (remaining unbounded) rejects a party of 5 with limit:4', () => {
+    it('[error/validation] maxGuestsPerDay:4 alone (remaining unbounded) rejects a party of 5 with data.limit:4', () => {
       const outcome = advanceBookingFlow(
         stateWith(dateFilled),
         { kind: 'text', text: '5' },
@@ -269,12 +305,13 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
       expect(outcome).toEqual({
         kind: 'reprompt',
         state: { slots: dateFilled, consecutiveMisses: 0 },
-        reason: 'over_capacity',
-        limit: 4,
+        reason: 'rejected',
+        reasonKey: 'over_capacity',
+        data: { limit: 4 },
       });
     });
 
-    it('[error/validation] both set -> the TIGHTER cap wins (remaining:5, maxGuestsPerDay:3 rejects a party of 4 with limit:3)', () => {
+    it('[error/validation] both set -> the TIGHTER cap wins (remaining:5, maxGuestsPerDay:3 rejects a party of 4 with data.limit:3)', () => {
       const outcome = advanceBookingFlow(
         stateWith(dateFilled),
         { kind: 'text', text: '4' },
@@ -283,8 +320,9 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
       expect(outcome).toEqual({
         kind: 'reprompt',
         state: { slots: dateFilled, consecutiveMisses: 0 },
-        reason: 'over_capacity',
-        limit: 3,
+        reason: 'rejected',
+        reasonKey: 'over_capacity',
+        data: { limit: 3 },
       });
     });
 
@@ -318,6 +356,95 @@ describe('summary step — terminal, nothing left to parse', () => {
   it('[normal] cancel exits immediately from summary too, no prefill', () => {
     const outcome = advanceBookingFlow(stateWith(filled), { kind: 'cancel' }, ctx());
     expect(outcome).toEqual({ kind: 'exit', reason: 'cancelled' });
+  });
+});
+
+describe('chip input bypasses parse entirely (G3 review fix — BR-4)', () => {
+  it('[normal] a date chip carrying its own ISO slot value advances directly, with NO round-trip through resolveDatesCore', () => {
+    const outcome = advanceBookingFlow(
+      stateWith({}),
+      { kind: 'chip', slots: { checkIn: '2026-08-01', checkOut: '2026-08-02' } },
+      ctx()
+    );
+    expect(outcome).toEqual({
+      kind: 'advance',
+      state: { slots: { checkIn: '2026-08-01', checkOut: '2026-08-02' }, consecutiveMisses: 0 },
+    });
+  });
+
+  it('[normal] a guests chip carrying its own count advances directly', () => {
+    const dateFilled: BookingSlots = { checkIn: '2026-08-01', checkOut: '2026-08-02' };
+    const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'chip', slots: { guests: 4 } }, ctx());
+    expect(outcome).toEqual({
+      kind: 'advance',
+      state: { slots: { ...dateFilled, guests: 4 }, consecutiveMisses: 0 },
+    });
+  });
+
+  it('[regression] the exact repro that exposed the bug: a bare ISO date submitted as TEXT (not a chip) does NOT parse — proving a chip must use the `chip` input kind, never masquerade as typed text', () => {
+    const outcome = advanceBookingFlow(stateWith({}), { kind: 'text', text: '2026-08-01' }, ctx());
+    expect(outcome.kind).toBe('reprompt');
+  });
+
+  it('[normal] a chip resets the miss streak like any other understood answer', () => {
+    const missed = advanceBookingFlow(stateWith({}), { kind: 'text', text: 'ไม่รู้สิ' }, ctx());
+    expect(missed.kind).toBe('reprompt');
+    if (missed.kind !== 'reprompt') throw new Error('expected reprompt');
+
+    const outcome = advanceBookingFlow(
+      missed.state,
+      { kind: 'chip', slots: { checkIn: '2026-08-01', checkOut: '2026-08-02' } },
+      ctx()
+    );
+    expect(outcome.kind).toBe('advance');
+    if (outcome.kind === 'advance') expect(outcome.state.consecutiveMisses).toBe(0);
+  });
+
+  it('[normal] cancel still wins over a chip if both were somehow requested in sequence (chip does not disable cancel)', () => {
+    const outcome = advanceBookingFlow(stateWith({}), { kind: 'cancel' }, ctx());
+    expect(outcome).toEqual({ kind: 'exit', reason: 'cancelled' });
+  });
+});
+
+describe('the rejection channel is step-agnostic — no step.id branching anywhere in advanceBookingFlow (G3 review fix — BR-1)', () => {
+  it('[normal] applyStepParseResult treats a THROWAWAY rejecting result (simulating a future out-of-stock `gear` step) exactly like the guests over-capacity case: reprompt, never a miss', () => {
+    const throwawayRejected: BookingStepParseResult = {
+      ok: false,
+      kind: 'rejected',
+      reasonKey: 'out_of_stock',
+      data: { sku: 'TENT-4P' },
+    };
+    const outcome = applyStepParseResult(stateWith({}), throwawayRejected);
+    expect(outcome).toEqual({
+      kind: 'reprompt',
+      state: { slots: {}, consecutiveMisses: 0 },
+      reason: 'rejected',
+      reasonKey: 'out_of_stock',
+      data: { sku: 'TENT-4P' },
+    });
+  });
+
+  it('[error/validation] the G3 repro: TWO CONSECUTIVE valid-but-rejected answers reprompt BOTH times — never eject the camper mid-flow for answering correctly twice', () => {
+    const throwawayRejected: BookingStepParseResult = { ok: false, kind: 'rejected', reasonKey: 'out_of_stock' };
+
+    const first = applyStepParseResult(stateWith({}), throwawayRejected);
+    expect(first.kind).toBe('reprompt'); // NOT 'exit' — this is the exact bug the reviewer's gearStep reproduced
+    if (first.kind !== 'reprompt') throw new Error('expected reprompt');
+    expect(first.state.consecutiveMisses).toBe(0);
+
+    const second = applyStepParseResult(first.state, throwawayRejected);
+    expect(second.kind).toBe('reprompt'); // still reprompt, not exit — two rejections is not two misses
+    if (second.kind !== 'reprompt') throw new Error('expected reprompt again, not an exit');
+    expect(second.state.consecutiveMisses).toBe(0);
+  });
+
+  it('[static] advanceBookingFlow itself never reads step.id (or any step-id literal) anywhere in its own body', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../components/ai-chat/booking-flow.ts'), 'utf-8');
+    const fnMatch = source.match(/export function advanceBookingFlow\([\s\S]*?\n\}\n/);
+    expect(fnMatch).not.toBeNull();
+    const fnBody = fnMatch![0];
+    expect(fnBody).not.toMatch(/step\.id/);
+    expect(fnBody).not.toMatch(/['"](date|guests|summary)['"]/);
   });
 });
 
