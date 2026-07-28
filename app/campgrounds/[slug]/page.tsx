@@ -8,6 +8,13 @@ import { serializeDecimals } from "@/lib/serialize";
 import { buildReviewSummary, toReviewListItem } from "@/lib/review-summary";
 import { canViewCampSite } from "@/lib/campsite-visibility";
 import { getCampBySlug } from "@/lib/catalog-cache";
+// CAM-635: the ONE reader for the in-chat booking-prefill contract (CAM-634)
+// — this page never re-implements its rules.
+import { parseBookingPrefill, type BookingPrefill } from "@/lib/booking-prefill";
+// Read-only import of the repo's Bangkok-local "today" helper (never a naive
+// UTC-derived day, see lib/booking-prefill.ts's header comment) — lib/ai/**
+// itself is out of this story's file surface, this only consumes its export.
+import { bangkokTodayISO } from "@/lib/ai/date-phrases";
 // CAM-548: reuse the CAM-545 name-based province lookup verbatim (never the
 // thaiLocationId FK — see lib/read-models/camp-card.ts doc comment; that FK
 // covers only 12 of 652 Location rows).
@@ -15,9 +22,12 @@ import { getProvinceThaiNameMap, withProvinceThaiNames } from "@/lib/read-models
 
 interface PageProps {
     params: Promise<{ slug: string }>;
+    // CAM-635: /campgrounds/<slug>?checkIn=...&checkOut=...&guests=...&from=chat
+    // (lib/booking-prefill.ts). Record shape matches parseBookingPrefill's raw input.
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function CampgroundPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CampgroundPage({ params, searchParams }: PageProps) {
     const session = await auth();
     const { slug } = await params;
 
@@ -57,6 +67,52 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     }
 
     const t = getTranslations('th'); // Default to Thai for SSR or detect from cookies
+
+    // CAM-635: seed the booking widget from a chat handoff link. Only attempt
+    // a parse when the URL actually looks like one (>=1 of the 3 keys
+    // present) — an ordinary bare link (the overwhelming common case) must
+    // never emit a reject log for a prefill nobody sent.
+    const rawSearchParams = await searchParams;
+    const looksLikePrefillLink =
+        rawSearchParams.checkIn !== undefined ||
+        rawSearchParams.checkOut !== undefined ||
+        rawSearchParams.guests !== undefined;
+
+    let bookingPrefill: BookingPrefill | null = null;
+    if (looksLikePrefillLink) {
+        const result = parseBookingPrefill(rawSearchParams, {
+            today: bangkokTodayISO(new Date()),
+            // CAM-636: the real per-camp/per-date guest ceiling (remaining
+            // capacity, or a per-spot camp's own maxGuestsPerDay, which is a
+            // documented STALE column for that mode — lib/guest-capacity.ts)
+            // is never knowable synchronously here. null means only a
+            // structurally invalid guest count (< 1) rejects at this layer;
+            // an over-ceiling-but-positive count is CLAMPED client-side by
+            // the existing CAM-636 guest-capacity effect, never rejected here.
+            maxGuests: null,
+        });
+        if (result.ok) {
+            bookingPrefill = result.value;
+        } else {
+            // Rejected prefill: render exactly as the no-prefill default
+            // (empty dates, guests 1) — no toast/banner, a bad deep link is
+            // not something the camper can fix. One structured log line,
+            // no PII.
+            console.warn(JSON.stringify({
+                level: "warn",
+                event: "booking_prefill_rejected",
+                slug,
+                reason: result.reason,
+            }));
+        }
+    }
+
+    // CAM-642: `from=chat` is read independent of whether the prefill itself
+    // validated — the camper may still be re-picking a rejected date range
+    // from a chat-originated link, and the reserve should still attribute to
+    // CHAT in that case. Client-asserted label only; reaches no
+    // authz/pricing/capacity decision (lib/validations/booking.ts).
+    const bookingSourceIsChat = rawSearchParams.from === "chat";
 
     // Compare by ID (from session) against the FK on the campsite — operator email is never fetched.
     const isOwner = !!session?.user?.id && session.user.id === campSite.operatorId;
@@ -135,6 +191,8 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
                 reviewCount={reviewCount}
                 reviewsPromise={reviewsPromise}
                 reviewsError={reviewsError}
+                prefill={bookingPrefill}
+                fromChat={bookingSourceIsChat}
             />
         </main>
     );

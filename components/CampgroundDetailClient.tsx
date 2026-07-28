@@ -23,11 +23,12 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ReviewsListSkeleton } from "@/components/ui/reviews-list-skeleton";
 import type { ReviewListItem } from "@/lib/review-summary";
 import { ImageWithFallback } from "@/components/ui/image-with-fallback";
-import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
-import { computeGuestCeiling, buildGuestOptions } from "@/lib/guest-capacity";
+import { computeGuestCeiling, buildGuestOptions, clampGuestsToInitialCeiling } from "@/lib/guest-capacity";
+import type { BookingPrefill } from "@/lib/booking-prefill";
 // CAM-548: reuse the CAM-545 seam verbatim — same localized "district, province"
 // text builder the camp card already uses (never a second implementation).
 import { buildLocationText } from "@/components/CampgroundCard";
@@ -86,6 +87,8 @@ export default function CampgroundDetailClient({
     reviewCount = 0,
     reviewsPromise,
     reviewsError = false,
+    prefill = null,
+    fromChat = false,
 }: {
     campground: any;
     isOwner?: boolean;
@@ -114,6 +117,22 @@ export default function CampgroundDetailClient({
     reviewsPromise?: Promise<ReviewsListResult>;
     /** CAM-79 AC-6: true when the review AGGREGATE query threw; rest of page stays usable. */
     reviewsError?: boolean;
+    /**
+     * CAM-635: booking widget seed from a chat handoff link, already
+     * validated server-side by `parseBookingPrefill` (lib/booking-prefill.ts,
+     * CAM-634). Null when there was no prefill link or it failed validation —
+     * rendered exactly as the no-prefill default (empty dates, guests 1; no
+     * toast/banner, see page.tsx).
+     */
+    prefill?: BookingPrefill | null;
+    /**
+     * CAM-635/CAM-642: true when the URL carried `from=chat` — independent of
+     * whether `prefill` itself validated (the camper may still be re-picking
+     * a rejected date range from a chat-originated link). Attaches
+     * `source: 'CHAT'` to the reserve POST; a client-asserted attribution
+     * label only, never an authz/pricing/capacity input.
+     */
+    fromChat?: boolean;
 }) {
     const { t, formatCurrency, language } = useLanguage();
     const { resolvedTheme } = useTheme();
@@ -146,11 +165,43 @@ export default function CampgroundDetailClient({
     const [isWishlistLoading, setIsWishlistLoading] = useState(false);
     const [loginOpen, setLoginOpen] = useState(false);
 
-    // Changed to Date objects
-    const [checkIn, setCheckIn] = useState<Date>();
-    const [checkOut, setCheckOut] = useState<Date>();
+    // Changed to Date objects. CAM-635: seeded from `prefill` in the
+    // initializer (never an effect) so an immediate date change by the
+    // camper isn't fought after the fact. `prefill.checkIn`/`checkOut` are
+    // already-validated real calendar `YYYY-MM-DD` strings (BR-1..BR-6,
+    // lib/booking-prefill.ts) — parseISO reads them as LOCAL dates, matching
+    // every other date in this component (format()/isDateDisabled() below
+    // all use local components too, never a UTC-parsed Date).
+    const [checkIn, setCheckIn] = useState<Date | undefined>(() =>
+        prefill ? parseISO(prefill.checkIn) : undefined
+    );
+    const [checkOut, setCheckOut] = useState<Date | undefined>(() =>
+        prefill ? parseISO(prefill.checkOut) : undefined
+    );
 
-    const [guests, setGuests] = useState(1);
+    // CAM-635: seed guests from `prefill`, but COOPERATE with the CAM-636
+    // capacity clamp effect below rather than racing it —
+    // `clampGuestsToInitialCeiling` (lib/guest-capacity.ts) applies the exact
+    // same pure functions that effect uses (computeGuestCeiling +
+    // buildGuestOptions) with the same `remaining: null` a just-mounted
+    // component always starts with (the live per-date capacity hasn't been
+    // fetched yet). This guarantees the FIRST paint's `guests` value is
+    // always one of the FIRST paint's own `guestOptions` — the <Select>
+    // never renders a value absent from its options (React would otherwise
+    // show it blank). If the live remaining-capacity fetch later resolves a
+    // lower ceiling, the effect below (unchanged) clamps further — this seed
+    // never fights that effect, it only removes the avoidable first-paint
+    // mismatch. A per-spot camp (no synchronously-known ceiling) falls back
+    // to the same UNBOUNDED_GUEST_OPTIONS_MAX-capped range the effect itself
+    // would offer.
+    const [guests, setGuests] = useState<number>(() => {
+        if (!prefill) return 1;
+        return clampGuestsToInitialCeiling(
+            prefill.guests,
+            typeof campground?.maxGuestsPerDay === "number" ? campground.maxGuestsPerDay : null,
+            campground?.useSpotView === true
+        );
+    });
     const [isReserving, setIsReserving] = useState(false);
     const [hasAttemptedReserve, setHasAttemptedReserve] = useState(false);
     const [imageError, setImageError] = useState(false);
@@ -398,7 +449,10 @@ export default function CampgroundDetailClient({
                     campSiteId: campground.id,
                     checkInDate: format(checkIn, 'yyyy-MM-dd'),
                     checkOutDate: format(checkOut, 'yyyy-MM-dd'),
-                    guests
+                    guests,
+                    // CAM-642: attribution only — omitted (server defaults to
+                    // WEB) unless the page was opened via a chat handoff link.
+                    ...(fromChat ? { source: 'CHAT' as const } : {}),
                 })
             });
 
