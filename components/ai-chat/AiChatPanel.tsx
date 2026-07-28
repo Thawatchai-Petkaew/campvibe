@@ -303,6 +303,23 @@
  * already ignores `expanded` entirely and is always full screen per CAM-550,
  * untouched here. No new `sessionStorage` write is introduced — the first
  * full-screen open persists nothing on its own, exactly as before.
+ *
+ * CAM-627 (owner report, Golf: "เครื่องร้อนมากตอนเปิด chat" — the machine ran
+ * hot for as long as the panel stayed open, remove the animation, keep only
+ * น้องกองไฟ): profiled with the panel open and idle. The dominant, cleanly
+ * measured idle cost was `AiAmbientCanvas`'s continuous ~30fps
+ * `requestAnimationFrame` loop (renderer main-thread JS busy time dropped
+ * ~85% once it was stopped — see that file's own header comment for the
+ * numbers); the `.ai-aurora-drift` transform/opacity loop sat behind this
+ * panel's several stacked `backdrop-blur-xl` glass layers, which the story's
+ * design.md documents as the mechanism (animating anything behind a
+ * backdrop-filter forces a per-frame blur recompute over that whole area).
+ * Both loops are now static — see `app/globals.css`'s CAM-627 comment on
+ * `.ai-aurora-drift` and `AiAmbientCanvas.tsx`'s own header. Nothing in this
+ * file's JSX/className changed for either fix (the div below still reads
+ * `"ai-aurora ai-aurora-drift ..."` byte-for-byte). Untouched, per the
+ * ticket: `AiChatAvatar` (น้องกองไฟ — the flame keeps its `ai-flame-glow`/
+ * `ai-flame-flicker` pulses) and all `prefers-reduced-motion` handling.
  */
 "use client";
 
@@ -672,7 +689,19 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
           {/* CAM-426: campfire-night ambient backdrop — decorative, behind every
               reading region (DESIGN.md §2.1). The glass shell above
               (bg-ai-surface + backdrop-blur-xl) plus each child's own opaque
-              surface keep text legible over it; never a wash over content. */}
+              surface keep text legible over it; never a wash over content.
+              CAM-627 (owner report: the machine ran hot while this panel
+              stayed open) — the `ai-aurora-drift` class name below is
+              UNCHANGED (kept so this div's className stays pinned/stable),
+              but it no longer animates: its motion sat behind this shell's
+              several stacked `backdrop-blur-xl` glass layers, so animating
+              it forced a continuous per-frame blur recompute over the whole
+              panel for as long as it was open — the fix lives in
+              `app/globals.css` (`.ai-aurora-drift { animation: none; }`, see
+              its own CAM-627 comment there), not in this className string.
+              `AiAmbientCanvas` below no longer runs a continuous
+              `requestAnimationFrame` loop either — see that file's header
+              comment. */}
           <div className="ai-aurora ai-aurora-drift pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <AiAmbientCanvas />
 

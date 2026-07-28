@@ -228,9 +228,10 @@ accents), the assistant surface MAY:
 
 1. render a **camping-night ambient backdrop** (`.ai-aurora`, `aria-hidden`, `pointer-events-none`, behind
    content) — a subtle teal→sky gradient with a faint warm campfire horizon;
-2. render a **decorative particle canvas** (`AiAmbientCanvas`, `aria-hidden`, `pointer-events-none`) with four
-   dimmed camping gimmicks — fireflies-follow-cursor, star sparkles, rising embers, and a small avatar flame —
-   all perf-capped (particle cap + fps throttle + pause on hidden tab) and OFF under `prefers-reduced-motion`;
+2. render a **decorative particle canvas** (`AiAmbientCanvas`, `aria-hidden`, `pointer-events-none`) with three
+   dimmed camping gimmicks — fireflies, star sparkles, and rising embers — painted once (particle-capped, DPR-capped)
+   and repainted only on a real trigger (resize, theme toggle, tab returning to foreground); no continuous loop and
+   no cursor-follow since CAM-627 (owner report: the machine ran hot while the panel stayed open);
 3. use a **glass surface** (`bg-ai-surface` + `backdrop-blur`) for the panel and the floating detail card, with a
    readable-content layer on top so text never sits directly on the animation;
 4. apply the **`--ai-glow`** ambient glow (`shadow-ai-glow`) to the panel, the detail card, and the avatar;
@@ -249,12 +250,18 @@ control — never `rounded-sm/md/lg`), lucide-only icons, no emoji, all copy in 
 all 8 states, WCAG 2.1 AA (contrast, visible focus ring `ring-ring`, tap ≥44px), `check:palette` + `check:ds` green.
 
 **Motion within the exception:** message entrance + panel/detail open clamp to **≤250ms** transform/opacity
-(standard). Four named loops/one-shots are permitted because they are transform/opacity only, dimmed, and no-op
-under `prefers-reduced-motion`: `ai-aurora-drift` (~18s), `ai-flame-glow` (~2.4s), `ai-flame-flicker` (~2.6s — the
-avatar/launcher fire-aura's วูบวาบ flicker; owner-requested, assistant น้องกองไฟ mark only; CAM-432), and the
-one-shot detail-card `ai-materialize` (≤480ms). The first three were authored + justified in `CAM-426/design.md §7`
+(standard). Four named loops/one-shots were introduced for this exception, transform/opacity only, dimmed, and
+no-op under `prefers-reduced-motion`: `ai-aurora-drift` (~18s), `ai-flame-glow` (~2.4s), `ai-flame-flicker` (~2.6s —
+the avatar/launcher fire-aura's วูบวาบ flicker; owner-requested, assistant น้องกองไฟ mark only; CAM-432), and the
+one-shot detail-card `ai-materialize` (≤480ms). **CAM-627** (owner report: the machine ran hot for as long as the
+chat panel stayed open) retired `ai-aurora-drift`'s motion — profiling traced the dominant idle cost to this loop
+and `AiAmbientCanvas`'s particle loop together, both running continuously behind the panel's several stacked
+`backdrop-blur-xl` glass layers; the aurora's static gradient is unchanged (`.ai-aurora`), only its drift is gone
+(`animation: none`, unconditionally, `app/globals.css`), and `AiAmbientCanvas` now paints once per real trigger
+instead of looping (see that file's header comment). **Three loops remain live:** `ai-flame-glow`, `ai-flame-flicker`,
+and the one-shot `ai-materialize`. The first three (pre-CAM-627) were authored + justified in `CAM-426/design.md §7`
 and approved under the owner's CAM-426 autonomy delegation; `ai-flame-flicker` was added under CAM-432 (owner
-staging feedback + reference image). Any NEW motion beyond these four routes back to full human G2.
+staging feedback + reference image). Any NEW motion beyond these three routes back to full human G2.
 
 **Named exception — width animation (CAM-453):** the AI-chat detail split-rail (desktop `lg:` push-aside) MAY animate
 `width` instead of transform/opacity — the only layout axis that pushes the chat aside without leaving a blank gap
