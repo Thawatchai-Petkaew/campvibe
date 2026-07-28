@@ -79,6 +79,7 @@
  */
 import {
   resolveDatesCore,
+  bangkokTodayISO,
   type ThaiHolidayInput,
 } from '@/lib/ai/date-phrases';
 
@@ -171,33 +172,17 @@ function isValidIsoDate(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-/**
- * The SAME Bangkok-civil-date idiom `resolveDatesCore` uses internally
- * (`lib/ai/date-phrases.ts`'s private `bangkokTodayISO`, not exported — a
- * third small caller is kept local here rather than exporting a private
- * helper across a module boundary, the same tolerated duplication
- * `formatTodayContextLine` in `lib/ai/openrouter-client.ts` already has).
- * Used ONLY as a backstop sanity check on a candidate that may have
- * bypassed `resolveDatesCore` entirely (a `chip`) — typed input never needs
- * this check to reject a date, because every `resolveDatesCore` rule
- * already resolves on-or-after today by construction.
- *
- * Deliberately NO "invalid `now` falls back to the real clock" branch (unlike
- * the private original this mirrors) — this module never reads the system
- * clock under any circumstance; `ctx.today` is the caller's contract to
- * supply a valid `Date`, full stop.
- */
-function bangkokTodayISO(now: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-}
-
 // ---------------------------------------------------------------------------
 // `date` step
+//
+// The not-in-the-past sanity check below reuses `bangkokTodayISO`, imported
+// straight from `@/lib/ai/date-phrases` (now exported there for this exact
+// reason) rather than duplicated here — a second Bangkok-today helper is
+// exactly the kind of drift this epic keeps paying for elsewhere. Used ONLY
+// as a backstop on a candidate that may have bypassed `resolveDatesCore`
+// entirely (a `chip`) — typed input never needs this check to reject a date,
+// because every `resolveDatesCore` rule already resolves on-or-after today
+// by construction.
 // ---------------------------------------------------------------------------
 
 function parseDateAnswer(text: string, ctx: BookingParseContext): Partial<BookingSlots> | null {
@@ -300,23 +285,29 @@ function buildThaiNumberWordTable(): ReadonlyMap<string, number> {
 const THAI_NUMBER_WORDS = buildThaiNumberWordTable();
 
 /**
- * `"8 คน"` / `"แปดคน"` / `"8"` all resolve to `8`. `null` on anything
- * unreadable (no policy here — `null` means "could not even read a number",
- * not "the number is unacceptable").
+ * `"8 คน"` / `"แปดคน"` / `"8"` all resolve to `8`. `null` ONLY when no
+ * number-shaped token exists at all (`"สวัสดี"`, `"คน"` alone) — a genuine
+ * "could not read this as a number" case (a miss).
  *
- * The Arabic-digit match is ANCHORED to a plain unsigned integer token — a
- * negative or fractional number (`"-5 คน"`, `"3.5 คน"`) is understood well
- * enough to know it is NOT a valid guest count, and must reprompt rather than
- * silently drop the sign / truncate the decimal into a number the camper
- * never said (the exact "silent wrong answer" class this repo pins hardest).
+ * G3 review, round 3 (policy leaking into `parse`) — a negative or
+ * fractional token (`"-5 คน"`, `"3.5 คน"`) IS read, as `-5`/`3.5`, and handed
+ * straight through UNCHANGED. Whether that value is an acceptable guest
+ * count is `accept`'s policy question, not this function's: a policy check
+ * hidden inside `parse` gave a typed `"-5 คน"` a DIFFERENT consequence (a
+ * miss) than the equivalent chip `{guests:-5}` (a rejection) — breaking the
+ * exact typed-equals-chip equivalence this whole `parse`/`accept` split
+ * exists to guarantee. `accept`'s own `Number.isSafeInteger`/`<= 0` checks
+ * now classify `-5` and `3.5` identically for BOTH paths.
+ *
+ * The regex is still ANCHORED to capture the FULL numeric token including an
+ * optional sign/decimal (`-?\d+(?:\.\d+)?`) — this is what stops `"3.5"`
+ * being silently misread as bare `3`; the value reaches `accept` as `3.5`,
+ * neither truncated nor dropped.
  */
 function parseGuestCount(text: string): number | null {
   const numericToken = text.match(/-?\d+(?:\.\d+)?/);
   if (numericToken) {
-    const isPlainUnsignedInteger = /^\d+$/.test(numericToken[0]);
-    if (!isPlainUnsignedInteger) return null;
-    const value = Number(numericToken[0]);
-    return Number.isSafeInteger(value) ? value : null;
+    return Number(numericToken[0]);
   }
   const normalized = text.replace(/\s+/g, '').replace(/คน/g, '');
   if (normalized.length === 0) return null;

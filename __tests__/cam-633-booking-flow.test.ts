@@ -19,7 +19,9 @@
  * this story's file surface) or silently dropped from the test (would hide
  * a real spec/repo mismatch).
  *
- * G3 REVIEW FIXES covered below, TWO ROUNDS:
+ * G3 REVIEW FIXES covered below, THREE ROUNDS (per the coordinator: rounds
+ * 2 and 3 trace to an underspecified round-1 instruction, not to failed
+ * attempts — the tail of one correction, not three separate misses):
  *
  * Round 1 — a rejecting answer (over-capacity today; a future out-of-stock
  * `gear` step) is reported by the step's OWN `accept` return value
@@ -43,6 +45,18 @@
  * (not a silent no-op advance), and — the coordinator's exact repro —
  * `{kind:'chip', slots:{guests:9999}}` against `remaining:3` now rejects
  * instead of silently advancing with `guests:9999`.
+ *
+ * Round 3 — round 1's `parseGuestCount` fix (anchor to a plain unsigned
+ * integer) was ITSELF a policy decision hiding inside `parse`: typed
+ * `"-5 คน"` came out `unparsed` (a MISS) while the equivalent chip
+ * `{guests:-5}` came out `rejected` (NOT a miss) — same value, two different
+ * consequences, decided only by which affordance the camper used. Fixed by
+ * letting `parseGuestCount` hand a negative/fractional number THROUGH
+ * unchanged; `accept`'s existing checks now classify it identically for
+ * both paths. The "the invariant" describe block below asserts the PARITY
+ * PROPERTY directly (typed and chip produce the same outcome kind AND the
+ * same effect on `consecutiveMisses` for ANY value), which is what keeps
+ * this class of bug closed — not any one pinned case.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
@@ -238,21 +252,23 @@ describe('guests step — parse (typed input equals chip input: "8 คน" / "�
     });
   });
 
-  it('[error/validation][nit-fix] "-5 คน" reprompts rather than silently dropping the sign and advancing with guests:5', () => {
+  it('[error/validation][nit-fix][G3-round-3] "-5 คน" is READ as -5 by `parse` (never drops the sign), then REJECTED (not a miss) by `accept` — matches the chip{guests:-5} classification exactly', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '-5 คน' }, ctx());
     expect(outcome).toEqual({
       kind: 'reprompt',
-      state: { slots: dateFilled, consecutiveMisses: 1 },
-      reason: 'unparsed',
+      state: { slots: dateFilled, consecutiveMisses: 0 }, // rejected, NOT unparsed — no strike burned
+      reason: 'rejected',
+      reasonKey: 'invalid_guests',
     });
   });
 
-  it('[error/validation][nit-fix] "3.5 คน" reprompts rather than silently truncating to guests:3', () => {
+  it('[error/validation][nit-fix][G3-round-3] "3.5 คน" is READ as 3.5 by `parse` (never truncated to 3), then REJECTED (not a miss) by `accept`', () => {
     const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '3.5 คน' }, ctx());
     expect(outcome).toEqual({
       kind: 'reprompt',
-      state: { slots: dateFilled, consecutiveMisses: 1 },
-      reason: 'unparsed',
+      state: { slots: dateFilled, consecutiveMisses: 0 },
+      reason: 'rejected',
+      reasonKey: 'invalid_guests',
     });
   });
 
@@ -575,6 +591,66 @@ describe('chip input skips `parse` ONLY — it still goes through `accept`, the 
         ctx()
       );
       expect(chipOutcome).toEqual(typedOutcome);
+    });
+
+    // --- G3 REVIEW, ROUND 3: policy leaking into `parse` --------------------
+    // Repro: typed "-5 คน" used to be `unparsed` (a MISS) while the
+    // equivalent chip {guests:-5} was `rejected` (NOT a miss) — same value,
+    // different consequence, because `parseGuestCount`'s anchored-integer
+    // regex was itself a policy decision hiding inside `parse`. Fixed by
+    // letting `parse` hand the raw (possibly negative/fractional) number
+    // through unchanged; `accept`'s existing checks classify it identically
+    // for BOTH paths now. This block asserts the PARITY PROPERTY directly —
+    // not just the individual cases — because that property, not any one
+    // repro, is what keeps this class of bug closed.
+    it('[parity] across a spread of guest values (negative, zero, fractional, valid, over-capacity), typed and chip are BYTE-IDENTICAL, including the SAME effect on consecutiveMisses', () => {
+      const values = [-5, -1, 0, 1, 3, 3.5, 8, 9999];
+      for (const value of values) {
+        const typedOutcome = advanceBookingFlow(
+          stateWith(dateFilled),
+          { kind: 'text', text: `${value} คน` },
+          ctx({ remaining: 3, maxGuestsPerDay: null })
+        );
+        const chipOutcome = advanceBookingFlow(
+          stateWith(dateFilled),
+          { kind: 'chip', slots: { guests: value } },
+          ctx({ remaining: 3, maxGuestsPerDay: null })
+        );
+        expect(typedOutcome, `guests:${value} — typed vs chip must match`).toEqual(chipOutcome);
+      }
+    });
+
+    it('[parity][regression] the EXACT gap the reviewer found: typed "-5 คน" and chip {guests:-5} both REJECT, and NEITHER burns a miss', () => {
+      const typedOutcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '-5 คน' }, ctx());
+      const chipOutcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'chip', slots: { guests: -5 } }, ctx());
+      expect(typedOutcome).toEqual(chipOutcome);
+      expect(typedOutcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: dateFilled, consecutiveMisses: 0 },
+        reason: 'rejected',
+        reasonKey: 'invalid_guests',
+      });
+    });
+
+    it('[parity][regression] TWO CONSECUTIVE typed negative numbers do NOT eject the camper anymore ("-5 คน" then "-3 คน") — they are rejections, not misses, matching the chip path exactly', () => {
+      const first = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: '-5 คน' }, ctx());
+      expect(first.kind).toBe('reprompt');
+      if (first.kind !== 'reprompt') throw new Error('expected reprompt');
+      expect(first.state.consecutiveMisses).toBe(0);
+
+      const second = advanceBookingFlow(first.state, { kind: 'text', text: '-3 คน' }, ctx());
+      expect(second.kind).toBe('reprompt'); // NOT 'exit' — this was the exact repro before the fix
+      if (second.kind !== 'reprompt') throw new Error('expected reprompt, not an exit');
+      expect(second.state.consecutiveMisses).toBe(0);
+    });
+
+    it('[parity] the ONE case a chip cannot equivalently express: genuinely unreadable text (no number-shaped token at all) is `unparsed`, a real miss — a chip always carries a value, never free text', () => {
+      const outcome = advanceBookingFlow(stateWith(dateFilled), { kind: 'text', text: 'ไม่รู้สิ' }, ctx());
+      expect(outcome).toEqual({
+        kind: 'reprompt',
+        state: { slots: dateFilled, consecutiveMisses: 1 },
+        reason: 'unparsed',
+      });
     });
   });
 });
