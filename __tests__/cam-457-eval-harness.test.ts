@@ -133,10 +133,14 @@ describe('CAM-457 load-cases — BR-1/EC-1', () => {
     // (a bare district name, no province) must call searchCampsites with
     // district="แม่ริม" (strictParams:true) — proves the pre-pass district
     // hint actually reaches the model, the exact gap CAM-587 left open.
+    // CAM-599 — +1 guardrail case (GEO-6-CAM599-DISTRICT-BEATS-LANDMARK):
+    // "ลานกางเต็นท์อำเภอปาย" must call searchCampsites with district="ปาย"
+    // (strictParams:true, never near="ปาย") — proves an explicit "อำเภอ"
+    // marker now wins over the ปาย landmark gazetteer match.
     const fixturePath = path.join(__dirname, '..', 'scripts', 'ai-eval', 'golden-cases.json');
     const { cases, loadErrors } = loadCasesFromFile(fixturePath);
     expect(loadErrors).toHaveLength(0);
-    expect(cases.length).toBe(68);
+    expect(cases.length).toBe(69);
     expect(cases.length).toBeLessThanOrEqual(DEFAULT_MAX_EVAL_CASES);
     expect(cases.some((c) => c.zone === 'A' && c.expected.kind === 'no_tool')).toBe(true);
     expect(cases.some((c) => c.guardrail === true)).toBe(true);
