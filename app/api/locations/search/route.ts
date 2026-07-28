@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { thailandLocationRowSchema } from '@/lib/validations/location';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 /**
  * GET /api/locations/search?type=province|district&q=<search>&provinceCode=<code>
@@ -33,6 +34,20 @@ type LocationSearchRow = z.infer<typeof thailandLocationRowSchema>;
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_RESULTS = 20;
+
+// CAM-619 — this route was public, unauthenticated, AND unthrottled, running
+// an ILIKE `contains` scan over `AdminArea` (7,452 rows nationwide across
+// province/district/sub-district) with no floor guard at all — the exact gap
+// `app/api/ai/camp-detail/[id]/route.ts`'s own comment names: "a public
+// read-only route still needs a floor guard against scraping/abuse" (that
+// route + `POST /api/ai/chat` are this endpoint's two throttled siblings).
+// General baseline per `.claude/rules/security.md` (~100/15min) —
+// `components/LocationPicker.tsx` debounces at 300ms across at most 2
+// cascading comboboxes on this endpoint (province, district; sub-district is
+// the separate `/api/admin-areas/subdistricts` sibling below), so a real
+// host session stays a small fraction of this floor.
+const LOCATION_SEARCH_RATE_LIMIT = 100;
+const LOCATION_SEARCH_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 min
 
 /** CAM-574 — province candidates from `AdminArea`, `id` = the real `AdminArea.id` (no bridge). */
 async function searchProvinces(query: string): Promise<LocationSearchRow[]> {
@@ -102,6 +117,20 @@ async function searchDistricts(provinceCode: string | null, query: string): Prom
 }
 
 export async function GET(request: NextRequest) {
+    // CAM-619: per-IP floor guard FIRST — before any param parsing or DB read
+    // (mirrors app/api/ai/camp-detail/[id]/route.ts's ordering).
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rl = checkRateLimit(`locations:search:${ip}`, {
+        limit: LOCATION_SEARCH_RATE_LIMIT,
+        windowMs: LOCATION_SEARCH_RATE_WINDOW_MS,
+    });
+    if (!rl.allowed) {
+        return NextResponse.json(
+            { error: 'rate_limited' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
+        );
+    }
+
     const { searchParams } = new URL(request.url);
     const rawQuery = searchParams.get('q') ?? '';
     const query = rawQuery.slice(0, MAX_QUERY_LENGTH);
