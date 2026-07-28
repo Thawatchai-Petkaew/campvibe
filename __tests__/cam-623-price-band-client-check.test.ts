@@ -158,7 +158,12 @@ describe("isPriceOrderValid — the repro from the ticket (AC-1) and a valid ban
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    campSite: { create: vi.fn() },
+    // CAM-617: findFirst added — POST /api/campsites now checks Location
+    // exclusivity before create (same fixture-note pattern CAM-613/CAM-617
+    // documented for its sibling test files). Runs AFTER the isPriceOrderValid
+    // check in the route, so the inverted-band case never reaches it, but the
+    // valid-band case does and needs a default resolved value.
+    campSite: { create: vi.fn(), findFirst: vi.fn() },
     masterData: { findMany: vi.fn() },
   },
 }));
@@ -173,6 +178,7 @@ import { POST as campSitePOST } from "@/app/api/campsites/route";
 import { _store } from "@/lib/rate-limit";
 
 const mockCreate = prisma.campSite.create as unknown as ReturnType<typeof vi.fn>;
+const mockFindFirst = prisma.campSite.findFirst as unknown as ReturnType<typeof vi.fn>;
 const mockFindMany = prisma.masterData.findMany as unknown as ReturnType<typeof vi.fn>;
 const mockRequireAuth = requireAuth as unknown as ReturnType<typeof vi.fn>;
 
@@ -200,19 +206,26 @@ beforeEach(() => {
   _store.clear();
   mockRequireAuth.mockResolvedValue({ error: null, session: { user: { id: "user-cam-623", role: "HOST" } } });
   mockFindMany.mockResolvedValue([]);
+  mockFindFirst.mockResolvedValue(null);
   mockCreate.mockResolvedValue({ id: "new-camp-id-cam-623" });
 });
 
 describe("Server guard untouched (AC-3, EC-2) — POST /api/campsites", () => {
   it("[error/validation, teeth] priceLow=250 > priceHigh=200 (the ticket's exact repro) is still 400 at the API, no Prisma write", async () => {
     const res = await campSitePOST(postRequest({ ...VALID_BASE, priceLow: 250, priceHigh: 200 }));
+    // 400, not 500 — a masked 500 (missing findFirst mock) would prove nothing
+    // about this guard; it must be the price-order check, not a crash.
     expect(res.status).toBe(400);
     expect(mockCreate).not.toHaveBeenCalled();
+    // The price-order check (route.ts) runs BEFORE the CAM-617 findFirst
+    // check, so an inverted band never reaches it.
+    expect(mockFindFirst).not.toHaveBeenCalled();
   });
 
   it("[normal] a valid band (priceLow=250, priceHigh=600) still saves (AC-2)", async () => {
     const res = await campSitePOST(postRequest({ ...VALID_BASE, priceLow: 250, priceHigh: 600 }));
     expect(res.status).toBe(201);
     expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockFindFirst).toHaveBeenCalledTimes(1);
   });
 });
