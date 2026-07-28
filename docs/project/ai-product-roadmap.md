@@ -56,11 +56,14 @@
 | A3 | availability transparency ("เหลือ 2/5") | 🟡 | S | PREP-1, AI-2 | yes | M2 | planned |
 | A4 | "วันนี้ลานนี้ว่างไหม" (สด) | 🟢 | S | AI-2 | yes | M2 | planned |
 
-### C · Inquiry (v1)
+### C · Booking (v1)
+
+> **แก้ไข 2026-07-28 ([ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)):** cluster C เปลี่ยนปลายทางจาก **Inquiry → Booking** ตามการตัดสินใจของเจ้าของ — การ์ดในแชทพาไปจนจบการจอง ไม่ใช่ส่งเข้า lead inbox (ซึ่งยังไม่มีอยู่จริง — epic CAM-289 ยัง Backlog) รอบ 1 แชท**ไม่เขียนข้อมูลเอง**: guided flow วัน→จำนวนคน→สรุป แล้วส่งต่อไปหน้าจองที่กรอกไว้ให้แล้ว (epic CAM-630)
+
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
 |---|---|---|---|---|---|---|---|
-| C1 | การ์ด → สอบถาม/ขอราคา (inquiry form prefill → สร้าง HostLead) | 🟢 | S | AI-3, HostOS lead inbox (HS-1, M1.2) | no | M2 | planned |
-| C2 | inquiry prep (date/guests/needs prefill เข้า lead) | 🟡 | M | AI-2, AI-3, HostOS lead inbox (HS-1, M1.2) | yes | M2 | planned |
+| C1 | การ์ด → จอง (guided flow วัน/จำนวนคน → ส่งต่อหน้าจองที่ prefill แล้ว, ไม่ write จากแชท) | 🟢 | S | AI-3, หน้าจองเดิม (`POST /api/bookings`, มีอยู่แล้ว) | no | M2 | planned (CAM-630) |
+| C2 | booking prep (date/guests/needs prefill เข้าหน้าจอง) | 🟡 | M | AI-2, AI-3 | yes | M2 | planned (CAM-630) |
 
 ### B · Decide + F · Social proof / video (v1.5 → R2)
 | ID | Item | Feas. | Effort | Depends on | Spend? | Train | Status |
@@ -98,7 +101,7 @@
 |---|---|---|---|---|
 | **M1** ← ทำก่อน (Data & Trust) | ปูฐานข้อมูล/ความน่าเชื่อถือ (availability/price/review) ก่อนแตะ AI | PREP-1 (**Done** — CAM-267) + PREP-2/3 | ~2–2.5 สัปดาห์ (เหลือ PREP-2/3; ประมาณการหยาบ) | G1 scope (ปิดแล้ว — มี story CAM-268/269) |
 | **M1.2** — HostOS-AI | parser ข้อความ LINE/FB → structured lead เสริม lead inbox ของ HostOS (manual entry ทำงานได้ก่อนอยู่แล้ว) | AI-PARSE | ~1.5 สัปดาห์ (ประมาณการหยาบ) | **G2 spend (OpenRouter)** ก่อน AI-PARSE ยิงจริง — **จุด spend แรกของ roadmap นี้** (ย้ายจาก AI-1 เดิม) |
-| **M2** — AI Discover→Inquiry | Chat core (v1): ค้นหา/ถามตอบสด → ส่งต่อเป็น inquiry (สร้าง HostLead, ไม่ใช่ booking) | AI-1/2/3 + A1–A4 + C1–C2 | ~6–8 สัปดาห์ (คงเหลือหลัง PREP ย้ายไป M1; ประมาณการหยาบ) | เข้า: M1 **และ** M1.2 เสร็จ (ต่อ platform-blueprint.md §3) · G1 scope · spend อนุมัติแล้วที่ M1.2 (reuse OpenRouter integration เดิม) |
+| **M2** — AI Discover→Book | Chat core (v1): ค้นหา/ถามตอบสด → **พาไปจนจบการจอง** (รอบ 1 ส่งต่อหน้าจองที่ prefill แล้ว, แชทไม่เขียนเอง — ADR-016) | AI-1/2/3 + A1–A4 + C1–C2 | ~6–8 สัปดาห์ (คงเหลือหลัง PREP ย้ายไป M1; ประมาณการหยาบ) | เข้า: M1 เสร็จ · **ไม่ต้องรอ M1.2 lead inbox แล้ว** (ADR-016) · G1 scope · spend อนุมัติแล้วที่ M1.2 (reuse OpenRouter integration เดิม) |
 | **R2** (M2.x) | Decide + Social proof / video | B1/B2(F1)/B3 + VID-1/2/3/4 (F2 link-out, F3 embed) | **~7–9 สัปดาห์** | G2 spend (scraper ถ้าใช้ 3rd-party) · CSP review · future ADR (เลขจะออกตอนเริ่ม R2) |
 | **R3** (M3) | Plan / Trip | D2, D3, E2, **D1 trip planner (XL)** | **~8–10 สัปดาห์** | data model ใหม่ (trip/itinerary) · G2 (weather/maps API) |
 | **R4** (M6-ish) | Post-trip + Host tools | E1, H1, H2, H3 | **~7–9 สัปดาห์** | G2 (POI API + AI generation) |

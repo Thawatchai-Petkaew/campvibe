@@ -4,7 +4,9 @@
 > สถานะ ณ 2026-06-27 · ส่วน `> TODO(you):` รอเจ้าของเติม (ห้ามเดา)
 
 ## What CampVibe is (ยืนยันจาก codebase + Platform Blueprint v6 — ดู [platform-blueprint.md](platform-blueprint.md))
-แพลตฟอร์ม **HostOS-first สำหรับแคมป์/ลานกางเต็นท์ในประเทศไทย** — แกนหลักคือ back-office ให้ **Host** รันธุรกิจได้ครบวงจร (lead → quote → hold/deposit → stay → POS → daily close) บวกฝั่ง **Camper** ค้นหา–ดูรายละเอียด–สอบถามได้ในที่เดียว · public booking/payment **เลื่อนออกไป** จนกว่าจะผ่าน BookingReadinessGate (ดู platform-blueprint.md §3 M7.5) · ภาษาไทยเป็นหลัก (i18n TH/EN)
+แพลตฟอร์ม **HostOS-first สำหรับแคมป์/ลานกางเต็นท์ในประเทศไทย** — แกนหลักคือ back-office ให้ **Host** รันธุรกิจได้ครบวงจร (lead → quote → hold/deposit → stay → POS → daily close) บวกฝั่ง **Camper** ค้นหา–ดูรายละเอียด–**จอง**ได้ในที่เดียว · **การชำระเงินออนไลน์** (ไม่ใช่ตัวการจอง) **เลื่อนออกไป** จนกว่าจะผ่าน BookingReadinessGate (ดู platform-blueprint.md §3 M7.5) · ภาษาไทยเป็นหลัก (i18n TH/EN)
+
+> **แก้ไข 2026-07-28 ([ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)):** camper จองตรงได้ และเป็นแบบนั้นมาตลอดตั้งแต่ M0 — gate ไม่เคยถูกบังคับใช้ในโค้ด สิ่งที่ยังไม่มีคือ **เงิน** (ไม่มี payment gateway) ไม่ใช่การจอง
 
 โดเมนจริงในระบบ: `CampSite` (แคมป์) · `Spot` (จุดกาง/โซนในแคมป์) · `Booking` (การจอง) · `Review` (รีวิว ผูก verified-stay) · `Wishlist` (บันทึกแคมป์ที่ถูกใจ) · `Location/ThailandLocation` (จังหวัด/อำเภอ) · `User` (role CAMPER/ADMIN, `isVerified`) — (แผน M1.2: Lead · Quote · Hold · DepositRecord · Stay — ยังไม่มีใน code)
 
@@ -41,15 +43,15 @@
 - **M1 — Data & Trust:** availability ถูกต้อง + final price/fee/cancellation atomic + verified-stay gate + listing quality score
 - **M1.2 — HostOS core:** lead inbox → quote → hold/deposit → manual stay → POS/rental → daily close
 - **M1.5 — Host Map:** CampZone/CampMap, 2D SVG builder, zone/pitch editor, guest interactive map
-- **M2 — AI Discover→Inquiry:** NL search + live availability Q&A + การ์ดในแชท → ส่งต่อเข้า HostOS lead inbox
+- **M2 — AI Discover→Book:** NL search + live availability Q&A + การ์ดในแชท → พาไปจนจบการจองในแชท (รอบ 1 = guided flow แล้วส่งต่อไปหน้าจองที่กรอกไว้ให้แล้ว — [ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md), epic CAM-630)
 - **M3 — Trip OS** · **M4 — Gear Identity** · **M5 — Setup Community** · **M6 — Affiliate Hub** · **M7 — 2.5D showcase**
-- **M7.5 — OPTIONAL Booking Engine:** เปิด public booking/payment กลับมาเมื่อผ่าน BookingReadinessGate ต่อ campsite (ไม่ผูกเวลาตายตัว)
+- **M7.5 — OPTIONAL Payment/Checkout:** เปิด **การชำระเงินออนไลน์** กลับมาเมื่อผ่าน BookingReadinessGate ต่อ campsite (ไม่ผูกเวลาตายตัว) — ตัวการจองฝั่ง camper ไม่ได้รออยู่ที่นี่ (ADR-016)
 - **M8 — Secondhand Marketplace:** ลำดับสุดท้ายตาม blueprint
 - **Later (superseded):** เดิมเป็น `> TODO(you): payment/escrow? ปฏิทินว่าง/พร้อมจอง? แชร์ wishlist? remarketing?` — คำถามนี้ถูกตอบแล้วโดย Platform Blueprint v6: payment/escrow → M7.5 (readiness-gated) · ปฏิทินว่าง/พร้อมจอง → ส่วนหนึ่งของ M1 availability · แชร์ wishlist/remarketing → ยังไม่จัดคิว (ยังไม่อยู่ใน ladder M1–M8, พิจารณาใหม่หลัง M2)
 
 ## ขอบเขต / สิ่งที่ "ยังไม่ทำตอนนี้"
 > TODO(you): ระบุชัด เช่น — ยังไม่ทำระบบจ่ายเงินจริง/escrow, ยังไม่ทำ multi-language นอก TH/EN, ยังไม่ทำ mobile app native
-> PROPOSED (awaiting owner): online payment/booking checkout จนกว่าผ่าน BookingReadinessGate (M7.5, ดู [platform-blueprint.md](platform-blueprint.md) §3) · native app · ตลาดนอกไทย · secondhand marketplace ก่อน M8
+> PROPOSED (awaiting owner): online payment / checkout จนกว่าผ่าน BookingReadinessGate (M7.5, ดู [platform-blueprint.md](platform-blueprint.md) §3 — **การจองฝั่ง camper ไม่อยู่ในรายการนี้แล้ว, ADR-016**) · native app · ตลาดนอกไทย · secondhand marketplace ก่อน M8
 (ของที่ตัดออกช่วย orchestrator + เจ้าของ รู้ว่าอะไร "นอก scope" → orchestrator หยุดถามเจ้าของถ้าถูกขอ)
 
 ## เกี่ยวข้อง

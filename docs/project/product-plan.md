@@ -1,6 +1,6 @@
 # CampVibe — Product Plan (RESET, by Persona)
 
-> **ปรับใหญ่ 2026-07 (Blueprint v6 / ADR-011):** pivot เป็น HostOS-first, เลื่อน public booking/payment ไป M7.5 (BookingReadinessGate) · Phase legend ใหม่: Phase 1 = M1+M1.2 · Phase 2 = M1.5+M2 · Phase 3 = M3+ · ladder เต็มอยู่ที่ [`platform-blueprint.md`](platform-blueprint.md)
+> **ปรับใหญ่ 2026-07 (Blueprint v6 / ADR-011):** pivot เป็น HostOS-first, เลื่อน **การชำระเงินออนไลน์** ไป M7.5 (BookingReadinessGate) — **แก้ไข 2026-07-28 ([ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)): ตัวการจองฝั่ง camper ไม่ได้ถูกเลื่อน จองตรงได้อยู่แล้ว** · Phase legend ใหม่: Phase 1 = M1+M1.2 · Phase 2 = M1.5+M2 · Phase 3 = M3+ · ladder เต็มอยู่ที่ [`platform-blueprint.md`](platform-blueprint.md)
 > **แผนฟีเจอร์ราย persona** (audit 2026-06-20 โดย product-owner ×3 + Explore) — inventory ละเอียดของ 3 ฝั่งผู้ใช้ + status ตามความจริงในโค้ด · ทิศทาง/กลยุทธ์ที่เป็น source-of-truth = [master-plan.md](master-plan.md) + [product-strategy.md](product-strategy.md)
 > ไฟล์เดียวที่รวม inventory ราย persona + epic-backlog + AI rollup (เดิมแยกที่ FEATURE-BACKLOG.md — ยุบรวมเข้าที่นี่แล้ว 2026-06-22) · ทุก item ที่เลือกทำ → แปลงเป็น TICKET ที่ intake/G1
 > Status: ✅ DONE (ใช้ได้จริง) · 🟡 PARTIAL (มีแต่ไม่ครบ/มีช่องโหว่) · ⬜ TODO (ยังไม่มี) · 🔵 IN-FLIGHT (อยู่ในลูป) · Effort S/M/L · Phase 1 core-real / 2 AI+depth / 3 scale
@@ -134,7 +134,8 @@
 | C-2.8 | รูปในรีวิว (mediaUrls) | 🟡 | M | 2 | field มี แต่ไม่มี upload UI |
 
 ### C-3 Availability & booking
-> **หมายเหตุ (Blueprint v6):** reserve flow เดิม (booking PENDING→CONFIRMED) คงไว้เป็น internal foundation — ADR-005 (booking snapshot) / ADR-006 (atomic inventory lock) ยัง valid แต่ dormant, ไม่ผูก public CTA แล้ว; CTA สาธารณะเปลี่ยนเป็น "สอบถาม/ขอราคา" ที่ M1.2 (ดู HS-2) · item ที่เป็น public-checkout ล้วน ๆ (C-3.4, C-3.7) → M7.5
+> ~~**หมายเหตุ (Blueprint v6):** reserve flow เดิม (booking PENDING→CONFIRMED) คงไว้เป็น internal foundation — ADR-005 / ADR-006 ยัง valid แต่ dormant, ไม่ผูก public CTA แล้ว; CTA สาธารณะเปลี่ยนเป็น "สอบถาม/ขอราคา" ที่ M1.2~~
+> **แก้ไข 2026-07-28 ([ADR-016](../adr/ADR-016-camper-direct-booking-and-in-chat-completion.md)):** CTA สาธารณะ **ไม่เปลี่ยน** — ยังเป็น `จอง` และผูกกับ reserve flow เดิมจริง ๆ (ทำงานอยู่ตั้งแต่ M0) ADR-005/ADR-006 จึง **ไม่ dormant** แต่เป็นกฎที่บังคับใช้อยู่บนเส้นทางการจองของ camper · item ที่เป็น **public-checkout/ชำระเงิน** ล้วน ๆ (C-3.4, C-3.7) → ยังอยู่ที่ M7.5
 | ID | Feature | Status | Effort | Phase | Note |
 |---|---|---|---|---|---|
 | C-3.1 | ปฏิทิน availability real-time (capacity เหลือ) | ✅ | — | 1 | ดึง 3 เดือนล่วงหน้า |
