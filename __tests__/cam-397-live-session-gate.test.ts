@@ -105,7 +105,9 @@ describe("CAM-397 AC-3: handleWishlistToggle passes the live session into runWis
 describe("CAM-397 BR-3: root layout hydrates SessionProvider with the server session", () => {
     it("[unit] app/layout.tsx resolves the session server-side via auth() and passes it to Providers", () => {
         expect(layoutSrc).toContain("const session = await auth();");
-        expect(layoutSrc).toMatch(/<Providers session=\{session\}>/);
+        // CAM-610 added a sibling `nonce` prop after `session`; match the
+        // opening tag without anchoring on `>` immediately after session.
+        expect(layoutSrc).toMatch(/<Providers session=\{session\}/);
     });
 
     it("[unit] Providers hydrates next-auth's SessionProvider with that session (CAM-242)", () => {

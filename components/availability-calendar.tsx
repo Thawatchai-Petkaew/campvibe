@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
+import { useRequestSequence } from "@/lib/hooks/use-request-sequence";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,6 +70,14 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
   const copy = t.availabilityCalendar;
   const locale = language === "th" ? "th-TH" : "en-US";
 
+  // CAM-604: `new Date()` evaluated here runs once during the SERVER render
+  // and once again during the CLIENT's first (hydrating) render — two
+  // separate JS calls that can only ever disagree across a day/month
+  // boundary, but when they do, `today`-derived output (the "is this cell
+  // today" ring style, the nav buttons' disabled bound, the month label
+  // text) is exactly the "live clock value" case React's own hydration docs
+  // name as an expected, benign mismatch — see the `suppressHydrationWarning`
+  // usages below, scoped to only the elements that read `today`/`month`.
   const today = useMemo(() => new Date(), []);
   const minMonth = useMemo(() => startOfMonth(subMonths(today, MONTHS_BACK)), [today]);
   const maxMonth = useMemo(() => startOfMonth(addMonths(today, MONTHS_FORWARD)), [today]);
@@ -79,9 +88,18 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
   const [loadError, setLoadError] = useState(false);
   const showSkeleton = useMinimumLoading(loading, { delay: 300, minDisplay: 400 });
 
+  // CAM-608 — monotonic requestId guard (CAM-359 pattern). This is the route's
+  // clearest multiplier: month-nav clicks and the CAM-343 refreshKey bump
+  // (after a hold create/release) can each re-issue loadMonth() while an
+  // earlier call for a DIFFERENT month is still in flight. Without this
+  // guard, a slow response for the month the host navigated AWAY from could
+  // resolve last and silently replace the freshly-loaded month's data.
+  const { next, isCurrent } = useRequestSequence();
+
   const loadMonth = useCallback(
     async (targetMonth: Date) => {
       if (!campSiteId) return;
+      const requestId = next();
       setLoading(true);
       setLoadError(false);
       try {
@@ -91,6 +109,13 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
           `/api/campsites/${campSiteId}/availability?startDate=${format(monthStart, "yyyy-MM-dd")}&endDate=${format(monthEnd, "yyyy-MM-dd")}`,
           { cache: "no-store" }
         );
+
+        // Stale-response guard — a newer loadMonth() call has been issued
+        // since this one started (a further month-nav click, or a
+        // refreshKey-triggered refetch); never let an out-of-order,
+        // earlier-issued response overwrite state a newer call already set.
+        if (!isCurrent(requestId)) return;
+
         if (!res.ok) throw new Error("Failed to load availability calendar");
         const payload = (await res.json()) as AvailabilityApiResponse;
         const list = Array.isArray(payload.availability) ? payload.availability : [];
@@ -100,13 +125,16 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
         }
         setDailyMap(map);
       } catch (err) {
+        if (!isCurrent(requestId)) return;
         console.error("Failed to load availability calendar", err);
         setLoadError(true);
       } finally {
-        setLoading(false);
+        if (isCurrent(requestId)) {
+          setLoading(false);
+        }
       }
     },
-    [campSiteId]
+    [campSiteId, next, isCurrent]
   );
 
   useEffect(() => {
@@ -168,10 +196,18 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
             disabled={atMinBound}
             aria-label={copy.prevMonthAriaLabel}
             data-testid="btn--calendar-prev"
+            // CAM-604: `disabled` derives from `today` (see above) — a live-clock
+            // value, not app state; suppress the benign day/month-boundary case.
+            suppressHydrationWarning
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
           </Button>
-          <span className="min-w-32 text-center text-sm font-semibold text-foreground tabular-nums">
+          <span
+            className="min-w-32 text-center text-sm font-semibold text-foreground tabular-nums"
+            // CAM-604: text derives from `month`, seeded from `new Date()` — see
+            // the comment above `today`.
+            suppressHydrationWarning
+          >
             {monthLabel}
           </span>
           <Button
@@ -181,6 +217,7 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
             disabled={atMaxBound}
             aria-label={copy.nextMonthAriaLabel}
             data-testid="btn--calendar-next"
+            suppressHydrationWarning
           >
             <ChevronRight className="size-4" aria-hidden="true" />
           </Button>
@@ -252,12 +289,17 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
                     blocked ? "bg-destructive/5 border-destructive/20" : "bg-background",
                     isToday && "ring-1 ring-primary/40"
                   )}
+                  // CAM-604: `isToday` derives from `today` (`new Date()` evaluated
+                  // once per render pass) — a live-clock comparison, not app state;
+                  // suppress the benign day-boundary case (see comment above `today`).
+                  suppressHydrationWarning
                 >
                   <span
                     className={cn(
                       "text-sm tabular-nums",
                       isToday ? "font-bold text-primary-ink" : "font-medium text-foreground"
                     )}
+                    suppressHydrationWarning
                   >
                     {format(day, "d")}
                   </span>

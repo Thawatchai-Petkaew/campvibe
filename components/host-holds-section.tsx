@@ -27,6 +27,7 @@ import { Hourglass, Loader2, Plus, Unlock } from "lucide-react";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
+import { useRequestSequence } from "@/lib/hooks/use-request-sequence";
 import { createHoldSchema, HOLD_DEFAULT_EXPIRY_MS, HOLD_MAX_EXPIRY_MS } from "@/lib/validations/holds";
 
 import { Button } from "@/components/ui/button";
@@ -133,22 +134,41 @@ export function HostHoldsSection({ campSiteId, spots, onHoldsChanged }: HostHold
   const [releaseTarget, setReleaseTarget] = useState<HoldItem | null>(null);
   const [releasing, setReleasing] = useState(false);
 
+  // CAM-608 — monotonic requestId guard (CAM-359 pattern). loadHolds() can
+  // legitimately be in flight more than once at a time (React Strict Mode's
+  // dev-only double-invoked mount effect racing a post-create/post-release
+  // refetch triggered right after); every state commit below is gated on
+  // "is this still the most recently issued call" so an out-of-order,
+  // earlier-issued response is a no-op instead of silently overwriting a
+  // hold the host just created or released.
+  const { next, isCurrent } = useRequestSequence();
+
   const loadHolds = useCallback(async () => {
     if (!campSiteId) return;
+    const requestId = next();
     setLoading(true);
     setLoadError(false);
     try {
       const res = await fetch(`/api/campsites/${campSiteId}/holds`, { cache: "no-store" });
+
+      // Stale-response guard — a newer loadHolds() call has been issued
+      // since this one started; never let an out-of-order (earlier-issued,
+      // later-resolving) response overwrite state a newer call already set.
+      if (!isCurrent(requestId)) return;
+
       if (!res.ok) throw new Error("Failed to load holds");
       const data = await res.json();
       setHolds(Array.isArray(data) ? data : []);
     } catch (err) {
+      if (!isCurrent(requestId)) return;
       console.error("Failed to load holds", err);
       setLoadError(true);
     } finally {
-      setLoading(false);
+      if (isCurrent(requestId)) {
+        setLoading(false);
+      }
     }
-  }, [campSiteId]);
+  }, [campSiteId, next, isCurrent]);
 
   useEffect(() => {
     loadHolds();

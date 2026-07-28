@@ -35,9 +35,27 @@
  * table (it carries FKs onto the truncated model tables), so a synced dev DB
  * was left with every camp's options wiped to zero rows. IMPLICIT_M2M_TABLES
  * below is copied explicitly, via raw SQL, after the model loop.
+ *
+ * CAM-605: this is the moment new, real camp data (synced from staging) most
+ * recently landed in the local dev DB — the natural place to ask, in passing,
+ * whether CAM-600's committed `prisma/data/subdistrict-shortlist.json` is
+ * still current, rather than waiting for someone to remember to run
+ * `scripts/check-subdistrict-shortlist-drift.mjs` by hand. Wired as a
+ * REPORT-MODE, non-blocking warning only (own try/catch, never touches this
+ * script's own `process.exitCode`) — a drift finding (or a failure to check
+ * at all) must never fail a sync. See this story's own tech.md "Riding along
+ * an existing moment" for the full reasoning, including why `promote-release`
+ * was considered and rejected as a second ride-along site.
  */
 import "dotenv/config";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { PrismaClient, Prisma } from "@prisma/client";
+import { computeLiveShortlistEntries } from "./generate-subdistrict-shortlist.mjs";
+import { computeDrift } from "./check-subdistrict-shortlist-drift.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function hostOf(url, label) {
   try {
@@ -187,6 +205,33 @@ try {
 
   await target.$executeRawUnsafe(`SET session_replication_role = origin`);
   console.log(`✓ synced ${total} rows into the local dev DB`);
+
+  // CAM-605 — non-blocking, report-mode only: a drift finding (or even a
+  // failure to check at all) NEVER sets this script's own process.exitCode.
+  // Own try/catch, isolated from the sync's outer catch below.
+  try {
+    const provinceNamesTh = JSON.parse(
+      readFileSync(join(__dirname, "..", "prisma", "data", "thailand-locations.json"), "utf-8")
+    ).map((p) => p.nameTh);
+    const committedEntries = JSON.parse(
+      readFileSync(join(__dirname, "..", "prisma", "data", "subdistrict-shortlist.json"), "utf-8")
+    );
+    const { entries: liveEntries } = await computeLiveShortlistEntries(target);
+    const { added, removed } = computeDrift(committedEntries, liveEntries, provinceNamesTh);
+
+    if (added.length > 0 || removed.length > 0) {
+      console.warn(
+        `⚠ subdistrict-shortlist.json (CAM-600) may now be stale — ${added.length} new / ${removed.length} removed. ` +
+          `Run: node scripts/check-subdistrict-shortlist-drift.mjs`
+      );
+    } else {
+      console.log("✓ subdistrict-shortlist.json still matches the freshly synced data (CAM-605, 0 drift)");
+    }
+  } catch (driftErr) {
+    console.warn(
+      `⚠ could not check subdistrict-shortlist drift after this sync (non-blocking): ${driftErr?.message ?? driftErr}`
+    );
+  }
 } catch (err) {
   console.error(`✗ sync failed: ${err.message ?? err}`);
   process.exitCode = 1;
