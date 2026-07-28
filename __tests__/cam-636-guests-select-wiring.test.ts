@@ -36,8 +36,13 @@ describe("CampgroundDetailClient — guests options come from real capacity, nev
   });
 
   it("[unit] imports the shared ceiling/options helpers from lib/guest-capacity (not hand-rolled inline)", () => {
+    // CAM-635: the import now also carries `clampGuestsToInitialCeiling`
+    // (the chat-prefill guests seed, lib/guest-capacity.ts) alongside these
+    // two — updating this pin to the new canonical import line is correct,
+    // not weakening (CAM-224/226/229: a real, intentional source change
+    // updates the pin instead of reverting it).
     expect(detailSrc).toContain(
-      'import { computeGuestCeiling, buildGuestOptions } from "@/lib/guest-capacity";'
+      'import { computeGuestCeiling, buildGuestOptions, clampGuestsToInitialCeiling } from "@/lib/guest-capacity";'
     );
   });
 

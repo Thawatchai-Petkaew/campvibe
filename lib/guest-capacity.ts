@@ -84,3 +84,33 @@ export function buildGuestOptions(ceiling: number | null): number[] {
   if (max <= 0) return [];
   return Array.from({ length: max }, (_, i) => i + 1);
 }
+
+/**
+ * CAM-635 — clamp a `guests` value carried in from a chat handoff link
+ * (`lib/booking-prefill.ts`) so a component's FIRST paint never selects a
+ * value absent from its own FIRST paint's `guestOptions` (React silently
+ * renders the `<Select>` blank when `value` matches no `<SelectItem>`).
+ *
+ * Cooperates with, rather than races, the shrinking-ceiling clamp effect a
+ * caller already runs post-mount (`guestCeiling !== null && guests >
+ * guestCeiling -> setGuests(...)`, `components/CampgroundDetailClient.tsx`):
+ * this function is called ONCE, at seed time, with `remaining: null` — the
+ * exact same input a just-mounted component's own `guestCeiling` computation
+ * starts with (the live per-date `remaining` capacity has not been fetched
+ * yet). Using `computeGuestCeiling`/`buildGuestOptions` here guarantees the
+ * seeded value is always a member of the caller's own first-render
+ * `guestOptions` list — if the live fetch later resolves a LOWER ceiling,
+ * the caller's existing post-mount effect (unchanged) clamps further; this
+ * function never duplicates that shrink-over-time behavior, only the
+ * one-time seed.
+ */
+export function clampGuestsToInitialCeiling(
+  guests: number,
+  maxGuestsPerDay: number | null,
+  isPerSpot: boolean
+): number {
+  const seedCeiling = computeGuestCeiling(null, maxGuestsPerDay, isPerSpot);
+  const seedOptions = buildGuestOptions(seedCeiling);
+  if (seedOptions.length === 0) return 1;
+  return Math.min(guests, seedOptions[seedOptions.length - 1]);
+}
