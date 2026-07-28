@@ -30,8 +30,20 @@ export default async function CampgroundPage({ params }: { params: Promise<{ slu
     try {
         campSite = await getCampBySlug(slug);
     } catch (error) {
-        console.error("Database connection error:", error);
-        notFound();
+        // CAM-588: a thrown error here is an infrastructure/DB failure (e.g. a
+        // stale Prisma client after a migration — see scripts/dev-with-prisma-watch.mjs),
+        // not a statement about the data. A 404 means "this camp doesn't exist";
+        // a database failure is not that statement, so it must NOT become one.
+        // Log it loudly server-side (structured, no stack/secret to the client)
+        // and RE-THROW so Next.js routes to the nearest error boundary
+        // (app/error.tsx — generic Thai copy, never a stack, per security.md).
+        console.error(JSON.stringify({
+            level: "error",
+            event: "camp_detail_load_failed",
+            slug,
+            message: error instanceof Error ? error.message : String(error),
+        }));
+        throw error;
     }
 
     if (!campSite) {

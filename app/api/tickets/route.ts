@@ -35,14 +35,16 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
-  const parsed = listTicketsQuerySchema.safeParse({
-    state: url.searchParams.get("state") ?? undefined,
-    epicId: url.searchParams.get("epicId") ?? undefined,
-    archived: url.searchParams.get("archived") ?? undefined,
-    // CAM-595: mode=gate|audit — a targeted server-side read for the two surfaces that must
-    // never truncate silently (see lib/delivery/validations.ts's mode-param comment).
-    mode: url.searchParams.get("mode") ?? undefined,
-  });
+  // CAM-602: reflect the FULL query string into the (now-strict) schema below, rather than
+  // four manually-named `.get()` calls — an unrecognized key fails loudly (400) instead of
+  // being silently dropped, per lib/delivery/validations.ts's listTicketsQuerySchema comment.
+  // `token` is deliberately excluded first: it is the STATUS_TOKEN auth transport already
+  // checked by isStatusRequestAuthorized above (lib/status-auth.ts), not a data field this
+  // endpoint's contract owns — folding it into the strict schema would 400 every legitimate
+  // token-bearing request.
+  const queryParams = new URLSearchParams(url.search);
+  queryParams.delete("token");
+  const parsed = listTicketsQuerySchema.safeParse(Object.fromEntries(queryParams));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_query" }, { status: 400 });
   }
@@ -55,7 +57,19 @@ export async function GET(req: Request) {
     // to resolve a plain array (no such properties), both read as `undefined` here and
     // JSON.stringify drops them, so the response degrades to the original `{ tickets }`
     // shape rather than lying with `truncated: false`.
-    return NextResponse.json({ tickets, total: tickets.total, truncated: tickets.truncated });
+    //
+    // CAM-602: `tickets.appliedMode` is the response's PROOF that a requested `mode` was
+    // actually used to build the query — "gate"/"audit", or `null` for a genuine general
+    // (no-mode) read. Same additive/compat mechanism as total/truncated: absent when a test
+    // double mocks a plain array, never a false value. A caller that requested mode=gate/
+    // audit and gets a response where this doesn't match must refuse to interpret `tickets`
+    // as that set — see scripts/lib/ticket-sync-mode-proof.mjs.
+    return NextResponse.json({
+      tickets,
+      total: tickets.total,
+      truncated: tickets.truncated,
+      appliedMode: tickets.appliedMode,
+    });
   } catch (err) {
     return ticketErrorResponse(err);
   }

@@ -8,9 +8,12 @@
  *      the list by name (one new CampSite row created, owned by this host)
  */
 import { test, expect } from "@playwright/test";
+import { withKeepAliveRaceRetry } from "./helpers";
 
 test("create-camp form: filling required fields creates one new owned CampSite row", async ({ page, request }) => {
-  const dashboardRes = await request.get("/api/operator/dashboard");
+  const dashboardRes = await withKeepAliveRaceRetry("GET /api/operator/dashboard", () =>
+    request.get("/api/operator/dashboard")
+  );
   expect(dashboardRes.ok()).toBe(true);
   const dashboard = await dashboardRes.json();
   const operatorId: string = dashboard.operator.id;
@@ -71,7 +74,9 @@ test("create-camp form: filling required fields creates one new owned CampSite r
   await expect(page.getByTestId(`row--campsite-${created.id}`)).toContainText(newNameTh);
 
   // Data result — exactly one new row, owned by the signed-in host.
-  const dashboardAfterRes = await request.get("/api/operator/dashboard");
+  const dashboardAfterRes = await withKeepAliveRaceRetry("GET /api/operator/dashboard (after)", () =>
+    request.get("/api/operator/dashboard")
+  );
   const dashboardAfter = await dashboardAfterRes.json();
   expect(dashboardAfter.campSites.length).toBe(campCountBefore + 1);
   const createdRow = dashboardAfter.campSites.find((c: { id: string }) => c.id === created.id);

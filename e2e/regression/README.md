@@ -69,7 +69,7 @@ before navigating — never assume the shared storageState is English.
 |---|---|
 | `db-guard.ts` | BR-1 localhost-only safety guard (also unit-testable directly via `npx tsx -e ...`) |
 | `global.setup.ts` | The `regression-setup` project's setup test — runs the guard, signs in as `hoster@campvibe.com` via the real `/login` form, forces Thai copy (`campvibe_lang`), proves the session on `/dashboard`, persists `storageState` |
-| `helpers.ts` | `findCampBySlug` / `getCampSite` — look up a seeded camp deterministically via the real API (no reliance on list sort order) |
+| `helpers.ts` | `findCampBySlug` / `getCampSite` — look up a seeded camp deterministically via the real API (no reliance on list sort order); also exports `withKeepAliveRaceRetry` (CAM-603, see below) |
 | `ac1-edit-round-trip.spec.ts` | AC-1 — edit nameTh + priceLow, save, reopen: both persist |
 | `ac2-album-image-roundtrip.spec.ts` | AC-2 — remove seeded album image, upload the fixture, save, reopen: Image relation reflects the swap |
 | `ac3-logo-roundtrip.spec.ts` | AC-3 — logo set → cleared → set across 3 saves (currently **RED** — see `## Known defect`) |
@@ -89,6 +89,30 @@ entirely). See `docs/specs/platform-core/e2e-regression-harness/CAM-359-
 e2e-regression-suite/test.md` for the full repro + root-cause pointer. Do
 **not** weaken or delete this test to make the suite green — it will go green
 on its own once the fix lands.
+
+## Known harness hazard — mid-run "socket hang up" on a `request.*` call (CAM-603)
+
+Every `request.get/put/post` call in this suite shares ONE Node-side
+`APIRequestContext` (Playwright's `request` fixture, `keepAlive: true`, no
+idle cap of its own). `next dev` — unlike `next start` — never overrides
+Node's default 5000ms server `keepAliveTimeout`. A reused connection that
+lands a new request right as the server's idle timer fires can lose that
+race: the server logs `Error: aborted {code:'ECONNRESET'}` (an already-known,
+already-survived class in this codebase — `lib/observability/abort-guard.ts`,
+CAM-406 — Next's own default handler does not crash the process on it) and
+the client sees `apiRequestContext.get: socket hang up`. Browsers silently
+retry an idempotent GET that hits a stale reused connection; Node's
+`http.Agent` does not, which is why only these Node-side `request.*` calls
+(never a `page.goto()`) are exposed.
+
+Every `request.*` call in this suite goes through `withKeepAliveRaceRetry`
+(`helpers.ts`) — a single, narrowly-scoped retry on exactly this error class
+(never on `ECONNREFUSED`, which means the webServer process is actually
+dead, so a real crash still fails immediately and loudly across every
+subsequent request). A retry that fires is never silent — it is recorded as
+a `cam-603-transient-retry` annotation on the test, visible in the HTML
+report. Full investigation + reproduction:
+`docs/specs/platform-hardening/taxonomy-ui-foundation/CAM-603-e2e-midrun-abort/tech.md`.
 
 ## Why a Playwright "setup project" instead of `globalSetup`
 
