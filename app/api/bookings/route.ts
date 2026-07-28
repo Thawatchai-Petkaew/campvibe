@@ -163,6 +163,8 @@ async function withBookingTransaction(
             totalPrice,
             currency,
             status: 'PENDING', // Start as pending
+            // CAM-642: attribution label only — never read for pricing/capacity/authz above.
+            source: data.source,
             // Crystallize booking state (ADR-005): freeze name/price/tax/times at booking time so
             // later host edits to the live camp never mutate this booking — it is a legal document.
             snapshotCampName: campSite.nameTh,
