@@ -196,9 +196,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       locationFields.district !== undefined ||
       locationFields.subDistrict !== undefined;
 
-    if (data.locationId && hasLocationFieldEdit) {
+    // CAM-613: target the Location of the camp that was ACTUALLY authorised
+    // above (`existing.locationId`, a plain scalar column requireCampSitePermission
+    // already fetched and proved belongs to the path's `id`) - never a
+    // body-supplied `data.locationId`. The old code read `data.locationId`
+    // here, so a host owning camp A could send `{ locationId: <camp B's
+    // locationId>, province: "", ... }` on a PUT to their OWN camp A and
+    // blank camp B's location - authorisation and the write concerned two
+    // different objects. A body-supplied `locationId` is now silently
+    // ignored for this purpose (see tech.md's ignore-vs-reject decision);
+    // it remains a valid field on `campSiteSchema` for POST /api/campsites
+    // (create), an unrelated, unaffected operation.
+    if (hasLocationFieldEdit) {
       await prisma.location.update({
-        where: { id: data.locationId },
+        where: { id: existing!.locationId },
         data: {
           ...(locationFields.province !== undefined && {
             province: locationFields.province === '' ? null : locationFields.province,

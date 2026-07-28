@@ -84,7 +84,14 @@ const makeParams = (id: string) => ({ params: Promise.resolve({ id }) });
 function mockAllowed() {
     (requireCampSitePermission as ReturnType<typeof vi.fn>).mockResolvedValue({
         error: null,
-        campSite: { id: CAMP_ID, operatorId: 'op-1', isPublished: false } as never,
+        // CAM-613: `locationId` is now REQUIRED on this mock — the route's
+        // location-update write targets `existing.locationId` (the record
+        // this call returns), never a body-supplied id. Set to LOCATION_ID
+        // so every test below that ALSO submits `locationId: LOCATION_ID`
+        // in the request body (the legitimate/normal case, since the mock's
+        // own authorised camp really does own that location) keeps
+        // asserting the exact same write target as before the fix.
+        campSite: { id: CAMP_ID, operatorId: 'op-1', isPublished: false, locationId: LOCATION_ID } as never,
         session: { user: { id: 'op-1' } } as never,
     });
 }
