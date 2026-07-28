@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { campSiteSchema } from '@/lib/validations/campsite';
+import { campSiteSchema, isPriceOrderValid, PRICE_ORDER_ERROR } from '@/lib/validations/campsite';
 import { catalogQuerySchema } from '@/lib/validations/catalog-cursor';
 import { buildCampSiteWhere, resolveProvinceAdminAreaIds } from '@/lib/campsite-filters';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageCreateNested } from '@/lib/api-utils';
@@ -254,6 +254,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data;
+
+    // CAM-619 BR: priceLow<=priceHigh — kept outside the zod object (see
+    // lib/validations/campsite.ts's isPriceOrderValid doc comment for why a
+    // top-level .refine() there would break .partial()). No side effect has
+    // happened yet, so this fails closed before any write.
+    if (!isPriceOrderValid({ priceLow: data.priceLow, priceHigh: data.priceHigh })) {
+      return apiError(PRICE_ORDER_ERROR, 400);
+    }
 
     // Ensure slugs are available
     const nameThSlug = data.nameThSlug || data.nameTh.toLowerCase().replace(/\s+/g, '-');

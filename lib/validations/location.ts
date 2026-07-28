@@ -1,6 +1,34 @@
 import { z } from 'zod';
 
 /**
+ * CAM-619 — the shared lat/lon bound, extracted so a coordinate field never
+ * re-derives its own copy of -90..90 / -180..180. This exact drift is why
+ * this story exists: `CampSite.latitude/longitude` (lib/validations/
+ * campsite.ts) carried a bare `z.number()` with NO bound at all, while this
+ * schema enforced one for the SAME host-dropped pin — and CAM-575's
+ * `campsite_coords_sync` DB trigger derives `Location.lat/lon` FROM
+ * `CampSite.latitude/longitude`, so the unguarded sibling silently overwrote
+ * the guarded one moments later. `.finite()` is redundant against ±Infinity
+ * (zod's `.min()/.max()` already fail an out-of-range comparison against
+ * Infinity — verified: `z.number().min(-90).max(90).safeParse(Infinity)` is
+ * already `false`) but is kept explicit, same defense-in-depth idiom as
+ * `lib/validations/ai-chat.ts`'s `shownResultSchema.priceLow`.
+ * `geocodeReverseQuerySchema` below needs `z.coerce.number()` (query-string
+ * values arrive as strings) so it keeps its own chain, but MUST use the SAME
+ * two numeric bounds — do not drift them apart.
+ */
+export const latitudeSchema = z
+    .number()
+    .finite('lat must be a finite number')
+    .min(-90, 'lat must be >= -90')
+    .max(90, 'lat must be <= 90');
+export const longitudeSchema = z
+    .number()
+    .finite('lon must be a finite number')
+    .min(-180, 'lon must be >= -180')
+    .max(180, 'lon must be <= 180');
+
+/**
  * SEC-B (CAM-216): zod boundary schema for POST /api/location.
  * CAM-553: added `district` — the host-typed district was collected by
  * CampgroundForm but never sent past the client (write-path defect); the
@@ -24,8 +52,8 @@ import { z } from 'zod';
  * column names or DB identifiers to the client error shape.
  */
 export const createLocationSchema = z.object({
-    lat: z.number().min(-90, 'lat must be >= -90').max(90, 'lat must be <= 90'),
-    lon: z.number().min(-180, 'lon must be >= -180').max(180, 'lon must be <= 180'),
+    lat: latitudeSchema,
+    lon: longitudeSchema,
     country: z.string().trim().max(100).optional(),
     province: z.string().trim().max(100).optional(),
     district: z.string().trim().max(100).optional(),

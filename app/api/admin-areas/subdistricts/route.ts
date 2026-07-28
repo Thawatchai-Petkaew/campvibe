@@ -1,7 +1,18 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiError, apiSuccess } from '@/lib/api-utils';
 import { adminAreaSubDistrictQuerySchema } from '@/lib/validations/location';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// CAM-619 — this route was public, unauthenticated, AND unthrottled, running
+// an ILIKE `contains` scan over up to ~50 sub-district rows per district (of
+// 7,452 nationwide) with no floor guard — the exact gap
+// `app/api/ai/camp-detail/[id]/route.ts`'s own comment names: "a public
+// read-only route still needs a floor guard against scraping/abuse" (that
+// route + `POST /api/ai/chat` are this endpoint's two throttled siblings).
+// Same limit + reasoning as its sibling `/api/locations/search`.
+const SUBDISTRICT_SEARCH_RATE_LIMIT = 100;
+const SUBDISTRICT_SEARCH_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 min
 
 /**
  * GET /api/admin-areas/subdistricts?districtCode=<code>&q=<search>
@@ -29,10 +40,24 @@ import { adminAreaSubDistrictQuerySchema } from '@/lib/validations/location';
  * Auth: none (matches the sibling `/api/locations/search` — public Thai
  * administrative reference data, not user data; no PII, no authz dimension).
  *
- * Error codes: `400` invalid/missing `districtCode` · `500` internal
- * (generic message; detail logged server-side only, never in the response).
+ * Error codes: `400` invalid/missing `districtCode` · `429` rate_limited
+ * (CAM-619) · `500` internal (generic message; detail logged server-side
+ * only, never in the response).
  */
 export async function GET(request: NextRequest) {
+    // CAM-619: per-IP floor guard FIRST — before any param parsing or DB read.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const rl = checkRateLimit(`admin-areas:subdistricts:${ip}`, {
+        limit: SUBDISTRICT_SEARCH_RATE_LIMIT,
+        windowMs: SUBDISTRICT_SEARCH_RATE_WINDOW_MS,
+    });
+    if (!rl.allowed) {
+        return NextResponse.json(
+            { error: 'rate_limited' },
+            { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
+        );
+    }
+
     const { searchParams } = new URL(request.url);
     const rawQuery: Record<string, string> = {};
     searchParams.forEach((value, key) => { rawQuery[key] = value; });
