@@ -1,5 +1,75 @@
 import { z } from 'zod';
 import { imageInputSchema, imageUrlValue } from './image';
+import { latitudeSchema, longitudeSchema } from './location';
+
+/**
+ * CAM-619 — per-array caps for the host write path (POST/PUT
+ * app/api/campsites*), each bounding a client-controlled array BEFORE it
+ * reaches `resolveOptionConnect`'s `code: { in: [...] } }` Prisma query
+ * (lib/api-utils.ts) — the exact "cap a client-controlled array length
+ * before the query" lesson `.claude/rules/security.md`'s CAM-344 row states,
+ * which `lib/ai/tools/compare-camps.ts` (Decision 4) and
+ * `lib/validations/ai-chat.ts` already apply to every model-facing array.
+ * The MasterData-group bounds are each that group's CURRENT row count in
+ * the live DB (verified 2026-07-28 via `prisma.masterData.groupBy`) — the
+ * most a host could ever legitimately pick from that group's fixed option
+ * list, since no more codes than that exist to pick. Adding a new code to an
+ * existing group is a data-only change (no migration — see the campsite-
+ * taxonomy-epic memory); bump the matching constant here in that same PR.
+ */
+export const MAX_ACCESS_TYPES = 4; // 'Access type' group
+export const MAX_ACCOMMODATION_TYPES = 5; // 'Accommodation type' group
+export const MAX_FACILITIES = 19; // 'Internal facility' group
+export const MAX_EXTERNAL_FACILITIES = 4; // 'External facility' group
+export const MAX_EQUIPMENT = 11; // 'Equipment for rent' group
+export const MAX_ACTIVITIES = 10; // 'Activity' group
+export const MAX_TERRAIN = 12; // 'Terrain' group
+export const MAX_ANNOTATED_FEATURES = 5; // 'Annotated features' group
+export const MAX_CAMPER_STYLE = 4; // 'Camper style' group
+export const MAX_STAY_CONNECTED = 3; // 'Stay connected' group
+export const MAX_MARKING_METHOD = 2; // 'Marking method' group
+export const MAX_DRIVEWAY = 3; // 'Driveway' group
+
+/**
+ * CAM-619 — `images`/`tags` are NOT MasterData-backed (images: a media
+ * gallery relation; tags: host-typed free-text CSV), so their bound is a
+ * real-usage ceiling, not "count of a fixed option list". Live DB check
+ * (2026-07-28, 795 published camps): the largest real gallery is 30 images;
+ * the most tags on any one camp is 4 (`tagsPlaceholder` in locales shows a
+ * 3-tag example). Capped well above both real maxima — closes the
+ * unbounded-array surface without constraining any real host.
+ */
+export const MAX_CAMPSITE_IMAGES = 50;
+export const MAX_CAMPSITE_TAGS = 20;
+
+/**
+ * CAM-619 — one-time additive fee + camp price-range bound, matching the
+ * shared "0-100,000 THB per night" catalog rule (.claude/rules/ux.md §2,
+ * `pricePerNight`) that `extraFeeAmount` below already enforces verbatim.
+ * `priceLow`/`priceHigh` are the host's per-night MIN/MAX price
+ * (`CampgroundForm.tsx`'s "minPrice"/"maxPrice" labels) — the SAME kind of
+ * value, just missing the bound until now.
+ */
+const PRICE_RANGE_ERROR = 'ราคาต้องอยู่ระหว่าง 0–100,000 บาท';
+
+/**
+ * CAM-619 BR — priceLow<=priceHigh, kept OUTSIDE the zod object shape (never
+ * a top-level `.refine()`/`.superRefine()` on `campSiteSchema` itself) on
+ * purpose: `campSiteSchema.partial()` is called by BOTH
+ * `app/api/campsites/[id]/route.ts` (PUT) AND `components/CampgroundForm.tsx`
+ * (the client-side pre-check, outside this story's allowed file surface) —
+ * wrapping the object in a refine turns it into a `ZodEffects` with NO
+ * `.partial()` method, which would break both call sites at compile time.
+ * Route handlers call this AFTER a successful
+ * `campSiteSchema(.partial()).safeParse()` to add the one cross-field rule a
+ * plain object shape cannot express while staying `.partial()`-compatible.
+ * `null`/`undefined` on either side always passes (nothing to compare yet).
+ */
+export function isPriceOrderValid(data: { priceLow?: number | null; priceHigh?: number | null }): boolean {
+  return data.priceLow == null || data.priceHigh == null || data.priceLow <= data.priceHigh;
+}
+
+export const PRICE_ORDER_ERROR = 'ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้';
 
 // CAM-527: reconciled down to the 4 codes that actually exist as `Campground type`
 // MasterData rows (prisma/seed.ts) — the only codes the host form can ever pick and
@@ -91,39 +161,59 @@ export const campSiteSchema = z.object({
   // is enforced by the form's create-default, not a silent server default).
   campSiteType: CampSiteTypeEnum,
 
-  // Accepting arrays from frontend, will be joined to CSV for DB
-  accessTypes: z.array(AccessTypeEnum).default([]),
-  accommodationTypes: z.array(AccommodationTypeEnum).default([]),
-  facilities: z.array(z.string()).default([]), // Internal
-  externalFacilities: z.array(z.string()).optional(),
-  equipment: z.array(z.string()).optional(),
-  activities: z.array(z.string()).optional(),
-  terrain: z.array(z.string()).optional(),
+  // Accepting arrays from frontend, will be joined to CSV for DB.
+  // CAM-619: every array below is capped (see the MAX_* constants above) —
+  // was uncapped before, the exact "cap a client-controlled array length
+  // before the query" gap CAM-344 already closed on the AI input branch.
+  accessTypes: z.array(AccessTypeEnum).max(MAX_ACCESS_TYPES).default([]),
+  accommodationTypes: z.array(AccommodationTypeEnum).max(MAX_ACCOMMODATION_TYPES).default([]),
+  facilities: z.array(z.string()).max(MAX_FACILITIES).default([]), // Internal
+  externalFacilities: z.array(z.string()).max(MAX_EXTERNAL_FACILITIES).optional(),
+  equipment: z.array(z.string()).max(MAX_EQUIPMENT).optional(),
+  activities: z.array(z.string()).max(MAX_ACTIVITIES).optional(),
+  terrain: z.array(z.string()).max(MAX_TERRAIN).optional(),
   // CAM-515 (S3) — Annotated features, the FIRST new MasterData group
   // (ALCO/FIRE/FIWD/ADAA/RESV): rules/rights the camp carries, not a
   // physical facility. Same CSV-on-write shape as the taxonomy arrays above.
-  annotatedFeatures: z.array(z.string()).optional(),
+  annotatedFeatures: z.array(z.string()).max(MAX_ANNOTATED_FEATURES).optional(),
   // CAM-516 (S4) — Camper style, the SECOND new MasterData group
   // (CHIC/GENR/DIFT/IDMT): host-declared vibe/style, not a rule/right. Same
   // CSV-on-write shape as the taxonomy arrays above.
-  camperStyle: z.array(z.string()).optional(),
+  camperStyle: z.array(z.string()).max(MAX_CAMPER_STYLE).optional(),
   // CAM-521 (S8) — final taxonomy slice, 3 NEW MasterData groups delivered
   // host-input + camper-detail-display ONLY (deliberately NOT searchable —
   // see BR-4, no search-campsites/campsite-filters/catalog wiring). Same
   // CSV-on-write shape as the taxonomy arrays above.
-  stayConnected: z.array(z.string()).optional(),
-  markingMethod: z.array(z.string()).optional(),
-  driveway: z.array(z.string()).optional(),
+  stayConnected: z.array(z.string()).max(MAX_STAY_CONNECTED).optional(),
+  markingMethod: z.array(z.string()).max(MAX_MARKING_METHOD).optional(),
+  driveway: z.array(z.string()).max(MAX_DRIVEWAY).optional(),
 
-  latitude: z.number(),
-  longitude: z.number(),
+  // CAM-619: was a bare `z.number()` — no range, no `.finite()` — while the
+  // SAME host pin's coordinates were already bounded -90..90/-180..180 on
+  // `POST /api/location` (lib/validations/location.ts). CAM-575's
+  // `campsite_coords_sync` DB trigger derives `Location.lat/lon` FROM these
+  // two fields, so the unguarded write here silently overwrote the guarded
+  // one moments later — a bad value (999, Infinity) persisted into distance
+  // sorting, province centroids, "ใกล้ X" proximity, the map pin, and the
+  // directions link. Shared schema (not a re-derived copy of the bound) —
+  // see lib/validations/location.ts's own comment.
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
 
   checkInTime: z.string().min(1),
   checkOutTime: z.string().min(1),
   bookingMethod: BookingMethodEnum,
 
-  priceLow: z.number().optional().nullable(),
-  priceHigh: z.number().optional().nullable(),
+  // CAM-619: was `z.number().optional().nullable()` — no `.min(0)`, no
+  // upper bound, no priceLow<=priceHigh ordering — while `spotSchema
+  // .pricePerNight` IS `.min(0)` and `extraFeeAmount` a few lines below is
+  // `.min(0).max(100000)`. Bound matches the same "0-100,000 THB per night"
+  // catalog rule (.claude/rules/ux.md §2). The priceLow<=priceHigh ordering
+  // itself is enforced OUTSIDE this object (see `isPriceOrderValid` above —
+  // a top-level `.refine()` here would break `.partial()`, which BOTH route
+  // handlers and the client form call).
+  priceLow: z.number().finite().min(0, PRICE_RANGE_ERROR).max(100000, PRICE_RANGE_ERROR).optional().nullable(),
+  priceHigh: z.number().finite().min(0, PRICE_RANGE_ERROR).max(100000, PRICE_RANGE_ERROR).optional().nullable(),
 
   locationId: z.string().uuid(),
   operatorId: z.string().uuid().optional(),
@@ -174,7 +264,8 @@ export const campSiteSchema = z.object({
   // both normalize to {url, kind} (see lib/validations/image.ts). The shared
   // <ImageUpload> component also feeds the camp gallery, so it must accept
   // the same shape the widened imageCreateNested/imageReplaceNested persist.
-  images: z.array(imageInputSchema).optional(),
+  // CAM-619: capped at MAX_CAMPSITE_IMAGES (was fully uncapped).
+  images: z.array(imageInputSchema).max(MAX_CAMPSITE_IMAGES).optional(),
   // CAM-615: tags stays `.optional()` (no `.nullable()`) on purpose — it is an
   // array serialized to CSV on write (see arrayToCsv in lib/api-utils.ts), so
   // "clear all tags" is expressed by sending an empty array, not `null`. The
@@ -184,7 +275,8 @@ export const campSiteSchema = z.object({
   // no-op'd. The route now writes `arrayToCsv(data.tags) ?? null`. See
   // scripts/check-clearable-fields.mjs's ALLOWLIST for why this (and
   // groundType/ownershipType below) are excluded from the `.nullable()` guard.
-  tags: z.array(z.string()).optional(),
+  // CAM-619: capped at MAX_CAMPSITE_TAGS (was fully uncapped).
+  tags: z.array(z.string()).max(MAX_CAMPSITE_TAGS).optional(),
 
   // Status fields
   isVerified: z.boolean().optional(),

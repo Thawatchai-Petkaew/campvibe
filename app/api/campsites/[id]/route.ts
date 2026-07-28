@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { campSiteSchema } from '@/lib/validations/campsite';
+import { campSiteSchema, isPriceOrderValid, PRICE_ORDER_ERROR } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested, clearableWrite } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
@@ -11,6 +11,23 @@ import { isCampSitePublic, canViewCampSite } from '@/lib/campsite-visibility';
 import { CATALOG_TAG, campTag, campSlugTag } from '@/lib/catalog-cache';
 import { computeListingCompleteness, PUBLISH_MIN_COMPLETENESS, publishGateBlockedMessage } from '@/lib/listing-completeness';
 import { updateCampSiteLocationSchema } from '@/lib/validations/location';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// CAM-619 — PUT/DELETE on this SAME resource had NO rate limit at all while
+// the sibling POST (create, app/api/campsites/route.ts) is capped at
+// 10/hour/user. `components/CampgroundForm.tsx` fires exactly ONE PUT per
+// explicit Save click (no autosave/loop) and exactly ONE DELETE per explicit
+// delete confirmation — never a bulk loop (verified: grep of every
+// `/api/campsites/${id}` caller). An edit session legitimately re-saves
+// several times while working through the publish-completeness gate
+// (isPublishTransition below rejects a low-completeness save and expects the
+// host to add data and save AGAIN), so PUT gets more headroom than the
+// one-shot POST/DELETE actions; DELETE mirrors POST's cadence — deleting a
+// listing is rare and deliberate, never something a real host loops.
+const CAMPSITE_UPDATE_RATE_LIMIT = 30;
+const CAMPSITE_UPDATE_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const CAMPSITE_DELETE_RATE_LIMIT = 10;
+const CAMPSITE_DELETE_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,6 +62,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { error: authError, campSite: existing, session } = await requireCampSitePermission(id, "CAMPSITE_UPDATE");
   if (authError) return authError;
 
+  // CAM-619: rate-limit AFTER the permission check (not before, unlike POST's
+  // IP-based limit above) — requireCampSitePermission is the ONE shared
+  // helper that resolves both auth AND ownership in a single call and lives
+  // outside this story's file surface, so the userId it returns is used here
+  // rather than re-deriving it earlier.
+  const rl = checkRateLimit(`campsite:update:${session.user?.id ?? 'unknown'}`, {
+    limit: CAMPSITE_UPDATE_RATE_LIMIT,
+    windowMs: CAMPSITE_UPDATE_RATE_WINDOW_MS,
+  });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการแก้ไขแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
+
   try {
     const body = await request.json();
 
@@ -60,6 +93,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       validation.data as Record<string, unknown>,
       session.user?.role
     ) as typeof validation.data;
+
+    // CAM-619 BR: priceLow<=priceHigh — a PARTIAL PUT may send only one side,
+    // so project the EFFECTIVE post-save value for whichever side is absent
+    // from THIS request (same "post-save projection" idiom the isPublished
+    // gate below already uses for extraFeeAmount/extraFeeLabel/
+    // cancellationPolicy) rather than comparing only the two fields this
+    // request happens to carry. Runs before any write (no side effect yet).
+    // `== null` (not `!== null`) on the stored side deliberately treats an
+    // absent/`undefined` stored value the SAME as an explicit `null` — a real
+    // Prisma row always carries one or the other, never `undefined`, but this
+    // check runs on every PUT (not gated like the isPublished projection
+    // below), so it must not misread a test double / partial object that
+    // simply never set the field as "an inverted price".
+    const projectedPriceLow =
+      data.priceLow !== undefined ? data.priceLow : (existing!.priceLow == null ? null : Number(existing!.priceLow));
+    const projectedPriceHigh =
+      data.priceHigh !== undefined ? data.priceHigh : (existing!.priceHigh == null ? null : Number(existing!.priceHigh));
+    if (!isPriceOrderValid({ priceLow: projectedPriceLow, priceHigh: projectedPriceHigh })) {
+      return apiError(PRICE_ORDER_ERROR, 400);
+    }
 
     // CAM-365 BR-3/BR-4/BR-5/BR-7: gate a false->true isPublished transition
     // on the POST-SAVE PROJECTED completeness score. Detected by comparing
@@ -370,8 +423,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params;
   
   // Check permission
-  const { error: authError } = await requireCampSitePermission(id, "CAMPSITE_DELETE");
+  const { error: authError, session } = await requireCampSitePermission(id, "CAMPSITE_DELETE");
   if (authError) return authError;
+
+  // CAM-619: DELETE had no rate limit at all — mirrors POST create's cadence
+  // (a rare, deliberate, one-shot action per camp; see the shared reasoning
+  // comment above the constants at the top of this file).
+  const rl = checkRateLimit(`campsite:delete:${session.user?.id ?? 'unknown'}`, {
+    limit: CAMPSITE_DELETE_RATE_LIMIT,
+    windowMs: CAMPSITE_DELETE_RATE_WINDOW_MS,
+  });
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'rate_limited', message: 'ถึงขีดจำกัดการลบแคมป์แล้ว กรุณาลองใหม่ภายหลัง' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) } }
+    );
+  }
 
   try {
     // Capture the deleted row (Prisma returns the full deleted record by default)
