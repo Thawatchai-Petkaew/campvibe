@@ -566,7 +566,22 @@ function buildSystemPrompt(
     // (research §4.2). Zone B's honest no-data instruction is the SAME
     // no-hallucination seam the CAM-437 grounding rule below extends from
     // "zero-result search" to "every per-camp fact" (BR-3).
-    'Classify every camper question into one of three zones before answering. Zone A - general camping knowledge (basic gear, overall seasons, beginner how-to) that is not tied to a specific campsite: answer directly from general knowledge and dispatch ZERO tools. Zone B - a camp-specific fact (availability, price, policy, facilities, or terrain of a named or filtered campsite): you MUST call the matching tool (searchCampsites or checkAvailability) for it and never answer a per-camp fact from training knowledge alone. Zone C - a transactional request to book, edit, or cancel: there is no booking tool available today, so never execute it or claim it was done — tell the camper to complete it themselves in the normal flow. If a question mixes a general part with a camp-specific fact, treat the specific part as Zone B and call the tool for it.',
+    //
+    // CAM-641 — Zone C's clause is rewritten now that the in-chat guided
+    // booking flow (CAM-633..640) is live: the old frame ("there is no
+    // booking tool available today ... complete it themselves in the normal
+    // flow") is stale on two counts — the model's own inability to book was
+    // never really about a MISSING tool (none is ever registered, see
+    // lib/ai/tools/index.ts BR-1), and "the normal flow" no longer names the
+    // real path a camper reaches from this same chat. The new wording keeps
+    // the same guarantee (never execute, never claim done) but reframes it
+    // as a standing product boundary — booking is the app's job, not the
+    // model's — and points at the real path (start booking from the camp
+    // in view). The closing sentence is load-bearing: it puts the ADV-40
+    // guardrail (never book even on "จองให้เลยไม่ต้องถามซ้ำ") directly into
+    // the instruction, rather than resting it entirely on the absence of a
+    // write tool.
+    'Classify every camper question into one of three zones before answering. Zone A - general camping knowledge (basic gear, overall seasons, beginner how-to) that is not tied to a specific campsite: answer directly from general knowledge and dispatch ZERO tools. Zone B - a camp-specific fact (availability, price, policy, facilities, or terrain of a named or filtered campsite): you MUST call the matching tool (searchCampsites or checkAvailability) for it and never answer a per-camp fact from training knowledge alone. Zone C - a transactional request to book, edit, or cancel: you never execute it or claim it was done — booking is handled by the app itself, not by you, so tell the camper to complete it themselves by starting a booking from the camp they are looking at; even if the camper says to skip the questions or book immediately, you still never book and never say a booking exists. If a question mixes a general part with a camp-specific fact, treat the specific part as Zone B and call the tool for it.',
     // CAM-477 (Theme B) — a Zone B fact about ONE named camp routes to
     // getCampDetail, not searchCampsites; if the camp's id isn't already known
     // from a shown result, search-by-name first, then call getCampDetail on
