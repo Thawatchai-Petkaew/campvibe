@@ -185,29 +185,51 @@ describe('PUT /api/campsites/[id] — rejected coordinate never reaches prisma.c
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AC-2 (route-level) — priceLow<=priceHigh, including the partial-update
-// projection against the STORED value
+// CAM-619 BR-2 CORRECTION — PUT does NOT enforce priceLow<=priceHigh
+//
+// Regression caught in CI (PR 700): e2e/regression/ac1-edit-round-trip.spec.ts
+// bumps a real seeded camp's priceLow from 250 to 777 in ONE save WITHOUT
+// touching priceHigh (600) — `components/CampgroundForm.tsx` always submits
+// the full current form state (both price fields), so this is an ordinary
+// single-field host edit, not a malformed request. Reproduced directly
+// against the route handler + the real seeded row before this fix:
+// `{ nameTh: 'repro edit', priceLow: 777, priceHigh: 600 }` ->
+// `400 { "error": "ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้" }`.
+// The ordering rule stays on POST /api/campsites (create) only — see
+// cam-619-campsites-create-price-order.test.ts — where there is no prior
+// saved state a host could be mid-way through reconciling.
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('PUT /api/campsites/[id] — priceLow<=priceHigh order (CAM-619 AC-2)', () => {
-  it('[error/validation, teeth] priceLow=5000 > priceHigh=1000 in the SAME request is 400, no write', async () => {
-    allowedFor('user-price-1');
-    const res = await campSitePUT(putRequest({ priceLow: 5000, priceHigh: 1000 }), makeParams(CAMP_ID));
-    expect(res.status).toBe(400);
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it('[error/validation, teeth] a partial update sending ONLY priceHigh=100 against a STORED priceLow=200 is 400 (post-save projection)', async () => {
-    allowedFor('user-price-2', { priceLow: 200, priceHigh: null });
-    const res = await campSitePUT(putRequest({ priceHigh: 100 }), makeParams(CAMP_ID));
-    expect(res.status).toBe(400);
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it('[normal] a partial update sending ONLY priceLow=50 against a STORED priceHigh=1000 is accepted', async () => {
-    allowedFor('user-price-3', { priceLow: null, priceHigh: 1000 });
-    const res = await campSitePUT(putRequest({ priceLow: 50 }), makeParams(CAMP_ID));
+describe('PUT /api/campsites/[id] — does NOT enforce priceLow<=priceHigh (CAM-619 BR-2 correction)', () => {
+  it('[Prove-It regression, was 400] the EXACT e2e repro shape (priceLow raised above the stored priceHigh, priceHigh unchanged) now saves', async () => {
+    allowedFor('user-price-1', { priceLow: 250, priceHigh: 600 });
+    const res = await campSitePUT(putRequest({ nameTh: 'repro edit', priceLow: 777, priceHigh: 600 }), makeParams(CAMP_ID));
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('[normal] a partial update sending ONLY the new priceLow (priceHigh omitted from the request) still saves, even against a lower stored priceHigh', async () => {
+    allowedFor('user-price-2', { priceLow: 250, priceHigh: 600 });
+    const res = await campSitePUT(putRequest({ priceLow: 777 }), makeParams(CAMP_ID));
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('[normal] an ordinary, already-correctly-ordered pair still saves (unaffected)', async () => {
+    allowedFor('user-price-3');
+    const res = await campSitePUT(putRequest({ priceLow: 500, priceHigh: 1200 }), makeParams(CAMP_ID));
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('[boundary] the .min(0)/.max(100000) RANGE bound is still enforced on PUT (only the cross-field ORDER rule was dropped)', async () => {
+    allowedFor('user-price-4');
+    const negative = await campSitePUT(putRequest({ priceLow: -1 }), makeParams(CAMP_ID));
+    expect(negative.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+
+    const tooHigh = await campSitePUT(putRequest({ priceHigh: 100001 }), makeParams(CAMP_ID));
+    expect(tooHigh.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

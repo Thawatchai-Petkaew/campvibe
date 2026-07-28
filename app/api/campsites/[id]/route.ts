@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { campSiteSchema, isPriceOrderValid, PRICE_ORDER_ERROR } from '@/lib/validations/campsite';
+import { campSiteSchema } from '@/lib/validations/campsite';
 import { requireCampSitePermission } from '@/lib/auth-utils';
 import { apiError, apiSuccess, arrayToCsv, resolveOptionConnect, imageReplaceNested, clearableWrite } from '@/lib/api-utils';
 import { getCampSiteWithCapacity } from '@/lib/spot-aggregation';
@@ -94,25 +94,31 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       session.user?.role
     ) as typeof validation.data;
 
-    // CAM-619 BR: priceLow<=priceHigh — a PARTIAL PUT may send only one side,
-    // so project the EFFECTIVE post-save value for whichever side is absent
-    // from THIS request (same "post-save projection" idiom the isPublished
-    // gate below already uses for extraFeeAmount/extraFeeLabel/
-    // cancellationPolicy) rather than comparing only the two fields this
-    // request happens to carry. Runs before any write (no side effect yet).
-    // `== null` (not `!== null`) on the stored side deliberately treats an
-    // absent/`undefined` stored value the SAME as an explicit `null` — a real
-    // Prisma row always carries one or the other, never `undefined`, but this
-    // check runs on every PUT (not gated like the isPublished projection
-    // below), so it must not misread a test double / partial object that
-    // simply never set the field as "an inverted price".
-    const projectedPriceLow =
-      data.priceLow !== undefined ? data.priceLow : (existing!.priceLow == null ? null : Number(existing!.priceLow));
-    const projectedPriceHigh =
-      data.priceHigh !== undefined ? data.priceHigh : (existing!.priceHigh == null ? null : Number(existing!.priceHigh));
-    if (!isPriceOrderValid({ priceLow: projectedPriceLow, priceHigh: projectedPriceHigh })) {
-      return apiError(PRICE_ORDER_ERROR, 400);
-    }
+    // CAM-619 BR-2 CORRECTION (regression caught in CI, PR 700): priceLow<=
+    // priceHigh is intentionally NOT enforced on this PUT path. It IS
+    // enforced on POST create (app/api/campsites/route.ts) via the same
+    // `isPriceOrderValid` helper — that asymmetry is deliberate, not a gap.
+    //
+    // Why: `components/CampgroundForm.tsx` sends BOTH priceLow and priceHigh
+    // on every save (the full current form state, not a true field-level
+    // diff), so a host who edits ONLY priceLow in one save — leaving
+    // priceHigh at its previously-saved value — is an entirely ordinary,
+    // single-field edit, not a malformed request. `e2e/regression/
+    // ac1-edit-round-trip.spec.ts` is exactly this: it bumps the seeded
+    // camp's priceLow from 250 to 777 without touching priceHigh (600), and
+    // a strict order check here 400'd that real edit (reproduced locally:
+    // `{ priceLow: 777, priceHigh: 600 }` against `khao-yai-camping-site-2`
+    // -> `400 ราคาต่ำสุดไม่สามารถมากกว่าราคาสูงสุดได้`, confirmed via the
+    // ACTUAL route handler + response body, not inferred). A host who wants
+    // to raise the floor now and reconcile the ceiling in a later save is
+    // normal usage this route must not block — the burden is on the guard,
+    // not the edit. See __tests__/cam-619-campsites-rate-limit.test.ts's
+    // "PUT does not enforce priceLow<=priceHigh" block for the pinned
+    // regression test.
+    //
+    // The per-field `.min(0).max(100000)` range bound (lib/validations/
+    // campsite.ts) is UNCHANGED and still applies here — only the
+    // cross-field ORDER rule is scoped to create-only.
 
     // CAM-365 BR-3/BR-4/BR-5/BR-7: gate a false->true isPublished transition
     // on the POST-SAVE PROJECTED completeness score. Detected by comparing
