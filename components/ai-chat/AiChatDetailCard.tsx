@@ -89,6 +89,8 @@ import { aiChatAPI, type AiChatCardResponse } from "@/lib/api-client";
 import { buildLocationText } from "@/components/ai-chat/location-text";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
 import { getFacilityIcon } from "@/lib/facility-icon-map";
+import { resolveUnitPrice } from "@/lib/booking-pricing";
+import type { BookingCampContext } from "@/components/ai-chat/booking-view";
 import { cn } from "@/lib/utils";
 import type {
   CampAmenity,
@@ -111,6 +113,8 @@ interface AiChatDetailCardProps {
   /** Forks the geometry only — never remounts (mirrors CAM-431). */
   expanded: boolean;
   onClose: () => void;
+  /** CAM-640 (design brief §"Entry") — "เริ่มจอง" tapped; only enabled once `detail` has resolved (the button's own loading/disabled state below). */
+  onStartBooking: (camp: BookingCampContext) => void;
 }
 
 /** A section heading (lucide icon + label) wrapping its own content — CAM-450 readability §. */
@@ -208,7 +212,7 @@ function WeekendChip({
   );
 }
 
-export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardProps) {
+export function AiChatDetailCard({ card, expanded, onClose, onStartBooking }: AiChatDetailCardProps) {
   const { t, language } = useLanguage();
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const [detail, setDetail] = useState<CampDetail | null>(null);
@@ -258,6 +262,23 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
       active = false;
     };
   }, [card.id, retryToken]);
+
+  // CAM-640 (design brief §"Entry") — the button itself is disabled until
+  // `detail` resolves (see the footer below), so `detail` is always non-null
+  // here in practice; the guard stays defensive rather than a non-null
+  // assertion.
+  function handleStartBooking() {
+    if (!detail) return;
+    onStartBooking({
+      campId: card.id,
+      slug,
+      name,
+      weekendAvailability: detail.weekendAvailability,
+      maxGuestsPerDay: detail.capacity.maxGuestsPerDay,
+      unitPrice: resolveUnitPrice({ campSitePriceLow: detail.price.low, spotPricePerNight: null }),
+      priceIsFree: detail.price.isFree,
+    });
+  }
 
   const dateFormatter = new Intl.DateTimeFormat(language === "en" ? "en" : "th-TH", {
     weekday: "short",
@@ -702,9 +723,13 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
         </div>
       </ScrollArea>
 
-      {/* CTA is a deep-link, enabled through load/error (instant `card`
-          price, never gated on the fetch). Same reading-column bound as
-          the scroll content above. */}
+      {/* CTA row — design brief §"Entry": `ดูหน้าลาน` is demoted to `outline`
+          (DESIGN.md §3, one primary per view) and `เริ่มจอง` becomes the new
+          primary. The camp-page deep-link stays enabled through load/error
+          (instant `card` price, never gated on the fetch); `เริ่มจอง` is
+          disabled while the detail fetch is in flight or failed (design
+          brief §4 state "A" — nothing to seed the flow from yet). Same
+          reading-column bound as the scroll content above. */}
       <div className={cn("shrink-0 space-y-2 border-t border-border/60 p-4", expanded && "mx-auto w-full max-w-2xl sm:max-w-3xl")}>
         <p className="flex items-baseline gap-1" data-testid="text--ai-chat-detail-cta-price">
           {card.priceLow && card.priceLow > 0 ? (
@@ -716,12 +741,31 @@ export function AiChatDetailCard({ card, expanded, onClose }: AiChatDetailCardPr
             <span className="text-lg font-semibold text-ai-price">{t.aiChat.card.free}</span>
           )}
         </p>
-        <Button size="lg" asChild className="w-full motion-safe:active:scale-[0.98]" data-testid="btn--ai-chat-detail-cta">
-          <Link href={`/campgrounds/${slug}`}>
-            {t.aiChat.detail.viewCampPage}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="flex-1 motion-safe:active:scale-[0.98]"
+            data-testid="btn--ai-chat-detail-cta"
+          >
+            <Link href={`/campgrounds/${slug}`}>
+              {t.aiChat.detail.viewCampPage}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            className="flex-1 motion-safe:active:scale-[0.98]"
+            data-testid="btn--ai-chat-booking-start"
+            aria-label={t.aiChat.booking.startAriaLabel.replace("{name}", name)}
+            disabled={showSkeleton || failed || !detail}
+            onClick={handleStartBooking}
+          >
+            {t.aiChat.booking.start}
+          </Button>
+        </div>
       </div>
     </div>
   );

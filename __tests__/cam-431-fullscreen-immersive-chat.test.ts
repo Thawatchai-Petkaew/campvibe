@@ -100,9 +100,13 @@ describe("AC-6/BR-2 — header loses its border; expand/close group into a float
   });
 
   it("[unit] BR-2 no-remount: useAiChat destructure, entries, and draft wiring are each present exactly once (unconditional, not duplicated per branch)", () => {
-    expect(panelSrc).toContain(
-      "const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();"
-    );
+    // CAM-640 destructures MORE fields off the SAME single `useAiChat()`
+    // call (a multi-line destructure now) — exactly one hook call, the
+    // original fields still present.
+    expect((panelSrc.match(/\} = useAiChat\(\);/g) || []).length).toBe(1);
+    for (const field of ["entries", "sending", "disabled", "resuming", "sendMessage", "retryLast", "abortActiveStream"]) {
+      expect(panelSrc).toContain(`    ${field},`);
+    }
     const entriesRefs = panelSrc.match(/entries={entries}/g) || [];
     expect(entriesRefs.length).toBe(1);
     const draftState = panelSrc.match(/const \[draft, setDraft\] = useState\(""\);/g) || [];

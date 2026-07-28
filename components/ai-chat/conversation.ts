@@ -114,6 +114,35 @@ export function appendUserQuestion(entries: ChatEntry[], text: string): ChatEntr
   return [...entries, { id: nextEntryId(), role: "user", text }];
 }
 
+/**
+ * CAM-640 — appends one booking-flow turn. The previous CURRENT booking
+ * entry (if any) loses `isCurrent` first — the ONE field an otherwise-frozen
+ * historical entry ever has revised after append (design brief's step-
+ * indicator verdict: "when a step block is superseded its caption keeps its
+ * text... and loses `aria-current`"). A `kind:"checkFailed"` view carries no
+ * `isCurrent` field at all (never produced by this story — see booking-
+ * turn.ts) and is left untouched.
+ */
+export function appendBookingEntry(entries: ChatEntry[], step: BookingStepId, view: BookingStepView): ChatEntry[] {
+  const superseded = entries.map((entry) => {
+    if (entry.role !== "assistant" || entry.kind !== "booking") return entry;
+    if (entry.view.kind === "checkFailed") return entry;
+    if (!entry.view.isCurrent) return entry;
+    return { ...entry, view: { ...entry.view, isCurrent: false } };
+  });
+  return [...superseded, { id: nextEntryId(), role: "assistant", kind: "booking", step, view }];
+}
+
+/**
+ * CAM-640 — a booking-flow EXIT notice (`ยกเลิกให้แล้ว…` / `โอเค พักเรื่องจองไว้ก่อน…`).
+ * Reuses the existing `kind:"answer"` entry shape rather than a new kind —
+ * it is a plain assistant sentence with no cards/chips, same as any other
+ * answer (design brief: "no new pattern").
+ */
+export function appendBookingNotice(entries: ChatEntry[], text: string): ChatEntry[] {
+  return [...entries, { id: nextEntryId(), role: "assistant", kind: "answer", text, cards: [], zeroResult: false, suggestions: [] }];
+}
+
 /** AC-2/AC-4/AC-5/AC-6/AC-7 + BR-5: maps one API outcome to the next entries list. */
 export function appendOutcome(entries: ChatEntry[], outcome: AiChatOutcome, questionText: string): ChatEntry[] {
   switch (outcome.kind) {

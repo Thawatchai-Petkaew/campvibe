@@ -338,6 +338,7 @@ import { AiChatMessageList } from "@/components/ai-chat/AiChatMessageList";
 import { AiChatAvatar } from "@/components/ai-chat/AiChatAvatar";
 import { AiChatDetailCard } from "@/components/ai-chat/AiChatDetailCard";
 import { isSendableQuestion } from "@/components/ai-chat/conversation";
+import type { BookingCampContext } from "@/components/ai-chat/booking-view";
 import type { AiChatCardResponse } from "@/lib/api-client";
 
 const AiAmbientCanvas = dynamic(
@@ -422,7 +423,21 @@ function useIsDesktopViewport(): boolean {
 
 export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
   const { t } = useLanguage();
-  const { entries, sending, disabled, resuming, sendMessage, retryLast, abortActiveStream } = useAiChat();
+  const {
+    entries,
+    sending,
+    disabled,
+    resuming,
+    sendMessage,
+    retryLast,
+    abortActiveStream,
+    startBookingFlow,
+    onBookingChipSelect,
+    onBookingBack,
+    onBookingEditDate,
+    onBookingEditGuests,
+    onBookingCancel,
+  } = useAiChat();
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(() => readExpandedFromStorage());
   // CAM-453 — desktop split gates on `expanded` (fullscreen has the room)
@@ -561,6 +576,14 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
     setSelectedCamp(null);
     detailTriggerRef.current?.focus();
     detailTriggerRef.current = null;
+  }
+
+  // CAM-640 (design brief §"Entry") — "the detail pane closes when the flow
+  // starts, at every viewport": starting the flow and closing the detail are
+  // ALWAYS one action, never left to fire separately.
+  function handleStartBooking(camp: BookingCampContext) {
+    startBookingFlow(camp);
+    handleCloseDetail();
   }
 
   // CAM-412 (BR-6/AC-7/EC-6) — every dismiss path (X button, Esc,
@@ -840,6 +863,11 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
                       onSuggestion={handleSuggestion}
                       onRetry={retryLast}
                       onSelectCamp={handleSelectCamp}
+                      onBookingChipSelect={onBookingChipSelect}
+                      onBookingBack={onBookingBack}
+                      onBookingEditDate={onBookingEditDate}
+                      onBookingEditGuests={onBookingEditGuests}
+                      onBookingCancel={onBookingCancel}
                     />
                   </div>
                 </ScrollArea>
@@ -958,7 +986,12 @@ export function AiChatPanel({ open, onOpenChange }: AiChatPanelProps) {
               inert={selectedCamp === null}
             >
               {selectedCamp && (
-                <AiChatDetailCard card={selectedCamp} expanded={expanded} onClose={handleCloseDetail} />
+                <AiChatDetailCard
+                  card={selectedCamp}
+                  expanded={expanded}
+                  onClose={handleCloseDetail}
+                  onStartBooking={handleStartBooking}
+                />
               )}
             </div>
           </div>

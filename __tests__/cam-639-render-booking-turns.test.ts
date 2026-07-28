@@ -59,6 +59,13 @@ function renderEntries(entries: ChatEntry[]) {
         onSuggestion: vi.fn(),
         onRetry: vi.fn(),
         onSelectCamp: vi.fn(),
+        // CAM-640 — this story wires these; fixture-only no-ops here (the
+        // real wiring is covered by cam-640-*.test.ts).
+        onBookingChipSelect: vi.fn(),
+        onBookingBack: vi.fn(),
+        onBookingEditDate: vi.fn(),
+        onBookingEditGuests: vi.fn(),
+        onBookingCancel: vi.fn(),
       })
     )
   );
