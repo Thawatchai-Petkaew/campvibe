@@ -18,14 +18,41 @@
  * (the checkout day) — byte-identical semantics to `Booking.checkOutDate`
  * and `lib/validations/booking.ts` (never treat checkOut as the last night).
  *
- * BR-2 — `today` is an INJECTED parameter (`ctx.today`), never read from the
- * system clock inside this module — the same idiom `resolveDatesCore` uses
- * (`lib/ai/tools/resolve-dates.ts:341`) so this stays pure/deterministic and
- * unit-testable without faking the system clock.
+ * BR-2 — for the READER (`parseBookingPrefill`), `today` is an INJECTED
+ * parameter (`ctx.today`), never read from the system clock — the same idiom
+ * `resolveDatesCore` uses (`lib/ai/tools/resolve-dates.ts:341`) so the reader
+ * stays pure/deterministic and unit-testable without faking the system clock.
+ * The WRITER's own dev-time past-check (BR-7) is the one exception: it reads
+ * the REAL clock, because it is a live "did our own code just build a dead
+ * link" assertion, not a pure function under test.
  *
- * BR-6 — `parseBookingPrefill` NEVER throws for any input shape. Dates are
- * all-or-nothing: either the whole prefill is valid, or the whole thing is
- * rejected with exactly one named reason — never a half-applied range.
+ * IMPORTANT for any future caller that computes a "today" ISO string near
+ * this contract (either to build `ctx.today` for the reader, or anywhere
+ * else close to this module): always derive it via the repo's Bangkok-local
+ * idiom (`bangkokTodayISO()`, `lib/ai/date-phrases.ts:94` —
+ * `Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Bangkok'})`), never a naive
+ * UTC date (`new Date().toISOString().slice(0,10)`). Asia/Bangkok is UTC+7,
+ * so a naive UTC value can only LAG the true Bangkok date — the failure mode
+ * is lenient (a checkIn that is already past in Bangkok wall-clock time can
+ * still slip through as "not past" for up to 7 hours), never blocking, which
+ * makes it easy to ship unnoticed. Write it down here so nobody has to
+ * rediscover it.
+ *
+ * BR-6 — `parseBookingPrefill` (the READER, untrusted URL input) NEVER
+ * throws for any input shape. Dates are all-or-nothing: either the whole
+ * prefill is valid, or the whole thing is rejected with exactly one named
+ * reason — never a half-applied range.
+ *
+ * BR-7 — `buildBookingPrefillQuery` (the WRITER, our own code only) is
+ * fail-CLOSED, the opposite of BR-6: `.refine()` in `bookingPrefillSchema`
+ * does not narrow the inferred TS type, so a hand-built `{checkIn:
+ * "2026-02-31", guests: -5}` satisfies `BookingPrefill` at compile time and
+ * would otherwise serialize into a shareable dead link, silently rejected
+ * only much later by the reader (the camper taps through to empty pickers
+ * with no error anywhere). The writer re-validates every field the reader
+ * rejects on and THROWS on the first violation — it fails LOUD at the call
+ * site, in our own code, during development, instead of producing a
+ * confident wrong answer in production.
  */
 import { z } from 'zod';
 import { MAX_BOOKING_NIGHTS } from '@/lib/validations/booking';
@@ -80,8 +107,58 @@ export type BookingPrefillParseResult =
   | { ok: true; value: BookingPrefill }
   | { ok: false; reason: BookingPrefillRejectReason };
 
-/** THE writer. Serializes an already-valid prefill into a query string (no leading `?` — the caller composes `${path}?${buildBookingPrefillQuery(p)}`). */
+/**
+ * Real Bangkok-local "today" (D3-style `Intl.DateTimeFormat('en-CA',
+ * {timeZone:'Asia/Bangkok'})` idiom), for `buildBookingPrefillQuery`'s own
+ * dev-time past-check ONLY (BR-7). Kept as a third local copy rather than
+ * importing the equivalent `bangkokTodayISO` from `lib/ai/date-phrases.ts`
+ * (private/non-exported there, and a two-file `date-phrases.ts` +
+ * `resolve-dates.ts` already each keep a local copy for the same "not
+ * exported for reuse" reason) — exporting it is outside this story's file
+ * surface; a later story that needs shared access should export it there
+ * instead of adding a 4th copy.
+ */
+function realBangkokTodayISO(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+}
+
+/**
+ * THE writer. Serializes an already-valid prefill into a query string (no
+ * leading `?` — the caller composes `${path}?${buildBookingPrefillQuery(p)}`).
+ *
+ * BR-7 — fail-CLOSED: throws on the first invalid field/rule instead of
+ * silently producing a dead link. Checks every reject reason the reader
+ * (`parseBookingPrefill`) can name EXCEPT the upper half of
+ * `guests_out_of_range` (`guests > maxGuests`) — the writer has no camp-
+ * specific `maxGuests` context, so that half stays the reader's job only.
+ */
 export function buildBookingPrefillQuery(p: BookingPrefill): string {
+  // Re-parse: `.refine()` doesn't narrow the inferred TS type, so a hand-
+  // built object can satisfy `BookingPrefill` at compile time while still
+  // carrying an unreal calendar date or a non-integer guest count. Throws a
+  // ZodError here — at the call site, in our own code — instead of quietly
+  // building a dead link (malformed).
+  bookingPrefillSchema.parse(p);
+
+  if (p.checkIn < realBangkokTodayISO()) {
+    throw new Error(
+      `buildBookingPrefillQuery: checkIn (${p.checkIn}) is in the past (Asia/Bangkok "today") — past`
+    );
+  }
+  if (p.checkOut <= p.checkIn) {
+    throw new Error(
+      `buildBookingPrefillQuery: checkOut (${p.checkOut}) must be strictly after checkIn (${p.checkIn}) — inverted`
+    );
+  }
+  if (nightsBetween(p.checkIn, p.checkOut) > MAX_BOOKING_NIGHTS) {
+    throw new Error(
+      `buildBookingPrefillQuery: booking window exceeds MAX_BOOKING_NIGHTS (${MAX_BOOKING_NIGHTS}) nights — too_long`
+    );
+  }
+  if (p.guests < 1) {
+    throw new Error(`buildBookingPrefillQuery: guests (${p.guests}) must be at least 1 — guests_out_of_range`);
+  }
+
   const params = new URLSearchParams();
   params.set('checkIn', p.checkIn);
   params.set('checkOut', p.checkOut);
