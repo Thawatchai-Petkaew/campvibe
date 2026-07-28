@@ -18,6 +18,12 @@ export const bookingSchema = z.object({
 
     guests: z.number().min(1).default(1),
 
+    // CAM-642: attribution label only (which route created this booking) —
+    // never read for authz/pricing/capacity (see app/api/bookings/route.ts).
+    // Constrained to the enum so no unexpected value can be smuggled through;
+    // absent → defaults to WEB (matches the DB column default).
+    source: z.enum(['WEB', 'CHAT']).default('WEB'),
+
     // For testing, we might pass userId manually, though normally this comes from session
     userId: z.string().uuid(),
 }).refine((data) => {
