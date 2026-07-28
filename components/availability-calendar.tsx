@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMinimumLoading } from "@/lib/hooks/use-minimum-loading";
+import { useRequestSequence } from "@/lib/hooks/use-request-sequence";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,9 +88,18 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
   const [loadError, setLoadError] = useState(false);
   const showSkeleton = useMinimumLoading(loading, { delay: 300, minDisplay: 400 });
 
+  // CAM-608 — monotonic requestId guard (CAM-359 pattern). This is the route's
+  // clearest multiplier: month-nav clicks and the CAM-343 refreshKey bump
+  // (after a hold create/release) can each re-issue loadMonth() while an
+  // earlier call for a DIFFERENT month is still in flight. Without this
+  // guard, a slow response for the month the host navigated AWAY from could
+  // resolve last and silently replace the freshly-loaded month's data.
+  const { next, isCurrent } = useRequestSequence();
+
   const loadMonth = useCallback(
     async (targetMonth: Date) => {
       if (!campSiteId) return;
+      const requestId = next();
       setLoading(true);
       setLoadError(false);
       try {
@@ -99,6 +109,13 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
           `/api/campsites/${campSiteId}/availability?startDate=${format(monthStart, "yyyy-MM-dd")}&endDate=${format(monthEnd, "yyyy-MM-dd")}`,
           { cache: "no-store" }
         );
+
+        // Stale-response guard — a newer loadMonth() call has been issued
+        // since this one started (a further month-nav click, or a
+        // refreshKey-triggered refetch); never let an out-of-order,
+        // earlier-issued response overwrite state a newer call already set.
+        if (!isCurrent(requestId)) return;
+
         if (!res.ok) throw new Error("Failed to load availability calendar");
         const payload = (await res.json()) as AvailabilityApiResponse;
         const list = Array.isArray(payload.availability) ? payload.availability : [];
@@ -108,13 +125,16 @@ export function AvailabilityCalendar({ campSiteId, refreshKey }: AvailabilityCal
         }
         setDailyMap(map);
       } catch (err) {
+        if (!isCurrent(requestId)) return;
         console.error("Failed to load availability calendar", err);
         setLoadError(true);
       } finally {
-        setLoading(false);
+        if (isCurrent(requestId)) {
+          setLoading(false);
+        }
       }
     },
-    [campSiteId]
+    [campSiteId, next, isCurrent]
   );
 
   useEffect(() => {
