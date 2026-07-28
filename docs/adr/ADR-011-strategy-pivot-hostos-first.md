@@ -1,6 +1,15 @@
 # ADR-011 — Strategy pivot: HostOS-first, public booking/payment deferred
 
 **Status:** ACCEPTED — owner approved 2026-07-04 (G1, PR #302 batch) · **Epic:** Platform Blueprint v6 pivot · **Date:** 2026-07-04
+**SUPERSEDED IN PART (2026-07-28) by [ADR-016](ADR-016-camper-direct-booking-and-in-chat-completion.md).**
+
+> **Read this before the sections below.** Owner decision 2026-07-28: campers book directly, and the assistant will complete bookings in chat. Two parts of this ADR no longer hold:
+>
+> - **`BookingReadinessGate` no longer gates the camper booking CTA.** It was never built in code (verified 2026-07-28 — no `readiness`/`canBook`/`bookingEnabled`/`isBookable` flag exists), while direct camper booking has shipped and worked since M0. The gate remains meaningful for **payment/checkout** re-entry only.
+> - **Guardrail 4 (the CTA wording rule, `## Decision` bullets 3 and 5, and alternative (b)) is RETIRED.** Camper CTAs read `จอง`, not สอบถาม/ขอราคา/ส่งคำขอ.
+> - **Guardrail 2 is NARROWED:** the model still never writes money or availability — the deterministic code path does, on the camper's own explicit confirm. A *host* confirmation is no longer required for a camper booking.
+>
+> Everything else in this ADR — the HostOS-first sequencing, the "host handles money / platform is ledger+workflow" stance, the deferral of **payment**, and the KPI shift — stands unchanged. The text below is preserved as written on 2026-07-04; it is history, not current instruction, wherever it states the retired rule.
 
 ## Context
 
