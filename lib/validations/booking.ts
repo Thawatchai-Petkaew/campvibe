@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+// CAM-634: exported so lib/booking-prefill.ts shares ONE cap instead of a
+// second independently-chosen 30 (the exact drift shape this ticket exists
+// to prevent — see lib/booking-prefill.ts's header comment).
+export const MAX_BOOKING_NIGHTS = 30;
+
 export const bookingSchema = z.object({
     campSiteId: z.string().uuid(),
     spotId: z.string().uuid().optional(),
@@ -27,7 +32,7 @@ export const bookingSchema = z.object({
     const start = new Date(data.checkInDate);
     const end = new Date(data.checkOutDate);
     const nights = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    return nights <= 30;
+    return nights <= MAX_BOOKING_NIGHTS;
 }, {
     message: "Booking cannot exceed 30 nights",
     path: ["checkOutDate"],
