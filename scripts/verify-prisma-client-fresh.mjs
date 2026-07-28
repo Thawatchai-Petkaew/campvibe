@@ -17,6 +17,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
 
 // `prisma generate` re-formats the schema it embeds into the client output
 // (re-aligns columns, re-wraps comments) -- a byte-for-byte hash of the raw
@@ -24,7 +25,12 @@ import { createHash } from "node:crypto";
 // is actually fresh. Normalize both sides the same way before hashing: drop
 // line comments, trim, collapse whitespace. This still catches a real
 // drift (an added/removed/renamed field), just not cosmetic reformatting.
-function normalize(text) {
+//
+// CAM-588: `normalize`/`hash` are exported (in addition to running as a CLI
+// below) so scripts/dev-with-prisma-watch.mjs can reuse the SAME hashing
+// logic for a different comparison (disk-vs-a-point-in-time snapshot, not
+// disk-vs-embedded-client) instead of duplicating it.
+export function normalize(text) {
   return text
     .split(/\r?\n/)
     .map((line) => line.replace(/\/\/.*$/, "").trim())
@@ -33,11 +39,11 @@ function normalize(text) {
     .replace(/[ \t]+/g, " ");
 }
 
-function hash(text) {
+export function hash(text) {
   return createHash("sha256").update(normalize(text)).digest("hex");
 }
 
-function checkPair(label, schemaPath, embeddedSchemaPath, regenerateHint) {
+export function checkPair(label, schemaPath, embeddedSchemaPath, regenerateHint) {
   if (!existsSync(schemaPath)) {
     // This schema doesn't exist in this checkout (e.g. an older branch) -- nothing to check.
     return { label, status: "skip" };
@@ -63,41 +69,52 @@ function checkPair(label, schemaPath, embeddedSchemaPath, regenerateHint) {
   return { label, status: "ok" };
 }
 
-const checks = [
-  checkPair(
-    "product client",
-    "prisma/schema.prisma",
-    "node_modules/.prisma/client/schema.prisma",
-    "npx prisma generate"
-  ),
-  checkPair(
-    "delivery client",
-    "prisma/delivery/schema.prisma",
-    "prisma/delivery/generated/delivery-client/schema.prisma",
-    "npm run delivery:generate"
-  ),
-];
+// CAM-588: only run the CLI check (and its process.exit side effect) when this
+// file is executed directly (`node scripts/verify-prisma-client-fresh.mjs`,
+// exactly how predev/pretypecheck/pretest already invoke it) -- NOT when it is
+// imported as a module (scripts/dev-with-prisma-watch.mjs imports normalize/hash
+// above). Importing must never also run the checks or call process.exit.
+const isMainModule =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 
-const failed = checks.filter((c) => c.status === "fail");
+if (isMainModule) {
+  const checks = [
+    checkPair(
+      "product client",
+      "prisma/schema.prisma",
+      "node_modules/.prisma/client/schema.prisma",
+      "npx prisma generate"
+    ),
+    checkPair(
+      "delivery client",
+      "prisma/delivery/schema.prisma",
+      "prisma/delivery/generated/delivery-client/schema.prisma",
+      "npm run delivery:generate"
+    ),
+  ];
 
-if (failed.length > 0) {
-  console.error("");
-  console.error("============================================================");
-  console.error("STOP (CAM-579 guard): generated Prisma client does not match");
-  console.error("this worktree's own schema.");
-  console.error("============================================================");
-  for (const f of failed) {
-    console.error(`  - ${f.label}: ${f.reason}`);
-    console.error(`    fix: ${f.regenerateHint}`);
+  const failed = checks.filter((c) => c.status === "fail");
+
+  if (failed.length > 0) {
+    console.error("");
+    console.error("============================================================");
+    console.error("STOP (CAM-579 guard): generated Prisma client does not match");
+    console.error("this worktree's own schema.");
+    console.error("============================================================");
+    for (const f of failed) {
+      console.error(`  - ${f.label}: ${f.reason}`);
+      console.error(`    fix: ${f.regenerateHint}`);
+    }
+    console.error("");
+    console.error("This is exactly the CAM-579 hazard: a stale/foreign client makes");
+    console.error("typecheck and the dev server fail with confusing errors in code");
+    console.error("you never touched. If you are in a fresh agent worktree, run");
+    console.error("`bash scripts/worktree-setup.sh` once, then retry.");
+    console.error("============================================================");
+    console.error("");
+    process.exit(1);
   }
-  console.error("");
-  console.error("This is exactly the CAM-579 hazard: a stale/foreign client makes");
-  console.error("typecheck and the dev server fail with confusing errors in code");
-  console.error("you never touched. If you are in a fresh agent worktree, run");
-  console.error("`bash scripts/worktree-setup.sh` once, then retry.");
-  console.error("============================================================");
-  console.error("");
-  process.exit(1);
-}
 
-console.log("verify-prisma-client-fresh: OK (client matches this worktree's schema).");
+  console.log("verify-prisma-client-fresh: OK (client matches this worktree's schema).");
+}
