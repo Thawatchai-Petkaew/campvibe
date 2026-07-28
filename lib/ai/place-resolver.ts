@@ -148,6 +148,31 @@
  * resolves to nothing while the explicit "ตำบล"-marked form still resolves
  * (`detectExplicitSubDistrictPrefix`, CAM-609, unchanged and unweakened by
  * this story).
+ *
+ * CAM-624 (a FOURTH Thai-substring collision shape, `.claude/rules/code.md`'s
+ * recurring lesson) — CAM-611's own re-scan surfaced, and deliberately did
+ * NOT fix, one more shape: two shortlisted names where one is a literal
+ * substring of the other ("ทองหลาง" inside "ท่าทองหลาง", "หินโงม" inside "ท่า
+ * หินโงม") — unlike CAM-609 (ordinary vocabulary) or CAM-611 (a common
+ * prefix needing a context marker), BOTH names here are real, camp-holding
+ * places; neither is ambiguous on its own, so no vocabulary entry or context
+ * marker resolves it. MEASURED before deciding whether to fix: with a
+ * camping-context marker present, the longer name already won (candidates
+ * are sorted longest-name-first and the loop returns on first match) — "ลาน
+ * กางเต็นท์ท่าทองหลาง" already resolved correctly. The actual defect was
+ * narrower: CAM-611's OWN `requiresCampingContext` guard, when it SKIPS the
+ * longer candidate (no camping word present), let the "skip and keep
+ * scanning" idiom fall through to the shorter, unrelated, unguarded embedded
+ * name instead of failing honestly — confirmed via this repo's own CAM-611
+ * test (its EC-5 block, explicitly labelled "found, not fixed"). Re-scanning
+ * today's full 503-row shortlist found 12 such embedding pairs total, not
+ * just the two named in the ticket (tech.md's full table) — a GENERAL
+ * "shadowed by a longer surviving candidate" rule closes the whole shape
+ * (`buildSubDistrictShadowParents`/`isShadowedByLongerSubDistrict` below),
+ * the same "longer/more specific wins" idiom every other candidate list in
+ * this file already uses, rather than a third hardcoded name-pair patch —
+ * argued in `tech.md`. `detectSubDistrict`'s own doc comment carries the
+ * precise ordering this adds.
  */
 import thailandLocations from '@/prisma/data/thailand-locations.json';
 import landmarkGazetteerData from '@/prisma/data/landmark-gazetteer.json';
@@ -881,6 +906,75 @@ function buildSubDistrictCandidates(): readonly SubDistrictCandidate[] {
 const SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC: readonly SubDistrictCandidate[] = buildSubDistrictCandidates();
 
 /**
+ * CAM-624 — a shortlisted ตำบล name can be a literal substring of a
+ * DIFFERENT, unrelated shortlisted ตำบล name ("ทองหลาง" inside "ท่าทองหลาง",
+ * "หินโงม" inside "ท่าหินโงม" — the story's own two confirmed cases). Both
+ * names in each pair are real, camp-holding sub-districts (neither can be
+ * removed per `AMBIGUOUS_SUBDISTRICT_VOCAB_TH`'s own "real place, not
+ * vocabulary" exclusion), so this is a THIRD collision shape, distinct from
+ * ordinary vocabulary (CAM-609) and from a common-component prefix needing a
+ * context marker (CAM-611): here the shorter name is not ambiguous on its
+ * own at all — it only misfires because it happens to sit inside a longer,
+ * MORE SPECIFIC shortlisted name's own spelling.
+ *
+ * MEASURED (this story, against today's 503-row shortlist, same filtered
+ * candidate set `buildSubDistrictCandidates` already produces): 12 such
+ * embedding pairs exist, not just the two the ticket named — see tech.md's
+ * full table. Of those 12, only the two the ticket names are an OBSERVABLE
+ * misfire today, because `detectSubDistrict` already checks candidates
+ * longest-name-first and returns on first match: an unguarded, single-entry
+ * longer candidate (10 of the 12 pairs, e.g. "ปากน้ำแหลมสิงห์"/"ปากน้ำ")
+ * always fires before its shorter embedded sibling is ever reached, so the
+ * "longer wins" property this codebase already relies on (province/region/
+ * landmark candidate lists are all sorted the same way) already holds. The
+ * two exceptions are exactly the two names CAM-611 (`requiresCampingContext`,
+ * the "เมือง"/"ท่า" prefix guard) can cause to be SKIPPED despite matching —
+ * and the existing "skip and keep scanning" idiom then lets the shorter,
+ * unrelated sibling fire in its place: "เมื่อวานนี้ไปท่าทองหลางเยี่ยมญาติมา"
+ * (no camping word) silently resolved to `{subDistrict: "ทองหลาง", district:
+ * "บ้านนา"}` — a different real place in a different province, confirmed via
+ * this repo's own CAM-611 test (`__tests__/cam-611-…test.ts`, its EC-5 block,
+ * explicitly labelled "found, not fixed" there).
+ *
+ * FIX, GENERAL not per-name (the same "sort longest-first, longer wins"
+ * mechanism every other candidate list in this file already uses, extended
+ * to survive a guard/ambiguity skip): a candidate whose `nameTh` is a proper
+ * substring of ANY OTHER surviving candidate's `nameTh` is "shadowed" —
+ * skipped (not an immediate `undefined`, same "keep scanning" idiom) whenever
+ * that longer candidate's OWN `nameTh` is ALSO present in `text`, regardless
+ * of whether the longer candidate itself ultimately fires (its own guard or
+ * ambiguity check may still fail — this only decides the SHORTER one may
+ * never win in its place). Computed ONCE at module load from the SAME
+ * `SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC` list (never a second data source),
+ * so a future shortlist regeneration that introduces a NEW such pair is
+ * automatically protected with no code change — the reason this is a
+ * general rule, not a third hardcoded name pair (`tech.md`'s own "general
+ * rule vs targeted fix" argument).
+ */
+function buildSubDistrictShadowParents(
+  candidates: readonly SubDistrictCandidate[]
+): ReadonlyMap<string, readonly string[]> {
+  const names = candidates.map((c) => c.nameTh);
+  const shadowParents = new Map<string, string[]>();
+  for (const name of names) {
+    const parents = names.filter((other) => other !== name && other.includes(name));
+    if (parents.length > 0) shadowParents.set(name, parents);
+  }
+  return shadowParents;
+}
+
+const SUBDISTRICT_SHADOW_PARENTS_BY_NAME: ReadonlyMap<string, readonly string[]> = buildSubDistrictShadowParents(
+  SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC
+);
+
+/** CAM-624 — true when `nameTh` is a substring of some other, longer surviving sub-district candidate that is ALSO present in `text` (see `SUBDISTRICT_SHADOW_PARENTS_BY_NAME`'s own doc comment for the full reasoning). */
+function isShadowedByLongerSubDistrict(nameTh: string, text: string): boolean {
+  const parents = SUBDISTRICT_SHADOW_PARENTS_BY_NAME.get(nameTh);
+  if (!parents) return false;
+  return parents.some((parent) => text.includes(parent));
+}
+
+/**
  * CAM-600 — resolves which SINGLE entry (if any) of an ambiguous (>1-entry)
  * candidate the SAME message also scopes, so an ambiguity is never guessed:
  * an entry counts as confirmed when its OWN `districtNameTh` (excluding the
@@ -1009,6 +1103,15 @@ function detectExplicitSubDistrictPrefix(text: string): { subDistrict: string; d
  * same precedent CAM-599's `detectExplicitDistrictPrefix` already set for
  * districts), so a marked "ตำบลท่าเรือ" keeps resolving with no camping word
  * anywhere in the sentence, exactly as before this story.
+ *
+ * CAM-624 — the unmarked loop below now ALSO skips (same "keep scanning"
+ * idiom) a candidate that is shadowed by a longer surviving candidate also
+ * present in `text` (`isShadowedByLongerSubDistrict`) — checked BEFORE the
+ * camping-context guard, since it is a correctness/precedence rule (which
+ * name the text actually names), not a context-intent rule. The
+ * explicit-marker path above is UNCHANGED — a "ตำบล"-prefixed mention cannot
+ * suffer this collision by construction (see `SUBDISTRICT_SHADOW_PARENTS_BY_
+ * NAME`'s own doc comment).
  */
 function detectSubDistrict(text: string): { subDistrict: string; district: string } | undefined {
   const explicit = detectExplicitSubDistrictPrefix(text);
@@ -1016,6 +1119,7 @@ function detectSubDistrict(text: string): { subDistrict: string; district: strin
 
   for (const candidate of SUBDISTRICT_CANDIDATES_BY_LENGTH_DESC) {
     if (!text.includes(candidate.nameTh)) continue;
+    if (isShadowedByLongerSubDistrict(candidate.nameTh, text)) continue;
     if (candidate.requiresCampingContext && !hasCampingContextMarker(text)) continue;
     if (candidate.entries.length === 1) {
       return { subDistrict: candidate.nameTh, district: candidate.entries[0].districtNameTh };
