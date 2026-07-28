@@ -14,21 +14,33 @@
  * `cam-269-verified-stay-gate.test.ts` use for this exact page. The real
  * `parseBookingPrefill` + `bangkokTodayISO` run unmocked.
  *
- * `today` is NOT injected here (unlike lib/booking-prefill.ts's own suite) —
- * page.tsx is the real caller that sources it from the system clock via
- * `bangkokTodayISO(new Date())` (BR-3), so every date fixture below is
- * computed relative to `new Date()` at test-run time, never a hardcoded
- * literal that eventually lands in the past.
+ * CLOCK DISCIPLINE (G3 fix — the class of bug CAM-634 itself exists to
+ * prevent, see lib/booking-prefill.ts's own header comment):
  *
- * Coverage matrix per .claude/rules/qa.md:
- *   normal (AC-1 valid prefill reaches the client) · boundary (checkIn ===
- *   today accepted, EC of CAM-634 re-proven at this layer) · null/empty
- *   (EC-1 bare link -> no parse attempted, no log) · error/validation (AC-2,
- *   one test per named reject reason + the log line shape) · the
- *   `from=chat` attribution flag independent of prefill validity (EC-5)
+ * `page.tsx` is the real caller that sources `today` from the system clock
+ * via `bangkokTodayISO(new Date())` (BR-3) — it is never injected, by
+ * design. A PRIOR version of this file computed its own `TODAY` via
+ * `new Date()` + date-fns `format` (the test PROCESS's local/UTC day). That
+ * silently disagreed with page.tsx's Bangkok-civil-day whenever the process
+ * ran between ~17:00-24:00 UTC (00:00-07:00 the NEXT day in Asia/Bangkok,
+ * UTC+7) — exactly what happened on CI (ran 19:45 UTC = 02:45 Bangkok the
+ * next day), so a link dated "today" by the test's own reckoning was
+ * correctly rejected as `past` by the real Bangkok day.
+ *
+ * The fix is NOT a date picked further in the future (that only narrows the
+ * window, it does not close it) — the clock is FROZEN for the whole suite
+ * (`vi.useFakeTimers` + `vi.setSystemTime`), so page.tsx's internal
+ * `new Date()` and this file's own reference point are the exact same
+ * instant, and `TODAY` is derived via the SAME `bangkokTodayISO` function
+ * page.tsx calls (never a second, independently-computed "today"). Every
+ * other fixture (`IN_5`/`IN_6`/`YESTERDAY`) is pure Date.UTC calendar
+ * arithmetic on that ISO string (`addISODays`, mirrors the Date.UTC idiom
+ * `lib/booking-prefill.ts` itself uses for `nightsBetween`) — never
+ * date-fns `addDays`/`format` on a live Date, which reads the process's
+ * local timezone and would reintroduce the exact same class of drift.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { addDays, format, subDays } from "date-fns";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { bangkokTodayISO } from "@/lib/ai/date-phrases";
 
 const {
   mockNotFound,
@@ -108,13 +120,43 @@ function invoke(sp: Record<string, string | string[] | undefined> = {}) {
   });
 }
 
-/** Every case here is relative to test-run time, not a hardcoded literal. */
-const today = new Date();
-const iso = (d: Date) => format(d, "yyyy-MM-dd");
-const TODAY = iso(today);
-const IN_5 = iso(addDays(today, 5));
-const IN_6 = iso(addDays(today, 6));
-const YESTERDAY = iso(subDays(today, 1));
+// CAM-635 G3 fix: one fixed instant, clearly mid-morning Bangkok (11:00) so
+// it is never itself near a Bangkok-midnight boundary. This is a literal
+// Date object, NOT `new Date()` — computing TODAY/IN_5/etc from it below
+// needs no fake-timers machinery at all; the freeze (beforeAll/afterAll)
+// exists solely so page.tsx's OWN internal `new Date()` call, at test
+// EXECUTION time, returns this identical instant.
+const FROZEN_NOW = new Date("2026-01-15T04:00:00.000Z");
+
+/** Pure Date.UTC calendar-date arithmetic on a YYYY-MM-DD string — TZ-independent,
+ *  mirrors the same Date.UTC idiom lib/booking-prefill.ts uses for `nightsBetween`.
+ *  Never a date-fns `addDays`/`format` round-trip through a live Date (that reads
+ *  the process's local timezone and is exactly how the prior version drifted). */
+function addISODays(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
+// The SAME function page.tsx calls — never a second, independently-derived
+// "today". Computed once at module load from the literal FROZEN_NOW above,
+// so every `it.each` table built during test collection (before any hook
+// runs) already has real, stable values.
+const TODAY = bangkokTodayISO(FROZEN_NOW);
+const IN_5 = addISODays(TODAY, 5);
+const IN_6 = addISODays(TODAY, 6);
+const YESTERDAY = addISODays(TODAY, -1);
+
+beforeAll(() => {
+  // toFake: ['Date'] only — surgical, doesn't touch setTimeout/setInterval
+  // (no other code path in this suite's real call graph depends on timers).
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FROZEN_NOW);
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -157,7 +199,7 @@ describe("CAM-635 AC-2 — every named reject reason falls back to null (no toas
     ["malformed", { checkOut: IN_5, guests: "2" }], // checkIn missing entirely
     ["past", { checkIn: YESTERDAY, checkOut: IN_5, guests: "1" }],
     ["inverted", { checkIn: IN_5, checkOut: TODAY, guests: "1" }],
-    ["too_long", { checkIn: IN_5, checkOut: iso(addDays(today, 5 + 31)), guests: "1" }],
+    ["too_long", { checkIn: IN_5, checkOut: addISODays(TODAY, 5 + 31), guests: "1" }],
     ["guests_out_of_range", { checkIn: IN_5, checkOut: IN_6, guests: "0" }],
   ];
 
