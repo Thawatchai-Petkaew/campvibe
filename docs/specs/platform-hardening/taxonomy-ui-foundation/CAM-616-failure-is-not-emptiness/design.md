@@ -6,7 +6,7 @@ persona: camper
 artifact: design
 owner: frontend-engineer
 status: In Progress
-version: v1
+version: v2
 updated: 2026-07-28
 ---
 # Design — a failure must not render as an absence (CAM-616)
@@ -31,16 +31,23 @@ The sweep found 22 catches total; 8 are this defect, 14 are deliberate and corre
 | 3 | `InfiniteScrollGrid.tsx` — page-2 fetch | `setDone(true)` → "end of list" copy | `loadError` state → retry banner + button, `done` guard still blocks auto-retry | inline banner + `Button` |
 | 4 | `app/dashboard/campsites/page.tsx` | `setCampSites([])` → empty-table row (NO error state existed) | `<ErrorState variant="error" compact onRetry=.../>` | `ErrorState` |
 | 5 | `NotificationCenter.tsx` | one shared catch → all 3 lists wiped to `[]` | 3 independent error flags via `fetchJsonSafe`; a sibling's data is never wiped; error+retry only when the VISIBLE list is empty because of a failure | `fetchJsonSafe` (CAM-362/555) + inline banner |
-| 6 | `getCampSiteCount.ts` | `return 0` | `throw` (structured-logged first) | none — server action, no UI here (see "Known incomplete closure" below) |
-| 7 | `getFilterOptions.ts` | `return {}` | `throw` | none — same caveat |
+| 6 | `getCampSiteCount.ts` + `FilterModal.tsx` (its sole consumer) | `return 0` → "Show 0 Campgrounds"; button stuck "Calculating..." after the throw-only v1 pass | `throw` (structured-logged) + `countError` state → banner + retry above the footer buttons; the primary button's own label also names the failure instead of hanging on "Calculating..." | inline banner + `Button` (same idiom as #3/#5/#8) |
+| 7 | `getFilterOptions.ts` + `FilterModal.tsx` (its sole consumer) | `return {}` → 0 filter chips, no message; the throw-only v1 pass produced the SAME zero-chips render (confirmed, see v1→v2 note below) | `throw` (structured-logged) + `filterOptionsError` state → banner + retry replaces the (would-be-empty) sections list | inline banner + `Button` |
 | 8 | `CampgroundDetailClient.tsx` — availability | `setAvailability({})` → every date looks free | `availabilityError` → `isDateDisabled` returns `true` for every future date + inline banner + retry | inline banner + `Button` |
 
-## Known incomplete closure — flagged, not silently claimed done
-`getCampSiteCount`/`getFilterOptions` are consumed ONLY by `components/FilterModal.tsx`, which is **not** in this story's allowed file surface. Throwing at the action layer removes the fabricated `0`/`{}` at the source (a real fix — no code anywhere can mistake a rejected promise for a successful zero), but the CONSUMER's rendered outcome differs by action:
-- `getCampSiteCount`: FilterModal's debounced effect has no `.catch()`, so the rejection is unhandled; `isCountLoading` never flips back to `false`, leaving the "Show N Campgrounds" button permanently on "Calculating…" (disabled). This is not pretty, but it is honest — the button never claims a false "0 Campgrounds found" that would make a camper abandon a real match. Distinguishable, per BR-1, even though unpolished.
-- `getFilterOptions`: FilterModal's effect ALSO has no `.catch()`, and `filterSections` stays at its initial `[]` either way — a thrown rejection here produces **zero rendered difference** from the pre-fix caught-`{}` behaviour (the modal shows no filter chips in both cases). The source-level lie is closed, but the user-visible symptom is not yet.
+## v1 → v2: FilterModal.tsx closure (orchestrator correction)
 
-Recommendation (not executed here, per the hard file-surface rule): a small, tightly-scoped follow-up adding a `.catch()` to both of FilterModal's effects (≈10-15 lines, two call sites) with an inline error+retry chip, reusing the same pattern this story already established three times (InfiniteScrollGrid, NotificationCenter, CampgroundDetailClient). Flagged to the orchestrator as `needs_decision`, not silently marked closed.
+v1 shipped the action-layer throw for #6/#7 but scoped `components/FilterModal.tsx` (their sole consumer) out of the file surface, and reported the resulting consumer-side gap rather than silently closing it. The orchestrator corrected the scope (FilterModal.tsx was excluded by orchestrator error, not overreach) and asked for the same treatment the other seven surfaces got — v2 does that.
+
+**Confirmed before fixing (the orchestrator's direct question):** with only the v1 action-layer throw and no `.catch()` in FilterModal, `getFilterOptions`'s rejection never reached `setFilterSections` — `filterSections` stayed at its initial `[]` exactly as it did pre-story, and the modal rendered ZERO filter chips with no message distinguishing "an error happened" from "this catalog has no filterable options". **That was the original defect, still live, one level down** — not a neutral no-op. `getCampSiteCount`'s gap was different in kind: the unhandled rejection left `isCountLoading` `true` forever, so the button read "Calculating…" indefinitely — never a false "0", but also never a state that resolves, which the orchestrator correctly called "a different lie" (a spinner that never finishes is exactly as indistinguishable from a working system as the empty-render bug this story exists to close).
+
+**v2 fix — matches the SAME idiom used on the other seven surfaces (no ninth invented):**
+
+- `countError` (boolean state) — set by a new `try/catch` around the extracted `runCount()` callback (used by both the debounced effect and a manual retry). On failure: a `role="alert"` banner (`AlertCircle` + message + `RotateCcw` retry `Button`, `t.common.retry`) renders above the footer's button row; the primary "Show N Campgrounds" button's own label also switches to a named-failure string (`t.filter.countErrorLabel`) instead of hanging on `isCountLoading`'s stale "Calculating...". Retry re-invokes `runCount()` directly (bypassing the 500ms debounce).
+- `filterOptionsError` (boolean state) — set by a new `.catch()` on the extracted `loadFilterOptions()` callback (used by both the mount/language effect and a manual retry). On failure: the same banner+retry idiom renders in place of the (would-be-empty) `filterSections.map(...)` list.
+- Both flags reset to `false` at the START of their own retry attempt (not on the sibling's), so the two failure states are independent — a count failure never hides a real options list, and vice versa.
+- New copy: `filter.countError` / `filter.countErrorLabel` / `filter.optionsError` (TH+EN, `locales/translations.json`), plain language, no jargon, no em-dash. Retry label reuses the existing `common.retry` key (no duplicate created).
+- Teeth proven the same way as the other five behavioral surfaces: both catches temporarily reverted (no try/catch / no `.catch()`), the new `[error/teeth]` tests in `__tests__/cam-616-filter-modal-error-states.test.ts` re-run and observed RED (with real unhandled-rejection console output confirming the exact pre-fix defect shape), then restored and reconfirmed GREEN.
 
 ## Copy (new keys, TH+EN, `locales/translations.json`)
 - `catalog.load_more_error` — "โหลดลานเพิ่มเติมไม่สำเร็จ" / "Couldn't load more camps"
@@ -64,10 +71,11 @@ No new component. Reused: `ErrorState` (`components/ErrorState.tsx`), `Button` (
 For each of `components/CatalogResults.tsx`, `components/NotificationCenter.tsx`, `app/dashboard/campsites/page.tsx`, `app/actions/getCampSiteCount.ts`, `app/actions/getFilterOptions.ts`: the fix was temporarily reverted (the `catalogError`/`hasLoadError`/`loadError` gate short-circuited, or the `throw` swapped back to `return 0`/`return {}`), the corresponding `[error/teeth]`-tagged tests were re-run and observed RED, then the real fix was restored and the suite re-confirmed GREEN. `CampgroundDetailClient.tsx`'s availability fix is proven via source-inspection Prove-It position assertions (the established precedent for this specific component in this repo — see `.claude/rules/qa.md`'s "prefer behavioral… where the env allows"; this component has ~15 heavy dependencies — dynamic `MapComponent`, `next-auth` `useSession`, `ImageGallery`, `AmenitiesModal` — with no existing render harness in the codebase, confirmed by grepping every prior CAM-397/354/528/f3-detail-surface test targeting this file).
 
 ## Non-goals
-Does not touch `app/campgrounds/[slug]/page.tsx` (CAM-588, already correct) or `lib/safe-fetch.ts` (CAM-362/555, already correct) — both explicitly out of bounds. Does not touch `components/FilterModal.tsx` (see "Known incomplete closure" above). Does not add a new design-system component or token. Does not change any happy-path rendering, data shape, or query.
+Does not touch `app/campgrounds/[slug]/page.tsx` (CAM-588, already correct) or `lib/safe-fetch.ts` (CAM-362/555, already correct) — both explicitly out of bounds. Does not add a new design-system component or token. Does not change any happy-path rendering, data shape, or query (`FilterModal.tsx`'s taxonomy/price/apply logic is untouched — only the two failure paths gained a state).
 
 ## Links
 `../../feature.md` · `story.md` (AC-1..AC-8, BR-1..BR-5, EC-1..EC-6) · CAM-588 (`app/campgrounds/[slug]/page.tsx` — the reference implementation) · CAM-362/CAM-555 (`lib/safe-fetch.ts` — the reused never-throw shape) · `.claude/rules/loading.md` §3 (section-level error/loading over full-page) · `.claude/rules/qa.md` (Prove-It + teeth-proof practice)
 
 ## Changelog
 - v1 (2026-07-28) — created; documents how the 8 defects were told apart from the 14 deliberate catches, the per-surface state table, the FilterModal consumer gap (flagged, not silently closed), and the manual teeth-proof.
+- v2 (2026-07-28) — `components/FilterModal.tsx` brought into the file surface by the orchestrator (it was scoped out at v1 by orchestrator error). Confirmed the exact pre-fix rendered behaviour for both `getFilterOptions` (silent zero-chips render — the original defect, one level down) and `getCampSiteCount` (button stuck on "Calculating..." forever — a different but equally indistinguishable-from-working failure). Closed both with the same banner+retry idiom used on the other seven surfaces; teeth proven (reverted → red → restored → green) in `__tests__/cam-616-filter-modal-error-states.test.ts`.

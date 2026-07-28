@@ -6,7 +6,7 @@ persona: camper
 artifact: story
 owner: frontend-engineer
 status: In Progress
-version: v1
+version: v2
 updated: 2026-07-28
 ---
 # แปดหน้าจอบอกว่า "ไม่มีอะไรตรงนี้" ทั้งที่ระบบล่ม (CAM-616)
@@ -14,7 +14,7 @@ updated: 2026-07-28
 ## Story
 As a **Camper** (and, on the operator surfaces, a **Host**), I want a system failure to look like a system failure — not like an empty result — so that I don't abandon a search that would have matched dozens of camps, don't believe a listing was deleted, and don't pick a date that is actually blocked; and so that the operator sees the incident instead of a normal-looking empty page.
 Why: the sweep of 2026-07-28 found eight more places carrying the exact shape CAM-588 already fixed on the camp detail page yesterday — a caught infrastructure error silently re-labelled as "there is genuinely nothing here", which both misleads the user and hides the incident from us in the same stroke.
-Scope: `components/CatalogResults.tsx` (both catches — cached default path + filtered/live path) · `components/InfiniteScrollGrid.tsx` (page-2 fetch failure) · `app/dashboard/campsites/page.tsx` (adds an error state where none existed) · `components/NotificationCenter.tsx` (splits one shared catch over three independent sources) · `app/actions/getCampSiteCount.ts` · `app/actions/getFilterOptions.ts` · `components/CampgroundDetailClient.tsx` (the availability catches only) · `locales/translations.json` (new error/retry copy, TH+EN) · new tests only.
+Scope: `components/CatalogResults.tsx` (both catches — cached default path + filtered/live path) · `components/InfiniteScrollGrid.tsx` (page-2 fetch failure) · `app/dashboard/campsites/page.tsx` (adds an error state where none existed) · `components/NotificationCenter.tsx` (splits one shared catch over three independent sources) · `app/actions/getCampSiteCount.ts` · `app/actions/getFilterOptions.ts` · `components/FilterModal.tsx` (their sole consumer — brought into scope at v2, see Changelog) · `components/CampgroundDetailClient.tsx` (the availability catches only) · `locales/translations.json` (new error/retry copy, TH+EN) · new tests only.
 Depends on: CAM-588 (the reference implementation this story generalises — `app/campgrounds/[slug]/page.tsx`, read-only here) · CAM-362/CAM-555 (`lib/safe-fetch.ts`'s `{ok:false}` never-throw shape, reused not reinvented) — both MERGED.
 
 ## AC
@@ -25,8 +25,8 @@ Depends on: CAM-588 (the reference implementation this story generalises — `ap
 | AC-3 | The page-2 ("load more") cursor fetch fails (5xx or network) | A visitor scrolls to the bottom | `t.catalog.load_more_error` ("โหลดลานเพิ่มเติมไม่สำเร็จ") + a retry button, never `t.catalog.end_of_list` ("ดูลานครบทั้งหมดแล้ว") | `loadError` tracked separately from `done`; auto-retry is blocked, the retry button re-issues the same cursor request | EC-2 |
 | AC-4 | An operator's `/api/operator/dashboard` read fails | The operator opens "My Camp Sites" | An error state with retry, never `t.dashboard.noCampSitesFound` ("you have no camp sites yet") | This surface had no error state at all before this story; one is added | EC-3 |
 | AC-5 | The host-bookings source fails while the invites source is healthy (or vice versa) | A host with a real pending booking opens the notification bell | The pending booking still shows; if the visible list is empty ONLY because of a failure, an error+retry replaces `t.common.noNotifications` | Each of the three sources (host bookings / camper booking updates / invites) fails into its OWN flag — a sibling's data is never wiped | EC-4 |
-| AC-6 | The filter-count query fails | The camper opens the filter modal and adjusts a filter | The action throws rather than resolving `0` (closes the source-level lie; the FilterModal consumer's UI treatment is out of this story's file surface — see Out of scope) | `getCampSiteCount` re-throws, structured-logged as `campsite_count_failed` | EC-5 |
-| AC-7 | The filter-options query fails | The camper opens the filter modal | The action throws rather than resolving `{}` | `getFilterOptions` re-throws, structured-logged as `filter_options_load_failed` | EC-5 |
+| AC-6 | The filter-count query fails | The camper opens the filter modal and adjusts a filter | `t.filter.countError` banner + retry above the buttons; the primary button names the failure (`t.filter.countErrorLabel`) instead of "Calculating..." forever | `getCampSiteCount` re-throws (`campsite_count_failed`); FilterModal's `countError` state renders the distinguishable state; retry re-issues the same query | EC-5 |
+| AC-7 | The filter-options query fails | The camper opens the filter modal | `t.filter.optionsError` banner + retry in place of the (would-be-empty) filter-chip list | `getFilterOptions` re-throws (`filter_options_load_failed`); FilterModal's `filterOptionsError` state renders the distinguishable state; retry re-issues the same query | EC-5 |
 | AC-8 | The availability-calendar read fails | A camper opens a camp detail page and looks at the date picker | Every future date is disabled (not selectable) + `t.booking.availabilityLoadError` ("โหลดวันว่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง") with a retry, never every date rendered as bookable | `availabilityError` makes `isDateDisabled` return `true` for every future date until a retry succeeds | EC-6 |
 
 ## Rules
@@ -45,26 +45,26 @@ Depends on: CAM-588 (the reference implementation this story generalises — `ap
 - EC-6 IF the availability fetch later succeeds (retry) THEN `availabilityError` resets to `false` before the request, and a genuinely unavailable date (present in the resolved map) stays disabled on its own existing merit
 
 ## Data
-No schema/migration change. No new API endpoint. New locale keys only: `catalog.load_more_error`, `notifications.loadError`, `booking.availabilityLoadError` (TH+EN, `locales/translations.json`).
+No schema/migration change. No new API endpoint. New locale keys: `catalog.load_more_error`, `notifications.loadError`, `booking.availabilityLoadError`, `filter.countError`, `filter.countErrorLabel`, `filter.optionsError` (TH+EN, `locales/translations.json`).
 
 ## Seams & refs
-- Reuse: `components/ErrorState.tsx` (variant="error", compact) for CatalogResults' two catches and the dashboard/campsites page — never hand-rolled. `lib/safe-fetch.ts`'s `fetchJsonSafe`/`SafeJsonResult` (CAM-362/555) for NotificationCenter's three independent fetches — reused, not reimplemented. `t.common.retry` (existing key) reused for every new retry button label instead of a new duplicate key.
+- Reuse: `components/ErrorState.tsx` (variant="error", compact) for CatalogResults' two catches and the dashboard/campsites page — never hand-rolled. `lib/safe-fetch.ts`'s `fetchJsonSafe`/`SafeJsonResult` (CAM-362/555) for NotificationCenter's three independent fetches — reused, not reimplemented. `t.common.retry` (existing key) reused for every new retry button label instead of a new duplicate key. FilterModal's two failure states reuse the SAME inline banner (`role="alert"` + `AlertCircle` + `RotateCcw` retry `Button`) idiom InfiniteScrollGrid/NotificationCenter/CampgroundDetailClient already established — no ninth idiom invented.
 - Refs: CAM-588 (`app/campgrounds/[slug]/page.tsx`) — the reference implementation this story generalises (log structured, then re-throw or render a distinguishable state, never fold a DB failure into a data-shaped "0"). CAM-362/CAM-555 — the "independent source, own error state" precedent this story applies to NotificationCenter. `.claude/rules/loading.md` §3 — section-level over full-page: CatalogResults renders `<ErrorState compact/>` inline rather than throwing, so the Navbar/CategoryBar/FilterSortBar/ActiveFilters chrome above its Suspense boundary stays visible (throwing would propagate to the root `app/error.tsx` boundary and blank that chrome too).
 
 ## Out of scope
-- `components/FilterModal.tsx` (the sole consumer of `getCampSiteCount`/`getFilterOptions`) is NOT in this story's file surface. The two actions now throw instead of fabricating `0`/`{}` (closing the lie at the source — `getCampSiteCount`'s throw leaves the "Show N Campgrounds" button permanently disabled at "Calculating…" rather than showing a false zero; `getFilterOptions`'s throw currently has NO visible difference from before, since FilterModal has no `.catch()` on either call). A fast-follow ticket should add a `.catch()` + inline error/retry chip to FilterModal's two effects — flagged to the orchestrator, not silently claimed closed. See `tech.md` for the full trade-off.
 - Extending `CampgroundDetailClient.tsx`'s remaining-capacity fetch (a separate effect, already fail-open to "unbounded/nothing shown" — a different, already-correct shape) → not touched, not part of the eight named defects.
 - Flipping any of these new error states into a blocking design-system guard → not requested by this story.
 
 ## Self-verify
-- AC-1/AC-2 → behavioral (Vitest, direct call to the real `CatalogResults` async function, Prisma/cache mocked at the boundary, asserting the returned React element's `.type` against the real `ErrorState`/`EmptyState`/`InfiniteScrollGrid` references) — teeth proven manually (fix reverted → red → restored → green, recorded in `tech.md`)
+- AC-1/AC-2 → behavioral (Vitest, direct call to the real `CatalogResults` async function, Prisma/cache mocked at the boundary, asserting the returned React element's `.type` against the real `ErrorState`/`EmptyState`/`InfiniteScrollGrid` references) — teeth proven manually (fix reverted → red → restored → green, recorded in `design.md`)
 - AC-3 → behavioral (RTL render of the real `InfiniteScrollGrid`, `fetch` + `IntersectionObserver` mocked, retry button clicked)
 - AC-4 → behavioral (RTL render of the real dashboard/campsites page, `fetch` mocked)
 - AC-5 → behavioral (RTL render of the real `NotificationCenter`, three independent `fetch` responses)
-- AC-6/AC-7 → integration (real action functions called directly, only `prisma` mocked, asserting a rejection + a structured log line)
-- AC-8 → source-inspection (established precedent for this specific heavy component in this repo — see `tech.md`), Prove-It position/behaviour assertions (not a bare grep)
+- AC-6/AC-7 → integration (real action functions called directly, only `prisma` mocked, asserting a rejection + a structured log line) AND behavioral (RTL render of the real `FilterModal`, both actions mocked to reject, banner+retry asserted, `__tests__/cam-616-filter-modal-error-states.test.ts`) — teeth proven manually on both layers
+- AC-8 → source-inspection (established precedent for this specific heavy component in this repo — see `design.md`), Prove-It position/behaviour assertions (not a bare grep)
 - EC-1..EC-6 → covered inline in the above test files
 - Gate = `/quality-gate`. Done = every AC verified on localhost (dev DB) before merge into `dev`.
 
 ## Changelog
 - v1 (2026-07-28) — created. Closes the eight-surface "failure renders as emptiness" sweep; generalises CAM-588's reference fix.
+- v2 (2026-07-28) — `components/FilterModal.tsx` brought into scope by the orchestrator (excluded at v1 by orchestrator error, not overreach). AC-6/AC-7 now cover the full user-visible closure, not just the action-layer throw; confirmed the pre-fix `getFilterOptions` gap rendered the original "zero filter chips, no message" defect one level down, and the `getCampSiteCount` gap left the button on "Calculating..." forever — both closed with the same banner+retry idiom used on the other seven surfaces.
