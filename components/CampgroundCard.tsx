@@ -390,7 +390,28 @@ export function CampgroundCard({
                             </span>
                         )}
                     </div>
-                    <p className="text-muted-foreground text-sm" data-testid="text--card-location">{locationText}</p>
+                    {/*
+                      CAM-601 — measured behaviourally at every grid breakpoint
+                      (mobile 1-col through 2xl 5-col): the real worst-case
+                      string (sub-district+district+province all repeating
+                      "เมือง") wraps to 2 visible lines ONLY at the md tier
+                      (768-1023px, 3-col grid, ~224px card, the narrowest card
+                      in the whole responsive grid) — every other tier
+                      happens to fit by a hair (see design.md's measured
+                      table). A wrapped row makes that card taller than its
+                      grid siblings. `line-clamp-1` matches the exact
+                      mechanism CAM-598 used on the assistant card (not
+                      `truncate`'s white-space:nowrap+ellipsis — line-clamp
+                      lets the line wrap normally then clips at 1 visible
+                      line, so scrollWidth never exceeds clientWidth even
+                      while clamping, unlike nowrap-ellipsis which reports a
+                      wider virtual scrollWidth by design). Plain block
+                      element, no flex/icon pairing, so no min-w-0 concern
+                      applies (CAM-598 Decision 1: Thai script has no long
+                      unbreakable run, so the flex min-content trap never
+                      fires here either) — never drops a location level.
+                    */}
+                    <p className="text-muted-foreground text-sm line-clamp-1" data-testid="text--card-location">{locationText}</p>
                     <div className="flex items-baseline gap-1 pt-1" data-testid="text--card-price">
                         {priceDisplay.isFree ? (
                             <span className="font-semibold">{t.common.free}</span>
