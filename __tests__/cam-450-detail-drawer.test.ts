@@ -203,11 +203,9 @@ describe("i18n — new aiChat.detail.* keys are verbatim TH, non-empty EN, no em
   const en = translations.en.aiChat as { detail: Record<string, string> };
   const newKeys = [
     "verifiedBadge",
-    "statPriceLabel",
     "statCapacityLabel",
     "statCapacityTentsLabel",
     "openNoCap",
-    "perGuestNight",
     "extraFeeOneTime",
     "extraFeeGeneric",
     "priceHeading",
