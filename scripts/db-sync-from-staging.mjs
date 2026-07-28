@@ -46,6 +46,16 @@
  * at all) must never fail a sync. See this story's own tech.md "Riding along
  * an existing moment" for the full reasoning, including why `promote-release`
  * was considered and rejected as a second ride-along site.
+ *
+ * CAM-620: the SAME reasoning extends to two more derived artifacts that
+ * this sync's own model loop just refreshed with real data —
+ * `prisma/data/province-centroids.json` (the live camp distribution) and
+ * `prisma/data/thailand-locations.json`'s province/district entries (the
+ * `AdminArea` table this loop just copied row-for-row from staging). Both
+ * additions below follow the exact same shape as the CAM-605 block: their
+ * own try/catch, reusing the already-exported pure diff functions from
+ * this story's two new check scripts, never touching this sync's own
+ * `process.exitCode`.
  */
 import "dotenv/config";
 import { readFileSync } from "node:fs";
@@ -54,6 +64,9 @@ import { dirname, join } from "node:path";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { computeLiveShortlistEntries } from "./generate-subdistrict-shortlist.mjs";
 import { computeDrift } from "./check-subdistrict-shortlist-drift.mjs";
+import { computeCentroids } from "./build-province-centroids.mjs";
+import { computeCentroidDrift } from "./check-province-centroid-drift.mjs";
+import { buildCommittedAdminAreaIndex, buildLiveAdminAreaIndex, computeAdminAreaDrift } from "./check-adminarea-drift.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -230,6 +243,69 @@ try {
   } catch (driftErr) {
     console.warn(
       `⚠ could not check subdistrict-shortlist drift after this sync (non-blocking): ${driftErr?.message ?? driftErr}`
+    );
+  }
+
+  // CAM-620 — same non-blocking, report-mode shape as the CAM-605 block
+  // above, for province-centroids.json. Own try/catch, isolated from the
+  // sync's outer catch below; never affects whether the sync itself succeeds.
+  try {
+    const committedCentroids = JSON.parse(
+      readFileSync(join(__dirname, "..", "prisma", "data", "province-centroids.json"), "utf-8")
+    );
+    const rows = await target.campSite.findMany({
+      where: { isActive: true, isPublished: true, deletedAt: null },
+      select: { latitude: true, longitude: true, location: { select: { province: true } } },
+    });
+    const flat = rows.map((r) => ({
+      province: r.location?.province ?? null,
+      latitude: r.latitude,
+      longitude: r.longitude,
+    }));
+    const liveCentroids = computeCentroids(flat);
+    const { added, removed, shifted } = computeCentroidDrift(committedCentroids, liveCentroids);
+
+    if (added.length > 0 || removed.length > 0 || shifted.length > 0) {
+      console.warn(
+        `⚠ province-centroids.json (CAM-502) may now be stale — ${added.length} added / ${removed.length} removed / ` +
+          `${shifted.length} shifted. Run: node scripts/check-province-centroid-drift.mjs`
+      );
+    } else {
+      console.log("✓ province-centroids.json still matches the freshly synced data (CAM-620, 0 drift)");
+    }
+  } catch (driftErr) {
+    console.warn(
+      `⚠ could not check province-centroid drift after this sync (non-blocking): ${driftErr?.message ?? driftErr}`
+    );
+  }
+
+  // CAM-620 — same non-blocking, report-mode shape, for
+  // thailand-locations.json's PROVINCE/DISTRICT entries vs the live
+  // AdminArea table this sync's own model loop just refreshed.
+  try {
+    const locationsJson = JSON.parse(
+      readFileSync(join(__dirname, "..", "prisma", "data", "thailand-locations.json"), "utf-8")
+    );
+    const committedAdminArea = buildCommittedAdminAreaIndex(locationsJson);
+    const adminAreaRows = await target.adminArea.findMany({
+      where: { countryCode: "TH", level: { in: ["PROVINCE", "DISTRICT"] } },
+      select: { id: true, level: true, code: true, nameTh: true, nameEn: true, parentId: true },
+    });
+    const liveAdminArea = buildLiveAdminAreaIndex(adminAreaRows);
+    const { missingLive, missingCommitted, renamed } = computeAdminAreaDrift(committedAdminArea, liveAdminArea);
+
+    if (missingLive.length > 0 || missingCommitted.length > 0 || renamed.length > 0) {
+      console.warn(
+        `⚠ thailand-locations.json province/district entries may now be stale vs AdminArea — ${missingLive.length} ` +
+          `missing-live / ${missingCommitted.length} missing-committed / ${renamed.length} renamed. ` +
+          `Run: node scripts/check-adminarea-drift.mjs`
+      );
+    } else {
+      console.log("✓ thailand-locations.json province/district entries still match the freshly synced AdminArea table (CAM-620, 0 drift)");
+    }
+  } catch (driftErr) {
+    console.warn(
+      `⚠ could not check AdminArea drift after this sync (non-blocking): ${driftErr?.message ?? driftErr}`
     );
   }
 } catch (err) {
