@@ -27,6 +27,7 @@ import { format, differenceInCalendarDays, addMonths, startOfMonth, endOfMonth }
 import { cn } from "@/lib/utils";
 import { resolveUnitPrice, computeBookingPrice } from "@/lib/booking-pricing";
 import { resolveCancellationPolicyCopy } from "@/lib/cancellation-policy";
+import { computeGuestCeiling, buildGuestOptions } from "@/lib/guest-capacity";
 // CAM-548: reuse the CAM-545 seam verbatim — same localized "district, province"
 // text builder the camp card already uses (never a second implementation).
 import { buildLocationText } from "@/components/CampgroundCard";
@@ -252,11 +253,17 @@ export default function CampgroundDetailClient({
     // CAM-267 PREP-1: fetch remaining capacity for the EXACT stay once both dates are
     // picked (server-authoritative — reuses getRemainingCapacity, the same math the
     // booking write path checks). Cleared whenever the selection is incomplete/invalid.
+    // CAM-636 G3 nit: also cleared the instant a NEW valid pair of dates is picked
+    // (before the fetch resolves) — otherwise the previous stay's number (and the
+    // guests ceiling/badge derived from it) briefly describes dates the camper is
+    // no longer looking at.
     useEffect(() => {
         if (!campground.id || !checkIn || !checkOut || checkOut <= checkIn) {
             setRemainingCapacity(null);
             return;
         }
+
+        setRemainingCapacity(null);
 
         let cancelled = false;
         const fetchRemaining = async () => {
@@ -306,6 +313,34 @@ export default function CampgroundDetailClient({
     const showRemainingCount = !!remainingCapacity
         && !isFullyBooked
         && remainingCapacity.remaining !== null;
+
+    // CAM-636: the party-size ("guests") control is bounded by the REAL
+    // capacity ceiling, never a hardcoded literal list. `remaining` (live
+    // capacity for the EXACT selected stay, once dates are picked) and
+    // `maxGuestsPerDay` (the camp's stated per-day cap, available even
+    // before any dates are picked) are both nullable with the SAME meaning
+    // (null = no cap set, NEVER "full"/"zero") — see lib/guest-capacity.ts.
+    // G3 finding: `maxGuestsPerDay` is a KNOWN-STALE column for a per-spot
+    // camp (`useSpotView: true`, CAM-355 BR-6 — no spot write route ever
+    // rewrites it) — `isPerSpot` tells computeGuestCeiling to exclude it
+    // for that mode so a stale/zero column can never cap a per-spot camp;
+    // `remaining` (already correctly spot-derived server-side) is the only
+    // signal once dates are picked.
+    const maxGuestsPerDay: number | null =
+        typeof campground?.maxGuestsPerDay === "number" ? campground.maxGuestsPerDay : null;
+    const isPerSpot = campground?.useSpotView === true;
+    const guestCeiling = computeGuestCeiling(remainingCapacity?.remaining ?? null, maxGuestsPerDay, isPerSpot);
+    const guestOptions = buildGuestOptions(guestCeiling);
+
+    // Keep the selected guest count inside the current ceiling — e.g.
+    // narrowing to dates with less remaining capacity after already
+    // picking a higher guest count must not leave `guests` pointing at an
+    // option that no longer exists.
+    useEffect(() => {
+        if (guestCeiling !== null && guests > guestCeiling) {
+            setGuests(Math.max(1, guestCeiling));
+        }
+    }, [guestCeiling]);
 
     // Check if date is disabled (full or past)
     const isDateDisabled = (date: Date) => {
@@ -1363,15 +1398,29 @@ export default function CampgroundDetailClient({
                                 </div>
                                 <div className="p-3">
                                     <label className="block text-xs font-bold uppercase text-muted-foreground mb-2">{t.booking.guests}</label>
-                                    <Select value={guests.toString()} onValueChange={(val) => setGuests(parseInt(val))}>
-                                        <SelectTrigger className="w-full border border-border hover:border-foreground transition">
+                                    {/* CAM-636: options come from the real capacity ceiling
+                                        (guestOptions, above) — never a hardcoded literal list.
+                                        guestOptions is empty only when the ceiling is 0 (no
+                                        capacity left for the selected stay); the control is
+                                        disabled in that case — the Reserve button's own
+                                        isFullyBooked-disabled path (below) already blocks
+                                        the actual booking regardless. */}
+                                    <Select
+                                        value={guests.toString()}
+                                        onValueChange={(val) => setGuests(parseInt(val))}
+                                        disabled={guestOptions.length === 0}
+                                    >
+                                        <SelectTrigger
+                                            data-testid="select--booking-guests"
+                                            className="w-full border border-border hover:border-foreground transition"
+                                        >
                                             <div className="flex items-center gap-2">
                                                 <Users className="w-4 h-4 text-muted-foreground" />
                                                 <SelectValue />
                                             </div>
                                         </SelectTrigger>
                                         <SelectContent className="shadow-2xl">
-                                            {[1, 2, 3, 4, 5, 6].map(num => (
+                                            {guestOptions.map(num => (
                                                 <SelectItem key={num} value={num.toString()} className="cursor-pointer">
                                                     {num} {num === 1 ? t.booking.guest : t.search.guests}
                                                 </SelectItem>
